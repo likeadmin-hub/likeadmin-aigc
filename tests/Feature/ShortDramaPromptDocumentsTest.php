@@ -62,6 +62,25 @@ class ShortDramaPromptDocumentsTest extends TestCase
     }
 
     private function call(string $method, ...$args) { $r = new \ReflectionMethod(Service::class, $method); $r->setAccessible(true); return $r->invokeArgs(null, $args); }
+
+    public function testNewOutlineAssemblersRetainOriginalRequirementsAndRevisionScope(): void
+    {
+        $prompt = '第1集找到信A和铜钥匙；第2集借出并当场归还钥匙，发现信B；姐姐没有死亡或假死。';
+        $request = \app\common\service\app\aigc_short_drama\ShortDramaInputContract::begin([
+            'workflow_variant' => 'story_outline_v2', 'multi_episode' => true,
+            'multi_episode_stage' => 'episodes', 'episode_count' => 2,
+            'revision_message' => '只修改第2集的地点为老宅，其他保持不变',
+            'revision_target' => ['type' => 'episode', 'id' => 2],
+            'revision_base_result' => ['title' => '旧宅', 'story_outline' => '寻找姐姐'],
+        ]);
+        foreach ([[], ['script' => ['mode' => 'custom', 'body' => 'CUSTOM_OUTLINE 保留自然对白']]] as $settings) {
+            $messages = Catalog::run($this->snapshot($settings), fn() => $this->call('assembleScriptPromptRequest', 701, $prompt, $request, '旧宅'));
+            self::assertStringContainsString($prompt, $messages['content']);
+            self::assertStringContainsString($request['revision_message'], $messages['content']);
+            self::assertStringContainsString('指定集号按全剧集号理解', $messages['system_prompt']);
+            if ($settings) self::assertStringContainsString('CUSTOM_OUTLINE', $messages['system_prompt']);
+        }
+    }
     private function snapshot(array $settings = []): array { return Workspace::resolve(701, ['mode' => 'documents', 'document_settings' => $settings], []); }
     public function testApplicationModePreservesAllExistingDefaultBaselines(): void
     {
@@ -136,6 +155,22 @@ class ShortDramaPromptDocumentsTest extends TestCase
         foreach (['多人规则', '人物首帧规则', '空镜首帧规则', '尾帧规则'] as $rule) self::assertStringContainsString($rule, $video);
         self::assertSame('人物三视图规则', Documents::renderSnapshot($snapshot, 'subject_views', ['prop' => false]));
         self::assertSame('物品多角度规则', Documents::renderSnapshot($snapshot, 'subject_views', ['prop' => true]));
+    }
+    public function testRetiredQuotaSectionsRemainReadableButNeverExecute(): void
+    {
+        $snapshot = $this->snapshot(['storyboard'=>['mode'=>'custom',
+            'body'=>"【适用：全部任务】\n保留人物关系\n【适用：质检发现分镜数量不足】\n旧补镜要求不得出现"]]);
+        foreach (['script','storyboard','art','assets','video_plan','audio_plan'] as $stage) {
+            $text=ConversationCreativePrompt::forStage(['workflow_snapshot'=>['creative_prompt_snapshot'=>$snapshot],
+                'stage_state'=>['key'=>$stage]]);
+            self::assertStringNotContainsString('旧补镜要求不得出现',$text);
+            $policy=\app\common\service\app\aigc_short_drama\ShortDramaShotPolicy::INSTRUCTION;
+            if (in_array($stage,['script','storyboard'],true)) self::assertStringContainsString($policy,$text);
+            else self::assertStringNotContainsString($policy,$text);
+        }
+        $legacy=Workspace::resolve(701,['mode'=>'workspace','overrides'=>[]],[]);
+        $legacy['values']['repair.expansion']='旧补镜要求';
+        self::assertIsArray(Documents::migration($legacy));
     }
     public function testAgentFinalSubmissionUsesTheSameCustomDocumentsAsFormalGeneration(): void
     {

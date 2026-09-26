@@ -134,16 +134,16 @@ class ShortDramaScriptTimelineContractTest extends TestCase
         self::assertSame(12, count($result['storyboard']));
     }
 
-    public function testSelectedDurationUsesItsOwnShotCountRule(): void
+    public function testSelectedDurationKeepsTimingGuidanceWithoutGenreQuota(): void
     {
         $rule = $this->invoke('storyboardTargetRule', '测试故事', ['target_duration_seconds' => 60], [['id' => 'location_1']]);
 
-        self::assertSame('selected_duration', $rule['code']);
-        self::assertSame(4, $rule['min_shots']);
-        self::assertSame(15, $rule['max_shots']);
+        self::assertSame([], $rule);
+        $hint = $this->invoke('recommendedStoryboardCountHint', '测试故事', ['target_duration_seconds' => 60]);
+        self::assertStringContainsString('based on target duration', $hint);
     }
 
-    public function testAutoDurationFreezesTheMatchedTenantStoryboardRule(): void
+    public function testAutoDurationIgnoresRetiredTenantStoryboardRules(): void
     {
         $request = [
             'storyboard_rules' => [[
@@ -156,12 +156,10 @@ class ShortDramaScriptTimelineContractTest extends TestCase
         ];
         $rule = $this->invoke('storyboardTargetRule', '都市悬疑反转故事', $request, []);
 
-        self::assertSame('suspense', $rule['code']);
-        self::assertSame(30, $rule['min_shots']);
-        self::assertSame(40, $rule['max_shots']);
+        self::assertSame([], $rule);
     }
 
-    public function testV3SelectsStoryboardRuleFromGeneratedSkeletonRatherThanRawBrief(): void
+    public function testV3SkeletonCannotReactivateRetiredGenreRules(): void
     {
         $request = [
             'storyboard_rules' => [[
@@ -181,12 +179,10 @@ class ShortDramaScriptTimelineContractTest extends TestCase
 
         $rule = $this->invoke('storyboardTargetRuleForSkeleton', $skeleton, $request, '轻松日常故事');
 
-        self::assertNotSame('daily_comedy', $rule['code']);
-        self::assertSame(30, $rule['min_shots']);
-        self::assertSame(40, $rule['max_shots']);
+        self::assertSame([], $rule);
     }
 
-    public function testV3SkeletonBudgetCapsTheFilmBeforeSceneCalls(): void
+    public function testV3SkeletonKeepsItsContentDrivenCounts(): void
     {
         $skeleton = [
             'scene_beats' => [
@@ -200,20 +196,18 @@ class ShortDramaScriptTimelineContractTest extends TestCase
             'code' => 'daily', 'min_shots' => 12, 'max_shots' => 24,
         ]);
 
-        self::assertSame(24, array_sum(array_column($budgeted['scene_beats'], 'shot_count')));
-        self::assertSame(8, min(array_column($budgeted['scene_beats'], 'shot_count')));
-        self::assertSame(8, max(array_column($budgeted['scene_beats'], 'shot_count')));
+        self::assertSame($skeleton, $budgeted);
     }
 
-    public function testV3FinalBudgetGuardRejectsAnOverRangeResult(): void
+    public function testV3FinalGuardIgnoresHistoricalGenreQuota(): void
     {
-        $this->expectException(\Exception::class);
         $this->invoke('assertStoryboardBudgetSatisfied', [
             'locations' => [['id' => 'location_1']],
             'storyboard' => array_fill(0, 25, ['shot_id' => 'x']),
         ], [
             'storyboard_target_rule' => ['code' => 'daily', 'min_shots' => 12, 'max_shots' => 24],
         ], '普通故事');
+        self::assertTrue(true); // No genre-count exception.
     }
 
     public function testCleanupKeepsAutoRepairedStoryboardShots(): void

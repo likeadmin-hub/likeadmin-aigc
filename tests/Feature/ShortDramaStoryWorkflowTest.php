@@ -8,14 +8,15 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaStoryWorkflowTest extends TestCase
 {
-    public function testCreationSelectsStoryOnlyForExplicitNewVariant(): void
+    public function testNewCreationAlwaysSelectsStoryEvenWhenVariantIsMissing(): void
     {
         $method = new \ReflectionMethod(AigcShortDramaService::class, 'normalizeCreateRequest');
         $method->setAccessible(true);
         $base = ['multi_episode' => true, 'episode_count' => 30];
         $legacy = $method->invoke(null, $base, []);
         $new = $method->invoke(null, $base + ['workflow_variant' => ShortDramaStoryWorkflow::VARIANT], []);
-        self::assertSame('episodes', $legacy['multi_episode_stage']);
+        self::assertSame('story', $legacy['multi_episode_stage']);
+        self::assertSame(ShortDramaStoryWorkflow::VARIANT, $legacy['workflow_variant']);
         self::assertSame('story', $new['multi_episode_stage']);
         self::assertSame(ShortDramaStoryWorkflow::VARIANT, $new['workflow_variant']);
     }
@@ -34,6 +35,16 @@ class ShortDramaStoryWorkflowTest extends TestCase
         self::assertSame('episodes', ShortDramaStoryWorkflow::nextStage('episodes', false));
         $this->expectException(\InvalidArgumentException::class);
         ShortDramaStoryWorkflow::nextStage('episodes', true);
+    }
+
+    public function testUploadedStoryWorkspaceNeverDispatchesAnotherStoryLlm(): void
+    {
+        $request = ['workflow_variant' => ShortDramaStoryWorkflow::VARIANT, 'multi_episode' => true,
+            'episode_count' => 10, '_generation_version' => 3, 'source' => 'market_file_qa_parse'];
+        self::assertTrue(ShortDramaStoryWorkflow::enabled($request));
+        self::assertFalse(ShortDramaStoryWorkflow::workerOwned($request));
+        $request['source'] = 'revision';
+        self::assertTrue(ShortDramaStoryWorkflow::workerOwned($request));
     }
 
     public function testIncompleteStoryReportsMissingFields(): void

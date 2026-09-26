@@ -33,6 +33,16 @@ final class ShortDramaEpisodeDuration
         return (array)($request['episode_duration_policy'] ?? $request['generation_settings']['episode_duration_policy'] ?? []);
     }
 
+    /** An automatic target is a planning ceiling, not time to pad into shots. */
+    public static function modelPolicy(array $request): array
+    {
+        $policy = self::policy($request);
+        if (($policy['source'] ?? '') === 'default') {
+            unset($policy['target_seconds'], $policy['min_seconds']);
+        }
+        return $policy;
+    }
+
     public static function active(array $request): bool
     {
         return (int)(self::policy($request)['version'] ?? 0) === self::VERSION;
@@ -88,13 +98,16 @@ final class ShortDramaEpisodeDuration
     {
         $policy = self::policy($request);
         if (!self::active($request)) return '';
+        $default = ($policy['source'] ?? '') === 'default';
         return '本次采用时间预算策略。' . (($policy['scope'] ?? '') === 'series' ? '整部总时长' : '每集时长')
-            . '目标' . $policy['target_seconds'] . '秒，允许' . $policy['min_seconds'] . '-' . $policy['max_seconds'] . '秒。'
+            . ($default
+                ? '未指定目标时长，仅以' . $policy['max_seconds'] . '秒作为参考上限；剧情自然结束即可短于该值，不补时长。'
+                : '用户指定目标' . $policy['target_seconds'] . '秒，允许' . $policy['min_seconds'] . '-' . $policy['max_seconds'] . '秒。')
             . '具体时间码和对应剧情必须完整保留。剧情类型只提供节奏参考，忽略旧模板的分镜数量上下限、按场景最少几个镜头及固定单集默认时长。'
             . '按实际对白、动作和情绪安排时长与镜头数，不追加镜头凑时长，不通过仅修改秒数压缩对白。默认时长不足时正常返回，默认下限仅为参考，不补长、不重试；明确用户时长仍严格遵守。'
             . '骨架先分配各场时间预算，再展开分镜。明确时间码可短于通常片段下限；每个未超过单镜头上限的时间码段必须恰好对应一个分镜，只有超过上限的长片段才允许连续拆分，并且不得改变原时间边界。'
             . (self::localRevision($request) ? '当前为局部修改，保留未选中内容及其时长，不执行整集时间再平衡。' : '')
-            . "\n时间策略=" . json_encode($policy, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            . "\n时间策略=" . json_encode(self::modelPolicy($request), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
     /** Validate semantic output before normalization can clamp or pad it. */
@@ -116,6 +129,19 @@ final class ShortDramaEpisodeDuration
         }
         $timeline = (array)($policy['timeline_segments'] ?? []);
         if (empty($timeline)) {
+            return;
+        }
+        if (ShortDramaDialogueSplit::enabled($request)) {
+            $end = 0.0; $previousIndex = 0;
+            $max = ShortDramaShotDuration::rule($request)['max_seconds'];
+            foreach ($timeline as $segment) {
+                $end += (float)$segment['duration_seconds']; $matched = null;
+                foreach ($boundaries as $index => $boundary) if (abs($boundary - $end) <= 0.001) {$matched = $index; break;}
+                if ($matched === null || ((float)$segment['duration_seconds'] <= $max && $matched !== $previousIndex + 1)) {
+                    throw new RuntimeException('分镜未按用户时间码逐段对齐', 422);
+                }
+                $previousIndex = $matched;
+            }
             return;
         }
         $shotIndex = 0;

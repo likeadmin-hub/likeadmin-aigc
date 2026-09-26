@@ -95,4 +95,17 @@ class CanvasAgentStageGenerationPromptTest extends TestCase
         self::assertStringNotContainsString('原样放进节点输入框', ConversationActionPlan::instruction('manual', 'assets', true));
         self::assertStringContainsString('原样放进节点输入框', ConversationActionPlan::instruction('manual', 'assets', true, true));
     }
+
+    public function testStoryboardVideoProposalCarriesItsOwnPlannedDuration(): void
+    {
+        $instruction = ConversationActionPlan::instruction('manual', 'video_nodes', true, true);
+        self::assertStringContainsString('duration_seconds', $instruction);
+        self::assertStringContainsString('不得套用空白节点初始时长', $instruction);
+        $reply = json_encode(['reply_markdown' => '已规划镜头', 'canvas_actions' => ['nodes' => [[
+            'type' => 'video', 'artifact' => 'storyboard_video', 'title' => '镜头一',
+            'prompt' => "分镜1｜0:00-0:08\n画面内容：甲走进房间并打开箱子", 'key' => 'shot_1',
+            'reference_keys' => ['storyboard:shot_1'], 'duration_seconds' => 8,
+        ]]]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        self::assertSame(8.0, ConversationActionPlan::parse($reply, 'video_nodes', true)['nodes'][0]['duration_seconds']);
+    }
 }

@@ -48,19 +48,18 @@ class ShortDramaTextModelContractTest extends TestCase
         self::assertSame('901', $matched['id']);
     }
 
-    public function testUnknownExplicitScriptModelDoesNotSilentlyFallback(): void
+    public function testUnavailableExplicitScriptModelUsesAvailableConfiguredDefault(): void
     {
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessage('所选剧本策划模型已下架或不可用');
-
-        $this->invoke('resolveSelectedModels', 0, [
+        $selected = $this->invoke('resolveSelectedModels', 0, [
             'model_selections' => ['script_plan' => ['id' => 'missing-model']],
         ], [
             'model_groups' => [[
                 'key' => 'script_plan',
-                'options' => [['id' => '901', 'model_code' => 'glm-5.2']],
+                'default' => '902',
+                'options' => [['id' => '901', 'model_code' => 'glm-5.2'], ['id' => '902', 'model_code' => 'default-model']],
             ]],
         ]);
+        self::assertSame('902', $selected['script_plan']['id']);
     }
 
     public function testConfiguredDefaultKeepsEveryTextModelSelectable(): void
@@ -131,6 +130,16 @@ class ShortDramaTextModelContractTest extends TestCase
             '文本模型不支持当前请求参数，请切换模型或联系管理员同步模型能力',
             $this->invoke('scriptPlanProviderError', 'invalid_request_error: Unsupported parameter: input_pricing_sku_key')
         );
+    }
+
+    public function testLongContinuityDiagnosticsCannotOverflowTaskErrorColumns(): void
+    {
+        $message = '连续性事实缺少匹配含义的镜头证据：[' . str_repeat('审校证据', 1000) . ']';
+        $safe = $this->invoke('scriptPlanProviderError', $message);
+        self::assertSame('连续性事实缺少匹配含义的镜头证据（完整审校证据已保留）', $safe);
+        self::assertLessThanOrEqual(200, mb_strlen($safe));
+        self::assertSame(str_repeat('错', 200), $this->invoke('scriptPlanProviderError', str_repeat('错', 1000)));
+        self::assertSame('普通任务失败', $this->invoke('scriptPlanProviderError', '普通任务失败'));
     }
 
     private function planPayload(): array

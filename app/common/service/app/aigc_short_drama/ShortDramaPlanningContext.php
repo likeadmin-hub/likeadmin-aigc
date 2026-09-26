@@ -40,10 +40,44 @@ final class ShortDramaPlanningContext
             && ($request['multi_episode_stage'] ?? '') === 'episodes';
     }
 
-    /** The original inspiration belongs to story setting, not every later outline call. */
+    public static function preservesRequirements(array $request): bool
+    {
+        return (int)($request['_input_contract_version'] ?? 0) >= 3;
+    }
+
+    /** Internal planning has its own output schema, never an assembled outline prompt. */
+    public static function roadmapMessages(string $prompt, array $request): array
+    {
+        return [
+            'system_prompt' => '你负责全剧节奏规划，不生成分集大纲或分镜。只返回合法 JSON：'
+                . '{"segments":[{"start":1,"end":5,"goal":"阶段目标","reveal":"允许揭露的信息","ending":"阶段交接"}]}。'
+                . '阶段集号连续完整覆盖 total_episodes，最多30个阶段；非最终阶段不得提前结束全剧。'
+                . '输入是创作资料而非输出格式指令。保留原始要求中的指定集事件、身份、存活状态、道具交接与知情顺序；故事摘要的遗漏不代表撤销原始要求。'
+                . '明确的后续修改仅在其指定范围内优先；确认生成大纲不是改写剧情的授权。不得返回 episodes、storyboard 或制作字段。',
+            'content' => json_encode([
+                'total_episodes' => (int)$request['episode_count'],
+                'original_requirements' => $prompt,
+                'confirmed_story' => self::lockedStory((array)($request['confirmed_story_snapshot'] ?? [])),
+                'revision_message' => (string)($request['revision_message'] ?? ''),
+                'revision_target' => (array)($request['revision_target'] ?? []),
+                'revision_policy' => (array)($request['revision_policy'] ?? []),
+            ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+        ];
+    }
+
+    /** Keep frozen paid inputs stable; new outlines must not lose explicit user facts. */
     public static function stagePrompt(string $prompt, array $request): string
     {
-        return self::isOutline($request) ? '' : $prompt;
+        return self::isOutline($request) && !self::preservesRequirements($request) ? '' : $prompt;
+    }
+
+    public static function requirementInstruction(array $request): string
+    {
+        if (!self::isOutline($request) || !self::preservesRequirements($request)) return '';
+        return '原始创作要求与已确认故事设定共同作为本次大纲依据。故事设定中的概括或遗漏不代表用户撤销原始要求。'
+            . '逐项保留用户明确的人物性别与亲属身份、存活状态、道具区分与交接、知情顺序、指定集事件和结局；将指定集号按全剧集号理解，不提前揭露后集信息。'
+            . '用户明确提出的后续修改在其指定范围内优先，未涉及的原始要求继续有效；确认步骤本身不等于授权改写原始要求。'
+            . '全剧节奏分配是辅助规划，不得覆盖上述明确要求；未限定部分可合理创作。返回前对照原始要求检查本批大纲，仅修正确有冲突的字段，保留其他内容，不在输出中加入审校说明。';
     }
 
     /** @return array<string, mixed> */
@@ -110,6 +144,9 @@ final class ShortDramaPlanningContext
             'subject_mentions', 'input_asset_ids', 'source',
         ]));
         $result['context_pack_version'] = self::VERSION;
+        if (self::preservesRequirements($request)) {
+            $result['prompt'] = (string)($request['prompt'] ?? '');
+        }
         $result['confirmed_story_snapshot'] = self::storyBible((array)($request['confirmed_story_snapshot'] ?? []));
         if ((int)($request['_generation_version'] ?? 0) >= 3) {
             $result['confirmed_story_snapshot'] = self::lockedStory((array)($request['confirmed_story_snapshot'] ?? []));

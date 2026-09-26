@@ -107,7 +107,8 @@ final class ConversationExecution
                     // The eight intake slots describe production settings, not the
                     // story itself. Keep the initiating brief across compact stage
                     // handoffs so later Skills cannot replace its plot or title.
-                    $activatedWorkflow['creative_brief']=mb_substr(trim((string)($context['messages'][count($context['messages'])-1]['content']??'')),0,4000);
+                    $brief=trim((string)($context['messages'][count($context['messages'])-1]['content']??''));
+                    $activatedWorkflow['creative_brief']=ConversationWorkflow::preservesInput($activatedWorkflow) ? $brief : mb_substr($brief,0,4000);
                 }
             }
             if ($intakeDraft && ($intentDecision || $proposals)) throw new RuntimeException('INVALID_AGENT_INTAKE');
@@ -300,6 +301,22 @@ final class ConversationExecution
                 return ['run_id'=>$runId,'status'=>'needs_reconciliation','cancellation_confirmed'=>false];
             }
             throw new RuntimeException('INVALID_RUN_STATE');
+        });
+    }
+
+    /** Progress is provisional, never a message, graph mutation or state transition. */
+    public static function streamProgress(int $tenant,int $user,int $runId,string $token,int $fence,string $kind,array $payload): void
+    {
+        if ($kind==='reply.progress' && is_string($payload['text']??null)) $payload=['text'=>mb_substr($payload['text'],0,16000,'UTF-8')];
+        elseif ($kind==='provider.heartbeat' && is_int($payload['elapsed_ms']??null)) $payload=['elapsed_ms'=>max(0,$payload['elapsed_ms'])];
+        else throw new RuntimeException('INVALID_STREAM_EVENT');
+        Db::transaction(static function () use ($tenant,$user,$runId,$token,$fence,$kind,$payload): void {
+            [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);
+            // Old leases and canceled/reconciled runs must not publish late
+            // text, nor turn a best-effort progress frame into a paid retry.
+            if (!hash_equals((string)$outbox['lease_token'],$token) || (int)$outbox['fencing_version']!==$fence
+                || (int)$outbox['lease_until']<=time() || $run['status']!=='running' || (int)$thread['active_run_id']!==$runId) return;
+            self::event($run,$kind,$payload);
         });
     }
 

@@ -112,6 +112,7 @@ final class ConversationStore
             foreach ($attachments as $attachment) if ($attachment['type']==='image') $attachmentImages[]=ConversationImages::freezeAsset($tenant,$user,$canvas,(int)$attachment['asset_id']);
             if (count(array_filter($selected,static fn(array $node)=>$node['type']==='image'))+count($attachmentImages)>4) throw new RuntimeException('TOO_MANY_IMAGE_REFERENCES');
             $context=['graph_revision'=>$revision,'selected_nodes'=>array_map(static fn($id)=>$selected[$id],$ids),'attachment_images'=>$attachmentImages,'material_trust'=>'untrusted','messages'=>$messages,'history_policy'=>'last_38_plus_current'];
+            $context['_input_contract_version']=1;
             if (!empty($resolvedSnapshot['workflow'])) $context['workflow']=$resolvedSnapshot['workflow'];
             if (!empty($resolvedSnapshot['intent_routing'])) $context['intent_routing']=$resolvedSnapshot['intent_routing'];
             $contextJson=self::json($context);

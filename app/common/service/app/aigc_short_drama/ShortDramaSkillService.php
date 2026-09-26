@@ -64,6 +64,7 @@ final class ShortDramaSkillService
         self::syncBuiltinSkills();
         $skill = self::find($tenantId, $id);
         if ($publishedOnly && ((int)$skill['status'] !== 1 || (string)$skill['release_status'] !== self::ACTIVE || (int)$skill['published_version'] <= 0)) throw new Exception('Skill 当前不可用');
+        if ($publishedOnly && self::isWorkflowOnly($tenantId, (int)$skill['id'])) throw new Exception('该 Skill 仅可在短剧工作流中使用');
         return $publishedOnly ? self::published($skill->toArray()) : self::format($skill->toArray(), true);
     }
 
@@ -143,6 +144,8 @@ final class ShortDramaSkillService
         $byKey = [];
         foreach ($tenantRows as $row) $byKey[(string)$row['skill_key']] = $row;
         foreach ($builtinRows as $row) $byKey[(string)$row['skill_key']] = $row;
+        $workflowOnlyIds = self::workflowOnlySkillIds($tenantId);
+        if ($workflowOnlyIds) $byKey = array_filter($byKey, static fn(array $skill): bool => !isset($workflowOnlyIds[(int)$skill['id']]));
         $published = array_map(static fn(array $skill): array => self::withTenantCategories(self::published($skill), $tenantId), array_values($byKey));
         usort($published, static fn(array $left, array $right): int => ((int)$right['sort'] <=> (int)$left['sort']) ?: ((int)$right['id'] <=> (int)$left['id']));
         $published = array_values(array_filter($published, static function ($item) use ($keyword, $categoryId): bool {
@@ -217,6 +220,8 @@ final class ShortDramaSkillService
         self::syncBuiltinSkills();
         $defaults = Db::name('aigc_short_drama_user_skill')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'enabled' => 1, 'delete_time' => 0])->column('skill_id');
         $skills = $defaults ? AigcShortDramaSkill::whereIn('id', $defaults)->whereIn('tenant_id', [$tenantId, 0])->where('delete_time', 0)->where('published_version', '>', 0)->select()->toArray() : [];
+        $workflowOnlyIds = self::workflowOnlySkillIds($tenantId);
+        if ($workflowOnlyIds) $skills = array_values(array_filter($skills, static fn(array $skill): bool => !isset($workflowOnlyIds[(int)$skill['id']])));
         return ['defaults' => array_map(static function ($skill): array {
             return self::published($skill) + ['available' => (int)$skill['status'] === 1 && $skill['release_status'] === self::ACTIVE];
         }, $skills), 'history' => self::history($tenantId, $userId)['lists']];
@@ -263,6 +268,7 @@ final class ShortDramaSkillService
         $skill = self::find($tenantId, $id);
         if ((int)$skill['status'] !== 1 || (string)$skill['release_status'] !== self::ACTIVE || (int)$skill['published_version'] <= 0) throw new Exception('所选 Skill 当前不可用，请重新选择');
         if ((int)($params['skill_version'] ?? 0) > 0 && (int)$params['skill_version'] !== (int)$skill['published_version']) throw new Exception('Skill 已更新，请重新选择并确认新版本');
+        if (empty($params['_workflow_internal']) && self::isWorkflowOnly($tenantId, $id)) throw new Exception('该 Skill 仅可在短剧工作流中使用');
         $version = Db::name('aigc_short_drama_skill_version')->where(['tenant_id' => (int)$skill['tenant_id'], 'skill_id' => $id, 'version' => (int)$skill['published_version'], 'release_status' => self::ACTIVE, 'delete_time' => 0])->find();
         if (!$version) throw new Exception('Skill 已发布版本不存在'); $snapshot = self::decode($version['snapshot_json'] ?? []);
         return ['id' => $id, 'version' => (int)$version['version'], 'source' => in_array(($params['skill_source'] ?? ''), ['manual', 'recommended'], true) ? $params['skill_source'] : 'manual',
@@ -355,6 +361,30 @@ final class ShortDramaSkillService
         $snapshot['release_status'] = self::ACTIVE;
         $snapshot = array_replace($snapshot, self::usageStats((int)$skill['tenant_id'], (int)$skill['id']));
         return $snapshot;
+    }
+
+    /**
+     * Only platform-owned workflow stage Skills are implementation
+     * dependencies. Tenant-admin configured Skills remain user-selectable,
+     * even when the workflow also references them.
+     *
+     * @return array<int,true>
+     */
+    private static function workflowOnlySkillIds(int $tenantId): array
+    {
+        $keys = [];
+        foreach (\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::defaultSkillKeys() as $stageKeys) {
+            foreach ($stageKeys as $key) $keys[(string)$key] = true;
+        }
+        $ids = $keys
+            ? Db::name('aigc_short_drama_skill')->where(['tenant_id' => 0, 'delete_time' => 0])->whereIn('skill_key', array_keys($keys))->column('id')
+            : [];
+        return array_fill_keys(array_map('intval', $ids), true);
+    }
+
+    private static function isWorkflowOnly(int $tenantId, int $skillId): bool
+    {
+        return $skillId > 0 && isset(self::workflowOnlySkillIds($tenantId)[$skillId]);
     }
     private static function usageStats(int $tenantId, int $id): array
     {

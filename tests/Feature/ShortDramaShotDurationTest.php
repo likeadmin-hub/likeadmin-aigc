@@ -27,6 +27,14 @@ class ShortDramaShotDurationTest extends TestCase
         self::assertSame(5.0, Duration::normalize(INF));
     }
 
+    public function testTimedGenerationNeverFillsMissingDurationWithBlankShotSeed(): void
+    {
+        $shot = ['shot_id' => 'a', 'visual_description' => '甲拿起信件'];
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('分镜缺少有效时长');
+        $this->call('normalizeGeneratedStoryboard', [$shot], Duration::defaultRule(), true);
+    }
+
     public function testReviewAndRepairDoNotTruncateLongValidShots(): void
     {
         foreach ([4, 8, 15] as $seconds) {
@@ -76,7 +84,9 @@ class ShortDramaShotDurationTest extends TestCase
             foreach ($result['storyboard'] as $shot) self::assertTrue(Duration::contains($shot['recommended_duration_seconds']));
         }
         $rule = $this->call('storyboardTargetRule', '甲出门', ['target_duration_seconds' => 60]);
-        self::assertSame(4, $rule['min_shots']); self::assertSame(15, $rule['max_shots']);
+        self::assertSame([], $rule);
+        self::assertStringContainsString('4-15 shots based on target duration',
+            $this->call('recommendedStoryboardCountHint', '甲出门', ['target_duration_seconds' => 60]));
     }
 
     public function testSavedInstructionsCannotRestoreTheOldRange(): void

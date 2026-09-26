@@ -50,8 +50,17 @@ final class ShortDramaPlanningUnit
             $saved = $row ? json_decode((string)$row['request_json'], true) : [];
             // Old receipts retain their original raw signature. Compare the
             // canonical saved request too, without rewriting or resubmitting it.
-            if (isset($saved['_unit_signature']) && !hash_equals($saved['_unit_signature'], $signature)
+            if ($row && is_array($saved) && $saved !== []
+                && !hash_equals((string)($saved['_unit_signature'] ?? ''), $signature)
                 && !hash_equals(self::requestSignature($saved), $signature)) {
+                $changed = [];
+                foreach (array_unique(array_merge(array_keys($saved), array_keys($input))) as $field) {
+                    if ($field === '_unit_signature') continue;
+                    if (self::requestSignature([$field => $saved[$field] ?? null]) !== self::requestSignature([$field => $input[$field] ?? null])) $changed[] = $field;
+                }
+                \think\facade\Log::warning('Short drama receipt context mismatch: ' . json_encode([
+                    'tenant_id' => $tenant, 'task_id' => $task, 'unit_key' => $key, 'changed_fields' => $changed,
+                ], JSON_UNESCAPED_UNICODE));
                 throw new RuntimeException('生成上下文已变化，请新建版本；原有结果已保留', 409);
             }
             if ($row && $row['status'] === 'received') return ['result' => json_decode($row['result_json'], true, 512, JSON_THROW_ON_ERROR)];

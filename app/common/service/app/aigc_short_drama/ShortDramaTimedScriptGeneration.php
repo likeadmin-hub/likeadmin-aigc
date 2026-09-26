@@ -17,7 +17,8 @@ final class ShortDramaTimedScriptGeneration
         $skeletonInput = $base;
         $skeletonInput['system_prompt'] .= "\n本阶段仅生成骨架JSON：title、type_judgement、core_theme、story_outline、script_lines、series_bible、subjects、locations、art_style、scene_beats。"
             . 'subjects每项必须有id、name、description，locations每项必须有id、name、description。沿用稳定主体和场景id。scene_beats按剧情顺序，每项为scene_ref_id（必须引用locations中某项id，不是beat编号）、goal、entry、exit、duration_seconds、shot_durations（每张卡片秒数数组）、key_events（必须保留的具体事件或台词数组）。'
-            . '每场shot_durations合计等于duration_seconds，整集合计满足时间策略。镜头数量按内容决定，不使用固定数量档位。每个片段时长遵守任务范围。'
+            . '先按实际可见动作顺序、对白字数和说话停顿、运镜及画面必要停留规划每镜内容，再为每镜估算完成内容所需的shot_durations；不要把一个简单动作拉长，也不要把多段动作或长对白塞进短镜头。'
+            . '每场shot_durations合计等于duration_seconds；仅用户明确指定时长或时间码时要求整集合计严格匹配，默认时长只作上限参考，不能补镜头或延长静止画面凑数。镜头数量按内容决定，不使用固定数量档位。每个片段时长遵守任务范围。'
             . '时间码存在时，每条scene_beat严格对应一个时间段，时长完全一致；不要跨段合并。每场最多40个片段，总场次最多24。不要返回storyboard。'
             . '这是紧凑骨架，不生成任何图片、视频、三视图、音乐、负面提示词；主体与场景description各不超过120字；保留具体剧情，不写重复风格说明。';
         $skeleton = [];
@@ -28,6 +29,11 @@ final class ShortDramaTimedScriptGeneration
                     $request
                 );
                 if (!empty($skeleton['storyboard'])) {
+                    if (ShortDramaDialogueSplit::enabled($request)) {
+                        $skeleton = ShortDramaDialogueSplit::adapt($skeleton, $request, $call, 'timed_complete');
+                        $skeleton['storyboard'] = self::attachTimelineRanges($skeleton['storyboard'], $request);
+                    }
+                    elseif (ShortDramaInputContract::current($request)) $skeleton = self::fitDialogueTiming($skeleton, $request);
                     try {
                         self::assertCompletePlan($skeleton, $request);
                     } catch (RuntimeException $error) {
@@ -104,8 +110,25 @@ final class ShortDramaTimedScriptGeneration
                 $part = [];
                 for ($attempt = 0; $attempt < 2; $attempt++) {
                     try {
+                        // A failed attempt must not change the next attempt's locked input.
+                        $validationDurations = $partDurations;
                         $part = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . ($attempt ? '_repair' : ''), $input, 1800 + count($ids) * 750);
-                        self::assertPart($part, $skeleton, $beat, $ids, $partDurations);
+                        $validationIds = $ids;
+                        if (ShortDramaDialogueSplit::enabled($request)) {
+                            self::assertPart($part, $skeleton, $beat, $ids, $partDurations, false);
+                            $part = ShortDramaDialogueSplit::adapt($part, $request, $call, 'timed_' . $sceneIndex . '_' . $offset . $splitKey . '_' . $attempt);
+                            $validationIds = array_column($part['storyboard'], 'shot_id');
+                            $validationDurations = array_column($part['storyboard'], 'recommended_duration_seconds');
+                        } elseif (ShortDramaInputContract::current($request)) {
+                            $originalPart = $part;
+                            $part = self::fitDialogueTiming($part, $request);
+                            foreach ((array)($part['storyboard'] ?? []) as $index => $shot) {
+                                $before = $originalPart['storyboard'][$index]['recommended_duration_seconds'] ?? null;
+                                if (isset($partDurations[$index]) && is_numeric($before) && (float)$before === (float)$partDurations[$index]
+                                    && ($shot['recommended_duration_seconds'] ?? null) !== $before) $validationDurations[$index] = $shot['recommended_duration_seconds'];
+                            }
+                        }
+                        self::assertPart($part, $skeleton, $beat, $validationIds, $validationDurations);
                         foreach ($part['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                         break;
                     } catch (RuntimeException $e) {
@@ -196,6 +219,27 @@ final class ShortDramaTimedScriptGeneration
         ShortDramaEpisodeDuration::assertPlan($plan, $request);
     }
 
+    /** Never alter spoken text to fit a generated budget. Locked timing conflicts
+     * are actionable failures, not permission to shorten the user's story. */
+    public static function fitDialogueTiming(array $part, array $request): array
+    {
+        $policy = ShortDramaEpisodeDuration::policy($request);
+        $rule = ShortDramaShotDuration::rule($request);
+        foreach ((array)($part['storyboard'] ?? []) as $index => $shot) {
+            if (!is_array($shot) || !is_string($shot['dialogue'] ?? null)) continue;
+            $duration = (float)($shot['recommended_duration_seconds'] ?? 0);
+            $characters = self::dialogueCharacterCount($shot['dialogue']);
+            if ($characters <= $duration * 8) continue;
+            // Allow normal speech plus a pause, but never stretch a locked timeline.
+            $needed = ceil($characters / 6) + 1;
+            if (($policy['source'] ?? '') !== 'default' || $needed > $rule['max_seconds']) {
+                throw new RuntimeException('分镜 ' . (string)($shot['shot_id'] ?? '') . ' 的完整台词无法在当前时长内自然说完。原文已保留，请拆分该镜头或调整明确指定的时长后新建版本', 409);
+            }
+            $part['storyboard'][$index]['recommended_duration_seconds'] = $needed;
+        }
+        return $part;
+    }
+
     /** Existing providers use these documented aliases. Never infer a reference. */
     public static function canonicalSkeleton(array $plan): array
     {
@@ -282,6 +326,17 @@ final class ShortDramaTimedScriptGeneration
         if (empty($timeline)) {
             return $shots;
         }
+        if (ShortDramaDialogueSplit::enabled($request)) {
+            ShortDramaEpisodeDuration::assertPlan(['storyboard' => $shots], $request);
+            $start = (float)$timeline[0]['start_seconds'];
+            foreach ($shots as &$shot) {
+                $end = $start + (float)$shot['recommended_duration_seconds'];
+                $shot['start_seconds'] = $start; $shot['end_seconds'] = $end;
+                $shot['time_range'] = self::timeRangeLabel($start, $end); $start = $end;
+            }
+            unset($shot);
+            return $shots;
+        }
         $shotIndex = 0;
         foreach ($timeline as $segment) {
             $start = (float)($segment['start_seconds'] ?? 0);
@@ -313,7 +368,7 @@ final class ShortDramaTimedScriptGeneration
         return $format($start) . '-' . $format($end);
     }
 
-    public static function assertPart(array $part, array $plan, array $beat, array $ids, array $durations): void
+    public static function assertPart(array $part, array $plan, array $beat, array $ids, array $durations, bool $checkDialogue = true): void
     {
         $shots = $part['storyboard'] ?? [];
         if (!is_array($shots) || count($shots) !== count($ids)) throw new RuntimeException('本段分镜数量不完整', 422);
@@ -328,7 +383,7 @@ final class ShortDramaTimedScriptGeneration
             if (!is_string($dialogue)) throw new RuntimeException('dialogue必须是带角色名的台词字符串，不能返回数组或对象', 422);
             // A deliberately generous guard catches impossible delivery, not acting style.
             $characters = self::dialogueCharacterCount($dialogue);
-            if ($characters > $durations[$index] * 8) throw new RuntimeException('本段对白过密，请保留关键含义并缩短台词，为动作和停顿留出时间', 422);
+            if ($checkDialogue && $characters > $durations[$index] * 8) throw new RuntimeException('本段对白过密，请保留关键含义并缩短台词，为动作和停顿留出时间', 422);
         }
     }
 

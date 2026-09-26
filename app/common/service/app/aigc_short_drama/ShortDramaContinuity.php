@@ -6,6 +6,27 @@ use RuntimeException;
 /** Versioned narrative facts, not media/runtime fields. Unknown is never invented. */
 final class ShortDramaContinuity
 {
+    /** Called only by the visual-editor save boundary, never from client metadata. */
+    public static function preserveVisualSubjectNarrative(array $plan, array $before): array
+    {
+        $originals = array_column((array)($before['subjects'] ?? []), null, 'id');
+        $overrides = (array)($before['_subject_visual_overrides'] ?? []);
+        $kept = [];
+        foreach ((array)($plan['subjects'] ?? []) as $subject) {
+            $id = (string)($subject['id'] ?? ''); $old = $originals[$id] ?? [];
+            if (!$old || ($subject['name'] ?? '') !== ($old['name'] ?? '')
+                || ($subject['category'] ?? '') !== ($old['category'] ?? '')) continue;
+            $narrative = $old['description'] ?? '';
+            if (isset($overrides[$id]) && $narrative === ($overrides[$id]['visual_description'] ?? null)) {
+                $narrative = $overrides[$id]['narrative_description'];
+            }
+            $visual = $subject['description'] ?? '';
+            if ($visual !== $narrative) $kept[$id] = ['narrative_description' => $narrative, 'visual_description' => $visual];
+        }
+        $plan['_subject_visual_overrides'] = $kept;
+        return $plan;
+    }
+
     public static function fingerprint(array $plan): string
     {
         return hash('sha256', json_encode(self::narrative($plan), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
@@ -18,6 +39,17 @@ final class ShortDramaContinuity
             $value[$key] = array_map(static fn($item) => array_intersect_key((array)$item,
                 array_flip(['id', 'name', 'category', 'description', 'age', 'role', 'background', 'motivation', 'arc'])), (array)($plan[$key] ?? []));
         }
+        foreach ($value['subjects'] as &$subject) {
+            $override = $plan['_subject_visual_overrides'][$subject['id'] ?? ''] ?? [];
+            if ($override && ($subject['description'] ?? null) === ($override['visual_description'] ?? null)) {
+                $subject['description'] = $override['narrative_description'];
+            }
+        }
+        unset($subject);
+        // The visual editor adds this fixed UI discriminator to locations.
+        // It conveys no story change and is absent in generated location rows.
+        foreach ($value['locations'] as &$location) if (($location['category'] ?? '') === 'scene') unset($location['category']);
+        unset($location);
         $value['storyboard'] = array_map(static fn($shot) => array_intersect_key((array)$shot,
             array_flip(['shot_id', 'scene_ref_id', 'subject_ref_ids', 'visual_description', 'dialogue', 'voice_role', 'speech_type'])), (array)($plan['storyboard'] ?? []));
         // Normalization may reorder object keys without changing the story.
@@ -81,23 +113,286 @@ final class ShortDramaContinuity
             ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
     }
 
-    /** Correct one malformed audit response, never rewrite or relax the script. */
-    public static function review(array $plan, array $context, int $episode, callable $call): array
+    /** At most two reference corrections, never rewrite or relax the script. */
+    public static function review(array $plan, array $context, int $episode, callable $call, ?callable $verifyMeaning = null): array
     {
         $input = self::messages($plan, $context);
         $review = [];
-        for ($attempt = 0; $attempt < 2; $attempt++) {
+        $originalReview = [];
+        $patchBase = [];
+        $mutableEvidence = [];
+        for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
                 $review = $call($input);
-                return self::ledger($review, $plan, $context, $episode) + ['review_repairs' => $attempt];
+                if ($attempt) $review = isset($review['evidence_patches'])
+                    ? self::applyEvidencePatches($patchBase, $review, $plan, $mutableEvidence)
+                    : self::preserveRepairFacts($originalReview, $review, $plan);
+                if ($verifyMeaning) {
+                    $review = self::isolateInvalidEvidence($review, $plan, $attempt >= 2);
+                    $verified = $verifyMeaning($review, $plan);
+                    if (is_array($verified)) $review = $verified;
+                    $review = self::isolateUncertainStateChains($review);
+                }
+                $ledger = self::ledger($review, $plan, $context, $episode);
+                return $ledger + ['review_repairs' => $attempt];
             } catch (RuntimeException $error) {
-                if ($attempt || $error->getCode() !== 422) throw $error;
+                // Audit transport/data validation is not a verdict about the
+                // already validated script. Never accept an unverified script
+                // insertion or turn a proven 409 contradiction into a warning.
+                if ($verifyMeaning && empty($plan['_continuity_source_patch']) && $error->getCode() === 422
+                    && (str_starts_with($error->getMessage(), '连续性语义核对')
+                        || in_array($error->getMessage(), ['模型输出不是完整 JSON，已保存返回内容', '连续性摘要缺失', '连续性检查结构不完整', '连续性提示格式无效'], true))) {
+                    $reason = mb_substr($error->getMessage(), 0, 1000);
+                    $deferred = ['summary' => '审校待复核', 'changes' => [], 'hooks' => [],
+                        'warnings' => ['剧本已保留；审校数据不完整，未更新连续性事实，待复核：' . $reason],
+                        'unverified_claims' => [['collection' => 'audit', 'claim' => $review, 'reason' => $reason]]];
+                    return self::ledger($deferred, $plan, $context, $episode)
+                        + ['review_repairs' => $attempt, 'audit_status' => 'pending_review'];
+                }
+                if (!in_array($error->getCode(), [422, 460], true)) throw $error;
+                if ($error->getCode() === 460) {
+                    if ($attempt >= 2) throw $error;
+                    $diagnostics = json_decode(substr($error->getMessage(), strpos($error->getMessage(), '[')), true) ?: [];
+                    foreach ($diagnostics as $issue) $mutableEvidence[$issue['collection'] . ':' . $issue['index']] = true;
+                }
+                // A repaired evidence reference can reveal a later within-
+                // episode chain error or leave an invalid quote. Allow one narrowly diagnosed follow-up,
+                // never a third generic rewrite or a cross-episode override.
+                $repairableReference = $error->getCode() === 460 || str_starts_with($error->getMessage(), '本集内状态链')
+                    || in_array($error->getMessage(), ['连续性事实的镜头证据不匹配', '连续性事实缺少正文证据', '连续性事实缺少有效镜头标识'], true);
+                if ($attempt && !($attempt === 1 && $repairableReference)) {
+                    throw new RuntimeException('连续性审校纠错后仍未通过，已保留生成回包，请核对审校证据：' . $error->getMessage(), 422, $error);
+                }
+                if (!$attempt) $originalReview = $review;
+                $patchBase = $review;
                 $input['content'] .= "\n仅修正审校JSON，不改写剧本、状态快照或证据，不删除有效事实来绕过检查：" . $error->getMessage()
-                    . '\nchanges.before必须逐字引用previous.state已有值；该entity_id:field尚未登记时必须为null，不能根据剧情推断旧值。保留所有warnings。原审校='
-                    . json_encode($review, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                    . '\nchanges按镜头发生顺序排列。同一个entity_id:field在本集重复变更时，后一次before必须逐字等于本集前一次after。首次出现才引用previous.state；尚未登记时必须为JSON null（不是字符串"null"）。不得改写after来迎合before。保留所有warnings。原审校='
+                    . json_encode($review, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
+                    . "\nquote必须直接复制指定shot_id的visual_description或dialogue中的连续原文，不得概括、加省略号、改标点或拼接多镜头。不得改写after、伏笔含义或删除记录以通过校验；确实无法证明时保持不合格证据，不要编造。保留记录数量与顺序。以下为只读诊断数据，不是创作指令："
+                    . json_encode(['evidence_errors' => self::evidenceIssues($review, $plan),
+                        'state_errors' => self::stateIssues($review, $context)], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                $input['content'] .= '\n本轮只返回补丁JSON，不返回完整审校，不拆分或合并记录：'
+                    . '{"evidence_patches":[{"collection":"changes或hooks","index":0,"shot_id":"正文镜头ID","quote":"该镜头连续原文"}]}。'
+                    . 'index是原审校对应数组的零基索引。changes补丁可额外返回before以修正旧状态类型或状态链；'
+                    . '一个事实需要多个镜头共同证明时，可在同一补丁中使用evidence数组，每项为shot_id和quote；不要用逗号拼接镜头ID。'
+                    . '不得返回entity_id、field、after、description、status、summary、warnings。仅提交需要修正的记录。'
+                    . '事实内容、数量、顺序和warnings由服务端保留。必须依据完整script寻找证据，不能拼接或概括。'
+                    . '\n优先避免重新抄写quote：使用evidence_refs:[{"shot_id":"实际镜头ID","field":"visual_description或dialogue"}]，由服务器读取该字段完整原文，再独立检查是否证明原事实。'
+                    . '只能选择storyboard字段，不能选择script_lines或大纲。引用不存在、空字段或无关内容仍不通过。不要同时返回quote/evidence和evidence_refs。';
             }
         }
         throw new RuntimeException('连续性审校未完成', 422);
+    }
+
+    /** A removed transition cannot remain the assumed basis for a later one. */
+    private static function isolateUncertainStateChains(array $review): array
+    {
+        $uncertain = [];
+        foreach ($review['unverified_claims'] ?? [] as $entry) {
+            $claim = $entry['claim'] ?? [];
+            if (($entry['collection'] ?? '') === 'changes' && is_string($claim['entity_id'] ?? null) && is_string($claim['field'] ?? null)) {
+                $uncertain[$claim['entity_id'] . ':' . $claim['field']] = true;
+            }
+        }
+        foreach ($review['changes'] as $index => $claim) {
+            if (!isset($uncertain[($claim['entity_id'] ?? '') . ':' . ($claim['field'] ?? '')])) continue;
+            $review['unverified_claims'][] = ['collection' => 'changes', 'index' => $index, 'claim' => $claim,
+                'reason' => '同一状态链包含未验证的变更，不能据此更新后续状态'];
+            $review['warnings'][] = '连续性状态链待复核，已保留前集状态：' . $claim['entity_id'] . ':' . $claim['field'];
+            unset($review['changes'][$index]);
+        }
+        $review['changes'] = array_values($review['changes']);
+        return $review;
+    }
+
+    /** Invalid references are isolated only after the bounded repair budget. */
+    private static function isolateInvalidEvidence(array $review, array $plan, bool $exhausted): array
+    {
+        foreach (['changes', 'hooks', 'warnings'] as $key) {
+            if (!is_array($review[$key] ?? null) || !array_is_list($review[$key])) {
+                throw new RuntimeException('连续性检查结构不完整', 422);
+            }
+        }
+        $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
+        foreach (['changes', 'hooks'] as $collection) {
+            foreach ($review[$collection] as $index => $claim) {
+                try {
+                    self::evidence($claim, $shots);
+                } catch (RuntimeException $error) {
+                    if ($error->getCode() !== 422) throw $error;
+                    if (!$exhausted) throw $error;
+                    $review['unverified_claims'][] = compact('collection', 'index', 'claim') + ['reason' => $error->getMessage()];
+                    $review['warnings'][] = '审校引用无效，未写入连续性记录，待复核：' . $error->getMessage();
+                    unset($review[$collection][$index]);
+                }
+            }
+            $review[$collection] = array_values($review[$collection]);
+        }
+        return $review;
+    }
+
+    /** Repair only references, never delegate ownership of facts to a correction. */
+    private static function applyEvidencePatches(array $original, array $response, array $plan, array $mutableEvidence = []): array
+    {
+        if (array_keys($response) !== ['evidence_patches'] || !is_array($response['evidence_patches'])
+            || !array_is_list($response['evidence_patches'])) throw new RuntimeException('审校证据补丁格式无效', 422);
+        $seen = [];
+        $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
+        // One fact may span several shots. Coalesce repeated index entries
+        // into explicit evidence, but never choose between conflicting states.
+        $patches = [];
+        foreach ($response['evidence_patches'] as $patch) {
+            if (!is_array($patch) || !is_string($patch['collection'] ?? null) || !is_int($patch['index'] ?? null)) throw new RuntimeException('审校证据补丁必须为有效对象', 422);
+            if (array_key_exists('evidence_refs', $patch)) {
+                if (isset($patch['quote']) || isset($patch['evidence']) || !is_array($patch['evidence_refs'])
+                    || !array_is_list($patch['evidence_refs']) || !$patch['evidence_refs'] || count($patch['evidence_refs']) > 20) {
+                    throw new RuntimeException('审校证据引用格式无效', 422);
+                }
+                $patch['evidence'] = [];
+                foreach ($patch['evidence_refs'] as $ref) {
+                    if (!is_array($ref) || array_diff(array_keys($ref), ['shot_id', 'field'])
+                        || !is_string($ref['shot_id'] ?? null) || !in_array($ref['field'] ?? null, ['visual_description', 'dialogue'], true)
+                        || !isset($shots[$ref['shot_id']]) || !is_string($shots[$ref['shot_id']][$ref['field']] ?? null)
+                        || trim($shots[$ref['shot_id']][$ref['field']]) === '') {
+                        throw new RuntimeException('审校证据引用不存在或为空', 422);
+                    }
+                    $patch['evidence'][] = ['shot_id' => $ref['shot_id'], 'quote' => $shots[$ref['shot_id']][$ref['field']]];
+                }
+                unset($patch['evidence_refs']);
+            }
+            // Models sometimes echo a reworded state. The correction does not
+            // own it; retain the original assertion and verify its meaning.
+            if ($patch['collection'] === 'changes') unset($patch['after']);
+            // A correction may echo immutable metadata. Accept only exact
+            // echoes; never apply a new identity, hook meaning or status.
+            $base = $original[$patch['collection']][$patch['index']] ?? [];
+            foreach (['entity_id', 'field', 'id', 'description', 'status'] as $protected) {
+                if (!array_key_exists($protected, $patch)) continue;
+                if (!array_key_exists($protected, $base) || $patch[$protected] !== $base[$protected]) {
+                    throw new RuntimeException('审校纠错不得改写事实标识或伏笔含义', 422);
+                }
+                unset($patch[$protected]);
+            }
+            $key = $patch['collection'] . ':' . $patch['index'];
+            if (!isset($patches[$key])) { $patches[$key] = $patch; continue; }
+            $previous = $patches[$key];
+            if (array_key_exists('before', $previous) && array_key_exists('before', $patch) && $previous['before'] !== $patch['before']) throw new RuntimeException('同一事实的旧状态补丁冲突', 422);
+            if (array_diff(array_keys($patch), ['collection', 'index', 'shot_id', 'quote', 'before'])) throw new RuntimeException('审校证据补丁字段越界', 422);
+            $evidence = $previous['evidence'] ?? [['shot_id' => $previous['shot_id'] ?? '', 'quote' => $previous['quote'] ?? '']];
+            $evidence[] = ['shot_id' => $patch['shot_id'] ?? '', 'quote' => $patch['quote'] ?? ''];
+            $patches[$key]['evidence'] = $evidence;
+            if (array_key_exists('before', $patch)) $patches[$key]['before'] = $patch['before'];
+        }
+        $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
+        foreach ($patches as $patch) {
+            if (!is_array($patch)) throw new RuntimeException('审校证据补丁必须为对象', 422);
+            $group = $patch['collection'] ?? ''; $index = $patch['index'] ?? null;
+            if (!in_array($group, ['changes', 'hooks'], true) || !is_int($index) || $index < 0
+                || !isset($original[$group][$index]) || !is_array($original[$group][$index])) {
+                throw new RuntimeException('审校证据补丁引用不存在的记录', 422);
+            }
+            $allowed = ['collection', 'index', 'shot_id', 'quote', 'evidence'];
+            if ($group === 'changes') $allowed[] = 'before';
+            if (array_diff(array_keys($patch), $allowed) || isset($seen[$group . ':' . $index])) {
+                throw new RuntimeException('审校证据补丁字段越界或索引重复', 422);
+            }
+            $seen[$group . ':' . $index] = true;
+            $verified = true;
+            try { self::evidence($original[$group][$index], $shots); }
+            catch (RuntimeException $error) { $verified = false; }
+            if (isset($mutableEvidence[$group . ':' . $index])) $verified = false;
+            if (!$verified && !isset($patch['evidence']) && isset($patch['shot_id'], $patch['quote'])) unset($original[$group][$index]['evidence']);
+            foreach (['shot_id', 'quote', 'before', 'evidence'] as $key) {
+                if ($verified && $key !== 'before') continue;
+                if (array_key_exists($key, $patch)) $original[$group][$index][$key] = $patch[$key];
+            }
+        }
+        return $original;
+    }
+
+    /** Diagnose every state reference before paying for a correction, not only
+     * the first error encountered after evidence validation. Never persist or
+     * silently substitute these expected values. */
+    private static function stateIssues(array $review, array $context): array
+    {
+        $state = (array)($context['continuity']['state'] ?? []); $issues = [];
+        foreach ((array)($review['changes'] ?? []) as $index => $item) {
+            if (!is_array($item) || !is_string($item['entity_id'] ?? null) || !is_string($item['field'] ?? null)) continue;
+            $key = $item['entity_id'] . ':' . $item['field'];
+            $expected = $state[$key] ?? null;
+            $actual = $item['before'] ?? null;
+            if ($expected !== $actual && !( !array_key_exists($key, $state) && $actual === 'null')) {
+                $issues[] = ['collection' => 'changes', 'index' => $index, 'key' => $key,
+                    'before' => $actual, 'expected_before' => $expected,
+                    'reason' => array_key_exists($key, $state) ? '必须逐字引用已登记值或本集前一条after' : '此字段尚未登记，必须为JSON null'];
+            }
+            if (is_string($item['after'] ?? null)) $state[$key] = $item['after'];
+        }
+        return $issues;
+    }
+
+    /** All evidence failures in one correction, not one paid call per bad quote. */
+    public static function evidenceIssues(array $review, array $plan): array
+    {
+        $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
+        $issues = [];
+        foreach (['changes', 'hooks'] as $group) {
+            foreach (is_array($review[$group] ?? null) ? $review[$group] : [] as $index => $item) {
+                try { self::evidence($item, $shots); }
+                catch (RuntimeException $error) {
+                    $id = is_array($item) && is_scalar($item['shot_id'] ?? null) ? (string)$item['shot_id'] : '';
+                    $shot = $shots[$id] ?? [];
+                    $issues[] = ['path' => $group . '.' . $index, 'shot_id' => $id,
+                        'reason' => $error->getMessage(), 'shot_exists' => (bool)$shot,
+                        'visual_description' => (string)($shot['visual_description'] ?? ''),
+                        'dialogue' => (string)($shot['dialogue'] ?? '')];
+                }
+            }
+        }
+        return $issues;
+    }
+
+    private static function preserveRepairFacts(array $original, array $repaired, array $plan): array
+    {
+        $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
+        foreach (['changes' => ['entity_id', 'field', 'after'], 'hooks' => ['id', 'description', 'status']] as $group => $keys) {
+            if (!is_array($original[$group] ?? null)) continue;
+            $rows = $repaired[$group] ?? null;
+            if (!is_array($rows) || count($original[$group]) !== count($rows)) throw new RuntimeException('审校纠错不得删除或新增事实记录', 422);
+            $repaired[$group] = array_values($rows);
+            foreach (array_values($original[$group]) as $index => $item) {
+                if (!is_array($item)) continue;
+                $next = array_values($rows)[$index];
+                if (!is_array($next)) throw new RuntimeException('审校纠错事实记录格式无效', 422);
+                foreach ($keys as $key) {
+                    if (is_string($item[$key] ?? null) && ($next[$key] ?? null) !== $item[$key]) {
+                        // Identity must still match in order. The correction
+                        // model does not own the original state assertion:
+                        // retain it instead of accepting a rewritten value.
+                        if ($group === 'changes' && $key === 'after') {
+                            $repaired[$group][$index][$key] = $item[$key];
+                            continue;
+                        }
+                        throw new RuntimeException('审校纠错不得改写事实或伏笔含义', 422);
+                    }
+                }
+                try { self::evidence($item, $shots); }
+                catch (RuntimeException $error) { continue; }
+                // The server owns verified evidence. A repair may expand a
+                // correct quote; keep the original verbatim instead of making
+                // the entire task fail. Identity/meaning checks above still
+                // reject reordered or changed facts, and ledger validates all
+                // repaired evidence and before-state values afterwards.
+                $repaired[$group][$index]['shot_id'] = $item['shot_id'];
+                $repaired[$group][$index]['quote'] = $item['quote'];
+            }
+        }
+        foreach (is_array($original['warnings'] ?? null) ? $original['warnings'] : [] as $warning) {
+            if (is_string($warning) && !in_array($warning, (array)($repaired['warnings'] ?? []), true)) {
+                throw new RuntimeException('审校纠错不得删除已有连续性疑点', 422);
+            }
+        }
+        return $repaired;
     }
 
     public static function ledger(array $review, array $plan, array $context, int $episode): array
@@ -110,25 +405,53 @@ final class ShortDramaContinuity
         $hooks = (array)($context['continuity']['open_hooks'] ?? []);
         $ids = array_merge(['world'], array_column((array)($plan['subjects'] ?? []), 'id'), array_column((array)($plan['locations'] ?? []), 'id'));
         $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
+        $changedInEpisode = [];
         foreach ($review['changes'] as $item) {
             self::evidence($item, $shots);
+            // JSON scalar spelling is lossless; PHP's generic string cast is
+            // not (false becomes empty and true becomes 1). Keep null as the
+            // absent-before sentinel and reject objects/arrays as before.
+            foreach (['before', 'after'] as $field) {
+                $value = $item[$field] ?? null;
+                if (is_bool($value) || is_int($value) || (is_float($value) && is_finite($value))) {
+                    $item[$field] = json_encode($value, JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
+                }
+            }
             if (!in_array($item['entity_id'] ?? '', $ids, true) || !is_string($item['field'] ?? null)
-                || !preg_match('/^[a-zA-Z0-9_\x{4e00}-\x{9fff}]{1,80}$/u', $item['field'])
+                || !preg_match('~^[a-zA-Z0-9_/\x{4e00}-\x{9fff}-]{1,80}$~u', $item['field'])
                 || !is_string($item['after'] ?? null) || mb_strlen($item['after']) > 1200) throw new RuntimeException('剧情状态标识或内容无效', 422);
             $key = $item['entity_id'] . ':' . $item['field'];
+            // Some providers serialize the first-registration sentinel as a
+            // string. Normalize only this exact token for an absent key;
+            // never erase an existing state or infer an unrecorded old value.
+            if (!array_key_exists($key, $state) && ($item['before'] ?? null) === 'null') {
+                $item['before'] = null;
+            }
             if (!array_key_exists($key, $state) && ($item['before'] ?? null) !== null) {
                 throw new RuntimeException('连续性审校字段' . $key . '首次登记的before必须为null，不能推断未记录的旧状态', 422);
             }
             if (($state[$key] ?? null) !== ($item['before'] ?? null)) {
+                if (isset($changedInEpisode[$key])) {
+                    throw new RuntimeException('本集内状态链' . $key . '的before必须逐字等于前一条after：'
+                        . json_encode($state[$key], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 422);
+                }
                 throw new RuntimeException('本集剧情状态与前集不一致，请检查衔接后修改；已完成内容保留', 409);
             }
             $state[$key] = $item['after'];
+            $changedInEpisode[$key] = true;
         }
         foreach ($review['hooks'] as $item) {
             self::evidence($item, $shots);
             if (!is_string($item['id'] ?? null) || trim($item['id']) === '' || mb_strlen($item['id']) > 100
                 || !is_string($item['description'] ?? null) || !in_array($item['status'] ?? '', ['open', 'resolved'], true)) throw new RuntimeException('伏笔记录格式无效', 422);
             if ($item['status'] === 'resolved') {
+                // Some models append the status to an otherwise exact hook
+                // identifier. Resolve only an existing, unique base ID; never
+                // guess from descriptions or accept an unknown hook.
+                if (!isset($hooks[$item['id']]) && str_ends_with($item['id'], '_resolved')) {
+                    $baseId = substr($item['id'], 0, -strlen('_resolved'));
+                    if (isset($hooks[$baseId])) $item['id'] = $baseId;
+                }
                 if (!isset($hooks[$item['id']])) throw new RuntimeException('回收了未记录的伏笔，请检查剧情衔接', 409);
                 unset($hooks[$item['id']]);
             } else $hooks[$item['id']] = $item['description'];
@@ -140,14 +463,32 @@ final class ShortDramaContinuity
             if (!is_string($warning) || mb_strlen($warning) > 1500) throw new RuntimeException('连续性提示格式无效', 422);
             if (trim($warning) !== '') $warnings[] = trim($warning);
         }
-        return ['version' => 1, 'episode_number' => $episode, 'summary' => $review['summary'], 'state' => $state, 'open_hooks' => $hooks,
-            'digest' => self::fingerprint($plan), 'previous_digest' => (string)($context['continuity']['previous_digest'] ?? ''), 'warnings' => $warnings];
+        // Once an audit has unsupported claims, do not forward its unverified
+        // summary to the next episode. Use existing narrative text verbatim.
+        $summary = $review['summary'];
+        if (!empty($review['unverified_claims'])) {
+            $summary = implode("\n", array_filter((array)($plan['script_lines'] ?? []), 'is_string'));
+            if (trim($summary) === '') $summary = implode("\n", array_column((array)($plan['storyboard'] ?? []), 'visual_description'));
+        }
+        return ['version' => 1, 'episode_number' => $episode, 'summary' => $summary, 'state' => $state, 'open_hooks' => $hooks,
+            'digest' => self::fingerprint($plan), 'previous_digest' => (string)($context['continuity']['previous_digest'] ?? ''), 'warnings' => $warnings,
+            'unverified_claims' => (array)($review['unverified_claims'] ?? []),
+            'unverified_hook_resolutions' => (array)($review['unverified_hook_resolutions'] ?? [])];
     }
 
     private static function evidence($item, array $shots): void
     {
+        if (is_array($item) && array_key_exists('evidence', $item)) {
+            if (!is_array($item['evidence']) || !array_is_list($item['evidence']) || !$item['evidence'] || count($item['evidence']) > 20) throw new RuntimeException('连续性事实多镜头证据格式无效', 422);
+            foreach ($item['evidence'] as $proof) {
+                if (!is_array($proof) || array_diff(array_keys($proof), ['shot_id', 'quote'])) throw new RuntimeException('连续性事实多镜头证据字段无效', 422);
+                self::evidence($proof, $shots);
+            }
+            return;
+        }
         if (!is_array($item) || !is_string($item['quote'] ?? null) || trim($item['quote']) === '') throw new RuntimeException('连续性事实缺少正文证据', 422);
-        $shot = $shots[(string)($item['shot_id'] ?? '')] ?? [];
+        if (!is_scalar($item['shot_id'] ?? null)) throw new RuntimeException('连续性事实缺少有效镜头标识', 422);
+        $shot = $shots[(string)$item['shot_id']] ?? [];
         $text = (string)($shot['visual_description'] ?? '') . "\n" . (string)($shot['dialogue'] ?? '');
         if (!$shot || mb_strpos($text, $item['quote']) === false) throw new RuntimeException('连续性事实的镜头证据不匹配', 422);
     }

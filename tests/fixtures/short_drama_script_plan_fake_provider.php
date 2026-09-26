@@ -35,6 +35,10 @@ namespace app\common\service\power {
         {
             self::$requests[] = $params;
             if (($params['action_code'] ?? '') === 'script_plan_continuity') {
+                $input = json_decode((string)($params['content'] ?? ''), true);
+                if (isset($input['response_contract']['checks'])) {
+                    return ['content' => json_encode(['checks' => []], JSON_UNESCAPED_UNICODE)];
+                }
                 return ['content' => json_encode(['summary' => '主角找到线索', 'changes' => [], 'hooks' => [], 'warnings' => []], JSON_UNESCAPED_UNICODE)];
             }
             $content = (string)($params['content'] ?? '');

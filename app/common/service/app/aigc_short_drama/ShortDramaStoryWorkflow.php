@@ -17,6 +17,7 @@ final class ShortDramaStoryWorkflow
 
     public static function workerOwned(array $request): bool
     {
+        if (($request['source'] ?? '') === 'market_file_qa_parse') return false;
         // Episode production has its own ordered worker and must not race it.
         return empty($request['episode_id']) && (self::enabled($request)
             || ((int)($request['_generation_version'] ?? 0) >= 3 && empty($request['multi_episode'])));
@@ -127,6 +128,10 @@ final class ShortDramaStoryWorkflow
         if (!empty($plan['storyboard'])) $issues[] = ['path' => 'storyboard', 'message' => '设定和大纲阶段不能包含制作分镜'];
         if ($stage === 'story') {
             if (!empty($plan['episodes'])) $issues[] = ['path' => 'episodes', 'message' => '确认故事设定后才能生成分集大纲'];
+            // Imported settings expose only what the parser actually extracted.
+            // Editorial fields are editable, but must not force invented facts
+            // or another paid rewrite just to confirm an intact source script.
+            if (($plan['parse_metadata']['imported_story'] ?? false) === true) return $issues;
             foreach (['audience' => '目标受众', 'core_hook' => '核心看点', 'logline' => '一句话故事', 'series_arc' => '全剧主线'] as $key => $label) {
                 if (!is_string($plan['series_bible'][$key] ?? null) || trim($plan['series_bible'][$key]) === '') $issues[] = ['path' => 'series_bible.' . $key, 'message' => '请补充' . $label];
             }

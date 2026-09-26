@@ -257,8 +257,13 @@ class ShortDramaEpisodeQueueTest extends TestCase
         // The configured local tenant supplies model metadata only; no stream is dispatched.
         $parent = AigcShortDramaService::createScriptPlan(1, 1, ['prompt' => '不调用模型的事务测试', 'multi_episode' => true, 'episode_count' => 2]);
         $outline = $this->outline(2);
-        Db::name('aigc_short_drama_script_task')->where('task_id', $parent['task_id'])->update(['status' => 'success', 'result_json' => json_encode($outline)]);
-        $list = Episodes::start(1, 1, $parent);
+        $parentRequest = Episodes::decode(Db::name('aigc_short_drama_script_task')->where('task_id', $parent['task_id'])->value('request_json'));
+        self::assertSame('story', $parentRequest['multi_episode_stage']);
+        // Queue contract begins after successful staged planning; this fixture
+        // supplies that paid result without dispatching a real model request.
+        $parentRequest['multi_episode_stage'] = 'episodes';
+        Db::name('aigc_short_drama_script_task')->where('task_id', $parent['task_id'])->update(['status' => 'success', 'result_json' => json_encode($outline), 'request_json' => json_encode($parentRequest)]);
+        $list = Episodes::start(1, 1, $parent + ['draft_version' => 0]);
         $row = Db::name('aigc_short_drama_episode_task')->where('id', $list['lists'][0]['id'])->find();
         $parentTask = Db::name('aigc_short_drama_script_task')->where('task_id', $parent['task_id'])->find();
         $created = AigcShortDramaService::createEpisodeProduction(1, 1, $row, Episodes::decode($parentTask['request_json']), $outline, []);
@@ -281,7 +286,13 @@ class ShortDramaEpisodeQueueTest extends TestCase
         $result['storyboard'] = [['shot_id' => '1', 'visual_description' => '调查员进入街道']];
         Db::name('aigc_short_drama_script_task')->where('task_id', $created['task_id'])->update(['status' => 'success', 'result_json' => json_encode($result)]);
         Db::name('aigc_short_drama_episode_task')->where('id', $row['id'])->update(['status' => 'success', 'completed_once' => 1]);
-        $revision = Episodes::message(1, 1, ['episode_id' => $row['id'], 'message' => '把本集开场改为雨天']);
+        try {
+            Episodes::message(1, 1, ['episode_id' => $row['id'], 'message' => '把本集开场改为雨天']);
+            self::fail('An ambiguous revision must not expand its scope');
+        } catch (\Exception $error) {
+            self::assertStringContainsString('请明确要修改的分镜或场景', $error->getMessage());
+        }
+        $revision = Episodes::message(1, 1, ['episode_id' => $row['id'], 'message' => '把第1个分镜改为雨天']);
         $revisionTask = Db::name('aigc_short_drama_script_task')->where('task_id', $revision['task_id'])->find();
         self::assertSame((int)$created['project_id'], (int)$revisionTask['project_id']);
         self::assertSame($lockedOutline, Episodes::decode($revisionTask['request_json'])['series_context']['outline']);
@@ -291,7 +302,7 @@ class ShortDramaEpisodeQueueTest extends TestCase
         self::assertSame((int)$created['project_id'], (int)$retry['project_id']);
         self::assertSame($revision['task_id'], $retry['task_id'], 'Same-context retries reuse durable receipts');
         $retryRequest = Episodes::decode(Db::name('aigc_short_drama_script_task')->where('task_id', $retry['task_id'])->value('request_json'));
-        self::assertSame('把本集开场改为雨天', $retryRequest['revision_message']);
+        self::assertSame('把第1个分镜改为雨天', $retryRequest['revision_message']);
         self::assertSame('pending', Episodes::detail(1, 1, $list['lists'][1]['id'])['status']);
     }
 }

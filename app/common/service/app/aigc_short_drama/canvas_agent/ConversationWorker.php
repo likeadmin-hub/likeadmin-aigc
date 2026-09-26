@@ -39,7 +39,8 @@ final class ConversationWorker
                     : ConversationWorkflow::instruction((array)($context['workflow']??[])).($intakeAnalysis
                         ? '只输出一个 JSON 对象，字段恰好为 reply_markdown、intake；reply_markdown 是简短核对提示。'.ConversationIntakeDraft::instruction((array)($context['workflow']['workflow_snapshot']['slot_schema']??[]))
                         : ConversationActionPlan::instruction((string)($claim['settings']['generation_mode']??'manual'),$workflowStage,$compact,ConversationWorkflow::usesStageGenerationPrompts((array)($messageContext['workflow']??[])))))
-                    .ConversationCreativePrompt::forStage((array)($messageContext['workflow']??[])),
+                    .ConversationCreativePrompt::forStage((array)($messageContext['workflow']??[]))
+                    .ConversationShotTiming::instruction((array)($messageContext['workflow']??[])),
                 'request_timeout_seconds'=>120,'automatic_retry'=>false,
             ];
             $responseFormat=($intentRouting || $intakeAnalysis) ? ['type'=>'json_object'] : ConversationActionPlan::responseFormat($workflowStage);
@@ -53,6 +54,10 @@ final class ConversationWorker
                 $request['enable_thinking']=false;
             }
             $request['result_validator']=static function (array $result) use ($tenant,$user,$context,$claim,$run,$workflowStage,$compact,$intentRouting,$activeRouting,$intakeAnalysis,$intakeSources,&$diagnosticDetail): void {
+                if (!empty($context['_input_contract_version']) && in_array($result['finish_reason']??'', ['length','max_tokens','max_output_tokens','content_filter','refusal','safety'],true)) {
+                    $diagnosticDetail='incomplete_final_response';
+                    throw new RuntimeException('UNSUPPORTED_MODEL_RESPONSE');
+                }
                 $content=(string)($result['content']??'');
                 if ($content==='') throw new RuntimeException('EMPTY_MODEL_RESPONSE');
                 ConversationSafety::assertOutput($tenant,$user,(int)$claim['canvas_id'],(int)$claim['thread_id'],$run,$content);
@@ -109,6 +114,11 @@ final class ConversationWorker
         $authorization=ConversationExecution::authorizeSubmission($tenant,$user,$run,$claim['token'],$claim['fence'],$request['request_timeout_seconds']);
         if ($authorization!=='authorized') return $authorization;
         try {
+            $stream=new ConversationReplyStream(static function (string $kind,array $payload) use ($tenant,$user,$run,$claim): void {
+                if ($kind==='reply.progress') ConversationSafety::assertStreamOutput($tenant,$user,(int)$claim['canvas_id'],(int)$claim['thread_id'],$run,$payload['text']);
+                ConversationExecution::streamProgress($tenant,$user,$run,$claim['token'],$claim['fence'],$kind,$payload);
+            },$responseFormat!==null,(bool)$intentRouting || $workflowStage==='');
+            $request['on_event']=[$stream,'receive'];
             // Database transaction ended before crossing this boundary.
             $result=$provider->generate($tenant,$user,$request);
             if (!is_string($result['content']??null) || trim($result['content'])==='' || mb_strlen($result['content'])>100000 || !is_array($result['tool_calls']??[]) || ($result['tool_calls']??[])!==[]) throw new RuntimeException('UNSUPPORTED_MODEL_RESPONSE');

@@ -29,6 +29,18 @@ final class IsolatedConversationProvider implements ConversationProviderInterfac
         if ($this->scenario==='malformed') return ['content'=>'ignored','tool_calls'=>'not json'];
         if ($this->scenario==='tool') return ['content'=>'ignored','tool_calls'=>[['name'=>'delete_canvas','arguments'=>'{broken']]];
         if ($this->scenario==='late') Db::name(Store::PREFIX.'outbox')->where('run_id',$request['run_id'])->update(['lease_until'=>time()-1]);
+        if ($this->scenario==='success') {
+            agentCheck(is_callable($request['on_event']??null),'Worker supplies an upstream progress callback');
+            ($request['on_event'])('delta',['delta'=>'隔离模拟回复']);
+            agentCheck(!Db::connect()->getPdo()->inTransaction(),'progress transaction closes before provider resumes');
+            $progress=Db::name(Store::PREFIX.'event')->where(['run_id'=>$request['run_id'],'kind'=>'reply.progress'])->find();
+            agentCheck(json_decode($progress['payload_json']??'{}',true)===['text'=>'隔离模拟回复'],'public text is durable before provider returns');
+            agentCheck(Db::name(Store::PREFIX.'message')->where(['run_id'=>$request['run_id'],'role'=>'assistant'])->count()===0,'provisional text does not create a completed assistant message');
+            $outbox=Db::name(Store::PREFIX.'outbox')->where('run_id',$request['run_id'])->find();
+            $count=Db::name(Store::PREFIX.'event')->where('run_id',$request['run_id'])->count();
+            \app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution::streamProgress($tenant,$user,$request['run_id'],'stale-token',(int)$outbox['fencing_version'],'reply.progress',['text'=>'private stale text']);
+            agentCheck(Db::name(Store::PREFIX.'event')->where('run_id',$request['run_id'])->count()===$count,'stale worker cannot append progress');
+        }
         return ['content'=>'隔离模拟回复','tool_calls'=>[]];
     }
 }
@@ -69,6 +81,9 @@ try {
                 $scenario.' stores only an allowlisted internal failure category');
         }
         if ($scenario==='success') {
+            $outbox=Db::name(Store::PREFIX.'outbox')->where('run_id',$ack['run_id'])->find();
+            \app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution::streamProgress(91001,92001,$ack['run_id'],$outbox['lease_token'],(int)$outbox['fencing_version'],'reply.progress',['text'=>'late text']);
+            agentCheck(Store::events(91001,92001,$canvas,$thread)===$events,'terminal run cannot publish late progress');
             $dto=$provider->requests[0];
             agentCheck($dto['settings']['reasoning_model']['id']==='isolated-model' && $dto['tools']===[] && $dto['automatic_retry']===false,'Worker preserves chosen model and disables tools/retries');
             agentCheck($dto['business_table']===Store::PREFIX.'run' && $dto['business_id']===$ack['run_id'],'billing adapter receives correct app-owned business identity');
