@@ -64,6 +64,28 @@ class ShortDramaContinuityTest extends TestCase
         });
         self::assertSame(2, $calls); self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
     }
+    public function testEvidenceReferencesReadActualShotTextAndStillVerifyMeaning(): void
+    {
+        $bad = $this->review(); $bad['changes'][0]['quote'] = '错引剧本'; $calls = 0; $checked = false;
+        $ledger = Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad) {
+            return ++$calls === 1 ? $bad : ['evidence_patches' => [['collection' => 'changes', 'index' => 0,
+                'evidence_refs' => [['shot_id' => 's1', 'field' => 'visual_description']]]]];
+        }, static function ($review) use (&$checked) {
+            $checked = true;
+            self::assertSame([['shot_id' => 's1', 'quote' => '甲拿走钥匙。']], $review['changes'][0]['evidence']);
+        });
+        self::assertTrue($checked);
+        self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
+    }
+    public function testEvidenceReferencesCannotReadScriptOrArbitraryFields(): void
+    {
+        $bad = $this->review(); $bad['changes'][0]['quote'] = '错误'; $calls = 0;
+        $this->expectExceptionCode(422);
+        Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad) {
+            return ++$calls === 1 ? $bad : ['evidence_patches' => [['collection' => 'changes', 'index' => 0,
+                'evidence_refs' => [['shot_id' => 's1', 'field' => 'script_lines']]]]];
+        });
+    }
     public function testEchoedAfterCannotRewriteTheOriginalFact(): void
     {
         $bad = $this->review(); $bad['changes'][0]['quote'] = '错误引用'; $calls = 0;
