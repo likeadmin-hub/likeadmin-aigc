@@ -257,8 +257,13 @@ class ShortDramaEpisodeQueueTest extends TestCase
         // The configured local tenant supplies model metadata only; no stream is dispatched.
         $parent = AigcShortDramaService::createScriptPlan(1, 1, ['prompt' => '不调用模型的事务测试', 'multi_episode' => true, 'episode_count' => 2]);
         $outline = $this->outline(2);
-        Db::name('aigc_short_drama_script_task')->where('task_id', $parent['task_id'])->update(['status' => 'success', 'result_json' => json_encode($outline)]);
-        $list = Episodes::start(1, 1, $parent);
+        $parentRequest = Episodes::decode(Db::name('aigc_short_drama_script_task')->where('task_id', $parent['task_id'])->value('request_json'));
+        self::assertSame('story', $parentRequest['multi_episode_stage']);
+        // Queue contract begins after successful staged planning; this fixture
+        // supplies that paid result without dispatching a real model request.
+        $parentRequest['multi_episode_stage'] = 'episodes';
+        Db::name('aigc_short_drama_script_task')->where('task_id', $parent['task_id'])->update(['status' => 'success', 'result_json' => json_encode($outline), 'request_json' => json_encode($parentRequest)]);
+        $list = Episodes::start(1, 1, $parent + ['draft_version' => 0]);
         $row = Db::name('aigc_short_drama_episode_task')->where('id', $list['lists'][0]['id'])->find();
         $parentTask = Db::name('aigc_short_drama_script_task')->where('task_id', $parent['task_id'])->find();
         $created = AigcShortDramaService::createEpisodeProduction(1, 1, $row, Episodes::decode($parentTask['request_json']), $outline, []);
