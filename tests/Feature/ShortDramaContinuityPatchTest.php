@@ -43,7 +43,7 @@ class ShortDramaContinuityPatchTest extends TestCase
             if ($case === 'id') $patch['shot_insertions'][0]['shot']['shot_id'] = '1';
             if ($case === 'duration') $patch['shot_insertions'][0]['shot']['recommended_duration_seconds'] = 90;
             if ($case === 'field') $patch['story_outline'] = '改写';
-            if ($case === 'quote') $patch['shot_insertions'][0]['shot']['visual_description'] = '无关画面';
+            if ($case === 'quote') $patch['shot_insertions'][0]['shot']['visual_description'] = '';
             try { Patch::apply($this->plan(), $patch, [], []); self::fail($case); }
             catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); }
         }

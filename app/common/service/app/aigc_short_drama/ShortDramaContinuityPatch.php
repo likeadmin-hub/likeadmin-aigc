@@ -13,16 +13,18 @@ final class ShortDramaContinuityPatch
                 '逐条检查changes的after或hooks的description是否由指定镜头及其实际上下文支持。只用storyboard作为已发生的可视剧情证据。',
                 '禁止用无关的真实引用证明事实，例如泼酒不能证明否认婚约，站在商铺不能证明获封郡主。复合状态的全部关键含义都须得到支持。',
                 'script_lines仅用于指出遗漏情节，不可替代镜头证据。若镜头未展示但script_lines明确记载，请在reason引用该原文，供局部补镜。',
-                '每条changes和hooks都必须返回一个检查项，index为零基索引。不要省略、重复或新增检查项。',
+                '每条changes、hooks以及source_patch.shot_insertions都必须返回一个检查项，index为零基索引，补镜的collection为insertions。不要省略、重复或新增检查项。',
+                'insertions核对新增镜头是否忠实呈现source_quote的含义；允许影视化改写，不要求逐字相同，但不得杜撰新剧情或用无关镜头替代。',
             ], 'storyboard' => $plan['storyboard'] ?? [], 'script_lines' => $plan['script_lines'] ?? [],
-                'review' => $review, 'response_contract' => ['checks' => [['collection' => 'changes或hooks', 'index' => 0, 'supported' => true, 'reason' => '证据与事实的对应关系或缺失原因']]]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
+                'review' => $review, 'source_patch' => $plan['_continuity_source_patch'] ?? [], 'response_contract' => ['checks' => [['collection' => 'changes、hooks或insertions', 'index' => 0, 'supported' => true, 'reason' => '证据与事实的对应关系或缺失原因']]]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
     }
 
-    public static function assertMeaning(array $review, array $response): void
+    public static function assertMeaning(array $review, array $response, array $sourcePatch = []): void
     {
         if (!is_array($response['checks'] ?? null) || !array_is_list($response['checks'])) throw new RuntimeException('连续性语义核对回包不完整', 422);
         $expected = [];
         foreach (['changes', 'hooks'] as $group) foreach ($review[$group] ?? [] as $index => $item) $expected[$group . ':' . $index] = true;
+        foreach ($sourcePatch['shot_insertions'] ?? [] as $index => $item) $expected['insertions:' . $index] = true;
         $failures = [];
         foreach ($response['checks'] as $item) {
             if (!is_array($item) || !is_string($item['collection'] ?? null) || !is_int($item['index'] ?? null)
@@ -44,7 +46,7 @@ final class ShortDramaContinuityPatch
                 'instructions' => [
                     '仅处理script_lines明确存在但分镜遗漏的剧情，以及本集实体ID与前集或已确认实体冲突。审校只是线索，不是事实来源。',
                     'entity_id_remaps只能重分配本集实体ID，名称、描述不变。新ID必须与本集、已确认设定、前集状态中的ID均不重复；所有本集镜头引用由服务端同步。不要把不同地点或道具强行合并。',
-                    'shot_insertions仅新增必要镜头，after_shot_id引用原镜头ID（空字符串表示开头），不改已有镜头。每项必须引用script_lines的零基source_line_index，以及该行连续原文source_quote；新镜头visual_description或dialogue必须包含这段原文，不得拼接或杜撰。',
+                    'shot_insertions仅新增必要镜头，after_shot_id引用原镜头ID（空字符串表示开头），不改已有镜头。每项必须引用script_lines的零基source_line_index，以及该行连续原文source_quote。新镜头允许忠实的影视化改写，不要求逐字复制，但不得杜撰新剧情；后续会单独核对原文与新镜头含义。',
                     '新增镜头shot_id用新的repair_前缀ID；scene_ref_id和subject_ref_ids引用重分配后的本集实体。提供完整画面、构图、运镜、动作、台词角色与时长，时长匹配实际内容，不使用默认5秒。',
                     '无法在这些边界内修复则返回空数组，不能用无关原文凑证据。最多8个新增镜头。',
                 ],
@@ -110,7 +112,7 @@ final class ShortDramaContinuityPatch
             if (array_diff(array_keys($shot), $allowed) || !is_string($id) || !preg_match('/^repair_[a-zA-Z0-9_]{1,50}$/D', $id)
                 || isset($ids[$id]) || isset($added[$id])) throw new RuntimeException('新增分镜标识或字段无效', 422);
             foreach (['visual_description', 'dialogue', 'voice_role', 'speech_type'] as $key) if (!is_string($shot[$key] ?? null)) throw new RuntimeException('新增分镜正文不完整', 422);
-            if (!str_contains($shot['visual_description'], $quote) && !str_contains($shot['dialogue'], $quote)) throw new RuntimeException('新增分镜未保留引用原文', 422);
+            if (trim($shot['visual_description']) === '') throw new RuntimeException('新增分镜画面不能为空', 422);
             if (!is_string($shot['scene_ref_id'] ?? null) || !isset($locations[$shot['scene_ref_id']]) || !is_array($shot['subject_ref_ids'] ?? null)
                 || !array_is_list($shot['subject_ref_ids']) || count(array_filter($shot['subject_ref_ids'], 'is_string')) !== count($shot['subject_ref_ids'])
                 || array_diff($shot['subject_ref_ids'], array_keys($subjects))) throw new RuntimeException('新增分镜引用无效', 422);
