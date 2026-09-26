@@ -49,6 +49,31 @@ class ShortDramaContinuityPatchTest extends TestCase
             ['collection' => 'hooks', 'index' => 0, 'supported' => false, 'reason' => '无依据']]], []);
     }
 
+    public function testUnsupportedTransitionDoesNotCreateFalseConflictInFollowingTransition(): void
+    {
+        $review = ['summary' => '本集', 'changes' => [
+            ['entity_id' => 'p1', 'field' => 'status', 'before' => 'alive', 'after' => 'injured', 'shot_id' => '1', 'quote' => '原画面'],
+            ['entity_id' => 'p1', 'field' => 'status', 'before' => 'injured', 'after' => 'recovered', 'shot_id' => '1', 'quote' => '原画面']], 'hooks' => [], 'warnings' => []];
+        $context = ['continuity' => ['state' => ['p1:status' => 'alive']]];
+        $ledger = \app\common\service\app\aigc_short_drama\ShortDramaContinuity::review($this->plan(), $context, 1,
+            static fn () => $review, static fn ($r) => Patch::verifiedReview($r, ['checks' => [
+                ['collection' => 'changes', 'index' => 0, 'supported' => false, 'reason' => '无受伤依据'],
+                ['collection' => 'changes', 'index' => 1, 'supported' => true, 'reason' => '恢复']]], $context));
+        self::assertSame($context['continuity']['state'], $ledger['state']);
+        self::assertCount(2, $ledger['unverified_claims']);
+    }
+
+    public function testSupportedCrossEpisodeConflictIsStillBlocked(): void
+    {
+        $review = ['summary' => '本集', 'changes' => [
+            ['entity_id' => 'p1', 'field' => 'status', 'before' => 'alive', 'after' => 'injured', 'shot_id' => '1', 'quote' => '原画面']], 'hooks' => [], 'warnings' => []];
+        $context = ['continuity' => ['state' => ['p1:status' => 'dead']]];
+        $this->expectExceptionCode(409);
+        \app\common\service\app\aigc_short_drama\ShortDramaContinuity::review($this->plan(), $context, 1,
+            static fn () => $review, static fn ($r) => Patch::verifiedReview($r, ['checks' => [
+                ['collection' => 'changes', 'index' => 0, 'supported' => true, 'reason' => '正文支持']]], $context));
+    }
+
     public function testUnsupportedScriptInsertionStillBlocks(): void
     {
         $this->expectExceptionCode(460);
