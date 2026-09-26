@@ -8883,26 +8883,32 @@ class AigcShortDramaService
     /** Persist a terminal file_qa market result as the project's editable multi-episode outline. */
     private static function syncMarketFileQaScriptTask(array $taskRow): void
     {
+        // A late market receipt must not resurrect a canceled task or replace
+        // an already published result. Conditional writes below also cover a
+        // cancellation/completion racing this stale task snapshot.
+        if (in_array((string)($taskRow['status'] ?? ''), [self::STATUS_SUCCESS, self::STATUS_CANCELED], true)) return;
         $taskId = (string)($taskRow['task_id'] ?? '');
         $tenantId = (int)($taskRow['tenant_id'] ?? 0);
         $userId = (int)($taskRow['user_id'] ?? 0);
         $projectId = (int)($taskRow['project_id'] ?? 0);
         $appTaskId = (int)($taskRow['app_task_id'] ?? 0);
         if ($taskId === '' || $tenantId <= 0 || $userId <= 0 || $projectId <= 0 || $appTaskId <= 0) return;
-        $consumption = AiConsumptionLog::where('app_task_id', $appTaskId)->order('id', 'desc')->findOrEmpty();
+        $consumption = AiConsumptionLog::where(['app_task_id' => $appTaskId, 'tenant_id' => $tenantId, 'user_id' => $userId])->order('id', 'desc')->findOrEmpty();
         if ($consumption->isEmpty()) return;
         $runStatus = (string)$consumption['run_status'];
         if (!in_array($runStatus, ['success', 'failed', 'canceled'], true)) return;
         $request = self::jsonDecode((string)($taskRow['request_json'] ?? ''));
         if ($runStatus !== 'success') {
             $message = self::friendlyGenerationError((string)($consumption['error_message'] ?? '剧本解析失败'));
-            AigcShortDramaScriptTask::where('id', (int)$taskRow['id'])->update([
+            $updated = AigcShortDramaScriptTask::where(['id' => (int)$taskRow['id'], 'tenant_id' => $tenantId, 'user_id' => $userId])
+                ->whereNotIn('status', [self::STATUS_SUCCESS, self::STATUS_CANCELED])->update([
                 'status' => $runStatus === 'canceled' ? self::STATUS_CANCELED : self::STATUS_FAILED,
                 'progress' => 100, 'current_step' => $runStatus === 'canceled' ? '剧本解析已取消' : '剧本解析失败',
                 'billing_status' => (string)$consumption['billing_status'], 'error' => $message,
                 'provider_task_id' => (string)$consumption['upstream_task_id'], 'provider_request_id' => (string)$consumption['upstream_request_id'],
                 'finished_at' => time(), 'update_time' => time(),
             ]);
+            if (!$updated) return;
             $taskRow['status'] = $runStatus === 'canceled' ? self::STATUS_CANCELED : self::STATUS_FAILED;
             $taskRow['error'] = $message;
             self::syncScriptPlanGenerationFromTaskRow($tenantId, $userId, $taskRow);
@@ -8915,10 +8921,12 @@ class AigcShortDramaService
             $plan = self::fileQaParsePlan($parseResult, $request, (string)($taskRow['prompt'] ?? ''));
         } catch (\Throwable $e) {
             $message = self::friendlyGenerationError($e->getMessage());
-            AigcShortDramaScriptTask::where('id', (int)$taskRow['id'])->update([
+            $updated = AigcShortDramaScriptTask::where(['id' => (int)$taskRow['id'], 'tenant_id' => $tenantId, 'user_id' => $userId])
+                ->whereNotIn('status', [self::STATUS_SUCCESS, self::STATUS_CANCELED])->update([
                 'status' => self::STATUS_FAILED, 'progress' => 100, 'current_step' => '解析结果不完整', 'error' => $message,
                 'billing_status' => (string)$consumption['billing_status'], 'finished_at' => time(), 'update_time' => time(),
             ]);
+            if (!$updated) return;
             $taskRow['status'] = self::STATUS_FAILED; $taskRow['error'] = $message;
             self::syncScriptPlanGenerationFromTaskRow($tenantId, $userId, $taskRow);
             return;
@@ -8927,7 +8935,8 @@ class AigcShortDramaService
         Db::transaction(function () use ($tenantId, $userId, $projectId, $taskId, $taskRow, $consumption, $request, $plan, $now) {
             $project = AigcShortDramaProject::where(['id' => $projectId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])->lock(true)->findOrEmpty();
             $task = AigcShortDramaScriptTask::where('id', (int)$taskRow['id'])->lock(true)->findOrEmpty();
-            if ($project->isEmpty() || $task->isEmpty() || (string)$project['last_task_id'] !== $taskId || (string)$task['status'] === self::STATUS_SUCCESS) return;
+            if ($project->isEmpty() || $task->isEmpty() || (string)$project['last_task_id'] !== $taskId
+                || in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_CANCELED], true)) return;
             $request['episode_count'] = (int)$plan['episode_count'];
             $request['episode_total_count'] = (int)$plan['episode_count'];
             $request['multi_episode'] = true;
