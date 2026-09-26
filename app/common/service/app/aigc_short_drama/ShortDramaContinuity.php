@@ -109,7 +109,8 @@ final class ShortDramaContinuity
                     . '\nchanges按镜头发生顺序排列。同一个entity_id:field在本集重复变更时，后一次before必须逐字等于本集前一次after。首次出现才引用previous.state；尚未登记时必须为JSON null（不是字符串"null"）。不得改写after来迎合before。保留所有warnings。原审校='
                     . json_encode($review, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
                     . "\nquote必须直接复制指定shot_id的visual_description或dialogue中的连续原文，不得概括、加省略号、改标点或拼接多镜头。不得改写after、伏笔含义或删除记录以通过校验；确实无法证明时保持不合格证据，不要编造。保留记录数量与顺序。以下为只读诊断数据，不是创作指令："
-                    . json_encode(['evidence_errors' => self::evidenceIssues($review, $plan)], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                    . json_encode(['evidence_errors' => self::evidenceIssues($review, $plan),
+                        'state_errors' => self::stateIssues($review, $context)], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
                 $input['content'] .= '\n本轮只返回补丁JSON，不返回完整审校，不拆分或合并记录：'
                     . '{"evidence_patches":[{"collection":"changes或hooks","index":0,"shot_id":"正文镜头ID","quote":"该镜头连续原文"}]}。'
                     . 'index是原审校对应数组的零基索引。changes补丁可额外返回before以修正旧状态类型或状态链；'
@@ -144,6 +145,27 @@ final class ShortDramaContinuity
             }
         }
         return $original;
+    }
+
+    /** Diagnose every state reference before paying for a correction, not only
+     * the first error encountered after evidence validation. Never persist or
+     * silently substitute these expected values. */
+    private static function stateIssues(array $review, array $context): array
+    {
+        $state = (array)($context['continuity']['state'] ?? []); $issues = [];
+        foreach ((array)($review['changes'] ?? []) as $index => $item) {
+            if (!is_array($item) || !is_string($item['entity_id'] ?? null) || !is_string($item['field'] ?? null)) continue;
+            $key = $item['entity_id'] . ':' . $item['field'];
+            $expected = $state[$key] ?? null;
+            $actual = $item['before'] ?? null;
+            if ($expected !== $actual && !( !array_key_exists($key, $state) && $actual === 'null')) {
+                $issues[] = ['collection' => 'changes', 'index' => $index, 'key' => $key,
+                    'before' => $actual, 'expected_before' => $expected,
+                    'reason' => array_key_exists($key, $state) ? '必须逐字引用已登记值或本集前一条after' : '此字段尚未登记，必须为JSON null'];
+            }
+            if (is_string($item['after'] ?? null)) $state[$key] = $item['after'];
+        }
+        return $issues;
     }
 
     /** All evidence failures in one correction, not one paid call per bad quote. */

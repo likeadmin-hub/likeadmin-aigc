@@ -52,6 +52,23 @@ class ShortDramaContinuityTest extends TestCase
         self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
         self::assertSame($bad['warnings'], $ledger['warnings']);
     }
+    public function testEvidenceCorrectionAlsoReceivesAllHiddenStateErrors(): void
+    {
+        $bad = $this->review(); $bad['changes'][0]['quote'] = '甲...钥匙';
+        $bad['changes'][0]['before'] = '推测';
+        $bad['changes'][] = array_replace($bad['changes'][0], ['field' => 'location', 'before' => '猜测地点']);
+        $calls = 0;
+        $ledger = Continuity::review($this->plan(), [], 1, static function ($input) use (&$calls, $bad) {
+            if (++$calls === 1) return $bad;
+            self::assertStringContainsString('state_errors', $input['content']);
+            self::assertStringContainsString('p1:item_owner', $input['content']);
+            self::assertStringContainsString('p1:location', $input['content']);
+            return ['evidence_patches' => array_map(static fn($i) => ['collection' => 'changes', 'index' => $i,
+                'before' => null, 'shot_id' => 's1', 'quote' => '甲拿走钥匙'], [0, 1])];
+        });
+        self::assertSame(2, $calls);
+        self::assertCount(2, $ledger['state']);
+    }
     public function testEvidencePatchCannotChangeFactValuesOrAddRows(): void
     {
         foreach ([['collection' => 'changes', 'index' => 0, 'after' => '改写'],
