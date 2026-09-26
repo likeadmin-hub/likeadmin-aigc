@@ -413,23 +413,8 @@ class LoginLogic extends BaseLogic
      */
     public static function getScanCode($redirectUri)
     {
-        try {
-            $config = WeChatConfigService::getOpConfig();
-            $appId = $config['app_id'];
-            $redirectUri = UrlEncode($redirectUri);
-
-            // 设置有效时间标记状态, 超时扫码不可登录
-            $state = MD5(time().rand(10000, 99999));
-            (new WebScanLoginCache())->setScanLoginState($state);
-
-            // 扫码地址
-            $url = WeChatRequestService::getScanCodeUrl($appId, $redirectUri, $state);
-            return ['url' => $url];
-
-        } catch (\Exception $e) {
-            self::$error = $e->getMessage();
-            return false;
-        }
+        self::$error = '请使用新版 PC 微信授权入口';
+        return false;
     }
 
 
@@ -442,33 +427,8 @@ class LoginLogic extends BaseLogic
      */
     public static function scanLogin($params)
     {
-        Db::startTrans();
-        try {
-            // 通过code 获取 access_token,openid,unionid等信息
-            $userAuth = WeChatRequestService::getUserAuthByCode($params['code']);
-
-            if (empty($userAuth['openid']) || empty($userAuth['access_token'])) {
-                throw new \Exception('获取用户授权信息失败');
-            }
-
-            // 获取微信用户信息
-            $response = WeChatRequestService::getUserInfoByAuth($userAuth['access_token'], $userAuth['openid']);
-
-            // 生成用户或更新用户信息
-            $userServer = new WechatUserService($response, UserTerminalEnum::PC);
-            $userInfo = $userServer->getResopnseByUserInfo()->authUserLogin()->getUserInfo();
-
-            // 更新登录信息
-            self::updateLoginInfo($userInfo['id']);
-
-            Db::commit();
-            return $userInfo;
-
-        } catch (\Exception $e) {
-            Db::rollback();
-            self::$error = $e->getMessage();
-            return false;
-        }
+        self::$error = '请使用新版 PC 微信授权入口';
+        return false;
     }
 
 

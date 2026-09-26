@@ -61,6 +61,7 @@ class UserLogic extends BaseLogic
         }
 
         $user['has_password'] = !empty($user['password']);
+        foreach ((new \app\api\service\PcWechatService())->bindingStatus((int)$userInfo['user_id']) as $key => $value) $user[$key] = $value;
         $membership = MembershipService::status((int)($userInfo['tenant_id'] ?? 0), (int)$userInfo['user_id']);
         foreach ($membership as $key => $value) {
             $user[$key] = $value;
@@ -89,10 +90,7 @@ class UserLogic extends BaseLogic
             ->findOrEmpty();
         $user['has_password'] = !empty($user['password']);
         $user['has_auth'] = self::hasWechatAuth($userId);
-        $user['has_pc_auth'] = !UserAuth::where([
-            'user_id' => $userId,
-            'terminal' => UserTerminalEnum::PC,
-        ])->findOrEmpty()->isEmpty();
+        foreach ((new \app\api\service\PcWechatService())->bindingStatus($userId) as $key => $value) $user[$key] = $value;
         $user['version'] = config('project.version');
         $user->hidden(['password']);
         return $user->toArray();
