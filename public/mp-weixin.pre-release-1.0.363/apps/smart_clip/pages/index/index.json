@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "navigationBarTitleText": "AI视频剪辑",
+  "usingComponents": {
+    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
+  }
+}

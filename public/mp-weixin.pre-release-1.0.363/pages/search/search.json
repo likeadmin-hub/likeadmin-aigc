@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "搜索",
+  "usingComponents": {
+    "u-search": "../../uni_modules/vk-uview-ui/components/u-search/u-search",
+    "news-card": "../../components/news-card/news-card",
+    "z-paging": "../../node-modules/z-paging/components/z-paging/z-paging",
+    "suggest": "./component/suggest"
+  }
+}

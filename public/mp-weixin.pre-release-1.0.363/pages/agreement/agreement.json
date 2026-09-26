@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "协议",
+  "usingComponents": {
+    "u-parse": "../../uni_modules/vk-uview-ui/components/u-parse/u-parse"
+  }
+}
