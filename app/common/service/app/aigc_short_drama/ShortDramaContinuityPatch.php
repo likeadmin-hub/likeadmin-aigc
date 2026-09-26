@@ -36,6 +36,7 @@ final class ShortDramaContinuityPatch
 
     public static function assertMeaning(array $review, array $response, array $sourcePatch = []): void
     {
+        $response = self::normalizeMeaningResponse($response);
         if (!is_array($response['checks'] ?? null) || !array_is_list($response['checks'])) throw new RuntimeException('连续性语义核对回包不完整', 422);
         $expected = [];
         foreach (['changes', 'hooks'] as $group) foreach ($review[$group] ?? [] as $index => $item) $expected[$group . ':' . $index] = true;
@@ -53,10 +54,25 @@ final class ShortDramaContinuityPatch
         if ($failures) throw new RuntimeException('连续性事实缺少匹配含义的镜头证据：' . json_encode($failures, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 460);
     }
 
+    private static function normalizeMeaningResponse(array $response): array
+    {
+        // Accept a diagnostic-label alias only. Never coerce the verdict or
+        // repair missing indices/coverage, which would change validation.
+        if (!is_array($response['checks'] ?? null)) return $response;
+        foreach ($response['checks'] as &$check) {
+            if (is_array($check) && !array_key_exists('reason', $check) && is_string($check['description'] ?? null)) {
+                $check['reason'] = $check['description'];
+            }
+        }
+        unset($check);
+        return $response;
+    }
+
     /** A model's unproven claim that a hook is resolved must not erase an
      * existing open hook. Preserve it and expose the rejected claim explicitly. */
     public static function verifiedReview(array $review, array $response, array $context, array $sourcePatch = []): array
     {
+        $response = self::normalizeMeaningResponse($response);
         $keepOpen = [];
         foreach ($response['checks'] ?? [] as $index => $check) {
             if (!is_array($check) || ($check['collection'] ?? '') !== 'hooks' || ($check['supported'] ?? null) !== false
