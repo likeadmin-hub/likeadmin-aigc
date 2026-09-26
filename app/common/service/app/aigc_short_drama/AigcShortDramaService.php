@@ -17978,7 +17978,7 @@ class AigcShortDramaService
             // reused; the correction has its own deterministic receipt key.
             $verifyMeaning = static function (array $review, array $plan) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, &$originalAudit): void {
                 $originalAudit = $review;
-                $receipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, ShortDramaContinuityPatch::meaningMessages($plan, $review) + [
+                $receipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, ShortDramaContinuityPatch::meaningMessages($plan, $review, $request['series_context']) + [
                     'model_config' => ['max_tokens' => 4096, 'enable_thinking' => false],
                     'source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
                     'action_code' => 'script_plan_continuity', 'parent_app_task_id' => (int)($llmResult['app_task_id'] ?? 0),
