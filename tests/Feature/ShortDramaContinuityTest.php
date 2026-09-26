@@ -145,6 +145,15 @@ class ShortDramaContinuityTest extends TestCase
         self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
         self::assertSame('null', $review['changes'][0]['before']);
     }
+    public function testCompoundFieldLabelsRemainLiteralJsonKeysWithoutAliasCollision(): void
+    {
+        $review = $this->review(); $review['changes'][0]['field'] = 'title/status';
+        $ledger = Continuity::ledger($review, $this->plan(), ['continuity' => ['state' => ['p1:title_status' => '原值']]], 1);
+        self::assertSame('钥匙', $ledger['state']['p1:title/status']);
+        self::assertSame('原值', $ledger['state']['p1:title_status']);
+        $review['changes'][0]['field'] = 'title:status'; $this->expectExceptionCode(422);
+        Continuity::ledger($review, $this->plan(), [], 1);
+    }
     public function testStringNullCannotOverwriteKnownState(): void
     {
         $review = $this->review(); $review['changes'][0]['before'] = 'null';
