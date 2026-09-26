@@ -55,7 +55,13 @@ final class ShortDramaStoryGeneration
                 if (!$roadmap) {
                     $roadmapInput = $assemble($request);
                     $roadmapInput['system_prompt'] .= "\n当前只做全剧节奏分配，不生成逐集大纲或分镜。返回 {\"segments\":[{\"start\":1,\"end\":5,\"goal\":\"本阶段剧情目标\",\"reveal\":\"本阶段允许揭露的信息\",\"ending\":\"阶段结尾与下一阶段交接\"}]}。阶段集号连续完整覆盖全剧，最多30个阶段，不改变已确认设定，不在非最终阶段提前结束全剧。";
-                    $roadmapInput['content'] = json_encode(['total_episodes' => $total, 'confirmed_story' => ShortDramaPlanningContext::lockedStory($base)], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                    $roadmapContext = ['total_episodes' => $total, 'confirmed_story' => ShortDramaPlanningContext::lockedStory($base)];
+                    if (ShortDramaPlanningContext::preservesRequirements($request)) {
+                        // Preserve the assembled user input, revision scope and custom
+                        // template. A story summary cannot replace explicit episode facts.
+                        $roadmapContext['planning_context'] = $roadmapInput['_stage_content'] ?? $roadmapInput['content'];
+                    }
+                    $roadmapInput['content'] = json_encode($roadmapContext, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
                     for ($attempt = 0; $attempt < 2; $attempt++) {
                         try {
                             $roadmap = (array)($call('roadmap' . ($attempt ? '_repair' : ''), $roadmapInput, 1, false)['segments'] ?? []);

@@ -17647,6 +17647,8 @@ class AigcShortDramaService
             $messages['system_prompt'] .= "\n" . ShortDramaEpisodeDuration::instruction($request);
         }
         $messages['system_prompt'] .= "\n" . ShortDramaShotPolicy::INSTRUCTION;
+        $requirements = ShortDramaPlanningContext::requirementInstruction($request);
+        if ($requirements !== '') $messages['system_prompt'] .= "\n" . $requirements;
         return $messages;
     }
 
@@ -17660,9 +17662,8 @@ class AigcShortDramaService
             $target = self::planningTargetDurationSeconds($prompt, $request);
             if ($target > 0 && $target < $durationRule['min_seconds']) throw new Exception('分镜总时长不能少于 ' . $durationRule['min_seconds'] . ' 秒，请调整目标时长');
         }
-        // Once the story setting is confirmed, it is the canonical source for
-        // outlines. Repeating the original attachment/inspiration text in
-        // every batch makes calls larger without adding an authoritative fact.
+        // New outlines retain original requirements alongside confirmed settings.
+        // Historical paid requests keep their frozen context for safe replay.
         $prompt = ShortDramaPlanningContext::stagePrompt($prompt, $request);
         $outlineContext = ShortDramaPlanningContext::isOutline($request);
         $skillInstruction = ShortDramaSkillRuntime::instruction((array)($request['_skill_snapshot'] ?? []), 'script_plan');

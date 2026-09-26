@@ -87,6 +87,22 @@ class ShortDramaPlanningContextTest extends TestCase
         self::assertSame('mixed_utf8_heuristic', $budget['estimator']);
     }
 
+    public function testNewOutlineRetainsVerbatimRequirementsWithoutChangingHistoricalRequests(): void
+    {
+        $request = $this->request();
+        $prompt = str_repeat('明确要求不能被摘要替代。', 1000) . '第11集归还钥匙，姐姐仍存活。';
+        self::assertSame('', ShortDramaPlanningContext::stagePrompt($prompt, $request));
+        self::assertSame('', ShortDramaPlanningContext::requirementInstruction($request));
+        $request = \app\common\service\app\aigc_short_drama\ShortDramaInputContract::begin($request);
+        $request['prompt'] = $prompt;
+        self::assertSame($prompt, ShortDramaPlanningContext::stagePrompt($prompt, $request));
+        self::assertSame($prompt, ShortDramaPlanningContext::templateRequest($request)['prompt']);
+        self::assertStringContainsString('后续修改在其指定范围内优先', ShortDramaPlanningContext::requirementInstruction($request));
+        self::assertStringContainsString('确认步骤本身不等于授权改写', ShortDramaPlanningContext::requirementInstruction($request));
+        $request['multi_episode_stage'] = 'story';
+        self::assertSame('', ShortDramaPlanningContext::requirementInstruction($request));
+    }
+
     public function testOutlineRepairBudgetStaysWithinTheStageContract(): void
     {
         $budget = ['output_capacity' => 11818, 'max_tokens' => 1200];

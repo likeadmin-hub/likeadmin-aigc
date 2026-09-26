@@ -98,6 +98,40 @@ class ShortDramaStoryGenerationTest extends TestCase
             'subjects' => [['id' => 's1', 'name' => '甲']], 'locations' => [['id' => 'l1', 'name' => '老宅']],
             'series_bible' => ['audience' => '成人', 'core_hook' => '谜题', 'logline' => '寻找线索', 'relationships' => ['伙伴'], 'world_rules' => ['现实'], 'series_arc' => '发现真相']];
     }
+
+    public function testRoadmapAndEveryOutlineBatchKeepExplicitRequirementsWithoutExtraCalls(): void
+    {
+        $calls = [];
+        $prompt = '姐姐没有死亡；第11集归还铜钥匙，信A与信B不得合并。';
+        $request = \app\common\service\app\aigc_short_drama\ShortDramaInputContract::begin([
+            '_generation_version' => 3, 'workflow_variant' => 'story_outline_v2',
+            'multi_episode' => true, 'multi_episode_stage' => 'episodes', 'episode_count' => 11,
+            'confirmed_story_snapshot' => $this->base(), 'revision_message' => '加强冲突但不改变道具交接',
+        ]);
+        $result = ShortDramaStoryGeneration::generate($request, ['context_window' => 100000, 'max_tokens' => 16384],
+            static fn($chunk) => ['system_prompt' => 'CUSTOM 保持自然叙事', 'content' => json_encode([
+                'prompt' => \app\common\service\app\aigc_short_drama\ShortDramaPlanningContext::stagePrompt($prompt, $chunk),
+                'revision' => $chunk['revision_message'], 'start' => $chunk['episode_batch_start'] ?? 1,
+                'count' => $chunk['episode_count'],
+            ], JSON_UNESCAPED_UNICODE)],
+            static function ($key, $messages) use (&$calls, $prompt) {
+                $calls[] = $key;
+                self::assertStringContainsString('CUSTOM', $messages['system_prompt']);
+                self::assertStringContainsString($prompt, $messages['content']);
+                self::assertStringContainsString('加强冲突但不改变道具交接', $messages['content']);
+                if ($key === 'roadmap') return ['result' => ['content' => json_encode(['segments' => [
+                    ['start' => 1, 'end' => 11, 'goal' => '调查', 'reveal' => '真相', 'ending' => '归还钥匙'],
+                ]])]];
+                preg_match('/^outline_(\d+)_(\d+)$/', $key, $range);
+                $episodes = [];
+                for ($i = 0; $i < (int)$range[2]; $i++) $episodes[] = ['episode_number' => $i + 1,
+                    'title' => '调查', 'story_outline' => '推进剧情' . ((int)$range[1] + $i), 'conflict_point' => '矛盾', 'ending_hook' => '线索'];
+                return ['result' => ['content' => json_encode(['episodes' => $episodes])]];
+            });
+        self::assertSame(['roadmap', 'outline_1_10', 'outline_11_1'], $calls);
+        self::assertSame(range(1, 11), array_column($result['result']['episodes'], 'episode_number'));
+        self::assertSame($this->base()['subjects'], $result['result']['subjects']);
+    }
     private function runOutline(int $count, callable $provider): array
     {
         return ShortDramaStoryGeneration::generate(['multi_episode_stage' => 'episodes', 'episode_count' => $count, 'confirmed_story_snapshot' => $this->base()],
