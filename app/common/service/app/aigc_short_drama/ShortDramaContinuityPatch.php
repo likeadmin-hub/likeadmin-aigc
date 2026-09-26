@@ -110,6 +110,24 @@ final class ShortDramaContinuityPatch
             $review['warnings'][] = '审校结论证据不足，未写入连续性记录，待复核：' . mb_substr($rejected['reason'], 0, 1000);
             $review['unverified_claims'][] = $rejected;
         }
+        // Semantic support cannot establish a ledger identity. A verifier may
+        // recognize an arc while the auditor invents a different hook ID.
+        // Quarantine that resolution, retaining every existing open hook;
+        // never guess an alias from prose or fail the generated script for it.
+        $knownHooks = (array)($context['continuity']['open_hooks'] ?? []);
+        foreach ($review['hooks'] as $index => $hook) {
+            $id = $hook['id'] ?? null;
+            if (!is_string($id) || trim($id) === '') continue; // Ledger validates malformed records.
+            if (($hook['status'] ?? '') === 'open') { $knownHooks[$id] = true; continue; }
+            if (($hook['status'] ?? '') !== 'resolved') continue;
+            if (!isset($knownHooks[$id]) && str_ends_with($id, '_resolved')) $id = substr($id, 0, -9);
+            if (isset($knownHooks[$id])) { unset($knownHooks[$id]); continue; }
+            $reason = '审校引用的已回收伏笔标识未登记，未执行回收，原有伏笔保持未解决状态：' . mb_substr($id, 0, 100);
+            $review['unverified_hook_resolutions'][] = ['id' => $id, 'claim' => $hook, 'reason' => $reason];
+            $review['unverified_claims'][] = ['collection' => 'hooks', 'index' => $index, 'claim' => $hook, 'reason' => $reason];
+            $review['warnings'][] = $reason;
+            unset($review['hooks'][$index]);
+        }
         $review['changes'] = array_values($review['changes'] ?? []);
         $review['hooks'] = array_values($review['hooks']);
         return $review;

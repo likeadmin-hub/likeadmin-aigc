@@ -257,4 +257,28 @@ class ShortDramaContinuityPatchTest extends TestCase
         self::assertCount(1, $ledger['warnings']); self::assertSame($review['hooks'][0], $ledger['unverified_hook_resolutions'][0]['claim']);
         self::assertSame('resolved', $review['hooks'][0]['status']);
     }
+    public function testSupportedMeaningCannotResolveAnInventedHookIdentifier(): void
+    {
+        $review = ['summary' => '模型摘要', 'changes' => [], 'hooks' => [
+            ['id' => 'bravery', 'status' => 'resolved', 'description' => '克服恐惧', 'shot_id' => '1', 'quote' => '原画面']], 'warnings' => []];
+        $context = ['continuity' => ['open_hooks' => ['fear' => '恐惧尚待克服']]];
+        $verified = Patch::verifiedReview($review, ['checks' => [['collection' => 'hooks', 'index' => 0, 'supported' => true, 'reason' => '本集有勇敢行动']]], $context);
+        $ledger = \app\common\service\app\aigc_short_drama\ShortDramaContinuity::ledger($verified, $this->plan(), $context, 8);
+        self::assertSame($context['continuity']['open_hooks'], $ledger['open_hooks']);
+        self::assertSame($review['hooks'][0], $ledger['unverified_hook_resolutions'][0]['claim']);
+        self::assertCount(1, $ledger['unverified_claims']);
+        self::assertNotSame('模型摘要', $ledger['summary']);
+    }
+    public function testVerifiedSameEpisodeHookCanOpenThenResolve(): void
+    {
+        $review = ['summary' => '本集', 'changes' => [], 'hooks' => [
+            ['id' => 'mystery', 'status' => 'open', 'description' => '出现问题', 'shot_id' => '1', 'quote' => '原画面'],
+            ['id' => 'mystery_resolved', 'status' => 'resolved', 'description' => '问题解决', 'shot_id' => '1', 'quote' => '原画面']], 'warnings' => []];
+        $verified = Patch::verifiedReview($review, ['checks' => [
+            ['collection' => 'hooks', 'index' => 1, 'supported' => true, 'reason' => '解决'],
+            ['collection' => 'hooks', 'index' => 0, 'supported' => true, 'reason' => '铺垫']]], []);
+        $ledger = \app\common\service\app\aigc_short_drama\ShortDramaContinuity::ledger($verified, $this->plan(), [], 1);
+        self::assertSame([], $ledger['open_hooks']);
+        self::assertSame([], $ledger['unverified_hook_resolutions']);
+    }
 }
