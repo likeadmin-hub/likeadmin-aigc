@@ -8,6 +8,40 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaPlanningContextTest extends TestCase
 {
+    public function testRoadmapUsesDedicatedSchemaAndKeepsOriginalFacts(): void
+    {
+        $r = \app\common\service\app\aigc_short_drama\ShortDramaInputContract::begin($this->request());
+        $r['_planning_roadmap'] = true;
+        $r['episode_count'] = 20;
+        $r['revision_message'] = '故事设定已确认，请生成分集大纲';
+        $method = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'assembleScriptPromptRequest');
+        $method->setAccessible(true);
+        $m = $method->invoke(null, 1, '第10集信B仍在，第11集才被抢走。', $r, '测试');
+        self::assertStringContainsString('"segments"', $m['system_prompt']);
+        self::assertStringNotContainsString('每集仅返回 episode_number', $m['system_prompt']);
+        self::assertStringNotContainsString('JSON 字段结构', $m['content']);
+        $data = json_decode($m['content'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(20, $data['total_episodes']);
+        self::assertSame('第10集信B仍在，第11集才被抢走。', $data['original_requirements']);
+        self::assertSame($r['revision_message'], $data['revision_message']);
+        self::assertArrayNotHasKey('planning_context', $data);
+    }
+
+    public function testInternalPlanningAndRepairDoNotResetOrStreamPublicPreview(): void
+    {
+        foreach (['roadmap', 'roadmap_repair', 'roadmap_timing', 'story_repair', 'outline_11_1_repair_v2'] as $key) {
+            self::assertFalse(\app\common\service\app\aigc_short_drama\ShortDramaStoryGeneration::visibleUnit($key));
+            $seen = [];
+            $sink = \app\common\service\app\aigc_short_drama\ShortDramaStoryGeneration::eventSink($key,
+                static function ($event) use (&$seen) { $seen[] = $event; });
+            foreach (['delta', 'stage', 'story_preview_start', 'heartbeat', 'provider_request', 'app_task'] as $event) $sink($event, []);
+            self::assertSame(['heartbeat', 'provider_request', 'app_task'], $seen);
+        }
+        foreach (['story', 'outline_1_10', 'outline_11_10'] as $key) {
+            self::assertTrue(\app\common\service\app\aigc_short_drama\ShortDramaStoryGeneration::visibleUnit($key));
+        }
+    }
+
     private function request(): array
     {
         return [

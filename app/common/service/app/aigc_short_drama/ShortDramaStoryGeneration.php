@@ -6,6 +6,20 @@ use RuntimeException;
 /** New planning stages only. Existing production generation is intentionally not handled here. */
 final class ShortDramaStoryGeneration
 {
+    public static function visibleUnit(string $key): bool
+    {
+        return $key === 'story' || (bool)preg_match('/^outline_\d+_\d+$/D', $key);
+    }
+
+    public static function eventSink(string $key, ?callable $sink): ?callable
+    {
+        if ($sink === null || self::visibleUnit($key)) return $sink;
+        return static function (string $event, array $data) use ($sink): void {
+            // Keep cancellation fences and upstream task tracking, never internal text.
+            if (in_array($event, ['heartbeat', 'provider_request', 'app_task'], true)) $sink($event, $data);
+        };
+    }
+
     public static function generate(array $request, array $model, callable $assemble, callable $provider, ?callable $progress = null): array
     {
         $stage = (string)$request['multi_episode_stage'];
@@ -53,6 +67,9 @@ final class ShortDramaStoryGeneration
             if ((int)($request['_generation_version'] ?? 0) >= 3) {
                 $roadmap = (array)($request['revision_base_result']['series_roadmap'] ?? []);
                 if (!$roadmap) {
+                    if ((int)($request['_input_contract_version'] ?? 0) >= 4) {
+                        $roadmapInput = $assemble(array_replace($request, ['_planning_roadmap' => true]));
+                    } else {
                     $roadmapInput = $assemble($request);
                     $roadmapInput['system_prompt'] .= "\n当前只做全剧节奏分配，不生成逐集大纲或分镜。返回 {\"segments\":[{\"start\":1,\"end\":5,\"goal\":\"本阶段剧情目标\",\"reveal\":\"本阶段允许揭露的信息\",\"ending\":\"阶段结尾与下一阶段交接\"}]}。阶段集号连续完整覆盖全剧，最多30个阶段，不改变已确认设定，不在非最终阶段提前结束全剧。";
                     $roadmapContext = ['total_episodes' => $total, 'confirmed_story' => ShortDramaPlanningContext::lockedStory($base)];
@@ -62,6 +79,7 @@ final class ShortDramaStoryGeneration
                         $roadmapContext['planning_context'] = $roadmapInput['_stage_content'] ?? $roadmapInput['content'];
                     }
                     $roadmapInput['content'] = json_encode($roadmapContext, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                    }
                     for ($attempt = 0; $attempt < 2; $attempt++) {
                         try {
                             $roadmap = (array)($call('roadmap' . ($attempt ? '_repair' : ''), $roadmapInput, 1, false)['segments'] ?? []);
