@@ -23,8 +23,10 @@ use app\common\validate\BaseValidate;
 class OpenSettingValidate extends BaseValidate
 {
     protected $rule = [
-        'app_id' => 'require',
-        'app_secret' => 'require',
+        'app_id' => 'max:64',
+        'app_secret' => 'max:256',
+        'callback_url' => 'max:512',
+        'pc_login_enabled' => 'in:0,1',
     ];
 
     protected $message = [

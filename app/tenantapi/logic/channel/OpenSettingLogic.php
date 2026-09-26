@@ -32,12 +32,7 @@ class OpenSettingLogic extends BaseLogic
      */
     public static function getConfig()
     {
-        $config = [
-            'app_id' => ConfigService::get('open_platform', 'app_id', ''),
-            'app_secret' => ConfigService::get('open_platform', 'app_secret', ''),
-        ];
-
-        return $config;
+        return \app\common\service\wechat\PcWechatConfigService::display();
     }
 
 
@@ -49,7 +44,6 @@ class OpenSettingLogic extends BaseLogic
      */
     public static function setConfig($params)
     {
-        ConfigService::set('open_platform', 'app_id', $params['app_id'] ?? '');
-        ConfigService::set('open_platform', 'app_secret', $params['app_secret'] ?? '');
+        \app\common\service\wechat\PcWechatConfigService::save($params);
     }
 }

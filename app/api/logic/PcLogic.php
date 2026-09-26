@@ -143,6 +143,7 @@ class PcLogic extends BaseLogic
     {
         // 登录配置
         $loginConfig = [
+            'pc_wechat' => \app\common\service\wechat\PcWechatConfigService::status(),
             // 登录方式
             'login_way' => ConfigService::get('login', 'login_way', config('project.login.login_way')),
             // 注册强制绑定手机
