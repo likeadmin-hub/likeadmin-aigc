@@ -207,4 +207,21 @@ final class PcWechatLoginTest extends TestCase
         $this->fails(fn() => $this->complete($this->start('login'), 'login'), PcWechatService::NOT_BOUND);
         self::assertSame(1, Db::name('user_auth')->count());
     }
+    public function testSplitTenantBindingUsesShardAndDoesNotTouchBaseIdentity(): void
+    {
+        foreach (['user', 'user_auth', 'user_session'] as $name) {
+            $schema = Db::query("SELECT sql FROM sqlite_master WHERE name=?", ['la_' . $name])[0]['sql'];
+            Db::execute(str_replace('CREATE TABLE la_' . $name . ' ', 'CREATE TABLE la_' . $name . '_one ', $schema));
+            Db::execute('INSERT INTO la_' . $name . '_one SELECT * FROM la_' . $name);
+        }
+        Db::name('tenant')->where('id', 1)->update(['tactics' => 1]);
+        $this->complete($this->start());
+        self::assertSame(0, Db::name('user_auth')->count());
+        self::assertSame(1, Db::name('user_auth_one')->count());
+        self::assertSame('bound', $this->service->bindingStatus(10)['pc_wechat_bind_status']);
+        $login = $this->complete($this->start('login'), 'login');
+        self::assertSame(10, (int)(new UserTokenCache())->getUserInfo($login['token'])['user_id']);
+        self::assertSame($login['token'], Db::name('user_session_one')->where('user_id', 10)->value('token'));
+    }
+
 }
