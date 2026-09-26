@@ -36,8 +36,8 @@ class UserTokenService
     public static function setToken($user, $terminal)
     {
         $time = time();
-        $userSession = UserSession::withoutGlobalScope()
-            ->where([['user_id', '=', $user->id], ['terminal', '=', $terminal]])
+        $userSession = UserSession::where([])
+            ->where([['tenant_id', '=', $user->tenant_id], ['user_id', '=', $user->id], ['terminal', '=', $terminal]])
             ->find();
 
         //获取token延长过期的时间
@@ -82,7 +82,7 @@ class UserTokenService
     public static function overtimeToken($token)
     {
         $time = time();
-        $userSession = UserSession::withoutGlobalScope()->where('token', '=', $token)->find();
+        $userSession = UserSession::where([])->where('token', '=', $token)->find();
         if (empty($userSession) || $userSession->isEmpty()) {
             return false;
         }
@@ -107,7 +107,7 @@ class UserTokenService
      */
     public static function expireToken($token)
     {
-        $userSession = UserSession::withoutGlobalScope()->where('token', '=', $token)
+        $userSession = UserSession::where([])->where('token', '=', $token)
             ->find();
         if (empty($userSession)) {
             return false;
