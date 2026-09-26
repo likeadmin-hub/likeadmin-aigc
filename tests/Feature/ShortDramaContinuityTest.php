@@ -9,6 +9,34 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaContinuityTest extends TestCase
 {
+    public function testEpisodeCostumeChangeKeepsStoryFingerprintAndVisualText(): void
+    {
+        $before = $this->plan(); $changed = $before;
+        $changed['subjects'][0]['description'] = '现代居家服';
+        $changed['locations'][0]['category'] = 'scene';
+        $visual = Continuity::preserveVisualSubjectNarrative($changed, $before);
+        self::assertSame('现代居家服', $visual['subjects'][0]['description']);
+        self::assertSame(Continuity::fingerprint($before), Continuity::fingerprint($visual));
+        $next = $visual; $next['subjects'][0]['description'] = '古代红色礼服';
+        $next = Continuity::preserveVisualSubjectNarrative($next, $visual);
+        self::assertSame(Continuity::fingerprint($before), Continuity::fingerprint($next));
+        $next['storyboard'][0]['dialogue'] = '改了剧情';
+        self::assertNotSame(Continuity::fingerprint($before), Continuity::fingerprint($next));
+    }
+    public function testVisualOverrideDoesNotHideIdentityOrLaterNarrativeChanges(): void
+    {
+        $before = $this->plan(); $changed = $before;
+        $changed['subjects'][0]['description'] = '外观换装';
+        $visual = Continuity::preserveVisualSubjectNarrative($changed, $before);
+        $visual['subjects'][0]['description'] = '真实剧情编辑';
+        self::assertNotSame(Continuity::fingerprint($before), Continuity::fingerprint($visual));
+        $changed['subjects'][0]['name'] = '换了角色';
+        $renamed = Continuity::preserveVisualSubjectNarrative($changed, $before);
+        self::assertSame([], $renamed['_subject_visual_overrides']);
+        self::assertNotSame(Continuity::fingerprint($before), Continuity::fingerprint($renamed));
+        $changed['subjects'] = [];
+        self::assertNotSame(Continuity::fingerprint($before), Continuity::fingerprint(Continuity::preserveVisualSubjectNarrative($changed, $before)));
+    }
     private function plan(): array
     {
         return ['title' => '钥匙', 'type_judgement' => '悬疑', 'core_theme' => '真相', 'story_outline' => '甲寻找钥匙',
