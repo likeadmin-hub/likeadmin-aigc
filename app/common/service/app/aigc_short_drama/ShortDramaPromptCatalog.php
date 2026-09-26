@@ -40,7 +40,7 @@ final class ShortDramaPromptCatalog
     public static function system(string $mode): string
     {
         $system = preg_replace_callback('/\{\{rule:([a-z_.]+)\}\}/', static fn(array $m): string => self::text($m[1]), self::$context['systems'][$mode] ?? self::definition()['systems'][$mode]);
-        return preg_replace_callback('/\{\{document-default:([a-z_]+)\}\}/', static fn(array $m): string => ShortDramaPromptDocuments::extra($m[1]), $system);
+        return ShortDramaShotPolicy::upgradeInstructions(preg_replace_callback('/\{\{document-default:([a-z_]+)\}\}/', static fn(array $m): string => ShortDramaPromptDocuments::extra($m[1]), $system));
     }
 
     public static function snapshot(): ?array

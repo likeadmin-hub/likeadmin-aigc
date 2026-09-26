@@ -48,4 +48,18 @@ class ShortDramaShotPolicyTest extends TestCase
         self::assertStringNotContainsString('storyboard_rule',$prompt);
         self::assertStringContainsString('完整剧情', Policy::INSTRUCTION);
     }
+    public function testFrozenDefaultQuotaAndHistoricalDiagnosticsDoNotLeakIntoPrompts(): void
+    {
+        $old='There is no fixed storyboard count by text length; never use 8 as the default. When no target duration or timeline exists, judge story complexity and follow the tenant-configured storyboard complexity rules and storyboard breaking intensity from context: light for simple talking-head/advertising/single-scene content, standard for ordinary short films, detailed for complex dream/suspense/reversal films, and cinematic detailed for complex multi-scene plots. Timeline segments without selected duration override storyboard intensity ranges and must not be expanded.';
+        $snapshot=['systems'=>['single'=>"保留人物关系\n".$old.'\n用户要求共9镜']];
+        $text=\app\common\service\app\aigc_short_drama\ShortDramaPromptCatalog::run($snapshot,
+            static fn()=>\app\common\service\app\aigc_short_drama\ShortDramaPromptCatalog::system('single'));
+        self::assertStringNotContainsString('tenant-configured storyboard complexity rules',$text);
+        self::assertStringContainsString('保留人物关系',$text);
+        self::assertStringContainsString('用户要求共9镜',$text);
+        $plan=['title'=>'故事','storyboard'=>[['shot_id'=>'1']],
+            'storyboard_breaking_diagnostics'=>['target_min_shots'=>12,'target_max_shots'=>24]];
+        self::assertSame(['title'=>'故事','storyboard'=>[['shot_id'=>'1']]],$this->call('stripPlanRuntimeFields',$plan));
+        self::assertArrayHasKey('storyboard_breaking_diagnostics',$plan);
+    }
 }
