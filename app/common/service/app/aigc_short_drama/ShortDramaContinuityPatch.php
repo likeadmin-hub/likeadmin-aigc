@@ -6,6 +6,20 @@ use RuntimeException;
 /** Additive narrative repair. Existing prose, media and shot identities are immutable. */
 final class ShortDramaContinuityPatch
 {
+    public static function mergeNormalizedShots(array $original, array $normalized, array $addedIds): array
+    {
+        $byId = array_column($normalized, null, 'shot_id');
+        if (count($original) !== count($normalized) || count($byId) !== count($normalized)) throw new RuntimeException('局部补镜归一化改变了镜头数量或标识，原结果已保留', 422);
+        foreach ($original as &$shot) {
+            $id = $shot['shot_id'];
+            if (!in_array($id, $addedIds, true)) continue;
+            if (!isset($byId[$id])) throw new RuntimeException('局部补镜归一化改变了镜头标识，原结果已保留', 422);
+            $shot = $byId[$id];
+        }
+        unset($shot);
+        return $original;
+    }
+
     public static function meaningMessages(array $plan, array $review, array $context = []): array
     {
         return ['system_prompt' => '你是证据核对员，只返回JSON。核对事实含义，不创作、不改写。原文出现不等于支持所声称的事实。',
