@@ -6,6 +6,19 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaContinuityPatchTest extends TestCase
 {
+    public function testMeaningPromptSeparatesPreviousPremisesFromCurrentEvidence(): void
+    {
+        $context = ['continuity' => ['state' => ['p1:item_owner' => '钥匙'], 'open_hooks' => ['h1' => '次日赴约']]];
+        $review = ['changes' => [], 'hooks' => [['id' => 'h1', 'description' => '次日赴约', 'status' => 'resolved']]];
+        $input = json_decode(Patch::meaningMessages($this->plan(), $review, $context)['content'], true);
+        self::assertSame($context['continuity']['state'], $input['previous_state']);
+        self::assertSame($context['continuity']['open_hooks'], $input['previous_open_hooks']);
+        self::assertSame($review, $input['review']);
+        self::assertSame($this->plan()['storyboard'], $input['storyboard']);
+        self::assertStringContainsString('不要求本集重新发生或复述该约定', implode('\n', $input['instructions']));
+        self::assertStringContainsString('一个子句得到支持不能证明整条复合after', implode('\n', $input['instructions']));
+    }
+
     public function testCorrectionMayEchoButCannotChangeHookStatus(): void
     {
         $review = ['summary' => '本集', 'changes' => [], 'hooks' => [

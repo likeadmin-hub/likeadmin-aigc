@@ -24,14 +24,16 @@ final class ShortDramaContinuityPatch
     {
         return ['system_prompt' => '你是证据核对员，只返回JSON。核对事实含义，不创作、不改写。原文出现不等于支持所声称的事实。',
             'content' => json_encode(['instructions' => [
-                '逐条检查changes的after或hooks的description是否由指定镜头及其实际上下文支持。只用storyboard作为已发生的可视剧情证据。',
+                '逐条检查changes的after或hooks的description是否由指定镜头及其实际上下文支持。storyboard证明本集新增或变化的事实；previous_state和previous_open_hooks仅作为前集已记录背景，不能证明本集新增事件。',
                 '禁止用无关的真实引用证明事实，例如泼酒不能证明否认婚约，站在商铺不能证明获封郡主。复合状态的全部关键含义都须得到支持。',
                 '区分已发生事实与伏笔：open伏笔只核对当前镜头是否提供合理铺垫，不要求预示的未来事件已经发生，也不要把合理情绪推断当作硬性错误。resolved伏笔须结合previous_open_hooks核对是否确实兑现。',
+                'resolved伏笔的description可能沿用前集的约定或问题，不要求本集重新发生或复述该约定。先按id定位previous_open_hooks的原始铺垫，再核对本集镜头是否完成其承诺或回答其问题；缺少兑现证据仍应返回supported=false，不可仅凭审校声称resolved放行。',
+                '逐项区分持有与所有权、暂借与归还、知情与身份、保护他人与自己受保护。一个子句得到支持不能证明整条复合after；未出现的关系、归属或动机不得用“隐含”补全，应返回supported=false并指出具体未获支持的子句。',
                 'script_lines仅用于指出遗漏情节，不可替代镜头证据。若镜头未展示但script_lines明确记载，请在reason引用该原文，供局部补镜。',
                 '每条changes、hooks以及source_patch.shot_insertions都必须返回一个检查项，index为零基索引，补镜的collection为insertions。不要省略、重复或新增检查项。',
                 'insertions核对新增镜头是否忠实呈现source_quote的含义；允许影视化改写，不要求逐字相同，但不得杜撰新剧情或用无关镜头替代。',
             ], 'storyboard' => $plan['storyboard'] ?? [], 'script_lines' => $plan['script_lines'] ?? [],
-                'review' => $review, 'previous_open_hooks' => $context['continuity']['open_hooks'] ?? [], 'source_patch' => $plan['_continuity_source_patch'] ?? [], 'response_contract' => ['checks' => [['collection' => 'changes、hooks或insertions', 'index' => 0, 'supported' => true, 'reason' => '证据与事实的对应关系或缺失原因']]]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
+                'review' => $review, 'previous_state' => $context['continuity']['state'] ?? [], 'previous_open_hooks' => $context['continuity']['open_hooks'] ?? [], 'source_patch' => $plan['_continuity_source_patch'] ?? [], 'response_contract' => ['checks' => [['collection' => 'changes、hooks或insertions', 'index' => 0, 'supported' => true, 'reason' => '证据与事实的对应关系或缺失原因']]]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
     }
 
     public static function assertMeaning(array $review, array $response, array $sourcePatch = []): void
