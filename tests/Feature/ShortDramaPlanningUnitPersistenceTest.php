@@ -48,4 +48,38 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
         $this->expectExceptionCode(425);
         Unit::call(2000000719, 7, $this->task, 'v3_script', [], static function () { self::fail('Backoff bypassed'); });
     }
+    public function testCachedInvalidAuditEntersOneCorrectionAndBothReceiptsReplay(): void
+    {
+        $this->assertAuditReceiptReplay(true);
+    }
+    public function testFailedCorrectionIsRetainedAndNeverResubmittedOnRepeatedRetry(): void
+    {
+        $this->assertAuditReceiptReplay(false);
+    }
+    private function assertAuditReceiptReplay(bool $canRepair): void
+    {
+        $plan = ['subjects' => [['id' => 'p1']], 'locations' => [],
+            'storyboard' => [['shot_id' => '1', 'visual_description' => '甲捡起钥匙，推开大门。', 'dialogue' => '']]];
+        $bad = ['summary' => '甲开门', 'changes' => [['entity_id' => 'p1', 'field' => 'item', 'before' => null,
+            'after' => '钥匙', 'shot_id' => '1', 'quote' => '甲捡起...钥匙']], 'hooks' => [], 'warnings' => []];
+        $fixed = $bad; if ($canRepair) $fixed['changes'][0]['quote'] = '甲捡起钥匙';
+        $firstInput = \app\common\service\app\aigc_short_drama\ShortDramaContinuity::messages($plan, []);
+        $keyFor = static fn($input) => 'v3_continuity_review_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 24);
+        Unit::call(2000000719, 7, $this->task, $keyFor($firstInput), $firstInput, static fn() => ['result' => ['content' => json_encode($bad)]]);
+        $paidCalls = 0;
+        for ($retry = 0; $retry < 3; $retry++) {
+            try {
+                $ledger = \app\common\service\app\aigc_short_drama\ShortDramaContinuity::review($plan, [], 1,
+                    function ($input) use ($keyFor, &$paidCalls, $fixed): array {
+                        $receipt = Unit::call(2000000719, 7, $this->task, $keyFor($input), $input, static function () use (&$paidCalls, $fixed) {
+                            $paidCalls++; return ['result' => ['content' => json_encode($fixed)]];
+                        });
+                        return json_decode($receipt['result']['content'], true);
+                    });
+                self::assertTrue($canRepair); self::assertSame('钥匙', $ledger['state']['p1:item']);
+            } catch (\RuntimeException $error) { self::assertFalse($canRepair); self::assertSame(422, $error->getCode()); }
+        }
+        self::assertSame(1, $paidCalls);
+        self::assertSame(2, Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => 2000000719, 'user_id' => 7, 'task_id' => $this->task, 'status' => 'received'])->count());
+    }
 }

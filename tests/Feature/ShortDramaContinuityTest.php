@@ -76,6 +76,86 @@ class ShortDramaContinuityTest extends TestCase
             self::assertSame(1, $calls);
         }
     }
+    public function testEvidenceDiagnosticsAndCorrectionAreScopedAndPreserveInput(): void
+    {
+        $plan = $this->plan();
+        $plan['storyboard'][] = ['shot_id' => 's2', 'visual_description' => '甲收起钥匙，转身离开。', 'dialogue' => '再见。'];
+        $bad = $this->review();
+        $bad['changes'][0]['quote'] = '甲拿走...钥匙';
+        $bad['hooks'] = [['id' => 'key', 'description' => '钥匙去向', 'status' => 'open', 'shot_id' => 's2', 'quote' => '门终于开了。甲收起钥匙']];
+        $bad['warnings'] = ['钥匙来源需要确认'];
+        $issues = Continuity::evidenceIssues($bad, $plan);
+        self::assertSame(['changes.0', 'hooks.0'], array_column($issues, 'path'));
+        self::assertSame('甲收起钥匙，转身离开。', $issues[1]['visual_description']);
+        $fixed = $bad; $fixed['changes'][0]['quote'] = '甲拿走钥匙'; $fixed['hooks'][0]['quote'] = '甲收起钥匙';
+        $calls = [];
+        $ledger = Continuity::review($plan, [], 1, static function ($input) use (&$calls, $bad, $fixed, $plan) {
+            $calls[] = $input;
+            if (count($calls) === 1) { self::assertSame(Continuity::messages($plan, []), $input); return $bad; }
+            self::assertStringContainsString('evidence_errors', $input['content']);
+            self::assertStringContainsString('hooks.0', $input['content']);
+            self::assertStringContainsString('不得概括、加省略号', $input['content']);
+            return $fixed;
+        });
+        self::assertCount(2, $calls);
+        self::assertSame(1, $ledger['review_repairs']);
+        self::assertSame($bad['warnings'], $ledger['warnings']);
+        self::assertSame('钥匙去向', $ledger['open_hooks']['key']);
+        self::assertSame('甲拿走钥匙。', $plan['storyboard'][0]['visual_description']);
+    }
+    public function testUnrepairableEvidenceStopsAfterTwoResponses(): void
+    {
+        $bad = $this->review(); $bad['changes'][0]['quote'] = '根本没有发生的情节'; $calls = 0;
+        try {
+            Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad) { $calls++; return $bad; });
+            self::fail('Must not accept unverifiable evidence');
+        } catch (\RuntimeException $error) {
+            self::assertSame(422, $error->getCode()); self::assertSame(2, $calls);
+            self::assertStringContainsString('已保留生成回包', $error->getMessage());
+        }
+    }
+    public function testCorrectionCannotDeleteFactsRewriteMeaningOrDropWarnings(): void
+    {
+        foreach (['delete', 'rewrite', 'warning', 'valid_evidence'] as $mutation) {
+            $bad = $this->review(); $bad['changes'][0]['before'] = '推测值'; $bad['warnings'] = ['保留疑点'];
+            $fixed = $bad; $fixed['changes'][0]['before'] = null;
+            if ($mutation === 'delete') $fixed['changes'] = [];
+            if ($mutation === 'rewrite') $fixed['changes'][0]['after'] = '别的物品';
+            if ($mutation === 'warning') $fixed['warnings'] = [];
+            if ($mutation === 'valid_evidence') $fixed['changes'][0]['quote'] = '钥匙';
+            $calls = 0;
+            try {
+                Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad, $fixed) { return ++$calls === 1 ? $bad : $fixed; });
+                self::fail($mutation . ' must not be accepted');
+            } catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); self::assertSame(2, $calls); }
+        }
+    }
+    public function testProviderTimeoutTruncationAndCancellationAreNotFormatRetries(): void
+    {
+        foreach ([0, 409, 413, 425, 429] as $code) {
+            $calls = 0;
+            try {
+                Continuity::review($this->plan(), [], 1, static function () use (&$calls, $code) { $calls++; throw new \RuntimeException('provider failure', $code); });
+                self::fail('Must propagate');
+            } catch (\RuntimeException $error) { self::assertSame($code, $error->getCode()); self::assertSame(1, $calls); }
+        }
+    }
+    public function testBadShotIdentifiersProduceDiagnosticsWithoutWarnings(): void
+    {
+        foreach (['missing', [], null] as $id) {
+            $bad = $this->review(); $bad['changes'][0]['shot_id'] = $id;
+            $issues = Continuity::evidenceIssues($bad, $this->plan());
+            self::assertCount(1, $issues); self::assertFalse($issues[0]['shot_exists']);
+        }
+    }
+    public function testAllV3EpisodeDurationsUseSameAuditRepairAndReservedBudget(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../../app/common/service/app/aigc_short_drama/AigcShortDramaService.php');
+        self::assertStringContainsString("\$result['_continuity'] = ShortDramaContinuity::review(", $source);
+        self::assertStringNotContainsString("\$result['_continuity'] = ShortDramaEpisodeDuration::active", $source);
+        $generation = file_get_contents(__DIR__ . '/../../app/common/service/app/aigc_short_drama/ShortDramaScriptGeneration.php');
+        self::assertStringContainsString("\$auditReserve = !empty(\$request['series_context']);", $generation);
+    }
     public function testOnlyNarrativeEditsInvalidateDependenciesAndPendingRepairIsNotBlocked(): void
     {
         $plan = $this->plan(); $digest = Continuity::fingerprint($plan);
