@@ -62,11 +62,11 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
         self::assertSame(0, $this->invoke('planningTargetDurationSeconds', '', []));
     }
 
-    public function testNewMultiEpisodeRequestsStartWithOutlineWhileSingleRequestsStayProductionMode(): void
+    public function testNewMultiEpisodeRequestsStartWithStoryWhileSingleRequestsStayProductionMode(): void
     {
         $multi = $this->invoke('normalizeCreateRequest', ['multi_episode' => true, 'episode_count' => 4], []);
         self::assertTrue($multi['multi_episode']);
-        self::assertSame('episodes', $multi['multi_episode_stage']);
+        self::assertSame('story', $multi['multi_episode_stage']);
 
         $single = $this->invoke('normalizeCreateRequest', [], []);
         self::assertSame('production', $single['multi_episode_stage']);
