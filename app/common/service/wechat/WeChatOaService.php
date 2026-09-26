@@ -34,6 +34,15 @@ class WeChatOaService
 
     protected $config;
 
+    public static function isConfigured(int $tenantId): bool
+    {
+        if (OpenPlatformService::hasAuthorizedOfficialAccount($tenantId)) {
+            return true;
+        }
+        $config = WeChatConfigService::getOaConfig();
+        return !empty($config['app_id']) && !empty($config['secret']);
+    }
+
 
     public function __construct()
     {
@@ -104,12 +113,15 @@ class WeChatOaService
      */
     public function getOaResByCode(string $code)
     {
+        if ($this->openPlatformMode) {
+            return OpenPlatformService::authorizedOfficialUserByCode((int)request()->tenantId, $code);
+        }
         $response = $this->app->getOAuth()
             ->scopes(['snsapi_userinfo'])
             ->userFromCode($code)
             ->getRaw();
 
-        if (!isset($response['openid']) || empty($response['openid'])) {
+        if (!is_array($response) || empty($response['openid'])) {
             throw new Exception('获取openID失败');
         }
 
@@ -127,6 +139,9 @@ class WeChatOaService
      */
     public function getCodeUrl(string $url)
     {
+        if ($this->openPlatformMode) {
+            return OpenPlatformService::authorizedOfficialCodeUrl((int)request()->tenantId, $url);
+        }
         return $this->app->getOAuth()
             ->scopes(['snsapi_userinfo'])
             ->redirect($url);
@@ -197,6 +212,9 @@ class WeChatOaService
      */
     public function getJsConfig($url, $jsApiList, $openTagList = [], $debug = false)
     {
+        if ($this->openPlatformMode) {
+            return OpenPlatformService::authorizedOfficialJsConfig((int)request()->tenantId, $url, $jsApiList, $openTagList, $debug);
+        }
         return $this->app->getUtils()->buildJsSdkConfig($url, $jsApiList, $openTagList, $debug);
     }
 

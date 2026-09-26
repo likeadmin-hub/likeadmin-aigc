@@ -180,7 +180,9 @@ class LoginLogic extends BaseLogic
     {
         Db::startTrans();
         try {
-            self::assertWechatEnabled();
+            if (!WeChatOaService::isConfigured((int)request()->tenantId)) {
+                throw new \Exception('请先设置公众号配置');
+            }
             //通过code获取微信 openid
             $response = (new WeChatOaService())->getOaResByCode($params['code']);
             $userServer = new WechatUserService($response, UserTerminalEnum::WECHAT_OA);
