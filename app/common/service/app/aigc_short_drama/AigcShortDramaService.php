@@ -18011,6 +18011,7 @@ class AigcShortDramaService
                 $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $patchReceipt['result']])));
                 $patch = ShortDramaStructuredResponse::decode((array)$patchReceipt['result']);
                 $applied = ShortDramaContinuityPatch::apply($result, $patch, $request['series_context'], ShortDramaShotDuration::rule($request));
+                $patch = $applied['patch'];
                 if (!$applied['changed']) throw $auditError;
                 $candidate = $applied['plan'];
                 if ($applied['added_ids']) {
