@@ -33,7 +33,8 @@ class OfficialAccountSettingLogic extends BaseLogic
      */
     public function getConfig()
     {
-        $domainName = $_SERVER['SERVER_NAME'];
+        // 当前租户后台的访问域名；SERVER_NAME 可能只是反向代理的默认站点名。
+        $domainName = request()->host(true);
         $qrCode = ConfigService::get('oa_setting', 'qr_code', '');
         $qrCode = empty($qrCode) ? $qrCode : FileService::getFileUrl($qrCode);
         $config = [
