@@ -314,7 +314,7 @@ final class ConversationExecution
             // Old leases and canceled/reconciled runs must not publish late
             // text, nor turn a best-effort progress frame into a paid retry.
             if (!hash_equals((string)$outbox['lease_token'],$token) || (int)$outbox['fencing_version']!==$fence
-                || $run['status']!=='running' || (int)$thread['active_run_id']!==$runId) return;
+                || (int)$outbox['lease_until']<=time() || $run['status']!=='running' || (int)$thread['active_run_id']!==$runId) return;
             self::event($run,$kind,$payload);
         });
     }
