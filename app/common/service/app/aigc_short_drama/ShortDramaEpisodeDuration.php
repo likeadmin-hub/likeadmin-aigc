@@ -131,6 +131,19 @@ final class ShortDramaEpisodeDuration
         if (empty($timeline)) {
             return;
         }
+        if (ShortDramaDialogueSplit::enabled($request)) {
+            $end = 0.0; $previousIndex = 0;
+            $max = ShortDramaShotDuration::rule($request)['max_seconds'];
+            foreach ($timeline as $segment) {
+                $end += (float)$segment['duration_seconds']; $matched = null;
+                foreach ($boundaries as $index => $boundary) if (abs($boundary - $end) <= 0.001) {$matched = $index; break;}
+                if ($matched === null || ((float)$segment['duration_seconds'] <= $max && $matched !== $previousIndex + 1)) {
+                    throw new RuntimeException('分镜未按用户时间码逐段对齐', 422);
+                }
+                $previousIndex = $matched;
+            }
+            return;
+        }
         $shotIndex = 0;
         foreach ($timeline as $segment) {
             foreach (self::timelineShotDurations((float)($segment['duration_seconds'] ?? 0), $request) as $duration) {

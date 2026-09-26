@@ -49,7 +49,7 @@ final class ShortDramaDialogueSplit
             if (ShortDramaEpisodeDuration::localRevision($request)) throw new RuntimeException('局部修改需要增加分镜，请明确重新规划该场景后继续；原文保留', 409);
             if ($needed > $rule['max_seconds'] * 8) throw new RuntimeException('单镜内容过长，请按场景缩小处理范围；原文保留', 409);
             $input = ['system_prompt' => self::instruction($rule)
-                . '只返回 {"segments":[{"dialogue":"","visual_description":"","composition":"","camera_movement":"","recommended_duration_seconds":0}]}。'
+                . '只返回 {"segments":[{"dialogue":"","visual_description":"","composition":"","camera_movement":"","action":"","result":"","sound_effect":"","recommended_duration_seconds":0}]}。'
                 . '仅拆解给定原镜头，不改其他镜头。每段 dialogue 是原 dialogue 的连续原文切片，逐段拼接必须与原文逐字相等（含标点和角色前缀），不要重复前缀。'
                 . '说话主体由原 voice_role 继承。按语义断句，不在词语中间切开。画面分配原动作，后段承接前段状态，不重复已完成动作、不新增剧情。最多8段。'
                 . ($locked ? '各段秒数合计必须精确等于原镜头秒数。' : '按内容自然估时，勿将每段都填满上限。'),
@@ -68,10 +68,12 @@ final class ShortDramaDialogueSplit
                 }
             }
             // These prompts describe the unsplit shot. The normal downstream builder regenerates them.
-            unset($shot['image_prompt'], $shot['video_prompt'], $shot['negative_prompt']);
+            unset($shot['image_prompt'], $shot['video_prompt'], $shot['negative_prompt'], $shot['time_range'], $shot['start_seconds'], $shot['end_seconds']);
+            $baseId = (string)$shot['shot_id'];
+            if (mb_strlen($baseId) > 36) $baseId = mb_substr($baseId, 0, 26) . '_' . substr(hash('sha256', $baseId), 0, 6);
             foreach ($segments as $number => $segment) {
                 $output[] = array_replace($shot, $segment, [
-                    'shot_id' => (string)$shot['shot_id'] . '_p' . ($number + 1),
+                    'shot_id' => $baseId . '_p' . ($number + 1),
                     'split_source_shot_id' => (string)$shot['shot_id'],
                 ]);
             }
@@ -88,9 +90,10 @@ final class ShortDramaDialogueSplit
         if (!is_array($parts) || !array_is_list($parts) || count($parts) < 2 || count($parts) > 8) throw new RuntimeException('拆镜须返回2至8个连续镜头', 409);
         $dialogue = ''; $total = 0;
         foreach ($parts as $index => $part) {
-            if (!is_array($part) || array_diff(array_keys($part), ['dialogue','visual_description','composition','camera_movement','recommended_duration_seconds'])
+            if (!is_array($part) || array_diff(array_keys($part), ['dialogue','visual_description','composition','camera_movement','action','result','sound_effect','recommended_duration_seconds'])
                 || !is_string($part['dialogue'] ?? null) || !is_string($part['visual_description'] ?? null) || trim($part['visual_description']) === ''
-                || !is_string($part['composition'] ?? '') || !is_string($part['camera_movement'] ?? '')
+                || !is_string($part['composition'] ?? null) || !is_string($part['camera_movement'] ?? null)
+                || !is_string($part['action'] ?? null) || !is_string($part['result'] ?? null) || !is_string($part['sound_effect'] ?? null)
                 || !ShortDramaShotDuration::contains($part['recommended_duration_seconds'] ?? null, $rule)) throw new RuntimeException('拆镜字段或时长不合法', 409);
             if (self::requiredSeconds($part['dialogue']) > (float)$part['recommended_duration_seconds']) throw new RuntimeException('拆分后的完整台词仍超过片段时长', 409);
             if ($index < count($parts) - 1 && trim($part['dialogue']) !== ''
