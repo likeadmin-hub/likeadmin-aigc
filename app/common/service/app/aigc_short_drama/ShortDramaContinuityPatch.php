@@ -115,10 +115,17 @@ final class ShortDramaContinuityPatch
         $ids = array_fill_keys(array_map('strval', array_column($plan['storyboard'], 'shot_id')), true);
         $subjects = array_column($plan['subjects'], null, 'id'); $locations = array_column($plan['locations'], null, 'id');
         $insertions = []; $added = [];
-        foreach ($patch['shot_insertions'] as $item) {
+        foreach ($patch['shot_insertions'] as &$item) {
             if (!is_array($item) || array_diff(array_keys($item), ['after_shot_id', 'source_line_index', 'source_quote', 'shot'])) throw new RuntimeException('新增分镜补丁字段越界', 422);
             $anchor = $item['after_shot_id'] ?? null; $index = $item['source_line_index'] ?? null;
             $quote = $item['source_quote'] ?? null; $shot = $item['shot'] ?? null;
+            // Correct a mistaken zero/one-based line index only when the exact
+            // supplied quotation uniquely identifies its source. Never fuzzy-match.
+            if (is_int($index) && is_string($quote) && trim($quote) !== ''
+                && (!is_string($plan['script_lines'][$index] ?? null) || !str_contains($plan['script_lines'][$index], $quote))) {
+                $matches = array_keys(array_filter((array)($plan['script_lines'] ?? []), static fn($line) => is_string($line) && str_contains($line, $quote)));
+                if (count($matches) === 1) { $index = (int)$matches[0]; $item['source_line_index'] = $index; }
+            }
             if (!is_string($anchor) || ($anchor !== '' && !isset($ids[$anchor])) || !is_int($index)
                 || !is_string($plan['script_lines'][$index] ?? null) || !is_string($quote) || trim($quote) === ''
                 || !str_contains($plan['script_lines'][$index], $quote) || !is_array($shot)) throw new RuntimeException('新增分镜缺少可验证原文或位置', 422);
@@ -134,6 +141,7 @@ final class ShortDramaContinuityPatch
             if (!ShortDramaShotDuration::contains($shot['recommended_duration_seconds'] ?? null, $rule)) throw new RuntimeException('新增分镜时长不符合规则', 422);
             $insertions[$anchor][] = $shot; $added[$id] = true;
         }
+        unset($item);
         $shots = $insertions[''] ?? [];
         foreach ($plan['storyboard'] as $shot) {
             $shots[] = $shot;
@@ -141,6 +149,6 @@ final class ShortDramaContinuityPatch
         }
         $plan['storyboard'] = $shots;
         if (array_key_exists('scenes', $plan)) $plan['scenes'] = $plan['locations'];
-        return ['plan' => $plan, 'added_ids' => array_keys($added), 'changed' => (bool)($added || $patch['entity_id_remaps'])];
+        return ['plan' => $plan, 'patch' => $patch, 'added_ids' => array_keys($added), 'changed' => (bool)($added || $patch['entity_id_remaps'])];
     }
 }

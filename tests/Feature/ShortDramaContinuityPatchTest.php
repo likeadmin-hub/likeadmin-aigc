@@ -69,6 +69,14 @@ class ShortDramaContinuityPatchTest extends TestCase
         $this->expectExceptionCode(422);
         Patch::assertMeaning(['changes' => [], 'hooks' => []], ['checks' => []], $this->patch());
     }
+    public function testExactUniqueSourceQuoteCanCorrectAnOffByOneIndex(): void
+    {
+        $patch = $this->patch(); $patch['shot_insertions'][0]['source_line_index'] = 1;
+        $result = Patch::apply($this->plan(), $patch, [], []);
+        self::assertSame(0, $result['patch']['shot_insertions'][0]['source_line_index']);
+        $plan = $this->plan(); $plan['script_lines'] = ['甲否认婚约。', '其他内容', '甲否认婚约。'];
+        $this->expectExceptionCode(422); Patch::apply($plan, $patch, [], []);
+    }
     public function testLiteralQuoteCannotBypassMeaningCheck(): void
     {
         $review = ['summary' => '甲开门', 'changes' => [['entity_id' => 'p1', 'field' => 'state', 'before' => null,
