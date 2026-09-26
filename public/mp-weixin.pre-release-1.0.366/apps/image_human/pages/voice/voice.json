@@ -1,0 +1,9 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "navigationBarTitleText": "声音素材",
+  "usingComponents": {
+    "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
+    "image-human-assets": "../../components/ImageHumanAssets"
+  }
+}

@@ -1,0 +1,1 @@
+import{g as s,o as e,c as o}from"./index-6becca2b.js";import{u as r}from"./useToolTheme.729c21e6.js";import{I as m}from"./ImageHumanRecords.faf9974a.js";import"./ImageHumanNav.1200b388.js";import"./u-icon.fac7b014.js";import"./_plugin-vue_export-helper.1b428a4d.js";const a=s({__name:"results",setup:s=>(r(!0),(s,r)=>(e(),o(m,{"record-kind":"results"})))});export{a as default};

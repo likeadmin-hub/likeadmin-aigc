@@ -1,0 +1,10 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "navigationBarTitleText": "剪辑任务",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
+    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
+  }
+}

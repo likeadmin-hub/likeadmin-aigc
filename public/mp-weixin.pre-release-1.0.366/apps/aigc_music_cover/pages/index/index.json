@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "navigationBarTitleText": "音乐翻唱",
+  "usingComponents": {
+    "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup"
+  }
+}

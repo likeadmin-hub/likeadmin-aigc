@@ -1,0 +1,9 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "navigationBarTitleText": "创建人物形象",
+  "usingComponents": {
+    "mp-privacy-popup": "../../../../../components/mp-privacy-popup/mp-privacy-popup",
+    "image-human-nav": "../../../components/ImageHumanNav"
+  }
+}

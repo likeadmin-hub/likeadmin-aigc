@@ -1,0 +1,1 @@
+import{g as s,o as e,c as o}from"./index-6becca2b.js";import{u as m}from"./useToolTheme.729c21e6.js";import{I as a}from"./ImageHumanAssets.646e4d5f.js";import"./ImageHumanNav.1200b388.js";import"./u-icon.fac7b014.js";import"./_plugin-vue_export-helper.1b428a4d.js";const t=s({__name:"voice",setup:s=>(m(!0),(s,m)=>(e(),o(a,{"asset-kind":"voice"})))});export{t as default};

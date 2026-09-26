@@ -1,0 +1,1 @@
+"use strict";const e=require("../../common/vendor.js");if(!Array){e.resolveComponent("mp-privacy-popup")()}Math;const o=e.defineComponent({__name:"webview",setup(o){const n=e.ref("");return e.onLoad(e=>{n.value=decodeURIComponent(e.url)}),(e,o)=>({a:n.value})}});wx.createPage(o);

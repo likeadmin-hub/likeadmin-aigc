@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "充值记录",
+  "usingComponents": {
+    "z-paging": "../../../node-modules/z-paging/components/z-paging/z-paging",
+    "mp-privacy-popup": "../../../components/mp-privacy-popup/mp-privacy-popup"
+  }
+}
