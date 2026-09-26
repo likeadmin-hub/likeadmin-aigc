@@ -20,7 +20,12 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-23.11';
+    public const VERSION = '2026-09-26.1';
+
+    public static function preservesInput(array $workflow): bool
+    {
+        return version_compare((string)($workflow['workflow_snapshot']['version'] ?? '0'), '2026-09-26.1', '>=');
+    }
 
     /** Older in-flight plans keep their previously frozen prompt projection. */
     public static function usesStageGenerationPrompts(array $workflow): bool
@@ -314,7 +319,7 @@ final class ConversationWorkflow
                 // the compact continuity ledger used by later Skills; it is
                 // intentionally not a copy of the full chat transcript.
                 'slot_values'=>[], 'creative_settings'=>[], 'intake_candidates'=>[], 'intake_questions'=>[], 'artifact_memory'=>[], 'plan_hash'=>'', 'image_plan'=>[], 'stage_plan'=>[], 'plan_confirmation'=>['status'=>'not_required'],
-                'creative_brief'=>mb_substr(trim($content),0,4000),
+                'creative_brief'=>trim($content),
                 'state_revision'=>1,
             ];
         } elseif (($state['stage_state']['status']??'')==='awaiting_plan_confirmation') {
@@ -375,7 +380,7 @@ final class ConversationWorkflow
         ));
         $state['stage_plan']=[];$state['image_plan']=[];$state['plan_hash']='';
         $state['plan_confirmation']=['status'=>'not_required'];
-        $request=mb_substr(trim($request),0,4000);
+        $request=self::preservesInput($state) ? trim($request) : mb_substr(trim($request),0,4000);
         $state['revision_request']=['stage'=>$target,'content'=>$request,
             'mode'=>$target==='script' && $downstreamMedia?'fork':'replace'];
         // A correction such as "change the tragic ending to comedy" must
@@ -385,7 +390,8 @@ final class ConversationWorkflow
         // The confirmed stage artifacts already carry older corrections.
         // Keeping a second, contradictory instruction here can override a
         // user's latest change (for example, changing a comedy back to drama).
-        $state['revision_constraints']=[$request];
+        $state['revision_constraints']=self::preservesInput($state)
+            ? array_values(array_unique(array_merge((array)($state['revision_constraints']??[]),[$request]))) : [$request];
         $state['state_revision']=(int)$state['state_revision']+1;
         self::assertState($state);
         return $state;
@@ -973,9 +979,16 @@ final class ConversationWorkflow
             $artifact=trim((string)($proposal['artifact']??''));
             if ($content==='' || $artifact==='') continue;
             $key=trim((string)($proposal['key']??''));
-            $memory[]=['stage'=>$stage,'artifact'=>$artifact,'key'=>$key,'reference_key'=>$key===''?'':$stage.':'.$key,'node_id'=>(string)($effects['nodes'][$index]['id']??''),'title'=>mb_substr(trim((string)($proposal['title']??'')),0,80),'content'=>mb_substr($content,0,6000)];
+            $memory[]=['stage'=>$stage,'artifact'=>$artifact,'key'=>$key,'reference_key'=>$key===''?'':$stage.':'.$key,'node_id'=>(string)($effects['nodes'][$index]['id']??''),'title'=>mb_substr(trim((string)($proposal['title']??'')),0,80),'content'=>self::preservesInput($state) ? $content : mb_substr($content,0,6000)];
         }
-        $state['artifact_memory']=array_slice($memory,-96);
+        if (self::preservesInput($state)) {
+            $latest=[];
+            foreach ($memory as $index=>$item) {
+                $key=trim((string)($item['reference_key']??''));
+                $latest[$key!==''?$key:'legacy:'.$index]=$item;
+            }
+            $state['artifact_memory']=array_values($latest);
+        } else $state['artifact_memory']=array_slice($memory,-96);
     }
     private static function publicArtifacts(array $artifacts): array {
         $items=[];

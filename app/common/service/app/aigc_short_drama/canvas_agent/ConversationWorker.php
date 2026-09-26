@@ -53,6 +53,10 @@ final class ConversationWorker
                 $request['enable_thinking']=false;
             }
             $request['result_validator']=static function (array $result) use ($tenant,$user,$context,$claim,$run,$workflowStage,$compact,$intentRouting,$activeRouting,$intakeAnalysis,$intakeSources,&$diagnosticDetail): void {
+                if (!empty($context['_input_contract_version']) && in_array($result['finish_reason']??'', ['length','max_tokens','max_output_tokens','content_filter','refusal','safety'],true)) {
+                    $diagnosticDetail='incomplete_final_response';
+                    throw new RuntimeException('UNSUPPORTED_MODEL_RESPONSE');
+                }
                 $content=(string)($result['content']??'');
                 if ($content==='') throw new RuntimeException('EMPTY_MODEL_RESPONSE');
                 ConversationSafety::assertOutput($tenant,$user,(int)$claim['canvas_id'],(int)$claim['thread_id'],$run,$content);
