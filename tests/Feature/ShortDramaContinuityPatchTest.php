@@ -53,4 +53,28 @@ class ShortDramaContinuityPatchTest extends TestCase
         $result = Patch::apply($this->plan(), ['entity_id_remaps' => [], 'shot_insertions' => []], [], []);
         self::assertFalse($result['changed']); self::assertSame($this->plan(), $result['plan']);
     }
+    public function testLiteralQuoteCannotBypassMeaningCheck(): void
+    {
+        $review = ['summary' => '甲开门', 'changes' => [['entity_id' => 'p1', 'field' => 'state', 'before' => null,
+            'after' => '开门', 'shot_id' => '1', 'quote' => '原画面']], 'hooks' => [], 'warnings' => []];
+        $calls = 0;
+        try {
+            \app\common\service\app\aigc_short_drama\ShortDramaContinuity::review($this->plan(), [], 1,
+                static function () use ($review, &$calls) { $calls++; return $review; },
+                static function ($audit) { Patch::assertMeaning($audit, ['checks' => [
+                    ['collection' => 'changes', 'index' => 0, 'supported' => false, 'reason' => '画面没有开门']]]); });
+            self::fail('A literal but unrelated quote must not pass');
+        } catch (\RuntimeException $error) {
+            self::assertSame(460, $error->getCode()); self::assertSame(1, $calls);
+        }
+    }
+    public function testMeaningChecksMustCoverEveryFactExactlyOnce(): void
+    {
+        $review = ['changes' => [['after' => '事实']], 'hooks' => []];
+        Patch::assertMeaning($review, ['checks' => [['collection' => 'changes', 'index' => 0, 'supported' => true, 'reason' => '明确支持']]]);
+        foreach ([[], [['collection' => 'changes', 'index' => 1, 'supported' => true, 'reason' => '错误索引']]] as $checks) {
+            try { Patch::assertMeaning($review, ['checks' => $checks]); self::fail('Incomplete evidence check'); }
+            catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); }
+        }
+    }
 }
