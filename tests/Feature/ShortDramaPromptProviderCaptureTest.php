@@ -15,6 +15,36 @@ class ShortDramaPromptProviderCaptureTest extends TestCase
      * @runInSeparateProcess
      * @preserveGlobalState disabled
      */
+    public function testNewScriptContractKeepsCreativeRulesButExcludesSkillsAtProviderBoundary(): void
+    {
+        require __DIR__ . '/../fixtures/short_drama_text_provider_capture.php';
+        $snapshot = Workspace::resolve(701, ['mode' => 'workspace', 'revision' => 12,
+            'overrides' => ['script.role' => '必须保留的租户创作规则']], []);
+        try {
+            Catalog::run($snapshot, static function () use ($snapshot): void {
+                $method = new ReflectionMethod(AigcShortDramaService::class, 'generateScriptPlanResult');
+                $method->setAccessible(true);
+                $method->invoke(null, 701, 23, '保留原始结局与完整对白', [
+                    '_input_contract_version' => 1, '_prompt_snapshot' => $snapshot, 'target_duration_seconds' => 60,
+                    'skill_id' => '不应出现的技能标记', 'skill_inputs' => ['prompt' => '不应出现的技能标记'],
+                    '_skill_snapshot' => ['system_prompt' => '不应出现的技能标记'],
+                ], '测试', ['model_code' => 'capture-only']);
+            });
+            self::fail('Provider was not intercepted');
+        } catch (\ShortDramaCapturedRequest $captured) {
+            $text = $captured->params['content'] . $captured->params['system_prompt'];
+            self::assertStringContainsString('必须保留的租户创作规则', $text);
+            self::assertStringContainsString('保留原始结局与完整对白', $text);
+            self::assertStringNotContainsString('不应出现的技能标记', $text);
+            self::assertTrue($captured->params['_require_final_content']);
+            self::assertTrue($captured->params['_disable_model_fallback']);
+        }
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
     public function testDocumentsReachRealTextProviderForAllStagesAndRepair(): void
     {
         require __DIR__ . '/../fixtures/short_drama_text_provider_capture.php';
