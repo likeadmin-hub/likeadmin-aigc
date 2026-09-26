@@ -64,13 +64,19 @@ final class FeatureGate
             || self::truthy($config['canvas_agent']['enabled']);
     }
 
-    /** A separate, explicit opt-in is required before a Worker can spend
-     * tenant/user credits by invoking the configured text model. */
+    /** Model execution defaults on for configured active tenants. Explicit
+     * tenant switches still disable Agent execution. */
     public static function executionEnabled(int $tenant): bool
     {
-        $agent=(array)(self::config($tenant)['canvas_agent']??[]);
-        return self::truthy($agent['enabled']??false)
-            && self::truthy($agent['execution_enabled']??false);
+        return self::executionEnabledInConfig(self::config($tenant));
+    }
+
+    private static function executionEnabledInConfig(array $config): bool
+    {
+        if ($config===[]) return false;
+        $agent=(array)($config['canvas_agent']??[]);
+        return self::truthy($agent['enabled']??true)
+            && self::truthy($agent['execution_enabled']??true);
     }
     /** Platform catalogues are fixed in source.  A tenant may only opt in to
      * an approved key, never upload a replacement workflow definition. */
