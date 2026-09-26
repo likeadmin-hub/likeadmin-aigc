@@ -53,6 +53,22 @@ class ShortDramaContinuityPatchTest extends TestCase
         $result = Patch::apply($this->plan(), ['entity_id_remaps' => [], 'shot_insertions' => []], [], []);
         self::assertFalse($result['changed']); self::assertSame($this->plan(), $result['plan']);
     }
+    public function testNormalizerReorderingCannotReplaceExistingShotOrMoveInsertion(): void
+    {
+        $shots = [['shot_id' => '1', 'visual_description' => '原镜头', 'video_url' => 'keep'],
+            ['shot_id' => 'repair_1', 'visual_description' => '新增镜头']];
+        $normalized = [['shot_id' => 'repair_1', 'visual_description' => '新增镜头', 'image_prompt' => '新增提示'],
+            ['shot_id' => '1', 'visual_description' => '不能替换原镜头']];
+        $result = Patch::mergeNormalizedShots($shots, $normalized, ['repair_1']);
+        self::assertSame($shots[0], $result[0]); self::assertSame($normalized[0], $result[1]);
+        $this->expectExceptionCode(422);
+        Patch::mergeNormalizedShots($shots, [$normalized[1], $normalized[1]], ['repair_1']);
+    }
+    public function testInsertedShotsCannotEscapeSourceMeaningVerification(): void
+    {
+        $this->expectExceptionCode(422);
+        Patch::assertMeaning(['changes' => [], 'hooks' => []], ['checks' => []], $this->patch());
+    }
     public function testLiteralQuoteCannotBypassMeaningCheck(): void
     {
         $review = ['summary' => '甲开门', 'changes' => [['entity_id' => 'p1', 'field' => 'state', 'before' => null,
