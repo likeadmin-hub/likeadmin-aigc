@@ -17986,7 +17986,7 @@ class AigcShortDramaService
                     if ($event !== 'delta') $onEvent($event, $data);
                 });
                 $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $receipt['result']])));
-                ShortDramaContinuityPatch::assertMeaning($review, ShortDramaStructuredResponse::decode((array)$receipt['result']));
+                ShortDramaContinuityPatch::assertMeaning($review, ShortDramaStructuredResponse::decode((array)$receipt['result']), (array)($plan['_continuity_source_patch'] ?? []));
             };
             try {
                 $result['_continuity'] = ShortDramaContinuity::review(
@@ -18030,7 +18030,9 @@ class AigcShortDramaService
                 $candidate = ShortDramaDialogueContract::review($dialogue['payload'], $dialogue['issues']);
                 if ((int)($candidate['review_report']['blocking_count'] ?? 0) > 0) throw new \RuntimeException('局部连续性补丁质检未通过，原结果已保留', 422);
                 self::assertStoryboardBudgetSatisfied($candidate, $request, $prompt);
+                $candidate['_continuity_source_patch'] = $patch;
                 $candidate['_continuity'] = ShortDramaContinuity::review($candidate, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit, $verifyMeaning);
+                unset($candidate['_continuity_source_patch']);
                 $candidate['_continuity_patch'] = ['version' => 1, 'base_digest' => ShortDramaContinuity::fingerprint($result), 'patch' => $patch];
                 $result = $candidate;
             }
