@@ -58,6 +58,13 @@ class ShortDramaVideoReferenceContractTest extends TestCase
                 // Exercise the exact validation that rejected online submits.
                 $this->invoke(MarketVideoRuntimeService::class, 'assertAssets', ['product' => [
                     'upstream_model_code' => 'wan3.0-video',
+                    'source_payload' => ['market_metadata' => [
+                        'supported_asset_types' => ['image', 'video', 'audio'],
+                        'max_reference_images' => 10,
+                        'max_reference_videos' => 5,
+                        'max_reference_audios' => 5,
+                        'max_reference_assets' => 20,
+                    ]],
                 ]], $quote);
             }
         }
