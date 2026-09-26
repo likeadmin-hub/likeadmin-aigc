@@ -73,10 +73,24 @@ final class ShortDramaContinuityPatch
     public static function verifiedReview(array $review, array $response, array $context, array $sourcePatch = []): array
     {
         $response = self::normalizeMeaningResponse($response);
+        // Validate complete, unique, typed coverage before interpreting any
+        // negative verdict. A malformed verifier is not a quality warning.
+        try {
+            self::assertMeaning($review, $response, $sourcePatch);
+        } catch (RuntimeException $error) {
+            if ($error->getCode() !== 460) throw $error;
+        }
         $keepOpen = [];
+        $rejectedClaims = [];
         foreach ($response['checks'] ?? [] as $index => $check) {
-            if (!is_array($check) || ($check['collection'] ?? '') !== 'hooks' || ($check['supported'] ?? null) !== false
-                || !is_int($check['index'] ?? null)) continue;
+            if ($check['supported'] !== false || !in_array($check['collection'], ['changes', 'hooks'], true)) continue;
+            $collection = $check['collection'];
+            $rejectedClaims[] = ['collection' => $collection, 'index' => $check['index'],
+                'claim' => $review[$collection][$check['index']], 'reason' => $check['reason']];
+            // This does not approve the claim: it removes the operation below.
+            // Source-backed script insertions must still pass semantic review.
+            $response['checks'][$index]['supported'] = true;
+            if ($collection !== 'hooks') continue;
             $hook = $review['hooks'][$check['index']] ?? [];
             if (($hook['status'] ?? '') !== 'resolved' || !is_string($hook['id'] ?? null)) continue;
             $id = $hook['id']; $existing = (array)($context['continuity']['open_hooks'] ?? []);
@@ -87,10 +101,14 @@ final class ShortDramaContinuityPatch
         }
         self::assertMeaning($review, $response, $sourcePatch);
         foreach ($keepOpen as $index => $rejected) {
-            unset($review['hooks'][$index]);
-            $review['warnings'][] = '伏笔“' . $rejected['id'] . '”回收证据不足，已保持未回收：' . mb_substr($rejected['reason'], 0, 1000);
             $review['unverified_hook_resolutions'][] = $rejected;
         }
+        foreach ($rejectedClaims as $rejected) {
+            unset($review[$rejected['collection']][$rejected['index']]);
+            $review['warnings'][] = '审校结论证据不足，未写入连续性记录，待复核：' . mb_substr($rejected['reason'], 0, 1000);
+            $review['unverified_claims'][] = $rejected;
+        }
+        $review['changes'] = array_values($review['changes'] ?? []);
         $review['hooks'] = array_values($review['hooks']);
         return $review;
     }

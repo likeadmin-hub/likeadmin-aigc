@@ -127,11 +127,12 @@ final class ShortDramaContinuity
                 if ($attempt) $review = isset($review['evidence_patches'])
                     ? self::applyEvidencePatches($patchBase, $review, $plan, $mutableEvidence)
                     : self::preserveRepairFacts($originalReview, $review, $plan);
-                $ledger = self::ledger($review, $plan, $context, $episode);
                 if ($verifyMeaning) {
+                    $review = self::isolateInvalidEvidence($review, $plan);
                     $verified = $verifyMeaning($review, $plan);
-                    if (is_array($verified)) $ledger = self::ledger($verified, $plan, $context, $episode);
+                    if (is_array($verified)) $review = $verified;
                 }
+                $ledger = self::ledger($review, $plan, $context, $episode);
                 return $ledger + ['review_repairs' => $attempt];
             } catch (RuntimeException $error) {
                 if (!in_array($error->getCode(), [422, 460], true)) throw $error;
@@ -167,6 +168,31 @@ final class ShortDramaContinuity
             }
         }
         throw new RuntimeException('连续性审校未完成', 422);
+    }
+
+    /** Repair only references, never delegate ownership of facts to a correction. */
+    private static function isolateInvalidEvidence(array $review, array $plan): array
+    {
+        foreach (['changes', 'hooks', 'warnings'] as $key) {
+            if (!is_array($review[$key] ?? null) || !array_is_list($review[$key])) {
+                throw new RuntimeException('连续性检查结构不完整', 422);
+            }
+        }
+        $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
+        foreach (['changes', 'hooks'] as $collection) {
+            foreach ($review[$collection] as $index => $claim) {
+                try {
+                    self::evidence($claim, $shots);
+                } catch (RuntimeException $error) {
+                    if ($error->getCode() !== 422) throw $error;
+                    $review['unverified_claims'][] = compact('collection', 'index', 'claim') + ['reason' => $error->getMessage()];
+                    $review['warnings'][] = '审校引用无效，未写入连续性记录，待复核：' . $error->getMessage();
+                    unset($review[$collection][$index]);
+                }
+            }
+            $review[$collection] = array_values($review[$collection]);
+        }
+        return $review;
     }
 
     /** Repair only references, never delegate ownership of facts to a correction. */
@@ -384,6 +410,7 @@ final class ShortDramaContinuity
         }
         return ['version' => 1, 'episode_number' => $episode, 'summary' => $review['summary'], 'state' => $state, 'open_hooks' => $hooks,
             'digest' => self::fingerprint($plan), 'previous_digest' => (string)($context['continuity']['previous_digest'] ?? ''), 'warnings' => $warnings,
+            'unverified_claims' => (array)($review['unverified_claims'] ?? []),
             'unverified_hook_resolutions' => (array)($review['unverified_hook_resolutions'] ?? [])];
     }
 
