@@ -14,7 +14,7 @@ class ShortDramaDialogueSplitTest extends TestCase
     private function shot(int $length=120): array { return ['shot_id'=>'s1','dialogue'=>$length>84 ? str_repeat('字',intdiv($length,2)).'。'.str_repeat('字',$length-intdiv($length,2)).'。' : str_repeat('字',$length),'scene_ref_id'=>'room','subject_ref_ids'=>['a'], 'voice_role'=>'甲','speech_type'=>'character','visual_description'=>'甲说完前半段，起身说完后半段','recommended_duration_seconds'=>5,'video_prompt'=>'旧完整视频提示词']; }
     private function reply(array $shot): array {
         $text=$shot['dialogue'];$half=intdiv(mb_strlen($text),2);
-        return ['segments'=>array_map(static fn($text)=>['dialogue'=>$text,'visual_description'=>'甲继续说话，承接上一动作','recommended_duration_seconds'=>Split::requiredSeconds($text)], [mb_substr($text,0,$half),mb_substr($text,$half)])];
+        return ['segments'=>array_map(static fn($text)=>['dialogue'=>$text,'visual_description'=>'甲继续说话，承接上一动作','composition'=>'中景','camera_movement'=>'固定','action'=>'说话','result'=>'继续讲述','sound_effect'=>'','recommended_duration_seconds'=>Split::requiredSeconds($text)], [mb_substr($text,0,$half),mb_substr($text,$half)])];
     }
     public function testFiveSecondSeedDoesNotTriggerSplitWithinMaximum(): void {
         $result=Split::adapt(['storyboard'=>[$this->shot(48)]],$this->request(),static function(){self::fail('No split call expected');},'test');
@@ -94,5 +94,21 @@ class ShortDramaDialogueSplitTest extends TestCase
         self::assertCount(2,$keys);self::assertSame('v3_script',$keys[0]);self::assertStringContainsString('dialogue_split',$keys[1]);
         self::assertCount(2,$result['receipts']);self::assertCount(2,$result['payload']['storyboard']);
         self::assertSame($shot['dialogue'],implode('',array_column($result['payload']['storyboard'],'dialogue')));
+    }
+
+    public function testTimelineSplitCanFollowSentenceLengthsWithoutMovingBoundaries(): void {
+        $first=str_repeat('甲',54).'。';$last=str_repeat('乙',66).'。';
+        $shot=$this->shot();$shot['dialogue']=$first.$last;$shot['recommended_duration_seconds']=22;
+        $shot['shot_id']=str_repeat('s',40);$shot['time_range']='旧范围';$shot['action']='原镜头全部动作';
+        $request=$this->request();$request['episode_duration_policy']=Timing::snapshot([],0,0,[['start_seconds'=>5,'end_seconds'=>27,'duration_seconds'=>22]]);
+        $result=Timed::generate($request,['system_prompt'=>'创作','content'=>'原文'],function($key)use($shot,$first,$last){
+            if(str_contains($key,'skeleton'))return ['title'=>'测试','story_outline'=>'讲述','script_lines'=>['原文'],'subjects'=>[['id'=>'a','name'=>'甲']],'locations'=>[['id'=>'room','name'=>'房间']],'storyboard'=>[$shot]];
+            $parts=$this->reply($shot)['segments'];
+            $parts[0]['dialogue']=$first;$parts[0]['recommended_duration_seconds']=10;
+            $parts[1]['dialogue']=$last;$parts[1]['recommended_duration_seconds']=12;
+            return ['segments'=>$parts];
+        },null);
+        self::assertSame(['00:05-00:15','00:15-00:27'],array_column($result['storyboard'],'time_range'));
+        foreach($result['storyboard'] as $part){self::assertLessThanOrEqual(40,mb_strlen($part['shot_id']));self::assertSame('说话',$part['action']);}
     }
 }

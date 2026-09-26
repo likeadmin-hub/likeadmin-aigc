@@ -29,7 +29,10 @@ final class ShortDramaTimedScriptGeneration
                     $request
                 );
                 if (!empty($skeleton['storyboard'])) {
-                    if (ShortDramaDialogueSplit::enabled($request)) $skeleton = ShortDramaDialogueSplit::adapt($skeleton, $request, $call, 'timed_complete');
+                    if (ShortDramaDialogueSplit::enabled($request)) {
+                        $skeleton = ShortDramaDialogueSplit::adapt($skeleton, $request, $call, 'timed_complete');
+                        $skeleton['storyboard'] = self::attachTimelineRanges($skeleton['storyboard'], $request);
+                    }
                     elseif (ShortDramaInputContract::current($request)) $skeleton = self::fitDialogueTiming($skeleton, $request);
                     try {
                         self::assertCompletePlan($skeleton, $request);
@@ -321,6 +324,17 @@ final class ShortDramaTimedScriptGeneration
     {
         $timeline = (array)(ShortDramaEpisodeDuration::policy($request)['timeline_segments'] ?? []);
         if (empty($timeline)) {
+            return $shots;
+        }
+        if (ShortDramaDialogueSplit::enabled($request)) {
+            ShortDramaEpisodeDuration::assertPlan(['storyboard' => $shots], $request);
+            $start = (float)$timeline[0]['start_seconds'];
+            foreach ($shots as &$shot) {
+                $end = $start + (float)$shot['recommended_duration_seconds'];
+                $shot['start_seconds'] = $start; $shot['end_seconds'] = $end;
+                $shot['time_range'] = self::timeRangeLabel($start, $end); $start = $end;
+            }
+            unset($shot);
             return $shots;
         }
         $shotIndex = 0;
