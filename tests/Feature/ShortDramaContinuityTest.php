@@ -235,14 +235,14 @@ class ShortDramaContinuityTest extends TestCase
         self::assertSame('钥匙去向', $ledger['open_hooks']['key']);
         self::assertSame('甲拿走钥匙。', $plan['storyboard'][0]['visual_description']);
     }
-    public function testUnrepairableEvidenceStopsAfterTwoResponses(): void
+    public function testLegacyFullResponseRepairAlsoHasThreeResponseLimit(): void
     {
         $bad = $this->review(); $bad['changes'][0]['quote'] = '根本没有发生的情节'; $calls = 0;
         try {
             Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad) { $calls++; return $bad; });
             self::fail('Must not accept unverifiable evidence');
         } catch (\RuntimeException $error) {
-            self::assertSame(422, $error->getCode()); self::assertSame(2, $calls);
+            self::assertSame(422, $error->getCode()); self::assertSame(3, $calls);
             self::assertStringContainsString('已保留生成回包', $error->getMessage());
         }
     }

@@ -81,7 +81,7 @@ final class ShortDramaContinuity
             ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
     }
 
-    /** Correct one malformed audit response, never rewrite or relax the script. */
+    /** At most two reference corrections, never rewrite or relax the script. */
     public static function review(array $plan, array $context, int $episode, callable $call): array
     {
         $input = self::messages($plan, $context);
@@ -98,7 +98,7 @@ final class ShortDramaContinuity
             } catch (RuntimeException $error) {
                 if ($error->getCode() !== 422) throw $error;
                 // A repaired evidence reference can reveal a later within-
-                // episode chain error. Allow one narrowly diagnosed follow-up,
+                // episode chain error or leave an invalid quote. Allow one narrowly diagnosed follow-up,
                 // never a third generic rewrite or a cross-episode override.
                 $repairableReference = str_starts_with($error->getMessage(), '本集内状态链')
                     || in_array($error->getMessage(), ['连续性事实的镜头证据不匹配', '连续性事实缺少正文证据', '连续性事实缺少有效镜头标识'], true);
