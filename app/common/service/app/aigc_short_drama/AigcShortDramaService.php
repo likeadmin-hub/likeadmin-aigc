@@ -18002,9 +18002,12 @@ class AigcShortDramaService
                 $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $reviewReceipt['result']])));
                 return ShortDramaStructuredResponse::decode((array)$reviewReceipt['result']);
             };
-            $result['_continuity'] = ShortDramaEpisodeDuration::active($request)
-                ? ShortDramaContinuity::review($result, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit)
-                : ShortDramaContinuity::ledger($audit(ShortDramaContinuity::messages($result, $request['series_context'])), $result, $request['series_context'], (int)($request['episode_number'] ?? 1));
+            // Automatic and explicit duration use the same bounded audit repair.
+            // Keep the first audit input unchanged so existing paid receipts are
+            // reused; the correction has its own deterministic receipt key.
+            $result['_continuity'] = ShortDramaContinuity::review(
+                $result, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit
+            );
             foreach ($result['_continuity']['warnings'] as $warning) $result = self::appendPlanReviewWarning($result, 'continuity.review', $warning);
         }
         if ($v3Generation !== null && empty($episodeSettings['multi_episode'])) {

@@ -22,9 +22,9 @@ final class ShortDramaScriptGeneration
         $receipts = [];
         $calls = 0;
         $reservedOutput = 0;
-        // Timed episode generation reserves room for its audit and at most one
+        // Every episode reserves room for its audit and at most one
         // audit-format correction, inside the existing overall budget.
-        $auditReserve = ShortDramaEpisodeDuration::active($request) && !empty($request['series_context']);
+        $auditReserve = !empty($request['series_context']);
         $callLimit = $auditReserve ? 46 : 48;
         $outputLimit = $auditReserve ? 183808 : 192000;
         $call = static function (string $key, array $input, int $desired = 8192) use (&$receipts, &$calls, &$reservedOutput, &$model, $provider, $callLimit, $outputLimit): array {

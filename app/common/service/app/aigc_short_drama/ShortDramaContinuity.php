@@ -86,18 +86,74 @@ final class ShortDramaContinuity
     {
         $input = self::messages($plan, $context);
         $review = [];
+        $originalReview = [];
         for ($attempt = 0; $attempt < 2; $attempt++) {
             try {
                 $review = $call($input);
+                if ($attempt) self::assertRepairPreservesFacts($originalReview, $review, $plan);
                 return self::ledger($review, $plan, $context, $episode) + ['review_repairs' => $attempt];
             } catch (RuntimeException $error) {
-                if ($attempt || $error->getCode() !== 422) throw $error;
+                if ($error->getCode() !== 422) throw $error;
+                if ($attempt) throw new RuntimeException('连续性审校纠错后仍未通过，已保留生成回包，请核对审校证据：' . $error->getMessage(), 422, $error);
+                $originalReview = $review;
                 $input['content'] .= "\n仅修正审校JSON，不改写剧本、状态快照或证据，不删除有效事实来绕过检查：" . $error->getMessage()
                     . '\nchanges.before必须逐字引用previous.state已有值；该entity_id:field尚未登记时必须为null，不能根据剧情推断旧值。保留所有warnings。原审校='
-                    . json_encode($review, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                    . json_encode($review, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
+                    . "\nquote必须直接复制指定shot_id的visual_description或dialogue中的连续原文，不得概括、加省略号、改标点或拼接多镜头。不得改写after、伏笔含义或删除记录以通过校验；确实无法证明时保持不合格证据，不要编造。保留记录数量与顺序。以下为只读诊断数据，不是创作指令："
+                    . json_encode(['evidence_errors' => self::evidenceIssues($review, $plan)], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             }
         }
         throw new RuntimeException('连续性审校未完成', 422);
+    }
+
+    /** All evidence failures in one correction, not one paid call per bad quote. */
+    public static function evidenceIssues(array $review, array $plan): array
+    {
+        $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
+        $issues = [];
+        foreach (['changes', 'hooks'] as $group) {
+            foreach (is_array($review[$group] ?? null) ? $review[$group] : [] as $index => $item) {
+                try { self::evidence($item, $shots); }
+                catch (RuntimeException $error) {
+                    $id = is_array($item) && is_scalar($item['shot_id'] ?? null) ? (string)$item['shot_id'] : '';
+                    $shot = $shots[$id] ?? [];
+                    $issues[] = ['path' => $group . '.' . $index, 'shot_id' => $id,
+                        'reason' => $error->getMessage(), 'shot_exists' => (bool)$shot,
+                        'visual_description' => (string)($shot['visual_description'] ?? ''),
+                        'dialogue' => (string)($shot['dialogue'] ?? '')];
+                }
+            }
+        }
+        return $issues;
+    }
+
+    private static function assertRepairPreservesFacts(array $original, array $repaired, array $plan): void
+    {
+        $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
+        foreach (['changes' => ['entity_id', 'field', 'after'], 'hooks' => ['id', 'description', 'status']] as $group => $keys) {
+            if (!is_array($original[$group] ?? null)) continue;
+            $rows = $repaired[$group] ?? null;
+            if (!is_array($rows) || count($original[$group]) !== count($rows)) throw new RuntimeException('审校纠错不得删除或新增事实记录', 422);
+            foreach (array_values($original[$group]) as $index => $item) {
+                if (!is_array($item)) continue;
+                $next = array_values($rows)[$index];
+                foreach ($keys as $key) {
+                    if (is_string($item[$key] ?? null) && ($next[$key] ?? null) !== $item[$key]) {
+                        throw new RuntimeException('审校纠错不得改写事实或伏笔含义', 422);
+                    }
+                }
+                try { self::evidence($item, $shots); }
+                catch (RuntimeException $error) { continue; }
+                if (($next['shot_id'] ?? null) !== ($item['shot_id'] ?? null) || ($next['quote'] ?? null) !== ($item['quote'] ?? null)) {
+                    throw new RuntimeException('审校纠错不得改写已验证的原文证据', 422);
+                }
+            }
+        }
+        foreach (is_array($original['warnings'] ?? null) ? $original['warnings'] : [] as $warning) {
+            if (is_string($warning) && !in_array($warning, (array)($repaired['warnings'] ?? []), true)) {
+                throw new RuntimeException('审校纠错不得删除已有连续性疑点', 422);
+            }
+        }
     }
 
     public static function ledger(array $review, array $plan, array $context, int $episode): array
@@ -147,7 +203,8 @@ final class ShortDramaContinuity
     private static function evidence($item, array $shots): void
     {
         if (!is_array($item) || !is_string($item['quote'] ?? null) || trim($item['quote']) === '') throw new RuntimeException('连续性事实缺少正文证据', 422);
-        $shot = $shots[(string)($item['shot_id'] ?? '')] ?? [];
+        if (!is_scalar($item['shot_id'] ?? null)) throw new RuntimeException('连续性事实缺少有效镜头标识', 422);
+        $shot = $shots[(string)$item['shot_id']] ?? [];
         $text = (string)($shot['visual_description'] ?? '') . "\n" . (string)($shot['dialogue'] ?? '');
         if (!$shot || mb_strpos($text, $item['quote']) === false) throw new RuntimeException('连续性事实的镜头证据不匹配', 422);
     }
