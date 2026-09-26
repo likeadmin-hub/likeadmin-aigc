@@ -29,7 +29,8 @@ final class ShortDramaTimedScriptGeneration
                     $request
                 );
                 if (!empty($skeleton['storyboard'])) {
-                    if (ShortDramaInputContract::current($request)) $skeleton = self::fitDialogueTiming($skeleton, $request);
+                    if (ShortDramaDialogueSplit::enabled($request)) $skeleton = ShortDramaDialogueSplit::adapt($skeleton, $request, $call, 'timed_complete');
+                    elseif (ShortDramaInputContract::current($request)) $skeleton = self::fitDialogueTiming($skeleton, $request);
                     try {
                         self::assertCompletePlan($skeleton, $request);
                     } catch (RuntimeException $error) {
@@ -109,7 +110,13 @@ final class ShortDramaTimedScriptGeneration
                         // A failed attempt must not change the next attempt's locked input.
                         $validationDurations = $partDurations;
                         $part = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . ($attempt ? '_repair' : ''), $input, 1800 + count($ids) * 750);
-                        if (ShortDramaInputContract::current($request)) {
+                        $validationIds = $ids;
+                        if (ShortDramaDialogueSplit::enabled($request)) {
+                            self::assertPart($part, $skeleton, $beat, $ids, $partDurations, false);
+                            $part = ShortDramaDialogueSplit::adapt($part, $request, $call, 'timed_' . $sceneIndex . '_' . $offset . $splitKey . '_' . $attempt);
+                            $validationIds = array_column($part['storyboard'], 'shot_id');
+                            $validationDurations = array_column($part['storyboard'], 'recommended_duration_seconds');
+                        } elseif (ShortDramaInputContract::current($request)) {
                             $originalPart = $part;
                             $part = self::fitDialogueTiming($part, $request);
                             foreach ((array)($part['storyboard'] ?? []) as $index => $shot) {
@@ -118,7 +125,7 @@ final class ShortDramaTimedScriptGeneration
                                     && ($shot['recommended_duration_seconds'] ?? null) !== $before) $validationDurations[$index] = $shot['recommended_duration_seconds'];
                             }
                         }
-                        self::assertPart($part, $skeleton, $beat, $ids, $validationDurations);
+                        self::assertPart($part, $skeleton, $beat, $validationIds, $validationDurations);
                         foreach ($part['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                         break;
                     } catch (RuntimeException $e) {
@@ -347,7 +354,7 @@ final class ShortDramaTimedScriptGeneration
         return $format($start) . '-' . $format($end);
     }
 
-    public static function assertPart(array $part, array $plan, array $beat, array $ids, array $durations): void
+    public static function assertPart(array $part, array $plan, array $beat, array $ids, array $durations, bool $checkDialogue = true): void
     {
         $shots = $part['storyboard'] ?? [];
         if (!is_array($shots) || count($shots) !== count($ids)) throw new RuntimeException('本段分镜数量不完整', 422);
@@ -362,7 +369,7 @@ final class ShortDramaTimedScriptGeneration
             if (!is_string($dialogue)) throw new RuntimeException('dialogue必须是带角色名的台词字符串，不能返回数组或对象', 422);
             // A deliberately generous guard catches impossible delivery, not acting style.
             $characters = self::dialogueCharacterCount($dialogue);
-            if ($characters > $durations[$index] * 8) throw new RuntimeException('本段对白过密，请保留关键含义并缩短台词，为动作和停顿留出时间', 422);
+            if ($checkDialogue && $characters > $durations[$index] * 8) throw new RuntimeException('本段对白过密，请保留关键含义并缩短台词，为动作和停顿留出时间', 422);
         }
     }
 

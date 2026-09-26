@@ -18,6 +18,7 @@ final class ShortDramaScriptGeneration
     ): array
     {
         $durationRule = ShortDramaShotDuration::rule($request);
+        if (ShortDramaDialogueSplit::enabled($request)) $messages['system_prompt'] .= "\n" . ShortDramaDialogueSplit::instruction($durationRule);
         $receipts = [];
         $calls = 0;
         $reservedOutput = 0;
@@ -37,10 +38,17 @@ final class ShortDramaScriptGeneration
             $receipts[$key] = (array)($receipt['result'] ?? []);
             return ShortDramaStructuredResponse::decode($receipts[$key]);
         };
+        $finish = static function (array $payload) use ($request, $call, &$receipts, &$model): array {
+            // Local revision patches keep their existing target-only result contract.
+            if (!ShortDramaEpisodeDuration::localRevision($request) && !ShortDramaEpisodeDuration::active($request)) {
+                $payload = ShortDramaDialogueSplit::adapt($payload, $request, $call, 'final');
+            }
+            return self::result($payload, $receipts, $model);
+        };
         if (ShortDramaEpisodeDuration::active($request) && !ShortDramaEpisodeDuration::localRevision($request)) {
             $budget = ShortDramaPlanningBudget::stage($messages['system_prompt'] . ($messages['_stage_content'] ?? $messages['content']), $model, 'script', 8192);
             $payload = ShortDramaTimedScriptGeneration::generate($request, $messages, $call, $progress, (int)$budget['max_tokens']);
-            return self::result($payload, $receipts, $model);
+            return $finish($payload);
         }
         $duration = (int)($request['target_duration_seconds'] ?? 0);
         $budget = ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $model, 'script', 12000);
@@ -50,14 +58,14 @@ final class ShortDramaScriptGeneration
             try {
                 $payload = $call('script', $messages, 12000);
                 if (!$revision) self::assertPlan($payload);
-                return self::result($payload, $receipts, $model);
+                return $finish($payload);
             } catch (RuntimeException $error) {
                 if (!in_array($error->getCode(), [413, 422], true)) throw $error;
                 if ($revision) {
                     $repair = $messages;
                     if (ShortDramaInputContract::current($request)) $repair = ShortDramaInputContract::formatRepair($repair, (array)($receipts['script'] ?? []));
                     $repair['content'] .= "\n上次输出结构不完整。只返回当前 revision_target 所需的有效 JSON 字段，不得扩大修改范围。";
-                    return self::result($call('revision_format_repair', $repair, 12000), $receipts, $model);
+                    return $finish($call('revision_format_repair', $repair, 12000));
                 }
                 // One bounded repair for formatting/required fields. A length
                 // failure goes straight to smaller, independently durable units.
@@ -68,7 +76,7 @@ final class ShortDramaScriptGeneration
                     try {
                         $payload = $call('format_repair', $repair, 12000);
                         self::assertPlan($payload);
-                        return self::result($payload, $receipts, $model);
+                        return $finish($payload);
                     } catch (RuntimeException $repairError) {
                         if (!in_array($repairError->getCode(), [413, 422], true)) throw $repairError;
                     }
@@ -84,7 +92,7 @@ final class ShortDramaScriptGeneration
                 $skeleton = $call('skeleton' . ($attempt ? '_repair' : ''), $skeletonMessages, 8192);
                 // Some models still produce a full plan. Reuse only a valid
                 // plan; the caller continues its normal story quality review.
-                if (self::completePlan($skeleton, $durationRule)) return self::result($skeleton, $receipts, $model);
+                if (self::completePlan($skeleton, $durationRule)) return $finish($skeleton);
                 self::assertSkeleton($skeleton);
                 // The skeleton is the first point where the model has exposed
                 // the actual story scope. Let the caller turn its scene and
@@ -137,7 +145,7 @@ final class ShortDramaScriptGeneration
         $skeleton['storyboard'] = $shots;
         $skeleton['episodes'] = [];
         self::assertPlan($skeleton);
-        return self::result($skeleton, $receipts, $model);
+        return $finish($skeleton);
     }
 
     private static function assertPlan(array $plan): void

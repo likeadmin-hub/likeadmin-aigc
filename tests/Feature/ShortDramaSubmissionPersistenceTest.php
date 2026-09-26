@@ -32,4 +32,25 @@ class ShortDramaSubmissionPersistenceTest extends TestCase
         $this->expectExceptionCode(409);
         ShortDramaSubmission::run(2000000719,7,'create',$params,$create);
     }
+
+    public function testUploadReplayUsesServerFileHashWithoutDispatchingAgain(): void
+    {
+        $path=tempnam(sys_get_temp_dir(),'sd-upload-replay-');
+        file_put_contents($path,'保留上传原文');
+        request()->withFiles(['file'=>['tmp_name'=>$path,'name'=>'剧本.txt','type'=>'text/plain','size'=>filesize($path),'error'=>0]]);
+        try {
+            $params=['submission_key'=>'sd:'.bin2hex(random_bytes(12)),'submission_version'=>2,'source'=>'home_script_upload','supplement'=>'原要求'];
+            $identity=ShortDramaSubmission::identity(2000000719,7,'script_upload',array_replace($params,['_file_sha256'=>hash_file('sha256',$path),'_file_name'=>'剧本.txt']));
+            $task='test_upload_'.bin2hex(random_bytes(8));
+            AigcShortDramaScriptTask::create(['tenant_id'=>2000000719,'user_id'=>7,'project_id'=>0,'task_id'=>$task,'status'=>'pending',
+                'idempotency_key'=>$identity['key'],'request_json'=>json_encode(['_submission_hash'=>$identity['hash']]),'prompt'=>'原文','delete_time'=>0]);
+            $result=\app\common\service\app\aigc_short_drama\AigcShortDramaService::parseUploadedScript(2000000719,7,$params);
+            self::assertSame($task,$result['task_id']);self::assertTrue($result['reused']);
+            self::assertArrayNotHasKey('_dispatch_request',$result);
+            self::assertNull(Db::query('SELECT IS_USED_LOCK(?) AS owner',['sd_submit_'.substr($identity['key'],0,48)])[0]['owner']);
+            file_put_contents($path,'同名但是内容已变');
+            $this->expectExceptionCode(409);
+            \app\common\service\app\aigc_short_drama\AigcShortDramaService::parseUploadedScript(2000000719,7,$params);
+        } finally {request()->withFiles([]);unlink($path);}
+    }
 }

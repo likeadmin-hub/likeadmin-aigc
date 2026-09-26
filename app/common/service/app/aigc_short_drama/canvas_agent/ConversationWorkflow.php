@@ -20,7 +20,7 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-26.1';
+    public const VERSION = '2026-09-26.2';
 
     public static function preservesInput(array $workflow): bool
     {
@@ -47,6 +47,7 @@ final class ConversationWorkflow
      * valid and are governed by the full brief supplied in model context. */
     public static function assertStoryAnchor(array $workflow,array $proposals): void
     {
+        ConversationShotTiming::assertProposals($workflow, $proposals);
         if (($workflow['workflow_snapshot']['key']??'')!==self::KEY
             || ($workflow['stage_state']['key']??'')!=='script' || !$proposals) return;
         $brief=trim((string)($workflow['creative_brief']??''));
@@ -792,6 +793,7 @@ final class ConversationWorkflow
         return ['key'=>$catalog['key'],'version'=>$catalog['version'],'name'=>$catalog['name'],'route'=>$route,'frozen_at'=>time(),
             'stages'=>$catalog['stages'],'rules'=>$catalog['rules'],'slot_schema'=>$catalog['slots'],'stage_skill_versions'=>self::stageSkillSnapshots($tenant,$catalog),
             'creative_prompt_snapshot'=>ShortDramaPromptWorkspace::capture($tenant),
+            'shot_duration_rule'=>\app\common\service\app\aigc_short_drama\ShortDramaShotDuration::modelRule((array)(AigcShortDramaService::config($tenant)['shot_duration_rule']??[])),
             'selected_node_ids'=>array_values(array_unique(array_map('strval',$selectedIds))),'attachment_asset_ids'=>array_values(array_unique($assetIds)),
             'model_preferences'=>array_intersect_key($preferences,array_flip(['generation_mode','reasoning_model','image_model','video_model']))];
     }
