@@ -6,6 +6,15 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaImportedScriptTest extends TestCase
 {
+    public function testFrozenImportIsNotDuplicatedIntoPublicOrPromptDiagnostics(): void
+    {
+        $method = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'stripPromptDiagnostics');
+        $method->setAccessible(true);
+        $input = ['_imported_outline_snapshot' => ['episodes' => [['source_content' => '全剧原文']]],
+            'series_context' => ['current_episode' => ['source_content' => '本集完整原文']]];
+        self::assertSame(['series_context' => $input['series_context']], $method->invoke(null, $input));
+    }
+
     public function testParserAdapterKeepsFullSourceAndRangeAcrossNormalization(): void
     {
         $original = str_repeat('主角翻开旧信，寻找失踪者的下落。', 5000) . '结尾发现真实署名。';
