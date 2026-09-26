@@ -9,6 +9,35 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaContinuityTest extends TestCase
 {
+    public function testAdvisoryAuditPreservesScriptAndPriorStateOnCrossEpisodeMismatch(): void
+    {
+        $context = ['continuity' => ['state' => ['p1:item_owner' => '地图'], 'previous_digest' => 'previous']];
+        $ledger = Continuity::review($this->plan(), $context, 5, fn() => $this->review(), null, true);
+        self::assertSame('pending_review', $ledger['audit_status']);
+        self::assertSame($context['continuity']['state'], $ledger['state']);
+        self::assertSame('甲拿走钥匙。', $ledger['summary']);
+        self::assertSame('previous', $ledger['previous_digest']);
+        self::assertNotEmpty($ledger['warnings']);
+        self::assertSame($this->review(), $ledger['unverified_claims'][0]['claim']);
+        self::assertSame($ledger['summary'], Continuity::context([$ledger])['recent_episodes'][0]['summary']);
+    }
+
+    public function testAdvisoryModeDoesNotHideProviderConflict(): void
+    {
+        $this->expectExceptionMessage('provider conflict');
+        Continuity::review($this->plan(), [], 1, static function () {
+            throw new \RuntimeException('provider conflict', 409);
+        }, null, true);
+    }
+
+    public function testAdvisoryModeStillRejectsUnverifiedSourcePatch(): void
+    {
+        $plan = $this->plan(); $plan['_continuity_source_patch'] = ['insertions' => ['unverified']];
+        $this->expectExceptionCode(409);
+        Continuity::review($plan, ['continuity' => ['state' => ['p1:item_owner' => '地图']]], 2,
+            fn() => $this->review(), null, true);
+    }
+
     public function testScalarStateValuesRetainJsonMeaningAndChainValidation(): void
     {
         $review = ['summary' => '拿走钥匙', 'changes' => [], 'hooks' => [], 'warnings' => []];
