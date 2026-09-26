@@ -96,7 +96,10 @@ final class ShortDramaContinuity
                     ? self::applyEvidencePatches($patchBase, $review, $plan, $mutableEvidence)
                     : self::preserveRepairFacts($originalReview, $review, $plan);
                 $ledger = self::ledger($review, $plan, $context, $episode);
-                if ($verifyMeaning) $verifyMeaning($review, $plan);
+                if ($verifyMeaning) {
+                    $verified = $verifyMeaning($review, $plan);
+                    if (is_array($verified)) $ledger = self::ledger($verified, $plan, $context, $episode);
+                }
                 return $ledger + ['review_repairs' => $attempt];
             } catch (RuntimeException $error) {
                 if (!in_array($error->getCode(), [422, 460], true)) throw $error;
@@ -328,7 +331,8 @@ final class ShortDramaContinuity
             if (trim($warning) !== '') $warnings[] = trim($warning);
         }
         return ['version' => 1, 'episode_number' => $episode, 'summary' => $review['summary'], 'state' => $state, 'open_hooks' => $hooks,
-            'digest' => self::fingerprint($plan), 'previous_digest' => (string)($context['continuity']['previous_digest'] ?? ''), 'warnings' => $warnings];
+            'digest' => self::fingerprint($plan), 'previous_digest' => (string)($context['continuity']['previous_digest'] ?? ''), 'warnings' => $warnings,
+            'unverified_hook_resolutions' => (array)($review['unverified_hook_resolutions'] ?? [])];
     }
 
     private static function evidence($item, array $shots): void

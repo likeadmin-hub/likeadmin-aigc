@@ -53,6 +53,32 @@ final class ShortDramaContinuityPatch
         if ($failures) throw new RuntimeException('连续性事实缺少匹配含义的镜头证据：' . json_encode($failures, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 460);
     }
 
+    /** A model's unproven claim that a hook is resolved must not erase an
+     * existing open hook. Preserve it and expose the rejected claim explicitly. */
+    public static function verifiedReview(array $review, array $response, array $context, array $sourcePatch = []): array
+    {
+        $keepOpen = [];
+        foreach ($response['checks'] ?? [] as $index => $check) {
+            if (!is_array($check) || ($check['collection'] ?? '') !== 'hooks' || ($check['supported'] ?? null) !== false
+                || !is_int($check['index'] ?? null)) continue;
+            $hook = $review['hooks'][$check['index']] ?? [];
+            if (($hook['status'] ?? '') !== 'resolved' || !is_string($hook['id'] ?? null)) continue;
+            $id = $hook['id']; $existing = (array)($context['continuity']['open_hooks'] ?? []);
+            if (!isset($existing[$id]) && str_ends_with($id, '_resolved')) $id = substr($id, 0, -9);
+            if (!isset($existing[$id])) continue;
+            $keepOpen[$check['index']] = ['id' => $id, 'claim' => $hook, 'reason' => (string)($check['reason'] ?? '')];
+            $response['checks'][$index]['supported'] = true; // No resolution operation will be applied.
+        }
+        self::assertMeaning($review, $response, $sourcePatch);
+        foreach ($keepOpen as $index => $rejected) {
+            unset($review['hooks'][$index]);
+            $review['warnings'][] = '伏笔“' . $rejected['id'] . '”回收证据不足，已保持未回收：' . mb_substr($rejected['reason'], 0, 1000);
+            $review['unverified_hook_resolutions'][] = $rejected;
+        }
+        $review['hooks'] = array_values($review['hooks']);
+        return $review;
+    }
+
     public static function messages(array $plan, array $context, array $audit, string $error, array $rule): array
     {
         return ['system_prompt' => '你是短剧局部一致性修复器，只返回JSON。不能整集重写，不能删除内容，不能根据审校猜测添加原文没有的剧情。',
