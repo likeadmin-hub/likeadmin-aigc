@@ -5325,12 +5325,8 @@ class AigcShortDramaService
             $episodeTarget = ShortDramaRevisionScope::episodeTarget($message, (int)$request['episode_count']);
             if ($episodeTarget) { $revisionTarget = $episodeTarget; $fullPlanRevision = false; }
         }
-        // A production project represents one episode only.  A free-form
-        // request such as “把本集开场改为雨天” is therefore unambiguous at
-        // episode scope even when it does not name a storyboard row.  Keep
-        // explicit shot/subject/scene targets local, but let this ordinary
-        // episode-level editing flow create its revision task instead of
-        // rejecting a valid edit before the model can apply it.
+        // An episode project still requires an explicit local target or an
+        // explicit whole-episode rewrite; do not silently expand edit scope.
         if ($isEpisodeProduction && !$fullPlanRevision && !$revisionTarget) {
             throw new Exception('请明确要修改的分镜或场景；如需整集调整，请明确输入“重写本集剧本”。原剧本保持不变');
         }
