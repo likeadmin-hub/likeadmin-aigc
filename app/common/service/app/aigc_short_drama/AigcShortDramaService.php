@@ -17039,7 +17039,7 @@ class AigcShortDramaService
         }
         if ((int)($request['_generation_version'] ?? 0) >= 3) $params['_disable_transient_retry'] = true;
         if ((int)($request['_generation_version'] ?? 0) >= 3 && empty($request['_repair_unit_claimed'])
-            && in_array($stage, ['repair', 'dialogue_repair', 'continuity_review'], true)) {
+            && in_array($stage, ['repair', 'dialogue_repair', 'continuity_review', 'continuity_patch'], true)) {
             $params['_planning_count'] = 1;
             $params['_planning_public'] = false;
             $params['_planning_stage'] = 'script';
@@ -17963,7 +17963,8 @@ class AigcShortDramaService
         }
         if ($v3Generation !== null && !empty($request['series_context'])) {
             if ($onEvent) $onEvent('stage', ['status' => 'running', 'progress' => 97, 'current_step' => '检查人物状态、伏笔与前集衔接']);
-            $audit = static function (array $continuityInput) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult): array {
+            $originalAudit = [];
+            $audit = static function (array $continuityInput) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, &$originalAudit): array {
                 $reviewReceipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, $continuityInput + [
                     'model_config' => ['max_tokens' => 4096, 'enable_thinking' => false],
                     'source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
@@ -17972,14 +17973,58 @@ class AigcShortDramaService
                     if ($event !== 'delta') $onEvent($event, $data);
                 });
                 $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $reviewReceipt['result']])));
-                return ShortDramaStructuredResponse::decode((array)$reviewReceipt['result']);
+                $decoded = ShortDramaStructuredResponse::decode((array)$reviewReceipt['result']);
+                if ($originalAudit === [] && isset($decoded['changes'])) $originalAudit = $decoded;
+                return $decoded;
             };
             // Automatic and explicit duration use the same bounded audit repair.
             // Keep the first audit input unchanged so existing paid receipts are
             // reused; the correction has its own deterministic receipt key.
-            $result['_continuity'] = ShortDramaContinuity::review(
-                $result, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit
-            );
+            try {
+                $result['_continuity'] = ShortDramaContinuity::review(
+                    $result, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit
+                );
+            } catch (\RuntimeException $auditError) {
+                // Only a failed evidence audit may request one additive content
+                // patch. Never expand an explicit user revision's accepted scope.
+                if ($auditError->getCode() !== 422 || !$originalAudit || !empty($request['revision_target'])
+                    || !str_contains($auditError->getMessage(), '镜头证据不匹配')) throw $auditError;
+                if ($onEvent) $onEvent('stage', ['status' => 'running', 'progress' => 97, 'current_step' => '局部补齐原文遗漏分镜并复核连续性']);
+                $patchInput = ShortDramaContinuityPatch::messages($result, $request['series_context'], $originalAudit,
+                    $auditError->getMessage(), ShortDramaShotDuration::rule($request));
+                $patchReceipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, $patchInput + [
+                    'model_config' => ['max_tokens' => 4096, 'enable_thinking' => false],
+                    'source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
+                    'action_code' => 'script_plan_repair', 'parent_app_task_id' => (int)($llmResult['app_task_id'] ?? 0),
+                ], $model, $request, 'continuity_patch', $onEvent === null ? null : static function ($event, $data) use ($onEvent) {
+                    if ($event !== 'delta') $onEvent($event, $data);
+                });
+                $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $patchReceipt['result']])));
+                $patch = ShortDramaStructuredResponse::decode((array)$patchReceipt['result']);
+                $applied = ShortDramaContinuityPatch::apply($result, $patch, $request['series_context'], ShortDramaShotDuration::rule($request));
+                if (!$applied['changed']) throw $auditError;
+                $candidate = $applied['plan'];
+                if ($applied['added_ids']) {
+                    // Expand only added shots. Do not replace existing text,
+                    // prompts or media with a newly normalized whole script.
+                    $normalized = self::enhancePlanResult(self::normalizeGeneratedPlanResult($candidate, $prompt, $request, $title));
+                    if (count($normalized['storyboard']) !== count($candidate['storyboard'])) throw new \RuntimeException('局部补镜归一化改变了镜头数量，原结果已保留', 422);
+                    foreach ($candidate['storyboard'] as $index => &$shot) {
+                        if (in_array($shot['shot_id'], $applied['added_ids'], true)) {
+                            $id = $shot['shot_id']; $shot = $normalized['storyboard'][$index]; $shot['shot_id'] = $id;
+                        }
+                    }
+                    unset($shot);
+                }
+                $candidate = self::reviewAndRepairPlanResult($candidate, false, true);
+                $dialogue = ShortDramaDialogueContract::prepare($candidate);
+                $candidate = ShortDramaDialogueContract::review($dialogue['payload'], $dialogue['issues']);
+                if ((int)($candidate['review_report']['blocking_count'] ?? 0) > 0) throw new \RuntimeException('局部连续性补丁质检未通过，原结果已保留', 422);
+                self::assertStoryboardBudgetSatisfied($candidate, $request, $prompt);
+                $candidate['_continuity'] = ShortDramaContinuity::review($candidate, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit);
+                $candidate['_continuity_patch'] = ['version' => 1, 'base_digest' => ShortDramaContinuity::fingerprint($result), 'patch' => $patch];
+                $result = $candidate;
+            }
             foreach ($result['_continuity']['warnings'] as $warning) $result = self::appendPlanReviewWarning($result, 'continuity.review', $warning);
         }
         if ($v3Generation !== null && empty($episodeSettings['multi_episode'])) {
