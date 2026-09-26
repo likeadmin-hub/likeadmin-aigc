@@ -136,6 +136,19 @@ final class ShortDramaContinuity
                 $ledger = self::ledger($review, $plan, $context, $episode);
                 return $ledger + ['review_repairs' => $attempt];
             } catch (RuntimeException $error) {
+                // Audit transport/data validation is not a verdict about the
+                // already validated script. Never accept an unverified script
+                // insertion or turn a proven 409 contradiction into a warning.
+                if ($verifyMeaning && empty($plan['_continuity_source_patch']) && $error->getCode() === 422
+                    && (str_starts_with($error->getMessage(), '连续性语义核对')
+                        || in_array($error->getMessage(), ['模型输出不是完整 JSON，已保存返回内容', '连续性摘要缺失', '连续性检查结构不完整', '连续性提示格式无效'], true))) {
+                    $reason = mb_substr($error->getMessage(), 0, 1000);
+                    $deferred = ['summary' => '审校待复核', 'changes' => [], 'hooks' => [],
+                        'warnings' => ['剧本已保留；审校数据不完整，未更新连续性事实，待复核：' . $reason],
+                        'unverified_claims' => [['collection' => 'audit', 'claim' => $review, 'reason' => $reason]]];
+                    return self::ledger($deferred, $plan, $context, $episode)
+                        + ['review_repairs' => $attempt, 'audit_status' => 'pending_review'];
+                }
                 if (!in_array($error->getCode(), [422, 460], true)) throw $error;
                 if ($error->getCode() === 460) {
                     if ($attempt >= 2) throw $error;
