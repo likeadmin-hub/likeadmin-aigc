@@ -144,7 +144,6 @@ final class ShortDramaPromptDocuments
             'production' => !empty($context['multi']) && in_array($stage, ['production', 'revision'], true),
             'revision' => !empty($context['revision']),
             'repair' => $stage === 'repair',
-            'repair_under' => $stage === 'repair' && !empty($context['under_count']),
             'character' => !$prop && !$empty,
             'prop' => $prop,
             'empty' => $empty,
