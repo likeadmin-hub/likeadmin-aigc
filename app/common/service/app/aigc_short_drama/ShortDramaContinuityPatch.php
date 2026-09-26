@@ -48,7 +48,7 @@ final class ShortDramaContinuityPatch
         foreach ($patch['entity_id_remaps'] as $item) {
             if (!is_array($item) || array_diff(array_keys($item), ['collection', 'from', 'to', 'name'])) throw new RuntimeException('实体补丁字段越界', 422);
             $group = $item['collection'] ?? ''; $from = $item['from'] ?? ''; $to = $item['to'] ?? '';
-            if (!isset($maps[$group]) || !is_string($from) || !is_string($to) || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/D', $to)
+            if (!is_string($group) || !isset($maps[$group]) || !is_string($from) || !is_string($to) || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/D', $to)
                 || isset($occupied[$to]) || isset($maps[$group][$from])) throw new RuntimeException('实体补丁ID冲突', 422);
             $found = false;
             foreach ($plan[$group] as &$entity) {
@@ -81,7 +81,8 @@ final class ShortDramaContinuityPatch
                 || isset($ids[$id]) || isset($added[$id])) throw new RuntimeException('新增分镜标识或字段无效', 422);
             foreach (['visual_description', 'dialogue', 'voice_role', 'speech_type'] as $key) if (!is_string($shot[$key] ?? null)) throw new RuntimeException('新增分镜正文不完整', 422);
             if (!str_contains($shot['visual_description'], $quote) && !str_contains($shot['dialogue'], $quote)) throw new RuntimeException('新增分镜未保留引用原文', 422);
-            if (!isset($locations[$shot['scene_ref_id'] ?? '']) || !is_array($shot['subject_ref_ids'] ?? null)
+            if (!is_string($shot['scene_ref_id'] ?? null) || !isset($locations[$shot['scene_ref_id']]) || !is_array($shot['subject_ref_ids'] ?? null)
+                || !array_is_list($shot['subject_ref_ids']) || count(array_filter($shot['subject_ref_ids'], 'is_string')) !== count($shot['subject_ref_ids'])
                 || array_diff($shot['subject_ref_ids'], array_keys($subjects))) throw new RuntimeException('新增分镜引用无效', 422);
             if (!ShortDramaShotDuration::contains($shot['recommended_duration_seconds'] ?? null, $rule)) throw new RuntimeException('新增分镜时长不符合规则', 422);
             $insertions[$anchor][] = $shot; $added[$id] = true;
