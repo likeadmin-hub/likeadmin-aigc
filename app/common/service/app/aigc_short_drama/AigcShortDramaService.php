@@ -2439,6 +2439,7 @@ class AigcShortDramaService
         }
         unset($request['script_text'], $request['script_content']);
         $created = self::createScriptPlan($tenantId, $userId, $request, (int)$episode['production_project_id'], [
+            '_input_contract_version' => (int)($request['_input_contract_version'] ?? 0),
             '_prompt_snapshot' => ShortDramaPromptWorkspace::forTask($tenantId, $request),
             'episode_duration_policy' => $episodePolicy,
             'same_scene_cut_policy' => (array)($request['same_scene_cut_policy'] ?? []),
@@ -2594,6 +2595,17 @@ class AigcShortDramaService
 
     public static function createScriptPlan(int $tenantId, int $userId, array $params, int $existingProjectId = 0, array $internalContext = []): array
     {
+        // This service owns the conventional script flow, not canvas Skills.
+        // Internal episode retries preserve the originating execution version.
+        $params = ShortDramaInputContract::withoutSkills($params);
+        if ($existingProjectId > 0) return self::createScriptPlanOnce($tenantId, $userId, $params, $existingProjectId, $internalContext);
+        return ShortDramaSubmission::run($tenantId, $userId, 'create', $params,
+            static fn(array $submission): array => self::createScriptPlanOnce($tenantId, $userId, $params, 0,
+                array_replace(ShortDramaInputContract::begin($internalContext), $submission)));
+    }
+
+    private static function createScriptPlanOnce(int $tenantId, int $userId, array $params, int $existingProjectId = 0, array $internalContext = []): array
+    {
         $prompt = trim((string)($params['prompt'] ?? ''));
         $uploadedScript = trim((string)($params['script_text'] ?? $params['script_content'] ?? ''));
         if ($uploadedScript !== '') {
@@ -2613,11 +2625,12 @@ class AigcShortDramaService
 
         // Freeze a server-resolved published Skill version for this task.
         // Client input is only an identifier and source hint, never executable config.
-        $skillSnapshot = $existingProjectId > 0
+        $skillSnapshot = ShortDramaInputContract::current($internalContext) ? [] : ($existingProjectId > 0
             ? self::skillSnapshotForGeneration($tenantId, ['project_id' => (int)self::findProject($tenantId, $userId, $existingProjectId)['id']])
-            : (is_array($internalContext['_skill_snapshot'] ?? null) ? $internalContext['_skill_snapshot'] : ShortDramaSkillService::resolveForTask($tenantId, $params));
+            : (is_array($internalContext['_skill_snapshot'] ?? null) ? $internalContext['_skill_snapshot'] : []));
         $request = self::normalizeCreateRequest($params, $config);
         $request = array_replace($request, $internalContext);
+        if (ShortDramaInputContract::current($request)) $request = ShortDramaInputContract::withoutSkills($request);
         $request['_generation_version'] = (int)($internalContext['_generation_version']
             ?? \think\facade\Config::get('short_drama.generation_version', 0));
         if ($skillSnapshot) {
@@ -2771,7 +2784,7 @@ class AigcShortDramaService
                 'provider' => (string)($selectedModels['script_plan']['provider'] ?? ''),
                 'provider_request_id' => '',
                 'provider_task_id' => '',
-                'idempotency_key' => sha1($tenantId . '|' . $userId . '|' . $prompt . '|' . microtime(true)),
+                'idempotency_key' => $request['_submission_key'] ?? sha1($tenantId . '|' . $userId . '|' . $prompt . '|' . microtime(true)),
                 'retry_count' => 0,
                 'started_at' => 0,
                 'finished_at' => 0,
@@ -2965,6 +2978,7 @@ class AigcShortDramaService
             $sourceRequest['multi_episode_stage'] = self::MULTI_EPISODE_STAGE_OUTLINE;
             $sourceRequest['workflow_variant'] = '';
             $sourceRequest['_generation_version'] = max(3, (int)($sourceRequest['_generation_version'] ?? 0));
+            $sourceRequest = ShortDramaInputContract::begin($sourceRequest);
             $selectedModels = self::resolveSelectedModels($tenantId, $sourceRequest, $config);
             $sourceRequest['model_selections'] = self::modelSelectionsSnapshot($selectedModels);
             $sourceRequest['model_id'] = (string)($selectedModels['script_plan']['id'] ?? $sourceRequest['model_id'] ?? '');
@@ -5102,6 +5116,13 @@ class AigcShortDramaService
 
     public static function message(int $tenantId, int $userId, array $params): array
     {
+        $params = ShortDramaInputContract::withoutSkills($params);
+        return ShortDramaSubmission::run($tenantId, $userId, 'revision', $params,
+            static fn(array $submission): array => self::messageOnce($tenantId, $userId, $params, $submission));
+    }
+
+    private static function messageOnce(int $tenantId, int $userId, array $params, array $submission): array
+    {
         $taskId = trim((string)($params['task_id'] ?? ''));
         $message = trim((string)($params['message'] ?? ''));
         $advanceStage = (string)($params['mode'] ?? '') === 'advance_stage';
@@ -5136,6 +5157,9 @@ class AigcShortDramaService
             self::jsonDecode((string)$task['request_json'])
         );
         $request = self::hydrateEpisodeSettingsFromProject($request, $project->toArray());
+        $request = ShortDramaInputContract::begin($request);
+        unset($request['_submission_key'], $request['_submission_hash']);
+        $request = array_replace($request, $submission);
         $currentStage = self::resolveStoredMultiEpisodeStage($request, $previousResult);
         if (ShortDramaStoryWorkflow::enabled($request)) {
             if (!$advanceStage && ((string)$project['last_task_id'] !== $taskId || Db::name('aigc_short_drama_episode_task')->where([
@@ -5376,7 +5400,7 @@ class AigcShortDramaService
                 'provider' => (string)($selectedModels['script_plan']['provider'] ?? ''),
                 'provider_request_id' => '',
                 'provider_task_id' => '',
-                'idempotency_key' => sha1($tenantId . '|' . $userId . '|' . $newTaskId),
+                'idempotency_key' => $request['_submission_key'] ?? sha1($tenantId . '|' . $userId . '|' . $newTaskId),
                 'create_time' => $time,
                 'update_time' => $time,
                 'started_at' => 0,
@@ -17535,6 +17559,7 @@ class AigcShortDramaService
 
     private static function assembleScriptPromptRequestBase(int $tenantId, string $prompt, array $request, string $title): array
     {
+        if (ShortDramaInputContract::current($request)) $request = ShortDramaInputContract::withoutSkills($request);
         // Validate explicit timing before any paid call; never silently stretch a locked timeline.
         if (!ShortDramaEpisodeDuration::active($request) && !ShortDramaStoryWorkflow::unconfirmedStory($request) && !ShortDramaPlanningContext::isOutline($request)) {
             $durationRule = ShortDramaShotDuration::rule($request);
