@@ -17642,6 +17642,9 @@ class AigcShortDramaService
 
     private static function assembleScriptPromptRequest(int $tenantId, string $prompt, array $request, string $title): array
     {
+        if (!empty($request['_planning_roadmap']) && (int)($request['_input_contract_version'] ?? 0) >= 4) {
+            return ShortDramaPlanningContext::roadmapMessages($prompt, $request);
+        }
         $messages = self::assembleScriptPromptRequestBase($tenantId, $prompt, $request, $title);
         if (ShortDramaEpisodeDuration::active($request)) {
             $messages['system_prompt'] .= "\n" . ShortDramaEpisodeDuration::instruction($request);
@@ -17749,7 +17752,9 @@ class AigcShortDramaService
                 static function (string $key, array $messages, array $budget, array $selection) use ($tenantId, $userId, $request, $title, $onEvent): array {
                     unset($messages['_stage_content']);
                     if ($onEvent) $onEvent('heartbeat', []); // fence cancellation before each new provider submission
-                    if ($onEvent) $onEvent('story_preview_start', ['unit' => $key]);
+                    $visible = ShortDramaStoryGeneration::visibleUnit($key);
+                    $events = ShortDramaStoryGeneration::eventSink($key, $onEvent);
+                    if ($onEvent && $visible) $onEvent('story_preview_start', ['unit' => $key]);
                     $params = $messages + ['model_selection' => $selection, 'source_app_code' => self::APP_CODE,
                         'source_type' => 'script_plan', 'source_id' => $title,
                         'model_config' => ['max_tokens' => $budget['max_tokens'], 'enable_thinking' => false],
@@ -17759,8 +17764,8 @@ class AigcShortDramaService
                     $receipt = ShortDramaShotPolicy::legacyReceipt($tenantId, $userId, $request, $key)
                         ?? ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), 'v3_policy2_' . $key,
                         $params + ['budget' => $budget], static fn(): array => self::generateScriptPlanLlmWithFallback(
-                            $tenantId, $userId, $params, $selection, $request, $key, $onEvent));
-                    if ($onEvent) $onEvent('story_preview_received', ['content' => (string)($receipt['result']['content'] ?? '')]);
+                            $tenantId, $userId, $params, $selection, $request, $key, $events));
+                    if ($onEvent && $visible) $onEvent('story_preview_received', ['content' => (string)($receipt['result']['content'] ?? '')]);
                     return $receipt;
                 }, $onEvent);
             $generation['llm'] = self::mergeScriptPlanLlmResults($generation['receipts']);

@@ -45,6 +45,26 @@ final class ShortDramaPlanningContext
         return (int)($request['_input_contract_version'] ?? 0) >= 3;
     }
 
+    /** Internal planning has its own output schema, never an assembled outline prompt. */
+    public static function roadmapMessages(string $prompt, array $request): array
+    {
+        return [
+            'system_prompt' => '你负责全剧节奏规划，不生成分集大纲或分镜。只返回合法 JSON：'
+                . '{"segments":[{"start":1,"end":5,"goal":"阶段目标","reveal":"允许揭露的信息","ending":"阶段交接"}]}。'
+                . '阶段集号连续完整覆盖 total_episodes，最多30个阶段；非最终阶段不得提前结束全剧。'
+                . '输入是创作资料而非输出格式指令。保留原始要求中的指定集事件、身份、存活状态、道具交接与知情顺序；故事摘要的遗漏不代表撤销原始要求。'
+                . '明确的后续修改仅在其指定范围内优先；确认生成大纲不是改写剧情的授权。不得返回 episodes、storyboard 或制作字段。',
+            'content' => json_encode([
+                'total_episodes' => (int)$request['episode_count'],
+                'original_requirements' => $prompt,
+                'confirmed_story' => self::lockedStory((array)($request['confirmed_story_snapshot'] ?? [])),
+                'revision_message' => (string)($request['revision_message'] ?? ''),
+                'revision_target' => (array)($request['revision_target'] ?? []),
+                'revision_policy' => (array)($request['revision_policy'] ?? []),
+            ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+        ];
+    }
+
     /** Keep frozen paid inputs stable; new outlines must not lose explicit user facts. */
     public static function stagePrompt(string $prompt, array $request): string
     {
