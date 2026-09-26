@@ -141,6 +141,13 @@ final class ShortDramaContinuity
                 if (!is_array($next)) throw new RuntimeException('审校纠错事实记录格式无效', 422);
                 foreach ($keys as $key) {
                     if (is_string($item[$key] ?? null) && ($next[$key] ?? null) !== $item[$key]) {
+                        // Identity must still match in order. The correction
+                        // model does not own the original state assertion:
+                        // retain it instead of accepting a rewritten value.
+                        if ($group === 'changes' && $key === 'after') {
+                            $repaired[$group][$index][$key] = $item[$key];
+                            continue;
+                        }
                         throw new RuntimeException('审校纠错不得改写事实或伏笔含义', 422);
                     }
                 }

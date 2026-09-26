@@ -147,11 +147,11 @@ class ShortDramaContinuityTest extends TestCase
     }
     public function testCorrectionCannotDeleteFactsRewriteMeaningOrDropWarnings(): void
     {
-        foreach (['delete', 'rewrite', 'warning'] as $mutation) {
+        foreach (['delete', 'identity', 'warning'] as $mutation) {
             $bad = $this->review(); $bad['changes'][0]['before'] = '推测值'; $bad['warnings'] = ['保留疑点'];
             $fixed = $bad; $fixed['changes'][0]['before'] = null;
             if ($mutation === 'delete') $fixed['changes'] = [];
-            if ($mutation === 'rewrite') $fixed['changes'][0]['after'] = '别的物品';
+            if ($mutation === 'identity') $fixed['changes'][0]['field'] = '别的字段';
             if ($mutation === 'warning') $fixed['warnings'] = [];
             $calls = 0;
             try {
@@ -159,6 +159,23 @@ class ShortDramaContinuityTest extends TestCase
                 self::fail($mutation . ' must not be accepted');
             } catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); self::assertSame(2, $calls); }
         }
+    }
+    public function testCorrectionRetainsOriginalStateAssertionInsteadOfRewritingIt(): void
+    {
+        $bad = $this->review(); $bad['changes'][0]['quote'] = '甲拿走...钥匙';
+        $fixed = $this->review(); $fixed['changes'][0]['after'] = '别的物品';
+        $calls = 0;
+        $ledger = Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad, $fixed) {
+            return ++$calls === 1 ? $bad : $fixed;
+        });
+        self::assertSame(2, $calls);
+        self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
+        self::assertSame('别的物品', $fixed['changes'][0]['after']);
+        $fixed['changes'][0]['quote'] = '仍不存在的证据'; $calls = 0;
+        $this->expectExceptionCode(422);
+        Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad, $fixed) {
+            return ++$calls === 1 ? $bad : $fixed;
+        });
     }
     public function testRepairLocksVerifiedEvidenceAndStillRepairsInvalidEvidence(): void
     {
