@@ -24,6 +24,14 @@ class ShortDramaImportedScriptTest extends TestCase
             self::assertSame($original, $episode['source_content']);
             self::assertSame(['start_line' => 1, 'end_line' => 5001], $episode['source_range']);
         }
+        $story = ShortDramaImportedScript::storyDraft($plan);
+        self::assertSame([], $story['episodes']);
+        self::assertSame('story', $story['multi_episode_stage']);
+        self::assertSame([], \app\common\service\app\aigc_short_drama\ShortDramaStoryWorkflow::issues($story, 'story', 2));
+        $confirmed = ShortDramaImportedScript::confirmedOutline($plan, $story);
+        self::assertSame($plan['episodes'], $confirmed['episodes']);
+        self::assertSame('episodes', $confirmed['multi_episode_stage']);
+        self::assertSame([], \app\common\service\app\aigc_short_drama\ShortDramaStoryWorkflow::issues($confirmed, 'episodes', 2));
     }
 
     public function testLongSourceAndEndingArePreservedByteForByte(): void

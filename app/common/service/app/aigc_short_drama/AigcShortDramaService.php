@@ -2984,8 +2984,8 @@ class AigcShortDramaService
                 'source' => 'home_script_upload',
                 'multi_episode' => true,
                 'episode_count' => 2,
-                'workflow_variant' => '',
-                'multi_episode_stage' => self::MULTI_EPISODE_STAGE_OUTLINE,
+                'workflow_variant' => ShortDramaStoryWorkflow::VARIANT,
+                'multi_episode_stage' => self::MULTI_EPISODE_STAGE_STORY,
             ]), $config);
             $requestedSubjectIds = array_values(array_unique(array_map('intval', (array)($sourceRequest['subject_ids'] ?? []))));
             $references = self::selectedSubjectReferences($tenantId, $userId, $requestedSubjectIds);
@@ -3001,8 +3001,8 @@ class AigcShortDramaService
             $sourceRequest['multi_episode'] = true;
             $sourceRequest['episode_count'] = 2;
             $sourceRequest['episode_total_count'] = 2;
-            $sourceRequest['multi_episode_stage'] = self::MULTI_EPISODE_STAGE_OUTLINE;
-            $sourceRequest['workflow_variant'] = '';
+            $sourceRequest['multi_episode_stage'] = self::MULTI_EPISODE_STAGE_STORY;
+            $sourceRequest['workflow_variant'] = ShortDramaStoryWorkflow::VARIANT;
             $sourceRequest['_generation_version'] = max(3, (int)($sourceRequest['_generation_version'] ?? 0));
             $sourceRequest = ShortDramaInputContract::begin($sourceRequest);
             $selectedModels = self::resolveSelectedModels($tenantId, $sourceRequest, $config);
@@ -3053,10 +3053,10 @@ class AigcShortDramaService
             'parse_mode' => in_array((string)($params['parse_mode'] ?? ''), ['auto', 'existing_episodes', 'screenplay_scenes', 'novel', 'outline', 'split_by_ai'], true) ? (string)$params['parse_mode'] : 'split_by_ai',
             'preserve_original' => true,
             'multi_episode' => true,
-            // The parser returns a complete editable outline, not a staged
-            // story-setting draft and never a production storyboard.
-            'multi_episode_stage' => self::MULTI_EPISODE_STAGE_OUTLINE,
-            'workflow_variant' => '',
+            // Keep the parser's complete outline as immutable source, then
+            // expose setting and outline through the staged workspace.
+            'multi_episode_stage' => self::MULTI_EPISODE_STAGE_STORY,
+            'workflow_variant' => ShortDramaStoryWorkflow::VARIANT,
             'source_task_id' => $sourceTaskId,
             '_generation_version' => max(3, (int)($sourceRequest['_generation_version'] ?? 0)),
         ]);
@@ -5169,6 +5169,54 @@ class AigcShortDramaService
             static fn(array $submission): array => self::messageOnce($tenantId, $userId, $params, $submission));
     }
 
+    /** Confirm an imported setting without resubmitting its already parsed outline. */
+    private static function confirmImportedStory(int $tenantId, int $userId, array $source, array $request, array $story, array $params): array
+    {
+        return Db::transaction(static function () use ($tenantId, $userId, $source, $request, $story, $params): array {
+            $project = self::findProject($tenantId, $userId, (int)$source['project_id']);
+            $project = AigcShortDramaProject::where(['id' => (int)$project['id'], 'tenant_id' => $tenantId, 'user_id' => $userId])->lock(true)->find();
+            if ((string)$project['last_task_id'] !== $source['task_id']) {
+                $existing = self::findTask($tenantId, $userId, (string)$project['last_task_id']);
+                $existingRequest = self::jsonDecode((string)$existing['request_json']);
+                if (($existingRequest['confirmed_story_task_id'] ?? '') === $source['task_id']
+                    && (int)($existingRequest['confirmed_story_version'] ?? -1) === (int)$params['draft_version']) {
+                    return ['task_id' => (string)$existing['task_id'], 'status' => (string)$existing['status']];
+                }
+                throw new Exception('当前步骤已更新，请刷新后确认');
+            }
+            $current = self::findTask($tenantId, $userId, $source['task_id']);
+            ShortDramaStoryDraft::assertVersion(self::jsonDecode((string)$current['request_json']), $params);
+            ShortDramaEpisodeService::guardRevision($tenantId, $userId, (int)$project['id'], $source['task_id']);
+            $plan = ShortDramaImportedScript::confirmedOutline($request['_imported_outline_snapshot'], $story);
+            $issues = ShortDramaStoryWorkflow::issues($plan, 'episodes', (int)$request['episode_count']);
+            if ($issues) throw new Exception($issues[0]['message']);
+            $id = self::makeTaskId('sd_import_outline'); $now = time();
+            $request['confirmed_story_snapshot'] = $story;
+            $request['confirmed_story_task_id'] = $source['task_id'];
+            $request['confirmed_story_version'] = (int)$params['draft_version'];
+            $request['multi_episode_stage'] = 'episodes';
+            $request['source'] = 'imported_outline_confirmation';
+            unset($request['_story_draft'], $request['_submission_key'], $request['_submission_hash'], $request['_prompt_requests'], $request['_execution_attempt']);
+            $request['_prompt_task_id'] = $id;
+            AigcShortDramaScriptTask::create([
+                'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => (int)$project['id'],
+                'task_id' => $id, 'parent_task_id' => $source['task_id'], 'status' => self::STATUS_SUCCESS,
+                'progress' => 100, 'current_step' => '已确认故事设定，待确认解析大纲',
+                'prompt' => $source['prompt'], 'request_json' => self::jsonEncode($request),
+                'config_snapshot' => $source['config_snapshot'], 'pricing_snapshot' => '[]', 'result_json' => self::jsonEncode($plan),
+                'error' => '', 'billing_status' => 'none', 'tenant_cost_points' => 0, 'user_charge_points' => 0,
+                'provider' => '', 'provider_request_id' => '', 'provider_task_id' => '',
+                'idempotency_key' => sha1($tenantId . '|import-confirm|' . $source['task_id'] . '|' . $params['draft_version']),
+                'create_time' => $now, 'update_time' => $now, 'started_at' => $now, 'finished_at' => $now, 'delete_time' => 0,
+            ]);
+            $version = self::createPlanVersion($tenantId, $userId, (int)$project['id'], $id,
+                self::makeTaskId('sd_import_confirm'), 'imported_outline_confirmation', $plan, (int)$project['current_version_id'], true, $now);
+            $project->save(['last_task_id' => $id, 'current_version_id' => (int)$version['id'],
+                'status' => self::PROJECT_STATUS_PLAN_REVIEW, 'update_time' => $now]);
+            return ['task_id' => $id, 'status' => self::STATUS_SUCCESS];
+        });
+    }
+
     private static function messageOnce(int $tenantId, int $userId, array $params, array $submission): array
     {
         $taskId = trim((string)($params['task_id'] ?? ''));
@@ -5223,6 +5271,9 @@ class AigcShortDramaService
                 $request['confirmed_story_snapshot'] = $previousResult;
                 $request['confirmed_story_task_id'] = $taskId;
                 $request['confirmed_story_version'] = ShortDramaStoryDraft::version($sourceRequest);
+                if (is_array($sourceRequest['_imported_outline_snapshot'] ?? null)) {
+                    return self::confirmImportedStory($tenantId, $userId, $task->toArray(), $sourceRequest, $previousResult, $params);
+                }
                 $message = self::multiEpisodeStageAdvanceMessage(self::MULTI_EPISODE_STAGE_OUTLINE);
             }
         } elseif (($request['episode_workflow'] ?? '') === 'outline_queue' && $advanceStage) {
@@ -5344,6 +5395,8 @@ class AigcShortDramaService
             throw new Exception('请明确要修改的分镜或场景；如需整集调整，请明确输入“重写本集剧本”。原剧本保持不变');
         }
         $request['revision_message'] = $message;
+        // An explicit edit is an LLM revision, not another file parser poll.
+        if (self::isMarketFileQaParseRequest($request)) $request['source'] = 'revision';
         $request['revision_base_task_id'] = $taskId;
         $request['revision_base_result'] = $revisionBaseResult;
         // A generated revision owns a fresh draft; never carry the parent's editable overlay.
@@ -8940,8 +8993,10 @@ class AigcShortDramaService
             $request['episode_count'] = (int)$plan['episode_count'];
             $request['episode_total_count'] = (int)$plan['episode_count'];
             $request['multi_episode'] = true;
-            $request['multi_episode_stage'] = self::MULTI_EPISODE_STAGE_OUTLINE;
-            $request['workflow_variant'] = '';
+            $request['_imported_outline_snapshot'] = $plan;
+            $request['multi_episode_stage'] = self::MULTI_EPISODE_STAGE_STORY;
+            $request['workflow_variant'] = ShortDramaStoryWorkflow::VARIANT;
+            $plan = ShortDramaImportedScript::storyDraft($plan);
             $cost = ['tenant_cost_points' => (float)$consumption['actual_tenant_cost'], 'user_charge_points' => (float)$consumption['actual_user_price'], 'billing_status' => (string)$consumption['billing_status'], 'provider_request_id' => (string)$consumption['upstream_request_id']];
             $task->save([
                 'status' => self::STATUS_SUCCESS, 'progress' => 100, 'current_step' => '剧本解析完成',
