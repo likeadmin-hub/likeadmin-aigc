@@ -32,10 +32,13 @@ class LatestNewsService
             $type = (string)($row['media_type'] ?? 'image');
             $link = $row['link'] ?? [];
             $path = trim((string)($link['path'] ?? ''));
-            $kind = (string)($link['kind'] ?? 'internal');
+            $kind = (string)($link['kind'] ?? 'none');
+            if ($kind === 'none') { $path = ''; }
             if (!$title || mb_strlen($title) > 120) { throw new RuntimeException('标题必填且不能超过120字'); }
             if (!in_array($type, ['image', 'video'], true) || !self::safeMedia($media)) { throw new RuntimeException('请选择有效素材'); }
-            if ($kind === 'external') {
+            if ($kind === 'none') {
+                // A news card can be display-only.
+            } elseif ($kind === 'external') {
                 if (!preg_match('~^https?://~i', $path) || !filter_var($path, FILTER_VALIDATE_URL)) { throw new RuntimeException('外部链接必须为完整的http或https地址'); }
             } elseif ($kind !== 'internal' || !preg_match('~^/(?!/)[^\\\\\x00-\x20]*$~', $path)) {
                 throw new RuntimeException('请选择有效的站内页面');
