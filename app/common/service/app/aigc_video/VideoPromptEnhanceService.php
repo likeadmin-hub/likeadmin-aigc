@@ -58,8 +58,9 @@ PROMPT;
             'content' => "视频配置：" . json_encode($context, JSON_UNESCAPED_UNICODE) . "\n原始创作描述：\n" . $prompt,
             'source_app_code' => 'aigc_video',
             'source_type' => 'prompt_helper',
+            'request_timeout_seconds' => 90,
         ]);
         return ['prompt' => self::validateResult($prompt, (string)($result['content'] ?? '')),
-            'charge_points' => $result['charge_points'] ?? 0];
+            'charge_points' => $result['billing']['user_charge_points'] ?? 0];
     }
 }
