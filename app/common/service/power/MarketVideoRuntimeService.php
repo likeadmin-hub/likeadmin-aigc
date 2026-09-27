@@ -886,7 +886,7 @@ class MarketVideoRuntimeService
                 continue;
             }
             $options = self::schemaOptionValues($schema, $key);
-            if ($options !== [] && !in_array((string)$value, array_map('strval', $options), true)) throw new Exception('视频参数选项不支持: ' . $key);
+            if ($options !== [] && !in_array(is_bool($value) ? ($value ? 'true' : 'false') : (string)$value, array_map('strval', $options), true)) throw new Exception('视频参数选项不支持: ' . $key);
             $result[$key] = $value;
         }
         return $result;
