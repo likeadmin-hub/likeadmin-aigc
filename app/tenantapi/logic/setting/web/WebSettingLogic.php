@@ -101,7 +101,7 @@ class WebSettingLogic extends BaseLogic
         $pcLoginBg = $pcLoginBgType === 'none' ? '' : FileService::setFileUrl($params['pc_login_bg'] ?? '');
         $pcLoginBgPoster = FileService::setFileUrl($params['pc_login_bg_poster'] ?? '');
         $pcHomeStyle = $params['pc_home_style'] ?? 'default';
-        if (!in_array($pcHomeStyle, ['default', 'immersive', 'coral'], true)) {
+        if (!in_array($pcHomeStyle, ['default', 'immersive', 'coral', 'imagine'], true)) {
             $pcHomeStyle = 'default';
         }
         $pcHomeBgType = $params['pc_home_bg_type'] ?? 'none';
