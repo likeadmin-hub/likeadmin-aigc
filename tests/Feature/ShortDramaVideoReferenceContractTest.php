@@ -10,6 +10,66 @@ use ReflectionMethod;
 
 class ShortDramaVideoReferenceContractTest extends TestCase
 {
+    public function testQuoteReceivesTheServerOwnedMediaForEveryStoryboardReferenceMode(): void
+    {
+        foreach (['multi_frame', 'start_end', 'image_to_video', 'omni_reference'] as $mode) {
+            $selected = [[
+                'asset' => ['id' => 101, 'url' => 'https://example.test/first.png'],
+                'role' => in_array($mode, ['start_end', 'image_to_video'], true) ? 'first_frame_image' : 'reference_image',
+            ]];
+            if (in_array($mode, ['multi_frame', 'start_end'], true)) {
+                $selected[] = [
+                    'asset' => ['id' => 102, 'url' => 'https://example.test/second.png'],
+                    'role' => $mode === 'start_end' ? 'last_frame_image' : 'reference_image',
+                ];
+            }
+            $contract = $this->invoke(AigcShortDramaService::class, 'shortDramaVideoReferenceContractPayload',
+                $mode, $selected, [], []);
+            // Browsers submit IDs, which the market runtime cannot resolve.
+            // Stale URL aliases must not add media outside the server plan.
+            $client = [
+                'model_id' => 'market_video_model:94',
+                'input_asset_ids' => [999],
+                'reference_assets' => [['type' => 'video', 'url' => 'https://example.test/stale.mp4']],
+                'reference_images' => ['https://example.test/stale.png'],
+                'image' => 'https://example.test/stale.png',
+                'image_urls' => ['https://example.test/stale.png'],
+                'video_urls' => ['https://example.test/stale.mp4'],
+                'audio_urls' => ['https://example.test/stale.mp3'],
+                'first_frame_image' => 'https://example.test/stale-first.png',
+                'last_frame_image' => 'https://example.test/stale-last.png',
+            ];
+            foreach ([false, true] as $nested) {
+                $params = $client;
+                if ($nested) $params['params'] = $client;
+                $prepared = $this->invoke(AigcShortDramaService::class, 'applyShortDramaVideoReferenceContract', $params, $contract);
+                $quote = $this->invoke(AigcShortDramaService::class, 'marketVideoSelection', $prepared) + $prepared;
+                self::assertSame($contract['input_asset_ids'], $quote['input_asset_ids']);
+                self::assertSame($mode === 'start_end' ? [] : $contract['input_asset_ids'], $quote['reference_asset_ids']);
+                self::assertSame($contract['reference_plan'], $quote['reference_plan']);
+                $assets = AigcVideoReferenceAssetService::normalize($quote);
+                self::assertSame(array_column($selected, 'role'), array_column($assets, 'role'));
+                self::assertSame(array_column(array_column($selected, 'asset'), 'url'), array_column($assets, 'url'));
+                if ($nested) {
+                    foreach (['reference_assets', 'reference_images', 'first_frame_image', 'last_frame_image', 'generation_method', 'input_asset_ids', 'reference_asset_ids', 'reference_plan'] as $key) {
+                        self::assertSame($prepared[$key], $prepared['params'][$key]);
+                    }
+                }
+                // Exercise the exact validation that rejected online submits.
+                $this->invoke(MarketVideoRuntimeService::class, 'assertAssets', ['product' => [
+                    'upstream_model_code' => 'wan3.0-video',
+                    'source_payload' => ['market_metadata' => [
+                        'supported_asset_types' => ['image', 'video', 'audio'],
+                        'max_reference_images' => 10,
+                        'max_reference_videos' => 5,
+                        'max_reference_audios' => 5,
+                        'max_reference_assets' => 20,
+                    ]],
+                ]], $quote);
+            }
+        }
+    }
+
     public function testFfmpegExportDefersOnlyWhenTheWebSapiCannotExecuteCommands(): void
     {
         self::assertTrue($this->invoke(
