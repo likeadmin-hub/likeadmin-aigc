@@ -280,6 +280,14 @@
       "scene": "platform_admin",
       "need_login": 1,
       "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.prompt/enhance",
+      "api_method": "POST",
+      "permission_key": "aigc_image:prompt:enhance",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
     }
   ]
 }
