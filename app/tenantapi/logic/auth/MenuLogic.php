@@ -56,6 +56,7 @@ class MenuLogic extends BaseLogic
             self::ensureSystemDefaultMenu($tenantId);
             self::ensureCaseGalleryMenu($tenantId);
             self::ensurePcNoticeMenu($tenantId);
+            self::ensureLatestNewsMenu($tenantId);
             self::ensureTutorialMenu($tenantId);
         }
 
@@ -365,6 +366,29 @@ class MenuLogic extends BaseLogic
             }
         } catch (Throwable) {
         }
+    }
+
+    private static function ensureLatestNewsMenu(int $tenantId): void
+    {
+        if ($tenantId <= 0) { return; }
+        $tables = self::tenantMenuTables($tenantId);
+        if (!self::tableExists($tables['menu'])) { return; }
+        self::ensureMenuSourceColumns($tables['menu']);
+        $systemId = self::systemDefaultMenuId($tables['menu'], $tenantId);
+        $id = self::upsertSystemMenu($tables['menu'], $tenantId, [
+            'pid' => $systemId, 'type' => 'C', 'name' => '最新动态',
+            'icon' => 'el-icon-Film', 'sort' => 96,
+            'perms' => 'app.system_default.latest_news/lists',
+            'paths' => 'latest-news', 'component' => 'latest_news/index',
+            'app_code' => 'system_default', 'source_menu_key' => 'core_tenant_latest_news',
+        ]);
+        self::grantChildMenuToParentRoles($tables['role_menu'], $systemId, $id);
+        $saveId = self::upsertSystemMenu($tables['menu'], $tenantId, [
+            'pid' => $id, 'type' => 'A', 'name' => '保存', 'is_show' => 0,
+            'perms' => 'app.system_default.latest_news/save',
+            'app_code' => 'system_default', 'source_menu_key' => 'core_tenant_latest_news_save',
+        ]);
+        self::grantChildMenuToParentRoles($tables['role_menu'], $id, $saveId);
     }
 
     private static function ensureTutorialMenu(int $tenantId): void
