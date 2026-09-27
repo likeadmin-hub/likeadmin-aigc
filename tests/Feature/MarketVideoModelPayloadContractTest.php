@@ -8,6 +8,27 @@ use ReflectionMethod;
 
 class MarketVideoModelPayloadContractTest extends TestCase
 {
+    public function testDeclaredGenerationOptionsPreserveFalseAndSkuLocks(): void
+    {
+        $payload = $this->invokeModelPayload([
+            'model_code' => 'fixture-video', 'channel_code' => 'fixture',
+            'params_schema' => ['seed' => ['type' => 'integer', 'minimum' => 0], 'generate_audio' => ['type' => 'boolean']],
+            'locked_params' => ['seed' => 99],
+        ], ['prompt' => 'fixture', 'seed' => 42, 'generate_audio' => false, 'camera_fixed' => true]);
+        self::assertSame(99, $payload['seed']);
+        self::assertFalse($payload['generate_audio']);
+        self::assertArrayNotHasKey('camera_fixed', $payload);
+    }
+
+    public function testDeclaredGenerationOptionsRejectInvalidRange(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->invokeModelPayload([
+            'model_code' => 'fixture-video', 'channel_code' => 'fixture',
+            'params_schema' => ['seed' => ['type' => 'integer', 'minimum' => 0]],
+        ], ['prompt' => 'fixture', 'seed' => -2]);
+    }
+
     public function testIdenticalFrameImageRetainsBothRolesInProviderPayload(): void
     {
         $uri = 'https://fixtures.invalid/shared.png';
