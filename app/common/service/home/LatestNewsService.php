@@ -34,12 +34,15 @@ class LatestNewsService
             $path = trim((string)($link['path'] ?? ''));
             $kind = (string)($link['kind'] ?? 'internal');
             if (!$title || mb_strlen($title) > 120) { throw new RuntimeException('标题必填且不能超过120字'); }
-            if (!in_array($type, ['image', 'video', 'file'], true) || !self::safeMedia($media)) { throw new RuntimeException('请选择有效素材'); }
+            if (!in_array($type, ['image', 'video'], true) || !self::safeMedia($media)) { throw new RuntimeException('请选择有效素材'); }
             if ($kind === 'external') {
                 if (!preg_match('~^https?://~i', $path) || !filter_var($path, FILTER_VALIDATE_URL)) { throw new RuntimeException('外部链接必须为完整的http或https地址'); }
             } elseif ($kind !== 'internal' || !preg_match('~^/(?!/)[^\\\\\x00-\x20]*$~', $path)) {
                 throw new RuntimeException('请选择有效的站内页面');
             }
+            $extension = strtolower(pathinfo((string)parse_url($media, PHP_URL_PATH), PATHINFO_EXTENSION));
+            $extensions = $type === 'video' ? ['mp4', 'webm', 'mov', 'm4v', 'avi', 'mkv', 'flv'] : ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'avif', 'bmp', 'ico'];
+            if ($extension !== '' && !in_array($extension, $extensions, true)) { throw new RuntimeException('素材仅支持所选类型的图片或视频'); }
             $poster = trim((string)($row['poster'] ?? ''));
             if ($poster !== '' && !self::safeMedia($poster)) { throw new RuntimeException('封面地址无效'); }
             $clean[] = [
