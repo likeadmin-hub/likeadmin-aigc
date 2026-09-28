@@ -14789,6 +14789,19 @@ class AigcShortDramaService
         ];
     }
 
+    private static function planQualityFailureMessage(array $report): string
+    {
+        foreach ((array)($report['issues'] ?? []) as $issue) {
+            if (is_array($issue) && ($issue['severity'] ?? '') === 'blocking') {
+                $detail = trim((string)($issue['message'] ?? ''));
+                if ($detail !== '') {
+                    return '剧本计划质检未通过：' . mb_substr($detail, 0, 150, 'UTF-8');
+                }
+            }
+        }
+        return '剧本计划质检未通过，请检查生成内容后重试';
+    }
+
     private static function buildReviewReport(array $issues, array $storyboardDiagnostics = []): array
     {
         $issues = array_slice(array_values($issues), 0, 80);
@@ -18053,7 +18066,7 @@ class AigcShortDramaService
             }
             if ((int)($result['review_report']['blocking_count'] ?? 0) > 0) {
                 Log::write('AI short drama plan repair failed: ' . self::jsonEncode($result['review_report']));
-                throw new Exception('剧本计划质检未通过，请调整灵感描述后重试');
+                throw new Exception(self::planQualityFailureMessage((array)($result['review_report'] ?? [])));
             }
         }
 
@@ -18143,7 +18156,10 @@ class AigcShortDramaService
                 if ((int)($candidate['review_report']['blocking_count'] ?? 0) > 0) throw new \RuntimeException('局部连续性补丁质检未通过，原结果已保留', 422);
                 self::assertStoryboardBudgetSatisfied($candidate, $request, $prompt);
                 $candidate['_continuity_source_patch'] = $patch;
-                $candidate['_continuity'] = ShortDramaContinuity::review($candidate, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit, $verifyMeaning);
+                // The source insertion must pass the independent semantic
+                // verifier inside review. Once verified, malformed audit
+                // metadata must not discard the inserted shot.
+                $candidate['_continuity'] = ShortDramaContinuity::review($candidate, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit, $verifyMeaning, true);
                 unset($candidate['_continuity_source_patch']);
                 $candidate['_continuity_patch'] = ['version' => 1, 'base_digest' => ShortDramaContinuity::fingerprint($result), 'patch' => $patch];
                 $result = $candidate;
@@ -18307,7 +18323,7 @@ class AigcShortDramaService
             $result = self::reviewAndRepairPlanResult(self::enhancePlanResult(self::protectRevisionTargetResult($result, $request)), true, true);
         }
         if ((int)($result['review_report']['blocking_count'] ?? 0) > 0) {
-            throw new Exception('剧本计划质检未通过，请调整灵感描述后重试');
+            throw new Exception(self::planQualityFailureMessage((array)($result['review_report'] ?? [])));
         }
         try {
             self::assertCompleteMultiEpisodeOutline($result, $aggregateRequest);

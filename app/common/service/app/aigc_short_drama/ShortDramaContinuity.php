@@ -158,6 +158,12 @@ final class ShortDramaContinuity
                         ]]], $plan, $context, $episode);
                     $ledger['audit_status'] = 'pending_review';
                 }
+                // Quarantined claims are deliberately absent from the state
+                // ledger. Keep the episode available, but make the incomplete
+                // audit visible to the next episode and to the editor.
+                if (!empty($review['unverified_claims']) || !empty($review['unverified_hook_resolutions'])) {
+                    $ledger['audit_status'] = 'pending_review';
+                }
                 return $ledger + ['review_repairs' => $attempt];
             } catch (RuntimeException $error) {
                 // Audit transport/data validation is not a verdict about the

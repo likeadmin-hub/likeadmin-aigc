@@ -39,6 +39,23 @@ class ShortDramaContinuityTest extends TestCase
             fn() => $this->review(), null, true);
     }
 
+    public function testAdvisoryAuditKeepsScriptWhenShotEvidenceCannotBeRepaired(): void
+    {
+        $bad = $this->review();
+        $bad['changes'][0]['quote'] = '镜头里不存在的文字';
+        $calls = 0;
+        $ledger = Continuity::review($this->plan(), [], 1, static function () use ($bad, &$calls) {
+            $calls++;
+            return $calls === 1 ? $bad : ['evidence_patches' => []];
+        }, static fn(array $review): array => $review, true);
+
+        self::assertSame(3, $calls);
+        self::assertSame('pending_review', $ledger['audit_status'] ?? '');
+        self::assertSame([], $ledger['state']);
+        self::assertSame('甲拿走钥匙。', $ledger['summary']);
+        self::assertSame($bad['changes'][0], $ledger['unverified_claims'][0]['claim']);
+    }
+
     public function testVerifiedSourcePatchDoesNotTurnInvalidAuditBeforeIntoScriptFailure(): void
     {
         $plan = $this->plan();
@@ -59,6 +76,28 @@ class ShortDramaContinuityTest extends TestCase
         self::assertSame('pending_review', $ledger['audit_status']);
         self::assertSame($context['continuity']['state'], $ledger['state']);
         self::assertSame($review, $ledger['unverified_claims'][0]['claim']);
+    }
+
+    public function testVerifiedSourcePatchKeepsScriptWhenAuditQuoteIsUnrepairable(): void
+    {
+        $plan = $this->plan();
+        $plan['_continuity_source_patch'] = ['shot_insertions' => [['source_quote' => '甲拿走钥匙。']]];
+        $bad = $this->review();
+        $bad['changes'][0]['quote'] = '镜头里不存在的文字';
+        $calls = 0;
+        $verify = static fn(array $audit): array => ShortDramaContinuityPatch::verifiedReview($audit,
+            ['checks' => [['collection' => 'insertions', 'index' => 0, 'supported' => true,
+                'reason' => '补镜忠于原文']]], [], $plan['_continuity_source_patch']);
+
+        $ledger = Continuity::review($plan, [], 1, static function () use ($bad, &$calls) {
+            $calls++;
+            return $calls === 1 ? $bad : ['evidence_patches' => []];
+        }, $verify, true);
+
+        self::assertSame(3, $calls);
+        self::assertSame('pending_review', $ledger['audit_status'] ?? '');
+        self::assertSame([], $ledger['state']);
+        self::assertSame($bad['changes'][0], $ledger['unverified_claims'][0]['claim']);
     }
 
     public function testUnverifiedSourcePatchStillFailsBeforeAdvisoryLedgerFallback(): void
