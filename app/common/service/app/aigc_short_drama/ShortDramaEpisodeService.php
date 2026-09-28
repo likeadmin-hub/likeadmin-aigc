@@ -35,6 +35,15 @@ class ShortDramaEpisodeService
         return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
+    private static function outlineRequest(int $tenantId, int $userId, array $episode): ?array
+    {
+        $taskId = (string)($episode['outline_task_id'] ?? '');
+        if ($taskId === '') return null;
+        $task = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
+            'project_id' => (int)$episode['project_id'], 'task_id' => $taskId, 'delete_time' => 0])->findOrEmpty();
+        return $task->isEmpty() ? null : self::decode($task['request_json']);
+    }
+
     public static function productionIds(int $tenantId, int $userId): array
     {
         return Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])
@@ -204,6 +213,7 @@ class ShortDramaEpisodeService
     public static function retry(int $tenantId, int $userId, int $id): array
     {
         return self::locked($tenantId, $userId, $id, function (array $row) use ($tenantId, $userId) {
+            $outlineRequest = self::outlineRequest($tenantId, $userId, $row);
             $siblings = self::withContinuityStatus($tenantId, $userId, Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId,
                 'project_id' => $row['project_id'], 'delete_time' => 0])->order('episode_number')->select()->toArray());
             $review = false;
@@ -224,6 +234,7 @@ class ShortDramaEpisodeService
                 $old = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id'], 'delete_time' => 0])->findOrEmpty();
                 if (!$old->isEmpty()) {
                     $request = self::decode($old['request_json']);
+                    if ($outlineRequest !== null) $request = ShortDramaStoryWorkflow::inheritQualityReview($request, $outlineRequest);
                     $originalContext = $request['series_context'] ?? [];
                     if ((int)($request['_generation_version'] ?? 0) >= 3) {
                         $previous = [];
@@ -245,7 +256,8 @@ class ShortDramaEpisodeService
                         && $originalContext === ($request['series_context'] ?? [])) {
                         Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id']])
                             ->whereIn('status', ['failed', 'running'])->update(['status' => 'pending', 'update_time' => time()]);
-                        $old->save(['status' => 'pending', 'error' => '', 'finished_at' => 0, 'update_time' => time()]);
+                        $old->save(['request_json' => self::encode($request), 'status' => 'pending',
+                            'error' => '', 'finished_at' => 0, 'update_time' => time()]);
                         $newTask = (string)$old['task_id'];
                     } else {
                         $created = AigcShortDramaService::createScriptPlan($tenantId, $userId, $request, (int)$row['production_project_id'], $request);
@@ -488,12 +500,30 @@ class ShortDramaEpisodeService
                 Db::transaction(function () use ($tenantId, $userId, &$row, $outlineTask, $previous, $snapshot) {
                     $current = Db::name(self::TABLE)->where('id', $row['id'])->lock(true)->find();
                     if ($current['status'] !== 'pending' || $current['task_id'] !== '') throw new Exception('剧集状态已变化');
+                    $outlineRequest = self::decode($outlineTask['request_json']);
+                    $episodeRequest = ShortDramaStoryWorkflow::inheritQualityReview(
+                        $snapshot['request'] ?? $outlineRequest, $outlineRequest);
                     $created = AigcShortDramaService::createEpisodeProduction($tenantId, $userId, $row,
-                        $snapshot['request'] ?? self::decode($outlineTask['request_json']), $snapshot['plan'] ?? self::decode($outlineTask['result_json']), $previous);
+                        $episodeRequest, $snapshot['plan'] ?? self::decode($outlineTask['result_json']), $previous);
                     $row['task_id'] = $created['task_id'];
                     $row['production_project_id'] = $created['project_id'];
                     Db::name(self::TABLE)->where('id', $row['id'])->update(['task_id' => $row['task_id'], 'production_project_id' => $row['production_project_id'], 'update_time' => time()]);
                 });
+            }
+            // A queued child may have been created by a worker loaded before
+            // the review switch was introduced. Correct its frozen policy at
+            // the execution boundary, including retries of an existing task.
+            $outlineRequest = self::outlineRequest($tenantId, $userId, $row);
+            if ($outlineRequest !== null && $row['task_id'] !== '') {
+                $child = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
+                    'project_id' => (int)$row['production_project_id'], 'task_id' => $row['task_id'], 'delete_time' => 0])->findOrEmpty();
+                if (!$child->isEmpty()) {
+                    $originalRequest = self::decode($child['request_json']);
+                    $resolvedRequest = ShortDramaStoryWorkflow::inheritQualityReview($originalRequest, $outlineRequest);
+                    if ($resolvedRequest !== $originalRequest) {
+                        $child->save(['request_json' => self::encode($resolvedRequest), 'update_time' => time()]);
+                    }
+                }
             }
             $claimed = Db::name(self::TABLE)->where(['id' => $row['id'], 'task_id' => $row['task_id'], 'delete_time' => 0])->whereIn('status', ['pending', 'running'])->update(['status' => 'running', 'started_at' => (int)$row['started_at'] ?: time(), 'update_time' => time()]);
             if (!$claimed && (Db::name(self::TABLE)->where('id', $row['id'])->value('status') !== 'running')) return;
