@@ -163,7 +163,8 @@ final class ShortDramaStoryDraft
             }
             $request['_story_draft'] = ['version' => self::version($request) + 1, 'stage' => $stage, 'result' => $result, 'saved_at' => time()];
             $locked->save(['request_json' => json_encode($request, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'update_time' => time()]);
-            $issues = ShortDramaStoryWorkflow::issues($result, $stage, (int)$request['episode_count']);
+            $issues = ShortDramaStoryWorkflow::issues($result, $stage, (int)$request['episode_count'],
+                ShortDramaStoryWorkflow::qualityReviewEnabled($request));
             return ['draft_version' => self::version($request), 'saved_at' => time(), 'issues' => $issues, 'can_confirm' => !$issues];
         });
     }

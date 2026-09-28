@@ -68,7 +68,7 @@ final class ShortDramaContinuity
         return ['version' => 1, 'state' => (array)($last['state'] ?? []), 'open_hooks' => (array)($last['open_hooks'] ?? []),
             'audit_status' => (string)($last['audit_status'] ?? 'verified'),
             'warnings' => (array)($last['warnings'] ?? []),
-            'state_note' => ($last['audit_status'] ?? '') === 'pending_review'
+            'state_note' => in_array(($last['audit_status'] ?? ''), ['pending_review', 'skipped'], true)
                 ? '状态表仅为此前已验证记录，可能未反映上一集最新事件；衔接以recent_episodes正文为准，勿为迎合旧状态改写剧情。' : '',
             'previous_digest' => (string)($last['digest'] ?? ''),
             'recent_episodes' => array_map(static fn($item) => array_intersect_key($item, array_flip(['episode_number', 'summary', 'digest', 'audit_status', 'warnings'])), array_slice($previous, -2))];

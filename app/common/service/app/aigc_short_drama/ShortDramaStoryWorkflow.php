@@ -9,6 +9,13 @@ final class ShortDramaStoryWorkflow
 {
     public const VARIANT = 'story_outline_v2';
 
+    /** Missing on historical tasks means the original review flow. */
+    public static function qualityReviewEnabled(array $request): bool
+    {
+        return !array_key_exists('quality_review_enabled', $request)
+            || filter_var($request['quality_review_enabled'], FILTER_VALIDATE_BOOLEAN);
+    }
+
     public static function enabled(array $request): bool
     {
         return ($request['workflow_variant'] ?? '') === self::VARIANT
@@ -102,7 +109,7 @@ final class ShortDramaStoryWorkflow
     }
 
     /** Confirmation is stricter than draft saving; returns field-level errors. */
-    public static function issues(array $plan, string $stage, int $count): array
+    public static function issues(array $plan, string $stage, int $count, bool $qualityReviewEnabled = true): array
     {
         $issues = [];
         foreach (['title' => '剧名', 'type_judgement' => '题材类型', 'core_theme' => '核心主题', 'story_outline' => '故事梗概'] as $key => $label) {
@@ -128,6 +135,7 @@ final class ShortDramaStoryWorkflow
         if (!empty($plan['storyboard'])) $issues[] = ['path' => 'storyboard', 'message' => '设定和大纲阶段不能包含制作分镜'];
         if ($stage === 'story') {
             if (!empty($plan['episodes'])) $issues[] = ['path' => 'episodes', 'message' => '确认故事设定后才能生成分集大纲'];
+            if (!$qualityReviewEnabled) return $issues;
             // Imported settings expose only what the parser actually extracted.
             // Editorial fields are editable, but must not force invented facts
             // or another paid rewrite just to confirm an intact source script.
@@ -143,7 +151,9 @@ final class ShortDramaStoryWorkflow
             $invalidFields = false;
             foreach ((array)($plan['episodes'] ?? []) as $index => $episode) {
                 foreach (['title' => '标题', 'story_outline' => '剧情', 'conflict_point' => '冲突点', 'ending_hook' => '结尾内容'] as $key => $label) {
-                    if (!is_array($episode) || !self::isCreativeText($episode[$key] ?? null)) {
+                    if (!is_array($episode) || ($qualityReviewEnabled
+                        ? !self::isCreativeText($episode[$key] ?? null)
+                        : trim((string)($episode[$key] ?? '')) === '')) {
                         $issues[] = ['path' => 'episodes.' . $index . '.' . $key, 'message' => '第' . ($index + 1) . '集请补充有效的' . $label];
                         $invalidFields = true;
                     }
@@ -153,11 +163,13 @@ final class ShortDramaStoryWorkflow
                 try { ShortDramaEpisodeService::validateOutline($plan, $count); }
                 catch (\Exception $e) { $issues[] = ['path' => 'episodes', 'message' => $e->getMessage()]; }
             }
-            $seen = [];
-            foreach ((array)($plan['episodes'] ?? []) as $index => $episode) {
-                $story = is_array($episode) && is_string($episode['story_outline'] ?? null) ? trim($episode['story_outline']) : '';
-                if ($story !== '' && isset($seen[$story])) $issues[] = ['path' => 'episodes.' . $index, 'message' => '第' . ($index + 1) . '集剧情与其他集完全重复'];
-                $seen[$story] = true;
+            if ($qualityReviewEnabled) {
+                $seen = [];
+                foreach ((array)($plan['episodes'] ?? []) as $index => $episode) {
+                    $story = is_array($episode) && is_string($episode['story_outline'] ?? null) ? trim($episode['story_outline']) : '';
+                    if ($story !== '' && isset($seen[$story])) $issues[] = ['path' => 'episodes.' . $index, 'message' => '第' . ($index + 1) . '集剧情与其他集完全重复'];
+                    $seen[$story] = true;
+                }
             }
         } else {
             $issues[] = ['path' => 'stage', 'message' => '无效的编辑阶段'];
