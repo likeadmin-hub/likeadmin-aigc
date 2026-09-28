@@ -97,7 +97,8 @@ class ShortDramaEpisodeService
                 if (ShortDramaStoryDraft::stage($request) !== 'episodes') throw new Exception('请先确认故事设定并完成分集大纲');
                 ShortDramaStoryDraft::assertVersion($request, $params);
                 $plan = ShortDramaStoryDraft::effective($request, $plan);
-                $issues = ShortDramaStoryWorkflow::issues($plan, 'episodes', (int)$project['episode_count']);
+                $issues = ShortDramaStoryWorkflow::issues($plan, 'episodes', (int)$project['episode_count'],
+                    ShortDramaStoryWorkflow::qualityReviewEnabled($request));
                 if ($issues) throw new Exception($issues[0]['message']);
                 $request['confirmed_outline_version'] = ShortDramaStoryDraft::version($request);
                 $request['confirmed_outline_snapshot'] = $plan;

@@ -76,6 +76,30 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
             self::assertTrue(\app\common\service\power\MarketTextModelRuntimeService::$requests[0]['_disable_transient_retry']);
         }
     }
+
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testDisabledQualityReviewSkipsRepairAndBothContinuityModelCalls(): void
+    {
+        require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
+        Container::getInstance()->instance('config', new \think\Config());
+        $this->silenceLog();
+        \app\common\service\power\MarketTextModelRuntimeService::reset();
+        \app\common\service\power\MarketTextModelRuntimeService::$missingSpeaker = true;
+        $generated = $this->generate(['_generation_version' => 3, 'multi_episode' => false,
+            'episode_count' => 1, 'episode_number' => 2, 'quality_review_enabled' => false,
+            'series_context' => ['current_episode' => ['story_outline' => '主角找到线索'],
+                'continuity' => ['state' => ['subject_1:location' => '旧宅'], 'previous_digest' => 'previous']]]);
+
+        self::assertCount(1, \app\common\service\power\MarketTextModelRuntimeService::$requests);
+        self::assertTrue($generated['result']['review_report']['skipped']);
+        self::assertSame(false, $generated['result']['generation_settings']['quality_review_enabled']);
+        self::assertSame('skipped', $generated['result']['_continuity']['audit_status']);
+        self::assertSame('previous', $generated['result']['_continuity']['previous_digest']);
+        self::assertSame(['subject_1:location' => '旧宅'], $generated['result']['_continuity']['state']);
+        self::assertSame([], $generated['repair_llm']);
+    }
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
      */
