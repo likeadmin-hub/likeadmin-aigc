@@ -11,6 +11,19 @@ use think\Container;
 /** Exercises the real script-plan assembly/normalization/repair path with a fake provider only. */
 class ShortDramaScriptPlanGenerationContractTest extends TestCase
 {
+    public function testQualityFailureNamesTheFirstBlockingIssue(): void
+    {
+        $method = new ReflectionMethod(AigcShortDramaService::class, 'planQualityFailureMessage');
+        $method->setAccessible(true);
+        self::assertSame('剧本计划质检未通过：分镜 7 场景引用不存在', $method->invoke(null, [
+            'issues' => [
+                ['severity' => 'warning', 'message' => '仅供参考'],
+                ['severity' => 'blocking', 'message' => '分镜 7 场景引用不存在'],
+            ],
+        ]));
+        self::assertSame('剧本计划质检未通过，请检查生成内容后重试', $method->invoke(null, []));
+    }
+
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
      */
