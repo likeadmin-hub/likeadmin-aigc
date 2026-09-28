@@ -127,6 +127,7 @@ final class ShortDramaContinuity
         $mutableEvidence = [];
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
+                $sourcePatchVerified = false;
                 $review = $call($input);
                 if ($attempt) $review = isset($review['evidence_patches'])
                     ? self::applyEvidencePatches($patchBase, $review, $plan, $mutableEvidence)
@@ -135,6 +136,9 @@ final class ShortDramaContinuity
                     $review = self::isolateInvalidEvidence($review, $plan, $attempt >= 2);
                     $verified = $verifyMeaning($review, $plan);
                     if (is_array($verified)) $review = $verified;
+                    // The verifier also checks every source-backed shot insertion.
+                    // A later ledger error is only about the audit metadata.
+                    $sourcePatchVerified = true;
                     $review = self::isolateUncertainStateChains($review);
                 }
                 try {
@@ -142,7 +146,7 @@ final class ShortDramaContinuity
                 } catch (RuntimeException $ledgerError) {
                     // Only local audit-data errors are advisory. Provider errors,
                     // capacity limits and unverified source insertions stay hard failures.
-                    if (!$advisory || !empty($plan['_continuity_source_patch'])
+                    if (!$advisory || (!empty($plan['_continuity_source_patch']) && !$sourcePatchVerified)
                         || !in_array($ledgerError->getCode(), [409, 422], true)) throw $ledgerError;
                     $warnings = array_values(array_filter((array)($review['warnings'] ?? []),
                         static fn($warning) => is_string($warning) && mb_strlen($warning) <= 1500));
