@@ -13,7 +13,8 @@
   "sort": 59,
   "frontends": [
     "tenant",
-    "pc"
+    "pc",
+    "uniapp"
   ],
   "api_prefix": "/app/aigc_music_cover",
   "menus": "menus/tenant.json",
@@ -37,6 +38,23 @@
       "icon": "resource/image/common/menu_generator.png",
       "sort": 82,
       "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_music_cover",
+      "name": "音乐翻唱",
+      "path": "/apps/aigc_music_cover/pages/index/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 82,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "音乐翻唱",
+            "path": "/apps/aigc_music_cover/pages/index/index"
+          }
+        ]
+      }
     }
   ],
   "public_assets": [
