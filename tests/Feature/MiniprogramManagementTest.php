@@ -54,6 +54,21 @@ class MiniprogramManagementTest extends TestCase
             OpenPlatformService::normalizeMiniprogramManagementInput('add_category', ['first' => 8, 'second' => 39]));
     }
 
+    public function testCategoryEvidenceAcceptsRealImageAndRejectsRenamedFile(): void
+    {
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/w1cAAAAASUVORK5CYII=');
+        self::assertSame(['mime' => 'image/png', 'extension' => 'png'],
+            OpenPlatformService::categoryImageType('资质.png', $png));
+        $this->expectException(\InvalidArgumentException::class);
+        OpenPlatformService::categoryImageType('资质.jpg', $png);
+    }
+
+    public function testCategoryEvidenceRejectsOversizedImageBeforeWechatCall(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        OpenPlatformService::categoryImageType('资质.png', str_repeat('x', 2 * 1024 * 1024 + 1));
+    }
+
     public function testUnknownOperationIsRejected(): void
     {
         $this->expectException(\InvalidArgumentException::class);

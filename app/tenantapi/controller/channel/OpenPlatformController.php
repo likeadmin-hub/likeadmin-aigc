@@ -15,6 +15,10 @@ class OpenPlatformController extends BaseAdminController
         try { return $this->data(OpenPlatformService::miniprogramPrivacy($this->tenantId, (int)$this->request->get('privacy_ver', 2))); }
         catch (\Throwable $e) { return $this->fail($e->getMessage()); }
     }
+    public function miniprogramPrivacyAuditStatus() {
+        try { return $this->data(OpenPlatformService::miniprogramPrivacyAuditStatus($this->tenantId)); }
+        catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+    }
     public function saveMiniprogramPrivacy() {
         try { return $this->data(OpenPlatformService::runIdempotent('miniprogram.privacy.set', $this->idempotencyKey(), $this->tenantId, fn() => OpenPlatformService::setMiniprogramPrivacy($this->tenantId, (array)$this->request->post()))); }
         catch (\Throwable $e) { return $this->fail($e->getMessage()); }
@@ -29,6 +33,18 @@ class OpenPlatformController extends BaseAdminController
             $content = file_get_contents($file->getPathname());
             if ($content === false) throw new \RuntimeException('读取补充文档失败');
             return $this->data(OpenPlatformService::uploadMiniprogramPrivacyFile($this->tenantId, $file->getOriginalName(), $content));
+        } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+    }
+    public function uploadMiniprogramCategoryImage() {
+        try {
+            $file = $this->request->file('file');
+            if (!$file) throw new \InvalidArgumentException('请选择资质图片');
+            if ($file->getSize() < 1 || $file->getSize() > 2 * 1024 * 1024) {
+                throw new \InvalidArgumentException('资质图片大小不能超过 2MB');
+            }
+            $content = file_get_contents($file->getPathname());
+            if ($content === false) throw new \RuntimeException('读取资质图片失败');
+            return $this->data(OpenPlatformService::uploadMiniprogramCategoryImage($this->tenantId, $file->getOriginalName(), $content));
         } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
     }
     public function miniprogramManagementRead() {

@@ -844,6 +844,30 @@ class OpenPlatformService
         return ['authorizer_appid' => (string)$authorizer['authorizer_appid'], 'privacy_ver' => $privacyVer] + $result;
     }
 
+    /** Privacy settings have no separate review; WeChat reviews them with the next code audit. */
+    public static function miniprogramPrivacyAuditStatus(int $tenantId): array
+    {
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        $result = self::request(
+            'wxa/get_latest_auditstatus',
+            [],
+            'miniprogram.privacy.latest_audit',
+            ['access_token' => self::authorizerToken((int)$authorizer['id'])],
+            $tenantId,
+            (int)$authorizer['id'],
+            'GET'
+        );
+        return [
+            'authorizer_appid' => (string)$authorizer['authorizer_appid'],
+            'auditid' => (string)($result['auditid'] ?? ''),
+            'status' => isset($result['status']) ? (int)$result['status'] : null,
+            'reason' => (string)($result['reason'] ?? ''),
+            'user_version' => (string)($result['user_version'] ?? ''),
+            'user_desc' => (string)($result['user_desc'] ?? ''),
+            'submit_audit_time' => (int)($result['submit_audit_time'] ?? 0),
+        ];
+    }
+
     /** Submit the complete development guide; the live guide is read-only here. */
     public static function setMiniprogramPrivacy(int $tenantId, array $data): array
     {
@@ -952,6 +976,52 @@ class OpenPlatformService
             self::logApi($requestId, 'miniprogram.privacy.upload', -1, $started, 'failed', $tenantId, (int)$authorizer['id']);
             throw new \RuntimeException(str_replace($token, '[redacted]', $e->getMessage()), 0, $e);
         }
+    }
+
+    /** Upload category evidence only when the tenant submits it, so the temporary media ID is fresh. */
+    public static function uploadMiniprogramCategoryImage(int $tenantId, string $filename, string $content): array
+    {
+        $image = self::categoryImageType($filename, $content);
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        $token = self::authorizerToken((int)$authorizer['id']);
+        $url = self::API . 'cgi-bin/media/upload?' . http_build_query(['access_token' => $token, 'type' => 'image']);
+        $boundary = '----likeadmin-' . bin2hex(random_bytes(12));
+        $body = '--' . $boundary . "\r\n"
+            . 'Content-Disposition: form-data; name="media"; filename="qualification.' . $image['extension'] . '"' . "\r\n"
+            . 'Content-Type: ' . $image['mime'] . "\r\n\r\n"
+            . $content . "\r\n--" . $boundary . "--\r\n";
+        $started = microtime(true);
+        $requestId = bin2hex(random_bytes(12));
+        try {
+            $response = Requests::post($url, ['Content-Type' => 'multipart/form-data; boundary=' . $boundary], $body, ['timeout' => 30]);
+            $result = json_decode((string)$response->body, true);
+            if (!is_array($result)) throw new \RuntimeException('微信素材接口返回格式错误');
+            $code = (int)($result['errcode'] ?? 0);
+            if ($code !== 0) throw new \RuntimeException('微信素材上传失败：' . (string)($result['errmsg'] ?? $code));
+            $mediaId = trim((string)($result['media_id'] ?? ''));
+            if ($mediaId === '') throw new \RuntimeException('微信未返回资质图片素材标识');
+            self::logApi($requestId, 'miniprogram.category.media.upload', 0, $started, 'success', $tenantId, (int)$authorizer['id']);
+            return ['media_id' => $mediaId];
+        } catch (\Throwable $e) {
+            self::logApi($requestId, 'miniprogram.category.media.upload', -1, $started, 'failed', $tenantId, (int)$authorizer['id']);
+            throw new \RuntimeException(str_replace($token, '[redacted]', $e->getMessage()), 0, $e);
+        }
+    }
+
+    /** Keep file validation independent of WeChat so invalid uploads never consume an API call. */
+    public static function categoryImageType(string $filename, string $content): array
+    {
+        if ($content === '' || strlen($content) > 2 * 1024 * 1024) {
+            throw new \InvalidArgumentException('资质图片大小不能超过 2MB');
+        }
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $allowed = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif'];
+        if (!isset($allowed[$extension])) throw new \InvalidArgumentException('资质图片仅支持 JPG、PNG、GIF');
+        $info = @getimagesizefromstring($content);
+        if (!is_array($info) || ($info['mime'] ?? '') !== $allowed[$extension]) {
+            throw new \InvalidArgumentException('资质图片内容与文件类型不符');
+        }
+        return ['mime' => $allowed[$extension], 'extension' => $extension === 'jpeg' ? 'jpg' : $extension];
     }
 
     /** Tenant-scoped WeChat mini program management. Paths are deliberately allowlisted. */
