@@ -12,6 +12,20 @@ class MiniprogramManagementTest extends TestCase
         self::assertSame(['action' => 'get_experiencer'], OpenPlatformService::normalizeMiniprogramManagementInput('testers', []));
     }
 
+    public function testEmptyWechatPostUsesObjectPayload(): void
+    {
+        self::assertSame('{}', OpenPlatformService::encodeWechatRequestBody(
+            OpenPlatformService::normalizeMiniprogramManagementInput('illegal_records', [])
+        ));
+    }
+
+    public function testCategoryTypeUsesNumberPayload(): void
+    {
+        self::assertSame('{"verify_type":1}', OpenPlatformService::encodeWechatRequestBody(
+            OpenPlatformService::normalizeMiniprogramManagementInput('categories_by_type', ['verify_type' => '1'])
+        ));
+    }
+
     public function testAppealRecordsRequireAnIllegalRecord(): void
     {
         $this->expectException(\InvalidArgumentException::class);

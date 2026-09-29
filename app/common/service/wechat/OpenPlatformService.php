@@ -968,7 +968,7 @@ class OpenPlatformService
             'all_categories' => ['cgi-bin/wxopen/getallcategories', 'GET'],
             'setting_categories' => ['cgi-bin/wxopen/getcategory', 'GET'],
             'categories_by_type' => ['cgi-bin/wxopen/getcategoriesbytype', 'POST'],
-            'category_names' => ['cgi-bin/wxopen/getallcategorynamelist', 'GET'],
+            'category_names' => ['wxa/get_category', 'GET'],
             'add_category' => ['cgi-bin/wxopen/addcategory', 'POST'],
             'delete_category' => ['cgi-bin/wxopen/deletecategory', 'POST'],
             'modify_category' => ['cgi-bin/wxopen/modifycategory', 'POST'],
@@ -1010,7 +1010,7 @@ class OpenPlatformService
         if ($operation === 'categories_by_type') {
             $type = trim((string)($input['verify_type'] ?? ''));
             if (!preg_match('/^[0-9]{1,2}$/', $type)) throw new \InvalidArgumentException('主体类型无效');
-            return ['verify_type' => $type];
+            return ['verify_type' => (int)$type];
         }
         if (in_array($operation, ['add_category', 'delete_category', 'modify_category'], true)) {
             $first = filter_var($input['first'] ?? null, FILTER_VALIDATE_INT);
@@ -1041,6 +1041,14 @@ class OpenPlatformService
             $result[] = trim($item);
         }
         return array_values(array_unique($result));
+    }
+
+    /** WeChat management POST APIs expect a JSON object even when no fields are supplied. */
+    public static function encodeWechatRequestBody(array $payload): string
+    {
+        $json = json_encode((object)$payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($json === false) throw new \InvalidArgumentException('微信接口请求参数无法编码');
+        return $json;
     }
 
     public static function undoAudit(int $tenantId, int $id): array
@@ -1081,7 +1089,7 @@ class OpenPlatformService
             $headers = ['Content-Type' => 'application/json'];
             $response = $method === 'GET'
                 ? Requests::get($url, $headers, ['timeout' => 30])
-                : Requests::post($url, $headers, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ['timeout' => 30]);
+                : Requests::post($url, $headers, self::encodeWechatRequestBody($payload), ['timeout' => 30]);
             $body = json_decode((string)$response->body, true); if (!is_array($body)) throw new \RuntimeException('微信接口返回格式错误'); $code = (int)($body['errcode'] ?? 0); self::logApi($requestId, $apiName, $code, $started, $code === 0 ? 'success' : 'failed', $tenantId, $authorizerId); if ($code !== 0) throw new \RuntimeException('微信接口调用失败：' . (string)($body['errmsg'] ?? $code)); return $body;
         } catch (\Throwable $e) { self::logApi($requestId, $apiName, -1, $started, 'failed', $tenantId, $authorizerId); throw $e; }
     }
