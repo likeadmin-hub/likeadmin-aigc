@@ -36,7 +36,7 @@ class OutpaintPricePackageStatusTest extends TestCase
                 'unit_price' => 30 + $index, 'status' => $status, 'sort' => 100 - $index,
             ];
         }
-        return $items;
+        return $this->call('normalizePriceConfig', $items);
     }
 
     public function testReadingSameRatioPackagesPreservesEnabledAndDisabledStatuses(): void
