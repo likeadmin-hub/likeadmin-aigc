@@ -954,6 +954,95 @@ class OpenPlatformService
         }
     }
 
+    /** Tenant-scoped WeChat mini program management. Paths are deliberately allowlisted. */
+    public static function miniprogramManagementApi(int $tenantId, string $operation, array $input = []): array
+    {
+        $endpoints = [
+            'illegal_records' => ['wxa/getillegalrecords', 'POST'],
+            'appeal_records' => ['wxa/getappealrecords', 'POST'],
+            'testers' => ['wxa/memberauth', 'POST'],
+            'bind_tester' => ['wxa/bind_tester', 'POST'],
+            'unbind_tester' => ['wxa/unbind_tester', 'POST'],
+            'privacy_interfaces' => ['wxa/security/get_privacy_interface', 'GET'],
+            'apply_privacy_interface' => ['wxa/security/apply_privacy_interface', 'POST'],
+            'all_categories' => ['cgi-bin/wxopen/getallcategories', 'GET'],
+            'setting_categories' => ['cgi-bin/wxopen/getcategory', 'GET'],
+            'categories_by_type' => ['cgi-bin/wxopen/getcategoriesbytype', 'POST'],
+            'category_names' => ['cgi-bin/wxopen/getallcategorynamelist', 'GET'],
+            'add_category' => ['cgi-bin/wxopen/addcategory', 'POST'],
+            'delete_category' => ['cgi-bin/wxopen/deletecategory', 'POST'],
+            'modify_category' => ['cgi-bin/wxopen/modifycategory', 'POST'],
+        ];
+        if (!isset($endpoints[$operation])) throw new \InvalidArgumentException('不支持的小程序管理操作');
+        $payload = self::normalizeMiniprogramManagementInput($operation, $input);
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        [$path, $method] = $endpoints[$operation];
+        $result = self::request($path, $payload, 'miniprogram.management.' . $operation,
+            ['access_token' => self::authorizerToken((int)$authorizer['id'])], $tenantId, (int)$authorizer['id'], $method);
+        return ['authorizer_appid' => (string)$authorizer['authorizer_appid']] + $result;
+    }
+
+    public static function normalizeMiniprogramManagementInput(string $operation, array $input): array
+    {
+        if ($operation === 'testers') return ['action' => 'get_experiencer'];
+        if (in_array($operation, ['illegal_records', 'privacy_interfaces', 'all_categories', 'setting_categories', 'category_names'], true)) return [];
+        if ($operation === 'appeal_records') {
+            $id = trim((string)($input['illegal_record_id'] ?? ''));
+            if ($id === '' || strlen($id) > 128) throw new \InvalidArgumentException('请选择违规记录');
+            return ['illegal_record_id' => $id];
+        }
+        if ($operation === 'bind_tester' || $operation === 'unbind_tester') {
+            $wechatid = trim((string)($input['wechatid'] ?? ''));
+            $userstr = trim((string)($input['userstr'] ?? ''));
+            if ($operation === 'bind_tester' && ($wechatid === '' || mb_strlen($wechatid) > 80)) throw new \InvalidArgumentException('请填写有效的体验者微信号');
+            if ($operation === 'unbind_tester' && $wechatid === '' && $userstr === '') throw new \InvalidArgumentException('请填写体验者微信号或唯一标识');
+            if (mb_strlen($wechatid) > 80 || strlen($userstr) > 256) throw new \InvalidArgumentException('体验者标识过长');
+            return array_filter(['wechatid' => $wechatid, 'userstr' => $userstr], fn($value) => $value !== '');
+        }
+        if ($operation === 'apply_privacy_interface') {
+            $name = trim((string)($input['api_name'] ?? ''));
+            $content = trim((string)($input['content'] ?? ''));
+            if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_.]{1,99}$/', $name) || $content === '' || mb_strlen($content) > 1000) throw new \InvalidArgumentException('请填写接口名称和申请理由');
+            $pictures = self::stringList($input['pic_list'] ?? [], 10, 1024);
+            foreach ($pictures as $picture) if (!filter_var($picture, FILTER_VALIDATE_URL) || !str_starts_with($picture, 'https://')) throw new \InvalidArgumentException('辅助图片必须为 HTTPS 地址');
+            return ['api_name' => $name, 'content' => $content, 'pic_list' => $pictures];
+        }
+        if ($operation === 'categories_by_type') {
+            $type = trim((string)($input['verify_type'] ?? ''));
+            if (!preg_match('/^[0-9]{1,2}$/', $type)) throw new \InvalidArgumentException('主体类型无效');
+            return ['verify_type' => $type];
+        }
+        if (in_array($operation, ['add_category', 'delete_category', 'modify_category'], true)) {
+            $first = filter_var($input['first'] ?? null, FILTER_VALIDATE_INT);
+            $second = filter_var($input['second'] ?? null, FILTER_VALIDATE_INT);
+            if (!$first || !$second || $first < 1 || $second < 1) throw new \InvalidArgumentException('请选择有效的一级和二级类目');
+            if ($operation === 'delete_category') return ['first' => $first, 'second' => $second];
+            $certicates = [];
+            foreach ((array)($input['certicates'] ?? []) as $item) {
+                if (!is_array($item)) throw new \InvalidArgumentException('类目资质格式错误');
+                $key = trim((string)($item['key'] ?? ''));
+                $value = trim((string)($item['value'] ?? ''));
+                if ($key === '' || mb_strlen($key) > 100 || $value === '' || strlen($value) > 256) throw new \InvalidArgumentException('请填写资质名称和微信素材 ID');
+                $certicates[] = ['key' => $key, 'value' => $value];
+            }
+            if (count($certicates) > 20) throw new \InvalidArgumentException('类目资质最多20项');
+            $category = ['first' => $first, 'second' => $second, 'certicates' => $certicates];
+            return $operation === 'add_category' ? ['categories' => [$category]] : $category;
+        }
+        throw new \InvalidArgumentException('不支持的小程序管理操作');
+    }
+
+    private static function stringList($input, int $maxCount, int $maxLength): array
+    {
+        if (!is_array($input) || count($input) > $maxCount) throw new \InvalidArgumentException('材料数量超出限制');
+        $result = [];
+        foreach ($input as $item) {
+            if (!is_string($item) || trim($item) === '' || strlen(trim($item)) > $maxLength) throw new \InvalidArgumentException('材料内容无效');
+            $result[] = trim($item);
+        }
+        return array_values(array_unique($result));
+    }
+
     public static function undoAudit(int $tenantId, int $id): array
     {
         $lock = SubmitLockService::acquire('wechat.version.audit.undo.' . $id, $tenantId, 0);

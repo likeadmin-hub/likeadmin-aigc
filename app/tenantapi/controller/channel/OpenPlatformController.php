@@ -31,6 +31,21 @@ class OpenPlatformController extends BaseAdminController
             return $this->data(OpenPlatformService::uploadMiniprogramPrivacyFile($this->tenantId, $file->getOriginalName(), $content));
         } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
     }
+    public function miniprogramManagementRead() {
+        try {
+            $operation = (string)$this->request->get('operation', '');
+            if (!in_array($operation, ['illegal_records', 'appeal_records', 'testers', 'privacy_interfaces', 'all_categories', 'setting_categories', 'categories_by_type', 'category_names'], true)) throw new \InvalidArgumentException('不支持的查询操作');
+            return $this->data(OpenPlatformService::miniprogramManagementApi($this->tenantId, $operation, (array)$this->request->get()));
+        } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+    }
+    public function miniprogramManagementWrite() {
+        try {
+            $operation = (string)$this->request->post('operation', '');
+            if (!in_array($operation, ['bind_tester', 'unbind_tester', 'apply_privacy_interface', 'add_category', 'delete_category', 'modify_category'], true)) throw new \InvalidArgumentException('不支持的设置操作');
+            return $this->data(OpenPlatformService::runIdempotent('miniprogram.management.' . $operation, $this->idempotencyKey(), $this->tenantId,
+                fn() => OpenPlatformService::miniprogramManagementApi($this->tenantId, $operation, (array)$this->request->post())));
+        } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+    }
     public function miniprogramEnvironment() { return $this->data(OpenPlatformService::manualUploadEnvironment($this->tenantId)); }
     public function credentials() { return $this->data(OpenPlatformService::credentials($this->tenantId)); }
     public function prepareManualUpload() {
