@@ -36,7 +36,9 @@ class WebSettingValidate extends BaseValidate
         'pc_ico' => 'require',
         'pc_desc' => 'max:255',
         'pc_keywords' => 'max:255',
-        'pc_login_bg_type' => 'in:image,video,none',
+        'pc_login_bg_type' => 'in:image,video,none,carousel',
+        'pc_login_slides' => 'array|max:8|checkLoginSlides',
+        'pc_login_caption' => 'max:60',
         'pc_login_bg' => 'max:500',
         'pc_login_bg_poster' => 'max:500',
         'pc_home_style' => 'in:default,immersive,coral,imagine',
@@ -74,10 +76,23 @@ class WebSettingValidate extends BaseValidate
     ];
 
     protected $scene = [
-        'website' => ['name', 'web_favicon', 'web_logo', 'login_image', 'shop_name', 'shop_logo', 'h5_favicon', 'pc_logo', 'pc_title', 'pc_ico', 'pc_desc', 'pc_keywords', 'pc_login_bg_type', 'pc_login_bg', 'pc_login_bg_poster', 'pc_home_style', 'pc_home_bg_type', 'pc_home_bg', 'pc_home_bg_poster', 'pc_home_immersive_title', 'pc_home_immersive_subtitle'],
+        'website' => ['name', 'web_favicon', 'web_logo', 'login_image', 'shop_name', 'shop_logo', 'h5_favicon', 'pc_logo', 'pc_title', 'pc_ico', 'pc_desc', 'pc_keywords', 'pc_login_slides', 'pc_login_caption', 'pc_login_bg_type', 'pc_login_bg', 'pc_login_bg_poster', 'pc_home_style', 'pc_home_bg_type', 'pc_home_bg', 'pc_home_bg_poster', 'pc_home_immersive_title', 'pc_home_immersive_subtitle'],
         'siteStatistics' => [''],
         'tutorial' => ['enabled', 'url', 'icon'],
     ];
+
+    public function checkLoginSlides($value): bool|string
+    {
+        foreach ($value as $slide) {
+            if (!is_array($slide) || !is_string($slide['image'] ?? null) || trim($slide['image']) === '') return '请为每一项上传轮播图片';
+            if (strlen($slide['image']) > 1000 || preg_match('/^(?:data|javascript):/i', trim($slide['image']))) return '轮播图片地址不正确';
+            if (!is_string($slide['title'] ?? '') || mb_strlen($slide['title'] ?? '') > 60) return '轮播标题最长为60个字符';
+            foreach (['background', 'background_dark'] as $key) {
+                if (isset($slide[$key]) && $slide[$key] !== '' && (!is_string($slide[$key]) || !preg_match('/^#[0-9a-f]{6}$/i', $slide[$key]))) return '请选择有效的轮播背景颜色';
+            }
+        }
+        return true;
+    }
 
     public function checkTutorialUrl($value): bool|string
     {
