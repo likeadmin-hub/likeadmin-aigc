@@ -1009,7 +1009,7 @@ class OpenPlatformService
         }
         if ($operation === 'categories_by_type') {
             $type = trim((string)($input['verify_type'] ?? ''));
-            if (!preg_match('/^[0-9]{1,2}$/', $type)) throw new \InvalidArgumentException('主体类型无效');
+            if (!in_array($type, ['0', '1', '2', '3', '4'], true)) throw new \InvalidArgumentException('主体类型无效');
             return ['verify_type' => (int)$type];
         }
         if (in_array($operation, ['add_category', 'delete_category', 'modify_category'], true)) {
