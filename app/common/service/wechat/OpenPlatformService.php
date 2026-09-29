@@ -828,6 +828,132 @@ class OpenPlatformService
         ];
     }
 
+    /** Read the actual WeChat guide for this tenant's effective authorized app. */
+    public static function miniprogramPrivacy(int $tenantId, int $privacyVer = 2): array
+    {
+        if (!in_array($privacyVer, [1, 2], true)) throw new \InvalidArgumentException('隐私指引版本无效');
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        $result = self::request(
+            'cgi-bin/component/getprivacysetting',
+            ['privacy_ver' => $privacyVer],
+            'miniprogram.privacy.get',
+            ['access_token' => self::authorizerToken((int)$authorizer['id'])],
+            $tenantId,
+            (int)$authorizer['id']
+        );
+        return ['authorizer_appid' => (string)$authorizer['authorizer_appid'], 'privacy_ver' => $privacyVer] + $result;
+    }
+
+    /** Submit the complete development guide; the live guide is read-only here. */
+    public static function setMiniprogramPrivacy(int $tenantId, array $data): array
+    {
+        $payload = self::normalizePrivacySetting($data);
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        self::request(
+            'cgi-bin/component/setprivacysetting',
+            $payload,
+            'miniprogram.privacy.set',
+            ['access_token' => self::authorizerToken((int)$authorizer['id'])],
+            $tenantId,
+            (int)$authorizer['id']
+        );
+        try {
+            $readback = self::miniprogramPrivacy($tenantId, 2);
+            $submitted = array_column($payload['setting_list'], 'privacy_text', 'privacy_key');
+            $returned = [];
+            foreach ((array)($readback['setting_list'] ?? []) as $item) {
+                if (is_array($item) && isset($item['privacy_key'])) $returned[(string)$item['privacy_key']] = (string)($item['privacy_text'] ?? '');
+            }
+            ksort($submitted);
+            ksort($returned);
+            $ownerMatches = true;
+            foreach (['contact_email', 'contact_phone', 'contact_qq', 'contact_weixin', 'notice_method', 'store_expire_timestamp', 'ext_file_media_id'] as $field) {
+                if ((string)($payload['owner_setting'][$field] ?? '') !== (string)($readback['owner_setting'][$field] ?? '')) {
+                    $ownerMatches = false;
+                    break;
+                }
+            }
+            return ['submitted' => true, 'verified' => $submitted === $returned && $ownerMatches] + $readback;
+        } catch (\Throwable $ignored) {
+            // The write succeeded. Let the tenant refresh later if WeChat's readback is delayed.
+            return ['submitted' => true, 'verified' => false, 'privacy_ver' => 2]
+                + $payload;
+        }
+    }
+
+    /** Keep validation independent of WeChat access so it can be checked locally. */
+    public static function normalizePrivacySetting(array $data): array
+    {
+        if ((int)($data['privacy_ver'] ?? 2) !== 2) throw new \InvalidArgumentException('只能编辑开发版隐私指引');
+        $input = $data['owner_setting'] ?? null;
+        if (!is_array($input)) throw new \InvalidArgumentException('请填写开发者信息');
+        $owner = [];
+        foreach (['contact_email', 'contact_phone', 'contact_qq', 'contact_weixin', 'notice_method', 'store_expire_timestamp', 'ext_file_media_id'] as $key) {
+            $owner[$key] = trim((string)($input[$key] ?? ''));
+            if (mb_strlen($owner[$key]) > 200) throw new \InvalidArgumentException('开发者信息过长');
+        }
+        if (!array_filter(array_intersect_key($owner, array_flip(['contact_email', 'contact_phone', 'contact_qq', 'contact_weixin'])))) {
+            throw new \InvalidArgumentException('请至少填写一种开发者联系方式');
+        }
+        if ($owner['notice_method'] === '') throw new \InvalidArgumentException('请填写信息变更通知方式');
+        if ($owner['store_expire_timestamp'] !== '' && !preg_match('/^[1-9][0-9]{0,4}天$/u', $owner['store_expire_timestamp'])) {
+            throw new \InvalidArgumentException('固定存储期限请填写数字加“天”，例如30天');
+        }
+        if ($owner['ext_file_media_id'] !== '' && !preg_match('/^[a-zA-Z0-9_+\/=.-]{1,256}$/', $owner['ext_file_media_id'])) {
+            throw new \InvalidArgumentException('补充文档媒体 ID 无效');
+        }
+        if (array_key_exists('store_region', $input)) {
+            $region = filter_var($input['store_region'], FILTER_VALIDATE_INT);
+            if ($region === false || $region < 0 || $region > 3) throw new \InvalidArgumentException('存储地区配置无效');
+            $owner['store_region'] = $region;
+        }
+        $rawList = $data['setting_list'] ?? null;
+        if (!is_array($rawList)) throw new \InvalidArgumentException('请选择使用的用户信息类型');
+        $settings = [];
+        $seen = [];
+        foreach ($rawList as $item) {
+            if (!is_array($item)) throw new \InvalidArgumentException('用户信息类型格式错误');
+            $key = trim((string)($item['privacy_key'] ?? ''));
+            $purpose = trim((string)($item['privacy_text'] ?? ''));
+            if (!preg_match('/^[a-zA-Z][a-zA-Z0-9]{0,63}$/', $key) || isset($seen[$key])) {
+                throw new \InvalidArgumentException('用户信息类型无效或重复');
+            }
+            if ($purpose === '' || mb_strlen($purpose) > 200) throw new \InvalidArgumentException('请填写每项用户信息的用途（不超过200字）');
+            $seen[$key] = true;
+            $settings[] = ['privacy_key' => $key, 'privacy_text' => $purpose];
+        }
+        if (!$settings) throw new \InvalidArgumentException('请至少选择一项用户信息类型');
+        return ['privacy_ver' => 2, 'owner_setting' => $owner, 'setting_list' => $settings];
+    }
+
+    public static function uploadMiniprogramPrivacyFile(int $tenantId, string $filename, string $content): array
+    {
+        if (strtolower(pathinfo($filename, PATHINFO_EXTENSION)) !== 'txt' || $content === '' || strlen($content) > 102400 || !preg_match('//u', $content)) {
+            throw new \InvalidArgumentException('补充文档仅支持 UTF-8 TXT 文件，大小不超过100KB');
+        }
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        $token = self::authorizerToken((int)$authorizer['id']);
+        $url = self::API . 'cgi-bin/component/uploadprivacyextfile?' . http_build_query(['access_token' => $token]);
+        $boundary = '----likeadmin-' . bin2hex(random_bytes(12));
+        $body = '--' . $boundary . "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"privacy.txt\"\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n" . $content . "\r\n--" . $boundary . "--\r\n";
+        $started = microtime(true);
+        $requestId = bin2hex(random_bytes(12));
+        try {
+            $response = Requests::post($url, ['Content-Type' => 'multipart/form-data; boundary=' . $boundary], $body, ['timeout' => 30]);
+            $result = json_decode((string)$response->body, true);
+            if (!is_array($result)) throw new \RuntimeException('微信接口返回格式错误');
+            $code = (int)($result['errcode'] ?? 0);
+            if ($code !== 0) throw new \RuntimeException('微信接口调用失败：' . (string)($result['errmsg'] ?? $code));
+            $mediaId = trim((string)($result['ext_file_media_id'] ?? ''));
+            if ($mediaId === '') throw new \RuntimeException('微信未返回补充文档媒体 ID');
+            self::logApi($requestId, 'miniprogram.privacy.upload', 0, $started, 'success', $tenantId, (int)$authorizer['id']);
+            return ['ext_file_media_id' => $mediaId];
+        } catch (\Throwable $e) {
+            self::logApi($requestId, 'miniprogram.privacy.upload', -1, $started, 'failed', $tenantId, (int)$authorizer['id']);
+            throw new \RuntimeException(str_replace($token, '[redacted]', $e->getMessage()), 0, $e);
+        }
+    }
+
     public static function undoAudit(int $tenantId, int $id): array
     {
         $lock = SubmitLockService::acquire('wechat.version.audit.undo.' . $id, $tenantId, 0);

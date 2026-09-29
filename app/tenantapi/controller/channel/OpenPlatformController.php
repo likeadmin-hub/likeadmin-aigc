@@ -11,6 +11,26 @@ class OpenPlatformController extends BaseAdminController
     public function status() { return $this->data(OpenPlatformService::configStatus()); }
     public function miniprogramStatus() { return $this->data(OpenPlatformService::tenantMiniprogramStatus($this->tenantId)); }
     public function miniprogramManagement() { try { return $this->data(OpenPlatformService::miniprogramManagement($this->tenantId)); } catch (\Throwable $e) { return $this->fail($e->getMessage()); } }
+    public function miniprogramPrivacy() {
+        try { return $this->data(OpenPlatformService::miniprogramPrivacy($this->tenantId, (int)$this->request->get('privacy_ver', 2))); }
+        catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+    }
+    public function saveMiniprogramPrivacy() {
+        try { return $this->data(OpenPlatformService::runIdempotent('miniprogram.privacy.set', $this->idempotencyKey(), $this->tenantId, fn() => OpenPlatformService::setMiniprogramPrivacy($this->tenantId, (array)$this->request->post()))); }
+        catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+    }
+    public function uploadMiniprogramPrivacyFile() {
+        try {
+            $file = $this->request->file('file');
+            if (!$file) throw new \InvalidArgumentException('请选择 TXT 文件');
+            if (strtolower($file->getOriginalExtension()) !== 'txt' || $file->getSize() < 1 || $file->getSize() > 102400) {
+                throw new \InvalidArgumentException('补充文档仅支持不超过100KB的 TXT 文件');
+            }
+            $content = file_get_contents($file->getPathname());
+            if ($content === false) throw new \RuntimeException('读取补充文档失败');
+            return $this->data(OpenPlatformService::uploadMiniprogramPrivacyFile($this->tenantId, $file->getOriginalName(), $content));
+        } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+    }
     public function miniprogramEnvironment() { return $this->data(OpenPlatformService::manualUploadEnvironment($this->tenantId)); }
     public function credentials() { return $this->data(OpenPlatformService::credentials($this->tenantId)); }
     public function prepareManualUpload() {
