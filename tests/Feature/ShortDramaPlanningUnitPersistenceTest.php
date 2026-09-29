@@ -59,6 +59,55 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
         $this->expectExceptionCode(425);
         Unit::call(2000000719, 7, $this->task, 'v3_script', [], static function () { self::fail('Backoff bypassed'); });
     }
+    public function testExplicitRetryRestartsExhaustedConnectionBudgetAndKeepsReceivedUnits(): void
+    {
+        $scope = ['tenant_id' => 2000000719, 'user_id' => 7, 'task_id' => $this->task];
+        Db::name('aigc_short_drama_planning_unit')->insert($scope + ['unit_key' => 'v3_received', 'status' => 'received',
+            'attempt' => 1, 'request_json' => '{}', 'result_json' => '{"result":{"content":"ok"}}']);
+        Db::name('aigc_short_drama_planning_unit')->insert($scope + ['unit_key' => 'v3_failed', 'status' => 'failed',
+            'attempt' => 3, 'error' => 'Could not resolve host: provider.test', 'request_json' => '{}']);
+
+        Unit::prepareExplicitRetry(2000000719, 7, $this->task);
+        $failed = Db::name('aigc_short_drama_planning_unit')->where($scope)->where('unit_key', 'v3_failed')->find();
+        self::assertSame('pending', $failed['status']);
+        self::assertSame(0, (int)$failed['attempt']);
+        $calls = 0;
+        Unit::call(2000000719, 7, $this->task, 'v3_failed', [], static function () use (&$calls): array {
+            $calls++;
+            return ['result' => ['content' => 'recovered']];
+        });
+        self::assertSame(1, $calls);
+        $received = Db::name('aigc_short_drama_planning_unit')->where($scope)->where('unit_key', 'v3_received')->find();
+        self::assertSame('received', $received['status']);
+        self::assertSame(1, (int)$received['attempt']);
+    }
+    public function testExplicitRetryDoesNotReissueAmbiguousExhaustedUnit(): void
+    {
+        $scope = ['tenant_id' => 2000000719, 'user_id' => 7, 'task_id' => $this->task];
+        Db::name('aigc_short_drama_planning_unit')->insert($scope + ['unit_key' => 'v3_failed', 'status' => 'failed',
+            'attempt' => 3, 'error' => 'Operation timed out after submission', 'request_json' => '{}']);
+        $before = Db::name('aigc_short_drama_planning_unit')->where($scope)->find();
+        try {
+            Unit::prepareExplicitRetry(2000000719, 7, $this->task);
+            self::fail('Ambiguous paid call was allowed to run again');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('不能安全重试', $error->getMessage());
+        }
+        self::assertSame($before, Db::name('aigc_short_drama_planning_unit')->where($scope)->find());
+    }
+    public function testLegacyExhaustedPendingUnitDoesNotSuggestContentReview(): void
+    {
+        $scope = ['tenant_id' => 2000000719, 'user_id' => 7, 'task_id' => $this->task];
+        Db::name('aigc_short_drama_planning_unit')->insert($scope + ['unit_key' => 'v3_script', 'status' => 'pending',
+            'attempt' => 3, 'request_json' => '{}']);
+        try {
+            Unit::call(2000000719, 7, $this->task, 'v3_script', [], static fn(): array => self::fail('Exhausted unit replayed'));
+            self::fail('Exhausted unit was accepted');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('请求次数已用完', $error->getMessage());
+            self::assertStringNotContainsString('调整内容', $error->getMessage());
+        }
+    }
     public function testCachedInvalidAuditEntersOneCorrectionAndBothReceiptsReplay(): void
     {
         $this->assertAuditReceiptReplay(true);

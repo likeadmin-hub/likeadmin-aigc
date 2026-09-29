@@ -261,8 +261,7 @@ class ShortDramaEpisodeService
                     }
                     if (!$review && (int)($request['_generation_version'] ?? 0) >= 3
                         && $originalContext === ($request['series_context'] ?? [])) {
-                        Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id']])
-                            ->whereIn('status', ['failed', 'running'])->update(['status' => 'pending', 'update_time' => time()]);
+                        ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, (string)$row['task_id']);
                         $old->save(['request_json' => self::encode($request), 'status' => 'pending',
                             'error' => '', 'finished_at' => 0, 'update_time' => time()]);
                         $newTask = (string)$old['task_id'];

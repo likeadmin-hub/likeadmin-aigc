@@ -5685,15 +5685,7 @@ class AigcShortDramaService
                 // paid provider request that is still returning. The explicit
                 // in-flight guard above makes the state transition atomic from
                 // the user perspective instead of risking a duplicate call.
-                Db::name('aigc_short_drama_planning_unit')->where([
-                    'tenant_id' => $tenantId,
-                    'user_id' => $userId,
-                    'task_id' => $taskId,
-                ])->whereIn('status', ['failed', 'waiting'])->update([
-                    'status' => 'pending',
-                    'error' => '',
-                    'update_time' => time(),
-                ]);
+                ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, $taskId);
                 $task->save([
                     'status' => self::STATUS_PENDING,
                     'error' => '',
