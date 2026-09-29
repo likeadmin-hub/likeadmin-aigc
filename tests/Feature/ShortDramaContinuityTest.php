@@ -556,6 +556,9 @@ class ShortDramaContinuityTest extends TestCase
         self::assertSame([false, false], array_column(Continuity::dependencyStatus($rows, []), 'needs_review'));
         $versions = [10 => ['ledger' => $first, 'narrative_digest' => 'changed']];
         self::assertSame([true, true], array_column(Continuity::dependencyStatus($rows, $versions), 'needs_review'));
+        $disabled = Continuity::dependencyStatus($rows, $versions, false);
+        self::assertSame([false, false], array_column($disabled, 'needs_review'));
+        self::assertSame(['', ''], array_column($disabled, 'review_reason'));
         $rows[0]['status'] = 'pending';
         self::assertSame([false, true], array_column(Continuity::dependencyStatus($rows, $versions), 'needs_review'));
         $rows[0]['continuity_json'] = ['summary' => 'legacy']; $rows[1]['continuity_json'] = [];

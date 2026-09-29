@@ -74,7 +74,7 @@ final class ShortDramaContinuity
             'recent_episodes' => array_map(static fn($item) => array_intersect_key($item, array_flip(['episode_number', 'summary', 'digest', 'audit_status', 'warnings'])), array_slice($previous, -2))];
     }
 
-    public static function dependencyStatus(array $rows, array $current): array
+    public static function dependencyStatus(array $rows, array $current, bool $qualityReviewEnabled = true): array
     {
         $previousDigest = ''; $upstreamChanged = false;
         foreach ($rows as &$row) {
@@ -88,7 +88,7 @@ final class ShortDramaContinuity
                 || $upstreamChanged);
             // An explicit regeneration may be pending while its previous
             // successful version remains viewable. Do not block that attempt.
-            $row['needs_review'] = $outdated && ($row['status'] ?? '') === 'success';
+            $row['needs_review'] = $qualityReviewEnabled && $outdated && ($row['status'] ?? '') === 'success';
             $row['review_reason'] = $row['needs_review'] ? '本集或前集剧情已修改，需复核连续性；原剧本和素材已保留' : '';
             if (!$outdated && $ledger) $row['continuity_json'] = json_encode($ledger, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             $upstreamChanged = $upstreamChanged || $outdated;

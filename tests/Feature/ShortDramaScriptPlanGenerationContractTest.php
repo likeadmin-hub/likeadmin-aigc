@@ -24,6 +24,24 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
         self::assertSame('剧本计划质检未通过，请检查生成内容后重试', $method->invoke(null, []));
     }
 
+    public function testDisabledQualityReviewDoesNotReappearWhenAPlanIsEnhanced(): void
+    {
+        $plan = ['subjects' => [], 'locations' => [], 'storyboard' => [],
+            'generation_settings' => ['quality_review_enabled' => false]];
+        $enhance = new ReflectionMethod(AigcShortDramaService::class, 'enhancePlanResult');
+        $enhance->setAccessible(true);
+        $result = $enhance->invoke(null, $plan);
+        self::assertTrue($result['review_report']['skipped']);
+        self::assertSame(0, $result['review_report']['blocking_count']);
+        self::assertSame('skipped', $result['quality_check']['status']);
+
+        $review = new ReflectionMethod(AigcShortDramaService::class, 'reviewAndRepairPlanResult');
+        $review->setAccessible(true);
+        $result = $review->invoke(null, $plan);
+        self::assertTrue($result['review_report']['skipped']);
+        self::assertSame(0, $result['review_report']['blocking_count']);
+    }
+
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
      */
