@@ -6,20 +6,33 @@ use PHPUnit\Framework\TestCase;
 use think\facade\Config;
 use think\facade\Db;
 
-/** @runTestsInSeparateProcesses @preserveGlobalState disabled */
+/**
+ * @runTestsInSeparateProcesses
+ * @preserveGlobalState disabled
+ */
 final class PcLoginPresentationPersistenceTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        $path = sys_get_temp_dir() . '/login-presentation-' . getmypid() . '/';
+        if (!is_dir($path)) return;
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST) as $item) {
+            $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+        }
+        rmdir($path);
+    }
+
     public function testRoundTripTenantIsolationAndOldClientCompatibility(): void
     {
         (new \think\App())->initialize();
         Config::set(['default' => 'login_test', 'connections' => ['login_test' => [
             'type' => 'sqlite', 'database' => ':memory:', 'prefix' => 'la_', 'fields_strict' => true, 'fields_cache' => false,
         ]]], 'database');
-        // In-memory cache avoids touching the running tenant's storage cache.
+        // Isolated file cache avoids touching the running tenant's storage cache.
         Config::set(['default' => 'array', 'stores' => ['array' => ['type' => 'file', 'path' => sys_get_temp_dir() . '/login-presentation-' . getmypid() . '/']]], 'cache');
         foreach (['tenant_config' => 'id INTEGER PRIMARY KEY, tenant_id INTEGER, type TEXT, name TEXT, value TEXT',
             'config' => 'id INTEGER PRIMARY KEY, type TEXT, name TEXT, value TEXT',
-            'tenant' => 'id INTEGER PRIMARY KEY, is_storage INTEGER DEFAULT 0, allow_local_storage INTEGER DEFAULT 0, delete_time INTEGER'] as $table => $columns) {
+            'tenant' => 'id INTEGER PRIMARY KEY, tactics INTEGER DEFAULT 0, is_storage INTEGER DEFAULT 0, allow_local_storage INTEGER DEFAULT 0, delete_time INTEGER'] as $table => $columns) {
             Db::execute("CREATE TABLE la_{$table} ({$columns})");
         }
         request()->source = AdminTerminalEnum::TENANT;
