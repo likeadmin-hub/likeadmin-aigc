@@ -1,7 +1,7 @@
 {
-  "version": "1.0.374",
-  "source_sha": "460d4ad1a8d94798ff52be1a00d707d58fb4ba80",
-  "built_at": "2026-09-29T06:47:41.092Z",
+  "version": "1.0.375",
+  "source_sha": "7a4ef614983f883170c9ffec7d7da92613991474",
+  "built_at": "2026-09-29T10:19:15.393Z",
   "file_count": 755,
   "files": {
     "api/account.js": "71fb4799e085c4e4712fb9e98671b6ba3cac1c7606b5e194d88235cb8aec8299",
@@ -312,10 +312,10 @@
     "apps/mobile_tools/registry.js": "850b490f2e5335589f80fa41b10c650bd72b2876e37eb6c95abddb62699184a5",
     "apps/mobile_tools/useToolTheme.js": "bb8f96b1122cb77b3bf143f39fa6e48d67ad8111f453f0e6067079e0d5992949",
     "apps/smart_clip/api.js": "bdbe3cdecf121a102bc952a1f562ccf8cfee20edd42ffd43594eeb9c21812768",
-    "apps/smart_clip/pages/index/index.js": "581ff6ccba2049eecc43a68d7f31961f0fd53eb4fa76344cd0cc5d5af5196a41",
+    "apps/smart_clip/pages/index/index.js": "fb88ed082b04c036adaca858a4361cf3c92fe6e5c3a521cd66251d5d1be0b9b1",
     "apps/smart_clip/pages/index/index.json": "6d4bc59b114742d3acc9d8a06c6dabc901381aef40c0be1037db45cef43e1265",
-    "apps/smart_clip/pages/index/index.wxml": "5abc2de9843aae6454a7671e1a37175a1fa70171f4ea85b6fc8026acdd624c07",
-    "apps/smart_clip/pages/index/index.wxss": "6ab4708bf17f667a5b4cd26d72fba46bfb69b2fc313322d55e03093977ef5fb5",
+    "apps/smart_clip/pages/index/index.wxml": "9ff5691909374ef7e8442b6f2aabf34fd611d64331e927f104c90ad31cd37309",
+    "apps/smart_clip/pages/index/index.wxss": "7b3632966d067c5f0d662be4ea87cb07cad24a06abd294dc26e0cb66cd793d6d",
     "apps/smart_clip/pages/results/results.js": "d2e1a1f40bc77e6509228a7532eefb5155f60a463d66ae8f96bd6d26c6f84d53",
     "apps/smart_clip/pages/results/results.json": "ef78057a7108b826722e68e39e48c742eb6daea9ea2206c98e5d929a02f43eb1",
     "apps/smart_clip/pages/results/results.wxml": "7dc45472f825e6140816dde7809a2e5dfb14acc5f0040f614b60dd90905a7b23",
@@ -754,11 +754,11 @@
     "utils/pay/wechat.js": "a5e96f18361371a2773ba241774394bfbfa270a9c029c2a5e5c049e045507cf7",
     "utils/point-unit.js": "73e70575ccfb1b558d08f7ae7995aef3cf5901e88b78b6fd381905e5fbbae6f4",
     "utils/request/cancel.js": "774e81c68508482a87409dbaa0f0f0ccb155a491ce3d25a0c2cacef531f206fb",
-    "utils/request/http.js": "4260d0089242a4007a92bb68afa14d01c80795904d7824f6d91e3747c0c75e41",
+    "utils/request/http.js": "38e7c2aed847d537f79cc2ac12720e383756debbe176bd6f78dfde0cc1a317df",
     "utils/request/index.js": "577177bd62e48ea42ebec9cb7b965ba4aabf1cc1f0bdd145ea097358881502e2",
     "utils/tenant.js": "3b16a388979863ee654a15b9558335e9e68804cdcf90dd3c6ec6342d1ddff180",
     "utils/theme.js": "e4c4fbd666eca3132796c5edb24bd7ac949517879d0ae9b5de8d60a83ae6264f",
     "utils/util.js": "0c1ba13dc7a9027d840ce031ffe02e546872df55800581b4ae7b504af908e377"
   },
-  "sha256": "9a6309ba3a0c6244171d11d1cfb8f0ae54c0b7149eb03f17b1bba9bfe943e436"
+  "sha256": "75aec9d0506631c87832a857311f91fa6f84bc3f5251ee0cb88617c2ed46f051"
 }
