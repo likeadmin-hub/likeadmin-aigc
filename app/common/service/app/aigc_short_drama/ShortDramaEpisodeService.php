@@ -202,12 +202,19 @@ class ShortDramaEpisodeService
     /** One batch read; no per-card query and no mutation during polling. */
     private static function withContinuityStatus(int $tenantId, int $userId, array $rows): array
     {
+        if ($rows === []) return [];
+        $outlineRequest = self::outlineRequest($tenantId, $userId, $rows[0]);
+        if ($outlineRequest === null) {
+            $snapshot = self::decode($rows[0]['series_json'] ?? '');
+            $outlineRequest = is_array($snapshot['request'] ?? null) ? $snapshot['request'] : null;
+        }
+        $qualityReviewEnabled = $outlineRequest === null || ShortDramaStoryWorkflow::qualityReviewEnabled($outlineRequest);
         $ids = array_values(array_filter(array_column($rows, 'production_project_id')));
         $versions = $ids ? Db::name('aigc_short_drama_plan_version')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'is_current' => 1, 'delete_time' => 0])
             ->whereIn('project_id', $ids)->field('project_id,continuity_json')->select()->toArray() : [];
         $current = [];
         foreach ($versions as $version) $current[(int)$version['project_id']] = self::decode($version['continuity_json']);
-        return ShortDramaContinuity::dependencyStatus($rows, $current);
+        return ShortDramaContinuity::dependencyStatus($rows, $current, $qualityReviewEnabled);
     }
 
     public static function retry(int $tenantId, int $userId, int $id): array

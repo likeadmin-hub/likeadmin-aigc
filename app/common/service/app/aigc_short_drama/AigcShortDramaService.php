@@ -4695,7 +4695,7 @@ class AigcShortDramaService
         $result = self::hydratePlanLibrarySubjectReferences(
             $tenantId,
             $userId,
-            self::enhancePlanResult($result),
+            self::enhancePlanResult($result, ShortDramaStoryWorkflow::qualityReviewEnabled($request)),
             self::lockedSubjectReferences($request)
         );
         $result = ShortDramaStoryWorkflow::qualityReviewEnabled($request)
@@ -5053,8 +5053,9 @@ class AigcShortDramaService
         if ($type === 'shot_fields') {
             return ShortDramaRevisionScope::mergeShots(self::stripPlanRuntimeFields($base), $result, $target);
         }
-        $merged = self::stripPlanRuntimeFields(self::enhancePlanResult($base));
-        $result = self::enhancePlanResult($result);
+        $qualityReviewEnabled = ShortDramaStoryWorkflow::qualityReviewEnabled($request);
+        $merged = self::stripPlanRuntimeFields(self::enhancePlanResult($base, $qualityReviewEnabled));
+        $result = self::enhancePlanResult($result, $qualityReviewEnabled);
         if ($type === 'subject') {
             $item = self::planItemByExactId((array)($result['subjects'] ?? []), $id);
             if (!empty($item)) {
@@ -14079,8 +14080,9 @@ class AigcShortDramaService
         );
     }
 
-    private static function enhancePlanResult(array $plan): array
+    private static function enhancePlanResult(array $plan, ?bool $qualityReviewEnabled = null): array
     {
+        $qualityReviewEnabled ??= self::planQualityReviewEnabled($plan);
         $subjects = [];
         // Apply the same reconciliation when reading older persisted plans so
         // an already-created empty library card disappears immediately after
@@ -14244,7 +14246,11 @@ class AigcShortDramaService
         $plan['duration_stats'] = $durationStats;
         $plan['music_plan'] = self::normalizeMusicPlan((array)($plan['music_plan'] ?? []), $storyboard, $durationStats, (array)($plan['art_style'] ?? []), (string)($plan['story_outline'] ?? ''));
         $plan['agents'] = self::logicalAgentDefinitions();
-        if (empty($plan['review_report']) || !is_array($plan['review_report'])) {
+        if (!$qualityReviewEnabled) {
+            $plan['review_report'] = self::buildReviewReport([]) + ['skipped' => true];
+            $plan['generation_settings']['quality_review_enabled'] = false;
+            $plan['quality_check'] = ['status' => 'skipped'];
+        } elseif (empty($plan['review_report']) || !is_array($plan['review_report'])) {
             $plan['review_report'] = self::reviewPlanResult($plan);
         } else {
             $plan['review_report'] = self::normalizeReviewReport((array)$plan['review_report']);
@@ -14375,6 +14381,7 @@ class AigcShortDramaService
 
     private static function reviewAndRepairPlanResult(array $plan, bool $allowCodeRepair = true, bool $llmRepairUsed = false): array
     {
+        if (!self::planQualityReviewEnabled($plan)) return self::skipPlanQualityReview($plan);
         $review = self::reviewPlanResult($plan);
         $codeRepairCount = 0;
         if ($allowCodeRepair && (int)$review['issue_count'] > 0) {
@@ -14401,11 +14408,19 @@ class AigcShortDramaService
     {
         // Seed the report before enhancement so it cannot invoke reviewPlanResult.
         $plan['review_report'] = self::buildReviewReport([]) + ['skipped' => true];
-        $plan = self::enhancePlanResult($plan);
+        $plan = self::enhancePlanResult($plan, false);
         $plan['review_report']['skipped'] = true;
         $plan['generation_settings']['quality_review_enabled'] = false;
         $plan['quality_check'] = ['status' => 'skipped'];
         return $plan;
+    }
+
+    private static function planQualityReviewEnabled(array $plan): bool
+    {
+        if (array_key_exists('quality_review_enabled', (array)($plan['generation_settings'] ?? []))) {
+            return filter_var($plan['generation_settings']['quality_review_enabled'], FILTER_VALIDATE_BOOLEAN);
+        }
+        return empty($plan['review_report']['skipped']);
     }
 
     /**
@@ -21106,6 +21121,7 @@ class AigcShortDramaService
             'outline_validation_issues' => $outlineValidationIssues,
             'generation_settings' => [
                 'model' => $scriptModelName,
+                'quality_review_enabled' => ShortDramaStoryWorkflow::qualityReviewEnabled($request),
                 'episode_duration_policy' => ShortDramaEpisodeDuration::policy($request),
                 'same_scene_cut_policy' => (array)($request['same_scene_cut_policy'] ?? []),
                 'timing_diagnostics' => (array)($payload['timing_diagnostics'] ?? []),
