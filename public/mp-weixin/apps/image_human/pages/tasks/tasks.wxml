@@ -1,1 +1,1 @@
-<image-human-records wx:if="{{a}}" u-i="09282688-0" bind:__l="__l" u-p="{{a}}"/><mp-privacy-popup u-i="09282688-1" bind:__l="__l"/>
+<image-human-records wx:if="{{a}}" u-i="7539ae58-0" bind:__l="__l" u-p="{{a}}"/><mp-privacy-popup u-i="7539ae58-1" bind:__l="__l"/>
