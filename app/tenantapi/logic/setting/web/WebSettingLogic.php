@@ -19,6 +19,7 @@ use app\common\logic\BaseLogic;
 use app\common\service\AgreementService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
+use app\common\service\PcLoginPresentationService;
 use app\common\service\OfficialSiteService;
 use app\common\service\TutorialConfigService;
 
@@ -41,6 +42,7 @@ class WebSettingLogic extends BaseLogic
     {
         $pcLoginBg = ConfigService::get('website', 'pc_login_bg', ConfigService::get('tenant', 'login_image', ''));
         $pcLoginBgPoster = ConfigService::get('website', 'pc_login_bg_poster', '');
+        $pcLoginPresentation = PcLoginPresentationService::get();
         $pcHomeBg = ConfigService::get('website', 'pc_home_bg', '');
         $pcHomeBgPoster = ConfigService::get('website', 'pc_home_bg_poster', '');
         $pcHomeBgList = self::fileUrlList($pcHomeBg);
@@ -61,6 +63,8 @@ class WebSettingLogic extends BaseLogic
             'pc_ico' => FileService::getFileUrl(ConfigService::get('website', 'pc_ico')),
             'pc_desc' => ConfigService::get('website', 'pc_desc', ''),
             'pc_keywords' => ConfigService::get('website', 'pc_keywords', ''),
+            'pc_login_slides' => $pcLoginPresentation['pc_login_slides'],
+            'pc_login_caption' => $pcLoginPresentation['pc_login_caption'],
             'pc_login_bg_type' => ConfigService::get('website', 'pc_login_bg_type', 'image'),
             'pc_login_bg' => $pcLoginBg ? FileService::getFileUrl($pcLoginBg) : '',
             'pc_login_bg_url' => $pcLoginBg ? FileService::getFileUrl($pcLoginBg) : '',
@@ -95,7 +99,7 @@ class WebSettingLogic extends BaseLogic
         $pcLogo = FileService::setFileUrl($params['pc_logo']);
         $pcIco = FileService::setFileUrl($params['pc_ico'] ?? '');
         $pcLoginBgType = $params['pc_login_bg_type'] ?? 'image';
-        if (!in_array($pcLoginBgType, ['image', 'video', 'none'], true)) {
+        if (!in_array($pcLoginBgType, ['image', 'video', 'none', 'carousel'], true)) {
             $pcLoginBgType = 'image';
         }
         $pcLoginBg = $pcLoginBgType === 'none' ? '' : FileService::setFileUrl($params['pc_login_bg'] ?? '');
@@ -123,6 +127,7 @@ class WebSettingLogic extends BaseLogic
         ConfigService::set('website', 'pc_ico', $pcIco);
         ConfigService::set('website', 'pc_desc', $params['pc_desc'] ?? '');
         ConfigService::set('website', 'pc_keywords', $params['pc_keywords'] ?? '');
+        PcLoginPresentationService::save($params);
         ConfigService::set('website', 'pc_login_bg_type', $pcLoginBgType);
         ConfigService::set('website', 'pc_login_bg', $pcLoginBg);
         ConfigService::set('website', 'pc_login_bg_poster', $pcLoginBgPoster);
