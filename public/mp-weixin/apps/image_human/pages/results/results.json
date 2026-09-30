@@ -4,6 +4,7 @@
   "navigationBarTitleText": "创作记录",
   "usingComponents": {
     "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
+    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
     "image-human-records": "../../components/ImageHumanRecords"
   }
 }

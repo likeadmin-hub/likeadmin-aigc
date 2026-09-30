@@ -1,1 +1,1 @@
-<image-human-records wx:if="{{a}}" u-i="7bc139e8-0" bind:__l="__l" u-p="{{a}}"/><mp-privacy-popup u-i="7bc139e8-1" bind:__l="__l"/>
+<decoration-tab-page u-s="{{['d']}}" u-i="1972b86e-0" bind:__l="__l"><image-human-records wx:if="{{a}}" u-i="1972b86e-1,1972b86e-0" bind:__l="__l" u-p="{{a}}"/></decoration-tab-page><mp-privacy-popup u-i="1972b86e-2" bind:__l="__l"/>

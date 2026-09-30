@@ -1,1 +1,1 @@
-<image-human-home u-i="d48bfc40-0" bind:__l="__l"/><mp-privacy-popup u-i="d48bfc40-1" bind:__l="__l"/>
+<decoration-tab-page u-s="{{['d']}}" u-i="1e4bb366-0" bind:__l="__l"><image-human-home u-i="1e4bb366-1,1e4bb366-0" bind:__l="__l"/></decoration-tab-page><mp-privacy-popup u-i="1e4bb366-2" bind:__l="__l"/>
