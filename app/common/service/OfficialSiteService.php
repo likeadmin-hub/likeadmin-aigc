@@ -179,7 +179,7 @@ class OfficialSiteService
 
     private static function safeLink(string $link): string
     {
-        return preg_match('#^/(?!/)[A-Za-z0-9_/?=&.#%-]*$#', $link) ? $link : '';
+        return preg_match('~^/(?!/)[A-Za-z0-9_/?=&.#%-]*$~', $link) ? $link : '';
     }
 
     private static function text($value, int $length): string
