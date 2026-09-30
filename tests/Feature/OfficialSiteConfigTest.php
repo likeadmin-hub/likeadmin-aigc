@@ -123,4 +123,54 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame($result, $this->normalize($result));
     }
 
+    public function testNavigationDefaultsUseActualToolsAndNonClickablePlaceholders(): void
+    {
+        $config = $this->normalize([]);
+        self::assertSame(['产品', '模型', '行业应用', '创作工具', '开放平台', '价格', '企业服务', '帮助中心'], array_column($config['navigation'], 'label'));
+        $nav = array_column($config['navigation'], null, 'key');
+        $items = array_merge(...array_column($nav['products']['groups'], 'items'));
+        $items = array_column($items, null, 'label');
+        self::assertSame('/ai/short-drama', $items['AI 短剧']['link']);
+        self::assertSame('/app/aigc_canvas', $items['无限画布']['link']);
+        self::assertSame('planned', $items['PPT 转视频']['status']);
+        self::assertSame('', $items['PPT 转视频']['link']);
+        self::assertSame('planned', $nav['enterprise']['status']);
+        self::assertSame('/pricing', $nav['pricing']['link']);
+    }
+
+    public function testNavigationCustomizationsAndSafeLinksRoundTrip(): void
+    {
+        $result = $this->normalize(['navigation' => [
+            ['key' => 'products', 'label' => '自己的产品', 'enabled' => 0, 'sort' => 999, 'button_link' => '//evil.test', 'private_note' => 'secret', 'groups' => [['title' => '自定义组', 'items' => [
+                ['label' => '已上线', 'status' => 'live', 'link' => '/ai/avatar?tab=lip_sync', 'icon' => 'avatar'],
+                ['label' => '规划中', 'status' => 'planned', 'link' => '/ai', 'icon' => 'arbitrary'],
+                ['label' => '非法链接', 'status' => 'live', 'link' => 'javascript:alert(1)'],
+            ]]]],
+            ['key' => 'unknown', 'label' => '不允许的目录'],
+        ]]);
+        $product = $result['navigation'][0];
+        self::assertSame('自己的产品', $product['label']);
+        self::assertSame(0, $product['enabled']);
+        self::assertSame('', $product['button_link']);
+        self::assertArrayNotHasKey('private_note', $product);
+        self::assertCount(8, $result['navigation']);
+        $items = $product['groups'][0]['items'];
+        self::assertSame('/ai/avatar?tab=lip_sync', $items[0]['link']);
+        self::assertSame('', $items[1]['link']);
+        self::assertSame('grid', $items[1]['icon']);
+        self::assertSame('planned', $items[2]['status']);
+        self::assertSame($result, $this->normalize($result));
+    }
+
+    public function testNavigationContentLimitsAndMissingConfigurationCompatibility(): void
+    {
+        $items = array_fill(0, 30, ['label' => '占位', 'status' => 'planned']);
+        $groups = array_fill(0, 6, ['title' => '分组', 'items' => $items]);
+        $result = $this->normalize(['basic' => ['name' => '现有租户'], 'navigation' => [['key' => 'products', 'groups' => $groups]]]);
+        self::assertCount(4, $result['navigation'][0]['groups']);
+        self::assertCount(16, $result['navigation'][0]['groups'][0]['items']);
+        self::assertSame('现有租户', $result['basic']['name']);
+        self::assertCount(8, $this->normalize(['template_version' => 3])['navigation']);
+    }
+
 }
