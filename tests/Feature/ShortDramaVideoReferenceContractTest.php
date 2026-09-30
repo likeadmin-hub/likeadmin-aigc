@@ -88,6 +88,7 @@ class ShortDramaVideoReferenceContractTest extends TestCase
             self::assertSame(array_column(array_column($selected,'asset'),'url'),array_column($normalized,'url'));
             self::assertSame($normalized,AigcVideoReferenceAssetService::normalize(['reference_assets'=>$normalized]+$request));
             foreach ([['resource_type'=>'model_api','upstream_model_code'=>'wan3.0-video'],['resource_type'=>'model_api','upstream_model_code'=>'h3-video'],['resource_type'=>'app_api','upstream_app_code'=>'full_video']] as $product) {
+                $product['source_payload']=['market_metadata'=>['supported_asset_types'=>['image','video','audio'],'max_reference_images'=>10,'max_reference_assets'=>10]];
                 $this->invoke(MarketVideoRuntimeService::class,'assertAssets',['product'=>$product],$request);
             }
             $content=$this->invoke(MarketVideoRuntimeService::class,'h3Content',$request,'fixture');
@@ -102,7 +103,7 @@ class ShortDramaVideoReferenceContractTest extends TestCase
         $request=['generation_method'=>'start_end','reference_assets'=>[$first,$last],
             'reference_images'=>[$first['url']], 'first_frame_image'=>$first['url'],'last_frame_image'=>$last['url']];
         self::assertCount(2,AigcVideoReferenceAssetService::normalize($request));
-        $this->invoke(MarketVideoRuntimeService::class,'assertAssets',['product'=>['upstream_model_code'=>'wan3.0-video']],$request);
+        $this->invoke(MarketVideoRuntimeService::class,'assertAssets',['product'=>['upstream_model_code'=>'wan3.0-video','source_payload'=>['market_metadata'=>['supported_asset_types'=>['image'],'max_reference_images'=>10]]]],$request);
         $other=array_replace($first,['url'=>'https://other.example/shared.png']);
         self::assertCount(2,AigcVideoReferenceAssetService::normalize(['reference_assets'=>[$first,$other]]));
         $extra=array_replace($first,['role'=>'reference_image']);
