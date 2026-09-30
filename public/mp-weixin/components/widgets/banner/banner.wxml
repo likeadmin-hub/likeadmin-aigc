@@ -1,1 +1,1 @@
-<view wx:if="{{a}}" class="banner translate-y-0"><l-swiper wx:if="{{c}}" bindchange="{{b}}" u-i="51c1c067-0" bind:__l="__l" u-p="{{c}}"></l-swiper></view>
+<view wx:if="{{a}}" class="banner translate-y-0"><l-swiper wx:if="{{c}}" bindchange="{{b}}" u-i="42071c30-0" bind:__l="__l" u-p="{{c}}"></l-swiper></view>
