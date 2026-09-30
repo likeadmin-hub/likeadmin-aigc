@@ -16,6 +16,9 @@ try {
         $assets[$type]=Drama::registerAsset($tenant,$user,['canvas_id'=>$canvas,'node_id'=>$id,'node_type'=>$type,'uri'=>$uri,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'']);
         $nodes[]=['id'=>$id,'type'=>$type,'title'=>$type,'x'=>0,'y'=>0,'metadata'=>['source'=>'upload','uri'=>$uri,'url'=>$uri]];
     }
+    $again=Drama::registerAsset($tenant,$user,['canvas_id'=>$canvas,'node_id'=>'3','node_type'=>'audio','uri'=>$nodes[2]['metadata']['uri']]);
+    agentCheck($again['id']===$assets['audio']['id'],'registration retries reuse the same owned node asset');
+    $nodes[1]['metadata']['mediaSource']='upload';unset($nodes[1]['metadata']['source']);
     $document=Db::name(Graph::TABLE)->where('id',$canvas)->find();
     $projected=Graph::registeredUploadNodes($document,$nodes);
     foreach ($projected as $i=>$node) {

@@ -433,7 +433,7 @@ final class GraphService
         $uploads=[];
         foreach ($nodes as $index=>$node) {
             $meta=(array)($node['metadata']??[]);
-            if (($meta['source']??'')!=='upload' || !in_array($node['type']??'',['image','video','audio'],true)
+            if (($meta['source']??$meta['mediaSource']??'')!=='upload' || !in_array($node['type']??'',['image','video','audio'],true)
                 || !empty($meta['active_generation_id']) || !empty($meta['canvasRunId'])) continue;
             $uploads[$index]=$node;
         }
@@ -454,7 +454,11 @@ final class GraphService
             unset($meta['asset_id']);
             if (($meta['status']??'')==='success') unset($meta['status']);
             foreach ($byNode[(string)$node['id']]??[] as $asset) {
-                if ($asset['asset_type']!=='canvas_'.$node['type'] || $uri==='' || $uri!==(string)$asset['uri']) continue;
+                $assetUri=(string)$asset['uri'];
+                $domain=rtrim((string)$asset['storage_domain'],'/');
+                $urls=[$assetUri];
+                if ($domain!=='' && !preg_match('#^https?://#i',$assetUri)) $urls[]=$domain.'/'.ltrim($assetUri,'/');
+                if ($asset['asset_type']!=='canvas_'.$node['type'] || $uri==='' || !in_array($uri,$urls,true)) continue;
                 $meta=array_replace($meta,['asset_id'=>(int)$asset['id'],'status'=>'success','error'=>'',
                     'storage_scope'=>$asset['storage_scope'],'storage_engine'=>$asset['storage_engine'],'storage_domain'=>$asset['storage_domain']]);
                 break;
