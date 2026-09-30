@@ -1281,6 +1281,11 @@ class ShortDramaCanvasService
                 'audio'=>['canvas_audio','shot_audio','bgm_audio'],
             ];
             if (!$asset || !in_array((int)$asset['canvas_id'],[0,$canvasId],true) || !in_array((string)$asset['asset_type'],$allowedTypes[$type],true) || (string)$asset['uri']==='') throw new Exception('CANVAS_REFERENCE_UNAVAILABLE');
+            $asset=AigcShortDramaService::canvasAssetStorage($asset);
+            if (!preg_match('#^https?://#i',(string)$asset['uri'])
+                && (trim((string)$asset['storage_scope'])==='' || trim((string)$asset['storage_engine'])==='')) {
+                throw new Exception('参考素材存储信息不完整，请重新上传该素材');
+            }
             $url=FileService::getFileUrlByStorage((string)$asset['uri'],(string)$asset['storage_scope'],(string)$asset['storage_engine'],(string)$asset['storage_domain']);
             if (!preg_match('#^https?://#i',$url)) throw new Exception('CANVAS_REFERENCE_UNAVAILABLE');
             $resolved[]=array_replace($reference,[
