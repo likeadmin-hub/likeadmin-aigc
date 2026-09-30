@@ -52,7 +52,13 @@ final class ConversationReconciliation
                 'id'=>$run['thread_id'],'tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$run['canvas_id'],
                 'active_run_id'=>$runId,'delete_time'=>0,
             ])->update(['active_run_id'=>0,'update_time'=>time()]);
-            self::event($run,'run.reconciled',['status'=>'failed','code'=>$code,'app_task_id'=>(int)$task['id'],'billing_status'=>(string)$usage['billing_status']]);
+            $payload=['status'=>'failed','code'=>$code,'app_task_id'=>(int)$task['id'],'billing_status'=>(string)$usage['billing_status']];
+            // Keep the legacy terminal code and expose only an allowlisted reason.
+            // Raw provider messages may contain credentials or internal details.
+            if ($code==='UPSTREAM_FAILED_REFUNDED' && preg_match('/^INSUFFICIENT_BALANCE\s*[:：]/iu',trim((string)($usage['error_message']??'')))===1) {
+                $payload['reason']='upstream_balance_insufficient';
+            }
+            self::event($run,'run.reconciled',$payload);
             return 'reconciled';
         });
     }

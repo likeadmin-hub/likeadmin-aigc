@@ -46,6 +46,16 @@ try {
     agentCheck(Db::name(Store::PREFIX.'outbox')->where('run_id',$refunded)->value('state')==='failed','refunded reconciliation closes outbox');
     agentCheck(Db::name('ai_app_task')->where('id',$refundedTask)->value('status')==='failed','reconciliation never mutates authoritative task');
 
+    [, $balance]=reconciliationRun($canvas,'upstream-balance');
+    $balanceTask=reconciliationLedger($balance,'failed','refunded');
+    Db::name('ai_consumption_log')->where('app_task_id',$balanceTask)->update(['error_message'=>'INSUFFICIENT_BALANCE：private provider credential details']);
+    agentCheck(Reconciliation::reconcile(91001,92001,$balance)==='reconciled','explicit upstream balance failure reconciles');
+    $balanceEvent=Db::name(Store::PREFIX.'event')->where(['run_id'=>$balance,'kind'=>'run.reconciled'])->value('payload_json');
+    $balancePayload=json_decode($balanceEvent,true);
+    agentCheck($balancePayload['code']==='UPSTREAM_FAILED_REFUNDED' && $balancePayload['reason']==='upstream_balance_insufficient','balance failure keeps legacy code and adds safe actionable reason');
+    agentCheck(!str_contains($balanceEvent,'private') && !str_contains($balanceEvent,'credential'),'provider details are never published');
+    agentCheck(Reconciliation::reconcile(91001,92001,$balance)==='unchanged','classified failure remains idempotent');
+
     [$stopThread,$settled]=reconciliationRun($canvas,'settled-stop');
     Execution::stop(91001,92001,$canvas,$stopThread,$settled);
     $settledTask=reconciliationLedger($settled,'success','settled');
