@@ -1,0 +1,542 @@
+[
+  {
+    "title": "Imagine Apps",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/spotlight-cards/videos/apps.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/spotlight-cards/images/apps.png",
+    "id": "reference-36",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "ImagineArt Teams is Here",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/spotlight-cards/videos/team_banner.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/spotlight-cards/images/team_banner.webp",
+    "id": "reference-35",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Viral Nano Banana Apps",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/nanoapps_banner.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/nanoapps_banner.webp",
+    "id": "reference-34",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Lipsync Studio",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/lipsync.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/lipsync.webp",
+    "id": "reference-33",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Workflows",
+    "media_url": "https://cdn.web.imagine.art/imagine-one/home/spotlight-cards/videos/workflow.webm",
+    "poster": "https://cdn.web.imagine.art/imagine-one/home/spotlight-cards/images/workflow.webp",
+    "id": "reference-32",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Imagine Upscale",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/upscale.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/upscale.webp",
+    "id": "reference-31",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "RELIGHT",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/rl.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/rl.webp",
+    "id": "reference-30",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "CINEMATIC CAMERA ANGLES",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/ca.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/ca.webp",
+    "id": "reference-29",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Kling 3.0 Pro",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/kling30.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/kling30.png",
+    "id": "reference-28",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "ImagineArt Assist",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/assist.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/assist.png",
+    "id": "reference-27",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Recraft V4 on ImagineArt",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/recraft.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/recraft.webp",
+    "id": "reference-26",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "ImagineArt Inpaint",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/inpaint1.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/inpaint1.webp",
+    "id": "reference-25",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Seedream 5.0 Lite",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/seedream5.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/seedream5.webp",
+    "id": "reference-24",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Unlimited Nano Banana 2",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/nb22.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/nb22.webp",
+    "id": "reference-23",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Kling 3 Motion Control",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/klingv3.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/klingv3.webp",
+    "id": "reference-22",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Latest PixVerse v6",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/p6.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/p6.png",
+    "id": "reference-21",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Veo 3.1 Lite",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/veo_3.1.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/veo_3.1.webp",
+    "id": "reference-20",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Unlimited Seedance 2.0",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/sd2_1.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/sd2_1.png",
+    "id": "reference-19",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Unlimited ImagineArt 2.0",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/im2.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/im2.png",
+    "id": "reference-18",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "ImagineArt Audio",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/audio.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/audio.png",
+    "id": "reference-17",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Magic Text",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/mt169.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/mt169.webp",
+    "id": "reference-16",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "ImagineArt Film Studio",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/film.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/film.webp",
+    "id": "reference-15",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "ImagineArt Ad Studio",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/ad_studio.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/ad_studio.webp",
+    "id": "reference-14",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "ImagineArt MCP",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/mcp2.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/mcp2.webp",
+    "id": "reference-13",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Motion Design",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/motion.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/motion.webp",
+    "id": "reference-12",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "ImagineArt x Adobe Premiere Pro",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/plugin1.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/adobe.webp",
+    "id": "reference-11",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "ImagineArt Fashion Studio",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/fashion.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/fashion.webp",
+    "id": "reference-10",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Seedream V5 Pro",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/seedreamv5pro.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/seedreamv5pro.webp",
+    "id": "reference-9",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "50% OFF - Seedance 2 and NanoBanana",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/50.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/500.webp",
+    "id": "reference-8",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Fashion Studio Gala",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/fashion_contest.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/fashion_contest.webp",
+    "id": "reference-7",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "ImagineArt Captions",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/captions.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/captions.png",
+    "id": "reference-6",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Minimax H3",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/h3.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/h3.png",
+    "id": "reference-5",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Seedance 2.5 - Unlimited on Creator",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/sd255.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/sd255.webp",
+    "id": "reference-4",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Imagine Computer",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/ic.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/ic.webp",
+    "id": "reference-3",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "GPT Image 2.5",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/gpt-2.5.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/gpt-2.5.webp",
+    "id": "reference-2",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  },
+  {
+    "title": "Minimax H3 Lipsync",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/minimax-h3-lipsync.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/minimax-h3-lipsync.jpeg",
+    "id": "reference-1",
+    "media_type": "video",
+    "enabled": 1,
+    "link": {
+      "kind": "none",
+      "path": ""
+    },
+    "storage_scope": "",
+    "storage_engine": "",
+    "storage_domain": ""
+  }
+]

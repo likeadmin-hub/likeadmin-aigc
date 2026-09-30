@@ -611,7 +611,6 @@ class AigcOutpaintService
     {
         $sourceMap = self::packageSourceMap($optionConfig);
         $packages = [];
-        $enabledRatios = [];
         $configItems = self::normalizePriceConfig($priceConfig);
         usort($configItems, static fn($left, $right) => ((int)($right['sort'] ?? 0) <=> (int)($left['sort'] ?? 0)) ?: strcmp((string)($left['code'] ?? ''), (string)($right['code'] ?? '')));
         foreach ($configItems as $item) {
@@ -622,12 +621,6 @@ class AigcOutpaintService
             }
             $status = (int)($item['status'] ?? 1);
             $ratio = (string)$item['ratio'];
-            if ($status === 1 && isset($enabledRatios[$ratio])) {
-                continue;
-            }
-            if ($status === 1) {
-                $enabledRatios[$ratio] = true;
-            }
             $packages[] = [
                 'code' => (string)$item['code'],
                 'name' => (string)$item['name'],
@@ -718,7 +711,6 @@ class AigcOutpaintService
             $item['ratio_label'] = (string)($item['ratio_label'] ?: ($source['ratio_label'] ?? $item['ratio']));
             $packages[] = $item;
         }
-        $packages = self::dedupeEnabledRatios($packages);
         if ($packages) {
             $packages = array_values($packages);
             return [$packages, json_encode($packages, JSON_UNESCAPED_UNICODE) !== json_encode(array_values($normalized), JSON_UNESCAPED_UNICODE)];
@@ -751,24 +743,6 @@ class AigcOutpaintService
             }
         }
         return [$packages, true];
-    }
-
-    private static function dedupeEnabledRatios(array $packages): array
-    {
-        usort($packages, static fn($left, $right) => ((int)($right['sort'] ?? 0) <=> (int)($left['sort'] ?? 0)) ?: strcmp((string)($left['code'] ?? ''), (string)($right['code'] ?? '')));
-        $seen = [];
-        foreach ($packages as &$item) {
-            $ratio = (string)($item['ratio'] ?? '');
-            if ((int)($item['status'] ?? 1) === 1 && $ratio !== '') {
-                if (isset($seen[$ratio])) {
-                    $item['status'] = 0;
-                } else {
-                    $seen[$ratio] = true;
-                }
-            }
-        }
-        unset($item);
-        return $packages;
     }
 
     private static function packageSourceMap(array $optionConfig): array

@@ -26,6 +26,7 @@ use app\common\service\app\AppDisplayConfigService;
 use app\common\service\decorate\DecorateTemplateService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
+use app\common\service\PcLoginPresentationService;
 use app\common\service\PointUnitService;
 use app\common\service\OfficialSiteService;
 use app\common\service\TutorialConfigService;
@@ -161,6 +162,7 @@ class PcLogic extends BaseLogic
         // 网站信息
         $pcLoginBg = ConfigService::get('website', 'pc_login_bg', ConfigService::get('tenant', 'login_image', ''));
         $pcLoginBgPoster = ConfigService::get('website', 'pc_login_bg_poster', '');
+        $pcLoginPresentation = PcLoginPresentationService::get();
         $pcHomeBg = ConfigService::get('website', 'pc_home_bg', '');
         $pcHomeBgPoster = ConfigService::get('website', 'pc_home_bg_poster', '');
         $pcHomeBgList = self::fileUrlList($pcHomeBg);
@@ -175,6 +177,8 @@ class PcLogic extends BaseLogic
             'pc_ico' => FileService::getFileUrl(ConfigService::get('website', 'pc_ico')),
             'pc_desc' => ConfigService::get('website', 'pc_desc'),
             'pc_keywords' => ConfigService::get('website', 'pc_keywords'),
+            'pc_login_slides' => $pcLoginPresentation['pc_login_slides'],
+            'pc_login_caption' => $pcLoginPresentation['pc_login_caption'],
             'pc_login_bg_type' => ConfigService::get('website', 'pc_login_bg_type', 'image'),
             'pc_login_bg' => $pcLoginBg,
             'pc_login_bg_url' => $pcLoginBg ? FileService::getFileUrl($pcLoginBg) : '',

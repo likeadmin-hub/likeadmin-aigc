@@ -864,11 +864,40 @@ class MarketVideoRuntimeService
         return self::request('GET', $url . '?task_id=' . rawurlencode($taskId), [], true);
     }
 
+    /** Only user-facing generation options declared by this model may cross the boundary. */
+    private static function declaredVideoOptions(array $schema, array $request): array
+    {
+        $result = [];
+        foreach (['seed', 'generate_audio', 'audio', 'watermark', 'aigc_watermark', 'camera_fixed', 'prompt_extend', 'negative_prompt', 'draft', 'service_tier', 'audio_setting', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt'] as $key) {
+            $definition = self::schemaParameterDefinition($schema, $key);
+            if ($definition === [] || !array_key_exists($key, $request) || $request[$key] === null) continue;
+            $value = $request[$key];
+            $type = strtolower((string)($definition['type'] ?? ''));
+            if ($type === 'boolean') {
+                $value = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                if ($value === null) throw new Exception('视频参数格式不正确: ' . $key);
+            } elseif (in_array($type, ['integer', 'number'], true)) {
+                if (!is_numeric($value) || ($type === 'integer' && (float)$value != (int)$value)) throw new Exception('视频参数格式不正确: ' . $key);
+                $value = $type === 'integer' ? (int)$value : (float)$value;
+                $min = $definition['minimum'] ?? $definition['min'] ?? null;
+                $max = $definition['maximum'] ?? $definition['max'] ?? null;
+                if (($min !== null && $value < $min) || ($max !== null && $value > $max)) throw new Exception('视频参数超出范围: ' . $key);
+            } elseif (!is_scalar($value)) {
+                continue;
+            }
+            $options = self::schemaOptionValues($schema, $key);
+            if ($options !== [] && !in_array(is_bool($value) ? ($value ? 'true' : 'false') : (string)$value, array_map('strval', $options), true)) throw new Exception('视频参数选项不支持: ' . $key);
+            $result[$key] = $value;
+        }
+        return $result;
+    }
+
     private static function modelPayload(array $snapshot, array $request, string $idempotency): array
     {
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
         $assets = self::assets($request);
         $schema = self::arrayValue($snapshot['params_schema'] ?? []);
+        $locked = array_merge(self::declaredVideoOptions($schema, $request), $locked);
         $requestedDuration = (int)($request['duration'] ?? $request['seconds'] ?? $request['video_duration'] ?? 0);
         $schemaDuration = (int)self::schemaDefaultValue($schema, 'duration', 0);
         $duration = self::duration($locked) ?: ($requestedDuration > 0 ? $requestedDuration : $schemaDuration);
@@ -1180,6 +1209,7 @@ class MarketVideoRuntimeService
             'duration' => $duration > 0 ? (string)$duration : null,
             'content' => self::h3Content($request, $prompt),
         ];
+        $payload = array_merge(self::declaredVideoOptions(self::arrayValue($snapshot['params_schema'] ?? []), $request), $payload);
         $callbackUrl = trim((string)($request['callback_url'] ?? $request['callbackUrl'] ?? ''));
         if ($callbackUrl !== '') {
             $payload['callback_url'] = $callbackUrl;
