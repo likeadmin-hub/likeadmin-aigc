@@ -1,1 +1,0 @@
-import{d as e,o as t,a as s,c as r}from"./index-494d94e5.js";import{_ as a}from"./agreement-content.vue_vue_type_script_setup_true_lang.3ea38d94.js";import{c as p}from"./page-content-lifecycle.395b0c93.js";import"./u-parse.05290644.js";import"./_plugin-vue_export-helper.1b428a4d.js";const o=e({__name:"agreement",setup:e=>(t(()=>{}),p(),(e,t)=>(s(),r(a)))});export{o as default};

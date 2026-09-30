@@ -1,1 +1,0 @@
-import{_ as e}from"./user_wallet-content.vue_vue_type_script_setup_true_lang.918209c0.js";import"./index-494d94e5.js";import"./page-meta.40a471af.js";import"./_plugin-vue_export-helper.1b428a4d.js";import"./u-badge.718785bf.js";import"./page-content-lifecycle.395b0c93.js";import"./recharge.694c4755.js";import"./point-unit.2a0d20ee.js";export{e as default};
