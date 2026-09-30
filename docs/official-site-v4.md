@@ -2,7 +2,7 @@
 
 ## Source and content mapping
 
-The public reference HTML, CSS and interaction scripts were retrieved from https://openart.ai/ on 2026-09-30. Source snapshots and media downloads are kept outside delivery repositories in `../reference-assets/openart/` (relative to the workspace root). No external analytics, brand logos, customer endorsements or social accounts are embedded in the application.
+The public reference HTML, CSS and interaction scripts were retrieved from https://openart.ai/ on 2026-09-30. Source snapshots and media downloads are kept outside delivery repositories in `reference-assets/openart/` (relative to the workspace root). No external analytics, brand logos, customer endorsements or social accounts are embedded in the application.
 
 Reference structure maps to real capabilities:
 - Director → AI short drama; character → digital human; world → infinite canvas.
