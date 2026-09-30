@@ -92,7 +92,7 @@ class ShortDramaVideoReferenceContractTest extends TestCase
                 $this->invoke(MarketVideoRuntimeService::class,'assertAssets',['product'=>$product],$request);
             }
             $content=$this->invoke(MarketVideoRuntimeService::class,'h3Content',$request,'fixture');
-            self::assertSame(['first_frame_image','last_frame_image'],array_column(array_slice($content,1),'role'));
+            self::assertSame(['first_frame','last_frame'],array_column(array_slice($content,1),'role'));
         }
     }
 
