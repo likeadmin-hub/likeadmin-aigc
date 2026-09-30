@@ -24,6 +24,7 @@ final class ShortDramaStoryGeneration
     {
         $stage = (string)$request['multi_episode_stage'];
         $total = (int)$request['episode_count'];
+        $qualityReviewEnabled = ShortDramaStoryWorkflow::qualityReviewEnabled($request);
         $receipts = [];
         $call = static function (string $key, array $messages, int $count, bool $public) use (&$model, &$receipts, $provider): array {
             $budget = ($public || str_starts_with($key, 'roadmap'))
@@ -43,7 +44,7 @@ final class ShortDramaStoryGeneration
             $payload = [];
             try {
                 $payload = $call('story', $messages, 1, true);
-                $issues = ShortDramaStoryWorkflow::issues($payload, 'story', $total);
+                $issues = ShortDramaStoryWorkflow::issues($payload, 'story', $total, $qualityReviewEnabled);
             } catch (RuntimeException $error) {
                 if (!in_array($error->getCode(), [413, 422], true)) throw $error;
                 $issues = [['path' => 'result', 'message' => $error->getMessage()]];
@@ -53,7 +54,7 @@ final class ShortDramaStoryGeneration
                 if ($payload) $messages['content'] .= "\n已有结果=" . json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
                     . "\n保留已有角色、场景ID、剧情事实及合格字段，仅修复上述问题。";
                 $payload = $call('story_repair', $messages, 1, true);
-                $issues = ShortDramaStoryWorkflow::issues($payload, 'story', $total);
+                $issues = ShortDramaStoryWorkflow::issues($payload, 'story', $total, $qualityReviewEnabled);
             }
             if ($issues) throw new RuntimeException($issues[0]['message'], 422);
         } else {
@@ -98,7 +99,7 @@ final class ShortDramaStoryGeneration
             if ($targetEpisode && ($targetEpisode < 1 || $targetEpisode > $total || array_column($sourceEpisodes, 'episode_number') !== range(1, $total))) {
                 throw new RuntimeException('原大纲集号不完整，无法安全局部修改', 422);
             }
-            $expand = function (int $start, int $count) use (&$expand, &$payload, $base, $request, $assemble, $call, $total, $progress, $sourceEpisodes, $isRevision, $roadmap): void {
+            $expand = function (int $start, int $count) use (&$expand, &$payload, $base, $request, $assemble, $call, $total, $progress, $sourceEpisodes, $isRevision, $roadmap, $qualityReviewEnabled): void {
                 $chunk = $request;
                 $chunk['episode_count'] = $count;
                 $chunk['episode_total_count'] = $total;
@@ -127,8 +128,8 @@ final class ShortDramaStoryGeneration
                 $batch = [];
                 try {
                     $batch = $call($key, $messages, $count, false);
-                    $episodes = self::episodes($batch, $count, $start);
-                    self::assertDistinctFromSaved($episodes, $payload['episodes']);
+                    $episodes = self::episodes($batch, $count, $start, $qualityReviewEnabled);
+                    if ($qualityReviewEnabled) self::assertDistinctFromSaved($episodes, $payload['episodes']);
                 } catch (RuntimeException $error) {
                     if (!in_array($error->getCode(), [413, 422], true)) throw $error;
                     if ($progress) $progress('story_preview_repair', ['start' => $start, 'count' => $count,
@@ -142,8 +143,8 @@ final class ShortDramaStoryGeneration
                     $messages['content'] .= "\n上次返回未通过完整性校验：" . $error->getMessage() . '。只修复本集，返回完整 JSON。';
                     if ($batch) $messages['content'] .= "\n已有结果=" . json_encode($batch, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
                         . "\n保留已生成的合格剧情字段，仅修复指出的问题，不改变已确认设定。";
-                    $episodes = self::episodes($call($key . '_repair_v2', $messages, 1, false), 1, $start);
-                    self::assertDistinctFromSaved($episodes, $payload['episodes']);
+                    $episodes = self::episodes($call($key . '_repair_v2', $messages, 1, false), 1, $start, $qualityReviewEnabled);
+                    if ($qualityReviewEnabled) self::assertDistinctFromSaved($episodes, $payload['episodes']);
                 }
                 foreach ($episodes as $index => $episode) {
                     $episode['episode_number'] = $start + $index;
@@ -164,12 +165,12 @@ final class ShortDramaStoryGeneration
                         $payload['episodes'][$start - 1], array_flip(['title', 'story_outline', 'conflict_point', 'ending_hook'])
                     ));
                 }
-                self::assertDistinctFromSaved([$payload['episodes'][$targetEpisode - 1]], array_values(array_filter($sourceEpisodes,
+                if ($qualityReviewEnabled) self::assertDistinctFromSaved([$payload['episodes'][$targetEpisode - 1]], array_values(array_filter($sourceEpisodes,
                     static fn(array $episode): bool => (int)$episode['episode_number'] !== $targetEpisode)));
             } else {
                 for ($start = 1; $start <= $total; $start += 10) $expand($start, min(10, $total - $start + 1));
             }
-            $issues = ShortDramaStoryWorkflow::issues($payload, 'episodes', $total);
+            $issues = ShortDramaStoryWorkflow::issues($payload, 'episodes', $total, $qualityReviewEnabled);
             if ($issues) throw new RuntimeException($issues[0]['message'], 422);
             $timing = ShortDramaEpisodeDuration::policy($request);
             if (ShortDramaEpisodeDuration::active($request) && ($timing['scope'] ?? '') === 'series' && $targetEpisode <= 0) {
@@ -203,7 +204,7 @@ final class ShortDramaStoryGeneration
         return ['result' => $payload, 'receipts' => array_values($receipts), 'model_selection' => $model];
     }
 
-    public static function episodes(array $payload, int $count, int $start = 1): array
+    public static function episodes(array $payload, int $count, int $start = 1, bool $qualityReviewEnabled = true): array
     {
         $episodes = $payload['episodes'] ?? null;
         if (!is_array($episodes) || count($episodes) !== $count || !empty($payload['storyboard'])) throw new RuntimeException('本批集数不完整或包含制作分镜', 422);
@@ -215,9 +216,11 @@ final class ShortDramaStoryGeneration
         foreach (array_values($episodes) as $index => $episode) {
             if (!is_array($episode)) throw new RuntimeException('本批集号不连续', 422);
             foreach (['title', 'story_outline', 'conflict_point', 'ending_hook'] as $field) {
-                if (!ShortDramaStoryWorkflow::isCreativeText($episode[$field] ?? null)) throw new RuntimeException('第' . ($index + 1) . '集缺少 ' . $field, 422);
+                if ($qualityReviewEnabled
+                    ? !ShortDramaStoryWorkflow::isCreativeText($episode[$field] ?? null)
+                    : trim((string)($episode[$field] ?? '')) === '') throw new RuntimeException('第' . ($index + 1) . '集缺少 ' . $field, 422);
             }
-            if (isset($seen[trim($episode['story_outline'])])) throw new RuntimeException('本批存在完全重复的集剧情', 422);
+            if ($qualityReviewEnabled && isset($seen[trim($episode['story_outline'])])) throw new RuntimeException('本批存在完全重复的集剧情', 422);
             $seen[trim($episode['story_outline'])] = true;
         }
         return array_values($episodes);

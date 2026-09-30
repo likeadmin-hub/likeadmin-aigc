@@ -8,6 +8,36 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaStoryWorkflowTest extends TestCase
 {
+    public function testNewSubmissionsDefaultOffAndHistoricalTasksKeepReview(): void
+    {
+        $method = new \ReflectionMethod(AigcShortDramaService::class, 'normalizeCreateRequest');
+        $method->setAccessible(true);
+        self::assertFalse($method->invoke(null, ['prompt' => '故事'], [])['quality_review_enabled']);
+        self::assertTrue($method->invoke(null, ['prompt' => '故事', 'quality_review_enabled' => true], [])['quality_review_enabled']);
+        self::assertTrue(ShortDramaStoryWorkflow::qualityReviewEnabled([]));
+        self::assertFalse(ShortDramaStoryWorkflow::qualityReviewEnabled(['quality_review_enabled' => false]));
+    }
+
+    public function testEpisodeAlwaysInheritsConfirmedOutlineReviewPolicy(): void
+    {
+        $episode = ['quality_review_enabled' => true, 'episode_number' => 1];
+        $disabled = ShortDramaStoryWorkflow::inheritQualityReview($episode, ['quality_review_enabled' => false]);
+        self::assertFalse($disabled['quality_review_enabled']);
+        self::assertSame(1, $disabled['episode_number']);
+        self::assertTrue(ShortDramaStoryWorkflow::inheritQualityReview($disabled, ['quality_review_enabled' => true])['quality_review_enabled']);
+        self::assertTrue(ShortDramaStoryWorkflow::inheritQualityReview($disabled, [])['quality_review_enabled']);
+    }
+
+    public function testDisabledReviewKeepsStructuralChecksWithoutEditorialStoryGate(): void
+    {
+        $story = ['title' => '甲', 'type_judgement' => '奇幻', 'core_theme' => '成长',
+            'story_outline' => '主角踏上旅程', 'subjects' => [['id' => 's1', 'name' => '甲']],
+            'locations' => [['id' => 'l1', 'name' => '山洞']]];
+        self::assertSame([], ShortDramaStoryWorkflow::issues($story, 'story', 3, false));
+        self::assertNotEmpty(ShortDramaStoryWorkflow::issues($story, 'story', 3, true));
+        unset($story['subjects']);
+        self::assertContains('subjects', array_column(ShortDramaStoryWorkflow::issues($story, 'story', 3, false), 'path'));
+    }
     public function testNewCreationAlwaysSelectsStoryEvenWhenVariantIsMissing(): void
     {
         $method = new \ReflectionMethod(AigcShortDramaService::class, 'normalizeCreateRequest');

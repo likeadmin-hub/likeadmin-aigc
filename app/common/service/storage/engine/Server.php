@@ -2,6 +2,7 @@
 
 namespace app\common\service\storage\engine;
 
+use app\common\service\storage\UploadExtension;
 use think\Request;
 use think\Exception;
 
@@ -41,18 +42,29 @@ abstract class Server
             throw new Exception('未找到上传文件的信息');
         }
 
-        // 校验上传文件后缀
+        // Some mobile upload adapters send an anonymous Blob with no filename
+        // extension. In that case, recover only formats identified from bytes.
+        $originalName = $this->file->getOriginalName();
+        $extension = strtolower($this->file->extension());
+        if ($extension === '') {
+            $extension = UploadExtension::fromContent($this->file->getRealPath());
+            if ($extension !== '') {
+                $originalName = ($originalName !== '' ? $originalName : 'upload') . '.' . $extension;
+            }
+        }
+
+        // Keep the existing allow-list for both original and inferred types.
         $limit = array_merge(config('project.file_image'), config('project.file_video'), config('project.file_file'));
-        if (!in_array(strtolower($this->file->extension()), $limit)) {
-            throw new Exception('不允许上传' . $this->file->extension() . '后缀文件');
+        if (!in_array($extension, $limit, true)) {
+            throw new Exception('不允许上传' . $extension . '后缀文件');
         }
 
         // 文件信息
         $this->fileInfo = [
-            'ext'      => $this->file->extension(),
+            'ext'      => $extension,
             'size'     => $this->file->getSize(),
             'mime'     => $this->file->getMime(),
-            'name'     => $this->file->getOriginalName(),
+            'name'     => $originalName,
             'realPath' => $this->file->getRealPath(),
         ];
         // 生成保存文件名

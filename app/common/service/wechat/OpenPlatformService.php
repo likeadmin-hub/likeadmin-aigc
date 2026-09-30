@@ -828,6 +828,299 @@ class OpenPlatformService
         ];
     }
 
+    /** Read the actual WeChat guide for this tenant's effective authorized app. */
+    public static function miniprogramPrivacy(int $tenantId, int $privacyVer = 2): array
+    {
+        if (!in_array($privacyVer, [1, 2], true)) throw new \InvalidArgumentException('隐私指引版本无效');
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        $result = self::request(
+            'cgi-bin/component/getprivacysetting',
+            ['privacy_ver' => $privacyVer],
+            'miniprogram.privacy.get',
+            ['access_token' => self::authorizerToken((int)$authorizer['id'])],
+            $tenantId,
+            (int)$authorizer['id']
+        );
+        return ['authorizer_appid' => (string)$authorizer['authorizer_appid'], 'privacy_ver' => $privacyVer] + $result;
+    }
+
+    /** Privacy settings have no separate review; WeChat reviews them with the next code audit. */
+    public static function miniprogramPrivacyAuditStatus(int $tenantId): array
+    {
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        $result = self::request(
+            'wxa/get_latest_auditstatus',
+            [],
+            'miniprogram.privacy.latest_audit',
+            ['access_token' => self::authorizerToken((int)$authorizer['id'])],
+            $tenantId,
+            (int)$authorizer['id'],
+            'GET'
+        );
+        return [
+            'authorizer_appid' => (string)$authorizer['authorizer_appid'],
+            'auditid' => (string)($result['auditid'] ?? ''),
+            'status' => isset($result['status']) ? (int)$result['status'] : null,
+            'reason' => (string)($result['reason'] ?? ''),
+            'user_version' => (string)($result['user_version'] ?? ''),
+            'user_desc' => (string)($result['user_desc'] ?? ''),
+            'submit_audit_time' => (int)($result['submit_audit_time'] ?? 0),
+        ];
+    }
+
+    /** Submit the complete development guide; the live guide is read-only here. */
+    public static function setMiniprogramPrivacy(int $tenantId, array $data): array
+    {
+        $payload = self::normalizePrivacySetting($data);
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        self::request(
+            'cgi-bin/component/setprivacysetting',
+            $payload,
+            'miniprogram.privacy.set',
+            ['access_token' => self::authorizerToken((int)$authorizer['id'])],
+            $tenantId,
+            (int)$authorizer['id']
+        );
+        try {
+            $readback = self::miniprogramPrivacy($tenantId, 2);
+            $submitted = array_column($payload['setting_list'], 'privacy_text', 'privacy_key');
+            $returned = [];
+            foreach ((array)($readback['setting_list'] ?? []) as $item) {
+                if (is_array($item) && isset($item['privacy_key'])) $returned[(string)$item['privacy_key']] = (string)($item['privacy_text'] ?? '');
+            }
+            ksort($submitted);
+            ksort($returned);
+            $ownerMatches = true;
+            foreach (['contact_email', 'contact_phone', 'contact_qq', 'contact_weixin', 'notice_method', 'store_expire_timestamp', 'ext_file_media_id'] as $field) {
+                if ((string)($payload['owner_setting'][$field] ?? '') !== (string)($readback['owner_setting'][$field] ?? '')) {
+                    $ownerMatches = false;
+                    break;
+                }
+            }
+            return ['submitted' => true, 'verified' => $submitted === $returned && $ownerMatches] + $readback;
+        } catch (\Throwable $ignored) {
+            // The write succeeded. Let the tenant refresh later if WeChat's readback is delayed.
+            return ['submitted' => true, 'verified' => false, 'privacy_ver' => 2]
+                + $payload;
+        }
+    }
+
+    /** Keep validation independent of WeChat access so it can be checked locally. */
+    public static function normalizePrivacySetting(array $data): array
+    {
+        if ((int)($data['privacy_ver'] ?? 2) !== 2) throw new \InvalidArgumentException('只能编辑开发版隐私指引');
+        $input = $data['owner_setting'] ?? null;
+        if (!is_array($input)) throw new \InvalidArgumentException('请填写开发者信息');
+        $owner = [];
+        foreach (['contact_email', 'contact_phone', 'contact_qq', 'contact_weixin', 'notice_method', 'store_expire_timestamp', 'ext_file_media_id'] as $key) {
+            $owner[$key] = trim((string)($input[$key] ?? ''));
+            if (mb_strlen($owner[$key]) > 200) throw new \InvalidArgumentException('开发者信息过长');
+        }
+        if (!array_filter(array_intersect_key($owner, array_flip(['contact_email', 'contact_phone', 'contact_qq', 'contact_weixin'])))) {
+            throw new \InvalidArgumentException('请至少填写一种开发者联系方式');
+        }
+        if ($owner['notice_method'] === '') throw new \InvalidArgumentException('请填写信息变更通知方式');
+        if ($owner['store_expire_timestamp'] !== '' && !preg_match('/^[1-9][0-9]{0,4}天$/u', $owner['store_expire_timestamp'])) {
+            throw new \InvalidArgumentException('固定存储期限请填写数字加“天”，例如30天');
+        }
+        if ($owner['ext_file_media_id'] !== '' && !preg_match('/^[a-zA-Z0-9_+\/=.-]{1,256}$/', $owner['ext_file_media_id'])) {
+            throw new \InvalidArgumentException('补充文档媒体 ID 无效');
+        }
+        if (array_key_exists('store_region', $input)) {
+            $region = filter_var($input['store_region'], FILTER_VALIDATE_INT);
+            if ($region === false || $region < 0 || $region > 3) throw new \InvalidArgumentException('存储地区配置无效');
+            $owner['store_region'] = $region;
+        }
+        $rawList = $data['setting_list'] ?? null;
+        if (!is_array($rawList)) throw new \InvalidArgumentException('请选择使用的用户信息类型');
+        $settings = [];
+        $seen = [];
+        foreach ($rawList as $item) {
+            if (!is_array($item)) throw new \InvalidArgumentException('用户信息类型格式错误');
+            $key = trim((string)($item['privacy_key'] ?? ''));
+            $purpose = trim((string)($item['privacy_text'] ?? ''));
+            if (!preg_match('/^[a-zA-Z][a-zA-Z0-9]{0,63}$/', $key) || isset($seen[$key])) {
+                throw new \InvalidArgumentException('用户信息类型无效或重复');
+            }
+            if ($purpose === '' || mb_strlen($purpose) > 200) throw new \InvalidArgumentException('请填写每项用户信息的用途（不超过200字）');
+            $seen[$key] = true;
+            $settings[] = ['privacy_key' => $key, 'privacy_text' => $purpose];
+        }
+        if (!$settings) throw new \InvalidArgumentException('请至少选择一项用户信息类型');
+        return ['privacy_ver' => 2, 'owner_setting' => $owner, 'setting_list' => $settings];
+    }
+
+    public static function uploadMiniprogramPrivacyFile(int $tenantId, string $filename, string $content): array
+    {
+        if (strtolower(pathinfo($filename, PATHINFO_EXTENSION)) !== 'txt' || $content === '' || strlen($content) > 102400 || !preg_match('//u', $content)) {
+            throw new \InvalidArgumentException('补充文档仅支持 UTF-8 TXT 文件，大小不超过100KB');
+        }
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        $token = self::authorizerToken((int)$authorizer['id']);
+        $url = self::API . 'cgi-bin/component/uploadprivacyextfile?' . http_build_query(['access_token' => $token]);
+        $boundary = '----likeadmin-' . bin2hex(random_bytes(12));
+        $body = '--' . $boundary . "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"privacy.txt\"\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n" . $content . "\r\n--" . $boundary . "--\r\n";
+        $started = microtime(true);
+        $requestId = bin2hex(random_bytes(12));
+        try {
+            $response = Requests::post($url, ['Content-Type' => 'multipart/form-data; boundary=' . $boundary], $body, ['timeout' => 30]);
+            $result = json_decode((string)$response->body, true);
+            if (!is_array($result)) throw new \RuntimeException('微信接口返回格式错误');
+            $code = (int)($result['errcode'] ?? 0);
+            if ($code !== 0) throw new \RuntimeException('微信接口调用失败：' . (string)($result['errmsg'] ?? $code));
+            $mediaId = trim((string)($result['ext_file_media_id'] ?? ''));
+            if ($mediaId === '') throw new \RuntimeException('微信未返回补充文档媒体 ID');
+            self::logApi($requestId, 'miniprogram.privacy.upload', 0, $started, 'success', $tenantId, (int)$authorizer['id']);
+            return ['ext_file_media_id' => $mediaId];
+        } catch (\Throwable $e) {
+            self::logApi($requestId, 'miniprogram.privacy.upload', -1, $started, 'failed', $tenantId, (int)$authorizer['id']);
+            throw new \RuntimeException(str_replace($token, '[redacted]', $e->getMessage()), 0, $e);
+        }
+    }
+
+    /** Upload category evidence only when the tenant submits it, so the temporary media ID is fresh. */
+    public static function uploadMiniprogramCategoryImage(int $tenantId, string $filename, string $content): array
+    {
+        $image = self::categoryImageType($filename, $content);
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        $token = self::authorizerToken((int)$authorizer['id']);
+        $url = self::API . 'cgi-bin/media/upload?' . http_build_query(['access_token' => $token, 'type' => 'image']);
+        $boundary = '----likeadmin-' . bin2hex(random_bytes(12));
+        $body = '--' . $boundary . "\r\n"
+            . 'Content-Disposition: form-data; name="media"; filename="qualification.' . $image['extension'] . '"' . "\r\n"
+            . 'Content-Type: ' . $image['mime'] . "\r\n\r\n"
+            . $content . "\r\n--" . $boundary . "--\r\n";
+        $started = microtime(true);
+        $requestId = bin2hex(random_bytes(12));
+        try {
+            $response = Requests::post($url, ['Content-Type' => 'multipart/form-data; boundary=' . $boundary], $body, ['timeout' => 30]);
+            $result = json_decode((string)$response->body, true);
+            if (!is_array($result)) throw new \RuntimeException('微信素材接口返回格式错误');
+            $code = (int)($result['errcode'] ?? 0);
+            if ($code !== 0) throw new \RuntimeException('微信素材上传失败：' . (string)($result['errmsg'] ?? $code));
+            $mediaId = trim((string)($result['media_id'] ?? ''));
+            if ($mediaId === '') throw new \RuntimeException('微信未返回资质图片素材标识');
+            self::logApi($requestId, 'miniprogram.category.media.upload', 0, $started, 'success', $tenantId, (int)$authorizer['id']);
+            return ['media_id' => $mediaId];
+        } catch (\Throwable $e) {
+            self::logApi($requestId, 'miniprogram.category.media.upload', -1, $started, 'failed', $tenantId, (int)$authorizer['id']);
+            throw new \RuntimeException(str_replace($token, '[redacted]', $e->getMessage()), 0, $e);
+        }
+    }
+
+    /** Keep file validation independent of WeChat so invalid uploads never consume an API call. */
+    public static function categoryImageType(string $filename, string $content): array
+    {
+        if ($content === '' || strlen($content) > 2 * 1024 * 1024) {
+            throw new \InvalidArgumentException('资质图片大小不能超过 2MB');
+        }
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $allowed = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif'];
+        if (!isset($allowed[$extension])) throw new \InvalidArgumentException('资质图片仅支持 JPG、PNG、GIF');
+        $info = @getimagesizefromstring($content);
+        if (!is_array($info) || ($info['mime'] ?? '') !== $allowed[$extension]) {
+            throw new \InvalidArgumentException('资质图片内容与文件类型不符');
+        }
+        return ['mime' => $allowed[$extension], 'extension' => $extension === 'jpeg' ? 'jpg' : $extension];
+    }
+
+    /** Tenant-scoped WeChat mini program management. Paths are deliberately allowlisted. */
+    public static function miniprogramManagementApi(int $tenantId, string $operation, array $input = []): array
+    {
+        $endpoints = [
+            'illegal_records' => ['wxa/getillegalrecords', 'POST'],
+            'appeal_records' => ['wxa/getappealrecords', 'POST'],
+            'testers' => ['wxa/memberauth', 'POST'],
+            'bind_tester' => ['wxa/bind_tester', 'POST'],
+            'unbind_tester' => ['wxa/unbind_tester', 'POST'],
+            'privacy_interfaces' => ['wxa/security/get_privacy_interface', 'GET'],
+            'apply_privacy_interface' => ['wxa/security/apply_privacy_interface', 'POST'],
+            'all_categories' => ['cgi-bin/wxopen/getallcategories', 'GET'],
+            'setting_categories' => ['cgi-bin/wxopen/getcategory', 'GET'],
+            'categories_by_type' => ['cgi-bin/wxopen/getcategoriesbytype', 'POST'],
+            'category_names' => ['wxa/get_category', 'GET'],
+            'add_category' => ['cgi-bin/wxopen/addcategory', 'POST'],
+            'delete_category' => ['cgi-bin/wxopen/deletecategory', 'POST'],
+            'modify_category' => ['cgi-bin/wxopen/modifycategory', 'POST'],
+        ];
+        if (!isset($endpoints[$operation])) throw new \InvalidArgumentException('不支持的小程序管理操作');
+        $payload = self::normalizeMiniprogramManagementInput($operation, $input);
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        [$path, $method] = $endpoints[$operation];
+        $result = self::request($path, $payload, 'miniprogram.management.' . $operation,
+            ['access_token' => self::authorizerToken((int)$authorizer['id'])], $tenantId, (int)$authorizer['id'], $method);
+        return ['authorizer_appid' => (string)$authorizer['authorizer_appid']] + $result;
+    }
+
+    public static function normalizeMiniprogramManagementInput(string $operation, array $input): array
+    {
+        if ($operation === 'testers') return ['action' => 'get_experiencer'];
+        if (in_array($operation, ['illegal_records', 'privacy_interfaces', 'all_categories', 'setting_categories', 'category_names'], true)) return [];
+        if ($operation === 'appeal_records') {
+            $id = trim((string)($input['illegal_record_id'] ?? ''));
+            if ($id === '' || strlen($id) > 128) throw new \InvalidArgumentException('请选择违规记录');
+            return ['illegal_record_id' => $id];
+        }
+        if ($operation === 'bind_tester' || $operation === 'unbind_tester') {
+            $wechatid = trim((string)($input['wechatid'] ?? ''));
+            $userstr = trim((string)($input['userstr'] ?? ''));
+            if ($operation === 'bind_tester' && ($wechatid === '' || mb_strlen($wechatid) > 80)) throw new \InvalidArgumentException('请填写有效的体验者微信号');
+            if ($operation === 'unbind_tester' && $wechatid === '' && $userstr === '') throw new \InvalidArgumentException('请填写体验者微信号或唯一标识');
+            if (mb_strlen($wechatid) > 80 || strlen($userstr) > 256) throw new \InvalidArgumentException('体验者标识过长');
+            return array_filter(['wechatid' => $wechatid, 'userstr' => $userstr], fn($value) => $value !== '');
+        }
+        if ($operation === 'apply_privacy_interface') {
+            $name = trim((string)($input['api_name'] ?? ''));
+            $content = trim((string)($input['content'] ?? ''));
+            if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_.]{1,99}$/', $name) || $content === '' || mb_strlen($content) > 1000) throw new \InvalidArgumentException('请填写接口名称和申请理由');
+            $pictures = self::stringList($input['pic_list'] ?? [], 10, 1024);
+            foreach ($pictures as $picture) if (!filter_var($picture, FILTER_VALIDATE_URL) || !str_starts_with($picture, 'https://')) throw new \InvalidArgumentException('辅助图片必须为 HTTPS 地址');
+            return ['api_name' => $name, 'content' => $content, 'pic_list' => $pictures];
+        }
+        if ($operation === 'categories_by_type') {
+            $type = trim((string)($input['verify_type'] ?? ''));
+            if (!in_array($type, ['0', '1', '2', '3', '4'], true)) throw new \InvalidArgumentException('主体类型无效');
+            return ['verify_type' => (int)$type];
+        }
+        if (in_array($operation, ['add_category', 'delete_category', 'modify_category'], true)) {
+            $first = filter_var($input['first'] ?? null, FILTER_VALIDATE_INT);
+            $second = filter_var($input['second'] ?? null, FILTER_VALIDATE_INT);
+            if (!$first || !$second || $first < 1 || $second < 1) throw new \InvalidArgumentException('请选择有效的一级和二级类目');
+            if ($operation === 'delete_category') return ['first' => $first, 'second' => $second];
+            $certicates = [];
+            foreach ((array)($input['certicates'] ?? []) as $item) {
+                if (!is_array($item)) throw new \InvalidArgumentException('类目资质格式错误');
+                $key = trim((string)($item['key'] ?? ''));
+                $value = trim((string)($item['value'] ?? ''));
+                if ($key === '' || mb_strlen($key) > 100 || $value === '' || strlen($value) > 256) throw new \InvalidArgumentException('请填写资质名称和微信素材 ID');
+                $certicates[] = ['key' => $key, 'value' => $value];
+            }
+            if (count($certicates) > 20) throw new \InvalidArgumentException('类目资质最多20项');
+            $category = ['first' => $first, 'second' => $second, 'certicates' => $certicates];
+            return $operation === 'add_category' ? ['categories' => [$category]] : $category;
+        }
+        throw new \InvalidArgumentException('不支持的小程序管理操作');
+    }
+
+    private static function stringList($input, int $maxCount, int $maxLength): array
+    {
+        if (!is_array($input) || count($input) > $maxCount) throw new \InvalidArgumentException('材料数量超出限制');
+        $result = [];
+        foreach ($input as $item) {
+            if (!is_string($item) || trim($item) === '' || strlen(trim($item)) > $maxLength) throw new \InvalidArgumentException('材料内容无效');
+            $result[] = trim($item);
+        }
+        return array_values(array_unique($result));
+    }
+
+    /** WeChat management POST APIs expect a JSON object even when no fields are supplied. */
+    public static function encodeWechatRequestBody(array $payload): string
+    {
+        $json = json_encode((object)$payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($json === false) throw new \InvalidArgumentException('微信接口请求参数无法编码');
+        return $json;
+    }
+
     public static function undoAudit(int $tenantId, int $id): array
     {
         $lock = SubmitLockService::acquire('wechat.version.audit.undo.' . $id, $tenantId, 0);
@@ -866,7 +1159,7 @@ class OpenPlatformService
             $headers = ['Content-Type' => 'application/json'];
             $response = $method === 'GET'
                 ? Requests::get($url, $headers, ['timeout' => 30])
-                : Requests::post($url, $headers, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ['timeout' => 30]);
+                : Requests::post($url, $headers, self::encodeWechatRequestBody($payload), ['timeout' => 30]);
             $body = json_decode((string)$response->body, true); if (!is_array($body)) throw new \RuntimeException('微信接口返回格式错误'); $code = (int)($body['errcode'] ?? 0); self::logApi($requestId, $apiName, $code, $started, $code === 0 ? 'success' : 'failed', $tenantId, $authorizerId); if ($code !== 0) throw new \RuntimeException('微信接口调用失败：' . (string)($body['errmsg'] ?? $code)); return $body;
         } catch (\Throwable $e) { self::logApi($requestId, $apiName, -1, $started, 'failed', $tenantId, $authorizerId); throw $e; }
     }

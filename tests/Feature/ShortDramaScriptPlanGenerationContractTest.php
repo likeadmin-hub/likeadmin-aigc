@@ -11,6 +11,37 @@ use think\Container;
 /** Exercises the real script-plan assembly/normalization/repair path with a fake provider only. */
 class ShortDramaScriptPlanGenerationContractTest extends TestCase
 {
+    public function testQualityFailureNamesTheFirstBlockingIssue(): void
+    {
+        $method = new ReflectionMethod(AigcShortDramaService::class, 'planQualityFailureMessage');
+        $method->setAccessible(true);
+        self::assertSame('剧本计划质检未通过：分镜 7 场景引用不存在', $method->invoke(null, [
+            'issues' => [
+                ['severity' => 'warning', 'message' => '仅供参考'],
+                ['severity' => 'blocking', 'message' => '分镜 7 场景引用不存在'],
+            ],
+        ]));
+        self::assertSame('剧本计划质检未通过，请检查生成内容后重试', $method->invoke(null, []));
+    }
+
+    public function testDisabledQualityReviewDoesNotReappearWhenAPlanIsEnhanced(): void
+    {
+        $plan = ['subjects' => [], 'locations' => [], 'storyboard' => [],
+            'generation_settings' => ['quality_review_enabled' => false]];
+        $enhance = new ReflectionMethod(AigcShortDramaService::class, 'enhancePlanResult');
+        $enhance->setAccessible(true);
+        $result = $enhance->invoke(null, $plan);
+        self::assertTrue($result['review_report']['skipped']);
+        self::assertSame(0, $result['review_report']['blocking_count']);
+        self::assertSame('skipped', $result['quality_check']['status']);
+
+        $review = new ReflectionMethod(AigcShortDramaService::class, 'reviewAndRepairPlanResult');
+        $review->setAccessible(true);
+        $result = $review->invoke(null, $plan);
+        self::assertTrue($result['review_report']['skipped']);
+        self::assertSame(0, $result['review_report']['blocking_count']);
+    }
+
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
      */
@@ -62,6 +93,30 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
             else self::assertArrayNotHasKey('_continuity', $generated['result']);
             self::assertTrue(\app\common\service\power\MarketTextModelRuntimeService::$requests[0]['_disable_transient_retry']);
         }
+    }
+
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testDisabledQualityReviewSkipsRepairAndBothContinuityModelCalls(): void
+    {
+        require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
+        Container::getInstance()->instance('config', new \think\Config());
+        $this->silenceLog();
+        \app\common\service\power\MarketTextModelRuntimeService::reset();
+        \app\common\service\power\MarketTextModelRuntimeService::$missingSpeaker = true;
+        $generated = $this->generate(['_generation_version' => 3, 'multi_episode' => false,
+            'episode_count' => 1, 'episode_number' => 2, 'quality_review_enabled' => false,
+            'series_context' => ['current_episode' => ['story_outline' => '主角找到线索'],
+                'continuity' => ['state' => ['subject_1:location' => '旧宅'], 'previous_digest' => 'previous']]]);
+
+        self::assertCount(1, \app\common\service\power\MarketTextModelRuntimeService::$requests);
+        self::assertTrue($generated['result']['review_report']['skipped']);
+        self::assertSame(false, $generated['result']['generation_settings']['quality_review_enabled']);
+        self::assertSame('skipped', $generated['result']['_continuity']['audit_status']);
+        self::assertSame('previous', $generated['result']['_continuity']['previous_digest']);
+        self::assertSame(['subject_1:location' => '旧宅'], $generated['result']['_continuity']['state']);
+        self::assertSame([], $generated['repair_llm']);
     }
     /** @runInSeparateProcess
      * @preserveGlobalState disabled

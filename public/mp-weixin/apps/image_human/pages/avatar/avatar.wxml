@@ -1,1 +1,1 @@
-<image-human-assets wx:if="{{a}}" u-i="4a1842fe-0" bind:__l="__l" u-p="{{a}}"/><mp-privacy-popup u-i="4a1842fe-1" bind:__l="__l"/>
+<image-human-assets wx:if="{{a}}" u-i="f107e4cc-0" bind:__l="__l" u-p="{{a}}"/><mp-privacy-popup u-i="f107e4cc-1" bind:__l="__l"/>

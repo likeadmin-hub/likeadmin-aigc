@@ -7,6 +7,24 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaStoryGenerationTest extends TestCase
 {
+    public function testDisabledReviewDoesNotRequestStoryEditorialRepair(): void
+    {
+        $base = $this->base();
+        unset($base['series_bible']);
+        $calls = [];
+        $generated = ShortDramaStoryGeneration::generate(
+            ['multi_episode_stage' => 'story', 'episode_count' => 3, 'quality_review_enabled' => false],
+            ['context_window' => 100000, 'max_tokens' => 16384],
+            static fn() => ['system_prompt' => '', 'content' => '故事'],
+            static function ($key) use (&$calls, $base): array {
+                $calls[] = $key;
+                return ['result' => ['content' => json_encode($base, JSON_UNESCAPED_UNICODE)]];
+            }
+        );
+        self::assertSame(['story'], $calls);
+        self::assertSame($base['story_outline'], $generated['result']['story_outline']);
+    }
+
     public function testStoryRepairReceivesExistingCreativeFacts(): void
     {
         $calls = [];

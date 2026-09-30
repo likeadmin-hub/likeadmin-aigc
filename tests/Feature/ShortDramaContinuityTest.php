@@ -3,6 +3,7 @@ namespace Tests\Feature;
 
 use app\common\service\app\aigc_short_drama\ShortDramaContinuity as Continuity;
 use app\common\service\app\aigc_short_drama\ShortDramaPlanningContext;
+use app\common\service\app\aigc_short_drama\ShortDramaContinuityPatch;
 use app\common\service\app\aigc_short_drama\ShortDramaStoryGeneration;
 use app\common\service\app\aigc_short_drama\ShortDramaStoryWorkflow;
 use PHPUnit\Framework\TestCase;
@@ -36,6 +37,86 @@ class ShortDramaContinuityTest extends TestCase
         $this->expectExceptionCode(409);
         Continuity::review($plan, ['continuity' => ['state' => ['p1:item_owner' => '地图']]], 2,
             fn() => $this->review(), null, true);
+    }
+
+    public function testAdvisoryAuditKeepsScriptWhenShotEvidenceCannotBeRepaired(): void
+    {
+        $bad = $this->review();
+        $bad['changes'][0]['quote'] = '镜头里不存在的文字';
+        $calls = 0;
+        $ledger = Continuity::review($this->plan(), [], 1, static function () use ($bad, &$calls) {
+            $calls++;
+            return $calls === 1 ? $bad : ['evidence_patches' => []];
+        }, static fn(array $review): array => $review, true);
+
+        self::assertSame(3, $calls);
+        self::assertSame('pending_review', $ledger['audit_status'] ?? '');
+        self::assertSame([], $ledger['state']);
+        self::assertSame('甲拿走钥匙。', $ledger['summary']);
+        self::assertSame($bad['changes'][0], $ledger['unverified_claims'][0]['claim']);
+    }
+
+    public function testVerifiedSourcePatchDoesNotTurnInvalidAuditBeforeIntoScriptFailure(): void
+    {
+        $plan = $this->plan();
+        $plan['subjects'][0]['id'] = 'subject_1';
+        $plan['_continuity_source_patch'] = ['shot_insertions' => [['source_quote' => '甲拿走钥匙。']]];
+        $review = $this->review();
+        $review['changes'][0]['entity_id'] = 'subject_1';
+        $review['changes'][0]['field'] = 'item_status_table';
+        $review['changes'][0]['before'] = '推测的旧物品';
+        $context = ['continuity' => ['state' => ['p1:location' => '旧宅']]];
+        $verify = static fn(array $audit) => ShortDramaContinuityPatch::verifiedReview($audit,
+            ['checks' => [
+                ['collection' => 'changes', 'index' => 0, 'supported' => true, 'reason' => '镜头显示甲拿走钥匙'],
+                ['collection' => 'insertions', 'index' => 0, 'supported' => true, 'reason' => '补镜忠于原文'],
+            ]], $context, $plan['_continuity_source_patch']);
+
+        $ledger = Continuity::review($plan, $context, 1, static fn() => $review, $verify, true);
+        self::assertSame('pending_review', $ledger['audit_status']);
+        self::assertSame($context['continuity']['state'], $ledger['state']);
+        self::assertSame($review, $ledger['unverified_claims'][0]['claim']);
+    }
+
+    public function testVerifiedSourcePatchKeepsScriptWhenAuditQuoteIsUnrepairable(): void
+    {
+        $plan = $this->plan();
+        $plan['_continuity_source_patch'] = ['shot_insertions' => [['source_quote' => '甲拿走钥匙。']]];
+        $bad = $this->review();
+        $bad['changes'][0]['quote'] = '镜头里不存在的文字';
+        $calls = 0;
+        $verify = static fn(array $audit): array => ShortDramaContinuityPatch::verifiedReview($audit,
+            ['checks' => [['collection' => 'insertions', 'index' => 0, 'supported' => true,
+                'reason' => '补镜忠于原文']]], [], $plan['_continuity_source_patch']);
+
+        $ledger = Continuity::review($plan, [], 1, static function () use ($bad, &$calls) {
+            $calls++;
+            return $calls === 1 ? $bad : ['evidence_patches' => []];
+        }, $verify, true);
+
+        self::assertSame(3, $calls);
+        self::assertSame('pending_review', $ledger['audit_status'] ?? '');
+        self::assertSame([], $ledger['state']);
+        self::assertSame($bad['changes'][0], $ledger['unverified_claims'][0]['claim']);
+    }
+
+    public function testUnverifiedSourcePatchStillFailsBeforeAdvisoryLedgerFallback(): void
+    {
+        $plan = $this->plan();
+        $plan['subjects'][0]['id'] = 'subject_1';
+        $plan['_continuity_source_patch'] = ['shot_insertions' => [['source_quote' => '甲拿走钥匙。']]];
+        $review = $this->review();
+        $review['changes'][0]['entity_id'] = 'subject_1';
+        $review['changes'][0]['field'] = 'item_status_table';
+        $review['changes'][0]['before'] = '推测的旧物品';
+        $verify = static fn(array $audit) => ShortDramaContinuityPatch::verifiedReview($audit,
+            ['checks' => [
+                ['collection' => 'changes', 'index' => 0, 'supported' => true, 'reason' => '镜头显示甲拿走钥匙'],
+                ['collection' => 'insertions', 'index' => 0, 'supported' => false, 'reason' => '补镜添加了原文没有的情节'],
+            ]], [], $plan['_continuity_source_patch']);
+
+        $this->expectExceptionCode(460);
+        Continuity::review($plan, [], 1, static fn() => $review, $verify, true);
     }
 
     public function testScalarStateValuesRetainJsonMeaningAndChainValidation(): void
@@ -475,6 +556,9 @@ class ShortDramaContinuityTest extends TestCase
         self::assertSame([false, false], array_column(Continuity::dependencyStatus($rows, []), 'needs_review'));
         $versions = [10 => ['ledger' => $first, 'narrative_digest' => 'changed']];
         self::assertSame([true, true], array_column(Continuity::dependencyStatus($rows, $versions), 'needs_review'));
+        $disabled = Continuity::dependencyStatus($rows, $versions, false);
+        self::assertSame([false, false], array_column($disabled, 'needs_review'));
+        self::assertSame(['', ''], array_column($disabled, 'review_reason'));
         $rows[0]['status'] = 'pending';
         self::assertSame([false, true], array_column(Continuity::dependencyStatus($rows, $versions), 'needs_review'));
         $rows[0]['continuity_json'] = ['summary' => 'legacy']; $rows[1]['continuity_json'] = [];

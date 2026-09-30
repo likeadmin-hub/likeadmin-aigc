@@ -2422,6 +2422,7 @@ class AigcShortDramaService
         if (empty($currentOutline['story_outline'])) throw new Exception('本集缺少真实大纲，请重新规划项目');
         $request['multi_episode'] = false;
         $request['episode_count'] = 1;
+        $request['quality_review_enabled'] = ShortDramaStoryWorkflow::qualityReviewEnabled($request);
         $episodePolicy = ShortDramaEpisodeDuration::policy($request);
         if (ShortDramaEpisodeDuration::active($request)) {
             $episodeOverride = (float)($episodePolicy['episode_overrides'][(int)$episode['episode_number']] ?? 0);
@@ -2596,6 +2597,10 @@ class AigcShortDramaService
         // This service owns the conventional script flow, not canvas Skills.
         // Internal episode retries preserve the originating execution version.
         $params = ShortDramaInputContract::withoutSkills($params);
+        if ($existingProjectId > 0 && !array_key_exists('quality_review_enabled', $params)) {
+            // Historical parent tasks keep the original review policy.
+            $params['quality_review_enabled'] = true;
+        }
         if ($existingProjectId > 0) {
             // A child/replanned task is a new intent, not the parent's HTTP submission.
             unset($internalContext['_submission_key'], $internalContext['_submission_hash'], $internalContext['submission_key']);
@@ -3393,7 +3398,10 @@ class AigcShortDramaService
             }
             $prompt = (string)($taskData['prompt'] ?? $request['prompt'] ?? '');
             $payload = self::decodeLlmJsonObject($streamContent);
-            $result = self::reviewAndRepairPlanResult(self::enhancePlanResult(self::normalizeGeneratedPlanResult($payload, $prompt, $request, (string)($project['title'] ?? ''))));
+            $result = self::normalizeGeneratedPlanResult($payload, $prompt, $request, (string)($project['title'] ?? ''));
+            $result = ShortDramaStoryWorkflow::qualityReviewEnabled($request)
+                ? self::reviewAndRepairPlanResult(self::enhancePlanResult($result))
+                : self::skipPlanQualityReview($result);
             // Recovery is intentionally read-only: unlike the normal live
             // path it cannot safely issue a new paid repair request. Never
             // promote a partial streamed outline to success merely because
@@ -4684,12 +4692,15 @@ class AigcShortDramaService
             }
             unset($shot);
         }
-        $result = self::reviewAndRepairPlanResult(self::hydratePlanLibrarySubjectReferences(
+        $result = self::hydratePlanLibrarySubjectReferences(
             $tenantId,
             $userId,
-            self::enhancePlanResult($result),
+            self::enhancePlanResult($result, ShortDramaStoryWorkflow::qualityReviewEnabled($request)),
             self::lockedSubjectReferences($request)
-        ));
+        );
+        $result = ShortDramaStoryWorkflow::qualityReviewEnabled($request)
+            ? self::reviewAndRepairPlanResult($result)
+            : self::skipPlanQualityReview($result);
         $result = ShortDramaContinuity::preserveVisualSubjectNarrative($result, $visualNarrativeBase);
 
         Db::startTrans();
@@ -5042,8 +5053,9 @@ class AigcShortDramaService
         if ($type === 'shot_fields') {
             return ShortDramaRevisionScope::mergeShots(self::stripPlanRuntimeFields($base), $result, $target);
         }
-        $merged = self::stripPlanRuntimeFields(self::enhancePlanResult($base));
-        $result = self::enhancePlanResult($result);
+        $qualityReviewEnabled = ShortDramaStoryWorkflow::qualityReviewEnabled($request);
+        $merged = self::stripPlanRuntimeFields(self::enhancePlanResult($base, $qualityReviewEnabled));
+        $result = self::enhancePlanResult($result, $qualityReviewEnabled);
         if ($type === 'subject') {
             $item = self::planItemByExactId((array)($result['subjects'] ?? []), $id);
             if (!empty($item)) {
@@ -5193,7 +5205,8 @@ class AigcShortDramaService
             ShortDramaStoryDraft::assertVersion(self::jsonDecode((string)$current['request_json']), $params);
             ShortDramaEpisodeService::guardRevision($tenantId, $userId, (int)$project['id'], $source['task_id']);
             $plan = ShortDramaImportedScript::confirmedOutline($request['_imported_outline_snapshot'], $story);
-            $issues = ShortDramaStoryWorkflow::issues($plan, 'episodes', (int)$request['episode_count']);
+            $issues = ShortDramaStoryWorkflow::issues($plan, 'episodes', (int)$request['episode_count'],
+                ShortDramaStoryWorkflow::qualityReviewEnabled($request));
             if ($issues) throw new Exception($issues[0]['message']);
             $id = self::makeTaskId('sd_import_outline'); $now = time();
             $request['confirmed_story_snapshot'] = $story;
@@ -5271,7 +5284,8 @@ class AigcShortDramaService
             if (isset($params['edit_stage']) && $params['edit_stage'] !== $currentStage) throw new Exception('当前步骤不可修改，请切换到可编辑步骤');
             $request['multi_episode_stage'] = ShortDramaStoryWorkflow::nextStage($currentStage, $advanceStage);
             if ($advanceStage) {
-                $issues = ShortDramaStoryWorkflow::issues($previousResult, $currentStage, (int)$request['episode_count']);
+                $issues = ShortDramaStoryWorkflow::issues($previousResult, $currentStage, (int)$request['episode_count'],
+                    ShortDramaStoryWorkflow::qualityReviewEnabled($request));
                 if ($issues) throw new Exception($issues[0]['message']);
                 $request['confirmed_story_snapshot'] = $previousResult;
                 $request['confirmed_story_task_id'] = $taskId;
@@ -5313,6 +5327,7 @@ class AigcShortDramaService
         if ($isEpisodeProduction) {
             $request['multi_episode'] = false;
             $request['episode_count'] = 1;
+            $request['quality_review_enabled'] = ShortDramaStoryWorkflow::qualityReviewEnabled($request);
             $request['multi_episode_stage'] = self::MULTI_EPISODE_STAGE_PRODUCTION;
             unset($request['episode_workflow']);
         }
@@ -5670,15 +5685,7 @@ class AigcShortDramaService
                 // paid provider request that is still returning. The explicit
                 // in-flight guard above makes the state transition atomic from
                 // the user perspective instead of risking a duplicate call.
-                Db::name('aigc_short_drama_planning_unit')->where([
-                    'tenant_id' => $tenantId,
-                    'user_id' => $userId,
-                    'task_id' => $taskId,
-                ])->whereIn('status', ['failed', 'waiting'])->update([
-                    'status' => 'pending',
-                    'error' => '',
-                    'update_time' => time(),
-                ]);
+                ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, $taskId);
                 $task->save([
                     'status' => self::STATUS_PENDING,
                     'error' => '',
@@ -14065,8 +14072,9 @@ class AigcShortDramaService
         );
     }
 
-    private static function enhancePlanResult(array $plan): array
+    private static function enhancePlanResult(array $plan, ?bool $qualityReviewEnabled = null): array
     {
+        $qualityReviewEnabled ??= self::planQualityReviewEnabled($plan);
         $subjects = [];
         // Apply the same reconciliation when reading older persisted plans so
         // an already-created empty library card disappears immediately after
@@ -14230,7 +14238,11 @@ class AigcShortDramaService
         $plan['duration_stats'] = $durationStats;
         $plan['music_plan'] = self::normalizeMusicPlan((array)($plan['music_plan'] ?? []), $storyboard, $durationStats, (array)($plan['art_style'] ?? []), (string)($plan['story_outline'] ?? ''));
         $plan['agents'] = self::logicalAgentDefinitions();
-        if (empty($plan['review_report']) || !is_array($plan['review_report'])) {
+        if (!$qualityReviewEnabled) {
+            $plan['review_report'] = self::buildReviewReport([]) + ['skipped' => true];
+            $plan['generation_settings']['quality_review_enabled'] = false;
+            $plan['quality_check'] = ['status' => 'skipped'];
+        } elseif (empty($plan['review_report']) || !is_array($plan['review_report'])) {
             $plan['review_report'] = self::reviewPlanResult($plan);
         } else {
             $plan['review_report'] = self::normalizeReviewReport((array)$plan['review_report']);
@@ -14345,7 +14357,9 @@ class AigcShortDramaService
                 $stepStatus = 'success';
             }
             $summary = '';
-            if ($step['key'] === 'plan_reviewer' && !empty($reviewReport)) {
+            if ($step['key'] === 'plan_reviewer' && !empty($reviewReport) && !empty($reviewReport['skipped'])) {
+                $summary = '已关闭质检核验';
+            } elseif ($step['key'] === 'plan_reviewer' && !empty($reviewReport)) {
                 $summary = '问题 ' . (int)($reviewReport['issue_count'] ?? 0)
                     . '，阻断 ' . (int)($reviewReport['blocking_count'] ?? 0)
                     . '，代码修复 ' . (int)($reviewReport['code_repair_count'] ?? 0);
@@ -14359,6 +14373,7 @@ class AigcShortDramaService
 
     private static function reviewAndRepairPlanResult(array $plan, bool $allowCodeRepair = true, bool $llmRepairUsed = false): array
     {
+        if (!self::planQualityReviewEnabled($plan)) return self::skipPlanQualityReview($plan);
         $review = self::reviewPlanResult($plan);
         $codeRepairCount = 0;
         if ($allowCodeRepair && (int)$review['issue_count'] > 0) {
@@ -14379,6 +14394,25 @@ class AigcShortDramaService
         $plan['review_report'] = self::normalizeReviewReport($review);
         $plan['workflow_steps'] = self::workflowSteps(self::STATUS_SUCCESS, $plan['review_report']);
         return $plan;
+    }
+
+    private static function skipPlanQualityReview(array $plan): array
+    {
+        // Seed the report before enhancement so it cannot invoke reviewPlanResult.
+        $plan['review_report'] = self::buildReviewReport([]) + ['skipped' => true];
+        $plan = self::enhancePlanResult($plan, false);
+        $plan['review_report']['skipped'] = true;
+        $plan['generation_settings']['quality_review_enabled'] = false;
+        $plan['quality_check'] = ['status' => 'skipped'];
+        return $plan;
+    }
+
+    private static function planQualityReviewEnabled(array $plan): bool
+    {
+        if (array_key_exists('quality_review_enabled', (array)($plan['generation_settings'] ?? []))) {
+            return filter_var($plan['generation_settings']['quality_review_enabled'], FILTER_VALIDATE_BOOLEAN);
+        }
+        return empty($plan['review_report']['skipped']);
     }
 
     /**
@@ -14789,6 +14823,19 @@ class AigcShortDramaService
         ];
     }
 
+    private static function planQualityFailureMessage(array $report): string
+    {
+        foreach ((array)($report['issues'] ?? []) as $issue) {
+            if (is_array($issue) && ($issue['severity'] ?? '') === 'blocking') {
+                $detail = trim((string)($issue['message'] ?? ''));
+                if ($detail !== '') {
+                    return '剧本计划质检未通过：' . mb_substr($detail, 0, 150, 'UTF-8');
+                }
+            }
+        }
+        return '剧本计划质检未通过，请检查生成内容后重试';
+    }
+
     private static function buildReviewReport(array $issues, array $storyboardDiagnostics = []): array
     {
         $issues = array_slice(array_values($issues), 0, 80);
@@ -14816,6 +14863,7 @@ class AigcShortDramaService
             'blocking_count' => (int)($report['blocking_count'] ?? 0),
             'code_repair_count' => (int)($report['code_repair_count'] ?? 0),
             'llm_repair_used' => (bool)($report['llm_repair_used'] ?? false),
+            'skipped' => (bool)($report['skipped'] ?? false),
             'storyboard_breaking_diagnostics' => is_array($report['storyboard_breaking_diagnostics'] ?? null)
                 ? (array)$report['storyboard_breaking_diagnostics']
                 : [],
@@ -17538,6 +17586,7 @@ class AigcShortDramaService
             'prompt' => '',
             'ratio' => self::requestGenerationRatio($params),
             'multi_episode' => $episodeSettings['multi_episode'],
+            'quality_review_enabled' => filter_var($params['quality_review_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'episode_count' => $episodeSettings['episode_count'],
             'multi_episode_stage' => $episodeSettings['multi_episode']
                 ? self::MULTI_EPISODE_STAGE_STORY
@@ -17903,6 +17952,27 @@ class AigcShortDramaService
                 'llm' => $llmResult, 'repair_llm' => [], 'provider' => (string)($model['provider'] ?? ''),
                 'model_selection' => $model, 'raw_content' => $rawContent];
         }
+        if (!ShortDramaStoryWorkflow::qualityReviewEnabled($request)) {
+            $result = self::skipPlanQualityReview(self::normalizeGeneratedPlanResult($payload, $prompt, $request, $title));
+            if (!empty($request['revision_target']) && is_array($request['revision_target'])) {
+                $result = self::skipPlanQualityReview(self::protectRevisionTargetResult($result, $request));
+            }
+            if (!self::planResultHasContent($result)) throw new Exception('剧本内容不完整，请重试');
+            self::assertCompleteMultiEpisodeOutline($result, $request);
+            if ($v3Generation !== null && !empty($request['series_context'])) {
+                $summary = trim(implode("\n", array_filter((array)($result['script_lines'] ?? []), 'is_string')));
+                if ($summary === '') $summary = trim((string)($result['story_outline'] ?? ''));
+                if ($summary === '') $summary = '以本集正文为准';
+                $result['_continuity'] = ShortDramaContinuity::ledger(
+                    ['summary' => mb_substr($summary, 0, 2000), 'changes' => [], 'hooks' => [], 'warnings' => []],
+                    $result, $request['series_context'], (int)($request['episode_number'] ?? 1)
+                );
+                $result['_continuity']['audit_status'] = 'skipped';
+            }
+            return ['result' => $result, 'llm' => $llmResult, 'repair_llm' => [],
+                'provider' => (string)($model['provider'] ?? ''), 'model_selection' => $model,
+                'raw_content' => $rawContent];
+        }
         $result = self::reviewAndRepairPlanResult(self::enhancePlanResult(self::normalizeGeneratedPlanResult($payload, $prompt, $request, $title)));
         if (!empty($request['revision_target']) && is_array($request['revision_target'])) {
             $result = self::reviewAndRepairPlanResult(self::enhancePlanResult(self::protectRevisionTargetResult($result, $request)));
@@ -18053,7 +18123,7 @@ class AigcShortDramaService
             }
             if ((int)($result['review_report']['blocking_count'] ?? 0) > 0) {
                 Log::write('AI short drama plan repair failed: ' . self::jsonEncode($result['review_report']));
-                throw new Exception('剧本计划质检未通过，请调整灵感描述后重试');
+                throw new Exception(self::planQualityFailureMessage((array)($result['review_report'] ?? [])));
             }
         }
 
@@ -18143,7 +18213,10 @@ class AigcShortDramaService
                 if ((int)($candidate['review_report']['blocking_count'] ?? 0) > 0) throw new \RuntimeException('局部连续性补丁质检未通过，原结果已保留', 422);
                 self::assertStoryboardBudgetSatisfied($candidate, $request, $prompt);
                 $candidate['_continuity_source_patch'] = $patch;
-                $candidate['_continuity'] = ShortDramaContinuity::review($candidate, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit, $verifyMeaning);
+                // The source insertion must pass the independent semantic
+                // verifier inside review. Once verified, malformed audit
+                // metadata must not discard the inserted shot.
+                $candidate['_continuity'] = ShortDramaContinuity::review($candidate, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit, $verifyMeaning, true);
                 unset($candidate['_continuity_source_patch']);
                 $candidate['_continuity_patch'] = ['version' => 1, 'base_digest' => ShortDramaContinuity::fingerprint($result), 'patch' => $patch];
                 $result = $candidate;
@@ -18301,13 +18374,17 @@ class AigcShortDramaService
         $aggregateRequest['episode_count'] = $totalEpisodes;
         $aggregateRequest['episode_total_count'] = $totalEpisodes;
         $result = self::normalizeGeneratedPlanResult($aggregate, $prompt, $aggregateRequest, $title);
-        $result = self::enhancePlanResult($result);
-        $result = self::reviewAndRepairPlanResult($result, true, true);
+        $qualityReviewEnabled = ShortDramaStoryWorkflow::qualityReviewEnabled($request);
+        $result = $qualityReviewEnabled
+            ? self::reviewAndRepairPlanResult(self::enhancePlanResult($result), true, true)
+            : self::skipPlanQualityReview($result);
         if (!empty($request['revision_target']) && is_array($request['revision_target'])) {
-            $result = self::reviewAndRepairPlanResult(self::enhancePlanResult(self::protectRevisionTargetResult($result, $request)), true, true);
+            $result = $qualityReviewEnabled
+                ? self::reviewAndRepairPlanResult(self::enhancePlanResult(self::protectRevisionTargetResult($result, $request)), true, true)
+                : self::skipPlanQualityReview(self::protectRevisionTargetResult($result, $request));
         }
         if ((int)($result['review_report']['blocking_count'] ?? 0) > 0) {
-            throw new Exception('剧本计划质检未通过，请调整灵感描述后重试');
+            throw new Exception(self::planQualityFailureMessage((array)($result['review_report'] ?? [])));
         }
         try {
             self::assertCompleteMultiEpisodeOutline($result, $aggregateRequest);
@@ -21036,6 +21113,7 @@ class AigcShortDramaService
             'outline_validation_issues' => $outlineValidationIssues,
             'generation_settings' => [
                 'model' => $scriptModelName,
+                'quality_review_enabled' => ShortDramaStoryWorkflow::qualityReviewEnabled($request),
                 'episode_duration_policy' => ShortDramaEpisodeDuration::policy($request),
                 'same_scene_cut_policy' => (array)($request['same_scene_cut_policy'] ?? []),
                 'timing_diagnostics' => (array)($payload['timing_diagnostics'] ?? []),
@@ -23632,7 +23710,10 @@ class AigcShortDramaService
             }
             unset($shot);
         }
-        $result = self::reviewAndRepairPlanResult(self::enhancePlanResult($result));
+        $request = self::jsonDecode((string)$task['request_json']);
+        $result = ShortDramaStoryWorkflow::qualityReviewEnabled($request)
+            ? self::reviewAndRepairPlanResult(self::enhancePlanResult($result))
+            : self::skipPlanQualityReview($result);
         $task->save([
             'result_json' => self::jsonEncode($result),
             'update_time' => time(),
@@ -23805,7 +23886,8 @@ class AigcShortDramaService
                     }
                 }
             }
-            $issues = $result !== null ? ShortDramaStoryWorkflow::issues($result, $stage, (int)$request['episode_count']) : [];
+            $issues = $result !== null ? ShortDramaStoryWorkflow::issues($result, $stage, (int)$request['episode_count'],
+                ShortDramaStoryWorkflow::qualityReviewEnabled($request)) : [];
             $storyWorkspace = ['variant' => ShortDramaStoryWorkflow::VARIANT, 'stage' => $stage,
                 'preview' => $status === self::STATUS_SUCCESS ? null : ($storedResult['__story_preview'] ?? null),
                 'production_started' => $productionStarted,
@@ -23824,6 +23906,7 @@ class AigcShortDramaService
             'project_title' => $projectTitle,
             'project_ratio' => $projectRatio,
             'multi_episode' => $projectMultiEpisode,
+            'quality_review_enabled' => ShortDramaStoryWorkflow::qualityReviewEnabled($request),
             'episode_count' => $projectEpisodeCount,
             'multi_episode_stage' => $result['multi_episode_stage'] ?? self::resolveStoredMultiEpisodeStage($request, $storedResult),
             'multi_episode_stage_label' => self::multiEpisodeStageLabel((string)($result['multi_episode_stage'] ?? self::resolveStoredMultiEpisodeStage($request, $storedResult))),

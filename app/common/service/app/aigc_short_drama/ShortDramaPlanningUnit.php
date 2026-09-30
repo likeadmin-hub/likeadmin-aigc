@@ -39,6 +39,28 @@ final class ShortDramaPlanningUnit
         return (bool)preg_match('/SSL_connect:|Could not resolve host|Temporary failure in name resolution|Name or service not known|Network is unreachable|Failed to connect to|Connection refused|cURL error (?:6|7)\b/i', $error);
     }
 
+    /** An explicit retry starts a fresh connection budget only for calls that never reached the provider. */
+    public static function prepareExplicitRetry(int $tenant, int $user, string $task): void
+    {
+        $scope = ['tenant_id' => $tenant, 'user_id' => $user, 'task_id' => $task];
+        $rows = Db::name('aigc_short_drama_planning_unit')->where($scope)->lock(true)->select()->toArray();
+        foreach ($rows as $row) {
+            if ($row['status'] === 'running') {
+                throw new RuntimeException('上次模型请求仍在收尾，请稍后再试');
+            }
+            if (!in_array($row['status'], ['failed', 'waiting', 'pending'], true)) continue;
+            if ((int)$row['attempt'] >= 3 && !self::retryableBeforeSubmission((string)($row['error'] ?? ''))) {
+                throw new RuntimeException('上次模型请求的结果无法确认，不能安全重试；请新建任务并核对已完成内容');
+            }
+        }
+        foreach ($rows as $row) {
+            if (!in_array($row['status'], ['failed', 'waiting', 'pending'], true)) continue;
+            $update = ['status' => 'pending', 'error' => '', 'update_time' => time()];
+            if ((int)$row['attempt'] >= 3) $update['attempt'] = 0;
+            Db::name('aigc_short_drama_planning_unit')->where($scope)->where('id', (int)$row['id'])->update($update);
+        }
+    }
+
     public static function call(int $tenant, int $user, string $task, string $key, array $input, callable $generate): array
     {
         if ($task === '') return $generate(); // Pure provider contract tests have no persisted task.
@@ -67,7 +89,7 @@ final class ShortDramaPlanningUnit
             if ($row && $row['status'] === 'running') throw new RuntimeException('上次请求在返回前中断，已保留完成部分；请确认后继续未完成部分');
             if ($row && $row['status'] === 'failed') throw new RuntimeException((string)$row['error']);
             if ($row && $row['status'] === 'waiting' && !self::ready($tenant, $user, $task)) throw new RuntimeException('连接暂时不可用，等待延迟重试', 425);
-            if ($row && (int)$row['attempt'] >= 3) throw new RuntimeException('该生成单元已达到重试上限，请调整内容后新建任务');
+            if ($row && (int)$row['attempt'] >= 3) throw new RuntimeException('模型生成单元的请求次数已用完，请新建任务并核对已完成内容');
             $storedInput = $input;
             if (str_starts_with($key, 'v3_')) $storedInput['_unit_signature'] = $signature;
             $data = ['status' => 'running', 'attempt' => (int)($row['attempt'] ?? 0) + 1,

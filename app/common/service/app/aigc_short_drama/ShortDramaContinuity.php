@@ -68,13 +68,13 @@ final class ShortDramaContinuity
         return ['version' => 1, 'state' => (array)($last['state'] ?? []), 'open_hooks' => (array)($last['open_hooks'] ?? []),
             'audit_status' => (string)($last['audit_status'] ?? 'verified'),
             'warnings' => (array)($last['warnings'] ?? []),
-            'state_note' => ($last['audit_status'] ?? '') === 'pending_review'
+            'state_note' => in_array(($last['audit_status'] ?? ''), ['pending_review', 'skipped'], true)
                 ? '状态表仅为此前已验证记录，可能未反映上一集最新事件；衔接以recent_episodes正文为准，勿为迎合旧状态改写剧情。' : '',
             'previous_digest' => (string)($last['digest'] ?? ''),
             'recent_episodes' => array_map(static fn($item) => array_intersect_key($item, array_flip(['episode_number', 'summary', 'digest', 'audit_status', 'warnings'])), array_slice($previous, -2))];
     }
 
-    public static function dependencyStatus(array $rows, array $current): array
+    public static function dependencyStatus(array $rows, array $current, bool $qualityReviewEnabled = true): array
     {
         $previousDigest = ''; $upstreamChanged = false;
         foreach ($rows as &$row) {
@@ -88,7 +88,7 @@ final class ShortDramaContinuity
                 || $upstreamChanged);
             // An explicit regeneration may be pending while its previous
             // successful version remains viewable. Do not block that attempt.
-            $row['needs_review'] = $outdated && ($row['status'] ?? '') === 'success';
+            $row['needs_review'] = $qualityReviewEnabled && $outdated && ($row['status'] ?? '') === 'success';
             $row['review_reason'] = $row['needs_review'] ? '本集或前集剧情已修改，需复核连续性；原剧本和素材已保留' : '';
             if (!$outdated && $ledger) $row['continuity_json'] = json_encode($ledger, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             $upstreamChanged = $upstreamChanged || $outdated;
@@ -127,6 +127,7 @@ final class ShortDramaContinuity
         $mutableEvidence = [];
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
+                $sourcePatchVerified = false;
                 $review = $call($input);
                 if ($attempt) $review = isset($review['evidence_patches'])
                     ? self::applyEvidencePatches($patchBase, $review, $plan, $mutableEvidence)
@@ -135,6 +136,9 @@ final class ShortDramaContinuity
                     $review = self::isolateInvalidEvidence($review, $plan, $attempt >= 2);
                     $verified = $verifyMeaning($review, $plan);
                     if (is_array($verified)) $review = $verified;
+                    // The verifier also checks every source-backed shot insertion.
+                    // A later ledger error is only about the audit metadata.
+                    $sourcePatchVerified = true;
                     $review = self::isolateUncertainStateChains($review);
                 }
                 try {
@@ -142,7 +146,7 @@ final class ShortDramaContinuity
                 } catch (RuntimeException $ledgerError) {
                     // Only local audit-data errors are advisory. Provider errors,
                     // capacity limits and unverified source insertions stay hard failures.
-                    if (!$advisory || !empty($plan['_continuity_source_patch'])
+                    if (!$advisory || (!empty($plan['_continuity_source_patch']) && !$sourcePatchVerified)
                         || !in_array($ledgerError->getCode(), [409, 422], true)) throw $ledgerError;
                     $warnings = array_values(array_filter((array)($review['warnings'] ?? []),
                         static fn($warning) => is_string($warning) && mb_strlen($warning) <= 1500));
@@ -152,6 +156,12 @@ final class ShortDramaContinuity
                         'warnings' => $warnings, 'unverified_claims' => [[
                             'collection' => 'audit', 'claim' => $review, 'reason' => $ledgerError->getMessage(),
                         ]]], $plan, $context, $episode);
+                    $ledger['audit_status'] = 'pending_review';
+                }
+                // Quarantined claims are deliberately absent from the state
+                // ledger. Keep the episode available, but make the incomplete
+                // audit visible to the next episode and to the editor.
+                if (!empty($review['unverified_claims']) || !empty($review['unverified_hook_resolutions'])) {
                     $ledger['audit_status'] = 'pending_review';
                 }
                 return $ledger + ['review_repairs' => $attempt];
