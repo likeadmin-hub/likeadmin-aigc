@@ -251,6 +251,7 @@ class OfficialSiteService
             if (!in_array($status, ['live', 'planned', 'enterprise'], true)) $status = 'planned';
             $result[] = [
                 'title' => self::text($card['title'] ?? '', 80),
+                'tab_label' => self::text($card['tab_label'] ?? (['drama'=>'AI 短剧','video'=>'AI 视频','image'=>'AI 绘图','avatar'=>'数字人','canvas'=>'无限画布','audio'=>'AI 音乐'][$card['icon'] ?? ''] ?? ($card['title'] ?? '')), 40),
                 'icon' => self::text($card['icon'] ?? 'grid', 30),
                 'icon_url' => self::text($card['icon_url'] ?? '', 1024),
                 'model_id' => self::text($card['model_id'] ?? '', 80),
