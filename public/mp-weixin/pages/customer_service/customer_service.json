@@ -1,7 +1,10 @@
 {
+  "navigationStyle": "custom",
   "navigationBarTitleText": "联系客服",
   "usingComponents": {
-    "w-customer-service": "../../components/widgets/customer-service/customer-service",
-    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup"
+    "tabbar": "../../components/tabbar/tabbar",
+    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup",
+    "diy-page-nav": "../../components/diy/diy-page-nav",
+    "diy-render": "../../components/diy/diy-render"
   }
 }
