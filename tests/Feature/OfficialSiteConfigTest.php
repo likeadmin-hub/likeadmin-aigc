@@ -104,4 +104,23 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame($result, $this->normalize($result));
     }
 
+    public function testAllOfficialMediaOverridesSurviveNormalization(): void
+    {
+        $result = $this->normalize(['template_version' => 3, 'modules' => [
+            ['key' => 'hero', 'background_media' => 'uploads/hero.mp4', 'background_media_type' => 'video', 'background_poster' => 'uploads/hero.webp', 'media' => 'uploads/intro.mp4', 'media_type' => 'video', 'poster' => 'uploads/intro.webp'],
+            ['key' => 'products', 'cards' => [['kind' => 'canvas', 'canvas_image' => 'uploads/node.webp']]],
+            ['key' => 'audiences', 'cards' => [['media' => 'uploads/invite.mp4', 'media_type' => 'video', 'poster' => 'uploads/invite.webp']]],
+            ['key' => 'cta', 'media' => 'uploads/end.webp'],
+        ]]);
+        $modules = array_column($result['modules'], null, 'key');
+        self::assertSame('uploads/hero.mp4', $modules['hero']['background_media']);
+        self::assertSame('video', $modules['hero']['background_media_type']);
+        self::assertSame('uploads/hero.webp', $modules['hero']['background_poster']);
+        self::assertSame('uploads/intro.mp4', $modules['hero']['media']);
+        self::assertSame('uploads/node.webp', $modules['products']['cards'][0]['canvas_image']);
+        self::assertSame('uploads/invite.webp', $modules['audiences']['cards'][0]['poster']);
+        self::assertSame('uploads/end.webp', $modules['cta']['media']);
+        self::assertSame($result, $this->normalize($result));
+    }
+
 }

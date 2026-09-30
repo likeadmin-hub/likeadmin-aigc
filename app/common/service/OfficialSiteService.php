@@ -39,11 +39,9 @@ class OfficialSiteService
         $config['basic']['logo'] = self::fileUrl($config['basic']['logo']);
         $config['basic']['favicon'] = self::fileUrl($config['basic']['favicon']);
         foreach ($config['modules'] as &$module) {
-            $module['media'] = self::fileUrl((string)($module['media'] ?? ''));
-            $module['poster'] = self::fileUrl((string)($module['poster'] ?? ''));
+            foreach (['media', 'poster', 'background_media', 'background_poster'] as $field) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
             foreach ($module['cards'] as &$card) {
-                $card['media'] = self::fileUrl((string)($card['media'] ?? ''));
-                $card['poster'] = self::fileUrl((string)($card['poster'] ?? ''));
+                foreach (['media', 'poster', 'canvas_image'] as $field) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
                 unset($card['internal_note'], $card['admin_only']);
             }
             unset($card);
@@ -100,6 +98,9 @@ class OfficialSiteService
                 'media' => self::text($source['media'] ?? '', 1024),
                 'poster' => self::text($source['poster'] ?? '', 1024),
                 'media_type' => ($source['media_type'] ?? '') === 'video' ? 'video' : 'image',
+                'background_media' => self::text($source['background_media'] ?? '', 1024),
+                'background_poster' => self::text($source['background_poster'] ?? '', 1024),
+                'background_media_type' => ($source['background_media_type'] ?? '') === 'video' ? 'video' : 'image',
                 'button_text' => self::text($source['button_text'] ?? '', 40),
                 'button_link' => self::safeLink((string)($source['button_link'] ?? '')),
                 'cards' => self::normalizeCards($source['cards'] ?? []),
@@ -124,6 +125,7 @@ class OfficialSiteService
                 'description' => self::text($card['description'] ?? '', 300),
                 'media' => self::text($card['media'] ?? '', 1024),
                 'poster' => self::text($card['poster'] ?? '', 1024),
+                'canvas_image' => self::text($card['canvas_image'] ?? '', 1024),
                 'media_type' => ($card['media_type'] ?? '') === 'video' ? 'video' : 'image',
                 'kind' => in_array($card['kind'] ?? '', ['human', 'drama', 'canvas', 'custom'], true) ? $card['kind'] : 'custom',
                 'eyebrow' => self::text($card['eyebrow'] ?? '', 60),
@@ -140,11 +142,9 @@ class OfficialSiteService
     private static function toStorage(array $config): array
     {
         foreach ($config['modules'] as &$module) {
-            $module['media'] = FileService::setFileUrl($module['media']);
-            $module['poster'] = FileService::setFileUrl($module['poster']);
+            foreach (['media', 'poster', 'background_media', 'background_poster'] as $field) $module[$field] = FileService::setFileUrl($module[$field]);
             foreach ($module['cards'] as &$card) {
-                $card['media'] = FileService::setFileUrl($card['media']);
-                $card['poster'] = FileService::setFileUrl($card['poster']);
+                foreach (['media', 'poster', 'canvas_image'] as $field) $card[$field] = FileService::setFileUrl($card[$field]);
             }
             unset($card);
         }
@@ -160,11 +160,9 @@ class OfficialSiteService
         $config['basic']['logo'] = self::fileUrl($config['basic']['logo']);
         $config['basic']['favicon'] = self::fileUrl($config['basic']['favicon']);
         foreach ($config['modules'] as &$module) {
-            $module['media'] = self::fileUrl((string)($module['media'] ?? ''));
-            $module['poster'] = self::fileUrl((string)($module['poster'] ?? ''));
+            foreach (['media', 'poster', 'background_media', 'background_poster'] as $field) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
             foreach ($module['cards'] as &$card) {
-                $card['media'] = self::fileUrl((string)($card['media'] ?? ''));
-                $card['poster'] = self::fileUrl((string)($card['poster'] ?? ''));
+                foreach (['media', 'poster', 'canvas_image'] as $field) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
             }
             unset($card);
         }
@@ -203,7 +201,7 @@ class OfficialSiteService
             foreach (['title', 'description', 'button_text', 'button_link'] as $key) {
                 if (($module[$key] ?? '') !== $legacy[$key]) return false;
             }
-            if (!empty($module['media']) || !empty($module['poster'])) return false;
+            if (!empty($module['media']) || !empty($module['poster']) || !empty($module['background_media']) || !empty($module['background_poster'])) return false;
             $cards = $module['cards'] ?? [];
             if (!is_array($cards)) return false;
             if (count($cards) !== count($legacy['cards'])) return false;
@@ -211,7 +209,7 @@ class OfficialSiteService
                 foreach (['title', 'description', 'status', 'link'] as $key) {
                     if (($card[$key] ?? '') !== ($legacy['cards'][$index][$key] ?? '')) return false;
                 }
-                if (!empty($card['media']) || !empty($card['poster'])) return false;
+                if (!empty($card['media']) || !empty($card['poster']) || !empty($card['canvas_image'])) return false;
             }
             return true;
         }
@@ -223,7 +221,7 @@ class OfficialSiteService
     {
         foreach (self::draftDefaults()['modules'] as $draft) {
             if (($module['key'] ?? '') !== $draft['key']) continue;
-            foreach (['title', 'description', 'eyebrow', 'button_text', 'button_link', 'media', 'poster'] as $key) {
+            foreach (['title', 'description', 'eyebrow', 'button_text', 'button_link', 'media', 'poster', 'background_media', 'background_poster'] as $key) {
                 if (($module[$key] ?? '') !== ($draft[$key] ?? '')) return false;
             }
             return self::normalizeCards($module['cards'] ?? []) === self::normalizeCards($draft['cards']);
