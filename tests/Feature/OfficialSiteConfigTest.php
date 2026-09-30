@@ -96,6 +96,30 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame('uploads/custom.svg', $nav['tools']['groups'][0]['items'][0]['icon_url']);
         self::assertSame($result, $this->normalize($result));
     }
+    public function testOldCustomProductMediaMigratesIntoSixCapabilitiesAndNewOrder(): void
+    {
+        $old = $this->call('v3Defaults');
+        $old['template_version'] = 3;
+        foreach ($old['modules'] as &$module) {
+            if ($module['key'] === 'products') {
+                $module['cards'][0]['title'] = '自己的数字人介绍';
+                $module['cards'][0]['media'] = 'uploads/avatar.mp4';
+                $module['cards'][0]['media_type'] = 'video';
+            }
+            if ($module['key'] === 'scenes') $module['sort'] = 80;
+        }
+        unset($module);
+        $result = $this->normalize($old);
+        $modules = array_column($result['modules'], null, 'key');
+        self::assertSame(960, $modules['scenes']['sort']);
+        self::assertCount(6, $modules['products']['cards']);
+        $cards = array_column($modules['products']['cards'], null, 'link');
+        self::assertSame('uploads/avatar.mp4', $cards['/ai/avatar']['media']);
+        self::assertSame('自己的数字人介绍', $cards['/ai/avatar']['title']);
+        self::assertArrayHasKey('/ai/create?type=video', $cards);
+        self::assertSame($result, $this->normalize($result));
+    }
+
     public function testClearedCardsAndDisabledModulesStayCleared(): void
     {
         $config = $this->normalize(['template_version'=>4,'modules'=>[['key'=>'hero','enabled'=>0,'cards'=>[]],['key'=>'faq','cards'=>[]]]]);

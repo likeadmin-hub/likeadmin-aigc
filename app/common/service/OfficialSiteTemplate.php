@@ -81,7 +81,8 @@ class OfficialSiteTemplate
 
     public static function navigation(): array
     {
-        $item = static fn($label, $icon, $link) => ['label' => $label, 'icon' => $icon, 'status' => 'live', 'link' => $link];
+        $descriptions = ['AI 短剧'=>'从故事与角色到分镜制作','无限画布'=>'连接素材、节点与创作流程','数字人'=>'让人物形象出镜表达','智能视频剪辑'=>'组织口播与视频素材','AI 音乐'=>'探索歌词、旋律与声音','AI 绘图'=>'从文字或参考图片生成画面','AI 商品图'=>'为商品探索新的展示场景','AI 试衣'=>'预览人物与服装搭配','老照片修复'=>'修复、上色与还原细节','AI 视频'=>'将想法变成动态画面','对口型数字人'=>'结合脚本与声音制作口播','全驱动数字人'=>'探索形象驱动与动态表达'];
+        $item = static fn($label, $icon, $link) => ['label' => $label, 'description' => $descriptions[$label] ?? '', 'icon' => $icon, 'status' => 'live', 'link' => $link];
         $group = static fn($title, $items) => ['title' => $title, 'items' => $items];
         $entry = static fn($key, $label, $sort, $link, $groups = []) => [
             'key' => $key, 'label' => $label, 'enabled' => 1, 'sort' => $sort,

@@ -58,12 +58,30 @@ class OfficialSiteService
         $defaults = self::defaults();
         if ((int)($input['template_version'] ?? 1) < 4) {
             $previous = array_column(self::v3Defaults()['modules'], null, 'key');
+            $newModules = array_column($defaults['modules'], null, 'key');
             foreach (($input['modules'] ?? []) as $i => $module) {
                 $old = $previous[$module['key'] ?? ''] ?? [];
                 foreach ($old as $key => $value) {
                     if (($module[$key] ?? null) === $value || ($key === 'cards' && self::normalizeCards($module[$key] ?? []) === self::normalizeCards($value))) unset($input['modules'][$i][$key]);
                 }
                 $input['modules'][$i]['key'] = $module['key'];
+                // New layout uses a new ordering scale. Tenant-authored copy/media remains.
+                if (isset($newModules[$module['key']])) $input['modules'][$i]['sort'] = $newModules[$module['key']]['sort'];
+                if ($module['key'] === 'products' && !empty($module['cards'])) {
+                    $oldCards = array_column($old['cards'] ?? [], null, 'link');
+                    $customCards = array_column($module['cards'], null, 'link');
+                    $upgraded = [];
+                    foreach ($newModules['products']['cards'] as $index => $newCard) {
+                        $path = $newCard['link'];
+                        $custom = $customCards[$path] ?? [];
+                        foreach (($oldCards[$path] ?? []) as $field => $value) {
+                            if (($custom[$field] ?? null) === $value) unset($custom[$field]);
+                        }
+                        $upgraded[] = array_merge($newCard, $custom, ['sort' => 100 - $index]);
+                        unset($customCards[$path]);
+                    }
+                    $input['modules'][$i]['cards'] = array_merge($upgraded, array_values($customCards));
+                }
             }
             // The new six-entry information architecture replaces old default groups.
             $oldNavigation = self::legacyNavigationDefaults();
