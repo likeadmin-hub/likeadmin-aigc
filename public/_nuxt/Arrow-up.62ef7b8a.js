@@ -1,1 +1,0 @@
-import"./entry.87b3778f.js";const o=""+globalThis.__publicAssetsURL("short-drama/figma/icon/Copy.svg"),a=""+globalThis.__publicAssetsURL("short-drama/figma/icon/Delete.svg"),i=""+globalThis.__publicAssetsURL("short-drama/figma/icon/Arrow-up.svg");export{o as _,a,i as b};
