@@ -1,1 +1,1 @@
-<view class="p-_bl_30rpx_br_"><u-parse wx:if="{{a}}" u-i="7fc9204b-0" bind:__l="__l" u-p="{{a}}"></u-parse></view><mp-privacy-popup u-i="7fc9204b-1" bind:__l="__l"/>
+<page-content u-i="92f02ae2-0" bind:__l="__l"/><mp-privacy-popup u-i="92f02ae2-1" bind:__l="__l"/>

@@ -5,7 +5,6 @@
   "enablePullDownRefresh": true,
   "usingComponents": {
     "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
-    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
+    "page-content": "./tasks-content"
   }
 }

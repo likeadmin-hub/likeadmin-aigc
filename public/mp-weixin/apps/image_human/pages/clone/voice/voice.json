@@ -4,7 +4,6 @@
   "navigationBarTitleText": "创建克隆音色",
   "usingComponents": {
     "mp-privacy-popup": "../../../../../components/mp-privacy-popup/mp-privacy-popup",
-    "decoration-tab-page": "../../../../../components/decoration-tab-page/decoration-tab-page",
-    "image-human-nav": "../../../components/ImageHumanNav"
+    "page-content": "./voice-content"
   }
 }

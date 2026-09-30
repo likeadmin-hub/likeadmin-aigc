@@ -4,6 +4,6 @@
   "navigationBarTitleText": "音乐翻唱",
   "usingComponents": {
     "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
-    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page"
+    "page-content": "./index-content"
   }
 }

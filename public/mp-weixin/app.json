@@ -1,5 +1,10 @@
 {
   "pages": [
+    "pages/decoration-tab/tab-0",
+    "pages/decoration-tab/tab-1",
+    "pages/decoration-tab/tab-2",
+    "pages/decoration-tab/tab-3",
+    "pages/decoration-tab/tab-4",
     "pages/index/index",
     "pages/news/news",
     "pages/user/user",
@@ -244,22 +249,34 @@
     "custom": true,
     "list": [
       {
+        "pagePath": "pages/decoration-tab/tab-0",
+        "text": "导航",
         "iconPath": "static/images/tabbar/home.png",
-        "selectedIconPath": "static/images/tabbar/home_s.png",
-        "pagePath": "pages/index/index",
-        "text": "首页"
+        "selectedIconPath": "static/images/tabbar/home_s.png"
       },
       {
-        "iconPath": "static/images/tabbar/news.png",
-        "selectedIconPath": "static/images/tabbar/news_s.png",
-        "pagePath": "pages/news/news",
-        "text": "资讯"
+        "pagePath": "pages/decoration-tab/tab-1",
+        "text": "导航",
+        "iconPath": "static/images/tabbar/home.png",
+        "selectedIconPath": "static/images/tabbar/home_s.png"
       },
       {
-        "iconPath": "static/images/tabbar/user.png",
-        "selectedIconPath": "static/images/tabbar/user_s.png",
-        "pagePath": "pages/user/user",
-        "text": "我的"
+        "pagePath": "pages/decoration-tab/tab-2",
+        "text": "导航",
+        "iconPath": "static/images/tabbar/home.png",
+        "selectedIconPath": "static/images/tabbar/home_s.png"
+      },
+      {
+        "pagePath": "pages/decoration-tab/tab-3",
+        "text": "导航",
+        "iconPath": "static/images/tabbar/home.png",
+        "selectedIconPath": "static/images/tabbar/home_s.png"
+      },
+      {
+        "pagePath": "pages/decoration-tab/tab-4",
+        "text": "导航",
+        "iconPath": "static/images/tabbar/home.png",
+        "selectedIconPath": "static/images/tabbar/home_s.png"
       }
     ]
   },

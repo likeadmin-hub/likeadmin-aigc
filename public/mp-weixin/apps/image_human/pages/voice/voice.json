@@ -4,7 +4,6 @@
   "navigationBarTitleText": "声音素材",
   "usingComponents": {
     "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
-    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "image-human-assets": "../../components/ImageHumanAssets"
+    "page-content": "./voice-content"
   }
 }

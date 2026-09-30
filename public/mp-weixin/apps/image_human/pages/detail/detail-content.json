@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "usingComponents": {
+    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
+    "image-human-detail": "../../components/ImageHumanDetail"
+  }
+}
