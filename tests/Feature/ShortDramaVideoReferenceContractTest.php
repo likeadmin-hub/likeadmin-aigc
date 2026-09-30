@@ -14,12 +14,12 @@ class ShortDramaVideoReferenceContractTest extends TestCase
     {
         foreach (['multi_frame', 'start_end', 'image_to_video', 'omni_reference'] as $mode) {
             $selected = [[
-                'asset' => ['id' => 101, 'url' => 'https://example.test/first.png'],
+                'asset' => ['id' => 101, 'uri' => 'uploads/first.png', 'url' => 'https://example.test/first.png'],
                 'role' => in_array($mode, ['start_end', 'image_to_video'], true) ? 'first_frame_image' : 'reference_image',
             ]];
             if (in_array($mode, ['multi_frame', 'start_end'], true)) {
                 $selected[] = [
-                    'asset' => ['id' => 102, 'url' => 'https://example.test/second.png'],
+                    'asset' => ['id' => 102, 'uri' => 'uploads/second.png', 'url' => 'https://example.test/second.png'],
                     'role' => $mode === 'start_end' ? 'last_frame_image' : 'reference_image',
                 ];
             }
@@ -70,6 +70,48 @@ class ShortDramaVideoReferenceContractTest extends TestCase
         }
     }
 
+    public function testStorageAndUrlAliasesKeepExactlyTwoFrameSlotsAcrossModels(): void
+    {
+        $selected = [
+            ['asset'=>['id'=>1,'uri'=>'uploads/first.png','url'=>'https://media.example/first.png'],'role'=>'first_frame_image'],
+            ['asset'=>['id'=>2,'uri'=>'uploads/last.png','url'=>'https://media.example/last.png'],'role'=>'last_frame_image'],
+        ];
+        foreach ([false,true] as $swapped) {
+            if ($swapped) {
+                [$selected[0]['asset'],$selected[1]['asset']]=[$selected[1]['asset'],$selected[0]['asset']];
+            }
+            $request=$this->invoke(AigcShortDramaService::class,'shortDramaVideoReferenceContractPayload','start_end',$selected,[],[]);
+            $request['prompt']='frame contract fixture';
+            $normalized=AigcVideoReferenceAssetService::normalize($request);
+            self::assertCount(2,$normalized);
+            self::assertSame(['first_frame_image','last_frame_image'],array_column($normalized,'role'));
+            self::assertSame(array_column(array_column($selected,'asset'),'url'),array_column($normalized,'url'));
+            self::assertSame($normalized,AigcVideoReferenceAssetService::normalize(['reference_assets'=>$normalized]+$request));
+            foreach ([['resource_type'=>'model_api','upstream_model_code'=>'wan3.0-video'],['resource_type'=>'model_api','upstream_model_code'=>'h3-video'],['resource_type'=>'app_api','upstream_app_code'=>'full_video']] as $product) {
+                $this->invoke(MarketVideoRuntimeService::class,'assertAssets',['product'=>$product],$request);
+            }
+            $content=$this->invoke(MarketVideoRuntimeService::class,'h3Content',$request,'fixture');
+            self::assertSame(['first_frame_image','last_frame_image'],array_column(array_slice($content,1),'role'));
+        }
+    }
+
+    public function testSameSourceCanFillBothSlotsButConflictingRolesAndIndependentFilesStayVisible(): void
+    {
+        $first=['type'=>'image','uri'=>'uploads/shared.png','url'=>'https://media.example/shared.png','role'=>'first_frame_image'];
+        $last=array_replace($first,['role'=>'last_frame_image']);
+        $request=['generation_method'=>'start_end','reference_assets'=>[$first,$last],
+            'reference_images'=>[$first['url']], 'first_frame_image'=>$first['url'],'last_frame_image'=>$last['url']];
+        self::assertCount(2,AigcVideoReferenceAssetService::normalize($request));
+        $this->invoke(MarketVideoRuntimeService::class,'assertAssets',['product'=>['upstream_model_code'=>'wan3.0-video']],$request);
+        $other=array_replace($first,['url'=>'https://other.example/shared.png']);
+        self::assertCount(2,AigcVideoReferenceAssetService::normalize(['reference_assets'=>[$first,$other]]));
+        $extra=array_replace($first,['role'=>'reference_image']);
+        self::assertCount(3,AigcVideoReferenceAssetService::normalize(['reference_assets'=>[$first,$last,$extra]]));
+        $this->expectExceptionMessage('full_video first/last frame mode cannot be mixed with reference media mode');
+        $this->invoke(MarketVideoRuntimeService::class,'assertAssets',['product'=>['resource_type'=>'app_api','upstream_app_code'=>'full_video']],
+            ['generation_method'=>'start_end','reference_assets'=>[$first,$last,$extra]]);
+    }
+
     public function testFfmpegExportDefersOnlyWhenTheWebSapiCannotExecuteCommands(): void
     {
         self::assertTrue($this->invoke(
@@ -109,7 +151,7 @@ class ShortDramaVideoReferenceContractTest extends TestCase
             'shortDramaVideoReferenceContractPayload',
             'multi_frame',
             [
-                ['asset' => ['id' => 101, 'url' => 'https://example.test/first.png'], 'role' => 'reference_image'],
+                ['asset' => ['id' => 101, 'uri' => 'uploads/first.png', 'url' => 'https://example.test/first.png'], 'role' => 'reference_image'],
                 ['asset' => ['id' => 102, 'url' => 'https://example.test/main-three-view.png'], 'role' => 'reference_image'],
             ],
             [

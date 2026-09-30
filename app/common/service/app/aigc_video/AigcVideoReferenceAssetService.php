@@ -27,7 +27,7 @@ class AigcVideoReferenceAssetService
         foreach (self::legacyImageAssets($params) as $asset) {
             if (($asset['role'] ?? '') === 'reference_image' && array_filter($assets, static fn(array $existing): bool =>
                 ($existing['type'] ?? '') === self::TYPE_IMAGE
-                && ($existing['uri'] ?? '') === ($asset['uri'] ?? '')
+                && self::sameMediaSource($existing, $asset)
                 && in_array($existing['role'] ?? '', ['first_frame_image', 'last_frame_image'], true)
             )) {
                 continue;
@@ -264,48 +264,43 @@ class AigcVideoReferenceAssetService
         return $normalized;
     }
 
+    /** Match the exact stored URI or delivery URL already carried by a media
+     * record. Never strip domains/query strings: two independent cloud files
+     * may have the same object path, and signed/derived URLs are not guesses.
+     */
+    private static function sameMediaSource(array $left, array $right): bool
+    {
+        if (($left['type']??'')!==($right['type']??'')) return false;
+        $leftUrl=trim((string)($left['url']??''));
+        $rightUrl=trim((string)($right['url']??''));
+        if (preg_match('#^https?://#i',$leftUrl) && preg_match('#^https?://#i',$rightUrl) && $leftUrl!==$rightUrl) return false;
+        $leftKeys=array_filter([trim((string)($left['uri']??'')),$leftUrl],static fn(string $value): bool => $value!=='');
+        $rightKeys=array_filter([trim((string)($right['uri']??'')),$rightUrl],static fn(string $value): bool => $value!=='');
+        return array_intersect($leftKeys,$rightKeys)!==[];
+    }
+
     private static function unique(array $assets): array
     {
-        $unique = [];
-        $seen = [];
-        $frameSources = [];
+        $unique=[];
+        $frames=['first_frame_image','last_frame_image'];
+        $frameSources=array_values(array_filter($assets,static fn(array $asset): bool => in_array($asset['role']??'',$frames,true)));
         foreach ($assets as $asset) {
-            if (in_array($asset['role'] ?? '', ['first_frame_image', 'last_frame_image'], true)) {
-                $frameSources[($asset['type'] ?? '') . '|' . trim((string)($asset['uri'] ?? $asset['url'] ?? ''))] = true;
+            $role=(string)($asset['role']??'');
+            if ($role==='' && array_filter($frameSources,static fn(array $frame): bool => self::sameMediaSource($asset,$frame))) continue;
+            $slot=in_array($role,$frames,true)?$role:'reference';
+            $duplicate=null;
+            foreach ($unique as $index=>$existing) {
+                $existingRole=(string)($existing['role']??'');
+                $existingSlot=in_array($existingRole,$frames,true)?$existingRole:'reference';
+                if ($slot===$existingSlot && self::sameMediaSource($asset,$existing)) { $duplicate=$index; break; }
             }
-        }
-        foreach ($assets as $asset) {
-            $signature = ($asset['type'] ?? '')
-                . '|' . trim((string)($asset['uri'] ?? $asset['url'] ?? ''));
-            $role = (string)($asset['role'] ?? '');
-            if (in_array($role, ['first_frame_image', 'last_frame_image'], true)) {
-                // Same source can occupy two semantic slots. Keep order and
-                // only deduplicate repeated references within the same slot.
-                $signature .= '|' . $role;
-            } elseif (isset($frameSources[$signature]) && $role === '') {
-                // Legacy reference_images carries no role and is often a
-                // projection of reference_assets, not a third use of the file.
-                continue;
-            }
-            if ($signature === '|' || isset($seen[$signature])) {
-                if (isset($seen[$signature])) {
-                    $index = $seen[$signature];
-                    $incomingRole = (string)($asset['role'] ?? '');
-                    $currentRole = (string)($unique[$index]['role'] ?? '');
-                    if (
-                        in_array($incomingRole, ['first_frame_image', 'last_frame_image'], true)
-                        && !in_array($currentRole, ['first_frame_image', 'last_frame_image'], true)
-                    ) {
-                        $unique[$index]['role'] = $incomingRole;
-                    }
-                    if (empty($unique[$index]['generation_method']) && !empty($asset['generation_method'])) {
-                        $unique[$index]['generation_method'] = $asset['generation_method'];
-                    }
+            if ($duplicate!==null) {
+                if (empty($unique[$duplicate]['generation_method']) && !empty($asset['generation_method'])) {
+                    $unique[$duplicate]['generation_method']=$asset['generation_method'];
                 }
                 continue;
             }
-            $seen[$signature] = count($unique);
-            $unique[] = $asset;
+            $unique[]=$asset;
         }
         return $unique;
     }
