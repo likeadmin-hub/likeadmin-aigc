@@ -1,0 +1,1 @@
+import{d as e,o as t,a as s,c as a}from"./index-494d94e5.js";import{_ as o}from"./webview-content.vue_vue_type_script_setup_true_lang.a8c8a97d.js";import{c as p}from"./page-content-lifecycle.395b0c93.js";const r=e({__name:"webview",setup:e=>(t(()=>{}),p(),(e,t)=>(s(),a(o)))});export{r as default};

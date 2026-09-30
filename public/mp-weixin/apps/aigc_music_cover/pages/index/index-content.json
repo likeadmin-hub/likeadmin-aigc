@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page"
+  }
+}

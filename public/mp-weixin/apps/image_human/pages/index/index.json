@@ -4,7 +4,6 @@
   "navigationBarTitleText": "全驱动数字人",
   "usingComponents": {
     "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
-    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "image-human-home": "../../components/ImageHumanHome"
+    "page-content": "./index-content"
   }
 }

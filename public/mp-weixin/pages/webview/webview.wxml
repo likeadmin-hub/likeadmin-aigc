@@ -1,1 +1,1 @@
-<web-view src="{{a}}"/><mp-privacy-popup u-i="2c970fe9-0" bind:__l="__l"/>
+<page-content u-i="a484c7a6-0" bind:__l="__l"/><mp-privacy-popup u-i="a484c7a6-1" bind:__l="__l"/>

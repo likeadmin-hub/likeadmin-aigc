@@ -1,8 +1,7 @@
 {
   "navigationBarTitleText": "充值",
   "usingComponents": {
-    "u-button": "../../../uni_modules/vk-uview-ui/components/u-button/u-button",
-    "payment": "../../../components/payment/payment",
-    "mp-privacy-popup": "../../../components/mp-privacy-popup/mp-privacy-popup"
+    "mp-privacy-popup": "../../../components/mp-privacy-popup/mp-privacy-popup",
+    "page-content": "./recharge-content"
   }
 }

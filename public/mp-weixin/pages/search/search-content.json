@@ -1,0 +1,8 @@
+{
+  "component": true,
+  "usingComponents": {
+    "u-search": "../../uni_modules/vk-uview-ui/components/u-search/u-search",
+    "news-card": "../../components/news-card/news-card",
+    "suggest": "./component/suggest"
+  }
+}

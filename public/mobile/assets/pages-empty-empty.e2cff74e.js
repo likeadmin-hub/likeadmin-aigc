@@ -1,0 +1,1 @@
+import{d as e,o as t,a as s,c as a}from"./index-494d94e5.js";import{_ as o}from"./empty-content.vue_vue_type_script_setup_true_lang.3a73f064.js";import{c as p}from"./page-content-lifecycle.395b0c93.js";const m=e({__name:"empty",setup:e=>(t(()=>{}),p(),(e,t)=>(s(),a(o)))});export{m as default};
