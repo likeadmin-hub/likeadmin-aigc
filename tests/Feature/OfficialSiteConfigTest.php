@@ -1,176 +1,108 @@
 <?php
 namespace Tests\Feature;
-
 use app\common\service\OfficialSiteService;
+use app\common\service\OfficialSiteModelCatalog;
 use PHPUnit\Framework\TestCase;
 
 class OfficialSiteConfigTest extends TestCase
 {
-    private function normalize(array $input): array
+    private function call(string $method, ...$args)
     {
-        $method = new \ReflectionMethod(OfficialSiteService::class, 'normalize');
-        $method->setAccessible(true);
-        return $method->invoke(null, $input);
+        $reflection = new \ReflectionMethod(OfficialSiteService::class, $method);
+        $reflection->setAccessible(true);
+        return $reflection->invoke(null, ...$args);
     }
+    private function normalize(array $input): array { return $this->call('normalize', $input); }
 
-    public function testFreshTenantGetsActualCreationCapabilities(): void
+    public function testNewArchitectureUsesActualToolsAndSixRequestedEntries(): void
     {
         $config = $this->normalize([]);
-        self::assertSame(3, $config['template_version']);
-        self::assertSame('#2563eb', $config['basic']['accent_color']);
-        $products = array_column($config['modules'], null, 'key')['products'];
-        self::assertSame(['human', 'drama', 'canvas'], array_column($products['cards'], 'kind'));
-        self::assertSame(['/ai/avatar', '/ai/short-drama', '/app/aigc_canvas'], array_column($products['cards'], 'link'));
+        self::assertSame(4, $config['template_version']);
+        self::assertSame(['应用工具','模型','开放平台','价格','企业服务','帮助'], array_column($config['navigation'], 'label'));
+        self::assertSame(['工作室','图片','视频'], array_column($config['navigation'][0]['groups'], 'title'));
+        self::assertSame(['dropdown','dropdown','link','link','link','link'], array_column($config['navigation'], 'mode'));
+        $modules = array_column($config['modules'], null, 'key');
+        self::assertSame(['AI 短剧','AI 视频','AI 绘图','数字人','无限画布','AI 音乐'], array_column($modules['products']['cards'], 'title'));
+        self::assertSame([], $modules['models']['cards']);
+        self::assertSame('light', $config['basic']['theme']);
     }
-
-    public function testUntouchedLegacyTemplateUpgradesWithoutChangingVisibilityOrBrand(): void
+    public function testPreviousDefaultUpgradesButCustomCopyAndMediaSurvive(): void
     {
-        $method = new \ReflectionMethod(OfficialSiteService::class, 'legacyDefaults');
-        $method->setAccessible(true);
-        $legacy = $method->invoke(null);
-        $legacy['basic']['name'] = 'My Tenant';
-        $legacy['modules'][0]['enabled'] = 0;
-        $legacy['modules'][0]['sort'] = 8;
-        $result = $this->normalize($legacy);
-        $hero = array_column($result['modules'], null, 'key')['hero'];
-        self::assertSame("让想象力起飞，\n开启 AI 创作新方式", $hero['title']);
-        self::assertSame(0, $hero['enabled']);
-        self::assertSame(8, $hero['sort']);
-        self::assertSame('My Tenant', $result['basic']['name']);
-    }
-
-    public function testTenantAuthoredLegacyContentSurvivesUpgrade(): void
-    {
-        $result = $this->normalize(['modules' => [['key' => 'products', 'title' => '自有产品', 'cards' => [['title' => '我的功能', 'description' => '自定义介绍', 'media' => 'uploads/custom.png', 'link' => '/ai']]]]]);
-        $products = array_column($result['modules'], null, 'key')['products'];
-        self::assertSame('自有产品', $products['title']);
-        self::assertSame('uploads/custom.png', $products['cards'][0]['media']);
-        self::assertSame('custom', $products['cards'][0]['kind']);
-    }
-
-    public function testUnsafeLinksAndUnknownPublicFieldsAreRemoved(): void
-    {
-        $result = $this->normalize(['basic' => ['accent_color' => 'red;display:none', 'secret' => 'no'], 'modules' => [['key' => 'hero', 'button_link' => '//evil.test', 'internal_note' => 'private'], ['key' => 'products', 'cards' => [['link' => 'javascript:alert(1)', 'internal_note' => 'private', 'kind' => 'arbitrary', 'status' => 'live']]]]]);
-        self::assertSame('#2563eb', $result['basic']['accent_color']);
-        self::assertArrayNotHasKey('secret', $result['basic']);
+        $old = $this->call('v3Defaults');
+        $old['template_version'] = 3;
+        $old['basic']['name'] = '自有品牌';
+        $old['modules'][0]['media'] = 'uploads/custom.mp4';
+        $old['modules'][0]['media_type'] = 'video';
+        $old['modules'][0]['title'] = '自己的首屏文案';
+        $result = $this->normalize($old);
         $modules = array_column($result['modules'], null, 'key');
-        self::assertSame('', $modules['hero']['button_link']);
-        self::assertArrayNotHasKey('internal_note', $modules['hero']);
-        self::assertSame('', $modules['products']['cards'][0]['link']);
-        self::assertSame('custom', $modules['products']['cards'][0]['kind']);
-        self::assertArrayNotHasKey('internal_note', $modules['products']['cards'][0]);
+        self::assertSame('自己的首屏文案', $modules['hero']['title']);
+        self::assertSame('uploads/custom.mp4', $modules['hero']['media']);
+        self::assertCount(6, $modules['products']['cards']);
+        self::assertSame('自有品牌', $result['basic']['name']);
+        self::assertSame($result, $this->normalize($result));
     }
-
-    public function testMediaPosterAndAnchorLinksSurviveRepeatedNormalization(): void
+    public function testMediaAndHiddenModelOverridesRoundTrip(): void
     {
-        $input = ['template_version' => 2, 'modules' => [['key' => 'hero', 'media' => 'uploads/demo.mp4', 'media_type' => 'video', 'poster' => 'uploads/poster.webp', 'button_link' => '/?tenant_id=2#products'], ['key' => 'products', 'cards' => [['title' => 'Video', 'kind' => 'drama', 'media_type' => 'video', 'media' => 'uploads/story.mp4', 'poster' => 'uploads/story.webp', 'status' => 'live', 'link' => '/ai/short-drama']]]]];
+        $input = ['template_version'=>4, 'basic'=>['placeholder'=>'uploads/placeholder.webp','motion_enabled'=>0,'start_link'=>'https://example.com/start'], 'modules'=>[
+            ['key'=>'hero','media'=>'uploads/demo.mp4','media_type'=>'video','poster'=>'uploads/demo.webp','cards'=>[['title'=>'自定义','media'=>'uploads/card.webp']]],
+            ['key'=>'models','cards'=>[['model_id'=>'market_image_model:42','enabled'=>0,'icon_url'=>'uploads/icon.svg','media'=>'uploads/model.mp4','media_type'=>'video']]],
+        ]];
         $once = $this->normalize($input);
         self::assertSame($once, $this->normalize($once));
+        self::assertSame('uploads/placeholder.webp', $once['basic']['placeholder']);
         $modules = array_column($once['modules'], null, 'key');
-        self::assertSame('/?tenant_id=2#products', $modules['hero']['button_link']);
-        self::assertSame('uploads/story.webp', $modules['products']['cards'][0]['poster']);
+        self::assertSame('uploads/demo.webp', $modules['hero']['poster']);
+        self::assertSame(0, $modules['models']['cards'][0]['enabled']);
+        self::assertSame('market_image_model:42', $modules['models']['cards'][0]['model_id']);
     }
-
-    public function testEmptyCardListStaysEmptyAndPlannedCardsCannotNavigate(): void
+    public function testLinksRejectScriptProtocolRelativeCredentialsAndBackslash(): void
     {
-        $result = $this->normalize(['template_version' => 2, 'modules' => [['key' => 'faq', 'cards' => []], ['key' => 'products', 'cards' => [['status' => 'planned', 'link' => '/ai']]]]]);
-        $modules = array_column($result['modules'], null, 'key');
-        self::assertSame([], $modules['faq']['cards']);
-        self::assertSame('', $modules['products']['cards'][0]['link']);
+        foreach (['javascript:alert(1)','//evil.test','http://evil.test','https://user:pass@example.com','https://example.com\\@evil.test',"https://example.com/\nfoo"] as $path) self::assertSame('', $this->call('safeLink', $path), $path);
+        foreach (['/ai/create?type=image&channel=market_image_model%3A42','/?tenant_id=1#products','https://example.com/docs?q=1#intro'] as $path) self::assertSame($path, $this->call('safeLink', $path));
     }
-    public function testDraftUpgradeAddsToolsAndPreservesTenantEdits(): void
+    public function testPublicModelProjectionOmitsUnavailableAndSensitiveRuntimeFields(): void
     {
-        $method = new \ReflectionMethod(OfficialSiteService::class, 'draftDefaults');
-        $method->setAccessible(true);
-        $draft = $method->invoke(null);
-        $draft['template_version'] = 2;
-        $draft['basic']['name'] = '自己的品牌';
-        $draft['modules'][1]['title'] = '租户自己改过的能力介绍';
-        $result = $this->normalize($draft);
-        $modules = array_column($result['modules'], null, 'key');
-        self::assertSame('自己的品牌', $result['basic']['name']);
-        self::assertSame('租户自己改过的能力介绍', $modules['products']['title']);
-        self::assertSame(0, $modules['faq']['enabled']);
-        self::assertSame(8, count($modules['tools']['cards']));
-        self::assertSame(2, count($modules['audiences']['cards']));
-        self::assertSame($result, $this->normalize($result));
+        $options = [
+            ['value'=>'market_image_model:42','name'=>'真实模型','available'=>true,'enabled'=>true,'description'=>'<b>简介</b>','platform_unit_cost'=>'9.00','tenant_unit_price'=>'12','skus'=>[['secret'=>'never']],'api_key'=>'private'],
+            ['value'=>'market_image_model:43','name'=>'不可用','available'=>false,'enabled'=>true],
+        ];
+        $models = OfficialSiteModelCatalog::present($options, 'image');
+        self::assertCount(1, $models);
+        self::assertSame(['id','type','title','description','icon_url','link'], array_keys($models[0]));
+        self::assertSame('简介', $models[0]['description']);
+        self::assertSame('/ai/create?type=image&channel=market_image_model%3A42', $models[0]['link']);
     }
-
-    public function testAnimationPreferencesRemainNumericOnRoundTrip(): void
+    public function testUnsafeUnknownFieldsAreRemovedAndCardLimitsEnforced(): void
     {
-        $result = $this->normalize(['basic' => ['particles_enabled' => 0, 'motion_enabled' => 1]]);
-        self::assertSame(0, $result['basic']['particles_enabled']);
-        self::assertSame(1, $result['basic']['motion_enabled']);
-        self::assertSame($result, $this->normalize($result));
+        $result = $this->normalize(['template_version'=>4,'basic'=>['secret'=>'no','accent_color'=>'red;display:none'],'modules'=>[['key'=>'hero','button_link'=>'javascript:alert(1)','autoplay_seconds'=>900,'cards'=>array_fill(0,40,['title'=>'x','private_note'=>'secret','status'=>'planned','link'=>'/ai'])]]]);
+        self::assertArrayNotHasKey('secret', $result['basic']);
+        self::assertSame('#2563eb', $result['basic']['accent_color']);
+        $hero = array_column($result['modules'],null,'key')['hero'];
+        self::assertSame('', $hero['button_link']);
+        self::assertCount(24, $hero['cards']);
+        self::assertSame('', $hero['cards'][0]['link']);
+        self::assertArrayNotHasKey('private_note', $hero['cards'][0]);
+        self::assertSame(30, $hero['autoplay_seconds']);
     }
-
-    public function testAllOfficialMediaOverridesSurviveNormalization(): void
+    public function testCustomNavigationSupportsSecureExternalDestinationsAndIcons(): void
     {
-        $result = $this->normalize(['template_version' => 3, 'modules' => [
-            ['key' => 'hero', 'background_media' => 'uploads/hero.mp4', 'background_media_type' => 'video', 'background_poster' => 'uploads/hero.webp', 'media' => 'uploads/intro.mp4', 'media_type' => 'video', 'poster' => 'uploads/intro.webp'],
-            ['key' => 'products', 'cards' => [['kind' => 'canvas', 'canvas_image' => 'uploads/node.webp']]],
-            ['key' => 'audiences', 'cards' => [['media' => 'uploads/invite.mp4', 'media_type' => 'video', 'poster' => 'uploads/invite.webp']]],
-            ['key' => 'cta', 'media' => 'uploads/end.webp'],
+        $result = $this->normalize(['template_version'=>4,'navigation'=>[
+            ['key'=>'open','label'=>'开发者','link'=>'https://example.com/developer'],
+            ['key'=>'tools','groups'=>[['title'=>'自定义','items'=>[['label'=>'测试','status'=>'live','link'=>'/ai','icon_url'=>'uploads/custom.svg','description'=>'自己的工具']]]]],
         ]]);
-        $modules = array_column($result['modules'], null, 'key');
-        self::assertSame('uploads/hero.mp4', $modules['hero']['background_media']);
-        self::assertSame('video', $modules['hero']['background_media_type']);
-        self::assertSame('uploads/hero.webp', $modules['hero']['background_poster']);
-        self::assertSame('uploads/intro.mp4', $modules['hero']['media']);
-        self::assertSame('uploads/node.webp', $modules['products']['cards'][0]['canvas_image']);
-        self::assertSame('uploads/invite.webp', $modules['audiences']['cards'][0]['poster']);
-        self::assertSame('uploads/end.webp', $modules['cta']['media']);
+        $nav = array_column($result['navigation'],null,'key');
+        self::assertSame('https://example.com/developer', $nav['open']['link']);
+        self::assertSame('uploads/custom.svg', $nav['tools']['groups'][0]['items'][0]['icon_url']);
         self::assertSame($result, $this->normalize($result));
     }
-
-    public function testNavigationDefaultsUseActualToolsAndNonClickablePlaceholders(): void
+    public function testClearedCardsAndDisabledModulesStayCleared(): void
     {
-        $config = $this->normalize([]);
-        self::assertSame(['产品', '模型', '行业应用', '创作工具', '开放平台', '价格', '企业服务', '帮助中心'], array_column($config['navigation'], 'label'));
-        $nav = array_column($config['navigation'], null, 'key');
-        $items = array_merge(...array_column($nav['products']['groups'], 'items'));
-        $items = array_column($items, null, 'label');
-        self::assertSame('/ai/short-drama', $items['AI 短剧']['link']);
-        self::assertSame('/app/aigc_canvas', $items['无限画布']['link']);
-        self::assertSame('planned', $items['PPT 转视频']['status']);
-        self::assertSame('', $items['PPT 转视频']['link']);
-        self::assertSame('planned', $nav['enterprise']['status']);
-        self::assertSame('/pricing', $nav['pricing']['link']);
+        $config = $this->normalize(['template_version'=>4,'modules'=>[['key'=>'hero','enabled'=>0,'cards'=>[]],['key'=>'faq','cards'=>[]]]]);
+        $modules = array_column($config['modules'],null,'key');
+        self::assertSame(0,$modules['hero']['enabled']);
+        self::assertSame([],$modules['hero']['cards']);
+        self::assertSame([],$modules['faq']['cards']);
+        self::assertSame($config,$this->normalize($config));
     }
-
-    public function testNavigationCustomizationsAndSafeLinksRoundTrip(): void
-    {
-        $result = $this->normalize(['navigation' => [
-            ['key' => 'products', 'label' => '自己的产品', 'enabled' => 0, 'sort' => 999, 'button_link' => '//evil.test', 'private_note' => 'secret', 'groups' => [['title' => '自定义组', 'items' => [
-                ['label' => '已上线', 'status' => 'live', 'link' => '/ai/avatar?tab=lip_sync', 'icon' => 'avatar'],
-                ['label' => '规划中', 'status' => 'planned', 'link' => '/ai', 'icon' => 'arbitrary'],
-                ['label' => '非法链接', 'status' => 'live', 'link' => 'javascript:alert(1)'],
-            ]]]],
-            ['key' => 'unknown', 'label' => '不允许的目录'],
-        ]]);
-        $product = $result['navigation'][0];
-        self::assertSame('自己的产品', $product['label']);
-        self::assertSame(0, $product['enabled']);
-        self::assertSame('', $product['button_link']);
-        self::assertArrayNotHasKey('private_note', $product);
-        self::assertCount(8, $result['navigation']);
-        $items = $product['groups'][0]['items'];
-        self::assertSame('/ai/avatar?tab=lip_sync', $items[0]['link']);
-        self::assertSame('', $items[1]['link']);
-        self::assertSame('grid', $items[1]['icon']);
-        self::assertSame('planned', $items[2]['status']);
-        self::assertSame($result, $this->normalize($result));
-    }
-
-    public function testNavigationContentLimitsAndMissingConfigurationCompatibility(): void
-    {
-        $items = array_fill(0, 30, ['label' => '占位', 'status' => 'planned']);
-        $groups = array_fill(0, 6, ['title' => '分组', 'items' => $items]);
-        $result = $this->normalize(['basic' => ['name' => '现有租户'], 'navigation' => [['key' => 'products', 'groups' => $groups]]]);
-        self::assertCount(4, $result['navigation'][0]['groups']);
-        self::assertCount(16, $result['navigation'][0]['groups'][0]['items']);
-        self::assertSame('现有租户', $result['basic']['name']);
-        self::assertCount(8, $this->normalize(['template_version' => 3])['navigation']);
-    }
-
 }

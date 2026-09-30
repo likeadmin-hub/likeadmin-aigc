@@ -20,7 +20,9 @@ class OfficialSiteService
         if (!is_array($stored) || $stored === []) {
             ConfigService::set(self::TYPE, self::KEY, self::toStorage($config));
         }
-        return self::toEditor($config);
+        $config = self::toEditor($config);
+        $config['model_catalog'] = OfficialSiteModelCatalog::get((int)request()->tenantId);
+        return $config;
     }
 
     public static function save(array $params): array
@@ -38,10 +40,11 @@ class OfficialSiteService
         $config['join_available'] = !empty(\app\common\service\brand\TenantBrandService::packageRows((int)request()->tenantId, true));
         $config['basic']['logo'] = self::fileUrl($config['basic']['logo']);
         $config['basic']['favicon'] = self::fileUrl($config['basic']['favicon']);
+        $config['basic']['placeholder'] = self::fileUrl($config['basic']['placeholder']);
         foreach ($config['modules'] as &$module) {
             foreach (['media', 'poster', 'background_media', 'background_poster'] as $field) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'canvas_image'] as $field) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
+                foreach (['media', 'poster', 'canvas_image', 'icon_url'] as $field) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
                 unset($card['internal_note'], $card['admin_only']);
             }
             unset($card);
@@ -53,6 +56,24 @@ class OfficialSiteService
     private static function normalize(array $input): array
     {
         $defaults = self::defaults();
+        if ((int)($input['template_version'] ?? 1) < 4) {
+            $previous = array_column(self::v3Defaults()['modules'], null, 'key');
+            foreach (($input['modules'] ?? []) as $i => $module) {
+                $old = $previous[$module['key'] ?? ''] ?? [];
+                foreach ($old as $key => $value) {
+                    if (($module[$key] ?? null) === $value || ($key === 'cards' && self::normalizeCards($module[$key] ?? []) === self::normalizeCards($value))) unset($input['modules'][$i][$key]);
+                }
+                $input['modules'][$i]['key'] = $module['key'];
+            }
+            // The new six-entry information architecture replaces old default groups.
+            $oldNavigation = self::legacyNavigationDefaults();
+            $oldMap = array_column($oldNavigation, null, 'key');
+            foreach (($input['navigation'] ?? []) as $i => $entry) {
+                $old = $oldMap[$entry['key'] ?? ''] ?? [];
+                foreach ($old as $key => $value) if (($entry[$key] ?? null) === $value) unset($input['navigation'][$i][$key]);
+                $input['navigation'][$i]['key'] = $entry['key'];
+            }
+        }
         $enabled = array_key_exists('enabled', $input) ? (int)!empty($input['enabled']) : 1;
         $basic = array_merge($defaults['basic'], is_array($input['basic'] ?? null) ? $input['basic'] : []);
         if ((int)($input['template_version'] ?? 1) < 2) {
@@ -67,7 +88,9 @@ class OfficialSiteService
         }
         unset($value);
         // Material paths need more room than display text.
-        foreach (['logo', 'favicon'] as $key) $basic[$key] = self::text($input['basic'][$key] ?? $defaults['basic'][$key], 1024);
+        foreach (['logo', 'favicon', 'placeholder'] as $key) $basic[$key] = self::text($input['basic'][$key] ?? $defaults['basic'][$key], 1024);
+        $basic['theme'] = ($basic['theme'] ?? 'light') === 'dark' ? 'dark' : 'light';
+        $basic['start_link'] = self::safeLink((string)($input['basic']['start_link'] ?? '/ai'));
         $basic['accent_color'] = preg_match('/^#[0-9a-fA-F]{6}$/', $basic['accent_color']) ? $basic['accent_color'] : '#2563eb';
 
         $inputModules = is_array($input['modules'] ?? null) ? $input['modules'] : [];
@@ -103,13 +126,14 @@ class OfficialSiteService
                 'background_media_type' => ($source['background_media_type'] ?? '') === 'video' ? 'video' : 'image',
                 'button_text' => self::text($source['button_text'] ?? '', 40),
                 'button_link' => self::safeLink((string)($source['button_link'] ?? '')),
+                'autoplay_seconds' => max(3, min(30, (int)($source['autoplay_seconds'] ?? 6))),
                 'cards' => self::normalizeCards($source['cards'] ?? []),
             ];
             $modules[] = $raw;
         }
         usort($modules, static fn(array $a, array $b) => $b['sort'] <=> $a['sort']);
 
-        return ['template_version' => 3, 'enabled' => $enabled, 'basic' => $basic, 'navigation' => self::normalizeNavigation($input['navigation'] ?? null), 'modules' => $modules];
+        return ['template_version' => 4, 'enabled' => $enabled, 'basic' => $basic, 'navigation' => self::normalizeNavigation($input['navigation'] ?? null), 'modules' => $modules];
     }
 
     private static function normalizeNavigation($navigation): array
@@ -132,6 +156,8 @@ class OfficialSiteService
                     $live = ($item['status'] ?? '') === 'live' && $path !== '';
                     $items[] = [
                         'label' => self::text($item['label'] ?? '', 60),
+                        'description' => self::text($item['description'] ?? '', 150),
+                        'icon_url' => self::text($item['icon_url'] ?? '', 1024),
                         'icon' => in_array($item['icon'] ?? '', ['drama', 'canvas', 'image', 'video', 'audio', 'avatar', 'edit', 'grid', 'book', 'search', 'arrow'], true) ? $item['icon'] : 'grid',
                         'status' => $live ? 'live' : 'planned', 'link' => $live ? $path : '',
                     ];
@@ -153,6 +179,11 @@ class OfficialSiteService
     }
 
     private static function navigationDefaults(): array
+    {
+        return OfficialSiteTemplate::navigation();
+    }
+
+    private static function legacyNavigationDefaults(): array
     {
         $item = static fn($label, $icon, $link = '') => ['label' => $label, 'icon' => $icon, 'status' => $link === '' ? 'planned' : 'live', 'link' => $link];
         $group = static fn($title, $items) => ['title' => $title, 'items' => $items];
@@ -202,6 +233,10 @@ class OfficialSiteService
             if (!in_array($status, ['live', 'planned', 'enterprise'], true)) $status = 'planned';
             $result[] = [
                 'title' => self::text($card['title'] ?? '', 80),
+                'icon' => self::text($card['icon'] ?? 'grid', 30),
+                'icon_url' => self::text($card['icon_url'] ?? '', 1024),
+                'model_id' => self::text($card['model_id'] ?? '', 80),
+                'enabled' => array_key_exists('enabled', $card) ? (int)!empty($card['enabled']) : 1,
                 'description' => self::text($card['description'] ?? '', 300),
                 'media' => self::text($card['media'] ?? '', 1024),
                 'poster' => self::text($card['poster'] ?? '', 1024),
@@ -221,28 +256,32 @@ class OfficialSiteService
 
     private static function toStorage(array $config): array
     {
+        foreach ($config['navigation'] as &$nav) { foreach ($nav['groups'] as &$group) { foreach ($group['items'] as &$item) $item['icon_url'] = FileService::setFileUrl($item['icon_url']); unset($item); } unset($group); } unset($nav);
         foreach ($config['modules'] as &$module) {
             foreach (['media', 'poster', 'background_media', 'background_poster'] as $field) $module[$field] = FileService::setFileUrl($module[$field]);
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'canvas_image'] as $field) $card[$field] = FileService::setFileUrl($card[$field]);
+                foreach (['media', 'poster', 'canvas_image', 'icon_url'] as $field) $card[$field] = FileService::setFileUrl($card[$field]);
             }
             unset($card);
         }
         unset($module);
         $config['basic']['logo'] = FileService::setFileUrl($config['basic']['logo']);
         $config['basic']['favicon'] = FileService::setFileUrl($config['basic']['favicon']);
+        $config['basic']['placeholder'] = FileService::setFileUrl($config['basic']['placeholder']);
         return $config;
     }
 
     /** Convert stored media paths to URLs expected by the admin material picker. */
     private static function toEditor(array $config): array
     {
+        foreach ($config['navigation'] as &$nav) { foreach ($nav['groups'] as &$group) { foreach ($group['items'] as &$item) $item['icon_url'] = self::fileUrl($item['icon_url']); unset($item); } unset($group); } unset($nav);
         $config['basic']['logo'] = self::fileUrl($config['basic']['logo']);
         $config['basic']['favicon'] = self::fileUrl($config['basic']['favicon']);
+        $config['basic']['placeholder'] = self::fileUrl($config['basic']['placeholder']);
         foreach ($config['modules'] as &$module) {
             foreach (['media', 'poster', 'background_media', 'background_poster'] as $field) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'canvas_image'] as $field) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
+                foreach (['media', 'poster', 'canvas_image', 'icon_url'] as $field) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
             }
             unset($card);
         }
@@ -266,7 +305,12 @@ class OfficialSiteService
 
     private static function safeLink(string $link): string
     {
-        return preg_match('~^/(?!/)[A-Za-z0-9_/?=&.#%-]*$~', $link) ? $link : '';
+        $link = trim($link);
+        if (preg_match('~^/(?!/)[A-Za-z0-9_/?=&.#%:+,-]*$~', $link)) return $link;
+        if (preg_match('/[\\\\\x00-\x20]/', $link)) return '';
+        $parts = parse_url($link);
+        return filter_var($link, FILTER_VALIDATE_URL) && ($parts['scheme'] ?? '') === 'https'
+            && empty($parts['user']) && empty($parts['pass']) ? $link : '';
     }
 
     private static function text($value, int $length): string
@@ -310,6 +354,11 @@ class OfficialSiteService
     }
 
     private static function defaults(): array
+    {
+        return OfficialSiteTemplate::defaults(self::v3Defaults());
+    }
+
+    private static function v3Defaults(): array
     {
         $config = self::draftDefaults();
         $config['basic'] += [
