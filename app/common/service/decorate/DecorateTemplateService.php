@@ -724,9 +724,25 @@ class DecorateTemplateService
         $template = self::getTemplate($tenantId, $templateId);
         $old = self::decodeJson($template['draft_settings'], self::defaultSettings());
         $template->save([
-            'draft_settings' => self::encodeJson(array_replace_recursive($old, $settings)),
+            'draft_settings' => self::encodeJson(self::mergeSettings($old, $settings)),
             'publish_status' => 'draft',
         ]);
+    }
+
+    private static function mergeSettings(array $old, array $settings): array
+    {
+        $merged = array_replace_recursive($old, $settings);
+        // Navigation is an ordered list, not a patch keyed by array index.
+        // Replacing it also preserves explicit deletion of every item.
+        if (isset($settings['mobile_tabbar']) && is_array($settings['mobile_tabbar'])
+            && array_key_exists('list', $settings['mobile_tabbar'])) {
+            $list = $settings['mobile_tabbar']['list'];
+            if (!is_array($list)) {
+                throw new RuntimeException('底部导航列表格式无效');
+            }
+            $merged['mobile_tabbar']['list'] = array_values($list);
+        }
+        return $merged;
     }
 
     /**
