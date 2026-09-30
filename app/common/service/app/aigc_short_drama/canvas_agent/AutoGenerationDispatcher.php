@@ -53,6 +53,7 @@ final class AutoGenerationDispatcher
         $nodes=json_decode((string)($document['nodes_json']??'[]'),true);
         $edges=json_decode((string)($document['edges_json']??'[]'),true);
         if (!is_array($nodes) || !is_array($edges)) return [];
+        $nodes=GraphService::registeredUploadNodes($document,$nodes);
         $result=[];
         foreach ($nodes as $node) {
             if (!is_array($node)) continue;
@@ -73,6 +74,7 @@ final class AutoGenerationDispatcher
         $nodes=json_decode((string)($document['nodes_json']??'[]'),true);
         $edges=json_decode((string)($document['edges_json']??'[]'),true);
         if (!is_array($nodes) || !is_array($edges)) return [];
+        $nodes=GraphService::registeredUploadNodes($document,$nodes);
         $result=[];
         foreach ($nodes as $node) {
             if (!is_array($node)) continue;
