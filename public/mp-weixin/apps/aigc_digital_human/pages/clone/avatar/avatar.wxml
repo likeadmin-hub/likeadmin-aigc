@@ -1,1 +1,1 @@
-<page-content u-i="476b5620-0" bind:__l="__l"/><mp-privacy-popup u-i="476b5620-1" bind:__l="__l"/>
+<page-meta page-style="{{c}}"><navigation-bar front-color="{{a}}" background-color="{{b}}"/></page-meta><page-content u-i="2ab3a3ca-0" bind:__l="__l"/><mp-privacy-popup u-i="2ab3a3ca-1" bind:__l="__l"/>

@@ -1,1 +1,0 @@
-import{d as t,o as e,a as i,c as o}from"./index-494d94e5.js";import s from"./pages-distribution-distribution-content.46ca4b63.js";import{c as r}from"./page-content-lifecycle.395b0c93.js";import"./page-meta.40a471af.js";import"./_plugin-vue_export-helper.1b428a4d.js";const a=t({__name:"distribution",setup:t=>(e(()=>{}),r(),(t,e)=>(i(),o(s)))});export{a as default};
