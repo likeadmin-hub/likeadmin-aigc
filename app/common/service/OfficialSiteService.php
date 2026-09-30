@@ -109,7 +109,87 @@ class OfficialSiteService
         }
         usort($modules, static fn(array $a, array $b) => $b['sort'] <=> $a['sort']);
 
-        return ['template_version' => 3, 'enabled' => $enabled, 'basic' => $basic, 'modules' => $modules];
+        return ['template_version' => 3, 'enabled' => $enabled, 'basic' => $basic, 'navigation' => self::normalizeNavigation($input['navigation'] ?? null), 'modules' => $modules];
+    }
+
+    private static function normalizeNavigation($navigation): array
+    {
+        $map = [];
+        foreach (is_array($navigation) ? $navigation : [] as $entry) {
+            if (is_array($entry) && isset($entry['key'])) $map[(string)$entry['key']] = $entry;
+        }
+        $result = [];
+        foreach (self::navigationDefaults() as $default) {
+            $entry = array_merge($default, $map[$default['key']] ?? []);
+            $link = self::safeLink((string)($entry['link'] ?? ''));
+            $groups = [];
+            foreach (array_slice(is_array($entry['groups']) ? $entry['groups'] : [], 0, 4) as $group) {
+                if (!is_array($group)) continue;
+                $items = [];
+                foreach (array_slice(is_array($group['items'] ?? null) ? $group['items'] : [], 0, 16) as $item) {
+                    if (!is_array($item)) continue;
+                    $path = self::safeLink((string)($item['link'] ?? ''));
+                    $live = ($item['status'] ?? '') === 'live' && $path !== '';
+                    $items[] = [
+                        'label' => self::text($item['label'] ?? '', 60),
+                        'icon' => in_array($item['icon'] ?? '', ['drama', 'canvas', 'image', 'video', 'audio', 'avatar', 'edit', 'grid', 'book', 'search', 'arrow'], true) ? $item['icon'] : 'grid',
+                        'status' => $live ? 'live' : 'planned', 'link' => $live ? $path : '',
+                    ];
+                }
+                $groups[] = ['title' => self::text($group['title'] ?? '', 60), 'items' => $items];
+            }
+            $result[] = [
+                'key' => $default['key'], 'enabled' => (int)!empty($entry['enabled']),
+                'sort' => max(0, min(999, (int)$entry['sort'])), 'label' => self::text($entry['label'], 40),
+                'mode' => ($entry['mode'] ?? '') === 'link' ? 'link' : 'dropdown',
+                'title' => self::text($entry['title'], 100), 'button_text' => self::text($entry['button_text'], 40),
+                'button_link' => self::safeLink((string)$entry['button_link']),
+                'status' => ($entry['status'] ?? '') === 'live' && $link !== '' ? 'live' : 'planned',
+                'link' => ($entry['status'] ?? '') === 'live' ? $link : '', 'groups' => $groups,
+            ];
+        }
+        usort($result, static fn(array $a, array $b) => $b['sort'] <=> $a['sort']);
+        return $result;
+    }
+
+    private static function navigationDefaults(): array
+    {
+        $item = static fn($label, $icon, $link = '') => ['label' => $label, 'icon' => $icon, 'status' => $link === '' ? 'planned' : 'live', 'link' => $link];
+        $group = static fn($title, $items) => ['title' => $title, 'items' => $items];
+        $entry = static fn($key, $label, $sort, $title, $path, $groups = [], $mode = 'dropdown') => [
+            'key' => $key, 'label' => $label, 'enabled' => 1, 'sort' => $sort, 'mode' => $mode,
+            'title' => $title, 'button_text' => $path === '' ? '' : '查看概览', 'button_link' => $path,
+            'link' => $mode === 'link' ? $path : '', 'status' => $mode === 'link' && $path !== '' ? 'live' : 'planned', 'groups' => $groups,
+        ];
+        return [
+            $entry('products', '产品', 100, '探索下一代 AI 创作产品', '/#products', [
+                $group('AI 视频创作', [$item('数字人视频创作', 'avatar', '/ai/avatar?tab=lip_sync'), $item('AI 短剧', 'drama', '/ai/short-drama'), $item('无限画布', 'canvas', '/app/aigc_canvas'), $item('PPT 转视频', 'video'), $item('手持商品数字人', 'avatar'), $item('Agent 生视频', 'video')]),
+                $group('数字人资产', [$item('全驱动数字人', 'avatar', '/ai/avatar?tab=image_human'), $item('声音克隆', 'audio', '/ai/avatar'), $item('定制数字人', 'avatar')]),
+                $group('内容增长工具', [$item('灵感创作', 'image', '/app/aigc_llm'), $item('智能视频剪辑', 'edit', '/ai/smart_clip'), $item('AI 商品图', 'image', '/ai/tools/aigc_product_image'), $item('爆款跟创', 'drama'), $item('视频翻译', 'video')]),
+            ]),
+            $entry('models', '模型', 90, '找到适合你的创作模型', '/ai', [
+                $group('创作模型', [$item('图像模型', 'image', '/ai/create?type=image'), $item('视频模型', 'video', '/ai/create?type=video'), $item('对话模型', 'grid', '/app/aigc_llm')]),
+                $group('数字人与声音', [$item('数字人模型', 'avatar', '/ai/avatar'), $item('音乐模型', 'audio', '/ai/tools/aigc_music'), $item('交互数字人模型', 'avatar')]),
+                $group('自有模型', [$item('自研语音模型', 'audio'), $item('专属企业模型', 'grid')]),
+            ]),
+            $entry('industries', '行业应用', 80, '为每一种表达，找到创作方式', '/#scenes', [
+                $group('内容与营销', [$item('品牌营销', 'avatar', '/ai/avatar'), $item('IP 打造', 'drama', '/ai/short-drama'), $item('电商带货', 'image', '/ai/tools/aigc_product_image')]),
+                $group('行业场景', [$item('教育培训口播', 'avatar', '/ai/avatar?tab=lip_sync'), $item('AI 主播', 'avatar', '/ai/avatar'), $item('短剧制作', 'drama', '/ai/short-drama'), $item('交互数字人', 'avatar'), $item('线索获客', 'search')]),
+            ]),
+            $entry('tools', '创作工具', 70, '从图像到声音，自由连接灵感', '/ai/tools', [
+                $group('图像工具', [$item('AI 绘图', 'image', '/ai/create?type=image'), $item('AI 商品图', 'image', '/ai/tools/aigc_product_image'), $item('AI 试衣', 'image', '/ai/tools/aigc_fitting'), $item('老照片修复', 'image', '/ai/tools/aigc_photo_restore')]),
+                $group('视频工具', [$item('AI 视频', 'video', '/ai/create?type=video'), $item('智能视频剪辑', 'edit', '/ai/smart_clip'), $item('AI 短剧', 'drama', '/ai/short-drama'), $item('无限画布', 'canvas', '/app/aigc_canvas')]),
+                $group('声音与文字', [$item('AI 音乐', 'audio', '/ai/tools/aigc_music'), $item('声音克隆', 'audio', '/ai/avatar'), $item('AI 对话', 'grid', '/app/aigc_llm')]),
+            ]),
+            $entry('open', '开放平台', 60, '连接你的产品与 AI 创作能力', '', [
+                $group('开发者', [$item('平台介绍', 'grid'), $item('开发者文档', 'book'), $item('API 控制台', 'grid'), $item('MCP', 'canvas')]),
+            ]),
+            $entry('pricing', '价格', 50, '选择适合你的创作方案', '/pricing', [], 'link'),
+            $entry('enterprise', '企业服务', 40, '面向团队的创作服务', '', [], 'link'),
+            $entry('help', '帮助中心', 30, '创作指南、更新与支持', '', [
+                $group('学习与支持', [$item('新手指南', 'book'), $item('使用教程', 'video'), $item('常见问题', 'book'), $item('更新日志', 'book'), $item('联系我们', 'avatar')]),
+            ]),
+        ];
     }
 
     private static function normalizeCards($cards): array
