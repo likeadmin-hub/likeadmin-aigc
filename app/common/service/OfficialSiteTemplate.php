@@ -7,7 +7,7 @@ class OfficialSiteTemplate
     public static function defaults(array $previous): array
     {
         $card = static fn($title, $description, $link = '', $icon = 'grid') => [
-            'title' => $title, 'description' => $description, 'link' => $link, 'icon' => $icon,
+            'title' => $title, 'tab_label' => $title, 'description' => $description, 'link' => $link, 'icon' => $icon,
             'kind' => 'custom', 'status' => 'live', 'button_text' => '开始创作', 'media' => '',
         ];
         $block = static fn($key, $sort, $title, $description = '', $cards = [], $button = '', $link = '') => [
