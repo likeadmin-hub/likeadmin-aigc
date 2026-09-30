@@ -92,7 +92,7 @@ class ShortDramaCanvasService
         // Validate before legacy normalization can discard malformed entries.
         $nodes=((int)($document['schema_version']??1)>=2 || array_key_exists('expected_revision',$params))
             ? GraphService::sanitizeManualNodes($document,$rawNodes) : $rawNodes;
-        $nodes = self::normalizeNodes($nodes);
+        $nodes = GraphService::registeredUploadNodes($document, self::normalizeNodes($nodes));
         $removed = array_unique(array_merge(
             self::decode((string)($document['removed_node_ids_json'] ?? '[]')),
             array_map('strval', (array)($params['removed_node_ids'] ?? []))
@@ -482,7 +482,7 @@ class ShortDramaCanvasService
     public static function submitAgentAutoNode(int $tenantId, int $userId, int $canvasId, string $nodeId): string
     {
         $document=self::ownedDocument($tenantId,$userId,$canvasId);
-        $nodes=self::decode((string)($document['nodes_json']??'[]'));
+        $nodes=GraphService::registeredUploadNodes($document,self::decode((string)($document['nodes_json']??'[]')));
         $edges=self::decode((string)($document['edges_json']??'[]'));
         $target=null;
         foreach ($nodes as $node) if ((string)($node['id']??'')===$nodeId) {$target=$node;break;}
@@ -884,7 +884,7 @@ class ShortDramaCanvasService
      * request input without allowing browser-supplied IDs or URLs. */
     private static function withGraphReferenceInputs(array $document,string $nodeId,array $params): array
     {
-        $nodes=self::decode((string)($document['nodes_json']??'[]'));
+        $nodes=GraphService::registeredUploadNodes($document,self::decode((string)($document['nodes_json']??'[]')));
         $edges=self::decode((string)($document['edges_json']??'[]'));
         $context=self::agentAutoDependencyState($nodes,$edges,$nodeId);
         if (($context['state']??'waiting')==='blocked') throw new Exception('前序或引用节点生成失败，请先重试前序节点');
@@ -1394,7 +1394,7 @@ class ShortDramaCanvasService
                 return self::formatDocument($current, true, true);
             });
         }
-        $nodes = self::decode((string)$row['nodes_json']);
+        $nodes = GraphService::registeredUploadNodes($row, self::decode((string)$row['nodes_json']));
         if ($includeRuns) self::queueVideoPosters((int)$row['tenant_id'], (int)$row['user_id'], (int)$row['id'], $nodes, false);
         $createTime = (int)($row['create_time'] ?? 0);
         $data = [
