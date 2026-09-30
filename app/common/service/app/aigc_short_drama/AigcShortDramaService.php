@@ -6101,6 +6101,35 @@ class AigcShortDramaService
         return [];
     }
 
+    /** Read-only compatibility for canvas uploads registered before storage
+     * metadata was copied. Resolve from this tenant's original file record,
+     * never from the current HTTP host or the current default storage engine.
+     */
+    public static function canvasAssetStorage(array $asset): array
+    {
+        if ((int)($asset['canvas_id']??0)<=0 || (int)($asset['tenant_id']??0)<=0
+            || !in_array($asset['asset_type']??'',['canvas_image','canvas_video','canvas_audio'],true)) return $asset;
+        $scope=trim((string)($asset['storage_scope']??''));
+        $engine=trim((string)($asset['storage_engine']??''));
+        $domain=trim((string)($asset['storage_domain']??''));
+        if ($scope!=='' && $engine!=='' && ($engine==='local' || $domain!=='')) return $asset;
+        $uris=self::storageLookupUris((string)($asset['uri']??''));
+        if (!$uris) return $asset;
+        $file=Db::name('tenant_file')->where('tenant_id',(int)$asset['tenant_id'])->whereIn('uri',$uris)
+            ->where(static function ($query) { $query->whereNull('delete_time')->whereOr('delete_time',0); })
+            ->order('id','desc')->find();
+        if (!$file) return $asset;
+        // Do not mix an explicit migrated storage location with an older upload.
+        foreach (['storage_scope','storage_engine','storage_domain'] as $key) {
+            $existing=trim((string)($asset[$key]??''));
+            if ($existing!=='' && $existing!==trim((string)($file[$key]??''))) return $asset;
+        }
+        foreach (['storage_scope','storage_engine','storage_domain'] as $key) {
+            if (trim((string)($asset[$key]??''))==='') $asset[$key]=(string)($file[$key]??'');
+        }
+        return $asset;
+    }
+
     /**
      * Uploaded-file metadata is authoritative when a browser leaves an
      * optional storage field blank.  Explicit non-empty values remain
@@ -15284,6 +15313,7 @@ class AigcShortDramaService
 
     private static function formatAsset(array $row): array
     {
+        $row = self::canvasAssetStorage($row);
         $uri = (string)($row['uri'] ?? '');
         $coverUri = (string)($row['cover_uri'] ?? '');
         $meta = self::assetReferenceMeta($row, self::localizeGenerationTaskPayload(self::jsonDecode((string)($row['meta_json'] ?? ''))));

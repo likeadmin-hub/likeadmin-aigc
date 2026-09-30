@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace app\common\service\app\aigc_short_drama\canvas_agent;
 
 use RuntimeException;
+use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use think\facade\Db;
 
 /** Versioned graph mutation boundary. Not exposed until all P1 writers migrate. */
@@ -444,6 +445,7 @@ final class GraphService
         ])->whereIn('asset_type',['canvas_image','canvas_video','canvas_audio'])->order('id','desc')->select()->toArray();
         $byNode=[];
         foreach ($assets as $asset) {
+            $asset=AigcShortDramaService::canvasAssetStorage($asset);
             $meta=json_decode((string)($asset['meta_json']??'{}'),true)?:[];
             if ((int)($meta['canvas_id']??0)!==(int)$document['id']) continue;
             $byNode[(string)($meta['node_id']??'')][]=$asset;
