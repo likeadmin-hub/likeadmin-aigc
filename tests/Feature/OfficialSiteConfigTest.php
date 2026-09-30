@@ -16,7 +16,7 @@ class OfficialSiteConfigTest extends TestCase
     public function testFreshTenantGetsActualCreationCapabilities(): void
     {
         $config = $this->normalize([]);
-        self::assertSame(2, $config['template_version']);
+        self::assertSame(3, $config['template_version']);
         self::assertSame('#2563eb', $config['basic']['accent_color']);
         $products = array_column($config['modules'], null, 'key')['products'];
         self::assertSame(['human', 'drama', 'canvas'], array_column($products['cards'], 'kind'));
@@ -33,7 +33,7 @@ class OfficialSiteConfigTest extends TestCase
         $legacy['modules'][0]['sort'] = 8;
         $result = $this->normalize($legacy);
         $hero = array_column($result['modules'], null, 'key')['hero'];
-        self::assertSame("让想象，\n成为作品。", $hero['title']);
+        self::assertSame("让想象力起飞，\n开启 AI 创作新方式", $hero['title']);
         self::assertSame(0, $hero['enabled']);
         self::assertSame(8, $hero['sort']);
         self::assertSame('My Tenant', $result['basic']['name']);
@@ -78,4 +78,30 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame([], $modules['faq']['cards']);
         self::assertSame('', $modules['products']['cards'][0]['link']);
     }
+    public function testDraftUpgradeAddsToolsAndPreservesTenantEdits(): void
+    {
+        $method = new \ReflectionMethod(OfficialSiteService::class, 'draftDefaults');
+        $method->setAccessible(true);
+        $draft = $method->invoke(null);
+        $draft['template_version'] = 2;
+        $draft['basic']['name'] = '自己的品牌';
+        $draft['modules'][1]['title'] = '租户自己改过的能力介绍';
+        $result = $this->normalize($draft);
+        $modules = array_column($result['modules'], null, 'key');
+        self::assertSame('自己的品牌', $result['basic']['name']);
+        self::assertSame('租户自己改过的能力介绍', $modules['products']['title']);
+        self::assertSame(0, $modules['faq']['enabled']);
+        self::assertSame(8, count($modules['tools']['cards']));
+        self::assertSame(2, count($modules['audiences']['cards']));
+        self::assertSame($result, $this->normalize($result));
+    }
+
+    public function testAnimationPreferencesRemainNumericOnRoundTrip(): void
+    {
+        $result = $this->normalize(['basic' => ['particles_enabled' => 0, 'motion_enabled' => 1]]);
+        self::assertSame(0, $result['basic']['particles_enabled']);
+        self::assertSame(1, $result['basic']['motion_enabled']);
+        self::assertSame($result, $this->normalize($result));
+    }
+
 }
