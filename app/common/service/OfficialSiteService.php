@@ -64,6 +64,7 @@ class OfficialSiteService
         }
         $basic = array_intersect_key($basic, $defaults['basic']);
         foreach ($basic as $key => &$value) {
+            if (in_array($key, ['particles_enabled', 'motion_enabled'], true)) { $value = (int)!empty($value); continue; }
             $value = self::text($value, in_array($key, ['description', 'keywords', 'footer_text'], true) ? 255 : ($key === 'title' ? 80 : 60));
         }
         unset($value);
@@ -81,6 +82,14 @@ class OfficialSiteService
             $override = $moduleMap[$default['key']] ?? [];
             // Replace only untouched old template content; keep tenant-authored content.
             if ((int)($input['template_version'] ?? 1) < 2 && self::isLegacyDefault($override)) $override = array_intersect_key($override, ['enabled' => 1, 'sort' => 1]);
+            if ((int)($input['template_version'] ?? 1) === 2 && self::isDraftDefault($override)) {
+                $draftMap = array_column(self::draftDefaults()['modules'], null, 'key');
+                $draft = $draftMap[$default['key']];
+                $override = array_intersect_key($override, ['enabled' => 1, 'sort' => 1]);
+                foreach (['enabled', 'sort'] as $field) {
+                    if (($override[$field] ?? null) === $draft[$field]) unset($override[$field]);
+                }
+            }
             $source = array_merge($default, $override);
             $raw = [
                 'key' => $default['key'], 'enabled' => (int)!empty($source['enabled']),
@@ -99,7 +108,7 @@ class OfficialSiteService
         }
         usort($modules, static fn(array $a, array $b) => $b['sort'] <=> $a['sort']);
 
-        return ['template_version' => 2, 'enabled' => $enabled, 'basic' => $basic, 'modules' => $modules];
+        return ['template_version' => 3, 'enabled' => $enabled, 'basic' => $basic, 'modules' => $modules];
     }
 
     private static function normalizeCards($cards): array
@@ -209,7 +218,72 @@ class OfficialSiteService
         return false;
     }
 
+    /** Only replace the unedited first draft; preserve tenant copy, media and order. */
+    private static function isDraftDefault(array $module): bool
+    {
+        foreach (self::draftDefaults()['modules'] as $draft) {
+            if (($module['key'] ?? '') !== $draft['key']) continue;
+            foreach (['title', 'description', 'eyebrow', 'button_text', 'button_link', 'media', 'poster'] as $key) {
+                if (($module[$key] ?? '') !== ($draft[$key] ?? '')) return false;
+            }
+            return self::normalizeCards($module['cards'] ?? []) === self::normalizeCards($draft['cards']);
+        }
+        return false;
+    }
+
     private static function defaults(): array
+    {
+        $config = self::draftDefaults();
+        $config['basic'] += [
+            'particles_enabled' => 1, 'motion_enabled' => 1,
+            'nav_tools' => '更多工具', 'nav_resources' => '了解更多',
+            'start_text' => '开始创作', 'video_text' => '播放介绍', 'footer_heading' => '让想象力起飞',
+        ];
+        foreach ($config['modules'] as &$module) {
+            if ($module['key'] === 'hero') {
+                $module['title'] = "让想象力起飞，\n开启 AI 创作新方式";
+                $module['description'] = '数字人、AI 短剧、无限画布。让每个想法，都有成为作品的可能。';
+            }
+            if ($module['key'] === 'products') {
+                $module['button_text'] = '探索全部创作工具';
+                $module['button_link'] = '/ai/tools';
+            }
+            if (in_array($module['key'], ['workflow', 'faq'], true)) $module['enabled'] = 0;
+            if ($module['key'] === 'faq') $module['sort'] = 42;
+            if ($module['key'] === 'cta') $module['sort'] = 10;
+        }
+        unset($module);
+        $card = static fn($title, $description, $link, $eyebrow, $button = '探索工具') => [
+            'title' => $title, 'description' => $description, 'link' => $link, 'eyebrow' => $eyebrow,
+            'kind' => 'custom', 'status' => 'live', 'button_text' => $button, 'media' => '',
+        ];
+        $config['modules'][] = [
+            'key' => 'audiences', 'enabled' => 1, 'sort' => 60, 'title' => '', 'eyebrow' => '', 'description' => '',
+            'media' => '', 'poster' => '', 'media_type' => 'image', 'button_text' => '', 'button_link' => '',
+            'cards' => [
+                $card('为每一位创作者', '从一个想法，开始下一次创作', '/ai', '你的创意，现在启程', '开始创作'),
+                $card('为每一种创作节奏', '选择适合自己的创作方案', '/pricing', '探索更多创作可能', '查看价格方案'),
+            ],
+        ];
+        $config['modules'][] = [
+            'key' => 'tools', 'enabled' => 1, 'sort' => 50, 'title' => '还有更多，等待你的灵感', 'eyebrow' => 'MORE WAYS TO CREATE',
+            'description' => '从图像到视频，从音乐到文字。在一个工作台，找到你的下一件创作工具。',
+            'media' => '', 'poster' => '', 'media_type' => 'image', 'button_text' => '探索全部工具', 'button_link' => '/ai/tools',
+            'cards' => [
+                $card('AI 绘图', '描述想象中的画面，借助生图工具探索不同的视觉表达。', '/app/aigc_image', 'IMAGE GENERATION'),
+                $card('AI 视频', '通过视频生成工具，把创作想法继续变成动态画面。', '/app/aigc_video', 'VIDEO GENERATION'),
+                $card('AI 商品图', '选择商品场景与模板，为产品探索新的展示方式。', '/ai/tools/aigc_product_image', 'PRODUCT PHOTOGRAPHY'),
+                $card('智能视频剪辑', '组织真人口播、素材混剪或新闻体视频，继续打磨你的内容。', '/ai/smart_clip', 'SMART VIDEO EDITING'),
+                $card('AI 音乐', '从歌词、提示词或参考音频开始，探索音乐与声音创作。', '/ai/tools/aigc_music', 'MUSIC GENERATION'),
+                $card('AI 对话', '以多轮对话整理灵感、推敲文案，让创作思路持续展开。', '/app/aigc_llm', 'AI CONVERSATION'),
+                $card('AI 试衣', '结合人物与服装素材，预览不同搭配的视觉效果。', '/ai/tools/aigc_fitting', 'VIRTUAL TRY-ON'),
+                $card('老照片修复', '修复、上色，让旧照片中的记忆重新清晰起来。', '/ai/tools/aigc_photo_restore', 'PHOTO RESTORATION'),
+            ],
+        ];
+        return $config;
+    }
+
+    private static function draftDefaults(): array
     {
         $module = static fn($key, $sort, $eyebrow, $title, $description, $cards = [], $button = '', $link = '') => [
             'key' => $key, 'enabled' => 1, 'sort' => $sort, 'eyebrow' => $eyebrow, 'title' => $title,
