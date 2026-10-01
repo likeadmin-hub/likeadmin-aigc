@@ -206,7 +206,7 @@ class AppRegistryService
      * Frontend source is intentionally kept out of app business code; these
      * declared files are the compiled/static bridge used by the current shell.
      */
-    public static function installPublicAssets(array $manifest, string $sourceRoot): void
+    public static function installPublicAssets(array $manifest, string $sourceRoot, bool $preserveExisting = false): void
     {
         foreach ((array)($manifest['public_assets'] ?? []) as $asset) {
             if (!is_array($asset)) {
@@ -224,15 +224,28 @@ class AppRegistryService
             }
             $target = root_path() . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $targetRelative);
             $source = rtrim($sourceRoot, '/\\') . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $sourceRelative);
+            // Docker serves the assets baked into both the PHP and Nginx images.
+            // Reinstalling an app must not overwrite those immutable resources.
+            if (getenv('LIKEADMIN_IMMUTABLE_ASSETS') === '1') {
+                if (!is_file($target)) {
+                    throw new RuntimeException('只读部署缺少应用前端资源，请更新代码并重建镜像: ' . $targetRelative);
+                }
+                self::ensureShellAssetTag($targetRelative, $manifest);
+                continue;
+            }
             // Package updates deploy the declared asset before re-running the
             // local installer, while the business-code copy intentionally omits
             // frontend source. Reuse that already-deployed asset in this case.
-            if (!is_file($source) && is_file($target)) {
+            if (($preserveExisting || !is_file($source)) && is_file($target)) {
                 self::ensureShellAssetTag($targetRelative, $manifest);
                 continue;
             }
             if (!is_file($source)) {
                 throw new RuntimeException('应用前端资源不存在: ' . $sourceRelative);
+            }
+            if (is_file($target) && hash_file('sha256', $source) === hash_file('sha256', $target)) {
+                self::ensureShellAssetTag($targetRelative, $manifest);
+                continue;
             }
             if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0777, true) && !is_dir(dirname($target))) {
                 throw new RuntimeException('应用前端资源目录不可写: ' . dirname($target));
@@ -273,6 +286,14 @@ class AppRegistryService
         $html = file_get_contents($shellPath);
         if ($html === false) {
             throw new RuntimeException('应用前端壳读取失败: ' . $shellRelative);
+        }
+
+        if (getenv('LIKEADMIN_IMMUTABLE_ASSETS') === '1') {
+            $pattern = '#<script\\b[^>]*\\bsrc=(["\\\'])/?' . preg_quote($basename, '#') . '(?:\\?[^"\\\']*)?\\1[^>]*>\\s*</script>#i';
+            if (!preg_match($pattern, $html)) {
+                throw new RuntimeException('只读部署缺少应用前端入口，请更新代码并重建镜像: ' . $shellRelative);
+            }
+            return;
         }
 
         $version = trim((string)($manifest['version'] ?? ''));

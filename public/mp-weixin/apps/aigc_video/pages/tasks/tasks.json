@@ -2,6 +2,6 @@
   "navigationBarTitleText": "视频任务",
   "usingComponents": {
     "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
-    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
+    "page-content": "./tasks-content"
   }
 }

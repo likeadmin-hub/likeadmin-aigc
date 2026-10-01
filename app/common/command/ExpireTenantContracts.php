@@ -19,6 +19,6 @@ class ExpireTenantContracts extends Command
     {
         $count = TenantContractService::expireSignedTenants();
         $output->writeln('expired_tenants: ' . $count);
-        return self::SUCCESS;
+        return 0;
     }
 }

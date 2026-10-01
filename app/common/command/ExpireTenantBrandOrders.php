@@ -17,6 +17,6 @@ class ExpireTenantBrandOrders extends Command
     protected function execute(Input $input, Output $output)
     {
         $output->writeln('expired=' . TenantBrandService::expirePendingOrders());
-        return self::SUCCESS;
+        return 0;
     }
 }

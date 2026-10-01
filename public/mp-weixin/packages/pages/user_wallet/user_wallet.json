@@ -1,8 +1,7 @@
 {
   "navigationBarTitleText": "我的算力",
   "usingComponents": {
-    "u-tabs": "../../../uni_modules/vk-uview-ui/components/u-tabs/u-tabs",
-    "z-paging": "../../../node-modules/z-paging/components/z-paging/z-paging",
-    "mp-privacy-popup": "../../../components/mp-privacy-popup/mp-privacy-popup"
+    "mp-privacy-popup": "../../../components/mp-privacy-popup/mp-privacy-popup",
+    "page-content": "./user_wallet-content"
   }
 }
