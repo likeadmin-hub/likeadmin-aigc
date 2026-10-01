@@ -1,6 +1,9 @@
 (function () {
   'use strict';
 
+  // Native Nuxt tools own layout, tenant context and task lifecycle.
+  if (document.getElementById('__nuxt')) return;
+
   var PATHS = ['/ai/tools/aigc_watermark_removal', '/ai/tools/aigc_watermark_removal/'];
   var overlayId = 'aigc-watermark-removal-page';
   var pollTimer = null;

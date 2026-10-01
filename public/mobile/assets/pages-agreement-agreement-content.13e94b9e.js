@@ -1,1 +1,0 @@
-import{_ as e}from"./agreement-content.vue_vue_type_script_setup_true_lang.d70d355c.js";import"./index-a778dcc3.js";import"./u-parse.cfe92450.js";import"./_plugin-vue_export-helper.1b428a4d.js";import"./page-content-lifecycle.567e0e96.js";export{e as default};

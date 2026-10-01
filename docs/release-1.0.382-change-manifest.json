@@ -1,0 +1,349 @@
+{
+  "version": "1.0.382",
+  "base_version": "1.0.381",
+  "server_published_baseline": "b40cb7db703315f4e9ed8f78352fb7e252d7d499",
+  "server_head": "44e8d46a3e371e9e865487a291a810aa61233359",
+  "web_baseline": "8811ddf6fb990c3eea2afa9eb8d6bc14d8f397f6",
+  "web_head": "e3a675674281e7d5b18e9542ba856a82f6a09ecc",
+  "server_source_changes": [
+    {
+      "status": "A",
+      "path": ".gitattributes"
+    },
+    {
+      "status": "M",
+      "path": "Dockerfile"
+    },
+    {
+      "status": "M",
+      "path": "README.md"
+    },
+    {
+      "status": "A",
+      "path": "app/apps/aigc_short_drama/docs/canvas-chat-deployment-check.md"
+    },
+    {
+      "status": "M",
+      "path": "app/apps/aigc_short_drama/tests/agent/p2_reconciliation.php"
+    },
+    {
+      "status": "A",
+      "path": "app/apps/aigc_short_drama/tests/agent/p4_uploaded_asset_storage.php"
+    },
+    {
+      "status": "A",
+      "path": "app/apps/aigc_short_drama/tests/agent/p4_uploaded_reference_readiness.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/command/Crontab.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/command/ExpireTenantBrandOrders.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/command/ExpireTenantContracts.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/command/SettleDistributionCommission.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/OfficialSiteModelCatalog.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/OfficialSiteService.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/OfficialSiteTemplate.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/AppRegistryService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/aigc_short_drama/AigcShortDramaService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/aigc_short_drama/ShortDramaCanvasService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/aigc_short_drama/canvas_agent/AutoGenerationDispatcher.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/aigc_short_drama/canvas_agent/ConversationReconciliation.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/aigc_short_drama/canvas_agent/GraphService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/aigc_video/AigcVideoReferenceAssetService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/platformapi/db/tenantData.sql"
+    },
+    {
+      "status": "M",
+      "path": "app/platformapi/logic/setting/user/UserLogic.php"
+    },
+    {
+      "status": "M",
+      "path": "app/platformapi/validate/setting/UserConfigValidate.php"
+    },
+    {
+      "status": "M",
+      "path": "app/tenantapi/logic/setting/user/UserLogic.php"
+    },
+    {
+      "status": "M",
+      "path": "app/tenantapi/validate/setting/UserConfigValidate.php"
+    },
+    {
+      "status": "M",
+      "path": "config/project.php"
+    },
+    {
+      "status": "M",
+      "path": "docker-compose.yml"
+    },
+    {
+      "status": "A",
+      "path": "docker/php/prepare-assets.php"
+    },
+    {
+      "status": "A",
+      "path": "docs/official-site-v4.md"
+    },
+    {
+      "status": "M",
+      "path": "public/install/db/like.sql"
+    },
+    {
+      "status": "A",
+      "path": "public/upgrade/20261001_install_schema_parity.sql"
+    },
+    {
+      "status": "A",
+      "path": "tests/Feature/OfficialSiteConfigTest.php"
+    },
+    {
+      "status": "M",
+      "path": "tests/Feature/ShortDramaVideoReferenceContractTest.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/Unit/ImmutableAppAssetsTest.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/Unit/IssueIkjf3nRuntimeTest.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/install-schema-parity.integration.py"
+    },
+    {
+      "status": "A",
+      "path": "upgrade/20261001_install_schema_parity.sql"
+    },
+    {
+      "status": "M",
+      "path": "upgrade/version.json"
+    }
+  ],
+  "frontend_source_changes": [
+    "A\tdocs/official-site-v4.md",
+    "A\tdocs/official-website-v2.md",
+    "M\tpc/api/short_drama.ts",
+    "M\tpc/app.vue",
+    "M\tpc/apps/aigc_action_transfer/ActionTransferCreator.vue",
+    "M\tpc/apps/aigc_digital_human/AvatarCreationHistory.vue",
+    "M\tpc/apps/aigc_digital_human/api.ts",
+    "M\tpc/apps/aigc_music/AigcMusicCreator.vue",
+    "M\tpc/apps/aigc_music/MusicIntroduction.vue",
+    "M\tpc/apps/aigc_music_cover/MusicCoverCreator.vue",
+    "M\tpc/apps/aigc_person_replacement/PersonReplacementCreator.vue",
+    "M\tpc/apps/aigc_product_image/ProductImageCreator.vue",
+    "M\tpc/apps/aigc_product_image/photo_restore_workbench.scss",
+    "M\tpc/apps/aigc_product_promo_video/ProductPromoVideoCreator.vue",
+    "M\tpc/apps/aigc_product_suite/ProductSuiteCreator.vue",
+    "M\tpc/apps/aigc_short_drama/canvas/conversation-state.mjs",
+    "M\tpc/apps/aigc_style_transfer/StyleTransferCreator.vue",
+    "M\tpc/apps/aigc_video/components/ImagineVideoStudio.vue",
+    "A\tpc/apps/aigc_watermark_removal/WatermarkRemovalCreator.vue",
+    "A\tpc/apps/aigc_watermark_removal/api.ts",
+    "M\tpc/apps/smart_clip/components/MaterialManager.vue",
+    "M\tpc/apps/smart_clip/components/SmartClipCreator.vue",
+    "M\tpc/apps/smart_clip/components/TaskResultPanel.vue",
+    "A\tpc/assets/images/official-site-v2/README.md",
+    "A\tpc/assets/images/official-site-v2/presenter.png",
+    "D\tpc/assets/images/official-site/capability-atlas.png",
+    "D\tpc/assets/images/official-site/case-knowledge-assistant.png",
+    "D\tpc/assets/images/official-site/case-outcomes.png",
+    "D\tpc/assets/images/official-site/case-partner-ecosystem.png",
+    "D\tpc/assets/images/official-site/home-hero-network.png",
+    "D\tpc/assets/images/official-site/join-opc-brand-platform.png",
+    "D\tpc/assets/images/official-site/product-compute-delivery.png",
+    "D\tpc/assets/images/official-site/product-knowledge-network.png",
+    "D\tpc/assets/images/official-site/product-multimodal-studio.png",
+    "D\tpc/assets/images/official-site/product-workflow-system.png",
+    "D\tpc/assets/images/official-site/scene-content-factory.png",
+    "D\tpc/assets/images/official-site/scene-journey.png",
+    "D\tpc/assets/images/official-site/scene-service-sales.png",
+    "D\tpc/assets/images/official-site/scenes-hero-table.png",
+    "M\tpc/assets/styles/coral-tools.scss",
+    "M\tpc/assets/styles/imagine-skins.scss",
+    "M\tpc/assets/styles/imagine-tools.css",
+    "M\tpc/assets/styles/index.scss",
+    "A\tpc/assets/styles/pc-modal-theme.scss",
+    "M\tpc/assets/styles/themes.scss",
+    "A\tpc/assets/styles/tool-controls.css",
+    "M\tpc/components/ai-create-composer.vue",
+    "A\tpc/components/ai-workspace/AccountSettingsMenu.vue",
+    "M\tpc/components/ai-workspace/ImagineAigcHome.vue",
+    "M\tpc/components/ai-workspace/ImagineToolResults.vue",
+    "M\tpc/components/ai-workspace/ImagineUploadIcon.vue",
+    "M\tpc/components/ai-workspace/ToolEditorDialog.vue",
+    "M\tpc/components/ai-workspace/asset-gallery-modal.vue",
+    "M\tpc/components/ai-workspace/credit-agreement-modal.vue",
+    "M\tpc/components/ai-workspace/credit-purchase-modal.vue",
+    "M\tpc/components/ai-workspace/credit-usage-modal.vue",
+    "M\tpc/components/ai-workspace/help-float.vue",
+    "M\tpc/components/ai-workspace/membership-pay-modal.vue",
+    "M\tpc/components/ai-workspace/notice-center.vue",
+    "M\tpc/components/ai-workspace/tool-detail-template.vue",
+    "M\tpc/components/ai-workspace/user-panel.vue",
+    "A\tpc/components/official-site/OfficialBackdrop.vue",
+    "A\tpc/components/official-site/OfficialCanvasDemo.vue",
+    "A\tpc/components/official-site/OfficialCarousel.vue",
+    "M\tpc/components/official-site/OfficialCasesPage.vue",
+    "A\tpc/components/official-site/OfficialDirector.vue",
+    "A\tpc/components/official-site/OfficialHero.vue",
+    "A\tpc/components/official-site/OfficialIcon.vue",
+    "A\tpc/components/official-site/OfficialLoopVideo.vue",
+    "A\tpc/components/official-site/OfficialMarquee.vue",
+    "A\tpc/components/official-site/OfficialMediaDialog.vue",
+    "A\tpc/components/official-site/OfficialModels.vue",
+    "D\tpc/components/official-site/OfficialModulePage.vue",
+    "A\tpc/components/official-site/OfficialNavigation.vue",
+    "A\tpc/components/official-site/OfficialParticles.vue",
+    "M\tpc/components/official-site/OfficialProductsPage.vue",
+    "A\tpc/components/official-site/OfficialScenes.vue",
+    "M\tpc/components/official-site/OfficialScenesPage.vue",
+    "A\tpc/components/official-site/OfficialSiteContent.vue",
+    "A\tpc/components/official-site/OfficialSiteMedia.vue",
+    "M\tpc/components/official-site/OfficialSiteShell.vue",
+    "A\tpc/components/official-site/OfficialToolArtwork.vue",
+    "A\tpc/components/official-site/OfficialToolRibbon.vue",
+    "A\tpc/components/official-site/OfficialTyped.vue",
+    "A\tpc/components/official-site/OfficialVisual.vue",
+    "A\tpc/components/official-site/OfficialWebsitePage.vue",
+    "A\tpc/components/official-site/director.css",
+    "A\tpc/components/official-site/fonts.css",
+    "A\tpc/components/official-site/hero.css",
+    "A\tpc/components/official-site/heroMotion.ts",
+    "A\tpc/components/official-site/models.css",
+    "A\tpc/components/official-site/official-site.css",
+    "M\tpc/components/pc-login-modal.vue",
+    "M\tpc/components/short-drama/StoryboardCreationWorkbench.vue",
+    "M\tpc/components/short-drama/canvas/CanvasAgentConversation.vue",
+    "M\tpc/components/short-drama/canvas/ShortDramaCanvasNode.vue",
+    "M\tpc/composables/useImagineToolPresentation.ts",
+    "M\tpc/pages/ai/avatar.vue",
+    "M\tpc/pages/ai/create.vue",
+    "M\tpc/pages/ai/short-drama/canvas.vue",
+    "M\tpc/pages/ai/smart_clip.vue",
+    "M\tpc/pages/ai/tools/[id].vue",
+    "M\tpc/pages/cases.vue",
+    "M\tpc/pages/index.vue",
+    "M\tpc/pages/join-opc/index.vue",
+    "M\tpc/pages/join-opc/payment.vue",
+    "M\tpc/pages/join-opc/result.vue",
+    "A\tpc/pages/official/[slug].vue",
+    "M\tpc/pages/pricing.vue",
+    "M\tpc/pages/products.vue",
+    "M\tpc/pages/scenes.vue",
+    "D\tpc/public/ai/tools/aigc_watermark_removal/index.html",
+    "M\tpc/public/music-cover-page.js",
+    "A\tpc/public/official-site/fonts/bricolage-grotesque-400.ttf",
+    "A\tpc/public/official-site/fonts/bricolage-grotesque-700.ttf",
+    "A\tpc/public/official-site/fonts/bricolage-grotesque-800.ttf",
+    "A\tpc/public/official-site/fonts/bricolagegrotesque-OFL.txt",
+    "A\tpc/public/official-site/fonts/inter-400.ttf",
+    "A\tpc/public/official-site/fonts/inter-600.ttf",
+    "A\tpc/public/official-site/fonts/inter-700.ttf",
+    "A\tpc/public/official-site/fonts/inter-800.ttf",
+    "A\tpc/public/official-site/fonts/inter-900.ttf",
+    "A\tpc/public/official-site/fonts/inter-OFL.txt",
+    "A\tpc/public/official-site/icons/arrow.svg",
+    "A\tpc/public/official-site/icons/audio.svg",
+    "A\tpc/public/official-site/icons/avatar.svg",
+    "A\tpc/public/official-site/icons/book.svg",
+    "A\tpc/public/official-site/icons/canvas.svg",
+    "A\tpc/public/official-site/icons/chevron.svg",
+    "A\tpc/public/official-site/icons/close.svg",
+    "A\tpc/public/official-site/icons/drama.svg",
+    "A\tpc/public/official-site/icons/edit.svg",
+    "A\tpc/public/official-site/icons/grid.svg",
+    "A\tpc/public/official-site/icons/image.svg",
+    "A\tpc/public/official-site/icons/search.svg",
+    "A\tpc/public/official-site/icons/video.svg",
+    "A\tpc/public/official-site/placeholder.svg",
+    "M\tpc/public/watermark-removal-page.js",
+    "M\tpc/scripts/build.mjs",
+    "A\tpc/tests/help-float-navigation.test.cjs",
+    "A\tpc/tests/modal-backdrop-contract.test.cjs",
+    "A\tpc/tests/official-site-style-boundaries.test.cjs",
+    "M\tpc/tests/short-drama-canvas-idempotent-run.test.cjs",
+    "M\tpc/tests/short-drama-conversation-state.test.cjs",
+    "A\tpc/tests/short-drama-quote-preview.test.cjs",
+    "A\tpc/tests/short-drama-submit-state.test.cjs",
+    "A\tpc/tests/tool-workbench-lifecycle.test.cjs",
+    "A\tpc/utils/officialSiteModels.ts",
+    "A\ttenant/src/views/official_website/MediaFields.vue",
+    "A\ttenant/src/views/official_website/NavigationEditor.vue",
+    "M\ttenant/src/views/official_website/index.vue"
+  ],
+  "runtime_dirs": [
+    "public/admin",
+    "public/platform",
+    "public/pc",
+    "public/_nuxt",
+    "public/media",
+    "public/mobile",
+    "public/mp-weixin"
+  ],
+  "sql_order": [
+    "sql/structure/20261001_install_schema_parity.sql"
+  ],
+  "intentional_package_exclusions": [
+    ".gitattributes",
+    "README.md",
+    "docs/official-site-v4.md",
+    "tests/Feature/OfficialSiteConfigTest.php",
+    "tests/Feature/ShortDramaVideoReferenceContractTest.php",
+    "tests/Unit/ImmutableAppAssetsTest.php",
+    "tests/Unit/IssueIkjf3nRuntimeTest.php",
+    "tests/install-schema-parity.integration.py",
+    "upgrade/version.json"
+  ],
+  "builds": [
+    "pc",
+    "tenant",
+    "platform",
+    "h5",
+    "mp-weixin"
+  ]
+}

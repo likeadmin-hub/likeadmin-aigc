@@ -16,19 +16,19 @@ def run(*args, data=None):
     return result.stdout
 
 def sql(database, text):
-    return run('docker', 'exec', '-i', name, 'mysql', '--default-character-set=utf8mb4', '-uroot', '-N', database, data=text)
+    return run('docker', 'exec', '-i', name, 'mysql', '-h127.0.0.1', '--default-character-set=utf8mb4', '-uroot', '-N', database, data=text)
 
 try:
     run('docker', 'run', '-d', '--name', name, '-e', 'MYSQL_ALLOW_EMPTY_PASSWORD=yes', 'mysql:8.0',
         '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci')
     for attempt in range(60):
-        probe = subprocess.run(['docker', 'exec', name, 'mysqladmin', 'ping', '--silent'], capture_output=True)
+        probe = subprocess.run(['docker', 'exec', name, 'mysqladmin', '-h127.0.0.1', 'ping', '--silent'], capture_output=True)
         if probe.returncode == 0:
             break
         time.sleep(1)
     else:
         raise RuntimeError('MySQL startup timed out')
-    run('docker', 'exec', name, 'mysql', '-uroot', '-e',
+    run('docker', 'exec', name, 'mysql', '-h127.0.0.1', '-uroot', '-e',
         'CREATE DATABASE parity_fresh; CREATE DATABASE parity_custom; CREATE DATABASE parity_legacy;')
     install = (root / 'public/install/db/like.sql').read_text()
     repair = (root / 'public/upgrade/20261001_install_schema_parity.sql').read_text()
