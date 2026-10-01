@@ -17,7 +17,7 @@ class OfficialSiteConfigTest extends TestCase
     public function testNewArchitectureUsesActualToolsAndSixRequestedEntries(): void
     {
         $config = $this->normalize([]);
-        self::assertSame(4, $config['template_version']);
+        self::assertSame(6, $config['template_version']);
         self::assertSame(['应用工具','模型','开放平台','价格','企业服务','帮助'], array_column($config['navigation'], 'label'));
         self::assertSame(['工作室','图片','视频'], array_column($config['navigation'][0]['groups'], 'title'));
         self::assertSame(['dropdown','dropdown','link','link','link','link'], array_column($config['navigation'], 'mode'));
@@ -81,9 +81,11 @@ class OfficialSiteConfigTest extends TestCase
         $hero = array_column($result['modules'],null,'key')['hero'];
         self::assertSame('', $hero['button_link']);
         self::assertCount(24, $hero['cards']);
-        self::assertSame('', $hero['cards'][0]['link']);
+        self::assertArrayNotHasKey('link', $hero['cards'][0]);
         self::assertArrayNotHasKey('private_note', $hero['cards'][0]);
-        self::assertSame(30, $hero['autoplay_seconds']);
+        self::assertArrayNotHasKey('autoplay_seconds', $hero);
+        $scenes = array_column($this->normalize(['template_version'=>6,'modules'=>[['key'=>'scenes','autoplay_seconds'=>900]]])['modules'],null,'key')['scenes'];
+        self::assertSame(30, $scenes['autoplay_seconds']);
     }
     public function testCustomNavigationSupportsSecureExternalDestinationsAndIcons(): void
     {
@@ -129,4 +131,146 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame([],$modules['faq']['cards']);
         self::assertSame($config,$this->normalize($config));
     }
+    public function testHeroSlidesPreserveIndependentPostersAndMobileMedia(): void
+    {
+        $config = $this->normalize(['template_version'=>4,'modules'=>[['key'=>'hero',
+            'media'=>'uploads/legacy.mp4', 'poster'=>'uploads/legacy.webp',
+            'slides'=>[
+                ['media'=>'uploads/a.mp4','poster'=>'uploads/a.webp','mobile_media'=>'uploads/portrait.mp4','mobile_poster'=>'uploads/portrait.webp','sort'=>20],
+                ['media'=>'uploads/b.mp4','enabled'=>0,'sort'=>30,'private_note'=>'secret'],
+            ],
+        ]]]);
+        $hero = array_column($config['modules'],null,'key')['hero'];
+        self::assertCount(2,$hero['slides']);
+        self::assertSame(0,$hero['slides'][0]['enabled']);
+        self::assertSame('uploads/a.webp',$hero['slides'][1]['poster']);
+        self::assertSame('uploads/portrait.mp4',$hero['slides'][1]['mobile_media']);
+        self::assertSame('uploads/portrait.webp',$hero['slides'][1]['mobile_poster']);
+        self::assertSame('uploads/legacy.mp4',$hero['media']);
+        self::assertArrayNotHasKey('private_note',$hero['slides'][0]);
+        self::assertSame($config,$this->normalize($config));
+        $empty = $this->normalize(['template_version'=>4,'modules'=>[['key'=>'hero','slides'=>[]]]]);
+        self::assertSame([],array_column($empty['modules'],null,'key')['hero']['slides']);
+    }
+
+    public function testLiveV4RemnantsUpgradeToTheSamePresetAsANewTenant(): void
+    {
+        $legacy = json_decode(file_get_contents(__DIR__ . '/../fixtures/official-site-v4-remnants.json'), true);
+        $config = $this->normalize($legacy);
+        $modules = array_column($config['modules'], null, 'key');
+        $fresh = array_column($this->normalize([])['modules'], null, 'key');
+        foreach (['hero', 'products', 'pricing', 'join'] as $key) {
+            foreach (['title', 'description', 'button_text', 'button_link', 'cards'] as $field) {
+                self::assertSame($fresh[$key][$field] ?? null, $modules[$key][$field] ?? null, "$key.$field");
+            }
+        }
+        self::assertSame($config, $this->normalize($config));
+    }
+
+    public function testRemnantRepairPreservesCustomMediaCopyBrandAndRetiredCardOverrides(): void
+    {
+        $config = json_decode(file_get_contents(__DIR__ . '/../fixtures/official-site-v4-remnants.json'), true);
+        $config['basic'] = ['name'=>'自己的品牌', 'logo'=>'uploads/logo.png', 'accent_color'=>'#aabbcc'];
+        foreach ($config['modules'] as &$module) {
+            if ($module['key'] === 'hero') {
+                $module['title'] = '自己的标题';
+                $module['media'] = 'uploads/hero.mp4';
+                $module['enabled'] = 0;
+                $module['sort'] = 500;
+            }
+            if ($module['key'] === 'products') {
+                $module['cards'][1]['media'] = 'uploads/custom-multimodal.png';
+                $module['cards'][7]['description'] = '自己的工作流介绍';
+            }
+        }
+        unset($module);
+        $result = $this->normalize($config);
+        $modules = array_column($result['modules'], null, 'key');
+        self::assertSame('自己的标题', $modules['hero']['title']);
+        self::assertSame('uploads/hero.mp4', $modules['hero']['media']);
+        self::assertSame(0, $modules['hero']['enabled']);
+        self::assertSame(500, $modules['hero']['sort']);
+        self::assertCount(8, $modules['products']['cards']);
+        self::assertSame('uploads/custom-multimodal.png', $modules['products']['cards'][1]['media']);
+        self::assertSame('自己的工作流介绍', $modules['products']['cards'][7]['description']);
+        self::assertSame('自己的品牌', $result['basic']['name']);
+        self::assertSame('uploads/logo.png', $result['basic']['logo']);
+        self::assertSame('#aabbcc', $result['basic']['accent_color']);
+        self::assertSame($result, $this->normalize($result));
+    }
+
+    public function testAllHistoricalPresetCopyUpgradesAndV5OverridesAreNotReinterpreted(): void
+    {
+        $defaults = array_column($this->normalize([])['modules'], null, 'key');
+        foreach (['legacyDefaults'=>1, 'draftDefaults'=>2, 'v3Defaults'=>3] as $method=>$version) {
+            $config = $this->call($method);
+            $config['template_version'] = $version;
+            $result = $this->normalize($config);
+            $modules = array_column($result['modules'], null, 'key');
+            foreach (['hero','products','pricing','join'] as $key) {
+                self::assertSame($defaults[$key]['title'], $modules[$key]['title'], "$method.$key");
+            }
+            self::assertCount(6, $modules['products']['cards']);
+            self::assertSame($result, $this->normalize($result));
+        }
+        $custom = $this->normalize(['template_version'=>5, 'modules'=>[['key'=>'hero','title'=>'让 AI 成为增长团队的一部分']]]);
+        self::assertSame('让 AI 成为增长团队的一部分', array_column($custom['modules'],null,'key')['hero']['title']);
+    }
+
+    public function testV6RemovesUnusedFieldsWithoutLosingLiveContent(): void
+    {
+        $input = ['template_version'=>5,'basic'=>['particles_enabled'=>1,'nav_products'=>'旧导航','join_text'=>'合作入口'], 'modules'=>[
+            ['key'=>'hero','background_media'=>'uploads/unused.mp4','media'=>'uploads/fallback.mp4','media_type'=>'video',
+                'cards'=>[['title'=>'素材描述','media'=>'uploads/hero.png','icon_url'=>'uploads/unused-icon.png','link'=>'/ai','kind'=>'canvas','canvas_image'=>'uploads/unused.png']],
+                'slides'=>[['media'=>'uploads/film.mp4','poster'=>'uploads/poster.png','mobile_media'=>'uploads/mobile.mp4','mobile_poster'=>'uploads/mobile.png']]],
+            ['key'=>'partners','description'=>'无效介绍','cards'=>[['title'=>'品牌','description'=>'无效介绍','icon'=>'image','icon_url'=>'uploads/brand.svg','link'=>'/ai','button_text'=>'无效按钮']]],
+            ['key'=>'scenes','button_text'=>'无效按钮','cards'=>[['title'=>'场景','description'=>'介绍','icon'=>'image','icon_url'=>'uploads/unused.svg','eyebrow'=>'无效标签','button_text'=>'进入','link'=>'/ai','media'=>'uploads/scene.mp4','media_type'=>'video']]],
+            ['key'=>'models','cards'=>[['model_id'=>'market_image_model:42','title'=>'模型','icon'=>'audio','link'=>'/wrong','eyebrow'=>'无效标签','icon_url'=>'uploads/model.svg']]],
+            ['key'=>'faq','cards'=>[['title'=>'问题','description'=>'回答','media'=>'uploads/unused.png','link'=>'/ai']]],
+            ['key'=>'footer','description'=>'无效介绍','cards'=>[['title'=>'工具','description'=>'无效介绍','icon'=>'grid','button_text'=>'无效按钮','link'=>'/ai','status'=>'live']]],
+            ['key'=>'pricing','eyebrow'=>'价格小标题','button_text'=>'无效按钮','button_link'=>'/wrong'],
+            ['key'=>'join','eyebrow'=>'合作小标题','button_text'=>'无效按钮','button_link'=>'/wrong'],
+        ]];
+        $config=$this->normalize($input);
+        $m=array_column($config['modules'],null,'key');
+        self::assertArrayNotHasKey('particles_enabled',$config['basic']);
+        self::assertArrayNotHasKey('nav_products',$config['basic']);
+        self::assertSame('合作入口',$config['basic']['join_text']);
+        self::assertArrayNotHasKey('background_media',$m['hero']);
+        self::assertSame('uploads/fallback.mp4',$m['hero']['media']);
+        self::assertSame('uploads/mobile.png',$m['hero']['slides'][0]['mobile_poster']);
+        self::assertSame(['title','enabled','media','poster','media_type','sort'],array_keys($m['hero']['cards'][0]));
+        self::assertSame('uploads/brand.svg',$m['partners']['cards'][0]['icon_url']);
+        self::assertArrayNotHasKey('description',$m['partners']);
+        self::assertArrayNotHasKey('button_text',$m['partners']['cards'][0]);
+        self::assertArrayNotHasKey('icon_url',$m['scenes']['cards'][0]);
+        self::assertSame('进入',$m['scenes']['cards'][0]['button_text']);
+        self::assertSame('uploads/scene.mp4',$m['scenes']['cards'][0]['media']);
+        self::assertArrayNotHasKey('link',$m['models']['cards'][0]);
+        self::assertSame('uploads/model.svg',$m['models']['cards'][0]['icon_url']);
+        self::assertSame(['title','enabled','description','sort'],array_keys($m['faq']['cards'][0]));
+        self::assertArrayNotHasKey('description',$m['footer']['cards'][0]);
+        self::assertSame('/ai',$m['footer']['cards'][0]['link']);
+        self::assertSame('价格小标题',$m['pricing']['eyebrow']);
+        self::assertSame('合作小标题',$m['join']['eyebrow']);
+        self::assertArrayNotHasKey('button_link',$m['pricing']);
+        self::assertArrayNotHasKey('button_text',$m['join']);
+        self::assertSame($config,$this->normalize($config));
+    }
+
+    public function testModelNavigationDropsUnusedGroupsButKeepsRealDropdownControls(): void
+    {
+        $config=$this->normalize(['template_version'=>5,'navigation'=>[
+            ['key'=>'models','title'=>'模型介绍','button_text'=>'所有模型','button_link'=>'/ai','groups'=>[['title'=>'旧模型','items'=>[]]]],
+            ['key'=>'tools','title'=>'没有展示的标题','groups'=>[['title'=>'工具组','items'=>[['label'=>'入口','icon'=>'image','status'=>'live','link'=>'/ai']]]]],
+        ]]);
+        $nav=array_column($config['navigation'],null,'key');
+        self::assertSame([],$nav['models']['groups']);
+        self::assertSame('模型介绍',$nav['models']['title']);
+        self::assertSame('/ai',$nav['models']['button_link']);
+        self::assertArrayNotHasKey('title',$nav['tools']);
+        self::assertSame('image',$nav['tools']['groups'][0]['items'][0]['icon']);
+        self::assertSame($config,$this->normalize($config));
+    }
+
 }
