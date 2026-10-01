@@ -17,7 +17,7 @@ class OfficialSiteConfigTest extends TestCase
     public function testNewArchitectureUsesActualToolsAndSixRequestedEntries(): void
     {
         $config = $this->normalize([]);
-        self::assertSame(4, $config['template_version']);
+        self::assertSame(5, $config['template_version']);
         self::assertSame(['应用工具','模型','开放平台','价格','企业服务','帮助'], array_column($config['navigation'], 'label'));
         self::assertSame(['工作室','图片','视频'], array_column($config['navigation'][0]['groups'], 'title'));
         self::assertSame(['dropdown','dropdown','link','link','link','link'], array_column($config['navigation'], 'mode'));
@@ -149,6 +149,70 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame($config,$this->normalize($config));
         $empty = $this->normalize(['template_version'=>4,'modules'=>[['key'=>'hero','slides'=>[]]]]);
         self::assertSame([],array_column($empty['modules'],null,'key')['hero']['slides']);
+    }
+
+    public function testLiveV4RemnantsUpgradeToTheSamePresetAsANewTenant(): void
+    {
+        $legacy = json_decode(file_get_contents(__DIR__ . '/../Fixtures/official-site-v4-remnants.json'), true);
+        $config = $this->normalize($legacy);
+        $modules = array_column($config['modules'], null, 'key');
+        $fresh = array_column($this->normalize([])['modules'], null, 'key');
+        foreach (['hero', 'products', 'pricing', 'join'] as $key) {
+            foreach (['title', 'description', 'button_text', 'button_link', 'cards'] as $field) {
+                self::assertSame($fresh[$key][$field], $modules[$key][$field], "$key.$field");
+            }
+        }
+        self::assertSame($config, $this->normalize($config));
+    }
+
+    public function testRemnantRepairPreservesCustomMediaCopyBrandAndRetiredCardOverrides(): void
+    {
+        $config = json_decode(file_get_contents(__DIR__ . '/../Fixtures/official-site-v4-remnants.json'), true);
+        $config['basic'] = ['name'=>'自己的品牌', 'logo'=>'uploads/logo.png', 'accent_color'=>'#aabbcc'];
+        foreach ($config['modules'] as &$module) {
+            if ($module['key'] === 'hero') {
+                $module['title'] = '自己的标题';
+                $module['media'] = 'uploads/hero.mp4';
+                $module['enabled'] = 0;
+                $module['sort'] = 500;
+            }
+            if ($module['key'] === 'products') {
+                $module['cards'][1]['media'] = 'uploads/custom-multimodal.png';
+                $module['cards'][7]['description'] = '自己的工作流介绍';
+            }
+        }
+        unset($module);
+        $result = $this->normalize($config);
+        $modules = array_column($result['modules'], null, 'key');
+        self::assertSame('自己的标题', $modules['hero']['title']);
+        self::assertSame('uploads/hero.mp4', $modules['hero']['media']);
+        self::assertSame(0, $modules['hero']['enabled']);
+        self::assertSame(500, $modules['hero']['sort']);
+        self::assertCount(8, $modules['products']['cards']);
+        self::assertSame('uploads/custom-multimodal.png', $modules['products']['cards'][1]['media']);
+        self::assertSame('自己的工作流介绍', $modules['products']['cards'][7]['description']);
+        self::assertSame('自己的品牌', $result['basic']['name']);
+        self::assertSame('uploads/logo.png', $result['basic']['logo']);
+        self::assertSame('#aabbcc', $result['basic']['accent_color']);
+        self::assertSame($result, $this->normalize($result));
+    }
+
+    public function testAllHistoricalPresetCopyUpgradesAndV5OverridesAreNotReinterpreted(): void
+    {
+        $defaults = array_column($this->normalize([])['modules'], null, 'key');
+        foreach (['legacyDefaults'=>1, 'draftDefaults'=>2, 'v3Defaults'=>3] as $method=>$version) {
+            $config = $this->call($method);
+            $config['template_version'] = $version;
+            $result = $this->normalize($config);
+            $modules = array_column($result['modules'], null, 'key');
+            foreach (['hero','products','pricing','join'] as $key) {
+                self::assertSame($defaults[$key]['title'], $modules[$key]['title'], "$method.$key");
+            }
+            self::assertCount(6, $modules['products']['cards']);
+            self::assertSame($result, $this->normalize($result));
+        }
+        $custom = $this->normalize(['template_version'=>5, 'modules'=>[['key'=>'hero','title'=>'让 AI 成为增长团队的一部分']]]);
+        self::assertSame('让 AI 成为增长团队的一部分', array_column($custom['modules'],null,'key')['hero']['title']);
     }
 
 }
