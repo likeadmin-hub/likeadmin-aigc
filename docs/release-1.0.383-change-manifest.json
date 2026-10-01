@@ -1,0 +1,24 @@
+{
+  "version": "1.0.383",
+  "base_version": "1.0.382",
+  "server_baseline": "2627c923483f2747e1332e2abe0c875634da981e",
+  "web_baseline": "e3a675674281e7d5b18e9542ba856a82f6a09ecc",
+  "web_head": "ae88d20847dfb61f5929a9c3c349f638221b6163",
+  "builds": [
+    "pc",
+    "tenant"
+  ],
+  "runtime_dirs": [
+    "public/pc",
+    "public/_nuxt",
+    "public/media",
+    "public/admin"
+  ],
+  "sql_order": [],
+  "configuration_upgrade": "Tenant-scoped config backup and normalization during runtime reads; no SQL schema changes",
+  "intentional_package_exclusions": [
+    "upgrade/version.json",
+    "docs/",
+    "tests/"
+  ]
+}
