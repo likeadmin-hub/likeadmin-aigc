@@ -132,8 +132,18 @@ DEFAULT_PASSWORD = 123456
 1. 导入数据库。可通过浏览器访问安装器，也可手动导入：
 
 ```bash
-mysql -uroot -p likeadmin_aigc_saas < public/install/db/like.sql
+mysql --default-character-set=utf8mb4 -uroot -p likeadmin_aigc_saas < public/install/db/like.sql
 ```
+
+当前安装 SQL 已包含随仓库交付的应用表结构和核心菜单权限；全新安装无需重放全部 `public/upgrade/*.sql`。应用的配置、菜单、版本和迁移记录仍通过“应用中心”安装或同步。历史升级脚本面向指定旧版本，不能把整个目录当作新装必执行清单。
+
+已使用旧安装 SQL 完成安装的站点，请先备份数据库，再执行本次缺漏修复（可重复执行，默认表前缀为 `la_`）：
+
+```bash
+mysql --default-character-set=utf8mb4 -uroot -p likeadmin_aigc_saas < public/upgrade/20261001_install_schema_parity.sql
+```
+
+该脚本补齐表结构和核心操作权限，不会开通应用或覆盖租户自定义菜单。应用专属升级仍应先通过应用中心安装对应应用，再按目标版本发布说明执行依赖它的 SQL；自定义数据库表前缀需先替换脚本中的 `la_`。
 
 1. 配置伪静态。Nginx 示例：
 
@@ -307,7 +317,7 @@ docker compose --env-file .env.docker ps -a
 首次启动会自动完成以下操作：
 
 1. 创建 MySQL、Redis、运行目录、上传目录和本地存储数据卷。
-2. 仅在 MySQL 数据卷为空时导入 `public/install/db/like.sql`。
+2. 仅在 MySQL 数据卷为空时导入当前完整的 `public/install/db/like.sql`，无需重放全部历史升级 SQL。
 3. 运行一次性 `initialize` 服务，按配置创建平台管理员。
 4. 数据库和初始化检查通过后，再启动 PHP-FPM、Nginx、AI Worker 和定时任务。
 
@@ -369,6 +379,10 @@ docker compose --env-file .env.docker up -d --force-recreate
 
 
 PHP 镜像已经包含项目依赖的扩展、Composer 生产依赖和 FFmpeg。`runtime`、`public/uploads`、`public/storage`、`public/qrcode`、MySQL 和 Redis 数据均使用具名卷持久化。
+
+镜像构建时会准备应用静态资源和后台、PC 的脚本入口，PHP 与 Nginx 使用同一份资源。Compose 设置 `LIKEADMIN_IMMUTABLE_ASSETS=1`：应用中心安装已有应用时复用镜像内资源；若缺少资源或脚本入口，会提示更新代码并重建镜像。新增应用包、应用前端升级和系统更新都需要重建镜像，不能在只读容器中动态替换代码。宝塔等可写部署仍按应用包更新资源。
+
+Windows 克隆时，仓库的 `.gitattributes` 会将 Shell 脚本及 Dockerfile 固定为 LF。旧工作目录如仍含 CRLF，可重新克隆后构建；已有数据卷应保留。
 
 ### 常用运维命令
 
