@@ -19,6 +19,10 @@ class OfficialSiteRouteTest extends TestCase
         $request->setHost('example.test');
         $app->instance('request', $request);
         require dirname(__DIR__, 2) . '/route/app.php';
+        // check() is normally called after dispatch() binds its request.
+        $property = new \ReflectionProperty(\think\Route::class, 'request');
+        $property->setAccessible(true);
+        $property->setValue($app->route, $request);
         return $app;
     }
 
