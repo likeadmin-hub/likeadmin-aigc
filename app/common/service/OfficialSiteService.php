@@ -11,6 +11,7 @@ class OfficialSiteService
 {
     private const TYPE = 'official_site';
     private const KEY = 'config';
+    private const TEMPLATE_VERSION = 5;
 
     public static function get(): array
     {
@@ -18,6 +19,13 @@ class OfficialSiteService
         $config = self::normalize(is_array($stored) ? $stored : []);
         // Existing tenants receive the default template on first read.
         if (!is_array($stored) || $stored === []) {
+            ConfigService::set(self::TYPE, self::KEY, self::toStorage($config));
+        } elseif ((int)($stored['template_version'] ?? 1) < self::TEMPLATE_VERSION) {
+            // Tenant-scoped, recoverable upgrade; do not make the next release
+            // infer template history from an already-upgraded public response.
+            if (ConfigService::get(self::TYPE, 'config_before_v5', null) === null) {
+                ConfigService::set(self::TYPE, 'config_before_v5', $stored);
+            }
             ConfigService::set(self::TYPE, self::KEY, self::toStorage($config));
         }
         $config = self::toEditor($config);
@@ -96,6 +104,9 @@ class OfficialSiteService
                 $input['navigation'][$i]['key'] = $entry['key'];
             }
         }
+        if ((int)($input['template_version'] ?? 1) < self::TEMPLATE_VERSION) {
+            $input = self::repairTemplateRemnants($input, $defaults);
+        }
         $enabled = array_key_exists('enabled', $input) ? (int)!empty($input['enabled']) : 1;
         $basic = array_merge($defaults['basic'], is_array($input['basic'] ?? null) ? $input['basic'] : []);
         if ((int)($input['template_version'] ?? 1) < 2) {
@@ -156,7 +167,58 @@ class OfficialSiteService
         }
         usort($modules, static fn(array $a, array $b) => $b['sort'] <=> $a['sort']);
 
-        return ['template_version' => 4, 'enabled' => $enabled, 'basic' => $basic, 'navigation' => self::normalizeNavigation($input['navigation'] ?? null), 'modules' => $modules];
+        return ['template_version' => self::TEMPLATE_VERSION, 'enabled' => $enabled, 'basic' => $basic, 'navigation' => self::normalizeNavigation($input['navigation'] ?? null), 'modules' => $modules];
+    }
+
+    /** Repair v1/v2/v3 defaults accidentally retained and stamped as v4. */
+    private static function repairTemplateRemnants(array $input, array $defaults): array
+    {
+        $current = array_column($defaults['modules'], null, 'key');
+        $history = array_map(static fn($config) => array_column($config['modules'], null, 'key'), [
+            self::legacyDefaults(), self::draftDefaults(), self::v3Defaults(),
+        ]);
+        foreach (($input['modules'] ?? []) as $index => $module) {
+            if (!is_array($module) || !isset($current[$module['key'] ?? ''])) continue;
+            $key = $module['key'];
+            foreach ($history as $version) {
+                $old = $version[$key] ?? [];
+                foreach (['title', 'description', 'eyebrow', 'button_text', 'button_link'] as $field) {
+                    // Explicit blanks and tenant-authored values remain overrides.
+                    if (isset($module[$field], $old[$field]) && (string)$old[$field] !== ''
+                        && trim((string)$module[$field]) === trim((string)$old[$field])) {
+                        $module[$field] = $current[$key][$field] ?? '';
+                    }
+                }
+                if (isset($module['cards'], $old['cards']) && $old['cards'] !== []
+                    && self::templateCards($module['cards']) === self::templateCards($old['cards'])) {
+                    $module['cards'] = $current[$key]['cards'];
+                }
+            }
+            if ($key === 'products' && is_array($module['cards'] ?? null)) {
+                $currentLinks = array_column($current[$key]['cards'], 'link');
+                $retired = [];
+                foreach ($history as $version) {
+                    foreach (($version[$key]['cards'] ?? []) as $oldCard) {
+                        if (!in_array($oldCard['link'] ?? '', $currentLinks, true)) $retired[] = self::templateCards([$oldCard])[0];
+                    }
+                }
+                // Only remove exact retired presets. A custom card, even with
+                // the same title/path, must survive if copy, media or flags differ.
+                $module['cards'] = array_values(array_filter($module['cards'], static function ($card) use ($retired) {
+                    return !in_array(self::templateCards([$card])[0], $retired, true);
+                }));
+            }
+            $input['modules'][$index] = $module;
+        }
+        return $input;
+    }
+
+    private static function templateCards(array $cards): array
+    {
+        $cards = self::normalizeCards($cards);
+        foreach ($cards as &$card) unset($card['sort']);
+        unset($card);
+        return $cards;
     }
 
     private static function normalizeNavigation($navigation): array
