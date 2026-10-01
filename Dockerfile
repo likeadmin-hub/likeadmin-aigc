@@ -48,6 +48,7 @@ COPY docker/php/initialize.php /usr/local/bin/likeadmin-initialize.php
 
 RUN set -eux; \
     composer dump-autoload --no-dev --optimize; \
+    php docker/php/prepare-assets.php; \
     mkdir -p runtime/sessions public/uploads public/storage public/qrcode; \
     touch config/install.lock; \
     chown -R www-data:www-data runtime public/uploads public/storage public/qrcode; \
@@ -61,7 +62,7 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
 
 FROM nginx:1.27-alpine AS web
 
-COPY public /var/www/html/public
+COPY --from=app /var/www/html/public /var/www/html/public
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 
 RUN mkdir -p /var/www/html/public/uploads /var/www/html/public/storage /var/www/html/public/qrcode

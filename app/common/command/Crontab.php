@@ -78,7 +78,7 @@ class Crontab extends Command
             }
             // 清除错误信息
             CrontabModel::where('id', $item['id'])->update(['error' => '']);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // 记录错误信息
             CrontabModel::where('id', $item['id'])->update([
                 'error' => $e->getMessage(),

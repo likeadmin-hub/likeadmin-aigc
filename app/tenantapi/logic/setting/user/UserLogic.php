@@ -110,7 +110,7 @@ class UserLogic
             ConfigService::set('login', 'mnp_phone_auth', (int)$params['mnp_phone_auth']);
         }
         // qq登录
-        ConfigService::set('login', 'qq_auth', $params['qq_auth']);
+        ConfigService::set('login', 'qq_auth', (int)($params['qq_auth'] ?? 0));
         // 新用户注册赠送
         ConfigService::set('login', 'register_bonus_status', (int)($params['register_bonus_status'] ?? 0));
         ConfigService::set('login', 'register_bonus_points', (float)($params['register_bonus_points'] ?? 0));

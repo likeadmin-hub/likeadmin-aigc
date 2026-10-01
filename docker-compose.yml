@@ -20,6 +20,7 @@ x-app-environment: &app-environment
   PHP_PROJECT_DEFAULT_PASSWORD: ${PROJECT_DEFAULT_PASSWORD:?set PROJECT_DEFAULT_PASSWORD in .env.docker}
   PHP_PROJECT_HTTP_HOST: ${PROJECT_HTTP_HOST:-localhost}
   PHP_PROJECT_DEMO_ENV: "false"
+  LIKEADMIN_IMMUTABLE_ASSETS: "1"
   PHP_FFMPEG_BINARY: /usr/bin/ffmpeg
   FFMPEG_BINARY: /usr/bin/ffmpeg
 

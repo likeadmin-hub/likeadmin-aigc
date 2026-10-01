@@ -18,6 +18,6 @@ class SettleDistributionCommission extends Command
     {
         $count = DistributionService::settleDue(1000);
         $output->writeln('settled: ' . $count);
-        return self::SUCCESS;
+        return 0;
     }
 }

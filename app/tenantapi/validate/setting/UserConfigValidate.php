@@ -29,6 +29,7 @@ class UserConfigValidate extends BaseValidate
         'login_agreement' => 'in:0,1',
         'third_auth' => 'in:0,1',
         'wechat_auth' => 'in:0,1',
+        'qq_auth' => 'in:0,1',
         'mnp_phone_auth' => 'in:0,1',
         'register_bonus_status' => 'in:0,1',
         'register_bonus_points' => 'number|egt:0',
@@ -43,6 +44,7 @@ class UserConfigValidate extends BaseValidate
         'coerce_mobile.requireIf' => '请选择注册强制绑定手机',
         'coerce_mobile.in' => '注册强制绑定手机值错误',
         'wechat_auth.in' => '公众号微信授权登录值错误',
+        'qq_auth.in' => 'QQ授权登录值错误',
         'mnp_phone_auth.in' => '小程序手机号授权开关值错误',
         'third_auth.in' => '第三方登录值错误',
         'login_agreement.in' => '政策协议值错误',
@@ -60,6 +62,6 @@ class UserConfigValidate extends BaseValidate
     //注册验证
     public function sceneRegister()
     {
-        return $this->only(['login_way', 'coerce_mobile', 'login_agreement', 'third_auth', 'wechat_auth', 'mnp_phone_auth', 'register_bonus_status', 'register_bonus_points']);
+        return $this->only(['login_way', 'coerce_mobile', 'login_agreement', 'third_auth', 'wechat_auth', 'qq_auth', 'mnp_phone_auth', 'register_bonus_status', 'register_bonus_points']);
     }
 }
