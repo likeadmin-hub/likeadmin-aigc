@@ -153,7 +153,7 @@ class OfficialSiteConfigTest extends TestCase
 
     public function testLiveV4RemnantsUpgradeToTheSamePresetAsANewTenant(): void
     {
-        $legacy = json_decode(file_get_contents(__DIR__ . '/../Fixtures/official-site-v4-remnants.json'), true);
+        $legacy = json_decode(file_get_contents(__DIR__ . '/../fixtures/official-site-v4-remnants.json'), true);
         $config = $this->normalize($legacy);
         $modules = array_column($config['modules'], null, 'key');
         $fresh = array_column($this->normalize([])['modules'], null, 'key');
@@ -167,7 +167,7 @@ class OfficialSiteConfigTest extends TestCase
 
     public function testRemnantRepairPreservesCustomMediaCopyBrandAndRetiredCardOverrides(): void
     {
-        $config = json_decode(file_get_contents(__DIR__ . '/../Fixtures/official-site-v4-remnants.json'), true);
+        $config = json_decode(file_get_contents(__DIR__ . '/../fixtures/official-site-v4-remnants.json'), true);
         $config['basic'] = ['name'=>'自己的品牌', 'logo'=>'uploads/logo.png', 'accent_color'=>'#aabbcc'];
         foreach ($config['modules'] as &$module) {
             if ($module['key'] === 'hero') {
