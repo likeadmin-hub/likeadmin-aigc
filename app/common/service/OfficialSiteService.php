@@ -11,7 +11,7 @@ class OfficialSiteService
 {
     private const TYPE = 'official_site';
     private const KEY = 'config';
-    private const TEMPLATE_VERSION = 5;
+    private const TEMPLATE_VERSION = 6;
 
     public static function get(): array
     {
@@ -23,12 +23,13 @@ class OfficialSiteService
         } elseif ((int)($stored['template_version'] ?? 1) < self::TEMPLATE_VERSION) {
             // Tenant-scoped, recoverable upgrade; do not make the next release
             // infer template history from an already-upgraded public response.
-            if (ConfigService::get(self::TYPE, 'config_before_v5', null) === null) {
-                ConfigService::set(self::TYPE, 'config_before_v5', $stored);
+            if (ConfigService::get(self::TYPE, 'config_before_v6', null) === null) {
+                ConfigService::set(self::TYPE, 'config_before_v6', $stored);
             }
             ConfigService::set(self::TYPE, self::KEY, self::toStorage($config));
         }
         $config = self::toEditor($config);
+        $config['field_schema'] = OfficialSiteFields::schema();
         $config['model_catalog'] = OfficialSiteModelCatalog::get((int)request()->tenantId);
         return $config;
     }
@@ -45,14 +46,15 @@ class OfficialSiteService
     public static function public(): array
     {
         $config = self::get();
+        unset($config['field_schema']);
         $config['join_available'] = !empty(\app\common\service\brand\TenantBrandService::packageRows((int)request()->tenantId, true));
         $config['basic']['logo'] = self::fileUrl($config['basic']['logo']);
         $config['basic']['favicon'] = self::fileUrl($config['basic']['favicon']);
         $config['basic']['placeholder'] = self::fileUrl($config['basic']['placeholder']);
         foreach ($config['modules'] as &$module) {
-            foreach (['media', 'poster', 'background_media', 'background_poster'] as $field) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
+            foreach (['media', 'poster'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'canvas_image', 'icon_url'] as $field) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
+                foreach (['media', 'poster', 'icon_url'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
                 unset($card['internal_note'], $card['admin_only']);
             }
             unset($card);
@@ -104,7 +106,7 @@ class OfficialSiteService
                 $input['navigation'][$i]['key'] = $entry['key'];
             }
         }
-        if ((int)($input['template_version'] ?? 1) < self::TEMPLATE_VERSION) {
+        if ((int)($input['template_version'] ?? 1) < 5) {
             $input = self::repairTemplateRemnants($input, $defaults);
         }
         $enabled = array_key_exists('enabled', $input) ? (int)!empty($input['enabled']) : 1;
@@ -167,7 +169,7 @@ class OfficialSiteService
         }
         usort($modules, static fn(array $a, array $b) => $b['sort'] <=> $a['sort']);
 
-        return ['template_version' => self::TEMPLATE_VERSION, 'enabled' => $enabled, 'basic' => $basic, 'navigation' => self::normalizeNavigation($input['navigation'] ?? null), 'modules' => $modules];
+        return OfficialSiteFields::clean(['template_version' => self::TEMPLATE_VERSION, 'enabled' => $enabled, 'basic' => $basic, 'navigation' => self::normalizeNavigation($input['navigation'] ?? null), 'modules' => $modules]);
     }
 
     /** Repair v1/v2/v3 defaults accidentally retained and stamped as v4. */
@@ -365,9 +367,9 @@ class OfficialSiteService
     {
         foreach ($config['navigation'] as &$nav) { foreach ($nav['groups'] as &$group) { foreach ($group['items'] as &$item) $item['icon_url'] = FileService::setFileUrl($item['icon_url']); unset($item); } unset($group); } unset($nav);
         foreach ($config['modules'] as &$module) {
-            foreach (['media', 'poster', 'background_media', 'background_poster'] as $field) $module[$field] = FileService::setFileUrl($module[$field]);
+            foreach (['media', 'poster'] as $field) if (array_key_exists($field, $module)) $module[$field] = FileService::setFileUrl($module[$field]);
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'canvas_image', 'icon_url'] as $field) $card[$field] = FileService::setFileUrl($card[$field]);
+                foreach (['media', 'poster', 'icon_url'] as $field) if (array_key_exists($field, $card)) $card[$field] = FileService::setFileUrl($card[$field]);
             }
             unset($card);
             foreach ($module['slides'] as &$slide) {
@@ -390,9 +392,9 @@ class OfficialSiteService
         $config['basic']['favicon'] = self::fileUrl($config['basic']['favicon']);
         $config['basic']['placeholder'] = self::fileUrl($config['basic']['placeholder']);
         foreach ($config['modules'] as &$module) {
-            foreach (['media', 'poster', 'background_media', 'background_poster'] as $field) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
+            foreach (['media', 'poster'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'canvas_image', 'icon_url'] as $field) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
+                foreach (['media', 'poster', 'icon_url'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
             }
             unset($card);
             foreach ($module['slides'] as &$slide) {
