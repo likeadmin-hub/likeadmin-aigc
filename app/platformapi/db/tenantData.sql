@@ -1185,7 +1185,7 @@ SELECT {tenantId},p.id,'A','保存','',0,'app.system_default.latest_news/save','
 FROM `la_tenant_system_menu_{tenantSn}` p WHERE p.source_menu_key='core_tenant_latest_news' AND p.source<>'tenant'
 AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` n WHERE n.tenant_id=p.tenant_id AND n.source_menu_key='core_tenant_latest_news_save');
 
--- IKJF3N: core action permissions for new tenants.
+/* IKJF3N: core action permissions for new tenants. */
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT {tenantId},p.id,'A','导出模板','',0,'decorate.template/export','','','','',0,1,0,'','core','core_tenant_decorate_template_export',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu_{tenantSn}` p WHERE p.perms='decorate.template/lists' AND p.source<>'tenant' AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` n WHERE n.tenant_id=p.tenant_id AND n.perms='decorate.template/export');
 

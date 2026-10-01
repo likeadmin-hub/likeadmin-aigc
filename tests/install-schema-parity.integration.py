@@ -38,8 +38,10 @@ try:
     legacy = install.split('-- IKJF3N: fresh-install schema and core permission parity.')[0]
     sql('parity_legacy', legacy)
     sql('parity_legacy', "INSERT INTO la_config (type,name,value) VALUES ('parity','sentinel','keep');")
+    apps_before = sql('parity_legacy', 'SELECT COUNT(*) FROM la_app; SELECT COUNT(*) FROM la_tenant_app;')
     sql('parity_legacy', repair)
     sql('parity_legacy', repair)
+    assert apps_before == sql('parity_legacy', 'SELECT COUNT(*) FROM la_app; SELECT COUNT(*) FROM la_tenant_app;')
     assert sql('parity_legacy', "SELECT value FROM la_config WHERE type='parity' AND name='sentinel';").strip() == 'keep'
     # Check every shipped system-upgrade and app-install CREATE TABLE prerequisite.
     expected = set()
@@ -63,10 +65,14 @@ try:
     # Verify the new-tenant permission fragment on its actual per-tenant table form.
     sql('parity_fresh', 'CREATE TABLE la_tenant_system_menu_test LIKE la_tenant_system_menu; INSERT INTO la_tenant_system_menu_test SELECT * FROM la_tenant_system_menu; UPDATE la_tenant_system_menu_test SET tenant_id=7;')
     sql('parity_fresh', "DELETE FROM la_tenant_system_menu_test WHERE perms IN ('ai_consumption/detail','decorate.template/export','decorate.template/import','decorate.data/sources');")
-    seed = (root / 'app/platformapi/db/tenantData.sql').read_text().split('-- IKJF3N: core action permissions for new tenants.')[1]
+    seed = (root / 'app/platformapi/db/tenantData.sql').read_text().split('/* IKJF3N: core action permissions for new tenants. */')[1]
     seed = seed.replace('{tenantSn}', 'test').replace('{tenantId}', '7')
-    sql('parity_fresh', seed)
-    sql('parity_fresh', seed)
+    # Match TenantCreatService's semicolon/newline splitting and comment skip.
+    for _ in range(2):
+        for statement in ('/* IKJF3N: core action permissions for new tenants. */\n' + seed).split(';\n'):
+            statement = statement.strip()
+            if statement and not statement.startswith('--'):
+                sql('parity_fresh', statement)
     assert sql('parity_fresh', "SELECT COUNT(*) FROM la_tenant_system_menu_test WHERE tenant_id=7 AND perms IN ('ai_consumption/detail','decorate.template/export','decorate.template/import','decorate.data/sources');").strip() == '4'
     print('new tenant: four permissions and repeat execution passed')
 finally:
