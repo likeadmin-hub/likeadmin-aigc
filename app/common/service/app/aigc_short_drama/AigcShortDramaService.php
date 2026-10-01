@@ -5813,10 +5813,15 @@ class AigcShortDramaService
     /** Register a canvas node result in the existing short-drama asset library. */
     private static function registerCanvasAsset(int $tenantId, int $userId, array $params): array
     {
+        return Db::transaction(static fn(): array => self::registerCanvasAssetLocked($tenantId, $userId, $params));
+    }
+
+    private static function registerCanvasAssetLocked(int $tenantId, int $userId, array $params): array
+    {
         $canvasId = (int)$params['canvas_id'];
         $canvas = Db::name('aigc_short_drama_canvas')->where([
             'id' => $canvasId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0,
-        ])->find();
+        ])->lock(true)->find();
         if (!$canvas) {
             throw new Exception('画布不存在或无权访问');
         }
@@ -5853,6 +5858,14 @@ class AigcShortDramaService
             $meta['document_error'] = '';
         }
         $assetType = 'canvas_' . $nodeType;
+        if (in_array($nodeType, ['image','video','audio'], true) && $meta['node_id'] !== '') {
+            $existing = AigcShortDramaAsset::where(['tenant_id'=>$tenantId,'user_id'=>$userId,'canvas_id'=>$canvasId,
+                'asset_type'=>$assetType,'uri'=>$uri,'status'=>'ready','delete_time'=>0])->order('id','desc')->select()->toArray();
+            foreach ($existing as $row) {
+                $binding=self::jsonDecode((string)($row['meta_json']??''));
+                if ((string)($binding['node_id']??'')===$meta['node_id']) return self::formatAsset($row);
+            }
+        }
         $time = time();
         $asset = AigcShortDramaAsset::create([
             'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => 0, 'canvas_id' => $canvasId,
@@ -5860,9 +5873,9 @@ class AigcShortDramaService
             'title' => mb_substr(trim((string)($params['title'] ?? '画布素材')), 0, 120, 'UTF-8'),
             'uri' => $uri,
             'cover_uri' => FileService::setFileUrl((string)($params['cover_uri'] ?? $params['cover_url'] ?? '')),
-            'storage_scope' => (string)($params['storage_scope'] ?? $storedFile['storage_scope'] ?? 'tenant'),
-            'storage_engine' => (string)($params['storage_engine'] ?? $storedFile['storage_engine'] ?? 'local'),
-            'storage_domain' => (string)($params['storage_domain'] ?? $storedFile['storage_domain'] ?? ''),
+            'storage_scope' => self::assetStorageValue($params, 'storage_scope', $storedFile, 'tenant'),
+            'storage_engine' => self::assetStorageValue($params, 'storage_engine', $storedFile, 'local'),
+            'storage_domain' => self::assetStorageValue($params, 'storage_domain', $storedFile, ''),
             'mime_type' => mb_substr(trim((string)($params['mime_type'] ?? ($nodeType === 'text' ? 'text/plain' : ''))), 0, 120, 'UTF-8'),
             'file_size' => (int)($params['file_size'] ?? 0), 'width' => (int)($params['width'] ?? 0),
             'height' => (int)($params['height'] ?? 0), 'duration' => (float)($params['duration'] ?? 0),
@@ -6086,6 +6099,35 @@ class AigcShortDramaService
             ];
         }
         return [];
+    }
+
+    /** Read-only compatibility for canvas uploads registered before storage
+     * metadata was copied. Resolve from this tenant's original file record,
+     * never from the current HTTP host or the current default storage engine.
+     */
+    public static function canvasAssetStorage(array $asset): array
+    {
+        if ((int)($asset['canvas_id']??0)<=0 || (int)($asset['tenant_id']??0)<=0
+            || !in_array($asset['asset_type']??'',['canvas_image','canvas_video','canvas_audio'],true)) return $asset;
+        $scope=trim((string)($asset['storage_scope']??''));
+        $engine=trim((string)($asset['storage_engine']??''));
+        $domain=trim((string)($asset['storage_domain']??''));
+        if ($scope!=='' && $engine!=='' && ($engine==='local' || $domain!=='')) return $asset;
+        $uris=self::storageLookupUris((string)($asset['uri']??''));
+        if (!$uris) return $asset;
+        $file=Db::name('tenant_file')->where('tenant_id',(int)$asset['tenant_id'])->whereIn('uri',$uris)
+            ->where(static function ($query) { $query->whereNull('delete_time')->whereOr('delete_time',0); })
+            ->order('id','desc')->find();
+        if (!$file) return $asset;
+        // Do not mix an explicit migrated storage location with an older upload.
+        foreach (['storage_scope','storage_engine','storage_domain'] as $key) {
+            $existing=trim((string)($asset[$key]??''));
+            if ($existing!=='' && $existing!==trim((string)($file[$key]??''))) return $asset;
+        }
+        foreach (['storage_scope','storage_engine','storage_domain'] as $key) {
+            if (trim((string)($asset[$key]??''))==='') $asset[$key]=(string)($file[$key]??'');
+        }
+        return $asset;
     }
 
     /**
@@ -15271,6 +15313,7 @@ class AigcShortDramaService
 
     private static function formatAsset(array $row): array
     {
+        $row = self::canvasAssetStorage($row);
         $uri = (string)($row['uri'] ?? '');
         $coverUri = (string)($row['cover_uri'] ?? '');
         $meta = self::assetReferenceMeta($row, self::localizeGenerationTaskPayload(self::jsonDecode((string)($row['meta_json'] ?? ''))));

@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace app\common\service\app\aigc_short_drama\canvas_agent;
 
 use RuntimeException;
+use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use think\facade\Db;
 
 /** Versioned graph mutation boundary. Not exposed until all P1 writers migrate. */
@@ -421,6 +422,51 @@ final class GraphService
             $node['metadata']=$metadata;
         }
         unset($node);
+        return $nodes;
+    }
+
+    /** Restore upload readiness from owned registered assets, never client status/IDs.
+     * Also projects legacy documents whose manual-save sanitizer dropped these fields.
+     * This is read-only; normal revision-checked saves persist the projection.
+     */
+    public static function registeredUploadNodes(array $document, array $nodes): array
+    {
+        $uploads=[];
+        foreach ($nodes as $index=>$node) {
+            $meta=(array)($node['metadata']??[]);
+            if (($meta['source']??$meta['mediaSource']??'')!=='upload' || !in_array($node['type']??'',['image','video','audio'],true)
+                || !empty($meta['active_generation_id']) || !empty($meta['canvasRunId'])) continue;
+            $uploads[$index]=$node;
+        }
+        if (!$uploads || empty($document['id']) || empty($document['tenant_id']) || empty($document['user_id'])) return $nodes;
+        $assets=Db::name('aigc_short_drama_asset')->where([
+            'tenant_id'=>(int)$document['tenant_id'],'user_id'=>(int)$document['user_id'],
+            'canvas_id'=>(int)$document['id'],'status'=>'ready','delete_time'=>0,
+        ])->whereIn('asset_type',['canvas_image','canvas_video','canvas_audio'])->order('id','desc')->select()->toArray();
+        $byNode=[];
+        foreach ($assets as $asset) {
+            $asset=AigcShortDramaService::canvasAssetStorage($asset);
+            $meta=json_decode((string)($asset['meta_json']??'{}'),true)?:[];
+            if ((int)($meta['canvas_id']??0)!==(int)$document['id']) continue;
+            $byNode[(string)($meta['node_id']??'')][]=$asset;
+        }
+        foreach ($uploads as $index=>$node) {
+            $meta=(array)$node['metadata'];
+            $uri=trim((string)($meta['uri']??$meta['url']??''));
+            unset($meta['asset_id']);
+            if (($meta['status']??'')==='success') unset($meta['status']);
+            foreach ($byNode[(string)$node['id']]??[] as $asset) {
+                $assetUri=(string)$asset['uri'];
+                $domain=rtrim((string)$asset['storage_domain'],'/');
+                $urls=[$assetUri];
+                if ($domain!=='' && !preg_match('#^https?://#i',$assetUri)) $urls[]=$domain.'/'.ltrim($assetUri,'/');
+                if ($asset['asset_type']!=='canvas_'.$node['type'] || $uri==='' || !in_array($uri,$urls,true)) continue;
+                $meta=array_replace($meta,['asset_id'=>(int)$asset['id'],'status'=>'success','error'=>'',
+                    'storage_scope'=>$asset['storage_scope'],'storage_engine'=>$asset['storage_engine'],'storage_domain'=>$asset['storage_domain']]);
+                break;
+            }
+            $nodes[$index]['metadata']=$meta;
+        }
         return $nodes;
     }
 
