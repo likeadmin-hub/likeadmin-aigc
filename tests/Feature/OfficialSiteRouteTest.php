@@ -11,6 +11,7 @@ class OfficialSiteRouteTest extends TestCase
 {
     private function router(string $method = 'GET'): App
     {
+        require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
         $app = new App(dirname(__DIR__, 2));
         Container::setInstance($app);
         $app->config->set(require dirname(__DIR__, 2) . '/config/route.php', 'route');
