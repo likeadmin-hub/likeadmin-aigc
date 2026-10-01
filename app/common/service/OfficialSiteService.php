@@ -48,6 +48,10 @@ class OfficialSiteService
                 unset($card['internal_note'], $card['admin_only']);
             }
             unset($card);
+            foreach ($module['slides'] as &$slide) {
+                foreach (['media', 'poster', 'mobile_media', 'mobile_poster'] as $field) $slide[$field] = self::fileUrl((string)($slide[$field] ?? ''));
+            }
+            unset($slide);
         }
         unset($module);
         return $config;
@@ -146,6 +150,7 @@ class OfficialSiteService
                 'button_link' => self::safeLink((string)($source['button_link'] ?? '')),
                 'autoplay_seconds' => max(3, min(30, (int)($source['autoplay_seconds'] ?? 6))),
                 'cards' => self::normalizeCards($source['cards'] ?? []),
+                'slides' => $default['key'] === 'hero' ? self::normalizeSlides($source['slides'] ?? []) : [],
             ];
             $modules[] = $raw;
         }
@@ -241,6 +246,27 @@ class OfficialSiteService
         ];
     }
 
+    private static function normalizeSlides($slides): array
+    {
+        if (!is_array($slides)) return [];
+        $result = [];
+        foreach (array_slice($slides, 0, 12) as $index => $slide) {
+            if (!is_array($slide)) continue;
+            $result[] = [
+                'title' => self::text($slide['title'] ?? '', 80),
+                'media' => self::text($slide['media'] ?? '', 1024),
+                'poster' => self::text($slide['poster'] ?? '', 1024),
+                'mobile_media' => self::text($slide['mobile_media'] ?? '', 1024),
+                'mobile_poster' => self::text($slide['mobile_poster'] ?? '', 1024),
+                'media_type' => ($slide['media_type'] ?? '') === 'image' ? 'image' : 'video',
+                'enabled' => (int)!empty($slide['enabled'] ?? 1),
+                'sort' => max(0, min(999, (int)($slide['sort'] ?? (100 - $index)))),
+            ];
+        }
+        usort($result, static fn(array $a, array $b) => $b['sort'] <=> $a['sort']);
+        return $result;
+    }
+
     private static function normalizeCards($cards): array
     {
         if (!is_array($cards)) return [];
@@ -282,6 +308,10 @@ class OfficialSiteService
                 foreach (['media', 'poster', 'canvas_image', 'icon_url'] as $field) $card[$field] = FileService::setFileUrl($card[$field]);
             }
             unset($card);
+            foreach ($module['slides'] as &$slide) {
+                foreach (['media', 'poster', 'mobile_media', 'mobile_poster'] as $field) $slide[$field] = FileService::setFileUrl($slide[$field]);
+            }
+            unset($slide);
         }
         unset($module);
         $config['basic']['logo'] = FileService::setFileUrl($config['basic']['logo']);
@@ -303,6 +333,10 @@ class OfficialSiteService
                 foreach (['media', 'poster', 'canvas_image', 'icon_url'] as $field) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
             }
             unset($card);
+            foreach ($module['slides'] as &$slide) {
+                foreach (['media', 'poster', 'mobile_media', 'mobile_poster'] as $field) $slide[$field] = self::fileUrl((string)($slide[$field] ?? ''));
+            }
+            unset($slide);
         }
         unset($module);
         return $config;

@@ -129,4 +129,26 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame([],$modules['faq']['cards']);
         self::assertSame($config,$this->normalize($config));
     }
+    public function testHeroSlidesPreserveIndependentPostersAndMobileMedia(): void
+    {
+        $config = $this->normalize(['template_version'=>4,'modules'=>[['key'=>'hero',
+            'media'=>'uploads/legacy.mp4', 'poster'=>'uploads/legacy.webp',
+            'slides'=>[
+                ['media'=>'uploads/a.mp4','poster'=>'uploads/a.webp','mobile_media'=>'uploads/portrait.mp4','mobile_poster'=>'uploads/portrait.webp','sort'=>20],
+                ['media'=>'uploads/b.mp4','enabled'=>0,'sort'=>30,'private_note'=>'secret'],
+            ],
+        ]]]);
+        $hero = array_column($config['modules'],null,'key')['hero'];
+        self::assertCount(2,$hero['slides']);
+        self::assertSame(0,$hero['slides'][0]['enabled']);
+        self::assertSame('uploads/a.webp',$hero['slides'][1]['poster']);
+        self::assertSame('uploads/portrait.mp4',$hero['slides'][1]['mobile_media']);
+        self::assertSame('uploads/portrait.webp',$hero['slides'][1]['mobile_poster']);
+        self::assertSame('uploads/legacy.mp4',$hero['media']);
+        self::assertArrayNotHasKey('private_note',$hero['slides'][0]);
+        self::assertSame($config,$this->normalize($config));
+        $empty = $this->normalize(['template_version'=>4,'modules'=>[['key'=>'hero','slides'=>[]]]]);
+        self::assertSame([],array_column($empty['modules'],null,'key')['hero']['slides']);
+    }
+
 }
