@@ -51,6 +51,19 @@ try {
         try { Jobs::frameStatus($tenant, $user, $id, '3', $job); } catch (Exception $e) { $denied = true; }
         checkToolbar($denied, 'capture poll rejects other tenant/user');
     }
+    Db::name('aigc_short_drama_canvas_poster_job')->where('id', $job)->update([
+        'status' => 'dead', 'attempts' => 4, 'last_error' => 'missing ffmpeg', 'lease_token' => '',
+    ]);
+    checkToolbar($job === Jobs::enqueue(1, 1, $id, '3', 'uploads/test.mp4', 'tenant', 'local', '', 1.25), 'ordinary enqueue does not revive failed captures');
+    $retryJob = Jobs::enqueue(1, 1, $id, '3', 'uploads/test.mp4', 'tenant', 'local', '', 1.25, true);
+    checkToolbar($retryJob !== $job && Jobs::frameStatus(1, 1, $id, '3', $retryJob)['status'] === 'pending', 'explicit capture retry creates a new attempt');
+    $failedJob = Db::name('aigc_short_drama_canvas_poster_job')->where('id', $job)->find();
+    checkToolbar($failedJob['status'] === 'dead' && $failedJob['last_error'] === 'missing ffmpeg' && (int)$failedJob['attempts'] === 4, 'retry retains failed task diagnostics');
+    Db::name('aigc_short_drama_canvas_poster_job')->where('id', $retryJob)->update(['status' => 'running', 'lease_token' => 'retry-lease', 'attempts' => 1]);
+    checkToolbar($retryJob === Jobs::enqueue(1, 1, $id, '3', 'uploads/test.mp4', 'tenant', 'local', '', 1.25, true), 'duplicate retry shares active frame job');
+    checkToolbar(Db::name('aigc_short_drama_canvas_poster_job')->where('id', $retryJob)->value('lease_token') === 'retry-lease', 'duplicate retry preserves active lease');
+    Db::name('aigc_short_drama_canvas_poster_job')->where('id', $retryJob)->update(['status' => 'success', 'lease_token' => '']);
+    checkToolbar($retryJob === Jobs::enqueue(1, 1, $id, '3', 'uploads/test.mp4', 'tenant', 'local', '', 1.25, true), 'successful frame is reused on repeated capture');
     $video = ['id' => '5', 'type' => 'video', 'x' => 0, 'y' => 0, 'metadata' => [
         'url' => 'uploads/test-poster-status.mp4', 'video_url' => 'uploads/test-poster-status.mp4',
         'status' => 'success', 'poster_status' => 'pending',
