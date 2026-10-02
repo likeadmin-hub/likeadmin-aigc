@@ -1,0 +1,107 @@
+{
+  "version": "1.0.383",
+  "base_version": "1.0.382",
+  "server_published_baseline": "2627c923483f2747e1332e2abe0c875634da981e",
+  "server_source_head": "b8d73c2b8b30bc8d1406e4525a469764a5834378",
+  "web_baseline": "e3a675674281e7d5b18e9542ba856a82f6a09ecc",
+  "web_head": "ae88d20847dfb61f5929a9c3c349f638221b6163",
+  "server_source_changes": [
+    {
+      "status": "A",
+      "path": "app/common/service/OfficialSiteFields.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/OfficialSiteService.php"
+    },
+    {
+      "status": "M",
+      "path": "config/project.php"
+    },
+    {
+      "status": "A",
+      "path": "docs/official-site-v6-fields.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-1.0.383-change-manifest.json"
+    },
+    {
+      "status": "M",
+      "path": "tests/Feature/OfficialSiteConfigTest.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/fixtures/official-site-v4-remnants.json"
+    },
+    {
+      "status": "M",
+      "path": "upgrade/version.json"
+    }
+  ],
+  "frontend_source_changes": [
+    "R100\tpc/public/imagine-home/google-sans-flex.woff2\tpc/assets/images/imagine-home/google-sans-flex.woff2",
+    "R100\tpc/public/official-site/fonts/bricolage-grotesque-400.ttf\tpc/assets/official-site/fonts/bricolage-grotesque-400.ttf",
+    "R100\tpc/public/official-site/fonts/bricolage-grotesque-700.ttf\tpc/assets/official-site/fonts/bricolage-grotesque-700.ttf",
+    "R100\tpc/public/official-site/fonts/bricolage-grotesque-800.ttf\tpc/assets/official-site/fonts/bricolage-grotesque-800.ttf",
+    "R100\tpc/public/official-site/fonts/bricolagegrotesque-OFL.txt\tpc/assets/official-site/fonts/bricolagegrotesque-OFL.txt",
+    "R100\tpc/public/official-site/fonts/inter-400.ttf\tpc/assets/official-site/fonts/inter-400.ttf",
+    "R100\tpc/public/official-site/fonts/inter-600.ttf\tpc/assets/official-site/fonts/inter-600.ttf",
+    "R100\tpc/public/official-site/fonts/inter-700.ttf\tpc/assets/official-site/fonts/inter-700.ttf",
+    "R100\tpc/public/official-site/fonts/inter-800.ttf\tpc/assets/official-site/fonts/inter-800.ttf",
+    "R100\tpc/public/official-site/fonts/inter-900.ttf\tpc/assets/official-site/fonts/inter-900.ttf",
+    "R100\tpc/public/official-site/fonts/inter-OFL.txt\tpc/assets/official-site/fonts/inter-OFL.txt",
+    "R100\tpc/public/official-site/icons/arrow.svg\tpc/assets/official-site/icons/arrow.svg",
+    "R100\tpc/public/official-site/icons/audio.svg\tpc/assets/official-site/icons/audio.svg",
+    "R100\tpc/public/official-site/icons/avatar.svg\tpc/assets/official-site/icons/avatar.svg",
+    "R100\tpc/public/official-site/icons/book.svg\tpc/assets/official-site/icons/book.svg",
+    "R100\tpc/public/official-site/icons/canvas.svg\tpc/assets/official-site/icons/canvas.svg",
+    "R100\tpc/public/official-site/icons/chevron.svg\tpc/assets/official-site/icons/chevron.svg",
+    "R100\tpc/public/official-site/icons/close.svg\tpc/assets/official-site/icons/close.svg",
+    "R100\tpc/public/official-site/icons/drama.svg\tpc/assets/official-site/icons/drama.svg",
+    "R100\tpc/public/official-site/icons/edit.svg\tpc/assets/official-site/icons/edit.svg",
+    "R100\tpc/public/official-site/icons/grid.svg\tpc/assets/official-site/icons/grid.svg",
+    "R100\tpc/public/official-site/icons/image.svg\tpc/assets/official-site/icons/image.svg",
+    "R100\tpc/public/official-site/icons/search.svg\tpc/assets/official-site/icons/search.svg",
+    "R100\tpc/public/official-site/icons/video.svg\tpc/assets/official-site/icons/video.svg",
+    "R100\tpc/public/official-site/placeholder.svg\tpc/assets/official-site/placeholder.svg",
+    "M\tpc/components/ai-workspace/imagine-home.vue",
+    "A\tpc/components/official-site/HERO_MOTION.md",
+    "M\tpc/components/official-site/OfficialHero.vue",
+    "A\tpc/components/official-site/OfficialHeroFilm.vue",
+    "M\tpc/components/official-site/OfficialIcon.vue",
+    "M\tpc/components/official-site/OfficialScenes.vue",
+    "M\tpc/components/official-site/OfficialVisual.vue",
+    "M\tpc/components/official-site/fonts.css",
+    "M\tpc/components/official-site/hero.css",
+    "M\tpc/components/official-site/heroMotion.ts",
+    "M\tpc/components/official-site/official-site.css",
+    "A\tpc/components/official-site/officialAssets.ts",
+    "M\tpc/public/imagine-home/README.md",
+    "A\tpc/tests/official-hero-motion.test.cjs",
+    "A\tpc/tests/official-site-assets.test.cjs",
+    "A\ttenant/src/views/official_website/HeroMaterialPool.vue",
+    "A\ttenant/src/views/official_website/HeroSlidesEditor.vue",
+    "M\ttenant/src/views/official_website/NavigationEditor.vue",
+    "M\ttenant/src/views/official_website/index.vue"
+  ],
+  "runtime_dirs": [
+    "public/admin",
+    "public/pc",
+    "public/_nuxt",
+    "public/media"
+  ],
+  "sql_order": [],
+  "intentional_package_exclusions": [
+    "docs/official-site-v6-fields.md",
+    "docs/release-1.0.383-change-manifest.json",
+    "tests/Feature/OfficialSiteConfigTest.php",
+    "tests/fixtures/official-site-v4-remnants.json",
+    "upgrade/version.json"
+  ],
+  "builds": [
+    "pc",
+    "tenant"
+  ],
+  "configuration_upgrade": "Tenant-scoped backup and normalization on configuration read; no schema migration"
+}

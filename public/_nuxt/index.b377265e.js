@@ -1,1 +1,0 @@
-import{_ as o}from"./OfficialWebsitePage.vue.354a5b8e.js";import{g as e,o as r,l as t}from"./entry.bcf6af15.js";import"./OfficialSiteShell.vue.2371df98.js";import"./OfficialSiteContent.vue.51bab77f.js";const i=e({__name:"index",setup(a){return(n,_)=>(r(),t(o))}});export{i as default};
