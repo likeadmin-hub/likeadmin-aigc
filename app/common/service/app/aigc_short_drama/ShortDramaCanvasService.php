@@ -172,7 +172,8 @@ class ShortDramaCanvasService
             (string)($metadata['storage_scope'] ?? ''),
             (string)($metadata['storage_engine'] ?? ''),
             (string)($metadata['storage_domain'] ?? ''),
-            $time
+            $time,
+            true // An explicit capture click may retry a failed frame; polling never does.
         );
         return ShortDramaCanvasPosterJobService::frameStatus($tenantId, $userId, $canvasId, $nodeId, $jobId);
     }
