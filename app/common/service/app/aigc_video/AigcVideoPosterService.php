@@ -171,16 +171,26 @@ class AigcVideoPosterService
         $seconds = max(0.001, min(28800, $seconds));
         // Keep -ss after the input: this decodes the requested frame rather
         // than selecting a preceding keyframe on long-GOP videos.
+        $input = $binary . ' -y -i ' . escapeshellarg($sourcePath);
         $commands = [
-            $binary . ' -y -i ' . escapeshellarg($sourcePath) . ' -ss ' . escapeshellarg(sprintf('%.3F', $seconds)) . ' -frames:v 1 -q:v 2 ' . escapeshellarg($framePath) . ' 2>&1',
+            $input . ($seconds <= 0.001 ? '' : ' -ss ' . escapeshellarg(sprintf('%.3F', $seconds)))
+                . ' -frames:v 1 -q:v 2 ' . escapeshellarg($framePath) . ' 2>&1',
         ];
-        // A first-frame retry without seeking is safe. For a user-selected
-        // current/last frame it would silently return the wrong image instead.
-        if ($seconds <= 0.001) {
-            $commands[] = $binary . ' -y -i ' . escapeshellarg($sourcePath) . ' -frames:v 1 -q:v 2 ' . escapeshellarg($framePath) . ' 2>&1';
+        if ($seconds > 0.001) {
+            // Container/audio duration can extend past the last video frame.
+            // If seeking produced no frame, keep the last decoded image in a
+            // bounded window before the requested time, never the first frame.
+            $start = max(0, $seconds - 1);
+            $commands[] = $input . ' -ss ' . escapeshellarg(sprintf('%.3F', $start))
+                . ' -t ' . escapeshellarg(sprintf('%.3F', $seconds - $start + 0.001))
+                . ' -an -vsync 0 -update 1 -q:v 2 ' . escapeshellarg($framePath) . ' 2>&1';
         }
         $lastOutput = [];
+        $code = 0;
         foreach ($commands as $command) {
+            // Decode/process failures must remain failures, not be masked by
+            // a different timestamp. Only an empty successful seek may retry.
+            if ($code !== 0) break;
             @unlink($framePath);
             $output = [];
             $code = 1;
