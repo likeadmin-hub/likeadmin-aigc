@@ -11,7 +11,7 @@ class OfficialSiteService
 {
     private const TYPE = 'official_site';
     private const KEY = 'config';
-    private const TEMPLATE_VERSION = 11;
+    private const TEMPLATE_VERSION = 12;
 
     public static function get(): array
     {

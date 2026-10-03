@@ -32,7 +32,7 @@ class OfficialSiteOemTemplate
             ]),
             array_merge($block('oem_intro', '专为现代创意企业量身打造', '获取平台个性化演示，查看真实用例，了解领先企业如何将制作时间缩短 90%，同时在每份内容上节省数千美元。'), ['button_text'=>'联系销售', 'button_link'=>'/official/oem#oem-packages']),
             array_merge($block('oem_benefits', "用你的品牌，\n开启 AI 创作生意。", '把 AI 创作能力带给你的客户。从品牌展示到客户管理，拥有自己的站点与后台，让创作者、工作室和服务团队专注经营。'), [
-                'eyebrow'=>'你的品牌，你的 AI 业务', 'button_text'=>'选择我的贴牌方案', 'button_link'=>'/official/oem#oem-packages',
+                'eyebrow'=>'你的品牌，你的 AI 业务',
                 'footnote'=>'应用权益与服务周期以所选套餐为准，AI 创作按实际计费规则消耗资源。',
                 'cards'=>[
                     ['title'=>'让客户记住你的品牌', 'description'=>'配置品牌名称、标识和官网内容，打造自己的创作入口。开通即有专属访问地址，也支持后续绑定自定义域名。', 'icon'=>'edit', 'tab_label'=>'专属品牌'],

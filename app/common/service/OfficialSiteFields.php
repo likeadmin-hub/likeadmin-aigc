@@ -20,7 +20,7 @@ class OfficialSiteFields
             'modules' => [
                 'oem_hero' => array_merge($copy, $media, ['eyebrow','icon_url','badge']),
                 'oem_intro' => array_merge($copy, $button),
-                'oem_benefits' => array_merge($copy, $button, ['eyebrow','footnote']),
+                'oem_benefits' => array_merge($copy, ['eyebrow','footnote']),
                 'oem_clients' => ['eyebrow','title'],
                 'oem_features' => ['title'],
                 'oem_packages' => array_merge($copy, ['eyebrow','button_text']),

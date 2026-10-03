@@ -161,7 +161,8 @@ class OfficialSiteConfigTest extends TestCase
         $benefits = $modules['oem_benefits'];
         self::assertCount(4, $benefits['cards']);
         self::assertSame('专属品牌', $benefits['cards'][0]['tab_label']);
-        self::assertSame('/official/oem#oem-packages', $benefits['button_link']);
+        self::assertArrayNotHasKey('button_link', $benefits);
+        self::assertArrayNotHasKey('button_text', $benefits);
         self::assertSame($result, $this->normalize($result));
     }
 
@@ -181,7 +182,7 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame(0, $block['enabled']);
         self::assertArrayNotHasKey('steps_title', $block);
         self::assertSame('自定义权益说明', $block['footnote']);
-        self::assertSame('', $block['button_link']);
+        self::assertArrayNotHasKey('button_link', $block);
         self::assertSame('专属服务', $block['cards'][0]['tab_label']);
         self::assertSame('uploads/custom.webp', $block['cards'][0]['media']);
         self::assertCount(2, $block['cards']);
@@ -226,10 +227,35 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame('数字人', $modules['products']['cards'][0]['tab_label']);
     }
 
+    public function testV12RemovesOnlyOemBenefitButtonConfiguration(): void
+    {
+        $old = $this->normalize([]);
+        $old['template_version'] = 11;
+        foreach ($old['modules'] as &$module) {
+            if ($module['key'] === 'oem_benefits') {
+                $module['button_text'] = '选择我的贴牌方案';
+                $module['button_link'] = '/official/oem#oem-packages';
+            }
+        }
+        unset($module);
+        $result = $this->normalize($old);
+        $modules = array_column($result['modules'], null, 'key');
+        foreach ($old['modules'] as $module) {
+            if ($module['key'] === 'oem_benefits') unset($module['button_text'], $module['button_link']);
+            self::assertSame($module, $modules[$module['key']]);
+        }
+        $fields = \app\common\service\OfficialSiteFields::schema()['modules'];
+        self::assertNotContains('button_text', $fields['oem_benefits']);
+        self::assertNotContains('button_link', $fields['oem_benefits']);
+        self::assertContains('button_text', $fields['oem_intro']);
+        self::assertContains('button_text', $fields['oem_packages']);
+        self::assertSame($result, $this->normalize($result));
+    }
+
     public function testNewArchitectureUsesActualToolsAndRequestedEntries(): void
     {
         $config = $this->normalize([]);
-        self::assertSame(11, $config['template_version']);
+        self::assertSame(12, $config['template_version']);
         self::assertSame(['应用工具','模型','开放平台','价格','企业服务','OEM贴牌','帮助'], array_column($config['navigation'], 'label'));
         self::assertSame(['工作室','图片','视频'], array_column($config['navigation'][0]['groups'], 'title'));
         self::assertSame(['dropdown','dropdown','link','link','link','link','link'], array_column($config['navigation'], 'mode'));
