@@ -49,7 +49,11 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame('marketing',$map['oem_features']['cards'][0]['preview_layout']);
         self::assertSame([], $map['oem_clients']['cards']);
         self::assertSame($result,$this->normalize($result));
-        self::assertSame('/pc/oem-enterprise/hero.mp4',$this->call('fileUrl','/pc/oem-enterprise/hero.mp4'));
+        foreach (['/pc/oem-enterprise/hero.mp4','/oem-enterprise/hero.mp4','oem-enterprise/hero.mp4'] as $path) {
+            self::assertSame('/pc/oem-enterprise/hero.mp4',$this->call('fileUrl',$path));
+            self::assertSame('/pc/oem-enterprise/hero.mp4',$this->call('storageFileUrl',$path));
+        }
+        self::assertSame('', $this->call('bundledAsset','https://custom.example/oem-enterprise/hero.mp4'));
     }
 
     public function testV7ReplacesOnlyRetiredCasesAndIsIdempotent(): void

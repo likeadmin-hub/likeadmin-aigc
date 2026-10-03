@@ -396,9 +396,9 @@ class OfficialSiteService
     {
         foreach ($config['navigation'] as &$nav) { foreach ($nav['groups'] as &$group) { foreach ($group['items'] as &$item) $item['icon_url'] = FileService::setFileUrl($item['icon_url']); unset($item); } unset($group); } unset($nav);
         foreach ($config['modules'] as &$module) {
-            foreach (['media', 'poster', 'icon_url', 'badge'] as $field) if (array_key_exists($field, $module)) $module[$field] = FileService::setFileUrl($module[$field]);
+            foreach (['media', 'poster', 'icon_url', 'badge'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::storageFileUrl($module[$field]);
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'icon_url', 'avatar', 'secondary_icon_url', 'background_media', 'background_poster', 'preview_media', 'preview_poster'] as $field) if (array_key_exists($field, $card)) $card[$field] = FileService::setFileUrl($card[$field]);
+                foreach (['media', 'poster', 'icon_url', 'avatar', 'secondary_icon_url', 'background_media', 'background_poster', 'preview_media', 'preview_poster'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::storageFileUrl($card[$field]);
             }
             unset($card);
             foreach ($module['slides'] as &$slide) {
@@ -444,11 +444,31 @@ class OfficialSiteService
         ConfigService::set('website', 'pc_keywords', $basic['keywords']);
     }
 
+    /** Keep bundled assets independent of tenant upload storage, including early local previews. */
+    private static function bundledAsset(string $value): string
+    {
+        if (preg_match('~^/?(?:pc/)?oem-enterprise/([a-z0-9-]+\.(?:webp|png|svg|mp4))$~', $value, $match)) {
+            return '/pc/oem-enterprise/' . $match[1];
+        }
+        return '';
+    }
+
+    private static function storageFileUrl(string $value): string
+    {
+        if ($asset = self::bundledAsset($value)) return $asset;
+        $stored = FileService::setFileUrl($value);
+        return self::bundledAsset($stored) ?: $stored;
+    }
+
     private static function fileUrl(string $value): string
     {
-        // Bundled PC assets are served by the PC host, not the tenant upload storage.
-        if (preg_match('~^/pc/oem-enterprise/[a-z0-9-]+\.(webp|png|svg|mp4)$~', $value)) return $value;
-        return $value === '' ? '' : FileService::getFileUrl($value);
+        if ($value === '') return '';
+        if ($asset = self::bundledAsset($value)) return $asset;
+        // Repair only paths under the configured tenant storage domain, not arbitrary custom URLs.
+        if (strpos($value, '/oem-enterprise/') !== false) {
+            if ($asset = self::bundledAsset(FileService::setFileUrl($value))) return $asset;
+        }
+        return FileService::getFileUrl($value);
     }
 
     private static function safeLink(string $link): string
