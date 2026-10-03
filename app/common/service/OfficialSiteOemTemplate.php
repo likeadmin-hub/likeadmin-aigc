@@ -31,6 +31,20 @@ class OfficialSiteOemTemplate
                 'icon_url'=>$asset('suite-mark.svg'), 'badge'=>$asset('fortune-logo.png'),
             ]),
             array_merge($block('oem_intro', '专为现代创意企业量身打造', '获取平台个性化演示，查看真实用例，了解领先企业如何将制作时间缩短 90%，同时在每份内容上节省数千美元。'), ['button_text'=>'联系销售', 'button_link'=>'/official/oem#oem-packages']),
+            array_merge($block('oem_benefits', "用你的品牌，\n开启 AI 创作生意。", '把 AI 创作能力带给你的客户。从品牌展示到客户管理，拥有自己的站点与后台，让创作者、工作室和服务团队专注经营。'), [
+                'eyebrow'=>'你的品牌，你的 AI 业务', 'button_text'=>'选择我的贴牌方案', 'button_link'=>'/official/oem#oem-packages',
+                'steps_title'=>'从一个想法，到自己的 AI 站点',
+                'footnote'=>'应用权益与服务周期以所选套餐为准，AI 创作按实际计费规则消耗资源。',
+                'cards'=>[
+                    ['title'=>'让客户记住你的品牌', 'description'=>'配置品牌名称、标识和官网内容，打造自己的创作入口。开通即有专属访问地址，也支持后续绑定自定义域名。', 'icon'=>'edit', 'display_group'=>'benefit'],
+                    ['title'=>'把创作能力变成服务', 'description'=>'按所选套餐获得对应应用权益，将 AI 创作能力融入你的内容服务与客户业务，省去从零搭建的过程。', 'icon'=>'grid', 'display_group'=>'benefit'],
+                    ['title'=>'用自己的后台经营', 'description'=>'获得独立站点与管理员账号，在自己的后台管理用户、内容和运营配置，让品牌与客户服务形成完整体验。', 'icon'=>'avatar', 'display_group'=>'benefit'],
+                    ['title'=>'按业务节奏选择与续期', 'description'=>'选择适合当前阶段的套餐与服务周期。业务持续开展时，可为已有站点续期，继续经营熟悉的品牌入口。', 'icon'=>'canvas', 'display_group'=>'benefit'],
+                    ['title'=>'选择贴牌方案', 'description'=>'查看套餐价格、服务周期与权益，选择适合自己的方案。', 'display_group'=>'step'],
+                    ['title'=>'填写品牌信息', 'description'=>'设置站点名称和管理员账号；自定义域名可后续配置。', 'display_group'=>'step'],
+                    ['title'=>'开通，开始经营', 'description'=>'支付确认后系统自动处理开通，完成后进入后台配置品牌与业务。', 'display_group'=>'step'],
+                ],
+            ]),
             array_merge($block('oem_clients', '已有行业领先企业加入'), ['eyebrow'=>'企业客户', 'cards'=>array_map(static fn($row) => [
                 'title'=>$row[1], 'description'=>$row[2], 'media'=>'', 'media_type'=>'image',
                 'icon_url'=>$asset('logo-primary-'.$row[0].'.webp'),

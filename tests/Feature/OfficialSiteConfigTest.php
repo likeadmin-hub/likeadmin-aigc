@@ -145,10 +145,56 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame(10, $cases['autoplay_seconds']);
     }
 
+    public function testV10AddsOemBenefitsWithoutChangingExistingTenantModules(): void
+    {
+        $old = $this->normalize([]);
+        $old['template_version'] = 9;
+        $old['modules'] = array_values(array_filter($old['modules'], static fn($m) => $m['key'] !== 'oem_benefits'));
+        foreach ($old['modules'] as &$module) {
+            if ($module['key'] === 'oem_hero') $module['media'] = 'uploads/tenant-custom.mp4';
+            if ($module['key'] === 'oem_clients') $module['enabled'] = 0;
+        }
+        unset($module);
+        $result = $this->normalize($old);
+        $modules = array_column($result['modules'], null, 'key');
+        foreach ($old['modules'] as $module) self::assertSame($module, $modules[$module['key']]);
+        $benefits = $modules['oem_benefits'];
+        self::assertCount(4, array_filter($benefits['cards'], static fn($c) => $c['display_group'] === 'benefit'));
+        self::assertCount(3, array_filter($benefits['cards'], static fn($c) => $c['display_group'] === 'step'));
+        self::assertSame('/official/oem#oem-packages', $benefits['button_link']);
+        self::assertSame($result, $this->normalize($result));
+    }
+
+    public function testOemBenefitsEditingRoundTripsAndRemainsScoped(): void
+    {
+        $result = $this->normalize(['template_version'=>10, 'modules'=>[
+            ['key'=>'oem_benefits','enabled'=>0,'title'=>'自有品牌介绍','steps_title'=>'我的开通流程','footnote'=>'自定义权益说明',
+                'button_link'=>'javascript:alert(1)','cards'=>[
+                    ['title'=>'我的权益','display_group'=>'unknown','icon'=>'book','icon_url'=>'uploads/brand.svg'],
+                    ['title'=>'我的步骤','display_group'=>'step','enabled'=>0],
+                ]],
+            ['key'=>'oem_clients','steps_title'=>'不应保留','footnote'=>'不应保留','cards'=>[['title'=>'案例','display_group'=>'step']]],
+        ]]);
+        $modules = array_column($result['modules'], null, 'key');
+        $block = $modules['oem_benefits'];
+        self::assertSame(0, $block['enabled']);
+        self::assertSame('我的开通流程', $block['steps_title']);
+        self::assertSame('自定义权益说明', $block['footnote']);
+        self::assertSame('', $block['button_link']);
+        self::assertSame('benefit', $block['cards'][0]['display_group']);
+        self::assertSame('uploads/brand.svg', $block['cards'][0]['icon_url']);
+        self::assertSame(0, $block['cards'][1]['enabled']);
+        self::assertArrayNotHasKey('footnote', $modules['oem_clients']);
+        self::assertArrayNotHasKey('display_group', $modules['oem_clients']['cards'][0]);
+        self::assertSame($result, $this->normalize($result));
+        $block['cards'] = [];
+        self::assertSame([], array_column($this->normalize(['template_version'=>10,'modules'=>[$block]])['modules'], null, 'key')['oem_benefits']['cards']);
+    }
+
     public function testNewArchitectureUsesActualToolsAndRequestedEntries(): void
     {
         $config = $this->normalize([]);
-        self::assertSame(9, $config['template_version']);
+        self::assertSame(10, $config['template_version']);
         self::assertSame(['应用工具','模型','开放平台','价格','企业服务','OEM贴牌','帮助'], array_column($config['navigation'], 'label'));
         self::assertSame(['工作室','图片','视频'], array_column($config['navigation'][0]['groups'], 'title'));
         self::assertSame(['dropdown','dropdown','link','link','link','link','link'], array_column($config['navigation'], 'mode'));
