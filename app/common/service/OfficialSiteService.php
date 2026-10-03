@@ -11,7 +11,7 @@ class OfficialSiteService
 {
     private const TYPE = 'official_site';
     private const KEY = 'config';
-    private const TEMPLATE_VERSION = 6;
+    private const TEMPLATE_VERSION = 7;
 
     public static function get(): array
     {
@@ -23,7 +23,7 @@ class OfficialSiteService
         } elseif ((int)($stored['template_version'] ?? 1) < self::TEMPLATE_VERSION) {
             // Tenant-scoped, recoverable upgrade; do not make the next release
             // infer template history from an already-upgraded public response.
-            if (ConfigService::get(self::TYPE, 'config_before_v6', null) === null) {
+            if ((int)($stored['template_version'] ?? 1) < 6 && ConfigService::get(self::TYPE, 'config_before_v6', null) === null) {
                 ConfigService::set(self::TYPE, 'config_before_v6', $stored);
             }
             ConfigService::set(self::TYPE, self::KEY, self::toStorage($config));
@@ -54,7 +54,7 @@ class OfficialSiteService
         foreach ($config['modules'] as &$module) {
             foreach (['media', 'poster'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'icon_url'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
+                foreach (['media', 'poster', 'icon_url', 'avatar'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
                 unset($card['internal_note'], $card['admin_only']);
             }
             unset($card);
@@ -146,11 +146,17 @@ class OfficialSiteService
                     if (($override[$field] ?? null) === $draft[$field]) unset($override[$field]);
                 }
             }
+            // v7 intentionally replaces the retired workflow cards, including tenant copy.
+            // Preserve placement/visibility, but never carry its fields into testimonials.
+            if ($default['key'] === 'cases' && (int)($input['template_version'] ?? 1) < 7) {
+                $override = array_intersect_key($override, ['enabled' => 1, 'sort' => 1]);
+            }
             $source = array_merge($default, $override);
             $raw = [
                 'key' => $default['key'], 'enabled' => (int)!empty($source['enabled']),
                 'sort' => max(0, min(999, (int)$source['sort'])),
                 'title' => self::text($source['title'] ?? '', 100),
+                'highlight_text' => self::text($source['highlight_text'] ?? '', 80),
                 'eyebrow' => self::text($source['eyebrow'] ?? '', 60),
                 'description' => self::text($source['description'] ?? '', 500),
                 'media' => self::text($source['media'] ?? '', 1024),
@@ -161,7 +167,9 @@ class OfficialSiteService
                 'background_media_type' => ($source['background_media_type'] ?? '') === 'video' ? 'video' : 'image',
                 'button_text' => self::text($source['button_text'] ?? '', 40),
                 'button_link' => self::safeLink((string)($source['button_link'] ?? '')),
-                'autoplay_seconds' => max(3, min(30, (int)($source['autoplay_seconds'] ?? 6))),
+                'autoplay_seconds' => $default['key'] === 'cases'
+                    ? max(10, min(120, (int)($source['autoplay_seconds'] ?? 35)))
+                    : max(3, min(30, (int)($source['autoplay_seconds'] ?? 6))),
                 'cards' => self::normalizeCards($source['cards'] ?? []),
                 'slides' => $default['key'] === 'hero' ? self::normalizeSlides($source['slides'] ?? []) : [],
             ];
@@ -341,6 +349,9 @@ class OfficialSiteService
             if (!in_array($status, ['live', 'planned', 'enterprise'], true)) $status = 'planned';
             $result[] = [
                 'title' => self::text($card['title'] ?? '', 80),
+                'source' => self::text($card['source'] ?? '', 80),
+                'rating' => max(1, min(5, (int)($card['rating'] ?? 5))),
+                'avatar' => self::text($card['avatar'] ?? '', 1024),
                 'tab_label' => self::text($card['tab_label'] ?? (['drama'=>'AI 短剧','video'=>'AI 视频','image'=>'AI 绘图','avatar'=>'数字人','canvas'=>'无限画布','audio'=>'AI 音乐'][$card['icon'] ?? ''] ?? ($card['title'] ?? '')), 40),
                 'icon' => self::text($card['icon'] ?? 'grid', 30),
                 'icon_url' => self::text($card['icon_url'] ?? '', 1024),
@@ -369,7 +380,7 @@ class OfficialSiteService
         foreach ($config['modules'] as &$module) {
             foreach (['media', 'poster'] as $field) if (array_key_exists($field, $module)) $module[$field] = FileService::setFileUrl($module[$field]);
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'icon_url'] as $field) if (array_key_exists($field, $card)) $card[$field] = FileService::setFileUrl($card[$field]);
+                foreach (['media', 'poster', 'icon_url', 'avatar'] as $field) if (array_key_exists($field, $card)) $card[$field] = FileService::setFileUrl($card[$field]);
             }
             unset($card);
             foreach ($module['slides'] as &$slide) {
@@ -394,7 +405,7 @@ class OfficialSiteService
         foreach ($config['modules'] as &$module) {
             foreach (['media', 'poster'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'icon_url'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
+                foreach (['media', 'poster', 'icon_url', 'avatar'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
             }
             unset($card);
             foreach ($module['slides'] as &$slide) {

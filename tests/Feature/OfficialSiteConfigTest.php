@@ -14,10 +14,64 @@ class OfficialSiteConfigTest extends TestCase
     }
     private function normalize(array $input): array { return $this->call('normalize', $input); }
 
+    public function testV7ReplacesOnlyRetiredCasesAndIsIdempotent(): void
+    {
+        $old = $this->normalize([]);
+        $old['template_version'] = 6;
+        $old['basic']['name'] = '租户品牌';
+        foreach ($old['modules'] as &$module) {
+            if ($module['key'] === 'hero') $module['media'] = 'uploads/keep.mp4';
+            if ($module['key'] === 'cases') $module = [
+                'key'=>'cases', 'enabled'=>0, 'sort'=>777, 'title'=>'旧创作方式',
+                'cards'=>[['title'=>'旧工作流', 'icon'=>'video', 'link'=>'/ai', 'status'=>'live']],
+            ];
+        }
+        unset($module);
+        $result = $this->normalize($old);
+        self::assertSame($old['basic'], $result['basic']);
+        self::assertSame($old['navigation'], $result['navigation']);
+        $modules = array_column($result['modules'], null, 'key');
+        foreach ($old['modules'] as $module) {
+            if ($module['key'] !== 'cases') self::assertSame($module, $modules[$module['key']]);
+        }
+        $reviews = $modules['cases'];
+        self::assertSame(0, $reviews['enabled']);
+        self::assertSame(777, $reviews['sort']);
+        self::assertSame("深受喜爱 创作者\n全球", $reviews['title']);
+        self::assertCount(6, $reviews['cards']);
+        self::assertSame('Scorpy', $reviews['cards'][0]['title']);
+        foreach (['icon', 'icon_url', 'link', 'status', 'media', 'button_text'] as $field) self::assertArrayNotHasKey($field, $reviews['cards'][0]);
+        self::assertSame($result, $this->normalize($result));
+    }
+
+    public function testV7TestimonialsAreEditableBoundedAndCanBeEmpty(): void
+    {
+        $input = ['template_version'=>7, 'modules'=>[['key'=>'cases', 'title'=>'自有评价', 'highlight_text'=>'评价',
+            'autoplay_seconds'=>180, 'cards'=>array_fill(0, 30, ['title'=>'<b>作者</b>', 'description'=>'自己的评价',
+                'source'=>'社区', 'rating'=>9, 'avatar'=>'uploads/avatar.webp', 'link'=>'/old'])]]];
+        $result = $this->normalize($input);
+        $cases = array_column($result['modules'], null, 'key')['cases'];
+        self::assertSame('自有评价', $cases['title']);
+        self::assertSame('评价', $cases['highlight_text']);
+        self::assertSame(120, $cases['autoplay_seconds']);
+        self::assertCount(24, $cases['cards']);
+        self::assertSame('作者', $cases['cards'][0]['title']);
+        self::assertSame(5, $cases['cards'][0]['rating']);
+        self::assertSame('社区', $cases['cards'][0]['source']);
+        self::assertSame('uploads/avatar.webp', $cases['cards'][0]['avatar']);
+        self::assertArrayNotHasKey('link', $cases['cards'][0]);
+        self::assertSame($result, $this->normalize($result));
+        $input['modules'][0]['cards'] = [];
+        $input['modules'][0]['autoplay_seconds'] = 0;
+        $cases = array_column($this->normalize($input)['modules'], null, 'key')['cases'];
+        self::assertSame([], $cases['cards']);
+        self::assertSame(10, $cases['autoplay_seconds']);
+    }
+
     public function testNewArchitectureUsesActualToolsAndSixRequestedEntries(): void
     {
         $config = $this->normalize([]);
-        self::assertSame(6, $config['template_version']);
+        self::assertSame(7, $config['template_version']);
         self::assertSame(['应用工具','模型','开放平台','价格','企业服务','帮助'], array_column($config['navigation'], 'label'));
         self::assertSame(['工作室','图片','视频'], array_column($config['navigation'][0]['groups'], 'title'));
         self::assertSame(['dropdown','dropdown','link','link','link','link'], array_column($config['navigation'], 'mode'));
