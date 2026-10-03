@@ -37,8 +37,8 @@ class OfficialSiteOemTemplate
                 'cards'=>[
                     ['title'=>'让客户记住你的品牌', 'description'=>'配置品牌名称、标识和官网内容，打造自己的创作入口。开通即有专属访问地址，也支持后续绑定自定义域名。', 'icon'=>'edit', 'tab_label'=>'专属品牌'],
                     ['title'=>'把创作能力变成服务', 'description'=>'按所选套餐获得对应应用权益，将 AI 创作能力融入你的内容服务与客户业务，省去从零搭建的过程。', 'icon'=>'grid', 'tab_label'=>'应用权益'],
-                    ['title'=>'用自己的后台经营', 'description'=>'获得独立站点与管理员账号，在自己的后台管理用户、内容和运营配置，让品牌与客户服务形成完整体验。', 'icon'=>'avatar', 'tab_label'=>'独立经营'],
-                    ['title'=>'按业务节奏选择与续期', 'description'=>'选择适合当前阶段的套餐与服务周期。业务持续开展时，可为已有站点续期，继续经营熟悉的品牌入口。', 'icon'=>'canvas', 'tab_label'=>'灵活续期'],
+                    ['title'=>'用自己的后台经营', 'description'=>'获得独立站点与管理员账号，在自己的后台管理用户、内容和运营配置，让品牌与客户服务形成完整体验。', 'icon'=>'manage', 'tab_label'=>'独立经营'],
+                    ['title'=>'按业务节奏选择与续期', 'description'=>'选择适合当前阶段的套餐与服务周期。业务持续开展时，可为已有站点续期，继续经营熟悉的品牌入口。', 'icon'=>'renew', 'tab_label'=>'灵活续期'],
                 ],
             ]),
             array_merge($block('oem_clients', '已有行业领先企业加入'), ['eyebrow'=>'企业客户', 'cards'=>array_map(static fn($row) => [
