@@ -11,7 +11,7 @@ class OfficialSiteService
 {
     private const TYPE = 'official_site';
     private const KEY = 'config';
-    private const TEMPLATE_VERSION = 9;
+    private const TEMPLATE_VERSION = 10;
 
     public static function get(): array
     {
@@ -174,6 +174,8 @@ class OfficialSiteService
                 'title' => self::text($source['title'] ?? '', 100),
                 'icon_url' => self::text($source['icon_url'] ?? '', 1024),
                 'badge' => self::text($source['badge'] ?? '', 1024),
+                'steps_title' => self::text($source['steps_title'] ?? '', 100),
+                'footnote' => self::text($source['footnote'] ?? '', 300),
                 'highlight_text' => self::text($source['highlight_text'] ?? '', 80),
                 'eyebrow' => self::text($source['eyebrow'] ?? '', 60),
                 'description' => self::text($source['description'] ?? '', 500),
@@ -367,6 +369,7 @@ class OfficialSiteService
             if (!in_array($status, ['live', 'planned', 'enterprise'], true)) $status = 'planned';
             $result[] = [
                 'title' => self::text($card['title'] ?? '', 80),
+                'display_group' => ($card['display_group'] ?? '') === 'step' ? 'step' : 'benefit',
                 'source' => self::text($card['source'] ?? '', 80),
                 'rating' => max(1, min(5, (int)($card['rating'] ?? 5))),
                 'avatar' => self::text($card['avatar'] ?? '', 1024),
