@@ -15,7 +15,7 @@ Run `OfficialSiteConfigTest` and `OfficialSiteRouteTest`, then validate desktop 
 
 ## v10：面向用户的 OEM 贴牌介绍
 
-在第二屏与企业客户之间新增 `oem_benefits`，可在官网配置的 OEM贴牌页签中编辑。标题、介绍、权益卡片、开通步骤、图标、按钮、权益说明与显隐均可配置；卡片 `display_group` 区分 benefit / step，各自按排序展示。默认按钮定位本页真实贴牌套餐，不创建订单。
+在第二屏与企业客户之间新增 `oem_benefits`，可在官网配置的 OEM贴牌页签中编辑。沿用首页“一个平台，无限故事”的布局：顶部权益导航、下方图文交错展示。标题、介绍、权益卡片、标签、图标、图片或视频、按钮、权益说明与显隐均可配置；未配置素材时以图标图形展示。移除初稿中的密集卡片与开通步骤。默认按钮定位本页真实贴牌套餐，不创建订单。
 
 默认权益依据 TenantBrandService 的独立子租户、管理员开通与域名配置流程，以及 TenantContractService / TenantPackageService 的周期续期和绑定应用权益发放；不承诺无限资源、收益或永久权限。
 

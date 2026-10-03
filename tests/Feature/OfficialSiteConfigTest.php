@@ -159,8 +159,8 @@ class OfficialSiteConfigTest extends TestCase
         $modules = array_column($result['modules'], null, 'key');
         foreach ($old['modules'] as $module) self::assertSame($module, $modules[$module['key']]);
         $benefits = $modules['oem_benefits'];
-        self::assertCount(4, array_filter($benefits['cards'], static fn($c) => $c['display_group'] === 'benefit'));
-        self::assertCount(3, array_filter($benefits['cards'], static fn($c) => $c['display_group'] === 'step'));
+        self::assertCount(4, $benefits['cards']);
+        self::assertSame('专属品牌', $benefits['cards'][0]['tab_label']);
         self::assertSame('/official/oem#oem-packages', $benefits['button_link']);
         self::assertSame($result, $this->normalize($result));
     }
@@ -170,18 +170,21 @@ class OfficialSiteConfigTest extends TestCase
         $result = $this->normalize(['template_version'=>10, 'modules'=>[
             ['key'=>'oem_benefits','enabled'=>0,'title'=>'自有品牌介绍','steps_title'=>'我的开通流程','footnote'=>'自定义权益说明',
                 'button_link'=>'javascript:alert(1)','cards'=>[
-                    ['title'=>'我的权益','display_group'=>'unknown','icon'=>'book','icon_url'=>'uploads/brand.svg'],
-                    ['title'=>'我的步骤','display_group'=>'step','enabled'=>0],
+                    ['title'=>'我的权益','tab_label'=>'专属服务','media'=>'uploads/custom.webp','icon'=>'book','icon_url'=>'uploads/brand.svg'],
+                    ['title'=>'我的旧步骤','display_group'=>'step'],
+                    ['title'=>'隐藏权益','enabled'=>0],
                 ]],
             ['key'=>'oem_clients','steps_title'=>'不应保留','footnote'=>'不应保留','cards'=>[['title'=>'案例','display_group'=>'step']]],
         ]]);
         $modules = array_column($result['modules'], null, 'key');
         $block = $modules['oem_benefits'];
         self::assertSame(0, $block['enabled']);
-        self::assertSame('我的开通流程', $block['steps_title']);
+        self::assertArrayNotHasKey('steps_title', $block);
         self::assertSame('自定义权益说明', $block['footnote']);
         self::assertSame('', $block['button_link']);
-        self::assertSame('benefit', $block['cards'][0]['display_group']);
+        self::assertSame('专属服务', $block['cards'][0]['tab_label']);
+        self::assertSame('uploads/custom.webp', $block['cards'][0]['media']);
+        self::assertCount(2, $block['cards']);
         self::assertSame('uploads/brand.svg', $block['cards'][0]['icon_url']);
         self::assertSame(0, $block['cards'][1]['enabled']);
         self::assertArrayNotHasKey('footnote', $modules['oem_clients']);
