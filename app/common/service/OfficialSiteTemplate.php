@@ -123,6 +123,7 @@ class OfficialSiteTemplate
             $entry('open', '开放平台', 80, '/official/open'),
             $entry('pricing', '价格', 70, '/pricing'),
             $entry('enterprise', '企业服务', 60, '/official/enterprise'),
+            $entry('affiliate', '联盟计划', 55, '/user/distribution'),
             $entry('help', '帮助', 50, '/official/help'),
         ];
     }

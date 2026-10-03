@@ -68,13 +68,13 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame(10, $cases['autoplay_seconds']);
     }
 
-    public function testNewArchitectureUsesActualToolsAndSixRequestedEntries(): void
+    public function testNewArchitectureUsesActualToolsAndRequestedEntries(): void
     {
         $config = $this->normalize([]);
         self::assertSame(7, $config['template_version']);
-        self::assertSame(['应用工具','模型','开放平台','价格','企业服务','帮助'], array_column($config['navigation'], 'label'));
+        self::assertSame(['应用工具','模型','开放平台','价格','企业服务','联盟计划','帮助'], array_column($config['navigation'], 'label'));
         self::assertSame(['工作室','图片','视频'], array_column($config['navigation'][0]['groups'], 'title'));
-        self::assertSame(['dropdown','dropdown','link','link','link','link'], array_column($config['navigation'], 'mode'));
+        self::assertSame(['dropdown','dropdown','link','link','link','link','link'], array_column($config['navigation'], 'mode'));
         $modules = array_column($config['modules'], null, 'key');
         self::assertSame(['AI 短剧','AI 视频','AI 绘图','数字人','无限画布','AI 音乐'], array_column($modules['products']['cards'], 'title'));
         self::assertSame([], $modules['models']['cards']);
