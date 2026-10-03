@@ -11,7 +11,7 @@ class OfficialSiteService
 {
     private const TYPE = 'official_site';
     private const KEY = 'config';
-    private const TEMPLATE_VERSION = 7;
+    private const TEMPLATE_VERSION = 8;
 
     public static function get(): array
     {
@@ -52,9 +52,9 @@ class OfficialSiteService
         $config['basic']['favicon'] = self::fileUrl($config['basic']['favicon']);
         $config['basic']['placeholder'] = self::fileUrl($config['basic']['placeholder']);
         foreach ($config['modules'] as &$module) {
-            foreach (['media', 'poster'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
+            foreach (['media', 'poster', 'icon_url', 'badge'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'icon_url', 'avatar'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
+                foreach (['media', 'poster', 'icon_url', 'avatar', 'secondary_icon_url', 'background_media', 'background_poster', 'preview_media', 'preview_poster'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
                 unset($card['internal_note'], $card['admin_only']);
             }
             unset($card);
@@ -70,6 +70,14 @@ class OfficialSiteService
     private static function normalize(array $input): array
     {
         $defaults = self::defaults();
+        // Replace the retired affiliate entry once; OEM edits remain tenant-owned thereafter.
+        if ((int)($input['template_version'] ?? 1) < 8) {
+            foreach (($input['navigation'] ?? []) as $i => $entry) {
+                if (($entry['key'] ?? '') === 'affiliate') {
+                    $input['navigation'][$i] = ['key'=>'oem', 'enabled'=>$entry['enabled'] ?? 1, 'sort'=>$entry['sort'] ?? 55];
+                }
+            }
+        }
         if ((int)($input['template_version'] ?? 1) < 4) {
             $previous = array_column(self::v3Defaults()['modules'], null, 'key');
             $newModules = array_column($defaults['modules'], null, 'key');
@@ -156,6 +164,8 @@ class OfficialSiteService
                 'key' => $default['key'], 'enabled' => (int)!empty($source['enabled']),
                 'sort' => max(0, min(999, (int)$source['sort'])),
                 'title' => self::text($source['title'] ?? '', 100),
+                'icon_url' => self::text($source['icon_url'] ?? '', 1024),
+                'badge' => self::text($source['badge'] ?? '', 1024),
                 'highlight_text' => self::text($source['highlight_text'] ?? '', 80),
                 'eyebrow' => self::text($source['eyebrow'] ?? '', 60),
                 'description' => self::text($source['description'] ?? '', 500),
@@ -355,6 +365,14 @@ class OfficialSiteService
                 'tab_label' => self::text($card['tab_label'] ?? (['drama'=>'AI 短剧','video'=>'AI 视频','image'=>'AI 绘图','avatar'=>'数字人','canvas'=>'无限画布','audio'=>'AI 音乐'][$card['icon'] ?? ''] ?? ($card['title'] ?? '')), 40),
                 'icon' => self::text($card['icon'] ?? 'grid', 30),
                 'icon_url' => self::text($card['icon_url'] ?? '', 1024),
+                'secondary_icon_url' => self::text($card['secondary_icon_url'] ?? '', 1024),
+                'background_media' => self::text($card['background_media'] ?? '', 1024),
+                'background_poster' => self::text($card['background_poster'] ?? '', 1024),
+                'background_media_type' => ($card['background_media_type'] ?? '') === 'video' ? 'video' : 'image',
+                'preview_media' => self::text($card['preview_media'] ?? '', 1024),
+                'preview_poster' => self::text($card['preview_poster'] ?? '', 1024),
+                'preview_media_type' => ($card['preview_media_type'] ?? '') === 'video' ? 'video' : 'image',
+                'preview_layout' => in_array($card['preview_layout'] ?? '', ['image','marketing','cinema','mcp'], true) ? $card['preview_layout'] : 'image',
                 'model_id' => self::text($card['model_id'] ?? '', 80),
                 'enabled' => array_key_exists('enabled', $card) ? (int)!empty($card['enabled']) : 1,
                 'description' => self::text($card['description'] ?? '', 300),
@@ -378,9 +396,9 @@ class OfficialSiteService
     {
         foreach ($config['navigation'] as &$nav) { foreach ($nav['groups'] as &$group) { foreach ($group['items'] as &$item) $item['icon_url'] = FileService::setFileUrl($item['icon_url']); unset($item); } unset($group); } unset($nav);
         foreach ($config['modules'] as &$module) {
-            foreach (['media', 'poster'] as $field) if (array_key_exists($field, $module)) $module[$field] = FileService::setFileUrl($module[$field]);
+            foreach (['media', 'poster', 'icon_url', 'badge'] as $field) if (array_key_exists($field, $module)) $module[$field] = FileService::setFileUrl($module[$field]);
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'icon_url', 'avatar'] as $field) if (array_key_exists($field, $card)) $card[$field] = FileService::setFileUrl($card[$field]);
+                foreach (['media', 'poster', 'icon_url', 'avatar', 'secondary_icon_url', 'background_media', 'background_poster', 'preview_media', 'preview_poster'] as $field) if (array_key_exists($field, $card)) $card[$field] = FileService::setFileUrl($card[$field]);
             }
             unset($card);
             foreach ($module['slides'] as &$slide) {
@@ -403,9 +421,9 @@ class OfficialSiteService
         $config['basic']['favicon'] = self::fileUrl($config['basic']['favicon']);
         $config['basic']['placeholder'] = self::fileUrl($config['basic']['placeholder']);
         foreach ($config['modules'] as &$module) {
-            foreach (['media', 'poster'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
+            foreach (['media', 'poster', 'icon_url', 'badge'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'icon_url', 'avatar'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
+                foreach (['media', 'poster', 'icon_url', 'avatar', 'secondary_icon_url', 'background_media', 'background_poster', 'preview_media', 'preview_poster'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
             }
             unset($card);
             foreach ($module['slides'] as &$slide) {
@@ -428,6 +446,8 @@ class OfficialSiteService
 
     private static function fileUrl(string $value): string
     {
+        // Bundled PC assets are served by the PC host, not the tenant upload storage.
+        if (preg_match('~^/pc/oem-enterprise/[a-z0-9-]+\.(webp|png|svg|mp4)$~', $value)) return $value;
         return $value === '' ? '' : FileService::getFileUrl($value);
     }
 

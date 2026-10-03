@@ -76,7 +76,7 @@ class OfficialSiteTemplate
             $block('footer', 0, '开始创作', '', $features),
         ];
         foreach ($previous['modules'] as $m) if (in_array($m['key'], ['pricing', 'join'], true)) $modules[] = $m;
-        return ['basic' => $basic, 'modules' => $modules];
+        return ['basic' => $basic, 'modules' => array_merge($modules, OfficialSiteOemTemplate::modules())];
     }
 
     /** Reference copy supplied by the owner; editable independently for each tenant. */
@@ -123,7 +123,7 @@ class OfficialSiteTemplate
             $entry('open', '开放平台', 80, '/official/open'),
             $entry('pricing', '价格', 70, '/pricing'),
             $entry('enterprise', '企业服务', 60, '/official/enterprise'),
-            $entry('affiliate', '联盟计划', 55, '/user/distribution'),
+            $entry('oem', 'OEM贴牌', 55, '/official/oem'),
             $entry('help', '帮助', 50, '/official/help'),
         ];
     }
