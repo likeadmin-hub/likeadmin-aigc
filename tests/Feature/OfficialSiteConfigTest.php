@@ -55,7 +55,7 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame('评价', $cases['highlight_text']);
         self::assertSame(120, $cases['autoplay_seconds']);
         self::assertCount(24, $cases['cards']);
-        self::assertSame('作者', $cases['cards'][0]['title']);
+        self::assertSame('<b>作者</b>', $cases['cards'][0]['title']); // Rendered as escaped text, never HTML.
         self::assertSame(5, $cases['cards'][0]['rating']);
         self::assertSame('社区', $cases['cards'][0]['source']);
         self::assertSame('uploads/avatar.webp', $cases['cards'][0]['avatar']);
