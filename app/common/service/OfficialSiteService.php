@@ -11,7 +11,7 @@ class OfficialSiteService
 {
     private const TYPE = 'official_site';
     private const KEY = 'config';
-    private const TEMPLATE_VERSION = 10;
+    private const TEMPLATE_VERSION = 11;
 
     public static function get(): array
     {
@@ -171,6 +171,22 @@ class OfficialSiteService
             // Retire the initial, unreleased opening-step cards from the OEM introduction.
             if ($default['key'] === 'oem_benefits' && is_array($source['cards'] ?? null)) {
                 $source['cards'] = array_values(array_filter($source['cards'], static fn($card) => is_array($card) && ($card['display_group'] ?? '') !== 'step'));
+                if ((int)($input['template_version'] ?? 1) < 11) {
+                    // Repair only labels/icons produced by the first OEM draft, matched by content.
+                    $repairs = [
+                        '让客户记住你的品牌' => ['专属品牌', '让客户记住你的品牌', 'edit', 'edit'],
+                        '把创作能力变成服务' => ['应用权益', '把创作能力变成服务', 'grid', 'grid'],
+                        '用自己的后台经营' => ['独立经营', '数字人', 'avatar', 'manage'],
+                        '按业务节奏选择与续期' => ['灵活续期', '无限画布', 'canvas', 'renew'],
+                    ];
+                    foreach ($source['cards'] as &$card) {
+                        $repair = $repairs[$card['title'] ?? ''] ?? null;
+                        if (!$repair) continue;
+                        if (!isset($card['tab_label']) || $card['tab_label'] === $repair[1]) $card['tab_label'] = $repair[0];
+                        if (($card['icon'] ?? '') === $repair[2]) $card['icon'] = $repair[3];
+                    }
+                    unset($card);
+                }
             }
             $raw = [
                 'key' => $default['key'], 'enabled' => (int)!empty($source['enabled']),
@@ -193,7 +209,7 @@ class OfficialSiteService
                 'autoplay_seconds' => $default['key'] === 'cases'
                     ? max(10, min(120, (int)($source['autoplay_seconds'] ?? 35)))
                     : max(3, min(30, (int)($source['autoplay_seconds'] ?? 6))),
-                'cards' => self::normalizeCards($source['cards'] ?? []),
+                'cards' => self::normalizeCards($source['cards'] ?? [], $default['key']),
                 'slides' => $default['key'] === 'hero' ? self::normalizeSlides($source['slides'] ?? []) : [],
             ];
             $modules[] = $raw;
@@ -362,7 +378,7 @@ class OfficialSiteService
         return $result;
     }
 
-    private static function normalizeCards($cards): array
+    private static function normalizeCards($cards, string $moduleKey = ''): array
     {
         if (!is_array($cards)) return [];
         $result = [];
@@ -375,7 +391,7 @@ class OfficialSiteService
                 'source' => self::text($card['source'] ?? '', 80),
                 'rating' => max(1, min(5, (int)($card['rating'] ?? 5))),
                 'avatar' => self::text($card['avatar'] ?? '', 1024),
-                'tab_label' => self::text($card['tab_label'] ?? (['drama'=>'AI 短剧','video'=>'AI 视频','image'=>'AI 绘图','avatar'=>'数字人','canvas'=>'无限画布','audio'=>'AI 音乐'][$card['icon'] ?? ''] ?? ($card['title'] ?? '')), 40),
+                'tab_label' => self::text($card['tab_label'] ?? ($moduleKey === 'oem_benefits' ? ($card['title'] ?? '') : (['drama'=>'AI 短剧','video'=>'AI 视频','image'=>'AI 绘图','avatar'=>'数字人','canvas'=>'无限画布','audio'=>'AI 音乐'][$card['icon'] ?? ''] ?? ($card['title'] ?? ''))), 40),
                 'icon' => self::text($card['icon'] ?? 'grid', 30),
                 'icon_url' => self::text($card['icon_url'] ?? '', 1024),
                 'secondary_icon_url' => self::text($card['secondary_icon_url'] ?? '', 1024),

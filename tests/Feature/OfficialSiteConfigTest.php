@@ -194,10 +194,42 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame([], array_column($this->normalize(['template_version'=>10,'modules'=>[$block]])['modules'], null, 'key')['oem_benefits']['cards']);
     }
 
+    public function testV11RepairsOemLabelsByContentAndKeepsCustomConfiguration(): void
+    {
+        $cards = [
+            ['title'=>'按业务节奏选择与续期','tab_label'=>'无限画布','icon'=>'canvas','media'=>'uploads/renew.mp4','enabled'=>0,'sort'=>250],
+            ['title'=>'用自己的后台经营','tab_label'=>'数字人','icon'=>'avatar','icon_url'=>'uploads/custom.svg','description'=>'自有介绍'],
+            ['title'=>'用自己的后台经营','tab_label'=>'客户运营','icon'=>'book'],
+            ['title'=>'自有数字人业务','tab_label'=>'数字人','icon'=>'avatar'],
+        ];
+        $result = $this->normalize(['template_version'=>10,'modules'=>[['key'=>'oem_benefits','cards'=>$cards]]]);
+        $actual = array_column($result['modules'],null,'key')['oem_benefits']['cards'];
+        self::assertSame('灵活续期', $actual[0]['tab_label']);
+        self::assertSame('renew', $actual[0]['icon']);
+        self::assertSame('uploads/renew.mp4', $actual[0]['media']);
+        self::assertSame(0, $actual[0]['enabled']);
+        self::assertSame(250, $actual[0]['sort']);
+        self::assertSame('独立经营', $actual[1]['tab_label']);
+        self::assertSame('manage', $actual[1]['icon']);
+        self::assertSame('uploads/custom.svg', $actual[1]['icon_url']);
+        self::assertSame('自有介绍', $actual[1]['description']);
+        self::assertSame('客户运营', $actual[2]['tab_label']);
+        self::assertSame('book', $actual[2]['icon']);
+        self::assertSame('数字人', $actual[3]['tab_label']);
+        self::assertSame($result, $this->normalize($result));
+        $current = $this->normalize(['template_version'=>11,'modules'=>[
+            ['key'=>'oem_benefits','cards'=>[['title'=>'自有权益','icon'=>'avatar']]],
+            ['key'=>'products','cards'=>[['title'=>'数字人服务','icon'=>'avatar']]],
+        ]]);
+        $modules = array_column($current['modules'],null,'key');
+        self::assertSame('自有权益', $modules['oem_benefits']['cards'][0]['tab_label']);
+        self::assertSame('数字人', $modules['products']['cards'][0]['tab_label']);
+    }
+
     public function testNewArchitectureUsesActualToolsAndRequestedEntries(): void
     {
         $config = $this->normalize([]);
-        self::assertSame(10, $config['template_version']);
+        self::assertSame(11, $config['template_version']);
         self::assertSame(['应用工具','模型','开放平台','价格','企业服务','OEM贴牌','帮助'], array_column($config['navigation'], 'label'));
         self::assertSame(['工作室','图片','视频'], array_column($config['navigation'][0]['groups'], 'title'));
         self::assertSame(['dropdown','dropdown','link','link','link','link','link'], array_column($config['navigation'], 'mode'));

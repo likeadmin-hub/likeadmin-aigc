@@ -20,3 +20,7 @@ Run `OfficialSiteConfigTest` and `OfficialSiteRouteTest`, then validate desktop 
 默认权益依据 TenantBrandService 的独立子租户、管理员开通与域名配置流程，以及 TenantContractService / TenantPackageService 的周期续期和绑定应用权益发放；不承诺无限资源、收益或永久权限。
 
 配置版本升级为 10，缺失的介绍模块自动补齐，已有模块、素材和自定义内容保持原值。只新增展示字段，不改支付、额度、订单、权限或套餐规则，不新增素材文件或 SQL。
+
+## v11：权益标签与图标修复
+
+仅对旧版 OEM 介绍按卡片标题匹配，将自动误填的“数字人 / 无限画布”修复为“独立经营 / 灵活续期”，旧默认图标改为 manage / renew。自定义标题、标签、素材、描述、排序、显隐和自定义图标 URL 保留。新建 OEM 卡片不再根据应用图标推断业务标签；其他模块保持原规则。
