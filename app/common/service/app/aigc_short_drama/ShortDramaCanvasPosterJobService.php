@@ -46,7 +46,8 @@ class ShortDramaCanvasPosterJobService
         string $storageScope = '',
         string $storageEngine = '',
         string $storageDomain = '',
-        ?float $captureTime = null
+        ?float $captureTime = null,
+        bool $retryFailedFrame = false
     ): int {
         $videoUri = self::canonicalUri($videoUri);
         if ($tenantId <= 0 || $userId <= 0 || $canvasId <= 0 || $nodeId === '' || $videoUri === '') {
@@ -55,8 +56,18 @@ class ShortDramaCanvasPosterJobService
         $now = time();
         $key = sha1(implode('|', [$tenantId, $userId, $canvasId, $nodeId, $videoUri]));
         if ($captureTime !== null) $key = sha1($key . '|frame|' . sprintf('%.3F', $captureTime));
-        return Db::transaction(function () use ($tenantId, $userId, $canvasId, $nodeId, $videoUri, $storageScope, $storageEngine, $storageDomain, $captureTime, $key, $now): int {
+        return Db::transaction(function () use ($tenantId, $userId, $canvasId, $nodeId, $videoUri, $storageScope, $storageEngine, $storageDomain, $captureTime, $retryFailedFrame, $key, $now): int {
             $job = Db::name(self::TABLE)->where('idempotency_key', $key)->lock(true)->find();
+            // Only a new capture submission may retry a terminal frame job.
+            // Retain its diagnostics and ID for existing pollers; subsequent
+            // submissions share the new job instead of resetting its lease.
+            if ($job && $retryFailedFrame && $captureTime !== null
+                && (string)$job['job_kind'] === 'frame' && (string)$job['status'] === 'dead') {
+                Db::name(self::TABLE)->where('id', (int)$job['id'])->update([
+                    'idempotency_key' => sha1($key . '|failed|' . (int)$job['id']),
+                ]);
+                $job = null;
+            }
             if (!$job) {
                 return (int)Db::name(self::TABLE)->insertGetId([
                     'tenant_id' => $tenantId, 'user_id' => $userId, 'canvas_id' => $canvasId,

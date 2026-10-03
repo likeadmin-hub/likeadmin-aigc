@@ -78,13 +78,16 @@ $tenantFrontendRedirect = function (string $frontend, string $childPath = '') {
     return redirect($path . '?' . http_build_query($query));
 };
 
+// Shared root and tenant-prefix PC routes; API/admin/callback routes stay separate.
+$pcFrontendPath = '(ai|app|account|user|page|policy|products|scenes|cases|pricing|official|join-opc)(/.*)?';
+
 // PC端默认访问站点根路径，平台端固定保留 /platform/
 Route::get('/', function () {
     return view(app()->getRootPath() . 'public/pc/index.html');
 });
 Route::get(':path', function () {
     return view(app()->getRootPath() . 'public/pc/index.html');
-})->pattern(['path' => '(ai|app|account|user|page|policy)(/.*)?']);
+})->pattern(['path' => $pcFrontendPath]);
 
 // 平台管理后台
 Route::get('platform', function () {
@@ -127,7 +130,7 @@ Route::rule('t/:tenant_id/mobile', function () use ($tenantFrontendRedirect) {
 // PC端默认不再带 /pc/ 后缀，保留 /pc/ 旧链接兼容
 Route::rule('t/:tenant_id/:any', function () use ($tenantFrontendRedirect) {
     return $tenantFrontendRedirect('', (string)request()->param('any', ''));
-})->pattern(['tenant_id' => '\d+', 'any' => '(ai|app|account|user|page|policy)(/.*)?']);
+})->pattern(['tenant_id' => '\d+', 'any' => $pcFrontendPath]);
 Route::rule('t/:tenant_id', function () use ($tenantFrontendRedirect) {
     return $tenantFrontendRedirect('');
 })->pattern(['tenant_id' => '\d+']);
