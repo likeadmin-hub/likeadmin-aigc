@@ -1,0 +1,131 @@
+{
+  "version": "1.0.384",
+  "base_version": "1.0.383",
+  "server_published_baseline": "9f3f9b72cd08c865bf58dff8200e68ea87b1e374",
+  "server_source_head": "7de03b4b1302f8e6d9efa9bf7662110232cda696",
+  "web_baseline": "ae88d20847dfb61f5929a9c3c349f638221b6163",
+  "web_head": "c1ba09601da0c159dfc375c68b67b7f6c6dfe1c3",
+  "server_source_changes": [
+    {
+      "status": "A",
+      "path": "app/apps/aigc_short_drama/tests/canvas_frame_media.php"
+    },
+    {
+      "status": "M",
+      "path": "app/apps/aigc_short_drama/tests/canvas_toolbar_integration.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/aigc_short_drama/ShortDramaCanvasPosterJobService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/aigc_short_drama/ShortDramaCanvasService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/aigc_video/AigcVideoPosterService.php"
+    },
+    {
+      "status": "M",
+      "path": "config/project.php"
+    },
+    {
+      "status": "M",
+      "path": "docker/nginx/default.conf"
+    },
+    {
+      "status": "A",
+      "path": "docs/official-site-route-deployment.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/short-drama-frame-capture-deployment.md"
+    },
+    {
+      "status": "M",
+      "path": "route/app.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/Feature/OfficialSiteRouteTest.php"
+    },
+    {
+      "status": "M",
+      "path": "upgrade/version.json"
+    }
+  ],
+  "frontend_source_changes": [
+    "A\tdocs/short-drama-imagine-theme.md",
+    "M\tpc/app.vue",
+    "M\tpc/assets/styles/coral-tools.scss",
+    "A\tpc/assets/styles/immersive-light.scss",
+    "M\tpc/assets/styles/index.scss",
+    "M\tpc/assets/styles/pc-modal-theme.scss",
+    "A\tpc/assets/styles/pc-theme-palette.scss",
+    "A\tpc/assets/styles/short-drama-imagine-accessibility.scss",
+    "M\tpc/assets/styles/short-drama-workspace-theme.scss",
+    "M\tpc/assets/styles/themes.scss",
+    "M\tpc/components/ai-workspace/AppearancePanel.vue",
+    "M\tpc/components/ai-workspace/HomepageComposerTool.vue",
+    "M\tpc/components/ai-workspace/ToolEditorDialog.vue",
+    "M\tpc/components/ai-workspace/app-home.vue",
+    "M\tpc/components/ai-workspace/imagine-home.vue",
+    "M\tpc/components/ai-workspace/sidebar.vue",
+    "M\tpc/components/official-site/OfficialNavigation.vue",
+    "M\tpc/components/official-site/OfficialSiteShell.vue",
+    "M\tpc/components/short-drama/VisualCreationWorkbench.vue",
+    "M\tpc/components/short-drama/canvas/ComposerAssets.vue",
+    "M\tpc/components/short-drama/canvas/ComposerSkillEditor.vue",
+    "M\tpc/components/short-drama/canvas/ComposerSkills.vue",
+    "M\tpc/components/short-drama/canvas/ShortDramaCanvasNode.vue",
+    "M\tpc/composables/useAppearance.ts",
+    "M\tpc/composables/usePcTheme.ts",
+    "A\tpc/composables/usePcWorkspaceStyle.ts",
+    "M\tpc/composables/useShortDramaTheme.ts",
+    "A\tpc/docs/theme-modes.md",
+    "M\tpc/pages/ai/assets.vue",
+    "M\tpc/pages/ai/avatar.vue",
+    "M\tpc/pages/ai/create.vue",
+    "M\tpc/pages/ai/short-drama/canvas.vue",
+    "M\tpc/pages/ai/tools/[id].vue",
+    "M\tpc/pages/ai/tools/index.vue",
+    "M\tpc/plugins/pc-skin.client.ts",
+    "M\tpc/plugins/pc-theme.client.ts",
+    "M\tpc/plugins/short-drama-theme.client.ts",
+    "M\tpc/scripts/check-appearance.mjs",
+    "A\tpc/tests/immersive-light-theme.test.cjs",
+    "A\tpc/tests/pc-coral-theme-isolation.test.cjs",
+    "A\tpc/tests/short-drama-canvas-theme.test.cjs",
+    "A\tpc/tests/short-drama-imagine-theme.test.cjs",
+    "A\tpc/tests/short-drama-theme-boundary.test.cjs",
+    "M\tpc/utils/appearance.ts",
+    "A\tpc/utils/pc-theme-modes.ts",
+    "A\tpc/utils/pc-workspace-style.ts",
+    "A\tpc/utils/short-drama-ui-scope.mjs",
+    "M\ttenant/src/views/setting/website/information.vue"
+  ],
+  "runtime_dirs": [
+    "public/admin",
+    "public/pc",
+    "public/_nuxt",
+    "public/media"
+  ],
+  "sql_order": [],
+  "intentional_package_exclusions": [
+    "app/apps/aigc_short_drama/tests/canvas_frame_media.php",
+    "app/apps/aigc_short_drama/tests/canvas_toolbar_integration.php",
+    "tests/Feature/OfficialSiteRouteTest.php",
+    "upgrade/version.json",
+    "docs/release-1.0.384-change-manifest.json"
+  ],
+  "builds": [
+    "pc",
+    "tenant"
+  ],
+  "operational_requirements": [
+    "worker FFmpeg",
+    "existing worker restart",
+    "existing Nginx deep-link fallback inspection"
+  ]
+}
