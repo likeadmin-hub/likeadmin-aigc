@@ -29,7 +29,7 @@ class OfficialSiteRouteTest extends TestCase
 
     public function testPublicPagesResolveToPcEntryAndTenantPrefixesRedirect(): void
     {
-        foreach (['pricing','products','scenes','cases','official/open','official/enterprise','official/help','join-opc','join-opc/payment','ai','app/aigc_canvas'] as $path) {
+        foreach (['pricing','products','scenes','cases','official/open','official/enterprise','official/help','official/oem','join-opc','join-opc/payment','ai','app/aigc_canvas'] as $path) {
             $app = $this->router();
             $dispatch = $app->route->check($path, true);
             self::assertInstanceOf(Callback::class, $dispatch, $path);
@@ -59,7 +59,7 @@ class OfficialSiteRouteTest extends TestCase
         preg_match('~location \\~ (\\^/[^\\s]+) \\{\\s*try_files \\$uri \\$uri/ /pc/index.html;~',$config,$matches);
         self::assertNotEmpty($matches);
         $pattern='~'.$matches[1].'~';
-        foreach (['/pricing','/pricing/','/official/help','/join-opc/payment','/t/42/pricing'] as $path) self::assertSame(1,preg_match($pattern,$path),$path);
+        foreach (['/pricing','/pricing/','/official/help','/official/oem','/join-opc/payment','/t/42/pricing'] as $path) self::assertSame(1,preg_match($pattern,$path),$path);
         foreach (['/api/pc/config','/admin/official-site/official-site','/wechat/callback','/ai/task/callback','/pricing-extra','/_nuxt/pricing.js'] as $path) self::assertSame(0,preg_match($pattern,$path),$path);
     }
 }

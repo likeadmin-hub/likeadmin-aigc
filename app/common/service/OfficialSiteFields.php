@@ -16,7 +16,13 @@ class OfficialSiteFields
                 'start_text', 'start_link', 'footer_heading', 'footer_wordmark', 'nav_resources',
                 'models_empty_text', 'record_number', 'footer_text', 'title', 'description', 'keywords', 'join_text'],
             'home' => ['hero', 'partners', 'showcase', 'scenes', 'products', 'models', 'tools', 'cases', 'faq', 'news', 'cta'],
+            'oem' => ['oem_hero','oem_intro','oem_clients','oem_features','oem_packages'],
             'modules' => [
+                'oem_hero' => array_merge($copy, $media, ['eyebrow','icon_url','badge']),
+                'oem_intro' => array_merge($copy, $button),
+                'oem_clients' => ['eyebrow','title'],
+                'oem_features' => ['title'],
+                'oem_packages' => array_merge($copy, ['eyebrow','button_text']),
                 'promo' => array_merge(['title'], $button),
                 'hero' => $info,
                 'partners' => ['title'],
@@ -35,6 +41,8 @@ class OfficialSiteFields
                 'join' => ['eyebrow', 'title', 'description'],
             ],
             'cards' => [
+                'oem_clients' => array_merge($copy, $media, ['icon_url','secondary_icon_url']),
+                'oem_features' => array_merge($copy, $media, ['tab_label','icon_url','preview_layout','background_media','background_media_type','background_poster','preview_media','preview_media_type','preview_poster']),
                 'hero' => array_merge(['title'], $media),
                 'partners' => array_merge(['title', 'link'], $icon),
                 'showcase' => array_merge($copy, $media, $icon, ['link']),
