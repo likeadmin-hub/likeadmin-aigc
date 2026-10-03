@@ -20,7 +20,7 @@ class OfficialSiteFields
             'modules' => [
                 'oem_hero' => array_merge($copy, $media, ['eyebrow','icon_url','badge']),
                 'oem_intro' => array_merge($copy, $button),
-                'oem_benefits' => array_merge($copy, $button, ['eyebrow','steps_title','footnote']),
+                'oem_benefits' => array_merge($copy, $button, ['eyebrow','footnote']),
                 'oem_clients' => ['eyebrow','title'],
                 'oem_features' => ['title'],
                 'oem_packages' => array_merge($copy, ['eyebrow','button_text']),
@@ -42,7 +42,7 @@ class OfficialSiteFields
                 'join' => ['eyebrow', 'title', 'description'],
             ],
             'cards' => [
-                'oem_benefits' => array_merge($copy, $icon, ['display_group']),
+                'oem_benefits' => array_merge($copy, $icon, $media, ['tab_label']),
                 'oem_clients' => array_merge($copy, $media, ['icon_url','secondary_icon_url']),
                 'oem_features' => array_merge($copy, $media, ['tab_label','icon_url','preview_layout','background_media','background_media_type','background_poster','preview_media','preview_media_type','preview_poster']),
                 'hero' => array_merge(['title'], $media),

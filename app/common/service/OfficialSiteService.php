@@ -168,13 +168,16 @@ class OfficialSiteService
                 $override = array_intersect_key($override, ['enabled' => 1, 'sort' => 1]);
             }
             $source = array_merge($default, $override);
+            // Retire the initial, unreleased opening-step cards from the OEM introduction.
+            if ($default['key'] === 'oem_benefits' && is_array($source['cards'] ?? null)) {
+                $source['cards'] = array_values(array_filter($source['cards'], static fn($card) => is_array($card) && ($card['display_group'] ?? '') !== 'step'));
+            }
             $raw = [
                 'key' => $default['key'], 'enabled' => (int)!empty($source['enabled']),
                 'sort' => max(0, min(999, (int)$source['sort'])),
                 'title' => self::text($source['title'] ?? '', 100),
                 'icon_url' => self::text($source['icon_url'] ?? '', 1024),
                 'badge' => self::text($source['badge'] ?? '', 1024),
-                'steps_title' => self::text($source['steps_title'] ?? '', 100),
                 'footnote' => self::text($source['footnote'] ?? '', 300),
                 'highlight_text' => self::text($source['highlight_text'] ?? '', 80),
                 'eyebrow' => self::text($source['eyebrow'] ?? '', 60),
@@ -369,7 +372,6 @@ class OfficialSiteService
             if (!in_array($status, ['live', 'planned', 'enterprise'], true)) $status = 'planned';
             $result[] = [
                 'title' => self::text($card['title'] ?? '', 80),
-                'display_group' => ($card['display_group'] ?? '') === 'step' ? 'step' : 'benefit',
                 'source' => self::text($card['source'] ?? '', 80),
                 'rating' => max(1, min(5, (int)($card['rating'] ?? 5))),
                 'avatar' => self::text($card['avatar'] ?? '', 1024),
