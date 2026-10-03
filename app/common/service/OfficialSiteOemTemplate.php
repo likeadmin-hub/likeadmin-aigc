@@ -27,21 +27,20 @@ class OfficialSiteOemTemplate
         ];
         return [
             array_merge($block('oem_hero', "专为企业打造的\nAI原生创意套件", '财富500强企业中已有390家与我们合作。'), [
-                'eyebrow'=>'OEM贴牌', 'media'=>$asset('hero.mp4'), 'media_type'=>'video', 'poster'=>$asset('hero-thumbnail.webp'),
+                'eyebrow'=>'OEM贴牌', 'media'=>'', 'media_type'=>'video', 'poster'=>'',
                 'icon_url'=>$asset('suite-mark.svg'), 'badge'=>$asset('fortune-logo.png'),
             ]),
             array_merge($block('oem_intro', '专为现代创意企业量身打造', '获取平台个性化演示，查看真实用例，了解领先企业如何将制作时间缩短 90%，同时在每份内容上节省数千美元。'), ['button_text'=>'联系销售', 'button_link'=>'/official/oem#oem-packages']),
             array_merge($block('oem_clients', '已有行业领先企业加入'), ['eyebrow'=>'企业客户', 'cards'=>array_map(static fn($row) => [
-                'title'=>$row[1], 'description'=>$row[2], 'media'=>$asset('client-'.$row[0].'.webp'), 'media_type'=>'image',
+                'title'=>$row[1], 'description'=>$row[2], 'media'=>'', 'media_type'=>'image',
                 'icon_url'=>$asset('logo-primary-'.$row[0].'.webp'),
                 'secondary_icon_url'=>$row[0]===1?'':$asset('logo-secondary-'.$row[0].'.webp'),
             ], $clients)]),
             array_merge($block('oem_features', '创意能力'), ['cards'=>array_map(static function($row) use ($asset) {
-                $video = ['marketing'=>'marketing-studio', 'cinema'=>'hero-mini', 'mcp'=>'mcp'][$row[4]] ?? '';
                 return ['tab_label'=>$row[1], 'title'=>$row[2], 'description'=>$row[3], 'preview_layout'=>$row[4],
-                    'media'=>$asset($row[4]==='mcp'?'mcp-content.webp':'benefit-'.$row[0].'.webp'), 'media_type'=>'image',
-                    'background_media'=>$asset('benefit-bg-'.$row[0].'.webp'), 'background_media_type'=>'image',
-                    'preview_media'=>$video?$asset($video.'.mp4'):'', 'preview_poster'=>$video?$asset($video.'-thumbnail.webp'):'', 'preview_media_type'=>'video',
+                    'media'=>'', 'media_type'=>'image',
+                    'background_media'=>'', 'background_media_type'=>'image',
+                    'preview_media'=>'', 'preview_poster'=>'', 'preview_media_type'=>'video',
                     'icon_url'=>$row[4]==='mcp'?$asset('mcp-pill.png'):'',
                 ];
             }, $features)]),

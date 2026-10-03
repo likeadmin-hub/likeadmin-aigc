@@ -11,7 +11,7 @@ class OfficialSiteService
 {
     private const TYPE = 'official_site';
     private const KEY = 'config';
-    private const TEMPLATE_VERSION = 8;
+    private const TEMPLATE_VERSION = 9;
 
     public static function get(): array
     {
@@ -70,6 +70,14 @@ class OfficialSiteService
     private static function normalize(array $input): array
     {
         $defaults = self::defaults();
+        // OEM photos and videos are tenant-owned Material Center assets from v9.
+        // Clear only retired local paths; never replace another tenant's uploaded URLs.
+        foreach (($input['modules'] ?? []) as $i => $module) {
+            if (strpos((string)($module['key'] ?? ''), 'oem_') !== 0) continue;
+            array_walk_recursive($input['modules'][$i], static function (&$value) {
+                if (is_string($value) && preg_match('~^/?(?:pc/)?oem-enterprise/(?:hero(?:-mini)?(?:-thumbnail)?\.(?:mp4|webp)|marketing-studio(?:-thumbnail)?\.(?:mp4|webp)|mcp(?:-content|-thumbnail)?\.(?:mp4|webp)|client-[1-6]\.webp|benefit-(?:bg-)?[1-7]\.webp)$~', $value)) $value = '';
+            });
+        }
         // Replace the retired affiliate entry once; OEM edits remain tenant-owned thereafter.
         if ((int)($input['template_version'] ?? 1) < 8) {
             foreach (($input['navigation'] ?? []) as $i => $entry) {
@@ -447,7 +455,7 @@ class OfficialSiteService
     /** Keep bundled assets independent of tenant upload storage, including early local previews. */
     private static function bundledAsset(string $value): string
     {
-        if (preg_match('~^/?(?:pc/)?oem-enterprise/([a-z0-9-]+\.(?:webp|png|svg|mp4))$~', $value, $match)) {
+        if (preg_match('~^/?(?:pc/)?oem-enterprise/((?:logo-primary-[1-6]|logo-secondary-[2-6])\.webp|(?:fortune-logo|mcp-pill)\.png|suite-mark\.svg)$~', $value, $match)) {
             return '/pc/oem-enterprise/' . $match[1];
         }
         return '';

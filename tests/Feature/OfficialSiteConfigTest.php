@@ -49,11 +49,46 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame('marketing',$map['oem_features']['cards'][0]['preview_layout']);
         self::assertSame([], $map['oem_clients']['cards']);
         self::assertSame($result,$this->normalize($result));
-        foreach (['/pc/oem-enterprise/hero.mp4','/oem-enterprise/hero.mp4','oem-enterprise/hero.mp4'] as $path) {
-            self::assertSame('/pc/oem-enterprise/hero.mp4',$this->call('fileUrl',$path));
-            self::assertSame('/pc/oem-enterprise/hero.mp4',$this->call('storageFileUrl',$path));
+        foreach (['/pc/oem-enterprise/suite-mark.svg','/oem-enterprise/suite-mark.svg','oem-enterprise/suite-mark.svg'] as $path) {
+            self::assertSame('/pc/oem-enterprise/suite-mark.svg',$this->call('fileUrl',$path));
+            self::assertSame('/pc/oem-enterprise/suite-mark.svg',$this->call('storageFileUrl',$path));
         }
-        self::assertSame('', $this->call('bundledAsset','https://custom.example/oem-enterprise/hero.mp4'));
+        self::assertSame('', $this->call('bundledAsset','https://custom.example/oem-enterprise/suite-mark.svg'));
+    }
+
+    public function testV9RetiresOnlyBundledOemMediaAndPreservesTenantAssets(): void
+    {
+        $old = $this->normalize([]);
+        $old['template_version'] = 8;
+        foreach ($old['modules'] as &$module) {
+            if ($module['key'] === 'hero') $module['media'] = 'uploads/home.mp4';
+            if ($module['key'] === 'oem_hero') {
+                $module['media'] = '/pc/oem-enterprise/hero.mp4';
+                $module['poster'] = '/oem-enterprise/hero-thumbnail.webp';
+            }
+            if ($module['key'] === 'oem_features') $module['cards'][0] = [
+                'media'=>'oem-enterprise/benefit-1.webp',
+                'background_media'=>'uploads/custom-background.webp',
+                'preview_media'=>'https://custom.example/oem-enterprise/hero.mp4',
+                'preview_poster'=>'uploads/custom-poster.webp',
+                'icon_url'=>'/pc/oem-enterprise/mcp-pill.png',
+            ];
+        }
+        unset($module);
+        $result = $this->normalize($old);
+        $map = array_column($result['modules'], null, 'key');
+        foreach ($old['modules'] as $module) if (strpos($module['key'], 'oem_') !== 0) self::assertSame($module, $map[$module['key']]);
+        self::assertSame('', $map['oem_hero']['media']);
+        self::assertSame('', $map['oem_hero']['poster']);
+        self::assertSame('/pc/oem-enterprise/suite-mark.svg', $map['oem_hero']['icon_url']);
+        $card = $map['oem_features']['cards'][0];
+        self::assertSame('', $card['media']);
+        foreach (['background_media','preview_media','preview_poster','icon_url'] as $field) self::assertSame(array_column($old['modules'], null, 'key')['oem_features']['cards'][0][$field], $card[$field]);
+        self::assertSame($result, $this->normalize($result));
+        foreach ($this->normalize([])['modules'] as $module) {
+            if (strpos($module['key'], 'oem_') !== 0) continue;
+            foreach (array_merge([$module], $module['cards']) as $item) foreach (['media','poster','background_media','background_poster','preview_media','preview_poster'] as $field) self::assertEmpty($item[$field] ?? '');
+        }
     }
 
     public function testV7ReplacesOnlyRetiredCasesAndIsIdempotent(): void
@@ -113,7 +148,7 @@ class OfficialSiteConfigTest extends TestCase
     public function testNewArchitectureUsesActualToolsAndRequestedEntries(): void
     {
         $config = $this->normalize([]);
-        self::assertSame(8, $config['template_version']);
+        self::assertSame(9, $config['template_version']);
         self::assertSame(['应用工具','模型','开放平台','价格','企业服务','OEM贴牌','帮助'], array_column($config['navigation'], 'label'));
         self::assertSame(['工作室','图片','视频'], array_column($config['navigation'][0]['groups'], 'title'));
         self::assertSame(['dropdown','dropdown','link','link','link','link','link'], array_column($config['navigation'], 'mode'));
