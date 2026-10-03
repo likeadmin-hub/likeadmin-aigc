@@ -1,1 +1,0 @@
-import{_ as s}from"./OfficialWebsitePage.vue.e3895166.js";import{g as t,o,l as r}from"./entry.19ba44b1.js";import"./OfficialSiteShell.vue.931a0bdf.js";import"./OfficialSiteContent.vue.3c4658ae.js";const a=t({__name:"OfficialProductsPage",setup(e){return(c,_)=>(o(),r(s,{section:"products"}))}}),u=t({__name:"products",setup(e){return(c,_)=>(o(),r(a))}});export{u as default};

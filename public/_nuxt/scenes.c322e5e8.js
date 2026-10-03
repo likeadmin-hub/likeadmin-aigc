@@ -1,0 +1,1 @@
+import{_ as o}from"./OfficialWebsitePage.vue.fb0c8d88.js";import{g as e,o as s,l as c}from"./entry.6591569a.js";import"./OfficialSiteShell.vue.48cc8dbe.js";import"./OfficialSiteContent.vue.9caa1247.js";const r=e({__name:"OfficialScenesPage",setup(n){return(t,_)=>(s(),c(o,{section:"scenes"}))}}),f=e({__name:"scenes",setup(n){return(t,_)=>(s(),c(r))}});export{f as default};
