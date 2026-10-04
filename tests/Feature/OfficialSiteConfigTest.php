@@ -14,6 +14,39 @@ class OfficialSiteConfigTest extends TestCase
     }
     private function normalize(array $input): array { return $this->call('normalize', $input); }
 
+    public function testTranslationsAreTenantCopyOnlyAndSurviveNormalization(): void
+    {
+        $base = $this->normalize([]);
+        $base['basic']['title'] = '自定义官网';
+        $base['translations'] = [
+            'en' => ['自定义官网'=>'My Creative Site', '开始创作'=>'Start Now', '/ai'=>'/evil', 'theme'=>'dark'],
+            'zh-TW' => ['自定义官网'=>'自訂官網'],
+            'fr' => ['自定义官网'=>'Mon site'],
+        ];
+        $result = $this->normalize($base);
+        self::assertSame(['自定义官网'=>'My Creative Site', '开始创作'=>'Start Now'], $result['translations']['en']);
+        self::assertSame(['自定义官网'=>'自訂官網'], $result['translations']['zh-TW']);
+        self::assertArrayNotHasKey('fr', $result['translations']);
+        self::assertSame($base['basic'], $result['basic']);
+        self::assertSame($base['navigation'], $result['navigation']);
+        self::assertSame($base['modules'], $result['modules']);
+        self::assertSame($result, $this->normalize($result));
+        $result['basic']['title'] = '更新后的官网';
+        self::assertArrayNotHasKey('自定义官网', $this->normalize($result)['translations']['en']);
+    }
+
+    public function testTranslationInputRejectsInvalidValuesWithoutChangingDefaults(): void
+    {
+        $base = $this->normalize([]);
+        $input = $base;
+        $input['translations'] = ['en'=>['开始创作'=>['link'=>'/evil']], 'zh-TW'=>'invalid'];
+        self::assertSame($base, $this->normalize($input));
+        $input['translations'] = ['en'=>['开始创作'=>str_repeat('a',3001)]];
+        self::assertSame($base, $this->normalize($input));
+        $input['translations'] = ['en'=>['开始创作'=>'<b>Start</b>']];
+        self::assertSame('Start', $this->normalize($input)['translations']['en']['开始创作']);
+    }
+
     public function testOemUpgradePreservesHomepageAndReplacesAffiliateOnlyOnce(): void
     {
         $old = $this->normalize([]);
@@ -255,7 +288,7 @@ class OfficialSiteConfigTest extends TestCase
     public function testNewArchitectureUsesActualToolsAndRequestedEntries(): void
     {
         $config = $this->normalize([]);
-        self::assertSame(12, $config['template_version']);
+        self::assertSame(13, $config['template_version']);
         self::assertSame(['应用工具','模型','开放平台','价格','企业服务','OEM贴牌','帮助'], array_column($config['navigation'], 'label'));
         self::assertSame(['工作室','图片','视频'], array_column($config['navigation'][0]['groups'], 'title'));
         self::assertSame(['dropdown','dropdown','link','link','link','link','link'], array_column($config['navigation'], 'mode'));

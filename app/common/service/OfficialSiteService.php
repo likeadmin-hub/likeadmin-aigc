@@ -11,7 +11,7 @@ class OfficialSiteService
 {
     private const TYPE = 'official_site';
     private const KEY = 'config';
-    private const TEMPLATE_VERSION = 12;
+    private const TEMPLATE_VERSION = 13;
 
     public static function get(): array
     {
@@ -216,7 +216,9 @@ class OfficialSiteService
         }
         usort($modules, static fn(array $a, array $b) => $b['sort'] <=> $a['sort']);
 
-        return OfficialSiteFields::clean(['template_version' => self::TEMPLATE_VERSION, 'enabled' => $enabled, 'basic' => $basic, 'navigation' => self::normalizeNavigation($input['navigation'] ?? null), 'modules' => $modules]);
+        $config = OfficialSiteFields::clean(['template_version' => self::TEMPLATE_VERSION, 'enabled' => $enabled, 'basic' => $basic, 'navigation' => self::normalizeNavigation($input['navigation'] ?? null), 'modules' => $modules]);
+        $config['translations'] = OfficialSiteTranslations::clean($config, $input['translations'] ?? []);
+        return $config;
     }
 
     /** Repair v1/v2/v3 defaults accidentally retained and stamped as v4. */
