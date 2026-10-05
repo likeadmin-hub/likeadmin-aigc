@@ -120,7 +120,12 @@ class OfficialSiteTemplate
                 $group('视频', [$item('AI 视频', 'video', '/ai/create?type=video'), $item('对口型数字人', 'avatar', '/ai/avatar?tab=lip_sync'), $item('全驱动数字人', 'avatar', '/ai/avatar?tab=image_human')]),
             ]),
             $entry('models', '模型', 90, '/ai'),
-            $entry('open', '开放平台', 80, '/official/open'),
+            array_merge($entry('open', 'API', 80, '', [
+                $group('API', [
+                    array_merge($item('平台首页', 'grid', ''), ['status' => 'planned']),
+                    array_merge($item('文档中心', 'book', ''), ['status' => 'planned']),
+                ]),
+            ]), ['button_text' => '', 'button_link' => '']),
             $entry('pricing', '价格', 70, '/pricing'),
             $entry('enterprise', '企业服务', 60, '/official/enterprise'),
             $entry('oem', 'OEM贴牌', 55, '/official/oem'),

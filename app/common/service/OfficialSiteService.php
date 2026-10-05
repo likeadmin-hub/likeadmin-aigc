@@ -11,7 +11,7 @@ class OfficialSiteService
 {
     private const TYPE = 'official_site';
     private const KEY = 'config';
-    private const TEMPLATE_VERSION = 13;
+    private const TEMPLATE_VERSION = 14;
 
     public static function get(): array
     {
@@ -215,6 +215,26 @@ class OfficialSiteService
             $modules[] = $raw;
         }
         usort($modules, static fn(array $a, array $b) => $b['sort'] <=> $a['sort']);
+
+        // Upgrade the former direct platform entry without losing tenant destinations.
+        if ((int)($input['template_version'] ?? 1) < 14 && is_array($input['navigation'] ?? null)) {
+            $apiDefault = array_column($defaults['navigation'], null, 'key')['open'];
+            foreach ($input['navigation'] as &$entry) {
+                if (!is_array($entry) || ($entry['key'] ?? '') !== 'open') continue;
+                if (($entry['mode'] ?? 'link') === 'dropdown' && !empty($entry['groups'])) continue;
+                $destination = (string)($entry['link'] ?? '');
+                $groups = $apiDefault['groups'];
+                if ($destination !== '' && $destination !== '/official/open') {
+                    $groups[0]['items'][0]['link'] = $destination;
+                    $groups[0]['items'][0]['status'] = $entry['status'] ?? 'live';
+                }
+                $entry = array_merge($entry, [
+                    'label' => 'API', 'mode' => 'dropdown', 'link' => '',
+                    'button_text' => '', 'button_link' => '', 'groups' => $groups,
+                ]);
+            }
+            unset($entry);
+        }
 
         $config = OfficialSiteFields::clean(['template_version' => self::TEMPLATE_VERSION, 'enabled' => $enabled, 'basic' => $basic, 'navigation' => self::normalizeNavigation($input['navigation'] ?? null), 'modules' => $modules]);
         $config['translations'] = OfficialSiteTranslations::clean($config, $input['translations'] ?? []);

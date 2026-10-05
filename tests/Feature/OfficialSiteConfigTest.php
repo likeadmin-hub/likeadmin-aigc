@@ -288,15 +288,37 @@ class OfficialSiteConfigTest extends TestCase
     public function testNewArchitectureUsesActualToolsAndRequestedEntries(): void
     {
         $config = $this->normalize([]);
-        self::assertSame(13, $config['template_version']);
-        self::assertSame(['应用工具','模型','开放平台','价格','企业服务','OEM贴牌','帮助'], array_column($config['navigation'], 'label'));
+        self::assertSame(14, $config['template_version']);
+        self::assertSame(['应用工具','模型','API','价格','企业服务','OEM贴牌','帮助'], array_column($config['navigation'], 'label'));
         self::assertSame(['工作室','图片','视频'], array_column($config['navigation'][0]['groups'], 'title'));
-        self::assertSame(['dropdown','dropdown','link','link','link','link','link'], array_column($config['navigation'], 'mode'));
+        self::assertSame(['dropdown','dropdown','dropdown','link','link','link','link'], array_column($config['navigation'], 'mode'));
         $modules = array_column($config['modules'], null, 'key');
         self::assertSame(['AI 短剧','AI 视频','AI 绘图','数字人','无限画布','AI 音乐'], array_column($modules['products']['cards'], 'title'));
         self::assertSame([], $modules['models']['cards']);
         self::assertSame('light', $config['basic']['theme']);
     }
+    public function testApiMenuMigrationAndConfiguredDestinationsRoundTrip(): void
+    {
+        $config = $this->normalize(['template_version' => 13, 'navigation' => [
+            ['key' => 'open', 'label' => '开放平台', 'mode' => 'link', 'link' => '/official/open', 'enabled' => 0, 'sort' => 81],
+        ]]);
+        $entry = array_column($config['navigation'], null, 'key')['open'];
+        self::assertSame('API', $entry['label']);
+        self::assertSame('dropdown', $entry['mode']);
+        self::assertSame(0, $entry['enabled']);
+        self::assertSame(81, $entry['sort']);
+        self::assertSame(['平台首页', '文档中心'], array_column($entry['groups'][0]['items'], 'label'));
+        self::assertSame(['planned', 'planned'], array_column($entry['groups'][0]['items'], 'status'));
+        self::assertSame(['', ''], array_column($entry['groups'][0]['items'], 'link'));
+        foreach ($config['navigation'] as &$navigation) {
+            if ($navigation['key'] !== 'open') continue;
+            $navigation['groups'][0]['items'][1]['link'] = 'https://example.com/docs';
+            $navigation['groups'][0]['items'][1]['status'] = 'live';
+        }
+        unset($navigation);
+        self::assertSame($config, $this->normalize($config));
+    }
+
     public function testPreviousDefaultUpgradesButCustomCopyAndMediaSurvive(): void
     {
         $old = $this->call('v3Defaults');
@@ -365,7 +387,7 @@ class OfficialSiteConfigTest extends TestCase
             ['key'=>'tools','groups'=>[['title'=>'自定义','items'=>[['label'=>'测试','status'=>'live','link'=>'/ai','icon_url'=>'uploads/custom.svg','description'=>'自己的工具']]]]],
         ]]);
         $nav = array_column($result['navigation'],null,'key');
-        self::assertSame('https://example.com/developer', $nav['open']['link']);
+        self::assertSame('https://example.com/developer', $nav['open']['groups'][0]['items'][0]['link']);
         self::assertSame('uploads/custom.svg', $nav['tools']['groups'][0]['items'][0]['icon_url']);
         self::assertSame($result, $this->normalize($result));
     }
