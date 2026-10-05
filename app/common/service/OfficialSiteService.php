@@ -218,7 +218,7 @@ class OfficialSiteService
 
         // Upgrade the former direct platform entry without losing tenant destinations.
         if ((int)($input['template_version'] ?? 1) < 14 && is_array($input['navigation'] ?? null)) {
-            $apiDefault = array_column($defaults['navigation'], null, 'key')['open'];
+            $apiDefault = array_column(OfficialSiteTemplate::navigation(), null, 'key')['open'];
             foreach ($input['navigation'] as &$entry) {
                 if (!is_array($entry) || ($entry['key'] ?? '') !== 'open') continue;
                 if (($entry['mode'] ?? 'link') === 'dropdown' && !empty($entry['groups'])) continue;
