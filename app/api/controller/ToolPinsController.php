@@ -16,7 +16,8 @@ class ToolPinsController extends BaseApiController
             if ($this->userId <= 0 || $tenant <= 0 || (int)$this->request->tenantId !== $tenant) throw new \InvalidArgumentException('账号与租户不匹配，请重新登录');
             if ($action === 'detail') return $this->data(UserToolPinsService::read($tenant, $this->userId));
             if (!$this->request->isPost()) return $this->fail('请使用POST请求');
-            $p = $this->request->post();
+            // Preserve JSON booleans: the global trim filter casts them to strings.
+            $p = $this->request->post('', null, null);
             if ($action === 'initialize') {
                 if (!is_array($p['ids'] ?? null) || array_diff(array_keys($p), ['ids', 'tenant_id'])) return $this->fail('置顶工具格式无效');
                 return $this->data(UserToolPinsService::initialize($tenant, $this->userId, $p['ids']));
