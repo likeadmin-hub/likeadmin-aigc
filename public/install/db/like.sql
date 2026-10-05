@@ -10716,3 +10716,13 @@ SELECT p.tenant_id,p.id,'A','数据源','',0,'decorate.data/sources','','','',''
 
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT p.tenant_id,p.id,'A','详情','',0,'ai_consumption/detail','','','','',0,0,0,'','core','core_ai_consumption_tenant_detail',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.perms='ai_consumption/lists' AND p.source<>'tenant' AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` n WHERE n.tenant_id=p.tenant_id AND n.perms='ai_consumption/detail');
+
+-- Account tool pins are shared across devices; rows are explicitly tenant/user scoped.
+CREATE TABLE IF NOT EXISTS `la_user_tool_pins` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `tool_ids` text NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_user` (`tenant_id`,`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户置顶工具';
