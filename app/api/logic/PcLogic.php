@@ -185,6 +185,7 @@ class PcLogic extends BaseLogic
             'pc_login_bg_poster' => $pcLoginBgPoster,
             'pc_login_bg_poster_url' => $pcLoginBgPoster ? FileService::getFileUrl($pcLoginBgPoster) : '',
             'pc_home_style' => ConfigService::get('website', 'pc_home_style', 'default'),
+            'pc_home_shortcuts' => ConfigService::get('website', 'pc_home_style', 'default') === 'imagine' ? \app\common\service\PcHomeShortcutsService::public() : null,
             'pc_home_bg_type' => ConfigService::get('website', 'pc_home_bg_type', 'none'),
             'pc_home_bg' => $pcHomeBgList,
             'pc_home_bg_url' => $pcHomeBgList,

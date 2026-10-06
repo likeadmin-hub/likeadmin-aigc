@@ -47,6 +47,15 @@ class WebSettingController extends BaseAdminController
      */
     public function setWebsite()
     {
+        $operation = $this->request->post('operation/s', '');
+        if (in_array($operation, ['shortcuts_draft', 'shortcuts_publish'], true)) {
+            try {
+                $data = \app\common\service\PcHomeShortcutsService::save($this->request->post(), $operation === 'shortcuts_publish');
+                return $this->success($operation === 'shortcuts_publish' ? '金刚区发布成功' : '草稿已保存', $data, 1, 1);
+            } catch (\InvalidArgumentException $e) {
+                return $this->fail($e->getMessage());
+            }
+        }
         $params = (new WebSettingValidate())->post()->goCheck('website');
         WebSettingLogic::setWebsiteInfo($params);
         return $this->success('设置成功', [], 1, 1);
