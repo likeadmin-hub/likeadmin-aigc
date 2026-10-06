@@ -32,8 +32,9 @@ try {
     $bad=$config;$bad['cards'][0]['app_code']='missing_fixture_app';$reject(fn()=>S::save(['config'=>$bad,'revision'=>3],true));
     $bad=$config;$bad['cards'][0]['backgrounds']['common']=['mode'=>'image','file_id'=>2147483600];$reject(fn()=>S::save(['config'=>$bad,'revision'=>3],true));
     $stored=ConfigService::get('pc_home_shortcuts','state',[]);$check(isset($stored['published']['cards'][0]['path']),false);
-    // Another tenant/request cannot read this snapshot; use an unused tenant id without writing to it.
-    $request->tenantId=1900000001;$check(S::public(),null);$request->tenantId=$tenant;
+    // BaseModel requires a real tenant to resolve its table strategy; this fixture also rolls back.
+    $otherTenant=Db::name('tenant')->insertGetId(['sn'=>'qa'.bin2hex(random_bytes(3)), 'name'=>'Shortcut isolation fixture', 'tactics'=>0, 'create_time'=>time()]);
+    $request->tenantId=$otherTenant;$check(S::public(),null);$request->tenantId=$tenant;
     $check(S::public()['cards'][0]['copy']['en']['title'],'My studio');
     echo "PASS: defaults, draft isolation, publish, revision conflicts, tenant isolation, fixed layout, route whitelist, unavailable tools, media ownership\n";
-}finally{Db::rollback();}
+}finally{$request->tenantId=$tenant;Db::rollback();}
