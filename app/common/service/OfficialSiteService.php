@@ -168,6 +168,24 @@ class OfficialSiteService
                 $override = array_intersect_key($override, ['enabled' => 1, 'sort' => 1]);
             }
             $source = array_merge($default, $override);
+            // Retire copied reference reviews, including previously rebranded copies.
+            // Keep tenant-authored reviews and module placement/visibility intact.
+            if ($default['key'] === 'cases') {
+                if (in_array($source['description'] ?? '', [
+                    '独立创作者和全球品牌团队每天都在 OpenArt 上产出作品。',
+                    '独立创作者和品牌团队每天都在 Likeadmin 上产出作品。',
+                ], true)) $source['description'] = $default['description'];
+                foreach (($source['cards'] ?? []) as $index => $review) {
+                    if (!is_array($review)) continue;
+                    if (strcasecmp(trim((string)($review['source'] ?? '')), 'Trustpilot') === 0
+                        || stripos((string)($review['description'] ?? ''), 'OpenArt') !== false) {
+                        $source['cards'][$index] = array_merge(
+                            $default['cards'][$index % count($default['cards'])],
+                            array_intersect_key($review, ['enabled' => true])
+                        );
+                    }
+                }
+            }
             // Retire the initial, unreleased opening-step cards from the OEM introduction.
             if ($default['key'] === 'oem_benefits' && is_array($source['cards'] ?? null)) {
                 $source['cards'] = array_values(array_filter($source['cards'], static fn($card) => is_array($card) && ($card['display_group'] ?? '') !== 'step'));
