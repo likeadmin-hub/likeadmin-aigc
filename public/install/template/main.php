@@ -296,7 +296,7 @@ $oemEscape = static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
                                     </div>
                                 </div>
                                 <div class="mounted-tips mt16">
-                                    系统要求likeadmin安装目录下的runtime和upload必须可写，才能使用likeadmin的所有功能。
+                                    系统要求<?= $oemEscape($oemBrand['name'] ?? 'likeadmin') ?>安装目录下的runtime和uploads必须可写，才能使用全部功能。
                                 </div>
                                 <div class="mounted-item mt16">
                                     <div class="content-header">
@@ -537,7 +537,7 @@ $oemEscape = static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
         </div>
     </div>
     <footer>
-        Copyright © 2019-<?= date('Y') ?> 贵州猿创科技有限责任公司
+        <?php if ($oemBrand): ?><?= $oemEscape(($oemBrand['copyright_text'] ?? '') ?: (($oemBrand['company_name'] ?? '') ?: $oemBrand['name'])) ?><?php else: ?>Copyright © 2019-<?= date('Y') ?> 贵州猿创科技有限责任公司<?php endif; ?>
     </footer>
     <script src="./js/layui.js"></script>
     <script>
