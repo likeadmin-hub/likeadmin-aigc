@@ -538,8 +538,8 @@ class installModel
         }
         require_once $this->getAppRoot() . '/app/common/service/OemBrandService.php';
         \app\common\service\OemBrandService::initialize($this->dbh, $this->prefix);
-        $tenantRows = $this->dbh->query('SELECT id FROM `' . $this->prefix . 'tenant`')->fetchAll(PDO::FETCH_COLUMN);
-        foreach ($tenantRows as $tenantId) \app\common\service\OemBrandService::initialize($this->dbh, $this->prefix, (int)$tenantId);
+        $tenantRows = $this->dbh->query('SELECT id,tactics,sn FROM `' . $this->prefix . 'tenant`')->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($tenantRows as $tenant) \app\common\service\OemBrandService::initialize($this->dbh, $this->prefix, (int)$tenant['id'], null, true, (int)$tenant['tactics']===1?(string)$tenant['sn']:'');
         return true;
     }
 

@@ -48,6 +48,7 @@ class ConfigLogic
     public static function getConfig(): array
     {
         $config = [
+            'is_oem' => (bool)\app\common\service\OemBrandService::read(),
             // 文件域名
             'oss_domain'       => FileService::getFileUrl(),
 
@@ -85,8 +86,7 @@ class ConfigLogic
     public static function getDictByType($type)
     {
         if (!is_string($type)) {
-            return [
-            'is_oem' => (bool)\app\common\service\OemBrandService::read(),];
+            return [];
         }
 
         $type = explode(',', $type);

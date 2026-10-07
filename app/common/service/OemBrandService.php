@@ -31,11 +31,13 @@ class OemBrandService
         if (!$b) return [];
         $name=$b['name'];$logo=$b['logo'];$ico=$b['favicon'] ?? $logo;$bg=$b['login_background'] ?? 'resource/image/common/oem-login-background.png';
         $copy=[];
+        if (empty($b['copyright_text']) && !empty($b['company_name'])) $copy[]=['key'=>$b['company_name'],'value'=>''];
         foreach (['copyright_text','icp','police_icp'] as $key) if (!empty($b[$key])) $copy[]=['key'=>$b[$key],'value'=>''];
         return [
             'platform'=>['name'=>$name,'web_logo_light'=>$logo,'web_logo_dark'=>$b['logo_dark'] ?? $logo,'web_favicon'=>$ico,'login_image'=>$bg],
             'tenant'=>['name'=>$name,'web_logo'=>$logo,'web_favicon'=>$ico,'login_image'=>$bg,'admin_avatar'=>$logo],
-            'website'=>['name'=>$name,'shop_name'=>$name,'shop_logo'=>$logo,'pc_logo'=>$logo,'pc_ico'=>$ico,'h5_favicon'=>$ico,'pc_title'=>$b['seo_title'] ?? $name,'pc_keywords'=>$b['seo_keywords'] ?? $name,'pc_desc'=>$b['description'] ?? '', 'pc_login_title'=>$name],
+            'website'=>['name'=>$name,'shop_name'=>$name,'shop_logo'=>$logo,'pc_logo'=>$logo,'pc_ico'=>$ico,'h5_favicon'=>$ico,'pc_title'=>($b['seo_title'] ?? '') ?: $name,'pc_keywords'=>($b['seo_keywords'] ?? '') ?: $name,'pc_desc'=>$b['description'] ?? '', 'pc_login_title'=>$name,'company_name'=>$b['company_name'] ?? ''],
+            'customer_service'=>['phone'=>$b['contact'] ?? '', 'enterprise_wechat_url'=>$b['support_url'] ?? '', 'qr_code'=>'', 'wechat'=>'', 'service_time'=>''],
             'copyright'=>['config'=>$copy],
         ];
     }
@@ -44,11 +46,12 @@ class OemBrandService
         return self::values(self::read($root))[$type][$name] ?? null;
     }
     /** Called only after NEW install/tenant SQL bootstrap. overwrite=false is repair-safe. */
-    public static function initialize(\PDO $db,string $prefix,?int $tenantId=null,?string $root=null,bool $overwrite=true): void
+    public static function initialize(\PDO $db,string $prefix,?int $tenantId=null,?string $root=null,bool $overwrite=true,string $tenantSn=''): void
     {
         if (!preg_match('/^[A-Za-z0-9_]+$/D',$prefix)) throw new \InvalidArgumentException('无效表前缀');
         $b=self::read($root);if (!$b) return;
-        $table=$prefix.($tenantId===null?'config':'tenant_config');
+        if ($tenantSn!=='' && !preg_match('/^[a-zA-Z0-9_]+$/D',$tenantSn)) throw new \InvalidArgumentException('无效租户分表标识');
+        $table=$prefix.($tenantId===null?'config':'tenant_config'.($tenantSn!==''?'_'.$tenantSn:''));
         foreach (self::values($b) as $type=>$entries) {
             foreach ($entries as $name=>$value) {
                 $condition='`type`=? AND `name`=?'.($tenantId===null?'':' AND tenant_id=?');

@@ -171,6 +171,7 @@ class IndexLogic extends BaseLogic
         $copyright = ConfigService::get('copyright', 'config', []);
 
         return [
+            'is_oem' => (bool)\app\common\service\OemBrandService::read(),
             'domain' => FileService::getFileUrl(),
             'style' => $style,
             'tabbar' => $tabbar,

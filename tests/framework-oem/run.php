@@ -20,6 +20,10 @@ B::initialize($db,'la_',null,$root);
 check($db->query("SELECT value FROM la_config WHERE type='platform' AND name='name'")->fetchColumn()===$b['name'],'parameterized new install');
 B::initialize($db,'la_',7,$root);
 check($db->query("SELECT value FROM la_tenant_config WHERE tenant_id=7 AND type='tenant' AND name='name'")->fetchColumn()===$b['name'],'new tenant');
+
+$db->exec('CREATE TABLE la_tenant_config_split01 AS SELECT * FROM la_tenant_config WHERE 1=0');
+B::initialize($db,'la_',9,$root,true,'split01');
+check($db->query("SELECT value FROM la_tenant_config_split01 WHERE tenant_id=9 AND type='tenant' AND name='name'")->fetchColumn()===$b['name'],'split tenant brand');
 $db->exec("UPDATE la_config SET value='客户修改' WHERE type='platform' AND name='name'");
 B::initialize($db,'la_',null,$root,false);
 check($db->query("SELECT value FROM la_config WHERE type='platform' AND name='name'")->fetchColumn()==='客户修改','preserves saved customization');

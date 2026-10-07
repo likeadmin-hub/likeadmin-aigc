@@ -110,7 +110,7 @@ class ConfigService
             }
             // 返回配置值
             if ($value !== null) {
-                if ($type === 'copyright' && $name === 'config' && self::shouldUseDefaultCopyright($value)) {
+                if ($type === 'copyright' && $name === 'config' && !OemBrandService::read() && self::shouldUseDefaultCopyright($value)) {
                     return self::DEFAULT_COPYRIGHT_CONFIG;
                 }
                 // 处理特殊值
@@ -119,6 +119,8 @@ class ConfigService
                 }
                 return $value;
             }
+            $oemDefault = OemBrandService::defaultValue($type, $name);
+            if ($oemDefault !== null) return $oemDefault;
             if ($type === 'copyright' && $name === 'config') {
                 return self::DEFAULT_COPYRIGHT_CONFIG;
             }

@@ -49,7 +49,6 @@ $oemEscape = static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
 <h2>likeadmin应用授权协议</h2>
                                 <div class="white-space;pre">
 
-                                <?php endif; ?>
 </div>
 
                                 <p class="mt16">
@@ -168,6 +167,7 @@ $oemEscape = static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
                                     2、本协议的效力、解释及纠纷的解决，适用于中华人民共和国法律。若用户和likeadmin官网之间发生任何纠纷或争议，首先应友好协商解决，协商不成的，用户同意将纠纷或争议提交likeadmin官网住所地有管辖权的人民法院管辖。<br>
                                     3、本协议的任何条款无论因何种原因无效或不具可执行性，其余条款仍有效，对双方具有约束力。<br>
                                 </p>
+                                <?php endif; ?>
                             </div>
                         </div>
                     <?php } ?>

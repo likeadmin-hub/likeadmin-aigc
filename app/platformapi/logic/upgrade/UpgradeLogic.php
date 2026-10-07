@@ -501,7 +501,7 @@ class UpgradeLogic extends BaseLogic
      * @author 段誉
      * @date 2021/8/14 17:21
      */
-    public static function upgradeFile($tempFile, $oldFile): bool
+    public static function upgradeFile($tempFile, $oldFile, string $relative = ''): bool
     {
         $tempFile = rtrim((string)$tempFile, DIRECTORY_SEPARATOR);
         $oldFile = rtrim((string)$oldFile, DIRECTORY_SEPARATOR);
@@ -522,13 +522,15 @@ class UpgradeLogic extends BaseLogic
                 if ($item->isLink()) {
                     return false;
                 }
+                $entryPath = ltrim($relative . '/' . $item->getFilename(), '/');
+                if (preg_match('#^(?:oem|public/oem-assets)(?:/|$)#i', $entryPath)) continue;
                 $fileName = $item->getPathname();
                 $target = $oldFile . DIRECTORY_SEPARATOR . $item->getFilename();
                 if ($item->isDir()) {
                     if (file_exists($target) && !is_dir($target)) {
                         return false;
                     }
-                    if (!self::upgradeFile($fileName, $target)) {
+                    if (!self::upgradeFile($fileName, $target, $entryPath)) {
                         return false;
                     }
                     continue;

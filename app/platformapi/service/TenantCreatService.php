@@ -190,7 +190,7 @@ class TenantCreatService
         }
 
         $this->dbh->exec('USE `' . str_replace('`', '``', env('database.database', 'likeadmin_saas')) . '`');
-        \app\common\service\OemBrandService::initialize($this->dbh, env('database.prefix', 'la_'), (int)$tenantId);
+        \app\common\service\OemBrandService::initialize($this->dbh, env('database.prefix', 'la_'), (int)$tenantId, null, true, (string)$tenantSn);
 
         return true;
     }

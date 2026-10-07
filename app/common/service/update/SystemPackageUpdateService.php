@@ -846,6 +846,16 @@ class SystemPackageUpdateService
         if (!is_array($manifest) || empty($manifest['version'])) {
             throw new RuntimeException('update.json 格式错误');
         }
+        $filesRoot = rtrim($extractPath, '/') . '/files';
+        if (is_dir($filesRoot)) {
+            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($filesRoot, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
+            foreach ($iterator as $entry) {
+                if ($entry->isLink()) throw new RuntimeException('更新文件包含链接');
+                $relative = $this->normalizePackagePath(substr($entry->getPathname(), strlen($filesRoot) + 1));
+                if ($entry->isDir() && in_array($relative, ['runtime','runtime/wechat-artifacts'], true)) continue;
+                $this->assertSafeUpdatePath($relative, $entry->isDir());
+            }
+        }
         return $manifest;
     }
 
