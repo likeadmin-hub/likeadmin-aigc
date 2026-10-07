@@ -13,6 +13,24 @@ class AigcDigitalHumanChannelService
     public const QUANTITY_OPTIONS = [1, 2, 3, 4];
     public const DEFAULT_REFERENCE_LIMIT = 1;
 
+    /** Repair legacy built-in channels without changing custom models/providers. */
+    public static function normalizeProviderChannel(array $channel): array
+    {
+        $models = ['master' => 'xiaojiayu1.0', 'all' => 'xiaojiayu2.0', 'free' => 'xiaojiayu3.0'];
+        $model = $models[(string)($channel['code'] ?? '')] ?? '';
+        if (strtolower((string)($channel['provider'] ?? '')) !== 'xhadmin' || $model === '') {
+            return $channel;
+        }
+        if (!in_array((string)($channel['model'] ?? ''), ['', 'mock-digital-human', 'xiaojiayu1.0', 'xiaojiayu2.0', 'xiaojiayu3.0'], true)) {
+            return $channel;
+        }
+        $channel['model'] = $model;
+        $config = self::normalizeJson($channel['config_json'] ?? []);
+        $config['lipsync_model'] = $model;
+        $channel['config_json'] = $config;
+        return $channel;
+    }
+
     public static function userConfig(int $tenantId): array
     {
         try {
@@ -99,6 +117,7 @@ class AigcDigitalHumanChannelService
             $grouped[$spec['channel_code']][] = $spec;
         }
         foreach ($channels as &$channel) {
+            $channel = self::normalizeProviderChannel($channel);
             $channel['config_json'] = self::maskSecretConfig($channel['config_json'] ?? []);
             $channel['specs'] = $grouped[$channel['code']] ?? [];
         }
@@ -290,6 +309,7 @@ class AigcDigitalHumanChannelService
 
         $channels = [];
         foreach ($platformChannels as $platformChannel) {
+            $platformChannel = self::normalizeProviderChannel($platformChannel);
             $override = $tenantChannelMap[$platformChannel['code']] ?? [];
             $status = (int)$platformChannel['status'] === 1 && (int)($override['status'] ?? 1) === 1 ? 1 : 0;
             if ($onlyEnabled && !$status) {

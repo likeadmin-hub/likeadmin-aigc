@@ -205,16 +205,22 @@ class AigcDigitalHumanService
         }
         $rows = AigcDigitalHumanChannel::where('tenant_id', 0)->select();
         foreach ($rows as $row) {
+            // The global default must not collapse independently selected models.
+            $channel = AigcDigitalHumanChannelService::normalizeProviderChannel(array_merge($row->toArray(), ['provider' => $provider]));
+            $channelModel = strtolower($provider) === 'xhadmin' ? (string)$channel['model'] : $model;
+            if (in_array($channelModel, ['', 'mock-digital-human'], true)) {
+                $channelModel = $model;
+            }
             $configJson = $row['config_json'] ?? [];
             if (!is_array($configJson)) {
                 $configJson = [];
             }
             if (strtolower($provider) === 'xhadmin') {
-                $configJson['lipsync_model'] = $model;
+                $configJson['lipsync_model'] = $channelModel;
             }
             $row->save([
                 'provider' => $provider,
-                'model' => $model,
+                'model' => $channelModel,
                 'config_json' => $configJson,
                 'update_time' => time(),
             ]);
@@ -2031,7 +2037,7 @@ class AigcDigitalHumanService
             $selection['spec'],
             $selection['spec']['provider_params_json'] ?? [],
             array_merge($selection['channel']['config_json'] ?? [], [
-                'model' => $selection['channel']['model'],
+                'model' => trim((string)($task['model'] ?? '')) ?: $selection['channel']['model'],
                 'tenant_id' => (int)$task['tenant_id'],
                 'user_id' => (int)$task['user_id'],
             ])
