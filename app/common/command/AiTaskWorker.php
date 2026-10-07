@@ -90,7 +90,7 @@ class AiTaskWorker extends Command
                 }
                 // Do not starve lightweight canvas previews while a tenant has
                 // a sustained stream of provider-result jobs.
-                foreach (ShortDramaCanvasPosterJobService::claim($worker, max(180, $lease), 1) as $posterJob) {
+                foreach ($appCode === '' ? ShortDramaCanvasPosterJobService::claim($worker, max(180, $lease), 1) : [] as $posterJob) {
                     try {
                         ShortDramaCanvasPosterJobService::run($posterJob);
                         $output->writeln(sprintf('[poster:%d] success', (int)$posterJob['id']));
