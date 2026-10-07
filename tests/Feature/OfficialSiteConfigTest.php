@@ -90,22 +90,21 @@ class OfficialSiteConfigTest extends TestCase
         self::assertSame('', $this->call('bundledAsset','https://custom.example/oem-enterprise/suite-mark.svg'));
     }
 
-    public function testRetiredFortuneClaimAndBadgeAreRemovedFromDefaultsAndSavedConfig(): void
+    public function testRetiredFortuneClaimIsRemovedWhileBadgeIsPreserved(): void
     {
         foreach ([[], ['template_version'=>9, 'modules'=>[['key'=>'oem_hero',
             'description'=>'财富500强企业中已有390家与我们合作。',
-            'badge'=>'https://cdn.example/pc/oem-enterprise/fortune-logo.png?v=1',
+            'badge'=>'/pc/oem-enterprise/fortune-logo.png',
         ]]]] as $input) {
             $result = $this->normalize($input);
             $hero = array_column($result['modules'], null, 'key')['oem_hero'];
             self::assertSame('', $hero['description']);
-            self::assertSame('', $hero['badge']);
+            self::assertSame('/pc/oem-enterprise/fortune-logo.png', $hero['badge']);
             self::assertSame($result, $this->normalize($result));
         }
-        foreach (['/pc/oem-enterprise/fortune-logo.png', '/oem-enterprise/fortune-logo.png',
-            'https://cdn.example/pc/oem-enterprise/fortune-logo.png?v=1'] as $path) {
-            self::assertSame('', $this->call('fileUrl', $path));
-            self::assertSame('', $this->call('storageFileUrl', $path));
+        foreach (['/pc/oem-enterprise/fortune-logo.png', '/oem-enterprise/fortune-logo.png'] as $path) {
+            self::assertSame('/pc/oem-enterprise/fortune-logo.png', $this->call('fileUrl', $path));
+            self::assertSame('/pc/oem-enterprise/fortune-logo.png', $this->call('storageFileUrl', $path));
         }
         $custom = $this->normalize(['modules'=>[['key'=>'oem_hero', 'description'=>'我们的企业方案', 'badge'=>'uploads/own.png']]]);
         $hero = array_column($custom['modules'], null, 'key')['oem_hero'];
