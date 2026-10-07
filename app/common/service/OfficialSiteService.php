@@ -191,6 +191,23 @@ class OfficialSiteService
                     }
                 }
             }
+            if ($default['key'] === 'oem_features' && is_array($source['cards'] ?? null)) {
+                $legacyTitles = ['一站式套件，汇集 50+ 款模型', '扩大您的营销产出', '为您的制作工作室提供完整解决方案', '用 MCP 和 CLI 增强您的工作流程', '智能设计，专业开发', '一张画布，连接所有创作', '创建专属角色、吉祥物和品牌形象'];
+                $replaced = false;
+                foreach ($source['cards'] as $index => $card) {
+                    if (!is_array($card)) continue;
+                    $preset = array_search($card['title'] ?? '', $legacyTitles, true);
+                    if ($preset === false) continue;
+                    $source['cards'][$index] = array_merge($default['cards'][$preset], array_intersect_key($card, ['enabled'=>true]));
+                    $replaced = true;
+                }
+                if ($replaced) {
+                    $titles = array_column($source['cards'], 'title');
+                    foreach (array_slice($default['cards'], 7) as $card) {
+                        if (!in_array($card['title'], $titles, true)) $source['cards'][] = $card;
+                    }
+                }
+            }
             // Retire the initial, unreleased opening-step cards from the OEM introduction.
             if ($default['key'] === 'oem_benefits' && is_array($source['cards'] ?? null)) {
                 $source['cards'] = array_values(array_filter($source['cards'], static fn($card) => is_array($card) && ($card['display_group'] ?? '') !== 'step'));
