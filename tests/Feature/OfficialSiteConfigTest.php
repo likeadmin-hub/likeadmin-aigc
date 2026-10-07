@@ -78,13 +78,14 @@ class OfficialSiteConfigTest extends TestCase
         $result=$this->normalize($input);
         $map=array_column($result['modules'],null,'key');
         self::assertSame('uploads/badge.png',$map['oem_hero']['badge']);
+        self::assertSame('', $map['oem_hero']['icon_url']);
         self::assertSame('uploads/bg.mp4',$map['oem_features']['cards'][0]['background_media']);
         self::assertSame('marketing',$map['oem_features']['cards'][0]['preview_layout']);
         self::assertSame([], $map['oem_clients']['cards']);
         self::assertSame($result,$this->normalize($result));
-        foreach (['/pc/oem-enterprise/suite-mark.svg','/oem-enterprise/suite-mark.svg','oem-enterprise/suite-mark.svg'] as $path) {
-            self::assertSame('/pc/oem-enterprise/suite-mark.svg',$this->call('fileUrl',$path));
-            self::assertSame('/pc/oem-enterprise/suite-mark.svg',$this->call('storageFileUrl',$path));
+        foreach (['/pc/oem-enterprise/suite-mark.svg','/oem-enterprise/suite-mark.svg','oem-enterprise/suite-mark.svg','https://cdn.example/pc/oem-enterprise/suite-mark.svg?v=1'] as $path) {
+            self::assertSame('',$this->call('fileUrl',$path));
+            self::assertSame('',$this->call('storageFileUrl',$path));
         }
         self::assertSame('', $this->call('bundledAsset','https://custom.example/oem-enterprise/suite-mark.svg'));
     }
@@ -113,7 +114,7 @@ class OfficialSiteConfigTest extends TestCase
         foreach ($old['modules'] as $module) if (strpos($module['key'], 'oem_') !== 0) self::assertSame($module, $map[$module['key']]);
         self::assertSame('', $map['oem_hero']['media']);
         self::assertSame('', $map['oem_hero']['poster']);
-        self::assertSame('/pc/oem-enterprise/suite-mark.svg', $map['oem_hero']['icon_url']);
+        self::assertSame('', $map['oem_hero']['icon_url']);
         $card = $map['oem_features']['cards'][0];
         self::assertSame('', $card['media']);
         foreach (['background_media','preview_media','preview_poster','icon_url'] as $field) self::assertSame(array_column($old['modules'], null, 'key')['oem_features']['cards'][0][$field], $card[$field]);

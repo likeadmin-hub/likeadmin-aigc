@@ -18,7 +18,7 @@ class OfficialSiteFields
             'home' => ['hero', 'partners', 'showcase', 'scenes', 'products', 'models', 'tools', 'cases', 'faq', 'news', 'cta'],
             'oem' => ['oem_hero','oem_intro','oem_benefits','oem_clients','oem_features','oem_packages'],
             'modules' => [
-                'oem_hero' => array_merge($copy, $media, ['eyebrow','icon_url','badge']),
+                'oem_hero' => array_merge($copy, $media, ['eyebrow','badge']),
                 'oem_intro' => array_merge($copy, $button),
                 'oem_benefits' => array_merge($copy, ['eyebrow','footnote']),
                 'oem_clients' => ['eyebrow','title'],
