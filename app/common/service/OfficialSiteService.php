@@ -168,6 +168,8 @@ class OfficialSiteService
                 $override = array_intersect_key($override, ['enabled' => 1, 'sort' => 1]);
             }
             $source = array_merge($default, $override);
+            // The retired third-party hero mark has no replacement or editable slot.
+            if ($default['key'] === 'oem_hero') $source['icon_url'] = '';
             // Retire copied reference reviews, including previously rebranded copies.
             // Keep tenant-authored reviews and module placement/visibility intact.
             if ($default['key'] === 'cases') {
@@ -513,10 +515,15 @@ class OfficialSiteService
         ConfigService::set('website', 'pc_keywords', $basic['keywords']);
     }
 
+    private static function isRetiredOemMark(string $value): bool
+    {
+        return (bool)preg_match('~(?:^|/)oem-enterprise/suite-mark\.svg$~i', (string)parse_url($value, PHP_URL_PATH));
+    }
+
     /** Keep bundled assets independent of tenant upload storage, including early local previews. */
     private static function bundledAsset(string $value): string
     {
-        if (preg_match('~^/?(?:pc/)?oem-enterprise/((?:logo-primary-[1-6]|logo-secondary-[2-6])\.webp|(?:fortune-logo|mcp-pill)\.png|suite-mark\.svg)$~', $value, $match)) {
+        if (preg_match('~^/?(?:pc/)?oem-enterprise/((?:logo-primary-[1-6]|logo-secondary-[2-6])\.webp|(?:fortune-logo|mcp-pill)\.png)$~', $value, $match)) {
             return '/pc/oem-enterprise/' . $match[1];
         }
         return '';
@@ -524,6 +531,7 @@ class OfficialSiteService
 
     private static function storageFileUrl(string $value): string
     {
+        if (self::isRetiredOemMark($value)) return '';
         if ($asset = self::bundledAsset($value)) return $asset;
         $stored = FileService::setFileUrl($value);
         return self::bundledAsset($stored) ?: $stored;
@@ -531,6 +539,7 @@ class OfficialSiteService
 
     private static function fileUrl(string $value): string
     {
+        if (self::isRetiredOemMark($value)) return '';
         if ($value === '') return '';
         if ($asset = self::bundledAsset($value)) return $asset;
         // Repair only paths under the configured tenant storage domain, not arbitrary custom URLs.
