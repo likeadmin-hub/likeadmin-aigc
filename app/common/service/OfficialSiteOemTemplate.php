@@ -28,7 +28,7 @@ class OfficialSiteOemTemplate
         return [
             array_merge($block('oem_hero', "专为企业打造的\nAI原生创意套件", ''), [
                 'eyebrow'=>'OEM贴牌', 'media'=>'', 'media_type'=>'video', 'poster'=>'',
-                'icon_url'=>'', 'badge'=>'',
+                'icon_url'=>'', 'badge'=>$asset('fortune-logo.png'),
             ]),
             array_merge($block('oem_intro', '专为现代创意企业量身打造', '获取平台个性化演示，查看真实用例，了解领先企业如何将制作时间缩短 90%，同时在每份内容上节省数千美元。'), ['button_text'=>'联系销售', 'button_link'=>'/official/oem#oem-packages']),
             array_merge($block('oem_benefits', "用你的品牌，\n开启 AI 创作生意。", '把 AI 创作能力带给你的客户。从品牌展示到客户管理，拥有自己的站点与后台，让创作者、工作室和服务团队专注经营。'), [

@@ -172,7 +172,6 @@ class OfficialSiteService
             if ($default['key'] === 'oem_hero') {
                 $source['icon_url'] = '';
                 if (preg_match('/(?:500.*390|390.*500)/u', (string)($source['description'] ?? ''))) $source['description'] = '';
-                if (self::isRetiredOemMark((string)($source['badge'] ?? ''))) $source['badge'] = '';
             }
             // Retire copied reference reviews, including previously rebranded copies.
             // Keep tenant-authored reviews and module placement/visibility intact.
@@ -521,13 +520,13 @@ class OfficialSiteService
 
     private static function isRetiredOemMark(string $value): bool
     {
-        return (bool)preg_match('~(?:^|/)oem-enterprise/(?:suite-mark\.svg|fortune-logo\.png)$~i', (string)parse_url($value, PHP_URL_PATH));
+        return (bool)preg_match('~(?:^|/)oem-enterprise/suite-mark\.svg$~i', (string)parse_url($value, PHP_URL_PATH));
     }
 
     /** Keep bundled assets independent of tenant upload storage, including early local previews. */
     private static function bundledAsset(string $value): string
     {
-        if (preg_match('~^/?(?:pc/)?oem-enterprise/((?:logo-primary-[1-6]|logo-secondary-[2-6])\.webp|mcp-pill\.png)$~', $value, $match)) {
+        if (preg_match('~^/?(?:pc/)?oem-enterprise/((?:logo-primary-[1-6]|logo-secondary-[2-6])\.webp|(?:fortune-logo|mcp-pill)\.png)$~', $value, $match)) {
             return '/pc/oem-enterprise/' . $match[1];
         }
         return '';
