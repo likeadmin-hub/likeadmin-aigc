@@ -499,9 +499,10 @@ class installModel
         $dbFile = $this->getInstallRoot() . '/db/like.sql';
         //file_put_contents($dbFile, $this->initAccount($post), FILE_APPEND);
         $content = str_replace(";\r\n", ";\n", file_get_contents($dbFile));
-        $tables = explode(";\n", $content);
+        require_once $this->getAppRoot() . '/app/common/service/database/SqlMigrationExecutor.php';
+        $tables = \app\common\service\database\SqlMigrationExecutor::split($content);
         $accountSql = str_replace(';', ";\n", $this->initAccount($post));
-        $tables = array_merge($tables, explode(";\n", $accountSql));
+        $tables = array_merge($tables, \app\common\service\database\SqlMigrationExecutor::split($accountSql));
         $installTime = (int) floor(microtime(true) * 10000);
         $this->lastSqlError = '';
 
