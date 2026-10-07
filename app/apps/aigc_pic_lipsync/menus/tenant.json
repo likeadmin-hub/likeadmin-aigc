@@ -1,0 +1,18 @@
+[
+  {
+    "source_menu_key": "aigc_pic_lipsync",
+    "app_code": "aigc_pic_lipsync",
+    "source": "app",
+    "type": "M",
+    "name": "图片数字人",
+    "icon": "el-icon-Microphone",
+    "sort": 82,
+    "perms": "",
+    "paths": "aigc-pic-lipsync",
+    "component": "",
+    "children": [
+      { "source_menu_key": "aigc_pic_lipsync_config", "type": "C", "name": "基础配置", "sort": 40, "perms": "app.aigc_pic_lipsync.config/detail", "paths": "config", "component": "apps/aigc_pic_lipsync/config" },
+      { "source_menu_key": "aigc_pic_lipsync_task", "type": "C", "name": "任务记录", "sort": 10, "perms": "app.aigc_pic_lipsync.task/lists", "paths": "task", "component": "apps/aigc_pic_lipsync/task" }
+    ]
+  }
+]

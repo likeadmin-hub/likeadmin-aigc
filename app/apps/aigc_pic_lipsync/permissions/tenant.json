@@ -1,0 +1,8 @@
+[
+  { "permission_key": "aigc_pic_lipsync:config:detail", "name": "查看图片数字人配置", "api_path": "app.aigc_pic_lipsync.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_pic_lipsync:config:setup", "name": "保存图片数字人配置", "api_path": "app.aigc_pic_lipsync.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_pic_lipsync:task:lists", "name": "查看图片数字人任务", "api_path": "app.aigc_pic_lipsync.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_pic_lipsync:task:detail", "name": "查看图片数字人任务详情", "api_path": "app.aigc_pic_lipsync.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_pic_lipsync:task:retry", "name": "重试图片数字人任务", "api_path": "app.aigc_pic_lipsync.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_pic_lipsync:task:delete", "name": "删除图片数字人任务", "api_path": "app.aigc_pic_lipsync.task/delete", "api_method": "POST" }
+]

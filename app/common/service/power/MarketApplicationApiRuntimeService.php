@@ -75,6 +75,9 @@ class MarketApplicationApiRuntimeService
         if ($value === 'nano_banana' || MarketNanoBananaAppRuntimeService::isSelection($selection)) {
             return MarketNanoBananaAppRuntimeService::class;
         }
+        if ($value === MarketPicLipsyncAppRuntimeService::UPSTREAM_APP_CODE) {
+            return MarketPicLipsyncAppRuntimeService::class;
+        }
         if ($value === 'music_generation') {
             return MarketMusicAppRuntimeService::class;
         }
