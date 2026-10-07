@@ -1,0 +1,234 @@
+{
+  "version": "1.0.385",
+  "base_version": "1.0.384",
+  "server_published_baseline": "b6212491b17953a77d143758cf43b31e11104cdd",
+  "server_source_head": "f2e614b678f7191fb6bc8a9904583a4f341714b9",
+  "web_baseline": "c1ba09601da0c159dfc375c68b67b7f6c6dfe1c3",
+  "web_head": "41d99004c50fd107a7e36e53ce2065af82f4bbce",
+  "server_source_changes": [
+    {
+      "status": "A",
+      "path": "app/api/controller/ToolPinsController.php"
+    },
+    {
+      "status": "M",
+      "path": "app/api/controller/case_gallery/CaseController.php"
+    },
+    {
+      "status": "M",
+      "path": "app/api/logic/PcLogic.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/OfficialSiteFields.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/OfficialSiteOemTemplate.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/OfficialSiteService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/OfficialSiteTemplate.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/OfficialSiteTranslations.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/PcHomeShortcutsService.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/UserToolPinsService.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/case_gallery/CasePaletteService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/tenantapi/controller/setting/web/WebSettingController.php"
+    },
+    {
+      "status": "M",
+      "path": "app/tenantapi/logic/setting/web/WebSettingLogic.php"
+    },
+    {
+      "status": "M",
+      "path": "config/project.php"
+    },
+    {
+      "status": "A",
+      "path": "docs/official-site-locales.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/official-site-oem-v8.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/official-site-testimonials-v7.md"
+    },
+    {
+      "status": "M",
+      "path": "public/install/db/like.sql"
+    },
+    {
+      "status": "A",
+      "path": "public/upgrade/20261005_user_tool_pins.sql"
+    },
+    {
+      "status": "A",
+      "path": "tests/Feature/CasePaletteTest.php"
+    },
+    {
+      "status": "M",
+      "path": "tests/Feature/OfficialSiteConfigTest.php"
+    },
+    {
+      "status": "M",
+      "path": "tests/Feature/OfficialSiteRouteTest.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/pc-home-shortcuts.integration.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/user-tool-pins.integration.php"
+    },
+    {
+      "status": "A",
+      "path": "upgrade/20261005_user_tool_pins.sql"
+    },
+    {
+      "status": "M",
+      "path": "upgrade/version.json"
+    }
+  ],
+  "frontend_source_changes": [
+    "A\tdocs/release-1.0.385.md",
+    "M\tpc/api/case_gallery.ts",
+    "A\tpc/api/tool-pins.ts",
+    "M\tpc/apps/aigc_video/components/ImagineVideoStudio.vue",
+    "A\tpc/assets/official-site/icons/manage.svg",
+    "A\tpc/assets/official-site/icons/renew.svg",
+    "M\tpc/assets/styles/pc-modal-theme.scss",
+    "M\tpc/components/ai-workspace/ImagineAigcHome.vue",
+    "A\tpc/components/ai-workspace/ImagineInspirationCard.vue",
+    "A\tpc/components/ai-workspace/ImaginePinnedTools.vue",
+    "M\tpc/components/ai-workspace/ImagineToolResults.vue",
+    "A\tpc/components/ai-workspace/InspirationCardActions.vue",
+    "M\tpc/components/ai-workspace/app-home.vue",
+    "A\tpc/components/ai-workspace/imagine-pinned-tools-icons.json",
+    "M\tpc/components/official-site/OfficialBackdrop.vue",
+    "M\tpc/components/official-site/OfficialCanvasDemo.vue",
+    "M\tpc/components/official-site/OfficialCarousel.vue",
+    "M\tpc/components/official-site/OfficialDirector.vue",
+    "M\tpc/components/official-site/OfficialHero.vue",
+    "M\tpc/components/official-site/OfficialHeroFilm.vue",
+    "A\tpc/components/official-site/OfficialLocaleSwitcher.vue",
+    "D\tpc/components/official-site/OfficialMarquee.vue",
+    "M\tpc/components/official-site/OfficialMediaDialog.vue",
+    "M\tpc/components/official-site/OfficialModels.vue",
+    "M\tpc/components/official-site/OfficialNavigation.vue",
+    "A\tpc/components/official-site/OfficialOemBenefits.vue",
+    "A\tpc/components/official-site/OfficialOemFeatures.vue",
+    "A\tpc/components/official-site/OfficialOemPage.vue",
+    "A\tpc/components/official-site/OfficialOemPreview.vue",
+    "M\tpc/components/official-site/OfficialScenes.vue",
+    "M\tpc/components/official-site/OfficialSiteContent.vue",
+    "M\tpc/components/official-site/OfficialSiteMedia.vue",
+    "M\tpc/components/official-site/OfficialSiteShell.vue",
+    "A\tpc/components/official-site/OfficialTestimonials.vue",
+    "M\tpc/components/official-site/OfficialToolArtwork.vue",
+    "M\tpc/components/official-site/OfficialToolRibbon.vue",
+    "M\tpc/components/official-site/official-site.css",
+    "M\tpc/composables/useAiCreateWorks.ts",
+    "A\tpc/composables/useAiPinnedTools.ts",
+    "A\tpc/composables/useOfficialLocale.ts",
+    "M\tpc/locales/ui-text.json",
+    "M\tpc/middleware/route.global.ts",
+    "M\tpc/pages/ai/create.vue",
+    "M\tpc/pages/join-opc/index.vue",
+    "M\tpc/pages/join-opc/payment.vue",
+    "M\tpc/pages/join-opc/result.vue",
+    "M\tpc/pages/official/[slug].vue",
+    "A\tpc/pages/official/oem.vue",
+    "M\tpc/pages/pricing.vue",
+    "A\tpc/public/oem-enterprise/README.md",
+    "A\tpc/public/oem-enterprise/fortune-logo.png",
+    "A\tpc/public/oem-enterprise/logo-primary-1.webp",
+    "A\tpc/public/oem-enterprise/logo-primary-2.webp",
+    "A\tpc/public/oem-enterprise/logo-primary-3.webp",
+    "A\tpc/public/oem-enterprise/logo-primary-4.webp",
+    "A\tpc/public/oem-enterprise/logo-primary-5.webp",
+    "A\tpc/public/oem-enterprise/logo-primary-6.webp",
+    "A\tpc/public/oem-enterprise/logo-secondary-2.webp",
+    "A\tpc/public/oem-enterprise/logo-secondary-3.webp",
+    "A\tpc/public/oem-enterprise/logo-secondary-4.webp",
+    "A\tpc/public/oem-enterprise/logo-secondary-5.webp",
+    "A\tpc/public/oem-enterprise/logo-secondary-6.webp",
+    "A\tpc/public/oem-enterprise/mcp-pill.png",
+    "A\tpc/public/oem-enterprise/suite-mark.svg",
+    "A\tpc/tests/home-shortcuts.test.cjs",
+    "A\tpc/tests/inspiration-color.test.cjs",
+    "A\tpc/tests/official-locale.test.cjs",
+    "A\tpc/tests/pinned-tools.test.cjs",
+    "A\tpc/tests/tool-introduction-locale.test.cjs",
+    "A\tpc/utils/inspiration-color.ts",
+    "A\tpc/utils/officialSiteLinks.ts",
+    "A\tpc/utils/pinned-tools-storage.ts",
+    "A\tpc/utils/pinned-tools.ts",
+    "A\tshared/official-site/locale.ts",
+    "A\tshared/official-site/messages.json",
+    "A\tshared/pc-home/shortcuts.ts",
+    "M\ttenant/src/views/official_website/MediaFields.vue",
+    "M\ttenant/src/views/official_website/NavigationEditor.vue",
+    "A\ttenant/src/views/official_website/OfficialTranslationsEditor.vue",
+    "A\ttenant/src/views/official_website/SiteMaterialPicker.vue",
+    "M\ttenant/src/views/official_website/index.vue",
+    "A\ttenant/src/views/setting/website/components/HomeShortcutMaterial.vue",
+    "A\ttenant/src/views/setting/website/components/HomeShortcutsEditor.vue",
+    "M\ttenant/src/views/setting/website/information.vue"
+  ],
+  "runtime_dirs": [
+    "public/admin",
+    "public/pc",
+    "public/_nuxt",
+    "public/media"
+  ],
+  "sql_order": [
+    "sql/structure/20261005_user_tool_pins.sql"
+  ],
+  "intentional_package_exclusions": [
+    "docs/official-site-locales.md",
+    "docs/official-site-oem-v8.md",
+    "docs/official-site-testimonials-v7.md",
+    "tests/Feature/CasePaletteTest.php",
+    "tests/Feature/OfficialSiteConfigTest.php",
+    "tests/Feature/OfficialSiteRouteTest.php",
+    "tests/pc-home-shortcuts.integration.php",
+    "tests/user-tool-pins.integration.php",
+    "upgrade/version.json",
+    "docs/release-1.0.385-change-manifest.json"
+  ],
+  "builds": [
+    "pc",
+    "tenant"
+  ],
+  "schema_parity": {
+    "shared_core_table": "la_user_tool_pins",
+    "fresh_install": "public/install/db/like.sql",
+    "upgrade": [
+      "upgrade/20261005_user_tool_pins.sql",
+      "public/upgrade/20261005_user_tool_pins.sql"
+    ],
+    "tenant_bootstrap": "Shared tenant/user scoped table; no per-tenant table or seed required."
+  }
+}
