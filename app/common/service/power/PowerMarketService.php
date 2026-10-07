@@ -183,6 +183,43 @@ class PowerMarketService
      *
      * @return array<string, mixed>
      */
+    /** Refresh one application without reconciling or changing other catalogue entries. */
+    public static function syncApplicationFromUpstream(string $appCode): array
+    {
+        $app = null;
+        foreach (UpstreamPricingService::queryApps() as $row) {
+            if ((string)($row['code'] ?? '') === $appCode) { $app = $row; break; }
+        }
+        if ($app === null) throw new Exception('上游应用目录中不存在该应用');
+        $requests = []; $metadata = [];
+        foreach ((array)($app['apis'] ?? []) as $api) {
+            $code = trim((string)($api['code'] ?? ''));
+            if ($code === '') continue;
+            $key = 'app_api:' . $appCode . ':' . $code;
+            $requests[] = ['local_key' => $key, 'type' => self::TYPE_APP_API, 'app_code' => $appCode, 'api_code' => $code];
+            $metadata[$key] = self::appApiMetadata($app, $api);
+        }
+        $items = (array)(UpstreamPricingService::queryBatch($requests)['items'] ?? []);
+        if ($items === []) throw new Exception('上游未返回该应用的价格规格');
+        return Db::transaction(function () use ($appCode, $items, $metadata) {
+            $summary = ['app_code' => $appCode, 'products' => 0, 'skus' => 0];
+            foreach ($items as $item) {
+                $resource = (array)($item['resource'] ?? []);
+                if ((string)($item['type'] ?? '') !== self::TYPE_APP_API || (string)($resource['app_code'] ?? '') !== $appCode) continue;
+                $skus = array_values(array_filter((array)($item['pricing_v2']['items'] ?? []), 'is_array'));
+                if (empty($item['available']) || ($skus === [] && (string)($resource['api_code'] ?? '') !== 'query')) continue;
+                $item['market_metadata'] = $metadata[(string)($item['local_key'] ?? '')] ?? [];
+                $product = self::upsertProduct(self::TYPE_APP_API, $resource, $item);
+                if ($product === null) continue;
+                $summary['products']++;
+                // Only retire replaced specifications of this exact product after a complete response.
+                if ($skus !== []) PowerMarketSku::where('product_id', (int)$product['id'])->update(['status' => 0, 'update_time' => time()]);
+                foreach ($skus as $sku) { self::upsertSku((int)$product['id'], $sku, $item); $summary['skus']++; }
+            }
+            return $summary;
+        });
+    }
+
     public static function syncFromUpstream(): array
     {
         $requests = [];
