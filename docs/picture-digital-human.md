@@ -22,3 +22,5 @@ docker exec bt php /www/wwwroot/likeadmin_aigc_saas/server/scripts/migrate-pictu
 ```
 
 脚本拒绝非本地数据库，市场刷新只影响 `pic_lipsync`，不会刷新其他产品。发布时仍需正常系统/应用打包和前端构建；本地源码验证不代表线上部署。
+
+本地仅处理本应用可运行 `php think ai:task-worker --app=aigc_pic_lipsync`。不指定 `--app` 时保持现有共享 worker 行为，租约、重试、结果处理逻辑一致。
