@@ -56,7 +56,7 @@ class OfficialSiteFields
                 'api_navigation' => ['title','link'],
                 'api_hero' => array_merge($copy, $icon, ['link']),
                 'api_steps' => array_merge($copy, $media, ['preset','button_text','link']),
-                'api_generation' => array_merge($copy, $media, ['tab_label','eyebrow','preset']),
+                'api_generation' => array_merge($copy, $media, ['tab_label','preset']),
                 'api_features' => array_merge($copy, $media, ['preset','preview_media','button_text','link']),
                 'api_clients' => ['title','media','link'],
                 'api_faq' => $copy,

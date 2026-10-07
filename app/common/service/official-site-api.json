@@ -162,7 +162,6 @@
         "enabled": 1,
         "sort": 100,
         "tab_label": "图像生成",
-        "eyebrow": "image",
         "preset": "image",
         "media": "",
         "media_type": "image"
@@ -173,7 +172,6 @@
         "enabled": 1,
         "sort": 99,
         "tab_label": "商品图",
-        "eyebrow": "image",
         "preset": "image",
         "media": "",
         "media_type": "image"
@@ -184,7 +182,6 @@
         "enabled": 1,
         "sort": 98,
         "tab_label": "视频生成",
-        "eyebrow": "video",
         "preset": "video",
         "media": "",
         "media_type": "video"
@@ -195,7 +192,6 @@
         "enabled": 1,
         "sort": 97,
         "tab_label": "产品宣传",
-        "eyebrow": "video",
         "preset": "video",
         "media": "",
         "media_type": "video"
