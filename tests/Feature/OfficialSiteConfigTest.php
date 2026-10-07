@@ -360,7 +360,7 @@ class OfficialSiteConfigTest extends TestCase
     public function testNewArchitectureUsesActualToolsAndRequestedEntries(): void
     {
         $config = $this->normalize([]);
-        self::assertSame(14, $config['template_version']);
+        self::assertSame(15, $config['template_version']);
         self::assertSame(['应用工具','模型','API','价格','企业服务','OEM贴牌','帮助'], array_column($config['navigation'], 'label'));
         self::assertSame(['工作室','图片','视频'], array_column($config['navigation'][0]['groups'], 'title'));
         self::assertSame(['dropdown','dropdown','dropdown','link','link','link','link'], array_column($config['navigation'], 'mode'));
