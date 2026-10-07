@@ -317,11 +317,12 @@ class AigcDigitalHumanPricingService
     private static function platformModelRows(): array
     {
         try {
-            return AigcDigitalHumanChannel::where('tenant_id', 0)
+            $rows = AigcDigitalHumanChannel::where('tenant_id', 0)
                 ->order(['sort' => 'desc', 'id' => 'asc'])
                 ->field('code,name,provider,model,status,sort')
                 ->select()
                 ->toArray();
+            return array_map([AigcDigitalHumanChannelService::class, 'normalizeProviderChannel'], $rows);
         } catch (Throwable $e) {
             return [];
         }

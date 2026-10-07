@@ -1,10 +1,10 @@
 {
   "code": "aigc_digital_human",
   "name": "数字人视频",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "require_core": ">=1.0.0",
   "description": "面向移动端、PC端和后台端的数字人应用框架，支持当前用户专属形象、声音和合成视频任务。",
-  "changelog": "作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据，并修复完整安装时编排字段迁移重复执行问题。",
+  "changelog": "1. 修复数字人视频切换模式后仍使用同一模型的问题。\n2. 修复保存基础配置后各模式被覆盖的问题。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

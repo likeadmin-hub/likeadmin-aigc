@@ -56,9 +56,19 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
     public function submitLipsync(AigcDigitalHumanGenerateRequest $request, string $audioUrl): array
     {
         $config = $this->resolveConfig($request);
+        $payload = $this->buildLipsyncPayload($request, $audioUrl, $config);
+        $data = $this->request('POST', $config['lipsync_url'], $config['api_key'], $payload, $config['timeout'], (bool)$config['ssl_verify']);
+        $taskId = $this->extractTaskId($data);
+        if ($taskId === '') {
+            throw new Exception('供应商未返回视频任务ID');
+        }
+        return ['task_id' => $taskId, 'payload' => $data];
+    }
+
+    private function buildLipsyncPayload(AigcDigitalHumanGenerateRequest $request, string $audioUrl, array $config): array
+    {
         $payload = array_filter(array_merge([
             'mode' => 'async_query',
-            'model' => $request->providerParams['lipsync_model'] ?? $config['lipsync_model'],
             'audio_url' => $audioUrl,
             'video_url' => (string)($request->avatar['media_url'] ?? ''),
             'client_task_id' => $request->providerParams['client_task_id'] ?? null,
@@ -66,12 +76,9 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
             'local_task_id' => $request->providerParams['local_task_id'] ?? null,
             'local_task_sn' => $request->providerParams['local_task_sn'] ?? null,
         ], $config['lipsync_payload'], $request->providerParams['lipsync_payload'] ?? []), static fn($value) => $value !== null && $value !== '' && $value !== []);
-        $data = $this->request('POST', $config['lipsync_url'], $config['api_key'], $payload, $config['timeout'], (bool)$config['ssl_verify']);
-        $taskId = $this->extractTaskId($data);
-        if ($taskId === '') {
-            throw new Exception('供应商未返回视频任务ID');
-        }
-        return ['task_id' => $taskId, 'payload' => $data];
+        // Model selection belongs to the channel, never to stale spec payloads.
+        $payload['model'] = $config['lipsync_model'];
+        return $payload;
     }
 
     public function fetchLipsyncResult(string $taskId, AigcDigitalHumanGenerateRequest $request): array
@@ -165,7 +172,7 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
             'lipsync_url' => $baseUrl . '/' . ltrim((string)($config['lipsync_path'] ?? self::LIPSYNC_PATH), '/'),
             'task_url_template' => $baseUrl . '/' . ltrim((string)($config['task_path'] ?? self::TASK_PATH), '/'),
             'tts_model' => (string)($config['tts_model'] ?? 's2-pro'),
-            'lipsync_model' => (string)($config['lipsync_model'] ?? $config['model'] ?? 'xiaojiayu1.0'),
+            'lipsync_model' => (string)($request->channelConfig['model'] ?? $config['lipsync_model'] ?? $config['model'] ?? 'xiaojiayu1.0'),
             'tts_payload' => is_array($config['tts_payload'] ?? null) ? $config['tts_payload'] : [],
             'lipsync_payload' => is_array($config['lipsync_payload'] ?? null) ? $config['lipsync_payload'] : [],
             'timeout' => max(5, (int)($config['timeout'] ?? 30)),
