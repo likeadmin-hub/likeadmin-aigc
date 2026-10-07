@@ -1,1 +1,0 @@
-import{_ as o}from"./OfficialWebsitePage.vue.fb0c8d88.js";import{g as e,o as s,l as a}from"./entry.6591569a.js";import"./OfficialSiteShell.vue.48cc8dbe.js";import"./OfficialSiteContent.vue.9caa1247.js";const r=e({__name:"OfficialCasesPage",setup(t){return(_,c)=>(s(),a(o,{section:"cases"}))}}),f=e({__name:"cases",setup(t){return(_,c)=>(s(),a(r))}});export{f as default};

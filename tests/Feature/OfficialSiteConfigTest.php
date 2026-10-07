@@ -147,10 +147,33 @@ class OfficialSiteConfigTest extends TestCase
         $reviews = $modules['cases'];
         self::assertSame(0, $reviews['enabled']);
         self::assertSame(777, $reviews['sort']);
-        self::assertSame("深受喜爱 创作者\n全球", $reviews['title']);
+        self::assertSame('创作者使用场景', $reviews['title']);
         self::assertCount(6, $reviews['cards']);
-        self::assertSame('Scorpy', $reviews['cards'][0]['title']);
+        self::assertSame('创作者示例 1', $reviews['cards'][0]['title']);
         foreach (['icon', 'icon_url', 'link', 'status', 'media', 'button_text'] as $field) self::assertArrayNotHasKey($field, $reviews['cards'][0]);
+        self::assertSame($result, $this->normalize($result));
+    }
+
+    public function testReferenceReviewsBecomeLikeadminPresetsWithoutChangingCustomReviews(): void
+    {
+        $custom = ['title'=>'我的作者', 'description'=>'自己的评价', 'source'=>'社区', 'rating'=>4];
+        $input = ['template_version'=>8, 'modules'=>[['key'=>'cases', 'enabled'=>0, 'sort'=>777,
+            'description'=>'独立创作者和品牌团队每天都在 Likeadmin 上产出作品。',
+            'cards'=>[
+                ['title'=>'Scorpy', 'description'=>'原参考文案', 'source'=>'Trustpilot', 'enabled'=>0],
+                ['title'=>'Mark', 'description'=>'我用 OpenArt 制作视频', 'source'=>''],
+                $custom,
+            ]]]];
+        $result = $this->normalize($input);
+        $cases = array_column($result['modules'], null, 'key')['cases'];
+        self::assertSame(0, $cases['enabled']);
+        self::assertSame(777, $cases['sort']);
+        self::assertSame(0, $cases['cards'][0]['enabled']);
+        self::assertSame('Likeadmin · 预设示例', $cases['cards'][0]['source']);
+        self::assertSame('创作者示例 2', $cases['cards'][1]['title']);
+        foreach ($custom as $key=>$value) self::assertSame($value, $cases['cards'][2][$key]);
+        self::assertStringNotContainsString('OpenArt', json_encode($cases));
+        self::assertStringNotContainsString('Trustpilot', json_encode($cases));
         self::assertSame($result, $this->normalize($result));
     }
 
