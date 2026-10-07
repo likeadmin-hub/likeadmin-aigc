@@ -15,6 +15,7 @@ class AiTaskWorker extends Command
     {
         $this->setName('ai:task-worker')
             ->setDescription('处理 AI 异步结果、转存和结算任务')
+            ->addOption('app', null, Option::VALUE_OPTIONAL, '只处理指定应用的结果任务', '')
             ->addOption('worker', null, Option::VALUE_OPTIONAL, 'Worker 类型', 'result')
             ->addOption('sleep', null, Option::VALUE_OPTIONAL, '空队列休眠秒数', 1)
             ->addOption('lease', null, Option::VALUE_OPTIONAL, '任务租约秒数', 90)
@@ -27,6 +28,8 @@ class AiTaskWorker extends Command
             $output->writeln('Only result worker is supported.');
             return 1;
         }
+        $appCode = trim((string)$input->getOption('app'));
+        if ($appCode !== '' && !preg_match('/^[a-z][a-z0-9_]*$/D', $appCode)) { $output->writeln('Invalid app code.'); return 1; }
         $sleep = max(1, (int)$input->getOption('sleep'));
         $lease = max(10, (int)$input->getOption('lease'));
         $batch = max(1, min(100, (int)$input->getOption('batch')));
@@ -41,9 +44,10 @@ class AiTaskWorker extends Command
         $output->writeln('AI result worker started: ' . $worker);
         try {
             while ($running) {
-                ShortDramaCanvasPosterJobService::recoverExpired();
-                $jobs = AiTaskJobService::claim($worker, $lease, $batch);
+                if ($appCode === '') ShortDramaCanvasPosterJobService::recoverExpired();
+                $jobs = AiTaskJobService::claim($worker, $lease, $batch, $appCode);
                 if ($jobs === []) {
+                    if ($appCode !== '') { sleep($sleep); continue; }
                     $posterJobs = ShortDramaCanvasPosterJobService::claim($worker, max(180, $lease), 1);
                     foreach ($posterJobs as $posterJob) {
                         try {
