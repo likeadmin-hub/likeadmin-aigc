@@ -1,0 +1,30 @@
+# OEM official page (template v9)
+
+- Public PC route: `/official/oem`, with tenant query and tenant-prefix support.
+- `affiliate` navigation becomes `oem` once on v7 → v8. Later OEM label/link/order/visibility edits are preserved. Home copy, testimonials, uploads and remaining navigation retain their values.
+- New modules: `oem_hero`, `oem_intro`, `oem_clients`, `oem_features`, `oem_packages`. Outside the homepage key list. Existing tenant read migration and fresh defaults share the same source; no SQL is required.
+- Tenant editor has page-level tabs and a shared configuration tab. Shared brand, navigation, promo and footer data remain a single source.
+- Public pricing reads the existing tenant-scoped `/brand.package/lists`; it shows only shelf-enabled packages with available quota and uses `tenant_sale_price`. Opening a package routes to existing `/join-opc` with the selected package ID. Creating/paying orders and granting quotas are unchanged.
+- Only reference icons remain bundled in PC `public/oem-enterprise`. Photos/videos/posters/backgrounds belong to tenant Material Center → 官网 and are selected in the OEM editor. New defaults leave these fields empty.
+- v9 clears retired local OEM media paths, preserving tenant-uploaded URLs, icons, homepage content and package contracts. Existing bundled media must be uploaded and its config references replaced before removing frontend files. Each tenant owns its storage; do not copy tenant 1 URLs into defaults or migrations. No media/database content is shipped in source commits.
+- Update backend, PC frontend and tenant frontend together. No compiled output is included in feature commits.
+
+## Checks
+
+Run `OfficialSiteConfigTest` and `OfficialSiteRouteTest`, then validate desktop and narrow layouts, hover/focus case cards, scroll/click feature selection, reduced motion, empty package state and editor save/read round-trip. Do not create a paid order merely to preview the layout.
+
+## v10：面向用户的 OEM 贴牌介绍
+
+在第二屏与企业客户之间新增 `oem_benefits`，可在官网配置的 OEM贴牌页签中编辑。沿用首页“一个平台，无限故事”的布局：顶部权益导航、下方图文交错展示。标题、介绍、权益卡片、标签、图标、图片或视频、权益说明与显隐均可配置；未配置素材时使用官网统一占位图。移除初稿中的密集卡片与开通步骤。权益介绍不提供套餐选择按钮。
+
+默认权益依据 TenantBrandService 的独立子租户、管理员开通与域名配置流程，以及 TenantContractService / TenantPackageService 的周期续期和绑定应用权益发放；不承诺无限资源、收益或永久权限。
+
+配置版本升级为 10，缺失的介绍模块自动补齐，已有模块、素材和自定义内容保持原值。只新增展示字段，不改支付、额度、订单、权限或套餐规则，不新增素材文件或 SQL。
+
+## v11：权益标签与图标修复
+
+仅对旧版 OEM 介绍按卡片标题匹配，将自动误填的“数字人 / 无限画布”修复为“独立经营 / 灵活续期”，旧默认图标改为 manage / renew。自定义标题、标签、素材、描述、排序、显隐和自定义图标 URL 保留。新建 OEM 卡片不再根据应用图标推断业务标签；其他模块保持原规则。
+
+## v12：移除权益介绍按钮
+
+删除 OEM 贴牌介绍的按钮文字和链接字段，以及前端按钮。旧租户配置读取时自动清理这两个字段；第二屏联系销售及底部套餐入口保持原有配置。

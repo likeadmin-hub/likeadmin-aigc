@@ -1,7 +1,7 @@
 <?php
 namespace app\common\service;
 
-/** Public presentation defaults. No third-party brand, customer or sales claims. */
+/** Public presentation defaults; reference testimonials retain their OpenArt attribution. */
 class OfficialSiteTemplate
 {
     public static function defaults(array $previous): array
@@ -54,7 +54,7 @@ class OfficialSiteTemplate
             $block('products', 950, "一个平台，无限故事", '从构思到表达，让每一个创作环节自然衔接。', $features),
             $block('models', 940, "多种 AI 模型\n一个创作平台", '连接算力市场已上架的生图与生视频模型，选择适合你的创作能力。', [], '探索模型', '/ai'),
             $block('tools', 930, "让创作更进一步的 AI 工具", '从商品视觉到视频剪辑，在细节中完善你的作品。', $tools),
-            $block('cases', 920, '让灵感在不同场景发生', '选择适合你的工作流。', $scenes),
+            self::testimonials(),
             $block('faq', 910, '你可能想了解', '', [
                 $card('我可以使用哪些创作工具？', '平台提供 AI 短剧、数字人、无限画布，以及图像、视频、音乐等创作工具。实际可用功能以工作台展示为准。'),
                 $card('如何开始制作 AI 短剧？', '进入 AI 短剧工作室，从故事与角色设定开始，再逐步完成分镜和画面制作。'),
@@ -76,7 +76,30 @@ class OfficialSiteTemplate
             $block('footer', 0, '开始创作', '', $features),
         ];
         foreach ($previous['modules'] as $m) if (in_array($m['key'], ['pricing', 'join'], true)) $modules[] = $m;
-        return ['basic' => $basic, 'modules' => $modules];
+        return ['basic' => $basic, 'modules' => array_merge($modules, OfficialSiteOemTemplate::modules())];
+    }
+
+    /** Reference copy supplied by the owner; editable independently for each tenant. */
+    public static function testimonials(): array
+    {
+        $reviews = [
+            ['Scorpy', '实用的 AI 工具一站集齐——图像与视频生成、编辑等等……无需多份订阅。'],
+            ['Richard M.', '客服总是快速又贴心……平台也不断加入新功能和工具，越来越好用。'],
+            ['Jan C.', '我试过很多 AI 平台……但在角色创建、图生视频质量和模型多样性方面，OpenArt 依然是最出色的。'],
+            ['Mark', '我用 OpenArt 制作了我的第一支 AI 音乐视频……他们的支持团队是我遇到过最棒的帮助。'],
+            ['Rasmus', '我对支持服务非常满意——我的问题很快得到解决，团队让整个过程变得轻松。'],
+            ['Jon S.', '在众多 AI 平台中，OpenArt 脱颖而出，是绝佳之选——我会向任何创作者推荐它。'],
+        ];
+        return [
+            'key' => 'cases', 'enabled' => 1, 'sort' => 920,
+            'title' => "深受喜爱 创作者\n全球", 'highlight_text' => '创作者',
+            'description' => '独立创作者和全球品牌团队每天都在 OpenArt 上产出作品。',
+            'autoplay_seconds' => 35,
+            'cards' => array_map(static fn($review) => [
+                'title' => $review[0], 'description' => $review[1],
+                'source' => 'Trustpilot', 'rating' => 5, 'avatar' => '',
+            ], $reviews),
+        ];
     }
 
     public static function navigation(): array
@@ -97,9 +120,15 @@ class OfficialSiteTemplate
                 $group('视频', [$item('AI 视频', 'video', '/ai/create?type=video'), $item('对口型数字人', 'avatar', '/ai/avatar?tab=lip_sync'), $item('全驱动数字人', 'avatar', '/ai/avatar?tab=image_human')]),
             ]),
             $entry('models', '模型', 90, '/ai'),
-            $entry('open', '开放平台', 80, '/official/open'),
+            array_merge($entry('open', 'API', 80, '', [
+                $group('API', [
+                    array_merge($item('平台首页', 'grid', ''), ['status' => 'planned']),
+                    array_merge($item('文档中心', 'book', ''), ['status' => 'planned']),
+                ]),
+            ]), ['button_text' => '', 'button_link' => '']),
             $entry('pricing', '价格', 70, '/pricing'),
             $entry('enterprise', '企业服务', 60, '/official/enterprise'),
+            $entry('oem', 'OEM贴牌', 55, '/official/oem'),
             $entry('help', '帮助', 50, '/official/help'),
         ];
     }

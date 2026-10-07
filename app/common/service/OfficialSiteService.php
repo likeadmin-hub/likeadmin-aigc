@@ -11,7 +11,7 @@ class OfficialSiteService
 {
     private const TYPE = 'official_site';
     private const KEY = 'config';
-    private const TEMPLATE_VERSION = 6;
+    private const TEMPLATE_VERSION = 14;
 
     public static function get(): array
     {
@@ -23,7 +23,7 @@ class OfficialSiteService
         } elseif ((int)($stored['template_version'] ?? 1) < self::TEMPLATE_VERSION) {
             // Tenant-scoped, recoverable upgrade; do not make the next release
             // infer template history from an already-upgraded public response.
-            if (ConfigService::get(self::TYPE, 'config_before_v6', null) === null) {
+            if ((int)($stored['template_version'] ?? 1) < 6 && ConfigService::get(self::TYPE, 'config_before_v6', null) === null) {
                 ConfigService::set(self::TYPE, 'config_before_v6', $stored);
             }
             ConfigService::set(self::TYPE, self::KEY, self::toStorage($config));
@@ -52,9 +52,9 @@ class OfficialSiteService
         $config['basic']['favicon'] = self::fileUrl($config['basic']['favicon']);
         $config['basic']['placeholder'] = self::fileUrl($config['basic']['placeholder']);
         foreach ($config['modules'] as &$module) {
-            foreach (['media', 'poster'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
+            foreach (['media', 'poster', 'icon_url', 'badge'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'icon_url'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
+                foreach (['media', 'poster', 'icon_url', 'avatar', 'secondary_icon_url', 'background_media', 'background_poster', 'preview_media', 'preview_poster'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
                 unset($card['internal_note'], $card['admin_only']);
             }
             unset($card);
@@ -70,6 +70,22 @@ class OfficialSiteService
     private static function normalize(array $input): array
     {
         $defaults = self::defaults();
+        // OEM photos and videos are tenant-owned Material Center assets from v9.
+        // Clear only retired local paths; never replace another tenant's uploaded URLs.
+        foreach (($input['modules'] ?? []) as $i => $module) {
+            if (strpos((string)($module['key'] ?? ''), 'oem_') !== 0) continue;
+            array_walk_recursive($input['modules'][$i], static function (&$value) {
+                if (is_string($value) && preg_match('~^/?(?:pc/)?oem-enterprise/(?:hero(?:-mini)?(?:-thumbnail)?\.(?:mp4|webp)|marketing-studio(?:-thumbnail)?\.(?:mp4|webp)|mcp(?:-content|-thumbnail)?\.(?:mp4|webp)|client-[1-6]\.webp|benefit-(?:bg-)?[1-7]\.webp)$~', $value)) $value = '';
+            });
+        }
+        // Replace the retired affiliate entry once; OEM edits remain tenant-owned thereafter.
+        if ((int)($input['template_version'] ?? 1) < 8) {
+            foreach (($input['navigation'] ?? []) as $i => $entry) {
+                if (($entry['key'] ?? '') === 'affiliate') {
+                    $input['navigation'][$i] = ['key'=>'oem', 'enabled'=>$entry['enabled'] ?? 1, 'sort'=>$entry['sort'] ?? 55];
+                }
+            }
+        }
         if ((int)($input['template_version'] ?? 1) < 4) {
             $previous = array_column(self::v3Defaults()['modules'], null, 'key');
             $newModules = array_column($defaults['modules'], null, 'key');
@@ -146,11 +162,40 @@ class OfficialSiteService
                     if (($override[$field] ?? null) === $draft[$field]) unset($override[$field]);
                 }
             }
+            // v7 intentionally replaces the retired workflow cards, including tenant copy.
+            // Preserve placement/visibility, but never carry its fields into testimonials.
+            if ($default['key'] === 'cases' && (int)($input['template_version'] ?? 1) < 7) {
+                $override = array_intersect_key($override, ['enabled' => 1, 'sort' => 1]);
+            }
             $source = array_merge($default, $override);
+            // Retire the initial, unreleased opening-step cards from the OEM introduction.
+            if ($default['key'] === 'oem_benefits' && is_array($source['cards'] ?? null)) {
+                $source['cards'] = array_values(array_filter($source['cards'], static fn($card) => is_array($card) && ($card['display_group'] ?? '') !== 'step'));
+                if ((int)($input['template_version'] ?? 1) < 11) {
+                    // Repair only labels/icons produced by the first OEM draft, matched by content.
+                    $repairs = [
+                        '让客户记住你的品牌' => ['专属品牌', '让客户记住你的品牌', 'edit', 'edit'],
+                        '把创作能力变成服务' => ['应用权益', '把创作能力变成服务', 'grid', 'grid'],
+                        '用自己的后台经营' => ['独立经营', '数字人', 'avatar', 'manage'],
+                        '按业务节奏选择与续期' => ['灵活续期', '无限画布', 'canvas', 'renew'],
+                    ];
+                    foreach ($source['cards'] as &$card) {
+                        $repair = $repairs[$card['title'] ?? ''] ?? null;
+                        if (!$repair) continue;
+                        if (!isset($card['tab_label']) || $card['tab_label'] === $repair[1]) $card['tab_label'] = $repair[0];
+                        if (($card['icon'] ?? '') === $repair[2]) $card['icon'] = $repair[3];
+                    }
+                    unset($card);
+                }
+            }
             $raw = [
                 'key' => $default['key'], 'enabled' => (int)!empty($source['enabled']),
                 'sort' => max(0, min(999, (int)$source['sort'])),
                 'title' => self::text($source['title'] ?? '', 100),
+                'icon_url' => self::text($source['icon_url'] ?? '', 1024),
+                'badge' => self::text($source['badge'] ?? '', 1024),
+                'footnote' => self::text($source['footnote'] ?? '', 300),
+                'highlight_text' => self::text($source['highlight_text'] ?? '', 80),
                 'eyebrow' => self::text($source['eyebrow'] ?? '', 60),
                 'description' => self::text($source['description'] ?? '', 500),
                 'media' => self::text($source['media'] ?? '', 1024),
@@ -161,15 +206,39 @@ class OfficialSiteService
                 'background_media_type' => ($source['background_media_type'] ?? '') === 'video' ? 'video' : 'image',
                 'button_text' => self::text($source['button_text'] ?? '', 40),
                 'button_link' => self::safeLink((string)($source['button_link'] ?? '')),
-                'autoplay_seconds' => max(3, min(30, (int)($source['autoplay_seconds'] ?? 6))),
-                'cards' => self::normalizeCards($source['cards'] ?? []),
+                'autoplay_seconds' => $default['key'] === 'cases'
+                    ? max(10, min(120, (int)($source['autoplay_seconds'] ?? 35)))
+                    : max(3, min(30, (int)($source['autoplay_seconds'] ?? 6))),
+                'cards' => self::normalizeCards($source['cards'] ?? [], $default['key']),
                 'slides' => $default['key'] === 'hero' ? self::normalizeSlides($source['slides'] ?? []) : [],
             ];
             $modules[] = $raw;
         }
         usort($modules, static fn(array $a, array $b) => $b['sort'] <=> $a['sort']);
 
-        return OfficialSiteFields::clean(['template_version' => self::TEMPLATE_VERSION, 'enabled' => $enabled, 'basic' => $basic, 'navigation' => self::normalizeNavigation($input['navigation'] ?? null), 'modules' => $modules]);
+        // Upgrade the former direct platform entry without losing tenant destinations.
+        if ((int)($input['template_version'] ?? 1) < 14 && is_array($input['navigation'] ?? null)) {
+            $apiDefault = array_column(OfficialSiteTemplate::navigation(), null, 'key')['open'];
+            foreach ($input['navigation'] as &$entry) {
+                if (!is_array($entry) || ($entry['key'] ?? '') !== 'open') continue;
+                if (($entry['mode'] ?? 'link') === 'dropdown' && !empty($entry['groups'])) continue;
+                $destination = (string)($entry['link'] ?? '');
+                $groups = $apiDefault['groups'];
+                if ($destination !== '' && $destination !== '/official/open') {
+                    $groups[0]['items'][0]['link'] = $destination;
+                    $groups[0]['items'][0]['status'] = $entry['status'] ?? 'live';
+                }
+                $entry = array_merge($entry, [
+                    'label' => 'API', 'mode' => 'dropdown', 'link' => '',
+                    'button_text' => '', 'button_link' => '', 'groups' => $groups,
+                ]);
+            }
+            unset($entry);
+        }
+
+        $config = OfficialSiteFields::clean(['template_version' => self::TEMPLATE_VERSION, 'enabled' => $enabled, 'basic' => $basic, 'navigation' => self::normalizeNavigation($input['navigation'] ?? null), 'modules' => $modules]);
+        $config['translations'] = OfficialSiteTranslations::clean($config, $input['translations'] ?? []);
+        return $config;
     }
 
     /** Repair v1/v2/v3 defaults accidentally retained and stamped as v4. */
@@ -331,7 +400,7 @@ class OfficialSiteService
         return $result;
     }
 
-    private static function normalizeCards($cards): array
+    private static function normalizeCards($cards, string $moduleKey = ''): array
     {
         if (!is_array($cards)) return [];
         $result = [];
@@ -341,9 +410,20 @@ class OfficialSiteService
             if (!in_array($status, ['live', 'planned', 'enterprise'], true)) $status = 'planned';
             $result[] = [
                 'title' => self::text($card['title'] ?? '', 80),
-                'tab_label' => self::text($card['tab_label'] ?? (['drama'=>'AI 短剧','video'=>'AI 视频','image'=>'AI 绘图','avatar'=>'数字人','canvas'=>'无限画布','audio'=>'AI 音乐'][$card['icon'] ?? ''] ?? ($card['title'] ?? '')), 40),
+                'source' => self::text($card['source'] ?? '', 80),
+                'rating' => max(1, min(5, (int)($card['rating'] ?? 5))),
+                'avatar' => self::text($card['avatar'] ?? '', 1024),
+                'tab_label' => self::text($card['tab_label'] ?? ($moduleKey === 'oem_benefits' ? ($card['title'] ?? '') : (['drama'=>'AI 短剧','video'=>'AI 视频','image'=>'AI 绘图','avatar'=>'数字人','canvas'=>'无限画布','audio'=>'AI 音乐'][$card['icon'] ?? ''] ?? ($card['title'] ?? ''))), 40),
                 'icon' => self::text($card['icon'] ?? 'grid', 30),
                 'icon_url' => self::text($card['icon_url'] ?? '', 1024),
+                'secondary_icon_url' => self::text($card['secondary_icon_url'] ?? '', 1024),
+                'background_media' => self::text($card['background_media'] ?? '', 1024),
+                'background_poster' => self::text($card['background_poster'] ?? '', 1024),
+                'background_media_type' => ($card['background_media_type'] ?? '') === 'video' ? 'video' : 'image',
+                'preview_media' => self::text($card['preview_media'] ?? '', 1024),
+                'preview_poster' => self::text($card['preview_poster'] ?? '', 1024),
+                'preview_media_type' => ($card['preview_media_type'] ?? '') === 'video' ? 'video' : 'image',
+                'preview_layout' => in_array($card['preview_layout'] ?? '', ['image','marketing','cinema','mcp'], true) ? $card['preview_layout'] : 'image',
                 'model_id' => self::text($card['model_id'] ?? '', 80),
                 'enabled' => array_key_exists('enabled', $card) ? (int)!empty($card['enabled']) : 1,
                 'description' => self::text($card['description'] ?? '', 300),
@@ -367,9 +447,9 @@ class OfficialSiteService
     {
         foreach ($config['navigation'] as &$nav) { foreach ($nav['groups'] as &$group) { foreach ($group['items'] as &$item) $item['icon_url'] = FileService::setFileUrl($item['icon_url']); unset($item); } unset($group); } unset($nav);
         foreach ($config['modules'] as &$module) {
-            foreach (['media', 'poster'] as $field) if (array_key_exists($field, $module)) $module[$field] = FileService::setFileUrl($module[$field]);
+            foreach (['media', 'poster', 'icon_url', 'badge'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::storageFileUrl($module[$field]);
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'icon_url'] as $field) if (array_key_exists($field, $card)) $card[$field] = FileService::setFileUrl($card[$field]);
+                foreach (['media', 'poster', 'icon_url', 'avatar', 'secondary_icon_url', 'background_media', 'background_poster', 'preview_media', 'preview_poster'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::storageFileUrl($card[$field]);
             }
             unset($card);
             foreach ($module['slides'] as &$slide) {
@@ -392,9 +472,9 @@ class OfficialSiteService
         $config['basic']['favicon'] = self::fileUrl($config['basic']['favicon']);
         $config['basic']['placeholder'] = self::fileUrl($config['basic']['placeholder']);
         foreach ($config['modules'] as &$module) {
-            foreach (['media', 'poster'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
+            foreach (['media', 'poster', 'icon_url', 'badge'] as $field) if (array_key_exists($field, $module)) $module[$field] = self::fileUrl((string)($module[$field] ?? ''));
             foreach ($module['cards'] as &$card) {
-                foreach (['media', 'poster', 'icon_url'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
+                foreach (['media', 'poster', 'icon_url', 'avatar', 'secondary_icon_url', 'background_media', 'background_poster', 'preview_media', 'preview_poster'] as $field) if (array_key_exists($field, $card)) $card[$field] = self::fileUrl((string)($card[$field] ?? ''));
             }
             unset($card);
             foreach ($module['slides'] as &$slide) {
@@ -415,9 +495,31 @@ class OfficialSiteService
         ConfigService::set('website', 'pc_keywords', $basic['keywords']);
     }
 
+    /** Keep bundled assets independent of tenant upload storage, including early local previews. */
+    private static function bundledAsset(string $value): string
+    {
+        if (preg_match('~^/?(?:pc/)?oem-enterprise/((?:logo-primary-[1-6]|logo-secondary-[2-6])\.webp|(?:fortune-logo|mcp-pill)\.png|suite-mark\.svg)$~', $value, $match)) {
+            return '/pc/oem-enterprise/' . $match[1];
+        }
+        return '';
+    }
+
+    private static function storageFileUrl(string $value): string
+    {
+        if ($asset = self::bundledAsset($value)) return $asset;
+        $stored = FileService::setFileUrl($value);
+        return self::bundledAsset($stored) ?: $stored;
+    }
+
     private static function fileUrl(string $value): string
     {
-        return $value === '' ? '' : FileService::getFileUrl($value);
+        if ($value === '') return '';
+        if ($asset = self::bundledAsset($value)) return $asset;
+        // Repair only paths under the configured tenant storage domain, not arbitrary custom URLs.
+        if (strpos($value, '/oem-enterprise/') !== false) {
+            if ($asset = self::bundledAsset(FileService::setFileUrl($value))) return $asset;
+        }
+        return FileService::getFileUrl($value);
     }
 
     private static function safeLink(string $link): string
