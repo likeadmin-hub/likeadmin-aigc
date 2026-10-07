@@ -61,11 +61,37 @@ class OfficialSiteConfigTest extends TestCase
         self::assertArrayNotHasKey('affiliate', $nav);
         self::assertSame('/official/oem', $nav['oem']['link']);
         self::assertSame('OEM贴牌', $nav['oem']['label']);
-        self::assertCount(7, $map['oem_features']['cards']);
+        self::assertCount(9, $map['oem_features']['cards']);
         self::assertSame($result, $this->normalize($result));
         $result['navigation'][5]['label'] = '我的品牌方案';
         $result['navigation'][5]['link'] = 'https://example.com/brand';
         self::assertSame($result, $this->normalize($result));
+    }
+
+    public function testOemCapabilitiesReplaceLegacyCopyAndArtworkButPreserveCustomCards(): void
+    {
+        $titles = ['一站式套件，汇集 50+ 款模型','扩大您的营销产出','为您的制作工作室提供完整解决方案',
+            '用 MCP 和 CLI 增强您的工作流程','智能设计，专业开发','一张画布，连接所有创作','创建专属角色、吉祥物和品牌形象'];
+        $cards = array_map(static fn($title)=>['title'=>$title, 'description'=>'旧预设',
+            'media'=>'uploads/old-reference.webp', 'background_media'=>'uploads/old-background.mp4',
+            'preview_media'=>'uploads/old-demo.mp4', 'preview_layout'=>'mcp', 'icon_url'=>'/pc/oem-enterprise/mcp-pill.png', 'enabled'=>0], $titles);
+        $cards[] = ['title'=>'自有能力', 'description'=>'自有文案', 'media'=>'uploads/own.webp'];
+        $result = $this->normalize(['template_version'=>11, 'modules'=>[['key'=>'oem_features','enabled'=>0,'cards'=>$cards]]]);
+        $module = array_column($result['modules'], null, 'key')['oem_features'];
+        self::assertSame(0, $module['enabled']);
+        self::assertCount(10, $module['cards']);
+        foreach (array_slice($module['cards'], 0, 7) as $card) {
+            self::assertSame(0, $card['enabled']);
+            self::assertSame('image', $card['preview_layout']);
+            foreach (['media','background_media','preview_media','icon_url'] as $field) self::assertSame('', $card[$field]);
+        }
+        self::assertSame('自有能力', $module['cards'][7]['title']);
+        self::assertSame('uploads/own.webp', $module['cards'][7]['media']);
+        self::assertSame('无限画布', $module['cards'][5]['tab_label']);
+        self::assertSame('短剧角色', $module['cards'][6]['tab_label']);
+        self::assertSame($result, $this->normalize($result));
+        $empty = $this->normalize(['template_version'=>11, 'modules'=>[['key'=>'oem_features','cards'=>[]]]]);
+        self::assertSame([], array_column($empty['modules'], null, 'key')['oem_features']['cards']);
     }
 
     public function testOemMediaConfigurationRoundTripsAndEmptyCardsStayEmpty(): void
