@@ -10,7 +10,9 @@ use app\common\enum\FileEnum;
 use Exception;
 class AssetController extends BaseApiController
 {
-    public function images() { return $this->success('获取成功', ImageHumanService::avatarLists((int)$this->request->tenantId, $this->userId)); }
+    public function images() { return $this->success('获取成功', ImageHumanService::avatarLists((int)$this->request->tenantId, $this->userId, (string)$this->request->get('source', ''))); }
+    public function save_image() { try { return $this->success('保存成功', ImageHumanService::saveAvatar((int)$this->request->tenantId, $this->userId, $this->request->post())); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
+    public function delete_image() { try { ImageHumanService::deleteAvatar((int)$this->request->tenantId, $this->userId, (int)$this->request->post('id', 0)); return $this->success('删除成功'); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
     public function audios() {
         $rows = AigcMusicAsset::where(['tenant_id' => (int)$this->request->tenantId, 'user_id' => $this->userId, 'asset_type' => 'pic_lipsync_audio', 'delete_time' => 0])->order('id','desc')->limit(100)->select()->toArray();
         foreach ($rows as &$row) $row['url'] = AigcMusicAssetService::assetUrl($row);
