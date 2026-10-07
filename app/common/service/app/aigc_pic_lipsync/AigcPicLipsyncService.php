@@ -12,6 +12,7 @@ use app\common\service\app\AppDisplayConfigService;
 use app\common\service\power\MarketApplicationApiRuntimeService;
 use app\common\service\power\MarketPicLipsyncAppRuntimeService;
 use app\common\model\app\image_human\ImageHumanAvatar;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice;
 use app\common\model\app\aigc_music\AigcMusicAsset;
 use app\common\service\app\aigc_music\AigcMusicAssetService;
 use app\common\service\MediaDurationService;
@@ -31,6 +32,9 @@ class AigcPicLipsyncService
         $data['platform_status'] = $tenantId === 0 ? $data['status'] : (int)(AigcPicLipsyncConfig::where('tenant_id', 0)->value('status') ?? 1);
         $data['config_json'] = is_array($data['config_json'] ?? null) ? $data['config_json'] : [];
         $data['options'] = self::marketOptions($tenantId);
+        $sharedConfig = \app\common\service\app\image_human\ImageHumanService::config($tenantId);
+        $data['pricing'] = $sharedConfig['pricing'] ?? $sharedConfig['option_config']['pricing'] ?? [];
+        $data['base_config'] = array_merge($sharedConfig['base_config'] ?? [], ['script_max_length' => 10000, 'prompt_max_length' => 2000]);
         $data['input_type'] = 'image_audio';
         $data['drive_modes'] = ['audio', 'text'];
         $data['quality_modes'] = ['fast', 'standard', 'max'];
@@ -128,7 +132,7 @@ class AigcPicLipsyncService
         $task = AigcPicLipsyncTask::where(['tenant_id' => $tenantId, 'id' => $taskId, 'delete_time' => 0])->findOrEmpty();
         if ($task->isEmpty()) throw new Exception('任务不存在');
         if ((string)$task['status'] !== 'failed') throw new Exception('只有失败任务可以重试');
-        return self::generate($tenantId, (int)$task['user_id'], ['avatar_id' => (int)$task['avatar_id'], 'audio_asset_id' => (int)$task['audio_asset_id'], 'title' => (string)$task['title'], 'quality' => (string)$task['quality'], 'mode' => (string)$task['drive_mode'], 'content' => (string)($task['request_snapshot']['content'] ?? ''), 'prompt' => (string)($task['request_snapshot']['prompt'] ?? ''), 'market_product_id' => (int)$task['market_product_id'], 'market_sku_id' => (int)$task['market_sku_id']]);
+        return self::generate($tenantId, (int)$task['user_id'], ['avatar_id' => (int)$task['avatar_id'], 'audio_asset_id' => (int)$task['audio_asset_id'], 'voice_id' => (int)($task['request_snapshot']['voice_id'] ?? 0), 'driver_voice_id' => (int)($task['request_snapshot']['driver_voice_id'] ?? 0), 'title' => (string)$task['title'], 'quality' => (string)$task['quality'], 'mode' => (string)$task['drive_mode'], 'content' => (string)($task['request_snapshot']['content'] ?? ''), 'prompt' => (string)($task['request_snapshot']['prompt'] ?? ''), 'market_product_id' => (int)$task['market_product_id'], 'market_sku_id' => (int)$task['market_sku_id']]);
     }
     public static function deleteTask(int $tenantId, int $taskId, int $userId = 0): void { $query = AigcPicLipsyncTask::where(['tenant_id' => $tenantId, 'id' => $taskId, 'delete_time' => 0]); if ($userId > 0) $query->where('user_id', $userId); $task = $query->findOrEmpty(); if ($task->isEmpty()) throw new Exception('任务不存在'); if ((int)$task['consumption_id'] > 0 && in_array((string)$task['status'], ['pending', 'running'], true)) { MarketPicLipsyncAppRuntimeService::cancel((int)$task['consumption_id']); } $task->save(['delete_time' => time(), 'update_time' => time()]); AigcPicLipsyncResult::where(['tenant_id' => $tenantId, 'task_id' => $taskId])->update(['delete_time' => time()]); }
     public static function deleteResult(int $tenantId, int $resultId, int $userId = 0): void { $query = AigcPicLipsyncResult::where(['tenant_id' => $tenantId, 'id' => $resultId, 'delete_time' => 0]); if ($userId > 0) $query->where('user_id', $userId); $result = $query->findOrEmpty(); if ($result->isEmpty()) throw new Exception('作品不存在'); $result->save(['delete_time' => time()]); }
@@ -166,21 +170,40 @@ class AigcPicLipsyncService
             ->whereRaw("(source = 'official' OR (source = 'mine' AND user_id = " . $userId . '))')->findOrEmpty();
         $audio = AigcMusicAsset::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $audioId, 'delete_time' => 0, 'asset_type' => 'pic_lipsync_audio'])->findOrEmpty();
         if ($required && $avatar->isEmpty()) throw new Exception('请上传或选择人物图片');
-        if ($required && $audio->isEmpty()) throw new Exception($mode === 'text' ? '请上传参考音色音频' : '请上传驱动音频');
+        $voiceId = (int)($params[$mode === 'text' ? 'voice_id' : 'driver_voice_id'] ?? 0);
+        $voice = $voiceId > 0 ? AigcDigitalHumanVoice::where(['tenant_id' => $tenantId, 'id' => $voiceId, 'delete_time' => 0])
+            ->whereRaw("(source = 'official' OR (source = 'mine' AND user_id = " . $userId . '))')->findOrEmpty() : null;
+        if ($voiceId > 0 && ($voice === null || $voice->isEmpty())) throw new Exception('音色不存在或无权使用');
+        if ($required && $audio->isEmpty() && $voice === null) throw new Exception($mode === 'text' ? '请选择音色或上传参考音频' : '请上传驱动音频');
         $imageUrl = $avatar->isEmpty() ? '' : FileService::getFileUrlByStorage((string)$avatar['image_uri'], (string)$avatar['storage_scope'], (string)$avatar['storage_engine'], (string)$avatar['storage_domain']);
         $audioUrl = $audio->isEmpty() ? '' : AigcMusicAssetService::assetUrl($audio->toArray());
         $duration = $audio->isEmpty() ? 0 : (float)$audio['duration'];
-        if ($required && $duration <= 0) {
-            $path = public_path() . ltrim((string)$audio['uri'], '/');
+        $audioUri = $audio->isEmpty() ? '' : (string)$audio['uri'];
+        $voiceDurationKey = '';
+        if ($voice !== null) {
+            // The selected voice supplies its existing sample. Never synthesize speech here.
+            $audioUri = trim((string)$voice['audio_uri']) ?: trim((string)$voice['preview_audio_uri']);
+            if ($audioUri === '') throw new Exception('所选音色缺少参考音频，请更换音色');
+            $audioUrl = FileService::getFileUrlByStorage($audioUri, (string)$voice['storage_scope'], (string)$voice['storage_engine'], (string)$voice['storage_domain']);
+            // The shared voice table stores whole seconds. Cache the measured
+            // sample duration separately so fractional input billing stays exact.
+            $voiceDurationKey = 'pic-reference-duration:' . sha1($tenantId . '|' . $voiceId . '|' . $audioUrl . '|' . (string)$voice['update_time']);
+            $duration = (float)\think\facade\Cache::get($voiceDurationKey, 0);
+            $audioId = 0;
+        }
+        if (($required || $voice !== null) && $duration <= 0) {
+            $path = public_path() . ltrim($audioUri, '/');
             $duration = is_file($path) ? MediaDurationService::detect($path) : 0;
             if ($duration <= 0 && $audioUrl !== '') {
                 $stored = AigcMusicAssetService::persistGeneratedAudio($audioUrl, $tenantId, $userId);
                 $duration = (float)($stored['duration'] ?? 0);
             }
             if ($duration <= 0) throw new Exception('无法检测音频时长，请重新上传可播放的音频');
-            $audio->save(['duration' => $duration, 'update_time' => time()]);
+            if ($voice !== null) \think\facade\Cache::set($voiceDurationKey, $duration, 600);
+            elseif (!$audio->isEmpty()) $audio->save(['duration' => $duration, 'update_time' => time()]);
         }
         $request = ['model' => 'super-lipsync-pro', 'image_url' => $imageUrl, 'audio_url' => $audioUrl, 'mode' => $mode, 'quality' => $quality, 'prompt' => trim((string)($params['prompt'] ?? '')), 'content' => trim((string)($params['content'] ?? ''))];
+        if ($voice !== null) $request[$mode === 'text' ? 'voice_id' : 'driver_voice_id'] = $voiceId;
         if ($required) MarketPicLipsyncAppRuntimeService::buildPayload(['locked_params' => $selected['locked_params']], $request);
         return ['selection' => $selected, 'request' => $request, 'avatar_id' => $avatarId, 'audio_asset_id' => $audioId, 'duration' => $duration];
     }
