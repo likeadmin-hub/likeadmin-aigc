@@ -78,7 +78,7 @@ class OfficialSiteConfigTest extends TestCase
         $result=$this->normalize($input);
         $map=array_column($result['modules'],null,'key');
         self::assertSame('uploads/badge.png',$map['oem_hero']['badge']);
-        self::assertSame('', $map['oem_hero']['icon_url']);
+        self::assertArrayNotHasKey('icon_url', $map['oem_hero']);
         self::assertSame('uploads/bg.mp4',$map['oem_features']['cards'][0]['background_media']);
         self::assertSame('marketing',$map['oem_features']['cards'][0]['preview_layout']);
         self::assertSame([], $map['oem_clients']['cards']);
@@ -114,7 +114,7 @@ class OfficialSiteConfigTest extends TestCase
         foreach ($old['modules'] as $module) if (strpos($module['key'], 'oem_') !== 0) self::assertSame($module, $map[$module['key']]);
         self::assertSame('', $map['oem_hero']['media']);
         self::assertSame('', $map['oem_hero']['poster']);
-        self::assertSame('', $map['oem_hero']['icon_url']);
+        self::assertArrayNotHasKey('icon_url', $map['oem_hero']);
         $card = $map['oem_features']['cards'][0];
         self::assertSame('', $card['media']);
         foreach (['background_media','preview_media','preview_poster','icon_url'] as $field) self::assertSame(array_column($old['modules'], null, 'key')['oem_features']['cards'][0][$field], $card[$field]);
