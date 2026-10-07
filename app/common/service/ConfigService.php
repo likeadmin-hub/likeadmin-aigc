@@ -127,7 +127,7 @@ class ConfigService
                 return $default_value;
             }
             // 返回本地配置文件中的值
-            return config('project.' . $type . '.' . $name);
+            return OemBrandService::defaultValue($type, $name) ?? config('project.' . $type . '.' . $name);
         }
         // 返回默认值或本地配置文件中的值
         return $default_value !== null ? $default_value : config('project.' . $type . '.' . $name);

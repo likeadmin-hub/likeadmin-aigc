@@ -85,7 +85,8 @@ class ConfigLogic
     public static function getDictByType($type)
     {
         if (!is_string($type)) {
-            return [];
+            return [
+            'is_oem' => (bool)\app\common\service\OemBrandService::read(),];
         }
 
         $type = explode(',', $type);

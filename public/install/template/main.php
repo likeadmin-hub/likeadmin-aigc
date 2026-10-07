@@ -1,20 +1,24 @@
-<?php !defined('install') && exit(); ?>
+<?php !defined('install') && exit();
+require_once dirname(__DIR__, 3) . '/app/common/service/OemBrandService.php';
+$oemBrand = \app\common\service\OemBrandService::read(dirname(__DIR__, 3));
+$oemEscape = static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+?>
     <!DOCTYPE html>
     <html lang="en">
 
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>likeadmin安装</title>
+        <title><?= $oemEscape(($oemBrand['name'] ?? '系统') . '安装') ?></title>
         <link rel="stylesheet" type="text/css" href="./css/layui.css"/>
         <link rel="stylesheet" type="text/css" href="./css/mounted.css"/>
-        <link rel="shortcut icon" href="./favicon.ico"/>
+        <link rel="shortcut icon" href="<?= $oemEscape($oemBrand ? '../' . ($oemBrand['favicon'] ?? $oemBrand['logo']) : './favicon.ico') ?>"/>
     </head>
 
     <body>
     <div class="header">
         <div class="logo" style="width: 220px;">
-            <img src="./images/slogn.png?v=1"/>
+            <img style="max-height:64px;object-fit:contain" src="<?= $oemEscape($oemBrand ? '../' . $oemBrand['logo'] : './images/slogn.png?v=1') ?>"/>
         </div>
     </div>
     <div class="mounted" id="mounted">
@@ -37,10 +41,16 @@
                                 阅读许可协议
                             </div>
                             <div class="content">
-                                <h2>likeadmin应用授权协议</h2>
+                                <?php if ($oemBrand): ?>
+<h2><?= $oemEscape($oemBrand['name']) ?>安装说明</h2>
+<p>本安装包用于部署您的品牌系统。请在安装前确认服务器环境、数据库和独立管理员密码，并妥善保存配置及备份。</p>
+<p>应用使用和升级按实际授权执行。安装包内依赖组件的许可证继续有效，请阅读并保留随包提供的许可文件。</p>
+<?php else: ?>
+<h2>likeadmin应用授权协议</h2>
                                 <div class="white-space;pre">
 
-                                </div>
+                                <?php endif; ?>
+</div>
 
                                 <p class="mt16">
                                     likeadmin在此特别提醒您（用户）在订阅使用likeadmin软件系统（以下简称“应用”）之前，请认真阅读本《likeadmin应用授权协议》（以下简称“协议”），确保您充分理解本协议中各条款。请您审慎阅读并选择接受或不接受本协议。除非您接受本协议所有条款，否则您无权注册、登录、购买或使用本协议所涉服务。您的注册、登录、购买、使用等行为将视为对本协议的接受，并同意接受本协议各项条款的约束。

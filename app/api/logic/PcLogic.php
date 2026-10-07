@@ -219,6 +219,7 @@ class PcLogic extends BaseLogic
         $tutorial = TutorialConfigService::get();
 
         return [
+            'is_oem' => (bool)OemBrandService::read(),
             'domain' => FileService::getFileUrl(),
             'login' => $loginConfig,
             'website' => $website,

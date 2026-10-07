@@ -17,6 +17,15 @@ class OfficialSiteService
     {
         $stored = ConfigService::get(self::TYPE, self::KEY, []);
         $config = self::normalize(is_array($stored) ? $stored : []);
+        $brand = OemBrandService::read();
+        if ($brand && (!is_array($stored) || $stored === [])) {
+            $config['basic'] = array_merge($config['basic'], [
+                'name'=>$brand['name'], 'title'=>$brand['seo_title'] ?? $brand['name'],
+                'logo'=>$brand['logo'], 'favicon'=>$brand['favicon'] ?? $brand['logo'],
+                'description'=>$brand['description'] ?? '', 'keywords'=>$brand['seo_keywords'] ?? $brand['name'],
+                'footer_text'=>$brand['copyright_text'] ?? '', 'record_number'=>$brand['icp'] ?? '',
+            ]);
+        }
         // Existing tenants receive the default template on first read.
         if (!is_array($stored) || $stored === []) {
             ConfigService::set(self::TYPE, self::KEY, self::toStorage($config));

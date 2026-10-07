@@ -536,6 +536,10 @@ class installModel
                 return false;
             }
         }
+        require_once $this->getAppRoot() . '/app/common/service/OemBrandService.php';
+        \app\common\service\OemBrandService::initialize($this->dbh, $this->prefix);
+        $tenantRows = $this->dbh->query('SELECT id FROM `' . $this->prefix . 'tenant`')->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($tenantRows as $tenantId) \app\common\service\OemBrandService::initialize($this->dbh, $this->prefix, (int)$tenantId);
         return true;
     }
 

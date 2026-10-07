@@ -47,6 +47,8 @@ class SystemPackageUpdateService
         'upgrade/',
     ];
     private const PROTECTED_PATH_PATTERNS = [
+        '#^oem(/|$)#',
+        '#^public/oem-assets(/|$)#',
         '#^\.env$#',
         '#(^|/)\.env(\.|$)#',
         '#^config/install\.lock$#',
