@@ -153,7 +153,7 @@ class AiTaskJobService
                     });
                 })->whereIn('job_type', [self::TYPE_QUERY_RESULT, self::TYPE_PROCESS_RESULT, self::TYPE_TRANSFER_RESULT, self::TYPE_SETTLE, self::TYPE_REFUND, self::TYPE_ADMIN_ACTION])
                     ->when($appCode !== '', function ($query) use ($appCode) {
-                        $query->whereIn('app_task_id', AiAppTask::where('app_code', $appCode)->field('id')->buildSql());
+                        $query->whereIn('app_task_id', Db::raw(AiAppTask::where('app_code', $appCode)->field('id')->buildSql()));
                     })
                     ->order(['priority' => 'desc', 'next_run_time' => 'asc', 'id' => 'asc'])
                     ->lock(true)
