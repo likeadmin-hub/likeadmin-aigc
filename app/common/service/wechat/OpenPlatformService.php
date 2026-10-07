@@ -1678,6 +1678,12 @@ class OpenPlatformService
             if (array_key_exists($jsonField, $data)) {
                 $value = is_string($data[$jsonField]) ? json_decode($data[$jsonField], true) : $data[$jsonField];
                 if (!is_array($value)) throw new \InvalidArgumentException('设置数据格式错误');
+                if ($jsonField === 'settings_json') {
+                    $previous = json_decode((string)($row['settings_json'] ?? ''), true) ?: [];
+                    $popup = $value['qr_popup'] ?? ($previous['qr_popup'] ?? []);
+                    if (!is_array($popup)) throw new \InvalidArgumentException('小程序码弹窗配置格式错误');
+                    $value['qr_popup'] = MiniProgramPopupService::normalize($popup);
+                }
                 $payload[$jsonField] = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             }
         }
