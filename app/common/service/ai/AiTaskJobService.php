@@ -2,6 +2,7 @@
 
 namespace app\common\service\ai;
 
+use app\common\model\ai\AiAppTask;
 use app\common\model\ai\AiConsumptionLog;
 use app\common\model\ai\AiTaskJob;
 use think\facade\Db;
