@@ -76,7 +76,7 @@ class OfficialSiteTemplate
             $block('footer', 0, '开始创作', '', $features),
         ];
         foreach ($previous['modules'] as $m) if (in_array($m['key'], ['pricing', 'join'], true)) $modules[] = $m;
-        return ['basic' => $basic, 'modules' => array_merge($modules, OfficialSiteOemTemplate::modules())];
+        return ['basic' => $basic, 'modules' => array_merge($modules, OfficialSiteOemTemplate::modules(), OfficialSiteApiTemplate::modules())];
     }
 
     /** Likeadmin demonstration presets; tenants can replace them with their own reviews. */

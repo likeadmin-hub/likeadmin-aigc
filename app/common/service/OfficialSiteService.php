@@ -11,7 +11,7 @@ class OfficialSiteService
 {
     private const TYPE = 'official_site';
     private const KEY = 'config';
-    private const TEMPLATE_VERSION = 14;
+    private const TEMPLATE_VERSION = 15;
 
     public static function get(): array
     {
@@ -450,6 +450,7 @@ class OfficialSiteService
             if (!in_array($status, ['live', 'planned', 'enterprise'], true)) $status = 'planned';
             $result[] = [
                 'title' => self::text($card['title'] ?? '', 80),
+                'preset' => in_array($card['preset'] ?? '', ['key','test','usage','image','video','enhance'], true) ? $card['preset'] : '',
                 'source' => self::text($card['source'] ?? '', 80),
                 'rating' => max(1, min(5, (int)($card['rating'] ?? 5))),
                 'avatar' => self::text($card['avatar'] ?? '', 1024),
