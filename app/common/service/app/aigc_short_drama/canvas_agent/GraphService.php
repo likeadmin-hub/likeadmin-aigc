@@ -431,6 +431,7 @@ final class GraphService
                     'group'=>(string)($item['metadata']['agentGroupId']??$item['metadata']['groupId']??'')];
             };
             $node['metadata']=$metadata;
+            if (self::autoPayloadHash($metadata)!==self::autoPayloadHash($authoritative)) unset($metadata['workflow_asset_signature']);
             $metadata['content_revision']=(int)($authoritative['content_revision']??0)+(!$previous || self::canonical($content($node))!==self::canonical($content($previous))?1:0);
             $metadata['layout_revision']=(int)($authoritative['layout_revision']??0)+(!$previous || $layout($node)!==$layout($previous)?1:0);
             $node['metadata']=$metadata;
@@ -577,6 +578,7 @@ final class GraphService
                         if (!is_string($value) || strlen($value)>200000) throw new RuntimeException('INVALID_CONTENT');
                         if ($field==='title') $nodes[$i]['title']=$value; else $metadata[$field]=$value;
                     }
+                    if (isset($patch['prompt']) || isset($patch['content'])) unset($metadata['workflow_asset_signature']);
                     $metadata['content_revision']=(int)($metadata['content_revision']??0)+1;
                     $nodes[$i]['metadata']=$metadata;
                 } elseif ($op === 'move_nodes') {

@@ -479,6 +479,8 @@ final class ConversationWorkflow
         if (!preg_match('/^[a-z_]{2,64}$/D',$slot) || $value==='' || strlen($value)>($slot==='intake_review'?4096:960) || ($slot!=='intake_review' && mb_strlen($value)>240)) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
         return Db::transaction(function () use ($tenant,$user,$canvas,$thread,$expectedRevision,$slot,$value): array {
             ConversationStore::assertThreadAccess($tenant,$user,$canvas,$thread);
+            $projectRoot=\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::root($tenant,$user,$canvas);
+            if ($projectRoot!==$canvas) Db::name(GraphService::TABLE)->where(['id'=>$projectRoot,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
             $lockedCanvas=Db::name(GraphService::TABLE)->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
             if (!$lockedCanvas) throw new RuntimeException('CANVAS_NOT_FOUND');
             $row=Db::name(ConversationStore::PREFIX.'thread')->where(['id'=>$thread,'tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas,'delete_time'=>0])->lock(true)->find();
@@ -487,9 +489,9 @@ final class ConversationWorkflow
             $settings=self::settings($row);$state=self::stateFromSettings($settings);
             if ($state===[]) throw new RuntimeException('WORKFLOW_NOT_ACTIVE');
             self::assertState($state);
+            if ($slot==='next_episode' && !empty($state['series']['next_page_id'])) return ['workflow'=>self::publicState($state),'card'=>self::card($state),'next_page_id'=>(int)$state['series']['next_page_id'],'canvas_project_id'=>\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::root($tenant,$user,$canvas)];
             if ((int)$state['state_revision']!==$expectedRevision) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
             if ($slot==='next_episode') {
-                if (!empty($state['series']['next_canvas_id'])) return ['workflow'=>self::publicState($state),'card'=>self::card($state),'next_canvas_id'=>(int)$state['series']['next_canvas_id']];
                 $nodes=json_decode((string)$lockedCanvas['nodes_json'],true)?:[];
                 ConversationSeries::assertEpisodeMedia($state,$nodes);
                 $next=ConversationSeries::nextEpisode($state);
@@ -500,20 +502,20 @@ final class ConversationWorkflow
                     if ($signature!=='') $library[$signature]=['canvas_id'=>$canvas,'node_id'=>(string)$item['node_id'],'signature'=>$signature];
                 }
                 $next['series']['asset_library']=$library;
-                unset($next['series']['next_canvas_id']);
+                unset($next['series']['next_page_id']);
                 $next['workflow_snapshot']['selected_node_ids']=[];
                 $next['workflow_snapshot']['attachment_asset_ids']=[];
                 $next['workflow_snapshot']['document_asset_ids']=[];
-                // Each episode gets a bounded canvas. Prior paid results and edits stay intact.
-                $created=\app\common\service\app\aigc_short_drama\ShortDramaCanvasService::create($tenant,$user,['title'=>'第'.ConversationSeries::episode($next).'集 · '.$lockedCanvas['title']]);
+                // Each episode is a bounded page in the same project; completed pages stay intact.
+                $created=\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::create($tenant,$user,$canvas,'episode:'.$thread.':'.ConversationSeries::episode($next),'第 '.ConversationSeries::episode($next).' 集');
                 $nextCanvas=(int)$created['id'];
                 $createdThread=ConversationStore::create($tenant,$user,$nextCanvas,'series:'.$canvas.':'.$thread.':'.ConversationSeries::episode($next),'第'.ConversationSeries::episode($next).'集创作');
                 $nextSettings=$settings;$nextSettings['workflow_state']=$next;
                 Db::name(ConversationStore::PREFIX.'thread')->where('id',$createdThread['id'])->update(['settings_json'=>self::json($nextSettings),'update_time'=>time()]);
-                $state['series']['next_canvas_id']=$nextCanvas;$state['state_revision']++;
+                $state['series']['next_page_id']=$nextCanvas;$state['state_revision']++;
                 $settings['workflow_state']=$state;
                 Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
-                return ['workflow'=>self::publicState($state),'card'=>self::card($state),'next_canvas_id'=>$nextCanvas];
+                return ['workflow'=>self::publicState($state),'card'=>self::card($state),'next_page_id'=>$nextCanvas,'canvas_project_id'=>(int)$created['canvas_project_id']];
             }
             if ($slot==='intake_review') {
                 if (($state['stage_state']['key']??'')!=='intake' || ($state['stage_state']['status']??'')!=='reviewing_intake') throw new RuntimeException('WORKFLOW_STAGE_NOT_COLLECTING');
@@ -697,7 +699,7 @@ final class ConversationWorkflow
         $ratio=(string)($workflow['creative_settings']['aspect_ratio']??'');
         $parameters=['quantity'=>1];
         if ($ratio!=='') $parameters['ratio']=$ratio;
-        $plan=['reuse'=>$reuse,'nodes'=>array_values($proposals),'sources'=>$sources,'attachment_images'=>$attachments,'image_model'=>self::publicModel($model),'parameters'=>$parameters,'quotes'=>$quotes,'run_id'=>$runId];
+        $plan=['series_core'=>ConversationSeries::enabled($workflow),'reuse'=>$reuse,'nodes'=>array_values($proposals),'sources'=>$sources,'attachment_images'=>$attachments,'image_model'=>self::publicModel($model),'parameters'=>$parameters,'quotes'=>$quotes,'run_id'=>$runId];
         $plan['hash']=hash('sha256',self::json(['workflow'=>$state['workflow_snapshot'],'creative_settings'=>(array)($state['creative_settings']??[]),'stage'=>$stage,'reuse'=>$reuse,'nodes'=>$plan['nodes'],'sources'=>$sources,'attachment_images'=>$attachments,'image_model'=>$plan['image_model'],'parameters'=>$plan['parameters'],'quotes'=>$quotes]));
         $state['image_plan']=$plan;
         $state['plan_hash']=$plan['hash'];
@@ -1055,7 +1057,7 @@ final class ConversationWorkflow
     }
     private static function validImagePlan(array $plan): bool {
         $parameters=(array)($plan['parameters']??[]);
-        return preg_match('/^[a-f0-9]{64}$/D',(string)($plan['hash']??''))===1 && is_array($plan['nodes']??null) && $plan['nodes']!==[] && count($plan['nodes'])<=100 && is_array($plan['sources']??null) && is_array($plan['attachment_images']??null) && ($parameters===['quantity'=>1] || (count($parameters)===2 && ($parameters['quantity']??null)===1 && preg_match('/^[1-9][0-9]{0,3}:[1-9][0-9]{0,3}$/D',(string)($parameters['ratio']??''))===1)) && is_array($plan['quotes']??null) && count($plan['quotes'])===count($plan['nodes']) && (int)($plan['run_id']??0)>0;
+        return preg_match('/^[a-f0-9]{64}$/D',(string)($plan['hash']??''))===1 && is_array($plan['nodes']??null) && $plan['nodes']!==[] && count($plan['nodes'])<=(!empty($plan['series_core'])?100:24) && is_array($plan['sources']??null) && is_array($plan['attachment_images']??null) && ($parameters===['quantity'=>1] || (count($parameters)===2 && ($parameters['quantity']??null)===1 && preg_match('/^[1-9][0-9]{0,3}:[1-9][0-9]{0,3}$/D',(string)($parameters['ratio']??''))===1)) && is_array($plan['quotes']??null) && count($plan['quotes'])===count($plan['nodes']) && (int)($plan['run_id']??0)>0;
     }
     private static function validStagePlan(array $plan,string $stage): bool {
         if (!in_array($stage,['story','outline','episode','script','art','video_plan'],true) || (string)($plan['stage']??'')!==$stage || !is_array($plan['nodes']??null) || !$plan['nodes'] || count($plan['nodes'])>64 || !is_array($plan['sources']??null) || (int)($plan['run_id']??0)<=0) return false;

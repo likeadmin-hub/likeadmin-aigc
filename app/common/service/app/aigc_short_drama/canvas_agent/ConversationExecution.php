@@ -50,6 +50,14 @@ final class ConversationExecution
                 return true;
             }
             if (!in_array($run['status'],['running','needs_reconciliation'],true)) throw new RuntimeException('INVALID_RUN_STATE');
+            $savedContext=json_decode((string)$run['context_snapshot'],true)?:[];
+            if ($run['status']==='running' && $outbox['state']==='processing' && (int)$outbox['lease_until']<=time()
+                && ConversationSeries::enabled((array)($savedContext['workflow']??[]))
+                && ($savedContext['workflow']['stage_state']['key']??'')!=='intake') {
+                self::state($run,'queued');
+                Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'pending','available_at'=>time(),'lease_until'=>0,'update_time'=>time()]);
+                return false; // Replay only the local projection, never the paid core task.
+            }
             if ($run['status']==='needs_reconciliation' || (int)$outbox['lease_until']<=time()) {
                 $prior=Db::name(ConversationStore::PREFIX.'event')->where(['run_id'=>$runId,'kind'=>'run.late_reply'])->lock(true)->find();
                 if ($prior) {
@@ -296,7 +304,7 @@ final class ConversationExecution
             [$run,,$outbox]=self::locked($tenant,$user,$runId);
             if ($run['status']!=='running' || !in_array($outbox['state'],['processing','submitting'],true) || (int)$outbox['lease_until']>time()) return false;
             $context=json_decode((string)$run['context_snapshot'],true)?:[];
-            if ($outbox['state']==='processing' && ConversationSeries::enabled((array)($context['workflow']??[]))) {
+            if ($outbox['state']==='processing' && ConversationSeries::enabled((array)($context['workflow']??[])) && ($context['workflow']['stage_state']['key']??'')!=='intake') {
                 self::state($run,'queued');
                 Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'pending','available_at'=>time(),'lease_until'=>0,'update_time'=>time()]);
                 return true; // Local observer only; child task has its own provider fence.
