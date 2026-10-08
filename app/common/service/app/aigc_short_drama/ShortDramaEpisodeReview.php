@@ -18,6 +18,7 @@ final class ShortDramaEpisodeReview
     public static function generate(array $base, array $request, callable $call, ?callable $progress = null, ?callable $checkpoint = null, array $saved = []): array
     {
         if (empty($base['storyboard'])) throw new RuntimeException('缺少可复核的已保存分镜', 422);
+        $signature = ShortDramaReviewCheckpoint::signature($base, $request);
         if (ShortDramaContentAcceptance::enabled($request)) {
             $base = ShortDramaContentAcceptance::generate($base, $request, $call);
         }
@@ -35,7 +36,7 @@ final class ShortDramaEpisodeReview
         $dependency = ShortDramaNarrativeMemory::dependency((array)($context['continuity'] ?? []), $dependencyQuery);
         $result = $base; $summaries = []; $warnings = []; $patches = []; $auditCorrections = []; $unverified = []; $observed = []; $pendingReview = false;
         $shots = array_values($base['storyboard']);
-        $signature = ShortDramaReviewCheckpoint::signature($base, $request); $start = 0;
+        $start = 0;
         $resume = (array)($saved['resume'] ?? []);
         if (($saved['protocol_version'] ?? 0) === 3 && ($resume['signature'] ?? '') === $signature
             && (int)($saved['reviewed_shots'] ?? -1) >= 0 && (int)$saved['reviewed_shots'] <= count($shots)
@@ -130,6 +131,11 @@ final class ShortDramaEpisodeReview
             if (!in_array($patch['field'], ['dialogue','visual_description'], true) || !is_string($patch['before']) || $patch['before'] === '') continue;
             if (is_string($result['story_outline'] ?? null)) $result['story_outline'] = str_replace($patch['before'], $patch['after'], $result['story_outline']);
             foreach ((array)($result['script_lines'] ?? []) as $index => $line) if (is_string($line)) $result['script_lines'][$index] = str_replace($patch['before'], $patch['after'], $line);
+        }
+        if ($patches && ShortDramaContentAcceptance::enabled($request)) {
+            $acceptance = ShortDramaContentAcceptance::inspect($result, $result['content_acceptance']['requirements'], $call);
+            if ($acceptance['issues']) throw new RuntimeException('衔接修复后仍有内容问题：' . $acceptance['issues'][0]['message'], 422);
+            $result['content_acceptance']['coverage'] = $acceptance['coverage'];
         }
         $result['_continuity'] = ['version'=>1,'episode_number'=>(int)($request['episode_number'] ?? 1),
             'summary'=>implode("\n", $summaries),'state'=>$context['continuity']['state'] ?? [],'open_hooks'=>$context['continuity']['open_hooks'] ?? [],
