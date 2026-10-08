@@ -86,7 +86,8 @@ final class ShortDramaNarrativeMemory
         $requiredHooks = array_merge($requiredHooks, array_column($review['hooks'] ?? [], 'id'));
         foreach (['state'=>.55, 'open_hooks'=>.25, 'history'=>.2] as $field => $share) {
             if (!isset($source[$field])) continue;
-            $out[$field] = self::select((array)$source[$field], $query, (int)($budget * $share),
+            $records = $field === 'history' ? self::historyRecords((array)$source[$field]) : (array)$source[$field];
+            $out[$field] = self::select($records, $query, (int)($budget * $share),
                 $field === 'state' ? $requiredState : ($field === 'open_hooks' ? $requiredHooks : []));
         }
         // The full ledger remains on the server, including records not selected here.
@@ -96,6 +97,22 @@ final class ShortDramaNarrativeMemory
             $out['memory_scope'][$field] = ['total'=>count($source[$field] ?? []), 'included'=>count($out[$field] ?? [])];
         }
         return $out;
+    }
+
+    /** Long summaries are searchable in exact, source-addressed excerpts, not silently dropped. */
+    private static function historyRecords(array $history): array
+    {
+        $records = [];
+        foreach ($history as $key => $episode) {
+            $summary = (string)($episode['summary'] ?? '');
+            if (mb_strlen($summary) <= 600) { $records[$key] = $episode; continue; }
+            for ($start = 0; $start < mb_strlen($summary); $start += 500) {
+                $records[$key . ':' . $start] = ['episode_number'=>$episode['episode_number'] ?? $key,
+                    'digest'=>$episode['digest'] ?? '', 'summary_digest'=>hash('sha256',$summary),
+                    'start_character'=>$start, 'excerpt'=>mb_substr($summary,$start,600)];
+            }
+        }
+        return $records;
     }
 
     /** Only machine-built JSON prefixes are projected. User text and repair suffixes stay exact. */

@@ -32,6 +32,10 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
         $checkpoint::save(2000000720, 7, $this->task, ['title'=>'另租户'], 0);
         self::assertSame('原文', json_decode(Db::name('aigc_short_drama_planning_unit')->where([
             'task_id'=>$this->task,'tenant_id'=>2000000719])->value('result_json'),true)['plan']['title']);
+        $checkpoint::save(2000000719,7,$this->task,['title'=>'可恢复'],4,['signature'=>'signed','context'=>[]]);
+        self::assertSame(4,$checkpoint::load(2000000719,7,$this->task)['reviewed_shots']);
+        self::assertSame([],$checkpoint::load(2000000720,7,$this->task));
+        self::assertSame([],$checkpoint::load(2000000719,8,$this->task));
     }
 
     public function testReceivedResponseIsReusedAndChangedContextCannotReplayIt(): void
