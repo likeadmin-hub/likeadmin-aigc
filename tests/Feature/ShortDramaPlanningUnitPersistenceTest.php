@@ -229,7 +229,9 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
                 self::assertTrue($canRepair); self::assertSame('钥匙', $ledger['state']['p1:item']);
             } catch (\RuntimeException $error) { self::assertFalse($canRepair); self::assertSame(422, $error->getCode()); }
         }
-        self::assertSame($canRepair ? 1 : 2, $paidCalls);
-        self::assertSame($canRepair ? 2 : 3, Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => 2000000719, 'user_id' => 7, 'task_id' => $this->task, 'status' => 'received'])->count());
+        // Identical diagnostics now produce the identical patch-only request,
+        // so even the second failed correction reuses its paid receipt.
+        self::assertSame(1, $paidCalls);
+        self::assertSame(2, Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => 2000000719, 'user_id' => 7, 'task_id' => $this->task, 'status' => 'received'])->count());
     }
 }
