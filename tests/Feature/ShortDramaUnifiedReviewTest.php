@@ -34,6 +34,28 @@ final class ShortDramaUnifiedReviewTest extends TestCase
         self::assertSame('unified_v9',$result['_continuity']['review_mode']);
         self::assertSame(0,$result['execution_diagnostics']['repair_budget']['used']);
     }
+    public function testReviewerSeesInteriorExteriorAndCannotOverrideServerFlags(): void
+    {
+        $plan=$this->plan();$plan['generation_contract']=$this->contract();
+        Review::generate($plan,$this->request()+['series_context'=>['_server_owned_state'=>false]],function($key,$input){
+            $data=json_decode($input['content'],true);
+            self::assertSame('interior',$data['script']['storyboard'][0]['interior_exterior']);
+            return $this->reply($data);
+        });
+    }
+    public function testUnprovenConstraintCannotTriggerContentRewrite(): void
+    {
+        $requirements=[['id'=>'r1','kind'=>'constraint','text'=>'只有女儿一人说话']];
+        $coverage=['r1'=>[['status'=>'violated','evidence_refs'=>[['shot_id'=>'s1','field'=>'dialogue']]]]];
+        $calls=0;
+        $result=Review::verifyViolations($this->plan(),$requirements,$coverage,function($key,$input)use(&$calls){
+            $calls++;$data=json_decode($input['content'],true);
+            self::assertSame('女儿：一路平安。',$data['claims'][0]['evidence'][0]['quote']);
+            return ['verdicts'=>[['id'=>'r1:0','violated'=>false,'reason'=>'只有女儿说话，没有其他角色发言']]];
+        });
+        self::assertSame(1,$calls);self::assertSame('covered',$result['r1'][0]['status']);
+        Review::verifyViolations($this->plan(),$requirements,$result,static function(){self::fail('Accepted constraint was re-read');});
+    }
     public function testLongEpisodeIsBoundedWithoutRepeatingRequirementsExtraction(): void
     {
         $plan=$this->plan();$plan['generation_contract']=$this->contract();$shot=$plan['storyboard'][0];

@@ -31,12 +31,12 @@ final class ShortDramaUnifiedReview
         if (!empty($plan['dialogue_density_revision'])) $budget->consume('density',1);
         $repairs=[];
         $originalContext=(array)($request['series_context']??[]);
-        $originalContext += ['_server_owned_state'=>true,'_canonical_state'=>true,'_bounded_memory'=>true];
+        $originalContext = array_replace($originalContext, ['_server_owned_state'=>true,'_canonical_state'=>true,'_bounded_memory'=>true]);
         $originalContext['outline']=ShortDramaPlanningContext::lockedStory((array)($originalContext['outline']??[]));
-        $query=ShortDramaNarrativeMemory::query(['current_episode'=>$originalContext['current_episode']??[], 'script'=>ShortDramaEpisodeReview::projection($plan)]);
-        $dependency=ShortDramaNarrativeMemory::dependency((array)($originalContext['continuity']??[]),$query);
         for($pass=0;$pass<3;$pass++) {
             $plan=ShortDramaEpisodeTimingRepair::reconcile($plan,$request,$call);
+            $query=ShortDramaNarrativeMemory::query(['current_episode'=>$originalContext['current_episode']??[], 'script'=>ShortDramaEpisodeReview::projection($plan)]);
+            $dependency=ShortDramaNarrativeMemory::dependency((array)($originalContext['continuity']??[]),$query);
             $context=$originalContext; $context['_reviewed_block_state_keys']=[];
             $coverage=[];$issues=[];$ledgers=[];
             foreach(array_chunk($plan['storyboard'],self::WINDOW) as $index=>$shots) {
@@ -45,6 +45,7 @@ final class ShortDramaUnifiedReview
                     'total_shots'=>count($plan['storyboard']), 'instruction'=>'仅核对当前窗口，不要求它展示其他窗口或未来集剧情；缺失事件由服务器汇总整集后判断。'];
                 $input=ShortDramaContinuity::messages(ShortDramaEpisodeReview::projection($block),$context);
                 $data=json_decode($input['content'],true,512,JSON_THROW_ON_ERROR);
+                $data['script']['storyboard']=array_map(static fn($s)=>array_intersect_key($s,array_flip(self::FIELDS)),$shots);
                 $data['requirements']=$requirements;
                 $data['previous_shots']=array_map(static fn($s)=>array_intersect_key($s,array_flip(self::FIELDS)),array_slice($plan['storyboard'],max(0,$index*self::WINDOW-2),min(2,$index*self::WINDOW)));
                 $data['response_contract']=['checks'=>[['id'=>'要求ID','status'=>'covered/absent/violated','evidence_refs'=>[['shot_id'=>'当前窗口镜头ID','field'=>'visual_description或dialogue']]]],
@@ -67,9 +68,11 @@ final class ShortDramaUnifiedReview
                     if($first){$first=false;return $reply['continuity'];}
                     return self::call($call,'audit_metadata',$input,$validate ?? static fn($r)=>ShortDramaContinuity::assertAuditShape($r,$block,$context));
                 };
-                $verify=static function($review,$candidate)use($context,$call):array{
+                $verify=static function($review,$candidate)use($context,$call,$plan,$index):array{
                     if(empty($review['changes'])&&empty($review['hooks'])&&empty($review['warnings']))return $review;
-                    $input=ShortDramaContinuityPatch::meaningMessages($candidate,$review,$context);
+                    $evidenceContext=$context;
+                    $evidenceContext['_earlier_episode_shots']=ShortDramaEpisodeReview::earlierEvidence(array_slice($plan['storyboard'],0,$index*self::WINDOW),$review);
+                    $input=ShortDramaContinuityPatch::meaningMessages($candidate,$review,$evidenceContext);
                     $proof=self::call($call,'facts',$input,static fn($r)=>ShortDramaContinuityPatch::verifiedReview($review,$r,$context,[],true));
                     return ShortDramaContinuityPatch::verifiedReview($review,$proof,$context,[],true);
                 };
@@ -84,6 +87,7 @@ final class ShortDramaUnifiedReview
                 if($checkpoint)$checkpoint($plan,($index*self::WINDOW)+count($shots),['unified_review'=>true,'pass'=>$pass,'repair_budget'=>$budget->snapshot()]);
                 if($progress)$progress('stage',['status'=>'running','progress'=>min(96,80+(int)(16*($index*self::WINDOW+count($shots))/count($plan['storyboard']))),'current_step'=>'统一核验剧情、对白与衔接：'.min(count($plan['storyboard']),($index+1)*self::WINDOW).'/'.count($plan['storyboard']).'镜']);
             }
+            $coverage=self::verifyViolations($plan,$requirements,$coverage,$call);
             foreach($requirements as $required){
                 $checks=$coverage[$required['id']]??[];
                 $bad=$required['kind']==='event' ? !in_array('covered',array_column($checks,'status'),true) : in_array('violated',array_column($checks,'status'),true);
@@ -132,6 +136,7 @@ final class ShortDramaUnifiedReview
         $byId=array_column($block['storyboard'],null,'shot_id');$requiredById=array_column($requirements,null,'id');
         foreach($reply['checks'] as $check){
             if(!in_array($check['status']??'', ['covered','absent','violated'],true)||!is_array($check['evidence_refs']??null))throw new RuntimeException('要求结论或证据结构无效',422);
+            if(($requiredById[$check['id']]['kind']==='event'&&$check['status']==='violated')||($requiredById[$check['id']]['kind']==='constraint'&&$check['status']==='absent'))throw new RuntimeException('事件使用covered/absent，约束使用covered/violated',422);
             $needsEvidence=($requiredById[$check['id']]['kind']==='event'&&$check['status']==='covered')||$check['status']==='violated';
             if($needsEvidence&&!$check['evidence_refs'])throw new RuntimeException('通过事件或阻断约束必须有真实镜头证据',422);
             foreach($check['evidence_refs'] as $ref)if(!isset($byId[$ref['shot_id']??''])||!in_array($ref['field']??'',['visual_description','dialogue'],true)
@@ -140,6 +145,28 @@ final class ShortDramaUnifiedReview
         foreach($reply['issues'] as $issue)if(!in_array($issue['code']??'',['scene_space','speaker','silent','dialogue_instruction','subject_reference','duplicate_action'],true)
             ||!is_string($issue['message']??null)||!is_array($issue['shot_ids']??null)||!$issue['shot_ids']||array_diff($issue['shot_ids'],array_keys($byId)))throw new RuntimeException('字段问题必须指向当前窗口镜头',422);
         ShortDramaContinuity::assertAuditShape($reply['continuity'],$block,$context);
+    }
+
+    /** Only negative constraint claims branch; accepted events are not re-read. */
+    public static function verifyViolations(array $plan,array $requirements,array $coverage,callable $call): array
+    {
+        $claims=[];$shots=array_column($plan['storyboard'],null,'shot_id');
+        foreach($requirements as $requirement)if($requirement['kind']==='constraint')foreach($coverage[$requirement['id']]??[] as $index=>$check)if($check['status']==='violated'){
+            $evidence=[];
+            foreach($check['evidence_refs'] as $ref)$evidence[]=$ref+['quote'=>$shots[$ref['shot_id']][$ref['field']]];
+            $claims[]=['id'=>$requirement['id'].':'.$index,'requirement'=>$requirement,'evidence'=>$evidence];
+        }
+        foreach(array_chunk($claims,6) as $batch){
+            $input=['system_prompt'=>'独立核对证据是否确实违反用户要求。只凭原文，不采信前次检查结论，不引入新要求。人物限制不限制道具数量；准备、观察和接续不是重复完成。返回{"verdicts":[{"id":"原ID","violated":false,"reason":"证据与要求的明确关系"}]}，逐项一次；无法证实违反返回false。',
+                'content'=>json_encode(['claims'=>$batch,'subjects'=>$plan['subjects'],'locations'=>$plan['locations']],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)];
+            $reply=self::call($call,'constraint_evidence',$input,static function($reply)use($batch):void{
+                $expected=array_column($batch,'id');$actual=array_column((array)($reply['verdicts']??[]),'id');sort($expected);sort($actual);
+                if($expected!==$actual)throw new RuntimeException('约束核实项不完整',422);
+                foreach($reply['verdicts'] as $verdict)if(!is_bool($verdict['violated']??null)||!is_string($verdict['reason']??null)||trim($verdict['reason'])==='')throw new RuntimeException('约束核实缺少明确依据',422);
+            });
+            foreach($reply['verdicts'] as $verdict){[$id,$index]=explode(':',$verdict['id']);$coverage[$id][(int)$index]['violation_proof']=$verdict;if(!$verdict['violated'])$coverage[$id][(int)$index]['status']='covered';}
+        }
+        return $coverage;
     }
 
     public static function apply(array $plan,array $reply,array $targets,array $issues,string $key): array
