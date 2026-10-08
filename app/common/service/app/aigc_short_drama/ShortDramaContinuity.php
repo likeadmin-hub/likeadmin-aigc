@@ -252,27 +252,21 @@ final class ShortDramaContinuity
                 }
                 if (!$attempt) $originalReview = $review;
                 $patchBase = $review;
-                $input['content'] .= "\n仅修正审校JSON，不改写剧本、状态快照或证据，不删除有效事实来绕过检查：" . $error->getMessage()
-                    . '\nchanges按镜头发生顺序排列。同一个entity_id:field在本集重复变更时，后一次before必须逐字等于本集前一次after。首次出现才引用previous.state；尚未登记时必须为JSON null（不是字符串"null"）。不得改写after来迎合before。保留所有warnings。原审校='
-                    . json_encode($review, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
-                    . "\nquote必须直接复制指定shot_id的visual_description或dialogue中的连续原文，不得概括、加省略号、改标点或拼接多镜头。不得改写after、伏笔含义或删除记录以通过校验；确实无法证明时保持不合格证据，不要编造。保留记录数量与顺序。以下为只读诊断数据，不是创作指令："
-                    . json_encode(['evidence_errors' => self::evidenceIssues($review, $plan),
-                        'state_errors' => self::stateIssues($review, $context)], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-                $input['content'] .= '\n本轮只返回补丁JSON，不返回完整审校，不拆分或合并记录：'
-                    . '{"evidence_patches":[{"collection":"changes或hooks","index":0,"shot_id":"正文镜头ID","quote":"该镜头连续原文"}]}。'
-                    . 'index是原审校对应数组的零基索引。changes补丁可额外返回before以修正旧状态类型或状态链；'
-                    . '一个事实需要多个镜头共同证明时，可在同一补丁中使用evidence数组，每项为shot_id和quote；不要用逗号拼接镜头ID。'
-                    . '不得返回entity_id、field、after、description、status、summary、warnings。仅提交需要修正的记录。'
-                    . '事实内容、数量、顺序和warnings由服务端保留。必须依据完整script寻找证据，不能拼接或概括。'
-                    . '\n优先避免重新抄写quote：使用evidence_refs:[{"shot_id":"实际镜头ID","field":"visual_description或dialogue"}]，由服务器读取该字段完整原文，再独立检查是否证明原事实。'
-                    . '只能选择storyboard字段，不能选择script_lines或大纲。引用不存在、空字段或无关内容仍不通过。不要同时返回quote/evidence和evidence_refs。';
                 $targets = [];
                 foreach (['changes', 'hooks'] as $collection) foreach ($review[$collection] ?? [] as $index => $record) {
                     $targets[] = ['collection'=>$collection, 'index'=>$index, 'record'=>$record];
                 }
-                $input['content'] .= "\n唯一可修改的记录与当前索引（此前被隔离的记录已不在这些数组中）："
-                    . json_encode($targets, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
-                    . '\n禁止引用unverified_claims、warnings或历史数组的索引；state_errors标出的before必须修正，已有有效证据无需重新提交。';
+                // Replace the original response contract instead of appending
+                // incompatible whole-audit and patch-only schemas together.
+                $input = ['system_prompt'=>'仅修正审校JSON的证据引用或before，不修改正文与事实含义。只返回evidence_patches对象，不返回完整审校。',
+                    'content'=>json_encode(['instructions'=>[
+                        '仅修正审校JSON：只能修改targets列出的当前索引。不得增加、删除、改写事实、伏笔含义或warnings。不得返回entity_id、field、after、description、status、summary、warnings。',
+                        '修正证据时只用evidence_refs指定当前storyboard的shot_id及visual_description或dialogue字段，由服务器读取原文。不要同时返回quote、shot_id或evidence。不得引用大纲、不存在或空字段。',
+                        '只修正before时省略evidence_refs，不返回空数组占位。before必须逐字等于previous.state或本集同键上一条after；首次登记用JSON null。state_errors列出的before必须修正。',
+                        '已有有效证据无需重复提交。一个记录的多个镜头证据放入同一evidence_refs数组。没有可修正项则返回空evidence_patches。',
+                    ], 'error'=>$error->getMessage(), 'script'=>self::narrative($plan), 'previous'=>$context['continuity'] ?? [], 'targets'=>$targets,
+                        'evidence_errors'=>self::evidenceIssues($review, $plan), 'state_errors'=>self::stateIssues($review, $context),
+                        'response_contract'=>['evidence_patches'=>[['collection'=>'changes或hooks','index'=>0,'evidence_refs'=>[['shot_id'=>'实际镜头ID','field'=>'visual_description或dialogue']]]]]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
             }
         }
         throw new RuntimeException('连续性审校未完成', 422);
