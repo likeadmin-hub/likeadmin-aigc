@@ -38,9 +38,13 @@ try:
     legacy = install.split('-- IKJF3N: fresh-install schema and core permission parity.')[0]
     sql('parity_legacy', legacy)
     sql('parity_legacy', "INSERT INTO la_config (type,name,value) VALUES ('parity','sentinel','keep');")
+    license_repair = (root / 'upgrade/20261008_site_license_copyright.sql').read_text()
+    assert license_repair == (root / 'public/upgrade/20261008_site_license_copyright.sql').read_text()
     apps_before = sql('parity_legacy', 'SELECT COUNT(*) FROM la_app; SELECT COUNT(*) FROM la_tenant_app;')
     sql('parity_legacy', repair)
     sql('parity_legacy', repair)
+    sql('parity_legacy', license_repair)
+    sql('parity_legacy', license_repair)
     assert apps_before == sql('parity_legacy', 'SELECT COUNT(*) FROM la_app; SELECT COUNT(*) FROM la_tenant_app;')
     assert sql('parity_legacy', "SELECT value FROM la_config WHERE type='parity' AND name='sentinel';").strip() == 'keep'
     # Check every shipped system-upgrade and app-install CREATE TABLE prerequisite.
@@ -52,6 +56,8 @@ try:
         tables = set(sql(database, 'SHOW TABLES;').split())
         missing = {table.replace('la_', prefix, 1) for table in expected} - tables
         assert not missing, (database, sorted(missing))
+        assert prefix + 'site_license_access_cache' in tables
+        assert sql(database, f"SELECT COUNT(*) FROM {prefix}crontab WHERE command='site-license:refresh';").strip() == '1'
         for table, column in [('tenant_app_order', 'remark'), ('tenant_app_order', 'source_sn'),
             ('aigc_llm_model', 'platform_input_unit_price'), ('aigc_llm_model', 'platform_output_unit_price'),
             ('aigc_product_promo_video_config', 'market_enabled'), ('tenant_system_menu', 'delete_time'),

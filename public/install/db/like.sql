@@ -10822,7 +10822,7 @@ WHERE `provider` = 'xhadmin'
   AND `model` IN ('', 'mock-digital-human', 'xiaojiayu1.0', 'xiaojiayu2.0', 'xiaojiayu3.0');
 
 -- Global platform license cache. No tenant table or tenant-owned config changes.
-CREATE TABLE IF NOT EXISTS `la_dev_site_license_access_cache` (
+CREATE TABLE IF NOT EXISTS `la_site_license_access_cache` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `context_key` char(64) NOT NULL,
   `license_no` varchar(100) NOT NULL,
@@ -10847,7 +10847,7 @@ CREATE TABLE IF NOT EXISTS `la_dev_site_license_access_cache` (
   PRIMARY KEY (`id`), UNIQUE KEY `uk_context` (`context_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='平台站点签名授权缓存';
 -- Some older installations omitted the scheduler table. Preserve any existing table.
-CREATE TABLE IF NOT EXISTS `la_dev_crontab`
+CREATE TABLE IF NOT EXISTS `la_crontab`
 (
     `id`          int(11)     NOT NULL AUTO_INCREMENT,
     `name`        varchar(32) NOT NULL COMMENT '定时任务名称',
@@ -10868,6 +10868,6 @@ CREATE TABLE IF NOT EXISTS `la_dev_crontab`
     PRIMARY KEY (`id`) USING BTREE
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='计划任务表';
-INSERT INTO `la_dev_crontab` (`name`,`type`,`system`,`remark`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`create_time`,`update_time`,`delete_time`)
+INSERT INTO `la_crontab` (`name`,`type`,`system`,`remark`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`create_time`,`update_time`,`delete_time`)
 SELECT '站点授权同步',1,1,'刷新平台商业授权与版权编辑资格','site-license:refresh','',1,'* * * * *','',0,'0','0',UNIX_TIMESTAMP(),UNIX_TIMESTAMP(),NULL
-WHERE NOT EXISTS (SELECT 1 FROM `la_dev_crontab` WHERE `command`='site-license:refresh' AND (`delete_time` IS NULL OR `delete_time`=0));
+WHERE NOT EXISTS (SELECT 1 FROM `la_crontab` WHERE `command`='site-license:refresh' AND (`delete_time` IS NULL OR `delete_time`=0));
