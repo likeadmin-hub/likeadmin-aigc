@@ -26,7 +26,7 @@ final class ShortDramaStoryWorkflow
     public static function enabled(array $request): bool
     {
         return ($request['workflow_variant'] ?? '') === self::VARIANT
-            && !empty($request['multi_episode']) && (int)($request['episode_count'] ?? 0) >= 2;
+            && !empty($request['multi_episode']) && (int)($request['episode_count'] ?? 0) >= (!empty($request['_canvas_series_planning']) ? 1 : 2);
     }
 
     public static function workerOwned(array $request): bool
@@ -70,7 +70,7 @@ final class ShortDramaStoryWorkflow
     {
         $data = self::withoutEpisodeAllocation($data);
         $data['story_scale'] = [
-            'target_episode_count' => min(500, max(2, (int)($request['episode_count'] ?? 3))),
+            'target_episode_count' => min(500, max(!empty($request['_canvas_series_planning']) ? 1 : 2, (int)($request['episode_count'] ?? 3))),
             // Legacy normalization also extracts whole-film duration from prose.
             // Do not relabel that ambiguous field as per-episode or multiply it.
             'target_duration_seconds' => max(0, (int)($request['target_duration_seconds'] ?? 0)),
@@ -116,7 +116,7 @@ final class ShortDramaStoryWorkflow
     }
 
     /** Confirmation is stricter than draft saving; returns field-level errors. */
-    public static function issues(array $plan, string $stage, int $count, bool $qualityReviewEnabled = true): array
+    public static function issues(array $plan, string $stage, int $count, bool $qualityReviewEnabled = true, bool $allowSingle = false): array
     {
         $issues = [];
         foreach (['title' => '剧名', 'type_judgement' => '题材类型', 'core_theme' => '核心主题', 'story_outline' => '故事梗概'] as $key => $label) {
@@ -167,7 +167,7 @@ final class ShortDramaStoryWorkflow
                 }
             }
             if (!$invalidFields) {
-                try { ShortDramaEpisodeService::validateOutline($plan, $count); }
+                try { ShortDramaEpisodeService::validateOutline($plan, $count, $allowSingle); }
                 catch (\Exception $e) { $issues[] = ['path' => 'episodes', 'message' => $e->getMessage()]; }
             }
             if ($qualityReviewEnabled) {

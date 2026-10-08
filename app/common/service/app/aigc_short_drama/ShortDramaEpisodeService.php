@@ -72,14 +72,14 @@ class ShortDramaEpisodeService
         return $row;
     }
 
-    public static function validateOutline(array $plan, int $count): array
+    public static function validateOutline(array $plan, int $count, bool $allowSingle = false): array
     {
         foreach (['title', 'type_judgement', 'story_outline', 'core_theme'] as $field) {
             if (trim((string)($plan[$field] ?? '')) === '') throw new Exception('大纲内容不完整，请补充后确认');
         }
         if (empty($plan['subjects']) || empty($plan['locations'])) throw new Exception('大纲缺少角色或场景，请补充后确认');
         $episodes = (array)($plan['episodes'] ?? []);
-        if (count($episodes) !== $count || $count < 2 || $count > 500) throw new Exception('大纲集数不完整，请重新生成');
+        if (count($episodes) !== $count || $count < ($allowSingle ? 1 : 2) || $count > 500) throw new Exception('大纲集数不完整，请重新生成');
         foreach (array_values($episodes) as $index => $episode) {
             if ((int)($episode['episode_number'] ?? 0) !== $index + 1) throw new Exception('大纲集号不连续，请重新生成');
             foreach (['title', 'story_outline', 'conflict_point', 'ending_hook'] as $field) {

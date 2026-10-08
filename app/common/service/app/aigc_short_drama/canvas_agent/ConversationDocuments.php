@@ -179,6 +179,9 @@ final class ConversationDocuments
             'name' => (string)$asset['title'],
             'status' => (string)($meta['document_parse_status'] ?? 'awaiting_confirmation'),
             'error' => (string)($meta['document_error'] ?? ''),
+            // Only reached after tenant/user/canvas ownership validation. The
+            // browser may show this inert material in the editable composer.
+            'content' => ($meta['document_parse_status'] ?? '') === 'ready' ? (string)($meta['document_material'] ?? '') : '',
             'requires_confirmation' => (string)($meta['document_parse_status'] ?? 'awaiting_confirmation') === 'awaiting_confirmation',
         ], $extra);
     }
@@ -206,6 +209,7 @@ final class ConversationDocuments
         if ($result === []) return '';
         $json = json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         if (!is_string($json) || $json === '') return '';
-        return mb_strcut($json, 0, self::MAX_MATERIAL_BYTES, 'UTF-8');
+        if (strlen($json)>self::MAX_MATERIAL_BYTES) throw new RuntimeException('DOCUMENT_MATERIAL_TOO_LARGE');
+        return $json;
     }
 }

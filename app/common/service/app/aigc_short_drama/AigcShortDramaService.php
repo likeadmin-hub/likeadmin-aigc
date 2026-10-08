@@ -2428,6 +2428,7 @@ class AigcShortDramaService
         $request = ShortDramaInputContract::begin($request);
         $currentOutline = ShortDramaEpisodeService::decode($episode['outline_json']);
         if (empty($currentOutline['story_outline'])) throw new Exception('本集缺少真实大纲，请重新规划项目');
+        unset($request['_canvas_series_planning']);
         $request['multi_episode'] = false;
         $request['episode_count'] = 1;
         $request['quality_review_enabled'] = ShortDramaStoryWorkflow::qualityReviewEnabled($request);
@@ -5392,7 +5393,7 @@ class AigcShortDramaService
             $fullPlanRevision = true;
         }
         if (ShortDramaStoryWorkflow::enabled($sourceRequest)) {
-            if (empty($request['multi_episode']) || (int)$request['episode_count'] < 2) {
+            if (empty($request['multi_episode']) || (int)$request['episode_count'] < (!empty($request['_canvas_series_planning']) ? 1 : 2)) {
                 throw new Exception('当前项目是多集故事流程；如需单集，请新建单集项目');
             }
             // Changing the requested count must not bypass story confirmation.
@@ -17512,7 +17513,7 @@ class AigcShortDramaService
     private static function normalizeEpisodeSettings(array $params): array
     {
         $requestedCount = (int)($params['episode_count'] ?? 0);
-        if (!empty($params['_short_drama_episode_batch']) && $requestedCount === 1) {
+        if ((!empty($params['_short_drama_episode_batch']) || !empty($params['_canvas_series_planning'])) && $requestedCount === 1) {
             return ['multi_episode' => true, 'episode_count' => 1];
         }
         $multiEpisode = (bool)($params['multi_episode'] ?? false) || $requestedCount > 1;
@@ -17528,6 +17529,7 @@ class AigcShortDramaService
 
     private static function hydrateEpisodeSettingsFromProject(array $request, array $project): array
     {
+        if (!empty($request['_canvas_series_planning']) && (int)($request['episode_count'] ?? 0) === 1) return $request;
         $projectEpisodeCount = (int)($project['episode_count'] ?? 0);
         $projectIsMultiEpisode = (int)($project['multi_episode'] ?? 0) === 1 || $projectEpisodeCount > 1;
         if (!$projectIsMultiEpisode) {
@@ -20254,6 +20256,21 @@ class AigcShortDramaService
     /** Canvas Agent media uses the same effective submission template as the
      * formal short-drama flow. The originating conversation snapshot, not a
      * later tenant edit, is the authority for this generation request. */
+    /** Project a validated production result without asking another model to rewrite it. */
+    public static function canvasProductionPrompt(array $plan, string $artifact, array $item, array $snapshot): string
+    {
+        return ShortDramaPromptCatalog::run($snapshot, static function () use ($plan, $artifact, $item): string {
+            return match ($artifact) {
+                'subject' => self::buildSubjectImagePrompt([], ['subject_id' => $item['id']], $plan),
+                'three_view' => self::buildSubjectImagePrompt([], ['subject_id' => $item['id'], 'view_mode' => 'three_view'], $plan),
+                'scene' => self::buildSceneImagePrompt([], ['scene_id' => $item['id']], $plan),
+                'storyboard' => self::buildShotImagePrompt($item, [], $plan),
+                'storyboard_video' => self::buildReadableShotVideoPrompt($item),
+                default => throw new Exception('INVALID_PRODUCTION_ARTIFACT'),
+            };
+        });
+    }
+
     public static function canvasAgentSubmissionPrompt(int $tenantId, array $snapshot, string $artifact, string $prompt, array $context = []): string
     {
         if ((int)($snapshot['tenant_id'] ?? -1) !== $tenantId) throw new Exception('PROMPT_SNAPSHOT_TENANT_MISMATCH');
@@ -23912,7 +23929,7 @@ class AigcShortDramaService
                 }
             }
             $issues = $result !== null ? ShortDramaStoryWorkflow::issues($result, $stage, (int)$request['episode_count'],
-                ShortDramaStoryWorkflow::qualityReviewEnabled($request)) : [];
+                ShortDramaStoryWorkflow::qualityReviewEnabled($request), !empty($request['_canvas_series_planning'])) : [];
             $storyWorkspace = ['variant' => ShortDramaStoryWorkflow::VARIANT, 'stage' => $stage,
                 'preview' => $status === self::STATUS_SUCCESS ? null : ($storedResult['__story_preview'] ?? null),
                 'production_started' => $productionStarted,

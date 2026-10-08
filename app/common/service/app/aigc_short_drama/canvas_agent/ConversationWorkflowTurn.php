@@ -83,7 +83,7 @@ final class ConversationWorkflowTurn
     {
         $workflow=(array)($routing['workflow_candidate']??[]);
         $stage=(string)($workflow['stage_state']['key']??'');
-        $paused=!empty($routing['workflow_paused']);
+        $paused=!empty($routing['workflow_paused']) || (ConversationSeries::enabled($workflow) && $stage!=='intake');
         $skills=[];
         foreach ((array)($routing['skill_candidates']??[]) as $item) {
             if (!is_array($item)) continue;
@@ -138,6 +138,9 @@ final class ConversationWorkflowTurn
         if ($skillKey!=='' && !isset($allowed[$skillKey])) throw new RuntimeException('INVALID_AGENT_INTENT');
         $workflow=(array)($routing['workflow_candidate']??[]);
         if (($routing['kind']??'')!=='active_workflow' || ($workflow['workflow_snapshot']['key']??'')!==ConversationWorkflow::KEY) throw new RuntimeException('INVALID_AGENT_INTENT');
+        if (ConversationSeries::enabled($workflow) && ($workflow['stage_state']['key']??'')!=='intake') {
+            if ($intent==='continue' || $intent==='revise') return array_replace($value,['workflow_output'=>null,'text'=>'请使用当前阶段卡片确认或继续。本集剧本使用已保存的生成结果，你可以在对应短剧项目中查看和编辑。','nodes'=>[],'intake'=>[],'continue'=>false]);
+        }
         if (($workflow['stage_state']['key']??'')==='complete' && $intent==='continue') {
             // Never allow a model's stale "continue" classification to
             // project content into a non-existent ninth stage.
