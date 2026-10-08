@@ -186,13 +186,17 @@ final class ShortDramaContinuity
                     }));
                 }
                 if ($verifyMeaning) {
-                    $review = self::isolateInvalidEvidence($review, $plan, $attempt >= 2);
                     $draft = $review;
                     $verified = $verifyMeaning($review, $plan);
                     if (is_array($verified)) $review = $verified;
                     if ($repairClaims && !empty($review['unverified_claims']) && empty($draft['unverified_claims'])) {
                         $review = self::repairAuditClaims($draft, $review, $plan, $context, $call, $verifyMeaning);
                     }
+                    // Classify claims before repairing their citations. An
+                    // invented claim has no reference to repair; demanding one
+                    // encourages fabricated evidence and futile retries.
+                    // Every retained assertion still needs an exact citation.
+                    $review = self::isolateInvalidEvidence($review, $plan, $attempt >= 2);
                     // The verifier also checks every source-backed shot insertion.
                     // A later ledger error is only about the audit metadata.
                     $sourcePatchVerified = true;
