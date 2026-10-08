@@ -29,6 +29,7 @@ use app\common\model\dept\Jobs;
 use app\common\model\dict\DictData;
 use app\common\model\dict\DictType;
 use app\common\service\ConfigService;
+use app\common\service\license\CopyrightPolicyService;
 use app\common\service\PointUnitService;
 use app\common\service\{FileService};
 
@@ -47,6 +48,7 @@ class ConfigLogic
      */
     public static function getConfig(): array
     {
+        $copyrightPolicy = CopyrightPolicyService::policy();
         $config = [
             'is_oem' => (bool)\app\common\service\OemBrandService::read(),
             // 文件域名
@@ -62,7 +64,9 @@ class ConfigLogic
             'login_image' => FileService::getFileUrl(ConfigService::get('tenant', 'login_image')),
 
             // 版权信息
-            'copyright_config' => ConfigService::get('copyright', 'config', []),
+            'copyright_config' => $copyrightPolicy['items'],
+            'copyright_policy' => $copyrightPolicy,
+            'site_license' => CopyrightPolicyService::publicSite(),
 
             // 积分单位
             'point_unit' => PointUnitService::unit(),

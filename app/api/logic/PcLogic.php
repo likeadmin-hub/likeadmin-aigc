@@ -25,6 +25,7 @@ use app\common\model\decorate\DecoratePage;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\decorate\DecorateTemplateService;
 use app\common\service\ConfigService;
+use app\common\service\license\CopyrightPolicyService;
 use app\common\service\FileService;
 use app\common\service\PcLoginPresentationService;
 use app\common\service\PointUnitService;
@@ -202,7 +203,8 @@ class PcLogic extends BaseLogic
         ];
 
         // 备案信息
-        $copyright = ConfigService::get('copyright', 'config', []);
+        $copyrightPolicy = CopyrightPolicyService::policy();
+        $copyright = $copyrightPolicy['items'];
 
         // 公众号二维码
         $oaQrCode = ConfigService::get('oa_setting', 'qr_code', '');
@@ -240,6 +242,8 @@ class PcLogic extends BaseLogic
             'siteStatistics' => $siteStatistics,
             'version' => config('project.version'),
             'copyright' => $copyright,
+            'copyright_policy' => $copyrightPolicy,
+            'site_license' => CopyrightPolicyService::publicSite(),
             'point_unit' => PointUnitService::unit(),
             'recharge' => PointUnitService::config(),
             'admin_url' => request()->domain() . '/admin',

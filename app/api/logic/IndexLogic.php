@@ -22,6 +22,7 @@ use app\common\model\decorate\DecorateTabbar;
 use app\common\service\AgreementService;
 use app\common\service\decorate\DecorateTemplateService;
 use app\common\service\ConfigService;
+use app\common\service\license\CopyrightPolicyService;
 use app\common\service\FileService;
 use app\common\service\wechat\WeChatOaService;
 use app\common\service\PointUnitService;
@@ -168,7 +169,8 @@ class IndexLogic extends BaseLogic
         ];
 
         // 备案信息
-        $copyright = ConfigService::get('copyright', 'config', []);
+        $copyrightPolicy = CopyrightPolicyService::policy();
+        $copyright = $copyrightPolicy['items'];
 
         return [
             'is_oem' => (bool)\app\common\service\OemBrandService::read(),
@@ -180,6 +182,8 @@ class IndexLogic extends BaseLogic
             'webPage' => $webPage,
             'version'=> config('project.version'),
             'copyright' => $copyright,
+            'copyright_policy' => $copyrightPolicy,
+            'site_license' => CopyrightPolicyService::publicSite(),
             'point_unit' => PointUnitService::unit(),
             'recharge' => PointUnitService::config(),
         ];

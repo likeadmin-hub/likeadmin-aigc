@@ -159,6 +159,24 @@ class UpgradeController extends BaseAdminController
         }
     }
 
+    public function licenseRefresh(): Json
+    {
+        try {
+            $admin = $this->request->adminInfo;
+            if ((int)($admin['root'] ?? 0) !== 1) {
+                $permission = (string)\think\facade\Db::name('system_menu')->where('source_menu_key','core_update_license')->value('perms');
+                $uris = (new \app\common\cache\AdminAuthCache($admin['admin_id']))->getAdminUri();
+                $normalize = static fn($uri) => strtolower(\think\helper\Str::camel($uri));
+                if ($permission === '' || !in_array($normalize($permission), array_map($normalize,$uris ?: []),true)) throw new \RuntimeException('权限不足，无法刷新授权');
+            }
+            $service = new UpdateLicenseService();
+            $params = $this->request->post();
+            if (array_key_exists('site_ip', $params)) $service->saveSiteIp((string)$params['site_ip']);
+            (new \app\common\service\license\SiteLicenseAccessService())->refresh(true);
+            return $this->success('授权状态已刷新', $service->info());
+        } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+    }
+
     public function machineCode(): Json
     {
         try {

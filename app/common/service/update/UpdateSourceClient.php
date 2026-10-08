@@ -48,7 +48,7 @@ class UpdateSourceClient
 
     public static function saveSource(array $params): array
     {
-        self::ensureSchema();
+        $before = self::getSource();
         $data = [
             'name' => trim((string)($params['name'] ?? '授权系统')),
             'base_url' => self::normalizeBaseUrl((string)($params['base_url'] ?? '')),
@@ -87,7 +87,12 @@ class UpdateSourceClient
         } else {
             $row->save($data);
         }
-        return self::getSource();
+        $after = self::getSource();
+        if (array_intersect_key($before,array_flip(['active_base_url','active_api_key','public_key','ssl_verify'])) !== array_intersect_key($after,array_flip(['active_base_url','active_api_key','public_key','ssl_verify']))) {
+            \app\common\service\license\SiteLicenseAccessService::invalidate();
+            (new \app\common\service\license\SiteLicenseAccessService())->refresh(true);
+        }
+        return $after;
     }
 
     public function request(string $path, array $payload = []): array

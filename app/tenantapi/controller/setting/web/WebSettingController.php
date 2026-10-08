@@ -101,7 +101,7 @@ class WebSettingController extends BaseAdminController
         $params = $this->request->post();
         $result = WebSettingLogic::setCopyright($params);
         if (false === $result) {
-            return $this->fail(WebSettingLogic::getError() ?: '操作失败');
+            return $this->fail(WebSettingLogic::getError() ?: '操作失败', str_contains(WebSettingLogic::getError(), 'COMMERCIAL_LICENSE_REQUIRED') ? ['error_code'=>'COMMERCIAL_LICENSE_REQUIRED'] : []);
         }
         return $this->success('设置成功', [], 1, 1);
     }

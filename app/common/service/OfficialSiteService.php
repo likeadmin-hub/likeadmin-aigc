@@ -56,6 +56,7 @@ class OfficialSiteService
     {
         $config = self::get();
         unset($config['field_schema']);
+        $config['copyright_policy'] = \app\common\service\license\CopyrightPolicyService::policy();
         $config['join_available'] = !empty(\app\common\service\brand\TenantBrandService::packageRows((int)request()->tenantId, true));
         $config['basic']['logo'] = self::fileUrl($config['basic']['logo']);
         $config['basic']['favicon'] = self::fileUrl($config['basic']['favicon']);
