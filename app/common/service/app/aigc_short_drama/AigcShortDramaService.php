@@ -2201,10 +2201,15 @@ class AigcShortDramaService
         $incoming = is_array($params['generation_settings'] ?? null)
             ? (array)$params['generation_settings']
             : (is_array($params['settings'] ?? null) ? (array)$params['settings'] : $params);
+        $previousSettings = self::projectGenerationSettingsFromRow($projectRow);
         $settings = self::mergeProjectGenerationSettings(
-            self::projectGenerationSettingsFromRow($projectRow),
+            $previousSettings,
             self::normalizeProjectGenerationSettings($incoming)
         );
+        if (!empty($settings['image'])) {
+            $settings['image_selection_explicit'] = !empty($previousSettings['image_selection_explicit'])
+                || ShortDramaImageDefaults::changed((array)($previousSettings['image'] ?? []), (array)$settings['image']);
+        }
         $ratio = self::normalizeGenerationRatio((string)($settings['ratio'] ?? $settings['aspect_ratio'] ?? $projectRow['ratio'] ?? ''));
         if ($ratio !== '') {
             $settings['ratio'] = $ratio;
@@ -6682,6 +6687,9 @@ class AigcShortDramaService
         $shotId = trim((string)($params['shot_id'] ?? ''));
         $taskType = self::normalizeGenerationTaskType((string)($params['task_type'] ?? $params['type'] ?? 'shot_image'));
         $project = self::findProject($tenantId, $userId, $projectId);
+        if (self::isImageGenerationTask($taskType) && self::normalizeGenerationMode($params) !== 'video_generate') {
+            $params = ShortDramaImageDefaults::request($params, self::projectGenerationSettingsFromRow($project->toArray()));
+        }
         if ($taskId === '') {
             $taskId = (string)($project['last_task_id'] ?? '');
         }
@@ -6719,7 +6727,7 @@ class AigcShortDramaService
             return self::estimateMarketBgmAudioGenerationBilling($tenantId, $params, self::currentProjectPlanRaw($tenantId, $userId, $projectId));
         }
         $config = self::publicConfig($tenantId);
-        $billing = self::estimateGenerationBilling($taskType, $shot ? $shot->toArray() : [], $config, $params);
+        $billing = self::estimateImageGenerationBilling($tenantId, $taskType, $shot ? $shot->toArray() : [], $config, $params);
         if ($taskType === 'shot_video' || self::normalizeGenerationMode($params) === 'video_generate') {
             $billing['effective_video_params'] = self::shortDramaVideoEffectiveParams($params);
         }
@@ -6736,6 +6744,9 @@ class AigcShortDramaService
         $shotId = trim((string)($params['shot_id'] ?? ''));
         $taskType = self::normalizeGenerationTaskType((string)($params['task_type'] ?? $params['type'] ?? 'shot_image'));
         $project = self::findProject($tenantId, $userId, $projectId);
+        if (self::isImageGenerationTask($taskType) && self::normalizeGenerationMode($params) !== 'video_generate') {
+            $params = ShortDramaImageDefaults::request($params, self::projectGenerationSettingsFromRow($project->toArray()));
+        }
         $params['_skill_origin_task_id'] = $taskId !== '' ? $taskId : (string)$project['last_task_id'];
         $params['_skill_snapshot'] = self::skillSnapshotForGeneration($tenantId, $params);
         if (!in_array($taskType, ['export_video', 'export_package'], true)) {
@@ -15005,7 +15016,7 @@ class AigcShortDramaService
             $settings['ratio'] = $ratio;
             $settings['aspect_ratio'] = $ratio;
         }
-        return $settings;
+        return ShortDramaImageDefaults::resolve($row, $settings);
     }
 
     private static function generationSettingModel(array $data, string $kind): array
@@ -15138,10 +15149,15 @@ class AigcShortDramaService
         ];
         $incoming = ['ratio' => $ratio];
         $incoming[$isVideo ? 'video' : 'image'] = $modelData;
+        $previousSettings = self::projectGenerationSettingsFromRow($projectRow);
         $settings = self::mergeProjectGenerationSettings(
-            self::projectGenerationSettingsFromRow($projectRow),
+            $previousSettings,
             self::normalizeProjectGenerationSettings($incoming)
         );
+        if (!empty($settings['image'])) {
+            $settings['image_selection_explicit'] = !empty($previousSettings['image_selection_explicit'])
+                || ShortDramaImageDefaults::changed((array)($previousSettings['image'] ?? []), (array)$settings['image']);
+        }
         $update = ['generation_settings_json' => self::jsonEncode($settings)];
         if ($ratio !== '') {
             $update['ratio'] = $ratio;
@@ -23813,7 +23829,7 @@ class AigcShortDramaService
             'user_id' => (int)$task['user_id'],
             'id' => (int)$task['project_id'],
             'delete_time' => 0,
-        ])->field('title,ratio,multi_episode,episode_count,generation_settings_json,last_task_id')->findOrEmpty();
+        ])->field('id,tenant_id,user_id,title,ratio,multi_episode,episode_count,generation_settings_json,last_task_id')->findOrEmpty();
         $isCurrentProjectTask = !$project->isEmpty() && (string)$project['last_task_id'] === (string)$task['task_id'];
         if ($isCurrentProjectTask && !array_key_exists('episode_count', $request) && !array_key_exists('episode_count', $storedResult)) {
             $request = self::hydrateEpisodeSettingsFromProject($request, $project->toArray());
