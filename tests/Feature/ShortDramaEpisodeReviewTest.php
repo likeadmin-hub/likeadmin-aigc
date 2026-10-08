@@ -89,7 +89,7 @@ class ShortDramaEpisodeReviewTest extends TestCase
                 }
                 $input=json_decode($messages['content'], true);
                 if (isset($input['response_contract']['checks'])) return ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>true,'reason'=>'有证据']]];
-                return ['summary'=>'甲在房间', 'changes'=>[['entity_id'=>'a','field'=>'location','before'=>'未登记','after'=>'房间','shot_id'=>'s1','quote'=>'甲走进房间']], 'hooks'=>[], 'warnings'=>[]];
+                return ['summary'=>'甲在房间', 'changes'=>[['entity_id'=>'a','field'=>'location','before'=>null,'after'=>'房间','shot_id'=>'s1','quote'=>'错误引用']], 'hooks'=>[], 'warnings'=>[]];
             });
             self::fail('Malformed patch must fail');
         } catch (\RuntimeException $error) {

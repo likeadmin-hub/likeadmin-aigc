@@ -73,9 +73,9 @@ class ShortDramaContinuityTest extends TestCase
             ]], $context, $plan['_continuity_source_patch']);
 
         $ledger = Continuity::review($plan, $context, 1, static fn() => $review, $verify, true);
-        self::assertSame('pending_review', $ledger['audit_status']);
-        self::assertSame($context['continuity']['state'], $ledger['state']);
-        self::assertSame($review, $ledger['unverified_claims'][0]['claim']);
+        self::assertNotSame('pending_review', $ledger['audit_status'] ?? 'verified');
+        self::assertSame($context['continuity']['state'] + ['subject_1:item_status_table'=>'钥匙'], $ledger['state']);
+        self::assertSame('推测的旧物品', $ledger['audit_corrections'][0]['original']['before']);
     }
 
     public function testVerifiedSourcePatchKeepsScriptWhenAuditQuoteIsUnrepairable(): void
@@ -257,13 +257,13 @@ class ShortDramaContinuityTest extends TestCase
         $bad['changes'][0]['before'] = '推测';
         $bad['changes'][] = array_replace($bad['changes'][0], ['field' => 'location', 'before' => '猜测地点']);
         $calls = 0;
-        $ledger = Continuity::review($this->plan(), [], 1, static function ($input) use (&$calls, $bad) {
+        $ledger = Continuity::review($this->plan(), ['continuity'=>['state'=>['p1:item_owner'=>'旧物品','p1:location'=>'旧地点']]], 1, static function ($input) use (&$calls, $bad) {
             if (++$calls === 1) return $bad;
             self::assertStringContainsString('state_errors', $input['content']);
             self::assertStringContainsString('p1:item_owner', $input['content']);
             self::assertStringContainsString('p1:location', $input['content']);
             return ['evidence_patches' => array_map(static fn($i) => ['collection' => 'changes', 'index' => $i,
-                'before' => null, 'shot_id' => 's1', 'quote' => '甲拿走钥匙'], [0, 1])];
+                'before' => $i === 0 ? '旧物品' : '旧地点', 'shot_id' => 's1', 'quote' => '甲拿走钥匙'], [0, 1])];
         });
         self::assertSame(2, $calls);
         self::assertCount(2, $ledger['state']);
@@ -398,7 +398,7 @@ class ShortDramaContinuityTest extends TestCase
         $this->expectExceptionCode(409);
         Continuity::ledger($review, $this->plan(), [], 2);
     }
-    public function testNewFieldAuditCanRepairOnceWithoutChangingTheScript(): void
+    public function testNewFieldAuditUsesCanonicalAbsenceWithoutAnotherModelCall(): void
     {
         $plan = $this->plan(); $review = $this->review(); $calls = 0;
         $ledger = Continuity::review($plan, [], 1, static function ($input) use ($review, &$calls) {
@@ -407,8 +407,9 @@ class ShortDramaContinuityTest extends TestCase
             else self::assertStringContainsString('首次登记的before必须为null', $input['content']);
             return $review;
         });
-        self::assertSame(2, $calls);
-        self::assertSame(1, $ledger['review_repairs']);
+        self::assertSame(1, $calls);
+        self::assertSame(0, $ledger['review_repairs']);
+        self::assertSame('推断的旧值', $ledger['audit_corrections'][0]['original']['before']);
         self::assertSame($this->plan(), $plan);
         self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
     }
@@ -466,8 +467,8 @@ class ShortDramaContinuityTest extends TestCase
     public function testCorrectionCannotDeleteFactsRewriteMeaningOrDropWarnings(): void
     {
         foreach (['delete', 'identity', 'warning'] as $mutation) {
-            $bad = $this->review(); $bad['changes'][0]['before'] = '推测值'; $bad['warnings'] = ['保留疑点'];
-            $fixed = $bad; $fixed['changes'][0]['before'] = null;
+            $bad = $this->review(); $bad['changes'][0]['quote'] = '错误引用'; $bad['warnings'] = ['保留疑点'];
+            $fixed = $bad; $fixed['changes'][0]['quote'] = '甲拿走钥匙';
             if ($mutation === 'delete') $fixed['changes'] = [];
             if ($mutation === 'identity') $fixed['changes'][0]['field'] = '别的字段';
             if ($mutation === 'warning') $fixed['warnings'] = [];
