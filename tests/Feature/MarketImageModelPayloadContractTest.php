@@ -33,7 +33,7 @@ class MarketImageModelPayloadContractTest extends TestCase
             'prompt' => '生成一个狗',
             'negative_prompt' => '低质量',
             'ratio' => '1:2',
-            'quantity' => 4,
+            'quantity' => 1,
             'reference_images' => ['https://example.test/ref.png'],
         ]);
 
@@ -45,7 +45,7 @@ class MarketImageModelPayloadContractTest extends TestCase
             ['image' => 'https://example.test/ref.png'],
             ['text' => '生成一个狗'],
         ], $payload['input']['messages'][0]['content']);
-        self::assertSame(4, $payload['parameters']['n']);
+        self::assertSame(1, $payload['parameters']['n']);
         self::assertSame('1024*2048', $payload['parameters']['size']);
         self::assertArrayNotHasKey('sku_key', $payload);
         self::assertSame('低质量', $payload['parameters']['negative_prompt']);
