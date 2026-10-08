@@ -1,10 +1,10 @@
 {
   "code": "aigc_pic_lipsync",
   "name": "图片数字人",
-  "version": "1.0.0",
-  "require_core": ">=1.0.0",
-  "description": "上传人物图片，支持音频驱动、文案驱动及快速、标准、MAX三种模式。",
-  "changelog": "1. 新增图片数字人创作。\n2. 支持音频驱动和文案驱动。\n3. 支持快速、标准、MAX模式及作品管理。",
+  "version": "1.0.1",
+  "require_core": ">=1.0.388 <1.0.389",
+  "description": "上传人物图片，使用音频或文案驱动生成数字人视频，支持快速、标准和 MAX 模式。提供应用开通、展示配置、素材管理、任务管理和用量统计。",
+  "changelog": "1. 支持在应用中心安装图片数字人并开通、续费和上架。\n2. 新增应用统计、租户用量和任务详情管理。\n3. 新增公共与用户形象、音色及驱动音频管理。\n4. 支持应用启停和卸载，保留共享素材与结算记录。\n5. 保持现有用户端创作入口与操作流程。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
@@ -70,6 +70,4100 @@
           }
         ]
       }
+    }
+  ],
+  "public_assets": [
+    {
+      "source": "frontend/admin/assets/403-etAt6ms_.js",
+      "target": "public/admin/assets/403-etAt6ms_.js"
+    },
+    {
+      "source": "frontend/admin/assets/403-knB__tej.js",
+      "target": "public/admin/assets/403-knB__tej.js"
+    },
+    {
+      "source": "frontend/admin/assets/404-CHr0TK5G.js",
+      "target": "public/admin/assets/404-CHr0TK5G.js"
+    },
+    {
+      "source": "frontend/admin/assets/404-w7qyoupW.js",
+      "target": "public/admin/assets/404-w7qyoupW.js"
+    },
+    {
+      "source": "frontend/admin/assets/HeroMaterialPool-CsbCEhIp.css",
+      "target": "public/admin/assets/HeroMaterialPool-CsbCEhIp.css"
+    },
+    {
+      "source": "frontend/admin/assets/HeroMaterialPool-TO8nDeVX.js",
+      "target": "public/admin/assets/HeroMaterialPool-TO8nDeVX.js"
+    },
+    {
+      "source": "frontend/admin/assets/HeroSlidesEditor-8615h-EL.js",
+      "target": "public/admin/assets/HeroSlidesEditor-8615h-EL.js"
+    },
+    {
+      "source": "frontend/admin/assets/HeroSlidesEditor-DosifypG.css",
+      "target": "public/admin/assets/HeroSlidesEditor-DosifypG.css"
+    },
+    {
+      "source": "frontend/admin/assets/HomeShortcutMaterial-Bay_B2ej.css",
+      "target": "public/admin/assets/HomeShortcutMaterial-Bay_B2ej.css"
+    },
+    {
+      "source": "frontend/admin/assets/HomeShortcutMaterial-Dia-gqSD.js",
+      "target": "public/admin/assets/HomeShortcutMaterial-Dia-gqSD.js"
+    },
+    {
+      "source": "frontend/admin/assets/HomeShortcutsEditor-BpNbToAk.js",
+      "target": "public/admin/assets/HomeShortcutsEditor-BpNbToAk.js"
+    },
+    {
+      "source": "frontend/admin/assets/HomeShortcutsEditor-DA7pR4TG.css",
+      "target": "public/admin/assets/HomeShortcutsEditor-DA7pR4TG.css"
+    },
+    {
+      "source": "frontend/admin/assets/MediaFields-3tsfBA0I.js",
+      "target": "public/admin/assets/MediaFields-3tsfBA0I.js"
+    },
+    {
+      "source": "frontend/admin/assets/MediaFields-gscm28Z5.css",
+      "target": "public/admin/assets/MediaFields-gscm28Z5.css"
+    },
+    {
+      "source": "frontend/admin/assets/MiniprogramOperations-7vtzW82j.js",
+      "target": "public/admin/assets/MiniprogramOperations-7vtzW82j.js"
+    },
+    {
+      "source": "frontend/admin/assets/MiniprogramOperations-Bb8mgntX.css",
+      "target": "public/admin/assets/MiniprogramOperations-Bb8mgntX.css"
+    },
+    {
+      "source": "frontend/admin/assets/MiniprogramPrivacy-DsYvlHlC.css",
+      "target": "public/admin/assets/MiniprogramPrivacy-DsYvlHlC.css"
+    },
+    {
+      "source": "frontend/admin/assets/MiniprogramPrivacy-svvU6fUM.js",
+      "target": "public/admin/assets/MiniprogramPrivacy-svvU6fUM.js"
+    },
+    {
+      "source": "frontend/admin/assets/MobileDecorationRenderer-BVkaOL23.js",
+      "target": "public/admin/assets/MobileDecorationRenderer-BVkaOL23.js"
+    },
+    {
+      "source": "frontend/admin/assets/MobileDecorationRenderer-DPYOQm3D.css",
+      "target": "public/admin/assets/MobileDecorationRenderer-DPYOQm3D.css"
+    },
+    {
+      "source": "frontend/admin/assets/NavigationEditor-CHZaA_RW.js",
+      "target": "public/admin/assets/NavigationEditor-CHZaA_RW.js"
+    },
+    {
+      "source": "frontend/admin/assets/NavigationEditor-DuR1cMTS.css",
+      "target": "public/admin/assets/NavigationEditor-DuR1cMTS.css"
+    },
+    {
+      "source": "frontend/admin/assets/OfficialTranslationsEditor-DRVpFioz.js",
+      "target": "public/admin/assets/OfficialTranslationsEditor-DRVpFioz.js"
+    },
+    {
+      "source": "frontend/admin/assets/OfficialTranslationsEditor-DjjaRBHh.css",
+      "target": "public/admin/assets/OfficialTranslationsEditor-DjjaRBHh.css"
+    },
+    {
+      "source": "frontend/admin/assets/SiteMaterialPicker-GE07TLGj.js",
+      "target": "public/admin/assets/SiteMaterialPicker-GE07TLGj.js"
+    },
+    {
+      "source": "frontend/admin/assets/SiteMaterialPicker.vue_vue_type_script_setup_true_lang-C1ZZleuM.js",
+      "target": "public/admin/assets/SiteMaterialPicker.vue_vue_type_script_setup_true_lang-C1ZZleuM.js"
+    },
+    {
+      "source": "frontend/admin/assets/TaskListPage-D3l_vQdQ.js",
+      "target": "public/admin/assets/TaskListPage-D3l_vQdQ.js"
+    },
+    {
+      "source": "frontend/admin/assets/TaskListPage-Du4VBkrf.css",
+      "target": "public/admin/assets/TaskListPage-Du4VBkrf.css"
+    },
+    {
+      "source": "frontend/admin/assets/account-adjust-CNSLlmSm.js",
+      "target": "public/admin/assets/account-adjust-CNSLlmSm.js"
+    },
+    {
+      "source": "frontend/admin/assets/account-adjust.vue_vue_type_script_setup_true_lang-taMDQdwS.js",
+      "target": "public/admin/assets/account-adjust.vue_vue_type_script_setup_true_lang-taMDQdwS.js"
+    },
+    {
+      "source": "frontend/admin/assets/add-nav-D5TmmXbC.js",
+      "target": "public/admin/assets/add-nav-D5TmmXbC.js"
+    },
+    {
+      "source": "frontend/admin/assets/add-nav.vue_vue_type_script_setup_true_lang-DStCsFsu.js",
+      "target": "public/admin/assets/add-nav.vue_vue_type_script_setup_true_lang-DStCsFsu.js"
+    },
+    {
+      "source": "frontend/admin/assets/agent-DjNDuhKH.css",
+      "target": "public/admin/assets/agent-DjNDuhKH.css"
+    },
+    {
+      "source": "frontend/admin/assets/agent-DswsPS5g.js",
+      "target": "public/admin/assets/agent-DswsPS5g.js"
+    },
+    {
+      "source": "frontend/admin/assets/api--GqxM_jp.js",
+      "target": "public/admin/assets/api--GqxM_jp.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-ASRI6rKI.js",
+      "target": "public/admin/assets/api-ASRI6rKI.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-BIBrGvDn.js",
+      "target": "public/admin/assets/api-BIBrGvDn.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-BLxq52jV.js",
+      "target": "public/admin/assets/api-BLxq52jV.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-BWzoIvJT.js",
+      "target": "public/admin/assets/api-BWzoIvJT.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-BdDdmQlh.js",
+      "target": "public/admin/assets/api-BdDdmQlh.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-BgxWx0DP.js",
+      "target": "public/admin/assets/api-BgxWx0DP.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-Biyn33Lk.js",
+      "target": "public/admin/assets/api-Biyn33Lk.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-C6uTn-By.js",
+      "target": "public/admin/assets/api-C6uTn-By.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-CAKE1oje.js",
+      "target": "public/admin/assets/api-CAKE1oje.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-CCy74x3V.js",
+      "target": "public/admin/assets/api-CCy74x3V.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-CPFvCBTw.js",
+      "target": "public/admin/assets/api-CPFvCBTw.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-CY_0G9rl.js",
+      "target": "public/admin/assets/api-CY_0G9rl.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-C_JISH19.js",
+      "target": "public/admin/assets/api-C_JISH19.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-Cb_T7oRo.js",
+      "target": "public/admin/assets/api-Cb_T7oRo.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-CuPODehY.js",
+      "target": "public/admin/assets/api-CuPODehY.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-Cvrp5xsl.js",
+      "target": "public/admin/assets/api-Cvrp5xsl.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-DEBwOkIR.js",
+      "target": "public/admin/assets/api-DEBwOkIR.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-DKfJYsmp.js",
+      "target": "public/admin/assets/api-DKfJYsmp.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-DdIM-FBH.js",
+      "target": "public/admin/assets/api-DdIM-FBH.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-DgKMTJsh.js",
+      "target": "public/admin/assets/api-DgKMTJsh.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-DqiyaeCV.js",
+      "target": "public/admin/assets/api-DqiyaeCV.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-DrCN2tLu.js",
+      "target": "public/admin/assets/api-DrCN2tLu.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-M2KPGT_Z.js",
+      "target": "public/admin/assets/api-M2KPGT_Z.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-MtJ-mjgZ.js",
+      "target": "public/admin/assets/api-MtJ-mjgZ.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-P4fyP8W2.js",
+      "target": "public/admin/assets/api-P4fyP8W2.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-T9gDUrCi.js",
+      "target": "public/admin/assets/api-T9gDUrCi.js"
+    },
+    {
+      "source": "frontend/admin/assets/api-YQucX0AI.js",
+      "target": "public/admin/assets/api-YQucX0AI.js"
+    },
+    {
+      "source": "frontend/admin/assets/app-display-config-Cwki_9E9.js",
+      "target": "public/admin/assets/app-display-config-Cwki_9E9.js"
+    },
+    {
+      "source": "frontend/admin/assets/app-display-config.vue_vue_type_script_setup_true_lang-DVUcJdx4.js",
+      "target": "public/admin/assets/app-display-config.vue_vue_type_script_setup_true_lang-DVUcJdx4.js"
+    },
+    {
+      "source": "frontend/admin/assets/app_center-CTadl3tA.js",
+      "target": "public/admin/assets/app_center-CTadl3tA.js"
+    },
+    {
+      "source": "frontend/admin/assets/article-CWJP9s87.js",
+      "target": "public/admin/assets/article-CWJP9s87.js"
+    },
+    {
+      "source": "frontend/admin/assets/asset-DB8aYw8D.css",
+      "target": "public/admin/assets/asset-DB8aYw8D.css"
+    },
+    {
+      "source": "frontend/admin/assets/asset-rZPtFPfc.js",
+      "target": "public/admin/assets/asset-rZPtFPfc.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-1JvUHU_q.js",
+      "target": "public/admin/assets/attr-1JvUHU_q.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-1QfFvpyI.js",
+      "target": "public/admin/assets/attr-1QfFvpyI.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-3Jn4Ne-T.css",
+      "target": "public/admin/assets/attr-3Jn4Ne-T.css"
+    },
+    {
+      "source": "frontend/admin/assets/attr-52kxyhMT.js",
+      "target": "public/admin/assets/attr-52kxyhMT.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-B16EPHjO.js",
+      "target": "public/admin/assets/attr-B16EPHjO.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-B1LPryg5.js",
+      "target": "public/admin/assets/attr-B1LPryg5.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-B5Vevxbm.js",
+      "target": "public/admin/assets/attr-B5Vevxbm.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-BCGUGqWF.js",
+      "target": "public/admin/assets/attr-BCGUGqWF.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-BG2gruFq.css",
+      "target": "public/admin/assets/attr-BG2gruFq.css"
+    },
+    {
+      "source": "frontend/admin/assets/attr-BlMNdXPN.js",
+      "target": "public/admin/assets/attr-BlMNdXPN.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-Bn0KW743.css",
+      "target": "public/admin/assets/attr-Bn0KW743.css"
+    },
+    {
+      "source": "frontend/admin/assets/attr-BwLk3k91.css",
+      "target": "public/admin/assets/attr-BwLk3k91.css"
+    },
+    {
+      "source": "frontend/admin/assets/attr-C-TV0uoo.css",
+      "target": "public/admin/assets/attr-C-TV0uoo.css"
+    },
+    {
+      "source": "frontend/admin/assets/attr-C5dWqbaP.js",
+      "target": "public/admin/assets/attr-C5dWqbaP.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-CHUE0nf6.js",
+      "target": "public/admin/assets/attr-CHUE0nf6.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-CJFommmD.js",
+      "target": "public/admin/assets/attr-CJFommmD.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-COnjrRE-.js",
+      "target": "public/admin/assets/attr-COnjrRE-.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-CPC0L6BB.js",
+      "target": "public/admin/assets/attr-CPC0L6BB.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-CgAH9pQK.js",
+      "target": "public/admin/assets/attr-CgAH9pQK.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-D1dhGUaD.js",
+      "target": "public/admin/assets/attr-D1dhGUaD.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-DEBQVkb8.css",
+      "target": "public/admin/assets/attr-DEBQVkb8.css"
+    },
+    {
+      "source": "frontend/admin/assets/attr-DTcb4sSa.js",
+      "target": "public/admin/assets/attr-DTcb4sSa.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-DWWoT29q.css",
+      "target": "public/admin/assets/attr-DWWoT29q.css"
+    },
+    {
+      "source": "frontend/admin/assets/attr-D_5pzq9i.js",
+      "target": "public/admin/assets/attr-D_5pzq9i.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-DcIGXHKY.js",
+      "target": "public/admin/assets/attr-DcIGXHKY.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-Dge5WAAq.js",
+      "target": "public/admin/assets/attr-Dge5WAAq.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-DrcPAVNW.js",
+      "target": "public/admin/assets/attr-DrcPAVNW.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-EuvRxAOU.js",
+      "target": "public/admin/assets/attr-EuvRxAOU.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-FaYTwk8V.js",
+      "target": "public/admin/assets/attr-FaYTwk8V.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-MGIlPuDO.js",
+      "target": "public/admin/assets/attr-MGIlPuDO.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-QO8cJdwB.js",
+      "target": "public/admin/assets/attr-QO8cJdwB.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-setting-CnkY7O7V.js",
+      "target": "public/admin/assets/attr-setting-CnkY7O7V.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr-setting-CofVExrB.css",
+      "target": "public/admin/assets/attr-setting-CofVExrB.css"
+    },
+    {
+      "source": "frontend/admin/assets/attr-zIlhzYIn.css",
+      "target": "public/admin/assets/attr-zIlhzYIn.css"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-2lu1hg5g.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-2lu1hg5g.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-BFHyOwvC.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-BFHyOwvC.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-BYBO-JBf.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-BYBO-JBf.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-BfVl_vQe.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-BfVl_vQe.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-BpcwF-V0.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-BpcwF-V0.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-BuFNvLu2.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-BuFNvLu2.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-C9VFZIVI.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-C9VFZIVI.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-CSgZwxCZ.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-CSgZwxCZ.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-CtwKfcgK.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-CtwKfcgK.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-D1tOxMTM.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-D1tOxMTM.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-DH7XtI1e.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-DH7XtI1e.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-JX2Hy2kX.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-JX2Hy2kX.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-RU82CUmW.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-RU82CUmW.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-k8getzmQ.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-k8getzmQ.js"
+    },
+    {
+      "source": "frontend/admin/assets/attr.vue_vue_type_script_setup_true_lang-xk3nr4_9.js",
+      "target": "public/admin/assets/attr.vue_vue_type_script_setup_true_lang-xk3nr4_9.js"
+    },
+    {
+      "source": "frontend/admin/assets/audio-DBOrfhDF.js",
+      "target": "public/admin/assets/audio-DBOrfhDF.js"
+    },
+    {
+      "source": "frontend/admin/assets/audio-task-x5iGvP6I.js",
+      "target": "public/admin/assets/audio-task-x5iGvP6I.js"
+    },
+    {
+      "source": "frontend/admin/assets/auth-CGkNrNWR.js",
+      "target": "public/admin/assets/auth-CGkNrNWR.js"
+    },
+    {
+      "source": "frontend/admin/assets/auth.vue_vue_type_script_setup_true_lang-TxueLFEU.js",
+      "target": "public/admin/assets/auth.vue_vue_type_script_setup_true_lang-TxueLFEU.js"
+    },
+    {
+      "source": "frontend/admin/assets/balance_details-Vh-lqugx.js",
+      "target": "public/admin/assets/balance_details-Vh-lqugx.js"
+    },
+    {
+      "source": "frontend/admin/assets/banner-D5vpNpSE.css",
+      "target": "public/admin/assets/banner-D5vpNpSE.css"
+    },
+    {
+      "source": "frontend/admin/assets/banner-D6QtPkMH.js",
+      "target": "public/admin/assets/banner-D6QtPkMH.js"
+    },
+    {
+      "source": "frontend/admin/assets/bgm-audio-215uniDv.js",
+      "target": "public/admin/assets/bgm-audio-215uniDv.js"
+    },
+    {
+      "source": "frontend/admin/assets/blue1-gLOo1H0w.png",
+      "target": "public/admin/assets/blue1-gLOo1H0w.png"
+    },
+    {
+      "source": "frontend/admin/assets/blue2-CRQPdLZd.png",
+      "target": "public/admin/assets/blue2-CRQPdLZd.png"
+    },
+    {
+      "source": "frontend/admin/assets/blue3-D3K9OqGO.png",
+      "target": "public/admin/assets/blue3-D3K9OqGO.png"
+    },
+    {
+      "source": "frontend/admin/assets/brand-chq27jGh.js",
+      "target": "public/admin/assets/brand-chq27jGh.js"
+    },
+    {
+      "source": "frontend/admin/assets/cache-DBIveQiz.js",
+      "target": "public/admin/assets/cache-DBIveQiz.js"
+    },
+    {
+      "source": "frontend/admin/assets/canvas-config-CKnMJBOy.js",
+      "target": "public/admin/assets/canvas-config-CKnMJBOy.js"
+    },
+    {
+      "source": "frontend/admin/assets/canvas-config-DxJ7XfyQ.css",
+      "target": "public/admin/assets/canvas-config-DxJ7XfyQ.css"
+    },
+    {
+      "source": "frontend/admin/assets/case-BhaIP5ke.js",
+      "target": "public/admin/assets/case-BhaIP5ke.js"
+    },
+    {
+      "source": "frontend/admin/assets/case-C48u0VgP.js",
+      "target": "public/admin/assets/case-C48u0VgP.js"
+    },
+    {
+      "source": "frontend/admin/assets/case-CNDrZfM9.css",
+      "target": "public/admin/assets/case-CNDrZfM9.css"
+    },
+    {
+      "source": "frontend/admin/assets/case-DBhSh3vN.js",
+      "target": "public/admin/assets/case-DBhSh3vN.js"
+    },
+    {
+      "source": "frontend/admin/assets/case-Det9sMW3.css",
+      "target": "public/admin/assets/case-Det9sMW3.css"
+    },
+    {
+      "source": "frontend/admin/assets/case-wKEkw1_A.css",
+      "target": "public/admin/assets/case-wKEkw1_A.css"
+    },
+    {
+      "source": "frontend/admin/assets/category-CgH8KO8s.js",
+      "target": "public/admin/assets/category-CgH8KO8s.js"
+    },
+    {
+      "source": "frontend/admin/assets/category-Df1QNbTH.js",
+      "target": "public/admin/assets/category-Df1QNbTH.js"
+    },
+    {
+      "source": "frontend/admin/assets/channel-price-0E-Y4tQW.js",
+      "target": "public/admin/assets/channel-price-0E-Y4tQW.js"
+    },
+    {
+      "source": "frontend/admin/assets/channel-price-B1vt2fn5.js",
+      "target": "public/admin/assets/channel-price-B1vt2fn5.js"
+    },
+    {
+      "source": "frontend/admin/assets/channel-price-BsBLHAPe.js",
+      "target": "public/admin/assets/channel-price-BsBLHAPe.js"
+    },
+    {
+      "source": "frontend/admin/assets/channel-price-BxeDjVit.css",
+      "target": "public/admin/assets/channel-price-BxeDjVit.css"
+    },
+    {
+      "source": "frontend/admin/assets/channel-price-CI2NFHpR.css",
+      "target": "public/admin/assets/channel-price-CI2NFHpR.css"
+    },
+    {
+      "source": "frontend/admin/assets/channel-price-CJIHqgfH.js",
+      "target": "public/admin/assets/channel-price-CJIHqgfH.js"
+    },
+    {
+      "source": "frontend/admin/assets/channel-price-DCK_8_tt.css",
+      "target": "public/admin/assets/channel-price-DCK_8_tt.css"
+    },
+    {
+      "source": "frontend/admin/assets/channel-price-JF5IlUQM.css",
+      "target": "public/admin/assets/channel-price-JF5IlUQM.css"
+    },
+    {
+      "source": "frontend/admin/assets/channel-price-LQ0nKhUg.css",
+      "target": "public/admin/assets/channel-price-LQ0nKhUg.css"
+    },
+    {
+      "source": "frontend/admin/assets/channel-price-XDN70nw2.js",
+      "target": "public/admin/assets/channel-price-XDN70nw2.js"
+    },
+    {
+      "source": "frontend/admin/assets/code-BvMemyvj.js",
+      "target": "public/admin/assets/code-BvMemyvj.js"
+    },
+    {
+      "source": "frontend/admin/assets/code-preview-BjIhtlUo.js",
+      "target": "public/admin/assets/code-preview-BjIhtlUo.js"
+    },
+    {
+      "source": "frontend/admin/assets/code-preview.vue_vue_type_script_setup_true_lang-KrghkFxs.js",
+      "target": "public/admin/assets/code-preview.vue_vue_type_script_setup_true_lang-KrghkFxs.js"
+    },
+    {
+      "source": "frontend/admin/assets/commission-BnwpDSNT.js",
+      "target": "public/admin/assets/commission-BnwpDSNT.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-0zjK3qxa.js",
+      "target": "public/admin/assets/config-0zjK3qxa.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-3uNic3eI.js",
+      "target": "public/admin/assets/config-3uNic3eI.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-BIe_DVsz.js",
+      "target": "public/admin/assets/config-BIe_DVsz.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-BMZjVt0C.css",
+      "target": "public/admin/assets/config-BMZjVt0C.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-BN5AXY0W.js",
+      "target": "public/admin/assets/config-BN5AXY0W.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-BWHQ5bIy.css",
+      "target": "public/admin/assets/config-BWHQ5bIy.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-B_GEJ036.js",
+      "target": "public/admin/assets/config-B_GEJ036.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-Bbxvn3ll.js",
+      "target": "public/admin/assets/config-Bbxvn3ll.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-BcXEvjg6.js",
+      "target": "public/admin/assets/config-BcXEvjg6.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-BiwwWHUH.css",
+      "target": "public/admin/assets/config-BiwwWHUH.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-BlCDDhvH.js",
+      "target": "public/admin/assets/config-BlCDDhvH.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-C0LUqie9.js",
+      "target": "public/admin/assets/config-C0LUqie9.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-CAKNJNFy.css",
+      "target": "public/admin/assets/config-CAKNJNFy.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-COUBwiMV.css",
+      "target": "public/admin/assets/config-COUBwiMV.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-CPKrdNXV.js",
+      "target": "public/admin/assets/config-CPKrdNXV.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-CVMIk3_T.js",
+      "target": "public/admin/assets/config-CVMIk3_T.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-CXjxChyh.js",
+      "target": "public/admin/assets/config-CXjxChyh.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-CbAJ1VIa.js",
+      "target": "public/admin/assets/config-CbAJ1VIa.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-CdzPNP3u.css",
+      "target": "public/admin/assets/config-CdzPNP3u.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-CobP6yHb.js",
+      "target": "public/admin/assets/config-CobP6yHb.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-Cx5doan8.css",
+      "target": "public/admin/assets/config-Cx5doan8.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-D2tQxAJS.js",
+      "target": "public/admin/assets/config-D2tQxAJS.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-D7tk8PTc.css",
+      "target": "public/admin/assets/config-D7tk8PTc.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-DLtU4UQT.css",
+      "target": "public/admin/assets/config-DLtU4UQT.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-DOvx7Qau.js",
+      "target": "public/admin/assets/config-DOvx7Qau.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-DPKgrWW7.js",
+      "target": "public/admin/assets/config-DPKgrWW7.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-DR6W97B3.js",
+      "target": "public/admin/assets/config-DR6W97B3.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-DXY034sk.js",
+      "target": "public/admin/assets/config-DXY034sk.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-DaO9K_Fo.css",
+      "target": "public/admin/assets/config-DaO9K_Fo.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-DbYG4TEq.css",
+      "target": "public/admin/assets/config-DbYG4TEq.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-DfjeR3up.js",
+      "target": "public/admin/assets/config-DfjeR3up.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-DrRDqFyz.js",
+      "target": "public/admin/assets/config-DrRDqFyz.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-DuxJ2WRZ.js",
+      "target": "public/admin/assets/config-DuxJ2WRZ.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-EXW1RLRS.js",
+      "target": "public/admin/assets/config-EXW1RLRS.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-KXEXYPED.css",
+      "target": "public/admin/assets/config-KXEXYPED.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-MGod0wiq.js",
+      "target": "public/admin/assets/config-MGod0wiq.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-P62zalcR.js",
+      "target": "public/admin/assets/config-P62zalcR.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-RxFwgfP2.css",
+      "target": "public/admin/assets/config-RxFwgfP2.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-WKiUvqfp.js",
+      "target": "public/admin/assets/config-WKiUvqfp.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-Xg3MpdXu.css",
+      "target": "public/admin/assets/config-Xg3MpdXu.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-Yq5sR8ud.js",
+      "target": "public/admin/assets/config-Yq5sR8ud.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-ZvKobhmQ.js",
+      "target": "public/admin/assets/config-ZvKobhmQ.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-h-Zl-g1O.css",
+      "target": "public/admin/assets/config-h-Zl-g1O.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-l572IdMr.js",
+      "target": "public/admin/assets/config-l572IdMr.js"
+    },
+    {
+      "source": "frontend/admin/assets/config-mOjeEpIh.css",
+      "target": "public/admin/assets/config-mOjeEpIh.css"
+    },
+    {
+      "source": "frontend/admin/assets/config-s3_qs_oK.css",
+      "target": "public/admin/assets/config-s3_qs_oK.css"
+    },
+    {
+      "source": "frontend/admin/assets/config.vue_vue_type_script_setup_true_name_wxOaConfig_lang-BvEX7QEn.js",
+      "target": "public/admin/assets/config.vue_vue_type_script_setup_true_name_wxOaConfig_lang-BvEX7QEn.js"
+    },
+    {
+      "source": "frontend/admin/assets/consume_logs-Bwis-Iem.js",
+      "target": "public/admin/assets/consume_logs-Bwis-Iem.js"
+    },
+    {
+      "source": "frontend/admin/assets/consume_logs-Df4VgHDs.css",
+      "target": "public/admin/assets/consume_logs-Df4VgHDs.css"
+    },
+    {
+      "source": "frontend/admin/assets/consumer-CrnxBEMQ.js",
+      "target": "public/admin/assets/consumer-CrnxBEMQ.js"
+    },
+    {
+      "source": "frontend/admin/assets/consumption-DZk95-Dp.js",
+      "target": "public/admin/assets/consumption-DZk95-Dp.js"
+    },
+    {
+      "source": "frontend/admin/assets/consumption.vue_vue_type_script_setup_true_name_tenantAiConsumption_lang-BUEfjlm6.js",
+      "target": "public/admin/assets/consumption.vue_vue_type_script_setup_true_name_tenantAiConsumption_lang-BUEfjlm6.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-0r7BRWI5.js",
+      "target": "public/admin/assets/content-0r7BRWI5.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-B8Qf6zrw.js",
+      "target": "public/admin/assets/content-B8Qf6zrw.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-B97u18ca.css",
+      "target": "public/admin/assets/content-B97u18ca.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-BEaUwWKZ.css",
+      "target": "public/admin/assets/content-BEaUwWKZ.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-BIbLNcGa.js",
+      "target": "public/admin/assets/content-BIbLNcGa.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-BR1GE7yP.js",
+      "target": "public/admin/assets/content-BR1GE7yP.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-B_O3pLop.css",
+      "target": "public/admin/assets/content-B_O3pLop.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-BbB2jHzS.js",
+      "target": "public/admin/assets/content-BbB2jHzS.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-BdYI9LzT.js",
+      "target": "public/admin/assets/content-BdYI9LzT.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-BiXsv7za.js",
+      "target": "public/admin/assets/content-BiXsv7za.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-BvPJRigU.css",
+      "target": "public/admin/assets/content-BvPJRigU.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-By0cOWqZ.css",
+      "target": "public/admin/assets/content-By0cOWqZ.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-C-F-TgwY.js",
+      "target": "public/admin/assets/content-C-F-TgwY.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-C-ankp9I.css",
+      "target": "public/admin/assets/content-C-ankp9I.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-C7hIPbxE.css",
+      "target": "public/admin/assets/content-C7hIPbxE.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-CL0rJ1HM.js",
+      "target": "public/admin/assets/content-CL0rJ1HM.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-CUTumDLR.css",
+      "target": "public/admin/assets/content-CUTumDLR.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-CWbuJtNu.js",
+      "target": "public/admin/assets/content-CWbuJtNu.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-C_lip_i6.js",
+      "target": "public/admin/assets/content-C_lip_i6.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-CaNRXt_A.css",
+      "target": "public/admin/assets/content-CaNRXt_A.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-CmZmV4Wj.js",
+      "target": "public/admin/assets/content-CmZmV4Wj.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-CmuUlB5w.css",
+      "target": "public/admin/assets/content-CmuUlB5w.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-CwqYXaq1.js",
+      "target": "public/admin/assets/content-CwqYXaq1.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-D4egcBdV.css",
+      "target": "public/admin/assets/content-D4egcBdV.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-D68YZxre.js",
+      "target": "public/admin/assets/content-D68YZxre.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-D6RBUbqH.js",
+      "target": "public/admin/assets/content-D6RBUbqH.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-DAPLITm8.js",
+      "target": "public/admin/assets/content-DAPLITm8.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-DAtVZnvW.js",
+      "target": "public/admin/assets/content-DAtVZnvW.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-DFrCdXKS.css",
+      "target": "public/admin/assets/content-DFrCdXKS.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-DUDcoKtN.css",
+      "target": "public/admin/assets/content-DUDcoKtN.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-D_mr81Yy.js",
+      "target": "public/admin/assets/content-D_mr81Yy.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-Dm-6IVTt.css",
+      "target": "public/admin/assets/content-Dm-6IVTt.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-Dp7u9VHO.js",
+      "target": "public/admin/assets/content-Dp7u9VHO.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-EzdtLQlK.css",
+      "target": "public/admin/assets/content-EzdtLQlK.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-PvAXlvh-.js",
+      "target": "public/admin/assets/content-PvAXlvh-.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-TZCjXOju.css",
+      "target": "public/admin/assets/content-TZCjXOju.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-VqlICxxn.js",
+      "target": "public/admin/assets/content-VqlICxxn.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-s9ZqO9iW.css",
+      "target": "public/admin/assets/content-s9ZqO9iW.css"
+    },
+    {
+      "source": "frontend/admin/assets/content-tvCAi_lz.js",
+      "target": "public/admin/assets/content-tvCAi_lz.js"
+    },
+    {
+      "source": "frontend/admin/assets/content-yyhOWb0-.js",
+      "target": "public/admin/assets/content-yyhOWb0-.js"
+    },
+    {
+      "source": "frontend/admin/assets/content.vue_vue_type_script_setup_true_lang-DIJs7SJU.js",
+      "target": "public/admin/assets/content.vue_vue_type_script_setup_true_lang-DIJs7SJU.js"
+    },
+    {
+      "source": "frontend/admin/assets/content.vue_vue_type_script_setup_true_lang-DT896lQF.js",
+      "target": "public/admin/assets/content.vue_vue_type_script_setup_true_lang-DT896lQF.js"
+    },
+    {
+      "source": "frontend/admin/assets/content.vue_vue_type_script_setup_true_lang-Dazq44St.js",
+      "target": "public/admin/assets/content.vue_vue_type_script_setup_true_lang-Dazq44St.js"
+    },
+    {
+      "source": "frontend/admin/assets/content.vue_vue_type_script_setup_true_lang-O1EjUpft.js",
+      "target": "public/admin/assets/content.vue_vue_type_script_setup_true_lang-O1EjUpft.js"
+    },
+    {
+      "source": "frontend/admin/assets/content.vue_vue_type_script_setup_true_lang-k2Ngwmih.js",
+      "target": "public/admin/assets/content.vue_vue_type_script_setup_true_lang-k2Ngwmih.js"
+    },
+    {
+      "source": "frontend/admin/assets/creation-task-CI2b18tQ.js",
+      "target": "public/admin/assets/creation-task-CI2b18tQ.js"
+    },
+    {
+      "source": "frontend/admin/assets/data-table-GtfUY3pl.js",
+      "target": "public/admin/assets/data-table-GtfUY3pl.js"
+    },
+    {
+      "source": "frontend/admin/assets/data-table.vue_vue_type_script_setup_true_lang-BvXpDij7.js",
+      "target": "public/admin/assets/data-table.vue_vue_type_script_setup_true_lang-BvXpDij7.js"
+    },
+    {
+      "source": "frontend/admin/assets/decoration-Bf3KvUmW.js",
+      "target": "public/admin/assets/decoration-Bf3KvUmW.js"
+    },
+    {
+      "source": "frontend/admin/assets/decoration-img-CVRQBitD.css",
+      "target": "public/admin/assets/decoration-img-CVRQBitD.css"
+    },
+    {
+      "source": "frontend/admin/assets/decoration-img-DJ6vUzWQ.js",
+      "target": "public/admin/assets/decoration-img-DJ6vUzWQ.js"
+    },
+    {
+      "source": "frontend/admin/assets/default_avatar-C6VB7PGm.png",
+      "target": "public/admin/assets/default_avatar-C6VB7PGm.png"
+    },
+    {
+      "source": "frontend/admin/assets/default_reply-ubj3PWQj.js",
+      "target": "public/admin/assets/default_reply-ubj3PWQj.js"
+    },
+    {
+      "source": "frontend/admin/assets/default_reply.vue_vue_type_script_setup_true_lang-BfqfB6cu.js",
+      "target": "public/admin/assets/default_reply.vue_vue_type_script_setup_true_lang-BfqfB6cu.js"
+    },
+    {
+      "source": "frontend/admin/assets/department-Dmb28qp1.js",
+      "target": "public/admin/assets/department-Dmb28qp1.js"
+    },
+    {
+      "source": "frontend/admin/assets/detail-B8wfaWwh.js",
+      "target": "public/admin/assets/detail-B8wfaWwh.js"
+    },
+    {
+      "source": "frontend/admin/assets/dict-B0J9Keo7.js",
+      "target": "public/admin/assets/dict-B0J9Keo7.js"
+    },
+    {
+      "source": "frontend/admin/assets/distribution-DT1Dw7bW.js",
+      "target": "public/admin/assets/distribution-DT1Dw7bW.js"
+    },
+    {
+      "source": "frontend/admin/assets/drama-dark-DxNW_Rqx.webp",
+      "target": "public/admin/assets/drama-dark-DxNW_Rqx.webp"
+    },
+    {
+      "source": "frontend/admin/assets/drama-light-C8m2zo5K.webp",
+      "target": "public/admin/assets/drama-light-C8m2zo5K.webp"
+    },
+    {
+      "source": "frontend/admin/assets/edit-2cIzNUCa.js",
+      "target": "public/admin/assets/edit-2cIzNUCa.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-B8NF3XAa.js",
+      "target": "public/admin/assets/edit-B8NF3XAa.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-BYeplEbR.js",
+      "target": "public/admin/assets/edit-BYeplEbR.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-BgXJi562.js",
+      "target": "public/admin/assets/edit-BgXJi562.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-C25Qmr47.js",
+      "target": "public/admin/assets/edit-C25Qmr47.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-CN3yvHOg.js",
+      "target": "public/admin/assets/edit-CN3yvHOg.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-CZ_cY5eE.js",
+      "target": "public/admin/assets/edit-CZ_cY5eE.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-CipdpBn6.js",
+      "target": "public/admin/assets/edit-CipdpBn6.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-D5sT-V-E.js",
+      "target": "public/admin/assets/edit-D5sT-V-E.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-DCDwcRgy.js",
+      "target": "public/admin/assets/edit-DCDwcRgy.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-DErwS6RH.js",
+      "target": "public/admin/assets/edit-DErwS6RH.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-DNAYN6CX.js",
+      "target": "public/admin/assets/edit-DNAYN6CX.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-DVHQSxNp.css",
+      "target": "public/admin/assets/edit-DVHQSxNp.css"
+    },
+    {
+      "source": "frontend/admin/assets/edit-DeDmdM4d.js",
+      "target": "public/admin/assets/edit-DeDmdM4d.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-DkdUgLOh.js",
+      "target": "public/admin/assets/edit-DkdUgLOh.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit-HxayOkzG.js",
+      "target": "public/admin/assets/edit-HxayOkzG.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit.vue_vue_type_script_setup_true_lang-BqR4b8lR.js",
+      "target": "public/admin/assets/edit.vue_vue_type_script_setup_true_lang-BqR4b8lR.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit.vue_vue_type_script_setup_true_lang-CSnstPkA.js",
+      "target": "public/admin/assets/edit.vue_vue_type_script_setup_true_lang-CSnstPkA.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit.vue_vue_type_script_setup_true_lang-CdOC4QNP.js",
+      "target": "public/admin/assets/edit.vue_vue_type_script_setup_true_lang-CdOC4QNP.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit.vue_vue_type_script_setup_true_lang-CdRhUQWu.js",
+      "target": "public/admin/assets/edit.vue_vue_type_script_setup_true_lang-CdRhUQWu.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit.vue_vue_type_script_setup_true_lang-DBpPNLJO.js",
+      "target": "public/admin/assets/edit.vue_vue_type_script_setup_true_lang-DBpPNLJO.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit.vue_vue_type_script_setup_true_lang-DFqmxESK.js",
+      "target": "public/admin/assets/edit.vue_vue_type_script_setup_true_lang-DFqmxESK.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit.vue_vue_type_script_setup_true_lang-DGGK7LE_.js",
+      "target": "public/admin/assets/edit.vue_vue_type_script_setup_true_lang-DGGK7LE_.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit.vue_vue_type_script_setup_true_lang-DPJIMPi0.js",
+      "target": "public/admin/assets/edit.vue_vue_type_script_setup_true_lang-DPJIMPi0.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit.vue_vue_type_script_setup_true_lang-DegI4ZUl.js",
+      "target": "public/admin/assets/edit.vue_vue_type_script_setup_true_lang-DegI4ZUl.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit.vue_vue_type_script_setup_true_lang-DxJaE-R3.js",
+      "target": "public/admin/assets/edit.vue_vue_type_script_setup_true_lang-DxJaE-R3.js"
+    },
+    {
+      "source": "frontend/admin/assets/edit.vue_vue_type_script_setup_true_name_articleColumnEdit_lang-CtvlpBpX.js",
+      "target": "public/admin/assets/edit.vue_vue_type_script_setup_true_name_articleColumnEdit_lang-CtvlpBpX.js"
+    },
+    {
+      "source": "frontend/admin/assets/environment-KqmgZxAO.js",
+      "target": "public/admin/assets/environment-KqmgZxAO.js"
+    },
+    {
+      "source": "frontend/admin/assets/error-BuAQ7kny.css",
+      "target": "public/admin/assets/error-BuAQ7kny.css"
+    },
+    {
+      "source": "frontend/admin/assets/error-CEN7QCSp.js",
+      "target": "public/admin/assets/error-CEN7QCSp.js"
+    },
+    {
+      "source": "frontend/admin/assets/file-Dba6E68r.js",
+      "target": "public/admin/assets/file-Dba6E68r.js"
+    },
+    {
+      "source": "frontend/admin/assets/filing-DtPfPWof.js",
+      "target": "public/admin/assets/filing-DtPfPWof.js"
+    },
+    {
+      "source": "frontend/admin/assets/final-video-O375v3EB.js",
+      "target": "public/admin/assets/final-video-O375v3EB.js"
+    },
+    {
+      "source": "frontend/admin/assets/finance-1uCWD-I-.js",
+      "target": "public/admin/assets/finance-1uCWD-I-.js"
+    },
+    {
+      "source": "frontend/admin/assets/follow_reply-CcGEMPNz.js",
+      "target": "public/admin/assets/follow_reply-CcGEMPNz.js"
+    },
+    {
+      "source": "frontend/admin/assets/follow_reply.vue_vue_type_script_setup_true_lang-Bk96AF6h.js",
+      "target": "public/admin/assets/follow_reply.vue_vue_type_script_setup_true_lang-Bk96AF6h.js"
+    },
+    {
+      "source": "frontend/admin/assets/getExposeType-Cizw8q3q.js",
+      "target": "public/admin/assets/getExposeType-Cizw8q3q.js"
+    },
+    {
+      "source": "frontend/admin/assets/governance-BlL1gt4q.js",
+      "target": "public/admin/assets/governance-BlL1gt4q.js"
+    },
+    {
+      "source": "frontend/admin/assets/green1-h1zqes95.png",
+      "target": "public/admin/assets/green1-h1zqes95.png"
+    },
+    {
+      "source": "frontend/admin/assets/green2-C-VRKLSN.png",
+      "target": "public/admin/assets/green2-C-VRKLSN.png"
+    },
+    {
+      "source": "frontend/admin/assets/green3-CPorIQiC.png",
+      "target": "public/admin/assets/green3-CPorIQiC.png"
+    },
+    {
+      "source": "frontend/admin/assets/h5-BbUlyzai.js",
+      "target": "public/admin/assets/h5-BbUlyzai.js"
+    },
+    {
+      "source": "frontend/admin/assets/h5.vue_vue_type_script_setup_true_name_h5Config_lang-BrgKiYAG.js",
+      "target": "public/admin/assets/h5.vue_vue_type_script_setup_true_name_h5Config_lang-BrgKiYAG.js"
+    },
+    {
+      "source": "frontend/admin/assets/icon-nKgOUuYL.js",
+      "target": "public/admin/assets/icon-nKgOUuYL.js"
+    },
+    {
+      "source": "frontend/admin/assets/image-task-C8f-1SvF.js",
+      "target": "public/admin/assets/image-task-C8f-1SvF.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-6kxhHuPw.css",
+      "target": "public/admin/assets/index-6kxhHuPw.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-B-KR1fod.js",
+      "target": "public/admin/assets/index-B-KR1fod.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-B-gjYb54.js",
+      "target": "public/admin/assets/index-B-gjYb54.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-B0sFSA__.js",
+      "target": "public/admin/assets/index-B0sFSA__.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-B2JO0Jot.css",
+      "target": "public/admin/assets/index-B2JO0Jot.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-B2xJt-wC.js",
+      "target": "public/admin/assets/index-B2xJt-wC.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-B5tTXEQH.js",
+      "target": "public/admin/assets/index-B5tTXEQH.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-B89xxSS_.js",
+      "target": "public/admin/assets/index-B89xxSS_.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-BQPFaJgg.js",
+      "target": "public/admin/assets/index-BQPFaJgg.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-BQnjxWbK.js",
+      "target": "public/admin/assets/index-BQnjxWbK.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-BYMg0OFw.css",
+      "target": "public/admin/assets/index-BYMg0OFw.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-BiJc2XVb.js",
+      "target": "public/admin/assets/index-BiJc2XVb.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-Bie8nh4r.css",
+      "target": "public/admin/assets/index-Bie8nh4r.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-BuuhZM_x.js",
+      "target": "public/admin/assets/index-BuuhZM_x.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-BzvXiLwf.css",
+      "target": "public/admin/assets/index-BzvXiLwf.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-C-vrObNh.css",
+      "target": "public/admin/assets/index-C-vrObNh.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-C2sSAlN_.js",
+      "target": "public/admin/assets/index-C2sSAlN_.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-C5979IHj.js",
+      "target": "public/admin/assets/index-C5979IHj.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-CLA-mH9m.js",
+      "target": "public/admin/assets/index-CLA-mH9m.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-CMPETARY.css",
+      "target": "public/admin/assets/index-CMPETARY.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-CQuQT0h0.css",
+      "target": "public/admin/assets/index-CQuQT0h0.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-CUonDTMU.js",
+      "target": "public/admin/assets/index-CUonDTMU.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-Cb5YPJaM.css",
+      "target": "public/admin/assets/index-Cb5YPJaM.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-CcT2H2PC.js",
+      "target": "public/admin/assets/index-CcT2H2PC.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-CfYGRQiX.css",
+      "target": "public/admin/assets/index-CfYGRQiX.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-CkmXLSNP.js",
+      "target": "public/admin/assets/index-CkmXLSNP.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-ClY5pi2F.js",
+      "target": "public/admin/assets/index-ClY5pi2F.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-CmCov5-w.js",
+      "target": "public/admin/assets/index-CmCov5-w.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-CpZEXWl0.js",
+      "target": "public/admin/assets/index-CpZEXWl0.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-CrW3LH6C.js",
+      "target": "public/admin/assets/index-CrW3LH6C.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-Cs6XXzTO.js",
+      "target": "public/admin/assets/index-Cs6XXzTO.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-Cu3eYfzq.js",
+      "target": "public/admin/assets/index-Cu3eYfzq.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-CuEkjHs_.js",
+      "target": "public/admin/assets/index-CuEkjHs_.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-Cus230gg.js",
+      "target": "public/admin/assets/index-Cus230gg.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-CyZk3MMw.js",
+      "target": "public/admin/assets/index-CyZk3MMw.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-D1AXyGK1.js",
+      "target": "public/admin/assets/index-D1AXyGK1.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-D3wHPdTL.js",
+      "target": "public/admin/assets/index-D3wHPdTL.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-D7kmOKok.css",
+      "target": "public/admin/assets/index-D7kmOKok.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-DFOSGz6b.js",
+      "target": "public/admin/assets/index-DFOSGz6b.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-DJRAzhsm.js",
+      "target": "public/admin/assets/index-DJRAzhsm.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-DNCpQzcN.css",
+      "target": "public/admin/assets/index-DNCpQzcN.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-DNHzb3eL.css",
+      "target": "public/admin/assets/index-DNHzb3eL.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-DNWLVW9I.js",
+      "target": "public/admin/assets/index-DNWLVW9I.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-DUe8cBUr.css",
+      "target": "public/admin/assets/index-DUe8cBUr.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-DX96drV3.css",
+      "target": "public/admin/assets/index-DX96drV3.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-DXg6oGyW.js",
+      "target": "public/admin/assets/index-DXg6oGyW.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-DYiFrCiq.js",
+      "target": "public/admin/assets/index-DYiFrCiq.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-DdUfYRvs.css",
+      "target": "public/admin/assets/index-DdUfYRvs.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-DmZonpue.js",
+      "target": "public/admin/assets/index-DmZonpue.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-DpNvejvB.js",
+      "target": "public/admin/assets/index-DpNvejvB.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-Dv54NnpZ.js",
+      "target": "public/admin/assets/index-Dv54NnpZ.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-Dw7WkRzs.css",
+      "target": "public/admin/assets/index-Dw7WkRzs.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-Dxqw4Ofh.css",
+      "target": "public/admin/assets/index-Dxqw4Ofh.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-DyhbBHpL.js",
+      "target": "public/admin/assets/index-DyhbBHpL.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-Eo_heikn.css",
+      "target": "public/admin/assets/index-Eo_heikn.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-LUdu8h8B.js",
+      "target": "public/admin/assets/index-LUdu8h8B.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-Mldbxd_n.css",
+      "target": "public/admin/assets/index-Mldbxd_n.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-OixeaFP1.js",
+      "target": "public/admin/assets/index-OixeaFP1.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-QTARZBbw.css",
+      "target": "public/admin/assets/index-QTARZBbw.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-S8dyk1zd.js",
+      "target": "public/admin/assets/index-S8dyk1zd.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-Ux--y5iG.js",
+      "target": "public/admin/assets/index-Ux--y5iG.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-i5gw-_EW.js",
+      "target": "public/admin/assets/index-i5gw-_EW.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-jk8obubp.css",
+      "target": "public/admin/assets/index-jk8obubp.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-qDXCwFfB.js",
+      "target": "public/admin/assets/index-qDXCwFfB.js"
+    },
+    {
+      "source": "frontend/admin/assets/index-tar3HCoa.css",
+      "target": "public/admin/assets/index-tar3HCoa.css"
+    },
+    {
+      "source": "frontend/admin/assets/index-ulTHGG45.js",
+      "target": "public/admin/assets/index-ulTHGG45.js"
+    },
+    {
+      "source": "frontend/admin/assets/index.vue_vue_type_script_setup_true_lang-CL_QXClB.js",
+      "target": "public/admin/assets/index.vue_vue_type_script_setup_true_lang-CL_QXClB.js"
+    },
+    {
+      "source": "frontend/admin/assets/index.vue_vue_type_script_setup_true_lang-CiwyBk5a.js",
+      "target": "public/admin/assets/index.vue_vue_type_script_setup_true_lang-CiwyBk5a.js"
+    },
+    {
+      "source": "frontend/admin/assets/index.vue_vue_type_script_setup_true_lang-DC3JgavM.js",
+      "target": "public/admin/assets/index.vue_vue_type_script_setup_true_lang-DC3JgavM.js"
+    },
+    {
+      "source": "frontend/admin/assets/index.vue_vue_type_script_setup_true_lang-bDEZffU_.js",
+      "target": "public/admin/assets/index.vue_vue_type_script_setup_true_lang-bDEZffU_.js"
+    },
+    {
+      "source": "frontend/admin/assets/index.vue_vue_type_script_setup_true_lang-yhlCVVtb.js",
+      "target": "public/admin/assets/index.vue_vue_type_script_setup_true_lang-yhlCVVtb.js"
+    },
+    {
+      "source": "frontend/admin/assets/index.vue_vue_type_style_index_0_lang-DCMLIPxs.js",
+      "target": "public/admin/assets/index.vue_vue_type_style_index_0_lang-DCMLIPxs.js"
+    },
+    {
+      "source": "frontend/admin/assets/information-CePM676X.css",
+      "target": "public/admin/assets/information-CePM676X.css"
+    },
+    {
+      "source": "frontend/admin/assets/information-DMQmv3CX.js",
+      "target": "public/admin/assets/information-DMQmv3CX.js"
+    },
+    {
+      "source": "frontend/admin/assets/inspiration-7mDesnAv.css",
+      "target": "public/admin/assets/inspiration-7mDesnAv.css"
+    },
+    {
+      "source": "frontend/admin/assets/inspiration-hm5sPBPN.js",
+      "target": "public/admin/assets/inspiration-hm5sPBPN.js"
+    },
+    {
+      "source": "frontend/admin/assets/journal-S4dqFmZI.js",
+      "target": "public/admin/assets/journal-S4dqFmZI.js"
+    },
+    {
+      "source": "frontend/admin/assets/keyword_reply-D7SDRPoY.js",
+      "target": "public/admin/assets/keyword_reply-D7SDRPoY.js"
+    },
+    {
+      "source": "frontend/admin/assets/keyword_reply.vue_vue_type_script_setup_true_lang-DMh5mEnL.js",
+      "target": "public/admin/assets/keyword_reply.vue_vue_type_script_setup_true_lang-DMh5mEnL.js"
+    },
+    {
+      "source": "frontend/admin/assets/link-DUlTigAF.js",
+      "target": "public/admin/assets/link-DUlTigAF.js"
+    },
+    {
+      "source": "frontend/admin/assets/login-Cjj_nf2g.css",
+      "target": "public/admin/assets/login-Cjj_nf2g.css"
+    },
+    {
+      "source": "frontend/admin/assets/login-CrMAYX6b.js",
+      "target": "public/admin/assets/login-CrMAYX6b.js"
+    },
+    {
+      "source": "frontend/admin/assets/login_bg-BkIjQ0FB.png",
+      "target": "public/admin/assets/login_bg-BkIjQ0FB.png"
+    },
+    {
+      "source": "frontend/admin/assets/login_register-DeP0lys_.js",
+      "target": "public/admin/assets/login_register-DeP0lys_.js"
+    },
+    {
+      "source": "frontend/admin/assets/market-B0HEozjm.css",
+      "target": "public/admin/assets/market-B0HEozjm.css"
+    },
+    {
+      "source": "frontend/admin/assets/market-DX2K69b4.js",
+      "target": "public/admin/assets/market-DX2K69b4.js"
+    },
+    {
+      "source": "frontend/admin/assets/material-page-BZvk4er-.css",
+      "target": "public/admin/assets/material-page-BZvk4er-.css"
+    },
+    {
+      "source": "frontend/admin/assets/material-page-DFMsirFT.js",
+      "target": "public/admin/assets/material-page-DFMsirFT.js"
+    },
+    {
+      "source": "frontend/admin/assets/membership_order-D7wPJuBR.js",
+      "target": "public/admin/assets/membership_order-D7wPJuBR.js"
+    },
+    {
+      "source": "frontend/admin/assets/membership_plan-C4nD6eed.js",
+      "target": "public/admin/assets/membership_plan-C4nD6eed.js"
+    },
+    {
+      "source": "frontend/admin/assets/menu-BU9G7OAc.js",
+      "target": "public/admin/assets/menu-BU9G7OAc.js"
+    },
+    {
+      "source": "frontend/admin/assets/menu-CqU6wxuV.js",
+      "target": "public/admin/assets/menu-CqU6wxuV.js"
+    },
+    {
+      "source": "frontend/admin/assets/menu-CymHYt-e.js",
+      "target": "public/admin/assets/menu-CymHYt-e.js"
+    },
+    {
+      "source": "frontend/admin/assets/menu-set-DvmCrEQ0.js",
+      "target": "public/admin/assets/menu-set-DvmCrEQ0.js"
+    },
+    {
+      "source": "frontend/admin/assets/menu-set.vue_vue_type_script_setup_true_lang-B8diuyLk.js",
+      "target": "public/admin/assets/menu-set.vue_vue_type_script_setup_true_lang-B8diuyLk.js"
+    },
+    {
+      "source": "frontend/admin/assets/menu-usw4ITBD.css",
+      "target": "public/admin/assets/menu-usw4ITBD.css"
+    },
+    {
+      "source": "frontend/admin/assets/message-Rvzpu9Kf.js",
+      "target": "public/admin/assets/message-Rvzpu9Kf.js"
+    },
+    {
+      "source": "frontend/admin/assets/miniprogram-B0LDGqph.js",
+      "target": "public/admin/assets/miniprogram-B0LDGqph.js"
+    },
+    {
+      "source": "frontend/admin/assets/miniprogram-BtTm5xKq.css",
+      "target": "public/admin/assets/miniprogram-BtTm5xKq.css"
+    },
+    {
+      "source": "frontend/admin/assets/mobile-content-layout-Cg7Q-NEA.js",
+      "target": "public/admin/assets/mobile-content-layout-Cg7Q-NEA.js"
+    },
+    {
+      "source": "frontend/admin/assets/mobile-style-rQFNG8ou.js",
+      "target": "public/admin/assets/mobile-style-rQFNG8ou.js"
+    },
+    {
+      "source": "frontend/admin/assets/mobile-style.vue_vue_type_script_setup_true_lang-Box7qqIH.js",
+      "target": "public/admin/assets/mobile-style.vue_vue_type_script_setup_true_lang-Box7qqIH.js"
+    },
+    {
+      "source": "frontend/admin/assets/model-BPkOU9FB.js",
+      "target": "public/admin/assets/model-BPkOU9FB.js"
+    },
+    {
+      "source": "frontend/admin/assets/model-BbnCuRF-.css",
+      "target": "public/admin/assets/model-BbnCuRF-.css"
+    },
+    {
+      "source": "frontend/admin/assets/model-pKm042FB.js",
+      "target": "public/admin/assets/model-pKm042FB.js"
+    },
+    {
+      "source": "frontend/admin/assets/module-CzAnSJqC.js",
+      "target": "public/admin/assets/module-CzAnSJqC.js"
+    },
+    {
+      "source": "frontend/admin/assets/module-vh6vNcqU.css",
+      "target": "public/admin/assets/module-vh6vNcqU.css"
+    },
+    {
+      "source": "frontend/admin/assets/my_topbg-BiU0PleK.png",
+      "target": "public/admin/assets/my_topbg-BiU0PleK.png"
+    },
+    {
+      "source": "frontend/admin/assets/nav-bar-bg-BSqkdqKB.js",
+      "target": "public/admin/assets/nav-bar-bg-BSqkdqKB.js"
+    },
+    {
+      "source": "frontend/admin/assets/nested-widget-preview-BEKE99tu.js",
+      "target": "public/admin/assets/nested-widget-preview-BEKE99tu.js"
+    },
+    {
+      "source": "frontend/admin/assets/nested-widget-preview-IOI7t4kc.css",
+      "target": "public/admin/assets/nested-widget-preview-IOI7t4kc.css"
+    },
+    {
+      "source": "frontend/admin/assets/no_perms-jDxcYpYC.png",
+      "target": "public/admin/assets/no_perms-jDxcYpYC.png"
+    },
+    {
+      "source": "frontend/admin/assets/oa-attr-CxCbyQHl.js",
+      "target": "public/admin/assets/oa-attr-CxCbyQHl.js"
+    },
+    {
+      "source": "frontend/admin/assets/oa-menu-form-Ck5zTgmE.js",
+      "target": "public/admin/assets/oa-menu-form-Ck5zTgmE.js"
+    },
+    {
+      "source": "frontend/admin/assets/oa-menu-form-edit-BmflL9sO.js",
+      "target": "public/admin/assets/oa-menu-form-edit-BmflL9sO.js"
+    },
+    {
+      "source": "frontend/admin/assets/oa-menu-form-edit.vue_vue_type_script_setup_true_lang-DLK1NZew.js",
+      "target": "public/admin/assets/oa-menu-form-edit.vue_vue_type_script_setup_true_lang-DLK1NZew.js"
+    },
+    {
+      "source": "frontend/admin/assets/oa-menu-form.vue_vue_type_script_setup_true_lang-CsIJH8sw.js",
+      "target": "public/admin/assets/oa-menu-form.vue_vue_type_script_setup_true_lang-CsIJH8sw.js"
+    },
+    {
+      "source": "frontend/admin/assets/oa-phone-BRW7628s.js",
+      "target": "public/admin/assets/oa-phone-BRW7628s.js"
+    },
+    {
+      "source": "frontend/admin/assets/oa-phone-Drs4Fq6t.css",
+      "target": "public/admin/assets/oa-phone-Drs4Fq6t.css"
+    },
+    {
+      "source": "frontend/admin/assets/official-DX8mKqJQ.js",
+      "target": "public/admin/assets/official-DX8mKqJQ.js"
+    },
+    {
+      "source": "frontend/admin/assets/official-wxO4fYk-.css",
+      "target": "public/admin/assets/official-wxO4fYk-.css"
+    },
+    {
+      "source": "frontend/admin/assets/open_platform-w21UF9TM.js",
+      "target": "public/admin/assets/open_platform-w21UF9TM.js"
+    },
+    {
+      "source": "frontend/admin/assets/open_setting-C9ILHh3E.js",
+      "target": "public/admin/assets/open_setting-C9ILHh3E.js"
+    },
+    {
+      "source": "frontend/admin/assets/open_setting.vue_vue_type_script_setup_true_name_wxDevConfig_lang-BiWigWNz.js",
+      "target": "public/admin/assets/open_setting.vue_vue_type_script_setup_true_name_wxDevConfig_lang-BiWigWNz.js"
+    },
+    {
+      "source": "frontend/admin/assets/option-CyoeeKa6.css",
+      "target": "public/admin/assets/option-CyoeeKa6.css"
+    },
+    {
+      "source": "frontend/admin/assets/option-Dam4Y4BM.js",
+      "target": "public/admin/assets/option-Dam4Y4BM.js"
+    },
+    {
+      "source": "frontend/admin/assets/order-COL-qKTq.js",
+      "target": "public/admin/assets/order-COL-qKTq.js"
+    },
+    {
+      "source": "frontend/admin/assets/order-DAzgqokv.js",
+      "target": "public/admin/assets/order-DAzgqokv.js"
+    },
+    {
+      "source": "frontend/admin/assets/overflow-DJnA94KQ.js",
+      "target": "public/admin/assets/overflow-DJnA94KQ.js"
+    },
+    {
+      "source": "frontend/admin/assets/overview-BS3zmjGm.css",
+      "target": "public/admin/assets/overview-BS3zmjGm.css"
+    },
+    {
+      "source": "frontend/admin/assets/overview-DIIbyeEM.js",
+      "target": "public/admin/assets/overview-DIIbyeEM.js"
+    },
+    {
+      "source": "frontend/admin/assets/package-DqphphJA.js",
+      "target": "public/admin/assets/package-DqphphJA.js"
+    },
+    {
+      "source": "frontend/admin/assets/package_rule-DOwjvN3r.js",
+      "target": "public/admin/assets/package_rule-DOwjvN3r.js"
+    },
+    {
+      "source": "frontend/admin/assets/pay-CI3ZVOSG.js",
+      "target": "public/admin/assets/pay-CI3ZVOSG.js"
+    },
+    {
+      "source": "frontend/admin/assets/pc--uDBfDpl.js",
+      "target": "public/admin/assets/pc--uDBfDpl.js"
+    },
+    {
+      "source": "frontend/admin/assets/pc-D_krLVb_.js",
+      "target": "public/admin/assets/pc-D_krLVb_.js"
+    },
+    {
+      "source": "frontend/admin/assets/pc_details-Bors2wLm.css",
+      "target": "public/admin/assets/pc_details-Bors2wLm.css"
+    },
+    {
+      "source": "frontend/admin/assets/pc_details-CzcnJlHn.js",
+      "target": "public/admin/assets/pc_details-CzcnJlHn.js"
+    },
+    {
+      "source": "frontend/admin/assets/persona-0QoiggDr.css",
+      "target": "public/admin/assets/persona-0QoiggDr.css"
+    },
+    {
+      "source": "frontend/admin/assets/persona-BQ2vnDKs.js",
+      "target": "public/admin/assets/persona-BQ2vnDKs.js"
+    },
+    {
+      "source": "frontend/admin/assets/picker-BP95UcsW.css",
+      "target": "public/admin/assets/picker-BP95UcsW.css"
+    },
+    {
+      "source": "frontend/admin/assets/picker-CLhtH7st.css",
+      "target": "public/admin/assets/picker-CLhtH7st.css"
+    },
+    {
+      "source": "frontend/admin/assets/picker-CZW8axOp.js",
+      "target": "public/admin/assets/picker-CZW8axOp.js"
+    },
+    {
+      "source": "frontend/admin/assets/picker-Ok6bUECr.js",
+      "target": "public/admin/assets/picker-Ok6bUECr.js"
+    },
+    {
+      "source": "frontend/admin/assets/picker.vue_vue_type_script_setup_true_lang-BdSWGYr0.js",
+      "target": "public/admin/assets/picker.vue_vue_type_script_setup_true_lang-BdSWGYr0.js"
+    },
+    {
+      "source": "frontend/admin/assets/pink1-BWNZrP7C.png",
+      "target": "public/admin/assets/pink1-BWNZrP7C.png"
+    },
+    {
+      "source": "frontend/admin/assets/pink2-BpEp33zy.png",
+      "target": "public/admin/assets/pink2-BpEp33zy.png"
+    },
+    {
+      "source": "frontend/admin/assets/pink3-BxZ4Y6CS.png",
+      "target": "public/admin/assets/pink3-BxZ4Y6CS.png"
+    },
+    {
+      "source": "frontend/admin/assets/point-unit-C9WxcyRs.js",
+      "target": "public/admin/assets/point-unit-C9WxcyRs.js"
+    },
+    {
+      "source": "frontend/admin/assets/popover_input-BePZhU-s.js",
+      "target": "public/admin/assets/popover_input-BePZhU-s.js"
+    },
+    {
+      "source": "frontend/admin/assets/post-DSFs_dsr.js",
+      "target": "public/admin/assets/post-DSFs_dsr.js"
+    },
+    {
+      "source": "frontend/admin/assets/power_mall-Beupajt6.js",
+      "target": "public/admin/assets/power_mall-Beupajt6.js"
+    },
+    {
+      "source": "frontend/admin/assets/preview-BTclJwCN.css",
+      "target": "public/admin/assets/preview-BTclJwCN.css"
+    },
+    {
+      "source": "frontend/admin/assets/preview-C1-nwTwm.css",
+      "target": "public/admin/assets/preview-C1-nwTwm.css"
+    },
+    {
+      "source": "frontend/admin/assets/preview-Ca4v4uIk.js",
+      "target": "public/admin/assets/preview-Ca4v4uIk.js"
+    },
+    {
+      "source": "frontend/admin/assets/preview-CqAIoshc.js",
+      "target": "public/admin/assets/preview-CqAIoshc.js"
+    },
+    {
+      "source": "frontend/admin/assets/preview-pc-2lKpOnWI.js",
+      "target": "public/admin/assets/preview-pc-2lKpOnWI.js"
+    },
+    {
+      "source": "frontend/admin/assets/preview-pc-CLzr-Jhu.css",
+      "target": "public/admin/assets/preview-pc-CLzr-Jhu.css"
+    },
+    {
+      "source": "frontend/admin/assets/preview-pc-visual-7zbHEfQN.js",
+      "target": "public/admin/assets/preview-pc-visual-7zbHEfQN.js"
+    },
+    {
+      "source": "frontend/admin/assets/preview-pc-visual-DcIZEj_Y.css",
+      "target": "public/admin/assets/preview-pc-visual-DcIZEj_Y.css"
+    },
+    {
+      "source": "frontend/admin/assets/preview-pc-wysiwyg-BeMmG6qg.js",
+      "target": "public/admin/assets/preview-pc-wysiwyg-BeMmG6qg.js"
+    },
+    {
+      "source": "frontend/admin/assets/preview-pc-wysiwyg-DTHjnjTc.css",
+      "target": "public/admin/assets/preview-pc-wysiwyg-DTHjnjTc.css"
+    },
+    {
+      "source": "frontend/admin/assets/price-7xpHe3lg.css",
+      "target": "public/admin/assets/price-7xpHe3lg.css"
+    },
+    {
+      "source": "frontend/admin/assets/price-92j8BMKD.js",
+      "target": "public/admin/assets/price-92j8BMKD.js"
+    },
+    {
+      "source": "frontend/admin/assets/price-BFE-ee5h.js",
+      "target": "public/admin/assets/price-BFE-ee5h.js"
+    },
+    {
+      "source": "frontend/admin/assets/price-BWdDjK2P.css",
+      "target": "public/admin/assets/price-BWdDjK2P.css"
+    },
+    {
+      "source": "frontend/admin/assets/price-BeFvnzUS.js",
+      "target": "public/admin/assets/price-BeFvnzUS.js"
+    },
+    {
+      "source": "frontend/admin/assets/price-BnI_96u5.css",
+      "target": "public/admin/assets/price-BnI_96u5.css"
+    },
+    {
+      "source": "frontend/admin/assets/price-C4_2A37J.js",
+      "target": "public/admin/assets/price-C4_2A37J.js"
+    },
+    {
+      "source": "frontend/admin/assets/price-CHEg4xR3.js",
+      "target": "public/admin/assets/price-CHEg4xR3.js"
+    },
+    {
+      "source": "frontend/admin/assets/price-CS_p99xc.css",
+      "target": "public/admin/assets/price-CS_p99xc.css"
+    },
+    {
+      "source": "frontend/admin/assets/price-CWpgJVeE.js",
+      "target": "public/admin/assets/price-CWpgJVeE.js"
+    },
+    {
+      "source": "frontend/admin/assets/price-Cp4pfuJq.css",
+      "target": "public/admin/assets/price-Cp4pfuJq.css"
+    },
+    {
+      "source": "frontend/admin/assets/price-D0aTqJEk.css",
+      "target": "public/admin/assets/price-D0aTqJEk.css"
+    },
+    {
+      "source": "frontend/admin/assets/price-DTivEPzl.css",
+      "target": "public/admin/assets/price-DTivEPzl.css"
+    },
+    {
+      "source": "frontend/admin/assets/price-Dc0tijkw.js",
+      "target": "public/admin/assets/price-Dc0tijkw.js"
+    },
+    {
+      "source": "frontend/admin/assets/price-Dg8Hz1oE.js",
+      "target": "public/admin/assets/price-Dg8Hz1oE.js"
+    },
+    {
+      "source": "frontend/admin/assets/price-DhusHYCg.css",
+      "target": "public/admin/assets/price-DhusHYCg.css"
+    },
+    {
+      "source": "frontend/admin/assets/price-DxwhepKi.css",
+      "target": "public/admin/assets/price-DxwhepKi.css"
+    },
+    {
+      "source": "frontend/admin/assets/price-TB8TT1Zt.js",
+      "target": "public/admin/assets/price-TB8TT1Zt.js"
+    },
+    {
+      "source": "frontend/admin/assets/price-grav_Vrt.css",
+      "target": "public/admin/assets/price-grav_Vrt.css"
+    },
+    {
+      "source": "frontend/admin/assets/price-kCIBKOOE.js",
+      "target": "public/admin/assets/price-kCIBKOOE.js"
+    },
+    {
+      "source": "frontend/admin/assets/project-B4G5wj9e.js",
+      "target": "public/admin/assets/project-B4G5wj9e.js"
+    },
+    {
+      "source": "frontend/admin/assets/project-BxP9BIP9.js",
+      "target": "public/admin/assets/project-BxP9BIP9.js"
+    },
+    {
+      "source": "frontend/admin/assets/promoter-1D_-lB4D.js",
+      "target": "public/admin/assets/promoter-1D_-lB4D.js"
+    },
+    {
+      "source": "frontend/admin/assets/prompt-DfzfdW5p.js",
+      "target": "public/admin/assets/prompt-DfzfdW5p.js"
+    },
+    {
+      "source": "frontend/admin/assets/prompt-DzwRyjQu.css",
+      "target": "public/admin/assets/prompt-DzwRyjQu.css"
+    },
+    {
+      "source": "frontend/admin/assets/protocol-BJ5nl6Dx.js",
+      "target": "public/admin/assets/protocol-BJ5nl6Dx.js"
+    },
+    {
+      "source": "frontend/admin/assets/public-avatar-CZPCLgqA.css",
+      "target": "public/admin/assets/public-avatar-CZPCLgqA.css"
+    },
+    {
+      "source": "frontend/admin/assets/public-avatar-D4BqV-LE.css",
+      "target": "public/admin/assets/public-avatar-D4BqV-LE.css"
+    },
+    {
+      "source": "frontend/admin/assets/public-avatar-DJS9hB1n.js",
+      "target": "public/admin/assets/public-avatar-DJS9hB1n.js"
+    },
+    {
+      "source": "frontend/admin/assets/public-avatar-KYbPMTtk.js",
+      "target": "public/admin/assets/public-avatar-KYbPMTtk.js"
+    },
+    {
+      "source": "frontend/admin/assets/public-avatar-Xu_6dETN.js",
+      "target": "public/admin/assets/public-avatar-Xu_6dETN.js"
+    },
+    {
+      "source": "frontend/admin/assets/public-avatar-fktkXE5-.css",
+      "target": "public/admin/assets/public-avatar-fktkXE5-.css"
+    },
+    {
+      "source": "frontend/admin/assets/public-voice-BFdgemN_.css",
+      "target": "public/admin/assets/public-voice-BFdgemN_.css"
+    },
+    {
+      "source": "frontend/admin/assets/public-voice-BggLiqHK.js",
+      "target": "public/admin/assets/public-voice-BggLiqHK.js"
+    },
+    {
+      "source": "frontend/admin/assets/public-voice-Bl-6SvdW.css",
+      "target": "public/admin/assets/public-voice-Bl-6SvdW.css"
+    },
+    {
+      "source": "frontend/admin/assets/public-voice-BmQitgxu.js",
+      "target": "public/admin/assets/public-voice-BmQitgxu.js"
+    },
+    {
+      "source": "frontend/admin/assets/public-voice-BvkGAJHn.js",
+      "target": "public/admin/assets/public-voice-BvkGAJHn.js"
+    },
+    {
+      "source": "frontend/admin/assets/public-voice-CnmDoVVw.js",
+      "target": "public/admin/assets/public-voice-CnmDoVVw.js"
+    },
+    {
+      "source": "frontend/admin/assets/public-voice-IGihWlPY.css",
+      "target": "public/admin/assets/public-voice-IGihWlPY.css"
+    },
+    {
+      "source": "frontend/admin/assets/public-voice-PvsDTkCV.css",
+      "target": "public/admin/assets/public-voice-PvsDTkCV.css"
+    },
+    {
+      "source": "frontend/admin/assets/purple1-BpMq9FWz.png",
+      "target": "public/admin/assets/purple1-BpMq9FWz.png"
+    },
+    {
+      "source": "frontend/admin/assets/purple2-C0tQkldV.png",
+      "target": "public/admin/assets/purple2-C0tQkldV.png"
+    },
+    {
+      "source": "frontend/admin/assets/purple3-BGd0LxTa.png",
+      "target": "public/admin/assets/purple3-BGd0LxTa.png"
+    },
+    {
+      "source": "frontend/admin/assets/px-stepper-DHF-XHKr.css",
+      "target": "public/admin/assets/px-stepper-DHF-XHKr.css"
+    },
+    {
+      "source": "frontend/admin/assets/px-stepper-yoEVAxZj.js",
+      "target": "public/admin/assets/px-stepper-yoEVAxZj.js"
+    },
+    {
+      "source": "frontend/admin/assets/quota-CD9JDH_a.js",
+      "target": "public/admin/assets/quota-CD9JDH_a.js"
+    },
+    {
+      "source": "frontend/admin/assets/quota-CSSy8rHp.js",
+      "target": "public/admin/assets/quota-CSSy8rHp.js"
+    },
+    {
+      "source": "frontend/admin/assets/quota-Cdqjfxqz.js",
+      "target": "public/admin/assets/quota-Cdqjfxqz.js"
+    },
+    {
+      "source": "frontend/admin/assets/quota-CuwE5D9n.js",
+      "target": "public/admin/assets/quota-CuwE5D9n.js"
+    },
+    {
+      "source": "frontend/admin/assets/recharge_package-CFpkxYu9.js",
+      "target": "public/admin/assets/recharge_package-CFpkxYu9.js"
+    },
+    {
+      "source": "frontend/admin/assets/recharge_record-Bf_LPTn4.js",
+      "target": "public/admin/assets/recharge_record-Bf_LPTn4.js"
+    },
+    {
+      "source": "frontend/admin/assets/records-DBhfn5UG.js",
+      "target": "public/admin/assets/records-DBhfn5UG.js"
+    },
+    {
+      "source": "frontend/admin/assets/red1-C6Y3UuNB.png",
+      "target": "public/admin/assets/red1-C6Y3UuNB.png"
+    },
+    {
+      "source": "frontend/admin/assets/red2-Dw8p71sP.png",
+      "target": "public/admin/assets/red2-Dw8p71sP.png"
+    },
+    {
+      "source": "frontend/admin/assets/red3-NOuWP8DK.png",
+      "target": "public/admin/assets/red3-NOuWP8DK.png"
+    },
+    {
+      "source": "frontend/admin/assets/refund-log-CmmStAAY.js",
+      "target": "public/admin/assets/refund-log-CmmStAAY.js"
+    },
+    {
+      "source": "frontend/admin/assets/refund-log.vue_vue_type_script_setup_true_lang-XIAi1-Su.js",
+      "target": "public/admin/assets/refund-log.vue_vue_type_script_setup_true_lang-XIAi1-Su.js"
+    },
+    {
+      "source": "frontend/admin/assets/refund_record-I4J-UMsK.js",
+      "target": "public/admin/assets/refund_record-I4J-UMsK.js"
+    },
+    {
+      "source": "frontend/admin/assets/relation-hZmapTj8.js",
+      "target": "public/admin/assets/relation-hZmapTj8.js"
+    },
+    {
+      "source": "frontend/admin/assets/relations-add-CxXypIZi.js",
+      "target": "public/admin/assets/relations-add-CxXypIZi.js"
+    },
+    {
+      "source": "frontend/admin/assets/relations-add.vue_vue_type_script_setup_true_lang-Bbmk5gJB.js",
+      "target": "public/admin/assets/relations-add.vue_vue_type_script_setup_true_lang-Bbmk5gJB.js"
+    },
+    {
+      "source": "frontend/admin/assets/restore-type-DzK1g7U1.js",
+      "target": "public/admin/assets/restore-type-DzK1g7U1.js"
+    },
+    {
+      "source": "frontend/admin/assets/rich_text-BYbp5A2K.js",
+      "target": "public/admin/assets/rich_text-BYbp5A2K.js"
+    },
+    {
+      "source": "frontend/admin/assets/role-D3lBiTS6.js",
+      "target": "public/admin/assets/role-D3lBiTS6.js"
+    },
+    {
+      "source": "frontend/admin/assets/run-7WWWvLR2.js",
+      "target": "public/admin/assets/run-7WWWvLR2.js"
+    },
+    {
+      "source": "frontend/admin/assets/run-Jw4683cH.css",
+      "target": "public/admin/assets/run-Jw4683cH.css"
+    },
+    {
+      "source": "frontend/admin/assets/scene-task-jpLOe0N3.js",
+      "target": "public/admin/assets/scene-task-jpLOe0N3.js"
+    },
+    {
+      "source": "frontend/admin/assets/sensitive-word-B76BtUDR.js",
+      "target": "public/admin/assets/sensitive-word-B76BtUDR.js"
+    },
+    {
+      "source": "frontend/admin/assets/sensitive-word-Bk2epIAk.js",
+      "target": "public/admin/assets/sensitive-word-Bk2epIAk.js"
+    },
+    {
+      "source": "frontend/admin/assets/sensitive-word-Bs1K9R3L.js",
+      "target": "public/admin/assets/sensitive-word-Bs1K9R3L.js"
+    },
+    {
+      "source": "frontend/admin/assets/sensitive-word-CFubn2vH.js",
+      "target": "public/admin/assets/sensitive-word-CFubn2vH.js"
+    },
+    {
+      "source": "frontend/admin/assets/sensitive-word-W6jBYVXV.js",
+      "target": "public/admin/assets/sensitive-word-W6jBYVXV.js"
+    },
+    {
+      "source": "frontend/admin/assets/session-BT7lyVif.css",
+      "target": "public/admin/assets/session-BT7lyVif.css"
+    },
+    {
+      "source": "frontend/admin/assets/session-KHfbCD2P.js",
+      "target": "public/admin/assets/session-KHfbCD2P.js"
+    },
+    {
+      "source": "frontend/admin/assets/setting-DwuUGU1M.js",
+      "target": "public/admin/assets/setting-DwuUGU1M.js"
+    },
+    {
+      "source": "frontend/admin/assets/settings-BMfncbzi.js",
+      "target": "public/admin/assets/settings-BMfncbzi.js"
+    },
+    {
+      "source": "frontend/admin/assets/setup-s-x0EaIV.js",
+      "target": "public/admin/assets/setup-s-x0EaIV.js"
+    },
+    {
+      "source": "frontend/admin/assets/shot-video-DCufa3ML.js",
+      "target": "public/admin/assets/shot-video-DCufa3ML.js"
+    },
+    {
+      "source": "frontend/admin/assets/skill-BamIvyVz.js",
+      "target": "public/admin/assets/skill-BamIvyVz.js"
+    },
+    {
+      "source": "frontend/admin/assets/skill-CckXBZu5.css",
+      "target": "public/admin/assets/skill-CckXBZu5.css"
+    },
+    {
+      "source": "frontend/admin/assets/skill-EmUnpLmu.js",
+      "target": "public/admin/assets/skill-EmUnpLmu.js"
+    },
+    {
+      "source": "frontend/admin/assets/stat-0okCBe6A.js",
+      "target": "public/admin/assets/stat-0okCBe6A.js"
+    },
+    {
+      "source": "frontend/admin/assets/stat-B3qqCRYo.js",
+      "target": "public/admin/assets/stat-B3qqCRYo.js"
+    },
+    {
+      "source": "frontend/admin/assets/stat-C8ZfX-UE.js",
+      "target": "public/admin/assets/stat-C8ZfX-UE.js"
+    },
+    {
+      "source": "frontend/admin/assets/stat-CEl1xWZz.css",
+      "target": "public/admin/assets/stat-CEl1xWZz.css"
+    },
+    {
+      "source": "frontend/admin/assets/stat-CmLHmdbh.js",
+      "target": "public/admin/assets/stat-CmLHmdbh.js"
+    },
+    {
+      "source": "frontend/admin/assets/stat-Cn_lbwz2.js",
+      "target": "public/admin/assets/stat-Cn_lbwz2.js"
+    },
+    {
+      "source": "frontend/admin/assets/stat-D6lrLDqn.js",
+      "target": "public/admin/assets/stat-D6lrLDqn.js"
+    },
+    {
+      "source": "frontend/admin/assets/stat-D9DqA_i0.js",
+      "target": "public/admin/assets/stat-D9DqA_i0.js"
+    },
+    {
+      "source": "frontend/admin/assets/stat-DlX_HRP0.js",
+      "target": "public/admin/assets/stat-DlX_HRP0.js"
+    },
+    {
+      "source": "frontend/admin/assets/stat-gmn_sZB_.js",
+      "target": "public/admin/assets/stat-gmn_sZB_.js"
+    },
+    {
+      "source": "frontend/admin/assets/statistics-CHZw4xqK.js",
+      "target": "public/admin/assets/statistics-CHZw4xqK.js"
+    },
+    {
+      "source": "frontend/admin/assets/storyboard-BnJDc1KY.js",
+      "target": "public/admin/assets/storyboard-BnJDc1KY.js"
+    },
+    {
+      "source": "frontend/admin/assets/style-C88xYZ8G.css",
+      "target": "public/admin/assets/style-C88xYZ8G.css"
+    },
+    {
+      "source": "frontend/admin/assets/style-D-lPM8gH.js",
+      "target": "public/admin/assets/style-D-lPM8gH.js"
+    },
+    {
+      "source": "frontend/admin/assets/style-DP7OZdVZ.js",
+      "target": "public/admin/assets/style-DP7OZdVZ.js"
+    },
+    {
+      "source": "frontend/admin/assets/style-D_2v5adB.js",
+      "target": "public/admin/assets/style-D_2v5adB.js"
+    },
+    {
+      "source": "frontend/admin/assets/subject-C9zmFkB9.css",
+      "target": "public/admin/assets/subject-C9zmFkB9.css"
+    },
+    {
+      "source": "frontend/admin/assets/subject-CaRYgF7T.js",
+      "target": "public/admin/assets/subject-CaRYgF7T.js"
+    },
+    {
+      "source": "frontend/admin/assets/subject-task-DMuiijF1.js",
+      "target": "public/admin/assets/subject-task-DMuiijF1.js"
+    },
+    {
+      "source": "frontend/admin/assets/tabbar-BJYCKZyb.css",
+      "target": "public/admin/assets/tabbar-BJYCKZyb.css"
+    },
+    {
+      "source": "frontend/admin/assets/tabbar-BUPCEKLM.js",
+      "target": "public/admin/assets/tabbar-BUPCEKLM.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-5u-Wz4Au.css",
+      "target": "public/admin/assets/task-5u-Wz4Au.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-70sHuBrI.js",
+      "target": "public/admin/assets/task-70sHuBrI.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-7g1kn5M1.js",
+      "target": "public/admin/assets/task-7g1kn5M1.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-B3tcyVlE.js",
+      "target": "public/admin/assets/task-B3tcyVlE.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-B73XRnCm.css",
+      "target": "public/admin/assets/task-B73XRnCm.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-B9yhMEmI.js",
+      "target": "public/admin/assets/task-B9yhMEmI.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-BBKqUWAp.js",
+      "target": "public/admin/assets/task-BBKqUWAp.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-BPBPh9uE.js",
+      "target": "public/admin/assets/task-BPBPh9uE.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-BStjghdo.css",
+      "target": "public/admin/assets/task-BStjghdo.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-BUj1PdYw.js",
+      "target": "public/admin/assets/task-BUj1PdYw.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-BfX9g8J5.css",
+      "target": "public/admin/assets/task-BfX9g8J5.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-Bho5tRCV.css",
+      "target": "public/admin/assets/task-Bho5tRCV.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-BibDv7dU.js",
+      "target": "public/admin/assets/task-BibDv7dU.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-Bl-dt47j.css",
+      "target": "public/admin/assets/task-Bl-dt47j.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-BlSMG0Da.js",
+      "target": "public/admin/assets/task-BlSMG0Da.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-BliI7z9a.css",
+      "target": "public/admin/assets/task-BliI7z9a.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-Bq03QSgm.css",
+      "target": "public/admin/assets/task-Bq03QSgm.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-BshCd8li.css",
+      "target": "public/admin/assets/task-BshCd8li.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-C5H-hYSO.css",
+      "target": "public/admin/assets/task-C5H-hYSO.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-C6P4qKha.css",
+      "target": "public/admin/assets/task-C6P4qKha.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-C7XeJZUm.js",
+      "target": "public/admin/assets/task-C7XeJZUm.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-C8Txh4UN.js",
+      "target": "public/admin/assets/task-C8Txh4UN.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-C8XNvqOT.css",
+      "target": "public/admin/assets/task-C8XNvqOT.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-CAcQa1CS.js",
+      "target": "public/admin/assets/task-CAcQa1CS.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-CF1gIBYo.js",
+      "target": "public/admin/assets/task-CF1gIBYo.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-CPzbIlbz.js",
+      "target": "public/admin/assets/task-CPzbIlbz.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-CU1yhisY.css",
+      "target": "public/admin/assets/task-CU1yhisY.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-Cb8qRBd3.js",
+      "target": "public/admin/assets/task-Cb8qRBd3.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-Cck3nhPL.js",
+      "target": "public/admin/assets/task-Cck3nhPL.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-CkH3Dutg.css",
+      "target": "public/admin/assets/task-CkH3Dutg.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-ClfIY_9T.css",
+      "target": "public/admin/assets/task-ClfIY_9T.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-CpeP74iU.css",
+      "target": "public/admin/assets/task-CpeP74iU.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-DFRWqT1A.js",
+      "target": "public/admin/assets/task-DFRWqT1A.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-DHPlncKp.js",
+      "target": "public/admin/assets/task-DHPlncKp.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-DRqtFOsv.js",
+      "target": "public/admin/assets/task-DRqtFOsv.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-Dk2LOUHj.js",
+      "target": "public/admin/assets/task-Dk2LOUHj.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-DywDNnEo.js",
+      "target": "public/admin/assets/task-DywDNnEo.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-GLRBpndZ.css",
+      "target": "public/admin/assets/task-GLRBpndZ.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-LXzLmDMS.css",
+      "target": "public/admin/assets/task-LXzLmDMS.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-WyUbXtsb.js",
+      "target": "public/admin/assets/task-WyUbXtsb.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-ZGhO1_D7.js",
+      "target": "public/admin/assets/task-ZGhO1_D7.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-b-ecpm0I.css",
+      "target": "public/admin/assets/task-b-ecpm0I.css"
+    },
+    {
+      "source": "frontend/admin/assets/task-cK5rzjay.js",
+      "target": "public/admin/assets/task-cK5rzjay.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-nvtmlMDX.js",
+      "target": "public/admin/assets/task-nvtmlMDX.js"
+    },
+    {
+      "source": "frontend/admin/assets/task-rA1mi_ry.css",
+      "target": "public/admin/assets/task-rA1mi_ry.css"
+    },
+    {
+      "source": "frontend/admin/assets/template-B1p-UvTW.css",
+      "target": "public/admin/assets/template-B1p-UvTW.css"
+    },
+    {
+      "source": "frontend/admin/assets/template-B8IIMHj_.js",
+      "target": "public/admin/assets/template-B8IIMHj_.js"
+    },
+    {
+      "source": "frontend/admin/assets/template-C1pEcuMk.css",
+      "target": "public/admin/assets/template-C1pEcuMk.css"
+    },
+    {
+      "source": "frontend/admin/assets/template-Cj9bZdqm.js",
+      "target": "public/admin/assets/template-Cj9bZdqm.js"
+    },
+    {
+      "source": "frontend/admin/assets/template-Pgo1pNDI.css",
+      "target": "public/admin/assets/template-Pgo1pNDI.css"
+    },
+    {
+      "source": "frontend/admin/assets/template-wQkYn-5K.js",
+      "target": "public/admin/assets/template-wQkYn-5K.js"
+    },
+    {
+      "source": "frontend/admin/assets/theme-picker-BQ5Q6IVl.js",
+      "target": "public/admin/assets/theme-picker-BQ5Q6IVl.js"
+    },
+    {
+      "source": "frontend/admin/assets/theme-picker-CUrGwaPq.css",
+      "target": "public/admin/assets/theme-picker-CUrGwaPq.css"
+    },
+    {
+      "source": "frontend/admin/assets/trace-BmJ8AVvz.css",
+      "target": "public/admin/assets/trace-BmJ8AVvz.css"
+    },
+    {
+      "source": "frontend/admin/assets/trace-BrS3HHCw.js",
+      "target": "public/admin/assets/trace-BrS3HHCw.js"
+    },
+    {
+      "source": "frontend/admin/assets/type-CDao9vjY.js",
+      "target": "public/admin/assets/type-CDao9vjY.js"
+    },
+    {
+      "source": "frontend/admin/assets/type-tTkNQ74t.css",
+      "target": "public/admin/assets/type-tTkNQ74t.css"
+    },
+    {
+      "source": "frontend/admin/assets/upload-Dp78nK5b.js",
+      "target": "public/admin/assets/upload-Dp78nK5b.js"
+    },
+    {
+      "source": "frontend/admin/assets/useAppTaskManualQuery-BsVccpEW.js",
+      "target": "public/admin/assets/useAppTaskManualQuery-BsVccpEW.js"
+    },
+    {
+      "source": "frontend/admin/assets/useDictOptions-YbuNPmkl.js",
+      "target": "public/admin/assets/useDictOptions-YbuNPmkl.js"
+    },
+    {
+      "source": "frontend/admin/assets/useLockFn-CThD4hTC.js",
+      "target": "public/admin/assets/useLockFn-CThD4hTC.js"
+    },
+    {
+      "source": "frontend/admin/assets/useMenuOa-CzJuC4Om.js",
+      "target": "public/admin/assets/useMenuOa-CzJuC4Om.js"
+    },
+    {
+      "source": "frontend/admin/assets/usePaging-B-OqUSom.js",
+      "target": "public/admin/assets/usePaging-B-OqUSom.js"
+    },
+    {
+      "source": "frontend/admin/assets/user-BZN6VC_8.js",
+      "target": "public/admin/assets/user-BZN6VC_8.js"
+    },
+    {
+      "source": "frontend/admin/assets/user-avatar-BCqB6a6G.js",
+      "target": "public/admin/assets/user-avatar-BCqB6a6G.js"
+    },
+    {
+      "source": "frontend/admin/assets/user-avatar-CeptqxMf.js",
+      "target": "public/admin/assets/user-avatar-CeptqxMf.js"
+    },
+    {
+      "source": "frontend/admin/assets/user-avatar-D-0Kv0vo.js",
+      "target": "public/admin/assets/user-avatar-D-0Kv0vo.js"
+    },
+    {
+      "source": "frontend/admin/assets/user-voice-B3Pbc2Td.js",
+      "target": "public/admin/assets/user-voice-B3Pbc2Td.js"
+    },
+    {
+      "source": "frontend/admin/assets/user-voice-DhvqRGZv.js",
+      "target": "public/admin/assets/user-voice-DhvqRGZv.js"
+    },
+    {
+      "source": "frontend/admin/assets/user-voice-RYFLk83S.js",
+      "target": "public/admin/assets/user-voice-RYFLk83S.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_ctrl_tinycolor-C4Rzlq_k.js",
+      "target": "public/admin/assets/vendor-_ctrl_tinycolor-C4Rzlq_k.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_element-plus_icons-vue-BRVaNYp4.js",
+      "target": "public/admin/assets/vendor-_element-plus_icons-vue-BRVaNYp4.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_floating-ui_core-ahqRXTuk.js",
+      "target": "public/admin/assets/vendor-_floating-ui_core-ahqRXTuk.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_floating-ui_dom-CgaYYgpU.js",
+      "target": "public/admin/assets/vendor-_floating-ui_dom-CgaYYgpU.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_floating-ui_utils-Bfzswmz-.js",
+      "target": "public/admin/assets/vendor-_floating-ui_utils-Bfzswmz-.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_highlightjs_vue-plugin-C_Ac0Jeq.js",
+      "target": "public/admin/assets/vendor-_highlightjs_vue-plugin-C_Ac0Jeq.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_sxzz_popperjs-es-C5az9QE8.js",
+      "target": "public/admin/assets/vendor-_sxzz_popperjs-es-C5az9QE8.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_vue_devtools-api-l0sNRNKZ.js",
+      "target": "public/admin/assets/vendor-_vue_devtools-api-l0sNRNKZ.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_vue_reactivity-DZPLlb4v.js",
+      "target": "public/admin/assets/vendor-_vue_reactivity-DZPLlb4v.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_vue_runtime-core-Ox2pSdeJ.js",
+      "target": "public/admin/assets/vendor-_vue_runtime-core-Ox2pSdeJ.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_vue_runtime-dom-c21E0Edh.js",
+      "target": "public/admin/assets/vendor-_vue_runtime-dom-c21E0Edh.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_vue_shared-CI_k6p-T.js",
+      "target": "public/admin/assets/vendor-_vue_shared-CI_k6p-T.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_vueuse_core-CPAxwCVX.js",
+      "target": "public/admin/assets/vendor-_vueuse_core-CPAxwCVX.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_vueuse_shared-QXW7XBQm.js",
+      "target": "public/admin/assets/vendor-_vueuse_shared-QXW7XBQm.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_wangeditor_editor-C0-GjYyL.js",
+      "target": "public/admin/assets/vendor-_wangeditor_editor-C0-GjYyL.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_wangeditor_editor-for-vue-2JRhp9vr.js",
+      "target": "public/admin/assets/vendor-_wangeditor_editor-for-vue-2JRhp9vr.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-_wangeditor_editor-nHDhGvq6.css",
+      "target": "public/admin/assets/vendor-_wangeditor_editor-nHDhGvq6.css"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-async-validator-9PlIezaS.js",
+      "target": "public/admin/assets/vendor-async-validator-9PlIezaS.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-axios-BpjWgUVE.js",
+      "target": "public/admin/assets/vendor-axios-BpjWgUVE.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-balanced-match-D4yLO45F.js",
+      "target": "public/admin/assets/vendor-balanced-match-D4yLO45F.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-clipboard-B3e4HGId.js",
+      "target": "public/admin/assets/vendor-clipboard-B3e4HGId.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-clone-CuIhj1wH.js",
+      "target": "public/admin/assets/vendor-clone-CuIhj1wH.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-color-B9VwcEAz.js",
+      "target": "public/admin/assets/vendor-color-B9VwcEAz.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-color-convert-CZ-IfC7E.js",
+      "target": "public/admin/assets/vendor-color-convert-CZ-IfC7E.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-color-name-azjA-L48.js",
+      "target": "public/admin/assets/vendor-color-name-azjA-L48.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-color-string-CmCQKYsR.js",
+      "target": "public/admin/assets/vendor-color-string-CmCQKYsR.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-css-color-function-wuSsSWAD.js",
+      "target": "public/admin/assets/vendor-css-color-function-wuSsSWAD.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-dayjs-DPYQlk74.js",
+      "target": "public/admin/assets/vendor-dayjs-DPYQlk74.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-debug-D5j7Sce9.js",
+      "target": "public/admin/assets/vendor-debug-D5j7Sce9.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-dijkstrajs-D_NXgYpA.js",
+      "target": "public/admin/assets/vendor-dijkstrajs-D_NXgYpA.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-echarts-wixNos6f.js",
+      "target": "public/admin/assets/vendor-echarts-wixNos6f.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-element-plus-CUn32zs5.css",
+      "target": "public/admin/assets/vendor-element-plus-CUn32zs5.css"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-element-plus-DmEQid2v.js",
+      "target": "public/admin/assets/vendor-element-plus-DmEQid2v.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-highlight_js-BfC0goYb.css",
+      "target": "public/admin/assets/vendor-highlight_js-BfC0goYb.css"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-highlight_js-Dgg-C7nS.js",
+      "target": "public/admin/assets/vendor-highlight_js-Dgg-C7nS.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-lodash-BcHYIY-i.js",
+      "target": "public/admin/assets/vendor-lodash-BcHYIY-i.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-lodash-es-DVGGNlzX.js",
+      "target": "public/admin/assets/vendor-lodash-es-DVGGNlzX.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-lodash-unified-l0sNRNKZ.js",
+      "target": "public/admin/assets/vendor-lodash-unified-l0sNRNKZ.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-memoize-one-BdPwpGay.js",
+      "target": "public/admin/assets/vendor-memoize-one-BdPwpGay.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-ms-CzQ2E3wO.js",
+      "target": "public/admin/assets/vendor-ms-CzQ2E3wO.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-normalize-wheel-es-BQoi3Ox2.js",
+      "target": "public/admin/assets/vendor-normalize-wheel-es-BQoi3Ox2.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-nprogress-CSXic_Zd.css",
+      "target": "public/admin/assets/vendor-nprogress-CSXic_Zd.css"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-nprogress-YfsRLVDS.js",
+      "target": "public/admin/assets/vendor-nprogress-YfsRLVDS.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-pinia-CgluFxdi.js",
+      "target": "public/admin/assets/vendor-pinia-CgluFxdi.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-qrcode-D3lYcMdI.js",
+      "target": "public/admin/assets/vendor-qrcode-D3lYcMdI.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-resize-detector-G6vbKCU7.js",
+      "target": "public/admin/assets/vendor-resize-detector-G6vbKCU7.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-sortablejs-gVEiXfOm.js",
+      "target": "public/admin/assets/vendor-sortablejs-gVEiXfOm.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-tslib-BDyQ-Jie.js",
+      "target": "public/admin/assets/vendor-tslib-BDyQ-Jie.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-vue-D2vW9ISv.js",
+      "target": "public/admin/assets/vendor-vue-D2vW9ISv.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-vue-clipboard3-BFQSK4SP.js",
+      "target": "public/admin/assets/vendor-vue-clipboard3-BFQSK4SP.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-vue-demi-l0sNRNKZ.js",
+      "target": "public/admin/assets/vendor-vue-demi-l0sNRNKZ.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-vue-echarts-Ch3Ijdng.js",
+      "target": "public/admin/assets/vendor-vue-echarts-Ch3Ijdng.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-vue-router-m3AD0hXH.js",
+      "target": "public/admin/assets/vendor-vue-router-m3AD0hXH.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-vue3-video-play-CmBwS5qX.css",
+      "target": "public/admin/assets/vendor-vue3-video-play-CmBwS5qX.css"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-vue3-video-play-DO_Hj6uH.js",
+      "target": "public/admin/assets/vendor-vue3-video-play-DO_Hj6uH.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-vuedraggable-BsAWmqIF.js",
+      "target": "public/admin/assets/vendor-vuedraggable-BsAWmqIF.js"
+    },
+    {
+      "source": "frontend/admin/assets/vendor-zrender-B5Fvf4Z1.js",
+      "target": "public/admin/assets/vendor-zrender-B5Fvf4Z1.js"
+    },
+    {
+      "source": "frontend/admin/assets/video-task-DQH08OvD.js",
+      "target": "public/admin/assets/video-task-DQH08OvD.js"
+    },
+    {
+      "source": "frontend/admin/assets/view-B_j6-OzP.css",
+      "target": "public/admin/assets/view-B_j6-OzP.css"
+    },
+    {
+      "source": "frontend/admin/assets/view-bAbTZkfq.js",
+      "target": "public/admin/assets/view-bAbTZkfq.js"
+    },
+    {
+      "source": "frontend/admin/assets/voice-Bmoku-IH.js",
+      "target": "public/admin/assets/voice-Bmoku-IH.js"
+    },
+    {
+      "source": "frontend/admin/assets/voice-ClG4Cx19.css",
+      "target": "public/admin/assets/voice-ClG4Cx19.css"
+    },
+    {
+      "source": "frontend/admin/assets/weapp-DZCxV6je.js",
+      "target": "public/admin/assets/weapp-DZCxV6je.js"
+    },
+    {
+      "source": "frontend/admin/assets/weapp-uyJmHT2U.js",
+      "target": "public/admin/assets/weapp-uyJmHT2U.js"
+    },
+    {
+      "source": "frontend/admin/assets/website-moehntWV.js",
+      "target": "public/admin/assets/website-moehntWV.js"
+    },
+    {
+      "source": "frontend/admin/assets/wechat-authorize-B6L4reVT.js",
+      "target": "public/admin/assets/wechat-authorize-B6L4reVT.js"
+    },
+    {
+      "source": "frontend/admin/assets/withdrawal-VuCgal_O.js",
+      "target": "public/admin/assets/withdrawal-VuCgal_O.js"
+    },
+    {
+      "source": "frontend/admin/assets/wx_oa-DrJFw7Tl.js",
+      "target": "public/admin/assets/wx_oa-DrJFw7Tl.js"
+    },
+    {
+      "source": "frontend/admin/assets/yellow1-Ebw0T5sw.png",
+      "target": "public/admin/assets/yellow1-Ebw0T5sw.png"
+    },
+    {
+      "source": "frontend/admin/assets/yellow2-B-WtqITJ.png",
+      "target": "public/admin/assets/yellow2-B-WtqITJ.png"
+    },
+    {
+      "source": "frontend/admin/assets/yellow3-C_qd9cqN.png",
+      "target": "public/admin/assets/yellow3-C_qd9cqN.png"
+    },
+    {
+      "source": "frontend/admin/index.html",
+      "target": "public/admin/index.html"
+    },
+    {
+      "source": "frontend/platform/assets/403-AOKYDGmu.js",
+      "target": "public/platform/assets/403-AOKYDGmu.js"
+    },
+    {
+      "source": "frontend/platform/assets/403-BVYPUUT7.js",
+      "target": "public/platform/assets/403-BVYPUUT7.js"
+    },
+    {
+      "source": "frontend/platform/assets/404-DJ34T0dD.js",
+      "target": "public/platform/assets/404-DJ34T0dD.js"
+    },
+    {
+      "source": "frontend/platform/assets/404-DO3z1-Ln.js",
+      "target": "public/platform/assets/404-DO3z1-Ln.js"
+    },
+    {
+      "source": "frontend/platform/assets/add-CoTySvlI.css",
+      "target": "public/platform/assets/add-CoTySvlI.css"
+    },
+    {
+      "source": "frontend/platform/assets/add-OjOxGCW9.js",
+      "target": "public/platform/assets/add-OjOxGCW9.js"
+    },
+    {
+      "source": "frontend/platform/assets/api-0QEr_ucL.js",
+      "target": "public/platform/assets/api-0QEr_ucL.js"
+    },
+    {
+      "source": "frontend/platform/assets/api-BInFTc7n.js",
+      "target": "public/platform/assets/api-BInFTc7n.js"
+    },
+    {
+      "source": "frontend/platform/assets/api-BVQPfbpO.js",
+      "target": "public/platform/assets/api-BVQPfbpO.js"
+    },
+    {
+      "source": "frontend/platform/assets/api-BWRoDxPZ.js",
+      "target": "public/platform/assets/api-BWRoDxPZ.js"
+    },
+    {
+      "source": "frontend/platform/assets/api-BZEYHGp7.js",
+      "target": "public/platform/assets/api-BZEYHGp7.js"
+    },
+    {
+      "source": "frontend/platform/assets/api-B_06ADGp.js",
+      "target": "public/platform/assets/api-B_06ADGp.js"
+    },
+    {
+      "source": "frontend/platform/assets/api-BdG6MfCY.js",
+      "target": "public/platform/assets/api-BdG6MfCY.js"
+    },
+    {
+      "source": "frontend/platform/assets/api-BjmHAcu4.js",
+      "target": "public/platform/assets/api-BjmHAcu4.js"
+    },
+    {
+      "source": "frontend/platform/assets/api-CYfM8iaz.js",
+      "target": "public/platform/assets/api-CYfM8iaz.js"
+    },
+    {
+      "source": "frontend/platform/assets/api-CZFmJbpS.js",
+      "target": "public/platform/assets/api-CZFmJbpS.js"
+    },
+    {
+      "source": "frontend/platform/assets/api-DlAWjO52.js",
+      "target": "public/platform/assets/api-DlAWjO52.js"
+    },
+    {
+      "source": "frontend/platform/assets/api-cguwJBXW.js",
+      "target": "public/platform/assets/api-cguwJBXW.js"
+    },
+    {
+      "source": "frontend/platform/assets/api-wYyOqbe2.js",
+      "target": "public/platform/assets/api-wYyOqbe2.js"
+    },
+    {
+      "source": "frontend/platform/assets/auth-DmCkHyir.js",
+      "target": "public/platform/assets/auth-DmCkHyir.js"
+    },
+    {
+      "source": "frontend/platform/assets/auth.vue_vue_type_script_setup_true_lang-2naODNqe.js",
+      "target": "public/platform/assets/auth.vue_vue_type_script_setup_true_lang-2naODNqe.js"
+    },
+    {
+      "source": "frontend/platform/assets/authorizations-Gz4gzrBV.js",
+      "target": "public/platform/assets/authorizations-Gz4gzrBV.js"
+    },
+    {
+      "source": "frontend/platform/assets/authorizers-DEUSJWrR.js",
+      "target": "public/platform/assets/authorizers-DEUSJWrR.js"
+    },
+    {
+      "source": "frontend/platform/assets/cache-BLSfNsIU.js",
+      "target": "public/platform/assets/cache-BLSfNsIU.js"
+    },
+    {
+      "source": "frontend/platform/assets/callback-BIcRa5GQ.js",
+      "target": "public/platform/assets/callback-BIcRa5GQ.js"
+    },
+    {
+      "source": "frontend/platform/assets/channel-BNdb149t.css",
+      "target": "public/platform/assets/channel-BNdb149t.css"
+    },
+    {
+      "source": "frontend/platform/assets/channel-BsqHTk4C.css",
+      "target": "public/platform/assets/channel-BsqHTk4C.css"
+    },
+    {
+      "source": "frontend/platform/assets/channel-C9Fx6Me7.css",
+      "target": "public/platform/assets/channel-C9Fx6Me7.css"
+    },
+    {
+      "source": "frontend/platform/assets/channel-CAnhiJMs.css",
+      "target": "public/platform/assets/channel-CAnhiJMs.css"
+    },
+    {
+      "source": "frontend/platform/assets/channel-CY4La28n.css",
+      "target": "public/platform/assets/channel-CY4La28n.css"
+    },
+    {
+      "source": "frontend/platform/assets/channel-Cphyf0Wb.js",
+      "target": "public/platform/assets/channel-Cphyf0Wb.js"
+    },
+    {
+      "source": "frontend/platform/assets/channel-D3g5v2gk.js",
+      "target": "public/platform/assets/channel-D3g5v2gk.js"
+    },
+    {
+      "source": "frontend/platform/assets/channel-D8RZMmlc.js",
+      "target": "public/platform/assets/channel-D8RZMmlc.js"
+    },
+    {
+      "source": "frontend/platform/assets/channel-DDA8I_OJ.js",
+      "target": "public/platform/assets/channel-DDA8I_OJ.js"
+    },
+    {
+      "source": "frontend/platform/assets/channel-DmHiwiez.js",
+      "target": "public/platform/assets/channel-DmHiwiez.js"
+    },
+    {
+      "source": "frontend/platform/assets/code-lr_UFELv.js",
+      "target": "public/platform/assets/code-lr_UFELv.js"
+    },
+    {
+      "source": "frontend/platform/assets/code-preview-BlPMAtjA.js",
+      "target": "public/platform/assets/code-preview-BlPMAtjA.js"
+    },
+    {
+      "source": "frontend/platform/assets/code-preview.vue_vue_type_script_setup_true_lang-U8TTD2jR.js",
+      "target": "public/platform/assets/code-preview.vue_vue_type_script_setup_true_lang-U8TTD2jR.js"
+    },
+    {
+      "source": "frontend/platform/assets/config-B0yQYU6y.js",
+      "target": "public/platform/assets/config-B0yQYU6y.js"
+    },
+    {
+      "source": "frontend/platform/assets/config-Bd_kfEVp.js",
+      "target": "public/platform/assets/config-Bd_kfEVp.js"
+    },
+    {
+      "source": "frontend/platform/assets/config-CLf-I2qT.js",
+      "target": "public/platform/assets/config-CLf-I2qT.js"
+    },
+    {
+      "source": "frontend/platform/assets/config-Cdw2jbs5.css",
+      "target": "public/platform/assets/config-Cdw2jbs5.css"
+    },
+    {
+      "source": "frontend/platform/assets/config-D4yXmFtj.js",
+      "target": "public/platform/assets/config-D4yXmFtj.js"
+    },
+    {
+      "source": "frontend/platform/assets/config-DBwMVknF.js",
+      "target": "public/platform/assets/config-DBwMVknF.js"
+    },
+    {
+      "source": "frontend/platform/assets/config-DZs4JNOE.js",
+      "target": "public/platform/assets/config-DZs4JNOE.js"
+    },
+    {
+      "source": "frontend/platform/assets/config-DnQFSXjM.js",
+      "target": "public/platform/assets/config-DnQFSXjM.js"
+    },
+    {
+      "source": "frontend/platform/assets/config-Dza7wgT3.js",
+      "target": "public/platform/assets/config-Dza7wgT3.js"
+    },
+    {
+      "source": "frontend/platform/assets/consumer-CiR6E8fF.js",
+      "target": "public/platform/assets/consumer-CiR6E8fF.js"
+    },
+    {
+      "source": "frontend/platform/assets/consumption-msPq4yFU.js",
+      "target": "public/platform/assets/consumption-msPq4yFU.js"
+    },
+    {
+      "source": "frontend/platform/assets/data-table-DzKsfqeK.js",
+      "target": "public/platform/assets/data-table-DzKsfqeK.js"
+    },
+    {
+      "source": "frontend/platform/assets/data-table.vue_vue_type_script_setup_true_lang-DlxsWYE0.js",
+      "target": "public/platform/assets/data-table.vue_vue_type_script_setup_true_lang-DlxsWYE0.js"
+    },
+    {
+      "source": "frontend/platform/assets/department-DO1KiCnn.js",
+      "target": "public/platform/assets/department-DO1KiCnn.js"
+    },
+    {
+      "source": "frontend/platform/assets/dependencies-CYZ0MS6s.js",
+      "target": "public/platform/assets/dependencies-CYZ0MS6s.js"
+    },
+    {
+      "source": "frontend/platform/assets/dependencies-bL-bqVY1.js",
+      "target": "public/platform/assets/dependencies-bL-bqVY1.js"
+    },
+    {
+      "source": "frontend/platform/assets/dependencies-kgfebuAZ.js",
+      "target": "public/platform/assets/dependencies-kgfebuAZ.js"
+    },
+    {
+      "source": "frontend/platform/assets/dependencies-wP8I8KmP.js",
+      "target": "public/platform/assets/dependencies-wP8I8KmP.js"
+    },
+    {
+      "source": "frontend/platform/assets/detail-BjcnIXym.js",
+      "target": "public/platform/assets/detail-BjcnIXym.js"
+    },
+    {
+      "source": "frontend/platform/assets/detail-DnXTFSvE.css",
+      "target": "public/platform/assets/detail-DnXTFSvE.css"
+    },
+    {
+      "source": "frontend/platform/assets/dict-PaXs4mON.js",
+      "target": "public/platform/assets/dict-PaXs4mON.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-2C_abcSd.js",
+      "target": "public/platform/assets/edit-2C_abcSd.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-9aH0aX9g.js",
+      "target": "public/platform/assets/edit-9aH0aX9g.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-B3oT81QJ.js",
+      "target": "public/platform/assets/edit-B3oT81QJ.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-BHVyHqjf.js",
+      "target": "public/platform/assets/edit-BHVyHqjf.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-BTcw_ox4.js",
+      "target": "public/platform/assets/edit-BTcw_ox4.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-CBkgIHG1.js",
+      "target": "public/platform/assets/edit-CBkgIHG1.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-CELYAWhP.css",
+      "target": "public/platform/assets/edit-CELYAWhP.css"
+    },
+    {
+      "source": "frontend/platform/assets/edit-CTeISgoa.js",
+      "target": "public/platform/assets/edit-CTeISgoa.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-CZP5ctRe.js",
+      "target": "public/platform/assets/edit-CZP5ctRe.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-CqBXDXub.js",
+      "target": "public/platform/assets/edit-CqBXDXub.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-CqgE6Vyd.css",
+      "target": "public/platform/assets/edit-CqgE6Vyd.css"
+    },
+    {
+      "source": "frontend/platform/assets/edit-DYRobMRn.js",
+      "target": "public/platform/assets/edit-DYRobMRn.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-D_V0vjMV.js",
+      "target": "public/platform/assets/edit-D_V0vjMV.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-Dzm9XIKa.js",
+      "target": "public/platform/assets/edit-Dzm9XIKa.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-MUBCSn2s.js",
+      "target": "public/platform/assets/edit-MUBCSn2s.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-csaNdFGm.js",
+      "target": "public/platform/assets/edit-csaNdFGm.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit-wLKqROjI.js",
+      "target": "public/platform/assets/edit-wLKqROjI.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit.vue_vue_type_script_setup_true_lang-25FPbiKP.js",
+      "target": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-25FPbiKP.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit.vue_vue_type_script_setup_true_lang-B8sKUkZC.js",
+      "target": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-B8sKUkZC.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit.vue_vue_type_script_setup_true_lang-CAEmKRY2.js",
+      "target": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-CAEmKRY2.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit.vue_vue_type_script_setup_true_lang-CzxYr1IN.js",
+      "target": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-CzxYr1IN.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit.vue_vue_type_script_setup_true_lang-DbhUNcql.js",
+      "target": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-DbhUNcql.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit.vue_vue_type_script_setup_true_lang-DwFIzAIP.js",
+      "target": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-DwFIzAIP.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit.vue_vue_type_script_setup_true_lang-EtcwHLpB.js",
+      "target": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-EtcwHLpB.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit.vue_vue_type_script_setup_true_lang-MOKv8yLS.js",
+      "target": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-MOKv8yLS.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit.vue_vue_type_script_setup_true_lang-SaD1hfzF.js",
+      "target": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-SaD1hfzF.js"
+    },
+    {
+      "source": "frontend/platform/assets/edit.vue_vue_type_script_setup_true_lang-jUD392m1.js",
+      "target": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-jUD392m1.js"
+    },
+    {
+      "source": "frontend/platform/assets/environment-ClYuGI6b.js",
+      "target": "public/platform/assets/environment-ClYuGI6b.js"
+    },
+    {
+      "source": "frontend/platform/assets/error-BuAQ7kny.css",
+      "target": "public/platform/assets/error-BuAQ7kny.css"
+    },
+    {
+      "source": "frontend/platform/assets/error-JNv5S-G0.js",
+      "target": "public/platform/assets/error-JNv5S-G0.js"
+    },
+    {
+      "source": "frontend/platform/assets/filing-CVaoN7F3.js",
+      "target": "public/platform/assets/filing-CVaoN7F3.js"
+    },
+    {
+      "source": "frontend/platform/assets/getExposeType-BWkZsg1A.js",
+      "target": "public/platform/assets/getExposeType-BWkZsg1A.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-AeUSyf-V.js",
+      "target": "public/platform/assets/index-AeUSyf-V.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-B2JO0Jot.css",
+      "target": "public/platform/assets/index-B2JO0Jot.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-B3hVd-2q.js",
+      "target": "public/platform/assets/index-B3hVd-2q.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-B9Df9QBA.js",
+      "target": "public/platform/assets/index-B9Df9QBA.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-BEn7DDGe.js",
+      "target": "public/platform/assets/index-BEn7DDGe.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-BOdJJj0J.js",
+      "target": "public/platform/assets/index-BOdJJj0J.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-BP7lPvGi.js",
+      "target": "public/platform/assets/index-BP7lPvGi.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-BSvJ6fCt.css",
+      "target": "public/platform/assets/index-BSvJ6fCt.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-BUIret33.js",
+      "target": "public/platform/assets/index-BUIret33.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-BW-ti0R2.js",
+      "target": "public/platform/assets/index-BW-ti0R2.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-BYMg0OFw.css",
+      "target": "public/platform/assets/index-BYMg0OFw.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-Bctoo8Ee.js",
+      "target": "public/platform/assets/index-Bctoo8Ee.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-BmCi8qmJ.js",
+      "target": "public/platform/assets/index-BmCi8qmJ.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-Bn4rGzNB.js",
+      "target": "public/platform/assets/index-Bn4rGzNB.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-BriPaGtE.css",
+      "target": "public/platform/assets/index-BriPaGtE.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-C35spSqK.js",
+      "target": "public/platform/assets/index-C35spSqK.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-C6i8Q7eW.js",
+      "target": "public/platform/assets/index-C6i8Q7eW.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-CACIQrYP.js",
+      "target": "public/platform/assets/index-CACIQrYP.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-CDrMDK0l.css",
+      "target": "public/platform/assets/index-CDrMDK0l.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-CF3g_EHK.js",
+      "target": "public/platform/assets/index-CF3g_EHK.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-CQRi-6SA.js",
+      "target": "public/platform/assets/index-CQRi-6SA.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-CQuQT0h0.css",
+      "target": "public/platform/assets/index-CQuQT0h0.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-CVmd3H2f.css",
+      "target": "public/platform/assets/index-CVmd3H2f.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-CYK8ayMU.css",
+      "target": "public/platform/assets/index-CYK8ayMU.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-CYbxlVSt.js",
+      "target": "public/platform/assets/index-CYbxlVSt.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-C_I0-BM3.js",
+      "target": "public/platform/assets/index-C_I0-BM3.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-CfUP0RbU.css",
+      "target": "public/platform/assets/index-CfUP0RbU.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-CgWnDAlo.css",
+      "target": "public/platform/assets/index-CgWnDAlo.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-ChJhOWoi.js",
+      "target": "public/platform/assets/index-ChJhOWoi.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-CkE4qQ_i.js",
+      "target": "public/platform/assets/index-CkE4qQ_i.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-D-uMGksZ.js",
+      "target": "public/platform/assets/index-D-uMGksZ.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-DIEVrXtI.js",
+      "target": "public/platform/assets/index-DIEVrXtI.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-DK_nAscc.js",
+      "target": "public/platform/assets/index-DK_nAscc.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-DKwt5YyP.js",
+      "target": "public/platform/assets/index-DKwt5YyP.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-DNCpQzcN.css",
+      "target": "public/platform/assets/index-DNCpQzcN.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-DYP8-bXN.js",
+      "target": "public/platform/assets/index-DYP8-bXN.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-Dq-10qkH.js",
+      "target": "public/platform/assets/index-Dq-10qkH.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-DvkrRDeT.css",
+      "target": "public/platform/assets/index-DvkrRDeT.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-DxjcOEan.js",
+      "target": "public/platform/assets/index-DxjcOEan.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-HqC4V8_i.js",
+      "target": "public/platform/assets/index-HqC4V8_i.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-JOeSne5q.js",
+      "target": "public/platform/assets/index-JOeSne5q.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-Mgo3wLq1.js",
+      "target": "public/platform/assets/index-Mgo3wLq1.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-dfVqdiwE.js",
+      "target": "public/platform/assets/index-dfVqdiwE.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-eAChZXu2.js",
+      "target": "public/platform/assets/index-eAChZXu2.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-fIF-gkdq.js",
+      "target": "public/platform/assets/index-fIF-gkdq.js"
+    },
+    {
+      "source": "frontend/platform/assets/index-tYjJ1LiZ.css",
+      "target": "public/platform/assets/index-tYjJ1LiZ.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-tcpMPu2v.css",
+      "target": "public/platform/assets/index-tcpMPu2v.css"
+    },
+    {
+      "source": "frontend/platform/assets/index-y9Bh17Co.js",
+      "target": "public/platform/assets/index-y9Bh17Co.js"
+    },
+    {
+      "source": "frontend/platform/assets/index.vue_vue_type_script_setup_true_lang-BVj1EgcO.js",
+      "target": "public/platform/assets/index.vue_vue_type_script_setup_true_lang-BVj1EgcO.js"
+    },
+    {
+      "source": "frontend/platform/assets/index.vue_vue_type_script_setup_true_lang-CSXR2RBd.js",
+      "target": "public/platform/assets/index.vue_vue_type_script_setup_true_lang-CSXR2RBd.js"
+    },
+    {
+      "source": "frontend/platform/assets/index.vue_vue_type_script_setup_true_lang-CiD9BxwO.js",
+      "target": "public/platform/assets/index.vue_vue_type_script_setup_true_lang-CiD9BxwO.js"
+    },
+    {
+      "source": "frontend/platform/assets/index.vue_vue_type_script_setup_true_lang-DI3l2JzV.js",
+      "target": "public/platform/assets/index.vue_vue_type_script_setup_true_lang-DI3l2JzV.js"
+    },
+    {
+      "source": "frontend/platform/assets/index.vue_vue_type_script_setup_true_lang-k1yulJvg.js",
+      "target": "public/platform/assets/index.vue_vue_type_script_setup_true_lang-k1yulJvg.js"
+    },
+    {
+      "source": "frontend/platform/assets/information-MKRuusRU.js",
+      "target": "public/platform/assets/information-MKRuusRU.js"
+    },
+    {
+      "source": "frontend/platform/assets/journal-QxVLkN4p.js",
+      "target": "public/platform/assets/journal-QxVLkN4p.js"
+    },
+    {
+      "source": "frontend/platform/assets/login-C0Fi13Q5.css",
+      "target": "public/platform/assets/login-C0Fi13Q5.css"
+    },
+    {
+      "source": "frontend/platform/assets/login-FNO-GLOB.js",
+      "target": "public/platform/assets/login-FNO-GLOB.js"
+    },
+    {
+      "source": "frontend/platform/assets/login_bg-BkIjQ0FB.png",
+      "target": "public/platform/assets/login_bg-BkIjQ0FB.png"
+    },
+    {
+      "source": "frontend/platform/assets/login_register-DHOSLQV2.js",
+      "target": "public/platform/assets/login_register-DHOSLQV2.js"
+    },
+    {
+      "source": "frontend/platform/assets/logs-DHT3jAe9.js",
+      "target": "public/platform/assets/logs-DHT3jAe9.js"
+    },
+    {
+      "source": "frontend/platform/assets/market-BZequNKO.js",
+      "target": "public/platform/assets/market-BZequNKO.js"
+    },
+    {
+      "source": "frontend/platform/assets/market-PgqS36-_.css",
+      "target": "public/platform/assets/market-PgqS36-_.css"
+    },
+    {
+      "source": "frontend/platform/assets/menu-DLmNjQbp.js",
+      "target": "public/platform/assets/menu-DLmNjQbp.js"
+    },
+    {
+      "source": "frontend/platform/assets/message-v_WtVgpp.js",
+      "target": "public/platform/assets/message-v_WtVgpp.js"
+    },
+    {
+      "source": "frontend/platform/assets/miniprogram-0_wiHkAa.js",
+      "target": "public/platform/assets/miniprogram-0_wiHkAa.js"
+    },
+    {
+      "source": "frontend/platform/assets/miniprogram-BQp1LWOJ.css",
+      "target": "public/platform/assets/miniprogram-BQp1LWOJ.css"
+    },
+    {
+      "source": "frontend/platform/assets/no_perms-jDxcYpYC.png",
+      "target": "public/platform/assets/no_perms-jDxcYpYC.png"
+    },
+    {
+      "source": "frontend/platform/assets/official-DYjFMlrw.js",
+      "target": "public/platform/assets/official-DYjFMlrw.js"
+    },
+    {
+      "source": "frontend/platform/assets/open_platform-BAjMo2z1.js",
+      "target": "public/platform/assets/open_platform-BAjMo2z1.js"
+    },
+    {
+      "source": "frontend/platform/assets/overview-CO_5TOQh.js",
+      "target": "public/platform/assets/overview-CO_5TOQh.js"
+    },
+    {
+      "source": "frontend/platform/assets/overview-CyfsNax5.js",
+      "target": "public/platform/assets/overview-CyfsNax5.js"
+    },
+    {
+      "source": "frontend/platform/assets/overview-hLmTmp-Y.js",
+      "target": "public/platform/assets/overview-hLmTmp-Y.js"
+    },
+    {
+      "source": "frontend/platform/assets/overview-mqwJt7mm.js",
+      "target": "public/platform/assets/overview-mqwJt7mm.js"
+    },
+    {
+      "source": "frontend/platform/assets/overview-xnKABYJ5.js",
+      "target": "public/platform/assets/overview-xnKABYJ5.js"
+    },
+    {
+      "source": "frontend/platform/assets/package-BVVCzW23.js",
+      "target": "public/platform/assets/package-BVVCzW23.js"
+    },
+    {
+      "source": "frontend/platform/assets/pay-CtLun-NS.js",
+      "target": "public/platform/assets/pay-CtLun-NS.js"
+    },
+    {
+      "source": "frontend/platform/assets/picker-CQ600Wtp.css",
+      "target": "public/platform/assets/picker-CQ600Wtp.css"
+    },
+    {
+      "source": "frontend/platform/assets/picker-DlX0C5wg.js",
+      "target": "public/platform/assets/picker-DlX0C5wg.js"
+    },
+    {
+      "source": "frontend/platform/assets/point-unit-HB3ebyWR.js",
+      "target": "public/platform/assets/point-unit-HB3ebyWR.js"
+    },
+    {
+      "source": "frontend/platform/assets/post-CfQMdS9r.js",
+      "target": "public/platform/assets/post-CfQMdS9r.js"
+    },
+    {
+      "source": "frontend/platform/assets/power_mall-ByX8JIJ7.js",
+      "target": "public/platform/assets/power_mall-ByX8JIJ7.js"
+    },
+    {
+      "source": "frontend/platform/assets/protocol-BqkTPOam.js",
+      "target": "public/platform/assets/protocol-BqkTPOam.js"
+    },
+    {
+      "source": "frontend/platform/assets/protocol-DX96drV3.css",
+      "target": "public/platform/assets/protocol-DX96drV3.css"
+    },
+    {
+      "source": "frontend/platform/assets/public-avatar-Bs3xN6Bb.css",
+      "target": "public/platform/assets/public-avatar-Bs3xN6Bb.css"
+    },
+    {
+      "source": "frontend/platform/assets/public-avatar-SRIKGco3.js",
+      "target": "public/platform/assets/public-avatar-SRIKGco3.js"
+    },
+    {
+      "source": "frontend/platform/assets/public-voice-CZSFj7kR.css",
+      "target": "public/platform/assets/public-voice-CZSFj7kR.css"
+    },
+    {
+      "source": "frontend/platform/assets/public-voice-NvQ7cpLN.js",
+      "target": "public/platform/assets/public-voice-NvQ7cpLN.js"
+    },
+    {
+      "source": "frontend/platform/assets/relations-add-De5TOnMg.js",
+      "target": "public/platform/assets/relations-add-De5TOnMg.js"
+    },
+    {
+      "source": "frontend/platform/assets/relations-add.vue_vue_type_script_setup_true_lang-DCmx6cDo.js",
+      "target": "public/platform/assets/relations-add.vue_vue_type_script_setup_true_lang-DCmx6cDo.js"
+    },
+    {
+      "source": "frontend/platform/assets/role-BCJvaf-i.js",
+      "target": "public/platform/assets/role-BCJvaf-i.js"
+    },
+    {
+      "source": "frontend/platform/assets/setting-DNRB83cK.js",
+      "target": "public/platform/assets/setting-DNRB83cK.js"
+    },
+    {
+      "source": "frontend/platform/assets/setup-DcjTe28X.js",
+      "target": "public/platform/assets/setup-DcjTe28X.js"
+    },
+    {
+      "source": "frontend/platform/assets/spec-BDPn891-.css",
+      "target": "public/platform/assets/spec-BDPn891-.css"
+    },
+    {
+      "source": "frontend/platform/assets/spec-BKsPr4Zx.css",
+      "target": "public/platform/assets/spec-BKsPr4Zx.css"
+    },
+    {
+      "source": "frontend/platform/assets/spec-Bkkg3KMx.js",
+      "target": "public/platform/assets/spec-Bkkg3KMx.js"
+    },
+    {
+      "source": "frontend/platform/assets/spec-ByqlGO6g.css",
+      "target": "public/platform/assets/spec-ByqlGO6g.css"
+    },
+    {
+      "source": "frontend/platform/assets/spec-CU-D6Pz_.js",
+      "target": "public/platform/assets/spec-CU-D6Pz_.js"
+    },
+    {
+      "source": "frontend/platform/assets/spec-D1MH7ICx.js",
+      "target": "public/platform/assets/spec-D1MH7ICx.js"
+    },
+    {
+      "source": "frontend/platform/assets/spec-D64vTO18.css",
+      "target": "public/platform/assets/spec-D64vTO18.css"
+    },
+    {
+      "source": "frontend/platform/assets/spec-Z68ZFwHs.js",
+      "target": "public/platform/assets/spec-Z68ZFwHs.js"
+    },
+    {
+      "source": "frontend/platform/assets/spec-eK7nTeBr.js",
+      "target": "public/platform/assets/spec-eK7nTeBr.js"
+    },
+    {
+      "source": "frontend/platform/assets/spec-nUrmWj_b.css",
+      "target": "public/platform/assets/spec-nUrmWj_b.css"
+    },
+    {
+      "source": "frontend/platform/assets/stat-BtA-I_20.js",
+      "target": "public/platform/assets/stat-BtA-I_20.js"
+    },
+    {
+      "source": "frontend/platform/assets/task-Cv8WC4OY.css",
+      "target": "public/platform/assets/task-Cv8WC4OY.css"
+    },
+    {
+      "source": "frontend/platform/assets/task-M4-npNqf.js",
+      "target": "public/platform/assets/task-M4-npNqf.js"
+    },
+    {
+      "source": "frontend/platform/assets/task-log-0zxlTd3F.js",
+      "target": "public/platform/assets/task-log-0zxlTd3F.js"
+    },
+    {
+      "source": "frontend/platform/assets/task-log-B6Ibu14c.js",
+      "target": "public/platform/assets/task-log-B6Ibu14c.js"
+    },
+    {
+      "source": "frontend/platform/assets/task-log-BjjTBQrB.css",
+      "target": "public/platform/assets/task-log-BjjTBQrB.css"
+    },
+    {
+      "source": "frontend/platform/assets/task-log-CLCg1UfP.css",
+      "target": "public/platform/assets/task-log-CLCg1UfP.css"
+    },
+    {
+      "source": "frontend/platform/assets/task-log-COAdgtzp.js",
+      "target": "public/platform/assets/task-log-COAdgtzp.js"
+    },
+    {
+      "source": "frontend/platform/assets/task-log-fYys7nEH.js",
+      "target": "public/platform/assets/task-log-fYys7nEH.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant-usage-BA6Tkf99.js",
+      "target": "public/platform/assets/tenant-usage-BA6Tkf99.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant-usage-BAJjX183.js",
+      "target": "public/platform/assets/tenant-usage-BAJjX183.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant-usage-BVi4wUJW.js",
+      "target": "public/platform/assets/tenant-usage-BVi4wUJW.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant-usage-C5scylU1.js",
+      "target": "public/platform/assets/tenant-usage-C5scylU1.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant-usage-CHLSl9S6.js",
+      "target": "public/platform/assets/tenant-usage-CHLSl9S6.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant-usage-CwwnOcSs.js",
+      "target": "public/platform/assets/tenant-usage-CwwnOcSs.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant-usage-Ds_jZ5Lk.js",
+      "target": "public/platform/assets/tenant-usage-Ds_jZ5Lk.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant-usage-JNuuIeHQ.js",
+      "target": "public/platform/assets/tenant-usage-JNuuIeHQ.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant-usage-qs5pAEpo.js",
+      "target": "public/platform/assets/tenant-usage-qs5pAEpo.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant-usage-rZZ6PCk4.js",
+      "target": "public/platform/assets/tenant-usage-rZZ6PCk4.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant-usage-xKIYmYvk.js",
+      "target": "public/platform/assets/tenant-usage-xKIYmYvk.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant-usage-yg5tjJcl.js",
+      "target": "public/platform/assets/tenant-usage-yg5tjJcl.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant-usage-zF9QvHls.js",
+      "target": "public/platform/assets/tenant-usage-zF9QvHls.js"
+    },
+    {
+      "source": "frontend/platform/assets/tenant_package-C66Um5WP.js",
+      "target": "public/platform/assets/tenant_package-C66Um5WP.js"
+    },
+    {
+      "source": "frontend/platform/assets/update-rights-06bONd4f.js",
+      "target": "public/platform/assets/update-rights-06bONd4f.js"
+    },
+    {
+      "source": "frontend/platform/assets/useDictOptions-CXF3JHKx.js",
+      "target": "public/platform/assets/useDictOptions-CXF3JHKx.js"
+    },
+    {
+      "source": "frontend/platform/assets/useLocalPaging-FKR4fSQT.js",
+      "target": "public/platform/assets/useLocalPaging-FKR4fSQT.js"
+    },
+    {
+      "source": "frontend/platform/assets/useLockFn-CqJJvdu1.js",
+      "target": "public/platform/assets/useLockFn-CqJJvdu1.js"
+    },
+    {
+      "source": "frontend/platform/assets/usePaging-BDGMrus-.js",
+      "target": "public/platform/assets/usePaging-BDGMrus-.js"
+    },
+    {
+      "source": "frontend/platform/assets/user-Du7MLfd5.js",
+      "target": "public/platform/assets/user-Du7MLfd5.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_ctrl_tinycolor-C4Rzlq_k.js",
+      "target": "public/platform/assets/vendor-_ctrl_tinycolor-C4Rzlq_k.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_element-plus_icons-vue-DWI_rMwm.js",
+      "target": "public/platform/assets/vendor-_element-plus_icons-vue-DWI_rMwm.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_floating-ui_core-ahqRXTuk.js",
+      "target": "public/platform/assets/vendor-_floating-ui_core-ahqRXTuk.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_floating-ui_dom-CgaYYgpU.js",
+      "target": "public/platform/assets/vendor-_floating-ui_dom-CgaYYgpU.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_floating-ui_utils-Bfzswmz-.js",
+      "target": "public/platform/assets/vendor-_floating-ui_utils-Bfzswmz-.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_highlightjs_vue-plugin-CPYfErQx.js",
+      "target": "public/platform/assets/vendor-_highlightjs_vue-plugin-CPYfErQx.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_sxzz_popperjs-es-C5az9QE8.js",
+      "target": "public/platform/assets/vendor-_sxzz_popperjs-es-C5az9QE8.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_vue_devtools-api-l0sNRNKZ.js",
+      "target": "public/platform/assets/vendor-_vue_devtools-api-l0sNRNKZ.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_vue_reactivity-DY0CvClj.js",
+      "target": "public/platform/assets/vendor-_vue_reactivity-DY0CvClj.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_vue_runtime-core-CaQof5Sa.js",
+      "target": "public/platform/assets/vendor-_vue_runtime-core-CaQof5Sa.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_vue_runtime-dom-BrYngMhO.js",
+      "target": "public/platform/assets/vendor-_vue_runtime-dom-BrYngMhO.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_vue_shared-CuzOstOM.js",
+      "target": "public/platform/assets/vendor-_vue_shared-CuzOstOM.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_vueuse_core-Cj263a37.js",
+      "target": "public/platform/assets/vendor-_vueuse_core-Cj263a37.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_vueuse_shared-CwcFmPy8.js",
+      "target": "public/platform/assets/vendor-_vueuse_shared-CwcFmPy8.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_wangeditor_editor-C0-GjYyL.js",
+      "target": "public/platform/assets/vendor-_wangeditor_editor-C0-GjYyL.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_wangeditor_editor-for-vue-2lBoH2i9.js",
+      "target": "public/platform/assets/vendor-_wangeditor_editor-for-vue-2lBoH2i9.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-_wangeditor_editor-nHDhGvq6.css",
+      "target": "public/platform/assets/vendor-_wangeditor_editor-nHDhGvq6.css"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-async-validator-9PlIezaS.js",
+      "target": "public/platform/assets/vendor-async-validator-9PlIezaS.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-axios-DEWho_Gc.js",
+      "target": "public/platform/assets/vendor-axios-DEWho_Gc.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-balanced-match-D4yLO45F.js",
+      "target": "public/platform/assets/vendor-balanced-match-D4yLO45F.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-clipboard-B3e4HGId.js",
+      "target": "public/platform/assets/vendor-clipboard-B3e4HGId.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-clone-CuIhj1wH.js",
+      "target": "public/platform/assets/vendor-clone-CuIhj1wH.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-color-B9VwcEAz.js",
+      "target": "public/platform/assets/vendor-color-B9VwcEAz.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-color-convert-CZ-IfC7E.js",
+      "target": "public/platform/assets/vendor-color-convert-CZ-IfC7E.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-color-name-azjA-L48.js",
+      "target": "public/platform/assets/vendor-color-name-azjA-L48.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-color-string-CmCQKYsR.js",
+      "target": "public/platform/assets/vendor-color-string-CmCQKYsR.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-css-color-function-wuSsSWAD.js",
+      "target": "public/platform/assets/vendor-css-color-function-wuSsSWAD.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-dayjs-tpzvIYNU.js",
+      "target": "public/platform/assets/vendor-dayjs-tpzvIYNU.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-debug-D5j7Sce9.js",
+      "target": "public/platform/assets/vendor-debug-D5j7Sce9.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-echarts-wixNos6f.js",
+      "target": "public/platform/assets/vendor-echarts-wixNos6f.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-element-plus-BU-fTm7K.js",
+      "target": "public/platform/assets/vendor-element-plus-BU-fTm7K.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-element-plus-CWiXfINo.css",
+      "target": "public/platform/assets/vendor-element-plus-CWiXfINo.css"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-highlight_js-BfC0goYb.css",
+      "target": "public/platform/assets/vendor-highlight_js-BfC0goYb.css"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-highlight_js-C8ijXSd_.js",
+      "target": "public/platform/assets/vendor-highlight_js-C8ijXSd_.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-lodash-BcHYIY-i.js",
+      "target": "public/platform/assets/vendor-lodash-BcHYIY-i.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-lodash-es-DVGGNlzX.js",
+      "target": "public/platform/assets/vendor-lodash-es-DVGGNlzX.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-lodash-unified-l0sNRNKZ.js",
+      "target": "public/platform/assets/vendor-lodash-unified-l0sNRNKZ.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-memoize-one-BdPwpGay.js",
+      "target": "public/platform/assets/vendor-memoize-one-BdPwpGay.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-ms-CzQ2E3wO.js",
+      "target": "public/platform/assets/vendor-ms-CzQ2E3wO.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-normalize-wheel-es-BQoi3Ox2.js",
+      "target": "public/platform/assets/vendor-normalize-wheel-es-BQoi3Ox2.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-nprogress-CSXic_Zd.css",
+      "target": "public/platform/assets/vendor-nprogress-CSXic_Zd.css"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-nprogress-YfsRLVDS.js",
+      "target": "public/platform/assets/vendor-nprogress-YfsRLVDS.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-pinia-D-VA9P0p.js",
+      "target": "public/platform/assets/vendor-pinia-D-VA9P0p.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-resize-detector-G6vbKCU7.js",
+      "target": "public/platform/assets/vendor-resize-detector-G6vbKCU7.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-sortablejs-gVEiXfOm.js",
+      "target": "public/platform/assets/vendor-sortablejs-gVEiXfOm.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-tslib-BDyQ-Jie.js",
+      "target": "public/platform/assets/vendor-tslib-BDyQ-Jie.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-vue-DaF54Mat.js",
+      "target": "public/platform/assets/vendor-vue-DaF54Mat.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-vue-clipboard3-BFQSK4SP.js",
+      "target": "public/platform/assets/vendor-vue-clipboard3-BFQSK4SP.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-vue-demi-l0sNRNKZ.js",
+      "target": "public/platform/assets/vendor-vue-demi-l0sNRNKZ.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-vue-echarts-DYEtSeQH.js",
+      "target": "public/platform/assets/vendor-vue-echarts-DYEtSeQH.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-vue-router-C9G7W-7X.js",
+      "target": "public/platform/assets/vendor-vue-router-C9G7W-7X.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-vue3-video-play-CCnfzpS0.js",
+      "target": "public/platform/assets/vendor-vue3-video-play-CCnfzpS0.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-vue3-video-play-CmBwS5qX.css",
+      "target": "public/platform/assets/vendor-vue3-video-play-CmBwS5qX.css"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-vuedraggable-Dkb0AK-b.js",
+      "target": "public/platform/assets/vendor-vuedraggable-Dkb0AK-b.js"
+    },
+    {
+      "source": "frontend/platform/assets/vendor-zrender-B5Fvf4Z1.js",
+      "target": "public/platform/assets/vendor-zrender-B5Fvf4Z1.js"
+    },
+    {
+      "source": "frontend/platform/assets/versions-BVkgcquL.js",
+      "target": "public/platform/assets/versions-BVkgcquL.js"
+    },
+    {
+      "source": "frontend/platform/assets/website-BMI-0TcH.js",
+      "target": "public/platform/assets/website-BMI-0TcH.js"
+    },
+    {
+      "source": "frontend/platform/index.html",
+      "target": "public/platform/index.html"
+    },
+    {
+      "source": "runtime/app/platformapi/controller/app/aigc_pic_lipsync/AdminController.php",
+      "target": "app/platformapi/controller/app/aigc_pic_lipsync/AdminController.php"
+    },
+    {
+      "source": "runtime/app/platformapi/controller/app/aigc_pic_lipsync/TaskController.php",
+      "target": "app/platformapi/controller/app/aigc_pic_lipsync/TaskController.php"
+    },
+    {
+      "source": "runtime/app/platformapi/controller/app/aigc_pic_lipsync/PublicVoiceController.php",
+      "target": "app/platformapi/controller/app/aigc_pic_lipsync/PublicVoiceController.php"
+    },
+    {
+      "source": "runtime/app/platformapi/controller/app/aigc_pic_lipsync/ConfigController.php",
+      "target": "app/platformapi/controller/app/aigc_pic_lipsync/ConfigController.php"
+    },
+    {
+      "source": "runtime/app/platformapi/controller/app/aigc_pic_lipsync/PublicAvatarController.php",
+      "target": "app/platformapi/controller/app/aigc_pic_lipsync/PublicAvatarController.php"
+    },
+    {
+      "source": "runtime/app/api/controller/app/aigc_pic_lipsync/ResultController.php",
+      "target": "app/api/controller/app/aigc_pic_lipsync/ResultController.php"
+    },
+    {
+      "source": "runtime/app/api/controller/app/aigc_pic_lipsync/TaskController.php",
+      "target": "app/api/controller/app/aigc_pic_lipsync/TaskController.php"
+    },
+    {
+      "source": "runtime/app/api/controller/app/aigc_pic_lipsync/AssetController.php",
+      "target": "app/api/controller/app/aigc_pic_lipsync/AssetController.php"
+    },
+    {
+      "source": "runtime/app/api/controller/app/aigc_pic_lipsync/ConfigController.php",
+      "target": "app/api/controller/app/aigc_pic_lipsync/ConfigController.php"
+    },
+    {
+      "source": "runtime/app/api/controller/app/aigc_pic_lipsync/VoiceController.php",
+      "target": "app/api/controller/app/aigc_pic_lipsync/VoiceController.php"
+    },
+    {
+      "source": "runtime/app/api/controller/app/aigc_pic_lipsync/GenerateController.php",
+      "target": "app/api/controller/app/aigc_pic_lipsync/GenerateController.php"
+    },
+    {
+      "source": "runtime/app/tenantapi/controller/app/aigc_pic_lipsync/AdminController.php",
+      "target": "app/tenantapi/controller/app/aigc_pic_lipsync/AdminController.php"
+    },
+    {
+      "source": "runtime/app/tenantapi/controller/app/aigc_pic_lipsync/TaskController.php",
+      "target": "app/tenantapi/controller/app/aigc_pic_lipsync/TaskController.php"
+    },
+    {
+      "source": "runtime/app/tenantapi/controller/app/aigc_pic_lipsync/PublicVoiceController.php",
+      "target": "app/tenantapi/controller/app/aigc_pic_lipsync/PublicVoiceController.php"
+    },
+    {
+      "source": "runtime/app/tenantapi/controller/app/aigc_pic_lipsync/UserVoiceController.php",
+      "target": "app/tenantapi/controller/app/aigc_pic_lipsync/UserVoiceController.php"
+    },
+    {
+      "source": "runtime/app/tenantapi/controller/app/aigc_pic_lipsync/ConfigController.php",
+      "target": "app/tenantapi/controller/app/aigc_pic_lipsync/ConfigController.php"
+    },
+    {
+      "source": "runtime/app/tenantapi/controller/app/aigc_pic_lipsync/PublicAvatarController.php",
+      "target": "app/tenantapi/controller/app/aigc_pic_lipsync/PublicAvatarController.php"
+    },
+    {
+      "source": "runtime/app/tenantapi/controller/app/aigc_pic_lipsync/UserAvatarController.php",
+      "target": "app/tenantapi/controller/app/aigc_pic_lipsync/UserAvatarController.php"
+    },
+    {
+      "source": "runtime/app/tenantapi/controller/app/aigc_pic_lipsync/AudioController.php",
+      "target": "app/tenantapi/controller/app/aigc_pic_lipsync/AudioController.php"
+    },
+    {
+      "source": "runtime/app/common/model/app/aigc_pic_lipsync/AigcPicLipsyncTask.php",
+      "target": "app/common/model/app/aigc_pic_lipsync/AigcPicLipsyncTask.php"
+    },
+    {
+      "source": "runtime/app/common/model/app/aigc_pic_lipsync/AigcPicLipsyncResult.php",
+      "target": "app/common/model/app/aigc_pic_lipsync/AigcPicLipsyncResult.php"
+    },
+    {
+      "source": "runtime/app/common/model/app/aigc_pic_lipsync/AigcPicLipsyncConfig.php",
+      "target": "app/common/model/app/aigc_pic_lipsync/AigcPicLipsyncConfig.php"
+    },
+    {
+      "source": "runtime/app/common/service/app/aigc_pic_lipsync/AigcPicLipsyncService.php",
+      "target": "app/common/service/app/aigc_pic_lipsync/AigcPicLipsyncService.php"
+    },
+    {
+      "source": "runtime/app/common/service/app/aigc_pic_lipsync/AigcPicLipsyncAdminService.php",
+      "target": "app/common/service/app/aigc_pic_lipsync/AigcPicLipsyncAdminService.php"
+    },
+    {
+      "source": "runtime/app/common/service/power/MarketPicLipsyncAppRuntimeService.php",
+      "target": "app/common/service/power/MarketPicLipsyncAppRuntimeService.php"
+    },
+    {
+      "source": "runtime/app/common/service/app/AppRegistryService.php",
+      "target": "app/common/service/app/AppRegistryService.php"
     }
   ]
 }

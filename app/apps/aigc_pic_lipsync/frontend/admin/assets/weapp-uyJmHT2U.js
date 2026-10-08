@@ -1,0 +1,1 @@
+import{r as n}from"./index-CmCov5-w.js";function s(t){return n.post({url:"/channel.mnp_settings/setConfig",params:t})}function r(){return n.get({url:"/channel.mnp_settings/getConfig"})}export{r as g,s};
