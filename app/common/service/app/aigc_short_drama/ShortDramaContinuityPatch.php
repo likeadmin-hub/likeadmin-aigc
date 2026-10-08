@@ -93,6 +93,9 @@ final class ShortDramaContinuityPatch
      * existing open hook. Preserve it and expose the rejected claim explicitly. */
     public static function verifiedReview(array $review, array $response, array $context, array $sourcePatch = [], bool $requireClassification = false): array
     {
+        foreach (['changes','hooks','warnings'] as $field) {
+            if (!is_array($review[$field] ?? null) || !array_is_list($review[$field])) throw new RuntimeException('连续性审校结构不完整，不能核验尚未接受的审校结果', 422);
+        }
         $response = self::normalizeMeaningResponse($response);
         // Validate complete, unique, typed coverage before interpreting any
         // negative verdict. A malformed verifier is not a quality warning.

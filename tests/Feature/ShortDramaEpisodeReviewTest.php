@@ -12,6 +12,7 @@ class ShortDramaEpisodeReviewTest extends TestCase
         $windows = []; $snapshots = [];
         $base = $this->plan(6);
         $result = Review::generate($base, $this->request(), function($key,$messages,$desired,$validate) use (&$windows) {
+            self::assertStringNotContainsString('evidence_patches', $messages['content'], 'An invalid initial audit must never enter evidence-patch recovery');
             if (str_starts_with($key, 'review_4_2_audit_')) {
                 $windows[] = ['s5','s6'];
                 throw new \RuntimeException('连续性审校结构不完整', 422);
