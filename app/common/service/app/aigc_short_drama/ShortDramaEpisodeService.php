@@ -257,6 +257,11 @@ class ShortDramaEpisodeService
                     $request['_generation_recovery_version'] = 1;
                     if ($outlineRequest !== null) $request = ShortDramaStoryWorkflow::inheritQualityReview($request, $outlineRequest);
                     $originalContext = $request['series_context'] ?? [];
+                    if (!empty($originalContext['current_episode'])) {
+                        // A corrected source is a new generation context, never a
+                        // cache hit or rewrite of the old paid receipts.
+                        $request['series_context']['current_episode'] = ShortDramaSourceBoundary::episode($originalContext['current_episode']);
+                    }
                     if ((int)($request['_generation_version'] ?? 0) >= 3) {
                         $previous = [];
                         foreach ($siblings as $sibling) {
@@ -494,11 +499,12 @@ class ShortDramaEpisodeService
             if (!(int)(Db::query('SELECT GET_LOCK(?, 0) AS acquired', [$lock])[0]['acquired'] ?? 0)) continue;
             try {
                 self::project($t, $u, $p);
-                $rows = Db::name(self::TABLE)->where(['tenant_id' => $t, 'user_id' => $u, 'project_id' => $p, 'delete_time' => 0])->order('episode_number')->select()->toArray();
+                $rows = Db::name(self::TABLE)->where(['tenant_id' => $t, 'user_id' => $u, 'project_id' => $p, 'delete_time' => 0])->order('episode_number')->field('id,tenant_id,user_id,project_id,episode_number,production_project_id,task_id,outline_task_id,status,completed_once,continuity_json,queue_job_id,attempt_number,started_at')->select()->toArray();
                 $rows = self::withContinuityStatus($t, $u, $rows);
                 $first = self::nextInitialEpisode($rows);
                 $selected = $first && empty($first['needs_review']) && in_array($first['status'], ['pending', 'running'], true) ? $first : null;
                 if (!$selected) continue;
+                $selected = array_replace($selected, Db::name(self::TABLE)->where('id', $selected['id'])->field('outline_json')->find() ?: []);
                 if ((int)$selected['queue_job_id'] === 0) self::queueJob($t, $u, $p, (int)$selected['id'], (int)$selected['attempt_number']);
                 $queueMessage = ShortDramaRedisQueue::claim(gethostname() . '-' . getmypid(), 1);
                 if ($queueMessage && (int)($queueMessage['data']['episode_id'] ?? 0) !== (int)$selected['id']) {

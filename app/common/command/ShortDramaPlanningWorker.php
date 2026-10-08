@@ -27,6 +27,7 @@ class ShortDramaPlanningWorker extends Command
             pcntl_signal(SIGINT, $stop);
         }
         do {
+            \app\common\service\app\aigc_short_drama\ShortDramaWorkerMemory::release();
             try {
             $query = Db::name('aigc_short_drama_script_task')->where('delete_time', 0)->whereIn('status', ['pending', 'queued', 'running'])
                 ->whereRaw("JSON_VALID(request_json) AND COALESCE(JSON_EXTRACT(request_json, '$.episode_id'), 0) = 0")
@@ -38,7 +39,7 @@ class ShortDramaPlanningWorker extends Command
                     });
                 });
             if ($input->getOption('task')) $query->where('task_id', $input->getOption('task'));
-            $rows = $query->order('id')->limit(20)->select()->toArray();
+            $rows = $query->order('id')->limit(20)->field('tenant_id,user_id,task_id')->select()->toArray();
             $processed = false;
             foreach ($rows as $row) {
                 $processed = AigcShortDramaService::runStoryPlanningTask((int)$row['tenant_id'], (int)$row['user_id'], $row['task_id']);

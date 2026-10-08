@@ -25,6 +25,7 @@ final class ShortDramaImportedScript
         foreach (['title', 'type_judgement', 'core_theme', 'story_outline', 'series_bible', 'subjects', 'locations'] as $key) {
             if (array_key_exists($key, $story)) $outline[$key] = $story[$key];
         }
+        $outline['episodes'] = ShortDramaSourceBoundary::episodes($outline['episodes'] ?? []);
         $outline['multi_episode_stage'] = 'episodes';
         $outline['storyboard'] = [];
         return $outline;

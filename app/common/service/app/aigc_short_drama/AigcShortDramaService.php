@@ -164,7 +164,7 @@ class AigcShortDramaService
                 $input = (string)$script['prompt'];
                 $plan = self::jsonDecode((string)$script['result_json']);
                 $stage = 'script';
-                $recorded = (array)($request['_prompt_requests'] ?? []);
+                $recorded = ShortDramaPromptWorkspace::taskRequests($tenantId, (int)$script['user_id'], $exampleTaskId) ?: (array)($request['_prompt_requests'] ?? []);
             }
         }
         if (!empty($params['example_request_id'])) {
@@ -2428,7 +2428,8 @@ class AigcShortDramaService
         // A newly created child uses the current input protocol even when its
         // parent outline predates working memory. Build context with that same protocol.
         $request = ShortDramaInputContract::begin($request);
-        $currentOutline = ShortDramaEpisodeService::decode($episode['outline_json']);
+        if (!empty($outline['episodes'])) $outline['episodes'] = ShortDramaSourceBoundary::episodes($outline['episodes']);
+        $currentOutline = ShortDramaSourceBoundary::episode(ShortDramaEpisodeService::decode($episode['outline_json']));
         if (empty($currentOutline['story_outline'])) throw new Exception('本集缺少真实大纲，请重新规划项目');
         unset($request['_canvas_series_planning']);
         $request['multi_episode'] = false;
@@ -3307,7 +3308,7 @@ class AigcShortDramaService
         ];
     }
 
-    private static function persistScriptPlanStreamState(int $tenantId, int $userId, string $taskId, string $streamContent, string $providerRequestId = '', string $error = '', int $revision = 0): void
+    private static function persistScriptPlanStreamState(int $tenantId, int $userId, string $taskId, string $streamContent, string $providerRequestId = '', string $error = '', int $revision = 0, array $checkpoint = [], string $unit = ''): void
     {
         AigcShortDramaScriptTask::where([
             'tenant_id' => $tenantId,
@@ -3315,7 +3316,8 @@ class AigcShortDramaService
             'task_id' => $taskId,
             'delete_time' => 0,
         ])->update([
-            'result_json' => self::jsonEncode(self::scriptPlanStreamState($streamContent, $providerRequestId, $error, $revision)),
+            'result_json' => self::jsonEncode(self::scriptPlanStreamState($streamContent, $providerRequestId, $error, $revision)
+                + ['__script_checkpoint' => $checkpoint, '__stream_unit' => $unit]),
             'provider_request_id' => $providerRequestId,
             'update_time' => time(),
         ]);
@@ -4012,11 +4014,14 @@ class AigcShortDramaService
         $streamContent = '';
         $persistedProviderRequestId = '';
         $storyPreview = ['content' => '', 'episodes' => [], 'unit' => ''];
-        $scriptPreview = ['content' => '', 'unit' => '', 'revision' => 0];
+        $scriptPreview = ['content' => (string)($storedResult['__stream_content'] ?? ''),
+            'unit' => (string)($storedResult['__stream_unit'] ?? ''), 'revision' => (int)($storedResult['__stream_revision'] ?? 0),
+            'checkpoint' => (array)($storedResult['__script_checkpoint'] ?? [])];
         $storyAttempt = (ShortDramaStoryWorkflow::enabled($request) || (int)($request['_generation_version'] ?? 0) >= 3) ? (int)$taskData['retry_count'] : null;
         if ($storyAttempt !== null) $request['_execution_attempt'] = $storyAttempt;
 
         try {
+            ShortDramaSourceBoundary::assertRequest($request);
             $generation = self::generateScriptPlanResult(
                 $tenantId,
                 $userId,
@@ -4026,12 +4031,24 @@ class AigcShortDramaService
                 $selectedModels['script_plan'] ?? [],
                 static function (string $event, array $data) use ($emit, $tenantId, $userId, $taskId, $planningStep, $storyAttempt, &$lastHeartbeatAt, &$lastStreamFlushAt, &$streamContent, &$persistedProviderRequestId, &$storyPreview, &$scriptPreview) {
                     if ($storyAttempt !== null) {
-                        $current = self::findTask($tenantId, $userId, $taskId);
+                        $current = AigcShortDramaScriptTask::where(['tenant_id'=>$tenantId, 'user_id'=>$userId, 'task_id'=>$taskId])->field('id,status,retry_count')->findOrEmpty();
                         if ($current['status'] !== 'running' || (int)$current['retry_count'] !== $storyAttempt) throw new Exception('任务已取消或由新尝试接管');
                         // V3 single-plan generation is split into independent
                         // JSON units. Persist the active unit as a versioned
                         // preview instead of concatenating incompatible JSON
                         // documents; SSE subscribers read this durable state.
+                        if ($event === 'script_checkpoint') {
+                            $checkpoint = ShortDramaScriptPreview::project($data);
+                            // Replaying durable receipts after restart reconstructs the
+                            // engine, but must not rewind a browser's accepted history.
+                            if (count($checkpoint['storyboard'] ?? []) >= count($scriptPreview['checkpoint']['storyboard'] ?? [])) {
+                                $scriptPreview['checkpoint'] = $checkpoint;
+                                $scriptPreview['content'] = '';
+                                self::persistScriptPlanStreamState($tenantId, $userId, $taskId, '', $persistedProviderRequestId, '',
+                                    (int)$scriptPreview['revision'], $checkpoint, $scriptPreview['unit']);
+                            }
+                            return;
+                        }
                         if (in_array($event, ['script_preview_start', 'script_preview_delta', 'script_preview_complete'], true)) {
                             $unit = trim((string)($data['unit'] ?? ''));
                             if ($event === 'script_preview_start') {
@@ -4054,9 +4071,9 @@ class AigcShortDramaService
                                 }
                                 $scriptPreview['content'] = (string)($data['content'] ?? '');
                             }
-                            if ($scriptPreview['content'] !== '' && ($event !== 'script_preview_delta' || microtime(true) - $lastStreamFlushAt >= 0.5)) {
+                            if ($event !== 'script_preview_delta' || microtime(true) - $lastStreamFlushAt >= 0.5) {
                                 $lastStreamFlushAt = microtime(true);
-                                self::persistScriptPlanStreamState($tenantId, $userId, $taskId, $scriptPreview['content'], $persistedProviderRequestId, '', (int)$scriptPreview['revision']);
+                                self::persistScriptPlanStreamState($tenantId, $userId, $taskId, $scriptPreview['content'], $persistedProviderRequestId, '', (int)$scriptPreview['revision'], $scriptPreview['checkpoint'], $scriptPreview['unit']);
                             }
                             return;
                         }
@@ -9110,7 +9127,7 @@ class AigcShortDramaService
     private static function fileQaParsePlan(array $result, array $request, string $fallbackTitle): array
     {
         $source = is_array($result['short_drama_plan'] ?? null) ? $result['short_drama_plan'] : (is_array($result['plan'] ?? null) ? $result['plan'] : $result);
-        $episodes = array_values(array_filter((array)($source['episodes'] ?? []), 'is_array'));
+        $episodes = ShortDramaSourceBoundary::episodes(array_values(array_filter((array)($source['episodes'] ?? []), 'is_array')));
         $count = count($episodes);
         if ($count < 2 || $count > self::SCRIPT_MAX_EPISODES || (int)($source['episode_count'] ?? $count) !== $count) {
             throw new Exception('解析结果的有效剧集数必须为 2～' . self::SCRIPT_MAX_EPISODES . '，且与 episodes 一致');
@@ -9134,6 +9151,7 @@ class AigcShortDramaService
                 'conflict_point' => ShortDramaText::value($episode['conflict_point'] ?? $episode['conflict'] ?? ''),
                 'ending_hook' => ShortDramaText::value($episode['ending_hook'] ?? $episode['hook'] ?? ''),
                 'source_range' => is_array($episode['source_range'] ?? null) ? $episode['source_range'] : [],
+                'source_scope' => (array)($episode['source_scope'] ?? []),
                 // Persist the complete source, not a silently shortened script.
                 // Older normalized parser receipts use source_content instead.
                 'source_content' => ShortDramaImportedScript::sourceContent($episode),
@@ -9162,6 +9180,7 @@ class AigcShortDramaService
         ];
         foreach ($mappedEpisodes as $index => $episode) {
             $plan['episodes'][$index]['source_range'] = $episode['source_range'];
+            $plan['episodes'][$index]['source_scope'] = $episode['source_scope'];
             $plan['episodes'][$index]['source_content'] = $episode['source_content'];
             $plan['episodes'][$index]['characters'] = $episode['characters'];
         }
@@ -17867,12 +17886,11 @@ class AigcShortDramaService
     {
         $taskId = (string)($request['_prompt_task_id'] ?? '');
         if ($taskId === '') return;
-        $task = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId])->findOrEmpty();
+        $task = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId])->field('id')->findOrEmpty();
         if ($task->isEmpty()) return;
         ShortDramaPromptWorkspace::recordRequest($tenantId, $userId, $taskId, $stage, self::promptRequestAudit($payload));
-        $saved = self::jsonDecode((string)$task['request_json']);
-        $saved['_prompt_requests'][] = self::promptRequestAudit($payload) + ['stage' => $stage, 'create_time' => time()];
-        $task->save(['request_json' => self::jsonEncode($saved)]);
+        // Full diagnostics already have a dedicated append-only table. Never
+        // grow request_json on every provider call / streaming heartbeat.
     }
 
     private static function generateScriptPlanResult(int $tenantId, int $userId, string $prompt, array $request, string $title, array $model, ?callable $onEvent = null): array
@@ -17966,6 +17984,9 @@ class AigcShortDramaService
         }
         $multiEpisodeStage = self::normalizeMultiEpisodeStage($request, self::MULTI_EPISODE_STAGE_PRODUCTION);
         $messages = self::assembleScriptPromptRequest($tenantId, $prompt, $request, $title);
+        if (!empty($request['series_context']['current_episode']['source_scope'])) {
+            $messages['system_prompt'] .= "\n当前分集原文已按集锁定。只展开 current_episode.source_content 中本集的动作与对白，以本集原文最后事件为终点；全剧设定、历史摘要和后续大纲仅供保持一致，禁止将其改编为本集镜头。不得为了收束主线提前演出后续集剧情。";
+        }
         if (!$episodeSettings['multi_episode'] || $multiEpisodeStage === self::MULTI_EPISODE_STAGE_PRODUCTION) {
             $messages['system_prompt'] .= "\n" . ShortDramaDialogueContract::INSTRUCTION;
         }
@@ -17975,7 +17996,6 @@ class AigcShortDramaService
             $v3Generation = ShortDramaScriptGeneration::generate($request, $model, $messages,
                 static function (string $key, array $input, array $budget, array $selection) use ($tenantId, $userId, $request, $title, $onEvent): array {
                     if ($onEvent) $onEvent('heartbeat', []);
-                    if ($onEvent) $onEvent('script_preview_start', ['unit' => $key]);
                     $params = $input + ['model_selection' => $selection, 'source_app_code' => self::APP_CODE,
                         'source_type' => 'script_plan', 'source_id' => $title,
                         'model_config' => ['max_tokens' => $budget['max_tokens'], 'enable_thinking' => false],
@@ -17993,8 +18013,11 @@ class AigcShortDramaService
                     };
                     $receipt = ShortDramaShotPolicy::legacyReceipt($tenantId, $userId, $request, $key)
                         ?? ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), 'v3_policy2_' . substr($key, 3),
-                            $params, static fn(array $effective): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $effective, $selection, $request, $key, $events), true);
-                    if ($onEvent) $onEvent('script_preview_complete', ['unit' => $key,
+                            $params, static function(array $effective) use ($tenantId, $userId, $selection, $request, $key, $events, $onEvent): array {
+                                if ($onEvent) $onEvent('script_preview_start', ['unit' => $key]);
+                                return self::generateScriptPlanLlmWithFallback($tenantId, $userId, $effective, $selection, $request, $key, $events);
+                            }, true);
+                    if ($onEvent && empty($receipt['_replayed'])) $onEvent('script_preview_complete', ['unit' => $key,
                         'content' => (string)($receipt['result']['content'] ?? '')]);
                     return $receipt;
                 }, $onEvent, static function (array $skeleton) use (&$request, $prompt): array {
@@ -23974,6 +23997,7 @@ class AigcShortDramaService
             'stream_length' => mb_strlen($streamContent, 'UTF-8'),
             'stream_updated_at' => $streamUpdatedAt,
             'stream_revision' => $streamRevision,
+            'stream_checkpoint' => ShortDramaScriptPreview::project((array)($storedResult['__script_checkpoint'] ?? [])),
             'error' => in_array($status, [self::STATUS_FAILED, self::STATUS_CANCELED], true)
                 ? self::scriptPlanProviderError((string)($task['error'] ?? ''))
                 : '',

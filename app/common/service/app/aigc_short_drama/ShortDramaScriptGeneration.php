@@ -45,7 +45,8 @@ final class ShortDramaScriptGeneration
                 return $payload;
             }); } catch (RuntimeException $error) { $rejected = $receipt; throw $error; }
         };
-        $finish = static function (array $payload) use ($request, $call, &$receipts, &$model): array {
+        $finish = static function (array $payload) use ($request, $call, $progress, &$receipts, &$model): array {
+            if ($progress) $progress('script_checkpoint', $payload);
             // Local revision patches keep their existing target-only result contract.
             if (!ShortDramaEpisodeDuration::localRevision($request) && !ShortDramaEpisodeDuration::active($request)) {
                 $payload = ShortDramaDialogueSplit::adapt($payload, $request, $call, 'final');
@@ -151,10 +152,12 @@ final class ShortDramaScriptGeneration
                     self::assertShots($part, $skeleton, $beat, $sceneIndex, $start, $size, $durationRule);
                 }
                 foreach ($part['storyboard'] as $shot) $sceneShots[] = $shot;
+                if ($progress) $progress('script_checkpoint', array_replace($skeleton, ['storyboard'=>array_merge($shots, $sceneShots)]));
                 if ($progress) $progress('stage', ['status' => 'running', 'progress' => min(75, 30 + $sceneIndex), 'current_step' => '正在生成第' . ($sceneIndex + 1) . '场，已保留' . (count($shots) + count($sceneShots)) . '个分镜']);
             };
             for ($start = 1; $start <= $count; $start += 4) $expand($start, min(4, $count - $start + 1));
             $shots = array_merge($shots, $sceneShots);
+            unset($expand); // Release recursive closure captures between scenes.
         }
         $skeleton['storyboard'] = $shots;
         $skeleton['episodes'] = [];
