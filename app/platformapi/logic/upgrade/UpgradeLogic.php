@@ -163,7 +163,7 @@ class UpgradeLogic extends BaseLogic
             $row['version_no'] = $row['version'];
             $row['uniapp_publish'] = $row['pc_admin_publish'] = $row['pc_shop_publish'] = 0;
             $content = $row['changelog'] ?? [];
-            if (!is_array($content)) $content = array_filter(explode('\n', (string)$content));
+            if (!is_array($content)) $content = array_filter(explode("\n", (string)$content));
             $row['update_content'] = array_map(static fn($item) => is_array($item) ? $item : ['type'=>2,'update_function'=>(string)$item], $content);
         }
         unset($row);

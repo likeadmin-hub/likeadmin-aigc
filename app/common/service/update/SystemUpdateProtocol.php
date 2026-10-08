@@ -42,8 +42,14 @@ class SystemUpdateProtocol
 
     public static function envelope(string $raw, string $key, ?int $freshAt = null): array
     {
-        $object = Signed::decode($raw);
-        Signed::verify($object, $key);
+        try {
+            $object = Signed::decode($raw);
+            Signed::verify($object, $key);
+        } catch (\JsonException $e) {
+            throw new UpdateProtocolException('SYSTEM_RESPONSE_INVALID', '更新源响应格式错误，请核对接口渠道地址');
+        } catch (\RuntimeException $e) {
+            throw new UpdateProtocolException('LICENSE_SIGNATURE_INVALID', '更新源响应验签失败，请核对可信公钥与接口渠道');
+        }
         $body = json_decode(Signed::json($object), true, 512, JSON_THROW_ON_ERROR);
         if (!is_int($body['server_time'] ?? null) || !is_array($body['data'] ?? null)
             || ($freshAt !== null && abs($body['server_time'] - $freshAt) > 300)) {
