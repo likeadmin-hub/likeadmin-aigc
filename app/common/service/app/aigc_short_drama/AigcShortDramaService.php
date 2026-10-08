@@ -18251,7 +18251,7 @@ class AigcShortDramaService
             };
             try {
                 $result['_continuity'] = ShortDramaContinuity::review(
-                    $result, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit, $verifyMeaning, true
+                    $result, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit, $verifyMeaning, true, true
                 );
             } catch (\RuntimeException $auditError) {
                 // Only a failed evidence audit may request one additive content
@@ -18293,7 +18293,7 @@ class AigcShortDramaService
                 // The source insertion must pass the independent semantic
                 // verifier inside review. Once verified, malformed audit
                 // metadata must not discard the inserted shot.
-                $candidate['_continuity'] = ShortDramaContinuity::review($candidate, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit, $verifyMeaning, true);
+                $candidate['_continuity'] = ShortDramaContinuity::review($candidate, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit, $verifyMeaning, true, true);
                 unset($candidate['_continuity_source_patch']);
                 $candidate['_continuity_patch'] = ['version' => 1, 'base_digest' => ShortDramaContinuity::fingerprint($result), 'patch' => $patch];
                 $result = $candidate;

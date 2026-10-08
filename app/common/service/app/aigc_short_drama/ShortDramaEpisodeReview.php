@@ -25,9 +25,9 @@ final class ShortDramaEpisodeReview
             array_flip(['episode_number','title','story_outline','conflict_point','ending_hook']));
         $context['outline'] = ShortDramaPlanningContext::lockedStory((array)($context['outline'] ?? []));
         $previousDigest = (string)($context['continuity']['previous_digest'] ?? '');
-        $result = $base; $summaries = []; $warnings = []; $patches = []; $pendingReview = false;
+        $result = $base; $summaries = []; $warnings = []; $patches = []; $auditCorrections = []; $pendingReview = false;
         $shots = array_values($base['storyboard']);
-        $process = function (int $offset, int $count) use (&$process, &$result, &$context, &$summaries, &$warnings, &$patches, &$pendingReview, $shots, $request, $call, $progress): void {
+        $process = function (int $offset, int $count) use (&$process, &$result, &$context, &$summaries, &$warnings, &$patches, &$auditCorrections, &$pendingReview, $shots, $request, $call, $progress): void {
             $block = self::projection($result);
             unset($block['script_lines'], $block['story_outline']);
             $block['storyboard'] = array_slice($shots, $offset, $count);
@@ -39,6 +39,7 @@ final class ShortDramaEpisodeReview
                 static function ($reply) use ($validate): void {
                     if ($validate) $validate($reply);
                     if (isset($reply['evidence_patches']) && is_array($reply['evidence_patches'])) return;
+                    if (isset($reply['claim_patches']) && is_array($reply['claim_patches'])) return;
                     if (!is_string($reply['summary'] ?? null) || trim($reply['summary']) === '') throw new RuntimeException('连续性摘要缺失', 422);
                     foreach (['changes','hooks','warnings'] as $field) if (!is_array($reply[$field] ?? null)) throw new RuntimeException('连续性检查结构不完整', 422);
                 }));
@@ -52,7 +53,7 @@ final class ShortDramaEpisodeReview
             };
             try {
                 try {
-                    $ledger = ShortDramaContinuity::review($block, $context, (int)($request['episode_number'] ?? 1), $audit, $verify, false);
+                    $ledger = ShortDramaContinuity::review($block, $context, (int)($request['episode_number'] ?? 1), $audit, $verify, false, true);
                 } catch (RuntimeException $error) {
                     if ($error->getCode() !== 409) throw $error;
                     $input = ['system_prompt' => '只修复已保存镜头与最新前集事实的明确冲突，不重写剧本。返回JSON {"patches":[{"shot_id":"原ID","field":"字段名","before":"原值","after":"新值","reason":"明确冲突说明"}]}。'
@@ -62,7 +63,7 @@ final class ShortDramaEpisodeReview
                     $reply = $call($key . '_patch', $input, 4096, static fn($reply) => self::apply($block, $reply));
                     $candidate = self::apply($block, $reply);
                     if ($candidate === $block) throw $error;
-                    $ledger = ShortDramaContinuity::review($candidate, $context, (int)($request['episode_number'] ?? 1), $audit, $verify, false);
+                    $ledger = ShortDramaContinuity::review($candidate, $context, (int)($request['episode_number'] ?? 1), $audit, $verify, false, true);
                     $block = $candidate;
                     array_push($patches, ...$reply['patches']);
                 }
@@ -82,6 +83,7 @@ final class ShortDramaEpisodeReview
             $pendingReview = $pendingReview || ($ledger['audit_status'] ?? '') === 'pending_review';
             $summaries[] = $ledger['summary'];
             array_push($warnings, ...(array)$ledger['warnings']);
+            array_push($auditCorrections, ...(array)($ledger['audit_corrections'] ?? []));
             if ($progress) $progress('stage', ['status'=>'running','progress'=>min(95, 20 + (int)(75 * ($offset + $count) / count($shots))),
                 'current_step'=>'已复核' . ($offset + $count) . '/' . count($shots) . '个分镜，原版本保留']);
         };
@@ -95,7 +97,7 @@ final class ShortDramaEpisodeReview
         $result['_continuity'] = ['version'=>1,'episode_number'=>(int)($request['episode_number'] ?? 1),
             'summary'=>implode("\n", $summaries),'state'=>$context['continuity']['state'] ?? [],'open_hooks'=>$context['continuity']['open_hooks'] ?? [],
             'digest'=>ShortDramaContinuity::fingerprint($result),'previous_digest'=>$previousDigest,'warnings'=>array_values(array_unique($warnings)),
-            'audit_status'=>$pendingReview ? 'pending_review' : 'verified','review_mode'=>'blocks','review_patches'=>$patches];
+            'audit_status'=>$pendingReview ? 'pending_review' : 'verified','review_mode'=>'blocks','review_patches'=>$patches,'audit_corrections'=>$auditCorrections];
         return $result;
     }
 

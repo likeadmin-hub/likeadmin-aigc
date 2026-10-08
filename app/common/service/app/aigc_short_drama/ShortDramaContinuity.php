@@ -121,7 +121,7 @@ final class ShortDramaContinuity
     }
 
     /** At most two reference corrections, never rewrite or relax the script. */
-    public static function review(array $plan, array $context, int $episode, callable $call, ?callable $verifyMeaning = null, bool $advisory = false): array
+    public static function review(array $plan, array $context, int $episode, callable $call, ?callable $verifyMeaning = null, bool $advisory = false, bool $repairClaims = false): array
     {
         $input = self::messages($plan, $context);
         $review = [];
@@ -158,8 +158,12 @@ final class ShortDramaContinuity
                 }
                 if ($verifyMeaning) {
                     $review = self::isolateInvalidEvidence($review, $plan, $attempt >= 2);
+                    $draft = $review;
                     $verified = $verifyMeaning($review, $plan);
                     if (is_array($verified)) $review = $verified;
+                    if ($repairClaims && !empty($review['unverified_claims']) && empty($draft['unverified_claims'])) {
+                        $review = self::repairAuditClaims($draft, $review, $plan, $context, $call, $verifyMeaning);
+                    }
                     // The verifier also checks every source-backed shot insertion.
                     // A later ledger error is only about the audit metadata.
                     $sourcePatchVerified = true;
@@ -243,6 +247,53 @@ final class ShortDramaContinuity
             }
         }
         throw new RuntimeException('连续性审校未完成', 422);
+    }
+
+    /** The auditor can invent a qualifier absent from the script. Correct only
+     * its rejected metadata, never the script or an already verified claim.
+     * Identity, operation, count and before-state remain immutable. */
+    private static function repairAuditClaims(array $draft, array $rejected, array $plan, array $context, callable $call, callable $verify): array
+    {
+        $targets = [];
+        foreach ($rejected['unverified_claims'] as $entry) {
+            $group = $entry['collection'] ?? ''; $index = $entry['index'] ?? -1;
+            $claim = $draft[$group][$index] ?? null;
+            if (!$claim || ($group !== 'changes' && !($group === 'hooks' && ($claim['status'] ?? '') === 'open'))) continue;
+            $targets[$group . ':' . $index] = $entry;
+        }
+        if (!$targets) return $rejected;
+        $messages = ['system_prompt'=>'修正审校员自行推断的记录，不修改剧本。只返回claim_patches数组。仅修正被独立核验明确否定的after或open伏笔description，使其准确描述当前正文。不得为通过审校改写人物、道具、事件或虚构证据，不删除或新增记录。确实无法修正则返回空数组。',
+            'content'=>json_encode(['script'=>self::narrative($plan), 'previous'=>$context['continuity'] ?? [], 'rejected_claims'=>array_values($targets),
+                'response_contract'=>['claim_patches'=>[['collection'=>'changes或hooks','index'=>0,'value'=>'有正文支持的准确状态或伏笔描述','shot_id'=>'当前镜头ID','quote'=>'该镜头连续原文','reason'=>'说明原审校推断了什么以及正文实际展示什么']]]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
+        $apply = static function (array $reply) use ($draft, $targets, $plan): array {
+            if (array_keys($reply) !== ['claim_patches'] || !is_array($reply['claim_patches']) || !array_is_list($reply['claim_patches'])) throw new RuntimeException('审校事实纠正格式无效', 422);
+            $candidate = $draft; $seen = []; $shots = array_column($plan['storyboard'], null, 'shot_id');
+            foreach ($reply['claim_patches'] as $patch) {
+                if (!is_array($patch) || array_diff(array_keys($patch), ['collection','index','value','shot_id','quote','reason'])
+                    || !is_string($patch['collection'] ?? null) || !is_int($patch['index'] ?? null)
+                    || !is_string($patch['value'] ?? null) || trim($patch['value']) === '' || mb_strlen($patch['value']) > 1000
+                    || !is_string($patch['reason'] ?? null) || trim($patch['reason']) === '') throw new RuntimeException('审校事实纠正字段无效', 422);
+                $key = $patch['collection'] . ':' . $patch['index'];
+                if (!isset($targets[$key]) || isset($seen[$key])) throw new RuntimeException('审校事实纠正越界', 422);
+                self::evidence(['shot_id'=>$patch['shot_id'] ?? null,'quote'=>$patch['quote'] ?? null], $shots);
+                $field = $patch['collection'] === 'changes' ? 'after' : 'description';
+                $record = &$candidate[$patch['collection']][$patch['index']];
+                $candidate['audit_corrections'][] = ['original'=>$record,'field'=>$field,'corrected'=>$patch['value'],'reason'=>$patch['reason']];
+                $record[$field] = $patch['value']; $record['shot_id'] = $patch['shot_id']; $record['quote'] = $patch['quote']; unset($record['evidence'], $record);
+                $seen[$key] = true;
+            }
+            return $candidate;
+        };
+        try {
+            $reply = $call($messages, static fn(array $reply) => $apply($reply));
+            if (empty($reply['claim_patches'])) return $rejected;
+            $candidate = $apply($reply);
+            return $verify($candidate, $plan);
+        } catch (RuntimeException $error) {
+            if ($error->getCode() !== 422) throw $error;
+            $rejected['warnings'][] = '审校记录纠正未通过，保留待复核：' . mb_substr($error->getMessage(), 0, 900);
+            return $rejected;
+        }
     }
 
     /** A removed transition cannot remain the assumed basis for a later one. */
@@ -534,6 +585,7 @@ final class ShortDramaContinuity
         return ['version' => 1, 'episode_number' => $episode, 'summary' => $summary, 'state' => $state, 'open_hooks' => $hooks,
             'digest' => self::fingerprint($plan), 'previous_digest' => (string)($context['continuity']['previous_digest'] ?? ''), 'warnings' => $warnings,
             'unverified_claims' => (array)($review['unverified_claims'] ?? []),
+            'audit_corrections' => (array)($review['audit_corrections'] ?? []),
             'unverified_hook_resolutions' => (array)($review['unverified_hook_resolutions'] ?? [])];
     }
 
