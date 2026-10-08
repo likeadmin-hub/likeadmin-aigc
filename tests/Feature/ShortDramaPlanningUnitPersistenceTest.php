@@ -66,7 +66,7 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
         $stage='v3_policy2_unified_v9_constraint_evidence_'.str_repeat('a',70);
         \app\common\service\app\aigc_short_drama\ShortDramaPromptWorkspace::recordRequest(2000000719,7,$this->task,$stage,['revision'=>0]);
         $row=Db::name('aigc_short_drama_prompt_request')->where('task_id',$this->task)->find();
-        self::assertSame(64,mb_strlen($row['stage']));
+        self::assertSame(40,mb_strlen($row['stage']));
         self::assertSame($stage,json_decode($row['audit_json'],true)['stage_key']);
     }
     public function testAmbiguousReadTimeoutDoesNotAutomaticallyResubmit(): void
