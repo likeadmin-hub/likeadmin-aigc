@@ -72,7 +72,7 @@ class PicLipsyncManagementTest extends TestCase
     }
     public function testPublicReferenceSamplesSaveAndPublishWithoutCloneWork(): void
     {
-        $before=(int)Db::name('ai_task')->count();
+        $before=(int)\app\common\model\ai\AiConsumptionLog::count();
         $sample=Admin::savePublicVoice(987001,['name'=>'reference fixture','audio_uri'=>'uploads/reference-fixture.wav']);
         self::assertSame('',$sample['provider_asset_id']);self::assertSame('ready',$sample['status']);
         self::assertSame(1,Admin::voiceLists(987001,[],'official')['count']);
@@ -80,7 +80,7 @@ class PicLipsyncManagementTest extends TestCase
         $user=\app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice::create(['tenant_id'=>987001,'user_id'=>77001,'source'=>'mine','name'=>'uncloned reference','audio_uri'=>'uploads/reference-fixture.wav','provider_asset_id'=>'','status'=>'pending','delete_time'=>0]);
         $published=Admin::publishUserVoice(987001,(int)$user['id']);
         self::assertSame('',$published['provider_asset_id']);self::assertSame('official',$published['source']);
-        self::assertSame($before,(int)Db::name('ai_task')->count());
+        self::assertSame($before,(int)\app\common\model\ai\AiConsumptionLog::count());
     }
     public function testPublicReferenceEditingCannotCrossTenantBoundary(): void
     {
