@@ -53,6 +53,9 @@ final class ShortDramaScriptGeneration
             }
             return self::result($payload, $receipts, $model);
         };
+        if (ShortDramaContentFirstGeneration::enabled($request)) {
+            return $finish(ShortDramaContentFirstGeneration::generate($request, $messages, $call, $progress));
+        }
         if (ShortDramaEpisodeDuration::active($request) && !ShortDramaEpisodeDuration::localRevision($request)) {
             $preflight = ['system_prompt'=>$messages['system_prompt'], 'content'=>$messages['_stage_content'] ?? $messages['content']];
             $budget = ShortDramaPlanningBudget::fitMessages($preflight, $model, 'script', 8192, $boundedMemory);

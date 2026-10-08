@@ -63,7 +63,7 @@ final class ShortDramaEpisodeDuration
             && !self::localRevision($request);
     }
 
-    public static function snapshot(array $rule, float $selected, float $textDuration, array $timeline, bool $seriesTotal = false): array
+    public static function snapshot(array $rule, float $selected, float $textDuration, array $timeline, bool $seriesTotal = false, bool $approximate = false): array
     {
         $rule = self::normalize($rule);
         $timelineDuration = 0.0;
@@ -84,15 +84,23 @@ final class ShortDramaEpisodeDuration
             throw new RuntimeException('时间码、输入时长与所选时长不一致，请统一后提交', 422);
         }
         $target = $explicit[0] ?? $rule['target_seconds'];
+        $elastic = $approximate && !$timeline && $selected <= 0 && $textDuration > 0;
         return [
             'version' => self::VERSION,
             'source' => $timeline ? 'timeline' : ($explicit ? 'user' : 'default'),
             'scope' => $seriesTotal ? 'series' : 'episode',
             'target_seconds' => $target,
-            'min_seconds' => $explicit ? $target : $rule['min_seconds'],
-            'max_seconds' => $explicit ? $target : $rule['max_seconds'],
+            'min_seconds' => $elastic ? max(1, round($target * 0.9, 3)) : ($explicit ? $target : $rule['min_seconds']),
+            'max_seconds' => $elastic ? min(3600, round($target * 1.1, 3)) : ($explicit ? $target : $rule['max_seconds']),
             'timeline_segments' => $timeline,
         ];
+    }
+
+    public static function approximateText(string $text): bool
+    {
+        $amount = '\\d+(?:\\.\\d+)?\\s*(?:分钟|分|秒钟|秒)';
+        if (preg_match('/(?:严格|精确|恰好|必须)[^。；;\\n]{0,12}' . $amount . '/u', $text)) return false;
+        return preg_match('/(?:大约|约|左右|大概)\\s*' . $amount . '|' . $amount . '\\s*左右/u', $text) === 1;
     }
 
     /** Provider coercion must not silently rewrite an editorial duration. */
