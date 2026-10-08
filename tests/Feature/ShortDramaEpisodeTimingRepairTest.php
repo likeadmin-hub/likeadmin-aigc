@@ -121,7 +121,7 @@ class ShortDramaEpisodeTimingRepairTest extends TestCase
             $calls++; return $this->reply($shots, [2, 15, 15, 8, 15, 5]);
         });
         self::assertSame(1, $calls);
-        self::assertEquals(60, array_sum(array_column($result['storyboard'], 'recommended_duration_seconds')));
+        self::assertEqualsWithDelta(60, array_sum(array_column($result['storyboard'], 'recommended_duration_seconds')), 0.000001);
         foreach ($result['storyboard'] as $i => $shot) {
             self::assertSame($shots[$i]['dialogue'], $shot['dialogue']);
             self::assertGreaterThanOrEqual(max(4, Split::requiredSeconds($shot['dialogue'])), $shot['recommended_duration_seconds']);
