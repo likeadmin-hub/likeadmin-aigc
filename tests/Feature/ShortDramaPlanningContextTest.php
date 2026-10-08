@@ -8,6 +8,46 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaPlanningContextTest extends TestCase
 {
+    public function testCapacityRecoveryRemovesOnlyVerifiedDiagnosticsAndDuplicateMemory(): void
+    {
+        $previous = [['episode_number'=>9,'summary'=>'父亲录音已首次播放','audit_status'=>'verified','warnings'=>[str_repeat('审校诊断',10000)]]];
+        $series = ['continuity'=>['state'=>['radio:status'=>'已修好，已播放录音'],'open_hooks'=>['book'=>'尚未归还手册'],
+            'audit_status'=>'verified','warnings'=>[str_repeat('重复诊断',10000)],'recent_episodes'=>$previous], 'previous_episodes'=>$previous];
+        $task = ['user_prompt'=>'第十集必须归还，不能再次首次播放。','series_context'=>$series];
+        $input = ['system_prompt'=>'保留用户剧情', 'content'=>json_encode(['creative_context'=>json_encode($task, JSON_UNESCAPED_UNICODE),
+            'required_shots'=>[['shot_id'=>'s1','duration_seconds'=>10]]],JSON_UNESCAPED_UNICODE) . "\n以上全局剧情只作参考"];
+        $saved = $input;
+        $budget = \app\common\service\app\aigc_short_drama\ShortDramaPlanningBudget::fitMessages($input, [], 'script', 4096);
+        self::assertSame(4096, $budget['max_tokens']);
+        self::assertLessThan(strlen($saved['content']) / 10, strlen($input['content']));
+        self::assertStringEndsWith("\n以上全局剧情只作参考", $input['content']);
+        $outer = \app\common\service\app\aigc_short_drama\ShortDramaStructuredResponse::decode(['content'=>$input['content']]);
+        $compact = json_decode($outer['creative_context'],true);
+        self::assertSame($task['user_prompt'], $compact['user_prompt']);
+        self::assertSame($series['continuity']['state'], $compact['series_context']['continuity']['state']);
+        self::assertSame($series['continuity']['open_hooks'], $compact['series_context']['continuity']['open_hooks']);
+        self::assertSame('父亲录音已首次播放', $compact['series_context']['continuity']['recent_episodes'][0]['summary']);
+        self::assertArrayNotHasKey('previous_episodes', $compact['series_context']);
+        self::assertSame([['shot_id'=>'s1','duration_seconds'=>10]], $outer['required_shots']);
+    }
+    public function testFittingPaidInputsStayFrozenAndUnresolvedWarningsRemainVisible(): void
+    {
+        $input=['system_prompt'=>'规则','content'=>json_encode(['series_context'=>['continuity'=>[
+            'audit_status'=>'verified','warnings'=>['原诊断'],'state'=>['x'=>'事实']]]],JSON_UNESCAPED_UNICODE)];
+        $original=$input;
+        \app\common\service\app\aigc_short_drama\ShortDramaPlanningBudget::fitMessages($input, [], 'script');
+        self::assertSame($original,$input);
+        $pending=['audit_status'=>'pending_review','warnings'=>['正文冲突尚未确认'],'state'=>['x'=>'旧事实']];
+        self::assertSame($pending, \app\common\service\app\aigc_short_drama\ShortDramaPlanningContext::continuityFacts($pending));
+    }
+    public function testArbitraryCustomCreativeTextCannotBeCutToFit(): void
+    {
+        $input=['system_prompt'=>'规则','content'=>str_repeat('用户明确规定的剧情，',10000)]; $saved=$input;
+        try { \app\common\service\app\aigc_short_drama\ShortDramaPlanningBudget::fitMessages($input, [], 'script'); self::fail('Must not cut creative requirements'); }
+        catch (\RuntimeException $error) { self::assertSame(413,$error->getCode()); }
+        self::assertSame($saved,$input);
+    }
+
     public function testRoadmapUsesDedicatedSchemaAndKeepsOriginalFacts(): void
     {
         $r = \app\common\service\app\aigc_short_drama\ShortDramaInputContract::begin($this->request());
