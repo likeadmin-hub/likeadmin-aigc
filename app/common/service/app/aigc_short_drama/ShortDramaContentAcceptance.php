@@ -111,6 +111,10 @@ final class ShortDramaContentAcceptance
             }
         }
         for ($pass = 0; $pass < 3; $pass++) {
+            // Content repairs may add missing spoken lines. Reconcile their timing
+            // before checking coverage again, rather than rejecting a valid patch
+            // merely because the original generated allocation was too short.
+            $plan = ShortDramaEpisodeTimingRepair::reconcile($plan, $request, $call);
             $report = self::inspect($plan, $requirements, $call);
             if (!$report['issues']) {
                 $plan['content_acceptance'] = ['version'=>self::VERSION,'status'=>'verified','requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
@@ -133,11 +137,11 @@ final class ShortDramaContentAcceptance
                         'instruction'=>ShortDramaShotSemantics::INSTRUCTION];
                     $reply = self::call($call, 'repair', $data,
                         '修复已明确发现的剧本问题，保留其他剧情和全部用户指定台词。只返回{"patches":[{"shot_id":"目标ID","field":"字段","before":"原值或原数组","after":"新值或新数组"}],"subject_categories":[{"id":"现有主体ID","before":"原category","after":"character、animal、prop或symbol"}]}。允许字段：' . implode(',', self::FIELDS) . '。speech_type只允许character（角色对白，包括角色朗读信件）、narration（旁白）、none（无声）；interior_exterior只允许interior或exterior。对白必须来自正确人物关系，转述收到问候不等于读出问候原话。不得修改ID、时长、镜头数量、用户素材或已正确的内容。accepted_coverage已覆盖的事件和指定原话必须继续保留；修复缺失时只补缺失，不挪用另一段已正确对白。不删对白凑时长。重复镜头改成自然接续动作，关键事件遗漏利用本集已有镜头表现，禁止新增人物。室内外必须按实际地点，多人对白每行一位角色。',
-                        static function(array $reply) use ($plan, $targets): void {
-                            $candidate = self::apply($plan, $reply, array_column($targets, 'shot_id'));
+                        static function(array $reply) use ($plan, $targets, $request): void {
+                            $candidate = self::apply($plan, $reply, array_column($targets, 'shot_id'), ShortDramaEpisodeTimingRepair::canReconcile($plan, $request));
                             if ($candidate === $plan) throw new RuntimeException('存在未解决问题，修复必须产生有效修改；请针对issues中的具体缺失原因补齐，不能返回空补丁', 422);
                         });
-                    $plan = self::apply($plan, $reply, array_column($targets, 'shot_id'));
+                    $plan = self::apply($plan, $reply, array_column($targets, 'shot_id'), ShortDramaEpisodeTimingRepair::canReconcile($plan, $request));
                     $repairs[] = $reply;
                 }
             }
@@ -369,7 +373,7 @@ final class ShortDramaContentAcceptance
         return $issues;
     }
 
-    public static function apply(array $plan, array $reply, array $targets): array
+    public static function apply(array $plan, array $reply, array $targets, bool $deferTiming = false): array
     {
         if (!is_array($reply['patches'] ?? null) || !is_array($reply['subject_categories'] ?? [])) throw new RuntimeException('内容修复补丁结构无效', 422);
         $candidate = $plan; $indices = array_flip(array_column($plan['storyboard'], 'shot_id')); $seen = [];
@@ -394,7 +398,7 @@ final class ShortDramaContentAcceptance
             if ($p['after'] !== $p['before']) $candidate['subjects'][$subjects[$p['id']]] = ShortDramaPromptDocuments::withoutGeneratedDefaults($candidate['subjects'][$subjects[$p['id']]]);
         }
         foreach ($candidate['storyboard'] as $shot) {
-            if (mb_strlen((string)($shot['dialogue'] ?? '')) > (float)$shot['recommended_duration_seconds'] * 8) throw new RuntimeException('修复后对白无法在原镜头时长内自然说完，请保持简短且完整', 422);
+            if (!$deferTiming && mb_strlen((string)($shot['dialogue'] ?? '')) > (float)$shot['recommended_duration_seconds'] * 8) throw new RuntimeException('修复后对白无法在原镜头时长内自然说完，请保持简短且完整', 422);
         }
         foreach ($candidate['storyboard'] as $i => $shot) if ($shot !== $plan['storyboard'][$i]) {
             $candidate['storyboard'][$i] = ShortDramaPromptDocuments::withoutGeneratedDefaults($shot);

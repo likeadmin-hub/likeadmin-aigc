@@ -9,6 +9,34 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaContentAcceptanceTest extends TestCase
 {
+    public function testQualityRepairCanSplitNewLongDialogueThenRecheckCoverage(): void
+    {
+        $plan=$this->plan(); unset($plan['storyboard'][0]['image_url'],$plan['storyboard'][0]['video_url']);
+        $dialogue=str_repeat('甲',45).'。'.str_repeat('乙',45).'。'; $checks=0;
+        $request=['prompt'=>'陈伯读出问候。','_input_contract_version'=>8,
+            'episode_duration_policy'=>\app\common\service\app\aigc_short_drama\ShortDramaEpisodeDuration::snapshot([],0,0,[])];
+        $result=Acceptance::generate($plan,$request,function($key,$input,$tokens,$validate)use($dialogue,&$checks){
+            $data=json_decode($input['content'],true);
+            if(isset($data['source']))$reply=['requirements'=>[['text'=>'陈伯读出问候','source_index'=>0,'kind'=>'event']]];
+            elseif(isset($data['claims']))$reply=['verdicts'=>array_map(fn($c)=>['id'=>$c['id'],'supported'=>true,'reason'=>'明确读出'],$data['claims'])];
+            elseif(isset($data['locked_segments']))$reply=['segments'=>array_map(fn($s)=>['index'=>$s['index'],'visual_description'=>'陈伯继续读出信中问候'], $data['locked_segments'])];
+            elseif(!isset($data['shots'])&&!isset($data['targets'])&&isset($data['subjects']))$reply=['categories'=>[['id'=>'p','category'=>'character']]];
+            elseif(isset($data['targets']))$reply=['patches'=>[
+                ['shot_id'=>'s1','field'=>'dialogue','before'=>'','after'=>$dialogue],
+                ['shot_id'=>'s1','field'=>'voice_role','before'=>'','after'=>'陈伯'],
+                ['shot_id'=>'s1','field'=>'speech_type','before'=>'none','after'=>'character']]];
+            else{
+                $checks++;$covered=$data['shots'][0]['dialogue']!=='';
+                $reply=['checks'=>[['id'=>'r1','status'=>$covered?'covered':'absent','evidence'=>$covered?[['shot_id'=>$data['shots'][0]['shot_id'],'field'=>'dialogue']]:[], 'target_shot_ids'=>[$data['shots'][0]['shot_id']]]],'issues'=>[]];
+            }
+            $validate($reply);return $reply;
+        });
+        self::assertCount(2,$result['storyboard']);self::assertSame(2,$checks);
+        self::assertSame($dialogue,implode('',array_column($result['storyboard'],'dialogue')));
+        self::assertSame('verified',$result['content_acceptance']['status']);
+        foreach($result['storyboard'] as $shot)self::assertLessThanOrEqual(14,\app\common\service\app\aigc_short_drama\ShortDramaDialogueSplit::requiredSeconds($shot['dialogue']));
+    }
+
     private function plan(): array
     {
         return ['subjects'=>[['id'=>'p','name'=>'陈伯','category'=>'character','description'=>'教师']],
