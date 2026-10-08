@@ -764,6 +764,7 @@ class MarketImageModelRuntimeService
             ?: self::normalizedRatio(self::firstValue($providerParams, ['aspect_ratio', 'ratio']))
             ?: self::normalizedRatio(self::firstValue($defaultParams, ['aspect_ratio', 'ratio']));
         $requestedQuality = trim((string)($request['quality'] ?? ''));
+        $requestedResolution = self::qualityFromText($requestedQuality) !== '' ? $requestedQuality : '';
         $renderQuality = self::firstValue($locked, ['quality'])
             ?: self::firstValue($providerParams, ['quality'])
             ?: self::firstValue($defaultParams, ['quality']);
@@ -772,12 +773,14 @@ class MarketImageModelRuntimeService
         }
         $outputQuality = self::firstValue($locked, ['resolution', 'image_size'])
             ?: self::firstValue($providerParams, ['resolution', 'image_size'])
-            ?: self::firstValue($defaultParams, ['resolution', 'image_size'])
             ?: self::skuQuality($snapshot, $locked)
+            ?: $requestedResolution
+            ?: self::firstValue($defaultParams, ['resolution', 'image_size'])
             ?: $requestedQuality;
         $imageSize = self::firstValue($locked, ['image_size', 'size', 'resolution'])
             ?: self::firstValue($providerParams, ['image_size', 'size', 'resolution'])
             ?: self::firstValue($request, ['size', 'image_size', 'resolution'])
+            ?: $requestedResolution
             ?: self::firstValue($defaultParams, ['image_size', 'size', 'resolution'])
             ?: $outputQuality;
         foreach (['aspect_ratio', 'ratio', 'quality', 'resolution', 'image_size', 'size'] as $key) {
@@ -1483,8 +1486,14 @@ class MarketImageModelRuntimeService
         if ($value === '') {
             return '';
         }
-        if (preg_match('/(\d+(?:\.\d+)?)\s*k\b/i', $value, $match) === 1) {
-            return rtrim(rtrim($match[1], '0'), '.') . 'k';
+        if (preg_match_all('/(\d+(?:\.\d+)?)\s*k\b/i', $value, $matches) > 0) {
+            // A shared fixed-price title can list several supported resolutions.
+            // It is not a lock on the first one; use the model schema instead.
+            $qualities = array_values(array_unique(array_map(
+                static fn(string $number): string => rtrim(rtrim($number, '0'), '.') . 'k',
+                $matches[1]
+            )));
+            return count($qualities) === 1 ? $qualities[0] : '';
         }
         if (preg_match('/(\d+(?:\.\d+)?)\s*[x*]\s*(\d+(?:\.\d+)?)/i', $value, $match) === 1) {
             return self::sizeQualityLabel($match[1] . '*' . $match[2]);
