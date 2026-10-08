@@ -122,7 +122,10 @@ final class ShortDramaNarrativeMemory
             try { $data = ShortDramaStructuredResponse::decode(['content'=>$text]); }
             catch (\RuntimeException) { continue; }
             $prefix = self::json($data);
-            if (!str_starts_with($text, $prefix)) continue;
+            if (!str_starts_with($text, $prefix)) {
+                $prefix = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+                if (!str_starts_with($text, $prefix)) continue;
+            }
             $query = self::query($data);
             $walk = static function(array $node) use (&$walk, $query, $budget): array {
                 $review = (array)($node['review'] ?? []);
