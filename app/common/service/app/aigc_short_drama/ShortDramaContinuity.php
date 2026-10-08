@@ -88,7 +88,7 @@ final class ShortDramaContinuity
                 || $upstreamChanged);
             // An explicit regeneration may be pending while its previous
             // successful version remains viewable. Do not block that attempt.
-            $row['needs_review'] = $qualityReviewEnabled && $outdated && ($row['status'] ?? '') === 'success';
+            $row['needs_review'] = $qualityReviewEnabled && ($outdated || ($ledger['audit_status'] ?? '') === 'pending_review') && ($row['status'] ?? '') === 'success';
             $row['review_reason'] = $row['needs_review'] ? '本集或前集剧情已修改，需复核连续性；原剧本和素材已保留' : '';
             if (!$outdated && $ledger) $row['continuity_json'] = json_encode($ledger, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             $upstreamChanged = $upstreamChanged || $outdated;

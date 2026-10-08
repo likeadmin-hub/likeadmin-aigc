@@ -59,6 +59,37 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
         $this->expectExceptionCode(425);
         Unit::call(2000000719, 7, $this->task, 'v3_script', [], static function () { self::fail('Backoff bypassed'); });
     }
+
+    public function testExplicitValidationRepairRetainsOriginalReceiptAndAcceptedNeighbors(): void
+    {
+        $scope=['tenant_id'=>2000000719,'user_id'=>7,'task_id'=>$this->task];
+        $input=['content'=>'原始剧情'];
+        Unit::call(2000000719,7,$this->task,'v3_good',$input,static fn()=>['result'=>['content'=>'accepted']]);
+        $receipt=Unit::call(2000000719,7,$this->task,'v3_bad',$input,static fn()=>['result'=>['content'=>'invalid']],true);
+        try {Unit::validate($receipt,static function(){throw new \RuntimeException('镜头引用无效',422);});}
+        catch(\RuntimeException $error){self::assertSame(422,$error->getCode());}
+        $before=Db::name('aigc_short_drama_planning_unit')->where($scope)->where('unit_key','v3_bad')->find();
+        Unit::prepareExplicitRetry(2000000719,7,$this->task);
+        $calls=0;
+        $fixed=Unit::call(2000000719,7,$this->task,'v3_bad',$input,static function($effective)use(&$calls){
+            $calls++;self::assertStringContainsString('镜头引用无效',$effective['content']);
+            return ['result'=>['content'=>'fixed']];
+        });
+        self::assertSame('fixed',$fixed['result']['content']);self::assertSame(1,$calls);
+        self::assertSame($fixed,Unit::call(2000000719,7,$this->task,'v3_bad',$input,static function(){self::fail('Paid repair replayed');}));
+        Unit::call(2000000719,7,$this->task,'v3_good',$input,static function(){self::fail('Accepted neighbor regenerated');});
+        self::assertSame($before,Db::name('aigc_short_drama_planning_unit')->where($scope)->where('unit_key','v3_bad')->find());
+        self::assertSame(3,Db::name('aigc_short_drama_planning_unit')->where($scope)->count());
+    }
+
+    public function testSupersededFailureDoesNotRestartCompletedFallback(): void
+    {
+        $receipt=Unit::call(2000000719,7,$this->task,'v3_parent',[],static fn()=>['result'=>['content'=>'invalid']],true);
+        try {Unit::validate($receipt,static function(){throw new \RuntimeException('截断',413);});} catch(\RuntimeException) {}
+        Unit::supersede($receipt);
+        Unit::prepareExplicitRetry(2000000719,7,$this->task);
+        self::assertSame(1,Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->count());
+    }
     public function testExplicitRetryRestartsExhaustedConnectionBudgetAndKeepsReceivedUnits(): void
     {
         $scope = ['tenant_id' => 2000000719, 'user_id' => 7, 'task_id' => $this->task];

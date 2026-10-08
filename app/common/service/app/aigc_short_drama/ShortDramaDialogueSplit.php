@@ -60,7 +60,8 @@ final class ShortDramaDialogueSplit
             for ($attempt = 0; $attempt < 2; $attempt++) {
                 $reply = [];
                 try {
-                    $reply = $call($unit . '_dialogue_split_' . $index . '_' . $attempt, $input, 6000);
+                    $reply = $call($unit . '_dialogue_split_' . $index . '_' . $attempt, $input, 6000,
+                        static fn($reply) => self::validate($shot, $reply, $rule, $locked));
                     $segments = self::validate($shot, $reply, $rule, $locked);
                     break;
                 } catch (RuntimeException $error) {
