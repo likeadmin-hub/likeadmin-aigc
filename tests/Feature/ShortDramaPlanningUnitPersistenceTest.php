@@ -61,6 +61,14 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
         catch(\RuntimeException $error){self::assertSame(429,$error->getCode());}
         self::assertSame(96,Db::name('aigc_short_drama_planning_unit')->where($scope)->where('attempt','>',0)->count());
     }
+    public function testLongStageKeysCanBeAuditedBeforeProviderSubmission(): void
+    {
+        $stage='v3_policy2_unified_v9_constraint_evidence_'.str_repeat('a',70);
+        \app\common\service\app\aigc_short_drama\ShortDramaPromptWorkspace::recordRequest(2000000719,7,$this->task,$stage,['revision'=>0]);
+        $row=Db::name('aigc_short_drama_prompt_request')->where('task_id',$this->task)->find();
+        self::assertSame(64,mb_strlen($row['stage']));
+        self::assertSame($stage,json_decode($row['audit_json'],true)['stage_key']);
+    }
     public function testAmbiguousReadTimeoutDoesNotAutomaticallyResubmit(): void
     {
         $calls = 0;
