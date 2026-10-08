@@ -1,0 +1,499 @@
+{
+  "version": "1.0.386",
+  "base_version": "1.0.385",
+  "server_published_baseline": "a9964574526add2108b240cb46119c16ef2022a6",
+  "server_source_head": "932f9658d12b65e70e47f3964566b9c81a14b211",
+  "web_baseline": "41d99004c50fd107a7e36e53ce2065af82f4bbce",
+  "web_head": "257e270fde790449914decfbf19cf1f961294e7e",
+  "server_source_changes": [
+    {
+      "status": "A",
+      "path": "app/api/controller/app/aigc_pic_lipsync/AssetController.php"
+    },
+    {
+      "status": "A",
+      "path": "app/api/controller/app/aigc_pic_lipsync/ConfigController.php"
+    },
+    {
+      "status": "A",
+      "path": "app/api/controller/app/aigc_pic_lipsync/GenerateController.php"
+    },
+    {
+      "status": "A",
+      "path": "app/api/controller/app/aigc_pic_lipsync/ResultController.php"
+    },
+    {
+      "status": "A",
+      "path": "app/api/controller/app/aigc_pic_lipsync/TaskController.php"
+    },
+    {
+      "status": "A",
+      "path": "app/api/controller/app/aigc_pic_lipsync/VoiceController.php"
+    },
+    {
+      "status": "M",
+      "path": "app/api/logic/IndexLogic.php"
+    },
+    {
+      "status": "M",
+      "path": "app/api/logic/PcLogic.php"
+    },
+    {
+      "status": "M",
+      "path": "app/apps/aigc_digital_human/manifest.json"
+    },
+    {
+      "status": "A",
+      "path": "app/apps/aigc_digital_human/migrations/zz_20261007_lipsync_models.sql"
+    },
+    {
+      "status": "A",
+      "path": "app/apps/aigc_pic_lipsync/api_schema.json"
+    },
+    {
+      "status": "A",
+      "path": "app/apps/aigc_pic_lipsync/manifest.json"
+    },
+    {
+      "status": "A",
+      "path": "app/apps/aigc_pic_lipsync/menus/platform.json"
+    },
+    {
+      "status": "A",
+      "path": "app/apps/aigc_pic_lipsync/menus/tenant.json"
+    },
+    {
+      "status": "A",
+      "path": "app/apps/aigc_pic_lipsync/migrations/install.sql"
+    },
+    {
+      "status": "A",
+      "path": "app/apps/aigc_pic_lipsync/migrations/zz_default_plan.sql"
+    },
+    {
+      "status": "A",
+      "path": "app/apps/aigc_pic_lipsync/permissions/tenant.json"
+    },
+    {
+      "status": "M",
+      "path": "app/common/command/AiTaskWorker.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/command/SiteLicenseRefresh.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/model/app/aigc_pic_lipsync/AigcPicLipsyncConfig.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/model/app/aigc_pic_lipsync/AigcPicLipsyncResult.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/model/app/aigc_pic_lipsync/AigcPicLipsyncTask.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/ConfigService.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/OemBrandService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/OfficialSiteService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/ai/AiTaskBusinessResultService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/ai/AiTaskJobService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/aigc_digital_human/AigcDigitalHumanChannelService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/aigc_digital_human/AigcDigitalHumanPricingService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/aigc_digital_human/AigcDigitalHumanService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/app/aigc_digital_human/XhadminAigcDigitalHumanProvider.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/app/aigc_pic_lipsync/AigcPicLipsyncService.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/license/CopyrightPolicyService.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/license/LicenseTransportUnavailable.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/license/SignedLicenseProtocol.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/license/SiteLicenseAccessService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/power/MarketApplicationApiRuntimeService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/power/MarketImageModelRuntimeService.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/power/MarketPicLipsyncAppRuntimeService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/power/PowerMarketService.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/update/SystemPackageGrantService.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/update/SystemPackageUpdateService.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/update/SystemUpdateProtocol.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/update/UpdateLicenseService.php"
+    },
+    {
+      "status": "A",
+      "path": "app/common/service/update/UpdateProtocolException.php"
+    },
+    {
+      "status": "M",
+      "path": "app/common/service/update/UpdateSourceClient.php"
+    },
+    {
+      "status": "A",
+      "path": "app/platformapi/controller/app/aigc_pic_lipsync/ConfigController.php"
+    },
+    {
+      "status": "A",
+      "path": "app/platformapi/controller/app/aigc_pic_lipsync/TaskController.php"
+    },
+    {
+      "status": "M",
+      "path": "app/platformapi/controller/upgrade/UpgradeController.php"
+    },
+    {
+      "status": "M",
+      "path": "app/platformapi/logic/ConfigLogic.php"
+    },
+    {
+      "status": "M",
+      "path": "app/platformapi/logic/upgrade/UpgradeLogic.php"
+    },
+    {
+      "status": "M",
+      "path": "app/platformapi/route/app.php"
+    },
+    {
+      "status": "M",
+      "path": "app/platformapi/service/TenantCreatService.php"
+    },
+    {
+      "status": "A",
+      "path": "app/tenantapi/controller/app/aigc_pic_lipsync/ConfigController.php"
+    },
+    {
+      "status": "A",
+      "path": "app/tenantapi/controller/app/aigc_pic_lipsync/TaskController.php"
+    },
+    {
+      "status": "M",
+      "path": "app/tenantapi/controller/setting/web/WebSettingController.php"
+    },
+    {
+      "status": "M",
+      "path": "app/tenantapi/logic/ConfigLogic.php"
+    },
+    {
+      "status": "M",
+      "path": "app/tenantapi/logic/setting/web/WebSettingLogic.php"
+    },
+    {
+      "status": "M",
+      "path": "config/console.php"
+    },
+    {
+      "status": "M",
+      "path": "config/project.php"
+    },
+    {
+      "status": "A",
+      "path": "docs/digital-human-lipsync-models.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/independent-update-rights.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/picture-digital-human.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/site-license-copyright.md"
+    },
+    {
+      "status": "A",
+      "path": "oem-support.json"
+    },
+    {
+      "status": "M",
+      "path": "public/install/db/like.sql"
+    },
+    {
+      "status": "M",
+      "path": "public/install/model.php"
+    },
+    {
+      "status": "M",
+      "path": "public/install/template/main.php"
+    },
+    {
+      "status": "A",
+      "path": "public/resource/image/common/oem-login-background.png"
+    },
+    {
+      "status": "A",
+      "path": "public/upgrade/20261007_digital_human_lipsync_models.sql"
+    },
+    {
+      "status": "A",
+      "path": "public/upgrade/20261007_picture_digital_human.sql"
+    },
+    {
+      "status": "A",
+      "path": "public/upgrade/20261008_independent_update_rights.sql"
+    },
+    {
+      "status": "A",
+      "path": "public/upgrade/20261008_site_license_copyright.sql"
+    },
+    {
+      "status": "A",
+      "path": "scripts/migrate-digital-human-lipsync-models.php"
+    },
+    {
+      "status": "A",
+      "path": "scripts/migrate-picture-digital-human.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/Feature/DigitalHumanLipsyncModelTest.php"
+    },
+    {
+      "status": "M",
+      "path": "tests/Feature/MarketImageModelPayloadContractTest.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/Feature/PicLipsyncContractTest.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/Feature/PicLipsyncReferenceVoiceTest.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/framework-oem/config.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/framework-oem/run.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/framework-oem/upgrade.php"
+    },
+    {
+      "status": "M",
+      "path": "tests/install-schema-parity.integration.py"
+    },
+    {
+      "status": "A",
+      "path": "tests/license/cache.integration.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/license/protocol.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/system-update/integration.php"
+    },
+    {
+      "status": "A",
+      "path": "tests/system-update/protocol.php"
+    },
+    {
+      "status": "A",
+      "path": "upgrade/20261007_digital_human_lipsync_models.sql"
+    },
+    {
+      "status": "A",
+      "path": "upgrade/20261007_picture_digital_human.sql"
+    },
+    {
+      "status": "A",
+      "path": "upgrade/20261008_independent_update_rights.sql"
+    },
+    {
+      "status": "A",
+      "path": "upgrade/20261008_site_license_copyright.sql"
+    },
+    {
+      "status": "M",
+      "path": "upgrade/version.json"
+    }
+  ],
+  "frontend_source_changes": [
+    "A\tdocs/release-1.0.386.md",
+    "M\tpc/apps/aigc_digital_human/AvatarCreationHistory.vue",
+    "A\tpc/apps/aigc_pic_lipsync/api.ts",
+    "M\tpc/components/ai-workspace/sidebar.vue",
+    "M\tpc/components/official-site/OfficialSiteShell.vue",
+    "M\tpc/layouts/components/footer/index.vue",
+    "M\tpc/middleware/route.global.ts",
+    "M\tpc/pages/ai/avatar.vue",
+    "M\tpc/pages/ai/create.vue",
+    "A\tplatform/DESIGN.md",
+    "M\tplatform/src/api/update_service.ts",
+    "A\tplatform/src/apps/aigc_pic_lipsync/api.ts",
+    "A\tplatform/src/apps/aigc_pic_lipsync/index.ts",
+    "M\tplatform/src/layout/components/footer.vue",
+    "M\tplatform/src/main.ts",
+    "A\tplatform/src/views/apps/aigc_pic_lipsync/config.vue",
+    "A\tplatform/src/views/apps/aigc_pic_lipsync/task.vue",
+    "M\tplatform/src/views/update/license/index.vue",
+    "A\tplatform/src/views/update/license/presentation.ts",
+    "A\tplatform/src/views/update/update-rights.ts",
+    "M\tplatform/src/views/update/version/index.vue",
+    "A\tplatform/tests/license-presentation.test.cjs",
+    "A\tplatform/tests/update-rights.test.cjs",
+    "A\ttenant/src/apps/aigc_pic_lipsync/api.ts",
+    "A\ttenant/src/apps/aigc_pic_lipsync/index.ts",
+    "M\ttenant/src/layout/components/footer.vue",
+    "M\ttenant/src/main.ts",
+    "A\ttenant/src/views/apps/aigc_pic_lipsync/config.vue",
+    "A\ttenant/src/views/apps/aigc_pic_lipsync/task.vue",
+    "M\ttenant/src/views/setting/website/filing.vue",
+    "M\ttenant/src/views/setting/website/information.vue",
+    "M\tuniapp/src/App.vue",
+    "A\tuniapp/src/apps/aigc_pic_lipsync/api.ts",
+    "A\tuniapp/src/apps/aigc_pic_lipsync/pages/index/index-content.vue",
+    "A\tuniapp/src/apps/aigc_pic_lipsync/pages/index/index.vue",
+    "A\tuniapp/src/apps/aigc_pic_lipsync/pages/tasks/tasks-content.vue",
+    "A\tuniapp/src/apps/aigc_pic_lipsync/pages/tasks/tasks.vue",
+    "M\tuniapp/src/pages.json",
+    "M\tuniapp/src/pages/index/index-content.vue",
+    "M\tuniapp/src/stores/app.ts"
+  ],
+  "runtime_dirs": [
+    "public/admin",
+    "public/platform",
+    "public/pc",
+    "public/_nuxt",
+    "public/media",
+    "public/mobile",
+    "public/mp-weixin"
+  ],
+  "sql_order": [
+    "sql/structure/20261007_digital_human_lipsync_models.sql",
+    "sql/structure/20261007_picture_digital_human.sql",
+    "sql/structure/20261008_independent_update_rights.sql",
+    "sql/structure/20261008_site_license_copyright.sql"
+  ],
+  "intentional_package_exclusions": [
+    "docs/digital-human-lipsync-models.md",
+    "docs/independent-update-rights.md",
+    "docs/picture-digital-human.md",
+    "docs/site-license-copyright.md",
+    "tests/Feature/DigitalHumanLipsyncModelTest.php",
+    "tests/Feature/MarketImageModelPayloadContractTest.php",
+    "tests/Feature/PicLipsyncContractTest.php",
+    "tests/Feature/PicLipsyncReferenceVoiceTest.php",
+    "tests/framework-oem/config.php",
+    "tests/framework-oem/run.php",
+    "tests/framework-oem/upgrade.php",
+    "tests/install-schema-parity.integration.py",
+    "tests/license/cache.integration.php",
+    "tests/license/protocol.php",
+    "tests/system-update/integration.php",
+    "tests/system-update/protocol.php",
+    "upgrade/version.json",
+    "docs/release-1.0.386-change-manifest.json"
+  ],
+  "builds": [
+    "pc",
+    "tenant",
+    "platform",
+    "h5",
+    "mp-weixin"
+  ],
+  "known_validation_limits": [
+    "Live update response failed the configured trusted-key signature check. No real paid generation or customer installation claimed.",
+    "Upstream package contract does not currently expose historical reinstall."
+  ],
+  "protected_uncommitted_paths": [
+    "server/app/api/logic/PcLogic.php",
+    "web/AGENTS.md",
+    "web/.eslintrc-auto-import.json"
+  ],
+  "schema_parity": {
+    "fresh_install": "public/install/db/like.sql",
+    "upgrade": [
+      "sql/structure/20261007_digital_human_lipsync_models.sql",
+      "sql/structure/20261007_picture_digital_human.sql",
+      "sql/structure/20261008_independent_update_rights.sql",
+      "sql/structure/20261008_site_license_copyright.sql"
+    ],
+    "tenant_bootstrap": "Picture app via application provisioning; global license cache and package grants are not tenant tables."
+  },
+  "full_runtime_source_roots": [
+    "app",
+    "config",
+    "route",
+    "extend",
+    "scripts"
+  ],
+  "release_verification": {
+    "php_lint_files": 65,
+    "feature_phpunit_tests": 26,
+    "feature_phpunit_assertions": 127,
+    "feature_phpunit_skipped": 6,
+    "protocol_and_cache_tests": "Passed",
+    "fixture_test_repair": "Legacy Qwen test changed to existing single-image contract; no Qwen runtime change",
+    "package_rebuild": "Unpublished failed candidate rebuilt with no-bump after adding complete backend dependencies",
+    "signed_files": 5503,
+    "actual_upstream_error": "LICENSE_SIGNATURE_INVALID"
+  }
+}

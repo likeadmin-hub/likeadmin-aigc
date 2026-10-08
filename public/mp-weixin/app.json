@@ -85,6 +85,13 @@
       ]
     },
     {
+      "root": "apps/aigc_pic_lipsync",
+      "pages": [
+        "pages/index/index",
+        "pages/tasks/tasks"
+      ]
+    },
+    {
       "root": "apps/image_human",
       "pages": [
         "pages/index/index",
