@@ -8,11 +8,12 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaStoryWorkflowTest extends TestCase
 {
-    public function testNewSubmissionsDefaultOffAndHistoricalTasksKeepReview(): void
+    public function testNewSubmissionsDefaultOnAndExplicitOffRemainsRespected(): void
     {
         $method = new \ReflectionMethod(AigcShortDramaService::class, 'normalizeCreateRequest');
         $method->setAccessible(true);
-        self::assertFalse($method->invoke(null, ['prompt' => '故事'], [])['quality_review_enabled']);
+        self::assertTrue($method->invoke(null, ['prompt' => '故事'], [])['quality_review_enabled']);
+        self::assertFalse($method->invoke(null, ['prompt' => '故事', 'quality_review_enabled' => false], [])['quality_review_enabled']);
         self::assertTrue($method->invoke(null, ['prompt' => '故事', 'quality_review_enabled' => true], [])['quality_review_enabled']);
         self::assertTrue(ShortDramaStoryWorkflow::qualityReviewEnabled([]));
         self::assertFalse(ShortDramaStoryWorkflow::qualityReviewEnabled(['quality_review_enabled' => false]));
