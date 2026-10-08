@@ -19,6 +19,8 @@ final class ShortDramaEpisodeReview
     {
         if (empty($base['storyboard'])) throw new RuntimeException('缺少可复核的已保存分镜', 422);
         $context = (array)$request['series_context'];
+        // Runtime-only provenance. A previous block is not a previous episode.
+        $context['_reviewed_block_state_keys'] = [];
         $context['current_episode'] = array_intersect_key((array)($context['current_episode'] ?? []),
             array_flip(['episode_number','title','story_outline','conflict_point','ending_hook']));
         $context['outline'] = ShortDramaPlanningContext::lockedStory((array)($context['outline'] ?? []));
@@ -27,8 +29,11 @@ final class ShortDramaEpisodeReview
         $shots = array_values($base['storyboard']);
         $process = function (int $offset, int $count) use (&$process, &$result, &$context, &$summaries, &$warnings, &$patches, &$pendingReview, $shots, $request, $call, $progress): void {
             $block = self::projection($result);
+            unset($block['script_lines'], $block['story_outline']);
             $block['storyboard'] = array_slice($shots, $offset, $count);
             $block['storyboard'] = array_map(static fn($shot) => array_intersect_key($shot, array_flip(self::SHOT_FIELDS)), $block['storyboard']);
+            $context['review_window'] = ['first_shot' => $offset + 1, 'last_shot' => $offset + $count, 'total_shots' => count($shots),
+                'instruction' => '当前仅审校本集的一段镜头。仅记录本段已发生的事实；未展示的前后段剧情不算遗漏，不可引用整集摘要推断本段事件。previous.state包含本集前面已核验镜头的最新状态。'];
             $key = 'review_' . $offset . '_' . $count;
             $audit = static fn(array $input): array => $call($key . '_audit_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 16), $input, 4096,
                 static function ($reply): void {
@@ -63,6 +68,11 @@ final class ShortDramaEpisodeReview
                 return;
             }
             foreach ($block['storyboard'] as $i => $shot) $result['storyboard'][$offset + $i] = array_replace($result['storyboard'][$offset + $i], $shot);
+            foreach ($ledger['state'] as $stateKey => $value) {
+                if (!array_key_exists($stateKey, $context['continuity']['state'] ?? []) || $context['continuity']['state'][$stateKey] !== $value) {
+                    $context['_reviewed_block_state_keys'][$stateKey] = true;
+                }
+            }
             $context['continuity']['state'] = $ledger['state'];
             $context['continuity']['open_hooks'] = $ledger['open_hooks'];
             $pendingReview = $pendingReview || ($ledger['audit_status'] ?? '') === 'pending_review';

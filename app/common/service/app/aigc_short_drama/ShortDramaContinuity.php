@@ -89,7 +89,9 @@ final class ShortDramaContinuity
             // An explicit regeneration may be pending while its previous
             // successful version remains viewable. Do not block that attempt.
             $row['needs_review'] = $qualityReviewEnabled && ($outdated || ($ledger['audit_status'] ?? '') === 'pending_review') && ($row['status'] ?? '') === 'success';
-            $row['review_reason'] = $row['needs_review'] ? '本集或前集剧情已修改，需复核连续性；原剧本和素材已保留' : '';
+            $row['review_reason'] = !$row['needs_review'] ? '' : ($outdated
+                ? '本集或前集剧情已修改，需复核连续性；原剧本和素材已保留'
+                : '连续性审校尚未完成，需继续复核；原剧本和素材已保留');
             if (!$outdated && $ledger) $row['continuity_json'] = json_encode($ledger, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             $upstreamChanged = $upstreamChanged || $outdated;
             $previousDigest = $digest;
@@ -106,6 +108,7 @@ final class ShortDramaContinuity
                 'confirmed' => ShortDramaPlanningContext::lockedStory((array)($context['outline'] ?? [])),
                 'current_episode' => $context['current_episode'] ?? [],
                 'series_roadmap' => $context['series_roadmap'] ?? [],
+                'review_window' => $context['review_window'] ?? null,
                 'script' => self::narrative($plan),
                 'response_contract' => [
                     'summary' => '本集已发生事件的简短摘要，不写未来剧情',
@@ -435,7 +438,7 @@ final class ShortDramaContinuity
         $hooks = (array)($context['continuity']['open_hooks'] ?? []);
         $ids = array_merge(['world'], array_column((array)($plan['subjects'] ?? []), 'id'), array_column((array)($plan['locations'] ?? []), 'id'));
         $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
-        $changedInEpisode = [];
+        $changedInEpisode = (array)($context['_reviewed_block_state_keys'] ?? []);
         foreach ($review['changes'] as $item) {
             self::evidence($item, $shots);
             // JSON scalar spelling is lossless; PHP's generic string cast is
