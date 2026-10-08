@@ -586,7 +586,11 @@ class ShortDramaEpisodeService
             $data = AigcShortDramaService::streamScriptPlan($tenantId, $userId,
                 ['project_id' => $row['production_project_id'], 'task_id' => $row['task_id']],
                 static function ($event, $data) use ($row) {
-                    if (in_array($event, ['stage', 'heartbeat'], true)) Db::name(self::TABLE)->where(['id' => $row['id'], 'task_id' => $row['task_id'], 'delete_time' => 0])->update(['progress' => max(0, min(99, (int)($data['progress'] ?? 0))), 'heartbeat_at' => time(), 'update_time' => time()]);
+                    if (in_array($event, ['stage', 'heartbeat'], true)) {
+                        $update=['heartbeat_at'=>time(),'update_time'=>time()];
+                        if ($event==='stage' && isset($data['progress'])) $update['progress']=max(0,min(99,(int)$data['progress']));
+                        Db::name(self::TABLE)->where(['id'=>$row['id'],'task_id'=>$row['task_id'],'delete_time'=>0])->update($update);
+                    }
                 }, true);
             $task = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id']])->findOrEmpty()->toArray();
             if (!in_array($task['status'] ?? '', ['success', 'failed', 'canceled'], true)) return;

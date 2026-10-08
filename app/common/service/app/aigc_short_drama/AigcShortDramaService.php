@@ -4181,8 +4181,6 @@ class AigcShortDramaService
                             'task_id' => $taskId,
                             'status' => self::STATUS_RUNNING,
                         ])->update([
-                            'progress' => 20,
-                            'current_step' => $planningStep,
                             'update_time' => $now,
                         ]);
                         AigcShortDramaGenerationTask::where([
@@ -4192,7 +4190,6 @@ class AigcShortDramaService
                             'status' => self::STATUS_RUNNING,
                             'delete_time' => 0,
                         ])->update([
-                            'progress' => 20,
                             'update_time' => $now,
                         ]);
                     }
@@ -18754,7 +18751,7 @@ class AigcShortDramaService
     {
         $lower = strtolower($message);
         if (str_contains($lower, 'sqlstate') || str_contains($lower, 'integrity constraint') || str_contains($lower, 'duplicate entry')) {
-            return self::SAFE_ERROR;
+            return '保存生成过程时出现系统异常，已完成内容保留，请联系管理员检查任务记录';
         }
         // Detailed continuity evidence lives in planning receipts and the full
         // exception log. Never put its JSON payload into bounded task columns:
