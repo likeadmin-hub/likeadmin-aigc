@@ -13241,18 +13241,20 @@ class AigcShortDramaService
         $soundPrefix = $soundEffect !== ''
             ? self::trimPromptText($soundEffect) . '；'
             : ShortDramaPromptCatalog::text('fill.video_sound');
-        if (self::isNoSubjectShot($shot)) {
-            return $soundPrefix . '画面中无角色出现，全程无人说话';
-        }
+        // Visual absence does not mean silence: empty shots may have narration
+        // or a named off-screen speaker. Dialogue is the audio authority.
         $turns = ShortDramaShotSemantics::turns($shot);
-        if (!$turns) return $soundPrefix . '画面中所有角色全程不说话';
+        if (!$turns) return $soundPrefix . (self::isNoSubjectShot($shot)
+            ? '画面中无角色出现，全程无人说话' : '画面中所有角色全程不说话');
         $speechType = (string)($shot['speech_type'] ?? '');
         $parts = [];
         foreach ($turns as $turn) {
             $speaker = $turn['speaker'];
             $words = str_replace(["\r\n", "\n", "\r"], '；', $turn['text']);
             $narration = $speechType === 'narration' || in_array($speaker, ['旁白','narrator'], true) || str_contains($speaker, '画外');
-            $parts[] = $narration ? '画外音：“' . $words . '”' : ($speaker ?: '角色') . '说：“' . $words . '”';
+            $offscreen = $narration || self::isNoSubjectShot($shot);
+            $label = $speechType === 'narration' || in_array($speaker, ['旁白','narrator'], true) ? '旁白' : ($speaker ?: '角色');
+            $parts[] = $offscreen ? $label . '（画外音）：“' . $words . '”' : $label . '说：“' . $words . '”';
         }
         return $soundPrefix . implode('；', $parts);
 
@@ -13448,17 +13450,9 @@ class AigcShortDramaService
 
     private static function buildShotDialogueText(array $shot, bool $noSubjectShot): string
     {
-        if ($noSubjectShot) {
-            return '画面中无角色出现，全程无人说话';
-        }
-        $dialogue = trim((string)($shot['dialogue'] ?? ''));
-        if ($dialogue === '') {
-            return '全程无人说话';
-        }
-        $voiceRole = trim((string)($shot['voice_role'] ?? ''));
-        return $voiceRole !== ''
-            ? '台词' . $voiceRole . '：' . $dialogue . '”'
-            : '台词：' . $dialogue . '”';
+        // Same multi-speaker sound contract as the visible director prompt.
+        // This fallback is used only when submitted text has no sound column.
+        return self::promptLine('声音', self::readableShotSoundText($shot));
     }
 
     private static function shotDurationMilliseconds(int $seconds): int
