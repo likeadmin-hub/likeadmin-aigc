@@ -49,6 +49,9 @@ class ShortDramaEpisodeReviewTest extends TestCase
             self::assertStringNotContainsString('"patches"', $messages['system_prompt']);
             if (str_contains($messages['content'], '仅修正审校JSON')) {
                 $corrections++;
+                $contract = json_decode($messages['content'], true)['response_contract'];
+                self::assertSame(['evidence_patches'], array_keys($contract));
+                self::assertArrayNotHasKey('quote', $contract['evidence_patches'][0]);
                 return ['evidence_patches' => [['collection'=>'changes', 'index'=>0, 'before'=>'房间']]];
             }
             $input = json_decode($messages['content'], true);
