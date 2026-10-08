@@ -157,6 +157,41 @@ class ShortDramaEpisodeReviewTest extends TestCase
         self::assertContains('s1', array_column($evidence, 'shot_id'));
         self::assertArrayNotHasKey('video_prompt', $evidence[0]);
     }
+    public function testInventedAuditQualifierIsCorrectedAndIndependentlyVerifiedWithoutEditingScript(): void
+    {
+        $plan = $this->plan(1); $verifications = 0;
+        $result = Review::generate($plan, $this->request(), function ($key, $messages, $budget, $validate = null) use (&$verifications) {
+            $input = json_decode($messages['content'], true);
+            if (isset($input['response_contract']['claim_patches'])) {
+                $reply = ['claim_patches'=>[['collection'=>'changes','index'=>0,'value'=>'房间','shot_id'=>'s1','quote'=>'甲走进房间','reason'=>'正文未指定房间左侧，删除审校推断的位置修饰']]];
+                $validate($reply); return $reply;
+            }
+            if (isset($input['response_contract']['checks'])) {
+                $verifications++;
+                return ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>$input['review']['changes'][0]['after'] === '房间','reason'=>'镜头只显示房间，不含左侧']]];
+            }
+            return ['summary'=>'进入房间','changes'=>[['entity_id'=>'a','field'=>'location','before'=>null,'after'=>'房间左侧','shot_id'=>'s1','quote'=>'甲走进房间']], 'hooks'=>[], 'warnings'=>[]];
+        });
+        self::assertSame(2, $verifications);
+        self::assertSame('verified', $result['_continuity']['audit_status']);
+        self::assertSame('房间', $result['_continuity']['state']['a:location']);
+        self::assertSame('房间左侧', $result['_continuity']['audit_corrections'][0]['original']['after']);
+        self::assertSame($plan['storyboard'], $result['storyboard']);
+    }
+    public function testUnsupportedAuditCorrectionStillBlocks(): void
+    {
+        $result = Review::generate($this->plan(1), $this->request(), function ($key, $messages, $budget, $validate = null) {
+            $input = json_decode($messages['content'], true);
+            if (isset($input['response_contract']['claim_patches'])) {
+                $reply = ['claim_patches'=>[['collection'=>'changes','index'=>0,'value'=>'另一个无证据地点','shot_id'=>'s1','quote'=>'甲走进房间','reason'=>'错误修正']]];
+                $validate($reply); return $reply;
+            }
+            if (isset($input['response_contract']['checks'])) return ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>false,'reason'=>'无地点证据']]];
+            return ['summary'=>'进入房间','changes'=>[['entity_id'=>'a','field'=>'location','before'=>null,'after'=>'屋顶','shot_id'=>'s1','quote'=>'甲走进房间']], 'hooks'=>[], 'warnings'=>[]];
+        });
+        self::assertSame('pending_review', $result['_continuity']['audit_status']);
+        self::assertArrayNotHasKey('a:location', $result['_continuity']['state']);
+    }
     public function testPatchPreservesMediaIdentityTimingAndUnrelatedShots(): void
     {
         $plan=$this->plan(2);
