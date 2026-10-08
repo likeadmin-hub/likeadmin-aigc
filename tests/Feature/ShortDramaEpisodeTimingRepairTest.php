@@ -84,7 +84,7 @@ class ShortDramaEpisodeTimingRepairTest extends TestCase
             $calls[] = $key;
             return count($calls) === 1 ? $this->reply($shots, [8, 5, 10, 12, 14, 15]) : $this->reply($shots);
         });
-        self::assertCount(2, $calls); self::assertNotSame($calls[0], $calls[1]);
+        self::assertCount(1, $calls);
         self::assertEquals(60, array_sum(array_column($result['storyboard'], 'recommended_duration_seconds')));
         $calls = 0;
         try {
@@ -95,21 +95,37 @@ class ShortDramaEpisodeTimingRepairTest extends TestCase
         } catch (\RuntimeException $e) { self::assertSame(409, $e->getCode()); self::assertSame(2, $calls); }
     }
 
-    public function testReorderedOrMissingIdsAndStillDenseDialogueAreRejected(): void
+    public function testReorderedOrMissingIdsAndInvalidNumbersAreRejected(): void
     {
         $shots = $this->shots();
-        foreach (['reverse', 'missing', 'dense'] as $kind) {
+        foreach (['reverse', 'missing', 'invalid'] as $kind) {
             $calls = 0;
             try {
                 Repair::adapt(['storyboard' => $shots], $this->request(), function() use ($kind, $shots, &$calls) {
                     $calls++; $reply = $this->reply($shots);
                     if ($kind === 'reverse') $reply['timings'] = array_reverse($reply['timings']);
                     if ($kind === 'missing') array_pop($reply['timings']);
-                    if ($kind === 'dense') $reply['timings'][3]['duration_seconds'] = 8;
+                    if ($kind === 'invalid') $reply['timings'][3]['duration_seconds'] = 'invalid';
                     return $reply;
                 });
                 self::fail('Invalid allocation');
             } catch (\RuntimeException $e) { self::assertSame(409, $e->getCode()); self::assertSame(2, $calls); }
+        }
+    }
+
+    public function testLiveModelUndersizedShotsAreRebalancedWithoutAnotherPaidCall(): void
+    {
+        $shots = $this->shots();
+        $calls = 0;
+        $result = Repair::adapt(['storyboard' => $shots], $this->request(), function() use ($shots, &$calls) {
+            $calls++; return $this->reply($shots, [2, 15, 15, 8, 15, 5]);
+        });
+        self::assertSame(1, $calls);
+        self::assertEquals(60, array_sum(array_column($result['storyboard'], 'recommended_duration_seconds')));
+        foreach ($result['storyboard'] as $i => $shot) {
+            self::assertSame($shots[$i]['dialogue'], $shot['dialogue']);
+            self::assertGreaterThanOrEqual(max(4, Split::requiredSeconds($shot['dialogue'])), $shot['recommended_duration_seconds']);
+            self::assertLessThanOrEqual(15, $shot['recommended_duration_seconds']);
         }
     }
 

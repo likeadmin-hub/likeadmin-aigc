@@ -51,7 +51,8 @@ final class ShortDramaEpisodeTimingRepair
         // The original request remains immutable; only this temporary allocation is free.
         $free = $request;
         $free['episode_duration_policy'] = array_replace($policy, ['source' => 'default']);
-        $candidate = ShortDramaDialogueSplit::adapt($plan, $free, $call, 'episode_budget_split');
+        $candidate = ShortDramaDialogueSplit::adapt($plan, $free, $call,
+            'episode_budget_split_' . substr(hash('sha256', json_encode($plan['storyboard'])), 0, 16));
         $targets = [];
         foreach ($candidate['storyboard'] as $shot) {
             $id = (string)($shot['shot_id'] ?? '');
@@ -102,13 +103,42 @@ final class ShortDramaEpisodeTimingRepair
             throw new RuntimeException('时长分配必须按原顺序完整覆盖全部分镜编号', 422);
         }
         $rule = ShortDramaShotDuration::rule($request);
+        $durations = []; $minimums = []; $maximums = [];
         foreach ($timings as $index => $timing) {
             if (!is_array($timing) || array_diff(array_keys($timing), ['shot_id', 'duration_seconds'])
-                || !ShortDramaShotDuration::contains($timing['duration_seconds'] ?? null, $rule)
-                || (float)$timing['duration_seconds'] < $targets[$timing['shot_id']]['minimum_seconds']) {
-                throw new RuntimeException('分镜秒数不足以容纳完整对白或超出片段范围', 422);
+                || !is_numeric($timing['duration_seconds'] ?? null)
+                || !is_finite((float)$timing['duration_seconds']) || $timing['duration_seconds'] <= 0) {
+                throw new RuntimeException('分镜秒数须为有效正数', 422);
             }
-            $plan['storyboard'][$index]['recommended_duration_seconds'] = (float)$timing['duration_seconds'];
+            $minimums[$index] = (int)ceil($targets[$timing['shot_id']]['minimum_seconds'] * 1000);
+            $maximums[$index] = (int)floor($rule['max_seconds'] * 1000);
+            $durations[$index] = max($minimums[$index], min($maximums[$index], (int)round($timing['duration_seconds'] * 1000)));
+        }
+        // The model supplies editorial preferences; arithmetic constraints belong
+        // to the application. Project onto the feasible budget without another
+        // paid call, preserving every shot and its complete spoken text.
+        $policy = ShortDramaEpisodeDuration::policy($request);
+        $total = array_sum($durations);
+        $target = max((int)ceil($policy['min_seconds'] * 1000), min((int)floor($policy['max_seconds'] * 1000), $total));
+        $delta = $target - $total;
+        if ($delta !== 0) {
+            $capacity = array_map(static fn($i) => $delta > 0 ? $maximums[$i] - $durations[$i] : $durations[$i] - $minimums[$i], array_keys($durations));
+            $available = array_sum($capacity); $remaining = abs($delta);
+            if ($available < $remaining) throw new RuntimeException('完整对白无法放入整集时长预算', 422);
+            $direction = $delta > 0 ? 1 : -1;
+            foreach ($durations as $i => &$duration) {
+                $share = (int)floor(abs($delta) * $capacity[$i] / $available);
+                $duration += $direction * $share; $capacity[$i] -= $share; $remaining -= $share;
+            }
+            unset($duration);
+            foreach ($durations as $i => &$duration) {
+                $share = min($remaining, $capacity[$i]);
+                $duration += $direction * $share; $remaining -= $share;
+            }
+            unset($duration);
+        }
+        foreach ($durations as $index => $duration) {
+            $plan['storyboard'][$index]['recommended_duration_seconds'] = $duration / 1000;
         }
         ShortDramaEpisodeDuration::assertPlan($plan, $request);
         return $plan;
