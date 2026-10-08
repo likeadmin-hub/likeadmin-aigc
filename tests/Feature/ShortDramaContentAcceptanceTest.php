@@ -207,6 +207,20 @@ class ShortDramaContentAcceptanceTest extends TestCase
         self::assertSame('dialogue_instruction',$report['issues'][0]['code']);
     }
 
+    public function testExplicitSingleSpeakerPreservesAddressedCharactersName(): void
+    {
+        $p=$this->plan();$p['subjects'][]=['id'=>'q','name'=>'小李','category'=>'character'];
+        $p['storyboard'][0]['dialogue']='小李：陈伯，您的信。';$p['storyboard'][0]['voice_role']='小李';$p['storyboard'][0]['speech_type']='character';
+        $out=Acceptance::generate($p,['prompt'=>'交谈'],static function($key,$input,$tokens,$validate){
+            $d=json_decode($input['content'],true);self::assertArrayNotHasKey('legacy_dialogue',$d);
+            if(isset($d['source']))$r=['requirements'=>[]];
+            elseif(isset($d['shots']))$r=['checks'=>[],'issues'=>[]];
+            else$r=['categories'=>array_map(static fn($s)=>['id'=>$s['id'],'category'=>$s['category']],$d['subjects'])];
+            $validate($r);return $r;
+        });
+        self::assertSame($p['storyboard'][0]['dialogue'],$out['storyboard'][0]['dialogue']);
+    }
+
     public function testDurationConstraintIsCalculatedByServerNotProseModel(): void
     {
         $report=Acceptance::inspect($this->plan(),[['id'=>'r1','kind'=>'constraint','text'=>'本集时长10秒。']],static function($key,$input,$tokens,$validate){

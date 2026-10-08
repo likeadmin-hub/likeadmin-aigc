@@ -6,7 +6,7 @@ use RuntimeException;
 /** Whole-episode acceptance using bounded requests and durable provider units. */
 final class ShortDramaContentAcceptance
 {
-    public const VERSION = 6;
+    public const VERSION = 7;
     private const FIELDS = ['visual_description','dialogue','voice_role','speech_type','interior_exterior','scene_ref_id','subject_ref_ids'];
 
     public static function enabled(array $request): bool
@@ -157,7 +157,7 @@ final class ShortDramaContentAcceptance
             $turns=ShortDramaShotSemantics::turns($s);
             $ambiguous=false;
             if($labels!=='')foreach($turns as $turn)if(preg_match('/^(?:'.$labels.')[，,]/u',$turn['text']))$ambiguous=true;
-            if(preg_match('/^[^：:\n]{1,20}[：:]/u',$text)&&!$ambiguous)continue;
+            if(preg_match('/^[^：:\n]{1,20}[：:]/u',$text)&&(!$ambiguous||count($turns)===1))continue;
             if($ambiguous||($labels!==''&&preg_match('/(?:^|[。！？])\s*(?:'.$labels.')[，,]/u',$text))||preg_match('/[。！？].+[^。！？][。！？]/u',$text))$targets[]=$s;
         }
         foreach(array_chunk($targets,6) as $batch){
