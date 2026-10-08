@@ -70,6 +70,16 @@ class PicLipsyncManagementTest extends TestCase
         Registry::setStatus(Service::APP_CODE,'disabled');self::assertFalse(Access::tenantCanManage(987001,Service::APP_CODE));
         Registry::setStatus(Service::APP_CODE,'installed');self::assertTrue(Access::tenantCanManage(987001,Service::APP_CODE));
     }
+    public function testPlanCanOpenRenewAndKeepUnshelvedState(): void
+    {
+        $plan=\app\common\service\app\AppPlanService::savePlan(['app_code'=>Service::APP_CODE,'name'=>'management fixture plan','duration_months'=>1,'open_points'=>0,'renew_points'=>0,'status'=>1]);
+        $opened=\app\common\service\app\AppPlanService::openOrRenew(987003,0,Service::APP_CODE,(int)$plan['id']);
+        self::assertSame('open',$opened['order_type']);self::assertTrue(Access::tenantCanUse(987003,Service::APP_CODE));
+        Db::name('tenant_app')->where(['tenant_id'=>987003,'app_code'=>Service::APP_CODE])->update(['shelf_status'=>'off']);
+        $renewed=\app\common\service\app\AppPlanService::openOrRenew(987003,0,Service::APP_CODE,(int)$plan['id']);
+        self::assertSame('renew',$renewed['order_type']);self::assertGreaterThan($opened['after_expire_time'],$renewed['after_expire_time']);
+        self::assertFalse(Access::tenantCanUse(987003,Service::APP_CODE));self::assertTrue(Access::tenantCanManage(987003,Service::APP_CODE));
+    }
     public function testSoftUninstallRetainsTasksAndClearLeavesSharedLibraries(): void
     {
         $id=$this->task(987001);
