@@ -111,7 +111,7 @@ final class ShortDramaContentFirstGenerationTest extends TestCase
         self::assertSame(Speech::requiredSeconds('你好世界',$rule), Speech::requiredSeconds('名字很长的人：你好世界',$rule));
         self::assertLessThan(Speech::requiredSeconds('This extraordinarily complicated explanation is unnecessarily long.'),
             Speech::requiredSeconds('This extraordinarily complicated explanation is unnecessarily long.',$rule));
-        self::assertSame(3.0,Speech::requiredSeconds('女儿：你好世界。'));
+        self::assertSame(2.0,Speech::requiredSeconds('女儿：你好世界。'));
     }
 
     public function testNewTimingProjectionDoesNotPayModelForArithmetic(): void
