@@ -186,3 +186,19 @@
 - server commit：核心实现截至 abef29734；文档补充提交随本节交付。
 - web commit：824a855b。
 - risks or blockers：无当前运行阻塞；语义判断仍受模型能力影响，真实 500 集与音视频制作尚未验证。
+
+
+## 2026-10-08 分集生图默认模型继承
+
+- task：全局继承第一集生图模型，并同步选项、预估与提交。
+- branch：server / web 均为 `feature/aigc-upgrade`。
+- server scope：读取分集配置时继承第一集当前图片模型及分辨率；保留本集比例、视频配置、显式自选及旧版已有图片任务的选择。后续新增与提前创建的分集共用此逻辑；单集项目独立。未传图片模型的报价和提交也采用同一默认值。
+- web scope：剧本、主体/场景、分镜工作台立即更新选择，串行保存模型配置，下一集读取前等待保存完成；避免旧异步响应覆盖刚选择的模型。
+- contract changes：沿用保存/读取接口，在现有配置 JSON 内增加服务端管理的 `image_selection_explicit` 标记；无表结构、权限、价格或结算规则修改。不修改历史任务快照和账单。
+- completed / remaining：实现与源码验证完成；未进行付费图片生成或历史数据批量改写。已有图片任务的旧配置保留，以免覆盖历史选择。
+- validation：后端相关回归 62 项 / 332 条断言通过，包含新配置继承测试 6 项 / 35 条断言；前端相关回归 24 项通过；plan / VisualCreationWorkbench / StoryboardCreationWorkbench 三个 Vue 脚本及模板编译通过。
+- live evidence：项目 3571 第 3 集（52614，制作项目 3574）原为 Nano 默认，重新读取后显示 GPT Image 2 / 1K，15 张分镜预估 300 点。后端只读报价继承为 20 点/张，显式指定 Nano 为 30 点/张。没有提交图片任务或扣费。
+- known test limitations：扩展检查另遇到 6 项旧后端产物测试失败（5 项硬编码编译文件已不存在、1 项旧静态入口路径断言），以及 1 项旧 PC 路由源码正则不兼容现有 `visitPath`；这些文件/逻辑在本次实现前已如此，未修改它们来掩盖失败。首次单独调用 Vue 编译器缺少 TS 模板选项，补齐编译选项后上述三个组件均通过。
+- server commit：实现 `6b3bc5b1b`，本节和 manifest 功能说明另行提交。
+- web commit：`5ec738f0`。
+- risks or blockers：无本次功能阻塞；未做付费上游生图验证。运行验证在包含 feature 提交的本地 develop 完成，仅推送功能分支及源代码。
