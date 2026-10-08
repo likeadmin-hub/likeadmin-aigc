@@ -60,11 +60,9 @@ final class ShortDramaNarrativeMemory
 
     public static function dependency(array $continuity, string $query): string
     {
-        $view = self::continuity($continuity, $query);
-        // A retrieval miss is not proof of irrelevance. Any authoritative fact
-        // change invalidates the dependency; only unchanged facts can skip review.
-        $view['authoritative_state'] = $continuity['state'] ?? [];
-        $view['authoritative_hooks'] = $continuity['open_hooks'] ?? [];
+        // Dependency proof uses ALL authoritative facts, never a relevance guess.
+        // It also avoids running ranked retrieval for every card on every poll.
+        $view = ShortDramaPlanningContext::continuityFacts($continuity);
         // Provenance identifies sources but is not itself a narrative change.
         unset($view['memory_scope'], $view['previous_digest'], $view['version']);
         foreach (['history','recent_episodes'] as $field) foreach ((array)($view[$field] ?? []) as $i => $episode) {
