@@ -17751,7 +17751,8 @@ class AigcShortDramaService
             $selected = 0;
         }
         return ShortDramaEpisodeDuration::snapshot((array)($config['episode_duration_rule'] ?? []),
-            $selected, $explicitText, self::extractTimelineSegments($prompt), $seriesTotal) + ['episode_overrides' => $overrides];
+            $selected, $explicitText, self::extractTimelineSegments($prompt), $seriesTotal,
+            ShortDramaEpisodeDuration::approximateText($timingText)) + ['episode_overrides' => $overrides];
     }
 
     private static function readUploadedScriptText(string $path, string $extension): string
@@ -21186,6 +21187,7 @@ class AigcShortDramaService
             'locations' => $locations,
             'storyboard' => $storyboard,
             'storyboard_breaking_diagnostics' => $storyboardDiagnostics,
+            'generation_contract' => (array)($payload['generation_contract'] ?? []),
             'duration_stats' => $durationStats,
             'outline_validation_issues' => $outlineValidationIssues,
             'generation_settings' => [

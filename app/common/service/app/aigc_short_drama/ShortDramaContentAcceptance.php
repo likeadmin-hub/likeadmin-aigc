@@ -84,7 +84,10 @@ final class ShortDramaContentAcceptance
 
     public static function generate(array $plan, array $request, callable $call): array
     {
-        $requirements = self::requirements($request, $call);
+        $contract = (array)($plan['generation_contract'] ?? []);
+        $requirements = ($contract['version'] ?? 0) === 9 && ($contract['source_hash'] ?? '') === self::sourceHash($request)
+            && is_array($contract['requirements'] ?? null)
+            ? $contract['requirements'] : self::requirements($request, $call);
         $beforeNormalization = $plan;
         $plan = ShortDramaShotSemantics::normalize($plan);
         $originalLines = $plan['script_lines'] ?? [];
@@ -147,6 +150,17 @@ final class ShortDramaContentAcceptance
             }
         }
         return $plan;
+    }
+
+    public static function prepareContract(array $request, callable $call): array
+    {
+        return ['version'=>9, 'source_hash'=>self::sourceHash($request), 'requirements'=>self::requirements($request, $call)];
+    }
+
+    private static function sourceHash(array $request): string
+    {
+        return hash('sha256', json_encode([$request['prompt'] ?? '', $request['revision_message'] ?? '',
+            $request['episode_number'] ?? 1, $request['series_context']['current_episode'] ?? []], JSON_UNESCAPED_UNICODE));
     }
 
     /** Legacy prose often uses commas as role labels. Recover attribution in
