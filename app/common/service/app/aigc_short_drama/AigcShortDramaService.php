@@ -17861,9 +17861,10 @@ class AigcShortDramaService
     private static function reviewScriptPlanContinuity(int $tenantId, int $userId, array $base, array $request, array $model, ?callable $onEvent): array
     {
         $receipts = []; $calls = 0; $rejected = [];
+        $callLimit = min(512, max(24, count((array)($base['storyboard'] ?? [])) * 12));
         $result = ShortDramaEpisodeReview::generate($base, $request,
-            static function (string $key, array $input, int $desired, ?callable $validate = null) use ($tenantId, $userId, $request, $model, $onEvent, &$receipts, &$calls, &$rejected): array {
-                if (++$calls > 512) throw new \RuntimeException('复核已达到本次处理上限，原剧本保留，请缩小修改范围', 429);
+            static function (string $key, array $input, int $desired, ?callable $validate = null) use ($tenantId, $userId, $request, $model, $onEvent, &$receipts, &$calls, &$rejected, $callLimit): array {
+                if (++$calls > $callLimit) throw new \RuntimeException('复核已达到本次处理上限，原剧本保留，请缩小修改范围', 429);
                 if ($onEvent) $onEvent('heartbeat', []);
                 $budget = ShortDramaPlanningBudget::stage($input['system_prompt'] . $input['content'], $model, 'script', $desired);
                 ShortDramaPlanningUnit::supersede($rejected); $rejected = [];
@@ -17879,7 +17880,8 @@ class AigcShortDramaService
                     if ($validate) $validate($payload);
                     return $payload;
                 }); } catch (\RuntimeException $error) { $rejected = $receipt; throw $error; }
-            }, $onEvent);
+            }, $onEvent, static fn(array $plan, int $reviewed) => ShortDramaReviewCheckpoint::save(
+                $tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $plan, $reviewed));
         return ['result'=>$result, 'llm'=>self::mergeScriptPlanLlmResults($receipts)];
     }
 

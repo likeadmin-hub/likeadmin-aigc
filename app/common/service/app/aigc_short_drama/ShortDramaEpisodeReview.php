@@ -15,7 +15,7 @@ final class ShortDramaEpisodeReview
         return $result;
     }
 
-    public static function generate(array $base, array $request, callable $call, ?callable $progress = null): array
+    public static function generate(array $base, array $request, callable $call, ?callable $progress = null, ?callable $checkpoint = null): array
     {
         if (empty($base['storyboard'])) throw new RuntimeException('缺少可复核的已保存分镜', 422);
         $context = (array)($request['series_context'] ?? []);
@@ -28,7 +28,8 @@ final class ShortDramaEpisodeReview
         $previousDigest = (string)($context['continuity']['previous_digest'] ?? '');
         $result = $base; $summaries = []; $warnings = []; $patches = []; $auditCorrections = []; $unverified = []; $observed = []; $pendingReview = false;
         $shots = array_values($base['storyboard']);
-        $process = function (int $offset, int $count) use (&$process, &$result, &$context, &$summaries, &$warnings, &$patches, &$auditCorrections, &$unverified, &$observed, &$pendingReview, $shots, $request, $call, $progress): void {
+        if ($checkpoint) $checkpoint($result, 0);
+        $process = function (int $offset, int $count) use (&$process, &$result, &$context, &$summaries, &$warnings, &$patches, &$auditCorrections, &$unverified, &$observed, &$pendingReview, $shots, $request, $call, $progress, $checkpoint): void {
             $block = self::projection($result);
             unset($block['script_lines'], $block['story_outline']);
             $block['storyboard'] = array_slice($shots, $offset, $count);
@@ -66,7 +67,13 @@ final class ShortDramaEpisodeReview
                     array_push($patches, ...$reply['patches']);
                 }
             } catch (RuntimeException $error) {
-                if ($error->getCode() !== 413 || $count <= 1) throw $error;
+                // Exhausted audit-format recovery and capacity errors are local to
+                // this block. Smaller blocks keep accepted neighbors intact.
+                if (!in_array($error->getCode(), [413, 422], true) || $count <= 1) throw $error;
+                $left = intdiv($count, 2); $process($offset, $left); $process($offset + $left, $count - $left);
+                return;
+            }
+            if (($ledger['audit_status'] ?? '') === 'pending_review' && $count > 1) {
                 $left = intdiv($count, 2); $process($offset, $left); $process($offset + $left, $count - $left);
                 return;
             }
@@ -84,6 +91,7 @@ final class ShortDramaEpisodeReview
             array_push($auditCorrections, ...(array)($ledger['audit_corrections'] ?? []));
             array_push($unverified, ...(array)($ledger['unverified_claims'] ?? []));
             array_push($observed, ...(array)($ledger['observed_events'] ?? []));
+            if ($checkpoint) $checkpoint($result, $offset + $count);
             if ($progress) $progress('stage', ['status'=>'running','progress'=>min(95, 20 + (int)(75 * ($offset + $count) / count($shots))),
                 'current_step'=>'已复核' . ($offset + $count) . '/' . count($shots) . '个分镜，原版本保留']);
         };

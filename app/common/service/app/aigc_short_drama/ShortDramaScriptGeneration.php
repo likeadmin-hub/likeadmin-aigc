@@ -23,8 +23,8 @@ final class ShortDramaScriptGeneration
         $calls = 0;
         $reservedOutput = 0;
         $rejected = [];
-        // Every episode reserves room for its audit and at most one
-        // audit-format correction, inside the existing overall budget.
+        // Keep the existing body-generation budget. The shared review stage
+        // has a separate bounded budget proportional to narrative size.
         $auditReserve = !empty($request['series_context']);
         $callLimit = $auditReserve ? 46 : 48;
         $outputLimit = $auditReserve ? 183808 : 192000;
@@ -130,6 +130,7 @@ final class ShortDramaScriptGeneration
                     'locked_plan' => array_intersect_key($skeleton, array_flip(['title', 'story_outline', 'series_bible', 'subjects', 'locations', 'art_style'])),
                     'scene_continuity' => array_map(static fn($item) => array_intersect_key($item, array_flip(['scene_ref_id', 'goal', 'entry', 'exit'])), $skeleton['scene_beats']),
                     'scene_beat' => $beat, 'shot_start' => $start, 'shot_count' => $size,
+                    'scene_progress' => ShortDramaSceneProgress::window($beat, (int)$beat['shot_count'], $start - 1, $size, $sceneShots),
                     'required_shot_ids' => array_map(static fn($n) => 's' . ($sceneIndex + 1) . '_' . $n, range($start, $start + $size - 1)),
                     'previous_shots' => array_slice(array_merge($shots, $sceneShots), -2),
                 ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);

@@ -7,6 +7,25 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaEpisodeReviewTest extends TestCase
 {
+    public function testMalformedBlockIsReducedWithoutRepeatingAcceptedNeighbors(): void
+    {
+        $windows = []; $snapshots = [];
+        $base = $this->plan(6);
+        $result = Review::generate($base, $this->request(), function($key,$messages,$desired,$validate) use (&$windows) {
+            $input = json_decode($messages['content'], true);
+            if (isset($input['script'])) {
+                $ids = array_column($input['script']['storyboard'], 'shot_id'); $windows[] = $ids;
+                if ($ids === ['s5','s6']) throw new \RuntimeException('连续性审校结构不完整', 422);
+            }
+            $reply = $this->reply($input); $validate($reply); return $reply;
+        }, null, static function($plan,$count) use (&$snapshots) { $snapshots[$count] = $plan; });
+        self::assertSame(1, count(array_filter($windows, static fn($ids) => $ids === ['s1','s2','s3','s4'])));
+        self::assertContains(['s5'], $windows); self::assertContains(['s6'], $windows);
+        self::assertSame($base, $snapshots[0]);
+        self::assertSame($base['storyboard'], $snapshots[6]['storyboard']);
+        self::assertSame('verified', $result['_continuity']['audit_status']);
+    }
+
     private function plan(int $count = 9): array
     {
         return ['title'=>'重逢','story_outline'=>'甲走进房间','script_lines'=>['甲走进房间'],

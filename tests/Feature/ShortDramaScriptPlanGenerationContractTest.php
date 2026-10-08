@@ -120,11 +120,18 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
             $generated = $this->generate($request);
             self::assertCount(12, $generated['result']['storyboard']);
             self::assertSame(0, $generated['result']['review_report']['blocking_count']);
-            self::assertCount($episode ? 3 : 1, \app\common\service\power\MarketTextModelRuntimeService::$requests);
+            self::assertCount($episode ? 7 : 1, \app\common\service\power\MarketTextModelRuntimeService::$requests);
             if ($episode) {
                 $evidenceInput = json_decode(\app\common\service\power\MarketTextModelRuntimeService::$requests[2]['content'], true);
                 self::assertArrayHasKey('checks', $evidenceInput['response_contract']);
-                self::assertCount(12, $evidenceInput['storyboard']);
+                self::assertCount(4, $evidenceInput['storyboard']);
+                $reviewedIds = [];
+                foreach ([2, 4, 6] as $index) {
+                    $block = json_decode(\app\common\service\power\MarketTextModelRuntimeService::$requests[$index]['content'], true);
+                    array_push($reviewedIds, ...array_column($block['storyboard'], 'shot_id'));
+                    self::assertStringNotContainsString('video_prompt', json_encode($block));
+                }
+                self::assertSame(array_column($generated['result']['storyboard'], 'shot_id'), $reviewedIds);
             }
             if ($episode) self::assertSame('previous', $generated['result']['_continuity']['previous_digest']);
             else self::assertArrayNotHasKey('_continuity', $generated['result']);

@@ -91,6 +91,7 @@ final class ShortDramaTimedScriptGeneration
         $partSize = max(1, min(4, (int)floor(($outputBudget - 500) / 1600)));
         foreach ($skeleton['scene_beats'] as $sceneIndex => $beat) {
             $durations = array_values($beat['shot_durations']);
+            $sceneStart = count($shots);
             $pending = [];
             for ($offset = 0; $offset < count($durations); $offset += $partSize) {
                 $pending[] = [$offset, min($partSize, count($durations) - $offset), ''];
@@ -111,6 +112,7 @@ final class ShortDramaTimedScriptGeneration
                     'scene_continuity' => $skeleton['scene_beats'], 'scene_beat' => $beat,
                     'required_shots' => array_map(static fn($id, $duration) => ['shot_id' => $id, 'duration_seconds' => $duration], $ids, $partDurations),
                     'shot_offset' => $offset, 'previous_shots' => array_slice($shots, -2),
+                    'scene_progress' => ShortDramaSceneProgress::window($beat, count($durations), $offset, $size, array_slice($shots, $sceneStart)),
                 ]);
                 $input['content'] .= "\n以上全局剧情仅用于保持连续性，不要求重写整集。本次只输出" . count($ids)
                     . '个分镜，ID依次为' . implode(',', $ids) . '，对应秒数为' . implode(',', $partDurations)
