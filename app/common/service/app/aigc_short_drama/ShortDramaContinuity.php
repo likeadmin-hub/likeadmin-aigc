@@ -114,7 +114,7 @@ final class ShortDramaContinuity
                     'summary' => '本集已发生事件的简短摘要，不写未来剧情',
                     'changes' => [['entity_id' => 'subjects或locations中的id，也可为world', 'field' => '稳定状态键，如location/knows_secret/injury/item_owner',
                         'before' => 'previous.state里已有的原值；首次记录用null', 'after' => '正文中明确的新值', 'shot_id' => '证据镜头id', 'quote' => '该镜头visual_description或dialogue中的原文片段']],
-                    'hooks' => [['id' => '稳定伏笔标识', 'description' => '伏笔内容', 'status' => 'open或resolved', 'shot_id' => '证据镜头id', 'quote' => '镜头原文片段']],
+                    'hooks' => [['id' => '稳定伏笔标识；resolved必须逐字引用previous.open_hooks中已有ID', 'description' => '伏笔内容；同集新出现且已经完成的事件使用observed，不伪造前集伏笔', 'status' => 'open、resolved或observed', 'shot_id' => '证据镜头id', 'quote' => '镜头原文片段']],
                     'warnings' => ['具体连续性疑点，无疑点则空数组'],
                 ],
             ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
@@ -258,28 +258,41 @@ final class ShortDramaContinuity
         foreach ($rejected['unverified_claims'] as $entry) {
             $group = $entry['collection'] ?? ''; $index = $entry['index'] ?? -1;
             $claim = $draft[$group][$index] ?? null;
-            if (!$claim || ($group !== 'changes' && !($group === 'hooks' && ($claim['status'] ?? '') === 'open'))) continue;
+            $unknownResolution = $group === 'hooks' && ($claim['status'] ?? '') === 'resolved'
+                && !isset($context['continuity']['open_hooks'][$claim['id'] ?? ''])
+                && !isset($context['continuity']['open_hooks'][preg_replace('/_resolved$/', '', $claim['id'] ?? '')]);
+            if (!$claim || ($group !== 'changes' && !($group === 'hooks' && ($claim['status'] ?? '') === 'open') && !$unknownResolution)) continue;
+            $entry['unknown_resolution'] = $unknownResolution;
             $targets[$group . ':' . $index] = $entry;
         }
         if (!$targets) return $rejected;
-        $messages = ['system_prompt'=>'修正审校员自行推断的记录，不修改剧本。只返回claim_patches数组。仅修正被独立核验明确否定的after或open伏笔description，使其准确描述当前正文。不得为通过审校改写人物、道具、事件或虚构证据，不删除或新增记录。确实无法修正则返回空数组。',
+        $messages = ['system_prompt'=>'修正审校员自行推断的记录，不修改剧本。只返回claim_patches数组。仅修正被独立核验明确否定的after或伏笔description，使其准确描述当前正文。不得为通过审校改写人物、道具、事件或虚构证据，不删除或新增记录。unknown_resolution为true时：若确实兑现previous.open_hooks中某项，额外填写hook_id为该准确ID，value逐字采用该原伏笔描述；若只是本集新出现且已完成的事件，额外填写status="observed"，value描述当前已发生事件，不作伏笔回收。其他记录禁止修改ID或status。确实无法修正则返回空数组。',
             'content'=>json_encode(['script'=>self::narrative($plan), 'previous'=>$context['continuity'] ?? [], 'rejected_claims'=>array_values($targets),
                 'response_contract'=>['claim_patches'=>[['collection'=>'changes或hooks','index'=>0,'value'=>'有正文支持的准确状态或伏笔描述','shot_id'=>'当前镜头ID','quote'=>'该镜头连续原文','reason'=>'说明原审校推断了什么以及正文实际展示什么']]]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
-        $apply = static function (array $reply) use ($draft, $targets, $plan): array {
+        $apply = static function (array $reply) use ($draft, $targets, $plan, $context): array {
             if (array_keys($reply) !== ['claim_patches'] || !is_array($reply['claim_patches']) || !array_is_list($reply['claim_patches'])) throw new RuntimeException('审校事实纠正格式无效', 422);
             $candidate = $draft; $seen = []; $shots = array_column($plan['storyboard'], null, 'shot_id');
             foreach ($reply['claim_patches'] as $patch) {
-                if (!is_array($patch) || array_diff(array_keys($patch), ['collection','index','value','shot_id','quote','reason'])
+                if (!is_array($patch) || array_diff(array_keys($patch), ['collection','index','value','shot_id','quote','reason','hook_id','status'])
                     || !is_string($patch['collection'] ?? null) || !is_int($patch['index'] ?? null)
                     || !is_string($patch['value'] ?? null) || trim($patch['value']) === '' || mb_strlen($patch['value']) > 1000
                     || !is_string($patch['reason'] ?? null) || trim($patch['reason']) === '') throw new RuntimeException('审校事实纠正字段无效', 422);
                 $key = $patch['collection'] . ':' . $patch['index'];
                 if (!isset($targets[$key]) || isset($seen[$key])) throw new RuntimeException('审校事实纠正越界', 422);
+                if (isset($patch['hook_id']) || isset($patch['status'])) {
+                    if (empty($targets[$key]['unknown_resolution'])) throw new RuntimeException('不能修改已登记伏笔的标识或操作', 422);
+                    if (isset($patch['hook_id'])) {
+                        if (isset($patch['status']) || !is_string($patch['hook_id']) || !isset($context['continuity']['open_hooks'][$patch['hook_id']])
+                            || $patch['value'] !== $context['continuity']['open_hooks'][$patch['hook_id']]) throw new RuntimeException('伏笔纠正必须引用已登记的原始ID及含义', 422);
+                    } elseif ($patch['status'] !== 'observed') throw new RuntimeException('未知伏笔只可纠正为已观察事件', 422);
+                }
                 self::evidence(['shot_id'=>$patch['shot_id'] ?? null,'quote'=>$patch['quote'] ?? null], $shots);
                 $field = $patch['collection'] === 'changes' ? 'after' : 'description';
                 $record = &$candidate[$patch['collection']][$patch['index']];
-                $candidate['audit_corrections'][] = ['original'=>$record,'field'=>$field,'corrected'=>$patch['value'],'reason'=>$patch['reason']];
+                $candidate['audit_corrections'][] = ['original'=>$record,'field'=>$field,'corrected'=>$patch['value'],'reason'=>$patch['reason'],'patch'=>$patch];
                 $record[$field] = $patch['value']; $record['shot_id'] = $patch['shot_id']; $record['quote'] = $patch['quote']; unset($record['evidence'], $record);
+                if (isset($patch['hook_id'])) $candidate[$patch['collection']][$patch['index']]['id'] = $patch['hook_id'];
+                if (isset($patch['status'])) $candidate[$patch['collection']][$patch['index']]['status'] = $patch['status'];
                 $seen[$key] = true;
             }
             return $candidate;
@@ -555,7 +568,8 @@ final class ShortDramaContinuity
         foreach ($review['hooks'] as $item) {
             self::evidence($item, $shots);
             if (!is_string($item['id'] ?? null) || trim($item['id']) === '' || mb_strlen($item['id']) > 100
-                || !is_string($item['description'] ?? null) || !in_array($item['status'] ?? '', ['open', 'resolved'], true)) throw new RuntimeException('伏笔记录格式无效', 422);
+                || !is_string($item['description'] ?? null) || !in_array($item['status'] ?? '', ['open', 'resolved', 'observed'], true)) throw new RuntimeException('伏笔记录格式无效', 422);
+            if ($item['status'] === 'observed') continue; // Verified current event, no open-hook mutation.
             if ($item['status'] === 'resolved') {
                 // Some models append the status to an otherwise exact hook
                 // identifier. Resolve only an existing, unique base ID; never
@@ -586,6 +600,7 @@ final class ShortDramaContinuity
             'digest' => self::fingerprint($plan), 'previous_digest' => (string)($context['continuity']['previous_digest'] ?? ''), 'warnings' => $warnings,
             'unverified_claims' => (array)($review['unverified_claims'] ?? []),
             'audit_corrections' => (array)($review['audit_corrections'] ?? []),
+            'observed_events' => array_values(array_filter($review['hooks'], static fn($hook) => ($hook['status'] ?? '') === 'observed')),
             'unverified_hook_resolutions' => (array)($review['unverified_hook_resolutions'] ?? [])];
     }
 
