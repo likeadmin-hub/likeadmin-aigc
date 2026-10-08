@@ -94,7 +94,7 @@ final class ShortDramaContentAcceptance
                 if (!$shots) $shots = array_slice($plan['storyboard'], 0, 8);
                 // Each correction is bounded even for unusually long episodes.
                 foreach (array_chunk($shots, 8) as $targets) {
-                    $data = ['issues'=>$issues,'requirements'=>$requirements,'accepted_coverage'=>$report['coverage'],'subjects'=>self::metadata($plan['subjects']),'locations'=>self::metadata($plan['locations']),
+                    $data = ['issues'=>$issues,'requirements'=>$requirements,'accepted_coverage'=>array_map(static fn($checks) => array_map(static fn($c) => ['status'=>$c['status'], 'evidence'=>array_map(static fn($e) => ['shot_id'=>$e['shot_id'],'field'=>$e['field']], $c['evidence'])], $checks), $report['coverage']),'subjects'=>self::metadata($plan['subjects']),'locations'=>self::metadata($plan['locations']),
                         'targets'=>self::shots($targets),'episode'=>$request['series_context']['current_episode'] ?? [],
                         'instruction'=>ShortDramaShotSemantics::INSTRUCTION];
                     $reply = self::call($call, 'repair', $data,
