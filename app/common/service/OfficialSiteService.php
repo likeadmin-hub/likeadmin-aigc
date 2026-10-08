@@ -11,7 +11,7 @@ class OfficialSiteService
 {
     private const TYPE = 'official_site';
     private const KEY = 'config';
-    private const TEMPLATE_VERSION = 14;
+    private const TEMPLATE_VERSION = 15;
 
     public static function get(): array
     {
@@ -178,6 +178,46 @@ class OfficialSiteService
                 $override = array_intersect_key($override, ['enabled' => 1, 'sort' => 1]);
             }
             $source = array_merge($default, $override);
+            // The retired third-party hero mark has no replacement or editable slot.
+            if ($default['key'] === 'oem_hero') {
+                $source['icon_url'] = '';
+                if (preg_match('/(?:500.*390|390.*500)/u', (string)($source['description'] ?? ''))) $source['description'] = '';
+            }
+            // Retire copied reference reviews, including previously rebranded copies.
+            // Keep tenant-authored reviews and module placement/visibility intact.
+            if ($default['key'] === 'cases') {
+                if (in_array($source['description'] ?? '', [
+                    '独立创作者和全球品牌团队每天都在 OpenArt 上产出作品。',
+                    '独立创作者和品牌团队每天都在 Likeadmin 上产出作品。',
+                ], true)) $source['description'] = $default['description'];
+                foreach (($source['cards'] ?? []) as $index => $review) {
+                    if (!is_array($review)) continue;
+                    if (strcasecmp(trim((string)($review['source'] ?? '')), 'Trustpilot') === 0
+                        || stripos((string)($review['description'] ?? ''), 'OpenArt') !== false) {
+                        $source['cards'][$index] = array_merge(
+                            $default['cards'][$index % count($default['cards'])],
+                            array_intersect_key($review, ['enabled' => true])
+                        );
+                    }
+                }
+            }
+            if ($default['key'] === 'oem_features' && is_array($source['cards'] ?? null)) {
+                $legacyTitles = ['一站式套件，汇集 50+ 款模型', '扩大您的营销产出', '为您的制作工作室提供完整解决方案', '用 MCP 和 CLI 增强您的工作流程', '智能设计，专业开发', '一张画布，连接所有创作', '创建专属角色、吉祥物和品牌形象'];
+                $replaced = false;
+                foreach ($source['cards'] as $index => $card) {
+                    if (!is_array($card)) continue;
+                    $preset = array_search($card['title'] ?? '', $legacyTitles, true);
+                    if ($preset === false) continue;
+                    $source['cards'][$index] = array_merge($default['cards'][$preset], array_intersect_key($card, ['enabled'=>true]));
+                    $replaced = true;
+                }
+                if ($replaced) {
+                    $titles = array_column($source['cards'], 'title');
+                    foreach (array_slice($default['cards'], 7) as $card) {
+                        if (!in_array($card['title'], $titles, true)) $source['cards'][] = $card;
+                    }
+                }
+            }
             // Retire the initial, unreleased opening-step cards from the OEM introduction.
             if ($default['key'] === 'oem_benefits' && is_array($source['cards'] ?? null)) {
                 $source['cards'] = array_values(array_filter($source['cards'], static fn($card) => is_array($card) && ($card['display_group'] ?? '') !== 'step'));
@@ -420,6 +460,7 @@ class OfficialSiteService
             if (!in_array($status, ['live', 'planned', 'enterprise'], true)) $status = 'planned';
             $result[] = [
                 'title' => self::text($card['title'] ?? '', 80),
+                'preset' => in_array($card['preset'] ?? '', ['key','test','usage','image','video','enhance'], true) ? $card['preset'] : '',
                 'source' => self::text($card['source'] ?? '', 80),
                 'rating' => max(1, min(5, (int)($card['rating'] ?? 5))),
                 'avatar' => self::text($card['avatar'] ?? '', 1024),
@@ -505,10 +546,15 @@ class OfficialSiteService
         ConfigService::set('website', 'pc_keywords', $basic['keywords']);
     }
 
+    private static function isRetiredOemMark(string $value): bool
+    {
+        return (bool)preg_match('~(?:^|/)oem-enterprise/suite-mark\.svg$~i', (string)parse_url($value, PHP_URL_PATH));
+    }
+
     /** Keep bundled assets independent of tenant upload storage, including early local previews. */
     private static function bundledAsset(string $value): string
     {
-        if (preg_match('~^/?(?:pc/)?oem-enterprise/((?:logo-primary-[1-6]|logo-secondary-[2-6])\.webp|(?:fortune-logo|mcp-pill)\.png|suite-mark\.svg)$~', $value, $match)) {
+        if (preg_match('~^/?(?:pc/)?oem-enterprise/((?:logo-primary-[1-6]|logo-secondary-[2-6])\.webp|(?:fortune-logo|mcp-pill)\.png)$~', $value, $match)) {
             return '/pc/oem-enterprise/' . $match[1];
         }
         return '';
@@ -516,6 +562,7 @@ class OfficialSiteService
 
     private static function storageFileUrl(string $value): string
     {
+        if (self::isRetiredOemMark($value)) return '';
         if ($asset = self::bundledAsset($value)) return $asset;
         $stored = FileService::setFileUrl($value);
         return self::bundledAsset($stored) ?: $stored;
@@ -523,6 +570,7 @@ class OfficialSiteService
 
     private static function fileUrl(string $value): string
     {
+        if (self::isRetiredOemMark($value)) return '';
         if ($value === '') return '';
         if ($asset = self::bundledAsset($value)) return $asset;
         // Repair only paths under the configured tenant storage domain, not arbitrary custom URLs.

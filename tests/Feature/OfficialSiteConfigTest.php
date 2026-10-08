@@ -61,11 +61,37 @@ class OfficialSiteConfigTest extends TestCase
         self::assertArrayNotHasKey('affiliate', $nav);
         self::assertSame('/official/oem', $nav['oem']['link']);
         self::assertSame('OEM贴牌', $nav['oem']['label']);
-        self::assertCount(7, $map['oem_features']['cards']);
+        self::assertCount(9, $map['oem_features']['cards']);
         self::assertSame($result, $this->normalize($result));
         $result['navigation'][5]['label'] = '我的品牌方案';
         $result['navigation'][5]['link'] = 'https://example.com/brand';
         self::assertSame($result, $this->normalize($result));
+    }
+
+    public function testOemCapabilitiesReplaceLegacyCopyAndArtworkButPreserveCustomCards(): void
+    {
+        $titles = ['一站式套件，汇集 50+ 款模型','扩大您的营销产出','为您的制作工作室提供完整解决方案',
+            '用 MCP 和 CLI 增强您的工作流程','智能设计，专业开发','一张画布，连接所有创作','创建专属角色、吉祥物和品牌形象'];
+        $cards = array_map(static fn($title)=>['title'=>$title, 'description'=>'旧预设',
+            'media'=>'uploads/old-reference.webp', 'background_media'=>'uploads/old-background.mp4',
+            'preview_media'=>'uploads/old-demo.mp4', 'preview_layout'=>'mcp', 'icon_url'=>'/pc/oem-enterprise/mcp-pill.png', 'enabled'=>0], $titles);
+        $cards[] = ['title'=>'自有能力', 'description'=>'自有文案', 'media'=>'uploads/own.webp'];
+        $result = $this->normalize(['template_version'=>11, 'modules'=>[['key'=>'oem_features','enabled'=>0,'cards'=>$cards]]]);
+        $module = array_column($result['modules'], null, 'key')['oem_features'];
+        self::assertSame(0, $module['enabled']);
+        self::assertCount(10, $module['cards']);
+        foreach (array_slice($module['cards'], 0, 7) as $card) {
+            self::assertSame(0, $card['enabled']);
+            self::assertSame('image', $card['preview_layout']);
+            foreach (['media','background_media','preview_media','icon_url'] as $field) self::assertSame('', $card[$field]);
+        }
+        self::assertSame('自有能力', $module['cards'][7]['title']);
+        self::assertSame('uploads/own.webp', $module['cards'][7]['media']);
+        self::assertSame('无限画布', $module['cards'][5]['tab_label']);
+        self::assertSame('短剧角色', $module['cards'][6]['tab_label']);
+        self::assertSame($result, $this->normalize($result));
+        $empty = $this->normalize(['template_version'=>11, 'modules'=>[['key'=>'oem_features','cards'=>[]]]]);
+        self::assertSame([], array_column($empty['modules'], null, 'key')['oem_features']['cards']);
     }
 
     public function testOemMediaConfigurationRoundTripsAndEmptyCardsStayEmpty(): void
@@ -78,15 +104,38 @@ class OfficialSiteConfigTest extends TestCase
         $result=$this->normalize($input);
         $map=array_column($result['modules'],null,'key');
         self::assertSame('uploads/badge.png',$map['oem_hero']['badge']);
+        self::assertArrayNotHasKey('icon_url', $map['oem_hero']);
         self::assertSame('uploads/bg.mp4',$map['oem_features']['cards'][0]['background_media']);
         self::assertSame('marketing',$map['oem_features']['cards'][0]['preview_layout']);
         self::assertSame([], $map['oem_clients']['cards']);
         self::assertSame($result,$this->normalize($result));
-        foreach (['/pc/oem-enterprise/suite-mark.svg','/oem-enterprise/suite-mark.svg','oem-enterprise/suite-mark.svg'] as $path) {
-            self::assertSame('/pc/oem-enterprise/suite-mark.svg',$this->call('fileUrl',$path));
-            self::assertSame('/pc/oem-enterprise/suite-mark.svg',$this->call('storageFileUrl',$path));
+        foreach (['/pc/oem-enterprise/suite-mark.svg','/oem-enterprise/suite-mark.svg','oem-enterprise/suite-mark.svg','https://cdn.example/pc/oem-enterprise/suite-mark.svg?v=1'] as $path) {
+            self::assertSame('',$this->call('fileUrl',$path));
+            self::assertSame('',$this->call('storageFileUrl',$path));
         }
         self::assertSame('', $this->call('bundledAsset','https://custom.example/oem-enterprise/suite-mark.svg'));
+    }
+
+    public function testRetiredFortuneClaimIsRemovedWhileBadgeIsPreserved(): void
+    {
+        foreach ([[], ['template_version'=>9, 'modules'=>[['key'=>'oem_hero',
+            'description'=>'财富500强企业中已有390家与我们合作。',
+            'badge'=>'/pc/oem-enterprise/fortune-logo.png',
+        ]]]] as $input) {
+            $result = $this->normalize($input);
+            $hero = array_column($result['modules'], null, 'key')['oem_hero'];
+            self::assertSame('', $hero['description']);
+            self::assertSame('/pc/oem-enterprise/fortune-logo.png', $hero['badge']);
+            self::assertSame($result, $this->normalize($result));
+        }
+        foreach (['/pc/oem-enterprise/fortune-logo.png', '/oem-enterprise/fortune-logo.png'] as $path) {
+            self::assertSame('/pc/oem-enterprise/fortune-logo.png', $this->call('fileUrl', $path));
+            self::assertSame('/pc/oem-enterprise/fortune-logo.png', $this->call('storageFileUrl', $path));
+        }
+        $custom = $this->normalize(['modules'=>[['key'=>'oem_hero', 'description'=>'我们的企业方案', 'badge'=>'uploads/own.png']]]);
+        $hero = array_column($custom['modules'], null, 'key')['oem_hero'];
+        self::assertSame('我们的企业方案', $hero['description']);
+        self::assertSame('uploads/own.png', $hero['badge']);
     }
 
     public function testV9RetiresOnlyBundledOemMediaAndPreservesTenantAssets(): void
@@ -113,7 +162,7 @@ class OfficialSiteConfigTest extends TestCase
         foreach ($old['modules'] as $module) if (strpos($module['key'], 'oem_') !== 0) self::assertSame($module, $map[$module['key']]);
         self::assertSame('', $map['oem_hero']['media']);
         self::assertSame('', $map['oem_hero']['poster']);
-        self::assertSame('/pc/oem-enterprise/suite-mark.svg', $map['oem_hero']['icon_url']);
+        self::assertArrayNotHasKey('icon_url', $map['oem_hero']);
         $card = $map['oem_features']['cards'][0];
         self::assertSame('', $card['media']);
         foreach (['background_media','preview_media','preview_poster','icon_url'] as $field) self::assertSame(array_column($old['modules'], null, 'key')['oem_features']['cards'][0][$field], $card[$field]);
@@ -147,10 +196,33 @@ class OfficialSiteConfigTest extends TestCase
         $reviews = $modules['cases'];
         self::assertSame(0, $reviews['enabled']);
         self::assertSame(777, $reviews['sort']);
-        self::assertSame("深受喜爱 创作者\n全球", $reviews['title']);
+        self::assertSame('创作者使用场景', $reviews['title']);
         self::assertCount(6, $reviews['cards']);
-        self::assertSame('Scorpy', $reviews['cards'][0]['title']);
+        self::assertSame('创作者示例 1', $reviews['cards'][0]['title']);
         foreach (['icon', 'icon_url', 'link', 'status', 'media', 'button_text'] as $field) self::assertArrayNotHasKey($field, $reviews['cards'][0]);
+        self::assertSame($result, $this->normalize($result));
+    }
+
+    public function testReferenceReviewsBecomeLikeadminPresetsWithoutChangingCustomReviews(): void
+    {
+        $custom = ['title'=>'我的作者', 'description'=>'自己的评价', 'source'=>'社区', 'rating'=>4];
+        $input = ['template_version'=>8, 'modules'=>[['key'=>'cases', 'enabled'=>0, 'sort'=>777,
+            'description'=>'独立创作者和品牌团队每天都在 Likeadmin 上产出作品。',
+            'cards'=>[
+                ['title'=>'Scorpy', 'description'=>'原参考文案', 'source'=>'Trustpilot', 'enabled'=>0],
+                ['title'=>'Mark', 'description'=>'我用 OpenArt 制作视频', 'source'=>''],
+                $custom,
+            ]]]];
+        $result = $this->normalize($input);
+        $cases = array_column($result['modules'], null, 'key')['cases'];
+        self::assertSame(0, $cases['enabled']);
+        self::assertSame(777, $cases['sort']);
+        self::assertSame(0, $cases['cards'][0]['enabled']);
+        self::assertSame('Likeadmin · 预设示例', $cases['cards'][0]['source']);
+        self::assertSame('创作者示例 2', $cases['cards'][1]['title']);
+        foreach ($custom as $key=>$value) self::assertSame($value, $cases['cards'][2][$key]);
+        self::assertStringNotContainsString('OpenArt', json_encode($cases));
+        self::assertStringNotContainsString('Trustpilot', json_encode($cases));
         self::assertSame($result, $this->normalize($result));
     }
 
@@ -288,7 +360,7 @@ class OfficialSiteConfigTest extends TestCase
     public function testNewArchitectureUsesActualToolsAndRequestedEntries(): void
     {
         $config = $this->normalize([]);
-        self::assertSame(14, $config['template_version']);
+        self::assertSame(15, $config['template_version']);
         self::assertSame(['应用工具','模型','API','价格','企业服务','OEM贴牌','帮助'], array_column($config['navigation'], 'label'));
         self::assertSame(['工作室','图片','视频'], array_column($config['navigation'][0]['groups'], 'title'));
         self::assertSame(['dropdown','dropdown','dropdown','link','link','link','link'], array_column($config['navigation'], 'mode'));

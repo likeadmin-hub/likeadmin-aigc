@@ -1,0 +1,378 @@
+[
+  {
+    "key": "api_navigation",
+    "enabled": 1,
+    "sort": 100,
+    "title": "",
+    "description": "",
+    "cards": [
+      {
+        "title": "控制台",
+        "description": "",
+        "enabled": 1,
+        "sort": 100,
+        "link": "/user/api-keys"
+      },
+      {
+        "title": "API 调试",
+        "description": "",
+        "enabled": 1,
+        "sort": 99,
+        "link": "/official/open#api-playground"
+      },
+      {
+        "title": "会员套餐",
+        "description": "",
+        "enabled": 1,
+        "sort": 98,
+        "link": "/official/open#api-membership"
+      },
+      {
+        "title": "API 文档",
+        "description": "",
+        "enabled": 1,
+        "sort": 97,
+        "link": "/official/open#api-documentation"
+      },
+      {
+        "title": "联系我们",
+        "description": "",
+        "enabled": 1,
+        "sort": 96,
+        "link": "/official/open#api-contact"
+      }
+    ]
+  },
+  {
+    "key": "api_hero",
+    "enabled": 1,
+    "sort": 100,
+    "title": "AI 创作能力，尽在 API",
+    "description": "从一张图片到一段视频，让图像、视频、音频与数字人能力，成为你业务流程的一部分。",
+    "cards": [
+      {
+        "title": "图像生成 API",
+        "description": "从文字描述到视觉画面，将创意转化为商品图、设计素材和内容配图。",
+        "enabled": 1,
+        "sort": 100,
+        "icon": "image",
+        "link": "/official/open#api-playground"
+      },
+      {
+        "title": "视频创作 API",
+        "description": "围绕文字和图片创建视频，为产品展示、内容创作与营销传播提供更多表达方式。",
+        "enabled": 1,
+        "sort": 99,
+        "icon": "video",
+        "link": "/official/open#api-playground"
+      },
+      {
+        "title": "音频与音乐 API",
+        "description": "将音乐创作融入内容生产，为视频、品牌内容和创意项目搭配听觉表达。",
+        "enabled": 1,
+        "sort": 98,
+        "icon": "audio",
+        "link": "/official/open#api-playground"
+      },
+      {
+        "title": "数字人视频 API",
+        "description": "结合形象与语音制作数字人内容，拓展口播、讲解和视频表达场景。",
+        "enabled": 1,
+        "sort": 97,
+        "icon": "avatar",
+        "link": "/official/open#api-playground"
+      },
+      {
+        "title": "图像处理 API",
+        "description": "连接抠图、图片修复、局部重绘等工具，减少重复操作，补全图像处理流程。",
+        "enabled": 1,
+        "sort": 96,
+        "icon": "edit",
+        "link": "/official/open#api-playground"
+      },
+      {
+        "title": "电商创意 API",
+        "description": "围绕商品图片、试衣和宣传视频组织创作，把产品素材转化为营销内容。",
+        "enabled": 1,
+        "sort": 95,
+        "icon": "grid",
+        "link": "/official/open#api-playground"
+      }
+    ],
+    "button_text": "进入密钥管理",
+    "button_link": "/user/api-keys",
+    "eyebrow": "查看 API 文档",
+    "media": "",
+    "media_type": "image",
+    "poster": ""
+  },
+  {
+    "key": "api_steps",
+    "enabled": 1,
+    "sort": 100,
+    "title": "几步开始，连接你的创作流程",
+    "description": "",
+    "cards": [
+      {
+        "title": "在设置中心管理 API 密钥",
+        "description": "登录账号，在设置中心进入 API 密钥页面。开通会员后，按平台开放进度完成接入准备。",
+        "enabled": 1,
+        "sort": 100,
+        "preset": "key",
+        "media": "",
+        "media_type": "image",
+        "button_text": "进入密钥管理",
+        "link": "/user/api-keys"
+      },
+      {
+        "title": "先了解接口，再接入应用",
+        "description": "阅读接口文档，了解输入参数与任务流程。当前页面提供静态请求示意，正式调试以已开放接口为准。",
+        "enabled": 1,
+        "sort": 99,
+        "preset": "test",
+        "media": "",
+        "media_type": "image",
+        "button_text": "查看 API 文档",
+        "link": "/official/open#api-documentation"
+      },
+      {
+        "title": "一个账户，管理会员与用量",
+        "description": "在会员中心查看当前套餐与算力明细。API 调用以会员资格为前提，调用费用以正式计费规则为准。",
+        "enabled": 1,
+        "sort": 98,
+        "preset": "usage",
+        "media": "",
+        "media_type": "image",
+        "button_text": "查看会员套餐",
+        "link": "/official/open#api-membership"
+      }
+    ],
+    "eyebrow": "快速接入"
+  },
+  {
+    "key": "api_generation",
+    "enabled": 1,
+    "sort": 100,
+    "title": "多种创作形式，一个 API",
+    "description": "连接图像与视频生成能力，让创意进入你的产品与工作流。",
+    "cards": [
+      {
+        "title": "把文字转化为精细画面",
+        "description": "用文字描述构图、光线与风格，结合参考图片探索不同的视觉表达。可用模型及参数以正式接口文档为准。",
+        "enabled": 1,
+        "sort": 100,
+        "tab_label": "图像生成",
+        "preset": "image",
+        "media": "",
+        "media_type": "image"
+      },
+      {
+        "title": "围绕商品，生成创意场景",
+        "description": "从商品图片出发，为产品展示与内容营销探索不同的背景、构图和氛围。",
+        "enabled": 1,
+        "sort": 99,
+        "tab_label": "商品图",
+        "preset": "image",
+        "media": "",
+        "media_type": "image"
+      },
+      {
+        "title": "让你的想法动起来",
+        "description": "从文字或参考图片开始，生成适合产品展示、故事表达与内容传播的视频。",
+        "enabled": 1,
+        "sort": 98,
+        "tab_label": "视频生成",
+        "preset": "video",
+        "media": "",
+        "media_type": "video"
+      },
+      {
+        "title": "为产品讲一个好故事",
+        "description": "围绕产品素材与脚本组织视频创作，为营销传播提供更多表达方式。",
+        "enabled": 1,
+        "sort": 97,
+        "tab_label": "产品宣传",
+        "preset": "video",
+        "media": "",
+        "media_type": "video"
+      }
+    ],
+    "eyebrow": "AI 生成",
+    "button_text": "了解接入",
+    "button_link": "/user/api-keys"
+  },
+  {
+    "key": "api_features",
+    "enabled": 1,
+    "sort": 100,
+    "title": "让图像细节，更进一步",
+    "description": "围绕修复与图像处理，连接适合你的创作工具。",
+    "cards": [
+      {
+        "title": "图像增强与修复",
+        "description": "让细节更清晰，让画面表达更完整。拖动分隔线查看素材效果对比，实际能力以平台开放的接口为准。",
+        "enabled": 1,
+        "sort": 100,
+        "preset": "enhance",
+        "media": "",
+        "media_type": "image",
+        "preview_media": "",
+        "button_text": "了解更多",
+        "link": "/official/help"
+      }
+    ],
+    "eyebrow": "AI 图像处理"
+  },
+  {
+    "key": "api_membership",
+    "enabled": 1,
+    "sort": 100,
+    "title": "选择适合你的创作起点",
+    "description": "API 调用需先开通会员。套餐价格和权益同步当前平台配置。",
+    "cards": [],
+    "eyebrow": "会员套餐"
+  },
+  {
+    "key": "api_clients",
+    "enabled": 0,
+    "sort": 100,
+    "title": "与你一起，让创意成为作品",
+    "description": "可配置你自己的真实客户或合作方。",
+    "cards": []
+  },
+  {
+    "key": "api_faq",
+    "enabled": 1,
+    "sort": 100,
+    "title": "常见问题",
+    "description": "开始之前，你可能想了解这些",
+    "cards": [
+      {
+        "title": "使用 API 需要开通会员吗？",
+        "description": "需要。API 调用以开通会员为前提，免费账号不包含 API 调用资格。具体接口权限以平台配置和正式文档为准。",
+        "enabled": 1,
+        "sort": 100
+      },
+      {
+        "title": "在哪里管理 API 密钥？",
+        "description": "密钥管理位于设置中心的“API 密钥”页面。当前提供接入说明与会员入口，密钥创建及管理功能待后续接通。",
+        "enabled": 1,
+        "sort": 99
+      },
+      {
+        "title": "API 可以接入哪些能力？",
+        "description": "本页介绍图像生成、视频创作、音乐、数字人及图像处理等系统能力。实际可调用的接口、模型和参数，以正式文档及当前账号权限为准。",
+        "enabled": 1,
+        "sort": 98
+      },
+      {
+        "title": "会员费用包含所有 API 调用费用吗？",
+        "description": "会员是使用 API 的前提，不代表无限调用。具体调用费用、额度及扣费规则以平台后续公布的 API 计费说明为准。",
+        "enabled": 1,
+        "sort": 97
+      },
+      {
+        "title": "如何选择和开通会员套餐？",
+        "description": "本页展示当前平台的会员套餐。点击“查看并开通会员”进入会员中心，登录后查看完整权益并完成开通。",
+        "enabled": 1,
+        "sort": 96
+      },
+      {
+        "title": "在哪里查看 API 文档？",
+        "description": "平台配置了可用文档地址后，本页会显示文档入口。尚未开放时，可以先了解页面中的接入流程，等待正式文档上线。",
+        "enabled": 1,
+        "sort": 95
+      },
+      {
+        "title": "视频生成等长任务如何获取结果？",
+        "description": "接入时通常需要提交任务后跟踪处理进度，再获取生成结果。具体查询方式、返回字段及是否支持回调，以正式接口文档为准。",
+        "enabled": 1,
+        "sort": 94
+      }
+    ]
+  },
+  {
+    "key": "api_contact",
+    "enabled": 1,
+    "sort": 100,
+    "title": "为你的业务，找到合适的接入方式",
+    "description": "如需了解接口能力、接入方案或更多合作信息，请联系我们。",
+    "cards": [],
+    "eyebrow": "联系我们",
+    "button_text": "联系支持",
+    "button_link": "/official/help"
+  },
+  {
+    "key": "api_footer",
+    "enabled": 1,
+    "sort": 100,
+    "title": "将 AI 创作能力连接到你的产品与工作流。",
+    "description": "",
+    "cards": [
+      {
+        "title": "能力介绍",
+        "description": "",
+        "enabled": 1,
+        "sort": 100,
+        "eyebrow": "API 开放平台",
+        "link": "/official/open#api-capabilities"
+      },
+      {
+        "title": "了解接入流程",
+        "description": "",
+        "enabled": 1,
+        "sort": 99,
+        "eyebrow": "API 开放平台",
+        "link": "/official/open#api-start"
+      },
+      {
+        "title": "会员套餐",
+        "description": "",
+        "enabled": 1,
+        "sort": 98,
+        "eyebrow": "API 开放平台",
+        "link": "/official/open#api-membership"
+      },
+      {
+        "title": "API 密钥",
+        "description": "",
+        "enabled": 1,
+        "sort": 97,
+        "eyebrow": "开发者",
+        "link": "/user/api-keys"
+      },
+      {
+        "title": "API 文档",
+        "description": "",
+        "enabled": 1,
+        "sort": 96,
+        "eyebrow": "开发者",
+        "link": "/official/open#api-documentation"
+      },
+      {
+        "title": "常见问题",
+        "description": "",
+        "enabled": 1,
+        "sort": 95,
+        "eyebrow": "帮助与支持",
+        "link": "/official/open#api-faq"
+      },
+      {
+        "title": "联系我们",
+        "description": "",
+        "enabled": 1,
+        "sort": 94,
+        "eyebrow": "帮助与支持",
+        "link": "/official/open#api-contact"
+      },
+      {
+        "title": "返回官网",
+        "description": "",
+        "enabled": 1,
+        "sort": 93,
+        "eyebrow": "帮助与支持",
+        "link": "/"
+      }
+    ]
+  }
+]

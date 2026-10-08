@@ -1,7 +1,7 @@
 <?php
 namespace app\common\service;
 
-/** Public presentation defaults; reference testimonials retain their OpenArt attribution. */
+/** Public presentation defaults; testimonials use Likeadmin demonstration copy. */
 class OfficialSiteTemplate
 {
     public static function defaults(array $previous): array
@@ -76,28 +76,28 @@ class OfficialSiteTemplate
             $block('footer', 0, '开始创作', '', $features),
         ];
         foreach ($previous['modules'] as $m) if (in_array($m['key'], ['pricing', 'join'], true)) $modules[] = $m;
-        return ['basic' => $basic, 'modules' => array_merge($modules, OfficialSiteOemTemplate::modules())];
+        return ['basic' => $basic, 'modules' => array_merge($modules, OfficialSiteOemTemplate::modules(), OfficialSiteApiTemplate::modules())];
     }
 
-    /** Reference copy supplied by the owner; editable independently for each tenant. */
+    /** Likeadmin demonstration presets; tenants can replace them with their own reviews. */
     public static function testimonials(): array
     {
         $reviews = [
-            ['Scorpy', '实用的 AI 工具一站集齐——图像与视频生成、编辑等等……无需多份订阅。'],
-            ['Richard M.', '客服总是快速又贴心……平台也不断加入新功能和工具，越来越好用。'],
-            ['Jan C.', '我试过很多 AI 平台……但在角色创建、图生视频质量和模型多样性方面，OpenArt 依然是最出色的。'],
-            ['Mark', '我用 OpenArt 制作了我的第一支 AI 音乐视频……他们的支持团队是我遇到过最棒的帮助。'],
-            ['Rasmus', '我对支持服务非常满意——我的问题很快得到解决，团队让整个过程变得轻松。'],
-            ['Jon S.', '在众多 AI 平台中，OpenArt 脱颖而出，是绝佳之选——我会向任何创作者推荐它。'],
+            ['创作者示例 1', '在 Likeadmin 中从文字开始构思，逐步整理角色与分镜，让短剧故事更清晰。'],
+            ['创作者示例 2', '使用 Likeadmin 生成和编辑图像，探索适合不同创作主题的视觉效果。'],
+            ['创作者示例 3', '在 Likeadmin 中结合参考图与视频模型，把静态灵感转化为动态画面。'],
+            ['创作者示例 4', '通过 Likeadmin 的数字人工具组织口播内容，尝试不同形象与表达方式。'],
+            ['创作者示例 5', '把素材和创作节点连接到 Likeadmin 无限画布，梳理完整的创作流程。'],
+            ['创作者示例 6', '从歌词和音乐灵感出发，在 Likeadmin 中探索适合作品的声音。'],
         ];
         return [
             'key' => 'cases', 'enabled' => 1, 'sort' => 920,
-            'title' => "深受喜爱 创作者\n全球", 'highlight_text' => '创作者',
-            'description' => '独立创作者和全球品牌团队每天都在 OpenArt 上产出作品。',
+            'title' => "创作者使用场景", 'highlight_text' => '创作者',
+            'description' => '以下为 Likeadmin 创作场景预设示例，可替换为真实创作者评价。',
             'autoplay_seconds' => 35,
             'cards' => array_map(static fn($review) => [
                 'title' => $review[0], 'description' => $review[1],
-                'source' => 'Trustpilot', 'rating' => 5, 'avatar' => '',
+                'source' => 'Likeadmin · 预设示例', 'rating' => 5, 'avatar' => '',
             ], $reviews),
         ];
     }
