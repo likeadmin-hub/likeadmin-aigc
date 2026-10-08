@@ -8,7 +8,9 @@ final class ShortDramaReviewCheckpoint
 {
     public static function signature(array $base, array $request): string
     {
-        unset($request['_generation_recovery_version']);
+        // Execution attempts and provider tracing change during recovery; they
+        // are not creative inputs. Model/prompt/source facts remain signed.
+        foreach (['_generation_recovery_version','_execution_attempt','_prompt_requests','_submission_key','_submission_hash'] as $field) unset($request[$field]);
         return hash('sha256', json_encode([3, $base, $request], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     }
 

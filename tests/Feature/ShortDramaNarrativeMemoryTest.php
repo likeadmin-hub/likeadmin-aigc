@@ -156,6 +156,8 @@ class ShortDramaNarrativeMemoryTest extends TestCase
             self::fail('Expected interruption');
         } catch (\RuntimeException $error) { self::assertSame(503,$error->getCode()); }
         self::assertSame(4,$saved['reviewed_shots']); $calls=[];
+        $request['_execution_attempt']=2; $request['_prompt_requests']=['runtime'=>'new trace'];
+        $request['_generation_recovery_version']=1;
         $run = static function($key,$input) use ($reply,&$calls) { $calls[]=$key; return $reply($key,$input); };
         $result=Review::generate($plan,$request,$run,null,null,$saved);
         self::assertCount(2,$calls); self::assertStringStartsWith('review_4_',$calls[0]);
