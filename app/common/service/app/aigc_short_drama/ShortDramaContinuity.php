@@ -113,8 +113,8 @@ final class ShortDramaContinuity
                 'response_contract' => [
                     'summary' => '本集已发生事件的简短摘要，不写未来剧情',
                     'changes' => [['entity_id' => 'subjects或locations中的id，也可为world', 'field' => '稳定状态键，如location/knows_secret/injury/item_owner；1至80个中文、英文字母、数字、下划线、斜线或连字符，禁止冒号和空格',
-                        'before' => 'previous.state里已有的原值；首次记录用null', 'after' => '正文中明确的新值', 'shot_id' => '证据镜头id', 'quote' => '该镜头visual_description或dialogue中的原文片段']],
-                    'hooks' => [['id' => '稳定伏笔标识；resolved必须逐字引用previous.open_hooks中已有ID', 'description' => '已登记的open伏笔由服务器原样保留，无需重复提交或改写描述；进展写observed，兑现才resolved。同集新出现且已经完成的事件使用observed，不伪造前集伏笔', 'status' => 'open、resolved或observed', 'shot_id' => '证据镜头id', 'quote' => '镜头原文片段']],
+                        'before' => 'previous.state里已有的原值；首次记录用null', 'after' => '正文中明确的新值', 'evidence_refs' => [['shot_id' => '实际镜头id', 'field' => 'visual_description或dialogue；服务器提取原文，不自行抄写或缩写quote']]]],
+                    'hooks' => [['id' => '稳定伏笔标识；resolved必须逐字引用previous.open_hooks中已有ID', 'description' => '已登记的open伏笔由服务器原样保留，无需重复提交或改写描述；进展写observed，兑现才resolved。同集新出现且已经完成的事件使用observed，不伪造前集伏笔', 'status' => 'open、resolved或observed', 'evidence_refs' => [['shot_id' => '实际镜头id', 'field' => 'visual_description或dialogue']]]],
                     'warnings' => ['具体连续性疑点，无疑点则空数组'],
                 ],
             ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
@@ -135,7 +135,36 @@ final class ShortDramaContinuity
         }
         foreach ($review['hooks'] as $record) if (!is_array($record) || !is_string($record['id'] ?? null) || trim($record['id']) === '' || mb_strlen($record['id']) > 100
             || !is_string($record['description'] ?? null) || !in_array($record['status'] ?? '', ['open','resolved','observed'], true)) throw new RuntimeException('连续性审校结构：伏笔必须含id、description、status(open/resolved/observed)', 422);
+        self::resolveEvidenceReferences($review, $plan);
         foreach ($review['warnings'] as $warning) if (!is_string($warning) || mb_strlen($warning) > 1500) throw new RuntimeException('连续性提示格式无效', 422);
+    }
+
+    /** The model selects sources; the server owns their verbatim contents.
+     * Legacy quoted receipts remain readable. References confer no semantic
+     * approval: the independent verifier still evaluates the entire claim. */
+    private static function resolveEvidenceReferences(array $review, array $plan): array
+    {
+        $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
+        foreach (['changes', 'hooks'] as $group) foreach ($review[$group] ?? [] as $index => $record) {
+            if (!is_array($record) || !array_key_exists('evidence_refs', $record)) continue;
+            if (!is_array($record['evidence_refs']) || !array_is_list($record['evidence_refs'])
+                || !$record['evidence_refs'] || count($record['evidence_refs']) > 20) throw new RuntimeException('审校证据引用格式无效', 422);
+            $evidence = [];
+            foreach ($record['evidence_refs'] as $ref) {
+                if (!is_array($ref) || array_diff(array_keys($ref), ['shot_id', 'field'])
+                    || !is_string($ref['shot_id'] ?? null) || !in_array($ref['field'] ?? null, ['visual_description', 'dialogue'], true)
+                    || !isset($shots[$ref['shot_id']]) || !is_string($shots[$ref['shot_id']][$ref['field']] ?? null)
+                    || trim($shots[$ref['shot_id']][$ref['field']]) === '') throw new RuntimeException('审校证据引用不存在或为空', 422);
+                $evidence[] = ['shot_id'=>$ref['shot_id'], 'quote'=>$shots[$ref['shot_id']][$ref['field']]];
+            }
+            // If a model echoes quote fields, never trust them over the selected source.
+            unset($record['evidence_refs'], $record['quote'], $record['shot_id']);
+            $record['evidence'] = $evidence;
+            $record['shot_id'] = $evidence[0]['shot_id'];
+            $record['quote'] = $evidence[0]['quote'];
+            $review[$group][$index] = $record;
+        }
+        return $review;
     }
 
     /** At most two reference corrections, never rewrite or relax the script. */
@@ -205,6 +234,7 @@ final class ShortDramaContinuity
                     }));
                     if ($continuations) $review['audit_corrections'] = array_merge($review['audit_corrections'] ?? [], $continuations);
                 }
+                $review = self::resolveEvidenceReferences($review, $plan);
                 if ($verifyMeaning) {
                     $draft = $review;
                     $verified = $verifyMeaning($review, $plan);

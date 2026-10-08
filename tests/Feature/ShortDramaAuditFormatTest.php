@@ -9,6 +9,34 @@ use RuntimeException;
 
 class ShortDramaAuditFormatTest extends TestCase
 {
+    public function testInitialAuditReferencesUseCanonicalTextAndStillRejectUnsupportedMeaning(): void
+    {
+        $plan = ['storyboard'=>[['shot_id'=>'s1','visual_description'=>'甲合上手册，走到工作台左侧，将手册放进抽屉。','dialogue'=>'']]];
+        $draft = ['summary'=>'存放手册','changes'=>[['entity_id'=>'world','field'=>'manual_location','before'=>null,'after'=>'左侧抽屉',
+            'evidence_refs'=>[['shot_id'=>'s1','field'=>'visual_description']], 'quote'=>'甲...抽屉']], 'hooks'=>[], 'warnings'=>[]];
+        $calls = 0;
+        $ledger = Continuity::review($plan, [], 1, static function() use($draft,&$calls) { $calls++; return $draft; },
+            static function($review) use($plan) {
+                self::assertSame($plan['storyboard'][0]['visual_description'], $review['changes'][0]['evidence'][0]['quote']);
+                return Patch::verifiedReview($review, ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>true,'reason'=>'明确放入抽屉']]], []);
+            });
+        self::assertSame(1, $calls);
+        self::assertSame('左侧抽屉', $ledger['state']['world:manual_location']);
+        $draft['changes'][0]['after'] = '手册被销毁';
+        $rejected = Continuity::review($plan, [], 1, static fn()=> $draft,
+            static fn($review)=>Patch::verifiedReview($review, ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>false,'failure_kind'=>'uncertain','reason'=>'原文只有存放']]], []));
+        self::assertSame([], $rejected['state']);
+        self::assertSame('pending_review', $rejected['audit_status']);
+    }
+    public function testInitialAuditReferenceValidationRejectsMissingEmptyAndNonNarrativeSources(): void
+    {
+        $plan = ['storyboard'=>[['shot_id'=>'s1','visual_description'=>'甲站着','dialogue'=>'','image_prompt'=>'图片提示']]];
+        foreach ([['shot_id'=>'missing','field'=>'visual_description'], ['shot_id'=>'s1','field'=>'dialogue'], ['shot_id'=>'s1','field'=>'image_prompt']] as $ref) {
+            $draft = ['summary'=>'甲站着','changes'=>[['entity_id'=>'world','field'=>'location','before'=>null,'after'=>'房间','evidence_refs'=>[$ref]]], 'hooks'=>[], 'warnings'=>[]];
+            try { Continuity::assertAuditShape($draft, $plan); self::fail('Invalid source must be rejected before verification'); }
+            catch (RuntimeException $e) { self::assertSame(422, $e->getCode()); }
+        }
+    }
     public function testMalformedCompleteJsonIsRecoveredWithDistinctRequestAndRealVerdict(): void
     {
         $inputs = [];
