@@ -17866,7 +17866,7 @@ class AigcShortDramaService
             static function (string $key, array $input, int $desired, ?callable $validate = null) use ($tenantId, $userId, $request, $model, $onEvent, &$receipts, &$calls, &$rejected, $callLimit): array {
                 if (++$calls > $callLimit) throw new \RuntimeException('复核已达到本次处理上限，原剧本保留，请缩小修改范围', 429);
                 if ($onEvent) $onEvent('heartbeat', []);
-                $budget = ShortDramaPlanningBudget::stage($input['system_prompt'] . $input['content'], $model, 'script', $desired);
+                $budget = ShortDramaPlanningBudget::fitMessages($input, $model, 'script', $desired);
                 ShortDramaPlanningUnit::supersede($rejected); $rejected = [];
                 $params = $input + ['model_config'=>['max_tokens'=>$budget['max_tokens'],'enable_thinking'=>false],
                     'source_app_code'=>self::APP_CODE,'source_type'=>'script_plan','action_code'=>'script_plan_continuity',
@@ -18760,7 +18760,9 @@ class AigcShortDramaService
             'same_scene_cut_policy' => (array)($request['same_scene_cut_policy'] ?? []),
             'revision_target' => (array)($request['revision_target'] ?? []),
             'revision_policy' => (array)($request['revision_policy'] ?? []),
-            'series_context' => (array)($request['series_context'] ?? []),
+            'series_context' => (int)($request['_input_contract_version'] ?? 0) >= 6
+                ? ShortDramaPlanningContext::seriesFacts((array)($request['series_context'] ?? []))
+                : (array)($request['series_context'] ?? []),
             'revision_base_result' => is_array($planningContext['revision_base_result'] ?? null)
                 ? $planningContext['revision_base_result']
                 : [],
