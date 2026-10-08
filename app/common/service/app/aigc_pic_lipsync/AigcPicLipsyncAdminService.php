@@ -88,6 +88,8 @@ class AigcPicLipsyncAdminService
     public static function clearData(): void
     {
         // Shared avatar/voice libraries and immutable billing ledgers belong to other modules.
+        $pending = AigcPicLipsyncTask::whereIn('status', ['pending', 'running'])->where('consumption_id', '>', 0)->column('consumption_id');
+        foreach ($pending as $id) \app\common\service\power\MarketPicLipsyncAppRuntimeService::cancel((int)$id);
         AigcPicLipsyncResult::where('id', '>', 0)->delete();
         AigcPicLipsyncTask::where('id', '>', 0)->delete();
         \app\common\model\app\aigc_pic_lipsync\AigcPicLipsyncConfig::where('id', '>', 0)->delete();
