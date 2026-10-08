@@ -132,7 +132,7 @@ final class ShortDramaContentAcceptance
                         'targets'=>self::shots($targets),'episode'=>$request['series_context']['current_episode'] ?? [],
                         'instruction'=>ShortDramaShotSemantics::INSTRUCTION];
                     $reply = self::call($call, 'repair', $data,
-                        '修复已明确发现的剧本问题，保留其他剧情和全部用户指定台词。只返回{"patches":[{"shot_id":"目标ID","field":"字段","before":"原值或原数组","after":"新值或新数组"}],"subject_categories":[{"id":"现有主体ID","before":"原category","after":"character、animal、prop或symbol"}]}。允许字段：' . implode(',', self::FIELDS) . '。不得修改ID、时长、镜头数量、用户素材或已正确的内容。accepted_coverage已覆盖的事件和指定原话必须继续保留；修复缺失时只补缺失，不挪用另一段已正确对白。不删对白凑时长。重复镜头改成自然接续动作，关键事件遗漏利用本集已有镜头表现，禁止新增人物。室内外必须按实际地点，多人对白每行一位角色。',
+                        '修复已明确发现的剧本问题，保留其他剧情和全部用户指定台词。只返回{"patches":[{"shot_id":"目标ID","field":"字段","before":"原值或原数组","after":"新值或新数组"}],"subject_categories":[{"id":"现有主体ID","before":"原category","after":"character、animal、prop或symbol"}]}。允许字段：' . implode(',', self::FIELDS) . '。speech_type只允许character（角色对白，包括角色朗读信件）、narration（旁白）、none（无声）；interior_exterior只允许interior或exterior。对白必须来自正确人物关系，转述收到问候不等于读出问候原话。不得修改ID、时长、镜头数量、用户素材或已正确的内容。accepted_coverage已覆盖的事件和指定原话必须继续保留；修复缺失时只补缺失，不挪用另一段已正确对白。不删对白凑时长。重复镜头改成自然接续动作，关键事件遗漏利用本集已有镜头表现，禁止新增人物。室内外必须按实际地点，多人对白每行一位角色。',
                         static function(array $reply) use ($plan, $targets): void {
                             $candidate = self::apply($plan, $reply, array_column($targets, 'shot_id'));
                             if ($candidate === $plan) throw new RuntimeException('存在未解决问题，修复必须产生有效修改；请针对issues中的具体缺失原因补齐，不能返回空补丁', 422);
@@ -364,7 +364,7 @@ final class ShortDramaContentAcceptance
             } elseif (!is_string($patch['after'])) throw new RuntimeException('文本修复必须返回字符串', 422);
             if ($field === 'scene_ref_id' && !in_array($patch['after'], array_column($plan['locations'], 'id'), true)) throw new RuntimeException('场景引用无效', 422);
             if ($field === 'interior_exterior' && !in_array($patch['after'], ['interior','exterior'], true)) throw new RuntimeException('室内外类型无效', 422);
-            if ($field === 'speech_type' && !in_array($patch['after'], ['character','narration','none'], true)) throw new RuntimeException('对白类型无效', 422);
+            if ($field === 'speech_type' && !in_array($patch['after'], ['character','narration','none'], true)) throw new RuntimeException('speech_type只允许character、narration、none，角色朗读使用character', 422);
             $candidate['storyboard'][$indices[$id]][$field] = $patch['after']; $seen[$key] = true;
         }
         $subjects = array_flip(array_column($plan['subjects'], 'id'));
