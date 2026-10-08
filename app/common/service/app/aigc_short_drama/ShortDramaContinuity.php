@@ -124,7 +124,8 @@ final class ShortDramaContinuity
 
     public static function messages(array $plan, array $context): array
     {
-        return ['system_prompt' => '你是短剧连续性审校员，只返回 JSON。不得改写剧本。只记录正文中明确发生、有镜头证据的事实。未知内容不推断。检查上一集状态、本集大纲、已确认人物和规则是否矛盾，检查是否提前揭露未来剧情。语义疑点放 warnings，不要伪造事实。',
+        return ['system_prompt' => '你是短剧连续性审校员，只返回 JSON。不得改写剧本。只记录正文中明确发生、有镜头证据的事实。未知内容不推断。检查上一集状态、本集大纲、已确认人物和规则是否矛盾，检查是否提前揭露未来剧情。语义疑点放 warnings，不要伪造事实。'
+            . '逐一检查镜头涉及的已登记状态是否被本集更新，不仅新增键。属性属于实际对象：擦桌子记桌子或场景的清洁状态，不能写在擦桌子的人名下。位置统一field=location，持有人统一item_owner，不新造state/location或current_location别名。归还物品后旧持有关系必须更新；受损、修好等状态以最后明确动作结果为准。拿着、搬动不等于已经完成目的地交付。',
             'content' => json_encode([
                 'previous' => $context['continuity'] ?? [],
                 'confirmed' => ShortDramaPlanningContext::lockedStory((array)($context['outline'] ?? [])),
@@ -653,6 +654,7 @@ final class ShortDramaContinuity
         $ids = array_merge(['world'], array_column((array)($plan['subjects'] ?? []), 'id'), array_column((array)($plan['locations'] ?? []), 'id'));
         $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
         $changedInEpisode = (array)($context['_reviewed_block_state_keys'] ?? []);
+        $canonicalUpdates = [];
         foreach ($review['changes'] as $item) {
             self::evidence($item, $shots);
             // JSON scalar spelling is lossless; PHP's generic string cast is
@@ -685,8 +687,10 @@ final class ShortDramaContinuity
                 throw new RuntimeException('本集剧情状态与前集不一致，请检查衔接后修改；已完成内容保留', 409);
             }
             $state[$key] = $item['after'];
+            if (!empty($context['_canonical_state'])) $canonicalUpdates[] = $item;
             $changedInEpisode[$key] = true;
         }
+        foreach ($canonicalUpdates as $item) $state = ShortDramaContinuityState::replaceAliases($state, $item['entity_id'], $item['field'], $item['after']);
         foreach ($review['hooks'] as $item) {
             self::evidence($item, $shots);
             if (!is_string($item['id'] ?? null) || trim($item['id']) === '' || mb_strlen($item['id']) > 100

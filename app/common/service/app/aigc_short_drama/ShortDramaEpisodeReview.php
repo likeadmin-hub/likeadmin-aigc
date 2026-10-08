@@ -18,8 +18,12 @@ final class ShortDramaEpisodeReview
     public static function generate(array $base, array $request, callable $call, ?callable $progress = null, ?callable $checkpoint = null, array $saved = []): array
     {
         if (empty($base['storyboard'])) throw new RuntimeException('缺少可复核的已保存分镜', 422);
+        if (ShortDramaContentAcceptance::enabled($request)) {
+            $base = ShortDramaContentAcceptance::generate($base, $request, $call);
+        }
         $context = (array)($request['series_context'] ?? []);
         $context['_server_owned_state'] = true;
+        $context['_canonical_state'] = ShortDramaContentAcceptance::enabled($request);
         $context['_bounded_memory'] = (int)($request['_input_contract_version'] ?? 0) >= 7;
         // Runtime-only provenance. A previous block is not a previous episode.
         $context['_reviewed_block_state_keys'] = [];
