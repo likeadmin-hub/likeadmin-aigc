@@ -17889,7 +17889,7 @@ class AigcShortDramaService
                 $resume['receipts'] = $receipts;
                 ShortDramaReviewCheckpoint::save($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $plan, $reviewed, $resume);
             }, $checkpoint);
-        $result = self::enhancePlanResult($result);
+        if (!empty($result['content_acceptance']['repairs'])) $result = self::enhancePlanResult($result);
         return ['result'=>$result, 'llm'=>self::mergeScriptPlanLlmResults($receipts)];
     }
 
