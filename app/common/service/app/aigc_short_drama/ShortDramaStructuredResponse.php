@@ -20,6 +20,8 @@ final class ShortDramaStructuredResponse
                     || str_starts_with($error->getMessage(), '审校事实纠正')
                     || str_starts_with($error->getMessage(), '审校证据')
                     || str_starts_with($error->getMessage(), '审校纠错')
+                    || str_starts_with($error->getMessage(), '复核补丁')
+                    || $error->getMessage() === '复核修复未返回有效补丁'
                     || in_array($error->getMessage(), ['连续性摘要缺失', '连续性检查结构不完整', '连续性提示格式无效'], true);
                 if ($attempt >= 2 || $error->getCode() !== 422 || !$format) throw $error;
                 $input['content'] .= "\n审校格式恢复第" . ($attempt + 1) . "次：上次回包未通过格式校验（"

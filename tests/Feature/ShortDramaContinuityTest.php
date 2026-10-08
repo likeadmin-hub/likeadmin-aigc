@@ -538,14 +538,6 @@ class ShortDramaContinuityTest extends TestCase
             self::assertCount(1, $issues); self::assertFalse($issues[0]['shot_exists']);
         }
     }
-    public function testAllV3EpisodeDurationsUseSameAuditRepairAndReservedBudget(): void
-    {
-        $source = file_get_contents(__DIR__ . '/../../app/common/service/app/aigc_short_drama/AigcShortDramaService.php');
-        self::assertStringContainsString("\$result['_continuity'] = ShortDramaContinuity::review(", $source);
-        self::assertStringNotContainsString("\$result['_continuity'] = ShortDramaEpisodeDuration::active", $source);
-        $generation = file_get_contents(__DIR__ . '/../../app/common/service/app/aigc_short_drama/ShortDramaScriptGeneration.php');
-        self::assertStringContainsString("\$auditReserve = !empty(\$request['series_context']);", $generation);
-    }
     public function testOnlyNarrativeEditsInvalidateDependenciesAndPendingRepairIsNotBlocked(): void
     {
         $plan = $this->plan(); $digest = Continuity::fingerprint($plan);

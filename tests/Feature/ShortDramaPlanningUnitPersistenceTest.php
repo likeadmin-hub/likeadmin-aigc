@@ -17,6 +17,23 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
         $this->task = 'test_receipt_' . bin2hex(random_bytes(8));
     }
     protected function tearDown(): void { if ($this->transaction) Db::rollback(); }
+    public function testReviewDraftCheckpointDoesNotBecomeAPaidReceiptOrRetryUnit(): void
+    {
+        $checkpoint = \app\common\service\app\aigc_short_drama\ShortDramaReviewCheckpoint::class;
+        $checkpoint::save(2000000719, 7, $this->task, ['title'=>'原文','storyboard'=>[['shot_id'=>'s1']]], 0);
+        $checkpoint::save(2000000719, 7, $this->task, ['title'=>'原文','storyboard'=>[['shot_id'=>'s1']]], 1);
+        Unit::prepareExplicitRetry(2000000719, 7, $this->task);
+        $rows = Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->select()->toArray();
+        self::assertCount(1, $rows); self::assertSame('checkpoint', $rows[0]['status']);
+        self::assertSame(0, (int)$rows[0]['attempt']);
+        $saved = json_decode($rows[0]['result_json'], true);
+        self::assertSame('draft', $saved['content_status']); self::assertSame(1, $saved['reviewed_shots']);
+        self::assertSame('原文', $saved['plan']['title']); self::assertArrayNotHasKey('result', $saved);
+        $checkpoint::save(2000000720, 7, $this->task, ['title'=>'另租户'], 0);
+        self::assertSame('原文', json_decode(Db::name('aigc_short_drama_planning_unit')->where([
+            'task_id'=>$this->task,'tenant_id'=>2000000719])->value('result_json'),true)['plan']['title']);
+    }
+
     public function testReceivedResponseIsReusedAndChangedContextCannotReplayIt(): void
     {
         $calls = 0;
