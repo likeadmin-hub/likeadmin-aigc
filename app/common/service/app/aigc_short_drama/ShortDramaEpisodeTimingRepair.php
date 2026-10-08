@@ -6,6 +6,27 @@ use RuntimeException;
 /** Reallocate a fixed episode budget without rewriting any accepted content. */
 final class ShortDramaEpisodeTimingRepair
 {
+    public static function canReconcile(array $plan, array $request): bool
+    {
+        if (!ShortDramaDialogueSplit::enabled($request) || !ShortDramaEpisodeDuration::active($request)
+            || ShortDramaEpisodeDuration::localRevision($request) || !empty($request['_continuity_review_only'])
+            || !empty(ShortDramaEpisodeDuration::policy($request)['timeline_segments'])) return false;
+        foreach ($plan['storyboard'] ?? [] as $shot) foreach (['image_url','video_url','image_id','video_id'] as $asset) {
+            if (!empty($shot[$asset])) return false;
+        }
+        return true;
+    }
+
+    public static function reconcile(array $plan, array $request, callable $call): array
+    {
+        if (!self::canReconcile($plan, $request)) return $plan;
+        $plan = ShortDramaEpisodeDuration::canReallocateShots($request)
+            ? self::adapt($plan, $request, $call)
+            : ShortDramaDialogueSplit::adapt($plan, $request, $call, 'review_timing_' . substr(hash('sha256', json_encode($plan['storyboard'])), 0, 16));
+        ShortDramaEpisodeDuration::assertPlan($plan, $request);
+        return $plan;
+    }
+
     public static function adapt(array $plan, array $request, callable $call): array
     {
         if (!ShortDramaEpisodeDuration::canReallocateShots($request)) return $plan;
@@ -19,6 +40,7 @@ final class ShortDramaEpisodeTimingRepair
                 throw new RuntimeException('分镜对白或时长结构无效，原文保留', 409);
             }
             if (ShortDramaDialogueSplit::requiredSeconds($shot['dialogue']) > (float)$shot['recommended_duration_seconds']
+                || ShortDramaDialogueSplit::requiredSeconds($shot['dialogue']) > ShortDramaDialogueSplit::MAX_DIALOGUE_SECONDS
                 || !ShortDramaShotDuration::contains($shot['recommended_duration_seconds'], $rule)) $needsRepair = true;
         }
         try { ShortDramaEpisodeDuration::assertPlan($plan, $request); }
