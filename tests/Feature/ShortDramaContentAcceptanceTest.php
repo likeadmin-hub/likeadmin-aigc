@@ -154,6 +154,23 @@ class ShortDramaContentAcceptanceTest extends TestCase
         self::assertSame([],$result['issues']);
     }
 
+    public function testReferenceDefectVerificationReceivesTheActualSubjectRegistry(): void
+    {
+        foreach ([false, true] as $registered) {
+            $plan=$this->plan(); $plan['storyboard'][0]['visual_description']='陈伯与无名侍从站在门口';
+            if($registered)$plan['subjects'][]=['id'=>'servant','name'=>'侍从','category'=>'character'];
+            $report=Acceptance::inspect($plan,[],static function($key,$input,$tokens,$validate)use($registered){
+                $d=json_decode($input['content'],true);
+                if(isset($d['field_claims'])){
+                    self::assertSame($registered,in_array('servant',array_column($d['registered_subjects'],'id'),true));
+                    $reply=['verdicts'=>[['id'=>'0','confirmed'=>$registered,'reason'=>$registered?'已登记侍从漏引用':'未登记背景人物不要求新建ID','shot_ids'=>$registered?['s1']:[]]]];
+                }else $reply=['checks'=>[],'issues'=>[['code'=>'subject_reference','message'=>'侍从缺少引用','shot_ids'=>['s1']]]];
+                $validate($reply); return $reply;
+            });
+            self::assertCount($registered?1:0,$report['issues']);
+        }
+    }
+
     public function testPropReferenceDoesNotProveExtraCharacterViolation(): void
     {
         $report=Acceptance::inspect($this->plan(),[['id'=>'r1','kind'=>'constraint','text'=>'一名角色']],static function($key,$input,$tokens,$validate){

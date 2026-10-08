@@ -267,7 +267,7 @@ final class ShortDramaContentAcceptance
                     }
                     foreach ($reply['issues'] as $issue) if (!in_array($issue['code'] ?? '', ['scene_space','speaker','silent','dialogue_instruction','subject_reference','duplicate_action'], true) || !is_string($issue['message'] ?? null) || !is_array($issue['shot_ids'] ?? null) || array_diff($issue['shot_ids'], array_keys($byId))) throw new RuntimeException('问题必须指向当前镜头', 422);
                 });
-            array_push($issues, ...self::verifiedIssues($reply['issues'], $block, $call));
+            array_push($issues, ...self::verifiedIssues($reply['issues'], $block, $call, $plan['subjects']));
             foreach ($reply['checks'] as $check) {
                 $byId = array_column($block, null, 'shot_id');
                 foreach ($check['evidence'] as &$e) {
@@ -337,14 +337,15 @@ final class ShortDramaContentAcceptance
 
     /** Free-form criticism is not permission to rewrite. Independently check
      * the alleged defect against the actual fields before it reaches repair. */
-    private static function verifiedIssues(array $issues, array $shots, callable $call): array
+    private static function verifiedIssues(array $issues, array $shots, callable $call, array $subjects): array
     {
         $out=[];
         foreach (array_chunk($issues,4) as $batch) {
             $claims=[];
             foreach($batch as $i=>$issue) $claims[]=['id'=>(string)$i,'issue'=>$issue];
-            $reply=self::call($call,'field_issues',['field_claims'=>$claims,'shots'=>self::auditShots($shots)],
-                'dialogue_turns是已解析的实际说话轮次，speaker与text分离；dialogue是检索纯文本，不含角色前缀属于正常。独立核实这些语义问题是否真的存在。禁止把对白编码或voice_role未列出全部人认定为问题，只核对实际台词、人物和场景关系。无问题的解释不是缺陷。不要因为上一检查声称有错就同意。只依据提供的实际字段判断。返回{"verdicts":[{"id":"原id","confirmed":false,"reason":"具体理由","shot_ids":[]}]}，每个id一次；confirmed=true时shot_ids必须是实际出错的本块镜头。',
+            $reply=self::call($call,'field_issues',['field_claims'=>$claims,'shots'=>self::auditShots($shots),'registered_subjects'=>self::metadata($subjects)],
+                '主体引用只核对registered_subjects中的已登记主体：画面中可见的已登记主体漏引用、引用不存在的ID或明显引用错误人物才是引用缺陷。未登记的无名群演、侍从、路人、普通背景物品不需要为引用检查凭空新建ID，不能仅因他们出现在画面但无subject_ref_ids就确认缺陷。用户明确限定角色数量或禁止额外人物由requirements单独核验，不能以背景人物规则豁免用户限制。'
+                . 'dialogue_turns是已解析的实际说话轮次，speaker与text分离；dialogue是检索纯文本，不含角色前缀属于正常。独立核实这些语义问题是否真的存在。禁止把对白编码或voice_role未列出全部人认定为问题，只核对实际台词、人物和场景关系。无问题的解释不是缺陷。不要因为上一检查声称有错就同意。只依据提供的实际字段判断。返回{"verdicts":[{"id":"原id","confirmed":false,"reason":"具体理由","shot_ids":[]}]}，每个id一次；confirmed=true时shot_ids必须是实际出错的本块镜头。',
                 static function(array $reply)use($claims,$shots):void{
                     $ids=array_column($claims,'id');$got=array_column((array)($reply['verdicts']??[]),'id');sort($ids);sort($got);
                     if($ids!==$got)throw new RuntimeException('字段缺陷核实项不完整',422);
