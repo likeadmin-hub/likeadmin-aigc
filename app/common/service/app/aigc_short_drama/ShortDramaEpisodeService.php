@@ -230,7 +230,7 @@ class ShortDramaEpisodeService
             $outlineRequest = self::outlineRequest($tenantId, $userId, $row);
             $siblings = self::withContinuityStatus($tenantId, $userId, Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId,
                 'project_id' => $row['project_id'], 'delete_time' => 0])->order('episode_number')->select()->toArray());
-            $review = !empty($row['completed_once']);
+            $review = false;
             foreach ($siblings as $sibling) {
                 if ((int)$sibling['id'] === (int)$row['id']) { $review = $review || !empty($sibling['needs_review']); break; }
                 if (!empty($sibling['needs_review'])) throw new Exception('请先复核前面的剧集，避免继续使用旧剧情');
@@ -250,6 +250,10 @@ class ShortDramaEpisodeService
                     $request = self::decode($old['request_json']);
                     $previousReviewBase = $request['revision_base_result'] ?? [];
                     $wasBlockReview = !empty($request['_continuity_review_only']);
+                    // Failed user revisions must keep their original instruction.
+                    // Only a failed continuity review adopts the block-review route.
+                    $review = $review || (!empty($row['completed_once']) && empty($request['revision_target'])
+                        && ($wasBlockReview || ($request['revision_message'] ?? '') === '复核当前剧本与最新前集的连续性，只修复明确矛盾；保留其他剧情、镜头、台词和所有素材标识。'));
                     $request['_generation_recovery_version'] = 1;
                     if ($outlineRequest !== null) $request = ShortDramaStoryWorkflow::inheritQualityReview($request, $outlineRequest);
                     $originalContext = $request['series_context'] ?? [];
