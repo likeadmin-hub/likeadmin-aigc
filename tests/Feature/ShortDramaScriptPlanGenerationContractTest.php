@@ -11,6 +11,19 @@ use think\Container;
 /** Exercises the real script-plan assembly/normalization/repair path with a fake provider only. */
 class ShortDramaScriptPlanGenerationContractTest extends TestCase
 {
+    public function testRealProviderStructuredGenreDoesNotDiscardCompleteStoryboard(): void
+    {
+        $fixture = json_decode(file_get_contents(__DIR__ . '/../fixtures/short_drama_real_structured_genre.json'), true, 512, JSON_THROW_ON_ERROR);
+        Container::getInstance()->instance('config', new \think\Config());
+        $method = new ReflectionMethod(AigcShortDramaService::class, 'normalizeGeneratedPlanResult');
+        $method->setAccessible(true);
+        $result = $method->invoke(null, $fixture['payload'], $fixture['request']['prompt'], $fixture['request'], '雨停再走');
+        self::assertSame('都市温情短剧', $result['type_judgement']);
+        self::assertSame(array_column($fixture['payload']['storyboard'], 'dialogue'), array_column($result['storyboard'], 'dialogue'));
+        self::assertSame(array_column($fixture['payload']['storyboard'], 'shot_id'), array_column($result['storyboard'], 'shot_id'));
+        self::assertSame([$fixture['payload']['script_lines']], $result['script_lines']);
+    }
+
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
      */
