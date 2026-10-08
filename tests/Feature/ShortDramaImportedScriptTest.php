@@ -18,7 +18,7 @@ class ShortDramaImportedScriptTest extends TestCase
     public function testParserAdapterKeepsFullSourceAndRangeAcrossNormalization(): void
     {
         $original = str_repeat('主角翻开旧信，寻找失踪者的下落。', 5000) . '结尾发现真实署名。';
-        $payload = ['title' => '旧信', 'type_judgement' => '悬疑', 'core_theme' => '寻找真相', 'story_outline' => '主角从旧信发现失踪者的踪迹。',
+        $payload = ['title' => '旧信', 'type_judgement' => ['genre'=>'悬疑'], 'core_theme' => '寻找真相', 'story_outline' => '主角从旧信发现失踪者的踪迹。',
             'subjects' => [['id' => 's1', 'name' => '调查员', 'description' => '寻找失踪者的调查员', 'category' => 'character']],
             'locations' => [['id' => 'l1', 'name' => '书房', 'description' => '堆满旧信的书房']], 'episodes' => []];
         for ($i = 1; $i <= 2; $i++) $payload['episodes'][] = ['episode_number' => $i, 'title' => '旧信线索' . $i,
@@ -28,6 +28,7 @@ class ShortDramaImportedScriptTest extends TestCase
         $method = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'fileQaParsePlan');
         $method->setAccessible(true);
         $plan = $method->invoke(null, $payload, [], '旧信');
+        self::assertSame('悬疑', $plan['type_judgement']);
         self::assertCount(2, $plan['episodes']);
         foreach ($plan['episodes'] as $episode) {
             self::assertSame($original, $episode['source_content']);
