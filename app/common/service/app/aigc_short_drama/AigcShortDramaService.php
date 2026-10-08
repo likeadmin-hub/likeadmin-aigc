@@ -21188,6 +21188,7 @@ class AigcShortDramaService
             'storyboard' => $storyboard,
             'storyboard_breaking_diagnostics' => $storyboardDiagnostics,
             'generation_contract' => (array)($payload['generation_contract'] ?? []),
+            'dialogue_density_revision' => (array)($payload['dialogue_density_revision'] ?? []),
             'duration_stats' => $durationStats,
             'outline_validation_issues' => $outlineValidationIssues,
             'generation_settings' => [

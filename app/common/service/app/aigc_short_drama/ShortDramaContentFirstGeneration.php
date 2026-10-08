@@ -81,10 +81,53 @@ final class ShortDramaContentFirstGeneration
         };
         foreach ($beats as $i=>$beat) $expand($beat, 'u' . ($i + 1), 0, $i);
         if ($progress) $progress('stage', ['status'=>'running','progress'=>76,'current_step'=>'按实际对白编排分镜时长']);
-        $plan = ShortDramaEpisodeTimingRepair::reconcile($plan, $request, $call);
+        $plan = self::timing($plan, $request, $call);
         if (!ShortDramaEpisodeDuration::active($request)) $plan = ShortDramaDialogueSplit::adapt($plan, $request, $call, 'content_v9_final');
+        $plan['script_lines'] = array_map(static fn($s) => trim($s['visual_description'] . "\n" . $s['dialogue']), $plan['storyboard']);
         $plan['timing_diagnostics'] = ['engine'=>'content_first_v9','unit_count'=>count($beats),'structure_repairs'=>$repairs,
             'total_seconds'=>array_sum(array_column($plan['storyboard'], 'recommended_duration_seconds'))];
+        return $plan;
+    }
+
+    private static function timing(array $plan, array $request, callable $call): array
+    {
+        try { return ShortDramaEpisodeTimingRepair::reconcile($plan, $request, $call); }
+        catch (RuntimeException $error) {
+            // Only newly authored lines may be edited, before acceptance. An
+            // imported script, local edit or unknown failure is never shortened.
+            if ($error->getCode() !== 409 || !str_starts_with($error->getMessage(), '完整对白与分镜无法放入')
+                || !ShortDramaStoryWorkflow::qualityReviewEnabled($request)
+                || !empty($request['script_file_name']) || in_array($request['script_source'] ?? '', ['upload','uploaded','file'], true)
+                || !empty($request['series_context']['current_episode']['source_content'])
+                || !empty($request['series_context']['current_episode']['content'])
+                || count($plan['storyboard']) > 32) throw $error;
+            $input = self::messages(['requirements'=>$plan['generation_contract']['requirements'] ?? [],
+                'original_user_input'=>$request['prompt'] ?? '', 'episode_budget'=>ShortDramaEpisodeDuration::policy($request),
+                'shots'=>$plan['storyboard']], '整集对白密度调整',
+                '原草稿完整对白无法自然放入用户总时长。只精简你新创作的冗长台词，保留事件、说话顺序、信息和所有用户指定原话。'
+                . '不删除角色发言，不改视觉动作，不靠加速朗读。返回{"dialogues":[{"shot_id":"原ID","before":"原对白","after":"精简对白"}]}，仅返回需要改变的镜头，不增加字段。');
+            $validate = static fn($reply) => self::applyDialogueDensity($plan, $reply);
+            $reply = $call('content_v9_density_' . substr(hash('sha256', $input['content']),0,16),$input,6000,$validate);
+            $candidate = self::applyDialogueDensity($plan,$reply);
+            $candidate['dialogue_density_revision'] = ['version'=>1,'original_storyboard'=>$plan['storyboard']];
+            // No recursive rewrite loop. Remaining conflict preserves both drafts.
+            return ShortDramaEpisodeTimingRepair::reconcile($candidate,$request,$call);
+        }
+    }
+
+    public static function applyDialogueDensity(array $plan, array $reply): array
+    {
+        if (array_keys($reply) !== ['dialogues'] || !is_array($reply['dialogues']) || !$reply['dialogues']) throw new RuntimeException('对白精简结果结构无效',422);
+        $indices = array_flip(array_column($plan['storyboard'],'shot_id')); $seen=[];
+        foreach ($reply['dialogues'] as $patch) {
+            $id=$patch['shot_id']??'';
+            if (!isset($indices[$id]) || isset($seen[$id]) || !is_string($patch['after']??null) || trim($patch['after']) === ''
+                || ($patch['before']??null) !== $plan['storyboard'][$indices[$id]]['dialogue'] || array_diff(array_keys($patch),['shot_id','before','after'])) throw new RuntimeException('对白精简越界或原文不符',422);
+            $before = $plan['storyboard'][$indices[$id]];
+            $after = array_replace($before,['dialogue'=>$patch['after']]);
+            if (array_column(ShortDramaShotSemantics::turns($before),'speaker') !== array_column(ShortDramaShotSemantics::turns($after),'speaker')) throw new RuntimeException('对白精简不得增删发言者或改变发言顺序',422);
+            $plan['storyboard'][$indices[$id]]['dialogue']=$patch['after'];$seen[$id]=true;
+        }
         return $plan;
     }
 
