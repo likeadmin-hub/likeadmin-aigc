@@ -109,6 +109,8 @@ class ShortDramaContentAcceptanceTest extends TestCase
         $plan=$this->plan(); $plan['storyboard'][0]['dialogue']="甲：出发吧。\n乙：好的。";
         $report=Acceptance::inspect($plan,[],static function($key,$input,$tokens,$validate){
             $d=json_decode($input['content'],true);
+            self::assertCount(2,$d['shots'][0]['dialogue_turns']);
+            self::assertArrayNotHasKey('voice_role',$d['shots'][0]);
             $r=isset($d['field_claims'])?['verdicts'=>[['id'=>'0','confirmed'=>false,'reason'=>'多人带前缀对白合法','shot_ids'=>[]]]]:
                 ['checks'=>[],'issues'=>[['code'=>'speaker','message'=>'voice_role必须列出所有人','shot_ids'=>['s1']]]];
             $validate($r); return $r;
@@ -122,6 +124,17 @@ class ShortDramaContentAcceptanceTest extends TestCase
         $result=\app\common\service\app\aigc_short_drama\ShortDramaDialogueContract::prepare($plan);
         self::assertSame($plan['dialogue'],$result['payload']['dialogue']);
         self::assertSame([],$result['issues']);
+    }
+
+    public function testPropReferenceDoesNotProveExtraCharacterViolation(): void
+    {
+        $report=Acceptance::inspect($this->plan(),[['id'=>'r1','kind'=>'constraint','text'=>'一名角色']],static function($key,$input,$tokens,$validate){
+            $d=json_decode($input['content'],true);
+            $r=isset($d['constraint_claims'])?['verdicts'=>[['id'=>'r1:0','violated'=>false,'reason'=>'原文只有一人']]]:
+                ['checks'=>[['id'=>'r1','status'=>'violated','evidence'=>[['shot_id'=>'s1','field'=>'subject_ref_ids']]]],'issues'=>[]];
+            $validate($r);return $r;
+        });
+        self::assertSame([],$report['issues']);
     }
 
     public function testRoomSilenceAndTwoSpeakersHaveConsistentSemantics(): void

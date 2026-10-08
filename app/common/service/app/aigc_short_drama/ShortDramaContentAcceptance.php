@@ -116,6 +116,18 @@ final class ShortDramaContentAcceptance
         return array_map(static fn($s) => array_intersect_key($s, array_flip(array_merge(self::FIELDS, ['shot_id','recommended_duration_seconds']))), $shots);
     }
 
+    /** Review semantic turns, never ask a model to reinterpret our wire format. */
+    private static function auditShots(array $shots): array
+    {
+        return array_map(static function($shot){
+            $turns=ShortDramaShotSemantics::turns($shot);
+            $shot['dialogue_turns']=$turns;
+            $shot['dialogue']=implode("\n",array_column($turns,'text'));
+            unset($shot['voice_role']);
+            return $shot;
+        }, self::shots($shots));
+    }
+
     private static function metadata(array $items): array
     {
         return array_map(static fn($item) => array_intersect_key($item, array_flip(['id','name','category','description','library_subject_id'])), $items);
@@ -126,10 +138,10 @@ final class ShortDramaContentAcceptance
         $coverage = []; $issues = []; $duplicates = self::duplicates($plan); $shots = array_values($plan['storyboard']);
         $groups = array_chunk($requirements, 12) ?: [[]];
         foreach (array_chunk($shots, 8) as $part => $block) foreach ($groups as $groupIndex => $required) {
-            $reply = self::call($call, 'check', ['requirements'=>$required, 'shots'=>self::shots($block),
-                'possible_repetitions'=>$duplicates, 'previous_shots'=>self::shots(array_slice($shots, max(0, $part * 8 - 4), min(4, $part * 8))),
+            $reply = self::call($call, 'check', ['requirements'=>$required, 'shots'=>self::auditShots($block),
+                'possible_repetitions'=>$duplicates, 'previous_shots'=>self::auditShots(array_slice($shots, max(0, $part * 8 - 4), min(4, $part * 8))),
                 'subjects'=>self::metadata($plan['subjects']), 'locations'=>self::metadata($plan['locations']), 'check_metadata'=>$groupIndex === 0],
-                ShortDramaShotSemantics::INSTRUCTION . ' 检查最终镜头，不以摘要或正文声称发生代替实际画面及对白。对requirements逐项返回{"checks":[{"id":"原要求id","status":"covered或absent或violated","evidence":[{"shot_id":"本块实际ID","field":"实际字段名"}],"target_shot_ids":["可修复的本块镜头ID"]}],"issues":[{"code":"scene_space或speaker或silent或dialogue_instruction或subject_reference或duplicate_action","message":"具体字段问题及理由","shot_ids":["本块ID"]}]}。事件证据只允许visual_description或dialogue；约束证据可引用任何给出的镜头字段。证据只选镜头ID和字段，原文由服务器提取，不抄写或概括quote。事件只有本块实际表现才covered；未表现返回absent，稍后由服务端汇总整集。约束本块无违反为covered，违反为violated。不得要求本块展示其他块事件。issues仅记录上述六类字段问题，禁止在issues重复报告requirements缺失，缺失只放checks。check_metadata=true时检查可见主体引用、实际说话人、静默与台词、室内外、对话指令冒充正文、重复动作（含previous_shots）。角色类型已有独立分类检查。角色名前缀是合法对白格式，不得要求删除。issues只放确定存在的矛盾，正常内容或“不算问题”的解释不放issues；不因台词的主观文风产生阻断。多个连续动作可以由相邻不同镜头共同表现，绝不能要求多个相继动作在同一镜头完成。不因多个镜头延续同一动作或正常复述就判重复。不强制用齐全剧地点。不以自己的审美增加原要求没有的剧情。',
+                'dialogue_turns是服务端解析出的实际说话轮次，speaker和text已分离；dialogue是供检索的纯台词文本，不能要求它包含姓名前缀。不要检查原始对白编码格式，不存在voice_role列出全部人的要求。检查最终镜头，不以摘要或正文声称发生代替实际画面及对白。对requirements逐项返回{"checks":[{"id":"原要求id","status":"covered或absent或violated","evidence":[{"shot_id":"本块实际ID","field":"实际字段名"}],"target_shot_ids":["可修复的本块镜头ID"]}],"issues":[{"code":"scene_space或speaker或silent或dialogue_instruction或subject_reference或duplicate_action","message":"具体字段问题及理由","shot_ids":["本块ID"]}]}。事件证据只允许visual_description或dialogue；约束证据可引用任何给出的镜头字段。证据只选镜头ID和字段，原文由服务器提取，不抄写或概括quote。事件只有本块实际表现才covered；未表现返回absent，稍后由服务端汇总整集。约束本块无违反为covered，违反为violated。不得要求本块展示其他块事件。issues仅记录上述六类字段问题，禁止在issues重复报告requirements缺失，缺失只放checks。check_metadata=true时检查可见主体引用、实际说话人、静默与台词、室内外、对话指令冒充正文、重复动作（含previous_shots）。角色类型已有独立分类检查。角色名前缀是合法对白格式，不得要求删除。issues只放确定存在的矛盾，正常内容或“不算问题”的解释不放issues；不因台词的主观文风产生阻断。多个连续动作可以由相邻不同镜头共同表现，绝不能要求多个相继动作在同一镜头完成。不因多个镜头延续同一动作或正常复述就判重复。不强制用齐全剧地点。不以自己的审美增加原要求没有的剧情。',
                 static function(array $reply) use ($required, $block): void {
                     if (!is_array($reply['checks'] ?? null) || !is_array($reply['issues'] ?? null)) throw new RuntimeException('整集内容检查结构不完整', 422);
                     $expected = array_column($required, 'id'); $actual = array_column($reply['checks'], 'id'); sort($expected); sort($actual);
@@ -159,6 +171,17 @@ final class ShortDramaContentAcceptance
                 }
                 unset($e); $coverage[$check['id']][] = $check;
             }
+        }
+        // A rejection also needs proof. For example, a prop reference cannot
+        // prove that an extra speaking character was introduced.
+        $violations=[];
+        foreach($requirements as $r) if($r['kind']==='constraint') foreach($coverage[$r['id']]??[] as $i=>$check) if($check['status']==='violated')
+            $violations[]=['id'=>$r['id'].':'.$i,'requirement'=>$r['text'],'evidence'=>$check['evidence']];
+        foreach(array_chunk($violations,6) as $batch){
+            $reply=self::call($call,'constraint_proof',['constraint_claims'=>$batch,'subjects'=>self::metadata($plan['subjects']),'locations'=>self::metadata($plan['locations'])],
+                '独立核对所引用原文是否确实违反要求。只能核对实际证据，不接受前一检查的结论；人物限制不限制道具、动物或地点数量，正常连续动作不是重复执行。返回{"verdicts":[{"id":"原id","violated":false,"reason":"原文与要求的明确关系"}]}，逐项一次，无法证实违反返回false。',
+                static function(array $reply)use($batch):void{$ids=array_column($batch,'id');$got=array_column((array)($reply['verdicts']??[]),'id');sort($ids);sort($got);if($ids!==$got)throw new RuntimeException('约束违例核实项不完整',422);foreach($reply['verdicts'] as $v)if(!is_bool($v['violated']??null)||!is_string($v['reason']??null))throw new RuntimeException('约束违例结论无效',422);});
+            foreach($reply['verdicts'] as $v){[$id,$index]=explode(':',$v['id']);$coverage[$id][(int)$index]['violation_proof']=$v;if(!$v['violated'])$coverage[$id][(int)$index]['status']='covered';}
         }
         // A reference existing in the script does not prove the requested event.
         // Verify only the claim and exact excerpts, without outline/summary that
@@ -208,8 +231,8 @@ final class ShortDramaContentAcceptance
         foreach (array_chunk($issues,4) as $batch) {
             $claims=[];
             foreach($batch as $i=>$issue) $claims[]=['id'=>(string)$i,'issue'=>$issue];
-            $reply=self::call($call,'field_issues',['field_claims'=>$claims,'shots'=>self::shots($shots)],
-                ShortDramaShotSemantics::INSTRUCTION . ' 独立核实这些字段问题是否真的存在。每个说话人均有明确前缀时，多人对白合法，voice_role只需是第一位说话者，不得因未在voice_role列出其他人删掉他们台词。无问题的解释不是缺陷。不要因为上一检查声称有错就同意。只依据提供的实际字段判断。返回{"verdicts":[{"id":"原id","confirmed":false,"reason":"具体理由","shot_ids":[]}]}，每个id一次；confirmed=true时shot_ids必须是实际出错的本块镜头。',
+            $reply=self::call($call,'field_issues',['field_claims'=>$claims,'shots'=>self::auditShots($shots)],
+                'dialogue_turns是已解析的实际说话轮次，speaker与text分离；dialogue是检索纯文本，不含角色前缀属于正常。独立核实这些语义问题是否真的存在。禁止把对白编码或voice_role未列出全部人认定为问题，只核对实际台词、人物和场景关系。无问题的解释不是缺陷。不要因为上一检查声称有错就同意。只依据提供的实际字段判断。返回{"verdicts":[{"id":"原id","confirmed":false,"reason":"具体理由","shot_ids":[]}]}，每个id一次；confirmed=true时shot_ids必须是实际出错的本块镜头。',
                 static function(array $reply)use($claims,$shots):void{
                     $ids=array_column($claims,'id');$got=array_column((array)($reply['verdicts']??[]),'id');sort($ids);sort($got);
                     if($ids!==$got)throw new RuntimeException('字段缺陷核实项不完整',422);
