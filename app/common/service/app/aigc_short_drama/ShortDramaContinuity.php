@@ -284,6 +284,10 @@ final class ShortDramaContinuity
                 }
                 return $ledger + ['review_repairs' => $attempt];
             } catch (RuntimeException $error) {
+                // No accepted initial audit exists when the receipt validator
+                // throws before assignment. Reference patches require a valid
+                // base and must never be used as an initial audit.
+                if (!$attempt && $review === []) throw $error;
                 // Audit transport/data validation is not a verdict about the
                 // already validated script. Never accept an unverified script
                 // insertion or turn a proven 409 contradiction into a warning.
