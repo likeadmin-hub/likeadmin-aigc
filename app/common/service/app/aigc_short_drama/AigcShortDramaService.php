@@ -18214,7 +18214,8 @@ class AigcShortDramaService
         if ($v3Generation !== null && !empty($request['series_context'])) {
             if ($onEvent) $onEvent('stage', ['status' => 'running', 'progress' => 97, 'current_step' => '检查人物状态、伏笔与前集衔接']);
             $originalAudit = [];
-            $audit = static function (array $continuityInput) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, &$originalAudit): array {
+            $audit = static function (array $continuityInput, ?callable $validate = null) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, &$originalAudit): array {
+                return ShortDramaStructuredResponse::audit($continuityInput, static function (array $continuityInput) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, &$originalAudit, $validate): array {
                 $reviewReceipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, $continuityInput + [
                     'model_config' => ['max_tokens' => 4096, 'enable_thinking' => false],
                     'source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
@@ -18224,15 +18225,19 @@ class AigcShortDramaService
                 });
                 $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $reviewReceipt['result']])));
                 $decoded = ShortDramaStructuredResponse::decode((array)$reviewReceipt['result']);
+                if ($validate) $validate($decoded);
                 if ($originalAudit === [] && isset($decoded['changes'])) $originalAudit = $decoded;
                 return $decoded;
+                });
             };
             // Automatic and explicit duration use the same bounded audit repair.
             // Keep the first audit input unchanged so existing paid receipts are
             // reused; the correction has its own deterministic receipt key.
             $verifyMeaning = static function (array $review, array $plan) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, &$originalAudit): array {
                 $originalAudit = $review;
-                $receipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, ShortDramaContinuityPatch::meaningMessages($plan, $review, $request['series_context']) + [
+                return ShortDramaStructuredResponse::audit(ShortDramaContinuityPatch::meaningMessages($plan, $review, $request['series_context']),
+                    static function (array $input) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, $plan, $review): array {
+                $receipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, $input + [
                     'model_config' => ['max_tokens' => 4096, 'enable_thinking' => false],
                     'source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
                     'action_code' => 'script_plan_continuity', 'parent_app_task_id' => (int)($llmResult['app_task_id'] ?? 0),
@@ -18242,6 +18247,7 @@ class AigcShortDramaService
                 $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $receipt['result']])));
                 return ShortDramaContinuityPatch::verifiedReview($review, ShortDramaStructuredResponse::decode((array)$receipt['result']),
                     $request['series_context'], (array)($plan['_continuity_source_patch'] ?? []));
+                });
             };
             try {
                 $result['_continuity'] = ShortDramaContinuity::review(

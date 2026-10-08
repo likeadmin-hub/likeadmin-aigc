@@ -35,17 +35,19 @@ final class ShortDramaEpisodeReview
             $context['review_window'] = ['first_shot' => $offset + 1, 'last_shot' => $offset + $count, 'total_shots' => count($shots),
                 'instruction' => '当前仅审校本集的一段镜头。仅记录本段已发生的事实；未展示的前后段剧情不算遗漏，不可引用整集摘要推断本段事件。previous.state包含本集前面已核验镜头的最新状态。'];
             $key = 'review_' . $offset . '_' . $count;
-            $audit = static fn(array $input, ?callable $validate = null): array => $call($key . '_audit_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 16), $input, 4096,
+            $audit = static fn(array $input, ?callable $validate = null): array => ShortDramaStructuredResponse::audit($input, static fn(array $input): array => $call($key . '_audit_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 16), $input, 4096,
                 static function ($reply) use ($validate): void {
                     if ($validate) $validate($reply);
                     if (isset($reply['evidence_patches']) && is_array($reply['evidence_patches'])) return;
                     if (!is_string($reply['summary'] ?? null) || trim($reply['summary']) === '') throw new RuntimeException('连续性摘要缺失', 422);
                     foreach (['changes','hooks','warnings'] as $field) if (!is_array($reply[$field] ?? null)) throw new RuntimeException('连续性检查结构不完整', 422);
-                });
-            $verify = static function (array $review, array $plan) use ($key, $call, &$context): array {
-                $input = ShortDramaContinuityPatch::meaningMessages($plan, $review, $context);
-                $reply = $call($key . '_evidence_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 16), $input, 4096,
-                    static fn($response) => ShortDramaContinuityPatch::verifiedReview($review, $response, $context, []));
+                }));
+            $verify = static function (array $review, array $plan) use ($key, $call, &$context, &$result, $offset): array {
+                $evidenceContext = $context;
+                $evidenceContext['_earlier_episode_shots'] = self::earlierEvidence(array_slice($result['storyboard'], 0, $offset), $review);
+                $input = ShortDramaContinuityPatch::meaningMessages($plan, $review, $evidenceContext);
+                $reply = ShortDramaStructuredResponse::audit($input, static fn(array $input): array => $call($key . '_evidence_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 16), $input, 4096,
+                    static fn($response) => ShortDramaContinuityPatch::verifiedReview($review, $response, $context, [])));
                 return ShortDramaContinuityPatch::verifiedReview($review, $reply, $context, []);
             };
             try {
@@ -95,6 +97,29 @@ final class ShortDramaEpisodeReview
             'digest'=>ShortDramaContinuity::fingerprint($result),'previous_digest'=>$previousDigest,'warnings'=>array_values(array_unique($warnings)),
             'audit_status'=>$pendingReview ? 'pending_review' : 'verified','review_mode'=>'blocks','review_patches'=>$patches];
         return $result;
+    }
+
+    /** Retrieve bounded, original narrative context. Never include future shots
+     * or production prompts, and never turn historical context into a new event. */
+    public static function earlierEvidence(array $earlier, array $review): array
+    {
+        $query = implode(' ', array_map(static fn($item) => ShortDramaText::value($item['after'] ?? $item['description'] ?? ''),
+            array_merge($review['changes'] ?? [], $review['hooks'] ?? [])));
+        $grams = static function (string $text): array {
+            $text = preg_replace('/[\s\p{P}]+/u', '', $text) ?? $text;
+            $out = [];
+            for ($i = 0, $n = mb_strlen($text) - 1; $i < $n; $i++) $out[mb_substr($text, $i, 2)] = true;
+            return $out;
+        };
+        $terms = $grams($query); $ranked = [];
+        foreach ($earlier as $index => $shot) {
+            $text = (string)($shot['visual_description'] ?? '') . (string)($shot['dialogue'] ?? '');
+            $score = count(array_intersect_key($terms, $grams($text)));
+            $ranked[] = ['index'=>$index, 'score'=>$score];
+        }
+        usort($ranked, static fn($a, $b) => ($b['score'] <=> $a['score']) ?: ($b['index'] <=> $a['index']));
+        $indices = array_column(array_slice($ranked, 0, 4), 'index'); sort($indices);
+        return array_map(static fn($i) => array_intersect_key($earlier[$i], array_flip(self::SHOT_FIELDS)), $indices);
     }
 
     public static function apply(array $plan, array $reply): array

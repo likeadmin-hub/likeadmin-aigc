@@ -6,6 +6,24 @@ use RuntimeException;
 /** Never manufacture closing braces or accept a partial document as completed work. */
 final class ShortDramaStructuredResponse
 {
+    /** A malformed completed audit is recoverable. Each repair has distinct
+     * input/receipt identity; transport, truncation and semantic failures are
+     * never replayed here. The caller must validate the complete contract. */
+    public static function audit(array $input, callable $call): array
+    {
+        for ($attempt = 0; ; $attempt++) {
+            try { return $call($input); }
+            catch (RuntimeException $error) {
+                $format = $error->getMessage() === '模型输出不是完整 JSON，已保存返回内容'
+                    || str_starts_with($error->getMessage(), '连续性语义核对')
+                    || in_array($error->getMessage(), ['连续性摘要缺失', '连续性检查结构不完整', '连续性提示格式无效'], true);
+                if ($attempt >= 2 || $error->getCode() !== 422 || !$format) throw $error;
+                $input['content'] .= "\n审校格式恢复第" . ($attempt + 1) . "次：上次回包未通过格式校验（"
+                    . $error->getMessage() . '）。依据上述同一份正文和检查项重新输出完整合法JSON。不要改变正文、检查项标识或索引；supported必须是实际核对结论，不能为通过格式检查统一填true。字符串内英文双引号必须转义，说明可用中文引号。不得输出代码围栏或解释段落。';
+            }
+        }
+    }
+
     public static function decode(array $response): array
     {
         $reason = (string)($response['finish_reason'] ?? '');
