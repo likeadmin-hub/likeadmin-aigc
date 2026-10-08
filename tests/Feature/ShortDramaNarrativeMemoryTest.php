@@ -84,7 +84,7 @@ class ShortDramaNarrativeMemoryTest extends TestCase
             $result=Review::generate($plan,$request,static function($key,$input,$desired,$validate) use($episode,&$maxInput,&$calls) {
                 $budget=Budget::fitMessages($input,[],'script',$desired,true); $maxInput=max($maxInput,$budget['input_estimate']); $calls++;
                 $data=json_decode($input['content'],true);
-                $reply=isset($data['response_contract']['checks']) ? ['checks'=>array_map(static fn($c)=>array_replace($c,['supported'=>true,'reason'=>'镜头记载该事实']),$data['response_contract']['checks'])]
+                $reply=isset($data['response_contract']['checks']) ? ['checks'=>array_map(static fn($c)=>array_replace($c,['supported'=>true,'reason'=>'镜头记载该事实','failure_kind'=>'uncertain']),$data['response_contract']['checks'])]
                     : ['summary'=>"第{$episode}日完成记录",'changes'=>[['entity_id'=>'p','field'=>'record_'.$episode,'after'=>'完成',
                         'evidence_refs'=>[['shot_id'=>'s1','field'=>'visual_description']]]], 'hooks'=>[],'warnings'=>[]];
                 $validate($reply); return $reply;
