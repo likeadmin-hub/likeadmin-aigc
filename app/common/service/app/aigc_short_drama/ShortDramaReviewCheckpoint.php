@@ -11,7 +11,7 @@ final class ShortDramaReviewCheckpoint
         // Execution attempts and provider tracing change during recovery; they
         // are not creative inputs. Model/prompt/source facts remain signed.
         foreach (['_generation_recovery_version','_execution_attempt','_prompt_requests','_submission_key','_submission_hash'] as $field) unset($request[$field]);
-        return hash('sha256', json_encode([3, $base, $request], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        return hash('sha256', json_encode([3, ShortDramaContentAcceptance::enabled($request) ? ShortDramaContentAcceptance::VERSION : 0, $base, $request], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     }
 
     public static function load(int $tenant, int $user, string $task): array

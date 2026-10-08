@@ -6,6 +6,7 @@ use RuntimeException;
 /** Whole-episode acceptance using bounded requests and durable provider units. */
 final class ShortDramaContentAcceptance
 {
+    public const VERSION = 4;
     private const FIELDS = ['visual_description','dialogue','voice_role','speech_type','interior_exterior','scene_ref_id','subject_ref_ids'];
 
     public static function enabled(array $request): bool
@@ -31,7 +32,7 @@ final class ShortDramaContentAcceptance
     /** Anchor mandatory events to user input, not to the possibly incomplete generated outline. */
     private static function requirements(array $request, callable $call): array
     {
-        if (!empty($request['_continuity_review_only']) && ($request['revision_base_result']['content_acceptance']['version'] ?? 0) >= 3 && !empty($request['revision_base_result']['content_acceptance']['requirements'])) {
+        if (!empty($request['_continuity_review_only']) && ($request['revision_base_result']['content_acceptance']['version'] ?? 0) >= self::VERSION && !empty($request['revision_base_result']['content_acceptance']['requirements'])) {
             return $request['revision_base_result']['content_acceptance']['requirements'];
         }
         $source = trim((string)($request['prompt'] ?? ''));
@@ -58,9 +59,15 @@ final class ShortDramaContentAcceptance
     public static function generate(array $plan, array $request, callable $call): array
     {
         $requirements = self::requirements($request, $call);
+        $beforeNormalization = $plan;
         $plan = ShortDramaShotSemantics::normalize($plan);
         $originalLines = $plan['script_lines'] ?? [];
         $repairs = [];
+        foreach ($plan['storyboard'] as $i=>$shot) if ($shot !== $beforeNormalization['storyboard'][$i]) {
+            $repairs[]=['normalized_shot'=>$shot['shot_id']];
+            $plan['storyboard'][$i]=ShortDramaPromptDocuments::withoutGeneratedDefaults($shot);
+        }
+        $plan = self::legacyDialogue($plan, $call, $repairs);
         // Classification is an explicit complete task, not an optional side
         // note in a prose audit. Lock every returned ID to its existing entity.
         foreach (array_chunk($plan['subjects'], 20) as $subjects) {
@@ -80,7 +87,7 @@ final class ShortDramaContentAcceptance
         for ($pass = 0; $pass < 3; $pass++) {
             $report = self::inspect($plan, $requirements, $call);
             if (!$report['issues']) {
-                $plan['content_acceptance'] = ['version'=>3,'status'=>'verified','requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
+                $plan['content_acceptance'] = ['version'=>self::VERSION,'status'=>'verified','requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
                 if ($repairs) {
                     $plan['content_acceptance']['source_script_lines'] = $originalLines;
                     $plan['script_lines'] = array_map(static fn($s) => trim($s['visual_description'] . "\n" . ($s['dialogue'] ?? '')), $plan['storyboard']);
@@ -107,6 +114,42 @@ final class ShortDramaContentAcceptance
                     $repairs[] = $reply;
                 }
             }
+        }
+        return $plan;
+    }
+
+    /** Legacy prose often uses commas as role labels. Recover attribution in
+     * a bounded unit, preserving the spoken wording rather than rewriting it. */
+    private static function legacyDialogue(array $plan, callable $call, array &$repairs): array
+    {
+        $names=array_column($plan['subjects'],'name');
+        $labels=implode('|',array_map(static fn($name)=>preg_quote($name,'/'),$names));
+        $targets=[];
+        foreach($plan['storyboard'] as $s){
+            $text=trim($s['dialogue']??''); if($text===''||preg_match('/^[^：:\n]{1,20}[：:]/u',$text))continue;
+            if(($labels!==''&&preg_match('/(?:^|[。！？])\s*(?:'.$labels.')[，,]/u',$text))||preg_match('/[。！？].+[^。！？][。！？]/u',$text))$targets[]=$s;
+        }
+        foreach(array_chunk($targets,6) as $batch){
+            $original=$plan['content_acceptance']['source_script_lines']??$plan['script_lines']??[];
+            $data=['legacy_dialogue'=>self::shots($batch),'subjects'=>self::metadata($plan['subjects']),'source_prose'=>mb_substr(implode("\n",array_filter((array)$original,'is_string')),0,6000)];
+            $wording=static function(string $text)use($labels):string{
+                if($labels!=='')$text=preg_replace('/(?:^|(?<=[。！？\n]))\s*(?:'.$labels.')[：:，,]\s*/u','',$text);
+                return preg_replace('/[\s\p{P}]+/u','',$text);
+            };
+            $reply=self::call($call,'legacy_dialogue',$data,
+                '将旧版对白中的姓名标签与实际台词分开。参照source_prose判断谁在说话，特别区分姓名加逗号的标签和台词里真正的称呼。返回{"dialogues":[{"shot_id":"原ID","turns":[{"speaker":"实际角色姓名","text":"原台词"}]}]}，每个输入镜头恰好一次。保留全部原话和原顺序，不补写、不删句、不改写，只转换姓名标签；同镜头多人分别返回多项。voice_role是旧版单一字段，不能据此把所有人的话都归给一个人。',
+                static function(array $reply)use($batch,$wording,$names):void{
+                    $ids=array_column($batch,'shot_id');$got=array_column((array)($reply['dialogues']??[]),'shot_id');sort($ids);sort($got);
+                    if($ids!==$got)throw new RuntimeException('旧版对白归属必须覆盖全部镜头',422);
+                    $byId=array_column($batch,null,'shot_id');
+                    foreach($reply['dialogues'] as $row){
+                        if(!is_array($row['turns']??null)||!$row['turns'])throw new RuntimeException('旧版对白轮次不能为空',422);
+                        foreach($row['turns'] as $t)if(!in_array($t['speaker']??'',$names,true)||!is_string($t['text']??null)||trim($t['text'])==='')throw new RuntimeException('旧版对白说话人或原话无效',422);
+                        if($wording($byId[$row['shot_id']]['dialogue'])!==$wording(implode("\n",array_column($row['turns'],'text'))))throw new RuntimeException('旧版对白转换不能改写或删掉任何原话，只能分离姓名标签',422);
+                    }
+                });
+            $indices=array_flip(array_column($plan['storyboard'],'shot_id'));
+            foreach($reply['dialogues'] as $row){$i=$indices[$row['shot_id']];$plan['storyboard'][$i]['dialogue']=implode("\n",array_map(static fn($t)=>$t['speaker'].'：'.$t['text'],$row['turns']));$plan['storyboard'][$i]['voice_role']=$row['turns'][0]['speaker'];$plan['storyboard'][$i]['speech_type']='character';$plan['storyboard'][$i]=ShortDramaPromptDocuments::withoutGeneratedDefaults($plan['storyboard'][$i]);$repairs[]=['dialogue_attribution'=>$row];}
         }
         return $plan;
     }
@@ -246,14 +289,17 @@ final class ShortDramaContentAcceptance
 
     public static function duplicates(array $plan): array
     {
-        $seen = []; $issues = [];
+        $seen = []; $issues = []; $pairs=[];
         foreach ($plan['storyboard'] as $shot) {
             foreach (ShortDramaShotSemantics::turns($shot) as $turn) {
-            $text = preg_replace('/[\s\p{P}]+/u', '', $turn['text']);
-            // Short replies/refrains can legitimately recur; report long exact repeats for repair review.
-            if (mb_strlen($text) < 6) continue;
-            if (isset($seen[$text]) && $seen[$text] !== $shot['shot_id']) $issues[] = ['message'=>'与镜头' . $seen[$text] . '重复同一段完整对白；保留正确发生的一次，修复重复发生的动作和对白', 'first_shot_id'=>$seen[$text], 'shot_ids'=>[$shot['shot_id']]];
-            $seen[$text] = $shot['shot_id'];
+                $text=preg_replace('/[\s\p{P}]+/u','',$turn['text']);
+                if(mb_strlen($text)<6)continue;
+                foreach($seen as $old){
+                    if($old['id']===$shot['shot_id']||(!str_contains($old['text'],$text)&&!str_contains($text,$old['text'])))continue;
+                    $pair=$old['id'].':'.$shot['shot_id'];if(isset($pairs[$pair]))continue;$pairs[$pair]=true;
+                    $issues[]=['message'=>'与镜头'.$old['id'].'重复同一段完整对白；保留正确发生的一次，修复重复发生的动作和对白','first_shot_id'=>$old['id'],'shot_ids'=>[$shot['shot_id']]];
+                }
+                $seen[]=['id'=>$shot['shot_id'],'text'=>$text];
             }
         }
         return $issues;
