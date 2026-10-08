@@ -91,6 +91,19 @@ class ShortDramaContentAcceptanceTest extends TestCase
         Acceptance::apply($plan,['patches'=>[],'subject_categories'=>[['id'=>'p','before'=>'character','after'=>'prop']]],['s1']);
     }
 
+    public function testConstraintMayReferenceRealMetadataButEventCannot(): void
+    {
+        $call=static function($key,$input,$tokens,$validate){
+            $reply=['checks'=>[['id'=>'r1','status'=>'covered','evidence'=>[['shot_id'=>'s1','field'=>'subject_ref_ids']]]],'issues'=>[]];
+            $validate($reply); return $reply;
+        };
+        $report=Acceptance::inspect($this->plan(),[['id'=>'r1','kind'=>'constraint','text'=>'仅一名角色']],$call);
+        self::assertSame([],$report['issues']);
+        self::assertSame('["p"]',$report['coverage']['r1'][0]['evidence'][0]['quote']);
+        $this->expectException(\RuntimeException::class);
+        Acceptance::inspect($this->plan(),[['id'=>'r1','kind'=>'event','text'=>'人物实际开口']],$call);
+    }
+
     public function testRoomSilenceAndTwoSpeakersHaveConsistentSemantics(): void
     {
         self::assertSame('interior',Semantics::space(['scene_ref_id'=>'room'],$this->plan()['locations']));

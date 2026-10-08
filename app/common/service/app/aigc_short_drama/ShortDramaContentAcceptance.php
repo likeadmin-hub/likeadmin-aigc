@@ -31,18 +31,18 @@ final class ShortDramaContentAcceptance
     /** Anchor mandatory events to user input, not to the possibly incomplete generated outline. */
     private static function requirements(array $request, callable $call): array
     {
-        if (!empty($request['_continuity_review_only']) && ($request['revision_base_result']['content_acceptance']['version'] ?? 0) >= 2 && !empty($request['revision_base_result']['content_acceptance']['requirements'])) {
+        if (!empty($request['_continuity_review_only']) && ($request['revision_base_result']['content_acceptance']['version'] ?? 0) >= 3 && !empty($request['revision_base_result']['content_acceptance']['requirements'])) {
             return $request['revision_base_result']['content_acceptance']['requirements'];
         }
         $source = trim((string)($request['prompt'] ?? ''));
         if (empty($request['_continuity_review_only']) && !empty($request['revision_message'])) $source .= "\n最新用户修改（冲突时以此为准）：" . $request['revision_message'];
-        $episode = $request['series_context']['current_episode'] ?? [];
+        $episode = array_intersect_key((array)($request['series_context']['current_episode'] ?? []), array_flip(['episode_number','title']));
         $requirements = [];
         $chunks = mb_str_split($source === '' ? json_encode($episode, JSON_UNESCAPED_UNICODE) : $source, 6000);
         foreach ($chunks as $chunk) {
             $sources = array_values(array_filter(preg_split('/(?<=[；。！？\n])/u', $chunk) ?: [$chunk], static fn($s) => trim($s) !== ''));
             $reply = self::call($call, 'requirements', ['source'=>$chunk, 'sources'=>$sources, 'episode'=>$episode, 'episode_number'=>$request['episode_number'] ?? 1],
-                '只从sources提取当前这一集必须实际表现的具体事件、明确台词与禁止事项。episode只用于定位本集，不额外将其中发挥的细节变成用户硬性要求。多集指令只提取当前集事件和全剧共同约束，不要求当前集提前演后续事件。只提取sources明确要求，不推导额外禁令或前置动作。例如后续集才拆信不代表本集禁止出现或提及信，选定院子不额外要求谁带谁参观。每项event只含一个动作。接信、拆信、读问候、收信必须分别成项，禁止写成“接过并拆开”。保留动作顺序，但不要求多个动作出现在同一镜头；不把风格、镜头数量当剧情事件。返回{"requirements":[{"text":"可核对的一项要求","source_index":0,"kind":"event或constraint"}]}，source_index是sources数组的零起始索引，原文由服务端提取。没有属于本集的要求才返回空数组。最多24项。',
+                '只从sources提取当前这一集必须实际表现的具体事件、明确台词与禁止事项。episode只用于定位本集，不额外将其中发挥的细节变成用户硬性要求。多集指令只提取当前集事件和全剧共同约束，不要求当前集提前演后续事件。只提取sources明确要求，不推导额外禁令或前置动作。后续事件的执行时间限制不能扩大成禁止相关物品出场。每项event只含一个动作。顺序发生的多个动作分别成项，不合并成必须在同一镜头完成的事件。保留动作顺序，但不要求多个动作出现在同一镜头；不把风格、镜头数量当剧情事件。返回{"requirements":[{"text":"可核对的一项要求","source_index":0,"kind":"event或constraint"}]}，source_index是sources数组的零起始索引，原文由服务端提取。没有属于本集的要求才返回空数组。最多24项。',
                 static function(array $reply) use ($sources): void {
                     if (!is_array($reply['requirements'] ?? null) || count($reply['requirements']) > 24) throw new RuntimeException('本集要求提取结构不完整', 422);
                     foreach ($reply['requirements'] as $r) if (!is_string($r['text'] ?? null) || trim($r['text']) === ''
@@ -65,7 +65,7 @@ final class ShortDramaContentAcceptance
         // note in a prose audit. Lock every returned ID to its existing entity.
         foreach (array_chunk($plan['subjects'], 20) as $subjects) {
             $reply = self::call($call, 'entities', ['subjects'=>self::metadata($subjects)],
-                '只判断每个主体本身的类型，不能因人物携带书、穿衣服而变成道具。人物character、动物animal、实体物品prop、抽象意象symbol。不要照抄已有category，它可能有误。library_subject_id存在且非空的主体必须保留现有分类。返回{"categories":[{"id":"原ID","category":"类型"}]}，逐项覆盖全部输入ID，不增删主体。',
+                '只判断每个主体本身的类型，不能因人物携带书、穿衣服而变成道具。所有实体物品即使有象征意义也属于prop，symbol只用于非实体抽象意象。人物character、动物animal、实体物品prop、抽象意象symbol。不要照抄已有category，它可能有误。library_subject_id存在且非空的主体必须保留现有分类。返回{"categories":[{"id":"原ID","category":"类型"}]}，逐项覆盖全部输入ID，不增删主体。',
                 static function(array $reply) use ($subjects): void {
                     $ids=array_column($subjects,'id'); $got=array_column((array)($reply['categories'] ?? []),'id'); sort($ids);sort($got);
                     if ($ids !== $got) throw new RuntimeException('主体分类必须覆盖全部原ID',422);
@@ -80,7 +80,7 @@ final class ShortDramaContentAcceptance
         for ($pass = 0; $pass < 3; $pass++) {
             $report = self::inspect($plan, $requirements, $call);
             if (!$report['issues']) {
-                $plan['content_acceptance'] = ['version'=>2,'status'=>'verified','requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
+                $plan['content_acceptance'] = ['version'=>3,'status'=>'verified','requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
                 if ($repairs) {
                     $plan['content_acceptance']['source_script_lines'] = $originalLines;
                     $plan['script_lines'] = array_map(static fn($s) => trim($s['visual_description'] . "\n" . ($s['dialogue'] ?? '')), $plan['storyboard']);
@@ -129,7 +129,7 @@ final class ShortDramaContentAcceptance
             $reply = self::call($call, 'check', ['requirements'=>$required, 'shots'=>self::shots($block),
                 'possible_repetitions'=>$duplicates, 'previous_shots'=>self::shots(array_slice($shots, max(0, $part * 8 - 4), min(4, $part * 8))),
                 'subjects'=>self::metadata($plan['subjects']), 'locations'=>self::metadata($plan['locations']), 'check_metadata'=>$groupIndex === 0],
-                '检查最终镜头，不以摘要或正文声称发生代替实际画面及对白。对requirements逐项返回{"checks":[{"id":"原要求id","status":"covered或absent或violated","evidence":[{"shot_id":"本块实际ID","field":"visual_description或dialogue"}],"target_shot_ids":["可修复的本块镜头ID"]}],"issues":[{"code":"scene_space或speaker或silent或dialogue_instruction或subject_reference或duplicate_action","message":"具体字段问题及理由","shot_ids":["本块ID"]}]}。证据只选镜头ID和字段，原文由服务器提取，不抄写或概括quote。事件只有本块实际表现才covered；未表现返回absent，稍后由服务端汇总整集。约束本块无违反为covered，违反为violated。不得要求本块展示其他块事件。issues仅记录上述六类字段问题，禁止在issues重复报告requirements缺失，缺失只放checks。check_metadata=true时检查可见主体引用、实际说话人、静默与台词、室内外、对话指令冒充正文、重复动作（含previous_shots）。角色类型已有独立分类检查。多个连续动作可以由相邻不同镜头共同表现，绝不能要求接信、拆信、读信在同一镜头完成。不因多个镜头延续同一动作或正常复述就判重复。不强制用齐全剧地点。不以自己的审美增加原要求没有的剧情。',
+                ShortDramaShotSemantics::INSTRUCTION . ' 检查最终镜头，不以摘要或正文声称发生代替实际画面及对白。对requirements逐项返回{"checks":[{"id":"原要求id","status":"covered或absent或violated","evidence":[{"shot_id":"本块实际ID","field":"实际字段名"}],"target_shot_ids":["可修复的本块镜头ID"]}],"issues":[{"code":"scene_space或speaker或silent或dialogue_instruction或subject_reference或duplicate_action","message":"具体字段问题及理由","shot_ids":["本块ID"]}]}。事件证据只允许visual_description或dialogue；约束证据可引用任何给出的镜头字段。证据只选镜头ID和字段，原文由服务器提取，不抄写或概括quote。事件只有本块实际表现才covered；未表现返回absent，稍后由服务端汇总整集。约束本块无违反为covered，违反为violated。不得要求本块展示其他块事件。issues仅记录上述六类字段问题，禁止在issues重复报告requirements缺失，缺失只放checks。check_metadata=true时检查可见主体引用、实际说话人、静默与台词、室内外、对话指令冒充正文、重复动作（含previous_shots）。角色类型已有独立分类检查。角色名前缀是合法对白格式，不得要求删除。issues只放确定存在的矛盾，正常内容或“不算问题”的解释不放issues；不因台词的主观文风产生阻断。多个连续动作可以由相邻不同镜头共同表现，绝不能要求多个相继动作在同一镜头完成。不因多个镜头延续同一动作或正常复述就判重复。不强制用齐全剧地点。不以自己的审美增加原要求没有的剧情。',
                 static function(array $reply) use ($required, $block): void {
                     if (!is_array($reply['checks'] ?? null) || !is_array($reply['issues'] ?? null)) throw new RuntimeException('整集内容检查结构不完整', 422);
                     $expected = array_column($required, 'id'); $actual = array_column($reply['checks'], 'id'); sort($expected); sort($actual);
@@ -137,9 +137,15 @@ final class ShortDramaContentAcceptance
                     $byId = array_column($block, null, 'shot_id');
                     foreach ($reply['checks'] as $check) {
                         if (!in_array($check['status'] ?? '', ['covered','absent','violated'], true) || !is_array($check['evidence'] ?? null)) throw new RuntimeException('要求覆盖结果无效', 422);
-                        foreach ($check['evidence'] as $e) if (!isset($byId[$e['shot_id'] ?? '']) || !in_array($e['field'] ?? '', ['visual_description','dialogue'], true)
-                            || trim((string)($byId[$e['shot_id']][$e['field']] ?? '')) === '' || (isset($e['quote']) && (!is_string($e['quote']) || $e['quote'] === '' || !str_contains($byId[$e['shot_id']][$e['field']], $e['quote'])))) throw new RuntimeException('覆盖证据必须来自当前镜头原文', 422);
                         $req = array_column($required, null, 'id')[$check['id']];
+                        foreach ($check['evidence'] as $e) {
+                            $shot = $byId[$e['shot_id'] ?? ''] ?? null;
+                            $field = $e['field'] ?? '';
+                            $allowed = $req['kind'] === 'event' ? ['visual_description','dialogue'] : array_merge(self::FIELDS, ['recommended_duration_seconds']);
+                            if (!$shot || !in_array($field, $allowed, true) || !array_key_exists($field, $shot)) throw new RuntimeException('覆盖证据必须引用当前镜头允许的真实字段',422);
+                            $value = is_string($shot[$field]) ? $shot[$field] : json_encode($shot[$field], JSON_UNESCAPED_UNICODE);
+                            if (($req['kind'] === 'event' && trim($value) === '') || (isset($e['quote']) && (!is_string($e['quote']) || $e['quote'] === '' || !str_contains($value, $e['quote'])))) throw new RuntimeException('覆盖证据必须来自当前镜头原文',422);
+                        }
                         if ($req['kind'] === 'event' && $check['status'] === 'covered' && !$check['evidence']) throw new RuntimeException('事件通过必须有镜头证据', 422);
                     }
                     foreach ($reply['issues'] as $issue) if (!in_array($issue['code'] ?? '', ['scene_space','speaker','silent','dialogue_instruction','subject_reference','duplicate_action'], true) || !is_string($issue['message'] ?? null) || !is_array($issue['shot_ids'] ?? null) || !$issue['shot_ids'] || array_diff($issue['shot_ids'], array_keys($byId))) throw new RuntimeException('问题必须指向当前镜头', 422);
@@ -147,7 +153,10 @@ final class ShortDramaContentAcceptance
             array_push($issues, ...$reply['issues']);
             foreach ($reply['checks'] as $check) {
                 $byId = array_column($block, null, 'shot_id');
-                foreach ($check['evidence'] as &$e) $e['quote'] = $byId[$e['shot_id']][$e['field']];
+                foreach ($check['evidence'] as &$e) {
+                    $value = $byId[$e['shot_id']][$e['field']];
+                    $e['quote'] = is_string($value) ? $value : json_encode($value, JSON_UNESCAPED_UNICODE);
+                }
                 unset($e); $coverage[$check['id']][] = $check;
             }
         }
