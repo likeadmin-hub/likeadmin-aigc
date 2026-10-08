@@ -219,6 +219,15 @@ final class ShortDramaContentAcceptance
     public static function inspect(array $plan, array $requirements, callable $call): array
     {
         $coverage = []; $issues = []; $duplicates = self::duplicates($plan); $shots = array_values($plan['storyboard']);
+        $names=implode('|',array_map(static fn($name)=>preg_quote($name,'/'),array_column($plan['subjects'],'name')));
+        foreach($shots as $shot)if(($shot['speech_type']??'')==='character' && $names!==''){
+            foreach(ShortDramaShotSemantics::turns($shot) as $turn){
+                if(!preg_match('/[“”「」"\x{0027}]/u',$turn['text']) && preg_match('/^(?:'.$names.')(?:用|以|开始|正在|继续).*(?:朗读|念诵|说话|讲话)/u',$turn['text'])){
+                    $issues[]=['code'=>'dialogue_instruction','message'=>'对白是第三人称的表演说明，缺少实际可朗读的台词。保留表演要求在画面描述中，将对白补为该角色在此处真正说出的简短原话，不得仅改成旁白来绕过。','shot_ids'=>[$shot['shot_id']]];
+                    break;
+                }
+            }
+        }
         // Numeric runtime contracts are owned by code, not a prose judge.
         $semanticRequirements=[];
         foreach($requirements as $r){
