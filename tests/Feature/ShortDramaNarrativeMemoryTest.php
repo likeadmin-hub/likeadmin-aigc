@@ -152,6 +152,9 @@ class ShortDramaNarrativeMemoryTest extends TestCase
         self::assertTrue($actual[1]['needs_review'],'Actual fact change must propagate even if not retrieved');
         $actual=Continuity::dependencyStatus($rows,[1=>['ledger'=>$first,'narrative_digest'=>'unreviewed-edit']]);
         self::assertTrue($actual[0]['needs_review']); self::assertTrue($actual[1]['needs_review']);
+        $rows[1]['continuity_json']['memory_dependency']['fingerprint']=Memory::dependency(Continuity::context([$first],false),'钥匙');
+        $actual=Continuity::dependencyStatus($rows,[]);
+        self::assertFalse($actual[1]['needs_review'],'Early v7 child without history must compare its real input scope');
     }
 
     public function testResumeSkipsAcceptedBlocksAndInvalidatesAfterSourceEdit(): void

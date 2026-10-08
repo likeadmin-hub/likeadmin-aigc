@@ -134,7 +134,8 @@ final class ShortDramaEpisodeReview
             'unverified_claims'=>$unverified,'observed_events'=>$observed,'protocol_version'=>2,
             'content_status'=>'ready','dependency_status'=>$pendingReview ? 'blocked' : 'ready'];
         if ($context['_bounded_memory']) $result['_continuity']['memory_dependency'] = [
-            'version'=>ShortDramaNarrativeMemory::VERSION, 'query'=>$dependencyQuery, 'fingerprint'=>$dependency];
+            'version'=>ShortDramaNarrativeMemory::VERSION, 'history_available'=>array_key_exists('history', $request['series_context']['continuity'] ?? []),
+            'query'=>$dependencyQuery, 'fingerprint'=>$dependency];
         return $result;
     }
 
