@@ -32,6 +32,7 @@ final class ShortDramaContinuityPatch
         return ['system_prompt' => '你是证据核对员，只返回JSON。核对事实含义，不创作、不改写。原文出现不等于支持所声称的事实。',
             'content' => json_encode(['instructions' => [
                 '逐条检查changes的after或hooks的description是否由指定镜头及其实际上下文支持。storyboard证明本集新增或变化的事实；previous_state和previous_open_hooks仅作为前集已记录背景，不能证明本集新增事件。',
+                'earlier_episode_shots是服务端从本集已经发生的前段镜头取出的原文，不是前集状态或未来剧情。可结合它核对延续的背景事实和伏笔铺垫（例如此前已经展示的损坏），无需当前块重复演示；本段新增动作、状态变化或伏笔兑现仍必须有storyboard中的当前证据，不能把前段动作再次记为本段新事件。',
                 '禁止用无关的真实引用证明事实，例如泼酒不能证明否认婚约，站在商铺不能证明获封郡主。复合状态的全部关键含义都须得到支持。',
                 '区分已发生事实与伏笔：open伏笔只核对当前镜头是否提供合理铺垫，不要求预示的未来事件已经发生，也不要把合理情绪推断当作硬性错误。resolved伏笔须结合previous_open_hooks核对是否确实兑现。',
                 'resolved伏笔的description可能沿用前集的约定或问题，不要求本集重新发生或复述该约定。先按id定位previous_open_hooks的原始铺垫，再核对本集镜头是否完成其承诺或回答其问题；缺少兑现证据仍应返回supported=false，不可仅凭审校声称resolved放行。',
@@ -41,6 +42,7 @@ final class ShortDramaContinuityPatch
                 'response_contract已经列出本轮全部检查项及准确索引。原样保留collection与index，仅填写supported与reason；空数组保持空数组，不添加占位检查项。',
                 'insertions核对新增镜头是否忠实呈现source_quote的含义；允许影视化改写，不要求逐字相同，但不得杜撰新剧情或用无关镜头替代。',
             ], 'storyboard' => $plan['storyboard'] ?? [], 'script_lines' => $plan['script_lines'] ?? [],
+                'earlier_episode_shots' => $context['_earlier_episode_shots'] ?? [],
                 'review' => $review, 'previous_state' => $context['continuity']['state'] ?? [], 'previous_open_hooks' => $context['continuity']['open_hooks'] ?? [], 'source_patch' => $plan['_continuity_source_patch'] ?? [], 'response_contract' => ['checks' => $checks]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
     }
 

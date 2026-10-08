@@ -121,6 +121,42 @@ class ShortDramaEpisodeReviewTest extends TestCase
         self::assertSame(['s1','s2','s3','s4','s5'],$seen);
         self::assertCount(5,$result['storyboard']);
     }
+    public function testLaterBlockReceivesOriginalEarlierEvidenceWithoutFutureOrMedia(): void
+    {
+        $plan = $this->plan(6);
+        $plan['storyboard'][2]['visual_description'] = '甲找到收音机，天线断折。';
+        $plan['storyboard'][5]['visual_description'] = '未来才修好天线';
+        $seen = false;
+        $result = Review::generate($plan, $this->request(), function ($key, $messages) use (&$seen) {
+            $input = json_decode($messages['content'], true);
+            if (isset($input['response_contract']['checks'])) {
+                $checks = $input['response_contract']['checks'];
+                if ($checks) {
+                    $seen = true;
+                    self::assertSame(['s1','s2','s3','s4'], array_column($input['earlier_episode_shots'], 'shot_id'));
+                    self::assertSame('甲找到收音机，天线断折。', $input['earlier_episode_shots'][2]['visual_description']);
+                    self::assertStringNotContainsString('制作描述', json_encode($input, JSON_UNESCAPED_UNICODE));
+                    return ['checks'=>[['collection'=>'hooks','index'=>0,'supported'=>true,'reason'=>'本集前段展示损坏，后段延续铺垫']]];
+                }
+                self::assertSame([], $input['earlier_episode_shots']);
+                return ['checks'=>[]];
+            }
+            $later = $input['script']['storyboard'][0]['shot_id'] === 's5';
+            return ['summary'=>'继续修理','changes'=>[], 'hooks'=>$later ? [['id'=>'repair','description'=>'断折的天线等待修复','status'=>'open','shot_id'=>'s5','quote'=>'甲走进房间']] : [], 'warnings'=>[]];
+        });
+        self::assertTrue($seen);
+        self::assertSame('verified', $result['_continuity']['audit_status']);
+        self::assertSame($plan['storyboard'], $result['storyboard']);
+    }
+    public function testEvidenceRetrievalFindsDistantRelevantShotAndRemainsBounded(): void
+    {
+        $shots = $this->plan(50)['storyboard'];
+        $shots[0]['visual_description'] = '收音机天线断折，等待修复';
+        $evidence = Review::earlierEvidence($shots, ['hooks'=>[['description'=>'收音机天线断折等待修复']]]);
+        self::assertCount(4, $evidence);
+        self::assertContains('s1', array_column($evidence, 'shot_id'));
+        self::assertArrayNotHasKey('video_prompt', $evidence[0]);
+    }
     public function testPatchPreservesMediaIdentityTimingAndUnrelatedShots(): void
     {
         $plan=$this->plan(2);
