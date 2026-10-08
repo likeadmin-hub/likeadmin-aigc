@@ -15,6 +15,7 @@ final class ShortDramaStructuredResponse
             try { return $call($input); }
             catch (RuntimeException $error) {
                 $format = $error->getMessage() === '模型输出不是完整 JSON，已保存返回内容'
+                    || str_starts_with($error->getMessage(), '整集校验结构：')
                     || str_starts_with($error->getMessage(), '连续性语义核对')
                     || str_starts_with($error->getMessage(), '连续性审校结构')
                     || str_starts_with($error->getMessage(), '审校事实纠正')

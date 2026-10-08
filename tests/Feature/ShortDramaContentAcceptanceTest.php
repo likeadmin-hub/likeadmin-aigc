@@ -23,7 +23,7 @@ class ShortDramaContentAcceptanceTest extends TestCase
         $before=$this->plan(); $checks=0;
         $result=Acceptance::generate($before,['prompt'=>'陈伯读出学生问候。'],function($key,$input,$tokens,$validate) use (&$checks) {
             $data=json_decode($input['content'],true);
-            if(isset($data['source'])) $reply=['requirements'=>[['text'=>'陈伯读出学生问候','quote'=>'陈伯读出学生问候。','kind'=>'event']]];
+            if(isset($data['source'])) $reply=['requirements'=>[['text'=>'陈伯读出学生问候','source_index'=>0,'kind'=>'event']]];
             elseif(isset($data['targets'])) $reply=['patches'=>[
                 ['shot_id'=>'s1','field'=>'dialogue','before'=>'','after'=>'老师，祝您身体健康。'],
                 ['shot_id'=>'s1','field'=>'voice_role','before'=>'','after'=>'陈伯'],
