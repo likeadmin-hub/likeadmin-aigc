@@ -114,7 +114,7 @@ final class ShortDramaContinuity
                     'summary' => '本集已发生事件的简短摘要，不写未来剧情',
                     'changes' => [['entity_id' => 'subjects或locations中的id，也可为world', 'field' => '稳定状态键，如location/knows_secret/injury/item_owner；1至80个中文、英文字母、数字、下划线、斜线或连字符，禁止冒号和空格',
                         'before' => 'previous.state里已有的原值；首次记录用null', 'after' => '正文中明确的新值', 'shot_id' => '证据镜头id', 'quote' => '该镜头visual_description或dialogue中的原文片段']],
-                    'hooks' => [['id' => '稳定伏笔标识；resolved必须逐字引用previous.open_hooks中已有ID', 'description' => '伏笔内容；同集新出现且已经完成的事件使用observed，不伪造前集伏笔', 'status' => 'open、resolved或observed', 'shot_id' => '证据镜头id', 'quote' => '镜头原文片段']],
+                    'hooks' => [['id' => '稳定伏笔标识；resolved必须逐字引用previous.open_hooks中已有ID', 'description' => '已登记的open伏笔由服务器原样保留，无需重复提交或改写描述；进展写observed，兑现才resolved。同集新出现且已经完成的事件使用observed，不伪造前集伏笔', 'status' => 'open、resolved或observed', 'shot_id' => '证据镜头id', 'quote' => '镜头原文片段']],
                     'warnings' => ['具体连续性疑点，无疑点则空数组'],
                 ],
             ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
@@ -176,14 +176,21 @@ final class ShortDramaContinuity
                 }
                 if (!$attempt && is_array($review['hooks'] ?? null)) {
                     $knownHooks = (array)($context['continuity']['open_hooks'] ?? []); $seenHooks = [];
-                    $review['hooks'] = array_values(array_filter($review['hooks'], static function ($hook) use ($knownHooks, &$seenHooks): bool {
+                    $continuations = [];
+                    $review['hooks'] = array_values(array_filter($review['hooks'], static function ($hook) use ($knownHooks, &$seenHooks, &$continuations): bool {
                         if (!is_array($hook) || !is_string($hook['id'] ?? null)) return true;
                         $id = $hook['id'];
-                        $unchanged = !isset($seenHooks[$id]) && ($hook['status'] ?? '') === 'open'
-                            && isset($knownHooks[$id]) && $knownHooks[$id] === ($hook['description'] ?? null);
+                        $unchanged = !isset($seenHooks[$id]) && ($hook['status'] ?? '') === 'open' && isset($knownHooks[$id]);
+                        // The original promise is immutable until resolution.
+                        // Rewording an open hook must not erase/replace it or
+                        // require the script to repeat its original setup.
+                        if ($unchanged && $knownHooks[$id] !== ($hook['description'] ?? null)) $continuations[] = [
+                            'original'=>$hook,'field'=>'description','corrected'=>$knownHooks[$id],
+                            'reason'=>'已有未兑现伏笔保持原始承诺，忽略审校员的重复描述；未执行新增或回收'];
                         $seenHooks[$id] = true;
                         return !$unchanged;
                     }));
+                    if ($continuations) $review['audit_corrections'] = array_merge($review['audit_corrections'] ?? [], $continuations);
                 }
                 if ($verifyMeaning) {
                     $draft = $review;
