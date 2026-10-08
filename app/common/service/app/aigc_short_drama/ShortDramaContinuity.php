@@ -122,7 +122,7 @@ final class ShortDramaContinuity
 
     /** Validate audit syntax before paying for semantic verification. Schema
      * recovery can change malformed identifiers; evidence repair cannot. */
-    public static function assertAuditShape(array $review, array $plan): void
+    public static function assertAuditShape(array $review, array $plan, array $context = []): void
     {
         if (!is_string($review['summary'] ?? null) || trim($review['summary']) === '') throw new RuntimeException('连续性摘要缺失', 422);
         foreach (['changes','hooks','warnings'] as $field) if (!is_array($review[$field] ?? null) || !array_is_list($review[$field])) throw new RuntimeException('连续性审校结构：' . $field . '必须为JSON数组', 422);
@@ -135,7 +135,10 @@ final class ShortDramaContinuity
         }
         foreach ($review['hooks'] as $record) if (!is_array($record) || !is_string($record['id'] ?? null) || trim($record['id']) === '' || mb_strlen($record['id']) > 100
             || !is_string($record['description'] ?? null) || !in_array($record['status'] ?? '', ['open','resolved','observed'], true)) throw new RuntimeException('连续性审校结构：伏笔必须含id、description、status(open/resolved/observed)', 422);
-        self::resolveEvidenceReferences($review, $plan);
+        $referenceReview = $review;
+        $referenceReview['hooks'] = array_values(array_filter($review['hooks'], static fn($hook) =>
+            !(($hook['status'] ?? '') === 'open' && isset($context['continuity']['open_hooks'][$hook['id'] ?? '']))));
+        self::resolveEvidenceReferences($referenceReview, $plan);
         foreach ($review['warnings'] as $warning) if (!is_string($warning) || mb_strlen($warning) > 1500) throw new RuntimeException('连续性提示格式无效', 422);
     }
 
