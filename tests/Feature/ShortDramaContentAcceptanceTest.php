@@ -151,6 +151,24 @@ class ShortDramaContentAcceptanceTest extends TestCase
         self::assertSame([],$report['issues']);
     }
 
+    public function testLegacyLabelsBecomeSeparateTurnsWithoutDroppingWords(): void
+    {
+        $p=$this->plan();$p['subjects'][]=['id'=>'q','name'=>'小李','category'=>'character'];
+        $p['storyboard'][0]['dialogue']='陈伯，多谢你。小李，别客气。';
+        $p['storyboard'][0]['voice_role']='陈伯';$p['storyboard'][0]['speech_type']='character';
+        $out=Acceptance::generate($p,['prompt'=>'两人交谈'],static function($key,$input,$tokens,$validate){
+            $d=json_decode($input['content'],true);
+            if(isset($d['source']))$r=['requirements'=>[]];
+            elseif(isset($d['legacy_dialogue']))$r=['dialogues'=>[['shot_id'=>'s1','turns'=>[['speaker'=>'陈伯','text'=>'多谢你。'],['speaker'=>'小李','text'=>'别客气。']]]]];
+            elseif(isset($d['shots']))$r=['checks'=>[],'issues'=>[]];
+            else$r=['categories'=>array_map(fn($s)=>['id'=>$s['id'],'category'=>$s['category']],$d['subjects'])];
+            $validate($r);return $r;
+        });
+        self::assertSame("陈伯：多谢你。\n小李：别客气。",$out['storyboard'][0]['dialogue']);
+        $p['storyboard'][0]['interior_exterior']='exterior';$p['storyboard'][0]['visual_description']='屋内，陈伯拿信。';
+        self::assertSame('interior',Semantics::normalize($p)['storyboard'][0]['interior_exterior']);
+    }
+
     public function testRoomSilenceAndTwoSpeakersHaveConsistentSemantics(): void
     {
         self::assertSame('interior',Semantics::space(['scene_ref_id'=>'room'],$this->plan()['locations']));
