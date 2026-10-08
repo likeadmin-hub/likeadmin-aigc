@@ -93,7 +93,7 @@ final class ShortDramaContentAcceptance
             $repairs[]=['normalized_shot'=>$shot['shot_id']];
             $plan['storyboard'][$i]=ShortDramaPromptDocuments::withoutGeneratedDefaults($shot);
         }
-        $plan = self::legacyDialogue($plan, $call, $repairs);
+        $plan = self::legacyDialogue($plan, $requirements, $call, $repairs);
         // Classification is an explicit complete task, not an optional side
         // note in a prose audit. Lock every returned ID to its existing entity.
         foreach (array_chunk($plan['subjects'], 20) as $subjects) {
@@ -146,24 +146,28 @@ final class ShortDramaContentAcceptance
 
     /** Legacy prose often uses commas as role labels. Recover attribution in
      * a bounded unit, preserving the spoken wording rather than rewriting it. */
-    private static function legacyDialogue(array $plan, callable $call, array &$repairs): array
+    private static function legacyDialogue(array $plan, array $requirements, callable $call, array &$repairs): array
     {
         $names=array_column($plan['subjects'],'name');
         $labels=implode('|',array_map(static fn($name)=>preg_quote($name,'/'),$names));
         $targets=[];
         foreach($plan['storyboard'] as $s){
-            $text=trim($s['dialogue']??''); if(($s['speech_type']??'')==='narration')continue; if($text===''||preg_match('/^[^：:\n]{1,20}[：:]/u',$text))continue;
-            if(($labels!==''&&preg_match('/(?:^|[。！？])\s*(?:'.$labels.')[，,]/u',$text))||preg_match('/[。！？].+[^。！？][。！？]/u',$text))$targets[]=$s;
+            $text=trim($s['dialogue']??''); if(($s['speech_type']??'')==='narration')continue; if($text==='')continue;
+            $turns=ShortDramaShotSemantics::turns($s);
+            $ambiguous=false;
+            if($labels!=='')foreach($turns as $turn)if(preg_match('/^(?:'.$labels.')[，,]/u',$turn['text']))$ambiguous=true;
+            if(preg_match('/^[^：:\n]{1,20}[：:]/u',$text)&&!$ambiguous)continue;
+            if($ambiguous||($labels!==''&&preg_match('/(?:^|[。！？])\s*(?:'.$labels.')[，,]/u',$text))||preg_match('/[。！？].+[^。！？][。！？]/u',$text))$targets[]=$s;
         }
         foreach(array_chunk($targets,6) as $batch){
             $original=$plan['content_acceptance']['source_script_lines']??$plan['script_lines']??[];
-            $data=['legacy_dialogue'=>self::shots($batch),'subjects'=>self::metadata($plan['subjects']),'source_prose'=>mb_substr(implode("\n",array_filter((array)$original,'is_string')),0,6000)];
+            $data=['requirements'=>$requirements,'legacy_dialogue'=>self::shots($batch),'subjects'=>self::metadata($plan['subjects']),'source_prose'=>mb_substr(implode("\n",array_filter((array)$original,'is_string')),0,6000)];
             $wording=static function(string $text)use($labels):string{
-                if($labels!=='')$text=preg_replace('/(?:^|(?<=[。！？\n]))\s*(?:'.$labels.')[：:，,]\s*/u','',$text);
+                if($labels!=='')do{$before=$text;$text=preg_replace('/(?:^|(?<=[。！？\n]))\s*(?:'.$labels.')[：:，,]\s*/u','',$text);}while($text!==$before);
                 return preg_replace('/[\s\p{P}]+/u','',$text);
             };
             $reply=self::call($call,'legacy_dialogue',$data,
-                '将旧版对白中的姓名标签与实际台词分开。参照source_prose判断谁在说话，特别区分姓名加逗号的标签和台词里真正的称呼。返回{"dialogues":[{"shot_id":"原ID","turns":[{"speaker":"实际角色姓名","text":"原台词"}]}]}，每个输入镜头恰好一次。保留全部原话和原顺序，不补写、不删句、不改写，只转换姓名标签；同镜头多人分别返回多项。voice_role是旧版单一字段，不能据此把所有人的话都归给一个人。',
+                '将旧版对白中的姓名标签与实际台词分开。参照source_prose判断谁在说话，特别区分姓名加逗号的标签和台词里真正的称呼。requirements与画面动作是判断物品归属、谁在提问及回答的依据；旧voice_role及已添加的姓名前缀也可能错误，不能只因台词开头有姓名逗号就猜是在称呼对方。多个姓名依次标注各句且符合画面与物品归属时应解释为说话标签。明确标签应转换为冒号，不能保留为角色自称/叫错对象的台词。返回{"dialogues":[{"shot_id":"原ID","turns":[{"speaker":"实际角色姓名","text":"原台词"}]}]}，每个输入镜头恰好一次。保留全部原话和原顺序，不补写、不删句、不改写，只转换姓名标签；同镜头多人分别返回多项。voice_role是旧版单一字段，不能据此把所有人的话都归给一个人。',
                 static function(array $reply)use($batch,$wording,$names):void{
                     $ids=array_column($batch,'shot_id');$got=array_column((array)($reply['dialogues']??[]),'shot_id');sort($ids);sort($got);
                     if($ids!==$got)throw new RuntimeException('旧版对白归属必须覆盖全部镜头',422);
