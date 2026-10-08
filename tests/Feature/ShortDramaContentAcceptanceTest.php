@@ -25,7 +25,7 @@ class ShortDramaContentAcceptanceTest extends TestCase
             $data=json_decode($input['content'],true);
             if(isset($data['source'])) $reply=['requirements'=>[['text'=>'陈伯读出学生问候','source_index'=>0,'kind'=>'event']]];
             elseif(isset($data['claims'])) $reply=['verdicts'=>array_map(fn($c)=>['id'=>$c['id'],'supported'=>true,'reason'=>'明确读出问候'],$data['claims'])];
-            elseif(!isset($data['shots'],$data['targets']) && !isset($data['targets']) && isset($data['subjects'])) $reply=['categories'=>array_map(fn($s)=>['id'=>$s['id'],'category'=>$s['category']],$data['subjects'])];
+            elseif(!isset($data['shots']) && !isset($data['targets']) && isset($data['subjects'])) $reply=['categories'=>array_map(fn($s)=>['id'=>$s['id'],'category'=>$s['category']],$data['subjects'])];
             elseif(isset($data['targets'])) $reply=['patches'=>[
                 ['shot_id'=>'s1','field'=>'dialogue','before'=>'','after'=>'老师，祝您身体健康。'],
                 ['shot_id'=>'s1','field'=>'voice_role','before'=>'','after'=>'陈伯'],
