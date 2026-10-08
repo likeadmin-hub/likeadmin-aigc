@@ -184,7 +184,7 @@ class ShortDramaEpisodeReviewTest extends TestCase
             }
             if (isset($input['response_contract']['checks'])) {
                 $verifications++;
-                return ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>$input['review']['changes'][0]['after'] === '房间','reason'=>'镜头只显示房间，不含左侧']]];
+                return ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>$input['review']['changes'][0]['after'] === '房间','failure_kind'=>'uncertain','reason'=>'镜头只显示房间，不含左侧，需修正后独立确认']]];
             }
             return ['summary'=>'进入房间','changes'=>[['entity_id'=>'a','field'=>'location','before'=>null,'after'=>'房间左侧','shot_id'=>'s1','quote'=>'甲走进房间']], 'hooks'=>[], 'warnings'=>[]];
         });
