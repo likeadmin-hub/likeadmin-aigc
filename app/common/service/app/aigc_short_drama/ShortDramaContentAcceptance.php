@@ -42,7 +42,7 @@ final class ShortDramaContentAcceptance
         foreach ($chunks as $chunk) {
             $sources = array_values(array_filter(preg_split('/(?<=[；。！？\n])/u', $chunk) ?: [$chunk], static fn($s) => trim($s) !== ''));
             $reply = self::call($call, 'requirements', ['source'=>$chunk, 'sources'=>$sources, 'episode'=>$episode, 'episode_number'=>$request['episode_number'] ?? 1],
-                '只从sources提取当前这一集必须实际表现的具体事件、明确台词与禁止事项。episode只用于定位本集，不额外将其中发挥的细节变成用户硬性要求。多集指令只提取当前集事件和全剧共同约束，不要求当前集提前演后续事件。每项event只含一个动作。接信、拆信、读问候、收信必须分别成项，禁止写成“接过并拆开”。保留动作顺序，但不要求多个动作出现在同一镜头；不把风格、镜头数量当剧情事件。返回{"requirements":[{"text":"可核对的一项要求","source_index":0,"kind":"event或constraint"}]}，source_index是sources数组的零起始索引，原文由服务端提取。没有属于本集的要求才返回空数组。最多24项。',
+                '只从sources提取当前这一集必须实际表现的具体事件、明确台词与禁止事项。episode只用于定位本集，不额外将其中发挥的细节变成用户硬性要求。多集指令只提取当前集事件和全剧共同约束，不要求当前集提前演后续事件。只提取sources明确要求，不推导额外禁令或前置动作。例如后续集才拆信不代表本集禁止出现或提及信，选定院子不额外要求谁带谁参观。每项event只含一个动作。接信、拆信、读问候、收信必须分别成项，禁止写成“接过并拆开”。保留动作顺序，但不要求多个动作出现在同一镜头；不把风格、镜头数量当剧情事件。返回{"requirements":[{"text":"可核对的一项要求","source_index":0,"kind":"event或constraint"}]}，source_index是sources数组的零起始索引，原文由服务端提取。没有属于本集的要求才返回空数组。最多24项。',
                 static function(array $reply) use ($sources): void {
                     if (!is_array($reply['requirements'] ?? null) || count($reply['requirements']) > 24) throw new RuntimeException('本集要求提取结构不完整', 422);
                     foreach ($reply['requirements'] as $r) if (!is_string($r['text'] ?? null) || trim($r['text']) === ''
@@ -99,7 +99,10 @@ final class ShortDramaContentAcceptance
                         'instruction'=>ShortDramaShotSemantics::INSTRUCTION];
                     $reply = self::call($call, 'repair', $data,
                         '修复已明确发现的剧本问题，保留其他剧情和全部用户指定台词。只返回{"patches":[{"shot_id":"目标ID","field":"字段","before":"原值或原数组","after":"新值或新数组"}],"subject_categories":[{"id":"现有主体ID","before":"原category","after":"character、animal、prop或symbol"}]}。允许字段：' . implode(',', self::FIELDS) . '。不得修改ID、时长、镜头数量、用户素材或已正确的内容。accepted_coverage已覆盖的事件和指定原话必须继续保留；修复缺失时只补缺失，不挪用另一段已正确对白。不删对白凑时长。重复镜头改成自然接续动作，关键事件遗漏利用本集已有镜头表现，禁止新增人物。室内外必须按实际地点，多人对白每行一位角色。',
-                        static fn(array $reply) => self::apply($plan, $reply, array_column($targets, 'shot_id')));
+                        static function(array $reply) use ($plan, $targets): void {
+                            $candidate = self::apply($plan, $reply, array_column($targets, 'shot_id'));
+                            if ($candidate === $plan) throw new RuntimeException('存在未解决问题，修复必须产生有效修改；请针对issues中的具体缺失原因补齐，不能返回空补丁', 422);
+                        });
                     $plan = self::apply($plan, $reply, array_column($targets, 'shot_id'));
                     $repairs[] = $reply;
                 }
@@ -181,7 +184,8 @@ final class ShortDramaContentAcceptance
             if (in_array('violated', $states, true) || ($r['kind'] === 'constraint' && in_array('absent', $states, true)) || ($r['kind'] === 'event' && !in_array('covered', $states, true))) {
                 $ids = array_values(array_unique(array_merge(...array_map(static fn($c) => (array)($c['target_shot_ids'] ?? []), $checks))));
                 $ids = array_values(array_intersect($ids, array_column($shots, 'shot_id')));
-                $issues[] = ['message'=>'本集要求未满足：' . $r['text'], 'shot_ids'=>$ids ?: array_column(array_slice($shots, 0, 8), 'shot_id')];
+                $reasons = array_filter(array_map(static fn($c) => empty($c['proof']['supported']) ? ($c['proof']['reason'] ?? '') : '', $checks));
+                $issues[] = ['message'=>'本集要求未满足：' . $r['text'] . ($reasons ? '；具体缺失：' . implode('；', $reasons) : ''), 'shot_ids'=>$ids ?: array_column(array_slice($shots, 0, 8), 'shot_id')];
             }
         }
         return compact('issues','coverage');
@@ -221,6 +225,7 @@ final class ShortDramaContentAcceptance
         $subjects = array_flip(array_column($plan['subjects'], 'id'));
         foreach ($reply['subject_categories'] ?? [] as $p) {
             if (!isset($subjects[$p['id'] ?? '']) || !in_array($p['after'] ?? '', ['character','animal','prop','symbol'], true)
+                || (!empty($plan['subjects'][$subjects[$p['id']]]['library_subject_id']) && $p['after'] !== ($plan['subjects'][$subjects[$p['id']]]['category'] ?? null))
                 || ($plan['subjects'][$subjects[$p['id']]]['category'] ?? null) !== ($p['before'] ?? null)) throw new RuntimeException('主体分类补丁无效', 422);
             $candidate['subjects'][$subjects[$p['id']]]['category'] = $p['after'];
             if ($p['after'] !== $p['before']) $candidate['subjects'][$subjects[$p['id']]] = ShortDramaPromptDocuments::withoutGeneratedDefaults($candidate['subjects'][$subjects[$p['id']]]);

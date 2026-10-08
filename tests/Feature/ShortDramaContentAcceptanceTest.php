@@ -78,9 +78,17 @@ class ShortDramaContentAcceptanceTest extends TestCase
             $validate($reply);return $reply;
         });
         self::assertNotEmpty($report['issues']);
+        self::assertStringContainsString('证据没有说是什么事',$report['issues'][0]['message']);
         $plan['storyboard'][0]['dialogue']="林舟：陈老师，您的信。\n林舟：明天我再来看您。";
         $plan['storyboard'][]=array_replace($plan['storyboard'][0],['shot_id'=>'s2','dialogue'=>'林舟：明天我再来看您。']);
         self::assertSame(['s2'],Acceptance::duplicates($plan)[0]['shot_ids']);
+    }
+
+    public function testRepairCannotReclassifyLibrarySubject(): void
+    {
+        $plan=$this->plan(); $plan['subjects'][0]['library_subject_id']=12;
+        $this->expectException(\RuntimeException::class);
+        Acceptance::apply($plan,['patches'=>[],'subject_categories'=>[['id'=>'p','before'=>'character','after'=>'prop']]],['s1']);
     }
 
     public function testRoomSilenceAndTwoSpeakersHaveConsistentSemantics(): void
