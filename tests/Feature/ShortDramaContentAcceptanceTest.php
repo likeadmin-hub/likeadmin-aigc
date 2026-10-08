@@ -137,6 +137,20 @@ class ShortDramaContentAcceptanceTest extends TestCase
         self::assertSame([],$report['issues']);
     }
 
+    public function testParsedDialogueEvidencePreservesBothActualSpeakers(): void
+    {
+        $plan=$this->plan();$plan['storyboard'][0]['dialogue']="甲：谢谢你。\n乙：别客气。";
+        $report=Acceptance::inspect($plan,[['id'=>'r1','kind'=>'event','text'=>'乙回答别客气']],static function($key,$input,$tokens,$validate){
+            $d=json_decode($input['content'],true);
+            if(isset($d['claims'])){
+                self::assertSame([['speaker'=>'甲','text'=>'谢谢你。'],['speaker'=>'乙','text'=>'别客气。']],json_decode($d['claims'][0]['evidence'][0]['quote'],true));
+                $r=['verdicts'=>[['id'=>'r1:0','supported'=>true,'reason'=>'原对白明确存在']]];
+            }else $r=['checks'=>[['id'=>'r1','status'=>'covered','evidence'=>[['shot_id'=>'s1','field'=>'dialogue_turns']]]],'issues'=>[]];
+            $validate($r);return $r;
+        });
+        self::assertSame([],$report['issues']);
+    }
+
     public function testRoomSilenceAndTwoSpeakersHaveConsistentSemantics(): void
     {
         self::assertSame('interior',Semantics::space(['scene_ref_id'=>'room'],$this->plan()['locations']));

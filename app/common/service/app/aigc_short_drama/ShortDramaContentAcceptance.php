@@ -141,7 +141,7 @@ final class ShortDramaContentAcceptance
             $reply = self::call($call, 'check', ['requirements'=>$required, 'shots'=>self::auditShots($block),
                 'possible_repetitions'=>$duplicates, 'previous_shots'=>self::auditShots(array_slice($shots, max(0, $part * 8 - 4), min(4, $part * 8))),
                 'subjects'=>self::metadata($plan['subjects']), 'locations'=>self::metadata($plan['locations']), 'check_metadata'=>$groupIndex === 0],
-                'dialogue_turns是服务端解析出的实际说话轮次，speaker和text已分离；dialogue是供检索的纯台词文本，不能要求它包含姓名前缀。不要检查原始对白编码格式，不存在voice_role列出全部人的要求。检查最终镜头，不以摘要或正文声称发生代替实际画面及对白。对requirements逐项返回{"checks":[{"id":"原要求id","status":"covered或absent或violated","evidence":[{"shot_id":"本块实际ID","field":"实际字段名"}],"target_shot_ids":["可修复的本块镜头ID"]}],"issues":[{"code":"scene_space或speaker或silent或dialogue_instruction或subject_reference或duplicate_action","message":"具体字段问题及理由","shot_ids":["本块ID"]}]}。事件证据只允许visual_description或dialogue；约束证据可引用任何给出的镜头字段。证据只选镜头ID和字段，原文由服务器提取，不抄写或概括quote。事件只有本块实际表现才covered；未表现返回absent，稍后由服务端汇总整集。约束本块无违反为covered，违反为violated。不得要求本块展示其他块事件。issues仅记录上述六类字段问题，禁止在issues重复报告requirements缺失，缺失只放checks。check_metadata=true时检查可见主体引用、实际说话人、静默与台词、室内外、对话指令冒充正文、重复动作（含previous_shots）。角色类型已有独立分类检查。角色名前缀是合法对白格式，不得要求删除。issues只放确定存在的矛盾，正常内容或“不算问题”的解释不放issues；不因台词的主观文风产生阻断。多个连续动作可以由相邻不同镜头共同表现，绝不能要求多个相继动作在同一镜头完成。不因多个镜头延续同一动作或正常复述就判重复。不强制用齐全剧地点。不以自己的审美增加原要求没有的剧情。',
+                'dialogue_turns是服务端解析出的实际说话轮次，speaker和text已分离；dialogue是供检索的纯台词文本，不能要求它包含姓名前缀。不要检查原始对白编码格式，不存在voice_role列出全部人的要求。检查最终镜头，不以摘要或正文声称发生代替实际画面及对白。对requirements逐项返回{"checks":[{"id":"原要求id","status":"covered或absent或violated","evidence":[{"shot_id":"本块实际ID","field":"实际字段名"}],"target_shot_ids":["可修复的本块镜头ID"]}],"issues":[{"code":"scene_space或speaker或silent或dialogue_instruction或subject_reference或duplicate_action","message":"具体字段问题及理由","shot_ids":["本块ID"]}]}。事件证据只允许visual_description、dialogue或dialogue_turns；约束证据可引用任何给出的镜头字段。证据只选镜头ID和字段，原文由服务器提取，不抄写或概括quote。事件只有本块实际表现才covered；未表现返回absent，稍后由服务端汇总整集。约束本块无违反为covered，违反为violated。不得要求本块展示其他块事件。issues仅记录上述六类字段问题，禁止在issues重复报告requirements缺失，缺失只放checks。check_metadata=true时检查可见主体引用、实际说话人、静默与台词、室内外、对话指令冒充正文、重复动作（含previous_shots）。角色类型已有独立分类检查。角色名前缀是合法对白格式，不得要求删除。issues只放确定存在的矛盾，正常内容或“不算问题”的解释不放issues；不因台词的主观文风产生阻断。多个连续动作可以由相邻不同镜头共同表现，绝不能要求多个相继动作在同一镜头完成。不因多个镜头延续同一动作或正常复述就判重复。不强制用齐全剧地点。不以自己的审美增加原要求没有的剧情。',
                 static function(array $reply) use ($required, $block): void {
                     if (!is_array($reply['checks'] ?? null) || !is_array($reply['issues'] ?? null)) throw new RuntimeException('整集内容检查结构不完整', 422);
                     $expected = array_column($required, 'id'); $actual = array_column($reply['checks'], 'id'); sort($expected); sort($actual);
@@ -152,8 +152,9 @@ final class ShortDramaContentAcceptance
                         $req = array_column($required, null, 'id')[$check['id']];
                         foreach ($check['evidence'] as $e) {
                             $shot = $byId[$e['shot_id'] ?? ''] ?? null;
+                            if ($shot) $shot['dialogue_turns'] = ShortDramaShotSemantics::turns($shot);
                             $field = $e['field'] ?? '';
-                            $allowed = $req['kind'] === 'event' ? ['visual_description','dialogue'] : array_merge(self::FIELDS, ['recommended_duration_seconds']);
+                            $allowed = $req['kind'] === 'event' ? ['visual_description','dialogue','dialogue_turns'] : array_merge(self::FIELDS, ['recommended_duration_seconds','dialogue_turns']);
                             if (!$shot || !in_array($field, $allowed, true) || !array_key_exists($field, $shot)) throw new RuntimeException('覆盖证据必须引用当前镜头允许的真实字段',422);
                             $value = is_string($shot[$field]) ? $shot[$field] : json_encode($shot[$field], JSON_UNESCAPED_UNICODE);
                             if (($req['kind'] === 'event' && trim($value) === '') || (isset($e['quote']) && (!is_string($e['quote']) || $e['quote'] === '' || !str_contains($value, $e['quote'])))) throw new RuntimeException('覆盖证据必须来自当前镜头原文',422);
@@ -166,7 +167,7 @@ final class ShortDramaContentAcceptance
             foreach ($reply['checks'] as $check) {
                 $byId = array_column($block, null, 'shot_id');
                 foreach ($check['evidence'] as &$e) {
-                    $value = $byId[$e['shot_id']][$e['field']];
+                    $value = $e['field'] === 'dialogue_turns' ? ShortDramaShotSemantics::turns($byId[$e['shot_id']]) : $byId[$e['shot_id']][$e['field']];
                     $e['quote'] = is_string($value) ? $value : json_encode($value, JSON_UNESCAPED_UNICODE);
                 }
                 unset($e); $coverage[$check['id']][] = $check;

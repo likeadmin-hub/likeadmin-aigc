@@ -322,6 +322,24 @@ class ShortDramaEpisodeQueueTest extends TestCase
         self::assertSame($review['task_id'], Episodes::retry(1, 1, $row['id'])['task_id']);
     }
 
+    public function testSavedSingleContentReviewUsesSharedContractAndPreservesBase(): void
+    {
+        $created=AigcShortDramaService::createScriptPlan(1,1,['prompt'=>'事务内单集复核，不调用上游','multi_episode'=>false]);
+        $result=$this->outline(1);$result['multi_episode']=false;$result['episode_count']=1;$result['episodes']=[];
+        $result['script_lines']=['调查员进入街道'];
+        $result['storyboard']=[['shot_id'=>'s1','visual_description'=>'调查员进入街道','dialogue'=>'原话','recommended_duration_seconds'=>10,'image_url'=>'saved-media']];
+        Db::name('aigc_short_drama_script_task')->where('task_id',$created['task_id'])->update(['status'=>'success','result_json'=>json_encode($result)]);
+        $review=AigcShortDramaService::message(1,1,['task_id'=>$created['task_id'],'mode'=>'review_content']);
+        $task=Db::name('aigc_short_drama_script_task')->where('task_id',$review['task_id'])->find();$q=Episodes::decode($task['request_json']);
+        self::assertTrue($q['_continuity_review_only']);self::assertTrue($q['quality_review_enabled']);
+        self::assertGreaterThanOrEqual(8,$q['_input_contract_version']);
+        self::assertSame($result['storyboard'],$q['revision_base_result']['storyboard']);
+        self::assertArrayNotHasKey('revision_target',$q);
+        self::assertSame('',$task['provider_request_id']);
+        $this->expectException(\Exception::class);
+        AigcShortDramaService::message(self::TENANT,self::USER,['task_id'=>$created['task_id'],'mode'=>'review_content']);
+    }
+
     public function testCompletedEpisodeWithoutReviewRequirementCannotBeResubmitted(): void
     {
         $project = $this->project(2);
