@@ -267,6 +267,39 @@ class MarketImageModelPayloadContractTest extends TestCase
         ]));
     }
 
+    public function testSharedFixedPriceSkuDoesNotLockTheFirstResolutionInItsTitle(): void
+    {
+        $method = new ReflectionMethod(MarketImageModelRuntimeService::class, 'skuQuality');
+        $method->setAccessible(true);
+        $sku = ['sku_key' => 'nano_banana_21_fixed', 'title' => '图片生成（1K / 2K / 4K）'];
+
+        self::assertSame('', $method->invoke(null, $sku, []));
+        self::assertSame('', $method->invoke(null, ['source_payload' => ['title' => $sku['title']]], []));
+        self::assertSame('2k', $method->invoke(null, $sku, ['image_size' => '2K']));
+        self::assertSame('4k', $method->invoke(null, ['title' => '高清图片生成（4K）'], []));
+    }
+
+    public function testSharedNanoBananaSkuPreservesEachSelectedResolutionInThePayload(): void
+    {
+        foreach (['1k', '2k', '4k'] as $quality) {
+            $payload = $this->invokePayload([
+                'product_id' => 107,
+                'sku_id' => 7004,
+                'sku_key' => 'nano_banana_21_fixed',
+                'title' => '图片生成（1K / 2K / 4K）',
+                'model_code' => 'nano-banana-2.1',
+                'channel_code' => 'Google',
+                'market_metadata' => [
+                    'params_schema' => ['image_size' => ['type' => 'string', 'options' => '1K / 2K / 4K']],
+                    'default_params' => ['image_size' => '1K'],
+                ],
+                'locked_params' => [],
+            ], ['prompt' => '一只猫', 'quality' => $quality, 'ratio' => '1:1']);
+            self::assertSame($quality, strtolower($payload['image_size']));
+            self::assertSame('nano-banana-2.1', $payload['model']);
+        }
+    }
+
     public function testImageModelResultParserReadsStructuredTaskResponses(): void
     {
         $taskId = new ReflectionMethod(MarketImageModelRuntimeService::class, 'taskId');
