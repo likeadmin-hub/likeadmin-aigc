@@ -133,8 +133,8 @@ final class ShortDramaEpisodeReview
             if (is_string($result['story_outline'] ?? null)) $result['story_outline'] = str_replace($patch['before'], $patch['after'], $result['story_outline']);
             foreach ((array)($result['script_lines'] ?? []) as $index => $line) if (is_string($line)) $result['script_lines'][$index] = str_replace($patch['before'], $patch['after'], $line);
         }
+        if ($patches) $result = ShortDramaEpisodeTimingRepair::reconcile($result, $request, $call);
         if ($patches && ShortDramaContentAcceptance::enabled($request)) {
-            $result = ShortDramaEpisodeTimingRepair::reconcile($result, $request, $call);
             $acceptance = ShortDramaContentAcceptance::inspect($result, $result['content_acceptance']['requirements'], $call);
             if ($acceptance['issues']) throw new RuntimeException('衔接修复后仍有内容问题：' . $acceptance['issues'][0]['message'], 422);
             $result['content_acceptance']['coverage'] = $acceptance['coverage'];
