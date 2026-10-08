@@ -178,6 +178,19 @@ class ShortDramaContentAcceptanceTest extends TestCase
         self::assertSame('单集人物在第9集的海报前交谈。',Acceptance::episodeSource('单集人物在第9集的海报前交谈。',1));
     }
 
+    public function testAdjacentSameSpeakerCannotInventAnIntentionalEcho(): void
+    {
+        $p=$this->plan();$p['storyboard'][0]['dialogue']='甲：下次可要保管好了。';
+        $p['storyboard'][]=array_replace($p['storyboard'][0],['shot_id'=>'s2']);
+        $report=Acceptance::inspect($p,[],static function($key,$input,$tokens,$validate){
+            $d=json_decode($input['content'],true);self::assertArrayNotHasKey('candidates',$d);
+            $r=['checks'=>[],'issues'=>[]];$validate($r);return $r;
+        });
+        self::assertCount(1,$report['issues']);self::assertSame(['s2'],$report['issues'][0]['shot_ids']);
+        $p['storyboard'][0]['visual_description']='陈伯家屋内，陈伯取信。';$p['storyboard'][0]['interior_exterior']='exterior';
+        self::assertSame('interior',Semantics::normalize($p)['storyboard'][0]['interior_exterior']);
+    }
+
     public function testDurationConstraintIsCalculatedByServerNotProseModel(): void
     {
         $report=Acceptance::inspect($this->plan(),[['id'=>'r1','kind'=>'constraint','text'=>'本集时长10秒。']],static function($key,$input,$tokens,$validate){

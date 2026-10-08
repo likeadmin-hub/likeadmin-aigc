@@ -127,7 +127,8 @@ final class ShortDramaContentAcceptance
                 if (!$shots) $shots = array_slice($plan['storyboard'], 0, 8);
                 // Each correction is bounded even for unusually long episodes.
                 foreach (array_chunk($shots, 8) as $targets) {
-                    $data = ['issues'=>$issues,'requirements'=>$requirements,'accepted_coverage'=>array_map(static fn($checks) => array_map(static fn($c) => ['status'=>$c['status'], 'evidence'=>array_map(static fn($e) => ['shot_id'=>$e['shot_id'],'field'=>$e['field']], $c['evidence'])], $checks), $report['coverage']),'subjects'=>self::metadata($plan['subjects']),'locations'=>self::metadata($plan['locations']),
+                    $anchors=array_values(array_filter($plan['storyboard'],static fn($s)=>in_array($s['shot_id'],array_column($issues,'first_shot_id'),true)));
+                    $data = ['issues'=>$issues,'preserved_first_occurrences'=>self::shots($anchors),'requirements'=>$requirements,'accepted_coverage'=>array_map(static fn($checks) => array_map(static fn($c) => ['status'=>$c['status'], 'evidence'=>array_map(static fn($e) => ['shot_id'=>$e['shot_id'],'field'=>$e['field']], $c['evidence'])], $checks), $report['coverage']),'subjects'=>self::metadata($plan['subjects']),'locations'=>self::metadata($plan['locations']),
                         'targets'=>self::shots($targets),'episode'=>$request['series_context']['current_episode'] ?? [],
                         'instruction'=>ShortDramaShotSemantics::INSTRUCTION];
                     $reply = self::call($call, 'repair', $data,
@@ -286,6 +287,13 @@ final class ShortDramaContentAcceptance
         if ($duplicates) {
             foreach (array_chunk($duplicates,4) as $batch) {
                 $data=[]; $byId=array_column($shots,null,'shot_id');
+                $allowedRepeat=preg_replace('/不(?:要|得)?重复|不(?:要|得)?反复/u','',implode(' ',array_column($requirements,'quote')));
+                $remaining=[];
+                foreach($batch as $d){
+                    if(!empty($d['adjacent_same_speaker']) && !preg_match('/重复|复述|反复|再说|又说|再问|再喊|回声|齐声|口号/u',$allowedRepeat.' '.$byId[$d['shot_ids'][0]]['visual_description']))$issues[]=$d;
+                    else $remaining[]=$d;
+                }
+                $batch=$remaining;if(!$batch)continue;
                 foreach($batch as $i=>$d)$data[]=['id'=>(string)$i,'first'=>self::shots([$byId[$d['first_shot_id']]])[0],'repeat'=>self::shots([$byId[$d['shot_ids'][0]]])[0]];
                 $reply=self::call($call,'repetition',['candidates'=>$data,'requirements'=>$requirements],
                     '检查两镜头是否无理由重演同一对白。仅当用户明确要求重复、不同语境的合理复述或必要呼应才intentional=true；无叙事推进的重复为false。返回{"verdicts":[{"id":"候选id","intentional":false,"reason":"具体依据"}]}，全部id各一次。',
@@ -328,16 +336,16 @@ final class ShortDramaContentAcceptance
     public static function duplicates(array $plan): array
     {
         $seen = []; $issues = []; $pairs=[];
-        foreach ($plan['storyboard'] as $shot) {
+        foreach (array_values($plan['storyboard']) as $position=>$shot) {
             foreach (ShortDramaShotSemantics::turns($shot) as $turn) {
                 $text=preg_replace('/[\s\p{P}]+/u','',$turn['text']);
                 if(mb_strlen($text)<6)continue;
                 foreach($seen as $old){
                     if($old['id']===$shot['shot_id']||(!str_contains($old['text'],$text)&&!str_contains($text,$old['text'])))continue;
                     $pair=$old['id'].':'.$shot['shot_id'];if(isset($pairs[$pair]))continue;$pairs[$pair]=true;
-                    $issues[]=['message'=>'与镜头'.$old['id'].'重复同一段完整对白；保留正确发生的一次，修复重复发生的动作和对白','first_shot_id'=>$old['id'],'shot_ids'=>[$shot['shot_id']]];
+                    $issues[]=['message'=>'与镜头'.$old['id'].'重复同一段完整对白；保留正确发生的一次，修复重复发生的动作和对白','first_shot_id'=>$old['id'],'adjacent_same_speaker'=>$old['position']===$position-1 && $old['scene']===($shot['scene_ref_id']??'') && $old['speaker']!=='' && $old['speaker']===$turn['speaker'] && $old['text']===$text,'shot_ids'=>[$shot['shot_id']]];
                 }
-                $seen[]=['id'=>$shot['shot_id'],'text'=>$text];
+                $seen[]=['id'=>$shot['shot_id'],'text'=>$text,'position'=>$position,'scene'=>$shot['scene_ref_id']??'','speaker'=>$turn['speaker']];
             }
         }
         return $issues;
