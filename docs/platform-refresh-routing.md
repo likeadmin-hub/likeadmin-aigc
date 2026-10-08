@@ -39,3 +39,13 @@ python3 tests/routing/platform_refresh_nginx.py --nginx /path/to/nginx
 测试覆盖平台根入口、登录页、多级菜单页、授权页、带查询参数的页面、易被文件名规则拦截的页面、平台 JS 资源，并检查平台 API、租户 API、租户后台和 PC 请求继续使用原动态入口。
 
 线上验收时使用已有平台登录会话，分别在不同模块点击页面后刷新，并将当前地址复制到新标签直接打开。页面应保留当前菜单和参数，不显示租户错误页；未登录时应进入平台登录页。同时确认 `/platformapi/config/getConfig` 和已存在的平台 JS/CSS 资源正常。
+
+## 同批交付：PC 启动配置接口 500
+
+截图中的 `/api/pc/config?tenant_id=1` 报 `Class "app\api\logic\OemBrandService" not found`。`PcLogic` 调用 `OemBrandService::read()` 时缺少正确导入，PHP 因而将其解析到当前 logic 命名空间。
+
+修复位于 `app/api/logic/PcLogic.php`：导入 `app\common\service\OemBrandService`。提交 `57ef7bedd` 已在 `feature/platform-refresh-404` 的祖先中，该分支同时包含此次平台刷新修复，无需重复应用代码补丁。
+
+2026-10-08 实际请求验证：本地 `Host: z.cn` 的 `/api/pc/config?tenant_id=1` 返回 HTTP 200、`code=1`，响应包含 `is_oem`、`website`、`login`、`official_site` 等启动配置；线上 `opc.likeadmin.cn` 同接口仍返回 HTTP 500 和上述类不存在错误。
+
+部署时一并更新 `app/api/logic/PcLogic.php`，确认 `app/common/service/OemBrandService.php` 已存在；如果 PHP OPcache 未自动校验文件，需要按站点现有方式刷新缓存或重载对应 PHP-FPM。然后重新请求该配置接口，要求 HTTP 200、`code=1`，并刷新 PC 首页确认品牌、导航和官网内容正常加载。此项 PHP 部署验收与平台 Nginx 配置加载验收分别确认。
