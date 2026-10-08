@@ -122,6 +122,24 @@ class ShortDramaNarrativeMemoryTest extends TestCase
         self::assertNotSame($first, Memory::dependency($source, '紫铜钥匙'));
     }
 
+    public function testDependencyPropagationStopsOnlyWhenAllNarrativeFactsRemainUnchanged(): void
+    {
+        $first=['version'=>1,'episode_number'=>1,'digest'=>'first','summary'=>'林舟保管钥匙',
+            'state'=>['p:key_owner'=>'林舟'],'open_hooks'=>[],'audit_status'=>'verified','warnings'=>[]];
+        $second=['version'=>1,'episode_number'=>2,'digest'=>'second','previous_digest'=>'first','audit_status'=>'verified',
+            'memory_dependency'=>['version'=>1,'query'=>'钥匙','fingerprint'=>Memory::dependency(Continuity::context([$first],true),'钥匙')]];
+        $rows=[['production_project_id'=>1,'status'=>'success','continuity_json'=>$first],
+            ['production_project_id'=>2,'status'=>'success','continuity_json'=>$second]];
+        $reviewed=$first; $reviewed['digest']='edited-and-reviewed';
+        $actual=Continuity::dependencyStatus($rows,[1=>['ledger'=>$reviewed,'narrative_digest'=>$reviewed['digest']]]);
+        self::assertFalse($actual[1]['needs_review'],'Prose edit with unchanged reviewed facts does not force every later episode to call the model');
+        $reviewed['state']['p:key_owner']='陈伯';
+        $actual=Continuity::dependencyStatus($rows,[1=>['ledger'=>$reviewed,'narrative_digest'=>$reviewed['digest']]]);
+        self::assertTrue($actual[1]['needs_review'],'Actual fact change must propagate even if not retrieved');
+        $actual=Continuity::dependencyStatus($rows,[1=>['ledger'=>$first,'narrative_digest'=>'unreviewed-edit']]);
+        self::assertTrue($actual[0]['needs_review']); self::assertTrue($actual[1]['needs_review']);
+    }
+
     public function testResumeSkipsAcceptedBlocksAndInvalidatesAfterSourceEdit(): void
     {
         $plan = ['subjects'=>[], 'locations'=>[], 'storyboard'=>array_map(static fn($i)=>['shot_id'=>'s'.$i,'visual_description'=>'雨落在街道'], range(1,8))];
