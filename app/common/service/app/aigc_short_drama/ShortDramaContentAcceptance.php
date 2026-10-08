@@ -43,7 +43,7 @@ final class ShortDramaContentAcceptance
         foreach ($chunks as $chunk) {
             $sources = array_values(array_filter(preg_split('/(?<=[；。！？\n])/u', $chunk) ?: [$chunk], static fn($s) => trim($s) !== ''));
             $reply = self::call($call, 'requirements', ['source'=>$chunk, 'sources'=>$sources, 'episode'=>$episode, 'episode_number'=>$request['episode_number'] ?? 1],
-                '只从sources提取当前这一集必须实际表现的具体事件、明确台词与禁止事项。episode只用于定位本集，不额外将其中发挥的细节变成用户硬性要求。多集指令只提取当前集事件和全剧共同约束，不要求当前集提前演后续事件。只提取sources明确要求，不推导额外禁令或前置动作。后续事件的执行时间限制不能扩大成禁止相关物品出场。每项event只含一个动作。顺序发生的多个动作分别成项，不合并成必须在同一镜头完成的事件。保留动作顺序，但不要求多个动作出现在同一镜头；不把风格、镜头数量当剧情事件。返回{"requirements":[{"text":"可核对的一项要求","source_index":0,"kind":"event或constraint"}]}，source_index是sources数组的零起始索引，原文由服务端提取。没有属于本集的要求才返回空数组。最多24项。',
+                '只从sources提取当前这一集必须实际表现的具体事件、明确台词与禁止事项。episode只用于定位本集，不额外将其中发挥的细节变成用户硬性要求。多集指令只提取当前集事件和全剧共同约束，不要求当前集提前演后续事件。只提取sources明确要求，不推导额外禁令或前置动作。后续事件的执行时间限制不能扩大成禁止相关物品出场。每项event只含一个动作。顺序发生的多个动作分别成项，不合并成必须在同一镜头完成的事件。保留动作顺序，但不要求多个动作出现在同一镜头；文风、镜头数量、总时长由专用规则处理，不提取为剧情要求，不对它们做主观阻断。返回{"requirements":[{"text":"可核对的一项要求","source_index":0,"kind":"event或constraint"}]}，source_index是sources数组的零起始索引，原文由服务端提取。没有属于本集的要求才返回空数组。最多24项。',
                 static function(array $reply) use ($sources): void {
                     if (!is_array($reply['requirements'] ?? null) || count($reply['requirements']) > 24) throw new RuntimeException('本集要求提取结构不完整', 422);
                     foreach ($reply['requirements'] as $r) if (!is_string($r['text'] ?? null) || trim($r['text']) === ''
@@ -179,7 +179,15 @@ final class ShortDramaContentAcceptance
     public static function inspect(array $plan, array $requirements, callable $call): array
     {
         $coverage = []; $issues = []; $duplicates = self::duplicates($plan); $shots = array_values($plan['storyboard']);
-        $groups = array_chunk($requirements, 12) ?: [[]];
+        // Numeric runtime contracts are owned by code, not a prose judge.
+        $semanticRequirements=[];
+        foreach($requirements as $r){
+            if($r['kind']==='constraint' && preg_match('/^(?:(?:全剧|本集|每集|单集|总)\s*)*时长\s*(?:为|是|约)?\s*(\d+(?:\.\d+)?)\s*秒[。.]?$/u',trim($r['text']),$m)){
+                $seconds=array_sum(array_column($shots,'recommended_duration_seconds'));
+                $coverage[$r['id']][]=['id'=>$r['id'],'status'=>abs($seconds-(float)$m[1])<0.01?'covered':'violated','evidence'=>[],'server_computed_seconds'=>$seconds];
+            }else $semanticRequirements[]=$r;
+        }
+        $groups = array_chunk($semanticRequirements, 12) ?: [[]];
         foreach (array_chunk($shots, 8) as $part => $block) foreach ($groups as $groupIndex => $required) {
             $reply = self::call($call, 'check', ['requirements'=>$required, 'shots'=>self::auditShots($block),
                 'possible_repetitions'=>$duplicates, 'previous_shots'=>self::auditShots(array_slice($shots, max(0, $part * 8 - 4), min(4, $part * 8))),
@@ -219,7 +227,7 @@ final class ShortDramaContentAcceptance
         // A rejection also needs proof. For example, a prop reference cannot
         // prove that an extra speaking character was introduced.
         $violations=[];
-        foreach($requirements as $r) if($r['kind']==='constraint') foreach($coverage[$r['id']]??[] as $i=>$check) if($check['status']==='violated')
+        foreach($requirements as $r) if($r['kind']==='constraint') foreach($coverage[$r['id']]??[] as $i=>$check) if($check['status']==='violated' && !isset($check['server_computed_seconds']))
             $violations[]=['id'=>$r['id'].':'.$i,'requirement'=>$r['text'],'evidence'=>$check['evidence']];
         foreach(array_chunk($violations,6) as $batch){
             $reply=self::call($call,'constraint_proof',['constraint_claims'=>$batch,'subjects'=>self::metadata($plan['subjects']),'locations'=>self::metadata($plan['locations'])],

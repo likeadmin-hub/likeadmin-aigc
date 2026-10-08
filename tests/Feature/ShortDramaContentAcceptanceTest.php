@@ -169,6 +169,15 @@ class ShortDramaContentAcceptanceTest extends TestCase
         self::assertSame('interior',Semantics::normalize($p)['storyboard'][0]['interior_exterior']);
     }
 
+    public function testDurationConstraintIsCalculatedByServerNotProseModel(): void
+    {
+        $report=Acceptance::inspect($this->plan(),[['id'=>'r1','kind'=>'constraint','text'=>'本集时长10秒。']],static function($key,$input,$tokens,$validate){
+            $d=json_decode($input['content'],true);self::assertSame([],$d['requirements']);
+            $r=['checks'=>[],'issues'=>[]];$validate($r);return $r;
+        });
+        self::assertSame([],$report['issues']);self::assertSame(10,$report['coverage']['r1'][0]['server_computed_seconds']);
+    }
+
     public function testRoomSilenceAndTwoSpeakersHaveConsistentSemantics(): void
     {
         self::assertSame('interior',Semantics::space(['scene_ref_id'=>'room'],$this->plan()['locations']));
