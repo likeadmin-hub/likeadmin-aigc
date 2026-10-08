@@ -24,7 +24,7 @@ final class ShortDramaSourceBoundary
     /** Offsets refer to decoded source bytes; line numbers to the decoded document. */
     public static function sections(string $source): array
     {
-        preg_match_all('/^[\t ]*(?:L\d{6,}[\t ]+)?(?:#{1,6}[\t ]*)?(?:\*\*|__)?第[\t ]*([0-9０-９一二三四五六七八九十百零〇两]+)[\t ]*集(?:[^\r\n]*)$/mu', $source, $matches, PREG_OFFSET_CAPTURE);
+        preg_match_all('/^[\t ]*(?:L\d{6,}[\t ]+)?(?:#{1,6}[\t ]*)?(?:\*\*|__)?第[\t ]*([0-9０-９一二三四五六七八九十百零〇两]+)[\t ]*集(?:\*\*|__)?(?:[\t :：·—（(][^\r\n]*)?$/mu', $source, $matches, PREG_OFFSET_CAPTURE);
         $sections = [];
         foreach ($matches[0] as $index => [$heading, $offset]) {
             $number = self::number($matches[1][$index][0]);

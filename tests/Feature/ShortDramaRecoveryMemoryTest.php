@@ -42,16 +42,18 @@ class ShortDramaRecoveryMemoryTest extends TestCase
         $task = 'test_preview_' . bin2hex(random_bytes(8));
         $scope = ['tenant_id'=>2000000719, 'user_id'=>7, 'task_id'=>$task];
         Db::name('aigc_short_drama_script_task')->insert($scope + ['status'=>'running']);
-        Db::name('aigc_short_drama_script_task')->insert(array_replace($scope, ['tenant_id'=>2000000720]) + ['status'=>'running']);
+        Db::name('aigc_short_drama_script_task')->insert(array_replace($scope, ['tenant_id'=>2000000720, 'task_id'=>$task . '_other']) + ['status'=>'running']);
         $persist = new \ReflectionMethod(Service::class, 'persistScriptPlanStreamState'); $persist->setAccessible(true);
         $history = ['title'=>'第二集','storyboard'=>[['shot_id'=>'s1_1','visual_description'=>'已完成场景']]];
+        $persist->invoke(null, 2000000720, $scope['user_id'], $task, '', '', '', 99, $history, 'wrong_owner');
+        self::assertEmpty(Db::name('aigc_short_drama_script_task')->where($scope)->value('result_json'));
         $persist->invoke(null, $scope['tenant_id'], $scope['user_id'], $task, '', '', '', 12, $history, 'v3_scene_2');
         Db::name('aigc_short_drama_script_task')->where($scope)->update(['status'=>'failed']);
         $stored = json_decode(Db::name('aigc_short_drama_script_task')->where($scope)->value('result_json'), true);
         self::assertSame($history, $stored['__script_checkpoint']);
         self::assertSame(12, $stored['__stream_revision']);
         self::assertArrayNotHasKey('storyboard', $stored);
-        self::assertEmpty(Db::name('aigc_short_drama_script_task')->where(array_replace($scope, ['tenant_id'=>2000000720]))->value('result_json'));
+        self::assertEmpty(Db::name('aigc_short_drama_script_task')->where(array_replace($scope, ['tenant_id'=>2000000720, 'task_id'=>$task . '_other']))->value('result_json'));
     }
 
     public function testRestartReplaysReceiptsWithoutCallingProviderAgain(): void
