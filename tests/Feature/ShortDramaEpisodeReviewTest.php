@@ -26,6 +26,19 @@ class ShortDramaEpisodeReviewTest extends TestCase
         return isset($input['response_contract']['checks']) ? ['checks'=>[]]
             : ['summary'=>'甲走进房间','changes'=>[],'hooks'=>[],'warnings'=>[]];
     }
+    public function testInitialPatchOnlyReplyCannotBypassAuditValidation(): void
+    {
+        $attempts = 0; $checks = 0;
+        $result = Review::generate($this->plan(1), $this->request(), function($key,$messages,$budget,$validate) use (&$attempts,&$checks) {
+            if (str_contains($key, '_evidence_')) { $checks++; $reply = ['checks'=>[]]; }
+            else { $reply = ++$attempts === 1 ? ['evidence_patches'=>[]] : ['summary'=>'甲在房间','changes'=>[],'hooks'=>[],'warnings'=>[]]; }
+            $validate($reply);
+            return $reply;
+        });
+        self::assertSame(2, $attempts);
+        self::assertSame(1, $checks);
+        self::assertSame('verified', $result['_continuity']['audit_status']);
+    }
     public function testReviewKeepsCompleteSavedPlanAndNeverSendsProductionFields(): void
     {
         $plan=$this->plan(); $calls=0;

@@ -37,6 +37,13 @@ class ShortDramaAuditFormatTest extends TestCase
             catch (RuntimeException $e) { self::assertSame(422, $e->getCode()); }
         }
     }
+    public function testRegisteredOpenHookNeedsNoNewEvidenceButUnknownHookDoes(): void
+    {
+        $draft = ['summary'=>'本段无新事件','changes'=>[], 'hooks'=>[['id'=>'promise','description'=>'既有承诺','status'=>'open','evidence_refs'=>[]]], 'warnings'=>[]];
+        Continuity::assertAuditShape($draft, [], ['continuity'=>['open_hooks'=>['promise'=>'既有承诺']]]);
+        $this->expectExceptionCode(422);
+        Continuity::assertAuditShape($draft, []);
+    }
     public function testMalformedCompleteJsonIsRecoveredWithDistinctRequestAndRealVerdict(): void
     {
         $inputs = [];

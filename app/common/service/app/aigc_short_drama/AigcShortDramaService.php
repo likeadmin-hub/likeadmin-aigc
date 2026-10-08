@@ -18226,7 +18226,7 @@ class AigcShortDramaService
                 $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $reviewReceipt['result']])));
                 $decoded = ShortDramaStructuredResponse::decode((array)$reviewReceipt['result']);
                 if ($validate) $validate($decoded);
-                if (!isset($decoded['evidence_patches']) && !isset($decoded['claim_patches'])) ShortDramaContinuity::assertAuditShape($decoded, $result);
+                else ShortDramaContinuity::assertAuditShape($decoded, $result, (array)$request['series_context']);
                 if ($originalAudit === [] && isset($decoded['changes'])) $originalAudit = $decoded;
                 return $decoded;
                 });
