@@ -192,6 +192,27 @@ class ShortDramaEpisodeReviewTest extends TestCase
         self::assertSame('pending_review', $result['_continuity']['audit_status']);
         self::assertArrayNotHasKey('a:location', $result['_continuity']['state']);
     }
+    public function testUnknownResolutionCanBecomeVerifiedCurrentEventWithoutClosingExistingHook(): void
+    {
+        $request = $this->request();
+        $request['series_context']['continuity']['open_hooks'] = ['promise'=>'甲答应修好收音机'];
+        $checks = 0;
+        $result = Review::generate($this->plan(1), $request, function ($key, $messages, $budget, $validate = null) use (&$checks) {
+            $input = json_decode($messages['content'], true);
+            if (isset($input['response_contract']['claim_patches'])) {
+                $reply = ['claim_patches'=>[['collection'=>'hooks','index'=>0,'value'=>'甲走进房间','status'=>'observed','shot_id'=>'s1','quote'=>'甲走进房间','reason'=>'只是本集发生的进门事件，不是已登记的修理承诺']]];
+                $validate($reply); return $reply;
+            }
+            if (isset($input['response_contract']['checks'])) {
+                $checks++;
+                return ['checks'=>[['collection'=>'hooks','index'=>0,'supported'=>true,'reason'=>'正文展示进门']]];
+            }
+            return ['summary'=>'进入房间','changes'=>[], 'hooks'=>[['id'=>'entered_room','description'=>'甲走进房间','status'=>'resolved','shot_id'=>'s1','quote'=>'甲走进房间']], 'warnings'=>[]];
+        });
+        self::assertSame(2, $checks);
+        self::assertSame('verified', $result['_continuity']['audit_status']);
+        self::assertSame(['promise'=>'甲答应修好收音机'], $result['_continuity']['open_hooks']);
+    }
     public function testPatchPreservesMediaIdentityTimingAndUnrelatedShots(): void
     {
         $plan=$this->plan(2);
