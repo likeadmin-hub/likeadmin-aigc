@@ -171,6 +171,14 @@ final class ShortDramaPromptWorkspace
         ]);
     }
 
+    public static function taskRequests(int $tenantId, int $userId, string $taskId): array
+    {
+        $rows = Db::name('aigc_short_drama_prompt_request')->where(['tenant_id'=>$tenantId, 'user_id'=>$userId, 'task_id'=>$taskId])
+            ->order('id', 'desc')->limit(20)->field('stage,audit_json,create_time')->select()->toArray();
+        return array_map(static fn($row) => (json_decode($row['audit_json'], true) ?: [])
+            + ['stage'=>$row['stage'], 'create_time'=>$row['create_time']], array_reverse($rows));
+    }
+
     public static function requests(int $tenantId, int $before = PHP_INT_MAX): array
     {
         return Db::name('aigc_short_drama_prompt_request')->where('tenant_id', $tenantId)->where('id', '<', $before)

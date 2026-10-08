@@ -24,15 +24,15 @@ class ShortDramaImportedScriptTest extends TestCase
         for ($i = 1; $i <= 2; $i++) $payload['episodes'][] = ['episode_number' => $i, 'title' => '旧信线索' . $i,
             'story_outline' => $i === 1 ? '调查员寻找旧信，发现新的署名。' : '调查员赶往信中地址，遇见失踪者的妹妹。',
             'conflict_point' => $i === 1 ? '署名与记忆矛盾。' : '妹妹拒绝透露失踪者的去向。', 'ending_hook' => $i === 1 ? '信中还有一个地址。' : '妹妹交出失踪者的日记。',
-            'source_content' => $original, 'source_range' => ['start_line' => 1, 'end_line' => 5001]];
+            'source_content' => $original . $i, 'source_range' => ['start_line' => ($i - 1) * 5001 + 1, 'end_line' => $i * 5001]];
         $method = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'fileQaParsePlan');
         $method->setAccessible(true);
         $plan = $method->invoke(null, $payload, [], '旧信');
         self::assertSame('悬疑', $plan['type_judgement']);
         self::assertCount(2, $plan['episodes']);
         foreach ($plan['episodes'] as $episode) {
-            self::assertSame($original, $episode['source_content']);
-            self::assertSame(['start_line' => 1, 'end_line' => 5001], $episode['source_range']);
+            self::assertSame($original . $episode['episode_number'], $episode['source_content']);
+            self::assertSame(['start_line' => ($episode['episode_number'] - 1) * 5001 + 1, 'end_line' => $episode['episode_number'] * 5001], $episode['source_range']);
         }
         $story = ShortDramaImportedScript::storyDraft($plan);
         self::assertSame([], $story['episodes']);

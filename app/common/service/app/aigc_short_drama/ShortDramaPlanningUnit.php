@@ -23,12 +23,13 @@ final class ShortDramaPlanningUnit
             unset($item);
             return $value;
         };
-        return hash('sha256', json_encode($canonical($input), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        try { return hash('sha256', json_encode($canonical($input), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)); }
+        finally { unset($canonical); }
     }
 
     public static function ready(int $tenant, int $user, string $task): bool
     {
-        foreach (Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => $tenant, 'user_id' => $user, 'task_id' => $task, 'status' => 'waiting'])->select()->toArray() as $row) {
+        foreach (Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => $tenant, 'user_id' => $user, 'task_id' => $task, 'status' => 'waiting'])->field('attempt,update_time')->select()->toArray() as $row) {
             if (time() < (int)$row['update_time'] + ((int)$row['attempt'] === 1 ? 30 : 120)) return false;
         }
         return true;
@@ -107,6 +108,7 @@ final class ShortDramaPlanningUnit
     public static function call(int $tenant, int $user, string $task, string $key, array $input, callable $generate, bool $trackValidation = false): array
     {
         if ($task === '') return $generate($input); // Pure provider contract tests have no persisted task.
+        ShortDramaWorkerMemory::release();
         $root = $key;
         $latestKey = Db::name('aigc_short_drama_planning_unit')->where(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$task])
             ->whereIn('unit_key', self::recoveryKeys($key))->order('id','desc')->value('unit_key');
@@ -152,7 +154,7 @@ final class ShortDramaPlanningUnit
                 . "\n这是用户要求继续修复的同一部分。只修复以下校验问题，保留原任务事实和其他已完成部分：" . $storedInput['_repair_reason'];
             return ['data' => $data, 'input' => $effective];
         });
-        if (isset($claim['result'])) return $claim['result'] + ($trackValidation ? ['_unit'=>$scope] : []);
+        if (isset($claim['result'])) return $claim['result'] + ($trackValidation ? ['_unit'=>$scope, '_replayed'=>true] : []);
         $data = $claim['data'];
         try {
             $result = $generate($claim['input']);
