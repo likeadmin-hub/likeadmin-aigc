@@ -74,6 +74,26 @@ class ShortDramaEpisodeReviewTest extends TestCase
             return ['summary'=>'甲在房间','changes'=>[['entity_id'=>'a','field'=>'location','before'=>'屋外','after'=>'房间','shot_id'=>'s1','quote'=>'甲走进房间']], 'hooks'=>[], 'warnings'=>[]];
         });
     }
+    public function testInvalidCorrectionIsValidatedInsideReceiptBoundary(): void
+    {
+        $validated = false;
+        try {
+            Review::generate($this->plan(1), $this->request(), function ($key, $messages, $budget, $validate = null) use (&$validated) {
+                if (str_contains($messages['content'], '仅修正审校JSON')) {
+                    self::assertNotNull($validate);
+                    $validated = true;
+                    $validate(['evidence_patches'=>[['collection'=>'changes','index'=>9,'before'=>null]]]);
+                }
+                $input=json_decode($messages['content'], true);
+                if (isset($input['response_contract']['checks'])) return ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>true,'reason'=>'有证据']]];
+                return ['summary'=>'甲在房间', 'changes'=>[['entity_id'=>'a','field'=>'location','before'=>'未登记','after'=>'房间','shot_id'=>'s1','quote'=>'甲走进房间']], 'hooks'=>[], 'warnings'=>[]];
+            });
+            self::fail('Malformed patch must fail');
+        } catch (\RuntimeException $error) {
+            self::assertSame(422, $error->getCode());
+            self::assertTrue($validated);
+        }
+    }
     public function testCapacityFailureSplitsOnlyCurrentBlock(): void
     {
         $seen=[];
