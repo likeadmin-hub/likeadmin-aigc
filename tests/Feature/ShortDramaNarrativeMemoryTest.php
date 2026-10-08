@@ -51,6 +51,15 @@ class ShortDramaNarrativeMemoryTest extends TestCase
         self::assertLessThan(100, count($result['previous_state']));
     }
 
+    public function testLegacyCapacityFailureUsesWorkingMemoryButFittingReceiptsStayExact(): void
+    {
+        $messages=['system_prompt'=>'生成本集','content'=>json_encode(['series_context'=>['continuity'=>$this->archive(500)],'user_prompt'=>'紫铜钥匙'],JSON_UNESCAPED_UNICODE)];
+        $budget=Budget::fitMessages($messages,[],'script',4096);
+        self::assertLessThan(15000,$budget['input_estimate']);
+        $small=['system_prompt'=>'旧协议','content'=>json_encode(['series_context'=>['continuity'=>['state'=>['p:x'=>'原值']]]],JSON_UNESCAPED_UNICODE)];
+        $original=$small; Budget::fitMessages($small,[],'script',4096); self::assertSame($original,$small);
+    }
+
     public function testCapacityProjectionPreservesUserRequirementsAndRepairSuffix(): void
     {
         $text = '第480集才能揭露身世，必须保留这句话。';
