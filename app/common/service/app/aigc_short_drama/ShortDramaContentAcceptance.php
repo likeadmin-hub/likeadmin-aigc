@@ -31,7 +31,11 @@ final class ShortDramaContentAcceptance
     /** Anchor mandatory events to user input, not to the possibly incomplete generated outline. */
     private static function requirements(array $request, callable $call): array
     {
+        if (!empty($request['_continuity_review_only']) && !empty($request['revision_base_result']['content_acceptance']['requirements'])) {
+            return $request['revision_base_result']['content_acceptance']['requirements'];
+        }
         $source = trim((string)($request['prompt'] ?? ''));
+        if (empty($request['_continuity_review_only']) && !empty($request['revision_message'])) $source .= "\n最新用户修改（冲突时以此为准）：" . $request['revision_message'];
         $episode = $request['series_context']['current_episode'] ?? [];
         $requirements = [];
         $chunks = mb_str_split($source === '' ? json_encode($episode, JSON_UNESCAPED_UNICODE) : $source, 6000);
@@ -57,6 +61,22 @@ final class ShortDramaContentAcceptance
         $plan = ShortDramaShotSemantics::normalize($plan);
         $originalLines = $plan['script_lines'] ?? [];
         $repairs = [];
+        // Classification is an explicit complete task, not an optional side
+        // note in a prose audit. Lock every returned ID to its existing entity.
+        foreach (array_chunk($plan['subjects'], 20) as $subjects) {
+            $reply = self::call($call, 'entities', ['subjects'=>self::metadata($subjects)],
+                '只判断每个主体本身的类型，不能因人物携带书、穿衣服而变成道具。人物character、动物animal、实体物品prop、抽象意象symbol。不要照抄已有category，它可能有误。library_subject_id存在且非空的主体必须保留现有分类。返回{"categories":[{"id":"原ID","category":"类型"}]}，逐项覆盖全部输入ID，不增删主体。',
+                static function(array $reply) use ($subjects): void {
+                    $ids=array_column($subjects,'id'); $got=array_column((array)($reply['categories'] ?? []),'id'); sort($ids);sort($got);
+                    if ($ids !== $got) throw new RuntimeException('主体分类必须覆盖全部原ID',422);
+                    foreach ($reply['categories'] as $row) if (!in_array($row['category']??'', ['character','animal','prop','symbol'],true)) throw new RuntimeException('主体类型无效',422);
+                });
+            $types=array_column($reply['categories'],'category','id');
+            foreach ($plan['subjects'] as $i=>$subject) if (isset($types[$subject['id']]) && empty($subject['library_subject_id']) && $types[$subject['id']] !== ($subject['category']??'')) {
+                $repairs[]=['subject_category'=>['id'=>$subject['id'],'before'=>$subject['category']??'','after'=>$types[$subject['id']]]];
+                $subject['category']=$types[$subject['id']]; $plan['subjects'][$i]=ShortDramaPromptDocuments::withoutGeneratedDefaults($subject);
+            }
+        }
         for ($pass = 0; $pass < 3; $pass++) {
             $report = self::inspect($plan, $requirements, $call);
             if (!$report['issues']) {
@@ -128,6 +148,34 @@ final class ShortDramaContentAcceptance
                 unset($e); $coverage[$check['id']][] = $check;
             }
         }
+        // A reference existing in the script does not prove the requested event.
+        // Verify only the claim and exact excerpts, without outline/summary that
+        // could invite the reviewer to fill in missing content from intention.
+        $claims=[];
+        foreach ($requirements as $r) if ($r['kind']==='event') foreach ($coverage[$r['id']]??[] as $i=>$check) if ($check['status']==='covered') {
+            $claims[]=['id'=>$r['id'].':'.$i,'requirement'=>$r['text'],'evidence'=>$check['evidence']];
+        }
+        foreach (array_chunk($claims,6) as $batch) {
+            $proof=self::call($call,'proof',['claims'=>$batch],
+                '逐项做严格文本蕴含检查。只凭evidence的quote判断要求中的动作、对象、说话内容是否明确发生。提到有事要说不能证明提出具体提议；准备做不等于已做；默读不能证明读出；描述朗读不等于给出了指定问候台词。禁止根据剧情意图补全未写出的内容。返回{"verdicts":[{"id":"原id","supported":true,"reason":"证据如何明确支持全部要求或缺少什么"}]}，全部ID各一次。supported只能是真实布尔值；有遗漏或不确定返回false。',
+                static function(array $reply)use($batch):void{
+                    $ids=array_column($batch,'id');$got=array_column((array)($reply['verdicts']??[]),'id');sort($ids);sort($got);
+                    if($ids!==$got)throw new RuntimeException('覆盖语义证明必须逐项返回',422);
+                    foreach($reply['verdicts'] as $v)if(!is_bool($v['supported']??null)||!is_string($v['reason']??null))throw new RuntimeException('覆盖语义结论无效',422);
+                });
+            foreach($proof['verdicts'] as $v){[$id,$index]=explode(':',$v['id']);$coverage[$id][(int)$index]['proof']=$v;
+                if(!$v['supported'])$coverage[$id][(int)$index]['status']='absent';}
+        }
+        if ($duplicates) {
+            foreach (array_chunk($duplicates,4) as $batch) {
+                $data=[]; $byId=array_column($shots,null,'shot_id');
+                foreach($batch as $i=>$d)$data[]=['id'=>(string)$i,'first'=>self::shots([$byId[$d['first_shot_id']]])[0],'repeat'=>self::shots([$byId[$d['shot_ids'][0]]])[0]];
+                $reply=self::call($call,'repetition',['candidates'=>$data,'requirements'=>$requirements],
+                    '检查两镜头是否无理由重演同一对白。仅当用户明确要求重复、不同语境的合理复述或必要呼应才intentional=true；无叙事推进的重复为false。返回{"verdicts":[{"id":"候选id","intentional":false,"reason":"具体依据"}]}，全部id各一次。',
+                    static function(array $reply)use($data):void{$ids=array_column($data,'id');$got=array_column((array)($reply['verdicts']??[]),'id');sort($ids);sort($got);if($ids!==$got)throw new RuntimeException('重复检查项不完整',422);foreach($reply['verdicts'] as $v)if(!is_bool($v['intentional']??null))throw new RuntimeException('重复检查类型无效',422);});
+                foreach($reply['verdicts'] as $v)if(!$v['intentional'])$issues[]=$batch[(int)$v['id']];
+            }
+        }
         foreach ($requirements as $r) {
             $checks = $coverage[$r['id']] ?? []; $states = array_column($checks, 'status');
             if (in_array('violated', $states, true) || ($r['kind'] === 'constraint' && in_array('absent', $states, true)) || ($r['kind'] === 'event' && !in_array('covered', $states, true))) {
@@ -143,11 +191,13 @@ final class ShortDramaContentAcceptance
     {
         $seen = []; $issues = [];
         foreach ($plan['storyboard'] as $shot) {
-            $text = preg_replace('/[\s\p{P}]+/u', '', (string)($shot['dialogue'] ?? ''));
+            foreach (ShortDramaShotSemantics::turns($shot) as $turn) {
+            $text = preg_replace('/[\s\p{P}]+/u', '', $turn['text']);
             // Short replies/refrains can legitimately recur; report long exact repeats for repair review.
-            if (mb_strlen($text) < 16) continue;
-            if (isset($seen[$text])) $issues[] = ['message'=>'与镜头' . $seen[$text] . '重复同一段完整对白；检查是否重演已完成事件，若为用户明确要求的复述应保留并改成明确复述语境', 'shot_ids'=>[$shot['shot_id']]];
+            if (mb_strlen($text) < 6) continue;
+            if (isset($seen[$text]) && $seen[$text] !== $shot['shot_id']) $issues[] = ['message'=>'与镜头' . $seen[$text] . '重复同一段完整对白；保留正确发生的一次，修复重复发生的动作和对白', 'first_shot_id'=>$seen[$text], 'shot_ids'=>[$shot['shot_id']]];
             $seen[$text] = $shot['shot_id'];
+            }
         }
         return $issues;
     }
