@@ -3,7 +3,7 @@
 Source: https://higgsfield.ai/enterprise (retrieved 2026-10-03).
 
 Only icons/brand marks remain bundled:
-- `suite-mark.svg`, `fortune-logo.png`: hero marks.
+- `fortune-logo.png`: hero badge. The former suite logo is removed and must not be restored as a preset.
 - `logo-primary-*.webp`, `logo-secondary-*.webp`: client brand marks.
 - `mcp-pill.png`: MCP application icon strip.
 

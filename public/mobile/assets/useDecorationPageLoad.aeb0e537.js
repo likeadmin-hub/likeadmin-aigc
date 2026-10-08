@@ -1,0 +1,1 @@
+import{x as a,aI as r}from"./index-e5bff8f9.js";function t(t){const e=a(!1);let o=0;r(()=>{o++});return{loadError:e,loadPage:async(a,r)=>{const n=++o;e.value=!1;try{const e=await a();if(n!==o)return;r(e),t.ready=!0}catch(s){n!==o||t.ready||(e.value=!0)}}}}export{t as u};
