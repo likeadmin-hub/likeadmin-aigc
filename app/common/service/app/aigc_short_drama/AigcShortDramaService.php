@@ -17674,7 +17674,7 @@ class AigcShortDramaService
             'prompt' => '',
             'ratio' => self::requestGenerationRatio($params),
             'multi_episode' => $episodeSettings['multi_episode'],
-            'quality_review_enabled' => filter_var($params['quality_review_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'quality_review_enabled' => filter_var($params['quality_review_enabled'] ?? true, FILTER_VALIDATE_BOOLEAN),
             'episode_count' => $episodeSettings['episode_count'],
             'multi_episode_stage' => $episodeSettings['multi_episode']
                 ? self::MULTI_EPISODE_STAGE_STORY
