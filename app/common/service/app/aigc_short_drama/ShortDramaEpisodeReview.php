@@ -18,16 +18,17 @@ final class ShortDramaEpisodeReview
     public static function generate(array $base, array $request, callable $call, ?callable $progress = null): array
     {
         if (empty($base['storyboard'])) throw new RuntimeException('缺少可复核的已保存分镜', 422);
-        $context = (array)$request['series_context'];
+        $context = (array)($request['series_context'] ?? []);
+        $context['_server_owned_state'] = true;
         // Runtime-only provenance. A previous block is not a previous episode.
         $context['_reviewed_block_state_keys'] = [];
         $context['current_episode'] = array_intersect_key((array)($context['current_episode'] ?? []),
             array_flip(['episode_number','title','story_outline','conflict_point','ending_hook']));
         $context['outline'] = ShortDramaPlanningContext::lockedStory((array)($context['outline'] ?? []));
         $previousDigest = (string)($context['continuity']['previous_digest'] ?? '');
-        $result = $base; $summaries = []; $warnings = []; $patches = []; $auditCorrections = []; $pendingReview = false;
+        $result = $base; $summaries = []; $warnings = []; $patches = []; $auditCorrections = []; $unverified = []; $observed = []; $pendingReview = false;
         $shots = array_values($base['storyboard']);
-        $process = function (int $offset, int $count) use (&$process, &$result, &$context, &$summaries, &$warnings, &$patches, &$auditCorrections, &$pendingReview, $shots, $request, $call, $progress): void {
+        $process = function (int $offset, int $count) use (&$process, &$result, &$context, &$summaries, &$warnings, &$patches, &$auditCorrections, &$unverified, &$observed, &$pendingReview, $shots, $request, $call, $progress): void {
             $block = self::projection($result);
             unset($block['script_lines'], $block['story_outline']);
             $block['storyboard'] = array_slice($shots, $offset, $count);
@@ -52,12 +53,12 @@ final class ShortDramaEpisodeReview
                 try {
                     $ledger = ShortDramaContinuity::review($block, $context, (int)($request['episode_number'] ?? 1), $audit, $verify, false, true);
                 } catch (RuntimeException $error) {
-                    if ($error->getCode() !== 409) throw $error;
+                    if (!$error instanceof ShortDramaScriptConflict) throw $error;
                     $input = ['system_prompt' => '只修复已保存镜头与最新前集事实的明确冲突，不重写剧本。返回JSON {"patches":[{"shot_id":"原ID","field":"字段名","before":"原值","after":"新值","reason":"明确冲突说明"}]}。'
                         . '仅允许visual_description、dialogue、voice_role、speech_type、scene_ref_id、subject_ref_ids。before必须逐字等于原值，数组保持类型。保留无关剧情、对白和镜头数量；不要修改时长、素材或编号。无明确冲突返回空patches。',
                         'content' => json_encode(['conflict' => $error->getMessage(), 'previous' => $context['continuity'] ?? [],
                             'confirmed' => $context['outline'], 'shots' => $block['storyboard']], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
-                    $reply = $call($key . '_patch', $input, 4096, static fn($reply) => self::apply($block, $reply));
+                    $reply = ShortDramaStructuredResponse::audit($input, static fn($input) => $call($key . '_patch_' . substr(hash('sha256', json_encode($input)), 0, 16), $input, 4096, static fn($reply) => self::apply($block, $reply)));
                     $candidate = self::apply($block, $reply);
                     if ($candidate === $block) throw $error;
                     $ledger = ShortDramaContinuity::review($candidate, $context, (int)($request['episode_number'] ?? 1), $audit, $verify, false, true);
@@ -81,6 +82,8 @@ final class ShortDramaEpisodeReview
             $summaries[] = $ledger['summary'];
             array_push($warnings, ...(array)$ledger['warnings']);
             array_push($auditCorrections, ...(array)($ledger['audit_corrections'] ?? []));
+            array_push($unverified, ...(array)($ledger['unverified_claims'] ?? []));
+            array_push($observed, ...(array)($ledger['observed_events'] ?? []));
             if ($progress) $progress('stage', ['status'=>'running','progress'=>min(95, 20 + (int)(75 * ($offset + $count) / count($shots))),
                 'current_step'=>'已复核' . ($offset + $count) . '/' . count($shots) . '个分镜，原版本保留']);
         };
@@ -94,7 +97,9 @@ final class ShortDramaEpisodeReview
         $result['_continuity'] = ['version'=>1,'episode_number'=>(int)($request['episode_number'] ?? 1),
             'summary'=>implode("\n", $summaries),'state'=>$context['continuity']['state'] ?? [],'open_hooks'=>$context['continuity']['open_hooks'] ?? [],
             'digest'=>ShortDramaContinuity::fingerprint($result),'previous_digest'=>$previousDigest,'warnings'=>array_values(array_unique($warnings)),
-            'audit_status'=>$pendingReview ? 'pending_review' : 'verified','review_mode'=>'blocks','review_patches'=>$patches,'audit_corrections'=>$auditCorrections];
+            'audit_status'=>$pendingReview ? 'pending_review' : 'verified','review_mode'=>'blocks','review_patches'=>$patches,'audit_corrections'=>$auditCorrections,
+            'unverified_claims'=>$unverified,'observed_events'=>$observed,'protocol_version'=>2,
+            'content_status'=>'ready','dependency_status'=>$pendingReview ? 'blocked' : 'ready'];
         return $result;
     }
 

@@ -55,41 +55,42 @@ class ShortDramaEpisodeReviewTest extends TestCase
         self::assertSame('verified',$result['_continuity']['audit_status']);
         unset($result['_continuity']); self::assertSame($plan,$result);
     }
-    public function testSameEpisodeBlockStateReferenceIsRepairedWithoutRewritingShots(): void
+    public function testStateReferencesAreOwnedByServerAcrossBlocksWithoutModelCorrections(): void
     {
-        $plan = $this->plan(5); $corrections = 0;
-        $result = Review::generate($plan, $this->request(), function ($key, $messages) use (&$corrections) {
-            self::assertStringNotContainsString('"patches"', $messages['system_prompt']);
-            if (str_contains($messages['content'], '仅修正审校JSON')) {
-                $corrections++;
-                $contract = json_decode($messages['content'], true)['response_contract'];
-                self::assertSame(['evidence_patches'], array_keys($contract));
-                self::assertArrayNotHasKey('quote', $contract['evidence_patches'][0]);
-                return ['evidence_patches' => [['collection'=>'changes', 'index'=>0, 'before'=>'房间']]];
-            }
+        $plan = $this->plan(5); $audits = 0;
+        $result = Review::generate($plan, $this->request(), function ($key, $messages) use (&$audits) {
+            self::assertStringNotContainsString('仅修正审校JSON', $messages['content']);
             $input = json_decode($messages['content'], true);
-            if (isset($input['response_contract']['checks'])) return ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>true,'reason'=>'镜头中甲走进房间']]];
-            self::assertEmpty($input['script']['script_lines'] ?? []);
-            self::assertNotEmpty($input['review_window']);
-            return ['summary'=>'甲在房间', 'changes'=>[['entity_id'=>'a','field'=>'location','before'=>null,'after'=>'房间',
+            if (isset($input['response_contract']['checks'])) return ['checks'=>array_map(static fn($c)=>array_replace($c,['supported'=>true,'reason'=>'镜头中甲走进房间','failure_kind'=>'uncertain']), $input['response_contract']['checks'])];
+            $audits++;
+            return ['summary'=>'甲在房间','changes'=>[['entity_id'=>'a','field'=>'location','before'=>'随意改写的旧值','after'=>'房间',
                 'shot_id'=>$input['script']['storyboard'][0]['shot_id'],'quote'=>'甲走进房间']], 'hooks'=>[], 'warnings'=>[]];
         });
-        self::assertSame(1, $corrections);
+        self::assertSame(2, $audits);
         self::assertSame('verified', $result['_continuity']['audit_status']);
+        self::assertSame('房间', $result['_continuity']['state']['a:location']);
         self::assertSame($plan['storyboard'], $result['storyboard']);
     }
-
-    public function testPreviousEpisodeConflictStillBlocks(): void
+    public function testConfirmedScriptConflictStillBlocksWhenNoSafePatchExists(): void
     {
-        $request = $this->request(); $request['series_context']['continuity']['state'] = ['a:location'=>'街道'];
-        $this->expectExceptionCode(409);
+        $request = $this->request(); $request['series_context']['continuity']['state'] = ['a:status'=>'死亡'];
+        $this->expectException(\app\common\service\app\aigc_short_drama\ShortDramaScriptConflict::class);
         Review::generate($this->plan(1), $request, function ($key, $messages) {
-            if (str_ends_with($key, '_patch')) return ['patches'=>[]];
+            if (str_contains($key, '_patch_')) return ['patches'=>[]];
             $input=json_decode($messages['content'], true);
-            if (isset($input['response_contract']['checks'])) return ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>true,'reason'=>'镜头证据']]];
-            return ['summary'=>'甲在房间','changes'=>[['entity_id'=>'a','field'=>'location','before'=>'屋外','after'=>'房间','shot_id'=>'s1','quote'=>'甲走进房间']], 'hooks'=>[], 'warnings'=>[]];
+            if (isset($input['response_contract']['checks'])) return ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>false,'failure_kind'=>'script_conflict','reason'=>'前集死亡，正文甲走进房间且没有解释复活']]];
+            return ['summary'=>'甲在房间','changes'=>[['entity_id'=>'a','field'=>'status','before'=>'活着','after'=>'活着','shot_id'=>'s1','quote'=>'甲走进房间']], 'hooks'=>[], 'warnings'=>[]];
         });
     }
+    public function testReceiptConflictDoesNotAuthorizeChangingTheScript(): void
+    {
+        $calls = 0;
+        try {
+            Review::generate($this->plan(1), $this->request(), function() use(&$calls) { $calls++; throw new \RuntimeException('生成上下文已变化', 409); });
+            self::fail('Conflict must propagate');
+        } catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); self::assertSame(1, $calls); }
+    }
+
     public function testInvalidCorrectionIsValidatedInsideReceiptBoundary(): void
     {
         $validated = false;
