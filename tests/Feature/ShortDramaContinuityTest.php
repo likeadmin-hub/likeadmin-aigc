@@ -441,7 +441,8 @@ class ShortDramaContinuityTest extends TestCase
             if (count($calls) === 1) { self::assertSame(Continuity::messages($plan, []), $input); return $bad; }
             self::assertStringContainsString('evidence_errors', $input['content']);
             self::assertStringContainsString('hooks.0', $input['content']);
-            self::assertStringContainsString('不得概括、加省略号', $input['content']);
+            self::assertStringContainsString('由服务器读取原文', $input['content']);
+            self::assertSame(['evidence_patches'], array_keys(json_decode($input['content'], true)['response_contract']));
             return $fixed;
         });
         self::assertCount(2, $calls);
