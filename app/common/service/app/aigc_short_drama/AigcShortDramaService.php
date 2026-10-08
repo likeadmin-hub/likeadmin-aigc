@@ -18214,8 +18214,8 @@ class AigcShortDramaService
         if ($v3Generation !== null && !empty($request['series_context'])) {
             if ($onEvent) $onEvent('stage', ['status' => 'running', 'progress' => 97, 'current_step' => '检查人物状态、伏笔与前集衔接']);
             $originalAudit = [];
-            $audit = static function (array $continuityInput, ?callable $validate = null) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, &$originalAudit): array {
-                return ShortDramaStructuredResponse::audit($continuityInput, static function (array $continuityInput) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, &$originalAudit, $validate): array {
+            $audit = static function (array $continuityInput, ?callable $validate = null) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, &$originalAudit, &$result): array {
+                return ShortDramaStructuredResponse::audit($continuityInput, static function (array $continuityInput) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, &$originalAudit, $validate, &$result): array {
                 $reviewReceipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, $continuityInput + [
                     'model_config' => ['max_tokens' => 4096, 'enable_thinking' => false],
                     'source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
@@ -18226,6 +18226,7 @@ class AigcShortDramaService
                 $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $reviewReceipt['result']])));
                 $decoded = ShortDramaStructuredResponse::decode((array)$reviewReceipt['result']);
                 if ($validate) $validate($decoded);
+                if (!isset($decoded['evidence_patches']) && !isset($decoded['claim_patches'])) ShortDramaContinuity::assertAuditShape($decoded, $result);
                 if ($originalAudit === [] && isset($decoded['changes'])) $originalAudit = $decoded;
                 return $decoded;
                 });

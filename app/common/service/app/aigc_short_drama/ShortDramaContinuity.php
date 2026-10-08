@@ -112,12 +112,30 @@ final class ShortDramaContinuity
                 'script' => self::narrative($plan),
                 'response_contract' => [
                     'summary' => '本集已发生事件的简短摘要，不写未来剧情',
-                    'changes' => [['entity_id' => 'subjects或locations中的id，也可为world', 'field' => '稳定状态键，如location/knows_secret/injury/item_owner',
+                    'changes' => [['entity_id' => 'subjects或locations中的id，也可为world', 'field' => '稳定状态键，如location/knows_secret/injury/item_owner；1至80个中文、英文字母、数字、下划线、斜线或连字符，禁止冒号和空格',
                         'before' => 'previous.state里已有的原值；首次记录用null', 'after' => '正文中明确的新值', 'shot_id' => '证据镜头id', 'quote' => '该镜头visual_description或dialogue中的原文片段']],
                     'hooks' => [['id' => '稳定伏笔标识；resolved必须逐字引用previous.open_hooks中已有ID', 'description' => '伏笔内容；同集新出现且已经完成的事件使用observed，不伪造前集伏笔', 'status' => 'open、resolved或observed', 'shot_id' => '证据镜头id', 'quote' => '镜头原文片段']],
                     'warnings' => ['具体连续性疑点，无疑点则空数组'],
                 ],
             ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
+    }
+
+    /** Validate audit syntax before paying for semantic verification. Schema
+     * recovery can change malformed identifiers; evidence repair cannot. */
+    public static function assertAuditShape(array $review, array $plan): void
+    {
+        if (!is_string($review['summary'] ?? null) || trim($review['summary']) === '') throw new RuntimeException('连续性摘要缺失', 422);
+        foreach (['changes','hooks','warnings'] as $field) if (!is_array($review[$field] ?? null) || !array_is_list($review[$field])) throw new RuntimeException('连续性审校结构：' . $field . '必须为JSON数组', 422);
+        $ids = array_merge(['world'], array_column($plan['subjects'] ?? [], 'id'), array_column($plan['locations'] ?? [], 'id'));
+        foreach ($review['changes'] as $index => $record) {
+            if (!is_array($record) || !in_array($record['entity_id'] ?? null, $ids, true)) throw new RuntimeException('连续性审校结构：changes[' . $index . '].entity_id只能取' . json_encode($ids, JSON_UNESCAPED_UNICODE), 422);
+            if (!is_string($record['field'] ?? null) || !preg_match('~^[a-zA-Z0-9_/\x{4e00}-\x{9fff}-]{1,80}$~u', $record['field'])) throw new RuntimeException('连续性审校结构：changes[' . $index . '].field仅允许1至80个中文、字母、数字、下划线、斜线或连字符，禁止冒号、空格', 422);
+            if (!is_scalar($record['after'] ?? null) || mb_strlen(ShortDramaText::value($record['after'])) > 1200
+                || (isset($record['before']) && !is_scalar($record['before']))) throw new RuntimeException('连续性审校结构：状态before/after必须为标量文本，首次before用null', 422);
+        }
+        foreach ($review['hooks'] as $record) if (!is_array($record) || !is_string($record['id'] ?? null) || trim($record['id']) === '' || mb_strlen($record['id']) > 100
+            || !is_string($record['description'] ?? null) || !in_array($record['status'] ?? '', ['open','resolved','observed'], true)) throw new RuntimeException('连续性审校结构：伏笔必须含id、description、status(open/resolved/observed)', 422);
+        foreach ($review['warnings'] as $warning) if (!is_string($warning) || mb_strlen($warning) > 1500) throw new RuntimeException('连续性提示格式无效', 422);
     }
 
     /** At most two reference corrections, never rewrite or relax the script. */
@@ -153,6 +171,17 @@ final class ShortDramaContinuity
                             && array_key_exists('before', $item) && array_key_exists('after', $item)
                             && $item['before'] === $known[$key] && $item['after'] === $known[$key];
                         $seenKeys[$key] = true;
+                        return !$unchanged;
+                    }));
+                }
+                if (!$attempt && is_array($review['hooks'] ?? null)) {
+                    $knownHooks = (array)($context['continuity']['open_hooks'] ?? []); $seenHooks = [];
+                    $review['hooks'] = array_values(array_filter($review['hooks'], static function ($hook) use ($knownHooks, &$seenHooks): bool {
+                        if (!is_array($hook) || !is_string($hook['id'] ?? null)) return true;
+                        $id = $hook['id'];
+                        $unchanged = !isset($seenHooks[$id]) && ($hook['status'] ?? '') === 'open'
+                            && isset($knownHooks[$id]) && $knownHooks[$id] === ($hook['description'] ?? null);
+                        $seenHooks[$id] = true;
                         return !$unchanged;
                     }));
                 }

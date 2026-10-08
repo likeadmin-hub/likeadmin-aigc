@@ -16,6 +16,8 @@ final class ShortDramaStructuredResponse
             catch (RuntimeException $error) {
                 $format = $error->getMessage() === '模型输出不是完整 JSON，已保存返回内容'
                     || str_starts_with($error->getMessage(), '连续性语义核对')
+                    || str_starts_with($error->getMessage(), '连续性审校结构')
+                    || str_starts_with($error->getMessage(), '审校事实纠正')
                     || in_array($error->getMessage(), ['连续性摘要缺失', '连续性检查结构不完整', '连续性提示格式无效'], true);
                 if ($attempt >= 2 || $error->getCode() !== 422 || !$format) throw $error;
                 $input['content'] .= "\n审校格式恢复第" . ($attempt + 1) . "次：上次回包未通过格式校验（"
