@@ -24,6 +24,8 @@ class ShortDramaContentAcceptanceTest extends TestCase
         $result=Acceptance::generate($before,['prompt'=>'陈伯读出学生问候。'],function($key,$input,$tokens,$validate) use (&$checks) {
             $data=json_decode($input['content'],true);
             if(isset($data['source'])) $reply=['requirements'=>[['text'=>'陈伯读出学生问候','source_index'=>0,'kind'=>'event']]];
+            elseif(isset($data['claims'])) $reply=['verdicts'=>array_map(fn($c)=>['id'=>$c['id'],'supported'=>true,'reason'=>'明确读出问候'],$data['claims'])];
+            elseif(!isset($data['shots'],$data['targets']) && !isset($data['targets']) && isset($data['subjects'])) $reply=['categories'=>array_map(fn($s)=>['id'=>$s['id'],'category'=>$s['category']],$data['subjects'])];
             elseif(isset($data['targets'])) $reply=['patches'=>[
                 ['shot_id'=>'s1','field'=>'dialogue','before'=>'','after'=>'老师，祝您身体健康。'],
                 ['shot_id'=>'s1','field'=>'voice_role','before'=>'','after'=>'陈伯'],
@@ -44,7 +46,7 @@ class ShortDramaContentAcceptanceTest extends TestCase
     {
         $plan=$this->plan(); $plan['storyboard']=array_map(fn($i)=>array_replace($plan['storyboard'][0],['shot_id'=>'s'.$i]),range(1,17)); $sizes=[];
         $report=Acceptance::inspect($plan,[['id'=>'r1','kind'=>'event','text'=>'取信']],function($key,$input,$tokens,$validate) use (&$sizes) {
-            $data=json_decode($input['content'],true); $sizes[]=count($data['shots']); $last=$data['shots'][0]['shot_id']==='s17';
+            $data=json_decode($input['content'],true); if(isset($data['claims'])){$reply=['verdicts'=>array_map(fn($c)=>['id'=>$c['id'],'supported'=>true,'reason'=>'原文明确拿信'],$data['claims'])];$validate($reply);return $reply;} $sizes[]=count($data['shots']); $last=$data['shots'][0]['shot_id']==='s17';
             $reply=['checks'=>[['id'=>'r1','status'=>$last?'covered':'absent','evidence'=>$last?[['shot_id'=>'s17','field'=>'visual_description','quote'=>'陈伯拿出信件。']]:[]]],'issues'=>[]];
             $validate($reply); return $reply;
         });
@@ -64,6 +66,21 @@ class ShortDramaContentAcceptanceTest extends TestCase
     {
         $this->expectException(\RuntimeException::class);
         Acceptance::apply($this->plan(),['patches'=>[['shot_id'=>'s1','field'=>'video_url','before'=>'keep-original-video','after'=>'new']]],['s1']);
+    }
+
+    public function testExistingQuoteDoesNotProveMissingEventAndRepeatedIndividualTurnIsDetected(): void
+    {
+        $plan=$this->plan();$plan['storyboard'][0]['dialogue']='有件事跟你说。';
+        $report=Acceptance::inspect($plan,[['id'=>'r1','kind'=>'event','text'=>'提出举办读书会']],static function($key,$input,$tokens,$validate){
+            $data=json_decode($input['content'],true);
+            $reply=isset($data['claims'])?['verdicts'=>[['id'=>'r1:0','supported'=>false,'reason'=>'证据没有说是什么事']]]:
+                ['checks'=>[['id'=>'r1','status'=>'covered','evidence'=>[['shot_id'=>'s1','field'=>'dialogue']],'target_shot_ids'=>['s1']]],'issues'=>[]];
+            $validate($reply);return $reply;
+        });
+        self::assertNotEmpty($report['issues']);
+        $plan['storyboard'][0]['dialogue']="林舟：陈老师，您的信。\n林舟：明天我再来看您。";
+        $plan['storyboard'][]=array_replace($plan['storyboard'][0],['shot_id'=>'s2','dialogue'=>'林舟：明天我再来看您。']);
+        self::assertSame(['s2'],Acceptance::duplicates($plan)[0]['shot_ids']);
     }
 
     public function testRoomSilenceAndTwoSpeakersHaveConsistentSemantics(): void
