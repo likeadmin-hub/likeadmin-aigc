@@ -52,7 +52,7 @@ class AigcPicLipsyncService
     {
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $row = AigcPicLipsyncConfig::where('tenant_id', $tenantId)->findOrEmpty();
-        $payload = ['tenant_id' => $tenantId, 'status' => array_key_exists('status', $params) ? ((int)$params['status'] === 1 ? 1 : 0) : 1, 'config_json' => is_array($params['config_json'] ?? null) ? $params['config_json'] : [], 'update_time' => time()];
+        $payload = ['tenant_id' => $tenantId, 'status' => array_key_exists('status', $params) ? ((int)$params['status'] === 1 ? 1 : 0) : (int)($row['status'] ?? 1), 'config_json' => is_array($params['config_json'] ?? null) ? $params['config_json'] : ($row['config_json'] ?? []), 'update_time' => time()];
         if ($row->isEmpty()) { $payload['create_time'] = time(); AigcPicLipsyncConfig::create($payload); } else $row->save($payload);
     }
 
@@ -102,7 +102,7 @@ class AigcPicLipsyncService
     {
         $query = AigcPicLipsyncTask::where(['tenant_id' => $tenantId, 'delete_time' => 0])->order('id', 'desc');
         if ($userId > 0) $query->where('user_id', $userId);
-        $status = trim((string)($params['status'] ?? '')); if ($status !== '') $query->where('status', $status);
+        AigcPicLipsyncAdminService::filterTasks($query, $params);
         $pageNo = max(1, (int)($params['page_no'] ?? 1)); $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15))); $count = (int)(clone $query)->count();
         $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
         foreach ($rows as &$row) { self::syncConsumption((int)$row['id'], $userId); $fresh = AigcPicLipsyncTask::find((int)$row['id']); $row = self::formatTask($fresh?->toArray() ?: $row, $tenantId); } unset($row);
@@ -113,7 +113,7 @@ class AigcPicLipsyncService
     {
         $query = AigcPicLipsyncTask::where('delete_time', 0)->order('id', 'desc');
         if ((int)($params['tenant_id'] ?? 0) > 0) $query->where('tenant_id', (int)$params['tenant_id']);
-        if (!empty($params['status'])) $query->where('status', (string)$params['status']);
+        AigcPicLipsyncAdminService::filterTasks($query, $params);
         $pageNo = max(1, (int)($params['page_no'] ?? 1)); $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15)));
         $count = (int)(clone $query)->count(); $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
         foreach ($rows as &$row) { self::syncConsumption((int)$row['id']); $fresh = AigcPicLipsyncTask::find((int)$row['id']); $row = self::formatTask($fresh?->toArray() ?: $row, (int)$row['tenant_id']); }

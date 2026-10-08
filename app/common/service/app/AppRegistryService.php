@@ -828,6 +828,10 @@ class AppRegistryService
 
     private static function clearAppBusinessData(string $appCode): void
     {
+        if ($appCode === 'aigc_pic_lipsync') {
+            \app\common\service\app\aigc_pic_lipsync\AigcPicLipsyncAdminService::clearData();
+            return;
+        }
         if ($appCode === 'aigc_image') {
             AigcImageConfig::where('id', '>', 0)->delete();
             AigcImageTask::where('id', '>', 0)->delete();

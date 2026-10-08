@@ -98,102 +98,6 @@
       "need_role_permission": 0
     },
     {
-      "api_path": "app.aigc_pic_lipsync.config/detail",
-      "api_method": "GET",
-      "permission_key": "aigc_pic_lipsync:tenant:config:detail",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_pic_lipsync.task/lists",
-      "api_method": "GET",
-      "permission_key": "aigc_pic_lipsync:tenant:task:lists",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_pic_lipsync.task/detail",
-      "api_method": "GET",
-      "permission_key": "aigc_pic_lipsync:tenant:task:detail",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_pic_lipsync.task/delete",
-      "api_method": "POST",
-      "permission_key": "aigc_pic_lipsync:tenant:task:delete",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_pic_lipsync.config/setup",
-      "api_method": "POST",
-      "permission_key": "aigc_pic_lipsync:tenant:config:setup",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_pic_lipsync.task/retry",
-      "api_method": "POST",
-      "permission_key": "aigc_pic_lipsync:tenant:task:retry",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_pic_lipsync.config/detail",
-      "api_method": "GET",
-      "permission_key": "aigc_pic_lipsync:platform:config:detail",
-      "scene": "platform_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_pic_lipsync.task/lists",
-      "api_method": "GET",
-      "permission_key": "aigc_pic_lipsync:platform:task:lists",
-      "scene": "platform_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_pic_lipsync.task/detail",
-      "api_method": "GET",
-      "permission_key": "aigc_pic_lipsync:platform:task:detail",
-      "scene": "platform_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_pic_lipsync.task/delete",
-      "api_method": "POST",
-      "permission_key": "aigc_pic_lipsync:platform:task:delete",
-      "scene": "platform_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_pic_lipsync.config/setup",
-      "api_method": "POST",
-      "permission_key": "aigc_pic_lipsync:platform:config:setup",
-      "scene": "platform_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_pic_lipsync.task/retry",
-      "api_method": "POST",
-      "permission_key": "aigc_pic_lipsync:platform:task:retry",
-      "scene": "platform_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
       "api_path": "app.aigc_pic_lipsync.asset/save_image",
       "api_method": "POST",
       "permission_key": "aigc_pic_lipsync:user:asset:save_image",
@@ -248,6 +152,312 @@
       "scene": "user",
       "need_login": 1,
       "need_role_permission": 0
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:config:detail",
+      "name": "基础配置-detail",
+      "api_path": "app.aigc_pic_lipsync.config/detail",
+      "api_method": "GET",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:config:setup",
+      "name": "基础配置-setup",
+      "api_path": "app.aigc_pic_lipsync.config/setup",
+      "api_method": "POST",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:task:lists",
+      "name": "任务记录-lists",
+      "api_path": "app.aigc_pic_lipsync.task/lists",
+      "api_method": "GET",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:task:detail",
+      "name": "任务记录-detail",
+      "api_path": "app.aigc_pic_lipsync.task/detail",
+      "api_method": "GET",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:task:retry",
+      "name": "任务记录-retry",
+      "api_path": "app.aigc_pic_lipsync.task/retry",
+      "api_method": "POST",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:task:delete",
+      "name": "任务记录-delete",
+      "api_path": "app.aigc_pic_lipsync.task/delete",
+      "api_method": "POST",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:admin:stat",
+      "name": "应用统计-stat",
+      "api_path": "app.aigc_pic_lipsync.admin/stat",
+      "api_method": "GET",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:public_avatar:lists",
+      "name": "公共形象-lists",
+      "api_path": "app.aigc_pic_lipsync.public_avatar/lists",
+      "api_method": "GET",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:public_avatar:save",
+      "name": "公共形象-save",
+      "api_path": "app.aigc_pic_lipsync.public_avatar/save",
+      "api_method": "POST",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:public_avatar:delete",
+      "name": "公共形象-delete",
+      "api_path": "app.aigc_pic_lipsync.public_avatar/delete",
+      "api_method": "POST",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:user_avatar:lists",
+      "name": "用户形象-lists",
+      "api_path": "app.aigc_pic_lipsync.user_avatar/lists",
+      "api_method": "GET",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:user_avatar:delete",
+      "name": "用户形象-delete",
+      "api_path": "app.aigc_pic_lipsync.user_avatar/delete",
+      "api_method": "POST",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:public_voice:lists",
+      "name": "公共音色-lists",
+      "api_path": "app.aigc_pic_lipsync.public_voice/lists",
+      "api_method": "GET",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:public_voice:save",
+      "name": "公共音色-save",
+      "api_path": "app.aigc_pic_lipsync.public_voice/save",
+      "api_method": "POST",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:public_voice:delete",
+      "name": "公共音色-delete",
+      "api_path": "app.aigc_pic_lipsync.public_voice/delete",
+      "api_method": "POST",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:user_voice:lists",
+      "name": "用户音色-lists",
+      "api_path": "app.aigc_pic_lipsync.user_voice/lists",
+      "api_method": "GET",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:user_voice:publish",
+      "name": "用户音色-publish",
+      "api_path": "app.aigc_pic_lipsync.user_voice/publish",
+      "api_method": "POST",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:user_voice:delete",
+      "name": "用户音色-delete",
+      "api_path": "app.aigc_pic_lipsync.user_voice/delete",
+      "api_method": "POST",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:audio:lists",
+      "name": "驱动音频-lists",
+      "api_path": "app.aigc_pic_lipsync.audio/lists",
+      "api_method": "GET",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:audio:delete",
+      "name": "驱动音频-delete",
+      "api_path": "app.aigc_pic_lipsync.audio/delete",
+      "api_method": "POST",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:config:detail",
+      "name": "基础配置-detail",
+      "api_path": "app.aigc_pic_lipsync.config/detail",
+      "api_method": "GET",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:config:setup",
+      "name": "基础配置-setup",
+      "api_path": "app.aigc_pic_lipsync.config/setup",
+      "api_method": "POST",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:task:lists",
+      "name": "任务记录-lists",
+      "api_path": "app.aigc_pic_lipsync.task/lists",
+      "api_method": "GET",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:task:detail",
+      "name": "任务记录-detail",
+      "api_path": "app.aigc_pic_lipsync.task/detail",
+      "api_method": "GET",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:task:retry",
+      "name": "任务记录-retry",
+      "api_path": "app.aigc_pic_lipsync.task/retry",
+      "api_method": "POST",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:task:delete",
+      "name": "任务记录-delete",
+      "api_path": "app.aigc_pic_lipsync.task/delete",
+      "api_method": "POST",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:admin:stat",
+      "name": "应用统计-stat",
+      "api_path": "app.aigc_pic_lipsync.admin/stat",
+      "api_method": "GET",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:admin:tenants",
+      "name": "应用统计-tenants",
+      "api_path": "app.aigc_pic_lipsync.admin/tenants",
+      "api_method": "GET",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:public_avatar:lists",
+      "name": "公共形象-lists",
+      "api_path": "app.aigc_pic_lipsync.public_avatar/lists",
+      "api_method": "GET",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:public_avatar:save",
+      "name": "公共形象-save",
+      "api_path": "app.aigc_pic_lipsync.public_avatar/save",
+      "api_method": "POST",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:public_avatar:delete",
+      "name": "公共形象-delete",
+      "api_path": "app.aigc_pic_lipsync.public_avatar/delete",
+      "api_method": "POST",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:public_voice:lists",
+      "name": "公共音色-lists",
+      "api_path": "app.aigc_pic_lipsync.public_voice/lists",
+      "api_method": "GET",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:public_voice:save",
+      "name": "公共音色-save",
+      "api_path": "app.aigc_pic_lipsync.public_voice/save",
+      "api_method": "POST",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "aigc_pic_lipsync:public_voice:delete",
+      "name": "公共音色-delete",
+      "api_path": "app.aigc_pic_lipsync.public_voice/delete",
+      "api_method": "POST",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
     }
   ]
 }
