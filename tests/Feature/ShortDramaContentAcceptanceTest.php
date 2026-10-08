@@ -200,6 +200,13 @@ class ShortDramaContentAcceptanceTest extends TestCase
         self::assertSame($out,Semantics::normalize($out));
     }
 
+    public function testNarrationOfSpeakingDoesNotPassAsActualDialogue(): void
+    {
+        $p=$this->plan();$p['storyboard'][0]['dialogue']='陈伯用温和的嗓音朗读一段诗，具体文字不需要清晰可辨。';$p['storyboard'][0]['speech_type']='character';
+        $report=Acceptance::inspect($p,[],static function($key,$input,$tokens,$validate){$r=['checks'=>[],'issues'=>[]];$validate($r);return $r;});
+        self::assertSame('dialogue_instruction',$report['issues'][0]['code']);
+    }
+
     public function testDurationConstraintIsCalculatedByServerNotProseModel(): void
     {
         $report=Acceptance::inspect($this->plan(),[['id'=>'r1','kind'=>'constraint','text'=>'本集时长10秒。']],static function($key,$input,$tokens,$validate){
