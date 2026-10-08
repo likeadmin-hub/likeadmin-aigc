@@ -54,6 +54,15 @@ final class ShortDramaEpisodeDuration
             && ($request['revision_policy']['mode'] ?? 'local_only') !== 'full_replan';
     }
 
+    /** An episode total does not lock the model's provisional shot allocation. */
+    public static function canReallocateShots(array $request): bool
+    {
+        $policy = self::policy($request);
+        return ShortDramaDialogueSplit::enabled($request) && self::active($request)
+            && ($policy['source'] ?? '') === 'user' && empty($policy['timeline_segments'])
+            && !self::localRevision($request);
+    }
+
     public static function snapshot(array $rule, float $selected, float $textDuration, array $timeline, bool $seriesTotal = false): array
     {
         $rule = self::normalize($rule);
@@ -106,6 +115,7 @@ final class ShortDramaEpisodeDuration
             . '具体时间码和对应剧情必须完整保留。剧情类型只提供节奏参考，忽略旧模板的分镜数量上下限、按场景最少几个镜头及固定单集默认时长。'
             . '按实际对白、动作和情绪安排时长与镜头数，不追加镜头凑时长，不通过仅修改秒数压缩对白。默认时长不足时正常返回，默认下限仅为参考，不补长、不重试；明确用户时长仍严格遵守。'
             . '骨架先分配各场时间预算，再展开分镜。明确时间码可短于通常片段下限；每个未超过单镜头上限的时间码段必须恰好对应一个分镜，只有超过上限的长片段才允许连续拆分，并且不得改变原时间边界。'
+            . (self::canReallocateShots($request) ? '当前只锁定整集总时长，骨架中的逐镜秒数是初步分配；若对白超时，允许整集内重新分配镜头秒数，但不删改原对白、不改变事件顺序，也不能突破总时长。' : '')
             . (self::localRevision($request) ? '当前为局部修改，保留未选中内容及其时长，不执行整集时间再平衡。' : '')
             . "\n时间策略=" . json_encode(self::modelPolicy($request), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
