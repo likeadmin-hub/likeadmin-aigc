@@ -5242,6 +5242,8 @@ class AigcShortDramaService
     {
         $taskId = trim((string)($params['task_id'] ?? ''));
         $message = trim((string)($params['message'] ?? ''));
+        $contentReview = ($params['mode'] ?? '') === 'review_content';
+        if ($contentReview) $message = '核对并修复本集关键事件覆盖、重复内容、主体场景与对白归属，保留原镜头标识、时长和素材。';
         $advanceStage = (string)($params['mode'] ?? '') === 'advance_stage';
         if ($taskId === '' || (!$advanceStage && $message === '')) {
             throw new Exception('请输入修改意');
@@ -5327,6 +5329,8 @@ class AigcShortDramaService
             $request['episode_count'] = $episodeSettings['episode_count'];
         }
         $isEpisodeProduction = (bool)ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
+        if ($contentReview && (empty($previousResult['storyboard']) || ShortDramaStoryWorkflow::enabled($sourceRequest))) throw new Exception('请在已完成的单集正文中复核内容');
+        if ($contentReview) $request = ShortDramaEpisodeService::refreshReviewContext($tenantId, $userId, (int)$task['project_id'], $request);
         if ($isEpisodeProduction) {
             $request['multi_episode'] = false;
             $request['episode_count'] = 1;
@@ -5414,7 +5418,7 @@ class AigcShortDramaService
         }
         // An episode project still requires an explicit local target or an
         // explicit whole-episode rewrite; do not silently expand edit scope.
-        if ($isEpisodeProduction && !$fullPlanRevision && !$revisionTarget) {
+        if ($isEpisodeProduction && !$fullPlanRevision && !$revisionTarget && !$contentReview) {
             throw new Exception('请明确要修改的分镜或场景；如需整集调整，请明确输入“重写本集剧本”。原剧本保持不变');
         }
         $request['revision_message'] = $message;
@@ -5436,6 +5440,12 @@ class AigcShortDramaService
         // A previous revision may have carried a target; it must not leak into
         // this new request, especially when the user now asks for a full replan.
         unset($request['revision_target']);
+        unset($request['_continuity_review_only']);
+        if ($contentReview) {
+            $request['_continuity_review_only'] = true;
+            $request['quality_review_enabled'] = true;
+            $revisionTarget = [];
+        }
         if (!empty($revisionTarget)) {
             $request['revision_target'] = $revisionTarget;
         }
@@ -17895,7 +17905,7 @@ class AigcShortDramaService
 
     private static function generateScriptPlanResultScoped(int $tenantId, int $userId, string $prompt, array $request, string $title, array $model, ?callable $onEvent = null): array
     {
-        if (!empty($request['_continuity_review_only']) && !empty($request['revision_base_result']) && !empty($request['series_context'])) {
+        if (!empty($request['_continuity_review_only']) && !empty($request['revision_base_result'])) {
             $reviewed = self::reviewScriptPlanContinuity($tenantId, $userId, $request['revision_base_result'], $request, $model, $onEvent);
             return $reviewed + ['repair_llm'=>[], 'provider'=>(string)($model['provider'] ?? ''), 'model_selection'=>$model, 'raw_content'=>''];
         }
