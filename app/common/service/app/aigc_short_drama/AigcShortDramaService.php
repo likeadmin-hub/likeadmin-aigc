@@ -2137,6 +2137,8 @@ class AigcShortDramaService
             'delete_time' => 0,
         ]);
         $keyword = trim((string)($params['keyword'] ?? ''));
+        // Canvas uses this production engine internally, but owns its own project list.
+        $query->whereRaw('id NOT IN '.Db::name('aigc_short_drama_canvas_production')->where(['tenant_id'=>$tenantId,'user_id'=>$userId])->where('project_id','>',0)->field('project_id')->buildSql());
         $productionIds = ShortDramaEpisodeService::productionIds($tenantId, $userId);
         if ($productionIds) $query->whereNotIn('id', $productionIds);
         if ($keyword !== '') {

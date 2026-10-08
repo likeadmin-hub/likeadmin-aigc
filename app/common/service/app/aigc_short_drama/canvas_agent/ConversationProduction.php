@@ -142,6 +142,11 @@ final class ConversationProduction
                 }
                 $binding=['task_id'=>(string)$binding['task_id'],'project_id'=>(int)$binding['project_id'],'run_id'=>$run];
             }
+            $scope=['tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>(int)$claim['canvas_id'],'thread_id'=>(int)$claim['thread_id'],'stage_key'=>$key];
+            $receipt=Db::name('aigc_short_drama_canvas_production')->where($scope)->find();
+            $values=['project_id'=>(int)$binding['project_id'],'task_id'=>(string)$binding['task_id']];
+            if ($receipt) Db::name('aigc_short_drama_canvas_production')->where('id',$receipt['id'])->update($values);
+            else Db::name('aigc_short_drama_canvas_production')->insert($scope+$values+['create_time'=>time()]);
             $state['series']['tasks'][$key]=$binding;
             $settings['workflow_state']=$state;
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$row['id'])->update(['settings_json'=>json_encode($settings,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'update_time'=>time()]);

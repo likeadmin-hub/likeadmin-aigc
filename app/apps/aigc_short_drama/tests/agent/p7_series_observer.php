@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/bootstrap.php';
 use think\facade\Db;
+use app\common\service\app\aigc_short_drama\AigcShortDramaService as Production;
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore as Store;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow as Workflow;
@@ -20,16 +21,18 @@ try {
     Db::name('aigc_short_drama_config')->insert(['tenant_id'=>$tenant,'config_json'=>'{"canvas_agent":{"enabled":true}}','status'=>1]);
     $canvas=Canvas::create($tenant,$user,['title'=>'Observer acceptance'])['id'];
     $thread=Store::create($tenant,$user,$canvas,'observer')['id'];
+    $project=Db::name('aigc_short_drama_project')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'title'=>'Internal fixture']);
     $task='series-observer-'.$canvas;
-    Db::name('aigc_short_drama_script_task')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$task,'status'=>'running','request_json'=>'{}','result_json'=>'{}']);
+    Db::name('aigc_short_drama_script_task')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$task,'project_id'=>$project,'status'=>'running','request_json'=>'{}','result_json'=>'{}']);
     $state=['workflow_snapshot'=>['series_core'=>true,'key'=>Workflow::KEY,'version'=>Series::VERSION,'stage_skill_versions'=>[]],
         'stage_state'=>['key'=>'story','status'=>'running'],'slot_values'=>['episode_count'=>'10集'],'creative_settings'=>[],
-        'series'=>['episode_number'=>1,'tasks'=>['story'=>['task_id'=>$task,'project_id'=>0,'run_id'=>0]]],
+        'series'=>['episode_number'=>1,'tasks'=>['story'=>['task_id'=>$task,'project_id'=>$project,'run_id'=>0]]],
         'state_revision'=>1,'artifact_memory'=>[],'creative_brief'=>'寻找旧信','image_plan'=>[],'stage_plan'=>[],'plan_hash'=>'','plan_confirmation'=>['status'=>'not_required']];
     $ack=Store::enqueue($tenant,$user,$canvas,$thread,['request_key'=>'story','content'=>'开始设定','base_revision'=>0],
         ['settings'=>[],'skill'=>[],'workflow'=>$state,'thread_settings'=>['workflow_state'=>$state]]);
     $run=$ack['run_id'];
     agentCheck(Worker::process($tenant,$user,$run,new SeriesNoChatProvider())==='production_pending','pending core task defers the local observer');
+    agentCheck(Production::projectLists($tenant,$user)['count']===0,'internal canvas production does not appear as another conventional project');
     agentCheck(Db::name('aigc_short_drama_script_task')->where('tenant_id',$tenant)->count()===1,'polling creates no duplicate production task');
     Db::name(Store::PREFIX.'outbox')->where('run_id',$run)->update(['available_at'=>0]);
     $claim=Execution::claim($tenant,$user,$run);

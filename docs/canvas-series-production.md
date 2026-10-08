@@ -12,10 +12,12 @@ Reuse requires matching server-owned identity, prompt, style/model configuration
 
 ## Upgrade and rollback
 
-Apply `upgrade_20261009_canvas_pages.sql` before starting the new code. It adds an idempotent page relation table and does not rewrite existing canvas JSON. It remains within `aigc_short_drama` and uses existing authenticated API permissions; no new permission or provider endpoint is introduced. No changes to AIGC canvas or shared UI are required.
+Apply `upgrade_20261009_canvas_pages.sql` and `upgrade_20261009_canvas_production.sql` before starting the new code. They add idempotent page and internal production relation tables and do not rewrite existing canvas JSON. It remains within `aigc_short_drama` and uses existing authenticated API permissions; no new permission or provider endpoint is introduced. No changes to AIGC canvas or shared UI are required.
 
 For rollback, stop starting new series work and let active paid production tasks reach a known state. Preserve the relation table and all page documents; do not flatten or delete episode pages. Old code does not understand project grouping, so restore this feature before editing grouped projects. No deployment or release package is part of this source change.
 
 ## Validation
 
 Run `CanvasSeriesProductionTest` with conventional story/reliability/continuity/dialogue tests, plus PC composer/document tests. Local MySQL acceptance scripts `p7_series_pages.php` and `p7_series_observer.php` use `SHORT_DRAMA_AGENT_TEST=local-existing`, verify actual persistence/ownership/retry behavior and roll back fixtures. The observer test rejects any call to the chat provider. These checks are not a claim of successful real upstream generation of 500 episodes.
+
+Internal production project IDs are recorded with the canvas stage binding and omitted from conventional project lists. This keeps engine reuse from presenting each page as a duplicate conventional project.

@@ -508,6 +508,7 @@ final class ConversationWorkflow
                 $next['workflow_snapshot']['document_asset_ids']=[];
                 // Each episode is a bounded page in the same project; completed pages stay intact.
                 $created=\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::create($tenant,$user,$canvas,'episode:'.$thread.':'.ConversationSeries::episode($next),'第 '.ConversationSeries::episode($next).' 集');
+                Db::name(\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::TABLE)->where(['canvas_id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user])->update(['title'=>'第 '.ConversationSeries::episode($state).' 集']);
                 $nextCanvas=(int)$created['id'];
                 $createdThread=ConversationStore::create($tenant,$user,$nextCanvas,'series:'.$canvas.':'.$thread.':'.ConversationSeries::episode($next),'第'.ConversationSeries::episode($next).'集创作');
                 $nextSettings=$settings;$nextSettings['workflow_state']=$next;
