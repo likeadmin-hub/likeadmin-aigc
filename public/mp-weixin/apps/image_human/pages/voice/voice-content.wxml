@@ -1,1 +1,1 @@
-<decoration-tab-page u-s="{{['d']}}" u-i="8b7a25ac-0" bind:__l="__l"><image-human-assets wx:if="{{a}}" u-i="8b7a25ac-1,8b7a25ac-0" bind:__l="__l" u-p="{{a}}"/></decoration-tab-page>
+<decoration-tab-page u-s="{{['d']}}" u-i="a45b1d2a-0" bind:__l="__l"><image-human-assets wx:if="{{a}}" u-i="a45b1d2a-1,a45b1d2a-0" bind:__l="__l" u-p="{{a}}"/></decoration-tab-page>
