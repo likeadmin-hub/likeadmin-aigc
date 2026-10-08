@@ -9091,10 +9091,10 @@ class AigcShortDramaService
         $subjects = (array)($source['subjects'] ?? $source['characters'] ?? []);
         $locations = (array)($source['locations'] ?? $source['scenes'] ?? $source['settings'] ?? []);
         $required = [
-            'title' => trim((string)($source['title'] ?? '')),
-            'type_judgement' => trim((string)($source['type_judgement'] ?? $source['type'] ?? $source['genre'] ?? '')),
-            'core_theme' => trim((string)($source['core_theme'] ?? $source['theme'] ?? '')),
-            'story_outline' => trim((string)($source['story_outline'] ?? $source['summary'] ?? '')),
+            'title' => ShortDramaText::value($source['title'] ?? ''),
+            'type_judgement' => ShortDramaText::genre($source['type_judgement'] ?? $source['type'] ?? $source['genre'] ?? ''),
+            'core_theme' => ShortDramaText::value($source['core_theme'] ?? $source['theme'] ?? ''),
+            'story_outline' => ShortDramaText::value($source['story_outline'] ?? $source['summary'] ?? ''),
         ];
         foreach ($required as $field => $value) if ($value === '') throw new Exception('解析结果缺少“' . $field . '”字段');
         if ($subjects === [] || $locations === []) throw new Exception('解析结果缺少主体或场景信息');
@@ -9102,10 +9102,10 @@ class AigcShortDramaService
         foreach ($episodes as $index => $episode) {
             $mapped = [
                 'episode_number' => (int)($episode['episode_number'] ?? $episode['episode_no'] ?? 0),
-                'title' => trim((string)($episode['title'] ?? '')),
-                'story_outline' => trim((string)($episode['story_outline'] ?? $episode['summary'] ?? '')),
-                'conflict_point' => trim((string)($episode['conflict_point'] ?? $episode['conflict'] ?? '')),
-                'ending_hook' => trim((string)($episode['ending_hook'] ?? $episode['hook'] ?? '')),
+                'title' => ShortDramaText::value($episode['title'] ?? ''),
+                'story_outline' => ShortDramaText::value($episode['story_outline'] ?? $episode['summary'] ?? ''),
+                'conflict_point' => ShortDramaText::value($episode['conflict_point'] ?? $episode['conflict'] ?? ''),
+                'ending_hook' => ShortDramaText::value($episode['ending_hook'] ?? $episode['hook'] ?? ''),
                 'source_range' => is_array($episode['source_range'] ?? null) ? $episode['source_range'] : [],
                 // Persist the complete source, not a silently shortened script.
                 // Older normalized parser receipts use source_content instead.
@@ -20975,16 +20975,12 @@ class AigcShortDramaService
         $multiEpisode = $episodeSettings['multi_episode'];
         $episodeCount = $episodeSettings['episode_count'];
         $multiEpisodeStage = self::normalizeMultiEpisodeStage($request, self::MULTI_EPISODE_STAGE_PRODUCTION);
-        $normalizedTitle = trim((string)($payload['title'] ?? $title));
-        $rawType = $payload['type_judgement'] ?? $payload['type'] ?? '';
-        // Some providers return their structured genre analysis here. It is
-        // presentation metadata, and must not discard an otherwise paid plan.
-        if (is_array($rawType)) $rawType = $rawType['story_type'] ?? $rawType['genre'] ?? $rawType['type'] ?? self::jsonEncode($rawType);
-        $typeJudgement = trim(is_array($rawType) ? self::jsonEncode($rawType) : (string)$rawType);
-        $coreTheme = trim((string)($payload['core_theme'] ?? $payload['theme'] ?? ''));
-        $openingFeedback = trim((string)($payload['opening_feedback'] ?? ''));
+        $normalizedTitle = ShortDramaText::value($payload['title'] ?? $title);
+        $typeJudgement = ShortDramaText::genre($payload['type_judgement'] ?? $payload['type'] ?? '');
+        $coreTheme = ShortDramaText::value($payload['core_theme'] ?? $payload['theme'] ?? '');
+        $openingFeedback = ShortDramaText::value($payload['opening_feedback'] ?? '');
         $planningSteps = self::stringList($payload['planning_steps'] ?? []);
-        $storyOutline = trim((string)($payload['story_outline'] ?? ''));
+        $storyOutline = ShortDramaText::value($payload['story_outline'] ?? '');
         $scriptLines = self::stringList($payload['script_lines'] ?? []);
         if (empty($scriptLines) && $storyOutline !== '') {
             $scriptLines = self::stringList(preg_split('/(?<=[。！？!])\s*/u', $storyOutline) ?: []);
@@ -21412,7 +21408,7 @@ class AigcShortDramaService
             $episodeSummaries[] = [
                 'episode_number' => $number,
                 'summary' => mb_substr($summary, 0, 500, 'UTF-8'),
-                'ending_hook' => mb_substr(trim((string)($episode['ending_hook'] ?? '')), 0, 200, 'UTF-8'),
+                'ending_hook' => mb_substr(ShortDramaText::value($episode['ending_hook'] ?? ''), 0, 200, 'UTF-8'),
             ];
         }
         foreach ($summaryMap as $number => $summary) {
@@ -21645,12 +21641,12 @@ class AigcShortDramaService
                 continue;
             }
             $number = max(1, (int)($episode['episode_number'] ?? 1));
-            $title = trim((string)($episode['title'] ?? ''));
+            $title = ShortDramaText::value($episode['title'] ?? '');
             $result[] = '第' . $number . '集' . ($title !== '' && $title !== ('第' . $number . '集') ? '：' . $title : '');
             foreach (array_slice(self::stringList($episode['script_lines'] ?? []), 0, 12) as $line) {
                 $result[] = $line;
             }
-            $hook = trim((string)($episode['ending_hook'] ?? ''));
+            $hook = ShortDramaText::value($episode['ending_hook'] ?? '');
             if ($hook !== '') {
                 $result[] = '本集结尾：' . $hook;
             }
@@ -22360,17 +22356,7 @@ class AigcShortDramaService
 
     private static function stringList($items): array
     {
-        if (is_string($items)) {
-            $items = preg_split('/\r?\n/u', $items) ?: [];
-        }
-        $result = [];
-        foreach ((array)$items as $item) {
-            $text = trim((string)$item);
-            if ($text !== '') {
-                $result[] = $text;
-            }
-        }
-        return array_values($result);
+        return ShortDramaText::lines($items);
     }
 
     private static function durationStats(array $storyboard, int $sceneCount): array
@@ -24042,7 +24028,7 @@ class AigcShortDramaService
     {
         $frameType = (string)($payload['frame_type'] ?? 'normal');
         return [
-            'title' => mb_substr(trim((string)($payload['title'] ?? '')), 0, 120, 'UTF-8'),
+            'title' => mb_substr(ShortDramaText::value($payload['title'] ?? ''), 0, 120, 'UTF-8'),
             'visual_description' => mb_substr(trim((string)($payload['visual_description'] ?? '')), 0, 2000, 'UTF-8'),
             'composition' => mb_substr(trim((string)($payload['composition'] ?? '')), 0, 500, 'UTF-8'),
             'camera_movement' => mb_substr(trim((string)($payload['camera_movement'] ?? '')), 0, 500, 'UTF-8'),

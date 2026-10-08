@@ -42,6 +42,38 @@ class ShortDramaEpisodeReviewTest extends TestCase
         self::assertSame('verified',$result['_continuity']['audit_status']);
         unset($result['_continuity']); self::assertSame($plan,$result);
     }
+    public function testSameEpisodeBlockStateReferenceIsRepairedWithoutRewritingShots(): void
+    {
+        $plan = $this->plan(5); $corrections = 0;
+        $result = Review::generate($plan, $this->request(), function ($key, $messages) use (&$corrections) {
+            self::assertStringNotContainsString('"patches"', $messages['system_prompt']);
+            if (str_contains($messages['content'], '仅修正审校JSON')) {
+                $corrections++;
+                return ['evidence_patches' => [['collection'=>'changes', 'index'=>0, 'before'=>'房间']]];
+            }
+            $input = json_decode($messages['content'], true);
+            if (isset($input['response_contract']['checks'])) return ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>true,'reason'=>'镜头中甲走进房间']]];
+            self::assertEmpty($input['script']['script_lines'] ?? []);
+            self::assertNotEmpty($input['review_window']);
+            return ['summary'=>'甲在房间', 'changes'=>[['entity_id'=>'a','field'=>'location','before'=>null,'after'=>'房间',
+                'shot_id'=>$input['script']['storyboard'][0]['shot_id'],'quote'=>'甲走进房间']], 'hooks'=>[], 'warnings'=>[]];
+        });
+        self::assertSame(1, $corrections);
+        self::assertSame('verified', $result['_continuity']['audit_status']);
+        self::assertSame($plan['storyboard'], $result['storyboard']);
+    }
+
+    public function testPreviousEpisodeConflictStillBlocks(): void
+    {
+        $request = $this->request(); $request['series_context']['continuity']['state'] = ['a:location'=>'街道'];
+        $this->expectExceptionCode(409);
+        Review::generate($this->plan(1), $request, function ($key, $messages) {
+            if (str_ends_with($key, '_patch')) return ['patches'=>[]];
+            $input=json_decode($messages['content'], true);
+            if (isset($input['response_contract']['checks'])) return ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>true,'reason'=>'镜头证据']]];
+            return ['summary'=>'甲在房间','changes'=>[['entity_id'=>'a','field'=>'location','before'=>'屋外','after'=>'房间','shot_id'=>'s1','quote'=>'甲走进房间']], 'hooks'=>[], 'warnings'=>[]];
+        });
+    }
     public function testCapacityFailureSplitsOnlyCurrentBlock(): void
     {
         $seen=[];

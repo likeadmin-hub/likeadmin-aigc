@@ -22,6 +22,13 @@ final class ShortDramaContinuityPatch
 
     public static function meaningMessages(array $plan, array $review, array $context = []): array
     {
+        $checks = [];
+        foreach (['changes', 'hooks'] as $group) foreach ($review[$group] ?? [] as $index => $item) {
+            $checks[] = ['collection' => $group, 'index' => $index, 'supported' => '必须为JSON布尔值', 'reason' => '证据与事实的对应关系或缺失原因'];
+        }
+        foreach ($plan['_continuity_source_patch']['shot_insertions'] ?? [] as $index => $item) {
+            $checks[] = ['collection' => 'insertions', 'index' => $index, 'supported' => '必须为JSON布尔值', 'reason' => '证据与事实的对应关系或缺失原因'];
+        }
         return ['system_prompt' => '你是证据核对员，只返回JSON。核对事实含义，不创作、不改写。原文出现不等于支持所声称的事实。',
             'content' => json_encode(['instructions' => [
                 '逐条检查changes的after或hooks的description是否由指定镜头及其实际上下文支持。storyboard证明本集新增或变化的事实；previous_state和previous_open_hooks仅作为前集已记录背景，不能证明本集新增事件。',
@@ -31,9 +38,10 @@ final class ShortDramaContinuityPatch
                 '逐项区分持有与所有权、暂借与归还、知情与身份、保护他人与自己受保护。一个子句得到支持不能证明整条复合after；未出现的关系、归属或动机不得用“隐含”补全，应返回supported=false并指出具体未获支持的子句。',
                 'script_lines仅用于指出遗漏情节，不可替代镜头证据。若镜头未展示但script_lines明确记载，请在reason引用该原文，供局部补镜。',
                 '每条changes、hooks以及source_patch.shot_insertions都必须返回一个检查项，index为零基索引，补镜的collection为insertions。不要省略、重复或新增检查项。',
+                'response_contract已经列出本轮全部检查项及准确索引。原样保留collection与index，仅填写supported与reason；空数组保持空数组，不添加占位检查项。',
                 'insertions核对新增镜头是否忠实呈现source_quote的含义；允许影视化改写，不要求逐字相同，但不得杜撰新剧情或用无关镜头替代。',
             ], 'storyboard' => $plan['storyboard'] ?? [], 'script_lines' => $plan['script_lines'] ?? [],
-                'review' => $review, 'previous_state' => $context['continuity']['state'] ?? [], 'previous_open_hooks' => $context['continuity']['open_hooks'] ?? [], 'source_patch' => $plan['_continuity_source_patch'] ?? [], 'response_contract' => ['checks' => [['collection' => 'changes、hooks或insertions', 'index' => 0, 'supported' => true, 'reason' => '证据与事实的对应关系或缺失原因']]]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
+                'review' => $review, 'previous_state' => $context['continuity']['state'] ?? [], 'previous_open_hooks' => $context['continuity']['open_hooks'] ?? [], 'source_patch' => $plan['_continuity_source_patch'] ?? [], 'response_contract' => ['checks' => $checks]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
     }
 
     public static function assertMeaning(array $review, array $response, array $sourcePatch = []): void
