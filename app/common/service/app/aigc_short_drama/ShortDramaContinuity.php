@@ -218,7 +218,7 @@ final class ShortDramaContinuity
                 // Quarantined claims are deliberately absent from the state
                 // ledger. Keep the episode available, but make the incomplete
                 // audit visible to the next episode and to the editor.
-                if (!empty($review['unverified_claims']) || !empty($review['unverified_hook_resolutions'])) {
+                if (self::hasBlockingAuditClaims($review)) {
                     $ledger['audit_status'] = 'pending_review';
                 }
                 return $ledger + ['review_repairs' => $attempt];
@@ -278,6 +278,17 @@ final class ShortDramaContinuity
         throw new RuntimeException('连续性审校未完成', 422);
     }
 
+    public static function hasBlockingAuditClaims(array $review): bool
+    {
+        foreach (array_merge($review['unverified_claims'] ?? [], $review['unverified_hook_resolutions'] ?? []) as $entry) {
+            // Only an explicit independent diagnosis of auditor error is
+            // advisory. Legacy/uncertain verdicts and real script conflicts
+            // remain blocking. Rejected operations never reach the ledger.
+            if (($entry['failure_kind'] ?? 'uncertain') !== 'audit_claim') return true;
+        }
+        return false;
+    }
+
     /** The auditor can invent a qualifier absent from the script. Correct only
      * its rejected metadata, never the script or an already verified claim.
      * Identity, operation, count and before-state remain immutable. */
@@ -285,6 +296,7 @@ final class ShortDramaContinuity
     {
         $targets = [];
         foreach ($rejected['unverified_claims'] as $entry) {
+            if (($entry['failure_kind'] ?? '') === 'audit_claim') continue;
             $group = $entry['collection'] ?? ''; $index = $entry['index'] ?? -1;
             $claim = $draft[$group][$index] ?? null;
             $unknownResolution = $group === 'hooks' && ($claim['status'] ?? '') === 'resolved'

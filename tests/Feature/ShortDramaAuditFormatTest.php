@@ -62,4 +62,28 @@ class ShortDramaAuditFormatTest extends TestCase
         });
         self::assertSame(2, $calls); self::assertSame('cleaned_area', $result['changes'][0]['field']);
     }
+    public function testAuditorMistakeIsRejectedWithoutClosingHookOrApprovingUnsupportedFact(): void
+    {
+        $context = ['continuity'=>['state'=>['world:owner'=>'父亲'],'open_hooks'=>['promise'=>'修好收音机']]];
+        $plan = ['storyboard'=>[['shot_id'=>'s1','visual_description'=>'沈禾看着收音机','dialogue'=>'']]];
+        $draft = ['summary'=>'沈禾看收音机','changes'=>[['entity_id'=>'world','field'=>'owner','before'=>'父亲','after'=>'沈禾','shot_id'=>'s1','quote'=>'沈禾看着收音机']],
+            'hooks'=>[['id'=>'promise','description'=>'修好收音机','status'=>'resolved','shot_id'=>'s1','quote'=>'沈禾看着收音机']], 'warnings'=>[]];
+        $verdict = ['checks'=>[
+            ['collection'=>'changes','index'=>0,'supported'=>false,'failure_kind'=>'audit_claim','reason'=>'审校员把看着误记为所有权转移，正文无所有权变化'],
+            ['collection'=>'hooks','index'=>0,'supported'=>false,'failure_kind'=>'audit_claim','reason'=>'正文未声称修好，审校员误记兑现，应保留伏笔']]];
+        $ledger = Continuity::review($plan, $context, 2, static fn()=> $draft,
+            static fn($review)=>Patch::verifiedReview($review, $verdict, $context));
+        self::assertNotSame('pending_review', $ledger['audit_status'] ?? 'verified');
+        self::assertSame($context['continuity']['state'], $ledger['state']);
+        self::assertSame($context['continuity']['open_hooks'], $ledger['open_hooks']);
+        self::assertCount(2, $ledger['unverified_claims']);
+        foreach (['script_conflict','uncertain',null] as $kind) {
+            $checks = $verdict;
+            foreach ($checks['checks'] as &$check) { if ($kind === null) unset($check['failure_kind']); else $check['failure_kind'] = $kind; }
+            unset($check);
+            $blocked = Continuity::review($plan, $context, 2, static fn()=> $draft,
+                static fn($review)=>Patch::verifiedReview($review, $checks, $context));
+            self::assertSame('pending_review', $blocked['audit_status']);
+        }
+    }
 }
