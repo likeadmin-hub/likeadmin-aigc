@@ -44,6 +44,19 @@ class ShortDramaAuditFormatTest extends TestCase
         $this->expectExceptionCode(422);
         Continuity::assertAuditShape($draft, []);
     }
+    public function testNewNegativeVerdictRequiresClassificationAndRecoversWithoutGuessingFromProse(): void
+    {
+        $draft = ['changes'=>[], 'hooks'=>[['id'=>'h','description'=>'未来事件','status'=>'observed']]];
+        $calls = 0;
+        $result = Response::audit(['content'=>'逐项填写supported、reason；否定时必须failure_kind'], function() use($draft,&$calls) {
+            $check = ['collection'=>'hooks','index'=>0,'supported'=>false,'reason'=>'audit_claim，无正文冲突'];
+            if (++$calls > 1) $check['failure_kind'] = 'audit_claim';
+            return Patch::verifiedReview($draft, ['checks'=>[$check]], [], [], true);
+        });
+        self::assertSame(2, $calls);
+        self::assertSame([], $result['hooks']);
+        self::assertSame('audit_claim', $result['unverified_claims'][0]['failure_kind']);
+    }
     public function testMalformedCompleteJsonIsRecoveredWithDistinctRequestAndRealVerdict(): void
     {
         $inputs = [];

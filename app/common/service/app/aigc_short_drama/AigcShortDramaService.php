@@ -18247,7 +18247,7 @@ class AigcShortDramaService
                 });
                 $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $receipt['result']])));
                 return ShortDramaContinuityPatch::verifiedReview($review, ShortDramaStructuredResponse::decode((array)$receipt['result']),
-                    $request['series_context'], (array)($plan['_continuity_source_patch'] ?? []));
+                    $request['series_context'], (array)($plan['_continuity_source_patch'] ?? []), true);
                 });
             };
             try {
