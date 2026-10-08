@@ -39,8 +39,8 @@ final class ShortDramaEpisodeTimingRepair
                 || !is_numeric($shot['recommended_duration_seconds'] ?? null)) {
                 throw new RuntimeException('分镜对白或时长结构无效，原文保留', 409);
             }
-            if (ShortDramaDialogueSplit::requiredSeconds($shot['dialogue']) > (float)$shot['recommended_duration_seconds']
-                || ShortDramaDialogueSplit::requiredSeconds($shot['dialogue']) > ShortDramaDialogueSplit::MAX_DIALOGUE_SECONDS
+            if (ShortDramaDialogueSplit::requiredSeconds($shot['dialogue'], $rule) > (float)$shot['recommended_duration_seconds']
+                || ShortDramaDialogueSplit::requiredSeconds($shot['dialogue'], $rule) > ShortDramaDialogueSplit::MAX_DIALOGUE_SECONDS
                 || !ShortDramaShotDuration::contains($shot['recommended_duration_seconds'], $rule)) $needsRepair = true;
         }
         try { ShortDramaEpisodeDuration::assertPlan($plan, $request); }
@@ -60,12 +60,24 @@ final class ShortDramaEpisodeTimingRepair
             $targets[$id] = array_intersect_key($shot, array_flip([
                 'shot_id', 'scene_ref_id', 'visual_description', 'action', 'camera_movement', 'dialogue', 'recommended_duration_seconds',
             ]));
-            $targets[$id]['minimum_seconds'] = max($rule['min_seconds'], ShortDramaDialogueSplit::requiredSeconds($shot['dialogue']));
+            $targets[$id]['minimum_seconds'] = max($rule['min_seconds'], ShortDramaDialogueSplit::requiredSeconds($shot['dialogue'], $rule));
         }
         $minimum = array_sum(array_column($targets, 'minimum_seconds'));
         if (!$targets || $minimum > (float)$policy['max_seconds'] + 0.001
             || count($targets) * $rule['max_seconds'] < (float)$policy['min_seconds'] - 0.001) {
             throw new RuntimeException('完整对白与分镜无法放入本集指定总时长，原文已保留；请增加时长或明确调整内容后重试', 409);
+        }
+        if (ShortDramaContentFirstGeneration::enabled($request)) {
+            // Content-first generation already supplied editorial preferences.
+            // Reuse them and solve the feasible allocation locally; don't pay a
+            // second model to perform the same arithmetic or re-read the story.
+            $reply = ['timings'=>array_map(static fn($s) => ['shot_id'=>$s['shot_id'],
+                'duration_seconds'=>$s['recommended_duration_seconds']], $candidate['storyboard'])];
+            $candidate = self::apply($candidate, $reply, $targets, $request);
+            $candidate['timing_reallocation'] = ['version'=>2,'method'=>'bounded_projection',
+                'before_seconds'=>array_column($shots,'recommended_duration_seconds'),
+                'after_seconds'=>array_column($candidate['storyboard'],'recommended_duration_seconds')];
+            return $candidate;
         }
         $input = ['system_prompt' => '你是短剧剪辑时长规划师。输入是已经生成的完整有序分镜，只重新分配秒数，不改任何剧情、台词、角色、场景、镜头编号或顺序。'
             . '逐镜minimum_seconds是对白自然语速与停顿所需的最低时间，不代表动作一定能在最低时间完成；结合画面动作和运镜保留合理停留，不能通过加快语速、静帧凑数或删除动作满足总长。'

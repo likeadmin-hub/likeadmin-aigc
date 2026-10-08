@@ -2,7 +2,8 @@
 namespace Tests\Feature;
 
 use app\common\service\app\aigc_short_drama\{ShortDramaContentFirstGeneration as Engine,
-    ShortDramaEpisodeDuration as Duration, ShortDramaShotDuration as ShotDuration};
+    ShortDramaEpisodeDuration as Duration, ShortDramaShotDuration as ShotDuration,
+    ShortDramaDialogueSplit as Speech, ShortDramaEpisodeTimingRepair as Timing};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -102,5 +103,35 @@ final class ShortDramaContentFirstGenerationTest extends TestCase
         $timeline=Duration::snapshot([],0,60,[['duration_seconds'=>60]],false,true);
         self::assertEquals(60,$timeline['min_seconds']);
         self::assertEquals(60,Duration::snapshot([],0,60,[])['min_seconds']);
+    }
+
+    public function testNewSpeechEstimateExcludesLabelsAndCountsEnglishWords(): void
+    {
+        $rule=ShotDuration::rule($this->request());
+        self::assertSame(Speech::requiredSeconds('你好世界',$rule), Speech::requiredSeconds('名字很长的人：你好世界',$rule));
+        self::assertLessThan(Speech::requiredSeconds('This extraordinarily complicated explanation is unnecessarily long.'),
+            Speech::requiredSeconds('This extraordinarily complicated explanation is unnecessarily long.',$rule));
+        self::assertSame(3.0,Speech::requiredSeconds('女儿：你好世界。'));
+    }
+
+    public function testNewTimingProjectionDoesNotPayModelForArithmetic(): void
+    {
+        $request=$this->request();$request['episode_duration_policy']=Duration::snapshot([],12,0,[]);
+        $plan=Engine::mergeUnit($this->plan(),['storyboard'=>[$this->shot(),$this->shot()]],'u1');
+        $result=Timing::reconcile($plan,$request,static function(){self::fail('Feasible allocation should not call provider');});
+        self::assertEquals(12,array_sum(array_column($result['storyboard'],'recommended_duration_seconds')));
+        self::assertSame(array_column($plan['storyboard'],'dialogue'),array_column($result['storyboard'],'dialogue'));
+        self::assertSame('bounded_projection',$result['timing_reallocation']['method']);
+    }
+
+    public function testDensityRevisionCannotDeleteSpeakerTurnOrTouchVisuals(): void
+    {
+        $plan=Engine::mergeUnit($this->plan(),['storyboard'=>[$this->shot()]],'u1');
+        $reply=['dialogues'=>[['shot_id'=>'u1_s1','before'=>'女儿：再见。','after'=>'女儿：慢走。']]];
+        $result=Engine::applyDialogueDensity($plan,$reply);
+        self::assertSame($plan['storyboard'][0]['visual_description'],$result['storyboard'][0]['visual_description']);
+        $reply['dialogues'][0]['after']='父亲：慢走。';
+        $this->expectException(RuntimeException::class);
+        Engine::applyDialogueDensity($plan,$reply);
     }
 }

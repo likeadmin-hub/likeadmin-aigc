@@ -17,17 +17,17 @@ final class ShortDramaDialoguePartition
         if (implode('', $sentences) !== $text) throw new RuntimeException('无法完整定位台词分段，原文保留', 409);
         $chunks = [];
         foreach ($sentences as $sentence) {
-            if (ShortDramaDialogueSplit::requiredSeconds($sentence) > $maximum) {
+            if (ShortDramaDialogueSplit::requiredSeconds($sentence, $rule) > $maximum) {
                 throw new RuntimeException('单句台词超过镜头时长上限，请为该句补充分句停顿或调整镜头范围；原文保留', 409);
             }
             $last = count($chunks) - 1;
-            if ($last >= 0 && ShortDramaDialogueSplit::requiredSeconds($chunks[$last] . $sentence) <= $maximum) $chunks[$last] .= $sentence;
+            if ($last >= 0 && ShortDramaDialogueSplit::requiredSeconds($chunks[$last] . $sentence, $rule) <= $maximum) $chunks[$last] .= $sentence;
             else $chunks[] = $sentence;
         }
         $durationCount = (int)ceil((float)$shot['recommended_duration_seconds'] / $maximum);
         while (count($chunks) < $durationCount) $chunks[] = '';
         if (count($chunks) < 2 || count($chunks) > 8) throw new RuntimeException('当前镜头无法在2至8段内完整拆分，请调整该镜头；原文保留', 409);
-        $durations = array_map(static fn($part) => max($minimum, ShortDramaDialogueSplit::requiredSeconds($part)), $chunks);
+        $durations = array_map(static fn($part) => max($minimum, ShortDramaDialogueSplit::requiredSeconds($part, $rule)), $chunks);
         if ($locked || (float)$shot['recommended_duration_seconds'] > array_sum($durations)) {
             $remaining = (float)$shot['recommended_duration_seconds'] - array_sum($durations);
             if ($remaining < -0.001 || $remaining > count($durations) * $maximum - array_sum($durations) + 0.001) {

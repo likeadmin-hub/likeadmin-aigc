@@ -41,6 +41,7 @@ final class ShortDramaShotDuration
         // timecodes and historical tasks retain their own frozen contracts.
         if ((int)($request['_input_contract_version'] ?? 0) >= 9 && !ShortDramaEpisodeDuration::localRevision($request)) {
             $rule['min_seconds'] = 1;
+            $rule['speech_estimator_version'] = 2;
         }
         $timing = ShortDramaEpisodeDuration::policy($request);
         if (ShortDramaEpisodeDuration::active($request) && (($timing['source'] ?? '') === 'timeline'

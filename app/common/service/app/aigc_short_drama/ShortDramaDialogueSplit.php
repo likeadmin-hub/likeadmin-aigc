@@ -23,8 +23,17 @@ final class ShortDramaDialogueSplit
             . '在剧本/分镜规划阶段完成拆镜并分配唯一编号，再准备对应分镜图和视频；已确认图片或视频引用不能事后静默拆分。';
     }
 
-    public static function requiredSeconds(string $dialogue): float
+    public static function requiredSeconds(string $dialogue, array $rule = []): float
     {
+        if (($rule['speech_estimator_version'] ?? 0) >= 2) {
+            // Speaker labels are attribution, not audio. Keep spoken text intact.
+            $spoken = preg_replace('/(?:^|\n)\s*[^：:\n]{1,20}[：:]\s*/u', '', $dialogue) ?? $dialogue;
+            preg_match_all('/[A-Za-z]+(?:[\x27’-][A-Za-z]+)*/u', $spoken, $words);
+            $rest = preg_replace('/[A-Za-z]+(?:[\x27’-][A-Za-z]+)*/u', '', $spoken) ?? $spoken;
+            $characters = mb_strlen(preg_replace('/[\s\p{P}]/u', '', $rest) ?? $rest, 'UTF-8');
+            $seconds = $characters / 5 + count($words[0]) / 2.5;
+            return $seconds > 0 ? ceil($seconds) + 1 : 0;
+        }
         $count = mb_strlen(preg_replace('/[\s\p{P}]/u', '', $dialogue) ?? $dialogue, 'UTF-8');
         return $count ? ceil($count / 6) + 1 : 0;
     }
@@ -41,8 +50,8 @@ final class ShortDramaDialogueSplit
             if (!is_array($shot) || !is_string($shot['dialogue'] ?? '')) throw new RuntimeException('分镜对白结构无效，原文保留', 409);
             $duration = $shot['recommended_duration_seconds'] ?? null;
             if (!is_numeric($duration) || !is_finite((float)$duration) || $duration <= 0) throw new RuntimeException('分镜时长无效，原文保留', 409);
-            $needed = max((float)$duration, self::requiredSeconds($shot['dialogue'] ?? ''));
-            if (self::requiredSeconds($shot['dialogue']) > self::MAX_DIALOGUE_SECONDS) {
+            $needed = max((float)$duration, self::requiredSeconds($shot['dialogue'] ?? '', $rule));
+            if (self::requiredSeconds($shot['dialogue'], $rule) > self::MAX_DIALOGUE_SECONDS) {
                 $partRule['max_seconds'] = min($rule['max_seconds'], self::MAX_DIALOGUE_SECONDS);
             }
             if ($locked && $needed > (float)$duration) throw new RuntimeException('完整台词无法放入已锁定时间段，请调整时间码或时长；原文保留', 409);
@@ -127,7 +136,7 @@ final class ShortDramaDialogueSplit
                 || !is_string($part['composition'] ?? null) || !is_string($part['camera_movement'] ?? null)
                 || !is_string($part['action'] ?? null) || !is_string($part['result'] ?? null) || !is_string($part['sound_effect'] ?? null)
                 || !ShortDramaShotDuration::contains($part['recommended_duration_seconds'] ?? null, $rule)) throw new RuntimeException('拆镜字段或时长不合法', 409);
-            if (self::requiredSeconds($part['dialogue']) > (float)$part['recommended_duration_seconds']) throw new RuntimeException('拆分后的完整台词仍超过片段时长', 409);
+            if (self::requiredSeconds($part['dialogue'], $rule) > (float)$part['recommended_duration_seconds']) throw new RuntimeException('拆分后的完整台词仍超过片段时长', 409);
             if ($index < count($parts) - 1 && trim($part['dialogue']) !== ''
                 && !preg_match('/[。！？!?；;，,：:\n][”’"\x27）)】\]]*\s*$/u', $part['dialogue'])) {
                 throw new RuntimeException('请在原台词的句末或分句停顿处分镜，不能从词语中间切开', 409);
