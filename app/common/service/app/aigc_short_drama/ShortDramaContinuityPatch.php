@@ -34,6 +34,7 @@ final class ShortDramaContinuityPatch
             'content' => json_encode(['instructions' => [
                 '逐条检查changes的after或hooks的description是否由指定镜头及其实际上下文支持。storyboard证明本集新增或变化的事实；previous_state和previous_open_hooks仅作为前集已记录背景，不能证明本集新增事件。',
                 'earlier_episode_shots是服务端从本集已经发生的前段镜头取出的原文，不是前集状态或未来剧情。可结合它核对延续的背景事实和伏笔铺垫（例如此前已经展示的损坏），无需当前块重复演示；本段新增动作、状态变化或伏笔兑现仍必须有storyboard中的当前证据，不能把前段动作再次记为本段新事件。',
+                'before在服务器状态管理模式下由程序读取，不代表正文正确。必须同时核对正文的初始条件和事件过程能否从previous_state推进到after。若正文与既有事实互斥（如已死亡人物无解释复活、已经交付的物品再次从旧持有人交付），判script_conflict并指出具体证据。仅审校before措辞不同不构成正文冲突。audit_corrections是审校诊断，不是剧情事实。',
                 '禁止用无关的真实引用证明事实，例如泼酒不能证明否认婚约，站在商铺不能证明获封郡主。复合状态的全部关键含义都须得到支持。',
                 '区分已发生事实与伏笔：open伏笔只核对当前镜头是否提供合理铺垫，不要求预示的未来事件已经发生，也不要把合理情绪推断当作硬性错误。resolved伏笔须结合previous_open_hooks核对是否确实兑现。',
                 'observed表示本集已经发生的事件，不打开或回收任何伏笔。必须由当前镜头证明事件完整发生，不能拿未来计划或未发生的承诺冒充已观察事件。',

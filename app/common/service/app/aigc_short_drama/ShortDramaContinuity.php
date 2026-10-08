@@ -113,7 +113,7 @@ final class ShortDramaContinuity
                 'response_contract' => [
                     'summary' => '本集已发生事件的简短摘要，不写未来剧情',
                     'changes' => [['entity_id' => 'subjects或locations中的id，也可为world', 'field' => '稳定状态键，如location/knows_secret/injury/item_owner；1至80个中文、英文字母、数字、下划线、斜线或连字符，禁止冒号和空格',
-                        'before' => 'previous.state里已有的原值；首次记录用null', 'after' => '正文中明确的新值', 'evidence_refs' => [['shot_id' => '实际镜头id', 'field' => 'visual_description或dialogue；服务器提取原文，不自行抄写或缩写quote']]]],
+                        'before' => !empty($context['_server_owned_state']) ? '省略；由服务器读取旧值，禁止推断或复述' : 'previous.state里已有的原值；首次记录用null', 'after' => '正文中明确的新值', 'evidence_refs' => [['shot_id' => '实际镜头id', 'field' => 'visual_description或dialogue；服务器提取原文，不自行抄写或缩写quote']]]],
                     'hooks' => [['id' => '稳定伏笔标识；resolved必须逐字引用previous.open_hooks中已有ID', 'description' => '已登记的open伏笔由服务器原样保留，无需重复提交或改写描述；进展写observed，兑现才resolved。同集新出现且已经完成的事件使用observed，不伪造前集伏笔', 'status' => 'open、resolved或observed', 'evidence_refs' => [['shot_id' => '实际镜头id', 'field' => 'visual_description或dialogue']]]],
                     'warnings' => ['具体连续性疑点，无疑点则空数组'],
                 ],
@@ -189,6 +189,7 @@ final class ShortDramaContinuity
                 if ($attempt) $review = isset($review['evidence_patches'])
                     ? self::applyEvidencePatches($patchBase, $review, $plan, $mutableEvidence)
                     : self::preserveRepairFacts($originalReview, $review, $plan);
+                if (!empty($context['_server_owned_state'])) $review = ShortDramaContinuityState::prepare($review, $context);
                 // A repeated assertion of an already verified state is not a
                 // new fact. Do not require every later block to re-prove all
                 // clauses of an unchanged historical value. Never drop a
@@ -244,6 +245,9 @@ final class ShortDramaContinuity
                     if (is_array($verified)) $review = $verified;
                     if ($repairClaims && !empty($review['unverified_claims']) && empty($draft['unverified_claims'])) {
                         $review = self::repairAuditClaims($draft, $review, $plan, $context, $call, $verifyMeaning);
+                    }
+                    if (!empty($context['_server_owned_state'])) foreach ($review['unverified_claims'] ?? [] as $claim) {
+                        if (($claim['failure_kind'] ?? '') === 'script_conflict') throw new ShortDramaScriptConflict(mb_substr((string)($claim['reason'] ?? ''), 0, 1400));
                     }
                     // Classify claims before repairing their citations. An
                     // invented claim has no reference to repair; demanding one
@@ -347,7 +351,7 @@ final class ShortDramaContinuity
     {
         $targets = [];
         foreach ($rejected['unverified_claims'] as $entry) {
-            if (($entry['failure_kind'] ?? '') === 'audit_claim') continue;
+            if (in_array($entry['failure_kind'] ?? '', ['audit_claim','script_conflict'], true)) continue;
             $group = $entry['collection'] ?? ''; $index = $entry['index'] ?? -1;
             $claim = $draft[$group][$index] ?? null;
             $unknownResolution = $group === 'hooks' && ($claim['status'] ?? '') === 'resolved'
