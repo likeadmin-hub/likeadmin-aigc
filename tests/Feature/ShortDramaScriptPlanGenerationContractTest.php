@@ -11,6 +11,30 @@ use think\Container;
 /** Exercises the real script-plan assembly/normalization/repair path with a fake provider only. */
 class ShortDramaScriptPlanGenerationContractTest extends TestCase
 {
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testContinuityReviewBypassesWholeScriptPromptAndPreservesSavedProductionFields(): void
+    {
+        require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
+        Container::getInstance()->instance('config', new \think\Config());
+        $this->silenceLog();
+        $base = $this->generate(['_generation_version'=>3,'multi_episode'=>false,'episode_count'=>1,'quality_review_enabled'=>false])['result'];
+        foreach ($base['storyboard'] as &$shot) $shot['video_prompt'] = str_repeat('已保存的制作提示', 3000);
+        unset($shot);
+        \app\common\service\power\MarketTextModelRuntimeService::reset();
+        $result = $this->generate(['_generation_version'=>3,'multi_episode'=>false,'episode_count'=>1,
+            '_continuity_review_only'=>true,'revision_base_result'=>$base,'episode_number'=>2,
+            'series_context'=>['continuity'=>['previous_digest'=>'previous'],'outline'=>['title'=>'故事']]])['result'];
+        self::assertSame($base['storyboard'],$result['storyboard']);
+        self::assertSame('previous',$result['_continuity']['previous_digest']);
+        self::assertCount(6,\app\common\service\power\MarketTextModelRuntimeService::$requests);
+        foreach (\app\common\service\power\MarketTextModelRuntimeService::$requests as $params) {
+            self::assertStringNotContainsString('已保存的制作提示',$params['content']);
+            self::assertStringNotContainsString('revision_base_result',$params['content']);
+        }
+    }
+
     public function testQualityFailureNamesTheFirstBlockingIssue(): void
     {
         $method = new ReflectionMethod(AigcShortDramaService::class, 'planQualityFailureMessage');

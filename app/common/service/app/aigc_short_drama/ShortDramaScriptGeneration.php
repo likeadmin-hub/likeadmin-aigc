@@ -96,7 +96,10 @@ final class ShortDramaScriptGeneration
         for ($attempt = 0; $attempt < 2; $attempt++) {
             try {
                 $skeleton = $call('skeleton' . ($attempt ? '_repair' : ''), $skeletonMessages, 8192,
-                    static function ($plan) use ($durationRule): void { if (!self::completePlan($plan, $durationRule)) self::assertSkeleton($plan); });
+                    static function ($plan) use ($durationRule, &$skeleton): void {
+                        $skeleton = $plan;
+                        if (!self::completePlan($plan, $durationRule)) self::assertSkeleton($plan);
+                    });
                 // Some models still produce a full plan. Reuse only a valid
                 // plan; the caller continues its normal story quality review.
                 if (self::completePlan($skeleton, $durationRule)) return $finish($skeleton);

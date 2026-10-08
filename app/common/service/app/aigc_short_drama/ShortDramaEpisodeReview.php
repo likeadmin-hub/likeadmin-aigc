@@ -100,7 +100,8 @@ final class ShortDramaEpisodeReview
                 throw new RuntimeException('复核补丁越界或原文已变化，原版本保留', 422);
             }
             if ($field === 'subject_ref_ids') {
-                if (!is_array($patch['after']) || !array_is_list($patch['after']) || array_diff($patch['after'], array_column($plan['subjects'], 'id'))) throw new RuntimeException('复核补丁引用未知主体', 422);
+                if (!is_array($patch['after']) || !array_is_list($patch['after']) || array_filter($patch['after'], static fn($id) => !is_string($id))
+                    || array_diff($patch['after'], array_column($plan['subjects'], 'id'))) throw new RuntimeException('复核补丁引用未知主体', 422);
             } elseif (!is_string($patch['after'])) throw new RuntimeException('复核补丁字段类型无效', 422);
             if ($field === 'scene_ref_id' && !in_array($patch['after'], array_column($plan['locations'], 'id'), true)) throw new RuntimeException('复核补丁引用未知场景', 422);
             if ($field === 'visual_description' && trim($patch['after']) === '') throw new RuntimeException('复核补丁不能清空画面', 422);
@@ -110,6 +111,8 @@ final class ShortDramaEpisodeReview
         foreach ($plan['storyboard'] as $shot) {
             if (ShortDramaDialogueSplit::requiredSeconds((string)($shot['dialogue'] ?? '')) > (float)($shot['recommended_duration_seconds'] ?? 0)) throw new RuntimeException('复核后的台词无法放入原镜头时长，请调整该镜头', 409);
         }
+        $dialogue = ShortDramaDialogueContract::prepare(['subjects'=>$plan['subjects'],'storyboard'=>$plan['storyboard']]);
+        if ($dialogue['issues']) throw new RuntimeException('复核补丁缺少明确的台词归属，原版本保留', 422);
         return $plan;
     }
 }

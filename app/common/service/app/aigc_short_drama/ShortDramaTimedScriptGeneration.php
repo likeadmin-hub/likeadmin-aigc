@@ -26,9 +26,11 @@ final class ShortDramaTimedScriptGeneration
             try {
                 $skeleton = self::lockTimelineShotDurations(
                     self::canonicalSkeleton($call('timed_skeleton_' . $attempt, $skeletonInput, 8192,
-                        static function ($payload) use ($request): void {
+                        static function ($payload) use ($request, &$skeleton): void {
+                            $skeleton = $payload;
                             $prepared = self::lockTimelineShotDurations(self::canonicalSkeleton($payload), $request);
                             if (ShortDramaInputContract::recoveryEnabled($request)) $prepared = self::normalizeSkeletonBudgets($prepared, $request);
+                            $skeleton = $prepared;
                             if (empty($prepared['storyboard'])) self::assertSkeleton($prepared, $request);
                         })),
                     $request
