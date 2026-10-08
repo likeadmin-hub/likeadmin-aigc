@@ -15,12 +15,20 @@ class FixtureAccess extends S {
     public $key;
     public string $mode='allow';
     public string $error='LICENSE_INVALID';
+    public string $nextCertificate='';
+    public bool $refreshFails=false;
     public function ctx(): array { return $this->context(); }
     public function row(): array { return $this->ensureRow($this->context()); }
     public function lateCommit(array $context,array $row,string $token,int $generation): bool {
         return $this->commit($context,$row,$token,$generation,['status'=>'allowed','expires_at'=>time()+604800]);
     }
     protected function send(string $endpoint,array $context,string $nonce): string {
+        if($endpoint==='license/refresh') {
+            if($this->refreshFails)throw new \app\common\service\license\LicenseTransportUnavailable('LICENSE_NETWORK_UNAVAILABLE');
+            $object=(object)['code'=>1,'msg'=>'fixture','data'=>(object)['license'=>P::decode($this->nextCertificate)],'request_id'=>'refresh-fixture','server_time'=>time()];
+            openssl_sign(P::json($object),$signature,$this->key,OPENSSL_ALGO_SHA256);$object->signature=base64_encode($signature);return P::json($object);
+        }
+        if($this->nextCertificate!=='' && $context['license_version']>=2)$this->mode='allow';
         if($this->mode==='network')throw new \app\common\service\license\LicenseTransportUnavailable('LICENSE_NETWORK_UNAVAILABLE');
         if($this->mode==='bad_signature')return '{"signature":"bad"}';
         $now=time();
@@ -90,8 +98,32 @@ try {
     $service->refresh(true);
     Db::name('update_source')->where('status',1)->update(['license_key'=>'changed credential']);
     $assert(!$service->snapshot()['can_customize'],'credential cache isolation');
+    Db::name('update_source')->where('status',1)->update(['license_key'=>'fixture']);
+    foreach(['LICENSE_DOMAIN_FORBIDDEN','LICENSE_MACHINE_FORBIDDEN','LICENSE_IP_FORBIDDEN','COMMERCIAL_LICENSE_REQUIRED','LICENSE_EXPIRED'] as $error) {
+        $service->mode='allow';$service->refresh(true);$service->mode='deny';$service->error=$error;
+        $assert(!$service->refresh(true)['can_customize'],'binding/qualification denial ignored: '.$error);
+    }
+    $service->mode='allow';$service->refresh(true);
+    $old=$service->row();$oldContext=$service->ctx();$oldToken='older_success';
+    Db::name('site_license_access_cache')->where('id',$old['id'])->update(['lock_token'=>$oldToken]);
+    $service->mode='deny';$service->error='LICENSE_INVALID';$service->refresh(true);
+    $assert(!$service->lateCommit($oldContext,$old,$oldToken,(int)$old['generation']),'late success restored signed denial');
+    // Failed refresh must never resurrect the previously allowed lease.
+    $service->mode='allow';$service->refresh(true);$service->mode='deny';$service->error='LICENSE_REDOWNLOAD_REQUIRED';
+    $service->refreshFails=true;$assert(!$service->refresh(true)['can_customize'],'failed certificate refresh resurrected old lease');
+    $service->refreshFails=false;$replacement=clone $payload;$replacement->version=2;
+    $replacement->issuer=(object)['platform_name'=>'refreshed issuer','copyright'=>[(object)['text'=>'更新后的签发版权','url'=>'https://issuer.example']]];
+    $service->nextCertificate=$envelope($replacement);
+    $assert($service->refresh(true)['can_customize'],'certificate refresh + access failed');
+    $assert($license->verifiedSiteContext()['license_version']===2,'certificate version not refreshed');
+    $assert($service->snapshot()['issuer']['copyright'][0]['key']==='更新后的签发版权','issuer not refreshed');
+    $service->nextCertificate='';
+    // Origin switches must not reuse a qualified lease.
+    Db::name('update_source')->where('status',1)->update(['base_url'=>'http://other-fixture.invalid']);
+    $assert(!$service->snapshot()['can_customize'],'source origin cache isolation');
+    Db::name('update_source')->where('status',1)->update(['base_url'=>'http://fixture.invalid']);
     // Different trusted key cannot reuse issuer or commercial state.
     Db::name('update_source')->where('status',1)->update(['public_key'=>openssl_pkey_get_details(openssl_pkey_new(['private_key_bits'=>2048]))['key']]);
     $assert(C::policy()['source']==='builtin','untrusted issuer fallback');
-    echo "PASS: atomic original import, invalid import preservation, update deadline isolation, platform/tenant domains, copyright guard, empty issuer, network cache, revocation, auth/signature failure, recovery, expiry, stale writer and credential/key isolation\n";
+    echo "PASS: atomic original import, invalid import preservation, update deadline isolation, platform/tenant domains, copyright guard, empty issuer, network cache, revocation, auth/signature failure, recovery, expiry, late success after denial, certificate refresh and issuer update, source/credential/key isolation\n";
 } finally { Db::rollback(); }
