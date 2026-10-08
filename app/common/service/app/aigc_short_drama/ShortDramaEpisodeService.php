@@ -262,7 +262,7 @@ class ShortDramaEpisodeService
                         foreach ($siblings as $sibling) {
                             if ((int)$sibling['episode_number'] < (int)$row['episode_number'] && (int)$sibling['completed_once']) $previous[] = self::decode($sibling['continuity_json']);
                         }
-                        $request['series_context']['continuity'] = ShortDramaContinuity::context($previous);
+                        $request['series_context']['continuity'] = ShortDramaContinuity::context($previous, (int)($request['_input_contract_version'] ?? 0) >= 7);
                         $request['series_context']['previous_episodes'] = ShortDramaContinuity::context($previous)['recent_episodes'];
                         if ($review) {
                             $version = Db::name('aigc_short_drama_plan_version')->where(['tenant_id' => $tenantId, 'user_id' => $userId,

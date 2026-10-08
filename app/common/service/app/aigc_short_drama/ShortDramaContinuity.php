@@ -62,29 +62,43 @@ final class ShortDramaContinuity
         return $sort($value);
     }
 
-    public static function context(array $previous): array
+    public static function context(array $previous, bool $memory = false): array
     {
         $last = $previous ? $previous[count($previous) - 1] : [];
-        return ['version' => 1, 'state' => (array)($last['state'] ?? []), 'open_hooks' => (array)($last['open_hooks'] ?? []),
+        $result = ['version' => 1, 'state' => (array)($last['state'] ?? []), 'open_hooks' => (array)($last['open_hooks'] ?? []),
             'audit_status' => (string)($last['audit_status'] ?? 'verified'),
             'warnings' => (array)($last['warnings'] ?? []),
             'state_note' => in_array(($last['audit_status'] ?? ''), ['pending_review', 'skipped'], true)
                 ? '状态表仅为此前已验证记录，可能未反映上一集最新事件；衔接以recent_episodes正文为准，勿为迎合旧状态改写剧情。' : '',
             'previous_digest' => (string)($last['digest'] ?? ''),
             'recent_episodes' => array_map(static fn($item) => array_intersect_key($item, array_flip(['episode_number', 'summary', 'digest', 'audit_status', 'warnings'])), array_slice($previous, -2))];
+        if ($memory) {
+            $result['history'] = [];
+            foreach ($previous as $entry) {
+                if (($entry['audit_status'] ?? '') !== 'verified') continue;
+                $result['history'][(int)($entry['episode_number'] ?? 0)] = array_intersect_key($entry,
+                    array_flip(['episode_number','summary','digest']));
+            }
+        }
+        return $result;
     }
 
     public static function dependencyStatus(array $rows, array $current, bool $qualityReviewEnabled = true): array
     {
-        $previousDigest = ''; $upstreamChanged = false;
+        $previousDigest = ''; $upstreamChanged = false; $previous = [];
         foreach ($rows as &$row) {
             $saved = is_array($row['continuity_json'] ?? null) ? $row['continuity_json'] : (json_decode((string)($row['continuity_json'] ?? ''), true) ?: []);
             $version = $current[(int)($row['production_project_id'] ?? 0)] ?? [];
             $ledger = (array)($version['ledger'] ?? $saved);
             $digest = (string)($version['narrative_digest'] ?? $ledger['digest'] ?? '');
+            $dependency = (array)($ledger['memory_dependency'] ?? []);
+            $dependencyChanged = ($previousDigest !== '' && ($ledger['previous_digest'] ?? '') !== $previousDigest);
+            if (($dependency['version'] ?? 0) === ShortDramaNarrativeMemory::VERSION && isset($dependency['query'], $dependency['fingerprint'])) {
+                $dependencyChanged = $dependency['fingerprint'] !== ShortDramaNarrativeMemory::dependency(self::context($previous, true), $dependency['query']);
+            }
             $outdated = ($ledger['version'] ?? 0) === 1 && (
                 ($ledger['digest'] ?? '') !== $digest
-                || ($previousDigest !== '' && ($ledger['previous_digest'] ?? '') !== $previousDigest)
+                || $dependencyChanged
                 || $upstreamChanged);
             // An explicit regeneration may be pending while its previous
             // successful version remains viewable. Do not block that attempt.
@@ -95,6 +109,7 @@ final class ShortDramaContinuity
             if (!$outdated && $ledger) $row['continuity_json'] = json_encode($ledger, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             $upstreamChanged = $upstreamChanged || $outdated;
             $previousDigest = $digest;
+            $previous[] = $ledger;
         }
         unset($row);
         return $rows;
@@ -683,7 +698,7 @@ final class ShortDramaContinuity
             } else $hooks[$item['id']] = $item['description'];
         }
         // Never silently truncate hard facts. Fail before sending an oversized next context.
-        if (count($state) > 1000 || count($hooks) > 500) throw new RuntimeException('剧情状态过多，请分阶段整理后继续', 413);
+        if (empty($context['_bounded_memory']) && (count($state) > 1000 || count($hooks) > 500)) throw new RuntimeException('剧情状态过多，请分阶段整理后继续', 413);
         $warnings = [];
         foreach ($review['warnings'] as $warning) {
             if (!is_string($warning) || mb_strlen($warning) > 1500) throw new RuntimeException('连续性提示格式无效', 422);

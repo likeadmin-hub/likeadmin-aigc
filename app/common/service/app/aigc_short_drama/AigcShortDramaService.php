@@ -2451,7 +2451,7 @@ class AigcShortDramaService
             'series_context' => ['outline' => (int)($request['_generation_version'] ?? 0) >= 3 ? ShortDramaPlanningContext::lockedStory($outline) : $outline,
                 'current_episode' => $currentOutline,
                 'series_roadmap' => $outline['series_roadmap'] ?? [],
-                'continuity' => ShortDramaContinuity::context($previous),
+                'continuity' => ShortDramaContinuity::context($previous, (int)($request['_input_contract_version'] ?? 0) >= 7),
                 'previous_episodes' => (int)($request['_generation_version'] ?? 0) >= 3 ? ShortDramaContinuity::context($previous)['recent_episodes'] : $previous, 'subjects' => $outline['subjects'] ?? [],
                 'locations' => $outline['locations'] ?? []],
         ]);
@@ -17861,12 +17861,17 @@ class AigcShortDramaService
     private static function reviewScriptPlanContinuity(int $tenantId, int $userId, array $base, array $request, array $model, ?callable $onEvent): array
     {
         $receipts = []; $calls = 0; $rejected = [];
+        $request['_review_model_signature'] = hash('sha256', self::jsonEncode($model));
+        $checkpoint = ShortDramaReviewCheckpoint::load($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''));
         $callLimit = min(512, max(24, count((array)($base['storyboard'] ?? [])) * 12));
+        if (($checkpoint['resume']['signature'] ?? '') === ShortDramaReviewCheckpoint::signature($base, $request)) {
+            $receipts = (array)($checkpoint['resume']['receipts'] ?? []);
+        }
         $result = ShortDramaEpisodeReview::generate($base, $request,
             static function (string $key, array $input, int $desired, ?callable $validate = null) use ($tenantId, $userId, $request, $model, $onEvent, &$receipts, &$calls, &$rejected, $callLimit): array {
                 if (++$calls > $callLimit) throw new \RuntimeException('复核已达到本次处理上限，原剧本保留，请缩小修改范围', 429);
                 if ($onEvent) $onEvent('heartbeat', []);
-                $budget = ShortDramaPlanningBudget::fitMessages($input, $model, 'script', $desired);
+                $budget = ShortDramaPlanningBudget::fitMessages($input, $model, 'script', $desired, (int)($request['_input_contract_version'] ?? 0) >= 7);
                 ShortDramaPlanningUnit::supersede($rejected); $rejected = [];
                 $params = $input + ['model_config'=>['max_tokens'=>$budget['max_tokens'],'enable_thinking'=>false],
                     'source_app_code'=>self::APP_CODE,'source_type'=>'script_plan','action_code'=>'script_plan_continuity',
@@ -17880,8 +17885,10 @@ class AigcShortDramaService
                     if ($validate) $validate($payload);
                     return $payload;
                 }); } catch (\RuntimeException $error) { $rejected = $receipt; throw $error; }
-            }, $onEvent, static fn(array $plan, int $reviewed) => ShortDramaReviewCheckpoint::save(
-                $tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $plan, $reviewed));
+            }, $onEvent, static function(array $plan, int $reviewed, array $resume) use ($tenantId, $userId, $request, &$receipts): void {
+                $resume['receipts'] = $receipts;
+                ShortDramaReviewCheckpoint::save($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $plan, $reviewed, $resume);
+            }, $checkpoint);
         return ['result'=>$result, 'llm'=>self::mergeScriptPlanLlmResults($receipts)];
     }
 

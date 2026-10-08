@@ -7,8 +7,19 @@ use app\common\service\power\TextModelCapacity;
 final class ShortDramaPlanningBudget
 {
     /** Existing paid inputs stay unchanged unless the local preflight cannot submit them. */
-    public static function fitMessages(array &$messages, array $model, string $stage, int $desired = 8192): array
+    public static function fitMessages(array &$messages, array $model, string $stage, int $desired = 8192, bool $boundedMemory = false): array
     {
+        if ($boundedMemory) {
+            foreach ([10000, 5000, 2000] as $memoryBudget) {
+                $projected = ShortDramaNarrativeMemory::messages($messages, $memoryBudget);
+                try {
+                    $budget = self::stage($projected['system_prompt'] . $projected['content'], $model, $stage, $desired);
+                    $messages = $projected;
+                    return $budget;
+                } catch (RuntimeException $error) { if ($error->getCode() !== 413) throw $error; }
+            }
+            throw $error;
+        }
         try { return self::stage($messages['system_prompt'] . $messages['content'], $model, $stage, $desired); }
         catch (RuntimeException $error) {
             if ($error->getCode() !== 413) throw $error;
