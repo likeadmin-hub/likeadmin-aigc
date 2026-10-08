@@ -533,7 +533,7 @@ class ShortDramaEpisodeService
     {
         $row = Db::name(self::TABLE)->where(['id' => $selected['id'], 'tenant_id' => $selected['tenant_id'],
             'user_id' => $selected['user_id'], 'project_id' => $selected['project_id'], 'delete_time' => 0])
-            ->field('result_json,series_json', true)->find();
+            ->withoutField('result_json,series_json')->find();
         if (!$row) throw new Exception('剧集不存在或已删除');
         return array_replace($selected, $row);
     }
