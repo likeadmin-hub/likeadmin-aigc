@@ -131,7 +131,11 @@ final class ShortDramaContinuity
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
                 $sourcePatchVerified = false;
-                $review = $call($input);
+                $validate = $attempt ? static function (array $reply) use ($patchBase, $originalReview, $plan, $mutableEvidence): void {
+                    if (isset($reply['evidence_patches'])) self::applyEvidencePatches($patchBase, $reply, $plan, $mutableEvidence);
+                    else self::preserveRepairFacts($originalReview, $reply, $plan);
+                } : null;
+                $review = $call($input, $validate);
                 if ($attempt) $review = isset($review['evidence_patches'])
                     ? self::applyEvidencePatches($patchBase, $review, $plan, $mutableEvidence)
                     : self::preserveRepairFacts($originalReview, $review, $plan);
@@ -212,6 +216,13 @@ final class ShortDramaContinuity
                     . '事实内容、数量、顺序和warnings由服务端保留。必须依据完整script寻找证据，不能拼接或概括。'
                     . '\n优先避免重新抄写quote：使用evidence_refs:[{"shot_id":"实际镜头ID","field":"visual_description或dialogue"}]，由服务器读取该字段完整原文，再独立检查是否证明原事实。'
                     . '只能选择storyboard字段，不能选择script_lines或大纲。引用不存在、空字段或无关内容仍不通过。不要同时返回quote/evidence和evidence_refs。';
+                $targets = [];
+                foreach (['changes', 'hooks'] as $collection) foreach ($review[$collection] ?? [] as $index => $record) {
+                    $targets[] = ['collection'=>$collection, 'index'=>$index, 'record'=>$record];
+                }
+                $input['content'] .= "\n唯一可修改的记录与当前索引（此前被隔离的记录已不在这些数组中）："
+                    . json_encode($targets, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
+                    . '\n禁止引用unverified_claims、warnings或历史数组的索引；state_errors标出的before必须修正，已有有效证据无需重新提交。';
             }
         }
         throw new RuntimeException('连续性审校未完成', 422);

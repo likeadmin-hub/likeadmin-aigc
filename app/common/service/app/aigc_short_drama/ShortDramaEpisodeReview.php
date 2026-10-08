@@ -35,15 +35,17 @@ final class ShortDramaEpisodeReview
             $context['review_window'] = ['first_shot' => $offset + 1, 'last_shot' => $offset + $count, 'total_shots' => count($shots),
                 'instruction' => '当前仅审校本集的一段镜头。仅记录本段已发生的事实；未展示的前后段剧情不算遗漏，不可引用整集摘要推断本段事件。previous.state包含本集前面已核验镜头的最新状态。'];
             $key = 'review_' . $offset . '_' . $count;
-            $audit = static fn(array $input): array => $call($key . '_audit_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 16), $input, 4096,
-                static function ($reply): void {
+            $audit = static fn(array $input, ?callable $validate = null): array => $call($key . '_audit_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 16), $input, 4096,
+                static function ($reply) use ($validate): void {
+                    if ($validate) $validate($reply);
                     if (isset($reply['evidence_patches']) && is_array($reply['evidence_patches'])) return;
                     if (!is_string($reply['summary'] ?? null) || trim($reply['summary']) === '') throw new RuntimeException('连续性摘要缺失', 422);
                     foreach (['changes','hooks','warnings'] as $field) if (!is_array($reply[$field] ?? null)) throw new RuntimeException('连续性检查结构不完整', 422);
                 });
             $verify = static function (array $review, array $plan) use ($key, $call, &$context): array {
                 $input = ShortDramaContinuityPatch::meaningMessages($plan, $review, $context);
-                $reply = $call($key . '_evidence_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 16), $input, 4096);
+                $reply = $call($key . '_evidence_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 16), $input, 4096,
+                    static fn($response) => ShortDramaContinuityPatch::verifiedReview($review, $response, $context, []));
                 return ShortDramaContinuityPatch::verifiedReview($review, $reply, $context, []);
             };
             try {
