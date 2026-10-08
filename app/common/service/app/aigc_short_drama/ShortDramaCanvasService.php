@@ -40,7 +40,7 @@ class ShortDramaCanvasService
             if (!$row) throw new Exception('画布项目不存在或无权访问');
             return self::formatDocument($row, true);
         }
-        $row = $query->whereNotIn('id', Db::name(ShortDramaCanvasPages::TABLE)->whereRaw('canvas_id <> project_id')->field('canvas_id')->buildSql())->order('id', 'desc')->find();
+        $row = $query->whereRaw('id NOT IN '.Db::name(ShortDramaCanvasPages::TABLE)->whereRaw('canvas_id <> project_id')->field('canvas_id')->buildSql())->order('id', 'desc')->find();
         if (!$row) {
             return self::create($tenantId, $userId, []);
         }
@@ -65,7 +65,7 @@ class ShortDramaCanvasService
         $pageNo = max(1, (int)($params['page_no'] ?? 1));
         $pageSize = min(50, max(1, (int)($params['page_size'] ?? 20)));
         $query = Db::name(self::DOCUMENT_TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0]);
-        $query->whereNotIn('id', Db::name(ShortDramaCanvasPages::TABLE)->whereRaw('canvas_id <> project_id')->field('canvas_id')->buildSql());
+        $query->whereRaw('id NOT IN '.Db::name(ShortDramaCanvasPages::TABLE)->whereRaw('canvas_id <> project_id')->field('canvas_id')->buildSql());
         $keyword = trim((string)($params['keyword'] ?? ''));
         if ($keyword !== '') $query->whereLike('title', '%' . $keyword . '%');
         $count = (int)(clone $query)->count();
