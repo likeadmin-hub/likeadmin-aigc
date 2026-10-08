@@ -186,7 +186,7 @@ final class ShortDramaStoryGeneration
             } else {
                 for ($start = 1; $start <= $total; $start += 10) $expand($start, min(10, $total - $start + 1));
             }
-            $issues = ShortDramaStoryWorkflow::issues($payload, 'episodes', $total, $qualityReviewEnabled);
+            $issues = ShortDramaStoryWorkflow::issues($payload, 'episodes', $total, $qualityReviewEnabled, !empty($request['_canvas_series_planning']));
             if ($issues) throw new RuntimeException($issues[0]['message'], 422);
             $timing = ShortDramaEpisodeDuration::policy($request);
             if (ShortDramaEpisodeDuration::active($request) && ($timing['scope'] ?? '') === 'series' && $targetEpisode <= 0) {

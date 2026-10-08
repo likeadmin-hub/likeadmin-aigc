@@ -11,7 +11,7 @@ final class GraphService
 {
     public const TABLE = 'aigc_short_drama_canvas';
     public const RECEIPTS = 'aigc_short_drama_canvas_mutation_receipt';
-    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_auto_payload_hash','agent_manual_submit','workflow_source_stage','workflow_artifact','workflow_key','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash','workflow_formal_fields','workflow_formal_content_hash','workflow_prompt_run_id','workflow_style_id','workflow_style_name','workflow_planned_duration_seconds'];
+    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_auto_payload_hash','agent_manual_submit','workflow_episode_number','workflow_asset_signature','workflow_source_stage','workflow_artifact','workflow_key','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash','workflow_formal_fields','workflow_formal_content_hash','workflow_prompt_run_id','workflow_style_id','workflow_style_name','workflow_planned_duration_seconds'];
 
     /**
      * Server-only Agent writer.  ConversationExecution already owns the
@@ -26,7 +26,7 @@ final class GraphService
     {
         $workflowStage=(string)($workflow['stage_state']['key']??'');
         $compact=ConversationWorkflow::compactOutput($workflow);
-        $maximum=ConversationActionPlan::maximumNodesForStage($workflowStage,$compact);
+        $maximum=ConversationSeries::maximum($workflow,$workflowStage);
         if (!$proposals || count($proposals) > $maximum) throw new RuntimeException('INVALID_AGENT_ACTION');
         $nodes = json_decode($document['nodes_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
         $edges = json_decode($document['edges_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
@@ -49,8 +49,15 @@ final class GraphService
         $layout=self::agentNodeLayout($nodes,$proposals,(string)($creative['aspect_ratio']??''));
         $created=[];
         $createdByKey=[];
+        $reuse=(array)($workflow['image_plan']['reuse']??[]);
+        $signatures=ConversationSeries::enabled($workflow)?ConversationAssetReuse::signatures($proposals,$workflow,$settings):[];
         foreach ($proposals as $offset=>$proposal) {
             $type=(string)$proposal['type']; $title=trim((string)$proposal['title']); $prompt=trim((string)$proposal['prompt']);
+            $reuseSource=isset($reuse[$offset])?ConversationAssetReuse::source((int)$document['tenant_id'],(int)$document['user_id'],$reuse[$offset],$proposal):null;
+            if ($reuseSource && (int)$reuse[$offset]['canvas_id']===(int)$document['id']) {
+                $id=(string)$reuseSource['id'];$createdByKey[(string)$proposal['key']]=$id;
+                $created[]=['id'=>$id,'type'=>$type,'auto_submit'=>false,'reused'=>true];continue;
+            }
             $id=(string)self::allocateNodeId($nodes,$removed);
             $geometry=$layout[$offset];
             // Text artifacts are durable, readable workflow output.  Do not
@@ -59,6 +66,7 @@ final class GraphService
             $metadata=['prompt'=>$prompt,'content'=>$type==='text'?$prompt:'','status'=>'idle','progress'=>0,'error'=>'','content_revision'=>1,'layout_revision'=>1];
             if ($workflowStage!=='') {
                 $metadata['workflow_source_stage']=$workflowStage;
+                if (ConversationSeries::enabled($workflow)) $metadata['workflow_episode_number']=ConversationSeries::episode($workflow);
                 $metadata['workflow_artifact']=(string)($proposal['artifact']??'');
                 if (!empty($creative['aspect_ratio'])) $metadata['ratio']=(string)$creative['aspect_ratio'];
                 if (!empty($creative['style_id'])) $metadata['workflow_style_id']=(string)$creative['style_id'];
@@ -73,6 +81,7 @@ final class GraphService
                     $metadata['workflow_prompt_run_id']=$agentRunId;
                 }
             }
+            if (isset($signatures[$offset]) && in_array($proposal['artifact']??'',['subject','three_view','scene'],true)) $metadata['workflow_asset_signature']=$signatures[$offset];
             if ($type==='text') $metadata['model_code']=(string)($settings['reasoning_model']['id']??'');
             else $metadata['channel']=(string)($settings[$type.'_model']['id']??'');
             // Videos are deliberately never automatic Agent work.  A video
@@ -81,7 +90,7 @@ final class GraphService
             // node-level quote/submit flow.  Keeping this server-owned makes
             // a stale browser, a worker restart or a forged save unable to
             // turn an automatic image plan into a paid video submission.
-            $autoSubmit = $auto && $type !== 'video' && $type !== 'audio';
+            $autoSubmit = !$reuseSource && $auto && $type !== 'video' && $type !== 'audio';
             if ($type === 'video') {
                 $metadata['agent_manual_submit']=1;
                 $metadata['workflow_submission_policy']='manual_quote_confirmed';
@@ -105,6 +114,11 @@ final class GraphService
                 $metadata['agent_auto_run_id']=$agentRunId;
                 $metadata['agent_auto_request_key']='agent.'.$agentRunId.'.'.$id;
                 $metadata['agent_auto_payload_hash']=self::autoPayloadHash($metadata);
+            }
+            if ($reuseSource) {
+                $metadata=array_replace($metadata,array_intersect_key((array)$reuseSource['metadata'],array_flip(['image','url','uri','storage_scope','storage_engine','storage_domain'])));
+                $metadata['asset_id']=ConversationAssetReuse::copyAsset((int)$document['tenant_id'],(int)$document['user_id'],(int)$document['id'],$reuse[$offset]);
+                $metadata['status']='success';$metadata['progress']=100;
             }
             $node=['id'=>(int)$id,'type'=>$type,'title'=>$title,'x'=>$geometry['x'],'y'=>$geometry['y'],'width'=>$geometry['width'],'height'=>$geometry['height'],'metadata'=>$metadata];
             // Workflow references are durable graph facts. The model can only
@@ -658,9 +672,10 @@ final class GraphService
     /** Validate the model proposal again at the graph authority boundary. */
     private static function validateAgentProposals(array $proposals,string $workflowStage='',bool $compact=false): void {
         $allowedTypes=match ($workflowStage) {
-            'script','art','video_plan'=>['text'], 'assets','storyboard'=>['image'], 'video_nodes'=>['video'], 'audio_plan'=>['audio'], default=>['text','image','video'],
+            'story','outline','episode','script','art','video_plan'=>['text'], 'assets','storyboard'=>['image'], 'video_nodes'=>['video'], 'audio_plan'=>['audio'], default=>['text','image','video'],
         };
         $allowedArtifacts=match ($workflowStage) {
+            'story'=>['story_setting'], 'outline'=>['series_outline'], 'episode'=>['episode_script'],
             'script'=>$compact?['story_setting','episode_script']:['story_setting','episode_outline','storyboard_script'],
             'art'=>['art_bible','character_asset_spec','scene_asset_spec','prop_asset_spec','subject_image_prompt','three_view_prompt','scene_image_prompt','storyboard_image_prompt'],
             'assets'=>['subject','three_view'], 'storyboard'=>$compact?['scene','storyboard']:['scene','prop','storyboard'], 'video_plan'=>['video_prompt_plan'], 'video_nodes'=>['storyboard_video'], 'audio_plan'=>['audio_plan'], default=>[],

@@ -17,6 +17,9 @@ final class ConversationWorker
         try {
             $context=$claim['context'];
             $workflowStage=(string)($context['workflow']['stage_state']['key']??'');
+            if (ConversationSeries::enabled((array)($context['workflow']??[])) && $workflowStage!=='intake') {
+                return ConversationProduction::process($tenant,$user,$run,$claim);
+            }
             $intentRouting=(array)($context['intent_routing']??[]);
             $activeRouting=($intentRouting['kind']??'')==='active_workflow';
             $messageContext=$context;

@@ -26,7 +26,7 @@ final class ConversationActionPlan
 
     public static function maximumNodesForStage(string $stage,bool $compact=false): int
     {
-        return match ($stage) { 'video_nodes'=>60, 'audio_plan'=>1, 'script'=>$compact?2:3, 'art'=>64, 'assets'=>16, 'storyboard'=>24, 'video_plan'=>24, default=>4 };
+        return match ($stage) { 'story','outline','episode'=>64, 'video_nodes'=>60, 'audio_plan'=>1, 'script'=>$compact?2:3, 'art'=>64, 'assets'=>16, 'storyboard'=>24, 'video_plan'=>24, default=>4 };
     }
 
     public static function instruction(string $mode,string $workflowStage='',bool $compact=false,bool $stageGenerationPrompts=false): string

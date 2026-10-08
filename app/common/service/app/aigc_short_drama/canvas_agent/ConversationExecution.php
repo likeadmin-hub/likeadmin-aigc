@@ -20,7 +20,7 @@ final class ConversationExecution
             if ((int)$thread['active_run_id']!==$runId) throw new RuntimeException('RUN_SUPERSEDED');
             $claim=['token'=>bin2hex(random_bytes(24)),'fence'=>(int)$outbox['fencing_version']+1,'lease_until'=>time()+max(1,min(3600,$seconds))];
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'processing','lease_token'=>$claim['token'],'fencing_version'=>$claim['fence'],'lease_until'=>$claim['lease_until'],'attempts'=>(int)$outbox['attempts']+1,'update_time'=>time()]);
-            self::state($run,'running');self::event($run,'run.running',['status'=>'running']);
+            self::state($run,'running');if ((int)$outbox['attempts']===0) self::event($run,'run.running',['status'=>'running']);
             return $claim+['run_id'=>$runId,'thread_id'=>(int)$thread['id'],'canvas_id'=>(int)$run['canvas_id'],'context'=>json_decode($run['context_snapshot'],true,512,JSON_THROW_ON_ERROR),'settings'=>json_decode($run['settings_snapshot'],true,512,JSON_THROW_ON_ERROR),'skill'=>json_decode($run['skill_snapshot'],true,512,JSON_THROW_ON_ERROR)];
         });
     }
@@ -168,6 +168,29 @@ final class ConversationExecution
         });
     }
 
+    /** The production engine owns the paid work and its recovery. This is only an observer. */
+    public static function deferProduction(int $tenant,int $user,int $runId,string $token,int $fence): void
+    {
+        Db::transaction(function()use($tenant,$user,$runId,$token,$fence):void {
+            [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
+            if ($run['status']!=='running' || $outbox['state']!=='processing' || (int)$thread['active_run_id']!==$runId) throw new RuntimeException('STALE_WORKER');
+            self::state($run,'queued');
+            Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'pending','available_at'=>time()+5,'lease_until'=>0,'update_time'=>time()]);
+        });
+    }
+    public static function failProduction(int $tenant,int $user,int $runId,string $token,int $fence): string
+    {
+        return Db::transaction(function()use($tenant,$user,$runId,$token,$fence):string {
+            [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
+            if ($run['status']!=='running' || $outbox['state']!=='processing') throw new RuntimeException('STALE_WORKER');
+            self::state($run,'failed','PRODUCTION_FAILED');
+            self::event($run,'run.failed',['status'=>'failed','code'=>'PRODUCTION_FAILED']);
+            Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'failed','lease_until'=>0,'update_time'=>time()]);
+            Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(self::terminalThreadUpdate($thread,$run));
+            return 'failed';
+        });
+    }
+
     /** Only a server-owned no-cost preflight may use this before generate(). */
     public static function rejectBeforeSubmit(int $tenant,int $user,int $runId,string $token,int $fence): string
     {
@@ -272,6 +295,12 @@ final class ConversationExecution
         return Db::transaction(function () use ($tenant,$user,$runId): bool {
             [$run,,$outbox]=self::locked($tenant,$user,$runId);
             if ($run['status']!=='running' || !in_array($outbox['state'],['processing','submitting'],true) || (int)$outbox['lease_until']>time()) return false;
+            $context=json_decode((string)$run['context_snapshot'],true)?:[];
+            if ($outbox['state']==='processing' && ConversationSeries::enabled((array)($context['workflow']??[]))) {
+                self::state($run,'queued');
+                Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'pending','available_at'=>time(),'lease_until'=>0,'update_time'=>time()]);
+                return true; // Local observer only; child task has its own provider fence.
+            }
             self::uncertain($run,$outbox,'WORKER_LEASE_EXPIRED');return true;
         });
     }
@@ -289,6 +318,7 @@ final class ConversationExecution
             $status=$run['status'];
             if (in_array($status,['success','failed','canceled'],true)) return ['run_id'=>$runId,'status'=>$status,'cancellation_confirmed'=>$status==='canceled'];
             if (($status==='queued' && $outbox['state']==='pending') || ($status==='running' && $outbox['state']==='processing')) {
+                ConversationProduction::cancelBound($tenant,$user,$thread,$run);
                 self::state($run,'canceled','USER_STOPPED_BEFORE_SUBMIT');
                 self::event($run,'run.canceled',['status'=>'canceled','code'=>'USER_STOPPED_BEFORE_SUBMIT']);
                 Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'canceled','lease_until'=>0,'update_time'=>time()]);
