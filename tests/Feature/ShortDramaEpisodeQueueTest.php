@@ -264,9 +264,16 @@ class ShortDramaEpisodeQueueTest extends TestCase
         $parentRequest['multi_episode_stage'] = 'episodes';
         Db::name('aigc_short_drama_script_task')->where('task_id', $parent['task_id'])->update(['status' => 'success', 'result_json' => json_encode($outline), 'request_json' => json_encode($parentRequest)]);
         $list = Episodes::start(1, 1, $parent + ['draft_version' => 0]);
-        $row = Db::name('aigc_short_drama_episode_task')->where('id', $list['lists'][0]['id'])->find();
+        $selected = ['id' => $list['lists'][0]['id'], 'tenant_id' => 1, 'user_id' => 1, 'project_id' => $parent['project_id']];
+        Db::name('aigc_short_drama_episode_task')->where('id', $selected['id'])->update(['retry_count' => 2]);
+        $hydrate = new \ReflectionMethod(Episodes::class, 'executionEpisode'); $hydrate->setAccessible(true);
+        $row = $hydrate->invoke(null, $selected);
+        self::assertSame(2, (int)$row['retry_count']);
+        self::assertArrayNotHasKey('series_json', $row);
+        self::assertArrayNotHasKey('result_json', $row);
         $parentTask = Db::name('aigc_short_drama_script_task')->where('task_id', $parent['task_id'])->find();
         $created = AigcShortDramaService::createEpisodeProduction(1, 1, $row, Episodes::decode($parentTask['request_json']), $outline, []);
+        self::assertSame($row['title'], Db::name('aigc_short_drama_project')->where('id', $created['project_id'])->value('title'));
         Db::name('aigc_short_drama_episode_task')->where('id', $row['id'])->update(['production_project_id' => $created['project_id'], 'task_id' => $created['task_id']]);
         $stored = Db::name('aigc_short_drama_script_task')->where('task_id', $created['task_id'])->find();
         $request = Episodes::decode($stored['request_json']);

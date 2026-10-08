@@ -504,7 +504,7 @@ class ShortDramaEpisodeService
                 $first = self::nextInitialEpisode($rows);
                 $selected = $first && empty($first['needs_review']) && in_array($first['status'], ['pending', 'running'], true) ? $first : null;
                 if (!$selected) continue;
-                $selected = array_replace($selected, Db::name(self::TABLE)->where('id', $selected['id'])->field('outline_json')->find() ?: []);
+                $selected = self::executionEpisode($selected);
                 if ((int)$selected['queue_job_id'] === 0) self::queueJob($t, $u, $p, (int)$selected['id'], (int)$selected['attempt_number']);
                 $queueMessage = ShortDramaRedisQueue::claim(gethostname() . '-' . getmypid(), 1);
                 if ($queueMessage && (int)($queueMessage['data']['episode_id'] ?? 0) !== (int)$selected['id']) {
@@ -526,6 +526,16 @@ class ShortDramaEpisodeService
             }
         }
         return $exported;
+    }
+
+    /** Hydrate only the selected episode, preserving its complete execution contract. */
+    private static function executionEpisode(array $selected): array
+    {
+        $row = Db::name(self::TABLE)->where(['id' => $selected['id'], 'tenant_id' => $selected['tenant_id'],
+            'user_id' => $selected['user_id'], 'project_id' => $selected['project_id'], 'delete_time' => 0])
+            ->field('result_json,series_json', true)->find();
+        if (!$row) throw new Exception('剧集不存在或已删除');
+        return array_replace($selected, $row);
     }
 
     private static function run(int $tenantId, int $userId, array $row, array $siblings, string $leaseToken = ''): void
