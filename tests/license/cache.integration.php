@@ -75,6 +75,8 @@ try {
     $request->source=AdminTerminalEnum::TENANT;$request->tenantId=$tenant;
     $assert((new S())->snapshot()['can_customize'],'tenant Host changed platform binding');
     $assert(C::policy()['source']==='tenant_custom','commercial tenant copyright');
+    $assert(W::setCopyright(['config'=>[['key'=>'商业版自定义版权','value'=>'https://tenant.example']]])===true,'commercial save blocked');
+    $assert(C::policy()['items'][0]['key']==='商业版自定义版权','commercial saved copyright not effective');
     $service->mode='network';$assert($service->refresh(true)['can_customize'],'network fallback missing');
     $assert((int)$service->row()['expires_at']===$expires,'retry renewed lease');
     $assert($service->snapshot()['access_status']==='offline','offline label');
@@ -87,6 +89,7 @@ try {
     $assert(C::policy()['source']==='license_issuer' && C::policy()['items']===[],'empty issuer fallback');
     $assert(W::setCopyright(['config'=>[['key'=>'bypass','value'=>'']]])===false,'direct save bypass');
     $service->mode='allow';$assert($service->refresh(true)['can_customize'],'recovery failed');
+    $assert(C::policy()['items'][0]['key']==='商业版自定义版权','previous custom copyright lost after recovery');
     $service->mode='deny';$service->error='INVALID_API_KEY';$assert(!$service->refresh(true)['can_customize'],'auth error fallback');
     $service->mode='allow';$service->refresh(true);
     $service->mode='bad_signature';$assert(!$service->refresh(true)['can_customize'],'bad signature fallback');
