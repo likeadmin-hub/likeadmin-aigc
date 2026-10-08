@@ -85,6 +85,66 @@ class AigcPicLipsyncAdminService
         $asset->save(['delete_time' => time(), 'update_time' => time()]);
     }
 
+    public static function voiceLists(int $tenantId, array $params, string $source): array
+    {
+        $query = \app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice::where(['tenant_id'=>$tenantId,'source'=>$source,'delete_time'=>0]);
+        if ($source === 'official') $query->where('user_id', 0);
+        if ((int)($params['user_id'] ?? 0) > 0) $query->where('user_id',(int)$params['user_id']);
+        if (trim((string)($params['keyword'] ?? '')) !== '') $query->where('name','like','%'.trim((string)$params['keyword']).'%');
+        if (trim((string)($params['status'] ?? '')) !== '') $query->where('status',(string)$params['status']);
+        $page=max(1,(int)($params['page_no']??1));$size=max(1,min(100,(int)($params['page_size']??15)));
+        $count=(int)(clone $query)->count();$rows=$query->order(['sort'=>'desc','id'=>'desc'])->page($page,$size)->select()->toArray();
+        return ['lists'=>array_map([self::class,'formatVoice'],$rows),'count'=>$count,'page_no'=>$page,'page_size'=>$size];
+    }
+
+    public static function savePublicVoice(int $tenantId, array $params, ?array $storageSnapshot = null): array
+    {
+        $id=(int)($params['id']??0);
+        $row=$id>0?\app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice::where(['tenant_id'=>$tenantId,'id'=>$id,'source'=>'official','user_id'=>0,'delete_time'=>0])->findOrEmpty():null;
+        if ($id>0 && $row->isEmpty()) throw new Exception('公共音色不存在');
+        $audio=self::sampleUri((string)($params['audio_uri']??''));
+        if ($audio === '') throw new Exception('请上传参考音频，图片数字人不能只使用克隆音色ID');
+        $ext=strtolower(pathinfo((string)(parse_url($audio,PHP_URL_PATH)?:$audio),PATHINFO_EXTENSION));
+        if (!in_array($ext,['wav','mp3','m4a','aac','ogg','flac','opus'],true)) throw new Exception('参考音频格式不支持');
+        $config=\app\common\service\storage\StorageConfigService::getEffectiveConfig($tenantId);
+        $storage=$storageSnapshot??($row?$row->toArray():['storage_scope'=>$config['scope'],'storage_engine'=>$config['default'],'storage_domain'=>\app\common\service\storage\StorageConfigService::getEffectiveDomain($tenantId)]);
+        $path=public_path().ltrim($audio,'/');
+        $duration=is_file($path)?\app\common\service\MediaDurationService::detect($path):0;
+        $data=['tenant_id'=>$tenantId,'user_id'=>0,'source'=>'official','name'=>mb_substr(trim((string)($params['name']??'公共参考音色')),0,80)?:'公共参考音色',
+            'audio_uri'=>$audio,'cover_uri'=>self::sampleUri((string)($params['cover_uri']??'')),'gender'=>(string)($params['gender']??''),'age_group'=>(string)($params['age_group']??''),
+            'storage_scope'=>$storage['storage_scope'],'storage_engine'=>$storage['storage_engine'],'storage_domain'=>$storage['storage_domain'],
+            'duration'=>(int)ceil($duration),'provider_asset_id'=>trim((string)($params['provider_asset_id']??($row['provider_asset_id']??''))),
+            'provider'=>(string)($row['provider']??$params['provider']??'pic_lipsync_sample'),'status'=>'ready','sort'=>(int)($params['sort']??0),'delete_time'=>0,'update_time'=>time()];
+        // Reference samples are used directly. Never call the clone provider or enqueue paid clone work here.
+        if ($row) $row->save($data);
+        else { $data['create_time']=time();$row=\app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice::create($data); }
+        return self::formatVoice($row->toArray());
+    }
+
+    public static function publishUserVoice(int $tenantId, int $id): array
+    {
+        $voice=\app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice::where(['tenant_id'=>$tenantId,'id'=>$id,'source'=>'mine','delete_time'=>0])->findOrEmpty();
+        if ($voice->isEmpty()) throw new Exception('用户音色不存在');
+        $data=$voice->toArray();$data['id']=0;$data['audio_uri']=$data['audio_uri']?:$data['preview_audio_uri'];
+        return self::savePublicVoice($tenantId,$data,$voice->toArray());
+    }
+
+    private static function sampleUri(string $value): string
+    {
+        $value=trim($value);
+        if (preg_match('#^(data|blob|file):#i',$value) || str_contains($value,'..')) throw new Exception('请使用已保存的素材地址');
+        return \app\common\service\FileService::setFileUrl($value);
+    }
+
+    private static function formatVoice(array $row): array
+    {
+        $audio=trim((string)$row['audio_uri'])?:trim((string)$row['preview_audio_uri']);
+        foreach (['audio_url'=>$audio,'cover_url'=>(string)$row['cover_uri']] as $key=>$uri) {
+            $row[$key]=$uri!==''?\app\common\service\FileService::getFileUrlByStorage($uri,(string)$row['storage_scope'],(string)$row['storage_engine'],(string)$row['storage_domain']):'';
+        }
+        return $row;
+    }
+
     public static function clearData(): void
     {
         // Shared avatar/voice libraries and immutable billing ledgers belong to other modules.

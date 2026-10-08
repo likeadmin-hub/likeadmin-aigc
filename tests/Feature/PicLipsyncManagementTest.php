@@ -70,6 +70,24 @@ class PicLipsyncManagementTest extends TestCase
         Registry::setStatus(Service::APP_CODE,'disabled');self::assertFalse(Access::tenantCanManage(987001,Service::APP_CODE));
         Registry::setStatus(Service::APP_CODE,'installed');self::assertTrue(Access::tenantCanManage(987001,Service::APP_CODE));
     }
+    public function testPublicReferenceSamplesSaveAndPublishWithoutCloneWork(): void
+    {
+        $before=(int)Db::name('ai_task')->count();
+        $sample=Admin::savePublicVoice(987001,['name'=>'reference fixture','audio_uri'=>'uploads/reference-fixture.wav']);
+        self::assertSame('',$sample['provider_asset_id']);self::assertSame('ready',$sample['status']);
+        self::assertSame(1,Admin::voiceLists(987001,[],'official')['count']);
+        self::assertSame(0,Admin::voiceLists(987002,[],'official')['count']);
+        $user=\app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice::create(['tenant_id'=>987001,'user_id'=>77001,'source'=>'mine','name'=>'uncloned reference','audio_uri'=>'uploads/reference-fixture.wav','provider_asset_id'=>'','status'=>'pending','delete_time'=>0]);
+        $published=Admin::publishUserVoice(987001,(int)$user['id']);
+        self::assertSame('',$published['provider_asset_id']);self::assertSame('official',$published['source']);
+        self::assertSame($before,(int)Db::name('ai_task')->count());
+    }
+    public function testPublicReferenceEditingCannotCrossTenantBoundary(): void
+    {
+        $voice=Admin::savePublicVoice(987001,['audio_uri'=>'uploads/reference-fixture.wav']);
+        $this->expectExceptionMessage('公共音色不存在');
+        Admin::savePublicVoice(987002,['id'=>$voice['id'],'audio_uri'=>'uploads/reference-fixture.wav']);
+    }
     public function testPlanCanOpenRenewAndKeepUnshelvedState(): void
     {
         $plan=\app\common\service\app\AppPlanService::savePlan(['app_code'=>Service::APP_CODE,'name'=>'management fixture plan','duration_months'=>1,'open_points'=>0,'renew_points'=>0,'status'=>1]);
