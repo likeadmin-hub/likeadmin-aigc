@@ -20976,7 +20976,11 @@ class AigcShortDramaService
         $episodeCount = $episodeSettings['episode_count'];
         $multiEpisodeStage = self::normalizeMultiEpisodeStage($request, self::MULTI_EPISODE_STAGE_PRODUCTION);
         $normalizedTitle = trim((string)($payload['title'] ?? $title));
-        $typeJudgement = trim((string)($payload['type_judgement'] ?? $payload['type'] ?? ''));
+        $rawType = $payload['type_judgement'] ?? $payload['type'] ?? '';
+        // Some providers return their structured genre analysis here. It is
+        // presentation metadata, and must not discard an otherwise paid plan.
+        if (is_array($rawType)) $rawType = $rawType['story_type'] ?? $rawType['genre'] ?? $rawType['type'] ?? self::jsonEncode($rawType);
+        $typeJudgement = trim(is_array($rawType) ? self::jsonEncode($rawType) : (string)$rawType);
         $coreTheme = trim((string)($payload['core_theme'] ?? $payload['theme'] ?? ''));
         $openingFeedback = trim((string)($payload['opening_feedback'] ?? ''));
         $planningSteps = self::stringList($payload['planning_steps'] ?? []);
