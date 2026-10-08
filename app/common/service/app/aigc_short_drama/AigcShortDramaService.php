@@ -2694,7 +2694,7 @@ class AigcShortDramaService
         $request['prompt'] = $prompt;
         // Only new user submissions adopt tenant defaults. Internal retries and
         // episode continuations retain their original immutable policy version.
-        if ($internalContext === [] && !empty($config['episode_duration_rule']['enabled'])) {
+        if ($existingProjectId === 0 && !isset($request['episode_duration_policy']) && !empty($config['episode_duration_rule']['enabled'])) {
             $request['episode_duration_policy'] = self::episodeDurationSnapshot($prompt, $params, $config);
         }
         if (ShortDramaEpisodeDuration::active($request)) {

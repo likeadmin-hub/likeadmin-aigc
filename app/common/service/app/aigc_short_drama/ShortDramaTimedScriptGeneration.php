@@ -28,6 +28,7 @@ final class ShortDramaTimedScriptGeneration
                     self::canonicalSkeleton($call('timed_skeleton_' . $attempt, $skeletonInput, 8192)),
                     $request
                 );
+                if (ShortDramaInputContract::recoveryEnabled($request)) $skeleton = self::normalizeSkeletonBudgets($skeleton, $request);
                 if (!empty($skeleton['storyboard'])) {
                     if (ShortDramaDialogueSplit::enabled($request)) {
                         $skeleton = ShortDramaDialogueSplit::adapt($skeleton, $request, $call, 'timed_complete');
@@ -301,6 +302,47 @@ final class ShortDramaTimedScriptGeneration
             }
         }
         ShortDramaEpisodeDuration::assertPlan(['storyboard' => $shots], $request);
+    }
+
+    /** Reconcile provisional numeric budgets before any shot text is generated.
+     * Keep each scene's proposed total; explicit timelines remain authoritative. */
+    public static function normalizeSkeletonBudgets(array $plan, array $request): array
+    {
+        if (!empty($plan['storyboard']) || !empty(ShortDramaEpisodeDuration::policy($request)['timeline_segments'])) return $plan;
+        $rule = ShortDramaShotDuration::rule($request);
+        $min = (float)$rule['min_seconds']; $max = (float)$rule['max_seconds'];
+        foreach ((array)($plan['scene_beats'] ?? []) as $index => $beat) {
+            $original = $beat['shot_durations'] ?? [];
+            if (!is_array($original) || !$original) continue;
+            $durations = [];
+            foreach ($original as $duration) {
+                if (!is_numeric($duration) || !is_finite((float)$duration) || $duration <= 0) throw new RuntimeException('骨架分镜时长须为有效正数', 422);
+                $count = (int)ceil($duration / $max);
+                if ($count > 40) throw new RuntimeException('场景时间预算超出处理范围', 422);
+                array_push($durations, ...array_fill(0, $count, (float)$duration / $count));
+            }
+            $total = array_sum($durations);
+            if ($total < $min || count($durations) > 40) throw new RuntimeException('场景时间预算无法满足片段范围，请调整该场景时长', 422);
+            while (count($durations) > 1 && count($durations) * $min > $total + 0.001) {
+                $smallest = array_search(min($durations), $durations, true);
+                $neighbor = $smallest === count($durations) - 1 ? $smallest - 1 : $smallest + 1;
+                $durations[$neighbor] += $durations[$smallest];
+                array_splice($durations, $smallest, 1);
+            }
+            foreach ($durations as $i => $duration) {
+                if ($duration >= $min) continue;
+                $needed = $min - $duration;
+                foreach ($durations as $j => $available) {
+                    if ($i === $j) continue;
+                    $move = min($needed, max(0, $available - $min));
+                    $durations[$j] -= $move; $durations[$i] += $move; $needed -= $move;
+                    if ($needed <= 0.001) break;
+                }
+            }
+            $plan['scene_beats'][$index]['shot_durations'] = $durations;
+            $plan['scene_beats'][$index]['duration_seconds'] = $total;
+        }
+        return $plan;
     }
 
     private static function lockTimelineShotDurations(array $plan, array $request): array
