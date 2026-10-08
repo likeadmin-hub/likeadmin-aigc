@@ -44,7 +44,7 @@ final class ShortDramaContinuityPatch
                 '逐项区分持有与所有权、暂借与归还、知情与身份、保护他人与自己受保护。一个子句得到支持不能证明整条复合after；未出现的关系、归属或动机不得用“隐含”补全，应返回supported=false并指出具体未获支持的子句。',
                 'script_lines仅用于指出遗漏情节，不可替代镜头证据。若镜头未展示但script_lines明确记载，请在reason引用该原文，供局部补镜。',
                 '每条changes、hooks以及source_patch.shot_insertions都必须返回一个检查项，index为零基索引，补镜的collection为insertions。不要省略、重复或新增检查项。',
-                'response_contract已经列出本轮全部检查项及准确索引。原样保留collection与index，仅填写supported与reason；空数组保持空数组，不添加占位检查项。',
+                'response_contract已经列出本轮全部检查项及准确索引。原样保留collection与index，填写supported与reason，changes和hooks在supported=false时还必须填写failure_kind；空数组保持空数组，不添加占位检查项。',
                 'insertions核对新增镜头是否忠实呈现source_quote的含义；允许影视化改写，不要求逐字相同，但不得杜撰新剧情或用无关镜头替代。',
             ], 'storyboard' => $plan['storyboard'] ?? [], 'script_lines' => $plan['script_lines'] ?? [],
                 'earlier_episode_shots' => $context['_earlier_episode_shots'] ?? [],
@@ -52,7 +52,7 @@ final class ShortDramaContinuityPatch
                 'review' => $review, 'previous_state' => $context['continuity']['state'] ?? [], 'previous_open_hooks' => $context['continuity']['open_hooks'] ?? [], 'source_patch' => $plan['_continuity_source_patch'] ?? [], 'response_contract' => ['checks' => $checks]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
     }
 
-    public static function assertMeaning(array $review, array $response, array $sourcePatch = []): void
+    public static function assertMeaning(array $review, array $response, array $sourcePatch = [], bool $requireClassification = false): void
     {
         $response = self::normalizeMeaningResponse($response);
         if (!is_array($response['checks'] ?? null) || !array_is_list($response['checks'])) throw new RuntimeException('连续性语义核对回包不完整', 422);
@@ -63,6 +63,7 @@ final class ShortDramaContinuityPatch
         foreach ($response['checks'] as $item) {
             if (!is_array($item) || !is_string($item['collection'] ?? null) || !is_int($item['index'] ?? null)
                 || !is_bool($item['supported'] ?? null) || !is_string($item['reason'] ?? null)) throw new RuntimeException('连续性语义核对格式无效', 422);
+            if ($requireClassification && !$item['supported'] && in_array($item['collection'], ['changes','hooks'], true) && !isset($item['failure_kind'])) throw new RuntimeException('连续性语义核对缺少failure_kind：否定结论必须分类audit_claim、script_conflict或uncertain', 422);
             if (isset($item['failure_kind']) && !in_array($item['failure_kind'], ['audit_claim','script_conflict','uncertain'], true)) throw new RuntimeException('连续性语义核对失败分类无效', 422);
             $key = $item['collection'] . ':' . $item['index'];
             if (!isset($expected[$key])) throw new RuntimeException('连续性语义核对索引重复或越界', 422);
@@ -89,13 +90,13 @@ final class ShortDramaContinuityPatch
 
     /** A model's unproven claim that a hook is resolved must not erase an
      * existing open hook. Preserve it and expose the rejected claim explicitly. */
-    public static function verifiedReview(array $review, array $response, array $context, array $sourcePatch = []): array
+    public static function verifiedReview(array $review, array $response, array $context, array $sourcePatch = [], bool $requireClassification = false): array
     {
         $response = self::normalizeMeaningResponse($response);
         // Validate complete, unique, typed coverage before interpreting any
         // negative verdict. A malformed verifier is not a quality warning.
         try {
-            self::assertMeaning($review, $response, $sourcePatch);
+            self::assertMeaning($review, $response, $sourcePatch, $requireClassification);
         } catch (RuntimeException $error) {
             if ($error->getCode() !== 460) throw $error;
         }
@@ -118,7 +119,7 @@ final class ShortDramaContinuityPatch
             $keepOpen[$check['index']] = ['id' => $id, 'claim' => $hook, 'reason' => (string)($check['reason'] ?? ''), 'failure_kind'=>$check['failure_kind'] ?? 'uncertain'];
             $response['checks'][$index]['supported'] = true; // No resolution operation will be applied.
         }
-        self::assertMeaning($review, $response, $sourcePatch);
+        self::assertMeaning($review, $response, $sourcePatch, $requireClassification);
         foreach ($keepOpen as $index => $rejected) {
             $review['unverified_hook_resolutions'][] = $rejected;
         }

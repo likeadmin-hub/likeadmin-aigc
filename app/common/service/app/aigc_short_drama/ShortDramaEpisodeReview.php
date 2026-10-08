@@ -45,8 +45,8 @@ final class ShortDramaEpisodeReview
                 $evidenceContext['_earlier_episode_shots'] = self::earlierEvidence(array_slice($result['storyboard'], 0, $offset), $review);
                 $input = ShortDramaContinuityPatch::meaningMessages($plan, $review, $evidenceContext);
                 $reply = ShortDramaStructuredResponse::audit($input, static fn(array $input): array => $call($key . '_evidence_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 16), $input, 4096,
-                    static fn($response) => ShortDramaContinuityPatch::verifiedReview($review, $response, $context, [])));
-                return ShortDramaContinuityPatch::verifiedReview($review, $reply, $context, []);
+                    static fn($response) => ShortDramaContinuityPatch::verifiedReview($review, $response, $context, [], true)));
+                return ShortDramaContinuityPatch::verifiedReview($review, $reply, $context, [], true);
             };
             try {
                 try {
