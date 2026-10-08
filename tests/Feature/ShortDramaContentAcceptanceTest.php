@@ -104,6 +104,26 @@ class ShortDramaContentAcceptanceTest extends TestCase
         Acceptance::inspect($this->plan(),[['id'=>'r1','kind'=>'event','text'=>'人物实际开口']],$call);
     }
 
+    public function testUnfoundedSpeakerCriticismCannotDeleteAnAttributedTurn(): void
+    {
+        $plan=$this->plan(); $plan['storyboard'][0]['dialogue']="甲：出发吧。\n乙：好的。";
+        $report=Acceptance::inspect($plan,[],static function($key,$input,$tokens,$validate){
+            $d=json_decode($input['content'],true);
+            $r=isset($d['field_claims'])?['verdicts'=>[['id'=>'0','confirmed'=>false,'reason'=>'多人带前缀对白合法','shot_ids'=>[]]]]:
+                ['checks'=>[],'issues'=>[['code'=>'speaker','message'=>'voice_role必须列出所有人','shot_ids'=>['s1']]]];
+            $validate($r); return $r;
+        });
+        self::assertSame([],$report['issues']);
+    }
+
+    public function testDialogueCollectionIsNotMistakenForShotDialogue(): void
+    {
+        $plan=$this->plan(); $plan['dialogue']=[['character'=>'甲','line'=>'原话']];
+        $result=\app\common\service\app\aigc_short_drama\ShortDramaDialogueContract::prepare($plan);
+        self::assertSame($plan['dialogue'],$result['payload']['dialogue']);
+        self::assertSame([],$result['issues']);
+    }
+
     public function testRoomSilenceAndTwoSpeakersHaveConsistentSemantics(): void
     {
         self::assertSame('interior',Semantics::space(['scene_ref_id'=>'room'],$this->plan()['locations']));
