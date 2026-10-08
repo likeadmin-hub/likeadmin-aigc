@@ -169,6 +169,15 @@ class ShortDramaContentAcceptanceTest extends TestCase
         self::assertSame('interior',Semantics::normalize($p)['storyboard'][0]['interior_exterior']);
     }
 
+    public function testExplicitEpisodeSourceDoesNotRequirePastOrFutureEvents(): void
+    {
+        $source='两位成年人。第1集相识；第六集搬书，第9集才能拆信；第10集读书。不得增加角色。';
+        self::assertSame('两位成年人。第六集搬书，第9集才能拆信；不得增加角色。', Acceptance::episodeSource($source,6));
+        self::assertSame('第５００集归还物品。',Acceptance::episodeSource('第499集取物；第５００集归还物品。',500));
+        self::assertSame('第九十九集离开；',Acceptance::episodeSource('第九十九集离开；第一百集返回。',99));
+        self::assertSame('单集人物在第9集的海报前交谈。',Acceptance::episodeSource('单集人物在第9集的海报前交谈。',1));
+    }
+
     public function testDurationConstraintIsCalculatedByServerNotProseModel(): void
     {
         $report=Acceptance::inspect($this->plan(),[['id'=>'r1','kind'=>'constraint','text'=>'本集时长10秒。']],static function($key,$input,$tokens,$validate){
