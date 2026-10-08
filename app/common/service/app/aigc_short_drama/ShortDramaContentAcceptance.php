@@ -161,14 +161,23 @@ final class ShortDramaContentAcceptance
             if($ambiguous||($labels!==''&&preg_match('/(?:^|[。！？])\s*(?:'.$labels.')[，,]/u',$text))||preg_match('/[。！？].+[^。！？][。！？]/u',$text))$targets[]=$s;
         }
         foreach(array_chunk($targets,6) as $batch){
-            $original=$plan['content_acceptance']['source_script_lines']??$plan['script_lines']??[];
-            $data=['requirements'=>$requirements,'legacy_dialogue'=>self::shots($batch),'subjects'=>self::metadata($plan['subjects']),'source_prose'=>mb_substr(implode("\n",array_filter((array)$original,'is_string')),0,6000)];
+            $evidence=[];
+            foreach($batch as $shot){
+                $utterances=[];
+                foreach(ShortDramaShotSemantics::turns($shot) as $turn){
+                    $text=$turn['text'];$possibleLabel='';
+                    if($labels!==''&&preg_match('/^('.$labels.')[，,]\s*(.*)$/us',$text,$m)){$possibleLabel=$m[1];$text=$m[2];}
+                    $utterances[]=['text'=>$text,'possible_label_or_address'=>$possibleLabel];
+                }
+                $evidence[]=['shot_id'=>$shot['shot_id'],'visual_description'=>$shot['visual_description'],'utterances'=>$utterances];
+            }
+            $data=['requirements'=>$requirements,'legacy_dialogue'=>$evidence,'subjects'=>self::metadata($plan['subjects'])];
             $wording=static function(string $text)use($labels):string{
                 if($labels!=='')do{$before=$text;$text=preg_replace('/(?:^|(?<=[。！？\n]))\s*(?:'.$labels.')[：:，,]\s*/u','',$text);}while($text!==$before);
                 return preg_replace('/[\s\p{P}]+/u','',$text);
             };
             $reply=self::call($call,'legacy_dialogue',$data,
-                '将旧版对白中的姓名标签与实际台词分开。参照source_prose判断谁在说话，特别区分姓名加逗号的标签和台词里真正的称呼。requirements与画面动作是判断物品归属、谁在提问及回答的依据；旧voice_role及已添加的姓名前缀也可能错误，不能只因台词开头有姓名逗号就猜是在称呼对方。多个姓名依次标注各句且符合画面与物品归属时应解释为说话标签。明确标签应转换为冒号，不能保留为角色自称/叫错对象的台词。返回{"dialogues":[{"shot_id":"原ID","turns":[{"speaker":"实际角色姓名","text":"原台词"}]}]}，每个输入镜头恰好一次。保留全部原话和原顺序，不补写、不删句、不改写，只转换姓名标签；同镜头多人分别返回多项。voice_role是旧版单一字段，不能据此把所有人的话都归给一个人。',
+                '将旧版对白中的姓名标签与实际台词分开。依据当前镜头动作和requirements判断谁在说话，特别区分姓名加逗号的标签和台词里真正的称呼。requirements与画面动作是判断物品归属、谁在提问及回答的依据；旧voice_role及已添加的姓名前缀也可能错误，不能只因台词开头有姓名逗号就猜是在称呼对方。多个姓名依次标注各句且符合画面与物品归属时应解释为说话标签。明确标签应转换为冒号，不能保留为角色自称/叫错对象的台词。返回{"dialogues":[{"shot_id":"原ID","turns":[{"speaker":"实际角色姓名","text":"原台词"}]}]}，每个输入镜头恰好一次。保留全部原话和原顺序，不补写、不删句、不改写，只转换姓名标签；同镜头多人分别返回多项。utterances提供顺序原话，possible_label_or_address可能是旧标签也可能是真实称呼：若是称呼，在text中原样保留该姓名和逗号；若是标签，仅用于speaker，不读出标签。不要引用其他镜头对白。每句必须根据当前画面行为和角色关系判定，不能把询问者与物品原持有人反过来。',
                 static function(array $reply)use($batch,$wording,$names):void{
                     $ids=array_column($batch,'shot_id');$got=array_column((array)($reply['dialogues']??[]),'shot_id');sort($ids);sort($got);
                     if($ids!==$got)throw new RuntimeException('旧版对白归属必须覆盖全部镜头',422);
