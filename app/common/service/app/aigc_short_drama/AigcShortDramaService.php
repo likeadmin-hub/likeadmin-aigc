@@ -13090,7 +13090,7 @@ class AigcShortDramaService
         if ($camera === ShortDramaPromptCatalog::text('fill.video_camera') && trim((string)($shot['camera_movement'] ?? '')) !== '') {
             $camera = (string)$shot['camera_movement'];
         }
-        $sound = (string)($values['声音'] ?? self::readableShotSoundText($shot));
+        $sound = self::readableShotSoundText($shot); // Canonical dialogue; parsed prompt lines may have lost later speakers.
         if (str_contains($sound, '画面中') && !str_contains($sound, '；')) {
             $sound = self::readableShotSoundText($shot);
         }
@@ -13223,21 +13223,18 @@ class AigcShortDramaService
         if (self::isNoSubjectShot($shot)) {
             return $soundPrefix . '画面中无角色出现，全程无人说话';
         }
-        $dialogue = trim((string)($shot['dialogue'] ?? ''));
-        if ($dialogue === '') {
-            return $soundPrefix . '画面中所有角色全程不说话';
+        $turns = ShortDramaShotSemantics::turns($shot);
+        if (!$turns) return $soundPrefix . '画面中所有角色全程不说话';
+        $speechType = (string)($shot['speech_type'] ?? '');
+        $parts = [];
+        foreach ($turns as $turn) {
+            $speaker = $turn['speaker'];
+            $words = str_replace(["\r\n", "\n", "\r"], '；', $turn['text']);
+            $narration = $speechType === 'narration' || in_array($speaker, ['旁白','narrator'], true) || str_contains($speaker, '画外');
+            $parts[] = $narration ? '画外音：“' . $words . '”' : ($speaker ?: '角色') . '说：“' . $words . '”';
         }
-        $voiceRole = trim((string)($shot['voice_role'] ?? ''));
-        if (str_contains($voiceRole, '旁白') || str_contains($voiceRole, '画外')) {
-            return $soundPrefix . '画外音响起：' . $dialogue . ($voiceRole !== '' ? '（音色：' . $voiceRole . '）' : '');
-        }
-        // Keep explicitly attributed turns separate; never quote all turns as
-        // if spoken by the first voice_role. The existing dialogue stays a string.
-        if (preg_match_all('/(?:^|[\n；])\s*([^：:\n；]{1,20})[：:]\s*\S/u', $dialogue, $turns)
-            && count(array_unique($turns[1])) > 1) {
-            return $soundPrefix . '角色依次说话（仅标注者开口，其他角色不说话）：' . $dialogue;
-        }
-        return $soundPrefix . ($voiceRole !== '' ? $voiceRole : '角色') . '开口说：“' . $dialogue . '”';
+        return $soundPrefix . implode('；', $parts);
+
     }
 
     private static function buildTaggedSingleShotVideoPrompt(array $shot, array $context): string
@@ -17892,6 +17889,7 @@ class AigcShortDramaService
                 $resume['receipts'] = $receipts;
                 ShortDramaReviewCheckpoint::save($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $plan, $reviewed, $resume);
             }, $checkpoint);
+        $result = self::enhancePlanResult($result);
         return ['result'=>$result, 'llm'=>self::mergeScriptPlanLlmResults($receipts)];
     }
 
@@ -18230,7 +18228,7 @@ class AigcShortDramaService
             Log::write('AI short drama outline remains incomplete after repair: ' . $e->getMessage());
             throw new Exception('多集大纲自动补全后仍不完整，请重试');
         }
-        if ($v3Generation !== null && !empty($request['series_context'])) {
+        if ($v3Generation !== null && (!empty($request['series_context']) || ShortDramaContentAcceptance::enabled($request))) {
             if ($onEvent) $onEvent('stage', ['status'=>'running','progress'=>90,'current_step'=>'核对剧情衔接并保存连续性状态']);
             $reviewed = self::reviewScriptPlanContinuity($tenantId, $userId, $result, $request, $model, $onEvent);
             $result = $reviewed['result'];
@@ -20916,6 +20914,7 @@ class AigcShortDramaService
         if (!empty($request['series_context']) && (empty($payload['storyboard']) || empty($payload['subjects']) || empty($payload['locations']))) {
             throw new Exception('本集正文、角色或场景不完整，请重试');
         }
+        $payload = ShortDramaShotSemantics::normalize($payload, (array)($request['series_context']['outline'] ?? []));
         $episodeSettings = self::normalizeEpisodeSettings($request);
         $multiEpisode = $episodeSettings['multi_episode'];
         $episodeCount = $episodeSettings['episode_count'];
@@ -21054,7 +21053,7 @@ class AigcShortDramaService
             ? $episodeStoryboardItems
             : $topLevelStoryboardItems);
         $hasNestedEpisodeProduction = $multiEpisode && !empty($episodeStoryboardItems);
-        $storyboard = self::normalizeGeneratedStoryboard($storyboardItems, ShortDramaShotDuration::rule($request), ShortDramaEpisodeDuration::active($request));
+        $storyboard = self::normalizeGeneratedStoryboard($storyboardItems, ShortDramaShotDuration::rule($request), ShortDramaEpisodeDuration::active($request), $locations);
         $styleMeta = self::scriptPlanPriorityMeta($prompt, $request);
         $storyboardRepair = $multiEpisodeStage !== self::MULTI_EPISODE_STAGE_PRODUCTION
             ? ['storyboard' => [], 'issues_fixed' => []]
@@ -22213,7 +22212,7 @@ class AigcShortDramaService
         ];
     }
 
-    private static function normalizeGeneratedStoryboard(array $items, array $durationRule = [], bool $requireDuration = false): array
+    private static function normalizeGeneratedStoryboard(array $items, array $durationRule = [], bool $requireDuration = false, array $locations = []): array
     {
         $result = [];
         $elapsedSeconds = 0.0;
@@ -22235,7 +22234,7 @@ class AigcShortDramaService
                 continue;
             }
             $frameType = (string)($item['frame_type'] ?? 'normal');
-            $interiorExterior = (string)($item['interior_exterior'] ?? 'exterior');
+            $interiorExterior = ShortDramaShotSemantics::space($item, $locations);
             $subjectRefs = (array)($item['subject_ref_ids'] ?? $item['subject_refs'] ?? $item['character_ids'] ?? []);
             $bgmPrompt = trim((string)($item['bgm_prompt'] ?? ''));
             if ($bgmPrompt === '') {
