@@ -148,9 +148,9 @@ final class ShortDramaContentAcceptance
                         }
                         if ($req['kind'] === 'event' && $check['status'] === 'covered' && !$check['evidence']) throw new RuntimeException('事件通过必须有镜头证据', 422);
                     }
-                    foreach ($reply['issues'] as $issue) if (!in_array($issue['code'] ?? '', ['scene_space','speaker','silent','dialogue_instruction','subject_reference','duplicate_action'], true) || !is_string($issue['message'] ?? null) || !is_array($issue['shot_ids'] ?? null) || !$issue['shot_ids'] || array_diff($issue['shot_ids'], array_keys($byId))) throw new RuntimeException('问题必须指向当前镜头', 422);
+                    foreach ($reply['issues'] as $issue) if (!in_array($issue['code'] ?? '', ['scene_space','speaker','silent','dialogue_instruction','subject_reference','duplicate_action'], true) || !is_string($issue['message'] ?? null) || !is_array($issue['shot_ids'] ?? null) || array_diff($issue['shot_ids'], array_keys($byId))) throw new RuntimeException('问题必须指向当前镜头', 422);
                 });
-            array_push($issues, ...$reply['issues']);
+            array_push($issues, ...self::verifiedIssues($reply['issues'], $block, $call));
             foreach ($reply['checks'] as $check) {
                 $byId = array_column($block, null, 'shot_id');
                 foreach ($check['evidence'] as &$e) {
@@ -198,6 +198,26 @@ final class ShortDramaContentAcceptance
             }
         }
         return compact('issues','coverage');
+    }
+
+    /** Free-form criticism is not permission to rewrite. Independently check
+     * the alleged defect against the actual fields before it reaches repair. */
+    private static function verifiedIssues(array $issues, array $shots, callable $call): array
+    {
+        $out=[];
+        foreach (array_chunk($issues,4) as $batch) {
+            $claims=[];
+            foreach($batch as $i=>$issue) $claims[]=['id'=>(string)$i,'issue'=>$issue];
+            $reply=self::call($call,'field_issues',['field_claims'=>$claims,'shots'=>self::shots($shots)],
+                ShortDramaShotSemantics::INSTRUCTION . ' 独立核实这些字段问题是否真的存在。每个说话人均有明确前缀时，多人对白合法，voice_role只需是第一位说话者，不得因未在voice_role列出其他人删掉他们台词。无问题的解释不是缺陷。不要因为上一检查声称有错就同意。只依据提供的实际字段判断。返回{"verdicts":[{"id":"原id","confirmed":false,"reason":"具体理由","shot_ids":[]}]}，每个id一次；confirmed=true时shot_ids必须是实际出错的本块镜头。',
+                static function(array $reply)use($claims,$shots):void{
+                    $ids=array_column($claims,'id');$got=array_column((array)($reply['verdicts']??[]),'id');sort($ids);sort($got);
+                    if($ids!==$got)throw new RuntimeException('字段缺陷核实项不完整',422);
+                    foreach($reply['verdicts'] as $v)if(!is_bool($v['confirmed']??null)||!is_string($v['reason']??null)||!is_array($v['shot_ids']??null)||array_diff($v['shot_ids'],array_column($shots,'shot_id'))||($v['confirmed']&&!$v['shot_ids']))throw new RuntimeException('字段缺陷必须指向当前镜头',422);
+                });
+            foreach($reply['verdicts'] as $v)if($v['confirmed'])$out[]=array_replace($batch[(int)$v['id']],['message'=>$v['reason'],'shot_ids'=>$v['shot_ids']]);
+        }
+        return $out;
     }
 
     public static function duplicates(array $plan): array

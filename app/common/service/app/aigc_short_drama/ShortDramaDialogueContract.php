@@ -14,7 +14,9 @@ final class ShortDramaDialogueContract
         }
         $issues = [];
         $walk = static function (array $node, string $path = '') use (&$walk, &$issues, $names): array {
-            if (array_key_exists('dialogue', $node)) {
+            // A top-level dialogue collection is not a shot's spoken line.
+            if (isset($node['shot_id']) && is_array($node['dialogue'] ?? null)) throw new \RuntimeException('分镜对白必须是带明确角色的文本', 422);
+            if (array_key_exists('dialogue', $node) && !is_array($node['dialogue'])) {
                 $role = $node['voice_role'] ?? $node['speaker'] ?? $node['speaker_name'] ?? null;
                 $role = is_string($role) ? trim($role) : '';
                 $role = $names[$role] ?? $role;
