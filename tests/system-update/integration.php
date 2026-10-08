@@ -29,6 +29,9 @@ class FixtureSystemClient extends Client {
         openssl_sign(P::json($o),$sig,$this->key,OPENSSL_ALGO_SHA256);$o->signature=base64_encode($sig);return P::json($o);
     }
 }
+class SystemSiteFixture extends \app\common\service\license\SiteLicenseAccessService {
+    public function row(): array {return $this->ensureRow($this->context());}
+}
 $n=0;$assert=static function($ok,$name)use(&$n){if(!$ok)throw new RuntimeException($name);$n++;};
 $reject=static function($fn,$name,$code='')use($assert){try{$fn();}catch(Throwable $e){$assert($code===''||($e instanceof UpdateProtocolException&&$e->errorCode===$code),$name.': '.$e->getMessage());return;}throw new RuntimeException('Accepted '.$name);};
 Client::getSource();
@@ -75,6 +78,14 @@ try {
     file_put_contents($path,'fixture archive');
     $payload->version=4;$license->storeCertificate($cert($payload),true);
     $assert($grants->ensure($package)['site_grant']['license_version']===4,'renewal reused old-version grant');
+    $cache=(new SystemSiteFixture())->row();$ctx=$license->verifiedSiteContext();$nonce='trusted-revocation-fixture';
+    $denial=(object)['code'=>0,'msg'=>'revoked','request_id'=>'fixture','server_time'=>time(),'data'=>[
+        'license_no'=>$ctx['license_no'],'license_version'=>$ctx['license_version'],'domain'=>$ctx['domain'],
+        'machine_fingerprint_hash'=>$ctx['machine_fingerprint_hash'],'request_nonce'=>$nonce,'issued_at'=>time(),'error_code'=>'LICENSE_INVALID']];
+    openssl_sign(P::json($denial),$sig,$key,OPENSSL_ALGO_SHA256);$denial->signature=base64_encode($sig);
+    Db::name('site_license_access_cache')->where('id',$cache['id'])->update(['status'=>'blocked','response_json'=>P::json($denial),'request_nonce'=>$nonce,'error_code'=>'LICENSE_INVALID']);
+    $reject(fn()=>$grants->ensure($package),'valid package grant overrode known revocation','LICENSE_INVALID');
+    Db::name('site_license_access_cache')->where('id',$cache['id'])->update(['status'=>'pending']);
     Db::name('system_package_grant')->where('package_id',$package['id'])->delete();
     $client->error='FREE_UPDATE_DISABLED';
     $reject(fn()=>$grants->ensure($package),'missing grant reused free-disabled package','FREE_UPDATE_DISABLED');

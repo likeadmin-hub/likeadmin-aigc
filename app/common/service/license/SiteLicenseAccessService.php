@@ -97,6 +97,27 @@ class SiteLicenseAccessService
         return $row;
     }
 
+    /** A previously issued package grant cannot override a newer trusted site refusal. */
+    public function assertNoTrustedSiteDenial(): void
+    {
+        $context = $this->context();
+        if (empty($context['verified'])) return;
+        $row = Db::name(self::TABLE)->where('context_key',$context['context_key'])->find();
+        if (!$row || $row['status'] !== 'blocked' || empty($row['response_json'])) return;
+        try {
+            $body = SignedLicenseProtocol::response($row['response_json'],$context['source']['public_key'],$context,$row['request_nonce']);
+        } catch (\Throwable $e) {
+            return; // An unverified error must never be presented as a trusted revocation.
+        }
+        $error = (string)($body['data']['error_code'] ?? '');
+        if (($body['code'] ?? null) !== 1 && in_array($error,[
+            'LICENSE_INVALID','LICENSE_EXPIRED','LICENSE_REDOWNLOAD_REQUIRED',
+            'LICENSE_DOMAIN_FORBIDDEN','LICENSE_MACHINE_FORBIDDEN','LICENSE_IP_FORBIDDEN',
+        ],true)) {
+            throw new \app\common\service\update\UpdateProtocolException($error,'本站授权已被拒绝，请刷新授权后再安装');
+        }
+    }
+
     public function refresh(bool $force = false, bool $allowCertificateRefresh = true, bool $refreshCertificateFirst = false): array
     {
         $context=$this->context();

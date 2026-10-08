@@ -35,6 +35,7 @@ class SystemPackageGrantService
     public function ensure(array $package): array
     {
         (new UpdateLicenseService())->assertSystemUpdateAllowed((string)$package['version']);
+        (new \app\common\service\license\SiteLicenseAccessService())->assertNoTrustedSiteDenial();
         if (!is_file($package['local_path']) || !preg_match('/^[a-f0-9]{64}$/D', (string)$package['sha256'])
             || !hash_equals((string)$package['sha256'], (string)hash_file('sha256', $package['local_path']))) {
             throw new UpdateProtocolException('SYSTEM_PACKAGE_HASH_MISMATCH', '本地系统包摘要校验失败');
