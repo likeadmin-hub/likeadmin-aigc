@@ -191,6 +191,15 @@ class ShortDramaContentAcceptanceTest extends TestCase
         self::assertSame('interior',Semantics::normalize($p)['storyboard'][0]['interior_exterior']);
     }
 
+    public function testPerformanceDirectionsRemainVisualRatherThanSpoken(): void
+    {
+        $p=$this->plan();$p['storyboard'][0]['dialogue']="陈伯：（笑着卖关子）明天就知道了。\n小李：好。";
+        $out=Semantics::normalize($p);
+        self::assertSame("陈伯：明天就知道了。\n小李：好。",$out['storyboard'][0]['dialogue']);
+        self::assertStringContainsString('陈伯：笑着卖关子',$out['storyboard'][0]['visual_description']);
+        self::assertSame($out,Semantics::normalize($out));
+    }
+
     public function testDurationConstraintIsCalculatedByServerNotProseModel(): void
     {
         $report=Acceptance::inspect($this->plan(),[['id'=>'r1','kind'=>'constraint','text'=>'本集时长10秒。']],static function($key,$input,$tokens,$validate){

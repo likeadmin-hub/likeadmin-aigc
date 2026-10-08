@@ -56,6 +56,18 @@ final class ShortDramaShotSemantics
                 && (preg_match('/^(?:清晨[，, ]*)?(?:屋内|室内|客厅|卧室|厨房|教室|办公室)/u', (string)($shot['visual_description'] ?? ''))
                     || preg_match('/^'.preg_quote((string)$location['name'],'/').'[，,。\s]/u',(string)($shot['visual_description']??'')))) $shot['interior_exterior'] = 'interior';
             $shot['interior_exterior'] = self::space($shot, (array)($plan['locations'] ?? []));
+            $turns=self::turns($shot);$directions=[];
+            foreach($turns as &$turn){
+                if(preg_match('/^[（(]([^）)]*(?:笑|哭|哽咽|叹气|压低声音|低声|轻声|耳语|停顿|点头|摇头)[^）)]*)[）)]\s*/u',$turn['text'],$direction)){
+                    $directions[]=($turn['speaker']!==''?$turn['speaker'].'：':'').$direction[1];
+                    $turn['text']=mb_substr($turn['text'],mb_strlen($direction[0]));
+                }
+            }
+            unset($turn);
+            if($directions){
+                $shot['visual_description']=rtrim($shot['visual_description']??'')."\n".implode('；',$directions).'。';
+                $shot['dialogue']=implode("\n",array_map(static fn($t)=>($t['speaker']!==''?$t['speaker'].'：':'').$t['text'],$turns));
+            }
             if (self::silent((string)($shot['dialogue'] ?? ''))) {
                 $shot['dialogue'] = ''; $shot['speech_type'] = 'none'; $shot['voice_role'] = '';
             }
