@@ -116,6 +116,7 @@ final class ShortDramaPlanningUnit
         $scope = ['tenant_id' => $tenant, 'user_id' => $user, 'task_id' => $task, 'unit_key' => $key];
         // Serialize the claim only. Never hold a DB lock across the paid call.
         $claim = Db::transaction(static function () use ($scope, $input, $tenant, $user, $task, $key, $root): array {
+            $executionRequest = ShortDramaExecutionPolicy::lockTask($tenant, $user, $task);
             $row = Db::name('aigc_short_drama_planning_unit')->where($scope)->lock(true)->find();
             $signature = self::requestSignature($input);
             $saved = $row ? json_decode((string)$row['request_json'], true) : [];
@@ -139,6 +140,7 @@ final class ShortDramaPlanningUnit
             if ($row && $row['status'] === 'failed') throw new RuntimeException((string)$row['error']);
             if ($row && $row['status'] === 'waiting' && !self::ready($tenant, $user, $task)) throw new RuntimeException('连接暂时不可用，等待延迟重试', 425);
             if ($row && (int)$row['attempt'] >= 3) throw new RuntimeException('模型生成单元的请求次数已用完，请新建任务并核对已完成内容');
+            if (!$row || (int)$row['attempt'] === 0) ShortDramaExecutionPolicy::admit($tenant, $user, $task, $executionRequest);
             $storedInput = $input;
             if ($key !== $root) {
                 $storedInput['_unit_root'] = $root;

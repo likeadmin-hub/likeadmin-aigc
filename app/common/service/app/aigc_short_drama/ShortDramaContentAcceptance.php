@@ -82,12 +82,9 @@ final class ShortDramaContentAcceptance
         return implode('', $out);
     }
 
-    public static function generate(array $plan, array $request, callable $call): array
+    public static function generate(array $plan, array $request, callable $call, ?ShortDramaRepairBudget $budget = null): array
     {
-        $contract = (array)($plan['generation_contract'] ?? []);
-        $requirements = ($contract['version'] ?? 0) === 9 && ($contract['source_hash'] ?? '') === self::sourceHash($request)
-            && is_array($contract['requirements'] ?? null)
-            ? $contract['requirements'] : self::requirements($request, $call);
+        $requirements = self::requirementsForPlan($plan, $request, $call);
         $beforeNormalization = $plan;
         $plan = ShortDramaShotSemantics::normalize($plan);
         $originalLines = $plan['script_lines'] ?? [];
@@ -128,6 +125,7 @@ final class ShortDramaContentAcceptance
                 return $plan;
             }
             if ($pass === 2) throw new RuntimeException('整集内容检查尚未通过：' . implode('；', array_column(array_slice($report['issues'], 0, 3), 'message')) . '。已完成内容和收据保留，可继续修复', 422);
+            if ($budget) $budget->consume('content', $pass + 1);
             foreach (array_chunk($report['issues'], 4) as $issues) {
                 $ids = array_unique(array_merge(...array_column($issues, 'shot_ids')));
                 $shots = array_values(array_filter($plan['storyboard'], static fn($s) => in_array($s['shot_id'], $ids, true)));
@@ -155,6 +153,13 @@ final class ShortDramaContentAcceptance
     public static function prepareContract(array $request, callable $call): array
     {
         return ['version'=>9, 'source_hash'=>self::sourceHash($request), 'requirements'=>self::requirements($request, $call)];
+    }
+
+    public static function requirementsForPlan(array $plan, array $request, callable $call): array
+    {
+        $contract = (array)($plan['generation_contract'] ?? []);
+        return ($contract['version'] ?? 0) === 9 && ($contract['source_hash'] ?? '') === self::sourceHash($request)
+            && is_array($contract['requirements'] ?? null) ? $contract['requirements'] : self::requirements($request, $call);
     }
 
     private static function sourceHash(array $request): string
@@ -351,7 +356,7 @@ final class ShortDramaContentAcceptance
 
     /** Free-form criticism is not permission to rewrite. Independently check
      * the alleged defect against the actual fields before it reaches repair. */
-    private static function verifiedIssues(array $issues, array $shots, callable $call, array $subjects): array
+    public static function verifiedIssues(array $issues, array $shots, callable $call, array $subjects): array
     {
         $out=[];
         foreach (array_chunk($issues,4) as $batch) {
