@@ -43,6 +43,8 @@ try:
     apps_before = sql('parity_legacy', 'SELECT COUNT(*) FROM la_app; SELECT COUNT(*) FROM la_tenant_app;')
     sql('parity_legacy', repair)
     sql('parity_legacy', repair)
+    for prerequisite in ['20261005_user_tool_pins.sql', '20261007_picture_digital_human.sql']:
+        sql('parity_legacy', (root / 'upgrade' / prerequisite).read_text())
     sql('parity_legacy', license_repair)
     sql('parity_legacy', license_repair)
     assert apps_before == sql('parity_legacy', 'SELECT COUNT(*) FROM la_app; SELECT COUNT(*) FROM la_tenant_app;')
