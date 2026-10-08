@@ -190,6 +190,9 @@ final class ShortDramaStoryGeneration
             if ($issues) throw new RuntimeException($issues[0]['message'], 422);
             $timing = ShortDramaEpisodeDuration::policy($request);
             if (ShortDramaEpisodeDuration::active($request) && ($timing['scope'] ?? '') === 'series' && $targetEpisode <= 0) {
+                if ((int)($request['_input_contract_version'] ?? 0) >= 7) {
+                    $allocation = ShortDramaDurationAllocation::allocate($payload['episodes'], (float)$timing['target_seconds'], (array)($timing['episode_overrides'] ?? []));
+                } else {
                 $input = ['system_prompt' => '只规划分集时长，不改剧情。返回JSON {"episode_durations":[数字秒数,...]}，按集号顺序完整覆盖每集，均大于0，合计必须等于整部总时长。根据各集剧情分配。',
                     'content' => json_encode(['total_seconds' => $timing['target_seconds'], 'fixed_episode_seconds' => $timing['episode_overrides'] ?? [], 'episodes' => array_map(static fn($item) => array_intersect_key($item,
                         array_flip(['episode_number', 'title', 'story_outline'])), $payload['episodes'])], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
@@ -206,6 +209,8 @@ final class ShortDramaStoryGeneration
                         $input['content'] .= "\n修复：" . $error->getMessage();
                     }
                 }
+                }
+                self::assertDurationAllocation($allocation, $total, (float)$timing['target_seconds']);
                 foreach ($payload['episodes'] as $index => &$episode) $episode['target_duration_seconds'] = (float)$allocation[$index];
                 unset($episode);
             }

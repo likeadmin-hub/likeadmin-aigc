@@ -15,21 +15,39 @@ final class ShortDramaEpisodeReview
         return $result;
     }
 
-    public static function generate(array $base, array $request, callable $call, ?callable $progress = null, ?callable $checkpoint = null): array
+    public static function generate(array $base, array $request, callable $call, ?callable $progress = null, ?callable $checkpoint = null, array $saved = []): array
     {
         if (empty($base['storyboard'])) throw new RuntimeException('缺少可复核的已保存分镜', 422);
         $context = (array)($request['series_context'] ?? []);
         $context['_server_owned_state'] = true;
+        $context['_bounded_memory'] = (int)($request['_input_contract_version'] ?? 0) >= 7;
         // Runtime-only provenance. A previous block is not a previous episode.
         $context['_reviewed_block_state_keys'] = [];
         $context['current_episode'] = array_intersect_key((array)($context['current_episode'] ?? []),
             array_flip(['episode_number','title','story_outline','conflict_point','ending_hook']));
         $context['outline'] = ShortDramaPlanningContext::lockedStory((array)($context['outline'] ?? []));
         $previousDigest = (string)($context['continuity']['previous_digest'] ?? '');
+        $dependencyQuery = ShortDramaNarrativeMemory::query(['current_episode'=>$context['current_episode'], 'script'=>self::projection($base)]);
+        $dependency = ShortDramaNarrativeMemory::dependency((array)($context['continuity'] ?? []), $dependencyQuery);
         $result = $base; $summaries = []; $warnings = []; $patches = []; $auditCorrections = []; $unverified = []; $observed = []; $pendingReview = false;
         $shots = array_values($base['storyboard']);
-        if ($checkpoint) $checkpoint($result, 0);
-        $process = function (int $offset, int $count) use (&$process, &$result, &$context, &$summaries, &$warnings, &$patches, &$auditCorrections, &$unverified, &$observed, &$pendingReview, $shots, $request, $call, $progress, $checkpoint): void {
+        $signature = ShortDramaReviewCheckpoint::signature($base, $request); $start = 0;
+        $resume = (array)($saved['resume'] ?? []);
+        if (($saved['protocol_version'] ?? 0) === 3 && ($resume['signature'] ?? '') === $signature
+            && (int)($saved['reviewed_shots'] ?? -1) >= 0 && (int)$saved['reviewed_shots'] <= count($shots)
+            && array_column((array)($saved['plan']['storyboard'] ?? []), 'shot_id') === array_column($shots, 'shot_id')
+            && isset($resume['context'], $resume['summaries'], $resume['warnings'], $resume['patches'], $resume['auditCorrections'], $resume['unverified'], $resume['observed'])) {
+            $start = (int)$saved['reviewed_shots']; $result = $saved['plan']; $context = $resume['context'];
+            $summaries = $resume['summaries']; $warnings = $resume['warnings']; $patches = $resume['patches'];
+            $auditCorrections = $resume['auditCorrections']; $unverified = $resume['unverified']; $observed = $resume['observed'];
+        }
+        $save = static function(int $offset) use ($checkpoint, $signature, &$result, &$context, &$summaries, &$warnings, &$patches, &$auditCorrections, &$unverified, &$observed, &$pendingReview): void {
+            // Never mark uncertain blocks as accepted recovery progress.
+            if (!$checkpoint || $pendingReview) return;
+            $checkpoint($result, $offset, compact('signature','context','summaries','warnings','patches','auditCorrections','unverified','observed'));
+        };
+        $save($start);
+        $process = function (int $offset, int $count) use (&$process, &$result, &$context, &$summaries, &$warnings, &$patches, &$auditCorrections, &$unverified, &$observed, &$pendingReview, $shots, $request, $call, $progress, $save): void {
             $block = self::projection($result);
             unset($block['script_lines'], $block['story_outline']);
             $block['storyboard'] = array_slice($shots, $offset, $count);
@@ -95,11 +113,14 @@ final class ShortDramaEpisodeReview
             array_push($auditCorrections, ...(array)($ledger['audit_corrections'] ?? []));
             array_push($unverified, ...(array)($ledger['unverified_claims'] ?? []));
             array_push($observed, ...(array)($ledger['observed_events'] ?? []));
-            if ($checkpoint) $checkpoint($result, $offset + $count);
+            $save($offset + $count);
             if ($progress) $progress('stage', ['status'=>'running','progress'=>min(95, 20 + (int)(75 * ($offset + $count) / count($shots))),
                 'current_step'=>'已复核' . ($offset + $count) . '/' . count($shots) . '个分镜，原版本保留']);
         };
-        for ($offset = 0; $offset < count($shots); $offset += 4) $process($offset, min(4, count($shots) - $offset));
+        // Keep original unit boundaries even when recovery starts inside a split block.
+        for ($offset = $start; $offset < count($shots);) {
+            $count = min(4 - ($offset % 4), count($shots) - $offset); $process($offset, $count); $offset += $count;
+        }
         // Reflect exact changed excerpts in the prose without paraphrasing unrelated text.
         foreach ($patches as $patch) {
             if (!in_array($patch['field'], ['dialogue','visual_description'], true) || !is_string($patch['before']) || $patch['before'] === '') continue;
@@ -112,6 +133,8 @@ final class ShortDramaEpisodeReview
             'audit_status'=>$pendingReview ? 'pending_review' : 'verified','review_mode'=>'blocks','review_patches'=>$patches,'audit_corrections'=>$auditCorrections,
             'unverified_claims'=>$unverified,'observed_events'=>$observed,'protocol_version'=>2,
             'content_status'=>'ready','dependency_status'=>$pendingReview ? 'blocked' : 'ready'];
+        if ($context['_bounded_memory']) $result['_continuity']['memory_dependency'] = [
+            'version'=>ShortDramaNarrativeMemory::VERSION, 'query'=>$dependencyQuery, 'fingerprint'=>$dependency];
         return $result;
     }
 

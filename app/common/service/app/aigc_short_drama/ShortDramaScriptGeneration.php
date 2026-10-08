@@ -25,13 +25,14 @@ final class ShortDramaScriptGeneration
         $rejected = [];
         // Keep the existing body-generation budget. The shared review stage
         // has a separate bounded budget proportional to narrative size.
+        $boundedMemory = (int)($request['_input_contract_version'] ?? 0) >= 7;
         $auditReserve = !empty($request['series_context']);
         $callLimit = $auditReserve ? 46 : 48;
         $outputLimit = $auditReserve ? 183808 : 192000;
-        $call = static function (string $key, array $input, int $desired = 8192, ?callable $validate = null) use (&$receipts, &$calls, &$reservedOutput, &$model, &$rejected, $provider, $callLimit, $outputLimit): array {
+        $call = static function (string $key, array $input, int $desired = 8192, ?callable $validate = null) use (&$receipts, &$calls, &$reservedOutput, &$model, &$rejected, $provider, $callLimit, $outputLimit, $boundedMemory): array {
             unset($input['_stage_content']);
             if (++$calls > $callLimit) throw new RuntimeException('本集已达到自动处理上限，已保留完成内容，请缩小生成范围', 429);
-            $budget = ShortDramaPlanningBudget::fitMessages($input, $model, 'script', $desired);
+            $budget = ShortDramaPlanningBudget::fitMessages($input, $model, 'script', $desired, $boundedMemory);
             $reservedOutput += $budget['max_tokens'];
             if ($reservedOutput > $outputLimit) throw new RuntimeException('本集自动生成预算已达上限，已完成内容保留，请缩小范围后继续', 429);
             ShortDramaPlanningUnit::supersede($rejected); $rejected = [];
@@ -53,13 +54,13 @@ final class ShortDramaScriptGeneration
         };
         if (ShortDramaEpisodeDuration::active($request) && !ShortDramaEpisodeDuration::localRevision($request)) {
             $preflight = ['system_prompt'=>$messages['system_prompt'], 'content'=>$messages['_stage_content'] ?? $messages['content']];
-            $budget = ShortDramaPlanningBudget::fitMessages($preflight, $model, 'script', 8192);
+            $budget = ShortDramaPlanningBudget::fitMessages($preflight, $model, 'script', 8192, $boundedMemory);
             $payload = ShortDramaTimedScriptGeneration::generate($request, $messages, $call, $progress, (int)$budget['max_tokens']);
             return $finish($payload);
         }
         $duration = (int)($request['target_duration_seconds'] ?? 0);
         $preflight = $messages;
-        $budget = ShortDramaPlanningBudget::fitMessages($preflight, $model, 'script', 12000);
+        $budget = ShortDramaPlanningBudget::fitMessages($preflight, $model, 'script', 12000, $boundedMemory);
         // Local revisions must never fall back to rewriting the entire film.
         $revision = !empty($request['revision_message']) || !empty($request['revision_target']);
         if ($revision || ($budget['max_tokens'] >= 6000 && $duration < 120)) {
