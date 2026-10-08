@@ -159,7 +159,7 @@ class ShortDramaContentAcceptanceTest extends TestCase
         $out=Acceptance::generate($p,['prompt'=>'两人交谈'],static function($key,$input,$tokens,$validate){
             $d=json_decode($input['content'],true);
             if(isset($d['source']))$r=['requirements'=>[]];
-            elseif(isset($d['legacy_dialogue']))$r=['dialogues'=>[['shot_id'=>'s1','turns'=>[['speaker'=>'陈伯','text'=>'多谢你。'],['speaker'=>'小李','text'=>'别客气。']]]]];
+            elseif(isset($d['legacy_dialogue'])){self::assertArrayNotHasKey('voice_role',$d['legacy_dialogue'][0]);self::assertArrayNotHasKey('dialogue',$d['legacy_dialogue'][0]);self::assertArrayHasKey('utterances',$d['legacy_dialogue'][0]);$r=['dialogues'=>[['shot_id'=>'s1','turns'=>[['speaker'=>'陈伯','text'=>'多谢你。'],['speaker'=>'小李','text'=>'别客气。']]]]];}
             elseif(isset($d['shots']))$r=['checks'=>[],'issues'=>[]];
             else$r=['categories'=>array_map(fn($s)=>['id'=>$s['id'],'category'=>$s['category']],$d['subjects'])];
             $validate($r);return $r;

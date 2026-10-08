@@ -6,7 +6,7 @@ use RuntimeException;
 /** Whole-episode acceptance using bounded requests and durable provider units. */
 final class ShortDramaContentAcceptance
 {
-    public const VERSION = 5;
+    public const VERSION = 6;
     private const FIELDS = ['visual_description','dialogue','voice_role','speech_type','interior_exterior','scene_ref_id','subject_ref_ids'];
 
     public static function enabled(array $request): bool
