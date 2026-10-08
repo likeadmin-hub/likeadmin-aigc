@@ -70,7 +70,7 @@ class SiteLicenseAccessService
             $body=SignedLicenseProtocol::response($row['response_json'], $context['source']['public_key'], $context, $row['request_nonce']);
             $state['can_customize']=$context['license_type']==='commercial' && ($body['code']??0)===1;
             $state['access_status']=$row['status']==='network_error'?'offline':'active';
-            $state['reason_code']=$state['can_customize'] ? ($row['status']==='network_error'?'LICENSE_OFFLINE_CACHE':'') : 'COMMERCIAL_LICENSE_REQUIRED';
+            $state['reason_code']=$state['can_customize'] ? ($row['status']==='network_error'?'LICENSE_OFFLINE_CACHE':$row['error_code']) : 'COMMERCIAL_LICENSE_REQUIRED';
         } catch (\Throwable $e) {
             $state['access_status']='verification_failed'; $state['reason_code']=$e->getMessage();
         }
@@ -128,7 +128,11 @@ class SiteLicenseAccessService
                 $error=(string)$data['error_code'];
                 // A tied timestamp may not undo a denial; updates never expire commercial qualification.
                 if ($error==='LICENSE_UPDATE_EXPIRED' || in_array($error,['LICENSE_APP_FORBIDDEN','LICENSE_REQUIRED'],true)) {
-                    $this->commit($context,$row,$token,$generation,$this->failure($row,$error,'权益校验失败',true));
+                    $values=$this->failure($row,$error,'权益校验失败',false);
+                    if (in_array($row['status'],['allowed','network_error'],true) && (int)$row['expires_at']>time()) {
+                        $values['status']=$row['status']; $values['expires_at']=(int)$row['expires_at'];
+                    }
+                    $this->commit($context,$row,$token,$generation,$values);
                 } else {
                     $holdLock=$error==='LICENSE_REDOWNLOAD_REQUIRED' && $allowCertificateRefresh;
                     $saved=$this->commit($context,$row,$token,$generation,array_merge($this->failure($row,$error,'授权同步失败',false),[

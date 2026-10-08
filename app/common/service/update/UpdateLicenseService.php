@@ -22,7 +22,7 @@ class UpdateLicenseService
             'source' => ['active_base_url' => $source['active_base_url'], 'public_key_configured' => !empty($source['public_key'])],
             'site_ip' => $this->siteIp(),
             'site' => ['name' => \app\common\model\Config::where(['type'=>'platform','name'=>'name'])->value('value') ?: config('project.platform.name','SaaS平台端'),
-                'logo' => \app\common\service\FileService::getFileUrl((string)\app\common\model\Config::where(['type'=>'platform','name'=>'web_logo_light'])->value('value')),
+                'logo' => \app\common\service\FileService::getFileUrl((string)(\app\common\model\Config::where(['type'=>'platform','name'=>'web_logo_light'])->value('value') ?: config('project.platform.web_logo_light',''))),
                 'version' => UpdateSourceClient::currentCoreVersion(), 'domain' => $context['domain'] ?? ''],
         ];
     }

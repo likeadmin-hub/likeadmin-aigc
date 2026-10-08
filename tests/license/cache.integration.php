@@ -78,6 +78,10 @@ try {
     $service->mode='network';$assert($service->refresh(true)['can_customize'],'network fallback missing');
     $assert((int)$service->row()['expires_at']===$expires,'retry renewed lease');
     $assert($service->snapshot()['access_status']==='offline','offline label');
+    $service->mode='allow';$service->refresh(true);
+    $service->mode='deny';$service->error='LICENSE_UPDATE_EXPIRED';
+    $assert($service->refresh(true)['can_customize'],'update error revoked copyright');
+    $assert($service->snapshot()['access_status']==='active','update error mislabeled as network offline');
     $service->mode='deny';$service->error='LICENSE_INVALID';$assert(!$service->refresh(true)['can_customize'],'revoke retained grant');
     $service->mode='network';$assert(!$service->refresh(true)['can_customize'],'network resurrected revoked grant');
     $assert(C::policy()['source']==='license_issuer' && C::policy()['items']===[],'empty issuer fallback');
