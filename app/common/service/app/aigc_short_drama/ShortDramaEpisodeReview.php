@@ -36,12 +36,11 @@ final class ShortDramaEpisodeReview
                 'instruction' => '当前仅审校本集的一段镜头。仅记录本段已发生的事实；未展示的前后段剧情不算遗漏，不可引用整集摘要推断本段事件。previous.state包含本集前面已核验镜头的最新状态。'];
             $key = 'review_' . $offset . '_' . $count;
             $audit = static fn(array $input, ?callable $validate = null): array => ShortDramaStructuredResponse::audit($input, static fn(array $input): array => $call($key . '_audit_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 16), $input, 4096,
-                static function ($reply) use ($validate): void {
+                static function ($reply) use ($validate, $block): void {
                     if ($validate) $validate($reply);
                     if (isset($reply['evidence_patches']) && is_array($reply['evidence_patches'])) return;
                     if (isset($reply['claim_patches']) && is_array($reply['claim_patches'])) return;
-                    if (!is_string($reply['summary'] ?? null) || trim($reply['summary']) === '') throw new RuntimeException('连续性摘要缺失', 422);
-                    foreach (['changes','hooks','warnings'] as $field) if (!is_array($reply[$field] ?? null)) throw new RuntimeException('连续性检查结构不完整', 422);
+                    ShortDramaContinuity::assertAuditShape($reply, $block);
                 }));
             $verify = static function (array $review, array $plan) use ($key, $call, &$context, &$result, $offset): array {
                 $evidenceContext = $context;

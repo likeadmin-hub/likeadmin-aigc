@@ -213,6 +213,20 @@ class ShortDramaEpisodeReviewTest extends TestCase
         self::assertSame('verified', $result['_continuity']['audit_status']);
         self::assertSame(['promise'=>'甲答应修好收音机'], $result['_continuity']['open_hooks']);
     }
+    public function testUnchangedExistingHookIsNotInventedAgainOrRequiredToRepeatItsSetup(): void
+    {
+        $request = $this->request();
+        $request['series_context']['continuity']['open_hooks'] = ['letter'=>'前集收到的信，尚未拆开'];
+        $result = Review::generate($this->plan(1), $request, function ($key, $messages) {
+            $input = json_decode($messages['content'], true);
+            if (isset($input['response_contract']['checks'])) {
+                self::assertSame([], $input['review']['hooks']); return ['checks'=>[]];
+            }
+            return ['summary'=>'进入房间','changes'=>[], 'hooks'=>[['id'=>'letter','description'=>'前集收到的信，尚未拆开','status'=>'open','shot_id'=>'s1','quote'=>'甲走进房间']], 'warnings'=>[]];
+        });
+        self::assertSame('verified', $result['_continuity']['audit_status']);
+        self::assertSame(['letter'=>'前集收到的信，尚未拆开'], $result['_continuity']['open_hooks']);
+    }
     public function testPatchPreservesMediaIdentityTimingAndUnrelatedShots(): void
     {
         $plan=$this->plan(2);

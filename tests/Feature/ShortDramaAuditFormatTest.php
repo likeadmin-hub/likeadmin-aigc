@@ -3,6 +3,7 @@ namespace Tests\Feature;
 
 use app\common\service\app\aigc_short_drama\ShortDramaStructuredResponse as Response;
 use app\common\service\app\aigc_short_drama\ShortDramaContinuityPatch as Patch;
+use app\common\service\app\aigc_short_drama\ShortDramaContinuity as Continuity;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -49,5 +50,16 @@ class ShortDramaAuditFormatTest extends TestCase
                 self::assertSame($code, $e->getCode()); self::assertSame(1, $calls);
             }
         }
+    }
+    public function testInvalidFieldIdentifierIsRecoveredBeforeSemanticReview(): void
+    {
+        $calls = 0;
+        $result = Response::audit(['content'=>'审校结构'], function ($input) use (&$calls) {
+            $calls++;
+            $reply = ['summary'=>'清洁','changes'=>[['entity_id'=>'world','field'=>$calls === 1 ? 'state:cleaned_area' : 'cleaned_area','before'=>null,'after'=>'已清洁']], 'hooks'=>[], 'warnings'=>[]];
+            Continuity::assertAuditShape($reply, []);
+            return $reply;
+        });
+        self::assertSame(2, $calls); self::assertSame('cleaned_area', $result['changes'][0]['field']);
     }
 }
