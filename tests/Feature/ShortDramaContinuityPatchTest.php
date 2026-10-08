@@ -80,8 +80,9 @@ class ShortDramaContinuityPatchTest extends TestCase
         $calls = 0;
         $ledger = \app\common\service\app\aigc_short_drama\ShortDramaContinuity::review($plan, [], 1,
             static function () use ($review, &$calls) { $calls++; return $review; },
-            static fn ($filtered) => Patch::verifiedReview($filtered, ['checks' => []], []));
-        self::assertSame(3, $calls);
+            static fn ($filtered) => Patch::verifiedReview($filtered, ['checks' => [['collection'=>'hooks','index'=>0,'supported'=>false,'failure_kind'=>'uncertain','reason'=>'无证据，不能建立伏笔']]], []));
+        self::assertSame(1, $calls);
+        self::assertSame('pending_review', $ledger['audit_status']);
         self::assertSame([], $ledger['open_hooks']);
         self::assertCount(1, $ledger['unverified_claims']);
         self::assertSame($this->plan(), $plan);

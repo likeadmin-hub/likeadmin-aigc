@@ -86,7 +86,7 @@ class ShortDramaContinuityTest extends TestCase
         $bad['changes'][0]['quote'] = '镜头里不存在的文字';
         $calls = 0;
         $verify = static fn(array $audit): array => ShortDramaContinuityPatch::verifiedReview($audit,
-            ['checks' => [['collection' => 'insertions', 'index' => 0, 'supported' => true,
+            ['checks' => [['collection'=>'changes','index'=>0,'supported'=>true,'reason'=>'正文有拿钥匙，但引用有误'], ['collection' => 'insertions', 'index' => 0, 'supported' => true,
                 'reason' => '补镜忠于原文']]], [], $plan['_continuity_source_patch']);
 
         $ledger = Continuity::review($plan, [], 1, static function () use ($bad, &$calls) {
@@ -221,15 +221,16 @@ class ShortDramaContinuityTest extends TestCase
     }
     public function testEvidenceReferencesReadActualShotTextAndStillVerifyMeaning(): void
     {
-        $bad = $this->review(); $bad['changes'][0]['quote'] = '错引剧本'; $calls = 0; $checked = false;
+        $bad = $this->review(); $bad['changes'][0]['quote'] = '错引剧本'; $calls = 0; $checked = 0;
         $ledger = Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad) {
             return ++$calls === 1 ? $bad : ['evidence_patches' => [['collection' => 'changes', 'index' => 0,
                 'evidence_refs' => [['shot_id' => 's1', 'field' => 'visual_description']]]]];
         }, static function ($review) use (&$checked) {
-            $checked = true;
-            self::assertSame([['shot_id' => 's1', 'quote' => '甲拿走钥匙。']], $review['changes'][0]['evidence']);
+            $checked++;
+            if ($checked === 1) self::assertSame('错引剧本', $review['changes'][0]['quote']);
+            else self::assertSame([['shot_id' => 's1', 'quote' => '甲拿走钥匙。']], $review['changes'][0]['evidence']);
         });
-        self::assertTrue($checked);
+        self::assertSame(2, $checked);
         self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
     }
     public function testEvidenceReferencesCannotReadScriptOrArbitraryFields(): void
