@@ -154,7 +154,7 @@ final class ShortDramaContinuity
                 || !$record['evidence_refs'] || count($record['evidence_refs']) > 20) throw new RuntimeException('审校证据引用格式无效', 422);
             $evidence = [];
             foreach ($record['evidence_refs'] as $ref) {
-                if (!is_array($ref) || array_diff(array_keys($ref), ['shot_id', 'field'])
+                if (!is_array($ref)
                     || !is_string($ref['shot_id'] ?? null) || !in_array($ref['field'] ?? null, ['visual_description', 'dialogue'], true)
                     || !isset($shots[$ref['shot_id']]) || !is_string($shots[$ref['shot_id']][$ref['field']] ?? null)
                     || trim($shots[$ref['shot_id']][$ref['field']]) === '') throw new RuntimeException('审校证据引用不存在或为空', 422);
@@ -475,7 +475,7 @@ final class ShortDramaContinuity
                 }
                 $patch['evidence'] = [];
                 foreach ($patch['evidence_refs'] as $ref) {
-                    if (!is_array($ref) || array_diff(array_keys($ref), ['shot_id', 'field'])
+                    if (!is_array($ref)
                         || !is_string($ref['shot_id'] ?? null) || !in_array($ref['field'] ?? null, ['visual_description', 'dialogue'], true)
                         || !isset($shots[$ref['shot_id']]) || !is_string($shots[$ref['shot_id']][$ref['field']] ?? null)
                         || trim($shots[$ref['shot_id']][$ref['field']]) === '') {
