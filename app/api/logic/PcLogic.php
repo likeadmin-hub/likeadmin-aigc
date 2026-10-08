@@ -27,6 +27,7 @@ use app\common\service\decorate\DecorateTemplateService;
 use app\common\service\ConfigService;
 use app\common\service\license\CopyrightPolicyService;
 use app\common\service\FileService;
+use app\common\service\OemBrandService;
 use app\common\service\PcLoginPresentationService;
 use app\common\service\PointUnitService;
 use app\common\service\OfficialSiteService;
