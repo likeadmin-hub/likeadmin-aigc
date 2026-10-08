@@ -139,6 +139,23 @@ final class ShortDramaContinuity
                 if ($attempt) $review = isset($review['evidence_patches'])
                     ? self::applyEvidencePatches($patchBase, $review, $plan, $mutableEvidence)
                     : self::preserveRepairFacts($originalReview, $review, $plan);
+                // A repeated assertion of an already verified state is not a
+                // new fact. Do not require every later block to re-prove all
+                // clauses of an unchanged historical value. Never drop a
+                // changed value or a mismatched before-state this way.
+                if (!$attempt && is_array($review['changes'] ?? null)) {
+                    $known = (array)($context['continuity']['state'] ?? []);
+                    $seenKeys = [];
+                    $review['changes'] = array_values(array_filter($review['changes'], static function ($item) use ($known, &$seenKeys): bool {
+                        if (!is_array($item) || !is_string($item['entity_id'] ?? null) || !is_string($item['field'] ?? null)) return true;
+                        $key = $item['entity_id'] . ':' . $item['field'];
+                        $unchanged = !isset($seenKeys[$key]) && array_key_exists($key, $known)
+                            && array_key_exists('before', $item) && array_key_exists('after', $item)
+                            && $item['before'] === $known[$key] && $item['after'] === $known[$key];
+                        $seenKeys[$key] = true;
+                        return !$unchanged;
+                    }));
+                }
                 if ($verifyMeaning) {
                     $review = self::isolateInvalidEvidence($review, $plan, $attempt >= 2);
                     $verified = $verifyMeaning($review, $plan);

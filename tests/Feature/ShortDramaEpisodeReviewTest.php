@@ -94,6 +94,20 @@ class ShortDramaEpisodeReviewTest extends TestCase
             self::assertTrue($validated);
         }
     }
+    public function testUnchangedVerifiedStateDoesNotRequireNewBlockEvidence(): void
+    {
+        $request = $this->request(); $request['series_context']['continuity']['state'] = ['a:emotion'=>'释然、温情'];
+        $result = Review::generate($this->plan(1), $request, function ($key, $messages) {
+            $input=json_decode($messages['content'], true);
+            if (isset($input['response_contract']['checks'])) {
+                self::assertSame([], $input['review']['changes']);
+                return ['checks'=>[]];
+            }
+            return ['summary'=>'甲在房间', 'changes'=>[['entity_id'=>'a','field'=>'emotion','before'=>'释然、温情','after'=>'释然、温情','shot_id'=>'s1','quote'=>'甲走进房间']], 'hooks'=>[], 'warnings'=>[]];
+        });
+        self::assertSame('verified', $result['_continuity']['audit_status']);
+        self::assertSame('释然、温情', $result['_continuity']['state']['a:emotion']);
+    }
     public function testCapacityFailureSplitsOnlyCurrentBlock(): void
     {
         $seen=[];
