@@ -1,20 +1,24 @@
-<?php !defined('install') && exit(); ?>
+<?php !defined('install') && exit();
+require_once dirname(__DIR__, 3) . '/app/common/service/OemBrandService.php';
+$oemBrand = \app\common\service\OemBrandService::read(dirname(__DIR__, 3));
+$oemEscape = static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+?>
     <!DOCTYPE html>
     <html lang="en">
 
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>likeadmin安装</title>
+        <title><?= $oemEscape(($oemBrand['name'] ?? '系统') . '安装') ?></title>
         <link rel="stylesheet" type="text/css" href="./css/layui.css"/>
         <link rel="stylesheet" type="text/css" href="./css/mounted.css"/>
-        <link rel="shortcut icon" href="./favicon.ico"/>
+        <link rel="shortcut icon" href="<?= $oemEscape($oemBrand ? '../' . ($oemBrand['favicon'] ?? $oemBrand['logo']) : './favicon.ico') ?>"/>
     </head>
 
     <body>
     <div class="header">
         <div class="logo" style="width: 220px;">
-            <img src="./images/slogn.png?v=1"/>
+            <img style="max-height:64px;object-fit:contain" src="<?= $oemEscape($oemBrand ? '../' . $oemBrand['logo'] : './images/slogn.png?v=1') ?>"/>
         </div>
     </div>
     <div class="mounted" id="mounted">
@@ -37,10 +41,15 @@
                                 阅读许可协议
                             </div>
                             <div class="content">
-                                <h2>likeadmin应用授权协议</h2>
+                                <?php if ($oemBrand): ?>
+<h2><?= $oemEscape($oemBrand['name']) ?>安装说明</h2>
+<p>本安装包用于部署您的品牌系统。请在安装前确认服务器环境、数据库和独立管理员密码，并妥善保存配置及备份。</p>
+<p>应用使用和升级按实际授权执行。安装包内依赖组件的许可证继续有效，请阅读并保留随包提供的许可文件。</p>
+<?php else: ?>
+<h2>likeadmin应用授权协议</h2>
                                 <div class="white-space;pre">
 
-                                </div>
+</div>
 
                                 <p class="mt16">
                                     likeadmin在此特别提醒您（用户）在订阅使用likeadmin软件系统（以下简称“应用”）之前，请认真阅读本《likeadmin应用授权协议》（以下简称“协议”），确保您充分理解本协议中各条款。请您审慎阅读并选择接受或不接受本协议。除非您接受本协议所有条款，否则您无权注册、登录、购买或使用本协议所涉服务。您的注册、登录、购买、使用等行为将视为对本协议的接受，并同意接受本协议各项条款的约束。
@@ -158,6 +167,7 @@
                                     2、本协议的效力、解释及纠纷的解决，适用于中华人民共和国法律。若用户和likeadmin官网之间发生任何纠纷或争议，首先应友好协商解决，协商不成的，用户同意将纠纷或争议提交likeadmin官网住所地有管辖权的人民法院管辖。<br>
                                     3、本协议的任何条款无论因何种原因无效或不具可执行性，其余条款仍有效，对双方具有约束力。<br>
                                 </p>
+                                <?php endif; ?>
                             </div>
                         </div>
                     <?php } ?>
@@ -286,7 +296,7 @@
                                     </div>
                                 </div>
                                 <div class="mounted-tips mt16">
-                                    系统要求likeadmin安装目录下的runtime和upload必须可写，才能使用likeadmin的所有功能。
+                                    系统要求<?= $oemEscape($oemBrand['name'] ?? 'likeadmin') ?>安装目录下的runtime和uploads必须可写，才能使用全部功能。
                                 </div>
                                 <div class="mounted-item mt16">
                                     <div class="content-header">
@@ -527,7 +537,7 @@
         </div>
     </div>
     <footer>
-        Copyright © 2019-<?= date('Y') ?> 贵州猿创科技有限责任公司
+        <?php if ($oemBrand): ?><?= $oemEscape(($oemBrand['copyright_text'] ?? '') ?: (($oemBrand['company_name'] ?? '') ?: $oemBrand['name'])) ?><?php else: ?>Copyright © 2019-<?= date('Y') ?> 贵州猿创科技有限责任公司<?php endif; ?>
     </footer>
     <script src="./js/layui.js"></script>
     <script>

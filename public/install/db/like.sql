@@ -10352,6 +10352,71 @@ CREATE TABLE IF NOT EXISTS `la_aigc_watermark_removal_task` (
   PRIMARY KEY (`id`), KEY `idx_tenant_user` (`tenant_id`,`user_id`), KEY `idx_consumption` (`consumption_id`), KEY `idx_status` (`tenant_id`,`status`), KEY `idx_delete` (`tenant_id`,`delete_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短视频去水印任务';
 
+
+-- 图片数字人
+CREATE TABLE IF NOT EXISTS `la_aigc_pic_lipsync_config` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `status` tinyint NOT NULL DEFAULT 1,
+  `config_json` text,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`), UNIQUE KEY `uk_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='图片数字人配置';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_pic_lipsync_task` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `user_id` int unsigned NOT NULL DEFAULT 0,
+  `app_task_id` int unsigned NOT NULL DEFAULT 0,
+  `consumption_id` int unsigned NOT NULL DEFAULT 0,
+  `provider_task_id` varchar(160) NOT NULL DEFAULT '',
+  `market_product_id` int unsigned NOT NULL DEFAULT 0,
+  `market_sku_id` int unsigned NOT NULL DEFAULT 0,
+  `pricing_snapshot` text,
+  `source_url` varchar(1000) NOT NULL DEFAULT '',
+  `title` varchar(160) NOT NULL DEFAULT '',
+  `quality` varchar(20) NOT NULL DEFAULT 'standard',
+  `drive_mode` varchar(20) NOT NULL DEFAULT 'audio',
+  `audio_asset_id` int unsigned NOT NULL DEFAULT 0,
+  `avatar_id` int unsigned NOT NULL DEFAULT 0,
+  `input_seconds` decimal(12,3) NOT NULL DEFAULT 0,
+  `request_key` varchar(64) DEFAULT NULL,
+  `request_snapshot` text,
+  `tenant_cost_points` decimal(18,6) NOT NULL DEFAULT 0.00,
+  `user_charge_points` decimal(18,6) NOT NULL DEFAULT 0.00,
+  `actual_tenant_cost` decimal(18,6) NOT NULL DEFAULT 0.00,
+  `actual_user_price` decimal(18,6) NOT NULL DEFAULT 0.00,
+  `status` varchar(30) NOT NULL DEFAULT 'pending',
+  `error` varchar(1000) NOT NULL DEFAULT '',
+  `finish_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`), KEY `idx_tenant_user` (`tenant_id`,`user_id`), UNIQUE KEY `uk_request` (`tenant_id`,`user_id`,`request_key`), KEY `idx_consumption` (`consumption_id`), KEY `idx_status` (`tenant_id`,`status`), KEY `idx_delete` (`tenant_id`,`delete_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='图片数字人任务';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_pic_lipsync_result` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `task_id` int unsigned NOT NULL DEFAULT 0,
+  `user_id` int unsigned NOT NULL DEFAULT 0,
+  `video_uri` varchar(500) NOT NULL DEFAULT '',
+  `storage_scope` varchar(20) NOT NULL DEFAULT 'tenant',
+  `storage_engine` varchar(30) NOT NULL DEFAULT 'local',
+  `storage_domain` varchar(255) NOT NULL DEFAULT '',
+  `width` int unsigned NOT NULL DEFAULT 0,
+  `height` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`), UNIQUE KEY `uk_task_video` (`tenant_id`,`task_id`,`video_uri`), KEY `idx_user` (`tenant_id`,`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='图片数字人结果';
+
+INSERT INTO `la_app_plan` (`app_code`,`name`,`duration_months`,`open_points`,`renew_points`,`status`,`sort`,`create_time`,`update_time`)
+SELECT 'aigc_pic_lipsync','一年套餐',12,0.00,0.00,1,0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_app_plan` WHERE `app_code` = 'aigc_pic_lipsync');
+
 -- Source: app/apps/image_human/migrations/install.sql
 CREATE TABLE IF NOT EXISTS `la_image_human_avatar` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -10726,3 +10791,93 @@ CREATE TABLE IF NOT EXISTS `la_user_tool_pins` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_tenant_user` (`tenant_id`,`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户置顶工具';
+
+
+-- Migration snapshot: aigc_digital_human/migrations/zz_20261007_lipsync_models.sql
+
+-- Preserve prices, availability, custom providers/models and historical tasks.
+UPDATE `la_aigc_digital_human_channel`
+SET `config_json` = JSON_SET(
+        CASE
+            WHEN JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}'))
+              AND JSON_TYPE(IF(JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}')), COALESCE(NULLIF(`config_json`, ''), '{}'), '{}')) = 'OBJECT'
+            THEN COALESCE(NULLIF(`config_json`, ''), '{}')
+            ELSE JSON_OBJECT()
+        END,
+        '$.lipsync_model',
+        CASE `code`
+            WHEN 'master' THEN 'xiaojiayu1.0'
+            WHEN 'all' THEN 'xiaojiayu2.0'
+            WHEN 'free' THEN 'xiaojiayu3.0'
+        END
+    ),
+    `model` = CASE `code`
+        WHEN 'master' THEN 'xiaojiayu1.0'
+        WHEN 'all' THEN 'xiaojiayu2.0'
+        WHEN 'free' THEN 'xiaojiayu3.0'
+    END,
+    `update_time` = UNIX_TIMESTAMP()
+WHERE `provider` = 'xhadmin'
+  AND `code` IN ('master', 'all', 'free')
+  AND `model` IN ('', 'mock-digital-human', 'xiaojiayu1.0', 'xiaojiayu2.0', 'xiaojiayu3.0');
+
+-- Global platform license cache. No tenant table or tenant-owned config changes.
+CREATE TABLE IF NOT EXISTS `la_site_license_access_cache` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `context_key` char(64) NOT NULL,
+  `license_no` varchar(100) NOT NULL,
+  `license_version` int unsigned NOT NULL DEFAULT 0,
+  `domain` varchar(255) NOT NULL,
+  `status` varchar(32) NOT NULL DEFAULT 'pending',
+  `response_json` mediumtext NULL,
+  `request_nonce` varchar(100) NOT NULL DEFAULT '',
+  `issued_at` bigint NOT NULL DEFAULT 0,
+  `trusted_issued_at` bigint NOT NULL DEFAULT 0,
+  `expires_at` bigint NOT NULL DEFAULT 0,
+  `checked_at` bigint NOT NULL DEFAULT 0,
+  `next_retry_at` bigint NOT NULL DEFAULT 0,
+  `failure_count` int unsigned NOT NULL DEFAULT 0,
+  `generation` bigint unsigned NOT NULL DEFAULT 0,
+  `lock_token` char(32) NOT NULL DEFAULT '',
+  `lock_until` bigint NOT NULL DEFAULT 0,
+  `error_code` varchar(100) NOT NULL DEFAULT '',
+  `error_message` varchar(255) NOT NULL DEFAULT '',
+  `create_time` bigint NOT NULL DEFAULT 0,
+  `update_time` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`), UNIQUE KEY `uk_context` (`context_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='平台站点签名授权缓存';
+-- Some older installations omitted the scheduler table. Preserve any existing table.
+CREATE TABLE IF NOT EXISTS `la_crontab`
+(
+    `id`          int(11)     NOT NULL AUTO_INCREMENT,
+    `name`        varchar(32) NOT NULL COMMENT '定时任务名称',
+    `type`        tinyint(1)  NOT NULL COMMENT '类型 1-定时任务',
+    `system`      tinyint(4)           DEFAULT '0' COMMENT '是否系统任务 0-否 1-是',
+    `remark`      varchar(255)         DEFAULT '' COMMENT '备注',
+    `command`     varchar(64) NOT NULL COMMENT '命令内容',
+    `params`      varchar(64)          DEFAULT '' COMMENT '参数',
+    `status`      tinyint(1)  NOT NULL DEFAULT '0' COMMENT '状态 1-运行 2-停止 3-错误',
+    `expression`  varchar(64) NOT NULL COMMENT '运行规则',
+    `error`       varchar(256)         DEFAULT NULL COMMENT '运行失败原因',
+    `last_time`   int(11)              DEFAULT NULL COMMENT '最后执行时间',
+    `time`        varchar(64)          DEFAULT '0' COMMENT '实时执行时长',
+    `max_time`    varchar(64)          DEFAULT '0' COMMENT '最大执行时长',
+    `create_time` int(10)              DEFAULT NULL COMMENT '创建时间',
+    `update_time` int(10)              DEFAULT NULL COMMENT '更新时间',
+    `delete_time` int(10)              DEFAULT NULL COMMENT '删除时间',
+    PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4 COMMENT ='计划任务表';
+INSERT INTO `la_crontab` (`name`,`type`,`system`,`remark`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`create_time`,`update_time`,`delete_time`)
+SELECT '站点授权同步',1,1,'刷新平台商业授权与版权编辑资格','site-license:refresh','',1,'* * * * *','',0,'0','0',UNIX_TIMESTAMP(),UNIX_TIMESTAMP(),NULL
+WHERE NOT EXISTS (SELECT 1 FROM `la_crontab` WHERE `command`='site-license:refresh' AND (`delete_time` IS NULL OR `delete_time`=0));
+
+-- Global platform-only package authorization proof. Idempotent; no tenant tables or trading data.
+CREATE TABLE IF NOT EXISTS `la_system_package_grant` (
+  `package_id` int unsigned NOT NULL,
+  `context_key` char(64) NOT NULL,
+  `response_json` longtext NOT NULL COMMENT 'Private original signed response; includes short-lived credentials',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`package_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='System package site authorization';

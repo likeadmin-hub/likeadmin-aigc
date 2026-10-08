@@ -2,6 +2,7 @@
 
 namespace app\common\service\ai;
 
+use app\common\model\ai\AiAppTask;
 use app\common\model\ai\AiConsumptionLog;
 use app\common\model\ai\AiTaskJob;
 use think\facade\Db;
@@ -137,12 +138,12 @@ class AiTaskJobService
     }
 
     /** @return array<int,array<string,mixed>> */
-    public static function claim(string $worker, int $leaseSeconds, int $batch): array
+    public static function claim(string $worker, int $leaseSeconds, int $batch, string $appCode = ''): array
     {
         $jobs = [];
         $batch = max(1, min(100, $batch));
         for ($index = 0; $index < $batch; $index++) {
-            $claimed = Db::transaction(function () use ($worker, $leaseSeconds) {
+            $claimed = Db::transaction(function () use ($worker, $leaseSeconds, $appCode) {
                 $now = time();
                 $job = AiTaskJob::where(function ($query) use ($now) {
                     $query->where(function ($pending) use ($now) {
@@ -151,6 +152,9 @@ class AiTaskJobService
                         $expired->where('status', 'running')->where('lease_expire_time', '<=', $now);
                     });
                 })->whereIn('job_type', [self::TYPE_QUERY_RESULT, self::TYPE_PROCESS_RESULT, self::TYPE_TRANSFER_RESULT, self::TYPE_SETTLE, self::TYPE_REFUND, self::TYPE_ADMIN_ACTION])
+                    ->when($appCode !== '', function ($query) use ($appCode) {
+                        $query->whereIn('app_task_id', Db::raw(AiAppTask::where('app_code', $appCode)->field('id')->buildSql()));
+                    })
                     ->order(['priority' => 'desc', 'next_run_time' => 'asc', 'id' => 'asc'])
                     ->lock(true)
                     ->findOrEmpty();

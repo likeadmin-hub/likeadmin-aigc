@@ -499,9 +499,10 @@ class installModel
         $dbFile = $this->getInstallRoot() . '/db/like.sql';
         //file_put_contents($dbFile, $this->initAccount($post), FILE_APPEND);
         $content = str_replace(";\r\n", ";\n", file_get_contents($dbFile));
-        $tables = explode(";\n", $content);
+        require_once $this->getAppRoot() . '/app/common/service/database/SqlMigrationExecutor.php';
+        $tables = \app\common\service\database\SqlMigrationExecutor::split($content);
         $accountSql = str_replace(';', ";\n", $this->initAccount($post));
-        $tables = array_merge($tables, explode(";\n", $accountSql));
+        $tables = array_merge($tables, \app\common\service\database\SqlMigrationExecutor::split($accountSql));
         $installTime = (int) floor(microtime(true) * 10000);
         $this->lastSqlError = '';
 
@@ -536,6 +537,10 @@ class installModel
                 return false;
             }
         }
+        require_once $this->getAppRoot() . '/app/common/service/OemBrandService.php';
+        \app\common\service\OemBrandService::initialize($this->dbh, $this->prefix);
+        $tenantRows = $this->dbh->query('SELECT id,tactics,sn FROM `' . $this->prefix . 'tenant`')->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($tenantRows as $tenant) \app\common\service\OemBrandService::initialize($this->dbh, $this->prefix, (int)$tenant['id'], null, true, (int)$tenant['tactics']===1?(string)$tenant['sn']:'');
         return true;
     }
 

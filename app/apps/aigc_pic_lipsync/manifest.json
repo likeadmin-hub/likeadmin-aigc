@@ -1,0 +1,75 @@
+{
+  "code": "aigc_pic_lipsync",
+  "name": "图片数字人",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "上传人物图片，支持音频驱动、文案驱动及快速、标准、MAX三种模式。",
+  "changelog": "1. 新增图片数字人创作。\n2. 支持音频驱动和文案驱动。\n3. 支持快速、标准、MAX模式及作品管理。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 0,
+  "expire_policy": "allow",
+  "sort": 890,
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_pic_lipsync",
+  "platform_menus": "menus/platform.json",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "platform",
+      "entry_key": "aigc_pic_lipsync_platform",
+      "name": "图片数字人",
+      "path": "/app/aigc_pic_lipsync",
+      "icon": "el-icon-VideoCamera",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_pic_lipsync_admin",
+      "name": "图片数字人",
+      "path": "/app/aigc_pic_lipsync",
+      "icon": "el-icon-VideoCamera",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_pic_lipsync",
+      "name": "图片数字人",
+      "path": "/ai/avatar?tab=pic_lipsync",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 98,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_pic_lipsync",
+      "name": "图片数字人",
+      "path": "/apps/aigc_pic_lipsync/pages/index/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 98,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "图片数字人创作",
+            "path": "/apps/aigc_pic_lipsync/pages/index/index"
+          },
+          {
+            "name": "图片数字人作品",
+            "path": "/apps/aigc_pic_lipsync/pages/tasks/tasks"
+          }
+        ]
+      }
+    }
+  ]
+}

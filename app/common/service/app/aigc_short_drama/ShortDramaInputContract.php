@@ -4,7 +4,12 @@ namespace app\common\service\app\aigc_short_drama;
 /** New requests opt in; already queued requests retain their frozen contract. */
 final class ShortDramaInputContract
 {
-    public const VERSION = 4;
+    public const VERSION = 5;
+
+    public static function recoveryEnabled(array $request): bool
+    {
+        return (int)($request['_input_contract_version'] ?? 0) >= 5 || !empty($request['_generation_recovery_version']);
+    }
 
     public static function current(array $request): bool
     {

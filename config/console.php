@@ -9,6 +9,7 @@ return [
         'short-drama:planning-worker' => 'app\common\command\ShortDramaPlanningWorker',
         'short-drama:canvas-agent-worker' => 'app\common\command\ShortDramaCanvasAgentWorker',
         // 定时任务
+        'site-license:refresh' => 'app\common\command\SiteLicenseRefresh',
         'crontab' => 'app\common\command\Crontab',
         // 退款查询
         'query_refund' => 'app\common\command\QueryRefund',

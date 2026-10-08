@@ -18,6 +18,7 @@ namespace app\tenantapi\logic\setting\web;
 use app\common\logic\BaseLogic;
 use app\common\service\AgreementService;
 use app\common\service\ConfigService;
+use app\common\service\license\CopyrightPolicyService;
 use app\common\service\FileService;
 use app\common\service\PcLoginPresentationService;
 use app\common\service\OfficialSiteService;
@@ -50,6 +51,8 @@ class WebSettingLogic extends BaseLogic
         $pcHomeImmersiveTitle = ConfigService::get('website', 'pc_home_immersive_title', 'OPC社区专属，AI创业平台');
         $pcHomeImmersiveSubtitle = ConfigService::get('website', 'pc_home_immersive_subtitle', '一个人就是一支团队');
         return [
+            'copyright_policy' => CopyrightPolicyService::policy(),
+            'site_license' => CopyrightPolicyService::publicSite(),
             'name' => ConfigService::get('tenant', 'name'),
             'web_favicon' => FileService::getFileUrl(ConfigService::get('tenant', 'web_favicon')),
             'web_logo' => FileService::getFileUrl(ConfigService::get('tenant', 'web_logo')),
@@ -199,7 +202,7 @@ class WebSettingLogic extends BaseLogic
      */
     public static function getCopyright() : array
     {
-        return ConfigService::get('copyright', 'config', []);
+        return CopyrightPolicyService::policy()['items'];
     }
 
 
@@ -213,10 +216,11 @@ class WebSettingLogic extends BaseLogic
     public static function setCopyright(array $params)
     {
         try {
-            if (!is_array($params['config'])) {
+            CopyrightPolicyService::assertCanCustomize();
+            if (!is_array($params['config'] ?? null)) {
                 throw new \Exception('参数异常');
             }
-            ConfigService::set('copyright', 'config', $params['config'] ?? []);
+            ConfigService::set('copyright', 'config', CopyrightPolicyService::safeItems($params['config'] ?? []));
             return true;
         } catch (\Exception $e) {
             self::$error = $e->getMessage();
