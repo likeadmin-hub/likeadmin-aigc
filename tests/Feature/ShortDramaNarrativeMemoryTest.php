@@ -61,6 +61,42 @@ class ShortDramaNarrativeMemoryTest extends TestCase
         self::assertSame(['content'=>$text], Memory::messages(['content'=>$text]));
     }
 
+    public function testLongHistoricalSourceIsRetrievedAsExactExcerpt(): void
+    {
+        $summary=str_repeat('平常的一天。',500).'紫铜钥匙打开灯塔密室'.str_repeat('平常的一天。',500);
+        $view=Memory::continuity(['history'=>[20=>['episode_number'=>20,'summary'=>$summary,'digest'=>'original']]],'紫铜钥匙打开灯塔密室');
+        $matches=array_filter($view['history'],static fn($r)=>str_contains($r['excerpt'] ?? '', '紫铜钥匙打开灯塔密室'));
+        self::assertNotEmpty($matches);
+        foreach($matches as $row) {
+            self::assertSame(mb_substr($summary,$row['start_character'],600),$row['excerpt']);
+            self::assertSame('original',$row['digest']);
+        }
+    }
+
+    public function testFiveHundredSequentialEpisodesKeepFactsAndBoundEveryReviewCall(): void
+    {
+        $previous=[]; $maxInput=0; $calls=0;
+        for($episode=1;$episode<=500;$episode++) {
+            $plan=['subjects'=>[['id'=>'p','name'=>'林舟']], 'locations'=>[],
+                'storyboard'=>[['shot_id'=>'s1','visual_description'=>"林舟完成第{$episode}日记录"]]];
+            $request=['_input_contract_version'=>7,'episode_number'=>$episode,'series_context'=>[
+                'current_episode'=>['episode_number'=>$episode], 'continuity'=>Continuity::context($previous,true)]];
+            $result=Review::generate($plan,$request,static function($key,$input,$desired,$validate) use($episode,&$maxInput,&$calls) {
+                $budget=Budget::fitMessages($input,[],'script',$desired,true); $maxInput=max($maxInput,$budget['input_estimate']); $calls++;
+                $data=json_decode($input['content'],true);
+                $reply=isset($data['response_contract']['checks']) ? ['checks'=>array_map(static fn($c)=>array_replace($c,['supported'=>true,'reason'=>'镜头记载该事实']),$data['response_contract']['checks'])]
+                    : ['summary'=>"第{$episode}日完成记录",'changes'=>[['entity_id'=>'p','field'=>'record_'.$episode,'after'=>'完成',
+                        'evidence_refs'=>[['shot_id'=>'s1','field'=>'visual_description']]]], 'hooks'=>[],'warnings'=>[]];
+                $validate($reply); return $reply;
+            });
+            self::assertSame('verified',$result['_continuity']['audit_status']);
+            self::assertCount($episode,$result['_continuity']['state']);
+            $previous[]=$result['_continuity'];
+        }
+        self::assertSame('完成',$previous[499]['state']['p:record_20']);
+        self::assertSame(1000,$calls); self::assertLessThan(18000,$maxInput);
+    }
+
     public function testLargeLedgerIsNotTruncatedOrRejectedByWorkingMemoryLimits(): void
     {
         $source = $this->archive(500);
