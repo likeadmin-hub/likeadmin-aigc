@@ -53,7 +53,8 @@ final class ShortDramaShotSemantics
             // transition shot keeps its explicit setting when the cues differ.
             $location = array_column((array)($plan['locations'] ?? []), null, 'id')[$shot['scene_ref_id'] ?? ''] ?? [];
             if (preg_match('/屋内|室内|客厅|卧室|厨房|教室|办公室/u', (string)($location['name'] ?? ''))
-                && preg_match('/^(?:清晨[，, ]*)?(?:屋内|室内|客厅|卧室|厨房|教室|办公室)/u', (string)($shot['visual_description'] ?? ''))) $shot['interior_exterior'] = 'interior';
+                && (preg_match('/^(?:清晨[，, ]*)?(?:屋内|室内|客厅|卧室|厨房|教室|办公室)/u', (string)($shot['visual_description'] ?? ''))
+                    || preg_match('/^'.preg_quote((string)$location['name'],'/').'[，,。\s]/u',(string)($shot['visual_description']??'')))) $shot['interior_exterior'] = 'interior';
             $shot['interior_exterior'] = self::space($shot, (array)($plan['locations'] ?? []));
             if (self::silent((string)($shot['dialogue'] ?? ''))) {
                 $shot['dialogue'] = ''; $shot['speech_type'] = 'none'; $shot['voice_role'] = '';
