@@ -405,7 +405,24 @@ class ShortDramaEpisodeService
     {
         $row = self::episode($tenantId, $userId, (int)($params['episode_id'] ?? 0));
         if (!(int)$row['completed_once'] || $row['status'] !== 'success') throw new Exception('请等待当前剧集完成');
-        return AigcShortDramaService::message($tenantId, $userId, ['task_id' => $row['task_id'], 'message' => (string)($params['message'] ?? '')]);
+        return AigcShortDramaService::message($tenantId, $userId, ['task_id' => $row['task_id'], 'message' => (string)($params['message'] ?? ''), 'mode'=>(string)($params['mode'] ?? '')]);
+    }
+
+    public static function refreshReviewContext(int $tenantId, int $userId, int $productionId, array $request): array
+    {
+        $episode = self::context($tenantId, $userId, $productionId);
+        if (!$episode) return $request;
+        $siblings = self::withContinuityStatus($tenantId, $userId, Db::name(self::TABLE)->where([
+            'tenant_id'=>$tenantId, 'user_id'=>$userId, 'project_id'=>$episode['project_id'], 'delete_time'=>0])->order('episode_number')->select()->toArray());
+        $previous = [];
+        foreach ($siblings as $row) {
+            if ((int)$row['episode_number'] >= (int)$episode['episode_number']) break;
+            if ($row['status'] !== 'success' || !empty($row['needs_review'])) throw new Exception('请先完成前面剧集的复核，再继续本集');
+            $previous[] = self::decode($row['continuity_json']);
+        }
+        $request['series_context']['continuity'] = ShortDramaContinuity::context($previous, true);
+        $request['series_context']['previous_episodes'] = ShortDramaContinuity::context($previous)['recent_episodes'];
+        return $request;
     }
 
     public static function export(int $tenantId, int $userId, array $params): array
