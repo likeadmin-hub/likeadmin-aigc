@@ -697,8 +697,8 @@ final class ShortDramaContinuity
                 unset($hooks[$item['id']]);
             } else $hooks[$item['id']] = $item['description'];
         }
-        // Never silently truncate hard facts. Fail before sending an oversized next context.
-        if (empty($context['_bounded_memory']) && (count($state) > 1000 || count($hooks) > 500)) throw new RuntimeException('剧情状态过多，请分阶段整理后继续', 413);
+        // Ledger storage is independent of provider working-memory capacity.
+        // Never drop historical facts or stop a series solely on total record count.
         $warnings = [];
         foreach ($review['warnings'] as $warning) {
             if (!is_string($warning) || mb_strlen($warning) > 1500) throw new RuntimeException('连续性提示格式无效', 422);

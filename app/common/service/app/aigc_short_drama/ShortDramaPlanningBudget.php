@@ -24,8 +24,13 @@ final class ShortDramaPlanningBudget
         catch (RuntimeException $error) {
             if ($error->getCode() !== 413) throw $error;
             $projected = ShortDramaPlanningContext::withoutAuditDiagnostics($messages);
-            if ($projected === $messages) throw $error;
-            $budget = self::stage($projected['system_prompt'] . $projected['content'], $model, $stage, $desired);
+            try { $budget = self::stage($projected['system_prompt'] . $projected['content'], $model, $stage, $desired); }
+            catch (RuntimeException $diagnosticError) {
+                if ($diagnosticError->getCode() !== 413) throw $diagnosticError;
+                // Only previously un-submittable legacy units adopt working memory;
+                // valid paid inputs retain their original receipt signatures.
+                $budget = self::fitMessages($projected, $model, $stage, $desired, true);
+            }
             $messages = $projected;
             return $budget;
         }
