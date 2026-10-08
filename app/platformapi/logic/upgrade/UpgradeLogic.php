@@ -56,7 +56,7 @@ class UpgradeLogic extends BaseLogic
             if ($localVersion == $item['version_no']) {
                 $lists[$k]['version_str'] = '您的系统当前处于此版本';
             }
-            if ($localVersion < $item['version_no']) {
+            if (version_compare($localVersion, $item['version_no'], '<') && ($item['can_download'] ?? false) === true) {
                 $lists[$k]['version_str'] = '系统可更新至此版本';
                 $lists[$k]['able_update'] = 1;
             }
@@ -103,7 +103,7 @@ class UpgradeLogic extends BaseLogic
             $lists[$k]['content_desc'] = $contentDesc;
             unset($lists[$k]['update_content']);
         }
-        $lists[0]['new_version'] = ($pageNo == 1) ? 1 : 0;
+        if ($lists) $lists[0]['new_version'] = ($pageNo == 1) ? 1 : 0;
         return $lists;
     }
 
@@ -159,6 +159,14 @@ class UpgradeLogic extends BaseLogic
     {
         $data = (new \app\common\service\update\SystemPackageUpdateService())->versions();
         $rows = $data['lists'] ?? [];
+        foreach ($rows as &$row) {
+            $row['version_no'] = $row['version'];
+            $row['uniapp_publish'] = $row['pc_admin_publish'] = $row['pc_shop_publish'] = 0;
+            $content = $row['changelog'] ?? [];
+            if (!is_array($content)) $content = array_filter(explode('\n', (string)$content));
+            $row['update_content'] = array_map(static fn($item) => is_array($item) ? $item : ['type'=>2,'update_function'=>(string)$item], $content);
+        }
+        unset($row);
         return ['lists' => array_slice($rows, max(0, ((int)($pageNo ?: 1) - 1) * (int)($pageSize ?: 15)), (int)($pageSize ?: 15)),
             'count' => count($rows)];
     }

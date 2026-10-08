@@ -259,7 +259,8 @@ class UpgradeController extends BaseAdminController
      */
     public function upgrade(): Json
     {
-        $params = (new UpgradeValidate())->post()->goCheck();
+        $params = $this->request->post();
+        if ((int)($params['id'] ?? 0) <= 0) return $this->fail('请选择更新源版本');
         $params['update_type'] = 1; // 一键更新类型
         $params['backup_confirmed'] = $this->request->post('backup_confirmed', false);
         if (true === UpgradeLogic::upgrade($params)) {

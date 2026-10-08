@@ -124,6 +124,12 @@ try {
     $assert($service->refresh(true)['can_customize'],'certificate refresh + access failed');
     $assert($license->verifiedSiteContext()['license_version']===2,'certificate version not refreshed');
     $assert($service->snapshot()['issuer']['copyright'][0]['key']==='更新后的签发版权','issuer not refreshed');
+    $renewed=clone $replacement;$renewed->schema_version=3;$renewed->version=3;
+    $renewed->update_mode='annual';$renewed->update_until=time()+365*86400;$renewed->update_rights_revision=5;
+    $service->nextCertificate=$envelope($renewed);
+    $assert($service->refresh(true,true,true)['can_customize'],'manual renewal refresh revoked permanent commercial access');
+    $assert($license->verifiedSiteContext()['license_version']===3,'manual renewal failed to replace old certificate');
+    $assert($service->snapshot()['updates']['update_mode']==='annual','schema 3 update mode omitted');
     $service->nextCertificate='';
     // Origin switches must not reuse a qualified lease.
     Db::name('update_source')->where('status',1)->update(['base_url'=>'http://other-fixture.invalid']);
