@@ -68,6 +68,11 @@ class ShortDramaNarrativeMemoryTest extends TestCase
         self::assertStringContainsString($text, $projected['content']);
         self::assertStringEndsWith("\n修复指定字段，不能更改对白。", $projected['content']);
         self::assertSame(['content'=>$text], Memory::messages(['content'=>$text]));
+        $input=['user_prompt'=>'保留符号 A/B 与 https://example.test/story','series_context'=>['continuity'=>$this->archive(500)]];
+        $wire=['content'=>json_encode($input,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)];
+        $decoded=json_decode(Memory::messages($wire)['content'],true);
+        self::assertSame($input['user_prompt'],$decoded['user_prompt']);
+        self::assertArrayHasKey('memory_scope',$decoded['series_context']['continuity']);
     }
 
     public function testLongHistoricalSourceIsRetrievedAsExactExcerpt(): void
