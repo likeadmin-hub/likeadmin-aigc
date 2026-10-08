@@ -94,7 +94,14 @@ final class ShortDramaContinuity
             $dependency = (array)($ledger['memory_dependency'] ?? []);
             $dependencyChanged = ($previousDigest !== '' && ($ledger['previous_digest'] ?? '') !== $previousDigest);
             if (($dependency['version'] ?? 0) === ShortDramaNarrativeMemory::VERSION && isset($dependency['query'], $dependency['fingerprint'])) {
-                $dependencyChanged = $dependency['fingerprint'] !== ShortDramaNarrativeMemory::dependency(self::context($previous, true), $dependency['query']);
+                $dependencyChanged = $dependency['fingerprint'] !== ShortDramaNarrativeMemory::dependency(
+                    self::context($previous, $dependency['history_available'] ?? true), $dependency['query']);
+                // Early v7 children of old outlines had no historical retrieval
+                // corpus. Compare their actual scope, never invent missing history.
+                if ($dependencyChanged && !array_key_exists('history_available', $dependency)
+                    && ($ledger['previous_digest'] ?? '') === $previousDigest) {
+                    $dependencyChanged = $dependency['fingerprint'] !== ShortDramaNarrativeMemory::dependency(self::context($previous, false), $dependency['query']);
+                }
             }
             $outdated = ($ledger['version'] ?? 0) === 1 && (
                 ($ledger['digest'] ?? '') !== $digest

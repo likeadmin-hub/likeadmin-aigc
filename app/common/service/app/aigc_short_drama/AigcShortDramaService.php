@@ -2418,6 +2418,9 @@ class AigcShortDramaService
     /** Internal queue entry; context is never accepted from HTTP parameters. */
     public static function createEpisodeProduction(int $tenantId, int $userId, array $episode, array $request, array $outline, array $previous): array
     {
+        // A newly created child uses the current input protocol even when its
+        // parent outline predates working memory. Build context with that same protocol.
+        $request = ShortDramaInputContract::begin($request);
         $currentOutline = ShortDramaEpisodeService::decode($episode['outline_json']);
         if (empty($currentOutline['story_outline'])) throw new Exception('本集缺少真实大纲，请重新规划项目');
         $request['multi_episode'] = false;
