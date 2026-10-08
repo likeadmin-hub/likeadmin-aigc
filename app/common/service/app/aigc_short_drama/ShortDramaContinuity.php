@@ -163,6 +163,19 @@ final class ShortDramaContinuity
                 // changed value or a mismatched before-state this way.
                 if (!$attempt && is_array($review['changes'] ?? null)) {
                     $known = (array)($context['continuity']['state'] ?? []);
+                    $registered = $known;
+                    foreach ($review['changes'] as &$change) {
+                        if (!is_array($change) || !is_string($change['entity_id'] ?? null) || !is_string($change['field'] ?? null)) continue;
+                        $key = $change['entity_id'] . ':' . $change['field'];
+                        // Absence is owned by the persisted ledger, not by an
+                        // LLM spelling of null/unknown/a guessed former state.
+                        if (!array_key_exists($key, $registered) && ($change['before'] ?? null) !== null) {
+                            $review['audit_corrections'][] = ['original'=>$change,'field'=>'before','corrected'=>null,'reason'=>'状态表尚未登记此键，首次旧值由服务端确定为null'];
+                            $change['before'] = null;
+                        }
+                        $registered[$key] = true;
+                    }
+                    unset($change);
                     $seenKeys = [];
                     $review['changes'] = array_values(array_filter($review['changes'], static function ($item) use ($known, &$seenKeys): bool {
                         if (!is_array($item) || !is_string($item['entity_id'] ?? null) || !is_string($item['field'] ?? null)) return true;

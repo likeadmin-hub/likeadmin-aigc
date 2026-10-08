@@ -100,4 +100,16 @@ class ShortDramaAuditFormatTest extends TestCase
         self::assertSame([], $ledger['unverified_claims']);
         self::assertCount(1, $ledger['audit_corrections']);
     }
+    public function testFirstRegistrationUsesLedgerAbsenceInsteadOfProviderGuess(): void
+    {
+        foreach (['null（未出现）','未登记','模型猜测的旧状态'] as $before) {
+            $plan = ['subjects'=>[['id'=>'p1']], 'storyboard'=>[['shot_id'=>'s1','visual_description'=>'甲站在门口','dialogue'=>'']]];
+            $draft = ['summary'=>'甲出现','changes'=>[['entity_id'=>'p1','field'=>'location','before'=>$before,'after'=>'门口','shot_id'=>'s1','quote'=>'甲站在门口']], 'hooks'=>[], 'warnings'=>[]];
+            $ledger = Continuity::review($plan, [], 1, static fn()=> $draft, static fn($review)=>Patch::verifiedReview($review,
+                ['checks'=>[['collection'=>'changes','index'=>0,'supported'=>true,'reason'=>'镜头展示位置']]], []));
+            self::assertSame('门口', $ledger['state']['p1:location']);
+            self::assertSame($before, $ledger['audit_corrections'][0]['original']['before']);
+            self::assertNull($ledger['audit_corrections'][0]['corrected']);
+        }
+    }
 }
