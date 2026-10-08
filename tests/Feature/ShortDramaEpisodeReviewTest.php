@@ -12,6 +12,10 @@ class ShortDramaEpisodeReviewTest extends TestCase
         $windows = []; $snapshots = [];
         $base = $this->plan(6);
         $result = Review::generate($base, $this->request(), function($key,$messages,$desired,$validate) use (&$windows) {
+            if (str_starts_with($key, 'review_4_2_audit_')) {
+                $windows[] = ['s5','s6'];
+                throw new \RuntimeException('连续性审校结构不完整', 422);
+            }
             $input = json_decode($messages['content'], true);
             if (isset($input['script'])) {
                 $ids = array_column($input['script']['storyboard'], 'shot_id'); $windows[] = $ids;
