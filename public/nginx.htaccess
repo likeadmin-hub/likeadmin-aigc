@@ -1,4 +1,17 @@
-if (!-e $request_filename) {
-    rewrite ^(.*)$ /index.php?s=$1 last;
-    break;
+# Include at server scope (BaoTa's site rewrite configuration).
+# All platform history routes load the platform SPA, including nested pages.
+location = /platform {
+    try_files /platform/index.html =404;
+}
+
+location ^~ /platform/ {
+    try_files $uri $uri/ /platform/index.html;
+}
+
+# Other requests retain the existing ThinkPHP rewrite.
+location / {
+    if (!-e $request_filename) {
+        rewrite ^(.*)$ /index.php?s=$1 last;
+        break;
+    }
 }
