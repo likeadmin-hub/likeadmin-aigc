@@ -53,27 +53,33 @@ final class ShortDramaDialoguePartition
                 'locked_segments' => $parts], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
         for ($attempt = 0; $attempt < 2; $attempt++) {
             try {
-                $reply = $call($key . '_partition_' . $attempt, $input, 6000);
-                $segments = $reply['segments'] ?? [];
-                if (!is_array($segments) || !array_is_list($segments) || count($segments) !== count($parts)) throw new RuntimeException('画面分段数量不完整', 422);
-                foreach ($segments as $index => &$segment) {
-                    if (!is_array($segment) || ($segment['index'] ?? null) !== $index
-                        || !is_string($segment['visual_description'] ?? null) || trim($segment['visual_description']) === '') throw new RuntimeException('画面分段编号或内容无效', 422);
-                    $segment = array_intersect_key($segment, array_flip(['visual_description','composition','camera_movement','action','result','sound_effect']));
-                    foreach (['composition','camera_movement','action','result','sound_effect'] as $field) {
-                        if (isset($segment[$field]) && !is_string($segment[$field])) throw new RuntimeException('画面字段须为文字', 422);
-                        $segment[$field] = $segment[$field] ?? '';
-                    }
-                    $segment['dialogue'] = $parts[$index]['dialogue'];
-                    $segment['recommended_duration_seconds'] = $parts[$index]['recommended_duration_seconds'];
-                }
-                unset($segment);
-                return ShortDramaDialogueSplit::validate($shot, ['segments' => $segments], $rule, $locked);
+                $reply = $call($key . '_partition_' . $attempt, $input, 6000,
+                    static fn($reply) => self::fromReply($shot, $reply, $parts, $rule, $locked));
+                return self::fromReply($shot, $reply, $parts, $rule, $locked);
             } catch (RuntimeException $error) {
                 if (!in_array($error->getCode(), [409, 413, 422], true) || $attempt) throw $error;
                 $input['content'] .= "\n只修复画面分段：" . $error->getMessage();
             }
         }
         throw new RuntimeException('画面分段尚未完成，已保留原文', 409);
+    }
+
+    private static function fromReply(array $shot, array $reply, array $parts, array $rule, bool $locked): array
+    {
+        $segments = $reply['segments'] ?? [];
+        if (!is_array($segments) || !array_is_list($segments) || count($segments) !== count($parts)) throw new RuntimeException('画面分段数量不完整', 422);
+        foreach ($segments as $index => &$segment) {
+            if (!is_array($segment) || ($segment['index'] ?? null) !== $index
+                || !is_string($segment['visual_description'] ?? null) || trim($segment['visual_description']) === '') throw new RuntimeException('画面分段编号或内容无效', 422);
+            $segment = array_intersect_key($segment, array_flip(['visual_description','composition','camera_movement','action','result','sound_effect']));
+            foreach (['composition','camera_movement','action','result','sound_effect'] as $field) {
+                if (isset($segment[$field]) && !is_string($segment[$field])) throw new RuntimeException('画面字段须为文字', 422);
+                $segment[$field] = $segment[$field] ?? '';
+            }
+            $segment['dialogue'] = $parts[$index]['dialogue'];
+            $segment['recommended_duration_seconds'] = $parts[$index]['recommended_duration_seconds'];
+        }
+        unset($segment);
+        return ShortDramaDialogueSplit::validate($shot, ['segments' => $segments], $rule, $locked);
     }
 }

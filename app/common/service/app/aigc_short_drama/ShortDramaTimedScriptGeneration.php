@@ -25,7 +25,12 @@ final class ShortDramaTimedScriptGeneration
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
                 $skeleton = self::lockTimelineShotDurations(
-                    self::canonicalSkeleton($call('timed_skeleton_' . $attempt, $skeletonInput, 8192)),
+                    self::canonicalSkeleton($call('timed_skeleton_' . $attempt, $skeletonInput, 8192,
+                        static function ($payload) use ($request): void {
+                            $prepared = self::lockTimelineShotDurations(self::canonicalSkeleton($payload), $request);
+                            if (ShortDramaInputContract::recoveryEnabled($request)) $prepared = self::normalizeSkeletonBudgets($prepared, $request);
+                            if (empty($prepared['storyboard'])) self::assertSkeleton($prepared, $request);
+                        })),
                     $request
                 );
                 if (ShortDramaInputContract::recoveryEnabled($request)) $skeleton = self::normalizeSkeletonBudgets($skeleton, $request);
@@ -113,7 +118,8 @@ final class ShortDramaTimedScriptGeneration
                     try {
                         // A failed attempt must not change the next attempt's locked input.
                         $validationDurations = $partDurations;
-                        $part = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . ($attempt ? '_repair' : ''), $input, 1800 + count($ids) * 750);
+                        $part = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . ($attempt ? '_repair' : ''), $input, 1800 + count($ids) * 750,
+                            static fn($part) => self::assertPart($part, $skeleton, $beat, $ids, $partDurations, false));
                         $validationIds = $ids;
                         if (ShortDramaDialogueSplit::enabled($request)) {
                             self::assertPart($part, $skeleton, $beat, $ids, $partDurations, false);

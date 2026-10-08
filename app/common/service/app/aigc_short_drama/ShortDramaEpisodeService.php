@@ -161,6 +161,13 @@ class ShortDramaEpisodeService
         unset($row['outline_json'], $row['result_json'], $row['continuity_json'], $row['series_json'], $row['provider_request_id'], $row['provider_task_id']);
         $row['ready'] = (bool)$row['completed_once'];
         $row['queue_state'] = $row['status'];
+        $row['review_status'] = '';
+        if ($row['ready'] && $row['status'] === 'failed') {
+            $row['status'] = 'success';
+            $row['needs_review'] = true;
+            $row['review_status'] = 'failed';
+            $row['review_reason'] = '复核未完成，原剧本仍可查看：' . (string)($row['error'] ?? '请继续复核');
+        }
         // A running episode can finish after the user pauses the series. Its
         // completed plan is already durable and must remain viewable; only
         // later, not-yet-run episodes are canceled. Keep legacy rows with the
@@ -223,9 +230,9 @@ class ShortDramaEpisodeService
             $outlineRequest = self::outlineRequest($tenantId, $userId, $row);
             $siblings = self::withContinuityStatus($tenantId, $userId, Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId,
                 'project_id' => $row['project_id'], 'delete_time' => 0])->order('episode_number')->select()->toArray());
-            $review = false;
+            $review = !empty($row['completed_once']);
             foreach ($siblings as $sibling) {
-                if ((int)$sibling['id'] === (int)$row['id']) { $review = !empty($sibling['needs_review']); break; }
+                if ((int)$sibling['id'] === (int)$row['id']) { $review = $review || !empty($sibling['needs_review']); break; }
                 if (!empty($sibling['needs_review'])) throw new Exception('请先复核前面的剧集，避免继续使用旧剧情');
             }
             if (!in_array($row['status'], ['failed', 'canceled'], true) && !($row['status'] === 'success' && $review)) throw new Exception('当前剧集无需重试');
@@ -241,6 +248,9 @@ class ShortDramaEpisodeService
                 $old = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id'], 'delete_time' => 0])->findOrEmpty();
                 if (!$old->isEmpty()) {
                     $request = self::decode($old['request_json']);
+                    $previousReviewBase = $request['revision_base_result'] ?? [];
+                    $wasBlockReview = !empty($request['_continuity_review_only']);
+                    $request['_generation_recovery_version'] = 1;
                     if ($outlineRequest !== null) $request = ShortDramaStoryWorkflow::inheritQualityReview($request, $outlineRequest);
                     $originalContext = $request['series_context'] ?? [];
                     if ((int)($request['_generation_version'] ?? 0) >= 3) {
@@ -256,11 +266,14 @@ class ShortDramaEpisodeService
                             $request['revision_base_result'] = self::decode($version['plan_json'] ?? $row['result_json']);
                             $request['revision_message'] = '复核当前剧本与最新前集的连续性，只修复明确矛盾；保留其他剧情、镜头、台词和所有素材标识。';
                             $request['revision_policy'] = ['mode' => 'local_only', 'preserve_unmentioned' => true];
+                            $request['_continuity_review_only'] = true;
+                            $request['source'] = 'revision';
                             unset($request['revision_target']);
                         }
                     }
-                    if (!$review && (int)($request['_generation_version'] ?? 0) >= 3
-                        && $originalContext === ($request['series_context'] ?? [])) {
+                    if ((int)($request['_generation_version'] ?? 0) >= 3
+                        && $originalContext === ($request['series_context'] ?? [])
+                        && (!$review || ($wasBlockReview && $previousReviewBase === ($request['revision_base_result'] ?? [])))) {
                         ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, (string)$row['task_id']);
                         $old->save(['request_json' => self::encode($request), 'status' => 'pending',
                             'error' => '', 'finished_at' => 0, 'update_time' => time()]);

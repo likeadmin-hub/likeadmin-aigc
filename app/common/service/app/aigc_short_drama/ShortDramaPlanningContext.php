@@ -130,6 +130,8 @@ final class ShortDramaPlanningContext
      */
     public static function templateRequest(array $request): array
     {
+        // Local recovery controls do not alter the frozen provider prompt of a resumed task.
+        unset($request['_generation_recovery_version']);
         if (!ShortDramaStoryWorkflow::enabled($request)) {
             return $request;
         }

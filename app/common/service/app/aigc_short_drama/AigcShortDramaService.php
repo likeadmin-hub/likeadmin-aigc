@@ -5686,7 +5686,9 @@ class AigcShortDramaService
                 // in-flight guard above makes the state transition atomic from
                 // the user perspective instead of risking a duplicate call.
                 ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, $taskId);
+                $request['_generation_recovery_version'] = 1;
                 $task->save([
+                    'request_json' => self::jsonEncode($request),
                     'status' => self::STATUS_PENDING,
                     'error' => '',
                     'finished_at' => 0,
@@ -17237,8 +17239,8 @@ class AigcShortDramaService
             $params['_planning_stage'] = 'script';
             $key = 'v3_' . $stage . '_' . substr(hash('sha256', self::jsonEncode($params)), 0, 24);
             return ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $key, $params,
-                static fn(): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $params, $model,
-                    array_replace($request, ['_repair_unit_claimed' => true]), $stage, $onEvent));
+                static fn(array $effective): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $effective, $model,
+                    array_replace($request, ['_repair_unit_claimed' => true]), $stage, $onEvent), true);
         }
         $candidates = ShortDramaInputContract::current($request) ? ($model ? [$model] : []) : self::scriptPlanModelCandidates($tenantId, $model);
         if ($candidates === []) {
@@ -17857,6 +17859,30 @@ class AigcShortDramaService
 
     private static function generateScriptPlanResultScoped(int $tenantId, int $userId, string $prompt, array $request, string $title, array $model, ?callable $onEvent = null): array
     {
+        if (!empty($request['_continuity_review_only']) && !empty($request['revision_base_result']) && !empty($request['series_context'])) {
+            $receipts = []; $calls = 0; $rejected = [];
+            $result = ShortDramaEpisodeReview::generate($request['revision_base_result'], $request,
+                static function (string $key, array $input, int $desired, ?callable $validate = null) use ($tenantId, $userId, $request, $model, $onEvent, &$receipts, &$calls, &$rejected): array {
+                    if (++$calls > 512) throw new \RuntimeException('复核已达到本次处理上限，原剧本保留，请缩小修改范围', 429);
+                    if ($onEvent) $onEvent('heartbeat', []);
+                    $budget = ShortDramaPlanningBudget::stage($input['system_prompt'] . $input['content'], $model, 'script', $desired);
+                    ShortDramaPlanningUnit::supersede($rejected); $rejected = [];
+                    $params = $input + ['model_config'=>['max_tokens'=>$budget['max_tokens'],'enable_thinking'=>false],
+                        'source_app_code'=>self::APP_CODE,'source_type'=>'script_plan','action_code'=>'script_plan_continuity',
+                        '_planning_stage'=>'script','_planning_count'=>1,'_planning_public'=>false];
+                    $receipt = ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), 'v3_' . $key,
+                        $params, static fn(array $effective): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $effective, $model, $request, 'episode_review',
+                            $onEvent === null ? null : static function ($event, $data) use ($onEvent) { if ($event !== 'delta') $onEvent($event, $data); }), true);
+                    $receipts[] = $receipt['result'];
+                    try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate): array {
+                        $payload = ShortDramaStructuredResponse::decode($receipt['result']);
+                        if ($validate) $validate($payload);
+                        return $payload;
+                    }); } catch (\RuntimeException $error) { $rejected = $receipt; throw $error; }
+                }, $onEvent);
+            return ['result'=>$result,'llm'=>self::mergeScriptPlanLlmResults($receipts),'repair_llm'=>[],
+                'provider'=>(string)($model['provider'] ?? ''),'model_selection'=>$model,'raw_content'=>''];
+        }
         if (ShortDramaStoryWorkflow::enabled($request)) {
             $model['_planning_fallback'] = (array)\think\facade\Config::get('short_drama', []);
             $generation = ShortDramaStoryGeneration::generate($request, $model,
@@ -17875,8 +17901,10 @@ class AigcShortDramaService
                         '_planning_repair' => str_contains($key, '_repair')];
                     $receipt = ShortDramaShotPolicy::legacyReceipt($tenantId, $userId, $request, $key)
                         ?? ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), 'v3_policy2_' . $key,
-                        $params + ['budget' => $budget], static fn(): array => self::generateScriptPlanLlmWithFallback(
-                            $tenantId, $userId, $params, $selection, $request, $key, $events));
+                        $params + ['budget' => $budget], static function (array $effective) use ($tenantId, $userId, $selection, $request, $key, $events): array {
+                            unset($effective['budget']);
+                            return self::generateScriptPlanLlmWithFallback($tenantId, $userId, $effective, $selection, $request, $key, $events);
+                        }, true);
                     if ($onEvent && $visible) $onEvent('story_preview_received', ['content' => (string)($receipt['result']['content'] ?? '')]);
                     return $receipt;
                 }, $onEvent);
@@ -17924,7 +17952,7 @@ class AigcShortDramaService
                     };
                     $receipt = ShortDramaShotPolicy::legacyReceipt($tenantId, $userId, $request, $key)
                         ?? ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), 'v3_policy2_' . substr($key, 3),
-                            $params, static fn(): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $params, $selection, $request, $key, $events));
+                            $params, static fn(array $effective): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $effective, $selection, $request, $key, $events), true);
                     if ($onEvent) $onEvent('script_preview_complete', ['unit' => $key,
                         'content' => (string)($receipt['result']['content'] ?? '')]);
                     return $receipt;
