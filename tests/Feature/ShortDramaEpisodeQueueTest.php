@@ -304,5 +304,32 @@ class ShortDramaEpisodeQueueTest extends TestCase
         $retryRequest = Episodes::decode(Db::name('aigc_short_drama_script_task')->where('task_id', $retry['task_id'])->value('request_json'));
         self::assertSame('把第1个分镜改为雨天', $retryRequest['revision_message']);
         self::assertSame('pending', Episodes::detail(1, 1, $list['lists'][1]['id'])['status']);
+
+        // A failed legacy continuity review switches once to bounded review;
+        // subsequent retries keep that task and its accepted receipts.
+        $retryRequest['revision_message'] = '复核当前剧本与最新前集的连续性，只修复明确矛盾；保留其他剧情、镜头、台词和所有素材标识。';
+        unset($retryRequest['revision_target']);
+        Db::name('aigc_short_drama_script_task')->where('task_id', $retry['task_id'])->update([
+            'status'=>'failed', 'request_json'=>json_encode($retryRequest)]);
+        Db::name('aigc_short_drama_episode_task')->where('id', $row['id'])->update(['status'=>'failed','result_json'=>json_encode($result)]);
+        $review = Episodes::retry(1, 1, $row['id']);
+        self::assertNotSame($retry['task_id'], $review['task_id']);
+        $reviewRequest = Episodes::decode(Db::name('aigc_short_drama_script_task')->where('task_id', $review['task_id'])->value('request_json'));
+        self::assertTrue($reviewRequest['_continuity_review_only']);
+        self::assertSame($result, $reviewRequest['revision_base_result']);
+        Db::name('aigc_short_drama_script_task')->where('task_id', $review['task_id'])->update(['status'=>'failed']);
+        Db::name('aigc_short_drama_episode_task')->where('id', $row['id'])->update(['status'=>'failed']);
+        self::assertSame($review['task_id'], Episodes::retry(1, 1, $row['id'])['task_id']);
+    }
+
+    public function testCompletedEpisodeWithoutReviewRequirementCannotBeResubmitted(): void
+    {
+        $project = $this->project(2);
+        Db::name('aigc_short_drama_script_task')->where('task_id', $project['task_id'])->update([
+            'request_json'=>json_encode(['multi_episode'=>true,'episode_count'=>2,'quality_review_enabled'=>false])]);
+        $rows = Episodes::start(self::TENANT, self::USER, $project)['lists'];
+        Db::name('aigc_short_drama_episode_task')->where('id', $rows[0]['id'])->update(['status'=>'success','completed_once'=>1]);
+        $this->expectExceptionMessage('当前剧集无需重试');
+        Episodes::retry(self::TENANT, self::USER, $rows[0]['id']);
     }
 }
