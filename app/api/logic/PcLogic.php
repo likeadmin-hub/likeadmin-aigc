@@ -251,6 +251,7 @@ class PcLogic extends BaseLogic
             'qrcode' => [
                 'oa' => $oaQrCode,
                 'mnp' => $mnpQrCode,
+                'popup' => \app\common\service\wechat\MiniProgramPopupService::forTenant((int)request()->tenantId),
             ]
         ];
     }
