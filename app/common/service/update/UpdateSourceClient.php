@@ -152,6 +152,64 @@ class UpdateSourceClient
         return '/aigc/v1/' . ltrim($endpoint, '/');
     }
 
+    /** System permissions require a trusted signature, including signed refusals. */
+    public function systemRequest(string $endpoint, array $params = [], bool $allowRefresh = true): array
+    {
+        $license = new UpdateLicenseService();
+        $license->assertSystemUpdateAllowed();
+        $context = $license->verifiedSiteContext();
+        $source = self::getSource();
+        if (empty($source['public_key']) || empty($source['active_base_url']) || empty($source['active_api_key'])) {
+            throw new UpdateProtocolException('LICENSE_SOURCE_MISSING', '请配置可信更新源、API Key 和验签公钥');
+        }
+        $contextKey = SystemUpdateProtocol::contextKey($context, $source);
+        $nonce = bin2hex(random_bytes(16));
+        $payload = array_merge($params, [
+            'product_code' => self::PRODUCT_CODE, 'core_version' => self::currentCoreVersion(),
+            'domain' => $context['domain'], 'machine_fingerprint_hash' => $context['machine_fingerprint_hash'],
+            'license' => $context['raw_certificate'], 'timestamp' => time(), 'nonce' => $nonce,
+        ]);
+        if ($context['ip'] !== '') $payload['ip'] = $context['ip'];
+        $raw = $this->sendSystem($endpoint, $payload, $source);
+        $body = SystemUpdateProtocol::envelope($raw, $source['public_key'], time());
+        $after = $license->verifiedSiteContext();
+        if (empty($after['verified']) || SystemUpdateProtocol::contextKey($after, self::getSource()) !== $contextKey) {
+            throw new UpdateProtocolException('SYSTEM_CONTEXT_CHANGED', '请求期间授权或更新源已变更，请重试');
+        }
+        if (($body['code'] ?? null) !== 1) {
+            \app\common\service\license\SignedLicenseProtocol::response($raw, $source['public_key'], $context, $nonce);
+            $error = (string)($body['data']['error_code'] ?? 'SYSTEM_REQUEST_FAILED');
+            if ($error === 'LICENSE_REDOWNLOAD_REQUIRED' && $allowRefresh) {
+                \app\common\service\license\SiteLicenseAccessService::invalidate();
+                (new \app\common\service\license\SiteLicenseAccessService())->refresh(true, true, true);
+                $current = $license->verifiedSiteContext();
+                if (!empty($current['verified']) && ($current['license_version'] ?? 0) > $context['license_version']) {
+                    return $this->systemRequest($endpoint, $params, false);
+                }
+            }
+            throw new UpdateProtocolException($error, (string)($body['msg'] ?? '更新源拒绝请求'));
+        }
+        return ['data' => $body['data'], 'response_json' => $raw, 'context_key' => $contextKey];
+    }
+
+    protected function sendSystem(string $endpoint, array $payload, array $source): string
+    {
+        try {
+            $response = Requests::post(self::buildUrl($source['active_base_url'], self::path($endpoint)), [
+                'Content-Type' => 'application/json', 'Authorization' => 'Bearer ' . $source['active_api_key'],
+                'X-AIGC-Domain' => $payload['domain'], 'X-AIGC-Machine-Fingerprint' => $payload['machine_fingerprint_hash'],
+            ], \app\common\service\license\SignedLicenseProtocol::json($payload), [
+                'timeout' => self::API_REQUEST_TIMEOUT, 'verify' => self::sslVerify($source),
+            ]);
+        } catch (\WpOrg\Requests\Exception $e) {
+            throw new UpdateProtocolException('LICENSE_NETWORK_UNAVAILABLE', '更新源连接失败，请稍后重试');
+        }
+        if (in_array((int)$response->status_code, [502,503,504], true) && !str_contains((string)$response->body, '"signature"')) {
+            throw new UpdateProtocolException('LICENSE_NETWORK_UNAVAILABLE', '更新源暂时不可用');
+        }
+        return (string)$response->body;
+    }
+
     private static function activeBaseUrl(array $source): string
     {
         $devMode = (int)($source['dev_mode'] ?? 0) === 1;
@@ -267,6 +325,9 @@ class UpdateSourceClient
             'verify' => self::sslVerify(self::getSource()),
         ]);
         if ((int)$response->status_code !== 200) {
+            if (in_array((int)$response->status_code, [401,403,410], true)) {
+                throw new UpdateProtocolException('SYSTEM_DOWNLOAD_REAUTHORIZE', '下载凭证失效，需要重新获取');
+            }
             throw new RuntimeException('下载更新包失败');
         }
         file_put_contents($path, $response->body);

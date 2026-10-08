@@ -71,7 +71,7 @@ class SystemPackageUpdateService
                 'bridge_version' => self::STEP_UPDATE_BRIDGE_VERSION,
             ],
         ], $params);
-        return (new UpdateSourceClient())->request(UpdateSourceClient::path('system/versions'), $params);
+        return (new UpdateSourceClient())->systemRequest('system/versions', $params)['data'];
     }
 
     public function overview(): array
@@ -82,16 +82,22 @@ class SystemPackageUpdateService
         $versions = [];
         $latest = [];
         $error = '';
+        $errorCode = '';
         try {
             $data = $this->versions();
             $versions = $this->normalizeVersions($data);
             $latest = $this->selectNextVersion($versions, $current);
             $cloudLatestVersion = $this->versionOf($versions[0] ?? []);
             if (!$latest && $cloudLatestVersion !== '' && version_compare($cloudLatestVersion, $current, '>')) {
-                $error = '更新源未返回当前版本可用的下一步升级包，请先同步桥接包或连续步进包';
+                $denied = array_values(array_filter($versions, fn(array $v): bool => !$this->canDownloadVersion($v)
+                    && version_compare($this->versionOf($v), $current, '>')));
+                $errorCode = (string)($denied[0]['deny_reason'] ?? 'UPGRADE_CHAIN_UNSUPPORTED');
+                $error = $denied ? (string)(($denied[0]['deny_message'] ?? '') ?: '新版本不在当前更新权益范围内')
+                    : '更新源未返回当前版本可用的下一步升级包，请先同步桥接包或连续步进包';
             }
         } catch (Throwable $e) {
             $error = $e->getMessage();
+            $errorCode = $e instanceof UpdateProtocolException ? $e->errorCode : 'SYSTEM_CHECK_FAILED';
         }
         $latestVersion = (string)($latest['version'] ?? $latest['version_no'] ?? '');
         return [
@@ -106,6 +112,9 @@ class SystemPackageUpdateService
             'is_ignored' => $latestVersion !== '' && $latestVersion === $ignored,
             'environment' => $environment,
             'error' => $error,
+            'error_code' => $errorCode,
+            'cloud_latest_version' => $this->versionOf($versions[0] ?? []),
+            'updates' => (new \app\common\service\license\SiteLicenseAccessService())->snapshot()['updates'],
         ];
     }
 
@@ -166,7 +175,7 @@ class SystemPackageUpdateService
                 throw new RuntimeException('请选择目标版本');
             }
             (new UpdateLicenseService())->assertSystemUpdateAllowed($targetVersion);
-            $data = (new UpdateSourceClient())->request(UpdateSourceClient::path('system/package'), [
+            $params = [
                 'target_version' => $targetVersion,
                 'current_version' => $currentVersion ?: UpdateSourceClient::currentCoreVersion(),
                 'upgrade_mode' => 'step',
@@ -175,8 +184,21 @@ class SystemPackageUpdateService
                     'base_version_check' => true,
                     'bridge_version' => self::STEP_UPDATE_BRIDGE_VERSION,
                 ],
-            ]);
-            $download = $this->downloadWithFallback($data);
+            ];
+            $client = new UpdateSourceClient();
+            $response = $client->systemRequest('system/package', $params);
+            for ($attempt = 0; ; $attempt++) {
+                $data = $response['data'];
+                SystemUpdateProtocol::package($response['response_json'], UpdateSourceClient::getSource()['public_key'],
+                    (new UpdateLicenseService())->verifiedSiteContext(), $targetVersion);
+                try {
+                    $download = $this->downloadWithFallback($data);
+                    break;
+                } catch (UpdateProtocolException $e) {
+                    if ($attempt > 0 || $e->errorCode !== 'SYSTEM_DOWNLOAD_REAUTHORIZE') throw $e;
+                    $response = $client->systemRequest('system/package', $params);
+                }
+            }
             $row = UpdatePackage::create([
                 'package_id' => (string)($data['package_id'] ?? 'system_' . $targetVersion),
                 'type' => 'system',
@@ -195,6 +217,7 @@ class SystemPackageUpdateService
                 'update_time' => time(),
             ]);
             $result = $row->toArray();
+            (new SystemPackageGrantService())->save((int)$result['id'], $response, $result);
             $this->recordTask('download', (string)$result['version'], 'success', (int)$result['id'], [], [
                 'package_id' => $result['package_id'],
                 'format' => $result['format'],
@@ -336,6 +359,7 @@ class SystemPackageUpdateService
         $this->extendExecutionTimeout();
         try {
             $package = $this->getPackage($packageId);
+            (new SystemPackageGrantService())->ensure($package->toArray());
             $extractor = new PackageExtractService();
             $preflight = $extractor->preflight((string)$package['local_path'], UpgradeLogic::getProjectPath(), (int)$package['package_size']);
             if (!$preflight['passed']) {
@@ -410,21 +434,24 @@ class SystemPackageUpdateService
         $this->extendExecutionTimeout();
         $package = $this->getPackage($packageId);
         $task = $this->createTask($package, 'apply');
+        $transactionStarted = false;
         $lock = $this->acquireLock('system_update');
         if (!$lock) {
             $this->finishTask($task, 'failed', [], '已有系统更新任务正在执行，请稍后再试');
             throw new RuntimeException('已有系统更新任务正在执行，请稍后再试');
         }
         try {
-            if ($package['status'] !== 'preflight_success') {
-                $this->preflight($packageId);
-                $package = $this->getPackage($packageId);
-            }
+            // Re-extract from the signed archive so a modified previous preflight directory
+            // or an expired/rebound grant cannot bypass the final installation gate.
+            $this->preflight($packageId);
+            $package = $this->getPackage($packageId);
             if ($package['status'] !== 'preflight_success') {
                 throw new RuntimeException($package['error'] ?: '系统包预检未通过');
             }
             $extractPath = rtrim((string)$package['extract_path'], '/');
+            (new SystemPackageGrantService())->ensure($package->toArray());
             Db::startTrans();
+            $transactionStarted = true;
             $manifest = $this->readUpdateManifest($extractPath);
             if (!$this->applySqlGroup($extractPath, $manifest, 'data')) {
                 throw new RuntimeException('更新数据库数据失败');
@@ -435,6 +462,7 @@ class SystemPackageUpdateService
             $this->applyFullReplaceDirs($extractPath, $manifest);
             $this->applyDeleteFiles($manifest);
             Db::commit();
+            $transactionStarted = false;
             if (!$this->applySqlGroup($extractPath, $manifest, 'structure')) {
                 throw new RuntimeException('更新数据库结构失败');
             }
@@ -451,7 +479,7 @@ class SystemPackageUpdateService
             $this->finishTask($task, 'success', $result);
             return $result;
         } catch (Throwable $e) {
-            Db::rollback();
+            if ($transactionStarted) Db::rollback();
             $package->save(['status' => 'apply_failed', 'error' => $e->getMessage(), 'update_time' => time()]);
             $this->finishTask($task, 'failed', [], $e->getMessage());
             throw $e;
@@ -465,6 +493,7 @@ class SystemPackageUpdateService
         try {
             return UpdateSourceClient::download((string)($data['download_url'] ?? ''), (string)($data['sha256'] ?? ''), (string)($data['format'] ?? 'zip'));
         } catch (Throwable $e) {
+            if ($e instanceof UpdateProtocolException && $e->errorCode === 'SYSTEM_DOWNLOAD_REAUTHORIZE') throw $e;
             if (empty($data['fallback_url'])) {
                 throw $e;
             }
@@ -641,7 +670,7 @@ class SystemPackageUpdateService
 
     private function selectNextVersion(array $versions, string $current): array
     {
-        $versions = array_values(array_filter($versions, fn (array $item): bool => $this->isVersionEnabled($item)));
+        $versions = array_values(array_filter($versions, fn (array $item): bool => $this->isVersionEnabled($item) && $this->canDownloadVersion($item)));
         if (!$versions) {
             return [];
         }
@@ -712,6 +741,12 @@ class SystemPackageUpdateService
             }
         }
         return true;
+    }
+
+    private function canDownloadVersion(array $item): bool
+    {
+        // A legacy source without per-version permission cannot grant an automatic target.
+        return ($item['can_download'] ?? null) === true;
     }
 
     private function versionOf(array $item): string

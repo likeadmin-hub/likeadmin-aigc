@@ -134,18 +134,12 @@ class UpdateLicenseService
 
     public function assertSystemUpdateAllowed(string $targetVersion = ''): void
     {
-        $license = $this->latestLicense();
-        if (!$license) {
-            throw new RuntimeException('请先导入授权文件');
+        $context = $this->verifiedSiteContext();
+        if (empty($context['verified']) || $context['status'] !== 'active') {
+            throw new UpdateProtocolException($context['error_code'] ?? 'LICENSE_EXPIRED', '本站授权证书不可用');
         }
-        $payload = $this->normalizePayload((array)($license['license_json']['payload'] ?? []));
-        $status = $this->status($license->toArray(), $payload);
-        if ($status !== 'active') {
-            throw new RuntimeException('授权不可用: ' . $status);
-        }
-        if (!empty($payload['update_until']) && time() > (int)$payload['update_until']) {
-            throw new RuntimeException('系统更新权益已过期 (LICENSE_UPDATE_EXPIRED)');
-        }
+        // Expired annual service can still include a previously granted version.
+        // A target is authorized by system/package, never by a global deadline here.
     }
 
     public function assertAppUpdateAllowed(string $appCode, string $targetVersion = ''): void
@@ -204,6 +198,11 @@ class UpdateLicenseService
 
     public function requestContext(): array
     {
+        $context = $this->verifiedSiteContext();
+        if (!empty($context['verified'])) {
+            return ['domain' => $context['domain'], 'machine_fingerprint_hash' => $context['machine_fingerprint_hash'],
+                'license' => SignedLicenseProtocol::decode($context['raw_certificate'])];
+        }
         $domain = $this->normalizeDomain(request()->host(true));
         $license = $this->latestLicense();
         return [
@@ -247,7 +246,8 @@ class UpdateLicenseService
         if (empty($payload['customer_name'])) {
             $payload['customer_name'] = (string)($payload['customer_name'] ?? $payload['user_id'] ?? $payload['tenant_id'] ?? '');
         }
-        if (empty($payload['max_core_version']) && !empty($payload['version'])) {
+        if (empty($payload['max_core_version']) && is_string($payload['version'] ?? null)
+            && preg_match('/^\d+\.\d+/', $payload['version']) && (int)($payload['schema_version'] ?? 0) < 3) {
             $payload['max_core_version'] = (string)$payload['version'];
         }
         if (!isset($payload['apps']) || !is_array($payload['apps'])) {

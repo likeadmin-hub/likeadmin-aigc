@@ -47,6 +47,11 @@ try:
         sql('parity_legacy', (root / 'upgrade' / prerequisite).read_text())
     sql('parity_legacy', license_repair)
     sql('parity_legacy', license_repair)
+    grant_repair = (root / 'upgrade/20261008_independent_update_rights.sql').read_text()
+    assert grant_repair == (root / 'public/upgrade/20261008_independent_update_rights.sql').read_text()
+    sql('parity_legacy', grant_repair)
+    sql('parity_legacy', grant_repair)
+    sql('parity_custom', grant_repair.replace('`la_', '`qa_'))
     assert apps_before == sql('parity_legacy', 'SELECT COUNT(*) FROM la_app; SELECT COUNT(*) FROM la_tenant_app;')
     assert sql('parity_legacy', "SELECT value FROM la_config WHERE type='parity' AND name='sentinel';").strip() == 'keep'
     # Check every shipped system-upgrade and app-install CREATE TABLE prerequisite.

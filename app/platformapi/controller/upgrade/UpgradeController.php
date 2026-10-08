@@ -29,12 +29,18 @@ use think\response\Json;
  */
 class UpgradeController extends BaseAdminController
 {
+    private function updateFailure(\Throwable $error): Json
+    {
+        $code = $error instanceof \app\common\service\update\UpdateProtocolException ? $error->errorCode : 'SYSTEM_UPDATE_FAILED';
+        return $this->fail($error->getMessage(), ['error_code' => $code]);
+    }
+
     public function overview(): Json
     {
         try {
             return $this->success('获取成功', (new SystemPackageUpdateService())->overview());
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -49,7 +55,7 @@ class UpgradeController extends BaseAdminController
                 1
             );
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -58,7 +64,7 @@ class UpgradeController extends BaseAdminController
         try {
             return $this->success('获取成功', UpdateSourceClient::getSource());
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -67,7 +73,7 @@ class UpgradeController extends BaseAdminController
         try {
             return $this->success('保存成功', UpdateSourceClient::saveSource($this->request->post()), 1, 1);
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -81,7 +87,7 @@ class UpgradeController extends BaseAdminController
         try {
             return $this->success('获取成功', (new SystemPackageUpdateService())->versions($this->request->get()));
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -95,7 +101,7 @@ class UpgradeController extends BaseAdminController
             $currentVersion = (string)$this->request->post('current_version', '');
             return $this->success('下载成功', (new SystemPackageUpdateService())->downloadPackage($targetVersion, $currentVersion), 1, 1);
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -104,7 +110,7 @@ class UpgradeController extends BaseAdminController
         try {
             return $this->success('预检完成', (new SystemPackageUpdateService())->preflight((int)$this->request->post('package_id', 0)));
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -113,7 +119,7 @@ class UpgradeController extends BaseAdminController
         try {
             return $this->success('系统更新成功', (new SystemPackageUpdateService())->apply((int)$this->request->post('package_id', 0)), 1, 1);
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -123,7 +129,7 @@ class UpgradeController extends BaseAdminController
             $version = (string)$this->request->post('version', '');
             return $this->success('忽略成功', (new SystemPackageUpdateService())->ignoreVersion($version), 1, 1);
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -132,7 +138,7 @@ class UpgradeController extends BaseAdminController
         try {
             return $this->success('获取成功', (new SystemPackageUpdateService())->rollbackVersions());
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -146,7 +152,7 @@ class UpgradeController extends BaseAdminController
                 1
             );
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -155,7 +161,7 @@ class UpgradeController extends BaseAdminController
         try {
             return $this->success('获取成功', (new UpdateLicenseService())->info());
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -172,9 +178,9 @@ class UpgradeController extends BaseAdminController
             $service = new UpdateLicenseService();
             $params = $this->request->post();
             if (array_key_exists('site_ip', $params)) $service->saveSiteIp((string)$params['site_ip']);
-            (new \app\common\service\license\SiteLicenseAccessService())->refresh(true);
+            (new \app\common\service\license\SiteLicenseAccessService())->refresh(true, true, true);
             return $this->success('授权状态已刷新', $service->info());
-        } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+        } catch (\Throwable $e) { return $this->updateFailure($e); }
     }
 
     public function machineCode(): Json
@@ -182,7 +188,7 @@ class UpgradeController extends BaseAdminController
         try {
             return $this->success('获取成功', (new UpdateLicenseService())->machineCode());
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -221,7 +227,7 @@ class UpgradeController extends BaseAdminController
             $file->move($dir, $saveName);
             return $this->success('导入成功', (new UpdateLicenseService())->import($dir . $saveName), 1, 1);
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -230,7 +236,7 @@ class UpgradeController extends BaseAdminController
         try {
             return $this->data((new SystemPackageUpdateService())->versionLogs($this->request->get()));
         } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->updateFailure($e);
         }
     }
 
@@ -255,6 +261,7 @@ class UpgradeController extends BaseAdminController
     {
         $params = (new UpgradeValidate())->post()->goCheck();
         $params['update_type'] = 1; // 一键更新类型
+        $params['backup_confirmed'] = $this->request->post('backup_confirmed', false);
         if (true === UpgradeLogic::upgrade($params)) {
             return $this->success('更新成功', [], 1, 1);
         }

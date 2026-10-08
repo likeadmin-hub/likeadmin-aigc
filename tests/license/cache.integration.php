@@ -66,7 +66,7 @@ try {
     $count=Db::name('update_license')->count();
     $reject(fn()=>$license->storeCertificate(str_replace('fixture issuer','tampered issuer',$raw)),'bad import');
     $assert(Db::name('update_license')->count()===$count,'bad import replaced license');
-    $reject(fn()=>$license->assertSystemUpdateAllowed(),'expired update entitlement');
+    $license->assertSystemUpdateAllowed(); // An expired annual service does not deny every previously granted version.
     $service=new FixtureAccess();$service->key=$key;
     $assert($service->refresh(true)['can_customize'],'commercial access denied');
     $row=$service->row();$expires=(int)$row['expires_at'];

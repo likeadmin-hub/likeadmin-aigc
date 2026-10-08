@@ -44,6 +44,7 @@ class SiteLicenseAccessService
             'reason_code'=>$context['error_code'] ?? 'LICENSE_SYNC_REQUIRED',
             'issuer'=>!empty($context['verified']) ? SignedLicenseProtocol::issuer($context['payload']) : [],
             'checked_at'=>0, 'issued_at'=>0, 'expires_at'=>0, 'next_refresh_at'=>0,
+            'updates'=>\app\common\service\update\SystemUpdateProtocol::updates($context['payload'] ?? []),
         ];
         if (empty($context['verified'])) {
             $state['access_status']='unavailable';
@@ -68,6 +69,7 @@ class SiteLicenseAccessService
         }
         try {
             $body=SignedLicenseProtocol::response($row['response_json'], $context['source']['public_key'], $context, $row['request_nonce']);
+            $state['updates']=\app\common\service\update\SystemUpdateProtocol::updates($context['payload'], (array)($body['data']['updates'] ?? []));
             $state['can_customize']=$context['license_type']==='commercial' && ($body['code']??0)===1;
             $state['access_status']=$row['status']==='network_error'?'offline':'active';
             $state['reason_code']=$state['can_customize'] ? ($row['status']==='network_error'?'LICENSE_OFFLINE_CACHE':$row['error_code']) : 'COMMERCIAL_LICENSE_REQUIRED';
@@ -95,7 +97,7 @@ class SiteLicenseAccessService
         return $row;
     }
 
-    public function refresh(bool $force = false, bool $allowCertificateRefresh = true): array
+    public function refresh(bool $force = false, bool $allowCertificateRefresh = true, bool $refreshCertificateFirst = false): array
     {
         $context=$this->context();
         if (empty($context['verified']) || $context['status']!=='active') return $this->snapshot();
@@ -110,6 +112,11 @@ class SiteLicenseAccessService
         $requestStarted=time();
         try {
             if ($context['ip_required'] && $context['ip']==='') throw new \RuntimeException('LICENSE_SITE_IP_REQUIRED');
+            if ($refreshCertificateFirst) {
+                $this->refreshCertificate($context,$row,$token,$generation);
+                if (($this->context()['context_key'] ?? '') !== $context['context_key']) return $this->refresh(true,false);
+                $allowCertificateRefresh = false;
+            }
             $response=$this->send('license/access',$context,$nonce);
             $body=SignedLicenseProtocol::response($response,$context['source']['public_key'],$context,$nonce);
             if (abs((int)$body['server_time']-time())>300 || $body['data']['issued_at'] < $requestStarted-300) {
@@ -206,6 +213,7 @@ class SiteLicenseAccessService
         if (($payload['license_no']??$payload['license_id']??'')!==$context['license_no']
             || (int)($payload['version']??0)<$context['license_version']
             || ($this->context()['context_key']??'')!==$context['context_key']) throw new \RuntimeException('LICENSE_REFRESH_MISMATCH');
+        if ($payload === SignedLicenseProtocol::certificate($context['raw_certificate'],$context['source']['public_key'])) return;
         Db::transaction(function () use ($context,$raw,$row,$token,$generation) {
             $current=Db::name(self::TABLE)->where('id',$row['id'])->lock(true)->find();
             if ((int)$current['generation']!==$generation || $current['lock_token']!==$token

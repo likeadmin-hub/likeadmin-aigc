@@ -116,128 +116,35 @@ class UpgradeLogic extends BaseLogic
      */
     public static function upgrade($params): bool
     {
-        ini_set('max_execution_time', (string)self::UPGRADE_TIMEOUT);
-        set_time_limit(self::UPGRADE_TIMEOUT);
-        $openBasedir = ini_get('open_basedir');
-        if (str_contains($openBasedir, "server")) {
-            self::$error = '请临时关闭服务器本站点的跨域攻击设置，并重启 nginx、PHP，具体参考相关升级文档';
-            return false;
-        }
-
-        // 授权验证
-        $params['link'] = "package_link";
-        $result = self::verify($params);
-
-        if (!$result['has_permission']) {
-            self::$error = !empty($result['msg']) ? $result['msg'] : '请先联系客服获取授权';
-            // 写日志
-            self::addLog($params['id'], $params['update_type'], false);
-            return false;
-        }
-
-        // 本地更新包路径
-        $localUpgradeDir = ROOT_PATH . '/upgrade/';
-
-        // 本地更新临时文件
-        $tempDir = ROOT_PATH . '/upgrade/temp/';
-
-        // 更新成功或失败的标识
-        $flag = true;
-
-        Db::startTrans();
         try {
-            // 远程下载链接
-            $remoteUrl = $result['link'];
-            if (!is_dir($localUpgradeDir)) {
-                mkdir(iconv("UTF-8", "GBK", $localUpgradeDir), 0777, true);
+            if (!filter_var($params['backup_confirmed'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                throw new Exception('请先确认已完成站点文件和数据库备份');
             }
-
-            // 下载更新压缩包保存到本地
-            $remoteData = self::downFile($remoteUrl, $localUpgradeDir);
-            if (false === $remoteData) {
-                throw new Exception('获取文件错误');
-            }
-
-            // 解压缩
-            del_target_dir($tempDir, true); // 解压前先删除上个版本的解压的文件
-
-            if (false === unzip($remoteData['save_path'], $tempDir)) {
-                throw new Exception('解压文件错误');
-            }
-
-            // 更新MysqlSQL->更新数据类型
-            if (false === self::upgradeSql($tempDir . 'project/sql/data/')) {
-                throw new Exception('更新数据库数据失败');
-            }
-
-            // 更新菜单信息
-            if (false === self::upgradeMenu($tempDir . 'project/menu/')) {
-                throw new Exception('更新菜单信息失败');
-            }
-
-            // 更新PgSQL
-            if (false === self::upgradePgSql($tempDir . 'project/pg/')) {
-                throw new Exception('更新PG数据库数据失败');
-            }
-
-            // 更新文件
-            if (false === self::upgradeFile($tempDir . 'project/server/', self::getProjectPath())) {
-                throw new Exception('更新文件失败');
-            }
-
-            Db::commit();
-        } catch (Exception $e) {
-            Db::rollback();
+            $service = new \app\common\service\update\SystemPackageUpdateService();
+            $version = self::cloudVersionById((int)$params['id']);
+            $package = $service->downloadPackage($version);
+            $preflight = $service->preflight((int)$package['id']);
+            if (empty($preflight['passed'])) throw new Exception(implode(';', $preflight['errors'] ?? []));
+            $service->apply((int)$package['id']);
+            return true;
+        } catch (\Throwable $e) {
             self::$error = $e->getMessage();
-
-            //错误日志
-            $params['error'] = $e->getMessage();
-            // 标识更新失败
-            $flag = false;
+            return false;
         }
-
-        if ($flag) {
-            try {
-                // 更新sql->更新数据结构
-                if (false === self::upgradeSql($tempDir . 'project/sql/structure/')) {
-                    throw new Exception('更新数据库结构失败');
-                }
-            } catch (Exception $e) {
-                self::$error = $e->getMessage();
-                // 错误日志
-                $params['error'] = $e->getMessage();
-                // 标识更新失败
-                $flag = false;
-            }
-        }
-
-        // 删除临时文件(压缩包不删除,删除解压的文件)
-        if ($flag && false === del_target_dir($tempDir, true)) {
-            Log::write('删除系统更新临时文件失败');
-        }
-
-        // 增加日志
-        self::addLog($params['id'], $params['update_type'], $flag);
-
-        return $flag;
     }
 
-    /**
-     * @notes 授权验证
-     * @param $params
-     * @return mixed
-     * @author Tab
-     * @date 2021/10/26 17:12
-     */
+    private static function cloudVersionById(int $id): string
+    {
+        $data = (new \app\common\service\update\SystemPackageUpdateService())->versions();
+        foreach (($data['lists'] ?? []) as $row) {
+            if ((int)($row['id'] ?? 0) === $id) return (string)$row['version'];
+        }
+        throw new Exception('更新源未提供该版本');
+    }
+
     public static function verify($params): mixed
     {
-        $domain = request()->host(true);
-        $remoteUrl = self::BASE_URL . "/indexapi/version/verify";
-        $remoteUrl .= "?domain=" . $domain . "&type=2&version_id=" . $params['id'] . "&link=" . $params['link'];
-        $remoteUrl .= "&action=verify&product_code=" . self::PRODUCT_CODE;
-        $result = Requests::get($remoteUrl);
-        $result = json_decode($result->body, true);
-        return $result['data'] ?? ['has_permission' => false, 'link' => '', 'msg' => ''];
+        throw new Exception('旧授权接口已停用，请使用本站版本更新服务');
     }
 
     /**
@@ -250,21 +157,10 @@ class UpgradeLogic extends BaseLogic
      */
     public static function getRemoteVersion($pageNo = null, $pageSize = null): mixed
     {
-        $cacheVersion = Cache::get('version_lists' . $pageNo);
-        if (!empty($cacheVersion)) {
-            return $cacheVersion;
-        }
-        if (empty($pageNo) || empty($pageSize)) {
-            $remoteUrl = self::BASE_URL . "/indexapi/version/lists?type=2&page=1";
-        } else {
-            $remoteUrl = self::BASE_URL . "/indexapi/version/lists?type=2&page_no=$pageNo&page_size=$pageSize&page=1";
-        }
-        $remoteUrl .= "&action=lists&product_code=" . self::PRODUCT_CODE;
-        $result = Requests::get($remoteUrl);
-        $result = json_decode($result->body, true);
-        $result = $result['data'] ?? [];
-        Cache::set('version_lists' . $pageNo, $result, 1800);
-        return $result;
+        $data = (new \app\common\service\update\SystemPackageUpdateService())->versions();
+        $rows = $data['lists'] ?? [];
+        return ['lists' => array_slice($rows, max(0, ((int)($pageNo ?: 1) - 1) * (int)($pageSize ?: 15)), (int)($pageSize ?: 15)),
+            'count' => count($rows)];
     }
 
     /**
@@ -276,29 +172,23 @@ class UpgradeLogic extends BaseLogic
      */
     public static function getPkgLine($params): bool|array
     {
-        $map = [
-            1 => 'package_link',          // 一键更新类型 : 服務端更新包
-            2 => 'package_link',          // 服務端更新包
-            3 => 'pc_package_link',       // pc端更新包
-            4 => 'uniapp_package_link',   // uniapp更新包
-            5 => 'web_package_link',      // 后台前端更新包
-            6 => 'integral_package_link', // 完整包
-            8 => 'kefu_package_link',     // 客服更新包
-        ];
-        $params['link'] = $map[$params['update_type']] ?? '未知类型';
-
-        // 授权验证
-        $result = self::verify($params);
-        if (!$result['has_permission']) {
-            self::$error = !empty($result['msg']) ? $result['msg'] : '请先联系客服获取授权';
-            // 写日志
-            self::addLog($params['id'], $params['update_type'], false);
+        try {
+            if (!in_array((int)($params['update_type'] ?? 0), [1,2], true)) {
+                throw new Exception('此更新源未提供独立终端包或完整重装包，请使用版本更新页');
+            }
+            $version = self::cloudVersionById((int)$params['id']);
+            $response = (new \app\common\service\update\UpdateSourceClient())->systemRequest('system/package', [
+                'target_version' => $version, 'current_version' => \app\common\service\update\UpdateSourceClient::currentCoreVersion(),
+                'upgrade_mode' => 'step',
+            ]);
+            $source = \app\common\service\update\UpdateSourceClient::getSource();
+            $context = (new \app\common\service\update\UpdateLicenseService())->verifiedSiteContext();
+            $data = \app\common\service\update\SystemUpdateProtocol::package($response['response_json'], $source['public_key'], $context, $version);
+            return ['line' => $data['download_url'], 'expires_at' => $data['site_grant']['expires_at']];
+        } catch (\Throwable $e) {
+            self::$error = $e->getMessage();
             return false;
         }
-        //增加日志记录
-        self::addLog($params['id'], $params['update_type']);
-        //更新包下载链接
-        return ['line' => $result['link']];
     }
 
     /**
