@@ -31,6 +31,34 @@ class ShortDramaEpisodeReviewTest extends TestCase
         self::assertSame('verified', $result['_continuity']['audit_status']);
     }
 
+    public function testAbandonedParentPatchCannotLeakIntoAcceptedChildResults(): void
+    {
+        $base = $this->plan(2); $base['storyboard'][0]['dialogue'] = '';
+        $checks = 0;
+        $result = Review::generate($base, $this->request(), function($key,$messages,$budget,$validate) use (&$checks) {
+            $input = json_decode($messages['content'], true);
+            if (str_contains($key, '_patch_')) {
+                $reply = ['patches'=>[['shot_id'=>'s1','field'=>'dialogue','before'=>'','after'=>'稍等。','reason'=>'修复明确冲突']]];
+            } elseif (isset($input['response_contract']['claim_patches'])) {
+                $reply = ['claim_patches'=>[]];
+            } elseif (isset($input['response_contract']['checks'])) {
+                $reply = ['checks'=>[]];
+                if ($input['response_contract']['checks']) $reply['checks'][] = ['collection'=>'changes','index'=>0,'supported'=>false,
+                    'failure_kind'=>++$checks === 1 ? 'script_conflict' : 'uncertain','reason'=>'需要按更小片段复核'];
+            } elseif (count($input['script']['storyboard']) === 2) {
+                $hasDialogue = $input['script']['storyboard'][0]['dialogue'] !== '';
+                $reply = ['summary'=>'本段','changes'=>[['entity_id'=>'a','field'=>'speech','after'=>'发言',
+                    'evidence_refs'=>[['shot_id'=>'s1','field'=>$hasDialogue ? 'dialogue' : 'visual_description']]]],'hooks'=>[],'warnings'=>[]];
+            } else $reply = ['summary'=>'本段无新事实','changes'=>[],'hooks'=>[],'warnings'=>[]];
+            $validate($reply); return $reply;
+        });
+        self::assertSame(2, $checks);
+        self::assertSame($base['storyboard'], $result['storyboard']);
+        self::assertSame($base['script_lines'], $result['script_lines']);
+        self::assertSame([], $result['_continuity']['review_patches']);
+        self::assertSame('verified', $result['_continuity']['audit_status']);
+    }
+
     private function plan(int $count = 9): array
     {
         return ['title'=>'重逢','story_outline'=>'甲走进房间','script_lines'=>['甲走进房间'],

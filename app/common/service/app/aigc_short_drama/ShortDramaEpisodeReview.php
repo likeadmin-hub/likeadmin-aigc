@@ -37,11 +37,13 @@ final class ShortDramaEpisodeReview
             $context['review_window'] = ['first_shot' => $offset + 1, 'last_shot' => $offset + $count, 'total_shots' => count($shots),
                 'instruction' => '当前仅审校本集的一段镜头。仅记录本段已发生的事实；未展示的前后段剧情不算遗漏，不可引用整集摘要推断本段事件。previous.state包含本集前面已核验镜头的最新状态。'];
             $key = 'review_' . $offset . '_' . $count;
-            $audit = static fn(array $input, ?callable $validate = null): array => ShortDramaStructuredResponse::audit($input, static fn(array $input): array => $call($key . '_audit_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 16), $input, 4096,
-                static function ($reply) use ($validate, $block, $context): void {
-                    if ($validate) { $validate($reply); return; }
-                    ShortDramaContinuity::assertAuditShape($reply, $block, $context);
-                }));
+            $audit = static function (array $input, ?callable $validate = null) use ($key, $call, &$block, &$context): array {
+                return ShortDramaStructuredResponse::audit($input, static fn(array $input): array => $call($key . '_audit_' . substr(hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE)), 0, 16), $input, 4096,
+                    static function ($reply) use ($validate, &$block, &$context): void {
+                        if ($validate) { $validate($reply); return; }
+                        ShortDramaContinuity::assertAuditShape($reply, $block, $context);
+                    }));
+            };
             $verify = static function (array $review, array $plan) use ($key, $call, &$context, &$result, $offset): array {
                 $evidenceContext = $context;
                 $evidenceContext['_earlier_episode_shots'] = self::earlierEvidence(array_slice($result['storyboard'], 0, $offset), $review);
@@ -50,6 +52,7 @@ final class ShortDramaEpisodeReview
                     static fn($response) => ShortDramaContinuityPatch::verifiedReview($review, $response, $context, [], true)));
                 return ShortDramaContinuityPatch::verifiedReview($review, $reply, $context, [], true);
             };
+            $blockPatches = [];
             try {
                 try {
                     $ledger = ShortDramaContinuity::review($block, $context, (int)($request['episode_number'] ?? 1), $audit, $verify, false, true);
@@ -62,9 +65,9 @@ final class ShortDramaEpisodeReview
                     $reply = ShortDramaStructuredResponse::audit($input, static fn($input) => $call($key . '_patch_' . substr(hash('sha256', json_encode($input)), 0, 16), $input, 4096, static fn($reply) => self::apply($block, $reply)));
                     $candidate = self::apply($block, $reply);
                     if ($candidate === $block) throw $error;
-                    $ledger = ShortDramaContinuity::review($candidate, $context, (int)($request['episode_number'] ?? 1), $audit, $verify, false, true);
                     $block = $candidate;
-                    array_push($patches, ...$reply['patches']);
+                    $ledger = ShortDramaContinuity::review($block, $context, (int)($request['episode_number'] ?? 1), $audit, $verify, false, true);
+                    $blockPatches = $reply['patches'];
                 }
             } catch (RuntimeException $error) {
                 // Exhausted audit-format recovery and capacity errors are local to
@@ -77,6 +80,7 @@ final class ShortDramaEpisodeReview
                 $left = intdiv($count, 2); $process($offset, $left); $process($offset + $left, $count - $left);
                 return;
             }
+            array_push($patches, ...$blockPatches);
             foreach ($block['storyboard'] as $i => $shot) $result['storyboard'][$offset + $i] = array_replace($result['storyboard'][$offset + $i], $shot);
             foreach ($ledger['state'] as $stateKey => $value) {
                 if (!array_key_exists($stateKey, $context['continuity']['state'] ?? []) || $context['continuity']['state'][$stateKey] !== $value) {
