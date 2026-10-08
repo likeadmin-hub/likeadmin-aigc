@@ -86,4 +86,17 @@ class ShortDramaAuditFormatTest extends TestCase
             self::assertSame('pending_review', $blocked['audit_status']);
         }
     }
+    public function testUnchangedHookWithEmptyCitationCanBeRejectedAsAuditErrorWithoutInventingEvidence(): void
+    {
+        $context = ['continuity'=>['open_hooks'=>['note'=>'父亲留下的小字内容尚未揭示']]];
+        $plan = ['storyboard'=>[['shot_id'=>'s1','visual_description'=>'甲清洁收音机','dialogue'=>'']]];
+        $draft = ['summary'=>'清洁收音机','changes'=>[], 'hooks'=>[['id'=>'note','description'=>'本段未涉及小字，伏笔延续','status'=>'open','shot_id'=>'','quote'=>'']], 'warnings'=>[]];
+        $calls = 0;
+        $ledger = Continuity::review($plan, $context, 2, static function() use($draft,&$calls) { $calls++; return $draft; },
+            static fn($review)=>Patch::verifiedReview($review, ['checks'=>[['collection'=>'hooks','index'=>0,'supported'=>false,'failure_kind'=>'audit_claim','reason'=>'没有新伏笔进展，审校不应覆盖原描述']]], $context));
+        self::assertSame(1, $calls);
+        self::assertSame($context['continuity']['open_hooks'], $ledger['open_hooks']);
+        self::assertNotSame('pending_review', $ledger['audit_status'] ?? 'verified');
+        self::assertCount(1, $ledger['unverified_claims']);
+    }
 }
