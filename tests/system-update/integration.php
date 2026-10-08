@@ -97,5 +97,15 @@ try {
     $assert($select->invoke(new Packages(),$rows,'1.0.385')['version']==='1.0.386','automatic target selected denied version');
     $assert($select->invoke(new Packages(),[['version'=>'1.0.116','can_download'=>false]],'1.0.100')===[],'denied bridge selected');
     $assert($select->invoke(new Packages(),[['version'=>'1.0.386']],'1.0.385')===[],'missing version permission grants automatic update');
+    $payload->version=5;$payload->license_type='free';$payload->is_perpetual=false;$payload->expires_at=time()+365*86400;
+    $payload->update_mode='tenant_policy';$license->storeCertificate($cert($payload),true);
+    $cache=(new SystemSiteFixture())->row();$ctx=$license->verifiedSiteContext();$nonce='free-disabled-fixture';$now=time();
+    $disabled=(object)['code'=>1,'msg'=>'active free site','request_id'=>'fixture','server_time'=>$now,'data'=>[
+        'protocol_version'=>1,'license_no'=>$ctx['license_no'],'license_version'=>$ctx['license_version'],'license_type'=>'free','site_status'=>'active',
+        'domains'=>[$ctx['domain']],'machine_fingerprint_hash'=>$ctx['machine_fingerprint_hash'],'request_nonce'=>$nonce,'issued_at'=>$now,
+        'expires_at'=>$now+3600,'refresh_after'=>$now+1800,'updates'=>['update_mode'=>'tenant_policy','can_update'=>false]]];
+    openssl_sign(P::json($disabled),$sig,$key,OPENSSL_ALGO_SHA256);$disabled->signature=base64_encode($sig);
+    Db::name('site_license_access_cache')->where('id',$cache['id'])->update(['status'=>'allowed','response_json'=>P::json($disabled),'request_nonce'=>$nonce,'expires_at'=>$now+3600]);
+    $reject(fn()=>$grants->ensure($package),'known free update policy ignored','FREE_UPDATE_DISABLED');
     echo "PASS: $n transactional context, raw proof, expired-grant renewal, certificate renewal, install rejection and version selection assertions\n";
 } finally {Db::rollback();@unlink($path);}

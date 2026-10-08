@@ -103,13 +103,18 @@ class SiteLicenseAccessService
         $context = $this->context();
         if (empty($context['verified'])) return;
         $row = Db::name(self::TABLE)->where('context_key',$context['context_key'])->find();
-        if (!$row || $row['status'] !== 'blocked' || empty($row['response_json'])) return;
+        if (!$row || !in_array($row['status'],['blocked','allowed','network_error'],true) || empty($row['response_json'])) return;
         try {
             $body = SignedLicenseProtocol::response($row['response_json'],$context['source']['public_key'],$context,$row['request_nonce']);
         } catch (\Throwable $e) {
             return; // An unverified error must never be presented as a trusted revocation.
         }
         $error = (string)($body['data']['error_code'] ?? '');
+        if (($body['code'] ?? null) === 1 && $context['license_type'] === 'free'
+            && ($body['data']['updates']['update_mode'] ?? '') === 'tenant_policy'
+            && ($body['data']['updates']['can_update'] ?? null) === false) {
+            throw new \app\common\service\update\UpdateProtocolException('FREE_UPDATE_DISABLED','签发方已关闭免费系统更新');
+        }
         if (($body['code'] ?? null) !== 1 && in_array($error,[
             'LICENSE_INVALID','LICENSE_EXPIRED','LICENSE_REDOWNLOAD_REQUIRED',
             'LICENSE_DOMAIN_FORBIDDEN','LICENSE_MACHINE_FORBIDDEN','LICENSE_IP_FORBIDDEN',
