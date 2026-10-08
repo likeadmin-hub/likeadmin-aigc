@@ -111,6 +111,33 @@ class ShortDramaNarrativeMemoryTest extends TestCase
         self::assertSame(1000,$calls); self::assertLessThan(18000,$maxInput);
     }
 
+    public function testCurrentContentAcceptanceKeepsFiveHundredEpisodeRequestsBounded(): void
+    {
+        $source=implode('',array_map(static fn($n)=>"第{$n}集林舟完成第{$n}日记录；",range(1,500)));
+        $previous=[];$calls=0;$maxInput=0;
+        for($episode=1;$episode<=500;$episode++){
+            $line="林舟完成第{$episode}日记录";
+            $plan=['subjects'=>[['id'=>'p','name'=>'林舟','category'=>'character']],'locations'=>[],
+                'storyboard'=>[['shot_id'=>'s1','visual_description'=>$line,'dialogue'=>'','voice_role'=>'','speech_type'=>'none','recommended_duration_seconds'=>10]]];
+            $request=['_input_contract_version'=>8,'prompt'=>$source,'episode_number'=>$episode,'series_context'=>[
+                'current_episode'=>['episode_number'=>$episode],'continuity'=>Continuity::context($previous,true)]];
+            $result=Review::generate($plan,$request,static function($key,$input,$desired,$validate)use($episode,$line,&$calls,&$maxInput){
+                $fit=Budget::fitMessages($input,[],'script',$desired,true);$maxInput=max($maxInput,$fit['input_estimate']);$calls++;
+                $d=json_decode($input['content'],true);
+                if(isset($d['source'])){self::assertSame("第{$episode}集{$line}；",$d['source']);$r=['requirements'=>[['text'=>$line,'source_index'=>0,'kind'=>'event']]];}
+                elseif(isset($d['claims']))$r=['verdicts'=>array_map(static fn($c)=>['id'=>$c['id'],'supported'=>true,'reason'=>'实际镜头明确记录事件'],$d['claims'])];
+                elseif(isset($d['requirements'],$d['shots']))$r=['checks'=>[['id'=>'r1','status'=>'covered','evidence'=>[['shot_id'=>'s1','field'=>'visual_description']]]],'issues'=>[]];
+                elseif(isset($d['subjects'])&&!isset($d['shots'])&&!isset($d['response_contract']))$r=['categories'=>[['id'=>'p','category'=>'character']]];
+                elseif(isset($d['response_contract']['checks']))$r=['checks'=>array_map(static fn($c)=>array_replace($c,['supported'=>true,'reason'=>'镜头实际记录','failure_kind'=>'uncertain']),$d['response_contract']['checks'])];
+                else $r=['summary'=>$line,'changes'=>[['entity_id'=>'p','field'=>'record_'.$episode,'after'=>'完成','evidence_refs'=>[['shot_id'=>'s1','field'=>'visual_description']]]],'hooks'=>[],'warnings'=>[]];
+                $validate($r);return $r;
+            });
+            self::assertSame('verified',$result['content_acceptance']['status']);self::assertSame('verified',$result['_continuity']['audit_status']);
+            self::assertCount($episode,$result['_continuity']['state']);$previous[]=$result['_continuity'];
+        }
+        self::assertSame('完成',$previous[499]['state']['p:record_20']);self::assertSame(3000,$calls);self::assertLessThan(18000,$maxInput);
+    }
+
     public function testLargeLedgerIsNotTruncatedOrRejectedByWorkingMemoryLimits(): void
     {
         $source = $this->archive(500);
