@@ -45,15 +45,16 @@ final class ConversationStepFlow
     {
         unset($state['asset_step']);
         $next=match($stage) {
-            'assets','storyboard'=>'video_plan',
-            'video_plan'=>'video_nodes',
+            'assets'=>'video_plan',
+            'video_plan'=>'storyboard',
+            'storyboard'=>'video_nodes',
             'video_nodes'=>self::remainingVideos($state)?'video_nodes':'complete',
             default=>'',
         };
         if ($next==='') return [];
         $state['image_plan']=[];$state['plan_hash']='';$state['plan_confirmation']=['status'=>'not_required'];
         unset($state['video_selection']);
-        return ['key'=>$next,'status'=>$next==='complete'?'ready':'awaiting_stage_start','completed'=>$completed];
+        return ['key'=>$next,'status'=>in_array($next,['complete','storyboard'],true)?'ready':'awaiting_stage_start','completed'=>$completed];
     }
 
     public static function answer(array &$state,string $value): void
@@ -85,7 +86,7 @@ final class ConversationStepFlow
     public static function card(array $state): array
     {
         $stage=(string)$state['stage_state']['key'];
-        if ($stage==='video_nodes') return ['type'=>'next_stage','body'=>'选择本次要准备的视频片段。创建后可在对应节点核对参考素材、模型、时长和积分，再提交生成。',
+        if ($stage==='video_nodes') return ['type'=>'next_stage','body'=>'分镜已插入画布，请自行生成分镜图片。需要制作视频时，再选择本次要准备的片段；视频仍由你在节点上确认生成。',
             'action_label'=>'准备所选视频片段','video_options'=>self::remainingVideos($state)];
         return ['type'=>'next_stage','body'=>'主体、场景和道具记录已保留。可按需准备角色三视图，或继续查看分镜表。',
             'action_label'=>'生成分镜表']+(self::canPrepareViews($state)?['optional_action'=>['value'=>'three_view','label'=>'准备角色三视图']]:[]);

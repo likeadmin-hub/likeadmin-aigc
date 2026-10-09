@@ -37,7 +37,10 @@ final class CanvasStepFlowTest extends TestCase
         $next=Flow::advance($state,'assets',['assets']);
         self::assertSame('video_plan',$next['key']);self::assertSame('awaiting_stage_start',$next['status']);
         $state['stage_state']=['key'=>'video_plan'];self::assertTrue(Series::requiresConfirmation($state));
-        self::assertSame('awaiting_stage_start',Flow::advance($state,'video_plan',['video_plan'])['status']);
+        self::assertSame(['key'=>'storyboard','status'=>'ready','completed'=>['video_plan']],Flow::advance($state,'video_plan',['video_plan']));
+        $state['stage_state']=['key'=>'storyboard'];$state['plan_confirmation']=['status'=>'confirmed'];
+        self::assertFalse(Workflow::mayAutoSubmit($state));
+        self::assertSame('awaiting_stage_start',Flow::advance($state,'storyboard',['storyboard'])['status']);
     }
     public function testSelectedBatchPreservesApprovedTextDurationAndAssetReferences(): void {
         $state=$this->state();Flow::answer($state,'ep1_shot2');
