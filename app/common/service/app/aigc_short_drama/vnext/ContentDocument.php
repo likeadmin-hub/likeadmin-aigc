@@ -103,6 +103,8 @@ final class ContentDocument
                     'type' => $type, 'text' => $text, 'text_hash' => hash('sha256', $text), 'entity_ids' => []];
                 if (isset($unit['characters']) && !is_array($unit['characters'])) throw new RuntimeException('人物引用必须为数组', 422);
                 foreach ($unit['characters'] ?? [] as $ref) $row['entity_ids'][] = $resolve($ref, 'character');
+                if (isset($unit['props']) && !is_array($unit['props'])) throw new RuntimeException('道具引用必须为数组', 422);
+                foreach ($unit['props'] ?? [] as $ref) $row['entity_ids'][] = $resolve($ref, 'prop');
                 $row['entity_ids'] = array_values(array_unique($row['entity_ids']));
                 if ($type === 'dialogue') {
                     $row['speech_type'] = $unit['speech_type'] ?? 'spoken';

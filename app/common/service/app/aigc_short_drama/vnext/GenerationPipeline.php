@@ -82,9 +82,9 @@ final class GenerationPipeline
     {
         return '本阶段仅创作本集完整正文，不生成分镜、提示词、时长合计或系统ID。'
             . '返回{"title":"标题","entities":[{"ref":"c1","kind":"character|location|prop","name":"姓名或地点","description":"必要说明","identity_facts":{}}],'
-            . '"scenes":[{"location":"l1","time_context":"夜","units":[{"type":"action","text":"完整动作","characters":["c1"]},'
+            . '"scenes":[{"location":"l1","time_context":"夜","units":[{"type":"action","text":"完整动作","characters":["c1"],"props":["p1"]},'
             . '{"type":"dialogue","speaker":"c1","speech_type":"spoken|voiceover|narration","text":"完整台词"}]}]}。'
-            . '优先使用输入中已确认的短别名，只有必要新实体才声明。旁白speech_type=narration且无需speaker。'
+            . '优先使用输入中已确认的短别名，只有必要新实体才声明。动作中出现的道具须用props引用已登记的道具短别名。旁白speech_type=narration且无需speaker。'
             . '原文指定对白完整保留；按本集范围完成事件，不提前演出后续集。目标时长仅用于控制创作密度，不截断结尾。';
     }
     private static function shots(array $document, callable $call, string $key, string $reservation): array

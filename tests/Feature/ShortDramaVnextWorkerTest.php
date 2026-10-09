@@ -62,6 +62,40 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where('task_id', $task)->count());
             self::assertSame('succeeded', Service::cancel($tenant, $user, $task)['generation_snapshot']['execution_status']);
             $document = $result['result']['canonical_document']; $unit = $document['scenes'][0]['units'][0];
+            self::assertContains('generate_images', $result['generation_snapshot']['allowed_actions']);
+            $targets = $result['production_handoff']['targets'];
+            self::assertCount(2, $targets); // Scene + narration-only shot; no invented subject is required.
+            self::assertTrue($targets[0]['can_generate']); self::assertFalse($targets[1]['can_generate']);
+            $imageRequest = ['project_id' => $project, 'task_id' => $task, 'task_type' => 'scene_image',
+                'scene_id' => $targets[0]['target_id'], 'expected_revision_id' => $document['revision_id'],
+                'model_id' => 'market_image_model:fixture', 'ratio' => '9:16', 'prompt' => 'FORGED PROMPT',
+                '_canonical_image' => ['prompt' => 'FORGED SNAPSHOT'], 'reference_images' => ['https://invalid.example/forged.png']];
+            $quote = Service::estimateShotGenerationTask($tenant, $user, $imageRequest);
+            self::assertSame('0.00', $quote['user_charge_points']);
+            $image = Service::createShotGenerationTask($tenant, $user, $imageRequest);
+            self::assertSame('success', $image['status'], json_encode($image, JSON_UNESCAPED_UNICODE));
+            self::assertCount(1, \app\common\service\power\MarketImageModelRuntimeService::$requests);
+            $submitted = \app\common\service\power\MarketImageModelRuntimeService::$requests[0];
+            self::assertStringNotContainsString('FORGED', $submitted['prompt']);
+            self::assertEmpty($submitted['reference_images']);
+            self::assertSame($document['content_hash'], $image['assets'][0]['meta']['canonical_trace']['document_hash']);
+            self::assertSame($image['task_id'], Service::createShotGenerationTask($tenant, $user, $imageRequest)['task_id']);
+            self::assertCount(1, \app\common\service\power\MarketImageModelRuntimeService::$requests);
+            $handoff = Service::scriptPlanDetail($tenant, $user, $task, $project)['production_handoff'];
+            self::assertSame($image['assets'][0]['id'], $handoff['targets'][0]['asset']['id']);
+            self::assertTrue($handoff['targets'][1]['can_generate']);
+            $shotRequest = ['project_id' => $project, 'task_id' => $task, 'task_type' => 'shot_image',
+                'shot_id' => $targets[1]['target_id'], 'expected_revision_id' => $document['revision_id'],
+                'model_id' => 'market_image_model:fixture', 'ratio' => '9:16'];
+            $frame = Service::createShotGenerationTask($tenant, $user, $shotRequest);
+            self::assertSame('success', $frame['status'], json_encode($frame, JSON_UNESCAPED_UNICODE));
+            self::assertCount(2, \app\common\service\power\MarketImageModelRuntimeService::$requests);
+            self::assertSame([$image['assets'][0]['id']], $frame['input_asset_ids']);
+            self::assertSame($unit['unit_id'], $frame['assets'][0]['meta']['canonical_trace']['unit_refs'][0]['unit_id']);
+            // Another tenant/user cannot price or dispatch this project's content.
+            try { Service::estimateShotGenerationTask($tenant, $user + 1, $imageRequest); self::fail('Foreign owner accepted'); }
+            catch (\Exception $e) { self::assertNotSame('', $e->getMessage()); }
+
             $edit = ['project_id' => $project, 'task_id' => $task, 'expected_revision_id' => $document['revision_id'],
                 'canonical_patches' => [['unit_id' => $unit['unit_id'], 'before_hash' => $unit['text_hash'], 'text' => $unit['text'] . '新说明。']]];
             $revision = Service::saveStoryboard($tenant, $user, $edit); $ownedTasks[] = $revision['task_id'];
@@ -74,8 +108,14 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertCount(5, Provider::$requests, 'Manual content must skip creative regeneration');
             self::assertSame($unit['unit_id'], $revised['result']['canonical_document']['scenes'][0]['units'][0]['unit_id']);
             self::assertSame($unit['text'] . '新说明。', $revised['result']['canonical_document']['scenes'][0]['units'][0]['text']);
+            self::assertSame($image['assets'][0]['id'], $revised['production_handoff']['targets'][0]['asset']['id'], 'Unchanged scene state reuses managed media across text revisions');
+            self::assertNull($revised['production_handoff']['targets'][1]['asset'], 'Old shot images cannot imply new content coverage');
+            self::assertSame(2, Db::name('aigc_short_drama_asset')->where($scope + ['project_id' => $project])->count(), 'Historical media is never deleted on revision');
+            try { Service::createShotGenerationTask($tenant, $user, $shotRequest); self::fail('Stale revision dispatched'); }
+            catch (\RuntimeException $e) { self::assertSame(409, $e->getCode()); }
+            self::assertCount(2, \app\common\service\power\MarketImageModelRuntimeService::$requests);
             self::assertSame($saved['result_json'], Db::name('aigc_short_drama_script_task')->where('task_id', $task)->value('result_json'));
-            self::assertNotContains('revise_content', Service::scriptPlanDetail($tenant, $user, $task, $project)['generation_snapshot']['allowed_actions']);
+            self::assertNotContains('revise_content' , Service::scriptPlanDetail($tenant, $user, $task, $project)['generation_snapshot']['allowed_actions']);
         } finally {
             $directory = runtime_path() . 'short_drama_vnext_receipts';
             $buffer = new ReceiptBuffer($directory);
