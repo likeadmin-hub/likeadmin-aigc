@@ -82,6 +82,17 @@ final class ContentDocument
             $entities[$id]['aliases'] = array_values(array_unique($entities[$id]['aliases']));
         };
         foreach (self::rows($context['entities'] ?? [], 'context.entities') as $entity) $register($entity, true);
+        if (!empty($context['entity_merge_receipts'])) {
+            $merges = EntityMergeRevision::carry($context['entity_merge_receipts'], array_values($entities));
+            foreach ($merges as $source => $proof) {
+                $target = EntityMergeRevision::resolve($source,$merges);
+                foreach ($proof['source_entity']['aliases'] as $alias) {
+                    self::text($alias,'merged_alias');$key=$proof['kind'].':'.$alias;
+                    if (isset($aliases[$key]) && $aliases[$key]!==[$target]) throw new RuntimeException('已确认合并别名与当前短引用冲突',409);
+                    $aliases[$key]=[$target];
+                }
+            }
+        }
         foreach (self::rows($reply['entities'] ?? [], 'entities') as $entity) $register($entity, false);
         $resolve = static function ($ref, string $kind) use (&$aliases): string {
             $matches = $aliases[$kind . ':' . self::text($ref, $kind . '.ref')] ?? [];
@@ -122,6 +133,7 @@ final class ContentDocument
             'title' => self::text($reply['title'] ?? null, 'title'), 'entities' => array_values($entities),
             'scenes' => $scenes, 'transforms' => $transforms, 'status' => 'draft'];
         if (!empty($context['identity_revision_receipts'])) $document['identity_revision_receipts'] = EntityIdentityRevision::carry($context['identity_revision_receipts'], $document['entities']);
+        if (!empty($context['entity_merge_receipts'])) $document['entity_merge_receipts'] = EntityMergeRevision::carry($context['entity_merge_receipts'], $document['entities']);
         return self::seal($document);
     }
 

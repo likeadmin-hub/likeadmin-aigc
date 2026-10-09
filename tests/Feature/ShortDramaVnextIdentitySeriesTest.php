@@ -14,6 +14,51 @@ final class ShortDramaVnextIdentitySeriesTest extends TestCase
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
      */
+    public function testPublishedMergeSurvivesTwoEpisodesWithoutRestoringRootDuplicateOrReusingItsAlias(): void
+    {
+        if (getenv('SHORT_DRAMA_STORY_DB_TESTS') !== '1') self::markTestSkipped('Opt in to local DB fixtures');
+        (new \think\App())->initialize();$scope=['tenant_id'=>2000000814,'user_id'=>7];$task='merge_series_'.bin2hex(random_bytes(8));
+        Db::startTrans();
+        try {
+            $project=Db::name('aigc_short_drama_project')->insertGetId($scope+['title'=>'合并身份','multi_episode'=>1,'episode_count'=>3,'last_task_id'=>$task]);
+            $story=['title'=>'合并身份','type_judgement'=>'悬疑','core_theme'=>'真相','story_outline'=>'老陈就是陈默，在书房调查。',
+                'subjects'=>[['id'=>'duplicate','name'=>'老陈','description'=>'调查员','age'=>28],['id'=>'hero','name'=>'陈默','description'=>'调查员','age'=>28]],
+                'locations'=>[['id'=>'room','name'=>'书房','description'=>'书房']]];
+            $plan=$story+['episodes'=>array_map(static fn($n)=>['episode_number'=>$n,'title'=>'调查'.$n,'story_outline'=>'陈默在书房调查线索。','conflict_point'=>'线索未明','ending_hook'=>'继续调查'],[1,2,3])];
+            $snapshot=SeriesContext::capture($scope['tenant_id'],$scope['user_id'],$project,$task,
+                ['prompt'=>'老陈就是陈默。','confirmed_story_snapshot'=>$story,'confirmed_outline_snapshot'=>$plan,'model_selections'=>['script_plan'=>['id'=>'frozen_model']]],$plan,
+                ['enabled'=>true,'series_enabled'=>true,'tenant_ids'=>[$scope['tenant_id']],'models'=>['frozen_model'=>['stage_timeout_seconds'=>100,'lease_seconds'=>150,'deadline_seconds'=>1800]]]);
+            self::assertNotNull($snapshot);$proof=null;$source=null;$target=null;
+            foreach([1,2,3] as $n) {
+                $episode=$scope+['project_id'=>$project,'outline_task_id'=>$task,'episode_number'=>$n,'outline_json'=>json_encode($plan['episodes'][$n-1])];
+                $context=SeriesContext::prepare($snapshot,$episode,$plan)['context'];$context['revision_id']='merge_episode_'.$n;
+                self::assertSame($n,$context['dependency_versions']['series']['episode_number']);
+                if($n>1) {self::assertNotContains($source,array_column($context['entities'],'entity_id'));self::assertSame($proof,$context['entity_merge_receipts']);}
+                $room=array_values(array_filter($context['entities'],static fn($entity)=>$entity['kind']==='location'))[0];
+                $reply=['title'=>'调查'.$n,'entities'=>[['ref'=>'c99','kind'=>'character','name'=>'路人']],
+                    'scenes'=>[['location'=>$room['ref'],'units'=>[['type'=>'dialogue','speaker'=>'c1','text'=>'老陈：完整原文保留😀。']]]]];
+                $doc=ContentDocument::normalize($reply,$context);
+                if($n===1) {
+                    $source=$doc['entities'][0]['entity_id'];$target=$doc['entities'][1]['entity_id'];$revisionTask=$task.'_revision';
+                    $input=ApplicationWorkflow::revisionInput(['context'=>$context],['document'=>$doc],[],$doc['revision_id'],$revisionTask,
+                        $scope+['created_at'=>time(),'parent_task_id'=>$task,'task_id'=>$revisionTask],['entity_merges'=>[['source_entity_id'=>$source,'target_entity_id'=>$target,
+                            'source_before_hash'=>ContentDocument::hash($doc['entities'][0]),'target_before_hash'=>ContentDocument::hash($doc['entities'][1])]]]);
+                    $doc=$input['context']['canonical_input'];$proof=$doc['entity_merge_receipts'];
+                }
+                self::assertCount(3,$doc['entities']);self::assertSame($target,$doc['scenes'][0]['units'][0]['speaker_id']);
+                if($n===3) {self::assertSame($proof,$doc['entity_merge_receipts']);break;}
+                $result=['canonical_document'=>$doc,'narrative_ledger'=>NarrativeLedger::evaluate($doc,[],$context['previous_narrative'])];
+                $child=Db::name('aigc_short_drama_project')->insertGetId($scope+['title'=>'本集'.$n]);
+                $version=Db::name('aigc_short_drama_plan_version')->insertGetId($scope+['project_id'=>$child,'task_id'=>$task.'_episode_'.$n,
+                    'plan_json'=>json_encode($result),'continuity_json'=>json_encode(SeriesContext::metadata($result))]);
+                Db::name('aigc_short_drama_project')->where($scope+['id'=>$child])->update(['current_version_id'=>$version]);
+                Db::name('aigc_short_drama_episode_task')->insert($episode+['production_project_id'=>$child,'status'=>'success','completed_once'=>1]);
+            }
+        } finally {Db::rollback();}
+    }
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
     public function testDatabasePublishedIdentityCorrectionSurvivesTwoSubsequentEpisodePreparations(): void
     {
         if (getenv('SHORT_DRAMA_STORY_DB_TESTS') !== '1') self::markTestSkipped('Opt in to local DB fixtures');

@@ -30,8 +30,9 @@ final class SeriesVisualState
         unset($state);return $result;
     }
     /** A published manual rename/appearance correction must not revert to the first outline. */
-    public static function inherit(array $confirmed, array $published, array $identityReceipts = [], array $scope = []): array
+    public static function inherit(array $confirmed, array $published, array $identityReceipts = [], array $scope = [], array $mergeReceipts = []): array
     {
+        if ($mergeReceipts) $confirmed = EntityMergeRevision::inherit($confirmed, $published, $mergeReceipts, $scope);
         EntityIdentityRevision::carry($identityReceipts, $published, $scope);
         $byId=array_column($published,null,'entity_id');
         foreach($confirmed as &$entity) {
