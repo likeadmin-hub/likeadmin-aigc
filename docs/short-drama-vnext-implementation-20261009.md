@@ -59,6 +59,7 @@ web：
 - 初始旧链路基线：46 tests / 193 assertions。
 - 包含旧分集队列、旧收据及新核心的回归：111 tests / 463 assertions（当时新核心为 29 项）。
 - 最新新核心、数据库行为和迁移一致性：36 tests / 112 assertions。
+- 最终联合回归（新核心、旧收据、旧生成与分集队列）：118 tests / 489 assertions，全部通过。
 - PC 状态、读取恢复、素材就绪和样式回归：11 项通过。
 - 新状态组件及 `plan.vue` 的 Vue script/template 编译通过。独立编译需要启用 TypeScript 模板表达式解析；第一次未启用时出现旧模板 `as Record` 解析错误，纠正验证参数后通过。
 
