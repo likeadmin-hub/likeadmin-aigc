@@ -26144,7 +26144,7 @@ class AigcShortDramaService
     private static function jsonEncode(array $data): string
     {
         $json = json_encode(self::sanitizeUtf8Payload($data), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
-        if ((ShortDramaAttachmentSource::present($data) || self::hasCanonicalResult($data)) && is_string($json)) {
+        if ((ShortDramaAttachmentSource::present($data) || self::hasCanonicalPayload($data)) && is_string($json)) {
             // Existing utf8 (three-byte) columns can retain supplementary characters through JSON escapes.
             $json = preg_replace_callback('/[\x{10000}-\x{10FFFF}]/u', static fn(array $match): string => substr(json_encode($match[0], JSON_THROW_ON_ERROR), 1, -1), $json);
             if (strlen($json) > 16777215) throw new \RuntimeException('正文及来源追溯内容超过存储容量，请拆分内容；已保存的原文及回包保留', 422);
@@ -26154,15 +26154,16 @@ class AigcShortDramaService
 
     private static function sanitizeUtf8Payload(array $data): array
     {
-        if (self::isCanonicalResult($data)) {
+        $document = self::canonicalPayloadDocument($data);
+        if ($document !== null) {
             // Accepted text and all derived quotes must keep their exact hashes and Unicode offsets.
-            $document = $data['canonical_document']; $unsigned = $document;
+            $unsigned = $document;
             unset($unsigned['content_hash'], $unsigned['status'], $unsigned['transforms']);
             if (($document['schema_version'] ?? 0) !== vnext\ContentDocument::VERSION
                 || ($document['content_hash'] ?? '') !== vnext\ContentDocument::hash($unsigned)) {
                 throw new \RuntimeException('规范正文完整性校验失败，已保存内容保留', 409);
             }
-            vnext\ShotCompiler::assertCurrent($document, $data['shot_plan']);
+            if (isset($data['shot_plan'])) vnext\ShotCompiler::assertCurrent($document, $data['shot_plan']);
             return $data;
         }
         if (isset($data['attachment_trace'])) ShortDramaAttachmentSource::assertEpisode($data);
@@ -26180,16 +26181,19 @@ class AigcShortDramaService
         return $data;
     }
 
-    private static function isCanonicalResult(array $data): bool
+    private static function canonicalPayloadDocument(array $data): ?array
     {
-        return ($data['pipeline_version'] ?? 0) === vnext\GenerationPipeline::VERSION
-            && is_array($data['canonical_document'] ?? null) && is_array($data['shot_plan'] ?? null);
+        if (($data['pipeline_version'] ?? 0) !== vnext\GenerationPipeline::VERSION) return null;
+        if (is_array($data['canonical_document'] ?? null) && is_array($data['shot_plan'] ?? null)) return $data['canonical_document'];
+        if (isset($data['task_id'], $data['execution_status'], $data['document_status'], $data['event_seq'])
+            && is_array($data['content']['document'] ?? null)) return $data['content']['document'];
+        return null;
     }
 
-    private static function hasCanonicalResult(array $data): bool
+    private static function hasCanonicalPayload(array $data): bool
     {
-        if (self::isCanonicalResult($data)) return true;
-        foreach ($data as $value) if (is_array($value) && self::hasCanonicalResult($value)) return true;
+        if (self::canonicalPayloadDocument($data) !== null) return true;
+        foreach ($data as $value) if (is_array($value) && self::hasCanonicalPayload($value)) return true;
         return false;
     }
 

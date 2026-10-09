@@ -54,6 +54,9 @@ final class ShortDramaVnextAttachmentSeriesTest extends TestCase
                 self::assertCount(($index + 1) * 2, Provider::$requests);
                 $detail = Service::scriptPlanDetail($scope['tenant_id'], 7, $list[$index]['task_id']);
                 $document = $detail['result']['canonical_document']; $documents[] = $document;
+                self::assertSame($document, $detail['generation_snapshot']['content']['document']);
+                self::assertSame($detail['result']['script_lines'], $detail['generation_snapshot']['content']['script_lines']);
+                self::assertSame($detail['result']['coverage_report'], $detail['generation_snapshot']['coverage_report']);
                 $unit = $document['scenes'][0]['units'][0]; $origin = end($document['transforms'])['origin'];
                 self::assertSame($source['file_sha256'], $origin['file_sha256']);
                 self::assertSame($unit['text'], $unit['source_links'][0]['quote']);
