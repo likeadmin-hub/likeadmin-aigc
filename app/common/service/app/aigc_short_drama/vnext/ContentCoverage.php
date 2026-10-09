@@ -38,7 +38,7 @@ final class ContentCoverage
                 'document_hash' => $document['content_hash'], 'shot_hash' => $plan['content_hash'],
                 'blocking' => (bool)($target['blocking'] ?? true), 'unit_refs' => [], 'shot_ids' => [],
                 'semantic_status' => 'pending', 'status' => 'pending'];
-            $row += array_intersect_key($target, array_flip(['source_id', 'source_version', 'source_hash', 'start', 'end', 'outline_revision', 'outline_source', 'origin']));
+            $row += array_intersect_key($target, array_flip(['source_id', 'source_version', 'source_hash', 'start', 'end', 'source_refs', 'outline_revision', 'outline_source', 'origin']));
             if (!$applicable) { $row['status'] = 'not_applicable'; $rows[] = $row; continue; }
             $check = $checks[$id] ?? null;
             if (!$check) throw new RuntimeException('验收遗漏本集检查项：' . $id, 422);

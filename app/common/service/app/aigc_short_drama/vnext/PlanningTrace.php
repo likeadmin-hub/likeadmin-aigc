@@ -25,6 +25,19 @@ final class PlanningTrace
 
     public static function sources(array $trace): array { return $trace['sources'] ?? [$trace['source']]; }
 
+    /** One ordered check per episode: later instructions may supersede earlier ones without erasing their evidence. */
+    public static function revisionCheck(array $applicableSources, string $episodeId): ?array
+    {
+        $sources = array_values(array_filter($applicableSources, static fn($source) => ($source['stage'] ?? '') === 'episodes'));
+        if (!$sources) return null;
+        $refs = array_map(static fn($source) => ['source_id' => $source['source_id'], 'source_version' => $source['version'],
+            'source_hash' => $source['hash'], 'start' => 0, 'end' => mb_strlen($source['text'], 'UTF-8'), 'quote' => $source['text']], $sources);
+        return ['id' => 'revision_check_' . substr(ContentDocument::hash([$episodeId, $refs]), 0, 24), 'kind' => 'revision_instructions',
+            'label' => '本集大纲修改意见', 'text' => '按时间顺序核对下列修改意见在本集应生效的最终结果。后一次明确更改优先，未提及的旧要求继续有效；不要把编辑指令当作台词或要求每集演完跨集事件。'
+                . json_encode($refs, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            'blocking' => true, 'episode_ids' => [$episodeId], 'source_refs' => $refs];
+    }
+
     private static function withRevisionSource(array $request): array
     {
         $revision = $request['_trace_revision']; $trace = $revision['base'];
