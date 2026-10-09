@@ -15939,6 +15939,23 @@ class AigcShortDramaService
         return $meta;
     }
 
+    /** Resolve an uploaded original from owned storage, never from a browser/provider URL. */
+    private static function attachmentFile(array $task, array $request): ?array
+    {
+        $assetId = (int)($request['script_asset_id'] ?? 0);
+        if ($assetId <= 0) return null;
+        $asset = AigcShortDramaAsset::where(['id' => $assetId, 'tenant_id' => (int)$task['tenant_id'],
+            'user_id' => (int)$task['user_id'], 'project_id' => (int)$task['project_id'],
+            'asset_type' => 'script_document', 'status' => 'ready', 'delete_time' => 0])->findOrEmpty();
+        if ($asset->isEmpty()) return null;
+        $hash = $request['_attachment_source']['file_sha256'] ?? $request['_attachment_extraction']['file_sha256'] ?? '';
+        if ($hash === '' || !hash_equals((string)$asset['checksum'], $hash)) return null;
+        return ['task_id' => (string)$task['task_id'], 'asset_id' => $assetId, 'name' => (string)$asset['title'],
+            'url' => FileService::getFileUrlByStorage((string)$asset['uri'], (string)$asset['storage_scope'], (string)$asset['storage_engine'], (string)$asset['storage_domain']),
+            'file_sha256' => $hash, 'file_size' => (int)$asset['file_size'],
+            'extraction_status' => isset($request['_attachment_source']) ? 'verified' : 'failed'];
+    }
+
     private static function formatAsset(array $row): array
     {
         $row = self::canvasAssetStorage($row);
@@ -24213,6 +24230,7 @@ class AigcShortDramaService
                 'saved_at' => (int)($request['_story_draft']['saved_at'] ?? 0)];
         }
         $response = [
+            'attachment_file' => self::attachmentFile($task, $request),
             'story_workspace' => $storyWorkspace,
             'skill' => self::jsonDecode((string)($task['skill_snapshot_json'] ?? '')) ?: null,
             'skill_steps' => ShortDramaSkillRuntime::executionSteps($task),
