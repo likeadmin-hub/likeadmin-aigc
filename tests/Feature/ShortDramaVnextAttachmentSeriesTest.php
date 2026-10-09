@@ -72,6 +72,16 @@ final class ShortDramaVnextAttachmentSeriesTest extends TestCase
                 $unsigned = $document; unset($unsigned['content_hash'], $unsigned['status'], $unsigned['transforms']);
                 self::assertSame($document['content_hash'], \app\common\service\app\aigc_short_drama\vnext\ContentDocument::hash($unsigned));
                 if ($index === 0) self::assertStringContainsString('\\ud83d\\ude00', strtolower($stored));
+                $sourceView = Service::scriptPlanDetail($scope['tenant_id'], 7, $list[$index]['task_id'], $list[$index]['production_project_id'], 0, 1);
+                self::assertSame(['task_id', 'attachment_source'], array_keys($sourceView));
+                self::assertSame($unit['text'], $sourceView['attachment_source']['records'][0]['original_text']);
+                self::assertSame('verbatim', $sourceView['attachment_source']['records'][0]['relation']);
+                self::assertArrayNotHasKey('attachment_source', $detail);
+                self::assertSame([], Service::scriptPlanDetail($scope['tenant_id'], 7, $list[$index]['task_id'], 0, 0, 2)['attachment_source']['records']);
+                foreach ([[$scope['tenant_id'] + 1, 7, 0], [$scope['tenant_id'], 8, 0], [$scope['tenant_id'], 7, $project]] as [$tenant, $user, $wrongProject]) {
+                    try { Service::scriptPlanDetail($tenant, $user, $list[$index]['task_id'], $wrongProject, 0, 1); self::fail('Foreign source exposed'); }
+                    catch (\Throwable $error) { self::assertNotEmpty($error->getMessage()); }
+                }
             }
             self::assertStringContainsString('😀', $documents[0]['scenes'][0]['units'][0]['text']);
             self::assertSame($documents[0]['scenes'][0]['units'][0]['speaker_id'], $documents[1]['scenes'][0]['units'][0]['speaker_id']);

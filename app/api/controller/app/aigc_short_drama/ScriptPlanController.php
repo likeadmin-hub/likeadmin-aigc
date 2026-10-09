@@ -87,7 +87,8 @@ class ScriptPlanController extends BaseApiController
                 $this->userId,
                 (string)$this->request->get('task_id', ''),
                 (int)$this->request->get('project_id', 0),
-                (int)$this->request->get('manual_history_page', 0)
+                (int)$this->request->get('manual_history_page', 0),
+                (int)$this->request->get('attachment_source_page', 0)
             ));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());

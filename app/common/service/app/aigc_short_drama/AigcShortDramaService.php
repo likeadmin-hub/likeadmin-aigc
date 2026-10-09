@@ -3243,9 +3243,20 @@ class AigcShortDramaService
         return ['project_id' => $projectId, 'task_id' => $parseTaskId, 'status' => self::STATUS_RUNNING];
     }
 
-    public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0, int $manualHistoryPage = 0): array
+    public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0, int $manualHistoryPage = 0, int $attachmentSourcePage = 0): array
     {
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+        if ($attachmentSourcePage !== 0) {
+            if ($manualHistoryPage !== 0) throw new \RuntimeException('请分别读取修改记录和附件来源', 422);
+            $input = []; $candidate = [];
+            if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
+                $job = vnext\ApplicationWorkflow::store($tenantId, $userId, (string)$task['task_id'])->snapshot();
+                if (!$job) throw new \RuntimeException('附件来源暂时无法读取，请稍后重试', 409);
+                $input = self::jsonDecode($job['input_json']); $candidate = self::jsonDecode($job['candidate_json']);
+                if ($job['input_hash'] !== vnext\ContentDocument::hash($input)) throw new \RuntimeException('附件来源版本校验失败', 409);
+            }
+            return ['task_id' => (string)$task['task_id'], 'attachment_source' => vnext\AttachmentSourceView::page($input, $candidate, $attachmentSourcePage)];
+        }
         if ($manualHistoryPage !== 0) {
             $input = [];
             if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
