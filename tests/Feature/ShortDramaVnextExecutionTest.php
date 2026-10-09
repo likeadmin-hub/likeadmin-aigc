@@ -265,21 +265,21 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertSame(0, Db::name('aigc_short_drama_vnext_outbox')->where($this->scope)->count());
         Db::name('aigc_short_drama_vnext_job')->where($this->scope)->update(['lease_until' => 0]);
         if ($dependencyChanged) {
-        try {
-            JobRunner::run($this->store, 'worker2', $provider, null, static function () {
-                throw new \RuntimeException('前集修订已变化', 409);
-            });
-            self::fail('Stale dependency was published');
-        } catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
-        self::assertSame('needs_attention', $this->store->snapshot()['execution_status']);
-        self::assertSame(0, (int)$this->store->snapshot()['lease_until']);
-        self::assertSame(0, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
-        self::assertNotEmpty($this->store->snapshot()['candidate_json']);
-        self::assertSame(3, $calls);
-        // A content conflict requires a new revision/context, never a blind replay.
-        $this->expectExceptionCode(409);
-        $this->store->resume();
-        return;
+            try {
+                JobRunner::run($this->store, 'worker2', $provider, null, static function () {
+                    throw new \RuntimeException('前集修订已变化', 409);
+                });
+                self::fail('Stale dependency was published');
+            } catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
+            self::assertSame('needs_attention', $this->store->snapshot()['execution_status']);
+            self::assertSame(0, (int)$this->store->snapshot()['lease_until']);
+            self::assertSame(0, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+            self::assertNotEmpty($this->store->snapshot()['candidate_json']);
+            self::assertSame(3, $calls);
+            // A content conflict requires a new revision/context, never a blind replay.
+            $this->expectExceptionCode(409);
+            $this->store->resume();
+            return;
         }
         JobRunner::run($this->store, 'worker2', $provider, null, static function ($candidate, $receipts) {
             self::assertCount(3, $receipts); self::assertSame('ready', $candidate['document']['status']);

@@ -24,31 +24,31 @@ final class JobRunner
             }
         };
         try {
-        SeriesContext::assertDependencies($input['context']);
-        $result = GenerationPipeline::run($input['context'],
-            static function (string $key, array $messages, string $reservation) use ($store, $fence, $lease, $input, $provider, $notify, $timeout, $reconcile): array {
-                $store->heartbeat($fence, $lease);
-                // Capacity preflight precedes durable admission. No silent truncation of original inputs.
-                $budget = ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $input['model'], 'script', (int)($input['execution']['max_output_tokens'] ?? 8192));
-                $params = $messages + ['model_selection' => $input['model'], 'model_config' => ['max_tokens' => $budget['max_tokens'], 'enable_thinking' => false],
-                    'request_timeout_seconds' => $timeout, '_disable_transient_retry' => true, '_disable_compatibility_retry' => true,
-                    '_disable_model_fallback' => true, '_require_final_content' => true];
-                $notify('stage', ['stage' => $key]);
-                return $store->call($fence, $key, $params, $provider, $reservation, $reconcile);
-            },
-            static fn(string $key, int $calls) => $store->reserveRepair($fence, $key, $calls),
-            static function (array $candidate) use ($store, $fence, $notify): void {
-                $store->checkpoint($fence, $candidate);
-                $notify('snapshot', $store->publicSnapshot());
-            });
-        if ($result['coverage_report']['status'] !== 'ready') {
-            $store->needsAttention($fence, $result['stop_reason'] ?? 'content_unresolved');
+            SeriesContext::assertDependencies($input['context']);
+            $result = GenerationPipeline::run($input['context'],
+                static function (string $key, array $messages, string $reservation) use ($store, $fence, $lease, $input, $provider, $notify, $timeout, $reconcile): array {
+                    $store->heartbeat($fence, $lease);
+                    // Capacity preflight precedes durable admission. No silent truncation of original inputs.
+                    $budget = ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $input['model'], 'script', (int)($input['execution']['max_output_tokens'] ?? 8192));
+                    $params = $messages + ['model_selection' => $input['model'], 'model_config' => ['max_tokens' => $budget['max_tokens'], 'enable_thinking' => false],
+                        'request_timeout_seconds' => $timeout, '_disable_transient_retry' => true, '_disable_compatibility_retry' => true,
+                        '_disable_model_fallback' => true, '_require_final_content' => true];
+                    $notify('stage', ['stage' => $key]);
+                    return $store->call($fence, $key, $params, $provider, $reservation, $reconcile);
+                },
+                static fn(string $key, int $calls) => $store->reserveRepair($fence, $key, $calls),
+                static function (array $candidate) use ($store, $fence, $notify): void {
+                    $store->checkpoint($fence, $candidate);
+                    $notify('snapshot', $store->publicSnapshot());
+                });
+            if ($result['coverage_report']['status'] !== 'ready') {
+                $store->needsAttention($fence, $result['stop_reason'] ?? 'content_unresolved');
+                return $result;
+            }
+            // Dependency changes detected by the atomic projection must stop this
+            // attempt immediately, just like preflight conflicts. Keep its receipts.
+            $store->publish($fence, $result['document'], $result['shot_plan'], $result['coverage_report'], $publishProjection);
             return $result;
-        }
-        // Dependency changes detected by the atomic projection must stop this
-        // attempt immediately, just like preflight conflicts. Keep its receipts.
-        $store->publish($fence, $result['document'], $result['shot_plan'], $result['coverage_report'], $publishProjection);
-        return $result;
         } catch (RuntimeException $error) {
             if (in_array($error->getCode(), [409, 413, 422, 429], true) && $store->snapshot()['execution_status'] === 'running') {
                 try { $store->needsAttention($fence, $error->getCode() === 429 ? 'budget_exhausted' : 'content_unresolved'); }
