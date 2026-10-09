@@ -21,7 +21,8 @@ final class ResourceBudget
         foreach (self::FIELDS as $field) {
             $value = $values[$field] ?? null;
             if (!is_numeric($value) || !is_finite((float)$value) || $value < 0 || $value > 1000000000
-                || ($field === 'total_tokens' && (float)$value !== (float)(int)$value)) {
+                || ($field === 'total_tokens' && (float)$value !== (float)(int)$value)
+                || ($field !== 'total_tokens' && (float)$value !== round((float)$value, 6))) {
                 throw new RuntimeException('任务资源预算或模型用量无效', 422);
             }
             $out[$field] = $field === 'total_tokens' ? (int)$value : (int)round((float)$value * 1000000);
