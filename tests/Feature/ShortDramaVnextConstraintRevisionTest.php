@@ -51,6 +51,7 @@ final class ShortDramaVnextConstraintRevisionTest extends TestCase
         self::assertSame(['保留原文。','新增未撤销要求',$patch['constraint_revision']['text']],array_column($recheck['context']['requirements'],'text'));
         self::assertSame($next['context']['events'],$recheck['context']['events']);
         self::assertSame($edited['constraint_revision_receipts'],$recheck['context']['canonical_input']['constraint_revision_receipts']);
+        self::assertSame('本集要求冲突选择',ManualRevisionHistory::page($recheck,10,20,1)['records'][0]['changes'][0]['target_label']);
         $fresh['requirements'][0]['text']='白天要求已更新';$this->expectExceptionCode(409);
         ApplicationWorkflow::recheckInput($next,['document'=>$edited],$fresh,$edited['revision_id'],'recheck2');
     }
@@ -76,6 +77,16 @@ final class ShortDramaVnextConstraintRevisionTest extends TestCase
         [$input,$doc,$origin,$patch]=$this->fixture();$patch['constraint_revision']['supersedes']=['event_ending'];
         $next=$this->revise($input,$doc,$origin,$patch);self::assertSame([],$next['context']['events']);
         self::assertSame(array_column($input['context']['requirements'],'id'),array_slice(array_column($next['context']['requirements'],'id'),0,3));
+    }
+    public function testRepeatedChoicesReplayInOrderWithoutRestoringAFormerReplacement(): void
+    {
+        [$input,$doc,$origin,$patch]=$this->fixture();$next=$this->revise($input,$doc,$origin,$patch);$edited=$next['context']['canonical_input'];
+        $newId=$next['context']['requirements'][1]['id'];$origin['parent_task_id']='choice1';$origin['task_id']='choice2';
+        $patch['constraint_revision']=['before_hash'=>ConstraintRevision::targets($next['context'])['before_hash'],'supersedes'=>[$newId],'text'=>'最终采用清晨设定😀。'];
+        $last=$this->revise($next,$edited,$origin,$patch);$final=$last['context']['canonical_input'];
+        $replayed=ConstraintRevision::replay($input['context'],$final,['tenant_id'=>10,'user_id'=>20]);
+        self::assertSame(['保留原文。','最终采用清晨设定😀。'],array_column($replayed['requirements'],'text'));
+        self::assertCount(2,ConstraintRevision::modelChoices($final));
     }
     /** @dataProvider invalidChoices */
     public function testInvalidOrBroadImplicitChoiceIsRejected(string $case,int $code): void

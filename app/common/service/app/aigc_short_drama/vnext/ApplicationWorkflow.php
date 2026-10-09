@@ -112,7 +112,9 @@ final class ApplicationWorkflow
         $document = $candidate['document'] ?? [];
         if (!$document || $document['revision_id'] !== $expectedRevision) throw new RuntimeException('复核正文版本已变化', 409);
         $revision = 'revision_' . substr(ContentDocument::hash([$newTask, 1]), 0, 24);
+        $retainedSources = $input['context']['sources'] ?? [];
         $input['context'] = array_replace($input['context'], $context);
+        $input['context']['sources'] = ($input['context']['sources'] ?? []) + $retainedSources;
         if (!empty($document['constraint_revision_receipts'])) $input['context'] = ConstraintRevision::replay($input['context'], $document);
         $input['context']['canonical_input'] = ContentDocument::rebind($document, $context['dependency_versions'], $revision);
         $input['context']['revision_id'] = $revision;
