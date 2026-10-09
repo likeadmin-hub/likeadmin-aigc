@@ -506,6 +506,27 @@ final class ConversationWorkflow
             self::assertState($state);
             if ($slot==='next_episode' && !empty($state['series']['next_page_id'])) return ['workflow'=>self::publicState($state),'card'=>self::card($state),'next_page_id'=>(int)$state['series']['next_page_id'],'canvas_project_id'=>\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::root($tenant,$user,$canvas)];
             if ((int)$state['state_revision']!==$expectedRevision) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
+            if ($slot==='image_model') {
+                FeatureGate::assertEnabled($tenant);
+                $plan=(array)($state['image_plan']??[]);
+                if (!in_array($state['stage_state']['key']??'',['assets','storyboard'],true)
+                    || ($state['stage_state']['status']??'')!=='awaiting_plan_confirmation'
+                    || !self::validImagePlan($plan)) throw new RuntimeException('WORKFLOW_PLAN_STALE');
+                self::assertPlanSources($lockedCanvas,$tenant,$user,$canvas,$plan);
+                $resolved=ConversationSettings::fromCatalog(AigcShortDramaService::canvasModelGroups($tenant),['image_model'=>$value]);
+                $state['workflow_snapshot']['model_preferences']['image_model']=$resolved['image_model'];
+                // Reuse the original proposal, references and local quote path.
+                // Nothing is published or submitted until the new hash is confirmed.
+                $state['stage_state']['status']='running';
+                $settings['workflow_state']=$state;
+                $updated=self::freezeImagePlanLocked($tenant,$state,['generation_mode'=>'auto','image_model'=>$resolved['image_model']],
+                    ['selected_nodes'=>$plan['sources'],'attachment_images'=>$plan['attachment_images']],
+                    $plan['nodes'],(int)$plan['run_id'],$settings,$lockedCanvas);
+                if ($updated===null) throw new RuntimeException('WORKFLOW_PLAN_STALE');
+                Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($updated),'update_time'=>time()]);
+                $state=$updated['workflow_state'];
+                return ['workflow'=>self::publicState($state),'card'=>self::card($state)];
+            }
             if ($slot==='next_stage') {
                 if (ConversationStepFlow::enabled($state)) {
                     ConversationStepFlow::answer($state,$value);
