@@ -56,6 +56,24 @@ final class ShortDramaVnextExecutionTest extends TestCase
     private function billedReceipt(): array
     { return $this->receipt() + ['billing' => ['billing_status' => 'settled', 'tenant_cost_points' => .2, 'user_charge_points' => .4]]; }
     private function resources(): array { return json_decode($this->store->snapshot()['budget_json'], true)['resources']; }
+    public function testAccountReservedRequestCannotRetryFromTransportErrorText(): void
+    {
+        $this->resourceStore(); $fence=$this->store->acquire('account_worker',100); $calls=0;
+        $params=['_account_reservation_version'=>1];
+        $provider=function($input,$key,$persist,$admit) use(&$calls) {
+            self::assertSame(1,$input['_account_reservation_attempt']);
+            $admit($this->bound());$calls++;
+            throw new \RuntimeException('cURL error 6: Could not resolve host: fixture.invalid');
+        };
+        try {$this->store->call($fence,'a',$params,$provider);self::fail('Transport error ignored');}
+        catch(\RuntimeException $e) {self::assertStringContainsString('resolve host',$e->getMessage());}
+        self::assertSame('reconciling',$this->store->snapshot()['execution_status']);
+        self::assertSame('submission_unknown',$this->store->snapshot()['error_code']);
+        self::assertArrayHasKey('a',$this->resources()['holds']);
+        try {$this->store->resume();self::fail('Unknown paid submission replayed');}
+        catch(\RuntimeException $e) {self::assertSame(409,$e->getCode());}
+        self::assertSame(1,$calls);
+    }
     public function testResourceAdmissionStopsBeforeNextPaidCallAndKeepsCandidate(): void
     {
         $this->resourceStore(145); $fence = $this->store->acquire('worker', 100); $paid = 0;

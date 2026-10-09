@@ -248,7 +248,7 @@ final class ExecutionStore
             $receipt['_elapsed_ms'] = $receipt['_elapsed_ms'] ?? (int)round((microtime(true) - $started) * 1000);
             $this->buffer->write($bufferKey, $receipt);
         } catch (\Throwable $error) {
-            if (!$resultReceived && $claim['resources'] && $claim['attempt'] >= 3 && ShortDramaPlanningUnit::retryableBeforeSubmission($error->getMessage())) {
+            if (($input['_account_reservation_version'] ?? 0) !== 1 && !$resultReceived && $claim['resources'] && $claim['attempt'] >= 3 && ShortDramaPlanningUnit::retryableBeforeSubmission($error->getMessage())) {
                 $error = new TextRequestNotSubmittedException('连接重试预算已用完，已保存内容保留', 429, $error);
             }
             if (!$resultReceived && $error instanceof TextRequestNotSubmittedException) {
@@ -264,7 +264,7 @@ final class ExecutionStore
                 });
                 throw $error;
             }
-            if (!$resultReceived && ShortDramaPlanningUnit::retryableBeforeSubmission($error->getMessage()) && $claim['attempt'] < 3) {
+            if (($input['_account_reservation_version'] ?? 0) !== 1 && !$resultReceived && ShortDramaPlanningUnit::retryableBeforeSubmission($error->getMessage()) && $claim['attempt'] < 3) {
                 LocalTransaction::run(function () use ($fence, $key, $claim): void {
                     $job = $this->job(); $this->assertFence($job, $fence);
                     $budget = self::decode($job['budget_json']);
