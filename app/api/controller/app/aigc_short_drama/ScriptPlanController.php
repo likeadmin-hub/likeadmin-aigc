@@ -205,7 +205,9 @@ class ScriptPlanController extends BaseApiController
     public function retry()
     {
         try {
-            return $this->success('重试成功', AigcShortDramaService::retry((int)$this->request->tenantId, $this->userId, (string)$this->request->post('task_id', '')));
+            $extension = $this->request->post('budget_extension', []);
+            if (!is_array($extension)) throw new Exception('预算授权格式无效');
+            return $this->success('重试成功', AigcShortDramaService::retry((int)$this->request->tenantId, $this->userId, (string)$this->request->post('task_id', ''), $extension));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }

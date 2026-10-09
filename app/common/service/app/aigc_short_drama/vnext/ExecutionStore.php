@@ -63,7 +63,7 @@ final class ExecutionStore
             SceneShotExecution::assertPlan($document, $proposal);
             if (count($proposal['windows']) < 2 || $budget['repair_rounds'] > 0) throw new RuntimeException('分场计划不能在修复期间扩大预算', 409);
             $budget['base_calls'] += count($proposal['windows']) - 1;
-            $budget['call_limit'] = $budget['base_calls'] + min(12, max(5, (int)ceil($budget['base_calls'] / 2)));
+            $budget['call_limit'] = max($budget['call_limit'], $budget['base_calls'] + min(12, max(5, (int)ceil($budget['base_calls'] / 2))));
             $budget['scene_shot_plan'] = $proposal;
             // Actual calls, token/point limits, spent amounts and deadline remain untouched.
             $this->query('job')->update(['budget_json' => self::json($budget), 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
@@ -87,7 +87,7 @@ final class ExecutionStore
             SceneReviewExecution::assertPlan($document, $shots, $proposal);
             if ($budget['repair_rounds'] > 0) throw new RuntimeException('不能在修复期间扩大核验预算', 409);
             $budget['base_calls'] += count($proposal['windows']);
-            $budget['call_limit'] = $budget['base_calls'] + min(12, max(5, (int)ceil($budget['base_calls'] / 2)));
+            $budget['call_limit'] = max($budget['call_limit'], $budget['base_calls'] + min(12, max(5, (int)ceil($budget['base_calls'] / 2))));
             $budget['scene_review_plan'] = $proposal;
             $this->query('job')->update(['budget_json' => self::json($budget), 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
             return $proposal;
@@ -111,7 +111,7 @@ final class ExecutionStore
             SceneScreenplayExecution::assertPlan($context, $proposal);
             if ($budget['repair_rounds'] > 0) throw new RuntimeException('不能在修复期间扩大创作预算', 409);
             $budget['base_calls'] += count($proposal['scenes']);
-            $budget['call_limit'] = $budget['base_calls'] + min(12, max(5, (int)ceil($budget['base_calls'] / 2)));
+            $budget['call_limit'] = max($budget['call_limit'], $budget['base_calls'] + min(12, max(5, (int)ceil($budget['base_calls'] / 2))));
             $budget['scene_screenplay_plan'] = $proposal;
             $this->query('job')->update(['budget_json' => self::json($budget), 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
             return $proposal;
@@ -187,7 +187,8 @@ final class ExecutionStore
             if (isset($budget['resources'])) ResourceBudget::assertVerified($budget['resources']);
             // A connection retry is an extra attempt of this stage, not the next
             // planned stage. Keep the remaining review/global slots reserved.
-            $attemptReservation = $stage ? '' : $reservation;
+            $attemptReservation = $budget['reopened_reservations'][$key] ?? ($stage ? '' : $reservation);
+            unset($budget['reopened_reservations'][$key]);
             if ($attemptReservation !== '') {
                 if (($budget['reservations'][$attemptReservation] ?? 0) < 1) throw new RuntimeException('修复轮次预留预算已用完', 429);
                 $budget['reservations'][$attemptReservation]--;
@@ -215,13 +216,13 @@ final class ExecutionStore
             throw new RuntimeException('上游结果尚未确认，已停止重复提交并保留现有内容', 409);
         }
         $reservation = $claim['reservation'];
-        $started = microtime(true); $resultReceived = false; $admitted = false;
+        $started = microtime(true); $resultReceived = false; $admitted = false; $budgetRejected = false;
         try {
             $persist = function (array $raw) use ($bufferKey, &$resultReceived): void {
                 $resultReceived = true;
                 $this->buffer->write(self::rawKey($bufferKey), $raw);
             };
-            $admit = !$claim['resources'] ? null : function (array $bound) use ($fence, $key, $reservation, &$admitted): void {
+            $admit = !$claim['resources'] ? null : function (array $bound) use ($fence, $key, $reservation, &$admitted, &$budgetRejected): void {
                 try {
                     Db::transaction(function () use ($fence, $key, $reservation, $bound): void {
                         $job = $this->job(); $this->assertFence($job, $fence);
@@ -231,6 +232,7 @@ final class ExecutionStore
                     });
                     $admitted = true;
                 } catch (\Throwable $error) {
+                    $budgetRejected = $error->getCode() === 429;
                     throw new TextRequestNotSubmittedException('剩余资源预算不足或作业已停止，已保存内容保留', $error->getCode() === 429 ? 429 : 422, $error);
                 }
             };
@@ -245,10 +247,11 @@ final class ExecutionStore
                 $error = new TextRequestNotSubmittedException('连接重试预算已用完，已保存内容保留', 429, $error);
             }
             if (!$resultReceived && $error instanceof TextRequestNotSubmittedException) {
-                Db::transaction(function () use ($fence, $key, $error): void {
+                Db::transaction(function () use ($fence, $key, $error, $budgetRejected, $reservation): void {
                     $job = $this->job(); $budget = self::decode($job['budget_json']);
                     if (isset($budget['resources'])) $budget['resources'] = ResourceBudget::releaseUnsubmitted($budget['resources'], $key);
-                    $this->query('stage')->where('stage_key', $key)->where('fence', $fence)->update(['status' => 'not_submitted', 'error_code' => 'resource_admission_rejected']);
+                    if ($budgetRejected && $reservation !== '') $budget['rejected_reservations'][$key] = $reservation;
+                    $this->query('stage')->where('stage_key', $key)->where('fence', $fence)->update(['status' => 'not_submitted', 'error_code' => $budgetRejected ? 'resource_budget_exhausted' : 'resource_admission_rejected']);
                     $this->query('job')->update(['budget_json' => self::json($budget)]);
                     $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update([
                         'execution_status' => 'needs_attention', 'error_code' => $error->getCode() === 429 ? 'budget_exhausted' : 'resource_admission_rejected',
@@ -431,6 +434,49 @@ final class ExecutionStore
         });
     }
     public function snapshot(): array { return $this->query('job')->find() ?: []; }
+    public function extendBudget(array $extension): bool
+    {
+        if (array_diff(array_keys($extension), ['request_key', 'expected_event_seq', 'resource_limits', 'call_limit'])
+            || !is_string($extension['request_key'] ?? null) || !preg_match('/^[a-zA-Z0-9_.:-]{1,100}$/D', $extension['request_key'])
+            || !is_int($extension['expected_event_seq'] ?? null) || !is_array($extension['resource_limits'] ?? null)) throw new RuntimeException('请提交明确的预算上限和当前状态版本', 422);
+        return Db::transaction(function () use ($extension): bool {
+            $job = $this->job(); $budget = self::decode($job['budget_json']); $hash = ContentDocument::hash($extension);
+            $prior = $budget['extensions'][$extension['request_key']] ?? null;
+            if ($prior !== null) {
+                if ($prior['request_hash'] !== $hash) throw new RuntimeException('同一预算授权不能更换内容', 409);
+                return false;
+            }
+            if ((int)$job['event_seq'] !== $extension['expected_event_seq'] || !self::canExtend($job, $budget)
+                || $this->query('stage')->where('status', 'submitted')->count()
+                || $this->query('stage')->where(['status' => 'not_submitted', 'error_code' => 'resource_admission_rejected'])->count()) throw new RuntimeException('当前任务不能通过增加预算恢复，请核对问题和版本', 409);
+            $before = $budget['resources']; $budget['resources'] = ResourceBudget::increase($before, $extension['resource_limits']);
+            $calls = $extension['call_limit'] ?? $budget['call_limit'];
+            if (!is_int($calls) || $calls < $budget['call_limit'] || $calls > $budget['base_calls'] + 24 || $calls <= $budget['calls'] + array_sum($budget['reservations'])) throw new RuntimeException('调用预算应覆盖未完成阶段，且不能突破单集修复上限', 422);
+            $budget['call_limit'] = $calls;
+            foreach ($this->query('stage')->where(['status' => 'not_submitted', 'error_code' => 'resource_budget_exhausted'])->lock(true)->select()->toArray() as $stage) {
+                $reservation = $budget['rejected_reservations'][$stage['stage_key']] ?? '';
+                if ($reservation !== '') {
+                    $budget['reservations'][$reservation]++;
+                    $budget['reopened_reservations'][$stage['stage_key']] = $reservation;
+                    unset($budget['rejected_reservations'][$stage['stage_key']]);
+                }
+                // Only the verified pre-admission denial is reopened. Connection exhaustion/unknown submits are not.
+                $this->query('stage')->where('id', $stage['id'])->update(['status' => 'retry_wait', 'retry_after' => 0,
+                    'attempt_count' => max(0, (int)$stage['attempt_count'] - 1), 'error_code' => '', 'update_time' => time()]);
+            }
+            $budget['extensions'][$extension['request_key']] = ['request_hash' => $hash, 'authorized_by' => $this->scope['user_id'], 'authorized_at' => time(),
+                'before' => ResourceBudget::publicState($before), 'after' => ResourceBudget::publicState($budget['resources']), 'call_limit' => $calls];
+            $this->query('job')->update(['budget_json' => self::json($budget), 'execution_status' => 'queued', 'active_slot' => 1,
+                'fence' => (int)$job['fence'] + 1, 'lease_until' => 0, 'error_code' => '', 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
+            return true;
+        });
+    }
+    private static function canExtend(array $job, array $budget): bool
+    {
+        return $job['execution_status'] === 'needs_attention' && $job['error_code'] === 'budget_exhausted'
+            && (int)$job['deadline_at'] > time() && isset($budget['resources']) && $budget['resources']['blocked'] === ''
+            && !$budget['resources']['holds'] && count($budget['extensions'] ?? []) < 8;
+    }
     public function receipts(): array
     {
         return array_map(static fn($row) => self::decode($row['receipt_json']),
@@ -439,12 +485,13 @@ final class ExecutionStore
     public function publicSnapshot(): array
     {
         $job = $this->snapshot();
-        return $job ? self::publicProjection($job + ['pending_receipts' => (int)$this->query('stage')->where('status', 'submitted')->count()]) : [];
+        return $job ? self::publicProjection($job + ['pending_receipts' => (int)$this->query('stage')->where('status', 'submitted')->count(),
+            'budget_extension_safe' => !$this->query('stage')->where(['status' => 'not_submitted', 'error_code' => 'resource_admission_rejected'])->count()]) : [];
     }
     public static function publicProjection(array $job): array
     {
         if (!$job) return [];
-        $candidate = self::decode($job['candidate_json'] ?: '{}'); $actions = [];
+        $candidate = self::decode($job['candidate_json'] ?: '{}'); $actions = []; $budget = self::decode($job['budget_json'] ?? '{}');
         if ($job['document_status'] !== 'empty') $actions[] = 'read_content';
         if (in_array($job['execution_status'], ['queued', 'running', 'retry_wait', 'reconciling', 'needs_attention'], true)) $actions[] = 'cancel';
         // Reconciliation is not a retry permission; budget increments require a new authorization.
@@ -453,10 +500,12 @@ final class ExecutionStore
         if ($job['execution_status'] === 'canceled' && isset($job['pending_receipts']) && !$job['pending_receipts']
             && (int)$job['deadline_at'] > time()) $actions[] = 'retry';
         if (!empty($candidate['document']) && in_array($job['execution_status'], ['succeeded', 'needs_attention'], true)) $actions[] = 'revise_content';
+        if (isset($job['pending_receipts']) && !$job['pending_receipts'] && !empty($job['budget_extension_safe']) && self::canExtend($job, $budget)) $actions[] = 'extend_budget';
         return ['pipeline_version' => 1, 'task_id' => $job['task_id'], 'execution_status' => $job['execution_status'],
             'document_status' => $job['document_status'], 'production_status' => $job['production_status'],
             'event_seq' => (int)$job['event_seq'], 'revision_id' => $candidate['document']['revision_id'] ?? '',
             'published_revision_id' => $job['published_revision_id'], 'allowed_actions' => $actions,
+            'resource_budget' => in_array('extend_budget', $actions, true) ? ResourceBudget::publicState($budget['resources']) + ['call_limit' => $budget['call_limit'], 'max_call_limit' => $budget['base_calls'] + 24] : null,
             'coverage_report' => $candidate['coverage_report'] ?? null,
             'structural_edit_targets' => !empty($candidate['document']) && in_array('revise_content', $actions, true) ? StructuralRevision::targets($candidate['document']) : null,
             'content' => isset($candidate['document']) ? ['document' => $candidate['document'], 'script_lines' => ContentDocument::render($candidate['document'])] : null,

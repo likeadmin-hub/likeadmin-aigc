@@ -28,6 +28,13 @@ final class ShortDramaVnextResourceBudgetTest extends TestCase
             catch (\RuntimeException $e) { self::assertSame(429, $e->getCode()); }
         }
     }
+    public function testExplicitHigherLimitsCannotEraseSpendingOrBypassUnverifiedUsage(): void
+    {
+        $state=Budget::admit(Budget::create($this->amount()),'a',$this->amount(),'');$state=Budget::receive($state,'a',$this->settled());
+        $next=Budget::increase($state,$this->amount(200,1,2));self::assertSame($state['spent'],$next['spent']);self::assertSame(200,$next['limits']['total_tokens']);
+        foreach([$this->amount(99,2,3),$this->amount()] as $limits) {try {Budget::increase($state,$limits);self::fail('No authorization increase');}catch(\RuntimeException $e){self::assertSame(422,$e->getCode());}}
+        $state['blocked']='resource_usage_unverified';$this->expectExceptionCode(429);Budget::increase($state,$this->amount(200,2,3));
+    }
     public function testWholeRepairRoundProtectsLaterReviewFromOtherCalls(): void
     {
         $state = Budget::admit(Budget::create($this->amount(330, 3.1, 6.2)), 'a', $this->amount(), '');

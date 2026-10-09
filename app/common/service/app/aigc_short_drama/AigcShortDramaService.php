@@ -5937,7 +5937,7 @@ class AigcShortDramaService
         ];
     }
 
-    public static function retry(int $tenantId, int $userId, string $taskId): array
+    public static function retry(int $tenantId, int $userId, string $taskId, array $budgetExtension = []): array
     {
         $task = self::findTask($tenantId, $userId, $taskId);
         if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
@@ -5945,9 +5945,9 @@ class AigcShortDramaService
             // Commit settlement before publishing a final receipt to disk. Resumption below remains atomic.
             $store->reconcileReceipts(static fn(array $receipt): array => MarketTextModelRuntimeService::recoverDurableResult(
                 $tenantId, $userId, 'aigc_short_drama_script_task', (int)$task['id'], $receipt));
-            return Db::transaction(static function () use ($tenantId, $userId, $taskId): array {
+            return Db::transaction(static function () use ($tenantId, $userId, $taskId, $budgetExtension): array {
                 $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
-                if ($store->resume()) {
+                if ($budgetExtension ? $store->extendBudget($budgetExtension) : $store->resume()) {
                     $task = self::findTask($tenantId, $userId, $taskId);
                     $project = self::findProject($tenantId, $userId, (int)$task['project_id']);
                     if ($project['last_task_id'] !== $taskId) throw new \RuntimeException('已有新任务，请从当前版本继续制作', 409);
@@ -5957,6 +5957,7 @@ class AigcShortDramaService
                 return self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
             });
         }
+        if ($budgetExtension) throw new \RuntimeException('此历史任务不支持资源预算续作', 409);
         $episode = ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
         if ($episode) return ShortDramaEpisodeService::retry($tenantId, $userId, (int)$episode['id']);
         if (!in_array((string)($task['status'] ?? ''), [self::STATUS_FAILED, self::STATUS_CANCELED], true)) {

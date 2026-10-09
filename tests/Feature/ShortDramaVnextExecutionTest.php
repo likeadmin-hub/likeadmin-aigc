@@ -73,6 +73,38 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertSame('not_submitted', Db::name('aigc_short_drama_vnext_stage')->where($this->scope)->where('stage_key', 'b')->value('status'));
         self::assertSame([], $this->resources()['holds']);
     }
+    public function testExplicitBudgetExtensionReplaysPaidReceiptsAndPreservesDeadlineUsageAndIdentity(): void
+    {
+        $this->resourceStore(145);$fence=$this->store->acquire('worker',100);$paid=0;
+        $provider=function($input,$key,$persist,$admit) use(&$paid) {$admit($this->bound());$paid++;return $this->billedReceipt();};
+        $receipt=$this->store->call($fence,'a',[],$provider);
+        try {$this->store->call($fence,'b',[],$provider);self::fail('Budget exceeded');}catch(\RuntimeException $e){self::assertSame(429,$e->getCode());}
+        $before=$this->store->snapshot();$state=$this->resources();
+        $extension=['request_key'=>'explicit-budget','expected_event_seq'=>(int)$before['event_seq'],
+            'resource_limits'=>['total_tokens'=>300,'tenant_cost_points'=>2,'user_charge_points'=>4]];
+        self::assertTrue($this->store->extendBudget($extension));self::assertFalse($this->store->extendBudget($extension));
+        self::assertSame($before['deadline_at'],$this->store->snapshot()['deadline_at']);self::assertSame($before['input_hash'],$this->store->snapshot()['input_hash']);
+        self::assertSame($state['spent'],$this->resources()['spent']);self::assertSame(1,$paid);
+        $next=$this->store->acquire('continued',100);
+        self::assertSame($receipt,$this->store->call($next,'a',[],$provider));self::assertSame(1,$paid);
+        $this->store->call($next,'b',[],$provider);self::assertSame(2,$paid);self::assertSame(92,$this->resources()['spent']['total_tokens']);
+        $history=json_decode($this->store->snapshot()['budget_json'],true)['extensions'];self::assertSame(7,$history['explicit-budget']['authorized_by']);
+        $extension['resource_limits']['total_tokens']=400;$this->expectExceptionCode(409);$this->store->extendBudget($extension);
+    }
+    public function testBudgetExtensionDoesNotStealTheRemainingRepairReviewReservation(): void
+    {
+        $this->resourceStore(347);$fence=$this->store->acquire('worker',100);$paid=0;
+        $quote=$this->bound();$provider=function($input,$key,$persist,$admit) use(&$paid,&$quote) {$admit($quote);$paid++;return $this->billedReceipt();};
+        $this->store->call($fence,'a',[],$provider);$this->store->reserveRepair($fence,'repair',3);$quote['total_tokens']=102;
+        try {$this->store->call($fence,'patch',[],$provider,'repair');self::fail('Round cap bypassed');}catch(\RuntimeException $e){self::assertSame(429,$e->getCode());}
+        $this->store->extendBudget(['request_key'=>'round-budget','expected_event_seq'=>(int)$this->store->snapshot()['event_seq'],
+            'resource_limits'=>['total_tokens'=>600,'tenant_cost_points'=>2,'user_charge_points'=>4]]);
+        $next=$this->store->acquire('continued',100);
+        foreach(['patch','shots','review'] as $key) $this->store->call($next,$key,[],$provider,'repair');
+        self::assertSame(4,$paid);self::assertSame(0,$this->resources()['rounds']['repair']['remaining']);
+        self::assertSame([], $this->resources()['holds']);self::assertSame(184,$this->resources()['spent']['total_tokens']);
+        self::assertSame(0,json_decode($this->store->snapshot()['budget_json'],true)['reservations']['repair']);
+    }
     public function testResourceHoldSurvivesSettlementFaultAndRecoveryAccountsOnlyOnce(): void
     {
         $this->resourceStore(); $fence = $this->store->acquire('worker', 100); $paid = 0;
