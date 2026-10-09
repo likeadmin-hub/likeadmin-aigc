@@ -75,7 +75,7 @@ final class ShortDramaVnextConcurrentLoadTest extends TestCase
                     $persist($receipt); return $receipt;
                 });
             }
-            self::assertSame('succeeded', $store->snapshot()['execution_status'], 'episode ' . $i);
+            self::assertSame('succeeded', $store->snapshot()['execution_status'], 'episode ' . $i . ': ' . json_encode($store->snapshot()));
             $budget = json_decode($store->snapshot()['budget_json'], true);
             self::assertSame(2, $budget['calls']); self::assertSame(92, $budget['resources']['spent']['total_tokens']); self::assertSame([], $budget['resources']['holds']);
             self::assertCount(2, $store->receipts());
