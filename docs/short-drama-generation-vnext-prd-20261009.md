@@ -6,6 +6,7 @@
 - 适用范围：短剧创作、短剧画布的故事设定、分集大纲、逐集剧本及制作交接
 - PRD 交付分支：`feature/short-drama-generation-prd`；实施分支：server/web `feature/aigc-upgrade`
 - 实施证据：[实施记录](short-drama-vnext-implementation-20261009.md)
+- 2026-10-10 进度：主体合并、本集冲突选择、受限 DOCX 嵌入正文、事实消费依赖及提取失败原文件保留已实施；默认五个准入开关仍关闭。历史事实修订、全局冲突选择、无标记小说/OCR、上游未知请求查询及真实耐久性验收仍未完成；第 1、7 项按用户要求暂缓。详细验证、一次意外上游测试提交及剩余范围见实施记录文末。
 - 评估代码基线：本地 server develop `ba4b92be8`；web develop `4e2aea82`
 
 ## 1. 产品决策
