@@ -47,6 +47,21 @@ final class ExecutionStore
             return $fence;
         });
     }
+    public function heartbeat(int $fence, int $leaseSeconds): void
+    {
+        if ($leaseSeconds < 1) throw new RuntimeException('执行租约无效', 422);
+        Db::transaction(function () use ($fence, $leaseSeconds): void {
+            $job = $this->job(); $this->assertFence($job, $fence);
+            $this->query('job')->update(['lease_until' => min((int)$job['deadline_at'], time() + $leaseSeconds), 'update_time' => time()]);
+        });
+    }
+    public function needsAttention(int $fence, string $code): void
+    {
+        Db::transaction(function () use ($fence, $code): void {
+            $job = $this->job(); $this->assertFence($job, $fence);
+            $this->query('job')->update(['execution_status' => 'needs_attention', 'error_code' => $code, 'lease_until' => 0, 'update_time' => time()]);
+        });
+    }
     /** Reserve a complete repair/replan/review round before changing any content. */
     public function reserveRepair(int $fence, string $key, int $calls): void
     {
@@ -150,6 +165,23 @@ final class ExecutionStore
         });
     }
     public function snapshot(): array { return $this->query('job')->find() ?: []; }
+    public function publicSnapshot(): array
+    {
+        $job = $this->snapshot();
+        if (!$job) return [];
+        $candidate = self::decode($job['candidate_json'] ?: '{}'); $actions = [];
+        if ($job['document_status'] !== 'empty') $actions[] = 'read_content';
+        if (in_array($job['execution_status'], ['queued', 'running', 'retry_wait', 'reconciling', 'needs_attention'], true)) $actions[] = 'cancel';
+        // Reconciliation is not a retry permission; budget increments require a new authorization.
+        if ($job['execution_status'] === 'reconciling') $actions[] = 'check_receipt';
+        return ['pipeline_version' => 1, 'execution_status' => $job['execution_status'],
+            'document_status' => $job['document_status'], 'production_status' => $job['production_status'],
+            'event_seq' => (int)$job['event_seq'], 'revision_id' => $candidate['document']['revision_id'] ?? '',
+            'published_revision_id' => $job['published_revision_id'], 'allowed_actions' => $actions,
+            'coverage_report' => $candidate['coverage_report'] ?? null,
+            'content' => isset($candidate['document']) ? ['document' => $candidate['document'], 'script_lines' => ContentDocument::render($candidate['document'])] : null,
+            'error_code' => $job['error_code']];
+    }
     private function job(): array
     {
         $job = $this->query('job')->lock(true)->find();

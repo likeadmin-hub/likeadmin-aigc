@@ -4,6 +4,7 @@ namespace Tests\Feature;
 use app\common\service\app\aigc_short_drama\vnext\ContentDocument;
 use app\common\service\app\aigc_short_drama\vnext\ExecutionStore;
 use app\common\service\app\aigc_short_drama\vnext\ReceiptBuffer;
+use app\common\service\app\aigc_short_drama\vnext\JobRunner;
 use app\common\service\database\SqlMigrationExecutor;
 use PHPUnit\Framework\TestCase;
 use think\facade\Db;
@@ -111,5 +112,35 @@ final class ShortDramaVnextExecutionTest extends TestCase
         $new = $this->store->acquire('worker2', 100); self::assertGreaterThan($fence, $new);
         $this->store->checkpoint($new, ['title' => 'new']);
         $this->expectExceptionCode(409); $this->store->checkpoint($fence, ['title' => 'old']);
+    }
+    public function testThreeCallsPublishAtomicallyAndReplayDoesNotRepublishOrCharge(): void
+    {
+        $context = ['revision_id' => $this->scope['task_id'], 'episode_id' => 'e1', 'entity_scope' => 't1:p1', 'prompt' => '旁白说天亮了',
+            'entities' => [['ref' => 'l1', 'entity_id' => 'room1', 'kind' => 'location', 'name' => '书房']]];
+        $input = ['context' => $context, 'model' => ['context_window' => 32768, 'max_output_tokens' => 8192],
+            'execution' => ['lease_seconds' => 150, 'stage_timeout_seconds' => 100]];
+        Db::name('aigc_short_drama_vnext_job')->where($this->scope)->update(['input_json' => json_encode($input), 'input_hash' => ContentDocument::hash($input)]);
+        $calls = 0;
+        $provider = static function ($params) use (&$calls): array {
+            $calls++; $data = json_decode($params['content'], true);
+            if (!isset($data['document'])) $reply = ['title' => '天亮', 'scenes' => [['location' => 'l1', 'units' => [['type' => 'dialogue', 'speech_type' => 'narration', 'text' => '天亮了。']]]]];
+            elseif (!isset($data['shot_plan'])) $reply = ['shots' => [['visual_description' => '阳光照进书房', 'refs' => [['unit' => 'u1']]]]];
+            else {
+                $checks = [];
+                foreach (['identity', 'continuity', 'shot_fidelity'] as $aspect) $checks[] = ['id' => 'aspect:' . $aspect, 'status' => 'covered',
+                    'evidence' => [['unit' => 'u1', 'start' => 0, 'end' => 4, 'quote' => '天亮了。']]];
+                $reply = ['document_hash' => $data['document']['content_hash'], 'shot_hash' => $data['shot_plan']['content_hash'], 'checks' => $checks];
+            }
+            return ['result' => ['content' => json_encode($reply), 'finish_reason' => 'stop']];
+        };
+        JobRunner::run($this->store, 'worker1', $provider, static function () { throw new \RuntimeException('display connection lost'); });
+        JobRunner::run($this->store, 'worker2', $provider);
+        self::assertSame(3, $calls);
+        self::assertSame(1, Db::name('aigc_short_drama_vnext_outbox')->where($this->scope)->count());
+        self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+        $snapshot = $this->store->publicSnapshot();
+        self::assertSame('succeeded', $snapshot['execution_status']); self::assertSame('ready', $snapshot['document_status']);
+        self::assertSame('not_started', $snapshot['production_status']); self::assertSame(['read_content'], $snapshot['allowed_actions']);
+        self::assertArrayNotHasKey('budget_json', $snapshot); self::assertArrayNotHasKey('input_json', $snapshot);
     }
 }
