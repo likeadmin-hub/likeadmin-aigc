@@ -200,6 +200,19 @@ final class ShortDramaVnextSceneReviewTest extends TestCase
         self::assertCount(3, $saved['windows']); self::assertSame(1, end($checkpoints)['review_windows']['completed']);
         self::assertArrayNotHasKey('coverage_report', end($checkpoints));
     }
+    public function testGlobalRequestStillTooLargeKeepsAllWindowResultsWithoutAcceptance(): void
+    {
+        $saved = null; $keys = []; $checkpoints = [];
+        try { $this->execute(self::input()['context'], $this->execution($saved), static function ($key, $data) {
+            if ($key === 'review_global') throw new \RuntimeException('global capacity exceeded', 413);
+            return self::receipt($data);
+        }, $checkpoints, $keys); self::fail('Global capacity ignored'); }
+        catch (\RuntimeException $e) { self::assertSame(413, $e->getCode()); }
+        $last = end($checkpoints);
+        self::assertSame(3, $last['review_windows']['completed']);
+        self::assertCount(6, $last['shot_plan']['shots']); self::assertCount(6, ContentDocument::units($last['document']));
+        self::assertArrayNotHasKey('coverage_report', $last);
+    }
     public function testLocalOmittedChecksCannotSilentlyPass(): void
     {
         $saved = null; $keys = []; $checkpoints = [];

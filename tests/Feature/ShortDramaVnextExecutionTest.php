@@ -385,6 +385,23 @@ final class ShortDramaVnextExecutionTest extends TestCase
         JobRunner::run($this->store, 'other_worker', static function () { self::fail('Published result resubmitted'); });
         self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
     }
+    public function testFrozenReviewPlanOnlyAddsItsBaseCallsOnceAndRejectsReplacement(): void
+    {
+        $input = $this->sceneStore(true); $context = $input['context']; $document = $context['canonical_input'];
+        $shots = \app\common\service\app\aigc_short_drama\vnext\ShotCompiler::compile($document,
+            json_decode(ShortDramaVnextSceneShotTest::reply(['document' => $document])['content'], true), 'shots');
+        $plan = \app\common\service\app\aigc_short_drama\vnext\SceneReviewExecution::partition($context, $document, $shots, [ShortDramaVnextSceneReviewTest::class, 'capacity'], 1);
+        $fence = $this->store->acquire('worker', 100); $before = $this->store->snapshot();
+        self::assertNull($this->store->sceneReviewPlan($fence, $document, $shots, null));
+        self::assertSame($plan, $this->store->sceneReviewPlan($fence, $document, $shots, $plan));
+        self::assertSame($plan, $this->store->sceneReviewPlan($fence, $document, $shots, null));
+        self::assertSame($plan, $this->store->sceneReviewPlan($fence, $document, $shots, $plan));
+        $after = $this->store->snapshot(); $budget = json_decode($after['budget_json'], true);
+        self::assertSame(5, $budget['base_calls']); self::assertSame(10, $budget['call_limit']); self::assertSame(0, $budget['calls']);
+        self::assertSame(json_decode($before['budget_json'], true)['resources'], $budget['resources']); self::assertSame($before['deadline_at'], $after['deadline_at']);
+        $replacement = \app\common\service\app\aigc_short_drama\vnext\SceneReviewExecution::partition($context, $document, $shots, static fn() => ['max_tokens' => 8192], 1, true);
+        $this->expectExceptionCode(409); $this->store->sceneReviewPlan($fence, $document, $shots, $replacement);
+    }
     public function testWindowReviewWorkerResumesAndDoesNotExpandFrozenBudgetAgain(): void
     {
         $input = $this->sceneStore(true); $paid = []; $attempts = 0;
