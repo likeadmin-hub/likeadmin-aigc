@@ -39,6 +39,11 @@ final class GenerationPipeline
         $report = self::review($context, $document, $plan, $call, 'review', '');
         $best = ['document' => $document, 'shot_plan' => $plan, 'coverage_report' => $report];
         $checkpoint($best);
+        if ($report['status'] !== 'ready' && (isset($context['structured_screenplay']) || ($context['source_mode'] ?? '') === 'faithful')) {
+            // Review cannot authorize changing user-authored dialogue. A future scoped shot-only repair
+            // can address projection defects; unresolved source-content conflicts need an explicit choice.
+            return $best + ['receipts' => $receipts, 'stop_reason' => 'source_content_requires_confirmation'];
+        }
         $seen = [self::semanticHash($document) => true];
         for ($round = 1; $report['status'] !== 'ready' && $round <= 2; $round++) {
             $reservation = 'repair_' . $round;
@@ -104,7 +109,7 @@ final class GenerationPipeline
     }
     private static function blocking(array $report): array
     {
-        return array_values(array_map(static fn($issue) => $issue['target_id'], array_filter($report['issues'], static fn($issue) => $issue['severity'] === 'blocking')));
+        return array_values(array_map(static fn($issue) => $issue['target_id'] . ':' . $issue['code'], array_filter($report['issues'], static fn($issue) => $issue['severity'] === 'blocking')));
     }
     private static function semanticHash(array $document): string
     {

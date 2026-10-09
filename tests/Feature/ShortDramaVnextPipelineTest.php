@@ -72,6 +72,18 @@ final class ShortDramaVnextPipelineTest extends TestCase
         self::assertSame(['screenplay', 'shots', 'review', 'reserve:repair_1', 'repair_1', 'repair_1_shots', 'repair_1_review'], $operations);
         self::assertSame('ready', $result['coverage_report']['status']); self::assertSame('r1_r1', $result['document']['revision_id']);
     }
+    public function testFaithfulInputCannotBeAutomaticallyRewrittenByAReview(): void
+    {
+        $context = $this->context();
+        $context['structured_screenplay'] = ['title' => '用户原文', 'scenes' => [['location' => 'l1', 'units' => [
+            ['type' => 'dialogue', 'speaker' => 'c1', 'text' => '再见。'],
+        ]]]];
+        $keys = [];
+        $result = GenerationPipeline::run($context, function ($key, $input) use (&$keys) { $keys[] = $key; return $this->response($key, $input, true); },
+            static function () { self::fail('Source rewrite was reserved without authorization'); }, static function () {});
+        self::assertSame(['shots', 'review'], $keys); self::assertSame('source_content_requires_confirmation', $result['stop_reason']);
+        self::assertSame('再见。', $result['document']['scenes'][0]['units'][0]['text']);
+    }
     public function testBudgetExhaustionRetainsBestCandidate(): void
     {
         $result = GenerationPipeline::run($this->context(), fn($key, $input) => $this->response($key, $input, true),

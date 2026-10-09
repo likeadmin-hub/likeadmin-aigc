@@ -44,6 +44,7 @@ final class ContentDocument
             if (!in_array($kind, ['character', 'location', 'prop'], true)) throw new RuntimeException('实体类型无效', 422);
             $facts = $entity['identity_facts'] ?? [];
             if (!is_array($facts)) throw new RuntimeException('人物身份事实无效', 422);
+            if (isset($entity['description']) && !is_string($entity['description'])) throw new RuntimeException('实体说明应为文本', 422);
             $names = array_values(array_unique(array_merge([$ref, $name], (array)($entity['aliases'] ?? []))));
             $matches = [];
             foreach ($names as $alias) {
@@ -59,6 +60,7 @@ final class ContentDocument
             if (isset($entities[$id])) {
                 $old = $entities[$id];
                 if ($old['kind'] !== $kind) throw new RuntimeException('实体类型冲突：' . $ref, 409);
+                if ($name !== $old['canonical_name'] && !in_array($name, $old['aliases'], true)) throw new RuntimeException('实体姓名与已登记身份不符：' . $ref, 409);
                 foreach ($facts as $key => $value) {
                     if (array_key_exists($key, $old['identity_facts']) && $old['identity_facts'][$key] !== $value) {
                         throw new RuntimeException('人物身份冲突：' . $name . '/' . $key, 409);
