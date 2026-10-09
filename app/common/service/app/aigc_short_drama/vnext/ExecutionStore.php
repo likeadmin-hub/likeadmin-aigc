@@ -109,7 +109,7 @@ final class ExecutionStore
         if (isset($claim['receipt'])) return $claim['receipt'];
         if (isset($claim['buffered'])) { $this->receive($key, $hash, $claim['buffered']); return $claim['buffered']; }
         if (isset($claim['unknown'])) {
-            $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update(['execution_status' => 'reconciling', 'error_code' => 'submission_unknown']);
+            $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update(['execution_status' => 'reconciling', 'error_code' => 'submission_unknown', 'event_seq' => Db::raw('event_seq + 1')]);
             throw new RuntimeException('上游结果尚未确认，已停止重复提交并保留现有内容', 409);
         }
         $started = microtime(true);
@@ -124,12 +124,12 @@ final class ExecutionStore
                     $job = $this->job(); $this->assertFence($job, $fence);
                     $this->query('stage')->where('stage_key', $key)->where('fence', $fence)->update(['status' => 'retry_wait',
                         'retry_after' => time() + ($claim['attempt'] === 1 ? 30 : 120) + random_int(0, 10), 'error_code' => 'connection_not_submitted']);
-                    $this->query('job')->update(['execution_status' => 'retry_wait', 'error_code' => 'connection_not_submitted']);
+                    $this->query('job')->update(['execution_status' => 'retry_wait', 'error_code' => 'connection_not_submitted', 'event_seq' => (int)$job['event_seq'] + 1]);
                 });
                 throw new RuntimeException('连接暂时不可用，稍后继续；已保存内容保留', 425, $error);
             }
             // Provider/buffer ambiguity never authorizes another paid submission.
-            try { $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update(['execution_status' => 'reconciling', 'error_code' => 'submission_unknown']); }
+            try { $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update(['execution_status' => 'reconciling', 'error_code' => 'submission_unknown', 'event_seq' => Db::raw('event_seq + 1')]); }
             catch (\Throwable $ignored) { /* Original stage intent remains the durable recovery boundary. */ }
             throw $error;
         }
