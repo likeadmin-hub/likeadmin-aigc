@@ -98,12 +98,14 @@ final class PlanningTrace
             $number = $start + $index;
             if (!array_key_exists('source_events', $episode)) throw new RuntimeException('第' . $number . '集缺少要求分配清单', 422);
             foreach (ContentDocument::rows($episode['source_events'], 'source_events') as $row) {
-                $requirement = $requirements[$row['requirement_id'] ?? ''] ?? null;
+                $requirementId = ContentDocument::text($row['requirement_id'] ?? null, 'source_events.requirement_id');
+                $requirement = $requirements[$requirementId] ?? null;
                 if (!$requirement) throw new RuntimeException('第' . $number . '集引用未知原始要求', 422);
                 if ($requirement['episode_numbers'] && !in_array($number, $requirement['episode_numbers'], true)) throw new RuntimeException('原始要求被分配到范围外的第' . $number . '集', 422);
                 $field = $row['field'] ?? '';
                 if (!in_array($field, ['story_outline', 'conflict_point', 'ending_hook'], true)) throw new RuntimeException('事件必须引用本集大纲正文', 422);
-                [$from, $to, $quote] = self::locate((string)$episode[$field], $row);
+                $outlineText = ContentDocument::text($episode[$field] ?? null, 'episodes.' . $field);
+                [$from, $to, $quote] = self::locate($outlineText, $row);
                 $id = 'event_' . substr(ContentDocument::hash([$revision, $number, $requirement['id'], $field, $from, $to]), 0, 24);
                 if (isset($seen[$id])) continue;
                 $seen[$id] = true; $assigned[$requirement['id']] = true;
@@ -113,7 +115,7 @@ final class PlanningTrace
                     'source_id' => $requirement['source_id'], 'source_version' => $requirement['source_version'], 'source_hash' => $requirement['source_hash'],
                     'start' => $requirement['start'], 'end' => $requirement['end'],
                     'outline_source' => ['field' => $field, 'start' => $from, 'end' => $to, 'quote' => $quote,
-                        'text_hash' => hash('sha256', $episode[$field])]];
+                        'text_hash' => hash('sha256', $outlineText)]];
             }
         }
         if ($complete) foreach ($requirements as $requirement) {
