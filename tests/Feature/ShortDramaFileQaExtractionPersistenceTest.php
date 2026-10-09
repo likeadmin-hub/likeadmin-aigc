@@ -23,7 +23,7 @@ final class ShortDramaFileQaExtractionPersistenceTest extends TestCase
                 $taskId = 'upload_source_' . bin2hex(random_bytes(8));
                 $project = Db::name('aigc_short_drama_project')->insertGetId($scope + ['title' => '原文件保留', 'last_task_id' => $taskId]);
                 Db::name('aigc_short_drama_script_task')->insert($scope + ['project_id' => $project, 'task_id' => $taskId,
-                    'status' => 'success', 'request_json' => '{"prompt":"原要求","_attachment_source":{"old":true},"_generation_version":3}', 'result_json' => '{}']);
+                    'status' => 'success', 'request_json' => '{"prompt":"原要求","_attachment_source":{"old":true},"_imported_outline_snapshot":{"old":true},"confirmed_story_snapshot":{"old":true},"confirmed_outline_snapshot":{"old":true},"_generation_version":3}', 'result_json' => '{}']);
                 $path = tempnam(sys_get_temp_dir(), 'sd-projection-'); $paths[] = $path;
                 $extension = $kind === 'binary' ? 'txt' : 'docx';
                 if ($kind === 'image') {
@@ -38,6 +38,7 @@ final class ShortDramaFileQaExtractionPersistenceTest extends TestCase
                 $row = Db::name('aigc_short_drama_script_task')->where('task_id', $created['task_id'])->find();
                 $request = json_decode($row['request_json'], true);
                 self::assertArrayNotHasKey('_attachment_source', $request);
+                foreach (['_imported_outline_snapshot', 'confirmed_story_snapshot', 'confirmed_outline_snapshot'] as $key) self::assertArrayNotHasKey($key, $request);
                 self::assertSame($sha, $request['_attachment_extraction']['file_sha256']);
                 self::assertSame('failed', $request['_attachment_extraction']['status']);
                 self::assertSame([], json_decode($row['result_json'], true)); self::assertSame('none', $row['billing_status']);
@@ -63,6 +64,9 @@ final class ShortDramaFileQaExtractionPersistenceTest extends TestCase
                 $replay = AigcShortDramaService::parseUploadedScript($scope['tenant_id'], $scope['user_id'], $params);
                 self::assertSame($created['task_id'], $replay['task_id']); self::assertTrue($replay['reused']);
                 self::assertSame($calls, count(\app\common\service\UploadService::$copies));
+                $stale = $params; $stale['submission_key'] = 'sd:' . bin2hex(random_bytes(12));
+                try { AigcShortDramaService::parseUploadedScript($scope['tenant_id'], $scope['user_id'], $stale); self::fail('Stale source must not replace current upload'); }
+                catch (\Exception $error) { self::assertSame($calls, count(\app\common\service\UploadService::$copies)); }
                 try { AigcShortDramaService::retry($scope['tenant_id'], $scope['user_id'], $created['task_id']); self::fail('Unverified source must not enter generation'); }
                 catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
                 $foreign = $params; $foreign['submission_key'] = 'sd:' . bin2hex(random_bytes(12));
