@@ -327,6 +327,25 @@ final class ShortDramaVnextExecutionTest extends TestCase
         $this->store->checkpoint($new, ['title' => 'new']);
         $this->expectExceptionCode(409); $this->store->checkpoint($fence, ['title' => 'old']);
     }
+    public function testOversizedCanonicalInputStopsBeforeProviderAndKeepsEntireDraft(): void
+    {
+        $text = str_repeat('全文必须保留。', 6000) . '最后一句😀';
+        $context = ['revision_id' => 'r1', 'episode_id' => 'e1', 'entity_scope' => 't1:p1', 'prompt_projection_version' => 1,
+            'entities' => [['ref' => 'l1', 'entity_id' => 'room1', 'kind' => 'location', 'name' => '书房']]];
+        $document = ContentDocument::normalize(['title' => '长原文', 'scenes' => [['location' => 'l1', 'units' => [
+            ['type' => 'dialogue', 'speech_type' => 'narration', 'text' => $text]]]]], $context);
+        $context['canonical_input'] = $document;
+        $input = ['context' => $context, 'model' => ['context_window' => 32768, 'max_output_tokens' => 8192],
+            'execution' => ['lease_seconds' => 150, 'stage_timeout_seconds' => 100]];
+        Db::name('aigc_short_drama_vnext_job')->where($this->scope)->update(['input_json' => json_encode($input), 'input_hash' => ContentDocument::hash($input)]);
+        try { JobRunner::run($this->store, 'worker', static function () { self::fail('Oversized request reached provider'); }); self::fail('Input was truncated'); }
+        catch (\RuntimeException $e) { self::assertSame(413, $e->getCode()); }
+        $job = $this->store->snapshot();
+        self::assertSame('needs_attention', $job['execution_status']); self::assertSame('input_capacity_exceeded', $job['error_code']);
+        self::assertSame(0, json_decode($job['budget_json'], true)['calls']);
+        self::assertSame($text, json_decode($job['candidate_json'], true)['document']['scenes'][0]['units'][0]['text']);
+        self::assertSame(0, Db::name('aigc_short_drama_vnext_stage')->where($this->scope)->count());
+    }
     public static function publicationConflicts(): array { return [[false, false], [true, false], [false, true]]; }
 
     /** @dataProvider publicationConflicts */

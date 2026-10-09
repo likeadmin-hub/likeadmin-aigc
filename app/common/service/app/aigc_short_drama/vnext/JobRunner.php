@@ -29,7 +29,12 @@ final class JobRunner
                 static function (string $key, array $messages, string $reservation) use ($store, $fence, $lease, $input, $provider, $notify, $timeout, $reconcile): array {
                     $store->heartbeat($fence, $lease);
                     // Capacity preflight precedes durable admission. No silent truncation of original inputs.
-                    $budget = ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $input['model'], 'script', (int)($input['execution']['max_output_tokens'] ?? 8192));
+                    try {
+                        $budget = ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $input['model'], 'script', (int)($input['execution']['max_output_tokens'] ?? 8192));
+                    } catch (RuntimeException $error) {
+                        if ($error->getCode() === 413) $store->needsAttention($fence, 'input_capacity_exceeded');
+                        throw $error;
+                    }
                     $params = $messages + ['model_selection' => $input['model'], 'model_config' => ['max_tokens' => $budget['max_tokens'], 'enable_thinking' => false],
                         'request_timeout_seconds' => $timeout, '_disable_transient_retry' => true, '_disable_compatibility_retry' => true,
                         '_disable_model_fallback' => true, '_require_final_content' => true];
