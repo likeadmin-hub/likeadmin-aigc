@@ -204,7 +204,7 @@ final class ConversationIntentRouter
     public static function reply(array $decision,array $routing,array $availableSources=['message']): string
     {
         if (self::shouldActivateWorkflow($decision,$routing)) {
-            if (ConversationCreativePlan::enabled((array)($routing['workflow_candidate']??[]))) return '我已整理好一份创作方案。请在下方统一核对剧情、集数、时长、风格与比例，修改后确认即可开始制作。';
+            if (ConversationCreativePlan::enabled((array)($routing['workflow_candidate']??[]))) return '已明确的创作设定会直接沿用；若还有待确认的项目，会在下方集中列出。设定齐全后开始制作。';
             if (ConversationCreativePolicy::enabled((array)($routing['workflow_candidate']??[]))) return (string)$decision['reply_markdown'];
             $draft=isset($decision['intake'])
                 ? ConversationIntakeDraft::parse($decision['intake'],(array)ConversationWorkflow::catalog()['slots'],$availableSources) : ['candidates'=>[]];

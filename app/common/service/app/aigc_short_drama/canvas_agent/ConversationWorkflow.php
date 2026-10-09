@@ -337,7 +337,9 @@ final class ConversationWorkflow
         } elseif (($state['stage_state']['status']??'')==='awaiting_plan_confirmation') {
             throw new RuntimeException('WORKFLOW_PLAN_CONFIRMATION_REQUIRED');
         } elseif (($state['stage_state']['status']??'')==='reviewing_intake') {
-            throw new RuntimeException('WORKFLOW_INTAKE_REVIEW_REQUIRED');
+            if (!ConversationCreativePlan::enabled($state)) throw new RuntimeException('WORKFLOW_INTAKE_REVIEW_REQUIRED');
+            $state['stage_state']['status']='collecting';
+            $state['state_revision']++;
         } elseif (($state['stage_state']['status']??'')==='ready') {
             // A normal conversation send is the only way to execute the next
             // creative stage. Card clicks never impersonate an Agent reply.
@@ -438,7 +440,7 @@ final class ConversationWorkflow
         $draft=ConversationIntakeDraft::parse($raw,(array)($workflow['workflow_snapshot']['slot_schema']??[]),$availableSources);
         // A later intake turn may add context, but must not re-open answers
         // already confirmed by the owner on an earlier card.
-        foreach (array_keys((array)($workflow['slot_values']??[])) as $key) {
+        foreach (ConversationCreativePlan::enabled($workflow) ? [] : array_keys((array)($workflow['slot_values']??[])) as $key) {
             unset($draft['candidates'][$key],$draft['questions'][$key]);
         }
         if (ConversationCreativePolicy::enabled($workflow)) {
@@ -1020,7 +1022,7 @@ final class ConversationWorkflow
                     'options'=>$key==='aspect_ratio'?(array)$slot['options']:[]];
             }
             return $stageCard+['type'=>'intake_review','full_plan'=>ConversationCreativePlan::enabled($state),'title'=>'核对已理解的创作设定',
-                'body'=>'请核对故事方向、集数、时长、风格与比例。标记为建议的内容尚未确认，可直接修改；确认整套方案后开始生成。',
+                'body'=>'对话中已明确的设定将直接沿用。这里只列出尚未确认的项目，可修改建议值，也可继续在对话中补充。确认剩余设定后开始生成。',
                 'candidates'=>$candidates];
         }
         if (($stage['key']??'')==='intake' && ($stage['status']??'')==='collecting') {

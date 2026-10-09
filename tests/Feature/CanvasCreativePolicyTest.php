@@ -62,8 +62,9 @@ class CanvasCreativePolicyTest extends TestCase
         $s=$this->state();$s['creative_brief']='做一部连载短剧';
         $settings=Workflow::applyIntakeDraftLocked($s,['workflow_state'=>$s],$this->draft([]),['message'],'集数你来定');
         $next=$settings['workflow_state'];
-        self::assertSame('story',$next['stage_state']['key']);self::assertSame(3,Series::count($next));
-        self::assertSame('assumption',$next['slot_sources']['episode_count']['source']);
+        self::assertSame('intake',$next['stage_state']['key']);
+        self::assertFalse($next['creative_plan_confirmed']);
+        self::assertSame('reviewing_intake',$next['stage_state']['status']);
         self::assertArrayNotHasKey('plan_confirmation',$next);
     }
     public function testLegacyRetainsReviewAndConfirmedFactsCannotBeOverwritten(): void

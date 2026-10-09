@@ -43,7 +43,13 @@ final class ConversationCreativePlan
 
     public static function draft(array $state,array $draft): array
     {
-        $candidates=$draft['candidates'];
+        $candidates=array_replace($state['intake_candidates']??[],$draft['candidates']);
+        foreach ($candidates as $key=>$candidate) {
+            if (($candidate['source']??'')!=='message') continue;
+            $state['slot_values'][$key]=$candidate['value'];
+            $state['slot_sources'][$key]=$candidate;
+            unset($candidates[$key]);
+        }
         $brief=trim((string)($state['creative_brief']??''));
         $ratios=[];
         foreach ($state['workflow_snapshot']['slot_schema'] as $slot) if ($slot['key']==='aspect_ratio') $ratios=$slot['options'];
@@ -51,6 +57,10 @@ final class ConversationCreativePlan
             'episode_duration'=>'90秒','visual_style'=>'电影写实',
             'aspect_ratio'=>in_array('9:16',$ratios,true)?'9:16':($ratios[0]??'')];
         foreach ($defaults as $key=>$value) {
+            if (!empty($state['slot_values'][$key]) && in_array($state['slot_sources'][$key]['source']??'', ['message','confirmed','delegated'],true)) {
+                unset($candidates[$key]);
+                continue;
+            }
             if (isset($candidates[$key])) continue;
             $candidates[$key]=['value'=>(string)($state['slot_values'][$key]??$value),
                 'source'=>'suggestion','evidence'=>'建议值，确认后才用于制作'];
@@ -60,6 +70,7 @@ final class ConversationCreativePlan
         $state['intake_questions']=[];
         $state['creative_plan_confirmed']=false;
         $state['stage_state']=['key'=>'intake','status'=>'reviewing_intake','completed'=>[]];
+        if (!$candidates) return self::confirm($state,[]);
         // Only explicit delegation of the whole plan AND immediate execution skips the card.
         if (preg_match('/(?:全部|所有|都).{0,8}(?:你决定|你来定|自行决定)/u',$brief)
             && preg_match('/(?:直接|立即|马上)(?:开始)?生成/u',$brief)
@@ -71,7 +82,8 @@ final class ConversationCreativePlan
 
     public static function confirm(array $state,array $values,string $source='confirmed'): array
     {
-        foreach (self::REQUIRED as $key) if (!is_string($values[$key]??null) || trim($values[$key])==='') throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
+        $merged=array_replace($state['slot_values']??[],$values);
+        foreach (self::REQUIRED as $key) if (!is_string($merged[$key]??null) || trim($merged[$key])==='') throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
         foreach ($values as $key=>$value) {
             if (!isset($state['intake_candidates'][$key]) || !is_string($value) || mb_strlen($value)>240) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
             if (trim($value)!=='') $state['slot_values'][$key]=trim($value);
@@ -85,7 +97,7 @@ final class ConversationCreativePlan
         if (!in_array($ratio,$ratios,true)) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
         $state['slot_values']['aspect_ratio']=$ratio;
         $state['creative_settings']['aspect_ratio']=$ratio;
-        foreach ($state['slot_values'] as $key=>$value) $state['slot_sources'][$key]=['value'=>$value,'source'=>$source,'evidence'=>'整套创作方案已确认'];
+        foreach (array_keys($values) as $key) $state['slot_sources'][$key]=['value'=>$state['slot_values'][$key],'source'=>$source,'evidence'=>'本项创作设定已确认'];
         $state['creative_plan_confirmed']=true;
         $state['intake_candidates']=[];
         $state['stage_state']=['key'=>ConversationCreativePolicy::firstStage($state),'status'=>'ready','completed'=>['intake']];

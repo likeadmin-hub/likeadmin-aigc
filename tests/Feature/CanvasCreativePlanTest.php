@@ -74,8 +74,8 @@ class CanvasCreativePlanTest extends TestCase
             ['key'=>'episode_count','value'=>'3集','source'=>'message','evidence'=>'用户要求三集','confidence'=>1],
         ],'questions'=>[]]);
         self::assertSame('suggestion',$s['intake_candidates']['story_direction']['source']);
-        self::assertSame('3集',$s['intake_candidates']['episode_count']['value']);
-        self::assertSame([],$s['slot_values']);
+        self::assertArrayNotHasKey('episode_count',$s['intake_candidates']);
+        self::assertSame('3集',$s['slot_values']['episode_count']);
     }
 
     public function testOldUnstartedDraftRequiresConfirmationButBoundTasksArePreserved(): void
@@ -87,5 +87,44 @@ class CanvasCreativePlanTest extends TestCase
         self::assertFalse($updated['creative_plan_confirmed']);
         $s['series']['tasks']['episode_1']=['task_id'=>'saved-task'];
         self::assertSame($s,Plan::upgradePending($s));
+    }
+
+    public function testKnownSettingsAreNotAskedAgainAndOnlyRemainingValuesNeedConfirmation(): void
+    {
+        $s=$this->state();
+        $known=['episode_count'=>'3集','episode_duration'=>'120秒','visual_style'=>'国风水墨','aspect_ratio'=>'16:9'];
+        $items=[];
+        foreach ($known as $key=>$value) $items[]=['key'=>$key,'value'=>$value,'source'=>'message','evidence'=>$value,'confidence'=>1];
+        $s=Workflow::withIntakeDraft($s,['candidates'=>$items,'questions'=>[]]);
+        self::assertSame(['story_direction'],array_keys($s['intake_candidates']));
+        self::assertSame($known,$s['slot_values']);
+        $s=Plan::confirm($s,['story_direction'=>'程序员穿越西游，与孙悟空合作']);
+        self::assertTrue($s['creative_plan_confirmed']);
+        self::assertSame(3,Series::count($s));
+        self::assertSame('16:9',$s['creative_settings']['aspect_ratio']);
+    }
+
+    public function testAllExplicitSettingsStartWithoutAnotherConfirmationCard(): void
+    {
+        $values=['story_direction'=>'程序员穿越西游','episode_count'=>'3集','episode_duration'=>'120秒','visual_style'=>'国风水墨','aspect_ratio'=>'16:9'];
+        $items=[];
+        foreach ($values as $key=>$value) $items[]=['key'=>$key,'value'=>$value,'source'=>'message','evidence'=>$value,'confidence'=>1];
+        $s=Workflow::withIntakeDraft($this->state(),['candidates'=>$items,'questions'=>[]]);
+        self::assertSame([],$s['intake_candidates']);
+        self::assertTrue($s['creative_plan_confirmed']);
+        self::assertSame('ready',$s['stage_state']['status']);
+        self::assertSame($values,$s['slot_values']);
+    }
+
+    public function testConversationCanCorrectASettingWhileKeepingOtherSuggestions(): void
+    {
+        $s=$this->draft($this->state());
+        $s['slot_values']['episode_count']='1集';$s['slot_sources']['episode_count']=['source'=>'message'];
+        $s=Workflow::withIntakeDraft($s,['candidates'=>[
+            ['key'=>'episode_count','value'=>'3集','source'=>'message','evidence'=>'改成三集','confidence'=>1],
+        ],'questions'=>[]]);
+        self::assertSame('3集',$s['slot_values']['episode_count']);
+        self::assertArrayNotHasKey('episode_count',$s['intake_candidates']);
+        self::assertArrayHasKey('visual_style',$s['intake_candidates']);
     }
 }
