@@ -50,7 +50,8 @@ final class ShortDramaVnextAttachmentSeriesTest extends TestCase
             foreach ([0, 1] as $index) {
                 self::assertSame(1, Episodes::tick($scope['tenant_id'], $project));
                 $list = Episodes::lists($scope['tenant_id'], 7, $project)['lists'];
-                self::assertSame('success', $list[$index]['status'], json_encode($list, JSON_UNESCAPED_UNICODE));
+                $stages = Db::name('aigc_short_drama_vnext_stage')->where($scope)->where('task_id', $list[$index]['task_id'])->column('receipt_json', 'stage_key');
+                self::assertSame('success', $list[$index]['status'], json_encode(['episodes' => $list, 'receipts' => $stages, 'requests' => Provider::$requests], JSON_UNESCAPED_UNICODE));
                 self::assertCount(($index + 1) * 2, Provider::$requests);
                 $detail = Service::scriptPlanDetail($scope['tenant_id'], 7, $list[$index]['task_id']);
                 $document = $detail['result']['canonical_document']; $documents[] = $document;
