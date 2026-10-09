@@ -187,6 +187,7 @@ final class ConversationTextContext
             'user_request'=>(string)$last['content'],
             'workflow_stage'=>(string)($state['key']??''),
             'workflow_slots'=>(array)($workflow['slot_values']??[]),
+            'workflow_slot_sources'=>(array)($workflow['slot_sources']??[]),
             'workflow_creative_settings'=>array_intersect_key((array)($workflow['creative_settings']??[]),array_flip(['style_id','style_name','style_prompt','aspect_ratio'])),
             'confirmed_artifacts'=>$artifacts,
             'workflow_reference_catalog'=>array_values($referenceCatalog),

@@ -97,7 +97,9 @@ final class ConversationExecution
                     $workflowContinued=true;
                 } elseif (isset($decision['revision_stage'])) {
                     $request=(string)($context['messages'][count($context['messages'])-1]['content']??'');
-                    $currentThreadSettings['workflow_state']=ConversationWorkflow::reopenStage($persisted,(string)$decision['revision_stage'],$request);
+                    $currentThreadSettings['workflow_state']=ConversationCreativePolicy::enabled($persisted)
+                        ? ConversationProductionRevision::reopen($persisted,(string)$decision['revision_stage'],$request,(array)($routing['production_revision'][$decision['revision_stage']]??[]))
+                        : ConversationWorkflow::reopenStage($persisted,(string)$decision['revision_stage'],$request);
                     $workflowContinued=true;
                 }
             }
@@ -110,6 +112,7 @@ final class ConversationExecution
                     if (($candidate['workflow_snapshot']['key']??'')!==ConversationWorkflow::KEY
                         || ($candidate['stage_state']['key']??'')!=='intake'
                         || !empty($currentThreadSettings['workflow_state'])) throw new RuntimeException('INVALID_AGENT_INTENT');
+                    $candidate['creative_brief']=trim((string)($context['messages'][count($context['messages'])-1]['content']??''));
                     $activatedWorkflow=isset($decision['intake'])
                         ? ConversationWorkflow::withIntakeDraft($candidate,$decision['intake'],$intakeSources) : $candidate;
                     // The eight intake slots describe production settings, not the
@@ -200,9 +203,10 @@ final class ConversationExecution
     }
 
     /** Only a server-owned no-cost preflight may use this before generate(). */
-    public static function rejectBeforeSubmit(int $tenant,int $user,int $runId,string $token,int $fence): string
+    public static function rejectBeforeSubmit(int $tenant,int $user,int $runId,string $token,int $fence,string $reason='PRECHECK_FAILED'): string
     {
-        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence): string {
+        $reason=in_array($reason,['VISION_MODEL_UNAVAILABLE','WORKFLOW_VERSION_CONFLICT','WORKFLOW_REVISION_TARGET_REQUIRED','WORKFLOW_PLAN_SOURCE_CHANGED','CONTEXT_TOO_LARGE'],true)?$reason:'PRECHECK_FAILED';
+        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$reason): string {
             [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
             if ($run['status']==='canceled') return 'canceled';
             if ($run['status']==='failed' && $run['error_code']==='PRECHECK_FAILED') return 'failed';
@@ -212,8 +216,8 @@ final class ConversationExecution
                 self::uncertain($run,$outbox,'WORKER_LEASE_EXPIRED');return 'needs_reconciliation';
             }
             if ((int)$thread['active_run_id']!==$runId) throw new RuntimeException('RUN_SUPERSEDED');
-            self::state($run,'failed','PRECHECK_FAILED');
-            self::event($run,'run.failed',['status'=>'failed','code'=>'PRECHECK_FAILED']);
+            self::state($run,'failed',$reason);
+            self::event($run,'run.failed',['status'=>'failed','code'=>$reason]);
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'failed','lease_until'=>0,'update_time'=>time()]);
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(self::terminalThreadUpdate($thread,$run));
             return 'failed';

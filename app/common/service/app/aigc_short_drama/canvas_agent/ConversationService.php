@@ -80,6 +80,10 @@ final class ConversationService
                 $routing['base_workflow_revision']=(int)$current['state_revision'];
                 $routing['workflow_paused']=in_array($status,['awaiting_plan_confirmation','awaiting_stage_confirmation','reviewing_intake'],true);
                 $routing['revision_allowed_stages']=ConversationWorkflow::revisableStages($current);
+                if (ConversationCreativePolicy::enabled($current)) {
+                    $routing['production_revision']=ConversationProductionRevision::snapshot($tenant,(int)$conversation['user_id'],$current);
+                    $routing['revision_allowed_stages']=array_keys($routing['production_revision']);
+                }
                 return ['settings'=>$settings,'skill'=>[],'intent_routing'=>$routing];
             }
             $workflow=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$workflowPreferences);

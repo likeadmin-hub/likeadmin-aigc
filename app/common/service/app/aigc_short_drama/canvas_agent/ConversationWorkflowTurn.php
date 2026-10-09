@@ -95,7 +95,7 @@ final class ConversationWorkflowTurn
             ? 'workflow_output 必须是 {"reply_markdown":"简短核对提示","intake":{"candidates":[],"questions":[]}}。'.ConversationIntakeDraft::instruction((array)($workflow['workflow_snapshot']['slot_schema']??[]))
             : 'workflow_output 必须是 {"reply_markdown":"真实阶段回复","canvas_actions":{"nodes":[...]}}。以下阶段说明仅约束 workflow_output 子对象：'.ConversationActionPlan::nestedInstruction($mode,$stage,ConversationWorkflow::compactOutput($workflow),ConversationWorkflow::usesStageGenerationPrompts($workflow)));
         $modern=(int)($routing['version']??2)>=3;
-        $revisable=array_values(array_filter((array)($routing['revision_allowed_stages']??[]),static fn($stage): bool=>in_array($stage,['script','art','video_plan'],true)));
+        $revisable=array_values(array_filter((array)($routing['revision_allowed_stages']??[]),static fn($stage): bool=>in_array($stage,['script','art','video_plan','story','outline','episode'],true)));
         return "\n【逐轮意图判断】当前已有短剧工作流，但历史阶段不是本轮用户的新指令。先只根据本轮请求、已确认的上下文和引用素材判断意图。"
             .($modern
                 ? '只输出一个 JSON 对象，字段恰好为 intent、confidence、skill_key、reply_markdown、workflow_output、speech_act、deliverable、scope。speech_act 只能是 question、request、answer、confirm、chat；deliverable 只能是 none、text、image、video、full_drama；scope 只能是 conversation、standalone、workflow、uncertain。只有本轮明确回答当前问题卡、修改当前阶段或要求继续时才用 scope=workflow；单独索取一份脚本、图片或视频时用 standalone；咨询能力或概念用 conversation。'
@@ -113,6 +113,7 @@ final class ConversationWorkflowTurn
                 : ($paused
                 ? '当前工作流有待用户确认的卡片。即使本轮意图是 continue，workflow_output 也必须为 null；不能绕过确认卡。明确要求重新生成该内容时可按上述 revise 规则重开阶段。'
                 : '只有明确属于当前阶段且 confidence 不低于 '.($modern?'0.8':'0.7').' 时才能选 continue。'.($modern?'continue 还必须是 scope=workflow 且 speech_act 为 answer、request 或 confirm。':'').'选 continue 时 reply_markdown 为空字符串，'. $stageInstruction))
+            .(ConversationCreativePolicy::enabled($workflow) ? '系列正式内容修改同样使用 revise，workflow_output 只含 revision_stage；未确认设定用 story，未确认大纲用 outline，镜头对白、画面、运镜或整集重写用 episode。只在上方允许阶段中选择；要求具体镜头但缺少定位时先问一个问题。无需用户再去项目页提交一次。' : '')
             .'已授权技能：'.implode('；',$skills);
     }
 
@@ -139,7 +140,7 @@ final class ConversationWorkflowTurn
         $workflow=(array)($routing['workflow_candidate']??[]);
         if (($routing['kind']??'')!=='active_workflow' || ($workflow['workflow_snapshot']['key']??'')!==ConversationWorkflow::KEY) throw new RuntimeException('INVALID_AGENT_INTENT');
         if (ConversationSeries::enabled($workflow) && ($workflow['stage_state']['key']??'')!=='intake') {
-            if ($intent==='continue' || $intent==='revise') return array_replace($value,['workflow_output'=>null,'text'=>'请使用当前阶段卡片确认或继续。本集剧本使用已保存的生成结果，你可以在对应短剧项目中查看和编辑。','nodes'=>[],'intake'=>[],'continue'=>false]);
+            if ($intent==='continue' || ($intent==='revise' && !ConversationCreativePolicy::enabled($workflow))) return array_replace($value,['workflow_output'=>null,'text'=>'请使用当前阶段卡片确认或继续。本集剧本使用已保存的生成结果，你可以在对应短剧项目中查看和编辑。','nodes'=>[],'intake'=>[],'continue'=>false]);
         }
         if (($workflow['stage_state']['key']??'')==='complete' && $intent==='continue') {
             // Never allow a model's stale "continue" classification to

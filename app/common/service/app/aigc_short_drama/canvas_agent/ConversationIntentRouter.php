@@ -62,9 +62,9 @@ final class ConversationIntentRouter
                 .'仅当用户明确要制作包含剧本、角色、场景、分镜等连续阶段的完整短剧，或明确回答上一轮澄清要选择完整短剧时，才设置 intent=short_drama、deliverable=full_drama、scope=workflow、speech_act=request/answer/confirm。提到“短剧”但只要一份剧本，仍是 standalone。'
                 .'无法确认完整制作与单次创作的范围、或对创作意图的信心低于 0.8 时，scope=uncertain、intent=uncertain，在 reply_markdown 只问一个针对本轮内容的区分问题。不要默认为完整短剧。'
                 .'confidence 是 0 到 1 的数字。skill_key 只能从下列已授权候选中选一个或填空；推荐不等于自动执行。'
-                .'reply_markdown 始终为非空文本：完整短剧只写简短的准备提示，真正进入流程后的提示由服务端生成；普通请求给出真实答复。'
+                .'reply_markdown 始终为非空文本：完整短剧先给贴合素材的简短创作方向，未知制作参数不要逐项追问；普通请求给出真实答复。'
                 .'仅当 intent=short_drama 且 deliverable=full_drama 且 scope=workflow 时填写 intake，否则 intake 为 {"candidates":[],"questions":[]}。'
-                .'如果请求的是单次文本创作且信息足够，直接在 reply_markdown 给出真实文本结果；缺少关键主题、时长或受众时只问最必要的一个问题。图片或视频不得声称已生成或提交；不得输出 canvas-actions、价格或任务状态。'
+                .'如果请求的是单次文本创作且信息足够，直接在 reply_markdown 给出真实文本结果；缺少核心主题时只问最必要的一个问题；时长和受众允许暂定。图片或视频不得声称已生成或提交；不得输出 canvas-actions、价格或任务状态。'
                 .ConversationIntakeDraft::instruction((array)ConversationWorkflow::catalog()['slots'])
                 .'可用技能：'.implode('；',$catalog);
         }
@@ -203,6 +203,7 @@ final class ConversationIntentRouter
     public static function reply(array $decision,array $routing,array $availableSources=['message']): string
     {
         if (self::shouldActivateWorkflow($decision,$routing)) {
+            if (ConversationCreativePolicy::enabled((array)($routing['workflow_candidate']??[]))) return (string)$decision['reply_markdown'];
             $draft=isset($decision['intake'])
                 ? ConversationIntakeDraft::parse($decision['intake'],(array)ConversationWorkflow::catalog()['slots'],$availableSources) : ['candidates'=>[]];
             return $draft['candidates'] ? '已从你的描述或素材中整理出一份待确认的短剧设定，请先核对。未明确的信息我会继续追问。'
