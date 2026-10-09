@@ -8,7 +8,7 @@ use RuntimeException;
 /** Explicit screenplay labels only. Never infer a speaker, location or missing prose. */
 final class AttachmentScreenplay
 {
-    public const VERSION = 1;
+    public const VERSION = 2;
 
     public static function prepare(array $package, array $episode, array $entities): array
     {
@@ -38,6 +38,23 @@ final class AttachmentScreenplay
             if ($end < mb_strlen($text, 'UTF-8')) $end++;
             if ($end === $cursor) continue;
             $entry = ['start' => $cursor, 'end' => $end];
+            // A tab or at least two spaces explicitly continues the immediately
+            // preceding content unit. Colon-labelled lines remain new labelled
+            // units (and unknown speakers are rejected, never guessed).
+            $last = count($layout) - 1;
+            if (trim($line) !== '' && preg_match('/^(?:\t| {2})/u', $line)
+                && !preg_match('/^([\t ]*)([^：:\n]+)([：:])([\s\S]*)$/u', $line)
+                && $last >= 0 && $layout[$last]['kind'] === 'content') {
+                $previous = &$layout[$last];
+                $unit = &$scenes[$previous['scene_index']]['units'][$previous['unit_index']];
+                $unit['text'] .= "\n" . $line;
+                $unit['source_links'][0]['end'] = $cursor + $length;
+                $unit['source_links'][0]['quote'] = $unit['text'];
+                $previous['end'] = $end;
+                unset($previous, $unit);
+                $cursor = $end;
+                continue;
+            }
             if (trim($line) === '') $entry['kind'] = 'spacing';
             elseif (!$heading && !$scenes && ShortDramaSourceBoundary::sections($line)) {
                 $sections = ShortDramaSourceBoundary::sections($line);
@@ -81,7 +98,7 @@ final class AttachmentScreenplay
     public static function document(array $context): array
     {
         $import = $context['attachment_import'];
-        if (($import['schema_version'] ?? 0) !== self::VERSION || ($context['structured_screenplay'] ?? null) !== $import['screenplay']) throw new RuntimeException('附件结构版本已变化', 409);
+        if (!in_array($import['schema_version'] ?? 0, [1, self::VERSION], true) || ($context['structured_screenplay'] ?? null) !== $import['screenplay']) throw new RuntimeException('附件结构版本已变化', 409);
         $source = $import['source'];
         if (($context['sources'][$source['source_id']] ?? null) !== $source || $source['hash'] !== hash('sha256', $source['text'])) throw new RuntimeException('附件正文来源不一致', 409);
         $document = ContentDocument::normalize($import['screenplay'], $context);
@@ -96,7 +113,7 @@ final class AttachmentScreenplay
         }
         unset($entry);
         if ($cursor !== mb_strlen($source['text'], 'UTF-8')) throw new RuntimeException('附件结尾范围不完整', 409);
-        $document['transforms'][] = ['code' => 'attachment_import', 'schema_version' => self::VERSION,
+        $document['transforms'][] = ['code' => 'attachment_import', 'schema_version' => $import['schema_version'],
             'source_id' => $source['source_id'], 'source_hash' => $source['hash'], 'origin' => $source['origin'], 'layout' => $layout];
         return $document;
     }
