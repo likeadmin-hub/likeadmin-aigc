@@ -131,4 +131,15 @@ final class ShortDramaVnextContentTest extends TestCase
     {
         return $this->review($document, $plan);
     }
+    public function testRepairCannotInventASpeakerOrClaimAnUnverifiedMissingEvent(): void
+    {
+        $doc = Document::normalize($this->reply(), $this->context()); $unit = $doc['scenes'][0]['units'][0];
+        $insertion = ['issue_id' => 'missing1', 'anchor_unit_id' => $unit['unit_id'], 'anchor_hash' => $unit['text_hash'],
+            'position' => 'after', 'type' => 'dialogue', 'text' => '新增内容。', 'speaker_id' => 'stranger'];
+        try { Document::repair($doc, [], [$insertion], 'r2', []); self::fail('Unverified addition accepted'); }
+        catch (\RuntimeException $e) { self::assertSame(422, $e->getCode()); }
+        $issues = [['issue_id' => 'missing1', 'severity' => 'blocking', 'code' => 'content_missing']];
+        $this->expectExceptionCode(422); Document::repair($doc, [], [$insertion], 'r2', $issues);
+    }
+
 }

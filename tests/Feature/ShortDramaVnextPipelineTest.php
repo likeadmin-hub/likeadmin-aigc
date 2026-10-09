@@ -121,4 +121,64 @@ final class ShortDramaVnextPipelineTest extends TestCase
         self::assertSame('再见。', $result['document']['scenes'][0]['units'][0]['text']);
         self::assertSame('source_content_requires_confirmation', $result['stop_reason']);
     }
+    public function testMissingBeatCanBeInsertedWithoutRewritingAcceptedDialogue(): void
+    {
+        $context = $this->context() + ['repair_contract_version' => 2]; $keys = [];
+        $result = GenerationPipeline::run($context, function ($key, $messages) use (&$keys) {
+            $keys[] = $key; $input = json_decode($messages['content'], true);
+            if ($key === 'repair_1') {
+                $unit = $input['document']['scenes'][0]['units'][0];
+                return ['result' => ['content' => json_encode(['patches' => [], 'insertions' => [[
+                    'issue_id' => $input['issues'][0]['issue_id'], 'anchor_unit_id' => $unit['unit_id'], 'anchor_hash' => $unit['text_hash'],
+                    'position' => 'before', 'type' => 'dialogue', 'text' => '老师您好。', 'entity_ids' => ['c1id'], 'speaker_id' => 'c1id', 'speech_type' => 'spoken',
+                ]]], JSON_UNESCAPED_UNICODE)]];
+            }
+            if ($key === 'repair_1_shots') return ['result' => ['content' => json_encode(['shots' => [[
+                'visual_description' => '问好之后道别', 'refs' => [['unit' => 'u1'], ['unit' => 'u2']],
+            ]]], JSON_UNESCAPED_UNICODE)]];
+            return $this->response($key, $messages, in_array($key, ['screenplay', 'review'], true));
+        }, static function ($key, $calls) { self::assertSame(3, $calls); }, static function () {});
+        $units = $result['document']['scenes'][0]['units'];
+        self::assertSame('ready', $result['coverage_report']['status']);
+        self::assertSame(['老师您好。', '再见。'], array_column($units, 'text'));
+        self::assertSame(['u1', 'u2'], array_column($units, 'ref'));
+        self::assertSame('c1id', $units[0]['speaker_id']);
+        self::assertCount(6, $keys);
+    }
+    public function testFaithfulShotRepairUsesTwoCallsAndKeepsDocumentByteForByte(): void
+    {
+        $context = $this->context() + ['repair_contract_version' => 2];
+        $context['structured_screenplay'] = ['title' => '用户原文', 'scenes' => [['location' => 'l1', 'units' => [
+            ['type' => 'dialogue', 'speaker' => 'c1', 'text' => '老师您好。'],
+        ]]]];
+        $keys = []; $first = null;
+        $result = GenerationPipeline::run($context, function ($key, $messages) use (&$keys, &$first) {
+            $keys[] = $key; $input = json_decode($messages['content'], true);
+            if ($key === 'shots') $first = $input['document'];
+            $response = $this->response($key, $messages);
+            if ($key === 'review') {
+                $data = json_decode($response['result']['content'], true);
+                foreach ($data['checks'] as &$check) if ($check['id'] === 'aspect:shot_fidelity') $check['status'] = 'contradiction';
+                unset($check); $response['result']['content'] = json_encode($data, JSON_UNESCAPED_UNICODE);
+            }
+            return $response;
+        }, static function ($key, $calls) { self::assertSame(2, $calls); }, static function () {});
+        self::assertSame(['shots', 'review', 'repair_1_shots', 'repair_1_review'], $keys);
+        self::assertSame($first, $result['document']);
+        self::assertSame('ready', $result['coverage_report']['status']);
+        self::assertSame('r1_repair_1_shots', $result['shot_plan']['revision_id']);
+    }
+    public function testSavedOldContractDoesNotAcquireNewRepairInstructions(): void
+    {
+        $legacyPrompt = ''; $newPrompt = '';
+        foreach ([1, 2] as $version) GenerationPipeline::run($this->context() + ['repair_contract_version' => $version], function ($key, $input) use ($version, &$legacyPrompt, &$newPrompt) {
+            if ($key === 'screenplay') {
+                if ($version === 1) $legacyPrompt = $input['system_prompt']; else $newPrompt = $input['system_prompt'];
+            }
+            return $this->response($key, $input);
+        }, static function () {}, static function () {});
+        self::assertStringNotContainsString('"props"', $legacyPrompt);
+        self::assertStringContainsString('"props"', $newPrompt);
+    }
+
 }
