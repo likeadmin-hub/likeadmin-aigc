@@ -489,16 +489,11 @@ final class ConversationWorkflow
             $settings=self::settings($row);$state=self::stateFromSettings($settings);
             if ($state===[]) throw new RuntimeException('WORKFLOW_NOT_ACTIVE');
             self::assertState($state);
-            if ($slot==='next_episode' && !empty($state['series']['next_page_id'])) {
-                $page=(int)$state['series']['next_page_id'];
-                if (!Db::name(GraphService::TABLE)->where(['id'=>$page,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find()
-                    || \app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::root($tenant,$user,$page)!==$projectRoot) throw new RuntimeException('WORKFLOW_EPISODE_PAGE_UNAVAILABLE');
-                return ['workflow'=>self::publicState($state),'card'=>self::card($state),'next_page_id'=>$page,'canvas_project_id'=>$projectRoot];
-            }
+            if ($slot==='next_episode' && !empty($state['series']['next_page_id'])) return ['workflow'=>self::publicState($state),'card'=>self::card($state),'next_page_id'=>(int)$state['series']['next_page_id'],'canvas_project_id'=>\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::root($tenant,$user,$canvas)];
             if ((int)$state['state_revision']!==$expectedRevision) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
             if ($slot==='next_episode') {
                 $nodes=json_decode((string)$lockedCanvas['nodes_json'],true)?:[];
-                ConversationProduction::assertEpisodeReady($tenant,$user,$state);
+                ConversationSeries::assertEpisodeMedia($state,$nodes);
                 $next=ConversationSeries::nextEpisode($state);
                 $library=(array)($state['series']['asset_library']??[]);
                 foreach ((array)$state['artifact_memory'] as $item) if (in_array($item['artifact']??'',['subject','three_view','scene'],true) && !empty($item['node_id'])) {
@@ -515,7 +510,6 @@ final class ConversationWorkflow
                 $created=\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::create($tenant,$user,$canvas,'episode:'.$thread.':'.ConversationSeries::episode($next),'第 '.ConversationSeries::episode($next).' 集');
                 Db::name(\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::TABLE)->where(['canvas_id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user])->update(['title'=>'第 '.ConversationSeries::episode($state).' 集']);
                 $nextCanvas=(int)$created['id'];
-                $next['series']['page_ids']=array_values(array_unique(array_merge((array)($state['series']['page_ids']??[]),[$canvas,$nextCanvas])));
                 $createdThread=ConversationStore::create($tenant,$user,$nextCanvas,'series:'.$canvas.':'.$thread.':'.ConversationSeries::episode($next),'第'.ConversationSeries::episode($next).'集创作');
                 $nextSettings=$settings;$nextSettings['workflow_state']=$next;
                 Db::name(ConversationStore::PREFIX.'thread')->where('id',$createdThread['id'])->update(['settings_json'=>self::json($nextSettings),'update_time'=>time()]);
@@ -950,7 +944,7 @@ final class ConversationWorkflow
             'stage_index'=>$stageIndex,'stage_total'=>count($stages),'completed'=>array_values(array_map('strval',(array)($stage['completed']??[]))),
             'output_fields'=>self::outputContract($stageKey)];
         if ($stageKey==='complete') {
-            if (ConversationSeries::canStartNextEpisode($state)) return $stageCard+['type'=>'next_episode','title'=>'本集剧本已保存','body'=>'可继续下一集剧本。本集素材与媒体任务保留，可随时返回继续制作。','action_label'=>'开始第'.(ConversationSeries::episode($state)+1).'集创作'];
+            if (ConversationSeries::enabled($state) && ConversationSeries::episode($state)<ConversationSeries::count($state)) return $stageCard+['type'=>'next_episode','title'=>'本集创作规划已完成','body'=>'完成本集视频制作后，可继续下一集。相同主体和场景将复用已有资产。','action_label'=>'开始第'.(ConversationSeries::episode($state)+1).'集创作'];
             return array_replace($stageCard,['type'=>'complete','stage_label'=>'已完成','skills'=>[],
                 'stage_index'=>count($stages),'title'=>'短剧创作规划已完成',
                 'body'=>'故事与剧本、主体和分镜素材、分镜视频待生成节点均已规划到画布。视频仍需逐节点手动确认生成；音频仅展示规划，暂未开放生成。']);
@@ -1001,7 +995,7 @@ final class ConversationWorkflow
         }
         return $state;
     }
-    private static function publicState(array $state): array { return ['workflow_snapshot'=>self::publicWorkflowSnapshot((array)$state['workflow_snapshot']),'series'=>['episode_number'=>ConversationSeries::episode($state),'episode_count'=>ConversationSeries::count($state),'enabled'=>ConversationSeries::enabled($state),'next_episode'=>ConversationSeries::canStartNextEpisode($state)?['episode_number'=>ConversationSeries::episode($state)+1,'action_label'=>!empty($state['series']['next_page_id'])?'打开第'.(ConversationSeries::episode($state)+1).'集':'开始第'.(ConversationSeries::episode($state)+1).'集创作']:null],'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'creative_settings'=>array_intersect_key((array)($state['creative_settings']??[]),array_flip(['style_id','style_name','aspect_ratio'])),'artifact_memory'=>self::publicArtifacts((array)($state['artifact_memory']??[])),'plan_hash'=>$state['plan_hash'],'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'stage_plan'=>self::publicStagePlan((array)($state['stage_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
+    private static function publicState(array $state): array { return ['workflow_snapshot'=>self::publicWorkflowSnapshot((array)$state['workflow_snapshot']),'series'=>['episode_number'=>ConversationSeries::episode($state),'episode_count'=>ConversationSeries::count($state),'enabled'=>ConversationSeries::enabled($state)],'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'creative_settings'=>array_intersect_key((array)($state['creative_settings']??[]),array_flip(['style_id','style_name','aspect_ratio'])),'artifact_memory'=>self::publicArtifacts((array)($state['artifact_memory']??[])),'plan_hash'=>$state['plan_hash'],'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'stage_plan'=>self::publicStagePlan((array)($state['stage_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
     private static function assertState(array $state): void {
         $snapshot=(array)($state['workflow_snapshot']??[]);$stage=(array)($state['stage_state']??[]);
         if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_array($snapshot['stage_skill_versions']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_array($state['creative_settings']??null) || !is_array($state['artifact_memory']??null) || !is_array($state['image_plan']??null) || !is_array($state['stage_plan']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');

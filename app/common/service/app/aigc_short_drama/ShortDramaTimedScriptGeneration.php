@@ -10,7 +10,6 @@ final class ShortDramaTimedScriptGeneration
     {
         $policy = ShortDramaEpisodeDuration::policy($request);
         $rule = ShortDramaShotDuration::rule($request);
-        $reallocate = ShortDramaEpisodeDuration::canReallocateShots($request);
         $base = ['system_prompt' => $messages['system_prompt']
                 . "\n当前采用分阶段生成。上述规则中的创作、角色、风格、剧情与连续性要求完整保留；完整剧本的字段清单和输出示例由下方本阶段输出结构替代。只输出本阶段指定字段。"
                 . "\n" . ShortDramaEpisodeDuration::instruction($request) . "\n" . ShortDramaSameSceneCuts::instruction($request),
@@ -40,10 +39,7 @@ final class ShortDramaTimedScriptGeneration
                 if (ShortDramaInputContract::recoveryEnabled($request)) $skeleton = self::normalizeSkeletonBudgets($skeleton, $request);
                 if (!empty($skeleton['storyboard'])) {
                     if (ShortDramaDialogueSplit::enabled($request)) {
-                        if ($reallocate && $progress) $progress('script_checkpoint', $skeleton);
-                        $skeleton = $reallocate
-                            ? ShortDramaEpisodeTimingRepair::adapt($skeleton, $request, $call)
-                            : ShortDramaDialogueSplit::adapt($skeleton, $request, $call, 'timed_complete');
+                        $skeleton = ShortDramaDialogueSplit::adapt($skeleton, $request, $call, 'timed_complete');
                         $skeleton['storyboard'] = self::attachTimelineRanges($skeleton['storyboard'], $request);
                     }
                     elseif (ShortDramaInputContract::current($request)) $skeleton = self::fitDialogueTiming($skeleton, $request);
@@ -131,12 +127,12 @@ final class ShortDramaTimedScriptGeneration
                         $part = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . ($attempt ? '_repair' : ''), $input, 1800 + count($ids) * 750,
                             static fn($part) => self::assertPart($part, $skeleton, $beat, $ids, $partDurations, false));
                         $validationIds = $ids;
-                        if (ShortDramaDialogueSplit::enabled($request) && !$reallocate) {
+                        if (ShortDramaDialogueSplit::enabled($request)) {
                             self::assertPart($part, $skeleton, $beat, $ids, $partDurations, false);
                             $part = ShortDramaDialogueSplit::adapt($part, $request, $call, 'timed_' . $sceneIndex . '_' . $offset . $splitKey . '_' . $attempt);
                             $validationIds = array_column($part['storyboard'], 'shot_id');
                             $validationDurations = array_column($part['storyboard'], 'recommended_duration_seconds');
-                        } elseif (!ShortDramaDialogueSplit::enabled($request) && ShortDramaInputContract::current($request)) {
+                        } elseif (ShortDramaInputContract::current($request)) {
                             $originalPart = $part;
                             $part = self::fitDialogueTiming($part, $request);
                             foreach ((array)($part['storyboard'] ?? []) as $index => $shot) {
@@ -145,9 +141,7 @@ final class ShortDramaTimedScriptGeneration
                                     && ($shot['recommended_duration_seconds'] ?? null) !== $before) $validationDurations[$index] = $shot['recommended_duration_seconds'];
                             }
                         }
-                        // A fixed episode total is checked after all parts exist,
-                        // so later shots can donate time without rewriting dialogue.
-                        self::assertPart($part, $skeleton, $beat, $validationIds, $validationDurations, !$reallocate);
+                        self::assertPart($part, $skeleton, $beat, $validationIds, $validationDurations);
                         foreach ($part['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                         break;
                     } catch (RuntimeException $e) {
@@ -208,13 +202,6 @@ final class ShortDramaTimedScriptGeneration
                 if ($progress) $progress('stage', ['status' => 'running', 'progress' => min(78, 25 + (int)(50 * ($sceneIndex + 1) / count($skeleton['scene_beats']))),
                     'current_step' => '已生成' . count($shots) . '个分镜，约' . round(array_sum(array_column($shots, 'recommended_duration_seconds'))) . '秒']);
             }
-        }
-        $skeleton['storyboard'] = $shots;
-        if ($reallocate) {
-            if ($progress) $progress('script_checkpoint', $skeleton);
-            $skeleton = ShortDramaEpisodeTimingRepair::adapt($skeleton, $request, $call);
-            $shots = $skeleton['storyboard'];
-            self::assertCompletePlan($skeleton, $request);
         }
         $skeleton['storyboard'] = self::attachTimelineRanges($shots, $request);
         $skeleton['episodes'] = [];

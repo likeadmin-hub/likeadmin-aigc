@@ -2625,13 +2625,6 @@ class AigcShortDramaService
 
     private static function createScriptPlanOnce(int $tenantId, int $userId, array $params, int $existingProjectId = 0, array $internalContext = []): array
     {
-        ShortDramaRetiredTask::assertWritable($internalContext);
-        if ($existingProjectId > 0) {
-            $existing = self::findProject($tenantId, $userId, $existingProjectId);
-            $previousRequest = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
-                'task_id' => (string)$existing['last_task_id'], 'delete_time' => 0])->value('request_json');
-            ShortDramaRetiredTask::assertWritable(self::jsonDecode((string)$previousRequest));
-        }
         $prompt = trim((string)($params['prompt'] ?? ''));
         $uploadedScript = trim((string)($params['script_text'] ?? $params['script_content'] ?? ''));
         if ($uploadedScript !== '') {
@@ -3211,10 +3204,7 @@ class AigcShortDramaService
 
     public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0): array
     {
-        $task = self::findTask($tenantId, $userId, $taskId, $projectId, true);
-        if (ShortDramaRetiredTask::isRetired(self::jsonDecode((string)$task['request_json']))) {
-            return ShortDramaRetiredTask::read($task->toArray());
-        }
+        $task = self::findTask($tenantId, $userId, $taskId, $projectId);
         if (self::isMarketFileQaParseRequest(self::jsonDecode((string)$task['request_json']))) {
             if (!in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
                 $consumptionId = (int)(AiConsumptionLog::where([
@@ -3223,7 +3213,7 @@ class AigcShortDramaService
                 if ($consumptionId > 0) {
                     MarketFileQaAppRuntimeService::refresh($consumptionId);
                     self::syncMarketFileQaScriptTask($task->toArray());
-                    $task = self::findTask($tenantId, $userId, $taskId, $projectId, true);
+                    $task = self::findTask($tenantId, $userId, $taskId, $projectId);
                 }
             }
             return self::formatTask($task->toArray(), true);
@@ -3951,7 +3941,6 @@ class AigcShortDramaService
 
     private static function executeScriptPlanTask(int $tenantId, int $userId, array $taskData, callable $emit): array
     {
-        ShortDramaRetiredTask::assertWritable(self::jsonDecode((string)($taskData['request_json'] ?? '')));
         $taskId = (string)$taskData['task_id'];
         $projectId = (int)$taskData['project_id'];
         $project = self::findProject($tenantId, $userId, $projectId);
@@ -4192,6 +4181,8 @@ class AigcShortDramaService
                             'task_id' => $taskId,
                             'status' => self::STATUS_RUNNING,
                         ])->update([
+                            'progress' => 20,
+                            'current_step' => $planningStep,
                             'update_time' => $now,
                         ]);
                         AigcShortDramaGenerationTask::where([
@@ -4201,6 +4192,7 @@ class AigcShortDramaService
                             'status' => self::STATUS_RUNNING,
                             'delete_time' => 0,
                         ])->update([
+                            'progress' => 20,
                             'update_time' => $now,
                         ]);
                     }
@@ -17682,7 +17674,7 @@ class AigcShortDramaService
             'prompt' => '',
             'ratio' => self::requestGenerationRatio($params),
             'multi_episode' => $episodeSettings['multi_episode'],
-            'quality_review_enabled' => filter_var($params['quality_review_enabled'] ?? true, FILTER_VALIDATE_BOOLEAN),
+            'quality_review_enabled' => filter_var($params['quality_review_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'episode_count' => $episodeSettings['episode_count'],
             'multi_episode_stage' => $episodeSettings['multi_episode']
                 ? self::MULTI_EPISODE_STAGE_STORY
@@ -17759,8 +17751,7 @@ class AigcShortDramaService
             $selected = 0;
         }
         return ShortDramaEpisodeDuration::snapshot((array)($config['episode_duration_rule'] ?? []),
-            $selected, $explicitText, self::extractTimelineSegments($prompt), $seriesTotal,
-            ShortDramaEpisodeDuration::approximateText($timingText)) + ['episode_overrides' => $overrides];
+            $selected, $explicitText, self::extractTimelineSegments($prompt), $seriesTotal) + ['episode_overrides' => $overrides];
     }
 
     private static function readUploadedScriptText(string $path, string $extension): string
@@ -18762,7 +18753,7 @@ class AigcShortDramaService
     {
         $lower = strtolower($message);
         if (str_contains($lower, 'sqlstate') || str_contains($lower, 'integrity constraint') || str_contains($lower, 'duplicate entry')) {
-            return '保存生成过程时出现系统异常，已完成内容保留，请联系管理员检查任务记录';
+            return self::SAFE_ERROR;
         }
         // Detailed continuity evidence lives in planning receipts and the full
         // exception log. Never put its JSON payload into bounded task columns:
@@ -21195,8 +21186,6 @@ class AigcShortDramaService
             'locations' => $locations,
             'storyboard' => $storyboard,
             'storyboard_breaking_diagnostics' => $storyboardDiagnostics,
-            'generation_contract' => (array)($payload['generation_contract'] ?? []),
-            'dialogue_density_revision' => (array)($payload['dialogue_density_revision'] ?? []),
             'duration_stats' => $durationStats,
             'outline_validation_issues' => $outlineValidationIssues,
             'generation_settings' => [
@@ -23812,7 +23801,7 @@ class AigcShortDramaService
         return $project;
     }
 
-    private static function findTask(int $tenantId, int $userId, string $taskId, int $projectId = 0, bool $allowRetiredRead = false): AigcShortDramaScriptTask
+    private static function findTask(int $tenantId, int $userId, string $taskId, int $projectId = 0): AigcShortDramaScriptTask
     {
         $query = AigcShortDramaScriptTask::where([
             'tenant_id' => $tenantId,
@@ -23827,13 +23816,11 @@ class AigcShortDramaService
         if ($task->isEmpty()) {
             throw new Exception('任务不存在');
         }
-        if (!$allowRetiredRead) ShortDramaRetiredTask::assertWritable(self::jsonDecode((string)$task['request_json']));
         return $task;
     }
 
     private static function formatTask(array $task, bool $withResult): array
     {
-        if (ShortDramaRetiredTask::isRetired(self::jsonDecode((string)($task['request_json'] ?? '')))) return ShortDramaRetiredTask::read($task, $withResult);
         if ($withResult && (string)($task['status'] ?? '') === self::STATUS_SUCCESS) {
             $task = self::cleanStoredStoryboardForTaskData($task);
         }

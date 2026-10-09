@@ -50,7 +50,6 @@ class ConfigLogic
     {
         $copyrightPolicy = CopyrightPolicyService::policy();
         $config = [
-            'channel_capabilities' => ['miniprogram' => (new \app\common\service\license\MiniprogramAccessService())->capability()],
             'is_oem' => (bool)\app\common\service\OemBrandService::read(),
             // 文件域名
             'oss_domain' => FileService::getFileUrl(),

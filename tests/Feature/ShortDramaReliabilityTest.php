@@ -98,7 +98,6 @@ class ShortDramaReliabilityTest extends TestCase
             }, null);
         self::assertSame(['timed_skeleton_0', 'timed_scene_1_1', 'timed_scene_1_1_repair'], $calls);
         self::assertSame(str_repeat('字', 48), $result['storyboard'][0]['dialogue']);
-        // V9 estimates 48 Chinese characters at 5 chars/s plus a pause.
-        self::assertEquals(11, $result['storyboard'][0]['recommended_duration_seconds']);
+        self::assertEquals(9, $result['storyboard'][0]['recommended_duration_seconds']);
     }
 }

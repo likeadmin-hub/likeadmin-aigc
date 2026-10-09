@@ -6,7 +6,6 @@ use RuntimeException;
 /** Bounded editorial repair; provider calls use the existing durable unit callback. */
 final class ShortDramaDialogueSplit
 {
-    public const MAX_DIALOGUE_SECONDS = 14;
     public static function enabled(array $request): bool
     {
         return (int)($request['_input_contract_version'] ?? 0) >= 2;
@@ -17,23 +16,13 @@ final class ShortDramaDialogueSplit
         $rule = ShortDramaShotDuration::modelRule($rule);
         return '完整台词时长规则：先结合对白自然语速、动作、运镜和必要停顿估时，不以空白分镜初始秒数判断拆镜。'
             . '若所需时间在单镜上限' . $rule['max_seconds'] . '秒内，只适配时长；超过上限才按完整句意、说话轮次或动作转折拆为连续镜头。'
-            . '完整对白预计超过14秒时必须按说话轮次、完整句意或动作转折新增连续分镜；模型片段上限更短时按更短上限拆分。'
             . '不删、缩写、换序或补造台词，不靠慢放、静止画面凑时长。每段保留真实说话主体，人物、场景、动作前后连续。'
             . '明确时间码或固定时长内的拆镜必须保持原时间段总长；放不下时报告冲突，不挪用其他镜头时间。'
             . '在剧本/分镜规划阶段完成拆镜并分配唯一编号，再准备对应分镜图和视频；已确认图片或视频引用不能事后静默拆分。';
     }
 
-    public static function requiredSeconds(string $dialogue, array $rule = []): float
+    public static function requiredSeconds(string $dialogue): float
     {
-        if (($rule['speech_estimator_version'] ?? 0) >= 2) {
-            // Speaker labels are attribution, not audio. Keep spoken text intact.
-            $spoken = preg_replace('/(?:^|\n)\s*[^：:\n]{1,20}[：:]\s*/u', '', $dialogue) ?? $dialogue;
-            preg_match_all('/[A-Za-z]+(?:[\x27’-][A-Za-z]+)*/u', $spoken, $words);
-            $rest = preg_replace('/[A-Za-z]+(?:[\x27’-][A-Za-z]+)*/u', '', $spoken) ?? $spoken;
-            $characters = mb_strlen(preg_replace('/[\s\p{P}]/u', '', $rest) ?? $rest, 'UTF-8');
-            $seconds = $characters / 5 + count($words[0]) / 2.5;
-            return $seconds > 0 ? ceil($seconds) + 1 : 0;
-        }
         $count = mb_strlen(preg_replace('/[\s\p{P}]/u', '', $dialogue) ?? $dialogue, 'UTF-8');
         return $count ? ceil($count / 6) + 1 : 0;
     }
@@ -46,41 +35,34 @@ final class ShortDramaDialogueSplit
             || ShortDramaEpisodeDuration::localRevision($request);
         $output = [];
         foreach ((array)($plan['storyboard'] ?? []) as $index => $shot) {
-            $partRule = $rule;
             if (!is_array($shot) || !is_string($shot['dialogue'] ?? '')) throw new RuntimeException('分镜对白结构无效，原文保留', 409);
             $duration = $shot['recommended_duration_seconds'] ?? null;
             if (!is_numeric($duration) || !is_finite((float)$duration) || $duration <= 0) throw new RuntimeException('分镜时长无效，原文保留', 409);
-            $needed = max((float)$duration, self::requiredSeconds($shot['dialogue'] ?? '', $rule));
-            if (self::requiredSeconds($shot['dialogue'], $rule) > self::MAX_DIALOGUE_SECONDS) {
-                $partRule['max_seconds'] = min($rule['max_seconds'], self::MAX_DIALOGUE_SECONDS);
-            }
+            $needed = max((float)$duration, self::requiredSeconds($shot['dialogue'] ?? ''));
             if ($locked && $needed > (float)$duration) throw new RuntimeException('完整台词无法放入已锁定时间段，请调整时间码或时长；原文保留', 409);
-            if ($needed <= $partRule['max_seconds']) {
+            if ($needed <= $rule['max_seconds']) {
                 $shot['recommended_duration_seconds'] = max($rule['min_seconds'], $needed);
                 $output[] = $shot;
                 continue;
             }
             // Local edits must not expand the selected target or change other IDs.
             if (ShortDramaEpisodeDuration::localRevision($request)) throw new RuntimeException('局部修改需要增加分镜，请明确重新规划该场景后继续；原文保留', 409);
-            foreach (['image_url','video_url','image_id','video_id'] as $asset) {
-                if (!empty($shot[$asset])) throw new RuntimeException('该镜头已有图片或视频，请明确重新规划后拆分；原素材与台词保留', 409);
-            }
             if ($needed > $rule['max_seconds'] * 8) throw new RuntimeException('单镜内容过长，请按场景缩小处理范围；原文保留', 409);
             if (ShortDramaInputContract::recoveryEnabled($request)) {
-                $segments = ShortDramaDialoguePartition::generate($shot, $partRule, $locked, $call, $unit . '_dialogue_' . $index);
+                $segments = ShortDramaDialoguePartition::generate($shot, $rule, $locked, $call, $unit . '_dialogue_' . $index);
             } else {
-            $input = ['system_prompt' => self::instruction($partRule)
+            $input = ['system_prompt' => self::instruction($rule)
                 . '只返回 {"segments":[{"dialogue":"","visual_description":"","composition":"","camera_movement":"","action":"","result":"","sound_effect":"","recommended_duration_seconds":0}]}。'
                 . '仅拆解给定原镜头，不改其他镜头。每段 dialogue 是原 dialogue 的连续原文切片，逐段拼接必须与原文逐字相等（含标点和角色前缀），不要重复前缀。'
                 . '说话主体由原 voice_role 继承。按语义断句，不在词语中间切开。画面分配原动作，后段承接前段状态，不重复已完成动作、不新增剧情。最多8段。'
                 . ($locked ? '各段秒数合计必须精确等于原镜头秒数。' : '按内容自然估时，勿将每段都填满上限。'),
-                'content' => json_encode(['original_shot' => $shot, 'shot_duration_rule' => ShortDramaShotDuration::modelRule($partRule)], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
+                'content' => json_encode(['original_shot' => $shot, 'shot_duration_rule' => ShortDramaShotDuration::modelRule($rule)], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
             for ($attempt = 0; $attempt < 2; $attempt++) {
                 $reply = [];
                 try {
                     $reply = $call($unit . '_dialogue_split_' . $index . '_' . $attempt, $input, 6000,
-                        static fn($reply) => self::validate($shot, $reply, $partRule, $locked));
-                    $segments = self::validate($shot, $reply, $partRule, $locked);
+                        static fn($reply) => self::validate($shot, $reply, $rule, $locked));
+                    $segments = self::validate($shot, $reply, $rule, $locked);
                     break;
                 } catch (RuntimeException $error) {
                     // Do not let the outer generator mistake a truncated split for a
@@ -96,26 +78,11 @@ final class ShortDramaDialogueSplit
             // These prompts describe the unsplit shot. The normal downstream builder regenerates them.
             unset($shot['image_prompt'], $shot['video_prompt'], $shot['negative_prompt'], $shot['time_range'], $shot['start_seconds'], $shot['end_seconds']);
             $baseId = (string)$shot['shot_id'];
-            $spokenPrefix = '';
             if (mb_strlen($baseId) > 36) $baseId = mb_substr($baseId, 0, 26) . '_' . substr(hash('sha256', $baseId), 0, 6);
             foreach ($segments as $number => $segment) {
-                // A later fragment may continue the second speaker's turn.
-                // Derive its attribution from the original ordered role labels.
-                $speaker = (string)($shot['voice_role'] ?? '');
-                $probe = $spokenPrefix . $segment['dialogue'];
-                if (preg_match_all('/(?:^|\n)\s*([^：:\n]{1,20})[：:]/u', $probe, $labels, PREG_OFFSET_CAPTURE)) {
-                    $offset = strlen($spokenPrefix);
-                    foreach ($labels[0] as $i => $label) {
-                        if ($label[1] > $offset && trim(substr($probe, $offset, $label[1] - $offset)) !== '') break;
-                        $speaker = trim($labels[1][$i][0]);
-                    }
-                }
-                $spokenPrefix .= $segment['dialogue'];
                 $output[] = array_replace($shot, $segment, [
                     'shot_id' => $baseId . '_p' . ($number + 1),
                     'split_source_shot_id' => (string)$shot['shot_id'],
-                    'voice_role' => trim($segment['dialogue']) === '' ? '' : $speaker,
-                    'speech_type' => trim($segment['dialogue']) === '' ? 'none' : ($shot['speech_type'] ?? 'character'),
                 ]);
             }
         }
@@ -136,7 +103,7 @@ final class ShortDramaDialogueSplit
                 || !is_string($part['composition'] ?? null) || !is_string($part['camera_movement'] ?? null)
                 || !is_string($part['action'] ?? null) || !is_string($part['result'] ?? null) || !is_string($part['sound_effect'] ?? null)
                 || !ShortDramaShotDuration::contains($part['recommended_duration_seconds'] ?? null, $rule)) throw new RuntimeException('拆镜字段或时长不合法', 409);
-            if (self::requiredSeconds($part['dialogue'], $rule) > (float)$part['recommended_duration_seconds']) throw new RuntimeException('拆分后的完整台词仍超过片段时长', 409);
+            if (self::requiredSeconds($part['dialogue']) > (float)$part['recommended_duration_seconds']) throw new RuntimeException('拆分后的完整台词仍超过片段时长', 409);
             if ($index < count($parts) - 1 && trim($part['dialogue']) !== ''
                 && !preg_match('/[。！？!?；;，,：:\n][”’"\x27）)】\]]*\s*$/u', $part['dialogue'])) {
                 throw new RuntimeException('请在原台词的句末或分句停顿处分镜，不能从词语中间切开', 409);

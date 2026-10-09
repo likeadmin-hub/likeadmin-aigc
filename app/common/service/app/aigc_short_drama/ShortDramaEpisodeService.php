@@ -101,7 +101,6 @@ class ShortDramaEpisodeService
             $task = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'task_id' => $taskId, 'status' => 'success', 'delete_time' => 0])->lock(true)->findOrEmpty();
             if ($task->isEmpty()) throw new Exception('请等待大纲生成完成');
             $request = self::decode($task['request_json']);
-            ShortDramaRetiredTask::assertWritable($request);
             $plan = self::decode($task['result_json']);
             if (ShortDramaStoryWorkflow::enabled($request)) {
                 if (ShortDramaStoryDraft::stage($request) !== 'episodes') throw new Exception('请先确认故事设定并完成分集大纲');
@@ -229,7 +228,6 @@ class ShortDramaEpisodeService
     {
         return self::locked($tenantId, $userId, $id, function (array $row) use ($tenantId, $userId) {
             $outlineRequest = self::outlineRequest($tenantId, $userId, $row);
-            ShortDramaRetiredTask::assertWritable($outlineRequest ?? []);
             $siblings = self::withContinuityStatus($tenantId, $userId, Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId,
                 'project_id' => $row['project_id'], 'delete_time' => 0])->order('episode_number')->select()->toArray());
             $review = false;
@@ -250,7 +248,6 @@ class ShortDramaEpisodeService
                 $old = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id'], 'delete_time' => 0])->findOrEmpty();
                 if (!$old->isEmpty()) {
                     $request = self::decode($old['request_json']);
-                    ShortDramaRetiredTask::assertWritable($request);
                     $previousReviewBase = $request['revision_base_result'] ?? [];
                     $wasBlockReview = !empty($request['_continuity_review_only']);
                     // Failed user revisions must keep their original instruction.
@@ -507,7 +504,7 @@ class ShortDramaEpisodeService
                 $first = self::nextInitialEpisode($rows);
                 $selected = $first && empty($first['needs_review']) && in_array($first['status'], ['pending', 'running'], true) ? $first : null;
                 if (!$selected) continue;
-                $selected = self::executionEpisode($selected);
+                $selected = array_replace($selected, Db::name(self::TABLE)->where('id', $selected['id'])->field('outline_json')->find() ?: []);
                 if ((int)$selected['queue_job_id'] === 0) self::queueJob($t, $u, $p, (int)$selected['id'], (int)$selected['attempt_number']);
                 $queueMessage = ShortDramaRedisQueue::claim(gethostname() . '-' . getmypid(), 1);
                 if ($queueMessage && (int)($queueMessage['data']['episode_id'] ?? 0) !== (int)$selected['id']) {
@@ -531,16 +528,6 @@ class ShortDramaEpisodeService
         return $exported;
     }
 
-    /** Hydrate only the selected episode, preserving its complete execution contract. */
-    private static function executionEpisode(array $selected): array
-    {
-        $row = Db::name(self::TABLE)->where(['id' => $selected['id'], 'tenant_id' => $selected['tenant_id'],
-            'user_id' => $selected['user_id'], 'project_id' => $selected['project_id'], 'delete_time' => 0])
-            ->withoutField('result_json,series_json')->find();
-        if (!$row) throw new Exception('剧集不存在或已删除');
-        return array_replace($selected, $row);
-    }
-
     private static function run(int $tenantId, int $userId, array $row, array $siblings, string $leaseToken = ''): void
     {
         try {
@@ -550,8 +537,6 @@ class ShortDramaEpisodeService
                 $outlineTask = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['outline_task_id'], 'delete_time' => 0])->findOrEmpty();
                 if ($outlineTask->isEmpty()) throw new Exception('原始大纲不存在');
                 $snapshot = self::decode(Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'project_id' => $row['project_id'], 'episode_number' => 1, 'delete_time' => 0])->value('series_json'));
-                ShortDramaRetiredTask::assertWritable((array)($snapshot['request'] ?? []));
-                ShortDramaRetiredTask::assertWritable(self::decode($outlineTask['request_json']));
                 $previous = [];
                 foreach ($siblings as $sibling) {
                     if ((int)$sibling['episode_number'] < (int)$row['episode_number'] && (int)$sibling['completed_once']) {
@@ -591,11 +576,7 @@ class ShortDramaEpisodeService
             $data = AigcShortDramaService::streamScriptPlan($tenantId, $userId,
                 ['project_id' => $row['production_project_id'], 'task_id' => $row['task_id']],
                 static function ($event, $data) use ($row) {
-                    if (in_array($event, ['stage', 'heartbeat'], true)) {
-                        $update=['heartbeat_at'=>time(),'update_time'=>time()];
-                        if ($event==='stage' && isset($data['progress'])) $update['progress']=max(0,min(99,(int)$data['progress']));
-                        Db::name(self::TABLE)->where(['id'=>$row['id'],'task_id'=>$row['task_id'],'delete_time'=>0])->update($update);
-                    }
+                    if (in_array($event, ['stage', 'heartbeat'], true)) Db::name(self::TABLE)->where(['id' => $row['id'], 'task_id' => $row['task_id'], 'delete_time' => 0])->update(['progress' => max(0, min(99, (int)($data['progress'] ?? 0))), 'heartbeat_at' => time(), 'update_time' => time()]);
                 }, true);
             $task = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id']])->findOrEmpty()->toArray();
             if (!in_array($task['status'] ?? '', ['success', 'failed', 'canceled'], true)) return;

@@ -88,9 +88,8 @@ class ShortDramaSubjectMentionTest extends TestCase
 
         foreach (['buildCompactScriptPlanPrompt', 'buildScriptPlanPrompt'] as $builder) {
             $prompt = $this->call($builder, '@美女 与帅哥海边邂逅', $request, '测试剧本');
-            self::assertMatchesRegularExpression('/identical name(?: and|,) library_subject_id/', $prompt);
-            self::assertMatchesRegularExpression('/never rename/i', $prompt);
-            self::assertStringContainsString('subject_references', $prompt);
+            self::assertStringContainsString('generic Chinese description', $prompt);
+            self::assertStringContainsString('identical name and library_subject_id', $prompt);
             self::assertStringContainsString('"name":"美女"', $prompt);
         }
 

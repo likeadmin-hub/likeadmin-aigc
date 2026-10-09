@@ -48,27 +48,6 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
         $this->expectExceptionCode(409);
         Unit::call(2000000719, 7, $this->task, 'v3_script', ['content' => 'changed'], $provider);
     }
-    public function testEpisodeBudgetSurvivesReplayAndKeepsTenantScope(): void
-    {
-        $scope=['tenant_id'=>2000000719,'user_id'=>7,'task_id'=>$this->task];
-        Db::name('aigc_short_drama_script_task')->insert($scope+['status'=>'running','request_json'=>json_encode(['_input_contract_version'=>9])]);
-        $receipt=['result'=>['content'=>'{"ok":true}']];
-        Unit::call(2000000719,7,$this->task,'accepted',[],static fn()=>$receipt);
-        for($i=0;$i<95;$i++)Db::name('aigc_short_drama_planning_unit')->insert($scope+['unit_key'=>'spent_'.$i,'status'=>'received','attempt'=>1]);
-        self::assertSame($receipt,Unit::call(2000000719,7,$this->task,'accepted',[],static function(){self::fail('Receipt replay was charged');}));
-        Unit::call(2000000720,7,$this->task,'other_tenant',[],static fn()=>$receipt);
-        try{Unit::call(2000000719,7,$this->task,'next',[],static function(){self::fail('Durable budget was bypassed');});self::fail('Budget must reject new call');}
-        catch(\RuntimeException $error){self::assertSame(429,$error->getCode());}
-        self::assertSame(96,Db::name('aigc_short_drama_planning_unit')->where($scope)->where('attempt','>',0)->count());
-    }
-    public function testLongStageKeysCanBeAuditedBeforeProviderSubmission(): void
-    {
-        $stage='v3_policy2_unified_v9_constraint_evidence_'.str_repeat('a',70);
-        \app\common\service\app\aigc_short_drama\ShortDramaPromptWorkspace::recordRequest(2000000719,7,$this->task,$stage,['revision'=>0]);
-        $row=Db::name('aigc_short_drama_prompt_request')->where('task_id',$this->task)->find();
-        self::assertSame(40,mb_strlen($row['stage']));
-        self::assertSame($stage,json_decode($row['audit_json'],true)['stage_key']);
-    }
     public function testAmbiguousReadTimeoutDoesNotAutomaticallyResubmit(): void
     {
         $calls = 0;

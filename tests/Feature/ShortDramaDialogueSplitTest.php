@@ -45,9 +45,9 @@ class ShortDramaDialogueSplitTest extends TestCase
         self::assertEquals(22,array_sum(array_column($result['storyboard'],'recommended_duration_seconds')));
     }
     public function testConfiguredMaximumAndLegacyTasksRemainDistinct(): void {
-        $request=$this->request();$request['shot_duration_rule']=['max_seconds'=>30];$shot=$this->shot(60);
+        $request=$this->request();$request['shot_duration_rule']=['max_seconds'=>30];$shot=$this->shot();
         $result=Split::adapt(['storyboard'=>[$shot]],$request,static function(){self::fail('Within tenant maximum');},'test');
-        self::assertCount(1,$result['storyboard']);self::assertEquals(11,$result['storyboard'][0]['recommended_duration_seconds']);
+        self::assertCount(1,$result['storyboard']);self::assertEquals(21,$result['storyboard'][0]['recommended_duration_seconds']);
         $request['_input_contract_version']=1;
         self::assertSame(['storyboard'=>[$shot]],Split::adapt(['storyboard'=>[$shot]],$request,static function(){self::fail('Legacy');},'test'));
     }
@@ -116,28 +116,5 @@ class ShortDramaDialogueSplitTest extends TestCase
         },null);
         self::assertSame(['00:05-00:15','00:15-00:27'],array_column($result['storyboard'],'time_range'));
         foreach($result['storyboard'] as $part){self::assertLessThanOrEqual(40,mb_strlen($part['shot_id']));self::assertSame('说话',$part['action']);}
-    }
-
-    public function testDialogueOverFourteenSecondsSplitsEvenWhenModelAllowsThirty(): void {
-        $request=$this->request();$request['_input_contract_version']=8;$request['shot_duration_rule']=['max_seconds'=>30];
-        $shot=$this->shot();$shot['dialogue']='甲：'.str_repeat('甲',40).'。' . "\n" . '乙：'.str_repeat('乙',40).'。';
-        $shot['recommended_duration_seconds']=15;
-        $result=Split::adapt(['storyboard'=>[$shot]],$request,static function($key,$input){
-            $parts=json_decode($input['content'],true)['locked_segments'];
-            return ['segments'=>array_map(static fn($p)=>['index'=>$p['index'],'visual_description'=>'角色承接上一句说话'], $parts)];
-        },'test');
-        self::assertCount(2,$result['storyboard']);
-        self::assertSame($shot['dialogue'],implode('',array_column($result['storyboard'],'dialogue')));
-        self::assertSame(['甲','乙'],array_column($result['storyboard'],'voice_role'));
-        foreach($result['storyboard'] as $part) self::assertLessThanOrEqual(14,Split::requiredSeconds($part['dialogue']));
-    }
-
-    public function testExactlyFourteenSecondsNeedsNoSplitAndExistingVideoIsProtected(): void {
-        $shot=$this->shot(78);$shot['recommended_duration_seconds']=14;
-        $result=Split::adapt(['storyboard'=>[$shot]],$this->request(),static function(){self::fail('Exactly14');},'test');
-        self::assertCount(1,$result['storyboard']);
-        $shot=$this->shot();$shot['video_url']='saved-video';
-        $this->expectExceptionMessage('已有图片或视频');
-        Split::adapt(['storyboard'=>[$shot]],$this->request(),static function(){self::fail('Keep saved media');},'test');
     }
 }
