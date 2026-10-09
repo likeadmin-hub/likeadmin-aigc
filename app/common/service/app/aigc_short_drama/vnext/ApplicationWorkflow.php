@@ -27,6 +27,10 @@ final class ApplicationWorkflow
         $lease = (int)($execution['lease_seconds'] ?? 0);
         $deadline = (int)($execution['deadline_seconds'] ?? 0);
         if ($timeout < 10 || $lease <= $timeout || $deadline <= $lease) throw new RuntimeException('新生成流程的模型执行策略尚未配置完整', 422);
+        if (array_key_exists('resource_limits', $execution)) {
+            if (!is_array($execution['resource_limits'])) throw new RuntimeException('任务资源预算配置无效', 422);
+            ResourceBudget::create($execution['resource_limits']);
+        }
         return $execution;
     }
 

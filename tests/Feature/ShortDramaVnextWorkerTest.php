@@ -31,7 +31,8 @@ final class ShortDramaVnextWorkerTest extends TestCase
                 'prompt' => '保留结尾', 'request_json' => json_encode($request), 'result_json' => '{}']);
             $input = Workflow::input($tenant, $user, $project, $task, $request,
                 ['id' => 'frozen_model', 'context_window' => 32768, 'max_output_tokens' => 8192],
-                ['stage_timeout_seconds' => 100, 'lease_seconds' => 150, 'deadline_seconds' => 1800]);
+                ['stage_timeout_seconds' => 100, 'lease_seconds' => 150, 'deadline_seconds' => 1800,
+                    'resource_limits' => ['total_tokens' => 150000, 'tenant_cost_points' => 8, 'user_charge_points' => 16]]);
             $store = Workflow::store($tenant, $user, $task); $store->create('project:' . $project, $input, time() + 1800);
             // Rollback of enrollment must not reroute already saved jobs into the old engine.
             \think\facade\Config::set(['vnext' => ['enabled' => false]], 'short_drama');
@@ -58,7 +59,10 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertSame('frozen_model', Provider::$requests[0]['model_selection']['id']);
             $saved = Db::name('aigc_short_drama_script_task')->where('task_id', $task)->find();
             self::assertSame('6.00', $saved['user_charge_points']);
-            self::assertSame(6, json_decode($store->snapshot()['budget_json'], true)['user_points']);
+            $budget = json_decode($store->snapshot()['budget_json'], true);
+            self::assertSame(6, $budget['user_points']);
+            self::assertSame(['total_tokens' => 90, 'tenant_cost_points' => 3000000, 'user_charge_points' => 6000000], $budget['resources']['spent']);
+            self::assertSame([], $budget['resources']['holds']);
             $second = Service::scriptPlanDetail($tenant, $user, $task, $project);
             self::assertSame($result['result'], $second['result']);
             $readVersion = new \ReflectionMethod(Service::class, 'currentPlanVersion'); $readVersion->setAccessible(true);
