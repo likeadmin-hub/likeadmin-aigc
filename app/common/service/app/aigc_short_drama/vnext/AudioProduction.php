@@ -37,8 +37,31 @@ final class AudioProduction
     public static function summary(int $tenant, int $user, int $project, array $candidate): array
     {
         $segments = AudioHandoff::segments($candidate); $assets = self::assets($tenant, $user, $project, $segments);
+        $suggested = array_fill_keys(array_column($candidate['shot_plan']['shots'], 'shot_id'), 3.0); $firstShots = []; $voiceByShot = [];
+        foreach ($candidate['shot_plan']['shots'] as $shot) foreach ($shot['unit_refs'] as $ref) if (!isset($firstShots[$ref['unit_id']])) $firstShots[$ref['unit_id']] = $shot['shot_id'];
+        foreach ($segments as $segment) if (isset($assets[$segment['audio_segment_id']], $firstShots[$segment['unit_id']])) {
+            $id = $firstShots[$segment['unit_id']]; $voiceByShot[$id] = ($voiceByShot[$id] ?? 0) + $assets[$segment['audio_segment_id']]['duration_seconds'];
+        }
+        foreach ($voiceByShot as $id => $seconds) $suggested[$id] = max($suggested[$id], $seconds);
+        $identities = [];
+        foreach ($assets as $id => $asset) $identities[$id] = array_intersect_key($asset, array_flip(['id', 'duration_seconds', 'checksum', 'trace_hash']));
         return ['revision_id' => $candidate['document']['revision_id'], 'document_hash' => $candidate['document']['content_hash'],
-            'total' => count($segments), 'ready' => count($assets), 'status' => count($assets) === count($segments) ? 'ready' : 'waiting_recordings'];
+            'total' => count($segments), 'ready' => count($assets), 'status' => count($assets) === count($segments) ? 'ready' : 'waiting_recordings',
+            'recordings_hash' => ContentDocument::hash($identities), 'suggested_shot_seconds' => $suggested,
+            'voice_seconds' => array_sum(array_column($assets, 'duration_seconds'))];
+    }
+
+    /** Read-only planning preview: no provider submission, reserve, settlement or publication. */
+    public static function preview(int $tenant, int $user, array $params): array
+    {
+        $project = (int)($params['project_id'] ?? 0); $task = (string)($params['task_id'] ?? '');
+        $candidate = self::context($tenant, $user, $project, $task);
+        if (($params['expected_revision_id'] ?? '') !== $candidate['document']['revision_id']) throw new RuntimeException('正文版本已变化，请刷新制作计划', 409);
+        $seconds = $params['shot_timings'] ?? null;
+        if (!is_array($seconds)) throw new RuntimeException('请提交各分镜的画面时长', 422);
+        $recordings = self::assets($tenant, $user, $project, AudioHandoff::segments($candidate));
+        $timeline = AudioTimeline::compile($candidate, $recordings, $seconds);
+        return ['task_id' => $task, 'preview_only' => true, 'production_timeline' => $timeline];
     }
 
     /** Upload and FFprobe run outside locks. The final revision check and registration are atomic. */

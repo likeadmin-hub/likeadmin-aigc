@@ -148,6 +148,20 @@ final class ShortDramaVnextAudioProductionTest extends TestCase
             } catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
             self::assertSame(1, Db::name('aigc_short_drama_asset')->where($scope + ['project_id' => $project, 'asset_type' => 'shot_audio'])->count());
             self::assertSame($segment['text'], AudioProduction::page($tenant, $user, $project, $task, 1)['records'][0]['text'], 'Historical audio stays readable');
+            Db::name('aigc_short_drama_project')->where($scope + ['id' => $project])->update(['last_task_id' => $task]);
+            $timings = array_combine(array_column($candidate['shot_plan']['shots'], 'shot_id'), [2, 5]);
+            $previewParams = ['project_id' => $project, 'task_id' => $task, 'task_type' => 'shot_video', 'production_timeline_preview' => 1,
+                'expected_revision_id' => 'audio-r1', 'shot_timings' => $timings];
+            try { Service::estimateShotGenerationTask($tenant, $user, $previewParams); self::fail('Unrecorded narration accepted'); }
+            catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
+            AudioProduction::register($tenant, $user, $params, $file, $ffprobe, $persist);
+            $before = Db::name('ai_consumption_log')->where($scope)->count();
+            $preview = Service::estimateShotGenerationTask($tenant, $user, $previewParams);
+            self::assertTrue($preview['preview_only']); self::assertCount(2, $preview['production_timeline']['audio']);
+            self::assertSame(7.0, $preview['production_timeline']['duration_seconds']);
+            self::assertSame(3.123375, $preview['production_timeline']['audio'][0]['end_seconds']);
+            self::assertSame(6.24675, $preview['production_timeline']['audio'][1]['end_seconds']);
+            self::assertSame($before, Db::name('ai_consumption_log')->where($scope)->count(), 'Preview never reserves or submits');
         } finally { Db::rollback(); if (is_file($path)) unlink($path); if (is_dir($path . '_receipts')) rmdir($path . '_receipts'); }
     }
 }

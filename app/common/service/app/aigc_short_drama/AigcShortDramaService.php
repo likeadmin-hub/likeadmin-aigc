@@ -7122,6 +7122,9 @@ class AigcShortDramaService
         if ($taskId === '') {
             $taskId = (string)($project['last_task_id'] ?? '');
         }
+        if (!empty($params['production_timeline_preview'])) {
+            return vnext\AudioProduction::preview($tenantId, $userId, array_replace($params, ['task_id' => $taskId]));
+        }
         $canonical = self::canonicalImageRequest($tenantId, $userId, $project->toArray(), $taskId, $taskType, $params);
         if ($canonical !== null) {
             $canonical = self::normalizeShortDramaImageChannelParams($tenantId, $canonical);
