@@ -12,5 +12,6 @@ return [
     // Optional per-model execution.resource_limits (frozen in each new job): total_tokens,
     // tenant_cost_points, user_charge_points. All three are required together; points use 6 decimals.
     // Budgeted models must publish input/context AND output limits. No implicit unlimited fallback.
+    // New budgeted jobs also freeze account_reservation_version=1. Existing jobs/snapshots retain 0.
     'vnext' => ['enabled' => false, 'series_enabled' => false, 'attachment_enabled' => false, 'canvas_series_enabled' => false, 'tenant_ids' => [], 'models' => []],
 ];
