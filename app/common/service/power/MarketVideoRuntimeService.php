@@ -2297,6 +2297,15 @@ class MarketVideoRuntimeService
     }
     private static function generationModes(array $product, array $meta): array
     {
+        $modes=self::declaredGenerationModes($product,$meta);
+        $overrides=MarketModelCapabilities::overrides($product);
+        if(($overrides['supports_first_last_frame']??null)===false)$modes=array_values(array_diff($modes,['start_end']));
+        if(array_key_exists('input_modes',$overrides))$modes=array_values(array_intersect($modes,$overrides['input_modes']));
+        return $modes;
+    }
+
+    private static function declaredGenerationModes(array $product, array $meta): array
+    {
         $isH3 = self::isH3Product($product);
         $supportsStartEndFrames = self::supportsStartEndFrames($product);
         $cap = self::arrayValue($meta['capabilities'] ?? []);
