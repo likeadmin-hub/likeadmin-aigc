@@ -17,20 +17,25 @@ final class ExecutionStore
     }
     public function create(string $lane, array $input, int $deadline, int $baseCalls = 3): array
     {
-        if ($deadline <= time() || $baseCalls < 1 || strlen($lane) > 64 || $lane === '') throw new RuntimeException('执行计划或截止时间无效', 422);
+        if ($baseCalls < 1 || strlen($lane) > 64 || $lane === '') throw new RuntimeException('执行计划无效', 422);
         return Db::transaction(function () use ($lane, $input, $deadline, $baseCalls): array {
             $job = $this->query('job')->lock(true)->find();
             if ($job) {
                 if ($job['input_hash'] !== ContentDocument::hash($input) || $job['lane_key'] !== $lane) throw new RuntimeException('生成上下文已变化，请建立新修订', 409);
                 return $job;
             }
+            if ($deadline <= time()) throw new RuntimeException('执行计划截止时间已过', 422);
             $extra = $baseCalls === 3 ? 5 : min(12, max(5, (int)ceil($baseCalls / 2)));
             $row = $this->scope + ['lane_key' => $lane, 'input_hash' => ContentDocument::hash($input), 'input_json' => self::json($input),
                 'budget_json' => self::json(['base_calls' => $baseCalls, 'call_limit' => $baseCalls + $extra, 'calls' => 0,
                     'repair_rounds' => 0, 'reservations' => [], 'input_tokens' => 0, 'output_tokens' => 0,
                     'provider_cost' => 0, 'user_points' => 0, 'elapsed_ms' => 0]),
                 'deadline_at' => $deadline, 'create_time' => time(), 'update_time' => time()];
-            $this->query('job')->insert($row);
+            try { $this->query('job')->insert($row); }
+            catch (\Throwable $error) {
+                if (str_contains($error->getMessage(), 'Duplicate entry')) throw new RuntimeException('本集已有生成或修订作业，请先处理当前作业', 409, $error);
+                throw $error;
+            }
             return $this->snapshot();
         });
     }
@@ -166,7 +171,11 @@ final class ExecutionStore
         if (($coverage['status'] ?? '') !== 'ready' || ($coverage['document_hash'] ?? '') !== $document['content_hash'] || ($coverage['shot_hash'] ?? '') !== $plan['content_hash']) throw new RuntimeException('当前修订尚未通过完整验收', 422);
         Db::transaction(function () use ($fence, $document, $plan, $coverage): void {
             $job = $this->job();
-            if ($job['execution_status'] === 'succeeded' && $job['published_revision_id'] === $document['revision_id']) return;
+            if ($job['execution_status'] === 'succeeded' && $job['published_revision_id'] === $document['revision_id']) {
+                $published = self::decode($job['candidate_json']);
+                if (($published['document']['content_hash'] ?? '') !== $document['content_hash'] || ($published['shot_plan']['content_hash'] ?? '') !== $plan['content_hash']) throw new RuntimeException('同一修订标识不能覆盖已发布内容', 409);
+                return;
+            }
             $this->assertFence($job, $fence); $sequence = (int)$job['event_seq'] + 1;
             $document['status'] = 'ready'; $payload = ['document' => $document, 'shot_plan' => $plan, 'coverage_report' => $coverage];
             $this->query('revision')->insert($this->scope + ['revision_id' => $document['revision_id'], 'document_hash' => $document['content_hash'], 'content_json' => self::json($payload), 'create_time' => time()]);
