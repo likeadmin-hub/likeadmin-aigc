@@ -53,7 +53,7 @@ final class GenerationPipeline
         };
         // A server-validated structured import is already creative content, not an invitation to rewrite it.
         $document = $context['canonical_input'] ?? (isset($context['structured_screenplay'])
-            ? ContentDocument::normalize($context['structured_screenplay'], $context)
+            ? (isset($context['attachment_import']) ? AttachmentScreenplay::document($context) : ContentDocument::normalize($context['structured_screenplay'], $context))
             : ($screenplayVersion === SceneScreenplayExecution::VERSION && isset($sceneExecution['screenplay_plan'])
                 ? SceneScreenplayExecution::run($context, $call, $checkpoint, $sceneExecution)
                 : $call('screenplay', self::creativeContext($context), self::screenplayInstruction($context), static fn($reply) => ContentDocument::normalize($reply, $context))));
