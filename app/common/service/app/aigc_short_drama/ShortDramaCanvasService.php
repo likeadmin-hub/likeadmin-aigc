@@ -515,6 +515,7 @@ class ShortDramaCanvasService
 
     private static function executeGenerationPayload(string $type,int $tenantId,int $userId,array $payload): array
     {
+        unset($payload['_canonical_canvas']); // Internal provenance is never an upstream prompt/config field.
         return match ($type) {
             'text'=>AigcLlmService::generateText($tenantId,$userId,$payload),
             'image'=>($payload['operation']??'')==='local_redraw'
@@ -733,7 +734,8 @@ class ShortDramaCanvasService
                     'asset_type' => 'canvas_' . $type, 'title' => (string)($canvas['title'] ?? '画布') . ' · ' . ($type === 'image' ? '图片' : ($type === 'video' ? '视频' : '音频')) . ((int)$index + 1),
                     'uri' => $uri, 'cover_uri' => '', 'storage_scope' => (string)($item['storage_scope'] ?? 'tenant'), 'storage_engine' => (string)($item['storage_engine'] ?? 'local'), 'storage_domain' => (string)($item['storage_domain'] ?? ''),
                     'mime_type' => $type === 'image' ? 'image/png' : ($type === 'video' ? 'video/mp4' : 'audio/mpeg'), 'file_size' => 0, 'width' => (int)($item['width'] ?? 0), 'height' => (int)($item['height'] ?? 0), 'duration' => (float)($item['duration'] ?? 0), 'checksum' => '',
-                    'meta_json' => json_encode(['source' => 'short_drama_canvas', 'canvas_id' => (int)$run['canvas_id'], 'canvas_run_id' => (int)$run['id'], 'provider_task_id' => $providerTaskId], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'status' => 'ready', 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
+                    'meta_json' => json_encode(['source' => 'short_drama_canvas', 'canvas_id' => (int)$run['canvas_id'], 'canvas_run_id' => (int)$run['id'], 'provider_task_id' => $providerTaskId]
+                        + (isset($request['_canonical_canvas'])?['canonical_canvas'=>$request['_canonical_canvas']]:[]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'status' => 'ready', 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
                 ]);
             } else $assetId = (int)$asset['id'];
             $assetIds[] = $assetId;
@@ -907,6 +909,8 @@ class ShortDramaCanvasService
      * or turn an idempotent retry into a different paid request. */
     private static function withAgentSubmissionTemplate(array $document,string $nodeId,string $type,array $params,int $tenantId,int $userId): array
     {
+        $params=self::withCanonicalProduction($document,$nodeId,$type,$params,$tenantId,$userId);
+        if (isset($params['_canonical_canvas'])) return $params;
         if (!in_array($type,['image','video'],true)) return $params;
         $target=null;
         foreach (self::decode((string)($document['nodes_json']??'[]')) as $node) {
@@ -965,6 +969,57 @@ class ShortDramaCanvasService
         ];
         $params['prompt']=AigcShortDramaService::canvasAgentSubmissionPrompt($tenantId,$snapshot,$artifact,$prompt,$templateContext);
         $params['content']=$params['prompt'];
+        return $params;
+    }
+
+    /** Canonical production may use only exact, owned identity/state references. */
+    private static function withCanonicalProduction(array $document,string $nodeId,string $type,array $params,int $tenant,int $user): array
+    {
+        unset($params['_canonical_canvas']);
+        $nodes=[]; $target=null;
+        foreach (self::decode((string)$document['nodes_json']) as $node) {
+            $nodes[(string)$node['id']]=$node;
+            if ((string)$node['id']===$nodeId) $target=$node;
+        }
+        $candidate=\app\common\service\app\aigc_short_drama\vnext\CanvasProductionProjection::assertNode($tenant,$user,$target??[]);
+        if ($candidate===null) return $params;
+        if ($type!=='image' || (int)($params['skill_id']??0)>0 || ($params['operation']??'')==='local_redraw') throw new Exception('规范制作节点请使用已保存剧本的图片制作输入');
+        $binding=$target['metadata']['canonical_binding'];
+        if (trim((string)($params['prompt']??$params['content']??''))!==trim((string)$target['metadata']['prompt'])) throw new Exception('制作文字已变化，请先保存剧本修订并重新准备节点');
+        $targets=\app\common\service\app\aigc_short_drama\vnext\ImageHandoff::targets($candidate,$binding['style']);
+        $byId=array_column($targets,null,'target_id'); $references=[]; $bindings=[];
+        foreach (self::decode((string)$document['edges_json']) as $edge) {
+            if ((string)($edge['to']??'')!==$nodeId || ($edge['kind']??'reference')!=='reference') continue;
+            $source=$nodes[(string)($edge['from']??'')]??[]; $meta=(array)($source['metadata']??[]); $ref=$meta['canonical_binding']??null;
+            if (!is_array($ref) || !in_array($ref['artifact']??'',['subject','scene'],true)) continue;
+            $id=$ref['target_id']??'';
+            if (!isset($byId[$id]) || ($ref['state_hash']??'')!==$byId[$id]['state_hash'] || ($ref['style']??null)!==$binding['style']
+                || ($meta['status']??'')!=='success' || (int)($meta['asset_id']??0)<=0) continue;
+            $asset=Db::name('aigc_short_drama_asset')->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>(int)$meta['asset_id'],'status'=>'ready','delete_time'=>0])->find();
+            if (!$asset || !in_array((int)$asset['canvas_id'],[0,(int)$document['id']],true)) continue;
+            $receipt=self::decode((string)$asset['meta_json'])['canonical_canvas']??[];
+            if (($receipt['binding']['target_id']??'')!==$id || ($receipt['binding']['state_hash']??'')!==$ref['state_hash']
+                || ($receipt['binding']['artifact']??'')!==$ref['artifact'] || ($receipt['binding']['style']??null)!==$binding['style']) continue;
+            \app\common\service\app\aigc_short_drama\vnext\ImageHandoff::assertIntact((array)($receipt['image_input']??[]));
+            // Reference URLs and storage metadata are resolved again from the owned asset table.
+            $references[$id]=['asset_id'=>(int)$meta['asset_id'],'type'=>'image','role'=>'reference'];
+            $bindings[$id]=['asset_id'=>(int)$meta['asset_id'],'entity_id'=>$id,'state_hash'=>$ref['state_hash']];
+        }
+        $artifact=$binding['artifact']; $id=$binding['target_id'];
+        $taskType=match($artifact) {'subject','three_view'=>'subject_image','scene'=>'scene_image','storyboard'=>'shot_image',default=>throw new Exception('规范画布制作类型无效')};
+        $input=\app\common\service\app\aigc_short_drama\vnext\ImageHandoff::compile($candidate,$binding['style'],$taskType,$id,$binding['document_revision_id'],$bindings);
+        $needed=$artifact==='three_view'?[$id]:($artifact==='storyboard'?$byId[$id]['entity_ids']:[]);
+        foreach ($needed as $entity) if (!isset($references[$entity])) throw new Exception('请先完成此制作节点对应的主体和场景图片');
+        $params['reference_assets']=array_values(array_intersect_key($references,array_flip($needed)));
+        $params['reference_images']=[]; $params['count']=1; $params['quantity']=1;
+        // Three-view has an additional immutable instruction and the same canonical subject identity.
+        $input['prompt']=(string)$target['metadata']['prompt'];
+        $input['trace']['prompt_hash']=hash('sha256',$input['prompt']);
+        $input['trace']['canvas_artifact']=$artifact;
+        $input['trace']['canvas_reference_bindings']=array_values(array_intersect_key($bindings,array_flip($needed)));
+        unset($input['input_hash']);
+        $input['input_hash']=\app\common\service\app\aigc_short_drama\vnext\ContentDocument::hash($input);
+        $params['_canonical_canvas']=['binding'=>$binding,'image_input'=>$input];
         return $params;
     }
 
@@ -1085,6 +1140,7 @@ class ShortDramaCanvasService
         foreach (['quality', 'resolution', 'negative_prompt'] as $key) {
             if (isset($params[$key])) $payload[$key] = (string)$params[$key];
         }
+        if (isset($params['_canonical_canvas'])) $payload['_canonical_canvas']=$params['_canonical_canvas'];
         return array_filter($payload, static fn($value) => $value !== '' && $value !== 0 || is_array($value));
     }
 

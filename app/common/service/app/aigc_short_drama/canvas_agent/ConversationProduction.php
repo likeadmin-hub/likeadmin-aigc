@@ -12,6 +12,7 @@ use app\common\service\app\aigc_short_drama\ShortDramaCanvasPages;
 use app\common\service\app\aigc_short_drama\vnext\ApplicationWorkflow;
 use app\common\service\app\aigc_short_drama\vnext\AudioProduction;
 use app\common\service\app\aigc_short_drama\vnext\CanvasSeriesBridge;
+use app\common\service\app\aigc_short_drama\vnext\CanvasProductionProjection;
 use app\common\model\app\aigc_short_drama\AigcShortDramaScriptTask;
 use RuntimeException;
 use think\facade\Db;
@@ -82,7 +83,11 @@ final class ConversationProduction
         $request=json_decode((string)$task['request_json'],true)?:[];
         $plan=ShortDramaStoryDraft::effective($request,json_decode((string)$task['result_json'],true)?:[]);
         $snapshot=(array)$workflow['workflow_snapshot']['creative_prompt_snapshot'];
-        $proposals=ConversationSeriesVisuals::proposals($plan,$stage,ConversationSeries::episode($workflow),
+        if (ApplicationWorkflow::current($request)) {
+            $candidate=AudioProduction::context($tenant,$user,(int)$binding['project_id'],$task['task_id']);
+            $proposals=CanvasProductionProjection::proposals($candidate,(int)$binding['project_id'],$task['task_id'],$stage,
+                ConversationSeries::episode($workflow),(string)($workflow['creative_settings']['style_name']??''));
+        } else $proposals=ConversationSeriesVisuals::proposals($plan,$stage,ConversationSeries::episode($workflow),
             static fn($artifact,$item)=>AigcShortDramaService::canvasProductionPrompt($plan,$artifact,$item,$snapshot));
         if (count($proposals)>ConversationSeries::maximum($workflow,$stage)) throw new RuntimeException('CANVAS_CAPACITY_EXCEEDED');
         foreach ($proposals as $proposal) if (mb_strlen($proposal['prompt'])>20000) throw new RuntimeException('CONTEXT_TOO_LARGE');

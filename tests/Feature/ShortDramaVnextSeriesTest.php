@@ -139,6 +139,46 @@ final class ShortDramaVnextSeriesTest extends TestCase
             self::assertSame('success', $list[0]['status'], json_encode($list, JSON_UNESCAPED_UNICODE));
             self::assertSame('pending', $list[1]['status']); self::assertCount(3, Provider::$requests);
             $first = Service::scriptPlanDetail($tenant, $user, $list[0]['task_id']);
+            if ($canvas) {
+                $projection=\app\common\service\app\aigc_short_drama\vnext\CanvasProductionProjection::class;
+                $graphs=\app\common\service\app\aigc_short_drama\canvas_agent\GraphService::class;
+                $intents=\app\common\service\app\aigc_short_drama\canvas_agent\GenerationIntentService::class;
+                $candidate=\app\common\service\app\aigc_short_drama\vnext\AudioProduction::context($tenant,$user,(int)$list[0]['production_project_id'],$list[0]['task_id']);
+                $assetWorkflow=['workflow_snapshot'=>['series_core'=>true], 'stage_state'=>['key'=>'assets'],
+                    'creative_settings'=>['style_name'=>''], 'series'=>['episode_number'=>1,'tasks'=>['episode_1'=>['project_id'=>(int)$list[0]['production_project_id'],'task_id'=>$list[0]['task_id']]]]];
+                $proposals=$projection::proposals($candidate,(int)$list[0]['production_project_id'],$list[0]['task_id'],'assets',1,'');
+                // Subject alone is sufficient for a complete owned intent; no upstream image call occurs.
+                $canvasRow=Db::name($graphs::TABLE)->where('id',$canvasId)->find();
+                $effects=$graphs::appendAgentNodesLocked($canvasRow,[$proposals[0]],[],false,[],0,$assetWorkflow);
+                $canvasRow=Db::name($graphs::TABLE)->where('id',$canvasId)->find();
+                $node=json_decode($canvasRow['nodes_json'],true)[0];$nodeId=(string)$node['id'];
+                $params=['prompt'=>$node['metadata']['prompt'],'channel'=>'fixture-image'];
+                $normalize=new \ReflectionMethod(\app\common\service\app\aigc_short_drama\ShortDramaCanvasService::class,'withAgentSubmissionTemplate');$normalize->setAccessible(true);
+                $params=$normalize->invoke(null,$canvasRow,$nodeId,'image',$params,$tenant,$user);
+                $payloadMethod=new \ReflectionMethod(\app\common\service\app\aigc_short_drama\ShortDramaCanvasService::class,'generationPayload');$payloadMethod->setAccessible(true);
+                $payload=$payloadMethod->invoke(null,'image',$params,$tenant,$user,$canvasId);
+                self::assertSame($proposals[0]['canonical_binding'],$payload['_canonical_canvas']['binding']);
+                $intent=$intents::reserve($tenant,$user,$canvasId,'canvas-binding-fixture',$nodeId,'image',$payload);
+                self::assertSame($intent['id'],$intents::reserve($tenant,$user,$canvasId,'canvas-binding-fixture',$nodeId,'image',$payload)['id']);
+                $claim=$intents::claim($tenant,$user,(int)$intent['id']);self::assertNotNull($claim);
+                $childProject=(int)$list[0]['production_project_id'];
+                // A newer saved revision wins even while an accepted provider result arrives later.
+                Db::name('aigc_short_drama_project')->where('id',$childProject)->update(['last_task_id'=>'newer-revision']);
+                $intents::accepted($tenant,$user,(int)$intent['id'],$claim['claim_token'],(int)$claim['fencing_version'],'fixture-upstream',['results'=>[['url'=>'uploads/fixture.png']]],true);
+                self::assertFalse($intents::projectResult($tenant,$user,(int)$intent['canvas_run_id']));
+                self::assertSame('success',Db::name('aigc_short_drama_canvas_run')->where('id',$intent['canvas_run_id'])->value('status'));
+                self::assertEmpty(json_decode(Db::name($graphs::TABLE)->where('id',$canvasId)->value('nodes_json'),true)[0]['metadata']['image']??'');
+                try {$graphs::appendAgentNodesLocked(Db::name($graphs::TABLE)->where('id',$canvasId)->find(),[$proposals[0]],[],false,[],0,$assetWorkflow);self::fail('Stale plan published');}
+                catch (\RuntimeException $error) {self::assertSame(409,$error->getCode());}
+                Db::name('aigc_short_drama_project')->where('id',$childProject)->update(['last_task_id'=>$list[0]['task_id']]);
+                // A prepared outbox is canceled if its document changes before it is claimed.
+                $secondIntent=$intents::reserve($tenant,$user,$canvasId,'canvas-binding-before-claim',$nodeId,'image',$payload);
+                Db::name('aigc_short_drama_project')->where('id',$childProject)->update(['last_task_id'=>'newer-revision']);
+                self::assertNull($intents::claim($tenant,$user,(int)$secondIntent['id']));
+                self::assertSame('CANONICAL_SOURCE_CHANGED_BEFORE_SUBMIT',Db::name($intents::TABLE)->where('id',$secondIntent['id'])->value('error_code'));
+                Db::name('aigc_short_drama_project')->where('id',$childProject)->update(['last_task_id'=>$list[0]['task_id']]);
+                self::assertCount(3,Provider::$requests,'Canvas projection cannot submit text/image providers or create another charge');
+            }
             if ($withRevision) {
                 $firstInput = json_decode(Provider::$requests[0]['content'], true);
                 self::assertCount(1, $firstInput['input_history'], 'Second-episode instruction must not affect the first');
