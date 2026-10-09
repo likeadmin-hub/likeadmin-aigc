@@ -11,7 +11,9 @@ final class SeriesContext
     public static function capture(int $tenant, int $user, int $project, string $task, array $request, array $plan, array $policy): ?array
     {
         if (empty($policy['series_enabled']) || empty($request['confirmed_story_snapshot'])
-            || !isset($request['confirmed_outline_snapshot']) || ($request['script_source'] ?? '') === 'upload') return null;
+            || !isset($request['confirmed_outline_snapshot'])) return null;
+        $attachment = ($request['script_source'] ?? '') === 'upload';
+        if ($attachment && (empty($policy['attachment_enabled']) || !isset($request['_attachment_source']))) return null;
         $model = (array)($request['model_selections']['script_plan'] ?? []);
         $execution = ApplicationWorkflow::enrollment($tenant, [], $model, $policy, true);
         if ($execution === null) return null;
@@ -39,6 +41,12 @@ final class SeriesContext
             $snapshot['content_trace'] = $plan['content_trace'];
             $snapshot['source'] = $plan['content_trace']['source'];
             $snapshot['source_events'] = PlanningTrace::events($plan['content_trace'], $plan['episodes'], $snapshot['outline_hash']);
+        }
+        if ($attachment) {
+            $package = $request['_attachment_source'];
+            if (($package['tenant_id'] ?? null) !== $tenant || ($package['user_id'] ?? null) !== $user) throw new RuntimeException('附件不属于当前系列用户', 409);
+            foreach ($plan['episodes'] as $episode) AttachmentScreenplay::prepare($package, $episode, $entities);
+            $snapshot['attachment_source'] = $package;
         }
         $snapshot['snapshot_hash'] = ContentDocument::hash($snapshot);
         return $snapshot;
@@ -99,7 +107,13 @@ final class SeriesContext
                 'description' => $entity['description'], 'identity_facts' => $entity['identity_facts'],
                 'aliases' => array_values(array_filter($entity['aliases'], static fn($alias) => !preg_match('/^[clp]\d+$/', $alias)))];
         }
-        return ['snapshot' => $snapshot, 'context' => [
+        $attachmentContext = [];
+        if (isset($snapshot['attachment_source'])) {
+            $import = AttachmentScreenplay::prepare($snapshot['attachment_source'], $outline, $snapshot['entities']);
+            $sources[$import['source']['source_id']] = $import['source'];
+            $attachmentContext = ['attachment_import' => $import, 'structured_screenplay' => $import['screenplay'], 'source_mode' => 'faithful'];
+        }
+        return ['snapshot' => $snapshot, 'context' => array_replace([
             'episode_id' => $episodeId, 'entity_scope' => $snapshot['entity_scope'], 'entities' => $entities,
             'prompt' => $snapshot['source']['text'], 'source_mode' => 'inspiration', 'sources' => $sources, 'requirements' => $requirements, 'events' => $events,
             'confirmed_story' => $snapshot['story'], 'current_episode' => $outline,
@@ -110,7 +124,7 @@ final class SeriesContext
                 'outline' => $snapshot['outline_hash'], 'episodes' => $previous['dependencies'],
                 'series' => ['tenant_id' => $snapshot['tenant_id'], 'user_id' => $snapshot['user_id'],
                     'project_id' => $snapshot['project_id'], 'episode_number' => $number, 'snapshot_hash' => $snapshot['snapshot_hash']]],
-        ] + ($inputHistory ? ['input_history' => $inputHistory] : [])];
+        ] + ($inputHistory ? ['input_history' => $inputHistory] : []), $attachmentContext)];
     }
 
     /** Bulk-read lightweight revision metadata; load complete evidence only for the latest published state. */
