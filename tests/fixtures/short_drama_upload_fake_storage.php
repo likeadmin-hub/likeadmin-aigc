@@ -14,3 +14,12 @@ final class UploadService
         return ['url' => $uri, 'uri' => 'https://fixture.invalid/' . $uri];
     }
 }
+
+namespace app\common\service\power;
+
+/** An unexpected successful projection must fail locally, never cross the provider boundary. */
+final class MarketFileQaAppRuntimeService
+{
+    public static function reserve(...$arguments): array { throw new \LogicException('Provider dispatch is forbidden in extraction persistence fixtures'); }
+    public static function submit(...$arguments): array { throw new \LogicException('Provider dispatch is forbidden in extraction persistence fixtures'); }
+}
