@@ -82,9 +82,9 @@ final class ShortDramaContentAcceptance
         return implode('', $out);
     }
 
-    public static function generate(array $plan, array $request, callable $call, ?ShortDramaRepairBudget $budget = null): array
+    public static function generate(array $plan, array $request, callable $call): array
     {
-        $requirements = self::requirementsForPlan($plan, $request, $call);
+        $requirements = self::requirements($request, $call);
         $beforeNormalization = $plan;
         $plan = ShortDramaShotSemantics::normalize($plan);
         $originalLines = $plan['script_lines'] ?? [];
@@ -111,10 +111,6 @@ final class ShortDramaContentAcceptance
             }
         }
         for ($pass = 0; $pass < 3; $pass++) {
-            // Content repairs may add missing spoken lines. Reconcile their timing
-            // before checking coverage again, rather than rejecting a valid patch
-            // merely because the original generated allocation was too short.
-            $plan = ShortDramaEpisodeTimingRepair::reconcile($plan, $request, $call);
             $report = self::inspect($plan, $requirements, $call);
             if (!$report['issues']) {
                 $plan['content_acceptance'] = ['version'=>self::VERSION,'status'=>'verified','requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
@@ -125,7 +121,6 @@ final class ShortDramaContentAcceptance
                 return $plan;
             }
             if ($pass === 2) throw new RuntimeException('整集内容检查尚未通过：' . implode('；', array_column(array_slice($report['issues'], 0, 3), 'message')) . '。已完成内容和收据保留，可继续修复', 422);
-            if ($budget) $budget->consume('content', $pass + 1);
             foreach (array_chunk($report['issues'], 4) as $issues) {
                 $ids = array_unique(array_merge(...array_column($issues, 'shot_ids')));
                 $shots = array_values(array_filter($plan['storyboard'], static fn($s) => in_array($s['shot_id'], $ids, true)));
@@ -138,34 +133,16 @@ final class ShortDramaContentAcceptance
                         'instruction'=>ShortDramaShotSemantics::INSTRUCTION];
                     $reply = self::call($call, 'repair', $data,
                         '修复已明确发现的剧本问题，保留其他剧情和全部用户指定台词。只返回{"patches":[{"shot_id":"目标ID","field":"字段","before":"原值或原数组","after":"新值或新数组"}],"subject_categories":[{"id":"现有主体ID","before":"原category","after":"character、animal、prop或symbol"}]}。允许字段：' . implode(',', self::FIELDS) . '。speech_type只允许character（角色对白，包括角色朗读信件）、narration（旁白）、none（无声）；interior_exterior只允许interior或exterior。对白必须来自正确人物关系，转述收到问候不等于读出问候原话。不得修改ID、时长、镜头数量、用户素材或已正确的内容。accepted_coverage已覆盖的事件和指定原话必须继续保留；修复缺失时只补缺失，不挪用另一段已正确对白。不删对白凑时长。重复镜头改成自然接续动作，关键事件遗漏利用本集已有镜头表现，禁止新增人物。室内外必须按实际地点，多人对白每行一位角色。',
-                        static function(array $reply) use ($plan, $targets, $request): void {
-                            $candidate = self::apply($plan, $reply, array_column($targets, 'shot_id'), ShortDramaEpisodeTimingRepair::canReconcile($plan, $request));
+                        static function(array $reply) use ($plan, $targets): void {
+                            $candidate = self::apply($plan, $reply, array_column($targets, 'shot_id'));
                             if ($candidate === $plan) throw new RuntimeException('存在未解决问题，修复必须产生有效修改；请针对issues中的具体缺失原因补齐，不能返回空补丁', 422);
                         });
-                    $plan = self::apply($plan, $reply, array_column($targets, 'shot_id'), ShortDramaEpisodeTimingRepair::canReconcile($plan, $request));
+                    $plan = self::apply($plan, $reply, array_column($targets, 'shot_id'));
                     $repairs[] = $reply;
                 }
             }
         }
         return $plan;
-    }
-
-    public static function prepareContract(array $request, callable $call): array
-    {
-        return ['version'=>9, 'source_hash'=>self::sourceHash($request), 'requirements'=>self::requirements($request, $call)];
-    }
-
-    public static function requirementsForPlan(array $plan, array $request, callable $call): array
-    {
-        $contract = (array)($plan['generation_contract'] ?? []);
-        return ($contract['version'] ?? 0) === 9 && ($contract['source_hash'] ?? '') === self::sourceHash($request)
-            && is_array($contract['requirements'] ?? null) ? $contract['requirements'] : self::requirements($request, $call);
-    }
-
-    private static function sourceHash(array $request): string
-    {
-        return hash('sha256', json_encode([$request['prompt'] ?? '', $request['revision_message'] ?? '',
-            $request['episode_number'] ?? 1, $request['series_context']['current_episode'] ?? []], JSON_UNESCAPED_UNICODE));
     }
 
     /** Legacy prose often uses commas as role labels. Recover attribution in
@@ -286,7 +263,7 @@ final class ShortDramaContentAcceptance
                     }
                     foreach ($reply['issues'] as $issue) if (!in_array($issue['code'] ?? '', ['scene_space','speaker','silent','dialogue_instruction','subject_reference','duplicate_action'], true) || !is_string($issue['message'] ?? null) || !is_array($issue['shot_ids'] ?? null) || array_diff($issue['shot_ids'], array_keys($byId))) throw new RuntimeException('问题必须指向当前镜头', 422);
                 });
-            array_push($issues, ...self::verifiedIssues($reply['issues'], $block, $call, $plan['subjects']));
+            array_push($issues, ...self::verifiedIssues($reply['issues'], $block, $call));
             foreach ($reply['checks'] as $check) {
                 $byId = array_column($block, null, 'shot_id');
                 foreach ($check['evidence'] as &$e) {
@@ -356,15 +333,14 @@ final class ShortDramaContentAcceptance
 
     /** Free-form criticism is not permission to rewrite. Independently check
      * the alleged defect against the actual fields before it reaches repair. */
-    public static function verifiedIssues(array $issues, array $shots, callable $call, array $subjects): array
+    private static function verifiedIssues(array $issues, array $shots, callable $call): array
     {
         $out=[];
         foreach (array_chunk($issues,4) as $batch) {
             $claims=[];
             foreach($batch as $i=>$issue) $claims[]=['id'=>(string)$i,'issue'=>$issue];
-            $reply=self::call($call,'field_issues',['field_claims'=>$claims,'shots'=>self::auditShots($shots),'registered_subjects'=>self::metadata($subjects)],
-                '主体引用只核对registered_subjects中的已登记主体：画面中可见的已登记主体漏引用、引用不存在的ID或明显引用错误人物才是引用缺陷。未登记的无名群演、侍从、路人、普通背景物品不需要为引用检查凭空新建ID，不能仅因他们出现在画面但无subject_ref_ids就确认缺陷。用户明确限定角色数量或禁止额外人物由requirements单独核验，不能以背景人物规则豁免用户限制。'
-                . 'dialogue_turns是已解析的实际说话轮次，speaker与text分离；dialogue是检索纯文本，不含角色前缀属于正常。独立核实这些语义问题是否真的存在。禁止把对白编码或voice_role未列出全部人认定为问题，只核对实际台词、人物和场景关系。无问题的解释不是缺陷。不要因为上一检查声称有错就同意。只依据提供的实际字段判断。返回{"verdicts":[{"id":"原id","confirmed":false,"reason":"具体理由","shot_ids":[]}]}，每个id一次；confirmed=true时shot_ids必须是实际出错的本块镜头。',
+            $reply=self::call($call,'field_issues',['field_claims'=>$claims,'shots'=>self::auditShots($shots)],
+                'dialogue_turns是已解析的实际说话轮次，speaker与text分离；dialogue是检索纯文本，不含角色前缀属于正常。独立核实这些语义问题是否真的存在。禁止把对白编码或voice_role未列出全部人认定为问题，只核对实际台词、人物和场景关系。无问题的解释不是缺陷。不要因为上一检查声称有错就同意。只依据提供的实际字段判断。返回{"verdicts":[{"id":"原id","confirmed":false,"reason":"具体理由","shot_ids":[]}]}，每个id一次；confirmed=true时shot_ids必须是实际出错的本块镜头。',
                 static function(array $reply)use($claims,$shots):void{
                     $ids=array_column($claims,'id');$got=array_column((array)($reply['verdicts']??[]),'id');sort($ids);sort($got);
                     if($ids!==$got)throw new RuntimeException('字段缺陷核实项不完整',422);
@@ -393,7 +369,7 @@ final class ShortDramaContentAcceptance
         return $issues;
     }
 
-    public static function apply(array $plan, array $reply, array $targets, bool $deferTiming = false): array
+    public static function apply(array $plan, array $reply, array $targets): array
     {
         if (!is_array($reply['patches'] ?? null) || !is_array($reply['subject_categories'] ?? [])) throw new RuntimeException('内容修复补丁结构无效', 422);
         $candidate = $plan; $indices = array_flip(array_column($plan['storyboard'], 'shot_id')); $seen = [];
@@ -418,7 +394,7 @@ final class ShortDramaContentAcceptance
             if ($p['after'] !== $p['before']) $candidate['subjects'][$subjects[$p['id']]] = ShortDramaPromptDocuments::withoutGeneratedDefaults($candidate['subjects'][$subjects[$p['id']]]);
         }
         foreach ($candidate['storyboard'] as $shot) {
-            if (!$deferTiming && mb_strlen((string)($shot['dialogue'] ?? '')) > (float)$shot['recommended_duration_seconds'] * 8) throw new RuntimeException('修复后对白无法在原镜头时长内自然说完，请保持简短且完整', 422);
+            if (mb_strlen((string)($shot['dialogue'] ?? '')) > (float)$shot['recommended_duration_seconds'] * 8) throw new RuntimeException('修复后对白无法在原镜头时长内自然说完，请保持简短且完整', 422);
         }
         foreach ($candidate['storyboard'] as $i => $shot) if ($shot !== $plan['storyboard'][$i]) {
             $candidate['storyboard'][$i] = ShortDramaPromptDocuments::withoutGeneratedDefaults($shot);

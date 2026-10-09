@@ -165,10 +165,6 @@ final class ShortDramaPromptWorkspace
 
     public static function recordRequest(int $tenantId, int $userId, string $taskId, string $stage, array $audit): void
     {
-        // Structured stages contain request fingerprints. Keep the full key in
-        // JSON without overflowing the historical VARCHAR(40) display column.
-        $audit['stage_key'] = $stage;
-        if (mb_strlen($stage) > 40) $stage = mb_substr($stage, 0, 19) . ':' . substr(hash('sha256', $stage), 0, 20);
         Db::name('aigc_short_drama_prompt_request')->insert([
             'tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId, 'stage' => $stage,
             'revision' => (int)($audit['revision'] ?? 0), 'audit_json' => json_encode($audit, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'create_time' => time(),

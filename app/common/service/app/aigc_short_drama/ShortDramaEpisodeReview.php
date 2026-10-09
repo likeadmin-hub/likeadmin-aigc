@@ -18,12 +18,9 @@ final class ShortDramaEpisodeReview
     public static function generate(array $base, array $request, callable $call, ?callable $progress = null, ?callable $checkpoint = null, array $saved = []): array
     {
         if (empty($base['storyboard'])) throw new RuntimeException('缺少可复核的已保存分镜', 422);
-        if (ShortDramaUnifiedReview::enabled($request)) return ShortDramaUnifiedReview::generate($base, $request, $call, $progress, $checkpoint);
         $signature = ShortDramaReviewCheckpoint::signature($base, $request);
-        $repairBudget = (int)($request['_input_contract_version'] ?? 0) >= 9 ? new ShortDramaRepairBudget() : null;
-        if ($repairBudget && !empty($base['dialogue_density_revision'])) $repairBudget->consume('density', 1);
         if (ShortDramaContentAcceptance::enabled($request)) {
-            $base = ShortDramaContentAcceptance::generate($base, $request, $call, $repairBudget);
+            $base = ShortDramaContentAcceptance::generate($base, $request, $call);
         }
         $context = (array)($request['series_context'] ?? []);
         $context['_server_owned_state'] = true;
@@ -55,7 +52,7 @@ final class ShortDramaEpisodeReview
             $checkpoint($result, $offset, compact('signature','context','summaries','warnings','patches','auditCorrections','unverified','observed'));
         };
         $save($start);
-        $process = function (int $offset, int $count) use (&$process, &$result, &$context, &$summaries, &$warnings, &$patches, &$auditCorrections, &$unverified, &$observed, &$pendingReview, $shots, $request, $call, $progress, $save, $repairBudget): void {
+        $process = function (int $offset, int $count) use (&$process, &$result, &$context, &$summaries, &$warnings, &$patches, &$auditCorrections, &$unverified, &$observed, &$pendingReview, $shots, $request, $call, $progress, $save): void {
             $block = self::projection($result);
             unset($block['script_lines'], $block['story_outline']);
             $block['storyboard'] = array_slice($shots, $offset, $count);
@@ -84,14 +81,12 @@ final class ShortDramaEpisodeReview
                     $ledger = ShortDramaContinuity::review($block, $context, (int)($request['episode_number'] ?? 1), $audit, $verify, false, true);
                 } catch (RuntimeException $error) {
                     if (!$error instanceof ShortDramaScriptConflict) throw $error;
-                    if ($repairBudget) $repairBudget->consume('continuity', 1);
                     $input = ['system_prompt' => '只修复已保存镜头与最新前集事实的明确冲突，不重写剧本。返回JSON {"patches":[{"shot_id":"原ID","field":"字段名","before":"原值","after":"新值","reason":"明确冲突说明"}]}。'
                         . '仅允许visual_description、dialogue、voice_role、speech_type、scene_ref_id、subject_ref_ids。before必须逐字等于原值，数组保持类型。保留无关剧情、对白和镜头数量；不要修改时长、素材或编号。无明确冲突返回空patches。',
                         'content' => json_encode(['conflict' => $error->getMessage(), 'previous' => $context['continuity'] ?? [],
                             'confirmed' => $context['outline'], 'shots' => $block['storyboard']], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
-                    $deferTiming = ShortDramaEpisodeTimingRepair::canReconcile($result, $request);
-                    $reply = ShortDramaStructuredResponse::audit($input, static fn($input) => $call($key . '_patch_' . substr(hash('sha256', json_encode($input)), 0, 16), $input, 4096, static fn($reply) => self::apply($block, $reply, $deferTiming)));
-                    $candidate = self::apply($block, $reply, $deferTiming);
+                    $reply = ShortDramaStructuredResponse::audit($input, static fn($input) => $call($key . '_patch_' . substr(hash('sha256', json_encode($input)), 0, 16), $input, 4096, static fn($reply) => self::apply($block, $reply)));
+                    $candidate = self::apply($block, $reply);
                     if ($candidate === $block) throw $error;
                     $block = $candidate;
                     $ledger = ShortDramaContinuity::review($block, $context, (int)($request['episode_number'] ?? 1), $audit, $verify, false, true);
@@ -137,7 +132,6 @@ final class ShortDramaEpisodeReview
             if (is_string($result['story_outline'] ?? null)) $result['story_outline'] = str_replace($patch['before'], $patch['after'], $result['story_outline']);
             foreach ((array)($result['script_lines'] ?? []) as $index => $line) if (is_string($line)) $result['script_lines'][$index] = str_replace($patch['before'], $patch['after'], $line);
         }
-        if ($patches) $result = ShortDramaEpisodeTimingRepair::reconcile($result, $request, $call);
         if ($patches && ShortDramaContentAcceptance::enabled($request)) {
             $acceptance = ShortDramaContentAcceptance::inspect($result, $result['content_acceptance']['requirements'], $call);
             if ($acceptance['issues']) throw new RuntimeException('衔接修复后仍有内容问题：' . $acceptance['issues'][0]['message'], 422);
@@ -152,8 +146,6 @@ final class ShortDramaEpisodeReview
         if ($context['_bounded_memory']) $result['_continuity']['memory_dependency'] = [
             'version'=>ShortDramaNarrativeMemory::VERSION, 'history_available'=>array_key_exists('history', $request['series_context']['continuity'] ?? []),
             'query'=>$dependencyQuery, 'fingerprint'=>$dependency];
-        if ($repairBudget) $result['execution_diagnostics'] = ['repair_budget'=>$repairBudget->snapshot(),
-            'provider_call_limit'=>ShortDramaExecutionPolicy::limit($request)];
         return $result;
     }
 
@@ -180,7 +172,7 @@ final class ShortDramaEpisodeReview
         return array_map(static fn($i) => array_intersect_key($earlier[$i], array_flip(self::SHOT_FIELDS)), $indices);
     }
 
-    public static function apply(array $plan, array $reply, bool $deferTiming = false): array
+    public static function apply(array $plan, array $reply): array
     {
         if (!isset($reply['patches']) || !is_array($reply['patches']) || !array_is_list($reply['patches'])) throw new RuntimeException('复核修复未返回有效补丁', 422);
         $allowed = array_diff(self::SHOT_FIELDS, ['shot_id','recommended_duration_seconds']);
@@ -204,7 +196,7 @@ final class ShortDramaEpisodeReview
             $plan['storyboard'][$index][$field] = $patch['after']; $seen[$key] = true;
         }
         foreach ($plan['storyboard'] as $shot) {
-            if (!$deferTiming && ShortDramaDialogueSplit::requiredSeconds((string)($shot['dialogue'] ?? '')) > (float)($shot['recommended_duration_seconds'] ?? 0)) throw new RuntimeException('复核后的台词无法放入原镜头时长，请调整该镜头', 409);
+            if (ShortDramaDialogueSplit::requiredSeconds((string)($shot['dialogue'] ?? '')) > (float)($shot['recommended_duration_seconds'] ?? 0)) throw new RuntimeException('复核后的台词无法放入原镜头时长，请调整该镜头', 409);
         }
         $dialogue = ShortDramaDialogueContract::prepare(['subjects'=>$plan['subjects'],'storyboard'=>$plan['storyboard']]);
         if ($dialogue['issues']) throw new RuntimeException('复核补丁缺少明确的台词归属，原版本保留', 422);

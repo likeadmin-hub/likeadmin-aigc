@@ -37,12 +37,6 @@ final class ShortDramaShotDuration
     {
         $candidate = $request['shot_duration_rule'] ?? ($request['generation_settings']['shot_duration_rule'] ?? []);
         $rule = self::normalizeRule(is_array($candidate) ? $candidate : []);
-        // Editorial minimum is advisory for new content-first drafts. Explicit
-        // timecodes and historical tasks retain their own frozen contracts.
-        if ((int)($request['_input_contract_version'] ?? 0) >= 9 && !ShortDramaEpisodeDuration::localRevision($request)) {
-            $rule['min_seconds'] = 1;
-            $rule['speech_estimator_version'] = 2;
-        }
         $timing = ShortDramaEpisodeDuration::policy($request);
         if (ShortDramaEpisodeDuration::active($request) && (($timing['source'] ?? '') === 'timeline'
             || (($timing['source'] ?? '') === 'user' && $timing['target_seconds'] < $rule['min_seconds']))) {

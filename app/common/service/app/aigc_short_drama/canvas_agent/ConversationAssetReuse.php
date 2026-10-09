@@ -2,7 +2,6 @@
 declare(strict_types=1);
 namespace app\common\service\app\aigc_short_drama\canvas_agent;
 use RuntimeException;
-use app\common\service\app\aigc_short_drama\ShortDramaCanvasPages;
 use think\facade\Db;
 
 /** Reuse is tied to a server-owned entity key, prompt version and original asset receipt. */
@@ -23,44 +22,9 @@ final class ConversationAssetReuse
     {
         if (!ConversationSeries::enabled($state)) return [];
         $signatures=self::signatures($proposals,$state,$settings);
-        // A user may move on before the old page's images finish or are even
-        // planned. Discover those later receipts at quote time, without
-        // mutating either page or pretending pending files are reusable.
-        $candidates=[];
-        $cache=[(int)$document['id']=>json_decode((string)$document['nodes_json'],true)?:[]];
-        $pageIds=array_values(array_filter((array)($state['series']['page_ids']??[]),static fn($id)=>is_int($id) && $id>0 && $id!==(int)$document['id']));
-        if ($pageIds && $signatures) {
-            $root=ShortDramaCanvasPages::root($tenant,$user,(int)$document['id']);
-            $owned=Db::name(ShortDramaCanvasPages::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$root])->whereIn('canvas_id',$pageIds)->column('canvas_id');
-            $wanted=[];
-            foreach($proposals as $index=>$proposal) if(in_array($proposal['artifact']??'',['subject','three_view','scene'],true)) $wanted[$signatures[$index]]=$proposal;
-            $found=[];$before=PHP_INT_MAX;
-            while($owned && count($found)<count($wanted)) {
-                // At most twenty bounded page documents in memory. Retain only
-                // matching nodes, never every episode's full screenplay graph.
-                $pages=Db::name(GraphService::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->whereIn('id',$owned)->where('id','<',$before)
-                    ->where(static function($query)use($wanted):void { foreach(array_keys($wanted) as $signature) $query->whereOr('nodes_json','like','%'.$signature.'%'); })
-                    ->field('id,nodes_json')->order('id','desc')->limit(20)->select()->toArray();
-                if(!$pages) break;
-                foreach($pages as $page) {
-                    $before=(int)$page['id'];$matching=[];
-                    foreach(json_decode($page['nodes_json'],true)?:[] as $node) {
-                        $signature=$node['metadata']['workflow_asset_signature']??'';
-                        if(!isset($wanted[$signature])) continue;
-                        if(isset($found[$signature]) || !self::matches($node,$signature,$wanted[$signature])) continue;
-                        $asset=Db::name('aigc_short_drama_asset')->where(['id'=>(int)$node['metadata']['asset_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0,'status'=>'ready'])->find();
-                        if(!$asset || !in_array((int)$asset['canvas_id'],[0,(int)$page['id']],true)) continue;
-                        $matching[]=$node;
-                        $found[$signature]=true;
-                        $candidates[]=['canvas_id'=>(int)$page['id'],'node_id'=>(string)$node['id'],'signature'=>$signature];
-                    }
-                    $cache[(int)$page['id']]=$matching;
-                }
-            }
-        }
-        $candidates=array_merge($candidates,(array)($state['series']['asset_library']??[]));
+        $candidates=(array)($state['series']['asset_library']??[]);
         foreach ((array)($state['artifact_memory']??[]) as $item) $candidates[]=['canvas_id'=>(int)$document['id'],'node_id'=>(string)($item['node_id']??'')];
-        $reuse=[];
+        $cache=[(int)$document['id']=>json_decode((string)$document['nodes_json'],true)?:[]];$reuse=[];
         foreach (array_reverse($candidates) as $candidate) {
             if (isset($candidate['signature']) && !in_array($candidate['signature'],$signatures,true)) continue;
             $canvas=(int)($candidate['canvas_id']??0);$id=(string)($candidate['node_id']??'');
