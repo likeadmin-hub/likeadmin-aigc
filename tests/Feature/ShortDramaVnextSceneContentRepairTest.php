@@ -206,4 +206,44 @@ final class ShortDramaVnextSceneContentRepairTest extends TestCase
         self::assertSame($snapshots[0]['document'], end($snapshots)['document']);
         self::assertStringContainsString('补正', implode('', ContentDocument::render(end($snapshots)['content_repair']['candidate_document'])));
     }
+    public function testTwoImprovingRoundsPreserveRepairHistoryAndStopAtAcceptedRevision(): void
+    {
+        $context = self::input()['context']; $context['events'][] = ['id' => 'middle', 'text' => '第五句需要校正', 'blocking' => true];
+        $snapshots = []; $keys = []; $reserved = [];
+        $result = $this->runCase('patch', static function ($key, $data) {
+            $receipt = self::receipt($key, $data);
+            if (!isset($data['shot_plan'])) return $receipt;
+            $reply = json_decode($receipt['content'], true); $unit = null;
+            foreach (ContentDocument::units($data['document']) as $row) if (str_starts_with($row['text'], '第5句')) $unit = $row;
+            foreach ($reply['checks'] as &$check) if ($check['id'] === 'middle') {
+                $check['status'] = $unit && str_contains($unit['text'], '补正') ? 'covered' : ($unit ? 'contradiction' : 'not_observed');
+                $check['reason'] = '核对第五句的完整内容';
+                $check['evidence'] = $unit ? [['unit' => $unit['ref'], 'start' => 0, 'end' => mb_strlen($unit['text']), 'quote' => $unit['text']]] : [];
+            }
+            $receipt['content'] = json_encode($reply, JSON_UNESCAPED_UNICODE); return $receipt;
+        }, static function ($key, $count) use (&$reserved) { $reserved[$key] = $count; }, $snapshots, $keys, $context);
+        self::assertSame(['content_window_repair_1' => 5, 'content_window_repair_2' => 5], $reserved);
+        self::assertSame('ready', $result['coverage_report']['status']); self::assertSame('r1_cw2', $result['document']['revision_id']);
+        $history = $result['coverage_report']['content_repair']['history']; self::assertCount(2, $history);
+        self::assertSame($history[0]['document_hash'], $history[1]['base_document_hash']);
+        self::assertNotSame($history[0]['changes'][0]['unit_id'], $history[1]['changes'][0]['unit_id']);
+        self::assertSame('content_window_repair_2_global', end($keys));
+    }
+    public function testInsertedDialogueHandsOffWithCompleteCurrentVoiceTextAndImageTrace(): void
+    {
+        $result = $this->runCase('insert'); $assets = []; $timings = [];
+        foreach ($result['document']['entities'] as $entity) $assets[$entity['entity_id']] = ['asset_id' => 'asset_' . $entity['entity_id'],
+            'state_version' => 'look1', 'reference_hash' => 'approved-reference', 'style' => '写实'];
+        foreach ($result['shot_plan']['shots'] as $shot) $timings[$shot['shot_id']] = ['version' => 'measured1', 'actual_seconds' => 3];
+        $production = \app\common\service\app\aigc_short_drama\vnext\ProductionCompiler::compile($result['document'], $result['shot_plan'],
+            ['version' => 'video1', 'durations' => [5], 'audio_mode' => 'postproduction'], $timings, $assets, '写实');
+        self::assertSame(array_values(array_column(ContentDocument::units($result['document']), 'text')), array_column($production['audio_segments'], 'text'));
+        self::assertCount(7, $production['audio_segments']); self::assertCount(7, $production['fragments']);
+        foreach ($production['fragments'] as $fragment) \app\common\service\app\aigc_short_drama\vnext\ProductionCompiler::assertCurrent($fragment, $result['document'], $result['shot_plan'], $assets);
+        $shot = end($result['shot_plan']['shots']);
+        $image = \app\common\service\app\aigc_short_drama\vnext\ImageHandoff::compile($result, '写实', 'shot_image', $shot['shot_id'], $result['document']['revision_id'], $assets);
+        \app\common\service\app\aigc_short_drama\vnext\ImageHandoff::assertIntact($image);
+        self::assertSame($result['document']['content_hash'], $image['trace']['document_hash']);
+        self::assertSame($result['coverage_report']['content_repair']['changes'][0]['unit_id'], $image['trace']['unit_refs'][0]['unit_id']);
+    }
 }
