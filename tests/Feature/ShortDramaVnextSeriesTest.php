@@ -7,19 +7,20 @@ use app\common\service\app\aigc_short_drama\vnext\ApplicationWorkflow as Workflo
 use app\common\service\app\aigc_short_drama\vnext\ReceiptBuffer;
 use app\common\service\app\aigc_short_drama\vnext\SeriesContext;
 use app\common\service\app\aigc_short_drama\vnext\PlanningTrace;
+use app\common\service\app\aigc_short_drama\vnext\CanvasSeriesBridge;
 use app\common\service\power\MarketTextModelRuntimeService as Provider;
 use PHPUnit\Framework\TestCase;
 use think\facade\Db;
 
 final class ShortDramaVnextSeriesTest extends TestCase
 {
-    public static function cohorts(): array { return [[false, false], [true, false], [true, true]]; }
+    public static function cohorts(): array { return [[false, false], [true, false], [true, true], [true, false, true]]; }
 
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
      * @dataProvider cohorts
      */
-    public function testConfirmedSeriesUsesStableIdentitiesPublishedHistoryAndExplicitDependencyRecheck(bool $withTrace, bool $withRevision): void
+    public function testConfirmedSeriesUsesStableIdentitiesPublishedHistoryAndExplicitDependencyRecheck(bool $withTrace, bool $withRevision, bool $canvas = false): void
     {
         if (getenv('SHORT_DRAMA_STORY_DB_TESTS') !== '1') self::markTestSkipped('Opt in to local DB fixtures');
         require __DIR__ . '/../fixtures/short_drama_vnext_fake_provider.php';
@@ -85,7 +86,24 @@ final class ShortDramaVnextSeriesTest extends TestCase
                 }
                 self::assertCount(3, PlanningTrace::sources($plan['content_trace']));
             }
-            $rows = Episodes::start($tenant, $user, ['project_id' => $project, 'task_id' => $task, 'draft_version' => 0])['lists'];
+            if ($canvas) {
+                // No enrollment while switches are off, and no migration after legacy episode one.
+                $policy=\think\facade\Config::get('short_drama');
+                \think\facade\Config::set(['generation_version'=>3,'vnext'=>['enabled'=>false,'series_enabled'=>false]],'short_drama');
+                self::assertNull(CanvasSeriesBridge::create($tenant,$user,$project,$task,1,0,42));
+                self::assertSame(0,Db::name('aigc_short_drama_episode_task')->where($scope+['project_id'=>$project])->count());
+                \think\facade\Config::set($policy,'short_drama');
+                self::assertNull(CanvasSeriesBridge::create($tenant,$user,$project,$task,2,0,42));
+                $firstChild=CanvasSeriesBridge::create($tenant,$user,$project,$task,1,0,42);
+                self::assertSame($firstChild['task_id'],CanvasSeriesBridge::create($tenant,$user,$project,$task,1,0,42)['task_id']);
+                self::assertTrue(CanvasSeriesBridge::manual($tenant,$user,$project));
+                self::assertSame(0,Db::name('aigc_short_drama_episode_job')->where($scope+['project_id'=>$project])->count());
+                foreach ([[$tenant,$user,$project,$task,1,0,43],[$tenant,$user+1,$project,$task,1,0,42],[$tenant+1,$user,$project,$task,1,0,42],[$tenant,$user,$project,'wrong-outline',1,0,42]] as $foreign) {
+                    try {CanvasSeriesBridge::create(...$foreign);self::fail('Foreign canvas binding accepted');}
+                    catch (\RuntimeException $error) {self::assertSame(409,$error->getCode());}
+                }
+                $rows=Episodes::lists($tenant,$user,$project)['lists'];
+            } else $rows = Episodes::start($tenant, $user, ['project_id' => $project, 'task_id' => $task, 'draft_version' => 0])['lists'];
             self::assertCount(2, $rows);
             $snapshot = json_decode(Db::name('aigc_short_drama_episode_task')->where('id', $rows[0]['id'])->value('series_json'), true);
             self::assertSame(1, $snapshot['request']['_vnext_series']['schema_version']);
@@ -111,6 +129,15 @@ final class ShortDramaVnextSeriesTest extends TestCase
                 self::assertCount(4, $firstInput['sources'], 'Only original input and three local outline fields belong to episode one');
             }
             self::assertCount(1, $first['result']['narrative_ledger']['delta']);
+            if ($canvas) {
+                self::assertSame(0,Episodes::tick($tenant,$project),'Canvas must not automatically dispatch episode two');
+                self::assertCount(3,Provider::$requests);
+                self::assertSame('',Db::name('aigc_short_drama_episode_task')->where('id',$rows[1]['id'])->value('task_id'));
+                self::assertSame(0,(int)Db::name('aigc_short_drama_episode_task')->where('id',$rows[1]['id'])->value('queue_job_id'));
+                $secondChild=CanvasSeriesBridge::create($tenant,$user,$project,$task,2,0,42);
+                self::assertSame($secondChild['task_id'],CanvasSeriesBridge::create($tenant,$user,$project,$task,2,0,42)['task_id']);
+                self::assertCount(3,Provider::$requests,'Explicit creation saves a task before Provider I/O');
+            }
             self::assertSame(1, Episodes::tick($tenant, $project));
             $list = Episodes::lists($tenant, $user, $project)['lists'];
             self::assertSame(['success', 'success'], array_column($list, 'status'), json_encode($list, JSON_UNESCAPED_UNICODE));
