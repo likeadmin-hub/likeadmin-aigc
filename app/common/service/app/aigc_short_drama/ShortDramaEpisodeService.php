@@ -229,6 +229,7 @@ class ShortDramaEpisodeService
     {
         return self::locked($tenantId, $userId, $id, function (array $row) use ($tenantId, $userId) {
             $outlineRequest = self::outlineRequest($tenantId, $userId, $row);
+            ShortDramaRetiredTask::assertWritable($outlineRequest ?? []);
             $siblings = self::withContinuityStatus($tenantId, $userId, Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId,
                 'project_id' => $row['project_id'], 'delete_time' => 0])->order('episode_number')->select()->toArray());
             $review = false;
@@ -249,6 +250,7 @@ class ShortDramaEpisodeService
                 $old = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id'], 'delete_time' => 0])->findOrEmpty();
                 if (!$old->isEmpty()) {
                     $request = self::decode($old['request_json']);
+                    ShortDramaRetiredTask::assertWritable($request);
                     $previousReviewBase = $request['revision_base_result'] ?? [];
                     $wasBlockReview = !empty($request['_continuity_review_only']);
                     // Failed user revisions must keep their original instruction.
@@ -548,6 +550,8 @@ class ShortDramaEpisodeService
                 $outlineTask = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['outline_task_id'], 'delete_time' => 0])->findOrEmpty();
                 if ($outlineTask->isEmpty()) throw new Exception('原始大纲不存在');
                 $snapshot = self::decode(Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'project_id' => $row['project_id'], 'episode_number' => 1, 'delete_time' => 0])->value('series_json'));
+                ShortDramaRetiredTask::assertWritable((array)($snapshot['request'] ?? []));
+                ShortDramaRetiredTask::assertWritable(self::decode($outlineTask['request_json']));
                 $previous = [];
                 foreach ($siblings as $sibling) {
                     if ((int)$sibling['episode_number'] < (int)$row['episode_number'] && (int)$sibling['completed_once']) {

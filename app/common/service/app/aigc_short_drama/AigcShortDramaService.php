@@ -2625,6 +2625,7 @@ class AigcShortDramaService
 
     private static function createScriptPlanOnce(int $tenantId, int $userId, array $params, int $existingProjectId = 0, array $internalContext = []): array
     {
+        ShortDramaRetiredTask::assertWritable($internalContext);
         if ($existingProjectId > 0) {
             $existing = self::findProject($tenantId, $userId, $existingProjectId);
             $previousRequest = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
