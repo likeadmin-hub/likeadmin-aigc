@@ -16,12 +16,13 @@ final class ShortDramaAttachmentSource
         if ($tenant <= 0 || $user <= 0 || $task === '' || !in_array($extension, ['txt', 'md', 'docx'], true)) throw new RuntimeException('附件来源身份或类型无效', 422);
         $bytes = @file_get_contents($path, false, null, 0, self::MAX_BYTES + 1);
         if (!is_string($bytes) || $bytes === '' || strlen($bytes) > self::MAX_BYTES) throw new RuntimeException('附件为空或超过10MB', 422);
-        $encoding = 'UTF-8';
+        $encoding = 'UTF-8'; $removedBom = false;
         if ($extension === 'docx') $text = self::docx($path);
         else {
             $text = $bytes;
             if (str_starts_with($text, "\xFF\xFE") || str_starts_with($text, "\xFE\xFF")) {
                 $encoding = str_starts_with($text, "\xFF\xFE") ? 'UTF-16LE' : 'UTF-16BE'; $text = substr($text, 2);
+                $removedBom = true;
             } elseif (!mb_check_encoding($text, 'UTF-8')) {
                 $encoding = mb_detect_encoding($text, ['GB18030', 'BIG5'], true) ?: '';
                 if ($encoding === '') throw new RuntimeException('附件编码无法识别，请另存为 UTF-8 后上传', 422);
@@ -34,8 +35,7 @@ final class ShortDramaAttachmentSource
         }
         if (!mb_check_encoding($text, 'UTF-8') || str_contains($text, "\0")) throw new RuntimeException('附件不是有效文本，请检查文件格式', 422);
         // Preserve blank lines and trailing text. Coordinates always refer to this documented text view.
-        $removedBom = str_starts_with($text, "\xEF\xBB\xBF");
-        if ($removedBom) $text = substr($text, 3);
+        if (str_starts_with($text, "\xEF\xBB\xBF")) { $text = substr($text, 3); $removedBom = true; }
         $text = str_replace(["\r\n", "\r"], "\n", $text);
         if (strlen($text) > self::MAX_BYTES) throw new RuntimeException('附件提取正文超过10MB，请拆分文件', 422);
         ContentDocument::text($text, 'attachment.text');

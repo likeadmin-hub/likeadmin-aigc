@@ -77,6 +77,7 @@ final class ShortDramaAttachmentSourceTest extends TestCase
         $text = "第一集😀\r\n对白。"; $bytes = "\xFF\xFE" . mb_convert_encoding($text, 'UTF-16LE', 'UTF-8');
         $source = self::capture($bytes);
         self::assertSame('UTF-16LE', $source['extraction']['encoding']);
+        self::assertTrue($source['extraction']['leading_bom_removed']);
         self::assertSame("第一集😀\n对白。", $source['source']['text']);
         self::assertSame(hash('sha256', $bytes), $source['file_sha256']);
     }
