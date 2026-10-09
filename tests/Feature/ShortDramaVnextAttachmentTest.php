@@ -81,4 +81,36 @@ final class ShortDramaVnextAttachmentTest extends TestCase
         self::assertNull(SeriesContext::capture(1, 2, 3, 't', $request, [], ['series_enabled' => true]));
         self::assertNull(SeriesContext::capture(1, 2, 3, 't', $request, [], ['series_enabled' => true, 'attachment_enabled' => true]));
     }
+
+    private static function projectedResult(): array
+    {
+        $document = Import::document(self::context());
+        $plan = \app\common\service\app\aigc_short_drama\vnext\ShotCompiler::compile($document,
+            ['shots' => [['visual_description' => '书房', 'refs' => [['unit' => 'u1'], ['unit' => 'u2'], ['unit' => 'u3']]]]], 'projection');
+        return \app\common\service\app\aigc_short_drama\vnext\ApplicationWorkflow::project(
+            ['document' => $document, 'shot_plan' => $plan, 'coverage_report' => []]);
+    }
+
+    public function testCanonicalPublicationAndNestedReadsPreserveUnicodeWhileLegacyCleaningStaysCompatible(): void
+    {
+        $service = \app\common\service\app\aigc_short_drama\AigcShortDramaService::class;
+        $encode = new \ReflectionMethod($service, 'jsonEncode'); $encode->setAccessible(true);
+        $sanitize = new \ReflectionMethod($service, 'sanitizeUtf8Payload'); $sanitize->setAccessible(true);
+        $result = self::projectedResult(); $wrapped = ['result' => $result, 'legacy_text' => '旧字段😀'];
+        $json = $encode->invoke(null, $wrapped); $restored = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame($result, $restored['result']);
+        self::assertSame($result, $sanitize->invoke(null, $wrapped)['result']);
+        self::assertSame('旧字段', $restored['legacy_text']);
+        self::assertStringContainsString('\\ud83d\\ude00', strtolower($json));
+        self::assertStringContainsString('😀', $restored['result']['script_lines']);
+        self::assertStringContainsString('😀', $restored['result']['storyboard'][0]['dialogue']);
+    }
+
+    public function testChangedCanonicalTextCannotBePublishedUnderItsOldHash(): void
+    {
+        $result = self::projectedResult(); $result['canonical_document']['scenes'][0]['units'][1]['text'] = '删去内容';
+        $encode = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'jsonEncode');
+        $encode->setAccessible(true); $this->expectException(\RuntimeException::class); $this->expectExceptionCode(409);
+        $encode->invoke(null, ['result' => $result]);
+    }
 }

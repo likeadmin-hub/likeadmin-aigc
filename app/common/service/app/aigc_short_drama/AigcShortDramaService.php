@@ -26147,7 +26147,7 @@ class AigcShortDramaService
         if ((ShortDramaAttachmentSource::present($data) || self::hasCanonicalResult($data)) && is_string($json)) {
             // Existing utf8 (three-byte) columns can retain supplementary characters through JSON escapes.
             $json = preg_replace_callback('/[\x{10000}-\x{10FFFF}]/u', static fn(array $match): string => substr(json_encode($match[0], JSON_THROW_ON_ERROR), 1, -1), $json);
-            if (strlen($json) > 16777215) throw new \RuntimeException('附件追溯内容超过存储容量，请拆分文件；已保存的原文及回包保留', 422);
+            if (strlen($json) > 16777215) throw new \RuntimeException('正文及来源追溯内容超过存储容量，请拆分内容；已保存的原文及回包保留', 422);
         }
         return is_string($json) ? $json : '[]';
     }
