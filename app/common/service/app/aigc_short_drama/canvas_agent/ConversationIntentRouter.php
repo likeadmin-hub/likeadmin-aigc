@@ -63,6 +63,7 @@ final class ConversationIntentRouter
                 .'无法确认完整制作与单次创作的范围、或对创作意图的信心低于 0.8 时，scope=uncertain、intent=uncertain，在 reply_markdown 只问一个针对本轮内容的区分问题。不要默认为完整短剧。'
                 .'confidence 是 0 到 1 的数字。skill_key 只能从下列已授权候选中选一个或填空；推荐不等于自动执行。'
                 .'reply_markdown 始终为非空文本：完整短剧先给贴合素材的简短创作方向，未知制作参数不要逐项追问；普通请求给出真实答复。'
+                .'用户回答紧邻选项的 B 或完整制作时，直接进入待确认方案，不再追问是否选择完整制作。'
                 .'仅当 intent=short_drama 且 deliverable=full_drama 且 scope=workflow 时填写 intake，否则 intake 为 {"candidates":[],"questions":[]}。'
                 .'如果请求的是单次文本创作且信息足够，直接在 reply_markdown 给出真实文本结果；缺少核心主题时只问最必要的一个问题；时长和受众允许暂定。图片或视频不得声称已生成或提交；不得输出 canvas-actions、价格或任务状态。'
                 .ConversationIntakeDraft::instruction((array)ConversationWorkflow::catalog()['slots'])
@@ -203,6 +204,7 @@ final class ConversationIntentRouter
     public static function reply(array $decision,array $routing,array $availableSources=['message']): string
     {
         if (self::shouldActivateWorkflow($decision,$routing)) {
+            if (ConversationCreativePlan::enabled((array)($routing['workflow_candidate']??[]))) return '我已整理好一份创作方案。请在下方统一核对剧情、集数、时长、风格与比例，修改后确认即可开始制作。';
             if (ConversationCreativePolicy::enabled((array)($routing['workflow_candidate']??[]))) return (string)$decision['reply_markdown'];
             $draft=isset($decision['intake'])
                 ? ConversationIntakeDraft::parse($decision['intake'],(array)ConversationWorkflow::catalog()['slots'],$availableSources) : ['candidates'=>[]];

@@ -153,7 +153,8 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
     public function testHistoricalCanvasTaskSkipsQualityReviewOnResume(): void
     {
         $this->assertGenerationSkipsQualityReview(['quality_review_enabled' => true,
-            '_submission_key' => 'canvas-production:397:807:episode_1']);
+            '_submission_key' => hash('sha256', 'canvas-production:397:807:episode_1'),
+            '_prompt_snapshot' => ['canvas_creative_policy' => ['version' => '2026-10-10.1', 'stages' => []]]]);
     }
 
     /** @runInSeparateProcess

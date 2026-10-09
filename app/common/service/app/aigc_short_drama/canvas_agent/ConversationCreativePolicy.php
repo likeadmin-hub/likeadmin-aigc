@@ -5,10 +5,10 @@ namespace app\common\service\app\aigc_short_drama\canvas_agent;
 /** Frozen, opt-in interaction policy. Assumptions never become user facts. */
 final class ConversationCreativePolicy
 {
-    public const VERSION = '2026-10-10.1';
+    public const VERSION = '2026-10-10.2';
     public static function enabled(array $state): bool
     {
-        return ($state['workflow_snapshot']['creative_policy_version']??'')===self::VERSION;
+        return in_array($state['workflow_snapshot']['creative_policy_version']??'', ['2026-10-10.1', self::VERSION], true);
     }
     public static function episodeCount(string $value): ?int
     {
@@ -31,6 +31,7 @@ final class ConversationCreativePolicy
     }
     public static function adopt(array $state,array $draft): array
     {
+        if (ConversationCreativePlan::enabled($state)) return ConversationCreativePlan::draft($state,$draft);
         foreach ($draft['candidates'] as $key=>$candidate) {
             if (array_key_exists($key,$state['slot_values'])) continue;
             if ($key==='episode_count') {
@@ -75,9 +76,11 @@ final class ConversationCreativePolicy
     }
     public static function instruction(): string
     {
-        return '先回应本轮实际创作要求，语言自然简洁。灵感足够时给一个具体开场或创作方向，不先填八项表单；最多问两个真正影响本轮的缺口。'
-            .'未指定的受众、结局、画风允许暂不决定；未指定规模先起草一集；明确要求多集且授权你决定规模时先按三集规划，并说明集数暂定。上传完整剧本时保留原剧情和人物，提取已有内容，不另编故事。'
-            .'用户明确要求优先于风格默认；推测必须标为草案。解释问题只解释，不能自动开始制作；“你来定”只授权创作选择，不授权图片或视频费用。';
+        return '自然回应用户，不重复确认已明确选择的制作模式。选择完整制作只表示进入方案讨论，不表示用户已确认方案。'
+            .'正式生成前先给一套可编辑方案，包含具体故事方向、集数、每集明确秒数、视觉风格和画面比例；统一确认，不逐项问八次。'
+            .'用户明确要求放在 intake.candidates，缺失项提出建议并标 source=suggestion，不能把建议冒充用户要求。'
+            .'reply_markdown 与 candidates 必须一致，不另说一套剧情或集数；提醒用户在方案卡确认。历史用户创作要求必须保留，不能把“确认”当成故事。'
+            .'仅明确授权全部参数由你决定且要求直接生成时可跳过方案确认；仅“你来定集数”不足以跳过整套确认。媒体费用仍需原有确认。';
     }
     public static function missingVisualSlot(array $state): ?array
     {

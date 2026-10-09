@@ -14,6 +14,7 @@ final class ShortDramaStoryWorkflow
     {
         // Canvas production and revision receipts predate the opt-out. Apply
         // the same policy when those saved tasks are resumed or advanced.
+        if (in_array($request['_prompt_snapshot']['canvas_creative_policy']['version'] ?? '', ['2026-10-10.1', '2026-10-10.2'], true)) return false;
         $submission = (string)($request['_submission_key'] ?? $request['submission_key'] ?? '');
         if (str_starts_with($submission, 'canvas-production:')
             || str_starts_with($submission, 'canvas-revision:')) {
