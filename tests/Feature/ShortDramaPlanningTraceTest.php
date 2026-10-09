@@ -116,4 +116,30 @@ final class ShortDramaPlanningTraceTest extends TestCase
         self::assertSame(['story', 'outline_1_2'], $calls);
         self::assertSame([], PlanningTrace::issues($request, $outline, 'episodes', 2));
     }
+    public function testMalformedReferenceUsesBoundedOutlineRepair(): void
+    {
+        $trace = PlanningTrace::build($this->source(), [['quote' => '第一集交信', 'kind' => 'event', 'episode_numbers' => [1]]], 1);
+        $episode = $this->episodes($this->trace())[0];
+        $request = ['_source_trace' => $this->source(), 'multi_episode_stage' => 'episodes', 'episode_count' => 1,
+            'quality_review_enabled' => false, 'confirmed_story_snapshot' => ['content_trace' => $trace]];
+        foreach ([true, false] as $repairSucceeds) {
+            $calls = [];
+            try {
+                $result = ShortDramaStoryGeneration::generate($request, ['context_window' => 100000, 'max_tokens' => 16384],
+                    static fn() => ['content' => '大纲', 'system_prompt' => ''],
+                    static function ($key, $messages) use (&$calls, $episode, $repairSucceeds): array {
+                        $calls[] = $key; $candidate = $episode;
+                        if (count($calls) === 1 || !$repairSucceeds) $candidate['source_events'][0]['requirement_id'] = ['wrong' => 'type'];
+                        else self::assertStringContainsString('source_events.requirement_id', $messages['content']);
+                        return ['result' => ['content' => json_encode(['episodes' => [$candidate]])]];
+                    })['result'];
+                self::assertTrue($repairSucceeds, 'Invalid repair must not be accepted');
+                self::assertSame($episode['story_outline'], $result['episodes'][0]['story_outline']);
+                self::assertSame([], PlanningTrace::issues($request, $result, 'episodes', 1));
+            } catch (\RuntimeException $error) {
+                self::assertFalse($repairSucceeds); self::assertSame(422, $error->getCode());
+            }
+            self::assertSame(['outline_1_1', 'outline_1_1_repair_v2'], $calls, 'Never loop or restart successful stages');
+        }
+    }
 }
