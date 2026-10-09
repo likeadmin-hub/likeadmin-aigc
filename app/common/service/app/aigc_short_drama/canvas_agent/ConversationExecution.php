@@ -164,6 +164,7 @@ final class ConversationExecution
                     'title'=>(string)($node['title']??''),'content'=>(string)($node['prompt']??''),
                 ],(array)($stagePlanSettings['workflow_state']['stage_plan']['nodes']??$planSettings['workflow_state']['image_plan']['nodes']??[]));
             }
+            if ($planSettings!==null) $content['image_plan']=ConversationWorkflow::publicImagePlan($planSettings['workflow_state']['image_plan']);
             if ($effects) $content['canvas_actions']=$effects;
             $timeline=ConversationWorkflow::timeline($workflow,$proposals,$effects);
             if ($timeline) $content['workflow_timeline']=$timeline;
