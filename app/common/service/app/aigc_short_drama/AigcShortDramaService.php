@@ -14308,6 +14308,7 @@ class AigcShortDramaService
         if ($row->isEmpty()) {
             return [];
         }
+        if (str_starts_with((string)$row['version_type'], 'vnext_')) return self::jsonDecode((string)$row['plan_json']);
         self::cleanStoredStoryboardForVersionRow($tenantId, $userId, $projectId, $row->toArray());
         $row = AigcShortDramaPlanVersion::where([
             'tenant_id' => $tenantId,
@@ -15469,7 +15470,8 @@ class AigcShortDramaService
         if ($detail) {
             $data['story_bible'] = self::jsonDecode((string)($row['story_bible_json'] ?? ''));
             $data['continuity'] = self::jsonDecode((string)($row['continuity_json'] ?? ''));
-            $data['plan'] = self::enhancePlanResult(self::jsonDecode((string)($row['plan_json'] ?? '')));
+            $storedPlan = self::jsonDecode((string)($row['plan_json'] ?? ''));
+            $data['plan'] = str_starts_with((string)$row['version_type'], 'vnext_') ? $storedPlan : self::enhancePlanResult($storedPlan);
             $data['plan'] = self::applyStoryboardSelectionState(
                 (int)$row['tenant_id'],
                 (int)$row['user_id'],
@@ -22599,25 +22601,11 @@ class AigcShortDramaService
         return mb_substr($text, 0, 180, 'UTF-8');
     }
 
-    private static function isManualStoryboardShotId(string $shotId): bool
-    {
-        return $shotId !== '' && strpos($shotId, 'manual_') === 0;
-    }
 
-    private static function isAutoRepairedStoryboardShot(array $shot): bool
-    {
-        return in_array($shot['is_auto_repaired'] ?? null, [true, 1, '1'], true);
-    }
 
-    private static function isTimelineLockedStoryboardResult(array $result): bool
-    {
-        $diagnostics = (array)($result['storyboard_breaking_diagnostics'] ?? []);
-        return in_array(
-            $diagnostics['timeline_override'] ?? null,
-            [true, 1, '1'],
-            true
-        );
-    }
+
+
+
 
     private static function isGenericStoryboardVisual(string $text): bool
     {
@@ -22655,357 +22643,25 @@ class AigcShortDramaService
         return false;
     }
 
-    private static function isHighConfidenceGenericStoryboardVisual(string $text): bool
-    {
-        $text = trim($text);
-        if ($text === '') {
-            return true;
-        }
-        foreach ([
-            '主要角色出现',
-            '主要角色出现',
-            '人物状',
-            '人物状态与场景压力形成对照',
-            '情绪开始推',
-            '建立空间关系',
-            '画面突出场景的主要视觉元',
-            '承接剧情',
-            '画面承接剧情',
-            '镜头聚焦',
-            '里的关键细节或道',
-            '揭示本场景的压力',
-            '凝视场景中的异常细节',
-            '角色完成一个单一动作',
-            '把剧情从',
-            '推向下一',
-            '镜头结果明确',
-            '完成该时间段内的画面任务',
-            '推动剧情',
-            '视觉任务',
-            '本镜',
-        ] as $keyword) {
-            if (mb_stripos($text, $keyword, 0, 'UTF-8') !== false) {
-                return true;
-            }
-        }
-        return self::isGenericStoryboardVisual($text);
-    }
+
 
     private static function cleanStoredStoryboardForVersionRow(int $tenantId, int $userId, int $projectId, array $versionRow): void
     {
-        $taskId = trim((string)($versionRow['task_id'] ?? ''));
-        if ($taskId === '') {
-            return;
-        }
-        $transStarted = false;
-        try {
-            $task = AigcShortDramaScriptTask::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'project_id' => $projectId,
-                'task_id' => $taskId,
-                'delete_time' => 0,
-            ])->findOrEmpty();
-            if (!$task->isEmpty()) {
-                self::cleanStoredStoryboardForTaskData($task->toArray());
-                $versionRow = AigcShortDramaPlanVersion::where([
-                    'tenant_id' => $tenantId,
-                    'user_id' => $userId,
-                    'project_id' => $projectId,
-                    'task_id' => $taskId,
-                    'delete_time' => 0,
-                ])->order(['version_no' => 'desc', 'id' => 'desc'])->findOrEmpty()->toArray();
-            }
-            $plan = self::jsonDecode((string)($versionRow['plan_json'] ?? ''));
-            $cleanup = self::cleanStoryboardResultData($tenantId, $userId, $projectId, $taskId, $plan);
-            if (empty($cleanup['changed'])) {
-                return;
-            }
-            $cleanResult = (array)$cleanup['result'];
-            $removedShotIds = array_values(array_unique(array_filter(array_map('strval', (array)($cleanup['removed_shot_ids'] ?? [])))));
-            $time = time();
-            Db::startTrans();
-            $transStarted = true;
-            AigcShortDramaPlanVersion::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'project_id' => $projectId,
-                'task_id' => $taskId,
-                'delete_time' => 0,
-            ])->update([
-                'plan_json' => self::jsonEncode($cleanResult),
-                'storyboard_json' => self::jsonEncode((array)($cleanResult['storyboard'] ?? [])),
-                'story_bible_json' => self::jsonEncode(self::storyBibleFromResult($cleanResult)),
-                'continuity_json' => self::jsonEncode(self::continuityFromResult($cleanResult)),
-                'update_time' => $time,
-            ]);
-            if (!empty($removedShotIds)) {
-                AigcShortDramaStoryboard::where([
-                    'tenant_id' => $tenantId,
-                    'user_id' => $userId,
-                    'project_id' => $projectId,
-                    'task_id' => $taskId,
-                    'delete_time' => 0,
-                ])->whereIn('shot_id', $removedShotIds)->update([
-                    'delete_time' => $time,
-                    'update_time' => $time,
-                ]);
-            }
-            Db::commit();
-            $transStarted = false;
-        } catch (\Throwable $e) {
-            if ($transStarted) {
-                Db::rollback();
-            }
-            Log::write('AI short drama storyboard cleanup skipped for version: ' . $e->getMessage(), 'error');
-        }
+        // Compatibility hook: a historical read must not delete or rewrite saved production data.
     }
 
     private static function cleanStoredStoryboardForTaskData(array $taskData): array
     {
-        if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)($taskData['request_json'] ?? '')))) return $taskData;
-        $tenantId = (int)($taskData['tenant_id'] ?? 0);
-        $userId = (int)($taskData['user_id'] ?? 0);
-        $projectId = (int)($taskData['project_id'] ?? 0);
-        $taskId = (string)($taskData['task_id'] ?? '');
-        if ($tenantId <= 0 || $userId <= 0 || $projectId <= 0 || $taskId === '') {
-            return $taskData;
-        }
-        $result = self::jsonDecode((string)($taskData['result_json'] ?? ''));
-        $cleanup = self::cleanStoryboardResultData($tenantId, $userId, $projectId, $taskId, $result);
-        if (empty($cleanup['changed'])) {
-            return $taskData;
-        }
-
-        $cleanResult = (array)$cleanup['result'];
-        $removedShotIds = array_values(array_unique(array_filter(array_map('strval', (array)($cleanup['removed_shot_ids'] ?? [])))));
-        $keptShots = array_values(array_filter((array)($cleanResult['storyboard'] ?? []), 'is_array'));
-        $time = time();
-
-        Db::startTrans();
-        try {
-            AigcShortDramaScriptTask::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'project_id' => $projectId,
-                'task_id' => $taskId,
-                'delete_time' => 0,
-            ])->update([
-                'result_json' => self::jsonEncode($cleanResult),
-                'update_time' => $time,
-            ]);
-            AigcShortDramaPlanVersion::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'project_id' => $projectId,
-                'task_id' => $taskId,
-                'delete_time' => 0,
-            ])->update([
-                'plan_json' => self::jsonEncode($cleanResult),
-                'storyboard_json' => self::jsonEncode((array)($cleanResult['storyboard'] ?? [])),
-                'story_bible_json' => self::jsonEncode(self::storyBibleFromResult($cleanResult)),
-                'continuity_json' => self::jsonEncode(self::continuityFromResult($cleanResult)),
-                'update_time' => $time,
-            ]);
-            if (!empty($removedShotIds)) {
-                AigcShortDramaStoryboard::where([
-                    'tenant_id' => $tenantId,
-                    'user_id' => $userId,
-                    'project_id' => $projectId,
-                    'task_id' => $taskId,
-                    'delete_time' => 0,
-                ])->whereIn('shot_id', $removedShotIds)->update([
-                    'delete_time' => $time,
-                    'update_time' => $time,
-                ]);
-            }
-            foreach ($keptShots as $index => $shot) {
-                $shotId = (string)($shot['shot_id'] ?? $shot['id'] ?? '');
-                if ($shotId === '') {
-                    continue;
-                }
-                AigcShortDramaStoryboard::where([
-                    'tenant_id' => $tenantId,
-                    'user_id' => $userId,
-                    'project_id' => $projectId,
-                    'task_id' => $taskId,
-                    'shot_id' => $shotId,
-                    'delete_time' => 0,
-                ])->update(self::filterStoryboardWritableData([
-                    'act' => (string)($shot['act'] ?? ''),
-                    'scene_name' => (string)($shot['scene_name'] ?? ''),
-                    'time_of_day' => (string)($shot['time_of_day'] ?? ''),
-                    'interior_exterior' => in_array(($shot['interior_exterior'] ?? ''), ['interior', 'exterior'], true) ? $shot['interior_exterior'] : 'exterior',
-                    'sort' => $index + 1,
-                    'update_time' => $time,
-                ]));
-            }
-            Db::commit();
-        } catch (\Throwable $e) {
-            Db::rollback();
-            Log::write('AI short drama storyboard cleanup failed: task=' . $taskId . ' error=' . $e->getMessage(), 'error');
-            return $taskData;
-        }
-
-        $taskData['result_json'] = self::jsonEncode($cleanResult);
-        $taskData['update_time'] = $time;
-        Log::write('AI short drama storyboard cleaned: task=' . $taskId . ' removed=' . count($removedShotIds) . ' kept=' . count($keptShots));
         return $taskData;
     }
 
     private static function cleanStoryboardResultData(int $tenantId, int $userId, int $projectId, string $taskId, array $result): array
     {
-        // Reading a project must be side-effect free. Generic/duplicate
-        // detection cannot reliably distinguish intentional repeated shots,
-        // time-bound clips, or a user's selected material. In particular it
-        // must never remove a shot after a user has switched its asset.
-        // Storyboard changes now happen only through an explicit edit or a
-        // newly submitted generation task.
+        // Repeated visuals may be intentional; edits, never reads, own changes to saved shots.
         return ['result' => $result, 'changed' => false, 'removed_shot_ids' => []];
-
-        $storyboard = array_values(array_filter((array)($result['storyboard'] ?? []), 'is_array'));
-        if (empty($storyboard)) {
-            return ['result' => $result, 'changed' => false, 'removed_shot_ids' => []];
-        }
-        // Timecode is an explicit editorial contract. Its generated shots may
-        // intentionally look alike when one segment is split into several
-        // clips, so automatic cleanup must not alter count or duration.
-        if (self::isTimelineLockedStoryboardResult($result)) {
-            return ['result' => $result, 'changed' => false, 'removed_shot_ids' => []];
-        }
-
-        $locations = array_values(array_filter((array)($result['locations'] ?? $result['scenes'] ?? []), 'is_array'));
-        $locationById = [];
-        $locationByName = [];
-        foreach ($locations as $index => $location) {
-            $id = (string)($location['id'] ?? ('location_' . ($index + 1)));
-            $locationById[$id] = $location;
-            $name = trim((string)($location['name'] ?? ''));
-            if ($name !== '') {
-                $locationByName[$name] = $id;
-            }
-        }
-
-        $rowsByShot = [];
-        if ($tenantId > 0 && $userId > 0 && $projectId > 0 && $taskId !== '') {
-            $rows = AigcShortDramaStoryboard::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'project_id' => $projectId,
-                'task_id' => $taskId,
-                'delete_time' => 0,
-            ])->select()->toArray();
-            foreach ($rows as $row) {
-                $shotId = (string)($row['shot_id'] ?? '');
-                if ($shotId !== '') {
-                    $rowsByShot[$shotId] = $row;
-                }
-            }
-        }
-
-        $changed = false;
-        $removedShotIds = [];
-        $cleaned = [];
-        $seenByScene = [];
-        foreach ($storyboard as $index => $shot) {
-            $shotId = (string)($shot['shot_id'] ?? $shot['id'] ?? '');
-            $isManualShot = self::isManualStoryboardShotId($shotId);
-            if (!$isManualShot && !self::isAutoRepairedStoryboardShot($shot) && self::isHighConfidenceGenericStoryboardVisual((string)($shot['visual_description'] ?? ''))) {
-                if ($shotId !== '') {
-                    $removedShotIds[] = $shotId;
-                }
-                $changed = true;
-                continue;
-            }
-
-            $originalShot = $shot;
-            $sceneRef = trim((string)($shot['scene_ref_id'] ?? ''));
-            $sceneName = trim((string)($shot['scene_name'] ?? ''));
-            if (($sceneRef === '' || !isset($locationById[$sceneRef])) && $sceneName !== '') {
-                $sceneRef = (string)($locationByName[$sceneName] ?? '');
-            }
-            if (($sceneRef === '' || !isset($locationById[$sceneRef])) && !empty($locations)) {
-                $sceneOrder = max(1, (int)($shot['scene_order'] ?? 1));
-                $location = $locations[min(count($locations) - 1, $sceneOrder - 1)] ?? $locations[0];
-                $sceneRef = (string)($location['id'] ?? '');
-            }
-            $location = $sceneRef !== '' && isset($locationById[$sceneRef]) ? $locationById[$sceneRef] : [];
-            if (!empty($location)) {
-                $shot['scene_ref_id'] = $sceneRef;
-                $shot['scene_name'] = (string)($location['name'] ?? $sceneName);
-                $shot['scene_order'] = max(1, (int)($location['story_order'] ?? $shot['scene_order'] ?? ($index + 1)));
-                if (trim((string)($shot['time_of_day'] ?? '')) === '' && trim((string)($location['time_light'] ?? '')) !== '') {
-                    $shot['time_of_day'] = (string)$location['time_light'];
-                }
-                if (!in_array(($shot['interior_exterior'] ?? ''), ['interior', 'exterior'], true)) {
-                    $shot['interior_exterior'] = self::inferInteriorExterior((string)($location['name'] ?? '') . ' ' . (string)($location['description'] ?? ''));
-                }
-                $episodeNumber = self::storyboardEpisodeNumber($shot);
-                $shot['act'] = self::storyboardActTitle($location, $shot);
-                if ($episodeNumber > 0) {
-                    $shot['episode_number'] = $episodeNumber;
-                    $shot['act'] = self::storyboardEpisodeActTitle($shot['act'], $episodeNumber);
-                }
-            }
-
-            if ($shot !== $originalShot) {
-                $changed = true;
-            }
-
-            $episodeNumber = self::storyboardEpisodeNumber($shot);
-            $sceneKey = ($episodeNumber > 0 ? 'episode_' . $episodeNumber . '|' : '')
-                . (string)($shot['scene_ref_id'] ?? $shot['scene_name'] ?? 'scene_' . $index);
-            $dedupeKey = self::storyboardDedupeKey($shot);
-            $canDedupeShot = $dedupeKey !== '' && !$isManualShot;
-            if ($canDedupeShot && isset($seenByScene[$sceneKey][$dedupeKey])) {
-                $existingIndex = (int)$seenByScene[$sceneKey][$dedupeKey];
-                $existingShotId = (string)($cleaned[$existingIndex]['shot_id'] ?? '');
-                if (self::storyboardStoredAssetScore($shotId, $rowsByShot) > self::storyboardStoredAssetScore($existingShotId, $rowsByShot)) {
-                    if ($existingShotId !== '') {
-                        $removedShotIds[] = $existingShotId;
-                    }
-                    $cleaned[$existingIndex] = $shot;
-                } elseif ($shotId !== '') {
-                    $removedShotIds[] = $shotId;
-                }
-                $changed = true;
-                continue;
-            }
-            if ($canDedupeShot) {
-                $seenByScene[$sceneKey][$dedupeKey] = count($cleaned);
-            }
-            $cleaned[] = $shot;
-        }
-
-        if (!$changed) {
-            return ['result' => $result, 'changed' => false, 'removed_shot_ids' => []];
-        }
-
-        $result['storyboard'] = array_values($cleaned);
-        $result['duration_stats'] = self::durationStats($result['storyboard'], count($locations));
-        $result['music_plan'] = self::normalizeMusicPlan(
-            (array)($result['music_plan'] ?? []),
-            $result['storyboard'],
-            (array)$result['duration_stats'],
-            (array)($result['art_style'] ?? []),
-            (string)($result['story_outline'] ?? '')
-        );
-        return [
-            'result' => $result,
-            'changed' => true,
-            'removed_shot_ids' => array_values(array_unique(array_filter($removedShotIds))),
-        ];
     }
 
-    private static function storyboardStoredAssetScore(string $shotId, array $rowsByShot): int
-    {
-        if ($shotId === '' || !isset($rowsByShot[$shotId])) {
-            return 0;
-        }
-        $row = (array)$rowsByShot[$shotId];
-        return ((int)($row['selected_video_asset_id'] ?? 0) > 0 ? 2 : 0)
-            + ((int)($row['selected_image_asset_id'] ?? 0) > 0 ? 1 : 0);
-    }
+
 
     private static function sceneVisualDetails(array $location): array
     {

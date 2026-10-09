@@ -49,6 +49,12 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertSame(6, json_decode($store->snapshot()['budget_json'], true)['user_points']);
             $second = Service::scriptPlanDetail($tenant, $user, $task, $project);
             self::assertSame($result['result'], $second['result']);
+            $readVersion = new \ReflectionMethod(Service::class, 'currentPlanVersion'); $readVersion->setAccessible(true);
+            $versionView = $readVersion->invoke(null, $tenant, $user, $project);
+            self::assertSame($result['result']['canonical_document'], $versionView['plan']['canonical_document']);
+            self::assertNull($versionView['storyboard'][0]['recommended_duration_seconds']);
+            $readProduction = new \ReflectionMethod(Service::class, 'currentProjectPlanRaw'); $readProduction->setAccessible(true);
+            self::assertSame($result['result'], $readProduction->invoke(null, $tenant, $user, $project));
             self::assertSame($saved['result_json'], Db::name('aigc_short_drama_script_task')->where('task_id', $task)->value('result_json'));
             $run->invoke(null, $tenant, $user, $saved, static function () {});
             self::assertCount(3, Provider::$requests);
