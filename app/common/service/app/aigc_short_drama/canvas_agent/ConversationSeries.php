@@ -32,6 +32,7 @@ final class ConversationSeries
     }
     public static function requiresConfirmation(array $state): bool
     {
+        if (self::enabled($state) && ($state['stage_state']['key']??'')==='video_plan') return true;
         if (!empty($state['revision_request']['binding']) && ($state['revision_request']['return_stage']['key']??'')!==($state['stage_state']['key']??'')) return false;
         return self::enabled($state) && (in_array($state['stage_state']['key']??'', ['story','outline'],true)
             || (ConversationCreativePolicy::enabled($state) && ($state['stage_state']['key']??'')==='episode'));
@@ -39,8 +40,9 @@ final class ConversationSeries
     public static function assertEpisodeMedia(array $state,array $nodes): void
     {
         $boards=[];$videos=[];
+        $hasPlan=(bool)array_filter((array)$state['artifact_memory'],static fn($item)=>($item['artifact']??'')==='video_prompt_plan');
         foreach ((array)$state['artifact_memory'] as $item) {
-            if (($item['artifact']??'')==='storyboard') $boards[]=$item;
+            if (($item['artifact']??'')===($hasPlan?'video_prompt_plan':'storyboard')) $boards[]=$item;
             if (($item['artifact']??'')==='storyboard_video') $videos[]=$item;
         }
         if (!$boards || count($boards)!==count($videos)) throw new RuntimeException('WORKFLOW_EPISODE_MEDIA_INCOMPLETE');
