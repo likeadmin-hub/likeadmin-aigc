@@ -680,7 +680,7 @@ final class GraphService
             'story'=>['story_setting'], 'outline'=>['series_outline'], 'episode'=>['episode_script'],
             'script'=>$compact?['story_setting','episode_script']:['story_setting','episode_outline','storyboard_script'],
             'art'=>['art_bible','character_asset_spec','scene_asset_spec','prop_asset_spec','subject_image_prompt','three_view_prompt','scene_image_prompt','storyboard_image_prompt'],
-            'assets'=>['subject','three_view'], 'storyboard'=>$compact?['scene','storyboard']:['scene','prop','storyboard'], 'video_plan'=>['video_prompt_plan'], 'video_nodes'=>['storyboard_video'], 'audio_plan'=>['audio_plan'], default=>[],
+            'assets'=>['subject','three_view','scene'], 'storyboard'=>$compact?['scene','storyboard']:['scene','prop','storyboard'], 'video_plan'=>['video_prompt_plan'], 'video_nodes'=>['storyboard_video'], 'audio_plan'=>['audio_plan'], default=>[],
         };
         $keys=[];
         $keyArtifacts=[];
@@ -724,7 +724,7 @@ final class GraphService
             }
             if ($artifact==='storyboard') {
                 $dependencies=(array)($proposal['depends_on']??[]);
-                if (!$dependencies || !array_intersect(array_map(static fn(string $key): string => (string)($keyArtifacts[$key]??''),$dependencies),$compact?['scene']:['scene','prop'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+                if ((!$dependencies || !array_intersect(array_map(static fn(string $key): string => (string)($keyArtifacts[$key]??''),$dependencies),$compact?['scene']:['scene','prop'])) && !array_filter((array)($proposal['reference_keys']??[]),static fn(string $key): bool=>str_starts_with($key,'assets:scene_'))) throw new RuntimeException('INVALID_AGENT_ACTION');
             }
             if ($artifact==='episode_outline') {
                 $dependencies=(array)($proposal['depends_on']??[]);
@@ -748,8 +748,8 @@ final class GraphService
     {
         $allowed=match ($stage) {
             'assets'=>[],
-            'storyboard'=>['assets'=>['subject','three_view']],
-            'video_nodes'=>['assets'=>['subject','three_view'],'storyboard'=>['scene','storyboard']],
+            'storyboard'=>['assets'=>['subject','three_view','scene']],
+            'video_nodes'=>['assets'=>['subject','three_view','scene'],'storyboard'=>['scene','storyboard']],
             default=>[],
         };
         $byId=[];
@@ -759,7 +759,7 @@ final class GraphService
             $key=(string)($item['reference_key']??'');
             if ($key!=='') $memory[$key]=$item;
         }
-        $ids=[];$storyboardCount=0;
+        $ids=[];$storyboardCount=0;$sceneCount=0;
         foreach ((array)($proposal['reference_keys']??[]) as $key) {
             $key=(string)$key;
             if (preg_match('/^selected:node_([1-9][0-9]{0,15})$/D',$key,$match)) {
@@ -777,7 +777,9 @@ final class GraphService
             if (!$node || (string)($node['type']??'')!=='image' || (string)($metadata['workflow_key']??'')!==$key || (string)($metadata['workflow_artifact']??'')!==$artifact) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
             $ids[$id]=true;
             if ($sourceStage==='storyboard' && $artifact==='storyboard') $storyboardCount++;
+            if ($sourceStage==='assets' && $artifact==='scene') $sceneCount++;
         }
+        if ($stage==='storyboard' && ($proposal['artifact']??'')==='storyboard' && empty($proposal['depends_on']) && $sceneCount<1) throw new RuntimeException('WORKFLOW_SCENE_REFERENCE_MISSING');
         if ($stage==='video_nodes' && $storyboardCount!==1) throw new RuntimeException('WORKFLOW_STORYBOARD_REFERENCE_REQUIRED');
         return $stage==='video_nodes' ? self::videoReferenceSources($nodes,$edges,array_keys($ids)) : array_keys($ids);
     }
@@ -852,6 +854,7 @@ final class GraphService
             'assets'=>match ((string)($proposal['artifact']??'')) {
                 'subject'=>['character_asset_spec','subject_image_prompt'],
                 'three_view'=>['three_view_prompt'],
+                'scene'=>['scene_asset_spec','scene_image_prompt'],
                 default=>[],
             },
             'storyboard'=>match ((string)($proposal['artifact']??'')) {

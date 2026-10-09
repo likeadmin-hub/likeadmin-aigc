@@ -9,7 +9,7 @@ final class ConversationSeriesVisuals
 {
     public static function key(string $kind,string $identity): string { return $kind.'_'.substr(hash('sha256',$identity),0,20); }
 
-    public static function proposals(array $plan,string $stage,int $episode,callable $render): array
+    public static function proposals(array $plan,string $stage,int $episode,callable $render,array $sceneReferences=[]): array
     {
         $shots=array_values((array)($plan['storyboard']??[]));
         if (!$shots) throw new RuntimeException('WORKFLOW_EPISODE_SCRIPT_MISSING');
@@ -30,14 +30,14 @@ final class ConversationSeriesVisuals
                 $result[]=$node('image','subject',(string)$item['name'],$render('subject',$item),$key);
                 $result[]=$node('image','three_view',$item['name'].'三视图',$render('three_view',$item),self::key('view',(string)$item['id']))+['depends_on'=>[$key]];
             }
-            return $result;
         }
-        if ($stage==='storyboard') {
+        if (in_array($stage,['assets','storyboard'],true)) {
             foreach ((array)($plan['locations']??[]) as $item) if (isset($scenes[(string)$item['id']])) {
-                $result[]=$node('image','scene',(string)$item['name'],$render('scene',$item),self::key('scene',(string)$item['id']));
+                if ($stage==='assets' || !isset($sceneReferences[(string)$item['id']])) $result[]=$node('image','scene',(string)$item['name'],$render('scene',$item),self::key('scene',(string)$item['id']));
                 unset($scenes[(string)$item['id']]);
             }
             if ($scenes) throw new RuntimeException('WORKFLOW_SCENE_REFERENCE_MISSING');
+            if ($stage==='assets') return $result;
         }
         foreach ($shots as $index=>$shot) {
             $number=$index+1;
@@ -45,8 +45,11 @@ final class ConversationSeriesVisuals
             if ($stage==='storyboard') {
                 $refs=[];
                 foreach ((array)($shot['subject_ref_ids']??[]) as $id) $refs[]='assets:'.self::key('subject',(string)$id);
+                $sceneReference=$sceneReferences[(string)$shot['scene_ref_id']]??'';
+                if ($sceneReference!=='') $refs[]=$sceneReference;
                 if (count($refs)>6) throw new RuntimeException('WORKFLOW_REFERENCE_LIMIT');
-                $proposal=$node('image','storyboard','分镜'.$number,$render('storyboard',$shot),$shotKey)+['depends_on'=>[self::key('scene',(string)$shot['scene_ref_id'])]];
+                $proposal=$node('image','storyboard','分镜'.$number,$render('storyboard',$shot),$shotKey);
+                if ($sceneReference==='') $proposal['depends_on']=[self::key('scene',(string)$shot['scene_ref_id'])];
                 if ($refs) $proposal['reference_keys']=$refs;
                 $result[]=$proposal;
             } elseif (in_array($stage,['video_plan','video_nodes'],true)) {

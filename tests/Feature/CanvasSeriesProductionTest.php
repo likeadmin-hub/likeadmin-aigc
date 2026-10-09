@@ -54,12 +54,39 @@ class CanvasSeriesProductionTest extends TestCase
     }
     public function testProjectionUsesOnlyScenesAndSubjectsActuallyUsedAndKeepsEveryShot(): void {
         $render=static fn($artifact,$item)=>$item['name']??$item['visual_description'];
-        $assets=Visuals::proposals($this->plan(),'assets',1,$render);self::assertCount(4,$assets);
+        $assets=Visuals::proposals($this->plan(),'assets',1,$render);self::assertCount(6,$assets);
         $boards=Visuals::proposals($this->plan(),'storyboard',1,$render);self::assertCount(4,$boards);
         self::assertSame(['屋内','院子','分镜1','分镜2'],array_column($boards,'title'));
         self::assertSame(['assets:'.Visuals::key('subject','a'),'assets:'.Visuals::key('subject','b')],$boards[2]['reference_keys']);
         $validate=new ReflectionMethod(GraphService::class,'validateAgentProposals');$validate->setAccessible(true);
         $validate->invoke(null,$assets,'assets',true);$validate->invoke(null,$boards,'storyboard',true);
+    }
+    public function testSubjectAndSceneStepNeverCreatesStoryboardsAndLaterStepReusesScenes(): void {
+        $render=static fn($artifact,$item)=>$item['name']??$item['visual_description'];
+        $assets=Visuals::proposals($this->plan(),'assets',1,$render);
+        self::assertSame(['subject','three_view','subject','three_view','scene','scene'],array_column($assets,'artifact'));
+        $refs=['room'=>'assets:'.Visuals::key('scene','room'),'yard'=>'assets:'.Visuals::key('scene','yard')];
+        $boards=Visuals::proposals($this->plan(),'storyboard',1,$render,$refs);
+        self::assertCount(2,$boards);
+        self::assertSame(['storyboard','storyboard'],array_column($boards,'artifact'));
+        self::assertContains($refs['room'],$boards[0]['reference_keys']);
+        self::assertArrayNotHasKey('depends_on',$boards[0]);
+        $validate=new ReflectionMethod(GraphService::class,'validateAgentProposals');$validate->setAccessible(true);
+        $validate->invoke(null,$boards,'storyboard',true);
+    }
+    public function testMediaStepsPauseDurablyUntilUserContinues(): void {
+        $next=new ReflectionMethod(Workflow::class,'nextStageState');$next->setAccessible(true);
+        $card=new ReflectionMethod(Workflow::class,'card');$card->setAccessible(true);
+        foreach(['assets'=>'storyboard','storyboard'=>'video_plan','video_nodes'=>'audio_plan'] as $from=>$to) {
+            $stage=$next->invoke(null,$from,[$from]);
+            self::assertSame($to,$stage['key']);
+            self::assertSame('awaiting_stage_start',$stage['status']);
+            $state=$this->state();$state['stage_state']=$stage;$state['workflow_snapshot']['stages']=[];
+            self::assertSame('next_stage',$card->invoke(null,$state)['type']);
+            self::assertFalse(Workflow::validAutoStageRequest($state,1,2,'as:1:2:4:'.$to,Workflow::autoStagePrompt($to)));
+        }
+        self::assertSame('ready',$next->invoke(null,'episode',['episode'])['status']);
+        self::assertSame('ready',$next->invoke(null,'art',['art'])['status']);
     }
     public function testVideoProjectionPreservesMultiSpeakerTextAndCoreDurations(): void {
         $video=Visuals::proposals($this->plan(),'video_nodes',10,static fn($artifact,$item)=>'声音：'.$item['dialogue']);

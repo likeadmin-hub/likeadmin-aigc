@@ -46,8 +46,16 @@ final class ConversationProduction
         $request=json_decode((string)$task['request_json'],true)?:[];
         $plan=ShortDramaStoryDraft::effective($request,json_decode((string)$task['result_json'],true)?:[]);
         $snapshot=(array)$workflow['workflow_snapshot']['creative_prompt_snapshot'];
+        $sceneReferences=[];
+        foreach ((array)($plan['locations']??[]) as $scene) {
+            $key=ConversationSeriesVisuals::key('scene',(string)$scene['id']);
+            foreach ((array)($workflow['artifact_memory']??[]) as $item) {
+                if (($item['stage']??'')==='assets' && ($item['artifact']??'')==='scene' && ($item['key']??'')===$key && !empty($item['node_id']))
+                    $sceneReferences[(string)$scene['id']]=(string)$item['reference_key'];
+            }
+        }
         $proposals=ConversationSeriesVisuals::proposals($plan,$stage,ConversationSeries::episode($workflow),
-            static fn($artifact,$item)=>AigcShortDramaService::canvasProductionPrompt($plan,$artifact,$item,$snapshot));
+            static fn($artifact,$item)=>AigcShortDramaService::canvasProductionPrompt($plan,$artifact,$item,$snapshot),$sceneReferences);
         if (count($proposals)>ConversationSeries::maximum($workflow,$stage)) throw new RuntimeException('CANVAS_CAPACITY_EXCEEDED');
         foreach ($proposals as $proposal) if (mb_strlen($proposal['prompt'])>20000) throw new RuntimeException('CONTEXT_TOO_LARGE');
         // Empty-subject episodes still proceed to their real scenes and shots.
