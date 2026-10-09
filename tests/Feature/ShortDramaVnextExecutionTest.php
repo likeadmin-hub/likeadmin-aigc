@@ -114,6 +114,20 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertSame(46, $this->resources()['spent']['total_tokens']);
         self::assertSame(2, json_decode($this->store->snapshot()['budget_json'], true)['calls']);
     }
+    public function testFinalKnownUnsubmittedFailureDoesNotBecomeUnknownOrKeepQuota(): void
+    {
+        $this->resourceStore(100);
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            $fence = $this->store->acquire('worker', 100);
+            try { $this->store->call($fence, 'a', [], function ($input, $key, $persist, $admit) { $admit($this->bound()); throw new \RuntimeException('Could not resolve host'); }); self::fail('Failure ignored'); }
+            catch (\RuntimeException $e) { self::assertSame($attempt < 3 ? 425 : 429, $e->getCode()); }
+            self::assertSame([], $this->resources()['holds']);
+            Db::name('aigc_short_drama_vnext_stage')->where($this->scope)->update(['retry_after' => 0]);
+        }
+        self::assertSame('needs_attention', $this->store->snapshot()['execution_status']);
+        self::assertSame(0, $this->resources()['spent']['total_tokens']);
+        self::assertSame(3, json_decode($this->store->snapshot()['budget_json'], true)['calls']);
+    }
     public function testUnverifiedReceiptCannotAuthorizeAnotherCall(): void
     {
         $this->resourceStore(); $fence = $this->store->acquire('worker', 100);
@@ -313,18 +327,20 @@ final class ShortDramaVnextExecutionTest extends TestCase
         $this->store->checkpoint($new, ['title' => 'new']);
         $this->expectExceptionCode(409); $this->store->checkpoint($fence, ['title' => 'old']);
     }
-    public static function publicationConflicts(): array { return [[false], [true]]; }
+    public static function publicationConflicts(): array { return [[false, false], [true, false], [false, true]]; }
 
     /** @dataProvider publicationConflicts */
-    public function testThreeCallsPublishAtomicallyAndReplayDoesNotRepublishOrCharge(bool $dependencyChanged): void
+    public function testThreeCallsPublishAtomicallyAndReplayDoesNotRepublishOrCharge(bool $dependencyChanged, bool $invalidUsage): void
     {
+        if ($invalidUsage) $this->resourceStore(400);
         $context = ['revision_id' => $this->scope['task_id'], 'episode_id' => 'e1', 'entity_scope' => 't1:p1', 'prompt' => '旁白说天亮了',
             'entities' => [['ref' => 'l1', 'entity_id' => 'room1', 'kind' => 'location', 'name' => '书房']]];
         $input = ['context' => $context, 'model' => ['context_window' => 32768, 'max_output_tokens' => 8192],
             'execution' => ['lease_seconds' => 150, 'stage_timeout_seconds' => 100]];
         Db::name('aigc_short_drama_vnext_job')->where($this->scope)->update(['input_json' => json_encode($input), 'input_hash' => ContentDocument::hash($input)]);
         $calls = 0;
-        $provider = static function ($params) use (&$calls): array {
+        $provider = function ($params, $key, $persist, $admit) use (&$calls, $invalidUsage): array {
+            if ($admit) $admit($this->bound());
             $calls++; $data = json_decode($params['content'], true);
             if (!isset($data['document'])) $reply = ['title' => '天亮', 'scenes' => [['location' => 'l1', 'units' => [['type' => 'dialogue', 'speech_type' => 'narration', 'text' => '天亮了。']]]]];
             elseif (!isset($data['shot_plan'])) $reply = ['shots' => [['visual_description' => '阳光照进书房', 'refs' => [['unit' => 'u1']]]]];
@@ -334,7 +350,12 @@ final class ShortDramaVnextExecutionTest extends TestCase
                     'evidence' => [['unit' => 'u1', 'start' => 0, 'end' => 4, 'quote' => '天亮了。']]];
                 $reply = ['document_hash' => $data['document']['content_hash'], 'shot_hash' => $data['shot_plan']['content_hash'], 'checks' => $checks];
             }
-            return ['result' => ['content' => json_encode($reply), 'finish_reason' => 'stop']];
+            $receipt = ['result' => ['content' => json_encode($reply), 'finish_reason' => 'stop']];
+            if ($invalidUsage) {
+                $receipt += $this->billedReceipt();
+                if ($calls === 3) $receipt['usage']['total_tokens'] = 101;
+            }
+            return $receipt;
         };
         try {
             JobRunner::run($this->store, 'worker1', $provider, static function () { throw new \RuntimeException('display connection lost'); },
@@ -343,7 +364,18 @@ final class ShortDramaVnextExecutionTest extends TestCase
                     throw new \RuntimeException('projection write failed');
                 });
             self::fail('Failed projection was published');
-        } catch (\RuntimeException $error) { self::assertSame('projection write failed', $error->getMessage()); }
+        } catch (\RuntimeException $error) {
+            if ($invalidUsage) {
+                self::assertSame(429, $error->getCode());
+                self::assertSame('resource_bound_exceeded', $this->resources()['blocked']);
+                self::assertSame('needs_attention', $this->store->snapshot()['execution_status']);
+                self::assertSame(0, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+                self::assertStringContainsString('天亮了。', $this->store->snapshot()['candidate_json']);
+                self::assertSame(3, $calls);
+                return;
+            }
+            self::assertSame('projection write failed', $error->getMessage());
+        }
         self::assertSame('', $this->store->snapshot()['error_code']);
         self::assertSame(0, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
         self::assertSame(0, Db::name('aigc_short_drama_vnext_outbox')->where($this->scope)->count());
