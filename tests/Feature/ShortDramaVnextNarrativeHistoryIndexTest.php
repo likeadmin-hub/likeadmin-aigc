@@ -105,4 +105,46 @@ final class ShortDramaVnextNarrativeHistoryIndexTest extends TestCase
             } catch (\RuntimeException $e) { self::assertSame(409, $e->getCode()); }
         }
     }
+    public function testCreativeReviewAndFormatRepairUseSameHistoricalSelectionAndKeepFullState(): void
+    {
+        [, $ledger] = self::fixture(); $context = ShortDramaVnextSceneContentRepairTest::input()['context'];
+        $context['scene_review_version'] = 0; $context['history_evidence_index_version'] = 1;
+        $context['narrative_contract_version'] = 1; $context['previous_narrative'] = $ledger;
+        $keys = []; $selection = null; $repairInput = null;
+        $result = GenerationPipeline::run($context, static function ($key, $messages) use (&$keys, &$selection, &$repairInput) {
+            $keys[] = $key; $data = json_decode($messages['content'], true); $data = $data['input'] ?? $data;
+            if (isset($data['previous_narrative'])) {
+                self::assertSame(1, $data['previous_narrative']['evidence_index_version']);
+                $hash = ContentDocument::hash(NarrativeHistoryIndex::expand($data['previous_narrative']));
+                if ($selection !== null) self::assertSame($selection, $hash);
+                $selection = $hash;
+                self::assertStringContainsString('evidence_refs', $messages['system_prompt']);
+            }
+            if ($key === 'screenplay') return ['content' => json_encode(ShortDramaVnextSceneContentRepairTest::screenplay(), JSON_UNESCAPED_UNICODE)];
+            if ($key === 'repair_1') { $repairInput = $data; return ['content' => '{malformed']; }
+            if ($key === 'repair_1_format') {
+                self::assertSame($repairInput, $data); $units = array_values(ContentDocument::units($data['document'])); $unit = end($units);
+                return ['content' => json_encode(['patches' => [['unit_id' => $unit['unit_id'], 'before_hash' => $unit['text_hash'], 'text' => $unit['text'] . '补正。']]], JSON_UNESCAPED_UNICODE)];
+            }
+            $receipt = ShortDramaVnextSceneShotTest::reply($data, $key === 'review');
+            if (isset($data['shot_plan'])) { $body = json_decode($receipt['content'], true); $body['narrative_changes'] = []; $receipt['content'] = json_encode($body, JSON_UNESCAPED_UNICODE); }
+            return $receipt;
+        }, static function ($key, $calls) { self::assertSame('repair_1', $key); self::assertSame(3, $calls); }, static function () {});
+        self::assertSame(['screenplay', 'shots', 'review', 'repair_1', 'repair_1_format', 'repair_1_shots', 'repair_1_review'], $keys);
+        self::assertSame('ready', $result['coverage_report']['status']); self::assertSame($ledger['state'], $result['coverage_report']['narrative_ledger']['state']);
+        self::assertSame($selection, $result['coverage_report']['history_retrieval']['selection_hash']);
+    }
+    public function testTooManyDistinctFactsStillStopWithoutPruning(): void
+    {
+        [, $ledger] = self::fixture(500); $original = $ledger;
+        $context = ShortDramaVnextSceneShotTest::input()['context']; unset($context['canonical_input']);
+        $context['history_evidence_index_version'] = 1; $context['narrative_contract_version'] = 1; $context['previous_narrative'] = $ledger;
+        $messages = GenerationPipeline::messages(GenerationPipeline::creativeContext($context), GenerationPipeline::screenplayInstruction($context), 1);
+        $history = json_decode($messages['content'], true)['previous_narrative'];
+        self::assertCount(250, $history['world_facts']); self::assertCount(250, $history['character_beliefs']);
+        self::assertSame(ContentDocument::hash(NarrativeLedger::relevant($ledger, ['char1'])), ContentDocument::hash(NarrativeHistoryIndex::expand($history)));
+        self::assertSame($original, $context['previous_narrative']);
+        $this->expectExceptionCode(413);
+        ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], ['context_window' => 32768, 'max_output_tokens' => 8192], 'script');
+    }
 }
