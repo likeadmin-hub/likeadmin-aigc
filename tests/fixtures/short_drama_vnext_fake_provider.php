@@ -7,19 +7,33 @@ class MarketTextModelRuntimeService
     public static array $requests = [];
     public static bool $failSettlementOnce = false;
     public static int $recoveries = 0;
-    public static function modelGroups(int $tenantId): array { return []; }
+    public static function modelGroups(int $tenantId): array { return [['key' => 'script_plan', 'default' => 'frozen_model', 'options' => [self::resolveModel($tenantId, '')]]]; }
+    public static function resolveModel(int $tenantId, $selection, bool $vision = false): array { return ['id' => 'frozen_model', 'name' => 'Fixture', 'provider' => 'power_market', 'model_code' => 'frozen_model', 'context_window' => 32768, 'max_output_tokens' => 8192]; }
     public static function estimateTokens(string $value): int { return mb_strlen($value); }
     public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $admin = false, ?callable $persist = null): array
     {
         self::$requests[] = $params;
         $input = json_decode($params['content'], true, 512, JSON_THROW_ON_ERROR);
-        if (!isset($input['document'])) $reply = ['title' => '完整结尾', 'entities' => [['ref' => 'l1', 'kind' => 'location', 'name' => '书房']],
+        if (isset($input['current_episode'])) {
+            $location = array_values(array_filter($input['entities'], static fn($e) => $e['kind'] === 'location'))[0];
+            $characters = array_values(array_filter($input['entities'], static fn($e) => $e['kind'] === 'character'));
+            $reply = ['title' => $input['current_episode']['title'], 'entities' => [],
+                'scenes' => [['location' => $location['ref'], 'units' => [['type' => 'action', 'characters' => array_column($characters, 'ref'),
+                    'text' => $input['current_episode']['story_outline']]]]]];
+        } elseif (!isset($input['document'])) $reply = ['title' => '完整结尾', 'entities' => [['ref' => 'l1', 'kind' => 'location', 'name' => '书房']],
             'scenes' => [['location' => 'l1', 'units' => [['type' => 'dialogue', 'speech_type' => 'narration', 'text' => str_repeat('正文。', 400) . '结尾保留。']]]]];
         elseif (!isset($input['shot_plan'])) $reply = ['shots' => [['visual_description' => '书房天亮了', 'refs' => [['unit' => 'u1']]]]];
         else {
-            $checks = []; $ids = array_merge(array_column($input['requirements'], 'id'), ['aspect:identity', 'aspect:continuity', 'aspect:shot_fidelity']);
-            foreach ($ids as $id) $checks[] = ['id' => $id, 'status' => 'covered', 'evidence' => [['unit' => 'u1', 'start' => 1200, 'end' => 1205, 'quote' => '结尾保留。']]];
+            $checks = []; $ids = array_merge(array_column($input['requirements'], 'id'), array_column($input['events'] ?? [], 'id'), ['aspect:identity', 'aspect:continuity', 'aspect:shot_fidelity']);
+            $series = isset($input['document']['dependency_versions']['series']);
+            $text = $input['document']['scenes'][0]['units'][0]['text'];
+            foreach ($ids as $id) $checks[] = ['id' => $id, 'status' => 'covered', 'evidence' => [['unit' => 'u1', 'start' => $series ? 0 : 1200, 'end' => $series ? mb_strlen($text) : 1205, 'quote' => $series ? $text : '结尾保留。']]];
             $reply = ['document_hash' => $input['document']['content_hash'], 'shot_hash' => $input['shot_plan']['content_hash'], 'checks' => $checks, 'narrative_changes' => []];
+            if ($series) {
+                $character = array_values(array_filter($input['document']['entities'], static fn($e) => $e['kind'] === 'character'))[0];
+                $reply['narrative_changes'][] = ['kind' => 'world', 'subject_id' => $character['entity_id'], 'predicate' => 'location', 'value' => '书房',
+                    'observer_id' => null, 'certainty' => 'confirmed', 'evidence' => [['unit' => 'u1', 'start' => 0, 'end' => mb_strlen($text), 'quote' => $text]]];
+            }
         }
         $receipt = ['content' => json_encode($reply, JSON_UNESCAPED_UNICODE), 'finish_reason' => 'stop',
             'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 20],

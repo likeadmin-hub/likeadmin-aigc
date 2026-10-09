@@ -230,6 +230,14 @@ final class ContentDocument
         return self::seal($next);
     }
 
+    /** A dependency recheck creates a new revision while retaining every existing unit and word. */
+    public static function rebind(array $document, array $dependencies, string $revision): array
+    {
+        $document = self::patch($document, [], $revision);
+        $document['dependency_versions'] = $dependencies;
+        return self::seal($document);
+    }
+
     private static function seal(array $document): array
     {
         $content = $document; unset($content['content_hash'], $content['status'], $content['transforms']);
