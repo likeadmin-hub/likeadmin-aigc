@@ -43,6 +43,11 @@ final class ContentCoverage
             $check = $checks[$id] ?? null;
             if (!$check) throw new RuntimeException('验收遗漏本集检查项：' . $id, 422);
             if (!in_array($check['status'] ?? '', ['covered', 'missing', 'contradiction', 'uncertain'], true)) throw new RuntimeException('验收结论无效：' . $id, 422);
+            if (($target['kind'] ?? '') === 'revision_instructions' && $check['status'] !== 'covered') {
+                if (!in_array($check['issue_kind'] ?? '', ['content', 'presentation'], true)) throw new RuntimeException('修改意见核验缺少内容/表达问题分类', 422);
+                $row['issue_kind'] = $check['issue_kind'];
+                if ($check['issue_kind'] === 'presentation') $row['blocking'] = false;
+            }
             $evidence = $check['evidence'] ?? [];
             if (!is_array($evidence)) throw new RuntimeException('验收证据格式无效', 422);
             foreach (ContentDocument::rows($evidence, 'check.evidence') as $link) {

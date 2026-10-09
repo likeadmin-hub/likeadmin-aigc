@@ -117,7 +117,8 @@ final class GenerationPipeline
     private static function historyInstruction(array $context): string
     {
         return isset($context['input_history']) ? 'input_history按时间排列保存用户原始输入与修改意见。已确认的requirements/events和当前大纲为有效版本，不重新启用已替换的旧要求。'
-            . '修改意见只应用于本集有关内容，不把编辑指令当作剧情或对白，也不要求每集重复跨集事件。' : '';
+            . '修改意见只应用于本集有关内容，不把编辑指令当作剧情或对白，也不要求每集重复跨集事件。'
+            . '核验kind=revision_instructions的非covered结论必须给issue_kind:content或presentation；只有纯风格、节奏、措辞建议属于presentation，遗漏内容、身份错误、剧情矛盾不得降级为表达建议。' : '';
     }
     private static function shots(array $document, callable $call, string $key, string $reservation, array $issues = []): array
     {

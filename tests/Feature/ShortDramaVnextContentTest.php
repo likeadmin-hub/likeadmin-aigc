@@ -117,8 +117,14 @@ final class ShortDramaVnextContentTest extends TestCase
         $requirements = [['id' => 'req1'], $target];
         try { Coverage::evaluate($document, $plan, $requirements, [['id' => 'event1']], $review); self::fail('Revision check was omitted'); }
         catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); }
-        $review['checks'][] = ['id' => $target['id'], 'status' => 'missing', 'scope' => 'whole_episode', 'reason' => '修改未生效', 'evidence' => []];
+        $review['checks'][] = ['id' => $target['id'], 'status' => 'missing', 'scope' => 'whole_episode', 'issue_kind' => 'content', 'reason' => '修改未生效', 'evidence' => []];
         self::assertSame('draft', Coverage::evaluate($document, $plan, $requirements, [['id' => 'event1']], $review)['status']);
+        $review['checks'][5]['issue_kind'] = 'presentation'; $review['checks'][5]['reason'] = '语气可以更自然';
+        $advice = Coverage::evaluate($document, $plan, $requirements, [['id' => 'event1']], $review);
+        self::assertSame('ready', $advice['status']); self::assertSame('suggestion', $advice['issues'][0]['severity']);
+        unset($review['checks'][5]['issue_kind']);
+        try { Coverage::evaluate($document, $plan, $requirements, [['id' => 'event1']], $review); self::fail('Unclassified revision failure accepted'); }
+        catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); }
         $review['checks'][5] = ['id' => $target['id'], 'status' => 'covered', 'evidence' => [['unit' => 'u2', 'start' => 0, 'end' => 7, 'quote' => '老师，您好😀！']]];
         $report = Coverage::evaluate($document, $plan, $requirements, [['id' => 'event1']], $review);
         self::assertSame('ready', $report['status']);
