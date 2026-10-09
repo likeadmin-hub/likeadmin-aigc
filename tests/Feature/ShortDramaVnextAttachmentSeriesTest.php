@@ -80,8 +80,18 @@ final class ShortDramaVnextAttachmentSeriesTest extends TestCase
                 self::assertSame([], Service::scriptPlanDetail($scope['tenant_id'], 7, $list[$index]['task_id'], 0, 0, 2)['attachment_source']['records']);
                 foreach ([[$scope['tenant_id'] + 1, 7, 0], [$scope['tenant_id'], 8, 0], [$scope['tenant_id'], 7, $project]] as [$tenant, $user, $wrongProject]) {
                     try { Service::scriptPlanDetail($tenant, $user, $list[$index]['task_id'], $wrongProject, 0, 1); self::fail('Foreign source exposed'); }
-                    catch (\Throwable $error) { self::assertNotEmpty($error->getMessage()); }
+                    catch (\think\Exception $error) { self::assertSame('任务不存在', $error->getMessage()); }
                 }
+                foreach ([[-1, 0], [1, 1]] as [$sourcePage, $historyPage]) {
+                    try { Service::scriptPlanDetail($scope['tenant_id'], 7, $list[$index]['task_id'], 0, $historyPage, $sourcePage); self::fail('Invalid source mode accepted'); }
+                    catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); }
+                }
+                $jobScope = $scope + ['task_id' => $list[$index]['task_id']];
+                $savedHash = Db::name('aigc_short_drama_vnext_job')->where($jobScope)->value('input_hash');
+                Db::name('aigc_short_drama_vnext_job')->where($jobScope)->update(['input_hash' => 'broken']);
+                try { Service::scriptPlanDetail($scope['tenant_id'], 7, $list[$index]['task_id'], 0, 0, 1); self::fail('Unverified frozen source exposed'); }
+                catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
+                finally { Db::name('aigc_short_drama_vnext_job')->where($jobScope)->update(['input_hash' => $savedHash]); }
             }
             self::assertStringContainsString('😀', $documents[0]['scenes'][0]['units'][0]['text']);
             self::assertSame($documents[0]['scenes'][0]['units'][0]['speaker_id'], $documents[1]['scenes'][0]['units'][0]['speaker_id']);

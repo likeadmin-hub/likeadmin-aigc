@@ -58,4 +58,12 @@ final class ShortDramaVnextAttachmentSourceViewTest extends TestCase
         self::assertSame('not_ready', View::page($input, [], 1)['status']);
         $this->expectExceptionCode(422); View::page($input, [], -1);
     }
+    public function testLongOriginalUnitIsNotTruncatedToAPreview(): void
+    {
+        $text = str_repeat('每个字都保留。', 3000) . '尾句😀';
+        $context = ShortDramaVnextAttachmentTest::context("第1集\n场景：书房\n陈默：" . $text . "\n");
+        $row = View::page(['context' => $context], ['document' => AttachmentScreenplay::document($context)], 1)['records'][0];
+        self::assertSame($text, $row['original_text']); self::assertSame($text, $row['current_text']);
+        self::assertSame("陈默：" . $text . "\n", $row['original_line']);
+    }
 }
