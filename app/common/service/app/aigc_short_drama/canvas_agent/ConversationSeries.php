@@ -32,8 +32,9 @@ final class ConversationSeries
     }
     public static function requiresConfirmation(array $state): bool
     {
-        return self::enabled($state) && empty($state['revision_request']['binding']) && (in_array($state['stage_state']['key']??'', ['story','outline'],true)
-            || (ConversationCreativePolicy::enabled($state) && ($state['stage_state']['key']??'')==='episode')); 
+        if (!empty($state['revision_request']['binding']) && ($state['revision_request']['return_stage']['key']??'')!==($state['stage_state']['key']??'')) return false;
+        return self::enabled($state) && (in_array($state['stage_state']['key']??'', ['story','outline'],true)
+            || (ConversationCreativePolicy::enabled($state) && ($state['stage_state']['key']??'')==='episode'));
     }
     public static function assertEpisodeMedia(array $state,array $nodes): void
     {
