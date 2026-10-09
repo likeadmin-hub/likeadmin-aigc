@@ -179,4 +179,33 @@ final class ShortDramaVnextSceneShotRepairTest extends TestCase
         self::assertNotSame($last['shot_plan']['content_hash'], $last['shot_repair']['candidate_shot_plan']['content_hash']);
         self::assertSame(self::context()['canonical_input'], $last['document']);
     }
+    public function testAcceptedVisualRepairCanContinueImageAndProductionHandoffWithCurrentTrace(): void
+    {
+        $keys = []; $checkpoints = [];
+        $result = $this->runCase(null, null, $checkpoints, $keys);
+        $before = array_values(array_filter($checkpoints, static fn($value) => isset($value['coverage_report'])))[0];
+        $assets = []; $timings = [];
+        foreach ($result['document']['entities'] as $entity) $assets[$entity['entity_id']] = ['asset_id' => 'asset_' . $entity['entity_id'],
+            'state_version' => 'appearance1', 'reference_hash' => 'approved-reference', 'style' => '写实'];
+        foreach ($result['shot_plan']['shots'] as $shot) $timings[$shot['shot_id']] = ['version' => 'measured1', 'actual_seconds' => 3];
+        $capability = ['version' => 'video1', 'durations' => [5], 'audio_mode' => 'postproduction'];
+        $production = \app\common\service\app\aigc_short_drama\vnext\ProductionCompiler::compile($result['document'], $result['shot_plan'], $capability, $timings, $assets, '写实');
+        self::assertSame('ready_to_dispatch', $production['status']); self::assertCount(6, $production['fragments']);
+        self::assertSame(array_values(array_column(ContentDocument::units($result['document']), 'text')), array_column($production['audio_segments'], 'text'));
+        foreach ($production['fragments'] as $fragment) {
+            \app\common\service\app\aigc_short_drama\vnext\ProductionCompiler::assertCurrent($fragment, $result['document'], $result['shot_plan'], $assets);
+            self::assertSame($result['shot_plan']['revision_id'], $fragment['shot_revision_id']);
+        }
+        $shot = $result['shot_plan']['shots'][2];
+        $image = \app\common\service\app\aigc_short_drama\vnext\ImageHandoff::compile($result, '写实', 'shot_image', $shot['shot_id'], $result['document']['revision_id'], $assets);
+        \app\common\service\app\aigc_short_drama\vnext\ImageHandoff::assertIntact($image);
+        self::assertStringContainsString('画面已校正', $image['prompt']);
+        self::assertSame($result['shot_plan']['content_hash'], $image['trace']['shot_hash']); self::assertSame($shot['unit_refs'], $image['trace']['unit_refs']);
+        $oldTargets = array_column(\app\common\service\app\aigc_short_drama\vnext\ImageHandoff::targets($before, '写实'), 'state_hash', 'target_id');
+        $newTargets = array_column(\app\common\service\app\aigc_short_drama\vnext\ImageHandoff::targets($result, '写实'), 'state_hash', 'target_id');
+        self::assertSame($oldTargets['char1'], $newTargets['char1']); self::assertSame($oldTargets['room1'], $newTargets['room1']);
+        $old = \app\common\service\app\aigc_short_drama\vnext\ProductionCompiler::compile($before['document'], $before['shot_plan'], $capability, $timings, $assets, '写实');
+        $this->expectExceptionCode(409);
+        \app\common\service\app\aigc_short_drama\vnext\ProductionCompiler::assertCurrent($old['fragments'][2], $result['document'], $result['shot_plan'], $assets);
+    }
 }
