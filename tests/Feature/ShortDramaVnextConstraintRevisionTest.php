@@ -46,7 +46,7 @@ final class ShortDramaVnextConstraintRevisionTest extends TestCase
     public function testRecheckReplaysLocalChoiceAndKeepsUnrelatedNewRequirements(): void
     {
         [$input,$doc,$origin,$patch]=$this->fixture();$next=$this->revise($input,$doc,$origin,$patch);$edited=$next['context']['canonical_input'];
-        $fresh=$input['context'];$fresh['requirements'][]=['id'=>'requirement_added','text'=>'新增未撤销要求'];
+        $fresh=$input['context'];$fresh['dependency_versions']=$doc['dependency_versions'];$fresh['requirements'][]=['id'=>'requirement_added','text'=>'新增未撤销要求'];
         $recheck=ApplicationWorkflow::recheckInput($next,['document'=>$edited],$fresh,$edited['revision_id'],'recheck');
         self::assertSame(['保留原文。','新增未撤销要求',$patch['constraint_revision']['text']],array_column($recheck['context']['requirements'],'text'));
         self::assertSame($next['context']['events'],$recheck['context']['events']);
