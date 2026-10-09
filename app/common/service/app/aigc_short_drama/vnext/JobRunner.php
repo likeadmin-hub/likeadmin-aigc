@@ -11,7 +11,10 @@ final class JobRunner
     {
         $snapshot = $store->snapshot();
         if (!$snapshot) throw new RuntimeException('生成作业不存在', 404);
-        if ($snapshot['execution_status'] === 'succeeded') return json_decode($snapshot['candidate_json'], true, 512, JSON_THROW_ON_ERROR);
+        if ($snapshot['execution_status'] === 'succeeded') {
+            if ($progress) $store->deliverPublicationEvents(static fn(array $event) => $progress('revision_published', $event));
+            return json_decode($snapshot['candidate_json'], true, 512, JSON_THROW_ON_ERROR);
+        }
         $input = json_decode($snapshot['input_json'], true, 512, JSON_THROW_ON_ERROR);
         $lease = (int)($input['execution']['lease_seconds'] ?? 0);
         $timeout = (int)($input['execution']['stage_timeout_seconds'] ?? 0);
@@ -59,6 +62,7 @@ final class JobRunner
             // Dependency changes detected by the atomic projection must stop this
             // attempt immediately, just like preflight conflicts. Keep its receipts.
             $store->publish($fence, $result['document'], $result['shot_plan'], $result['coverage_report'], $publishProjection);
+            if ($progress) $store->deliverPublicationEvents(static fn(array $event) => $progress('revision_published', $event));
             return $result;
         } catch (RuntimeException $error) {
             if (in_array($error->getCode(), [409, 413, 422, 429], true) && $store->snapshot()['execution_status'] === 'running') {

@@ -4036,6 +4036,7 @@ class AigcShortDramaService
             }
         }
         if (in_array($job['execution_status'], ['succeeded', 'canceled', 'needs_attention'], true)) {
+            if ($job['execution_status'] === 'succeeded') $store->deliverPublicationEvents(static fn(array $event) => $emit('revision_published', $event));
             return self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
         }
         $input = self::jsonDecode($job['input_json']); $model = $input['model'];
