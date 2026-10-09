@@ -224,7 +224,7 @@ final class ConversationWorkflow
                 ['key'=>'outline','label'=>'分集大纲','skills'=>['剧本创作'],'creates_nodes'=>true],
                 ['key'=>'episode','label'=>'当前集剧本','skills'=>['剧本创作'],'creates_nodes'=>true],
                 ['key'=>'art','label'=>'画风与美术规划','skills'=>['画风设计','主体设计','场景设计','道具设计'],'creates_nodes'=>false],
-                ['key'=>'assets','label'=>'主体资产','skills'=>['主体图','主体三视图'],'creates_nodes'=>true,'auto_types'=>['image']],
+                ['key'=>'assets','label'=>'主体和场景','skills'=>['主体图','主体三视图','场景图'],'creates_nodes'=>true,'auto_types'=>['image']],
                 ['key'=>'storyboard','label'=>'场景与分镜图','skills'=>['场景设计','道具设计','分镜设计','分镜图'],'creates_nodes'=>true,'auto_types'=>['image']],
                 ['key'=>'video_plan','label'=>'分镜视频规划','skills'=>['分镜视频规划'],'creates_nodes'=>false],
                 ['key'=>'video_nodes','label'=>'分镜视频节点','skills'=>['分镜视频'],'creates_nodes'=>true,'manual_types'=>['video']],
@@ -276,7 +276,7 @@ final class ConversationWorkflow
             'episode'=>'请基于已确认的大纲生成当前集剧本。',
             'script'=>'请基于已确认的创作采集信息，生成本阶段真实的剧本与角色设定。输出结构化故事设定、角色小传、分场剧情、关键对白和分镜脚本，并按当前受控格式写回对应文本节点；不要输出提问模板。',
             'art'=>'请基于已确认剧本与角色设定，生成本阶段真实的画风、美术、主体、场景与道具规划，以及后续生图提示词。规划只保存在对话与工作流状态中，不创建画布文本节点；不要提交媒体任务。',
-            'assets'=>'请基于已完成美术规划，生成主体图与主体三视图的受控资产计划。仅提出符合工作流依赖的图片节点；不得生成视频或音频任务。',
+            'assets'=>'请基于已完成美术规划，生成主体图、主体三视图和场景图的受控资产计划。仅提出符合工作流依赖的图片节点；不得生成视频或音频任务。',
             'storyboard'=>'请基于已确认主体资产与美术规划，生成场景、道具和分镜图的受控计划，并复用真实可用的前序素材引用。',
             'video_plan'=>'请基于已完成分镜图计划，生成真实的分镜表和视频提示词规划。规划只保存在对话与工作流状态中，不创建画布文本节点，也不提交视频任务。',
             'video_nodes'=>'请基于已确认分镜视频规划，一次性插入全部分镜视频待生成节点并连接所需引用。所有视频节点必须保持待用户手动生成状态。',
@@ -507,6 +507,15 @@ final class ConversationWorkflow
             self::assertState($state);
             if ($slot==='next_episode' && !empty($state['series']['next_page_id'])) return ['workflow'=>self::publicState($state),'card'=>self::card($state),'next_page_id'=>(int)$state['series']['next_page_id'],'canvas_project_id'=>\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::root($tenant,$user,$canvas)];
             if ((int)$state['state_revision']!==$expectedRevision) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
+            if ($slot==='next_stage') {
+                if ($value!=='continue' || ($state['stage_state']['status']??'')!=='awaiting_stage_start'
+                    || !in_array($state['stage_state']['key']??'',['storyboard','video_plan','audio_plan'],true)) throw new RuntimeException('WORKFLOW_STAGE_PLAN_STALE');
+                $state['stage_state']['status']='ready';
+                $state['state_revision']++;
+                $settings['workflow_state']=$state;
+                Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
+                return ['workflow'=>self::publicState($state),'card'=>self::card($state)];
+            }
             if ($slot==='next_episode') {
                 $nodes=json_decode((string)$lockedCanvas['nodes_json'],true)?:[];
                 ConversationSeries::assertEpisodeMedia($state,$nodes);
@@ -613,7 +622,7 @@ final class ConversationWorkflow
             $effects['mode']='auto';
             self::rememberArtifacts($state,$stage,(array)$plan['nodes'],$effects);
             $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$stage])));
-            $state['stage_state']=['key'=>self::nextStage($stage),'status'=>'ready','completed'=>$completed];
+            $state['stage_state']=self::nextStageState($stage,$completed);
             $state['state_revision']++;
             $settings['workflow_state']=$state;
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
@@ -659,7 +668,7 @@ final class ConversationWorkflow
             if ($revising) unset($state['revision_request']);
             $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$stage])));
             $state['stage_plan']=[];
-            $state['stage_state']=['key'=>self::nextStage($stage),'status'=>'ready','completed'=>$completed];
+            $state['stage_state']=self::nextStageState($stage,$completed);
             if (ConversationCreativePolicy::enabled($state) && $stage==='episode' && ConversationCreativePolicy::missingVisualSlot($state)) $state['stage_state']['status']='collecting';
             if (!empty($seriesRevision) && ($revisionReturn['key']??'')!==$stage) {
                 $state['stage_state']=$revisionReturn;
@@ -789,7 +798,7 @@ final class ConversationWorkflow
         if ($next==='') return null;
         self::rememberArtifacts($state,$current,$proposals,$effects);
         $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$current])));
-        $state['stage_state']=['key'=>$next,'status'=>'ready','completed'=>$completed];$state['state_revision']++;
+        $state['stage_state']=self::nextStageState($current,$completed);$state['state_revision']++;
         $settings['workflow_state']=$state;
         return $settings;
     }
@@ -1006,6 +1015,12 @@ final class ConversationWorkflow
             $slot=ConversationCreativePolicy::missingVisualSlot($state);
             if ($slot) return $stageCard+['type'=>'question','title'=>'准备视觉素材','step'=>empty($state['slot_values']['visual_style'])?1:2,'total'=>2,'slot'=>$slot];
         }
+        if (($stage['status']??'')==='awaiting_stage_start') {
+            $labels=['storyboard'=>'确认主体和场景，创建分镜','video_plan'=>'确认分镜，准备视频','audio_plan'=>'创建音频规划'];
+            return $stageCard+['type'=>'next_stage','title'=>'本阶段已准备完成',
+                'body'=>$stageKey==='storyboard'?'主体和场景已创建，可先检查并生成素材，再继续创建分镜。':'已保留当前阶段内容，确认后再继续下一步。',
+                'action_label'=>$labels[$stageKey]??'继续下一阶段'];
+        }
         if ($stageKey==='complete') {
             if (ConversationSeries::enabled($state) && ConversationSeries::episode($state)<ConversationSeries::count($state)) return $stageCard+['type'=>'next_episode','title'=>'本集创作规划已完成','body'=>'完成本集视频制作后，可继续下一集。相同主体和场景将复用已有资产。','action_label'=>'开始第'.(ConversationSeries::episode($state)+1).'集创作'];
             return array_replace($stageCard,['type'=>'complete','stage_label'=>'已完成','skills'=>[],
@@ -1064,6 +1079,10 @@ final class ConversationWorkflow
         $snapshot=(array)($state['workflow_snapshot']??[]);$stage=(array)($state['stage_state']??[]);
         if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_array($snapshot['stage_skill_versions']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_array($state['creative_settings']??null) || !is_array($state['artifact_memory']??null) || !is_array($state['image_plan']??null) || !is_array($state['stage_plan']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');
     }
+    private static function nextStageState(string $stage,array $completed): array {
+        $next=self::nextStage($stage);
+        return ['key'=>$next,'status'=>in_array($next,['storyboard','video_plan','audio_plan'],true)?'awaiting_stage_start':'ready','completed'=>$completed];
+    }
     private static function nextStage(string $stage): string { return [ 'story'=>'outline','outline'=>'episode','episode'=>'art','script'=>'art','art'=>'assets','assets'=>'storyboard','storyboard'=>'video_plan','video_plan'=>'video_nodes','video_nodes'=>'audio_plan','audio_plan'=>'complete'][$stage]??''; }
     /** Server-owned output contracts are frozen with the workflow snapshot and
      * shown to the model as writing requirements.  They are intentionally
@@ -1072,7 +1091,7 @@ final class ConversationWorkflow
         return match ($stage) {
             'script'=>['project_title','logline','world_setting','character_profiles','episode_outline','scene_script','storyboard_script'],
             'art'=>['art_bible','character_asset_spec','scene_asset_spec','prop_asset_spec','subject_image_prompt','three_view_prompt','scene_image_prompt','storyboard_image_prompt'],
-            'assets'=>['subject_image_prompt','three_view_prompt'],
+            'assets'=>['subject_image_prompt','three_view_prompt','scene_image_prompt'],
             'storyboard'=>['shot_number','shot_duration','camera','action','dialogue_or_caption','image_prompt','asset_references'],
             'video_plan'=>['shot_number','duration','first_frame','last_frame','camera_motion','action_sequence','video_prompt','asset_references'],
             'video_nodes'=>['video_prompt','asset_references'],

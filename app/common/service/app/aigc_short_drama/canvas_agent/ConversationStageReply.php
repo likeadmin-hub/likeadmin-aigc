@@ -33,7 +33,7 @@ final class ConversationStageReply
         return match ($stage) {
             'script'=>'已整理故事设定和单集剧本'.$detail.'。请确认故事与剧本方向；确认后继续画风和美术规划。',
             'art'=>'已完成画风与美术规划'.$detail.'。请确认主体、场景和风格方向；确认后继续准备图片节点。',
-            'assets'=>$written?'已在画布插入'.count($nodes).'个主体相关图片节点'.$detail.'。请在需要生成的节点逐个确认图片任务。':'已准备'.count($nodes).'个主体相关图片节点'.$detail.'。请核对图片计划与预估积分；确认后再插入画布并按模式生成。',
+            'assets'=>$written?'已在画布插入'.count($nodes).'个主体和场景图片节点'.$detail.'。请在需要生成的节点逐个确认图片任务。':'已准备'.count($nodes).'个主体和场景图片节点'.$detail.'。请核对图片计划与预估积分；确认后再插入画布并按模式生成。',
             'storyboard'=>$written?'已在画布插入'.count($nodes).'个场景或分镜图片节点'.$detail.'。请在需要生成的节点逐个确认图片任务。':'已准备'.count($nodes).'个场景或分镜图片节点'.$detail.'。请核对所用素材与预估积分；确认后再生成图片。',
             'video_plan'=>'已整理分镜视频规划'.$detail.'。请确认镜头内容；确认后插入待生成的视频节点。',
             'video_nodes'=>'已'.($written?'插入':'准备').count($nodes).'个分镜视频节点'.$detail.'。视频不会自动提交，请在画布上逐个确认生成。',
@@ -46,7 +46,7 @@ final class ConversationStageReply
     {
         return match ($stage) {
             'script'=>'请确认故事和单集剧本，随后继续美术规划。',
-            'art'=>'请确认美术方向，随后准备主体图片。',
+            'art'=>'请确认美术方向，随后准备主体和场景图片。',
             'assets','storyboard'=>$written?'图片节点已插入画布，请按需逐个确认生成。':'请核对图片计划与预计积分，再决定是否生成。',
             'video_plan'=>'请确认镜头规划，随后插入待生成的视频节点。',
             'video_nodes'=>'视频节点需在画布上逐个确认生成。',
