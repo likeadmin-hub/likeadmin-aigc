@@ -24002,6 +24002,12 @@ class AigcShortDramaService
                 ? self::scriptPlanProviderError((string)($task['error'] ?? ''))
                 : '',
         ];
+        if ((int)($request['_pipeline_version'] ?? 0) === 1) {
+            $job = Db::name('aigc_short_drama_vnext_job')->where([
+                'tenant_id' => (int)$task['tenant_id'], 'user_id' => (int)$task['user_id'], 'task_id' => (string)$task['task_id'],
+            ])->find();
+            $response['generation_snapshot'] = $job ? vnext\ExecutionStore::publicProjection($job) : null;
+        }
         return self::sanitizeUtf8Payload($response);
     }
 

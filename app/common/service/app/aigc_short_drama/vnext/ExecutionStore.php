@@ -44,7 +44,7 @@ final class ExecutionStore
             if ((int)$job['deadline_at'] <= time()) throw new RuntimeException('作业已达到截止时间，已完成内容保留', 429);
             $fence = (int)$job['fence'] + 1;
             $this->query('job')->update(['fence' => $fence, 'lease_owner' => $owner, 'lease_until' => time() + $leaseSeconds,
-                'execution_status' => 'running', 'update_time' => time()]);
+                'execution_status' => 'running', 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
             return $fence;
         });
     }
@@ -60,7 +60,8 @@ final class ExecutionStore
     {
         Db::transaction(function () use ($fence, $code): void {
             $job = $this->job(); $this->assertFence($job, $fence);
-            $this->query('job')->update(['execution_status' => 'needs_attention', 'error_code' => $code, 'lease_until' => 0, 'update_time' => time()]);
+            $this->query('job')->update(['execution_status' => 'needs_attention', 'error_code' => $code, 'lease_until' => 0,
+                'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
         });
     }
     /** Reserve a complete repair/replan/review round before changing any content. */
@@ -179,20 +180,24 @@ final class ExecutionStore
         Db::transaction(function (): void {
             $job = $this->job();
             if (in_array($job['execution_status'], ['succeeded', 'failed', 'canceled'], true)) return;
-            $this->query('job')->update(['execution_status' => 'canceled', 'active_slot' => null, 'fence' => (int)$job['fence'] + 1, 'update_time' => time()]);
+            $this->query('job')->update(['execution_status' => 'canceled', 'active_slot' => null, 'fence' => (int)$job['fence'] + 1,
+                'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
         });
     }
     public function snapshot(): array { return $this->query('job')->find() ?: []; }
     public function publicSnapshot(): array
     {
-        $job = $this->snapshot();
+        return self::publicProjection($this->snapshot());
+    }
+    public static function publicProjection(array $job): array
+    {
         if (!$job) return [];
         $candidate = self::decode($job['candidate_json'] ?: '{}'); $actions = [];
         if ($job['document_status'] !== 'empty') $actions[] = 'read_content';
         if (in_array($job['execution_status'], ['queued', 'running', 'retry_wait', 'reconciling', 'needs_attention'], true)) $actions[] = 'cancel';
         // Reconciliation is not a retry permission; budget increments require a new authorization.
         if ($job['execution_status'] === 'reconciling') $actions[] = 'check_receipt';
-        return ['pipeline_version' => 1, 'execution_status' => $job['execution_status'],
+        return ['pipeline_version' => 1, 'task_id' => $job['task_id'], 'execution_status' => $job['execution_status'],
             'document_status' => $job['document_status'], 'production_status' => $job['production_status'],
             'event_seq' => (int)$job['event_seq'], 'revision_id' => $candidate['document']['revision_id'] ?? '',
             'published_revision_id' => $job['published_revision_id'], 'allowed_actions' => $actions,
