@@ -43,6 +43,23 @@ final class ResourceBudget
     {
         if ($state['blocked'] !== '') throw new RuntimeException('模型用量需要核对，已停止后续生成并保留内容', 429);
     }
+    /** Explicit owner authorization raises caps without resetting usage, holds or reservations. */
+    public static function increase(array $state, array $limits): array
+    {
+        self::assertVerified($state); $limits = self::amounts($limits); $changed = false;
+        foreach (self::FIELDS as $field) {
+            if ($limits[$field] < $state['limits'][$field]) throw new RuntimeException('新预算不能减少已经授权的上限', 422);
+            $changed = $changed || $limits[$field] > $state['limits'][$field];
+        }
+        if (!$changed) throw new RuntimeException('请明确提高至少一项资源预算', 422);
+        $state['limits'] = $limits; self::assertFits($state); return $state;
+    }
+    public static function publicState(array $state): array
+    {
+        $result = ['limits' => [], 'spent' => []];
+        foreach (self::FIELDS as $field) foreach (['limits', 'spent'] as $group) $result[$group][$field] = $field === 'total_tokens' ? $state[$group][$field] : $state[$group][$field] / 1000000;
+        return $result;
+    }
     public static function reserveRound(array $state, string $key, int $calls): array
     {
         if (isset($state['rounds'][$key])) return $state;
