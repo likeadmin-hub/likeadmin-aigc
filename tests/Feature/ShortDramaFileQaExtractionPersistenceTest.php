@@ -28,7 +28,7 @@ final class ShortDramaFileQaExtractionPersistenceTest extends TestCase
                 $extension = $kind === 'binary' ? 'txt' : 'docx';
                 if ($kind === 'image') {
                     $zip = new \ZipArchive(); $zip->open($path, \ZipArchive::OVERWRITE);
-                    $zip->addFromString('word/document.xml', '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>部分文字</w:t><w:drawing/></w:r></w:p></w:body></w:document>'); $zip->close();
+                    $zip->addFromString('word/document.xml', '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><w:body><w:p><w:r><w:t>部分文字</w:t><w:drawing><a:blip/></w:drawing></w:r></w:p></w:body></w:document>'); $zip->close();
                 } else file_put_contents($path, $kind === 'binary' ? "未核对\0正文" : '损坏压缩包');
                 $sha = hash_file('sha256', $path);
                 request()->withFiles(['file' => ['tmp_name' => $path, 'name' => '原文.' . $extension, 'type' => 'application/octet-stream', 'size' => filesize($path), 'error' => 0]]);
