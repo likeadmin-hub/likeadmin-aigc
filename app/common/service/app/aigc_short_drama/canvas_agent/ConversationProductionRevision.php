@@ -11,9 +11,9 @@ use think\facade\Db;
 /** One revision uses the existing production/billing path, never a text-only writeback. */
 final class ConversationProductionRevision
 {
-    public static function task(int $tenant,int $user,string $id): array
+    public static function task(int $tenant,int $user,string $id,bool $lock=false): array
     {
-        $task=Db::name('aigc_short_drama_script_task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$id,'delete_time'=>0])->find();
+        $task=Db::name('aigc_short_drama_script_task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$id,'delete_time'=>0])->lock($lock)->find();
         if (!$task) throw new RuntimeException('WORKFLOW_PRODUCTION_NOT_FOUND');
         return $task;
     }
@@ -47,7 +47,9 @@ final class ConversationProductionRevision
     public static function bind(int $tenant,int $user,int $run,array &$state): array
     {
         $revision=&$state['revision_request'];
-        $source=self::task($tenant,$user,(string)$revision['base']['task_id']);
+        $project=Db::name('aigc_short_drama_project')->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>(int)$revision['base']['project_id'],'delete_time'=>0])->lock(true)->find();
+        if (!$project) throw new RuntimeException('WORKFLOW_PRODUCTION_NOT_FOUND');
+        $source=self::task($tenant,$user,(string)$revision['base']['task_id'],true);
         if (!hash_equals($revision['base']['stamp'],self::stamp($source))) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
         if (!empty($revision['binding'])) {
             $binding=$revision['binding'];
@@ -58,7 +60,7 @@ final class ConversationProductionRevision
             }
             return $binding;
         }
-        $latest=Db::name('aigc_short_drama_project')->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$source['project_id'],'delete_time'=>0])->value('last_task_id');
+        $latest=$project['last_task_id'];
         if ($latest!==$source['task_id']) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
         $request=json_decode($source['request_json'],true)?:[];
         $plan=ShortDramaStoryDraft::effective($request,json_decode($source['result_json'],true)?:[]);
@@ -78,11 +80,13 @@ final class ConversationProductionRevision
     public static function adopt(array &$state,int $tenant,int $user): void
     {
         $revision=$state['revision_request'];
-        $source=self::task($tenant,$user,$revision['base']['task_id']);
+        $project=Db::name('aigc_short_drama_project')->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>(int)$revision['base']['project_id'],'delete_time'=>0])->lock(true)->find();
+        if (!$project) throw new RuntimeException('WORKFLOW_PRODUCTION_NOT_FOUND');
+        $source=self::task($tenant,$user,$revision['base']['task_id'],true);
         if (!hash_equals($revision['base']['stamp'],self::stamp($source))) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
-        $binding=$revision['binding'];$task=self::task($tenant,$user,$binding['task_id']);
+        $binding=$revision['binding'];$task=self::task($tenant,$user,$binding['task_id'],true);
         if ($task['status']!=='success') throw new RuntimeException('WORKFLOW_PRODUCTION_NOT_FOUND');
-        $latest=Db::name('aigc_short_drama_project')->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$task['project_id'],'delete_time'=>0])->value('last_task_id');
+        $latest=$project['last_task_id'];
         if ($latest!==$task['task_id'] || !hash_equals((string)($revision['result_stamp']??''),self::stamp($task))) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
         $key=$revision['stage']==='episode'?'episode_'.ConversationSeries::episode($state):$revision['stage'];
         $state['series']['task_history'][$key][]=$state['series']['tasks'][$key];
