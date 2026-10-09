@@ -80,6 +80,18 @@ final class ApplicationWorkflow
         return $input;
     }
 
+    public static function recheckInput(array $input, array $candidate, array $context, string $expectedRevision, string $newTask): array
+    {
+        $document = $candidate['document'] ?? [];
+        if (!$document || $document['revision_id'] !== $expectedRevision) throw new RuntimeException('复核正文版本已变化', 409);
+        $revision = 'revision_' . substr(ContentDocument::hash([$newTask, 1]), 0, 24);
+        $input['context'] = array_replace($input['context'], $context);
+        $input['context']['canonical_input'] = ContentDocument::rebind($document, $context['dependency_versions'], $revision);
+        $input['context']['revision_id'] = $revision;
+        unset($input['context']['structured_screenplay']);
+        return $input;
+    }
+
     /** The compatible view is derived from accepted content, never fed back into creative validation. */
     public static function project(array $candidate): array
     {

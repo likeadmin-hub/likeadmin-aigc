@@ -114,6 +114,12 @@ class ShortDramaEpisodeService
                 $task->save(['request_json' => self::encode($request), 'update_time' => time()]);
             }
             $episodes = self::validateOutline($plan, (int)$project['episode_count']);
+            $canonical = vnext\SeriesContext::capture($tenantId, $userId, $projectId, $taskId, $request, $plan,
+                (array)\think\facade\Config::get('short_drama.vnext', []));
+            if ($canonical !== null) {
+                $request['_vnext_series'] = $canonical;
+                $task->save(['request_json' => self::encode($request), 'update_time' => time()]);
+            }
             foreach ($episodes as $index => $outline) {
                 Db::name(self::TABLE)->insert([
                     'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
@@ -221,11 +227,35 @@ class ShortDramaEpisodeService
             ->whereIn('project_id', $ids)->field('project_id,continuity_json')->select()->toArray() : [];
         $current = [];
         foreach ($versions as $version) $current[(int)$version['project_id']] = self::decode($version['continuity_json']);
-        return ShortDramaContinuity::dependencyStatus($rows, $current, $qualityReviewEnabled);
+        return vnext\SeriesContext::dependencyStatus(ShortDramaContinuity::dependencyStatus($rows, $current, $qualityReviewEnabled), $current);
     }
 
     public static function retry(int $tenantId, int $userId, int $id): array
     {
+        $row = self::episode($tenantId, $userId, $id);
+        $child = $row['task_id'] !== '' ? AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
+            'task_id' => $row['task_id'], 'delete_time' => 0])->findOrEmpty() : null;
+        if ($child && !$child->isEmpty() && vnext\ApplicationWorkflow::current(self::decode($child['request_json']))) {
+            $snapshot = self::decode(Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId,
+                'project_id' => $row['project_id'], 'episode_number' => 1, 'delete_time' => 0])->value('series_json'));
+            $prepared = vnext\SeriesContext::prepare($snapshot['request']['_vnext_series'], $row, $snapshot['plan']);
+            $job = vnext\ApplicationWorkflow::store($tenantId, $userId, $row['task_id'])->snapshot();
+            $input = self::decode($job['input_json']);
+            if (($input['context']['dependency_versions'] ?? []) !== $prepared['context']['dependency_versions']) {
+                $result = AigcShortDramaService::recheckCanonicalEpisode($tenantId, $userId, $row['task_id'], $prepared['context']);
+            } else {
+                $result = AigcShortDramaService::retry($tenantId, $userId, $row['task_id']);
+            }
+            if (!in_array($result['generation_snapshot']['execution_status'] ?? '', ['queued', 'running', 'retry_wait'], true)) return $result;
+            // Settlement above is committed before this local queue transition.
+            return self::locked($tenantId, $userId, $id, static function (array $current) use ($tenantId, $userId, $result): array {
+                $project = self::project($tenantId, $userId, (int)$current['production_project_id']);
+                if ($project['last_task_id'] !== $result['task_id']) throw new Exception('本集已有新修订，请刷新');
+                Db::name(self::TABLE)->where('id', $current['id'])->update(['task_id' => $result['task_id'], 'status' => 'pending',
+                    'cancel_requested' => 0, 'error' => '', 'next_retry_at' => 0, 'update_time' => time()]);
+                return ['status' => 'pending', 'episode_id' => $current['id'], 'project_id' => $current['production_project_id'], 'task_id' => $result['task_id']];
+            });
+        }
         return self::locked($tenantId, $userId, $id, function (array $row) use ($tenantId, $userId) {
             $outlineRequest = self::outlineRequest($tenantId, $userId, $row);
             $siblings = self::withContinuityStatus($tenantId, $userId, Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId,
@@ -311,6 +341,7 @@ class ShortDramaEpisodeService
                 return ['status' => 'running', 'cancel_requested' => true];
             }
             if ($row['status'] !== 'pending') throw new Exception('当前剧集无需取消');
+            self::cancelCanonicalPending($tenantId, $userId, [$row['task_id']]);
             if ($row['task_id'] !== '') AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id']])->whereIn('status', ['pending', 'queued'])->update(['status' => 'canceled', 'finished_at' => time(), 'update_time' => time()]);
             Db::name(self::TABLE)->where('id', $row['id'])->update(['status' => 'canceled', 'error' => '已取消，后续剧集暂停', 'update_time' => time()]);
             return ['status' => 'canceled'];
@@ -355,6 +386,7 @@ class ShortDramaEpisodeService
                 }
             }
             if ($pendingTaskIds !== []) {
+                self::cancelCanonicalPending($tenantId, $userId, $pendingTaskIds);
                 AigcShortDramaScriptTask::where([
                     'tenant_id' => $tenantId,
                     'user_id' => $userId,
@@ -395,6 +427,15 @@ class ShortDramaEpisodeService
                 'finishing_count' => count($runningIds),
             ];
         });
+    }
+
+    private static function cancelCanonicalPending(int $tenant, int $user, array $tasks): void
+    {
+        if (!$tasks) return;
+        foreach (AigcShortDramaScriptTask::where(['tenant_id' => $tenant, 'user_id' => $user, 'delete_time' => 0])
+            ->whereIn('task_id', $tasks)->whereIn('status', ['pending', 'queued'])->select()->toArray() as $task) {
+            if (vnext\ApplicationWorkflow::current(self::decode($task['request_json']))) vnext\ApplicationWorkflow::store($tenant, $user, $task['task_id'])->cancel();
+        }
     }
 
     private static function locked(int $tenantId, int $userId, int $id, callable $fn): array
@@ -576,7 +617,7 @@ class ShortDramaEpisodeService
                 if (!$child->isEmpty()) {
                     $originalRequest = self::decode($child['request_json']);
                     $resolvedRequest = ShortDramaStoryWorkflow::inheritQualityReview($originalRequest, $outlineRequest);
-                    if ($resolvedRequest !== $originalRequest) {
+                    if (!vnext\ApplicationWorkflow::current($originalRequest) && $resolvedRequest !== $originalRequest) {
                         $child->save(['request_json' => self::encode($resolvedRequest), 'update_time' => time()]);
                     }
                 }
@@ -599,10 +640,11 @@ class ShortDramaEpisodeService
                 'provider' => $task['provider'] ?? '', 'provider_request_id' => $task['provider_request_id'] ?? '',
                 'provider_task_id' => $task['provider_task_id'] ?? '', 'finished_at' => time(), 'update_time' => time()];
             if ($task['status'] === 'success') {
-                if (empty($plan['storyboard']) || empty($plan['subjects']) || empty($plan['locations'])) throw new Exception('本集内容不完整，请重试');
+                if (empty($plan['storyboard']) || (empty($plan['subjects']) && empty($plan['canonical_document'])) || empty($plan['locations'])) throw new Exception('本集内容不完整，请重试');
                 $update['completed_once'] = 1;
                 $update['result_json'] = self::encode($plan);
-                if (!empty($plan['_continuity'])) $update['continuity_json'] = self::encode($plan['_continuity']);
+                if (isset($plan['canonical_document'], $plan['narrative_ledger'])) $update['continuity_json'] = self::encode(vnext\SeriesContext::metadata($plan));
+                elseif (!empty($plan['_continuity'])) $update['continuity_json'] = self::encode($plan['_continuity']);
                 elseif (!(int)$row['completed_once']) $update['continuity_json'] = self::encode(['episode_number' => (int)$row['episode_number'], 'summary' => mb_substr((string)($plan['story_outline'] ?? ''), 0, 1000)]);
             }
             $queueNext = false;

@@ -9,5 +9,5 @@ return [
     'planning_output_fallback' => 8192,
     // New projects only. Populate explicit tenant IDs and validated model execution policies
     // after the corresponding workflow passes acceptance. Turning this off never reroutes saved jobs.
-    'vnext' => ['enabled' => false, 'tenant_ids' => [], 'models' => []],
+    'vnext' => ['enabled' => false, 'series_enabled' => false, 'tenant_ids' => [], 'models' => []],
 ];

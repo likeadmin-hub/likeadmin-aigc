@@ -24,6 +24,7 @@ final class JobRunner
             }
         };
         try {
+        SeriesContext::assertDependencies($input['context']);
         $result = GenerationPipeline::run($input['context'],
             static function (string $key, array $messages, string $reservation) use ($store, $fence, $lease, $input, $provider, $notify, $timeout, $reconcile): array {
                 $store->heartbeat($fence, $lease);

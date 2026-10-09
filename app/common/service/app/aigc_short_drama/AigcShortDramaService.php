@@ -2426,6 +2426,8 @@ class AigcShortDramaService
     /** Internal queue entry; context is never accepted from HTTP parameters. */
     public static function createEpisodeProduction(int $tenantId, int $userId, array $episode, array $request, array $outline, array $previous): array
     {
+        $canonicalEpisode = isset($request['_vnext_series'])
+            ? vnext\SeriesContext::prepare($request['_vnext_series'], $episode, $outline) : null;
         // A newly created child uses the current input protocol even when its
         // parent outline predates working memory. Build context with that same protocol.
         $request = ShortDramaInputContract::begin($request);
@@ -2452,6 +2454,7 @@ class AigcShortDramaService
         unset($request['script_text'], $request['script_content']);
         $created = self::createScriptPlan($tenantId, $userId, $request, (int)$episode['production_project_id'], [
             '_input_contract_version' => (int)($request['_input_contract_version'] ?? 0),
+            '_vnext_episode_context' => $canonicalEpisode,
             '_prompt_snapshot' => ShortDramaPromptWorkspace::forTask($tenantId, $request),
             'episode_duration_policy' => $episodePolicy,
             'same_scene_cut_policy' => (array)($request['same_scene_cut_policy'] ?? []),
@@ -2744,8 +2747,16 @@ class AigcShortDramaService
 
         // The browser cannot select an engine. Enrollment is evaluated once, before any paid work.
         unset($request['_pipeline_version']);
-        $vnextExecution = vnext\ApplicationWorkflow::enrollment($tenantId, $request, $selectedModels['script_plan'] ?? [],
-            (array)\think\facade\Config::get('short_drama.vnext', []), $existingProjectId === 0);
+        $episodeContext = $internalContext['_vnext_episode_context'] ?? null;
+        unset($request['_vnext_episode_context']);
+        $vnextExecution = $episodeContext !== null ? $episodeContext['snapshot']['execution']
+            : vnext\ApplicationWorkflow::enrollment($tenantId, $request, $selectedModels['script_plan'] ?? [],
+                (array)\think\facade\Config::get('short_drama.vnext', []), $existingProjectId === 0);
+        if ($episodeContext !== null && ((int)$episodeContext['snapshot']['tenant_id'] !== $tenantId
+            || (int)$episodeContext['snapshot']['user_id'] !== $userId
+            || (string)($selectedModels['script_plan']['id'] ?? '') !== $episodeContext['snapshot']['model_id'])) {
+            throw new \RuntimeException('分集执行模型或身份与确认版本不一致', 409);
+        }
         if ($vnextExecution !== null) {
             $request['_pipeline_version'] = vnext\GenerationPipeline::VERSION;
             $request['_generation_version'] = max(3, (int)$request['_generation_version']);
@@ -2786,6 +2797,7 @@ class AigcShortDramaService
             if ($vnextExecution !== null) {
                 $frozenModel = ($selectedModels['script_plan'] ?? []) + ['_planning_fallback' => (array)\think\facade\Config::get('short_drama', [])];
                 $input = vnext\ApplicationWorkflow::input($tenantId, $userId, (int)$project['id'], $taskId, $request, $frozenModel, $vnextExecution);
+                if ($episodeContext !== null) $input['context'] = array_replace($input['context'], $episodeContext['context']);
                 vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId)->create('project:' . $project['id'], $input,
                     $time + (int)$vnextExecution['deadline_seconds']);
             }
@@ -3238,6 +3250,7 @@ class AigcShortDramaService
             }
             return self::formatTask($task->toArray(), true);
         }
+        if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) return self::formatTask($task->toArray(), true);
         if (ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id'])) {
             // Script detail is a read path.  Reusing inherited visual assets
             // writes several rows and used to run here while episode switches
@@ -3873,6 +3886,11 @@ class AigcShortDramaService
             $emit(($result['status'] ?? '') === self::STATUS_SUCCESS ? 'done' : 'task', $result);
             return $result;
         }
+        if ($episodeWorker && vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
+            $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
+            if (!$store->workerReady()) return self::formatTask($task->toArray(), true);
+            return self::executeVnextScriptPlanTask($tenantId, $userId, $task->toArray(), $emit);
+        }
         if (ShortDramaStoryWorkflow::workerOwned(self::jsonDecode((string)$task['request_json']))) {
             // Subscribe only: the durable worker owns generation and billing.
             $deadline = microtime(true) + 25;
@@ -4009,7 +4027,8 @@ class AigcShortDramaService
                     }
                     $emit($event, $payload);
                 },
-                static function (array $candidate, array $receipts) use ($tenantId, $userId, $projectId, $taskId, $scope, $request, $model, $taskData): void {
+                static function (array $candidate, array $receipts) use ($tenantId, $userId, $projectId, $taskId, $scope, $request, $model, $taskData, $input): void {
+                    vnext\SeriesContext::assertDependencies($input['context'], true);
                     $project = AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $projectId])->lock(true)->find();
                     $task = AigcShortDramaScriptTask::where($scope)->lock(true)->find();
                     if (!$project || !$task || $project['last_task_id'] !== $taskId || $task['status'] !== self::STATUS_RUNNING) {
@@ -4479,13 +4498,14 @@ class AigcShortDramaService
         }
     }
 
-    private static function reviseCanonicalContent(int $tenantId, int $userId, array $sourceTask, array $params): array
+    private static function reviseCanonicalContent(int $tenantId, int $userId, array $sourceTask, array $params, ?array $recheckContext = null): array
     {
         $sourceId = (string)$sourceTask['task_id']; $projectId = (int)$sourceTask['project_id'];
         $patches = vnext\ContentDocument::rows($params['canonical_patches'] ?? null, 'canonical_patches');
         $expected = (string)($params['expected_revision_id'] ?? '');
-        $key = vnext\ContentDocument::hash([$tenantId, $userId, $sourceId, $expected, $patches]);
-        return Db::transaction(static function () use ($tenantId, $userId, $sourceTask, $sourceId, $projectId, $patches, $expected, $key): array {
+        $key = vnext\ContentDocument::hash($recheckContext === null ? [$tenantId, $userId, $sourceId, $expected, $patches]
+            : [$tenantId, $userId, $sourceId, $expected, $patches, $recheckContext]);
+        return Db::transaction(static function () use ($tenantId, $userId, $sourceTask, $sourceId, $projectId, $patches, $expected, $key, $recheckContext): array {
             // Same order as publication: canonical job, project, task. No network requests in this transaction.
             $job = Db::name('aigc_short_drama_vnext_job')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $sourceId])->lock(true)->find();
             if (!$job) throw new \RuntimeException('生成作业不存在', 404);
@@ -4497,7 +4517,9 @@ class AigcShortDramaService
             if (!in_array($job['execution_status'], ['succeeded', 'needs_attention'], true)) throw new \RuntimeException('请先停止生成或等待当前内容核对完成', 409);
             if ($project['last_task_id'] !== $sourceId) throw new \RuntimeException('已有新修订，请打开当前任务后再修改', 409);
             $newId = self::makeTaskId(); $agent = self::makeTaskId('sd_agent'); $time = time();
-            $input = vnext\ApplicationWorkflow::revisionInput(self::jsonDecode($job['input_json']), self::jsonDecode($job['candidate_json']), $patches, $expected, $newId);
+            $input = $recheckContext === null
+                ? vnext\ApplicationWorkflow::revisionInput(self::jsonDecode($job['input_json']), self::jsonDecode($job['candidate_json']), $patches, $expected, $newId)
+                : vnext\ApplicationWorkflow::recheckInput(self::jsonDecode($job['input_json']), self::jsonDecode($job['candidate_json']), $recheckContext, $expected, $newId);
             if ($job['execution_status'] === 'needs_attention') vnext\ApplicationWorkflow::store($tenantId, $userId, $sourceId)->cancel();
             vnext\ApplicationWorkflow::store($tenantId, $userId, $newId)->create($job['lane_key'], $input,
                 $time + (int)$input['execution']['deadline_seconds']);
@@ -4514,8 +4536,21 @@ class AigcShortDramaService
             AigcShortDramaScriptTask::create($row);
             $project->save(['last_task_id' => $newId, 'current_agent_run_id' => $agent, 'status' => self::PROJECT_STATUS_PLANNING, 'update_time' => $time]);
             self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $newId, self::STATUS_PENDING, $request, $input['model']);
+            ShortDramaEpisodeService::revisionQueued($tenantId, $userId, $projectId, $newId);
             return self::formatTask(self::findTask($tenantId, $userId, $newId)->toArray(), true);
         });
+    }
+
+    /** Internal explicit episode recheck; HTTP input never supplies the frozen context. */
+    public static function recheckCanonicalEpisode(int $tenantId, int $userId, string $taskId, array $context): array
+    {
+        $task = self::findTask($tenantId, $userId, $taskId);
+        $job = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId)->snapshot();
+        $candidate = self::jsonDecode($job['candidate_json'] ?? '{}');
+        vnext\SeriesContext::assertDependencies($context);
+        return self::reviseCanonicalContent($tenantId, $userId, $task->getData(), [
+            'canonical_patches' => [], 'expected_revision_id' => $candidate['document']['revision_id'] ?? '',
+        ], $context);
     }
 
     public static function saveStoryboard(int $tenantId, int $userId, array $params): array
@@ -15878,6 +15913,7 @@ class AigcShortDramaService
 
     private static function continuityFromResult(array $result): array
     {
+        if (isset($result['canonical_document'], $result['narrative_ledger'])) return vnext\SeriesContext::metadata($result);
         return [
             'narrative_digest' => ShortDramaContinuity::fingerprint($result),
             'ledger' => (array)($result['_continuity'] ?? []),
