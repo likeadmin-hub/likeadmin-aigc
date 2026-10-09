@@ -57,6 +57,7 @@ final class GenerationPipeline
             $base = $best['document'];
             $candidate = $shotOnly ? $base : $call($reservation, ['document' => $base, 'issues' => $best['coverage_report']['issues'],
                 'requirements' => $context['requirements'] ?? [], 'events' => $context['events'] ?? []]
+                + (isset($context['input_history']) ? ['input_history' => $context['input_history']] : [])
                 + ((int)($context['narrative_contract_version'] ?? 0) === 1 ? ['confirmed_facts' => $context['confirmed_facts'] ?? [],
                     'previous_narrative' => NarrativeLedger::relevant($context['previous_narrative'] ?? [], array_column($base['entities'], 'entity_id'))] : []),
                 '仅修复已确认的阻断问题，不润色无关内容。返回{"patches":[{"unit_id":"系统提供的ID","before_hash":"原text_hash","text":"修复后完整文本"}]}。'
@@ -110,8 +111,13 @@ final class GenerationPipeline
             . '"scenes":[{"location":"l1","time_context":"夜","units":[{"type":"action","text":"完整动作","characters":["c1"],"props":["p1"]},'
             . '{"type":"dialogue","speaker":"c1","speech_type":"spoken|voiceover|narration","text":"完整台词"}]}]}。'
             . '优先使用输入中已确认的短别名，只有必要新实体才声明。动作中出现的道具须用props引用已登记的道具短别名。旁白speech_type=narration且无需speaker。'
-            . '原文指定对白完整保留；按本集范围完成事件，不提前演出后续集。目标时长仅用于控制创作密度，不截断结尾。';
+            . '原文指定对白完整保留；按本集范围完成事件，不提前演出后续集。目标时长仅用于控制创作密度，不截断结尾。' . self::historyInstruction($context);
         return $extended ? $instruction : str_replace([',"props":["p1"]', '动作中出现的道具须用props引用已登记的道具短别名。'], '', $instruction);
+    }
+    private static function historyInstruction(array $context): string
+    {
+        return isset($context['input_history']) ? 'input_history按时间排列保存用户原始输入与修改意见。已确认的requirements/events和当前大纲为有效版本，不重新启用已替换的旧要求。'
+            . '修改意见只应用于本集有关内容，不把编辑指令当作剧情或对白，也不要求每集重复跨集事件。' : '';
     }
     private static function shots(array $document, callable $call, string $key, string $reservation, array $issues = []): array
     {
@@ -125,6 +131,7 @@ final class GenerationPipeline
     {
         $narrative = (int)($context['narrative_contract_version'] ?? 0) === NarrativeLedger::VERSION;
         $history = $narrative ? ['previous_narrative' => NarrativeLedger::relevant($context['previous_narrative'] ?? [], array_column($document['entities'], 'entity_id'))] : [];
+        if (isset($context['input_history'])) $history['input_history'] = $context['input_history'];
         return $call($key, ['document' => $document, 'shot_plan' => $plan, 'original_input' => $context['prompt'] ?? '',
             'requirements' => $context['requirements'] ?? [], 'events' => $context['events'] ?? [], 'confirmed_facts' => $context['confirmed_facts'] ?? []] + $history,
             '合并核验本集内容、人物、连续性及分镜。逐项检查适用本集的requirements/events，以及aspect:identity、aspect:continuity、aspect:shot_fidelity。'
@@ -132,7 +139,7 @@ final class GenerationPipeline
             . '"status":"covered|missing|contradiction|uncertain","scope":"whole_episode","reason":"依据",'
             . '"evidence":[{"unit":"u1","start":0,"end":2,"quote":"实际引文"}]}]}。'
             . 'covered必须有真实正文证据，计划、摘要和想象不等于已发生；不能遗漏检查项或编造引文。范围使用Unicode码点且end不包含。'
-            . '表达优化只作为建议，不能判为核心缺陷。仅检查本集适用事件，后续大纲不属于已发生事实。' . ($narrative ? NarrativeLedger::instruction() : ''),
+            . '表达优化只作为建议，不能判为核心缺陷。仅检查本集适用事件，后续大纲不属于已发生事实。' . self::historyInstruction($context) . ($narrative ? NarrativeLedger::instruction() : ''),
             static function ($reply) use ($document, $plan, $context, $narrative): array {
                 $report = ContentCoverage::evaluate($document, $plan, $context['requirements'] ?? [], $context['events'] ?? [], $reply);
                 if ($narrative) {

@@ -76,6 +76,15 @@ final class SeriesContext
             if ($event['episode_number'] !== $number) continue;
             $event['episode_ids'] = [$episodeId]; $events[] = $event;
         }
+        $inputHistory = [];
+        if (($snapshot['content_trace']['schema_version'] ?? 1) >= 2) {
+            foreach (PlanningTrace::sources($snapshot['content_trace']) as $source) {
+                $sources[$source['source_id']] = $source;
+                if (($source['stage'] ?? '') === 'episodes' && !empty($source['episode_numbers'])
+                    && !in_array($number, $source['episode_numbers'], true)) continue;
+                $inputHistory[] = $source;
+            }
+        }
         $previous = self::publishedBefore((int)$snapshot['tenant_id'], (int)$snapshot['user_id'], (int)$snapshot['project_id'], $number);
         $entities = $snapshot['entities']; $known = array_column($entities, 'entity_id');
         foreach ($previous['entities'] as $entity) {
@@ -99,7 +108,7 @@ final class SeriesContext
                 'outline' => $snapshot['outline_hash'], 'episodes' => $previous['dependencies'],
                 'series' => ['tenant_id' => $snapshot['tenant_id'], 'user_id' => $snapshot['user_id'],
                     'project_id' => $snapshot['project_id'], 'episode_number' => $number, 'snapshot_hash' => $snapshot['snapshot_hash']]],
-        ]];
+        ] + ($inputHistory ? ['input_history' => $inputHistory] : [])];
     }
 
     /** Bulk-read lightweight revision metadata; load complete evidence only for the latest published state. */

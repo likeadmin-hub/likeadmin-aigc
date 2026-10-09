@@ -8,9 +8,64 @@ final class PlanningTrace
 {
     public static function enabled(array $request): bool { return isset($request['_source_trace']); }
 
+    /** Called only after ownership/version checks; never consume a client-supplied source envelope. */
+    public static function revisionRequest(array $request, array $base, string $taskId, string $message, string $stage): array
+    {
+        unset($request['_trace_revision']);
+        if (!self::enabled($request)) return $request;
+        $trace = $base['content_trace'] ?? [];
+        self::assertTrace($trace, $request['_source_trace']);
+        $source = SourceTrace::capture('revision_' . $taskId, $taskId, $message, 'inspiration');
+        $source['stage'] = $stage;
+        $source['episode_numbers'] = $stage === 'episodes' && ($request['revision_target']['type'] ?? '') === 'episode'
+            ? [(int)$request['revision_target']['id']] : [];
+        $request['_trace_revision'] = ['base' => $trace, 'source' => $source];
+        return $request;
+    }
+
+    public static function sources(array $trace): array { return $trace['sources'] ?? [$trace['source']]; }
+
+    private static function withRevisionSource(array $request): array
+    {
+        $revision = $request['_trace_revision']; $trace = $revision['base'];
+        self::assertTrace($trace, $request['_source_trace']);
+        $trace['sources'] = array_merge(self::sources($trace), [$revision['source']]);
+        $trace['schema_version'] = 2;
+        unset($trace['content_hash']); $trace['content_hash'] = ContentDocument::hash($trace);
+        return $trace;
+    }
+
+    public static function outlineTrace(array $request): array
+    {
+        return isset($request['_trace_revision']) && $request['_trace_revision']['source']['stage'] === 'episodes'
+            ? self::withRevisionSource($request) : ($request['confirmed_story_snapshot']['content_trace'] ?? []);
+    }
+
+    /** Rebuild active requirements from trusted sources; UI may edit spans but cannot replace source text/history. */
+    public static function rebuild(array $trace, array $rows, int $count): array
+    {
+        self::assertTrace($trace);
+        if (($trace['schema_version'] ?? 1) === 1) return self::build($trace['source'], $rows, $count);
+        $sources = array_column(self::sources($trace), null, 'source_id'); $groups = [];
+        foreach (ContentDocument::rows($rows, 'source_requirements') as $row) {
+            $id = ContentDocument::text($row['source_id'] ?? null, 'requirement.source_id');
+            if (!isset($sources[$id])) throw new RuntimeException('要求引用未知输入来源', 422);
+            $groups[$id][] = $row;
+        }
+        $trace['requirements'] = [];
+        foreach ($groups as $id => $items) $trace['requirements'] = array_merge($trace['requirements'], self::build($sources[$id], $items, $count)['requirements']);
+        unset($trace['content_hash']); $trace['content_hash'] = ContentDocument::hash($trace);
+        return $trace;
+    }
+
     public static function storyInstruction(array $request): string
     {
         if (!self::enabled($request)) return '';
+        if (isset($request['_trace_revision'])) return "\n同时返回source_requirements数组，本次只提取最新修改意见中的新增或替换要求。"
+            . '每项{quote:最新修改原文逐字引用,kind:event或invariant或advice,episode_numbers:[],supersedes:[明确被替换的已有要求ID]}。'
+            . '已有未提及的要求由系统保留，不要重复提取。仅当用户明确撤销旧要求时可返回{quote:撤销指令原文,action:remove,supersedes:[旧要求ID]}。'
+            . '不得因未提及而删除旧要求；替换也必须引用最新意见原文。未指定集号使用空数组。没有新增或撤销要求返回空数组。'
+            . '输入资料=' . json_encode($request['_trace_revision'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         return "\n同时返回source_requirements数组，每项{quote:用户原文逐字引用,kind:event或invariant或advice,episode_numbers:[适用集号],start:可选起始码点,end:可选结束码点}。"
             . '只提取原始输入明确的核心事件、人物/世界约束及建议，不把你创作的细节当作用户要求，不从故事结果反推要求。'
             . 'event是待分配到大纲的事件；invariant是持续适用的身份/世界约束；advice不阻断。未指定集号用空数组，禁止猜测用户指定了某集。'
@@ -31,9 +86,35 @@ final class PlanningTrace
     {
         if (!self::enabled($request)) return $payload;
         if (!array_key_exists('source_requirements', $payload)) throw new RuntimeException('故事设定缺少原始要求清单', 422);
-        $payload['content_trace'] = self::build($request['_source_trace'], ContentDocument::rows($payload['source_requirements'], 'source_requirements'), (int)$request['episode_count']);
+        $rows = ContentDocument::rows($payload['source_requirements'], 'source_requirements');
+        $payload['content_trace'] = isset($request['_trace_revision']) ? self::revisedStory($request, $rows)
+            : self::build($request['_source_trace'], $rows, (int)$request['episode_count']);
         unset($payload['source_requirements']);
         return $payload;
+    }
+
+    private static function revisedStory(array $request, array $rows): array
+    {
+        $trace = self::withRevisionSource($request); $source = $request['_trace_revision']['source'];
+        $old = array_column($trace['requirements'], null, 'id'); $removed = []; $added = [];
+        foreach ($rows as $row) {
+            $ids = $row['supersedes'] ?? [];
+            if (!is_array($ids) || count($ids) > count($old)) throw new RuntimeException('被替换要求列表无效', 422);
+            $replaced = [];
+            foreach ($ids as $id) {
+                if (!is_string($id) || !isset($old[$id]) || isset($removed[$id])) throw new RuntimeException('替换引用未知或重复的要求', 422);
+                $removed[$id] = true; $replaced[] = $old[$id];
+            }
+            [$start, $end, $quote] = self::locate($source['text'], $row);
+            $action = $row['action'] ?? 'upsert';
+            if (!in_array($action, ['upsert', 'remove'], true) || ($action === 'remove' && !$replaced)) throw new RuntimeException('要求变更操作无效', 422);
+            $new = $action === 'remove' ? [] : self::build($source, [$row], (int)$request['episode_count'])['requirements'];
+            $added = array_merge($added, $new);
+            if ($replaced) $trace['replacements'][] = ['source_id' => $source['source_id'], 'start' => $start, 'end' => $end,
+                'quote' => $quote, 'removed' => $replaced, 'added_requirement_ids' => array_column($new, 'id')];
+        }
+        unset($trace['content_hash']); $trace['content_hash'] = ContentDocument::hash($trace);
+        return self::rebuild($trace, array_merge(array_values(array_diff_key($old, $removed)), $added), (int)$request['episode_count']);
     }
 
     public static function build(array $source, array $rows, int $count): array
@@ -85,8 +166,16 @@ final class PlanningTrace
     public static function assertTrace(array $trace, ?array $source = null): void
     {
         $unsigned = $trace; unset($unsigned['content_hash']);
-        if (($trace['schema_version'] ?? 0) !== 1 || ($trace['content_hash'] ?? '') !== ContentDocument::hash($unsigned)
+        if (!in_array($trace['schema_version'] ?? 0, [1, 2], true) || ($trace['content_hash'] ?? '') !== ContentDocument::hash($unsigned)
             || ($source !== null && $trace['source'] !== $source)) throw new RuntimeException('要求清单与原始输入版本不一致', 409);
+        $sources = self::sources($trace); $seen = [];
+        if (!$sources || $sources[0] !== $trace['source']) throw new RuntimeException('首份原始输入已变化', 409);
+        foreach ($sources as $item) {
+            $id = ContentDocument::text($item['source_id'] ?? null, 'source_id');
+            if (isset($seen[$id]) || ($item['hash'] ?? '') !== hash('sha256', ContentDocument::text($item['text'] ?? null, 'source.text')))
+                throw new RuntimeException('来源重复或原文已变化', 409);
+            $seen[$id] = true;
+        }
     }
 
     /** Validate evidence without requiring an incomplete batch to cover the whole series. */
@@ -130,10 +219,13 @@ final class PlanningTrace
         try {
             $trace = $plan['content_trace'] ?? [];
             self::assertTrace($trace, $request['_source_trace']);
-            self::build($trace['source'], $trace['requirements'], $count);
+            self::rebuild($trace, $trace['requirements'], $count);
             if ($stage === 'episodes') {
-                if ($trace !== ($request['confirmed_story_snapshot']['content_trace'] ?? null)) throw new RuntimeException('大纲不能更换已确认要求', 409);
+                if ($trace !== self::outlineTrace($request)) throw new RuntimeException('大纲不能更换已确认要求或修改来源', 409);
                 self::events($trace, $plan['episodes'] ?? [], ContentDocument::hash($plan));
+            } else {
+                $expectedSources = isset($request['_trace_revision']) ? self::sources(self::withRevisionSource($request)) : [$request['_source_trace']];
+                if (self::sources($trace) !== $expectedSources) throw new RuntimeException('故事修改来源与当前任务不一致', 409);
             }
         } catch (RuntimeException $error) { return [['path' => 'content_trace', 'message' => $error->getMessage()]]; }
         return [];
