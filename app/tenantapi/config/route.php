@@ -20,6 +20,8 @@ return [
         app\tenantapi\http\middleware\LoginMiddleware::class,
         // 应用购买与上架验证
         app\tenantapi\http\middleware\AppAccessMiddleware::class,
+        // 小程序商业授权（超级管理员同样校验）
+        app\common\http\middleware\MiniprogramAccessMiddleware::class,
         // 权限认证
         app\tenantapi\http\middleware\AuthMiddleware::class,
         // 演示模式 - 禁止提交数据
