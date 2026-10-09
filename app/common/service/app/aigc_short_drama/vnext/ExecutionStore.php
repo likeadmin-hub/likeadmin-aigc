@@ -42,16 +42,22 @@ final class ExecutionStore
     public function acquire(string $owner, int $leaseSeconds): int
     {
         if ($owner === '' || strlen($owner) > 64 || $leaseSeconds < 1) throw new RuntimeException('执行租约无效', 422);
-        return Db::transaction(function () use ($owner, $leaseSeconds): int {
+        $fence = Db::transaction(function () use ($owner, $leaseSeconds): ?int {
             $job = $this->job();
             if (!in_array($job['execution_status'], ['queued', 'running', 'retry_wait', 'reconciling'], true)) throw new RuntimeException('作业当前不可继续执行', 409);
+            if ((int)$job['deadline_at'] <= time()) {
+                $this->query('job')->update(['execution_status' => 'needs_attention', 'error_code' => 'deadline_exceeded',
+                    'lease_until' => 0, 'fence' => (int)$job['fence'] + 1, 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
+                return null;
+            }
             if ($job['lease_owner'] !== $owner && (int)$job['lease_until'] > time()) throw new RuntimeException('该集正在由其他执行器处理', 425);
-            if ((int)$job['deadline_at'] <= time()) throw new RuntimeException('作业已达到截止时间，已完成内容保留', 429);
             $fence = (int)$job['fence'] + 1;
-            $this->query('job')->update(['fence' => $fence, 'lease_owner' => $owner, 'lease_until' => time() + $leaseSeconds,
+            $this->query('job')->update(['fence' => $fence, 'lease_owner' => $owner, 'lease_until' => min((int)$job['deadline_at'], time() + $leaseSeconds),
                 'execution_status' => 'running', 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
             return $fence;
         });
+        if ($fence === null) throw new RuntimeException('作业已达到截止时间，已完成内容保留', 429);
+        return $fence;
     }
     public function heartbeat(int $fence, int $leaseSeconds): void
     {
@@ -103,7 +109,7 @@ final class ExecutionStore
                 $budget['reservations'][$reservation]--;
             } elseif ($budget['calls'] + array_sum($budget['reservations']) >= $budget['call_limit']) throw new RuntimeException('本集统一调用预算已用完', 429);
             $budget['calls']++;
-            $this->query('job')->update(['budget_json' => self::json($budget), 'update_time' => time()]);
+            $this->query('job')->update(['budget_json' => self::json($budget), 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
             $attempt = (int)($stage['attempt_count'] ?? 0) + 1;
             $data = ['input_hash' => $hash, 'input_json' => self::json($input), 'fence' => $fence, 'status' => 'submitted',
                 'attempt_count' => $attempt, 'retry_after' => 0, 'update_time' => time()];
@@ -156,7 +162,7 @@ final class ExecutionStore
             foreach (['input_tokens', 'output_tokens', 'provider_cost', 'user_points'] as $field) $budget[$field] += max(0, (float)($usage[$field] ?? 0));
             $budget['elapsed_ms'] += max(0, (int)($receipt['_elapsed_ms'] ?? 0));
             $this->query('stage')->where('stage_key', $key)->update(['status' => 'received', 'receipt_json' => self::json($receipt), 'update_time' => time()]);
-            $this->query('job')->update(['budget_json' => self::json($budget), 'update_time' => time()]);
+            $this->query('job')->update(['budget_json' => self::json($budget), 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
         });
     }
     public function checkpoint(int $fence, array $candidate): void
@@ -198,6 +204,31 @@ final class ExecutionStore
                 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
         });
     }
+    /** Explicit user continuation reuses the original receipts, budget and deadline. */
+    public function resume(): bool
+    {
+        // A process may have buffered its response before losing database access. Reconcile only exact keys.
+        foreach ($this->query('stage')->where('status', 'submitted')->select()->toArray() as $stage) {
+            $key = $this->buffer->key($this->scope + ['stage_key' => $stage['stage_key']], $stage['input_hash']);
+            $receipt = $this->buffer->read($key);
+            if ($receipt !== null) $this->receive($stage['stage_key'], $stage['input_hash'], $receipt);
+        }
+        return Db::transaction(function (): bool {
+            $job = $this->job();
+            if (in_array($job['execution_status'], ['queued', 'running', 'retry_wait', 'succeeded'], true)) return false;
+            if (!in_array($job['execution_status'], ['canceled', 'reconciling'], true)) throw new RuntimeException('当前问题需要修改内容或执行策略，不能通过重复调用解决', 409);
+            if ($this->query('stage')->where('status', 'submitted')->count()) throw new RuntimeException('上游提交尚未确认，不能重复生成；已生成内容保留', 409);
+            if ((int)$job['deadline_at'] <= time()) throw new RuntimeException('原任务执行期限已到，不能通过重试重置预算或期限', 429);
+            try {
+                $this->query('job')->update(['execution_status' => 'queued', 'active_slot' => 1, 'error_code' => '', 'lease_until' => 0,
+                    'fence' => (int)$job['fence'] + 1, 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
+            } catch (\Throwable $error) {
+                if (str_contains($error->getMessage(), 'Duplicate entry')) throw new RuntimeException('本集已有新的活动任务，不能同时恢复旧任务', 409, $error);
+                throw $error;
+            }
+            return true;
+        });
+    }
     public function snapshot(): array { return $this->query('job')->find() ?: []; }
     public function receipts(): array
     {
@@ -206,7 +237,8 @@ final class ExecutionStore
     }
     public function publicSnapshot(): array
     {
-        return self::publicProjection($this->snapshot());
+        $job = $this->snapshot();
+        return $job ? self::publicProjection($job + ['pending_receipts' => (int)$this->query('stage')->where('status', 'submitted')->count()]) : [];
     }
     public static function publicProjection(array $job): array
     {
@@ -215,7 +247,10 @@ final class ExecutionStore
         if ($job['document_status'] !== 'empty') $actions[] = 'read_content';
         if (in_array($job['execution_status'], ['queued', 'running', 'retry_wait', 'reconciling', 'needs_attention'], true)) $actions[] = 'cancel';
         // Reconciliation is not a retry permission; budget increments require a new authorization.
-        if ($job['execution_status'] === 'reconciling') $actions[] = 'check_receipt';
+        if ($job['execution_status'] === 'reconciling'
+            || ($job['execution_status'] === 'canceled' && !empty($job['pending_receipts']))) $actions[] = 'check_receipt';
+        if ($job['execution_status'] === 'canceled' && isset($job['pending_receipts']) && !$job['pending_receipts']
+            && (int)$job['deadline_at'] > time()) $actions[] = 'retry';
         return ['pipeline_version' => 1, 'task_id' => $job['task_id'], 'execution_status' => $job['execution_status'],
             'document_status' => $job['document_status'], 'production_status' => $job['production_status'],
             'event_seq' => (int)$job['event_seq'], 'revision_id' => $candidate['document']['revision_id'] ?? '',

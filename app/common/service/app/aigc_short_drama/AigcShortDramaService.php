@@ -4464,6 +4464,7 @@ class AigcShortDramaService
             throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, (int)($params['project_id'] ?? 0));
+        vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());
         if (($task['status'] ?? '') === self::STATUS_CANCELED) {
             throw new Exception('Task has been canceled');
         }
@@ -4546,6 +4547,7 @@ class AigcShortDramaService
             throw new Exception('项目任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+        vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());
         if (($task['status'] ?? '') === self::STATUS_CANCELED) {
             throw new Exception('任务已取消，不能新增分镜');
         }
@@ -4621,6 +4623,7 @@ class AigcShortDramaService
             throw new Exception('请选择要复制的分镜');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+        vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());
         if (($task['status'] ?? '') === self::STATUS_CANCELED) {
             throw new Exception('任务已取消，不能复制分镜');
         }
@@ -4694,6 +4697,7 @@ class AigcShortDramaService
             throw new Exception('请选择要删除的分镜');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+        vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());
         if (($task['status'] ?? '') === self::STATUS_CANCELED) {
             throw new Exception('任务已取消，不能删除分镜');
         }
@@ -4753,6 +4757,7 @@ class AigcShortDramaService
             throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+        vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());
         $request = self::hydrateStoredSubjectReferences(
             $tenantId,
             $userId,
@@ -5370,6 +5375,7 @@ class AigcShortDramaService
             self::checkSensitivePrompt($message);
         }
         $task = self::findTask($tenantId, $userId, $taskId);
+        vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());
         $project = self::findProject($tenantId, $userId, (int)$task['project_id']);
         $previousResult = self::jsonDecode((string)$task['result_json']);
         $sourceRequest = self::hydrateStoredSubjectReferences(
@@ -5789,8 +5795,17 @@ class AigcShortDramaService
     {
         $task = self::findTask($tenantId, $userId, $taskId);
         if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
-            // Never reset a VNext ledger or clone its unknown paid submission through the legacy retry endpoint.
-            throw new \RuntimeException('当前任务保留原调用记录，请按任务允许的操作继续处理', 409);
+            return Db::transaction(static function () use ($tenantId, $userId, $taskId): array {
+                $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
+                if ($store->resume()) {
+                    $task = self::findTask($tenantId, $userId, $taskId);
+                    $project = self::findProject($tenantId, $userId, (int)$task['project_id']);
+                    if ($project['last_task_id'] !== $taskId) throw new \RuntimeException('已有新任务，请从当前版本继续制作', 409);
+                    $task->save(['status' => self::STATUS_PENDING, 'error' => '', 'finished_at' => 0,
+                        'current_step' => '等待继续已保存的任务', 'retry_count' => (int)$task['retry_count'] + 1, 'update_time' => time()]);
+                }
+                return self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
+            });
         }
         $episode = ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
         if ($episode) return ShortDramaEpisodeService::retry($tenantId, $userId, (int)$episode['id']);
@@ -6877,6 +6892,11 @@ class AigcShortDramaService
             $params = ShortDramaImageDefaults::request($params, self::projectGenerationSettingsFromRow($project->toArray()));
         }
         $params['_skill_origin_task_id'] = $taskId !== '' ? $taskId : (string)$project['last_task_id'];
+        if ($params['_skill_origin_task_id'] !== '') {
+            $originTask = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
+                'project_id' => $projectId, 'task_id' => $params['_skill_origin_task_id'], 'delete_time' => 0])->findOrEmpty();
+            if (!$originTask->isEmpty()) vnext\ApplicationWorkflow::assertLegacyWrite($originTask->toArray());
+        }
         $params['_skill_snapshot'] = self::skillSnapshotForGeneration($tenantId, $params);
         if (!in_array($taskType, ['export_video', 'export_package'], true)) {
             ShortDramaSkillRuntime::assertConfirmed($tenantId, $userId, $projectId, $params['_skill_origin_task_id']);
@@ -24120,6 +24140,9 @@ class AigcShortDramaService
             $job = Db::name('aigc_short_drama_vnext_job')->where([
                 'tenant_id' => (int)$task['tenant_id'], 'user_id' => (int)$task['user_id'], 'task_id' => (string)$task['task_id'],
             ])->find();
+            if ($job) $job['pending_receipts'] = (int)Db::name('aigc_short_drama_vnext_stage')->where([
+                'tenant_id' => (int)$task['tenant_id'], 'user_id' => (int)$task['user_id'], 'task_id' => (string)$task['task_id'], 'status' => 'submitted',
+            ])->count();
             $response['generation_snapshot'] = $job ? vnext\ExecutionStore::publicProjection($job) : null;
         }
         return self::sanitizeUtf8Payload($response);

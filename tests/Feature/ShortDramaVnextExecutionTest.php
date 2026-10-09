@@ -121,6 +121,40 @@ final class ShortDramaVnextExecutionTest extends TestCase
         $same = new ExecutionStore(2000000721, 7, 'other_' . $this->scope['task_id'], $this->buffer);
         $this->expectException(\Throwable::class); $same->create($this->scope['task_id'], [], time() + 600);
     }
+    public function testExplicitResumeKeepsBudgetAndDeadlineAndReplaysPaidStage(): void
+    {
+        $fence = $this->store->acquire('worker1', 100);
+        $this->store->call($fence, 'screenplay', [], fn() => $this->receipt());
+        $before = $this->store->snapshot();
+        $this->store->cancel();
+        self::assertContains('retry', $this->store->publicSnapshot()['allowed_actions']);
+        self::assertTrue($this->store->resume()); self::assertFalse($this->store->resume());
+        self::assertSame($before['budget_json'], $this->store->snapshot()['budget_json']);
+        self::assertSame($before['deadline_at'], $this->store->snapshot()['deadline_at']);
+        $fence = $this->store->acquire('worker2', 100);
+        $this->store->call($fence, 'screenplay', [], static function () { self::fail('Paid stage was repeated'); });
+    }
+    public function testCanceledUnknownSubmissionCannotResetIntoNewPaidAttempt(): void
+    {
+        $fence = $this->store->acquire('worker1', 100);
+        try { $this->store->call($fence, 'screenplay', [], static function () { throw new \RuntimeException('read timeout'); }); }
+        catch (\RuntimeException $ignored) {}
+        $this->store->cancel();
+        self::assertNotContains('retry', $this->store->publicSnapshot()['allowed_actions']);
+        self::assertContains('check_receipt', $this->store->publicSnapshot()['allowed_actions']);
+        $this->expectExceptionCode(409); $this->store->resume();
+    }
+    public function testExpiredJobStopsPollingAsRunningAndCannotResetItsDeadline(): void
+    {
+        Db::name('aigc_short_drama_vnext_job')->where($this->scope)->update(['deadline_at' => time() - 1]);
+        try { $this->store->acquire('worker1', 100); self::fail('Expired job acquired'); }
+        catch (\RuntimeException $error) { self::assertSame(429, $error->getCode()); }
+        self::assertSame('needs_attention', $this->store->snapshot()['execution_status']);
+        self::assertSame('deadline_exceeded', $this->store->snapshot()['error_code']);
+        $this->store->cancel();
+        self::assertNotContains('retry', $this->store->publicSnapshot()['allowed_actions']);
+        $this->expectExceptionCode(429); $this->store->resume();
+    }
     public function testPreviousFenceCannotMutateCandidateAfterLeaseTakeover(): void
     {
         $fence = $this->store->acquire('worker1', 100);
