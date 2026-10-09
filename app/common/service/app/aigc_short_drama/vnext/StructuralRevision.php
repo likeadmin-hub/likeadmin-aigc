@@ -15,8 +15,13 @@ final class StructuralRevision
             foreach ($scene['units'] as $unit) $result['bindings'][] = ['unit_id' => $unit['unit_id'], 'before_hash' => ContentDocument::hash(self::binding($unit))];
         }
         $result['scene_layout'] = ['before_hash' => ContentDocument::hash(self::layout($document))];
-        $result['entity_registry'] = ['before_hash' => ContentDocument::hash($document['entities']), 'protected_entity_ids' => EntityRegistryRevision::protectedIds($ledgers)];
+        $protected = EntityRegistryRevision::protectedIds($ledgers);
+        $mergedTargets = [];
+        foreach ($document['entity_merge_receipts'] ?? [] as $id => $proof) $mergedTargets[] = EntityMergeRevision::resolve($id, $document['entity_merge_receipts']);
+        $result['entity_registry'] = ['before_hash' => ContentDocument::hash($document['entities']), 'protected_entity_ids' => array_values(array_unique(array_merge($protected, $mergedTargets)))];
+        $result['entity_merge_protected_source_ids'] = $protected;
         $result['identity_revision_version'] = 1;
+        $result['entity_merge_version'] = EntityMergeRevision::VERSION;
         return $result;
     }
 
@@ -25,7 +30,7 @@ final class StructuralRevision
         ManualContentRevision::assertOrigin($origin);
         $unsigned = $document; unset($unsigned['content_hash'], $unsigned['status'], $unsigned['transforms']);
         if (($document['content_hash'] ?? '') !== ContentDocument::hash($unsigned)) throw new RuntimeException('正文结构基线已变化', 409);
-        if (array_diff(array_keys($edits), ['entities', 'scenes', 'bindings', 'scene_layout', 'entity_registry'])) throw new RuntimeException('结构修改含不允许的字段', 422);
+        if (array_diff(array_keys($edits), ['entities', 'scenes', 'bindings', 'scene_layout', 'entity_registry', 'entity_merges'])) throw new RuntimeException('结构修改含不允许的字段', 422);
         $layoutBefore = self::layout($document);
         if (isset($edits['scene_layout']) && !empty($edits['scenes'])) throw new RuntimeException('拆分或合并时请在新场次布局中设置地点和时间', 422);
         $count = 0;
@@ -160,6 +165,19 @@ final class StructuralRevision
             foreach ($registry['removals'] as $id => $old) $record('entity_remove', $id, $old, [], '从本集移除' . EntityRegistryRevision::kindName($old['kind']) . '：' . $old['canonical_name']);
             foreach ($registry['removals'] as $id => $old) unset($identityReceipts[$id]);
         }
+        if (array_key_exists('entity_merges', $edits)) {
+            foreach (ContentDocument::rows($edits['entity_merges'], 'entity_merges') as $merge) foreach (['source_entity_id','target_entity_id'] as $field) {
+                $id = $merge[$field] ?? '';
+                if (!is_string($id) || isset($seen['entity:'.$id]) || isset($registry['removals'][$id]) || in_array($id, $registry['refs'], true)) throw new RuntimeException('请将身份属性修订、新增移除与合并分次保存', 422);
+            }
+            $document['entities'] = array_values($entities);
+            $merged = EntityMergeRevision::apply($document, $edits['entity_merges'], $revision, $origin, $identityReceipts,
+                EntityRegistryRevision::protectedIds([$ledger, $input['context']['previous_narrative'] ?? []]));
+            $document = $merged['document']; $identityReceipts = $merged['identities'];
+            $entities = array_column($document['entities'], null, 'entity_id');
+            foreach ($merged['changes'] as $change) $record('entity_merge', $change['id'], $change['before'], $change['after'], $change['label']);
+        }
+        EntityMergeRevision::carry($document['entity_merge_receipts'] ?? [], array_values($entities), $origin);
         if (!$changes) throw new RuntimeException('结构没有变化', 422);
         $document['entities'] = array_values($entities);
         if ($identityReceipts) $document['identity_revision_receipts'] = $identityReceipts;

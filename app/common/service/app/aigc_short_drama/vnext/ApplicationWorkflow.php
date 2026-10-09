@@ -97,6 +97,8 @@ final class ApplicationWorkflow
             $input['context']['confirmed_facts']['identities'] = $input['context']['entities'];
             if (!empty($edited['identity_revision_receipts'])) $input['context']['identity_revision_receipts'] = $edited['identity_revision_receipts'];
             else unset($input['context']['identity_revision_receipts']);
+            if (!empty($edited['entity_merge_receipts'])) $input['context']['entity_merge_receipts'] = $edited['entity_merge_receipts'];
+            else unset($input['context']['entity_merge_receipts']);
         }
         // User edits are exact content. A failed semantic review may report issues but cannot rewrite them.
         return $input;

@@ -99,14 +99,19 @@ final class SeriesContext
         }
         $previous = self::publishedBefore((int)$snapshot['tenant_id'], (int)$snapshot['user_id'], (int)$snapshot['project_id'], $number);
         $identityReceipts = $previous['identity_revision_receipts'] ?? [];
+        $mergeReceipts = $previous['entity_merge_receipts'] ?? [];
         $entities = SeriesVisualState::inherit($snapshot['entities'], $previous['entities'], $identityReceipts,
-            ['tenant_id' => (int)$snapshot['tenant_id'], 'user_id' => (int)$snapshot['user_id']]); $known = array_column($entities, 'entity_id');
+            ['tenant_id' => (int)$snapshot['tenant_id'], 'user_id' => (int)$snapshot['user_id']], $mergeReceipts); $known = array_column($entities, 'entity_id');
         foreach ($previous['entities'] as $entity) {
             if (in_array($entity['entity_id'], $known, true)) continue;
             $known[] = $entity['entity_id'];
             // A prior published entity keeps its system identity. Model-local
             // short aliases are reassigned to avoid collisions across episodes.
-            $entities[] = ['ref' => ($entity['kind'] === 'location' ? 'l' : ($entity['kind'] === 'prop' ? 'p' : 'c')) . (count($entities) + 1),
+            $prefix = $entity['kind'] === 'location' ? 'l' : ($entity['kind'] === 'prop' ? 'p' : 'c');
+            $refNumber = count($entities) + 1; $usedRefs = array_merge(array_column($entities,'ref'),array_column($snapshot['entities'],'ref'));
+            foreach ($mergeReceipts as $proof) $usedRefs = array_merge($usedRefs,$proof['source_entity']['aliases']);
+            while (in_array($prefix.$refNumber,$usedRefs,true)) $refNumber++;
+            $entities[] = ['ref' => $prefix.$refNumber,
                 'entity_id' => $entity['entity_id'], 'kind' => $entity['kind'], 'name' => $entity['canonical_name'],
                 'description' => $entity['description'], 'identity_facts' => $entity['identity_facts'],
                 'aliases' => array_values(array_filter($entity['aliases'], static fn($alias) => !preg_match('/^[clp]\d+$/', $alias)))];
@@ -130,7 +135,8 @@ final class SeriesContext
                 'outline' => $snapshot['outline_hash'], 'episodes' => $previous['dependencies'],
                 'series' => ['tenant_id' => $snapshot['tenant_id'], 'user_id' => $snapshot['user_id'],
                     'project_id' => $snapshot['project_id'], 'episode_number' => $number, 'snapshot_hash' => $snapshot['snapshot_hash']]],
-        ] + ($inputHistory ? ['input_history' => $inputHistory] : []) + ($identityReceipts ? ['identity_revision_receipts' => $identityReceipts] : []), $attachmentContext)];
+        ] + ($inputHistory ? ['input_history' => $inputHistory] : []) + ($identityReceipts ? ['identity_revision_receipts' => $identityReceipts] : [])
+            + ($mergeReceipts ? ['entity_merge_receipts'=>$mergeReceipts] : []), $attachmentContext)];
     }
 
     /** Bulk-read lightweight revision metadata; load complete evidence only for the latest published state. */
@@ -167,7 +173,9 @@ final class SeriesContext
             || ($ledger['document_hash'] ?? '') !== $document['content_hash'] || ($ledger['revision_id'] ?? '') !== $document['revision_id']
             || ($ledger['episode_id'] ?? '') !== ($document['episode_id'] ?? null)) throw new RuntimeException('前集正文、人物与事实不属于同一发布版本', 409);
         $identityReceipts = EntityIdentityRevision::carry($document['identity_revision_receipts'] ?? [], $document['entities'], ['tenant_id' => $tenant, 'user_id' => $user]);
-        return ['dependencies' => $dependencies, 'ledger' => $ledger, 'entities' => $document['entities']] + ($identityReceipts ? ['identity_revision_receipts' => $identityReceipts] : []);
+        $mergeReceipts = EntityMergeRevision::carry($document['entity_merge_receipts'] ?? [], $document['entities'], ['tenant_id'=>$tenant,'user_id'=>$user]);
+        return ['dependencies' => $dependencies, 'ledger' => $ledger, 'entities' => $document['entities']] + ($identityReceipts ? ['identity_revision_receipts' => $identityReceipts] : [])
+            + ($mergeReceipts ? ['entity_merge_receipts'=>$mergeReceipts] : []);
     }
 
     public static function assertDependencies(array $context, bool $lock = false): void
