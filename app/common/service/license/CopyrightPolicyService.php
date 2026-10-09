@@ -9,9 +9,8 @@ class CopyrightPolicyService
     public static function policy(): array
     {
         $site=(new SiteLicenseAccessService())->snapshot();
-        $policy=['source'=>'builtin','can_customize'=>$site['can_customize'],'items'=>[
-            ['key'=>'贵州猿创科技有限责任公司','value'=>''],
-        ],'reason_code'=>$site['reason_code']];
+        $policy=['source'=>'none','can_customize'=>$site['can_customize'],'items'=>[],
+            'reason_code'=>$site['reason_code']];
         if ($site['can_customize']) {
             $policy['source']='tenant_custom';
             $policy['items']=self::safeItems((array)ConfigService::get('copyright','config',[]));

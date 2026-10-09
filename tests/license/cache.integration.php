@@ -137,6 +137,19 @@ try {
     Db::name('update_source')->where('status',1)->update(['base_url'=>'http://fixture.invalid']);
     // Different trusted key cannot reuse issuer or commercial state.
     Db::name('update_source')->where('status',1)->update(['public_key'=>openssl_pkey_get_details(openssl_pkey_new(['private_key_bits'=>2048]))['key']]);
-    $assert(C::policy()['source']==='builtin','untrusted issuer fallback');
+    $assert(C::policy()['source']==='none' && C::policy()['items']===[],'untrusted certificate exposed default product copyright');
+    Db::name('update_source')->where('status',1)->update(['public_key'=>$public]);
+    $withoutIssuer=clone $payload;$withoutIssuer->license_type='free';unset($withoutIssuer->issuer);
+    $license->storeCertificate($envelope($withoutIssuer));
+    $assert(C::policy()['source']==='none' && C::policy()['items']===[],'missing issuer exposed default product copyright');
+    $withoutCopyright=clone $withoutIssuer;$withoutCopyright->issuer=(object)['platform_name'=>'fixture issuer'];
+    $license->storeCertificate($envelope($withoutCopyright));
+    $assert(C::policy()['source']==='none' && C::policy()['items']===[],'missing issuer copyright exposed default product copyright');
+    $withCopyright=clone $withoutIssuer;
+    $withCopyright->issuer=(object)['copyright'=>[(object)['text'=>'签发方版权','url'=>'https://issuer.example']]];
+    $license->storeCertificate($envelope($withCopyright));
+    $assert(C::policy()['source']==='license_issuer' && C::policy()['items']===[['key'=>'签发方版权','value'=>'https://issuer.example']],'issuer copyright lost');
+    Db::name('update_license')->delete(true);
+    $assert(C::policy()['source']==='none' && C::policy()['items']===[],'missing certificate exposed default product copyright');
     echo "PASS: atomic original import, invalid import preservation, update deadline isolation, platform/tenant domains, copyright guard, empty issuer, network cache, revocation, auth/signature failure, recovery, expiry, late success after denial, certificate refresh and issuer update, source/credential/key isolation\n";
 } finally { Db::rollback(); }
