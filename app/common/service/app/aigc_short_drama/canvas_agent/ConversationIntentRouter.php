@@ -130,6 +130,23 @@ final class ConversationIntentRouter
         if (!is_array($value) || array_is_list($value)) throw new RuntimeException('INVALID_AGENT_INTENT');
         $advisory=['intent','confidence','skill_key','reply_markdown','intake','speech_act','deliverable','scope','reasoning','explanation'];
         if (array_diff(array_keys($value),$advisory)) throw new RuntimeException('INVALID_AGENT_INTENT');
+        // Starting intake is distinct from executing production. Validate all
+        // routing axes first; a malformed extracted fact must not destroy the
+        // reply or prevent opening the existing confirmation flow.
+        if (($value['intent']??null)==='short_drama') {
+            $canonical=array_intersect_key($value,array_flip(array_slice($advisory,0,8)));
+            $canonical['intake']=['candidates'=>[],'questions'=>[]];
+            if (is_string($canonical['confidence']??null)
+                && preg_match('/^(?:0(?:\.\d+)?|1(?:\.0+)?)$/D',$canonical['confidence'])) {
+                $canonical['confidence']=(float)$canonical['confidence'];
+            }
+            $decision=self::parse(json_encode($canonical,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing,$availableSources);
+            if ($decision['scope']==='workflow' && $decision['deliverable']==='full_drama') {
+                $decision['intake']=ConversationIntakeDraft::recover($value['intake']??null,
+                    (array)ConversationWorkflow::catalog()['slots'],$availableSources);
+            }
+            return self::parse(json_encode($decision,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing,$availableSources);
+        }
         $intent=$value['intent']??null;
         // Neither an incomplete workflow decision nor a media-generation
         // claim can be repaired by silently changing its meaning.
@@ -183,12 +200,19 @@ final class ConversationIntentRouter
         if (array_diff($fields,array_keys($value)) || array_diff(array_keys($value),array_merge($fields,['intake']))) return 'intent_shape';
         if (!is_string($value['intent']??null) || !in_array($value['intent'],self::INTENTS,true)
             || !is_string($value['reply_markdown']??null) || trim($value['reply_markdown'])==='') return 'intent_value';
+        if ((!is_int($value['confidence']??null) && !is_float($value['confidence']??null))
+            || $value['confidence']<0 || $value['confidence']>1) return 'intent_confidence';
+        if ((int)($routing['version']??2)>=3 && !self::validAxes($value)) return 'intent_axes';
         $allowed=[];
         foreach ((array)($routing['skill_candidates']??[]) as $item) if (is_array($item) && is_string($item['key']??null)) $allowed[$item['key']]=true;
         $key=$value['skill_key']??null;
         if (!is_string($key) || ($key!=='' && !isset($allowed[$key]))) return 'intent_skill';
         if (array_key_exists('intake',$value) && (($value['intake']['candidates']??null)!==[] || ($value['intake']['questions']??null)!==[])
             && ($value['intent']??'')!=='short_drama') return 'intent_unexpected_output';
+        if (array_key_exists('intake',$value)) {
+            try { ConversationIntakeDraft::parse($value['intake'],(array)ConversationWorkflow::catalog()['slots'],['message','document','image']); }
+            catch (RuntimeException $error) { return 'intent_intake'; }
+        }
         return 'intent_value';
     }
 

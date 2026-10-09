@@ -40,6 +40,24 @@ final class ConversationIntakeDraft
             .'不得输出费用、任务状态、媒体调用或画布 JSON；仅对尚未明确的信息及素材推断请求核对，用户在对话中明确的信息不重复展示为收集卡。';
     }
 
+    /** Recover independent valid draft items; never infer missing evidence,
+     * change source ownership, or promote an invalid fact to confirmed data. */
+    public static function recover(mixed $raw,array $slots,array $availableSources=['message']): array
+    {
+        $result=['candidates'=>[],'questions'=>[]];
+        if (!is_array($raw)) return $result;
+        foreach (array_keys($result) as $group) {
+            if (!is_array($raw[$group]??null) || !array_is_list($raw[$group])) continue;
+            foreach (array_slice($raw[$group],0,count($slots)) as $item) {
+                $candidate=$result;
+                $candidate[$group][]=$item;
+                try { self::parse($candidate,$slots,$availableSources);$result=$candidate; }
+                catch (RuntimeException $error) { /* Leave this item unconfirmed. */ }
+            }
+        }
+        return $result;
+    }
+
     /** @return array{candidates:array,questions:array} */
     public static function parse(mixed $raw,array $slots,array $availableSources=['message']): array
     {
