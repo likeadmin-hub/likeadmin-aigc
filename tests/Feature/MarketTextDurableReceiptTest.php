@@ -37,6 +37,30 @@ final class MarketTextDurableReceiptTest extends TestCase
     protected function tearDown(): void { if ($this->transaction) Db::rollback(); }
     private function recover(?array $receipt = null): array
     { return Runtime::recoverDurableResult($this->tenant, $this->user, 'aigc_short_drama_script_task', 123, $receipt ?? $this->receipt); }
+    public function testBudgetPreflightUsesRealBalanceServiceWithoutChargingOrCreatingBills(): void
+    {
+        $method = new \ReflectionMethod(Runtime::class, 'admitResourceRequest'); $method->setAccessible(true);
+        $sku = ['platform_price' => 0, 'tenant_price' => 1, 'usage_unit_size' => 1000];
+        $model = ['context_window' => 1000, 'max_output_tokens' => 1000, 'input' => $sku, 'output' => $sku];
+        $params = ['_disable_model_fallback' => true, '_disable_transient_retry' => true, '_disable_compatibility_retry' => true];
+        $bills = AiConsumptionLog::where('user_id', $this->user)->count();
+        $calls = 0; $admit = static function ($quote) use (&$calls) { $calls++; self::assertSame(2.0, $quote['user_charge_points']); };
+        try { $method->invoke(null, $this->tenant, $this->user, $model, $params, static function () {}, $admit); self::fail('Insufficient balance admitted'); }
+        catch (\app\common\service\power\TextRequestNotSubmittedException $e) { self::assertStringContainsString('不足', $e->getPrevious()->getMessage()); }
+        self::assertSame(0, $calls);
+        Db::name('user')->where('id', $this->user)->update(['user_money' => 10]);
+        $method->invoke(null, $this->tenant, $this->user, $model, $params, static function () {}, $admit);
+        self::assertSame(1, $calls);
+        self::assertSame(10.0, (float)Db::name('user')->where('id', $this->user)->value('user_money'));
+        self::assertSame($bills, AiConsumptionLog::where('user_id', $this->user)->count());
+        self::assertSame(0, Db::name('user_account_log')->where('user_id', $this->user)->count());
+        foreach (array_keys($params) as $flag) {
+            $unsafe = $params; unset($unsafe[$flag]);
+            try { $method->invoke(null, $this->tenant, $this->user, $model, $unsafe, static function () {}, $admit); self::fail('Unbudgeted retry allowed'); }
+            catch (\app\common\service\power\TextRequestNotSubmittedException $e) { self::assertSame(422, $e->getCode()); }
+        }
+        self::assertSame(1, $calls);
+    }
     public function testIdempotentSettlementUsesFrozenPriceAndIgnoresReceiptBilling(): void
     {
         $a = $this->recover(); $b = $this->recover();
