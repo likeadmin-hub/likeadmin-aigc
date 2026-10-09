@@ -129,6 +129,21 @@ final class ConversationWorkflowTurn
         catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$error); }
         $fields=['intent','confidence','skill_key','reply_markdown','workflow_output','speech_act','deliverable','scope'];
         if (!is_array($value) || !ConversationResponseJson::hasKeys($value,$fields)) throw new RuntimeException('INVALID_AGENT_INTENT');
+        if (is_string($value['confidence']) && preg_match('/^(?:0(?:\.\d+)?|1(?:\.0+)?)$/D',$value['confidence'])) {
+            $value['confidence']=(float)$value['confidence'];
+        }
+        // Some models put the human-facing explanation beside, rather than
+        // inside, the stage output. Move text only; nodes still pass the full
+        // stage parser and confirmation rules, and no content is discarded.
+        if ($value['intent']==='continue' && is_string($value['reply_markdown'])
+            && trim($value['reply_markdown'])!=='' && is_array($value['workflow_output'])
+            && is_string($value['workflow_output']['reply_markdown']??null)
+            && !str_contains($value['reply_markdown'],'<canvas-actions>')
+            && !str_contains($value['reply_markdown'],'</canvas-actions>')) {
+            $outer=trim($value['reply_markdown']);$inner=trim($value['workflow_output']['reply_markdown']);
+            $value['workflow_output']['reply_markdown']=$inner==='' || $inner===$outer ? $outer : $outer."\n\n".$inner;
+            $value['reply_markdown']='';
+        }
         if (in_array($value['intent'],['chat','creative_plan','uncertain'],true)
             && $value['scope']!=='workflow' && $value['deliverable']!=='full_drama') {
             $advisory=$value;

@@ -79,6 +79,23 @@ class CanvasAgentResponseCompatibilityTest extends TestCase
         }
     }
 
+    public function testStageExplanationAtOuterLevelIsPreservedWithoutRelaxingNodes(): void
+    {
+        $value=$this->decision();
+        $value['confidence']='0.95';
+        $value['reply_markdown']='这是主体方案。';
+        $value['workflow_output']=['canvas_actions'=>['nodes'=>[
+            ['type'=>'image','artifact'=>'subject','key'=>'wukong','title'=>'悟空','prompt'=>'主体参考图'],
+        ]],'reply_markdown'=>'请确认人物外观。'];
+        $parsed=ConversationWorkflowTurn::parseConversation(json_encode($value),$this->routing('assets'));
+        self::assertTrue($parsed['continue']);
+        self::assertCount(1,$parsed['nodes']);
+        self::assertSame("这是主体方案。\n\n请确认人物外观。",$parsed['text']);
+        self::assertSame('', $parsed['reply_markdown']);
+        $canonical=array_intersect_key($parsed,$value);
+        self::assertSame($parsed,ConversationWorkflowTurn::parse(json_encode($canonical),$this->routing('assets')));
+    }
+
     public function testFormattingRecoveryNeverRepairsTruncationOrExtractsEmbeddedActions(): void
     {
         foreach (['{"reply_markdown":"unfinished', 'prefix {"a":1}', '{"a":1}{"b":2}', "```json\n{}\n```\ntrailing"] as $response) {
