@@ -38,7 +38,7 @@ class MarketModelCapabilitiesTest extends TestCase
     }
     public function testInvalidFieldsCannotBecomeProviderConfiguration(): void
     {
-        foreach([['api_key'=>'secret'],['supports_vision'=>'false'],['max_output_tokens'=>-1],['input_modalities'=>'image'],['input_modalities'=>[['url'=>'x']]]] as $bad){
+        foreach([['api_key'=>'secret'],['supports_vision'=>'false'],['max_output_tokens'=>-1],['max_reference_images'=>0],['input_modalities'=>'image'],['input_modalities'=>[['url'=>'x']]]] as $bad){
             try{C::validate($bad);self::fail('accepted invalid correction');}catch(\InvalidArgumentException){self::assertTrue(true);}
         }
     }
@@ -61,6 +61,10 @@ class MarketModelCapabilitiesTest extends TestCase
         $m=new \ReflectionMethod(Image::class,'supportsReferenceImages');$m->setAccessible(true);self::assertFalse($m->invoke(null,$meta));
         $m=new \ReflectionMethod(Video::class,'referenceLimit');$m->setAccessible(true);self::assertSame(3,$m->invoke(null,$p,$meta,'image'));
         self::assertSame(1024,\app\common\service\power\TextModelCapacity::metadata($meta)['max_output_tokens']);
+        $video=$this->product([],['supports_first_last_frame'=>false,'input_modes'=>['text_to_video']]);
+        $video['upstream_model_code']='wan3.0-video';$video['source_payload'][C::KEY]['identity']=V::identity($video);
+        $m=new \ReflectionMethod(Video::class,'generationModes');$m->setAccessible(true);
+        self::assertSame(['text_to_video'],$m->invoke(null,$video,C::applyMetadata($video,[])));
     }
     public function testTenantEndpointDoesNotAcceptPlatformCapabilityOverrides(): void
     {

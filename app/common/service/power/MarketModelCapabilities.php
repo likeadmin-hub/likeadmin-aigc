@@ -59,7 +59,7 @@ final class MarketModelCapabilities
             if($value===null) continue;
             $type=$fields[$key][1];
             if($type==='bool' && !is_bool($value)) throw new InvalidArgumentException('能力开关必须为布尔值');
-            if($type==='int' && (!is_int($value)||$value<0||$value>100000000)) throw new InvalidArgumentException('能力上限必须为有效的非负整数');
+            if($type==='int' && (!is_int($value)||$value<1||$value>100000000)) throw new InvalidArgumentException('能力上限必须为正整数；未指定时请恢复自动');
             if($type==='list'){
                 if(!is_array($value)||count($value)>100) throw new InvalidArgumentException('能力选项必须为列表');
                 foreach($value as $item) if(!is_string($item)||strlen($item)>100||trim($item)==='') throw new InvalidArgumentException('能力选项格式不正确');
