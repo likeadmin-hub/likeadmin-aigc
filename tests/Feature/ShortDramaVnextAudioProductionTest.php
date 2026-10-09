@@ -96,8 +96,8 @@ final class ShortDramaVnextAudioProductionTest extends TestCase
         (new \think\App())->initialize(); Db::startTrans();
         $path = tempnam(sys_get_temp_dir(), 'canonical_audio_');
         try {
-            // Real PCM WAV, 3 seconds, one audio stream. No supplier calls or synthetic duration injection.
-            $data = str_repeat("\0", 8000 * 2 * 3);
+            // Real PCM WAV, 3.123375 seconds: precision exceeds the legacy decimal(8,2) asset column.
+            $data = str_repeat("\0", (8000 * 3 + 987) * 2);
             file_put_contents($path, 'RIFF' . pack('V', 36 + strlen($data)) . 'WAVEfmt ' . pack('VvvVVvv', 16, 1, 1, 8000, 16000, 2, 16)
                 . 'data' . pack('V', strlen($data)) . $data);
             $file = new class($path) { private string $path; public function __construct($path) { $this->path = $path; }
@@ -124,11 +124,11 @@ final class ShortDramaVnextAudioProductionTest extends TestCase
             $probe = new \ReflectionMethod(Service::class, 'resolveFfprobeBinary'); $probe->setAccessible(true); $ffprobe = $probe->invoke(null, $ffmpeg);
             self::assertNotEmpty($ffprobe, 'Local media acceptance requires FFprobe');
             $asset = AudioProduction::register($tenant, $user, $params, $file, $ffprobe, $persist);
-            self::assertSame(3.0, $asset['duration']); self::assertSame('shot_audio', $asset['asset_type']);
+            self::assertSame(3.123375, $asset['duration']); self::assertSame('shot_audio', $asset['asset_type']);
             $again = AudioProduction::register($tenant, $user, $params, $file, $ffprobe, $persist);
             self::assertSame($asset['id'], (int)$again['id']); self::assertSame(1, $persisted, 'Response recovery must not upload another file');
             self::assertSame(1, AudioProduction::summary($tenant, $user, $project, $candidate)['ready']);
-            self::assertSame(3.0, Service::scriptPlanDetail($tenant, $user, $task, $project, 0, 0, 1)['audio_handoff']['records'][0]['asset']['duration_seconds']);
+            self::assertSame(3.123375, Service::scriptPlanDetail($tenant, $user, $task, $project, 0, 0, 1)['audio_handoff']['records'][0]['asset']['duration_seconds']);
             foreach ([[$tenant + 1, $user, $project], [$tenant, $user + 1, $project], [$tenant, $user, $project + 1]] as [$t, $u, $p]) {
                 try { AudioProduction::register($t, $u, array_replace($params, ['project_id' => $p]), $file, $ffprobe, $persist); self::fail('Foreign scope accepted'); }
                 catch (\RuntimeException $error) { self::assertSame(404, $error->getCode()); }

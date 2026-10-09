@@ -89,9 +89,9 @@ final class AudioProduction
         foreach ($rows as $row) {
             $meta = json_decode($row['meta_json'], true) ?: []; $trace = $meta['canonical_audio'] ?? []; $id = $trace['audio_segment_id'] ?? '';
             if ($row['uri'] !== '' && isset($byId[$id]) && !isset($result[$id]) && AudioHandoff::matches($trace, $byId[$id], $row)) {
-                $result[$id] = ['id' => (int)$row['id'], 'duration_seconds' => (float)$row['duration'], 'title' => $row['title'],
+                $result[$id] = ['id' => (int)$row['id'], 'duration_seconds' => (float)$trace['measurement']['duration_seconds'], 'title' => $row['title'],
                     'url' => \app\common\service\FileService::getFileUrlByStorage($row['uri'], $row['storage_scope'], $row['storage_engine'], $row['storage_domain']),
-                    'content_confirmation' => 'user_confirmed'];
+                    'content_confirmation' => 'user_confirmed', 'checksum' => $row['checksum'], 'trace_hash' => $trace['trace_hash']];
             }
         }
         return $result;

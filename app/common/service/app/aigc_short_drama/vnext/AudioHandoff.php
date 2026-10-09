@@ -82,6 +82,7 @@ final class AudioHandoff
             && ($trace['checksum'] ?? '') === ($asset['checksum'] ?? null)
             && ($trace['measurement']['version'] ?? '') === AudioMediaProbe::VERSION
             && (float)($trace['measurement']['duration_seconds'] ?? 0) > 0
-            && (float)($trace['measurement']['duration_seconds'] ?? 0) === (float)($asset['duration'] ?? 0);
+            // The existing asset column is decimal(8,2); the full measurement remains in the signed trace.
+            && round((float)($trace['measurement']['duration_seconds'] ?? 0), 2) === (float)($asset['duration'] ?? 0);
     }
 }
