@@ -4024,6 +4024,8 @@ class AigcShortDramaService
         if (!$job) throw new \RuntimeException('生成作业记录缺失，请联系管理员恢复任务', 409);
         if ($job['execution_status'] === 'reconciling') {
             try {
+                if ($store->reconcileUnsubmitted(static fn(string $key,int $attempt): bool => MarketTextModelRuntimeService::releaseUnsubmittedReservation(
+                    $tenantId,$userId,'aigc_short_drama_script_task',(int)$taskData['id'],$key,$attempt)) && $store->resume(true)) $job=$store->snapshot();
                 if ($store->reconcileAutomatically(static fn(array $receipt): array => MarketTextModelRuntimeService::recoverDurableResult(
                     $tenantId, $userId, 'aigc_short_drama_script_task', (int)$taskData['id'], $receipt))) $job = $store->snapshot();
             } catch (\Throwable $ignored) { /* Receipt and original ledger remain available for explicit reconciliation. */ }
@@ -5947,6 +5949,8 @@ class AigcShortDramaService
             // Commit settlement before publishing a final receipt to disk. Resumption below remains atomic.
             $store->reconcileReceipts(static fn(array $receipt): array => MarketTextModelRuntimeService::recoverDurableResult(
                 $tenantId, $userId, 'aigc_short_drama_script_task', (int)$task['id'], $receipt));
+            $store->reconcileUnsubmitted(static fn(string $key,int $attempt): bool => MarketTextModelRuntimeService::releaseUnsubmittedReservation(
+                $tenantId,$userId,'aigc_short_drama_script_task',(int)$task['id'],$key,$attempt));
             return Db::transaction(static function () use ($tenantId, $userId, $taskId, $budgetExtension): array {
                 $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
                 if ($budgetExtension ? $store->extendBudget($budgetExtension) : $store->resume()) {
