@@ -151,6 +151,8 @@ final class ExecutionStore
             $budget = self::decode($job['budget_json']); $usage = $receipt['usage'] ?? $receipt['result']['usage'] ?? [];
             $usage['input_tokens'] = $usage['input_tokens'] ?? $usage['prompt_tokens'] ?? 0;
             $usage['output_tokens'] = $usage['output_tokens'] ?? $usage['completion_tokens'] ?? 0;
+            $usage['user_points'] = $usage['user_points'] ?? $receipt['billing']['user_charge_points'] ?? 0;
+            $usage['provider_cost'] = $usage['provider_cost'] ?? $receipt['billing']['provider_cost'] ?? 0;
             foreach (['input_tokens', 'output_tokens', 'provider_cost', 'user_points'] as $field) $budget[$field] += max(0, (float)($usage[$field] ?? 0));
             $budget['elapsed_ms'] += max(0, (int)($receipt['_elapsed_ms'] ?? 0));
             $this->query('stage')->where('stage_key', $key)->update(['status' => 'received', 'receipt_json' => self::json($receipt), 'update_time' => time()]);
@@ -165,11 +167,11 @@ final class ExecutionStore
                 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
         });
     }
-    public function publish(int $fence, array $document, array $plan, array $coverage): void
+    public function publish(int $fence, array $document, array $plan, array $coverage, ?callable $projection = null): void
     {
         ShotCompiler::assertCurrent($document, $plan);
         if (($coverage['status'] ?? '') !== 'ready' || ($coverage['document_hash'] ?? '') !== $document['content_hash'] || ($coverage['shot_hash'] ?? '') !== $plan['content_hash']) throw new RuntimeException('当前修订尚未通过完整验收', 422);
-        Db::transaction(function () use ($fence, $document, $plan, $coverage): void {
+        Db::transaction(function () use ($fence, $document, $plan, $coverage, $projection): void {
             $job = $this->job();
             if ($job['execution_status'] === 'succeeded' && $job['published_revision_id'] === $document['revision_id']) {
                 $published = self::decode($job['candidate_json']);
@@ -178,6 +180,9 @@ final class ExecutionStore
             }
             $this->assertFence($job, $fence); $sequence = (int)$job['event_seq'] + 1;
             $document['status'] = 'ready'; $payload = ['document' => $document, 'shot_plan' => $plan, 'coverage_report' => $coverage];
+            // Business task/version pointers and the canonical revision must commit together.
+            // This callback performs local persistence only, never provider I/O.
+            if ($projection) $projection($payload, $this->receipts());
             $this->query('revision')->insert($this->scope + ['revision_id' => $document['revision_id'], 'document_hash' => $document['content_hash'], 'content_json' => self::json($payload), 'create_time' => time()]);
             $this->query('outbox')->insert($this->scope + ['event_seq' => $sequence, 'event_type' => 'revision_published', 'payload_json' => self::json(['revision_id' => $document['revision_id'], 'document_hash' => $document['content_hash']]), 'create_time' => time()]);
             $this->query('job')->update(['execution_status' => 'succeeded', 'document_status' => 'ready', 'active_slot' => null,
@@ -194,6 +199,11 @@ final class ExecutionStore
         });
     }
     public function snapshot(): array { return $this->query('job')->find() ?: []; }
+    public function receipts(): array
+    {
+        return array_map(static fn($row) => self::decode($row['receipt_json']),
+            $this->query('stage')->where('status', 'received')->order('id')->select()->toArray());
+    }
     public function publicSnapshot(): array
     {
         return self::publicProjection($this->snapshot());

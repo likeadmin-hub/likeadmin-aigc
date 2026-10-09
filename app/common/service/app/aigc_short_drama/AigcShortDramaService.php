@@ -2741,6 +2741,16 @@ class AigcShortDramaService
         $request['_prompt_task_id'] = $taskId;
         $time = time();
 
+        // The browser cannot select an engine. Enrollment is evaluated once, before any paid work.
+        unset($request['_pipeline_version']);
+        $vnextExecution = vnext\ApplicationWorkflow::enrollment($tenantId, $request, $selectedModels['script_plan'] ?? [],
+            (array)\think\facade\Config::get('short_drama.vnext', []), $existingProjectId === 0);
+        if ($vnextExecution !== null) {
+            $request['_pipeline_version'] = vnext\GenerationPipeline::VERSION;
+            $request['_generation_version'] = max(3, (int)$request['_generation_version']);
+            $request['quality_review_enabled'] = true;
+        }
+
         Db::startTrans();
         try {
             if ($existingProjectId > 0) {
@@ -2769,6 +2779,12 @@ class AigcShortDramaService
             ]);
             }
 
+            if ($vnextExecution !== null) {
+                $frozenModel = ($selectedModels['script_plan'] ?? []) + ['_planning_fallback' => (array)\think\facade\Config::get('short_drama', [])];
+                $input = vnext\ApplicationWorkflow::input($tenantId, $userId, (int)$project['id'], $taskId, $request, $frozenModel, $vnextExecution);
+                vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId)->create('project:' . $project['id'], $input,
+                    $time + (int)$vnextExecution['deadline_seconds']);
+            }
             AigcShortDramaScriptTask::create([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
@@ -3939,8 +3955,85 @@ class AigcShortDramaService
         } finally { Db::query('SELECT RELEASE_LOCK(?)', [$lock]); }
     }
 
+    /** Versioned worker adapter. Historical tasks retain their complete original execution path. */
+    private static function executeVnextScriptPlanTask(int $tenantId, int $userId, array $taskData, callable $emit): array
+    {
+        $taskId = (string)$taskData['task_id']; $projectId = (int)$taskData['project_id'];
+        $scope = ['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId];
+        $request = self::jsonDecode((string)$taskData['request_json']);
+        $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
+        $job = $store->snapshot();
+        if (!$job) throw new \RuntimeException('生成作业记录缺失，请联系管理员恢复任务', 409);
+        if (in_array($job['execution_status'], ['succeeded', 'canceled', 'needs_attention', 'reconciling'], true)) {
+            return self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
+        }
+        $input = self::jsonDecode($job['input_json']); $model = $input['model'];
+        $activated = AigcShortDramaScriptTask::where($scope)->whereIn('status', ['pending', 'queued', 'running'])->update([
+            'status' => self::STATUS_RUNNING, 'current_step' => '正在生成完整剧本',
+            'started_at' => (int)$taskData['started_at'] ?: time(), 'update_time' => time(),
+        ]);
+        if (!$activated) return self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
+        try {
+            vnext\JobRunner::run($store, 'worker_' . bin2hex(random_bytes(12)),
+                static function (array $params, string $receiptKey) use ($tenantId, $userId, $taskData): array {
+                    $params += ['source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
+                        'source_id' => (string)$taskData['task_id'], 'business_table' => 'aigc_short_drama_script_task',
+                        'business_id' => (int)$taskData['id']];
+                    return MarketTextModelRuntimeService::generate($tenantId, $userId, $params);
+                },
+                static function (string $event, array $payload) use ($emit, $scope): void {
+                    if ($event === 'stage') {
+                        AigcShortDramaScriptTask::where($scope)->where('status', self::STATUS_RUNNING)->update([
+                            'current_step' => str_contains($payload['stage'], 'review') ? '核对内容与人物'
+                                : (str_contains($payload['stage'], 'shots') ? '编排分镜' : '生成正文'), 'update_time' => time(),
+                        ]);
+                    }
+                    $emit($event, $payload);
+                },
+                static function (array $candidate, array $receipts) use ($tenantId, $userId, $projectId, $taskId, $scope, $request, $model, $taskData): void {
+                    $project = AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $projectId])->lock(true)->find();
+                    $task = AigcShortDramaScriptTask::where($scope)->lock(true)->find();
+                    if (!$project || !$task || $project['last_task_id'] !== $taskId || $task['status'] !== self::STATUS_RUNNING) {
+                        throw new \RuntimeException('当前任务已被停止或替换，结果已保存但不会覆盖新版本', 409);
+                    }
+                    $result = vnext\ApplicationWorkflow::project($candidate);
+                    $billing = self::scriptPlanBillingFromLlm(['llm' => self::mergeScriptPlanLlmResults($receipts)], (string)$taskData['prompt'], $result, $model);
+                    $time = time(); $agentRunId = (string)$project['current_agent_run_id'];
+                    $task->save(['status' => self::STATUS_SUCCESS, 'progress' => 100, 'current_step' => '剧本生成完成',
+                        'result_json' => self::jsonEncode($result), 'pricing_snapshot' => self::jsonEncode($billing),
+                        'billing_status' => $billing['billing_status'], 'tenant_cost_points' => $billing['tenant_cost_points'],
+                        'user_charge_points' => $billing['user_charge_points'], 'provider_request_id' => $billing['provider_request_id'],
+                        'error' => '', 'finished_at' => $time, 'update_time' => $time]);
+                    self::createAgentRunRecord($tenantId, $userId, $projectId, $agentRunId, $taskId, 'initial_plan', $request, $result, $model, self::STATUS_SUCCESS, $time);
+                    $version = self::createPlanVersion($tenantId, $userId, $projectId, $taskId, $agentRunId, 'vnext_initial', $result, 0, true, $time);
+                    $project->save(['status' => self::PROJECT_STATUS_PLAN_REVIEW, 'current_version_id' => (int)$version['id'], 'update_time' => $time]);
+                    self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $taskId, self::STATUS_SUCCESS, $request, $model,
+                        $billing + ['progress' => 100, 'finished_at' => $time, 'result' => ['version_id' => (int)$version['id']]]);
+                });
+        } catch (\Throwable $error) {
+            // Receipts/candidate survive a failed projection. The next worker replays them without another charge.
+            $job = $store->snapshot();
+            $active = in_array($job['execution_status'], ['queued', 'running', 'retry_wait'], true);
+            AigcShortDramaScriptTask::where($scope)->where('status', self::STATUS_RUNNING)->update([
+                'status' => $active ? self::STATUS_QUEUED : self::STATUS_FAILED,
+                'current_step' => $active ? '等待继续已保存的任务' : '内容已保留，等待处理',
+                'error' => $active ? '' : self::scriptPlanProviderError($error->getMessage()), 'update_time' => time(),
+            ]);
+        }
+        $job = $store->snapshot();
+        if ($job['execution_status'] === 'needs_attention') AigcShortDramaScriptTask::where($scope)->where('status', self::STATUS_RUNNING)->update([
+            'status' => self::STATUS_FAILED, 'current_step' => '内容已保留，等待处理', 'update_time' => time(),
+        ]);
+        $formatted = self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
+        try { $emit('done', $formatted); } catch (\Throwable $ignored) { /* Publication does not depend on a browser connection. */ }
+        return $formatted;
+    }
+
     private static function executeScriptPlanTask(int $tenantId, int $userId, array $taskData, callable $emit): array
     {
+        if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)($taskData['request_json'] ?? '')))) {
+            return self::executeVnextScriptPlanTask($tenantId, $userId, $taskData, $emit);
+        }
         $taskId = (string)$taskData['task_id'];
         $projectId = (int)$taskData['project_id'];
         $project = self::findProject($tenantId, $userId, $projectId);
@@ -5695,6 +5788,10 @@ class AigcShortDramaService
     public static function retry(int $tenantId, int $userId, string $taskId): array
     {
         $task = self::findTask($tenantId, $userId, $taskId);
+        if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
+            // Never reset a VNext ledger or clone its unknown paid submission through the legacy retry endpoint.
+            throw new \RuntimeException('当前任务保留原调用记录，请按任务允许的操作继续处理', 409);
+        }
         $episode = ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
         if ($episode) return ShortDramaEpisodeService::retry($tenantId, $userId, (int)$episode['id']);
         if (!in_array((string)($task['status'] ?? ''), [self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
@@ -5743,6 +5840,21 @@ class AigcShortDramaService
     public static function cancel(int $tenantId, int $userId, string $taskId): array
     {
         $task = self::findTask($tenantId, $userId, $taskId);
+        $request = self::jsonDecode((string)$task['request_json']);
+        if (vnext\ApplicationWorkflow::current($request)) {
+            return Db::transaction(static function () use ($tenantId, $userId, $taskId, $request): array {
+                $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
+                $store->cancel();
+                $task = self::findTask($tenantId, $userId, $taskId);
+                if ($store->snapshot()['execution_status'] === 'canceled') {
+                    $task->save(['status' => self::STATUS_CANCELED, 'current_step' => '已停止，已生成内容保留',
+                        'error' => '', 'finished_at' => time(), 'update_time' => time()]);
+                    self::syncScriptPlanGenerationTask($tenantId, $userId, (int)$task['project_id'], $taskId, self::STATUS_CANCELED,
+                        $request, (array)($request['model_selections']['script_plan'] ?? []), ['finished_at' => time(), 'error_code' => 'canceled']);
+                }
+                return self::formatTask($task->toArray(), true);
+            });
+        }
         $episode = ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
         if ($episode) return ShortDramaEpisodeService::cancel($tenantId, $userId, (int)$episode['id']);
         if (in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
@@ -22587,6 +22699,7 @@ class AigcShortDramaService
 
     private static function cleanStoredStoryboardForTaskData(array $taskData): array
     {
+        if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)($taskData['request_json'] ?? '')))) return $taskData;
         $tenantId = (int)($taskData['tenant_id'] ?? 0);
         $userId = (int)($taskData['user_id'] ?? 0);
         $projectId = (int)($taskData['project_id'] ?? 0);
@@ -23821,6 +23934,7 @@ class AigcShortDramaService
 
     private static function formatTask(array $task, bool $withResult): array
     {
+        $isVnext = vnext\ApplicationWorkflow::current(self::jsonDecode((string)($task['request_json'] ?? '')));
         if ($withResult && (string)($task['status'] ?? '') === self::STATUS_SUCCESS) {
             $task = self::cleanStoredStoryboardForTaskData($task);
         }
@@ -23849,7 +23963,7 @@ class AigcShortDramaService
         // that preview through the same public stream_content contract.  Keep
         // story-workspace previews separate: they have their own structured
         // renderer and are not a single-script token stream.
-        $isStoryWorkspace = ShortDramaStoryWorkflow::enabled($request);
+        $isStoryWorkspace = !$isVnext && ShortDramaStoryWorkflow::enabled($request);
         if ($streamContent === '' && !$isStoryWorkspace) {
             $preview = $storedResult['__story_preview'] ?? null;
             if (is_array($preview)) {
@@ -23886,7 +24000,7 @@ class AigcShortDramaService
         if ($result && empty($result['storyboard'])) {
             $result['storyboard'] = self::storyboardRows((int)$task['tenant_id'], (string)$task['task_id']);
         }
-        if ($result) {
+        if ($result && !$isVnext) {
             $result['multi_episode'] = $projectMultiEpisode;
             $result['episode_count'] = $projectEpisodeCount;
             $result['multi_episode_stage'] = self::resolveStoredMultiEpisodeStage($request, $result);

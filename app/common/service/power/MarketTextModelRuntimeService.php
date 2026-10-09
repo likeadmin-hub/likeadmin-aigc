@@ -161,6 +161,8 @@ class MarketTextModelRuntimeService
                     if ($resultValidator!==null) $resultValidator($result);
                     break;
                 } catch (\Throwable $initialError) {
+                    // Durable callers admit each transport attempt in their own budget ledger.
+                    if (!empty($params['_disable_compatibility_retry'])) throw $initialError;
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
                     if ($retry === null) {
                         $retry = self::compatibleTransportOptions($initialError->getMessage(), $transportOptions);
