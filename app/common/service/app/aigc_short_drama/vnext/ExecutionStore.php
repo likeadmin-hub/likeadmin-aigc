@@ -218,9 +218,12 @@ final class ExecutionStore
         $reservation = $claim['reservation'];
         $started = microtime(true); $resultReceived = false; $admitted = false; $budgetRejected = false;
         try {
-            $persist = function (array $raw) use ($bufferKey, &$resultReceived): void {
+            $persist = function (array $raw) use ($key, $hash, $bufferKey, &$resultReceived): void {
                 $resultReceived = true;
                 $this->buffer->write(self::rawKey($bufferKey), $raw);
+                // Shared database copy precedes business settlement. A second host
+                // can recover the exact paid reply without the first host's runtime directory.
+                $this->persistRawReceipt($key, $hash, $bufferKey, $raw);
             };
             $admit = !$claim['resources'] ? null : function (array $bound) use ($fence, $key, $reservation, &$admitted, &$budgetRejected): void {
                 try {
@@ -323,7 +326,10 @@ final class ExecutionStore
         $key = $this->buffer->key($this->scope + ['stage_key' => $stage], $hash);
         $receipt = $this->buffer->read($key);
         if ($receipt === null && $reconcile !== null) {
-            $raw = $this->buffer->read(self::rawKey($key));
+            $raw = $this->durableRawReceipt($stage, $hash, $key);
+            $local = $this->buffer->read(self::rawKey($key));
+            if ($raw !== null && $local !== null && ContentDocument::hash($raw) !== ContentDocument::hash($local)) throw new RuntimeException('共享收据与本机收据存在冲突，已停止恢复', 409);
+            $raw = $raw ?? $local;
             if ($raw !== null) {
                 $receipt = $reconcile($raw);
                 if (!is_array($receipt)) throw new RuntimeException('结算恢复收据无效', 409);
@@ -332,6 +338,33 @@ final class ExecutionStore
         }
         if ($receipt !== null) $this->receive($stage, $hash, $receipt);
         return $receipt;
+    }
+
+    private function persistRawReceipt(string $key, string $hash, string $request, array $raw): void
+    {
+        Db::transaction(function () use ($key, $hash, $request, $raw): void {
+            $this->job(); // Same job -> stage lock order as receipt settlement.
+            $stage = $this->query('stage')->where('stage_key', $key)->lock(true)->find();
+            if (!$stage || $stage['input_hash'] !== $hash) throw new RuntimeException('共享收据与已提交请求不符', 409);
+            if ($stage['status'] === 'received') return;
+            if ($stage['status'] !== 'submitted') throw new RuntimeException('此阶段没有已提交请求，不能写入共享收据', 409);
+            $old = $this->durableRawReceipt($key, $hash, $request);
+            if ($old !== null && ContentDocument::hash($old) !== ContentDocument::hash($raw)) throw new RuntimeException('同一请求存在冲突的共享收据', 409);
+            $envelope = ['vnext_raw_receipt' => 1, 'request_key' => $request, 'input_hash' => $hash, 'receipt_hash' => ContentDocument::hash($raw), 'receipt' => $raw];
+            $json = self::json($envelope);
+            if (strlen($json) > 16777215) throw new RuntimeException('完整模型收据超过保存容量，已保留本机缓冲', 413);
+            $this->query('stage')->where('id', $stage['id'])->update(['receipt_json' => $json, 'update_time' => time()]);
+        });
+    }
+    private function durableRawReceipt(string $key, string $hash, string $request): ?array
+    {
+        $stage = $this->query('stage')->where('stage_key', $key)->find();
+        if (!$stage || $stage['status'] !== 'submitted' || !$stage['receipt_json']) return null;
+        $envelope = self::decode($stage['receipt_json']);
+        if (($envelope['vnext_raw_receipt'] ?? 0) !== 1 || ($envelope['request_key'] ?? '') !== $request
+            || $stage['input_hash'] !== $hash || ($envelope['input_hash'] ?? '') !== $hash || !is_array($envelope['receipt'] ?? null)
+            || ($envelope['receipt_hash'] ?? '') !== ContentDocument::hash($envelope['receipt'])) throw new RuntimeException('共享原始收据校验失败，已停止恢复', 409);
+        return $envelope['receipt'];
     }
     /** Receiving a late result is allowed; publication still requires the current fence. */
     private function receive(string $key, string $hash, array $receipt): void

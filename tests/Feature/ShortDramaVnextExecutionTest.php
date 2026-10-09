@@ -105,6 +105,26 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertSame([], $this->resources()['holds']);self::assertSame(184,$this->resources()['spent']['total_tokens']);
         self::assertSame(0,json_decode($this->store->snapshot()['budget_json'],true)['reservations']['repair']);
     }
+    public function testAnotherHostCanRecoverPaidRawReceiptWithoutTheOriginalRuntimeDirectory(): void
+    {
+        $this->resourceStore();$fence=$this->store->acquire('host-a',100);$paid=0;
+        $raw=$this->billedReceipt()+['content'=>'完整返回😀'];
+        try {
+            $this->store->call($fence,'a',[],function($input,$key,$persist,$admit) use(&$paid,$raw) {$admit($this->bound());$paid++;$persist($raw);throw new \RuntimeException('host-a stopped before settlement');});
+            self::fail('Crash ignored');
+        } catch(\RuntimeException $e) {self::assertSame('host-a stopped before settlement',$e->getMessage());}
+        $envelope=json_decode(Db::name('aigc_short_drama_vnext_stage')->where($this->scope)->where('stage_key','a')->value('receipt_json'),true);
+        self::assertSame($raw,$envelope['receipt']);self::assertSame(1,$envelope['vnext_raw_receipt']);
+        foreach(glob($this->directory.'/*')?:[] as $path) unlink($path); // Simulate complete host-local spool loss.
+        $otherDirectory=$this->directory.'_host_b';$other=new ExecutionStore($this->scope['tenant_id'],$this->scope['user_id'],$this->scope['task_id'],new ReceiptBuffer($otherDirectory));
+        try {
+            $recovered=0;$other->reconcileReceipts(function($receipt) use(&$recovered,$raw) {$recovered++;self::assertSame($raw,$receipt);return $receipt;});
+            $other->reconcileReceipts(static function(){self::fail('Settlement repeated');});
+            self::assertSame(1,$recovered);self::assertTrue($other->resume());$next=$other->acquire('host-b',100);
+            self::assertSame($raw,$other->call($next,'a',[],static function(){self::fail('Paid provider call repeated');}));
+            self::assertSame(1,$paid);self::assertSame(46,$this->resources()['spent']['total_tokens']);self::assertSame([],$this->resources()['holds']);
+        } finally {foreach(glob($otherDirectory.'/*')?:[] as $path) unlink($path);rmdir($otherDirectory);}
+    }
     public function testResourceHoldSurvivesSettlementFaultAndRecoveryAccountsOnlyOnce(): void
     {
         $this->resourceStore(); $fence = $this->store->acquire('worker', 100); $paid = 0;
