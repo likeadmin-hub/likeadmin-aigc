@@ -37,6 +37,7 @@ final class ShortDramaVnextIdentityRevisionTest extends TestCase
         self::assertSame($document['scenes'],$edited['scenes']);self::assertNotSame($document['content_hash'],$edited['content_hash']);
         $receipt=$edited['identity_revision_receipts']['hero'];EntityIdentityRevision::assertReceipt($receipt,$edited['entities'][0],['tenant_id'=>10,'user_id'=>20]);
         self::assertSame(ContentDocument::hash($document['entities'][0]['identity_facts']),$receipt['base_facts_hash']);
+        self::assertSame(['age','gender'],$receipt['changed_keys']);
         $nextEntities=SeriesVisualState::inherit($context['entities'],$edited['entities'],$edited['identity_revision_receipts'],['tenant_id'=>10,'user_id'=>20]);
         self::assertSame($facts,$nextEntities[0]['identity_facts']);self::assertSame('hero',$nextEntities[0]['entity_id']);self::assertSame('c1',$nextEntities[0]['ref']);
         $next=ContentDocument::normalize($reply,array_replace($context,['revision_id'=>'r2','episode_id'=>'e2','entities'=>$nextEntities,'identity_revision_receipts'=>$edited['identity_revision_receipts']]));
@@ -116,5 +117,27 @@ final class ShortDramaVnextIdentityRevisionTest extends TestCase
         $entity['identity_facts']=$facts;EntityIdentityRevision::assertReceipt($receipt,$entity);
         self::assertSame(['完整'=>['保留😀']],$facts['历史39']);
         $facts['新的额外属性']='不能继续扩张';$this->expectExceptionCode(422);EntityIdentityRevision::capture($entity,$facts,'r3',$origin,$receipt);
+    }
+
+    public function testChangedAndClearedIdentityAttributesHaveExplicitPrecedenceWithoutDiscardingOtherDemands(): void
+    {
+        [$doc,$context,$origin,$patch]=$this->fixture();$context['prompt']='陈默是男性，年龄40岁，必须保留发现书信的剧情。';
+        $context['requirements']=[['id'=>'letter','text'=>'必须保留发现书信的剧情。']];
+        unset($patch['entities'][0]['identity_facts']['age']);
+        $input=ApplicationWorkflow::revisionInput(['context'=>$context],['document'=>$doc],[],'r1','new',$origin,$patch);$next=$input['context'];
+        $creative=GenerationPipeline::creativeContext($next);$correction=$creative['identity_corrections'][0];
+        self::assertSame(['gender'=>'女'],$correction['set_facts']);self::assertSame(['age'],$correction['cleared_fields']);
+        self::assertStringNotContainsString('library_subject_id',json_encode($correction));self::assertStringNotContainsString('origin',json_encode($correction));
+        self::assertSame($context['prompt'],$creative['prompt']);self::assertSame($context['requirements'],$creative['requirements']);
+        self::assertArrayNotHasKey('identity_revision_receipts',$creative);
+        $document=$next['canonical_input'];$plan=ShotCompiler::compile($document,['shots'=>[['visual_description'=>'画面','refs'=>[['unit'=>'u1']]]]],'shots');
+        self::assertSame([$correction],GenerationPipeline::reviewData($next,$document,$plan)['identity_corrections']);
+        foreach([GenerationPipeline::screenplayInstruction($next),GenerationPipeline::reviewInstruction($next)] as $instruction) {
+            self::assertStringContainsString('不撤销其他要求、事件、世界事实或角色认知',$instruction);
+            self::assertStringContainsString('不能从旧背景自动补回',$instruction);
+        }
+        $oldReceipt=$document['identity_revision_receipts']['hero'];unset($oldReceipt['changed_keys'],$oldReceipt['receipt_hash']);$oldReceipt['receipt_hash']=ContentDocument::hash($oldReceipt);
+        EntityIdentityRevision::assertReceipt($oldReceipt,$document['entities'][0]);
+        self::assertSame([],EntityIdentityRevision::modelCorrections(['hero'=>$oldReceipt],$document['entities'])[0]['cleared_fields'],'Older proof cannot guess which fields were removed');
     }
 }

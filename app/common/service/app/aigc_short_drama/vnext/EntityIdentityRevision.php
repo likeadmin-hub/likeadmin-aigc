@@ -22,10 +22,16 @@ final class EntityIdentityRevision
                 || (is_string($value) && (!mb_check_encoding($value, 'UTF-8') || mb_strlen($value, 'UTF-8') > 2000))) throw new RuntimeException('身份属性应为明确的文本、整数或确认值', 422);
         }
         if (strlen(json_encode($facts, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)) > 64000) throw new RuntimeException('身份事实超过单次修订容量', 413);
+        $keys = $previous ? ($previous['changed_keys'] ?? array_values(array_diff(array_keys($old), ['library_subject_id']))) : [];
+        foreach (array_unique(array_merge(array_keys($old), array_keys($facts))) as $key) {
+            if (array_key_exists($key, $old) !== array_key_exists($key, $facts) || ($old[$key] ?? null) !== ($facts[$key] ?? null)) $keys[] = (string)$key;
+        }
+        $keys = array_values(array_unique($keys)); sort($keys, SORT_STRING);
+        if (count($keys) > 512) throw new RuntimeException('身份修订历史属性超过容量，请保留当前版本并整理设定', 413);
         $receipt = ['schema_version' => 1, 'entity_id' => $entity['entity_id'], 'kind' => $entity['kind'],
             'base_facts_hash' => $previous['base_facts_hash'] ?? ContentDocument::hash($old),
             'before_facts_hash' => ContentDocument::hash($old), 'after_facts_hash' => ContentDocument::hash($facts),
-            'previous_receipt_hash' => $previous['receipt_hash'] ?? '', 'revision_id' => $revision, 'origin' => $origin];
+            'previous_receipt_hash' => $previous['receipt_hash'] ?? '', 'changed_keys' => $keys, 'revision_id' => $revision, 'origin' => $origin];
         $receipt['receipt_hash'] = ContentDocument::hash($receipt);
         return $receipt;
     }
@@ -33,13 +39,18 @@ final class EntityIdentityRevision
     public static function assertReceipt(array $receipt, array $entity, array $scope = []): void
     {
         $unsigned = $receipt; unset($unsigned['receipt_hash']);
-        if (array_diff(array_keys($receipt), ['schema_version','entity_id','kind','base_facts_hash','before_facts_hash','after_facts_hash','previous_receipt_hash','revision_id','origin','receipt_hash'])
+        if (array_diff(array_keys($receipt), ['schema_version','entity_id','kind','base_facts_hash','before_facts_hash','after_facts_hash','previous_receipt_hash','changed_keys','revision_id','origin','receipt_hash'])
             || ($receipt['schema_version'] ?? null) !== 1 || ($receipt['receipt_hash'] ?? '') !== ContentDocument::hash($unsigned)
             || ($receipt['entity_id'] ?? '') !== $entity['entity_id'] || ($receipt['kind'] ?? '') !== $entity['kind']
             || ($receipt['after_facts_hash'] ?? '') !== ContentDocument::hash($entity['identity_facts'])) throw new RuntimeException('身份修订收据与当前主体不符', 409);
         foreach (['base_facts_hash','before_facts_hash','after_facts_hash'] as $field) if (!is_string($receipt[$field] ?? null) || !preg_match('/^[a-f0-9]{64}$/D', $receipt[$field])) throw new RuntimeException('身份修订收据不完整', 409);
         if (!is_string($receipt['previous_receipt_hash'] ?? null) || ($receipt['previous_receipt_hash'] !== '' && !preg_match('/^[a-f0-9]{64}$/D', $receipt['previous_receipt_hash']))) throw new RuntimeException('身份修订来源链无效', 409);
         ContentDocument::text($receipt['revision_id'] ?? null, 'identity_revision.revision_id');
+        if (array_key_exists('changed_keys', $receipt)) {
+            $keys = $receipt['changed_keys'];
+            if (!is_array($keys) || array_values($keys) !== $keys || count($keys) > 512 || count(array_unique($keys, SORT_REGULAR)) !== count($keys)) throw new RuntimeException('身份修订属性范围无效', 409);
+            foreach ($keys as $key) { ContentDocument::text($key, 'identity_revision.changed_key'); if ($key === 'library_subject_id') throw new RuntimeException('身份修订不能覆盖主体库关联', 409); }
+        }
         if (!is_array($receipt['origin'] ?? null)) throw new RuntimeException('身份修订缺少确认来源', 409);
         ManualContentRevision::assertOrigin($receipt['origin']);
         foreach (['tenant_id', 'user_id'] as $field) if (isset($scope[$field]) && $scope[$field] !== $receipt['origin'][$field]) throw new RuntimeException('身份修订不属于当前用户', 409);
@@ -68,6 +79,19 @@ final class EntityIdentityRevision
             $result[] = ['ref'=>$ref, 'entity_id'=>$entity['entity_id'], 'kind'=>$entity['kind'], 'name'=>$entity['canonical_name'],
                 'description'=>$entity['description'], 'identity_facts'=>$entity['identity_facts'],
                 'aliases'=>array_values(array_filter($entity['aliases'], static fn($alias)=>!preg_match('/^[clp]\d+$/D', $alias)))];
+        }
+        return $result;
+    }
+
+    public static function modelCorrections(array $receipts, array $entities): array
+    {
+        self::carry($receipts, $entities); $byId = array_column($entities, null, 'entity_id'); $result = [];
+        foreach ($receipts as $id => $receipt) {
+            $entity = $byId[$id]; $facts = $entity['identity_facts'];
+            // Older receipts can confirm their surviving fields, but cannot invent a removed field list.
+            $keys = $receipt['changed_keys'] ?? array_values(array_diff(array_keys($facts), ['library_subject_id']));
+            $result[] = ['entity_id'=>$id,'kind'=>$entity['kind'],'name'=>$entity['canonical_name'] ?? $entity['name'],
+                'set_facts'=>array_intersect_key($facts,array_flip($keys)), 'cleared_fields'=>array_values(array_diff($keys,array_keys($facts)))];
         }
         return $result;
     }
