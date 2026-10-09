@@ -61,6 +61,7 @@ final class SceneShotExecution
             if (count($trial) > $limit || !self::fits(self::view($document, $trial), $capacity, $projection)) {
                 if (!$current) throw new RuntimeException('单个完整正文单元无法容纳，不能截断对白或人物要求', 413);
                 $windows[] = $current; $current = [$id];
+                if (count($windows) >= 32) throw new RuntimeException('所需分镜窗口超过当前执行上限，完整正文保留', 413);
                 if (!self::fits(self::view($document, $current), $capacity, $projection)) throw new RuntimeException('单个完整正文单元无法容纳，已完成内容保留', 413);
             } else $current = $trial;
         }
@@ -97,7 +98,8 @@ final class SceneShotExecution
     {
         $unsigned = $plan; unset($unsigned['plan_hash']);
         if (($plan['schema_version'] ?? 0) !== self::VERSION || ($plan['document_hash'] ?? '') !== $document['content_hash']
-            || ($plan['plan_hash'] ?? '') !== ContentDocument::hash($unsigned) || empty($plan['windows']) || count($plan['windows']) > 32) throw new RuntimeException('分场执行计划已失效', 409);
+            || ($plan['plan_hash'] ?? '') !== ContentDocument::hash($unsigned) || !is_array($plan['windows'] ?? null)
+            || !$plan['windows'] || array_values($plan['windows']) !== $plan['windows'] || count($plan['windows']) > 32) throw new RuntimeException('分场执行计划已失效', 409);
         $all = [];
         foreach ($plan['windows'] as $window) {
             if (!is_array($window) || !$window || array_values($window) !== $window) throw new RuntimeException('分场执行计划不完整', 409);
