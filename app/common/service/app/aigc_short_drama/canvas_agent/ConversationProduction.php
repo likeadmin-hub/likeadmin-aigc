@@ -6,6 +6,9 @@ use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use app\common\service\app\aigc_short_drama\ShortDramaStoryDraft;
 use app\common\service\app\aigc_short_drama\ShortDramaStoryWorkflow;
 use app\common\service\app\aigc_short_drama\ShortDramaInputContract;
+use app\common\service\app\aigc_short_drama\ShortDramaContinuity;
+use app\common\service\app\aigc_short_drama\vnext\ApplicationWorkflow;
+use app\common\service\app\aigc_short_drama\vnext\AudioProduction;
 use app\common\model\app\aigc_short_drama\AigcShortDramaScriptTask;
 use RuntimeException;
 use think\facade\Db;
@@ -13,6 +16,26 @@ use think\facade\Db;
 /** Bridge to the existing durable production engine. No second model/billing path. */
 final class ConversationProduction
 {
+    /** Node text/media states cannot unlock another billable episode. */
+    public static function assertEpisodeReady(int $tenant,int $user,array $workflow): void
+    {
+        if (!ConversationSeries::canStartNextEpisode($workflow)) throw new RuntimeException('WORKFLOW_NEXT_EPISODE_UNAVAILABLE');
+        $binding=$workflow['series']['tasks']['episode_'.ConversationSeries::episode($workflow)];
+        $task=self::task($tenant,$user,$binding['task_id']);
+        $project=Db::name('aigc_short_drama_project')->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>(int)$binding['project_id'],'delete_time'=>0])->lock(true)->find();
+        if (!$project || (int)$task['project_id']!==(int)$binding['project_id'] || $project['last_task_id']!==$task['task_id']) throw new RuntimeException('WORKFLOW_EPISODE_VERSION_CHANGED');
+        if ($task['status']!=='success') throw new RuntimeException('WORKFLOW_PREVIOUS_EPISODE_INCOMPLETE');
+        $request=json_decode((string)$task['request_json'],true)?:[];
+        if (ApplicationWorkflow::current($request)) {
+            AudioProduction::context($tenant,$user,(int)$binding['project_id'],$task['task_id']);
+            return;
+        }
+        $result=json_decode((string)$task['result_json'],true)?:[];
+        $plan=ShortDramaStoryDraft::effective($request,$result);
+        $continuity=(array)($result['_continuity']??[]);
+        if (empty($plan['storyboard']) || empty($continuity['digest']) || $continuity['digest']!==ShortDramaContinuity::fingerprint($plan)) throw new RuntimeException('WORKFLOW_CONTINUITY_MISSING');
+    }
+
     public static function process(int $tenant,int $user,int $run,array $claim): string
     {
         $workflow=(array)$claim['context']['workflow'];
