@@ -39,7 +39,10 @@ namespace app\common\service\power {
         {
             self::$calls[] = ['tenant_id' => $tenantId, 'user_id' => $userId, 'params' => $params];
             $id = (string)($params['model_selection']['id'] ?? '');
-            if (isset(self::$errors[$id])) throw new \Exception(self::$errors[$id]);
+            if (isset(self::$errors[$id])) {
+                if (self::$errors[$id] instanceof \Exception) throw self::$errors[$id];
+                throw new \Exception(self::$errors[$id]);
+            }
             if (self::$allUnavailable || ($params['model_selection']['model_code'] ?? '') === 'retired-model') {
                 throw new \Exception('model_not_found: upstream retired the model');
             }
