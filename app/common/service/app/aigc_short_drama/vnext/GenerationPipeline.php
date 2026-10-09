@@ -8,6 +8,7 @@ use RuntimeException;
 final class GenerationPipeline
 {
     public const VERSION = 1;
+    public const REVIEW_FORMAT_VERSION = 1;
 
     public static function run(array $context, callable $execute, callable $reserveRepair, callable $checkpoint, array $sceneExecution = []): array
     {
@@ -27,6 +28,8 @@ final class GenerationPipeline
         if (!in_array($locationVersion, [0, MissingContentLocation::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的缺失内容定位版本', 409);
         $historyVersion = $context['history_evidence_index_version'] ?? 0;
         if (!in_array($historyVersion, [0, NarrativeHistoryIndex::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的历史证据索引版本', 409);
+        $reviewFormat = $context['review_format_version'] ?? 0;
+        if (!in_array($reviewFormat, [0, self::REVIEW_FORMAT_VERSION], true)) throw new RuntimeException('当前服务不支持此任务的核验格式恢复版本', 409);
         $windowed = false;
         $makeShots = static function (array $document, callable $call, string $key, string $reservation, array $issues = []) use ($sceneVersion, $sceneExecution, $checkpoint, $projection, &$windowed): array {
             if ($sceneVersion === SceneShotExecution::VERSION && $sceneExecution && $reservation === '') {
@@ -35,13 +38,20 @@ final class GenerationPipeline
             return self::shots($document, $call, $key, $reservation, $issues);
         };
         $receipts = [];
-        $call = static function (string $key, array $data, string $instruction, callable $validate, string $reservation = '') use ($execute, &$receipts, $projection): array {
+        $call = static function (string $key, array $data, string $instruction, callable $validate, string $reservation = '') use ($execute, &$receipts, $projection, $reviewFormat): array {
+            $reviewInput = $reviewFormat === self::REVIEW_FORMAT_VERSION && isset($data['document'], $data['shot_plan']);
+            // A real server-side version conflict must stop before any provider submission.
+            if ($reviewInput) ShotCompiler::assertCurrent($data['document'], $data['shot_plan']);
             $messages = self::messages($data, $instruction, $projection);
             for ($attempt = 0; $attempt <= 1; $attempt++) {
                 $receipt = $execute($key . ($attempt ? '_format' : ''), $messages, $attempt ? '' : $reservation);
                 $receipts[] = $receipt;
                 try {
                     $reply = ShortDramaStructuredResponse::decode($receipt['result'] ?? $receipt);
+                    if ($reviewInput && (($reply['document_hash'] ?? '') !== $data['document']['content_hash']
+                        || ($reply['shot_hash'] ?? '') !== $data['shot_plan']['content_hash'])) {
+                        throw new RuntimeException('核验回包的版本标识缺失或不符，请沿用输入 document.content_hash 和 shot_plan.content_hash，重新核对原文证据', 422);
+                    }
                     return $validate($reply);
                 } catch (RuntimeException $error) {
                     if ($error->getCode() !== 422 || $attempt === 1) throw $error;

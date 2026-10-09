@@ -83,6 +83,20 @@ final class ShortDramaVnextSceneReviewTest extends TestCase
         $this->execute(self::input()['context'], $this->execution($saved, static fn() => ['max_tokens' => 8192]), null, $checkpoints, $keys);
         self::assertSame(['shots', 'review'], $keys); self::assertNull($saved);
     }
+    public function testWindowAndGlobalEchoMistakesRecoverOncePerStageWithoutRestartingOtherWindows(): void
+    {
+        $context = self::input()['context'] + ['review_format_version' => 1];
+        $saved = null; $keys = []; $checkpoints = [];
+        $result = $this->execute($context, $this->execution($saved), static function ($key, $data) {
+            $reply = self::reply($data);
+            if (in_array($key, ['review_window_2', 'review_global'], true)) $reply['document_hash'] = 'mistyped';
+            return isset($reply['content']) ? $reply : ['content' => json_encode($reply, JSON_UNESCAPED_UNICODE), 'finish_reason' => 'stop'];
+        }, $checkpoints, $keys);
+        self::assertSame(['shots', 'review_window_1', 'review_window_2', 'review_window_2_format', 'review_window_3', 'review_global', 'review_global_format'], $keys);
+        self::assertSame('ready', $result['coverage_report']['status']);
+        self::assertSame($context['canonical_input'], $result['document']);
+        self::assertCount(3, $result['coverage_report']['window_review']['windows']);
+    }
     public function testExplicitWholeReviewTruncationFallsBackOnce(): void
     {
         $saved = null; $keys = []; $checkpoints = [];
