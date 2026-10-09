@@ -1115,8 +1115,9 @@ final class ConversationWorkflow
     }
     private static function publicArtifacts(array $artifacts): array {
         $items=[];
-        foreach (array_slice($artifacts,-12) as $artifact) if (is_array($artifact)) $items[]=[
+        foreach ($artifacts as $artifact) if (is_array($artifact)) $items[]=[
             'stage'=>(string)($artifact['stage']??''),'artifact'=>(string)($artifact['artifact']??''),'title'=>(string)($artifact['title']??''),
+            'content'=>(string)($artifact['content']??''),
         ];
         return $items;
     }

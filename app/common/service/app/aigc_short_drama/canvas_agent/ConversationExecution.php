@@ -153,11 +153,17 @@ final class ConversationExecution
                 $effects['mode']=($settings['generation_mode']??'manual')==='auto'?'auto':'manual';
             }
             $sequence=(int)$thread['next_message_sequence'];
-            // The validated artifact bodies remain in the stage plan/graph.
-            // Only a bounded, user-facing account of the actual stage result
-            // belongs in chat; a model must not dump its internal fields here.
+            // Keep narration concise; deliverable bodies are stored separately
+            // for safe frontend presentation and durable conversation history.
             $displayText=ConversationStageReply::present($workflow,$text,$proposals ?: (array)($planSettings['workflow_state']['image_plan']['nodes'] ?? $stagePlanSettings['workflow_state']['stage_plan']['nodes'] ?? []),!empty($effects['nodes']));
             $content=['text'=>$displayText];
+            // Confirmation clears stage_plan. Retain each deliverable with its
+            // immutable conversation turn, including superseded revisions.
+            if ($stagePlanSettings!==null) {
+                $content['stage_artifacts']=array_map(static fn(array $node): array=>[
+                    'title'=>(string)($node['title']??''),'content'=>(string)($node['prompt']??''),
+                ],(array)($stagePlanSettings['workflow_state']['stage_plan']['nodes']??[]));
+            }
             if ($effects) $content['canvas_actions']=$effects;
             $timeline=ConversationWorkflow::timeline($workflow,$proposals,$effects);
             if ($timeline) $content['workflow_timeline']=$timeline;
