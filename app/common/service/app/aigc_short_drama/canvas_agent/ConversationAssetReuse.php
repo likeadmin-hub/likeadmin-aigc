@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace app\common\service\app\aigc_short_drama\canvas_agent;
 use RuntimeException;
+use app\common\service\app\aigc_short_drama\ShortDramaCanvasPages;
 use think\facade\Db;
 
 /** Reuse is tied to a server-owned entity key, prompt version and original asset receipt. */
@@ -22,9 +23,28 @@ final class ConversationAssetReuse
     {
         if (!ConversationSeries::enabled($state)) return [];
         $signatures=self::signatures($proposals,$state,$settings);
-        $candidates=(array)($state['series']['asset_library']??[]);
+        // A user may move on before the old page's images finish or are even
+        // planned. Discover those later receipts at quote time, without
+        // mutating either page or pretending pending files are reusable.
+        $candidates=[];
+        $cache=[(int)$document['id']=>json_decode((string)$document['nodes_json'],true)?:[]];
+        $pageIds=array_values(array_filter((array)($state['series']['page_ids']??[]),static fn($id)=>is_int($id) && $id>0 && $id!==(int)$document['id']));
+        if ($pageIds && $signatures) {
+            $root=ShortDramaCanvasPages::root($tenant,$user,(int)$document['id']);
+            $owned=Db::name(ShortDramaCanvasPages::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$root])->whereIn('canvas_id',$pageIds)->column('canvas_id');
+            $pages=Db::name(GraphService::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->whereIn('id',$owned)
+                ->where(static function($query)use($signatures):void { foreach(array_unique($signatures) as $signature) $query->whereOr('nodes_json','like','%'.$signature.'%'); })
+                ->field('id,nodes_json')->order('id','asc')->select()->toArray();
+            foreach($pages as $page) {
+                $cache[(int)$page['id']]=json_decode($page['nodes_json'],true)?:[];
+                foreach($cache[(int)$page['id']] as $node) if (in_array($node['metadata']['workflow_asset_signature']??'',$signatures,true)) {
+                    $candidates[]=['canvas_id'=>(int)$page['id'],'node_id'=>(string)$node['id'],'signature'=>$node['metadata']['workflow_asset_signature']];
+                }
+            }
+        }
+        $candidates=array_merge($candidates,(array)($state['series']['asset_library']??[]));
         foreach ((array)($state['artifact_memory']??[]) as $item) $candidates[]=['canvas_id'=>(int)$document['id'],'node_id'=>(string)($item['node_id']??'')];
-        $cache=[(int)$document['id']=>json_decode((string)$document['nodes_json'],true)?:[]];$reuse=[];
+        $reuse=[];
         foreach (array_reverse($candidates) as $candidate) {
             if (isset($candidate['signature']) && !in_array($candidate['signature'],$signatures,true)) continue;
             $canvas=(int)($candidate['canvas_id']??0);$id=(string)($candidate['node_id']??'');
