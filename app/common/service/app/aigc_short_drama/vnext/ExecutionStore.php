@@ -316,6 +316,30 @@ final class ExecutionStore
         return $this->resume(true);
     }
     private static function rawKey(string $key): string { return hash('sha256', 'provider-result:' . $key); }
+    /** Only a server ledger sealed before its submit marker can reopen a paid attempt. */
+    public function reconcileUnsubmitted(callable $release): int
+    {
+        return LocalTransaction::run(function () use ($release): int {
+            $job=$this->job();$input=self::decode($job['input_json']);
+            if (($input['context']['account_reservation_version']??0)!==1
+                || !in_array($job['execution_status'],['reconciling','canceled'],true)) return 0;
+            $budget=self::decode($job['budget_json']);$count=0;
+            foreach($this->query('stage')->where('status','submitted')->lock(true)->select()->toArray() as $stage) {
+                $params=self::decode($stage['input_json']);
+                if (($params['_account_reservation_version']??0)!==1 || $stage['receipt_json']!=='') continue;
+                $key=$this->buffer->key($this->scope+['stage_key'=>$stage['stage_key']],$stage['input_hash']);
+                if ($this->buffer->read($key)!==null || $this->buffer->read(self::rawKey($key))!==null) continue;
+                if ($release($key,(int)$stage['attempt_count'])!==true) continue;
+                if(isset($budget['resources'])) $budget['resources']=ResourceBudget::releaseUnsubmitted($budget['resources'],$stage['stage_key']);
+                $this->query('stage')->where('id',$stage['id'])->update(['status'=>'retry_wait','retry_after'=>time()+30,
+                    'error_code'=>'prepared_request_reconciled','update_time'=>time()]);
+                $count++;
+            }
+            if($count) $this->query('job')->update(['budget_json'=>self::json($budget),'fence'=>(int)$job['fence']+1,
+                'lease_until'=>0,'event_seq'=>(int)$job['event_seq']+1,'update_time'=>time()]);
+            return $count;
+        });
+    }
     /** Call outside a surrounding transaction: final receipt publication must follow committed settlement. */
     public function reconcileReceipts(callable $reconcile): void
     {

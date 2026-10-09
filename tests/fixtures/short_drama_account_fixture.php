@@ -23,7 +23,7 @@ final class ShortDramaAccountFixture
     public static function reserve(int $tenant, int $user, string $key, int $parent = 0, int $attempt = 1): array
     {
         return self::call('createConsumption', $tenant, $user, self::model(), 'script_plan',
-            ['durable_receipt_version'=>1, 'account_reservation'=>['version'=>1, 'request_key'=>hash('sha256',$key),
+            ['durable_receipt_version'=>1, 'account_reservation'=>['version'=>1, 'request_key'=>preg_match('/^[a-f0-9]{64}$/D',$key)?$key:hash('sha256',$key),
                 'attempt'=>$attempt, 'state'=>'prepared', 'upper_bound'=>['total_tokens'=>4000,'tenant_cost_points'=>4,'user_charge_points'=>8]]],
             ['tenant_cost_points'=>4,'user_charge_points'=>8], $parent, 'aigc_short_drama', 'aigc_short_drama_script_task', 123);
     }

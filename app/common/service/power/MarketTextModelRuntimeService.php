@@ -278,6 +278,30 @@ class MarketTextModelRuntimeService
         }
     }
 
+    /** Seal a proven local prepared attempt; a submitted marker is never a refund proof. */
+    public static function releaseUnsubmittedReservation(int $tenantId, int $userId, string $businessTable, int $businessId, string $requestKey, int $attempt): bool
+    {
+        if (!preg_match('/^[a-f0-9]{64}$/D', $requestKey) || $attempt < 1 || $attempt > 3) throw new \RuntimeException('账户核对请求标识无效', 422);
+        return Db::transaction(static function () use ($tenantId,$userId,$businessTable,$businessId,$requestKey,$attempt): bool {
+            $consumeNo=self::accountConsumptionNo($tenantId,$userId,'aigc_short_drama',$businessTable,$businessId,$requestKey,$attempt);
+            $c=AiConsumptionLog::where(['consume_no'=>$consumeNo,'tenant_id'=>$tenantId,'user_id'=>$userId,'app_code'=>'aigc_short_drama'])->lock(true)->findOrEmpty();
+            // Absence cannot prove that an interrupted worker will never create a ledger.
+            if ($c->isEmpty()) return false;
+            $summary=self::arrayValue($c['request_summary']);$account=$summary['account_reservation']??[];
+            if (($account['version']??0)!==1 || ($account['request_key']??'')!==$requestKey || ($account['attempt']??0)!==$attempt
+                || ($summary['durable_receipt_version']??0)!==1) throw new \RuntimeException('账户预留证明与阶段请求不符',409);
+            $task=AiAppTask::where(['id'=>(int)$c['app_task_id'],'tenant_id'=>$tenantId,'user_id'=>$userId,'app_code'=>'aigc_short_drama',
+                'business_table'=>$businessTable,'business_id'=>$businessId])->lock(true)->findOrEmpty();
+            if ($task->isEmpty()) throw new \RuntimeException('账户核对任务归属不符',409);
+            if ((string)$c['billing_status']==='refunded' && (string)$c['error_code']==='not_submitted_reconciled') return true;
+            if (($account['state']??'')!=='prepared' || (string)$c['billing_status']!=='pending_usage') return false;
+            // Holding this row excludes markAccountSubmission. Refund seals the
+            // original attempt: even a late worker cannot send it after recovery.
+            self::fail(['consumption'=>$c,'appTask'=>$task],'本地提交标记确认尚未提交，原预留已释放','not_submitted_reconciled');
+            return true;
+        });
+    }
+
     /** Reconcile a private durable receipt using its original ledger; never submits to a provider. */
     public static function recoverDurableResult(int $tenantId, int $userId, string $businessTable, int $businessId, array $receipt): array
     {
@@ -646,7 +670,7 @@ class MarketTextModelRuntimeService
         return Db::transaction(function () use ($tenantId, $userId, $model, $action, $summary, $reserve, $parentTaskId, $appCode, $businessTable, $businessId) {
             $now = time();
             $account = $summary['account_reservation'] ?? [];
-            $consumeNo = $account ? 'CSD' . substr(hash('sha256', json_encode([$tenantId,$userId,$appCode,$businessTable,$businessId,$account['request_key'],$account['attempt']])),0,45) : self::no('C');
+            $consumeNo = $account ? self::accountConsumptionNo($tenantId,$userId,$appCode,$businessTable,$businessId,$account['request_key'],$account['attempt']) : self::no('C');
             if ($account) {
                 // Do not gap-lock a missing unique key: unrelated account requests
                 // must serialize on their balances, rather than deadlock on inserts.
@@ -690,6 +714,11 @@ class MarketTextModelRuntimeService
             self::event((int)$consumption['id'], 'reserve', 'success', $reserve + ['settlement_mode' => 'actual_usage']);
             return compact('appTask', 'consumption');
         });
+    }
+
+    private static function accountConsumptionNo(int $tenantId, int $userId, string $appCode, string $businessTable, int $businessId, string $key, int $attempt): string
+    {
+        return 'CSD'.substr(hash('sha256',json_encode([$tenantId,$userId,$appCode,$businessTable,$businessId,$key,$attempt])),0,45);
     }
 
     private static function markAccountSubmission(array $context): void
