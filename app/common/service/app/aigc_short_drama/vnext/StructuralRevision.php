@@ -14,6 +14,7 @@ final class StructuralRevision
             $result['scenes'][] = ['scene_id' => $scene['scene_id'], 'before_hash' => ContentDocument::hash(self::sceneState($scene))];
             foreach ($scene['units'] as $unit) $result['bindings'][] = ['unit_id' => $unit['unit_id'], 'before_hash' => ContentDocument::hash(self::binding($unit))];
         }
+        $result['scene_layout'] = ['before_hash' => ContentDocument::hash(self::layout($document))];
         return $result;
     }
 
@@ -22,7 +23,9 @@ final class StructuralRevision
         ManualContentRevision::assertOrigin($origin);
         $unsigned = $document; unset($unsigned['content_hash'], $unsigned['status'], $unsigned['transforms']);
         if (($document['content_hash'] ?? '') !== ContentDocument::hash($unsigned)) throw new RuntimeException('正文结构基线已变化', 409);
-        if (array_diff(array_keys($edits), ['entities', 'scenes', 'bindings'])) throw new RuntimeException('结构修改含不允许的字段', 422);
+        if (array_diff(array_keys($edits), ['entities', 'scenes', 'bindings', 'scene_layout'])) throw new RuntimeException('结构修改含不允许的字段', 422);
+        $layoutBefore = self::layout($document);
+        if (isset($edits['scene_layout']) && !empty($edits['scenes'])) throw new RuntimeException('拆分或合并时请在新场次布局中设置地点和时间', 422);
         $count = 0;
         foreach (['entities', 'scenes', 'bindings'] as $group) $count += count(ContentDocument::rows($edits[$group] ?? [], 'structure.' . $group));
         if ($count > 256) throw new RuntimeException('单次结构修改超过容量，请分批保存', 413);
@@ -97,6 +100,32 @@ final class StructuralRevision
         }
         unset($scene);
         if ($foundScenes !== count($scenePatches) || $foundBindings !== count($bindingPatches)) throw new RuntimeException('修改场次或单元不属于当前剧本', 409);
+        if (array_key_exists('scene_layout', $edits)) {
+            $layout = $edits['scene_layout'];
+            if (!is_array($layout) || array_diff(array_keys($layout), ['before_hash', 'scenes']) || ($layout['before_hash'] ?? '') !== ContentDocument::hash($layoutBefore)) throw new RuntimeException('场次布局基线已变化', 409);
+            $groups = ContentDocument::rows($layout['scenes'] ?? null, 'scene_layout.scenes');
+            if (!$groups || count($groups) > 256) throw new RuntimeException('场次布局不能为空或超过 256 场', 422);
+            $units = ContentDocument::units($document); $order = []; $scenes = [];
+            foreach ($groups as $index => $group) {
+                if (array_diff(array_keys($group), ['location_id', 'time_context', 'unit_ids']) || !is_string($group['location_id'] ?? null)
+                    || ($entities[$group['location_id']]['kind'] ?? '') !== 'location' || !is_string($group['time_context'] ?? null)
+                    || !mb_check_encoding($group['time_context'], 'UTF-8') || !is_array($group['unit_ids'] ?? null)
+                    || !$group['unit_ids'] || array_values($group['unit_ids']) !== $group['unit_ids']) throw new RuntimeException('新场次须选择已登记地点并保留正文单元', 422);
+                $scene = ['scene_id' => 'scene_' . substr(ContentDocument::hash([$revision, 'layout', $index + 1]), 0, 24),
+                    'location_id' => $group['location_id'], 'time_context' => $group['time_context'], 'units' => []];
+                foreach ($group['unit_ids'] as $id) {
+                    if (!is_string($id) || !isset($units[$id])) throw new RuntimeException('场次布局含不属于当前正文的单元', 409);
+                    $unit = $units[$id]; unset($unit['scene_id'], $unit['location_id']); $scene['units'][] = $unit; $order[] = $id;
+                }
+                foreach ($layoutBefore as $oldIndex => $old) if (ContentDocument::hash($old) === ContentDocument::hash($group)) $scene['scene_id'] = $document['scenes'][$oldIndex]['scene_id'];
+                $scenes[] = $scene;
+            }
+            if ($order !== array_keys($units)) throw new RuntimeException('拆分或合并必须逐字保留全部单元和顺序，不能遗漏、复制或重排正文', 409);
+            if (ContentDocument::hash($groups) !== ContentDocument::hash($layoutBefore)) {
+                $document['scenes'] = $scenes;
+                $record('layout', 'scenes', $layoutBefore, $groups, '场次拆分与合并');
+            }
+        }
         if (!$changes) throw new RuntimeException('结构没有变化', 422);
         $document['entities'] = array_values($entities);
         $base = $unsigned; $base['content_hash'] = ContentDocument::hash($unsigned);
@@ -124,4 +153,8 @@ final class StructuralRevision
 
     private static function sceneState(array $scene): array { return array_intersect_key($scene, array_flip(['scene_id', 'location_id', 'time_context'])); }
     private static function binding(array $unit): array { return array_intersect_key($unit, array_flip(['unit_id', 'type', 'entity_ids', 'speaker_id', 'speech_type', 'text_hash'])); }
+    private static function layout(array $document): array
+    {
+        return array_map(static fn(array $scene): array => ['location_id' => $scene['location_id'], 'time_context' => $scene['time_context'], 'unit_ids' => array_column($scene['units'], 'unit_id')], $document['scenes']);
+    }
 }
