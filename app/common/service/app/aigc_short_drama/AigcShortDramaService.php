@@ -4048,6 +4048,7 @@ class AigcShortDramaService
         try {
             vnext\JobRunner::run($store, 'worker_' . bin2hex(random_bytes(12)),
                 static function (array $params, string $receiptKey, callable $persistResult, ?callable $admitResources = null) use ($tenantId, $userId, $taskData): array {
+                    if (($params['_account_reservation_version'] ?? 0) === 1) $params['_account_reservation_key'] = $receiptKey;
                     $params += ['source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
                         'source_id' => (string)$taskData['task_id'], 'business_table' => 'aigc_short_drama_script_task',
                         'business_id' => (int)$taskData['id']];

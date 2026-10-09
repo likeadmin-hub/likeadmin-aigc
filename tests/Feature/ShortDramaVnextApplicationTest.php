@@ -53,6 +53,10 @@ final class ShortDramaVnextApplicationTest extends TestCase
         self::assertSame(" 第一行\n末尾😀 ", $context['requirements'][0]['text']);
         self::assertSame('library:11', $context['entities'][0]['entity_id']);
         self::assertSame('7:8:9', $context['entity_scope']);
+        self::assertSame(0, $context['account_reservation_version']);
+        $budgeted = ApplicationWorkflow::input(7, 8, 9, 'task2', ['prompt'=>'保留旧流程的已保存合同'], ['id'=>'model1'],
+            ['resource_limits'=>['total_tokens'=>4000,'tenant_cost_points'=>4,'user_charge_points'=>8]]);
+        self::assertSame(1, $budgeted['context']['account_reservation_version']);
     }
     public function testLegacyWritersAcceptOldTasksButCannotMutateCanonicalTasks(): void
     {

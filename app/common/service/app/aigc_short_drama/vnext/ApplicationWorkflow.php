@@ -48,6 +48,7 @@ final class ApplicationWorkflow
                 'identity_facts' => ['library_subject_id' => (string)$subject['id']] + $facts];
         }
         return ['context' => ['review_format_version' => GenerationPipeline::REVIEW_FORMAT_VERSION, 'history_evidence_index_version' => NarrativeHistoryIndex::VERSION, 'missing_content_location_version' => MissingContentLocation::VERSION, 'scene_screenplay_version' => SceneScreenplayExecution::VERSION, 'window_content_repair_version' => SceneContentRepair::VERSION, 'window_shot_repair_version' => SceneShotRepair::VERSION, 'scene_review_version' => SceneReviewExecution::VERSION, 'scene_shot_version' => SceneShotExecution::VERSION, 'prompt_projection_version' => PromptProjection::VERSION, 'narrative_contract_version' => 1, 'repair_contract_version' => 2, 'revision_id' => 'revision_' . substr(ContentDocument::hash([$task, 1]), 0, 24),
+            'account_reservation_version' => isset($execution['resource_limits']) ? 1 : 0,
             'episode_id' => 'project:' . $project, 'entity_scope' => $scope, 'prompt' => $prompt, 'source_mode' => 'inspiration',
             'screenplay_preflight_version' => SceneScreenplayExecution::PREFLIGHT_VERSION,
             'sources' => [$source['source_id'] => $source], 'entities' => $entities,

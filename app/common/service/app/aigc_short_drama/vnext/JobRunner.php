@@ -41,6 +41,9 @@ final class JobRunner
                     $params = $messages + ['model_selection' => $input['model'], 'model_config' => ['max_tokens' => $budget['max_tokens'], 'enable_thinking' => false],
                         'request_timeout_seconds' => $timeout, '_disable_transient_retry' => true, '_disable_compatibility_retry' => true,
                         '_disable_model_fallback' => true, '_require_final_content' => true];
+                    $accountVersion = $input['context']['account_reservation_version'] ?? 0;
+                    if (!in_array($accountVersion, [0, 1], true)) throw new RuntimeException('当前服务不支持此账户预留版本', 409);
+                    if ($accountVersion === 1) $params['_account_reservation_version'] = 1;
                     $notify('stage', ['stage' => $key]);
                     return $store->call($fence, $key, $params, $provider, $reservation, $reconcile);
                 },

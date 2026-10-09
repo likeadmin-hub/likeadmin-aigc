@@ -239,7 +239,9 @@ final class ExecutionStore
                     throw new TextRequestNotSubmittedException('剩余资源预算不足或作业已停止，已保存内容保留', $error->getCode() === 429 ? 429 : 422, $error);
                 }
             };
-            $receipt = $provider($input, $bufferKey, $persist, $admit);
+            $providerInput = $input;
+            if (($input['_account_reservation_version'] ?? 0) === 1) $providerInput['_account_reservation_attempt'] = $claim['attempt'];
+            $receipt = $provider($providerInput, $bufferKey, $persist, $admit);
             // Detect an adapter contract violation; it cannot authorize any subsequent call.
             if ($claim['resources'] && !$admitted) throw new RuntimeException('模型适配器未完成资源预算准入', 409);
             if (!is_array($receipt)) throw new RuntimeException('模型返回收据无效', 502);
