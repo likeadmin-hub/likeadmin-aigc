@@ -65,7 +65,9 @@ final class ShortDramaVnextSeriesTest extends TestCase
             self::assertArrayNotHasKey('_pipeline_version', $enrolled, 'Story confirmation remains a planning step');
             self::assertCount(0, Provider::$requests);
             if ($withRevision) {
-                $params = ['task_id' => $task, 'message' => '修改第2集，辨认印记时保持沉默', 'mode' => 'revise_plan',
+                foreach (['修改第2集，辨认印记时保持沉默', '修改第2集，不再保持沉默，辨认印记后说出发现'] as $instruction) {
+                $beforeTrace = $plan['content_trace'];
+                $params = ['task_id' => $task, 'message' => $instruction, 'mode' => 'revise_plan',
                     'draft_version' => 0, 'edit_stage' => 'episodes', 'submission_key' => 'trace_revision_' . $task,
                     '_trace_revision' => ['source' => ['text' => '伪造来源']]];
                 $revision = Service::message($tenant, $user, $params);
@@ -74,12 +76,14 @@ final class ShortDramaVnextSeriesTest extends TestCase
                 $request = json_decode(Db::name('aigc_short_drama_script_task')->where($scope + ['task_id' => $revision['task_id']])->value('request_json'), true);
                 self::assertSame($params['message'], $request['_trace_revision']['source']['text']);
                 self::assertSame([2], $request['_trace_revision']['source']['episode_numbers']);
-                self::assertSame($trace, $request['_trace_revision']['base']);
+                self::assertSame($beforeTrace, $request['_trace_revision']['base']);
                 self::assertCount(0, Provider::$requests, 'Message capture must not add a provider call');
                 $plan['content_trace'] = PlanningTrace::outlineTrace($request);
                 $task = $revision['task_id'];
                 // Simulate the completed planning response; the episode worker below is real.
                 Db::name('aigc_short_drama_script_task')->where($scope + ['task_id' => $task])->update(['status' => 'success', 'result_json' => json_encode($plan)]);
+                }
+                self::assertCount(3, PlanningTrace::sources($plan['content_trace']));
             }
             $rows = Episodes::start($tenant, $user, ['project_id' => $project, 'task_id' => $task, 'draft_version' => 0])['lists'];
             self::assertCount(2, $rows);
@@ -104,6 +108,7 @@ final class ShortDramaVnextSeriesTest extends TestCase
                 $firstInput = json_decode(Provider::$requests[0]['content'], true);
                 self::assertCount(1, $firstInput['input_history'], 'Second-episode instruction must not affect the first');
                 self::assertArrayNotHasKey($request['_trace_revision']['source']['source_id'], $firstInput['sources']);
+                self::assertCount(4, $firstInput['sources'], 'Only original input and three local outline fields belong to episode one');
             }
             self::assertCount(1, $first['result']['narrative_ledger']['delta']);
             self::assertSame(1, Episodes::tick($tenant, $project));
@@ -114,8 +119,9 @@ final class ShortDramaVnextSeriesTest extends TestCase
             self::assertSame(array_column($first['result']['canonical_document']['entities'], 'entity_id'), array_column($second['result']['canonical_document']['entities'], 'entity_id'));
             $secondInput = json_decode(Provider::$requests[3]['content'], true);
             if ($withRevision) {
-                self::assertCount(2, $secondInput['input_history']);
-                self::assertSame($params['message'], $secondInput['input_history'][1]['text']);
+                self::assertCount(3, $secondInput['input_history']);
+                self::assertSame($params['message'], $secondInput['input_history'][2]['text']);
+                self::assertSame('修改第2集，辨认印记时保持沉默', $secondInput['input_history'][1]['text']);
                 $reviewInput = json_decode(Provider::$requests[5]['content'], true);
                 self::assertSame($secondInput['input_history'], $reviewInput['input_history'], 'Review sees the same immutable revision inputs');
             }
@@ -127,7 +133,8 @@ final class ShortDramaVnextSeriesTest extends TestCase
             if ($withRevision) {
                 $check = $secondInput['requirements'][1];
                 self::assertSame('revision_instructions', $check['kind']);
-                self::assertSame($params['message'], $check['source_refs'][0]['quote']);
+                self::assertCount(2, $check['source_refs'], 'Successive changes form one ordered check, not competing hard constraints');
+                self::assertSame($params['message'], $check['source_refs'][1]['quote']);
                 $report = $second['result']['coverage_report'];
                 $coverage = array_column($report['coverage'], null, 'id');
                 self::assertSame($check['source_refs'], $coverage[$check['id']]['source_refs']);
