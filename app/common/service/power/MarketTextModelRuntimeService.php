@@ -137,19 +137,7 @@ class MarketTextModelRuntimeService
             'generation_params' => $generationParams + ['max_tokens' => $maxTokens],
         ];
         if ($persistResult !== null) $requestSummary['durable_receipt_version'] = 1;
-        // Optional server-only gate. No fallback/retry may create an unadmitted paid attempt.
-        if ($admitResources !== null) {
-            try {
-                if ($persistResult === null || empty($params['_disable_model_fallback']) || empty($params['_disable_transient_retry']) || empty($params['_disable_compatibility_retry'])) {
-                    throw new \RuntimeException('资源预算调用必须使用持久化单次提交', 422);
-                }
-                $bound = self::resourceUpperBound($model);
-                PointService::assertCanConsumeAmounts($tenantId, $userId, $bound['tenant_cost_points'], $bound['user_charge_points']);
-                $admitResources($bound);
-            } catch (\Throwable $error) {
-                throw new TextRequestNotSubmittedException('生成前资源预算检查未通过，已保存内容保留', $error->getCode() === 429 ? 429 : 422, $error);
-            }
-        }
+        if ($admitResources !== null) self::admitResourceRequest($tenantId, $userId, $model, $params, $persistResult, $admitResources);
         // Token SKU amounts must come from the upstream usage record. Showing a
         // locally guessed total or reserving max_tokens makes the price wrong.
         $reserve = self::quote($model, 0, 0);
@@ -583,6 +571,21 @@ class MarketTextModelRuntimeService
             foreach ((array)$value as $item) if (in_array(strtolower((string)$item), ['vision', 'image', 'image_input'], true)) return true;
         }
         return !empty($meta['supports_vision']) || !empty($resource['supports_vision']);
+    }
+
+    /** Server-only preflight runs before consumption records or any provider I/O. */
+    private static function admitResourceRequest(int $tenantId, int $userId, array $model, array $params, ?callable $persistResult, callable $admitResources): void
+    {
+        try {
+            if ($persistResult === null || empty($params['_disable_model_fallback']) || empty($params['_disable_transient_retry']) || empty($params['_disable_compatibility_retry'])) {
+                throw new \RuntimeException('资源预算调用必须使用持久化单次提交', 422);
+            }
+            $bound = self::resourceUpperBound($model);
+            PointService::assertCanConsumeAmounts($tenantId, $userId, $bound['tenant_cost_points'], $bound['user_charge_points']);
+            $admitResources($bound);
+        } catch (\Throwable $error) {
+            throw new TextRequestNotSubmittedException('生成前资源预算检查未通过，已保存内容保留', $error->getCode() === 429 ? 429 : 422, $error);
+        }
     }
 
     /** Use published full capacities, not a heuristic prompt estimate or the requested output cap. */
