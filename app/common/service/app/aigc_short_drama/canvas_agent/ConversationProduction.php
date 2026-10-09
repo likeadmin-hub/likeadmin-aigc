@@ -33,6 +33,7 @@ final class ConversationProduction
         if (!$plan) throw new RuntimeException('EMPTY_MODEL_RESPONSE');
         $proposals=ConversationSeries::proposals($plan,$stage,ConversationSeries::episode($workflow));
         $label=['story'=>'故事设定已生成，请核对后确认生成分集大纲。','outline'=>'分集大纲已生成，请核对后确认开始第一集创作。','episode'=>'本集剧本已生成，可直接告诉我需要修改的镜头或内容。采用后再准备素材。'][$stage];
+        if ($stage==='episode' && !ConversationCreativePolicy::enabled($workflow)) $label='本集剧本已生成，将继续准备本集的主体、场景和分镜。';
         return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],$label,$proposals)?'success':'needs_reconciliation';
     }
 
@@ -101,7 +102,9 @@ final class ConversationProduction
                 $submission='canvas-production:'.$claim['canvas_id'].':'.$claim['thread_id'].':'.$key;
                 if ($stage==='story' || ($stage==='episode' && ConversationCreativePolicy::enabled($state) && $count===1)) {
                     $prompt=trim((string)$state['creative_brief']);
-                    $prompt.="\n明确创作要求与暂定草稿参数（以 slot_sources 区分）：".json_encode(['values'=>$state['slot_values'],'sources'=>$state['slot_sources']??[]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+                    $prompt.=ConversationCreativePolicy::enabled($state)
+                        ? "\n明确创作要求与暂定草稿参数（以 slot_sources 区分）：".json_encode(['values'=>$state['slot_values'],'sources'=>$state['slot_sources']??[]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)
+                        : "\n已确认的创作要求：".json_encode($state['slot_values'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
                     foreach ((array)($state['workflow_snapshot']['document_asset_ids']??[]) as $assetId) {
                         $material=ConversationDocuments::material($tenant,$user,(int)$claim['canvas_id'],(int)$assetId,'上传剧本');
                         $content=explode("\n",$material['content'],2)[1]??$material['content'];
