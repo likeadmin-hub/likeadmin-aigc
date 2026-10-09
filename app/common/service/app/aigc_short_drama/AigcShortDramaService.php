@@ -5676,6 +5676,12 @@ class AigcShortDramaService
         if (!empty($revisionTarget)) {
             $request['revision_target'] = $revisionTarget;
         }
+        // Stage advancement is a system action, never a new user source. A real
+        // revision freezes this turn after scope resolution and before task persistence.
+        unset($request['_trace_revision']);
+        if (!$advanceStage && ShortDramaStoryWorkflow::enabled($sourceRequest)) {
+            $request = vnext\PlanningTrace::revisionRequest($request, $previousResult, $newTaskId, $message, $currentStage);
+        }
         $request['source'] = 'revision';
         $request['model_selections'] = self::modelSelectionsSnapshot($selectedModels);
         $request['model_id'] = (string)($selectedModels['script_plan']['id'] ?? $request['model_id'] ?? '');

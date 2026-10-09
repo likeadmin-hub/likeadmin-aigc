@@ -24,6 +24,29 @@ class ShortDramaStoryDraftPersistenceTest extends TestCase
             'result_json' => json_encode(['title' => '原始模型结果'])]);
     }
     protected function tearDown(): void { if ($this->transaction) Db::rollback(); }
+    public function testRevisionDraftCannotReplaceSourceHistoryAndCanEditCurrentRequirements(): void
+    {
+        $scope = ['task_id' => $this->taskId]; $row = Db::name('aigc_short_drama_script_task')->where($scope)->find();
+        $request = json_decode($row['request_json'], true); $request['quality_review_enabled'] = false;
+        $request['_source_trace'] = \app\common\service\app\aigc_short_drama\vnext\SourceTrace::capture('initial', 'v1', '主角是老师', 'inspiration');
+        $base = ['title' => '书信', 'type_judgement' => '校园', 'story_outline' => '主角送信', 'core_theme' => '关心',
+            'subjects' => [['id' => 's1', 'name' => '主角']], 'locations' => [['id' => 'l1', 'name' => '教室']], 'episode_count' => 3,
+            'content_trace' => \app\common\service\app\aigc_short_drama\vnext\PlanningTrace::build($request['_source_trace'], [['quote' => '主角是老师', 'kind' => 'invariant']], 3)];
+        $request = \app\common\service\app\aigc_short_drama\vnext\PlanningTrace::revisionRequest($request, $base, $this->taskId, '主角改为医生', 'story');
+        $base = \app\common\service\app\aigc_short_drama\vnext\PlanningTrace::story($request, $base + ['source_requirements' => [
+            ['quote' => '主角改为医生', 'kind' => 'invariant', 'supersedes' => [$base['content_trace']['requirements'][0]['id']]],
+        ]]);
+        Db::name('aigc_short_drama_script_task')->where($scope)->update(['request_json' => json_encode($request), 'result_json' => json_encode($base)]);
+        $edit = $base; $edit['content_trace']['sources'][1]['text'] = '伪造修改意见'; $edit['content_trace']['replacements'] = [];
+        $edit['content_trace']['requirements'][0]['episode_numbers'] = ['2'];
+        $saved = ShortDramaStoryDraft::save($this->tenant, 7, ['task_id' => $this->taskId, 'stage' => 'story', 'draft_version' => 0, 'result' => $edit]);
+        self::assertTrue($saved['can_confirm']);
+        $stored = json_decode(Db::name('aigc_short_drama_script_task')->where($scope)->value('request_json'), true)['_story_draft']['result']['content_trace'];
+        self::assertSame($base['content_trace']['sources'], $stored['sources']);
+        self::assertSame($base['content_trace']['replacements'], $stored['replacements']);
+        self::assertSame([2], $stored['requirements'][0]['episode_numbers']);
+        self::assertSame($base, json_decode(Db::name('aigc_short_drama_script_task')->where($scope)->value('result_json'), true));
+    }
     public function testSourceRequirementsAndOutlineLinksSurviveDraftSaveAndBlockIncompleteConfirmation(): void
     {
         $scope = ['task_id' => $this->taskId];

@@ -75,9 +75,10 @@ final class ShortDramaStoryGeneration
         } else {
             $base = (array)($request['confirmed_story_snapshot'] ?? []);
             if (!$base) throw new RuntimeException('请先确认故事设定');
-            $trace = vnext\PlanningTrace::enabled($request) ? ($base['content_trace'] ?? []) : null;
+            $trace = vnext\PlanningTrace::enabled($request) ? vnext\PlanningTrace::outlineTrace($request) : null;
             if ($trace !== null) vnext\PlanningTrace::assertTrace($trace, $request['_source_trace']);
             $payload = $base;
+            if ($trace !== null) $payload['content_trace'] = $trace;
             $payload['episodes'] = [];
             $sourceEpisodes = array_values((array)($request['revision_base_result']['episodes'] ?? []));
             $isRevision = $sourceEpisodes && !empty($request['revision_message']);

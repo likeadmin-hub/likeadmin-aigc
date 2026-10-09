@@ -158,7 +158,7 @@ final class ShortDramaStoryDraft
                 $result = self::merge($base, $params['result'], $stage);
                 if (vnext\PlanningTrace::enabled($request)) {
                     if ($stage === 'story' && isset($params['result']['content_trace']['requirements'])) {
-                        $result['content_trace'] = vnext\PlanningTrace::build($request['_source_trace'],
+                        $result['content_trace'] = vnext\PlanningTrace::rebuild($base['content_trace'],
                             $params['result']['content_trace']['requirements'], (int)($result['episode_count'] ?? $request['episode_count']));
                     } elseif ($stage === 'episodes') {
                         foreach ($params['result']['episodes'] ?? [] as $index => $episode) {
