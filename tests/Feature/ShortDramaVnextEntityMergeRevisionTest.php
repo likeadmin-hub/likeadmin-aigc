@@ -135,4 +135,16 @@ final class ShortDramaVnextEntityMergeRevisionTest extends TestCase
         $result=ContentDocument::normalize($reply,$context);self::assertArrayNotHasKey('entity_merge_receipts',$result);
         self::assertCount(5,$result['entities']);self::assertSame('ent_source',$result['scenes'][0]['units'][0]['speaker_id']);
     }
+    public function testAttachmentOriginalLinesRemainReadableAfterExplicitSpeakerMerge(): void
+    {
+        $context=ShortDramaVnextAttachmentTest::context();
+        $duplicate=$context['entities'][0];$duplicate['ref']='c2';$duplicate['entity_id']='char_kept';$duplicate['name']='老陈';$context['entities'][]=$duplicate;
+        $doc=\app\common\service\app\aigc_short_drama\vnext\AttachmentScreenplay::document($context);
+        $source=$context['entities'][0]['entity_id'];$origin=['tenant_id'=>10,'user_id'=>20,'created_at'=>1791500000,'parent_task_id'=>'old','task_id'=>'new'];
+        $input=$this->revise($doc,$context,$origin,$this->patch($doc,$source,'char_kept'));
+        $next=$input['context']['canonical_input'];
+        $view=\app\common\service\app\aigc_short_drama\vnext\AttachmentSourceView::page($input,['document'=>$next],2);
+        self::assertSame('老陈',$view['records'][0]['speaker_name']);self::assertSame('verbatim',$view['records'][0]['relation']);
+        self::assertSame("陈默：我记得你😀。\n",$view['records'][0]['original_line']);self::assertSame('我记得你😀。',$view['records'][0]['current_text']);
+    }
 }
