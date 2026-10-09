@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "会员中心",
+  "usingComponents": {
+    "mp-privacy-popup": "../../../components/mp-privacy-popup/mp-privacy-popup",
+    "page-content": "./membership-content"
+  }
+}

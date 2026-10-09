@@ -1,0 +1,1 @@
+"use strict";const e=require("../common/vendor.js");exports.useDecorationPageLoad=function(o){const r=e.ref(!1);let t=0;return e.onScopeDispose(()=>{t++}),{loadError:r,loadPage:async(e,a)=>{const n=++t;r.value=!1;try{const r=await e();if(n!==t)return;a(r),o.ready=!0}catch(c){n!==t||o.ready||(r.value=!0)}}}};

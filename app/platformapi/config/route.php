@@ -18,6 +18,8 @@ return [
         app\platformapi\http\middleware\InitMiddleware::class,
         // 登录验证
         app\platformapi\http\middleware\LoginMiddleware::class,
+        // 小程序商业授权（超级管理员同样校验）
+        app\common\http\middleware\MiniprogramAccessMiddleware::class,
         // 权限认证
         app\platformapi\http\middleware\AuthMiddleware::class,
         // 演示模式 - 禁止提交数据

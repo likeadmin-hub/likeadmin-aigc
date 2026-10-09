@@ -1,8 +1,122 @@
 [
-  { "permission_key": "aigc_pic_lipsync:config:detail", "name": "查看图片数字人配置", "api_path": "app.aigc_pic_lipsync.config/detail", "api_method": "GET" },
-  { "permission_key": "aigc_pic_lipsync:config:setup", "name": "保存图片数字人配置", "api_path": "app.aigc_pic_lipsync.config/setup", "api_method": "POST" },
-  { "permission_key": "aigc_pic_lipsync:task:lists", "name": "查看图片数字人任务", "api_path": "app.aigc_pic_lipsync.task/lists", "api_method": "GET" },
-  { "permission_key": "aigc_pic_lipsync:task:detail", "name": "查看图片数字人任务详情", "api_path": "app.aigc_pic_lipsync.task/detail", "api_method": "GET" },
-  { "permission_key": "aigc_pic_lipsync:task:retry", "name": "重试图片数字人任务", "api_path": "app.aigc_pic_lipsync.task/retry", "api_method": "POST" },
-  { "permission_key": "aigc_pic_lipsync:task:delete", "name": "删除图片数字人任务", "api_path": "app.aigc_pic_lipsync.task/delete", "api_method": "POST" }
+  {
+    "permission_key": "aigc_pic_lipsync:config:detail",
+    "name": "基础配置-detail",
+    "api_path": "app.aigc_pic_lipsync.config/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:config:setup",
+    "name": "基础配置-setup",
+    "api_path": "app.aigc_pic_lipsync.config/setup",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:task:lists",
+    "name": "任务记录-lists",
+    "api_path": "app.aigc_pic_lipsync.task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:task:detail",
+    "name": "任务记录-detail",
+    "api_path": "app.aigc_pic_lipsync.task/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:task:retry",
+    "name": "任务记录-retry",
+    "api_path": "app.aigc_pic_lipsync.task/retry",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:task:delete",
+    "name": "任务记录-delete",
+    "api_path": "app.aigc_pic_lipsync.task/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:admin:stat",
+    "name": "应用统计-stat",
+    "api_path": "app.aigc_pic_lipsync.admin/stat",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:public_avatar:lists",
+    "name": "公共形象-lists",
+    "api_path": "app.aigc_pic_lipsync.public_avatar/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:public_avatar:save",
+    "name": "公共形象-save",
+    "api_path": "app.aigc_pic_lipsync.public_avatar/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:public_avatar:delete",
+    "name": "公共形象-delete",
+    "api_path": "app.aigc_pic_lipsync.public_avatar/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:user_avatar:lists",
+    "name": "用户形象-lists",
+    "api_path": "app.aigc_pic_lipsync.user_avatar/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:user_avatar:delete",
+    "name": "用户形象-delete",
+    "api_path": "app.aigc_pic_lipsync.user_avatar/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:public_voice:lists",
+    "name": "公共音色-lists",
+    "api_path": "app.aigc_pic_lipsync.public_voice/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:public_voice:save",
+    "name": "公共音色-save",
+    "api_path": "app.aigc_pic_lipsync.public_voice/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:public_voice:delete",
+    "name": "公共音色-delete",
+    "api_path": "app.aigc_pic_lipsync.public_voice/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:user_voice:lists",
+    "name": "用户音色-lists",
+    "api_path": "app.aigc_pic_lipsync.user_voice/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:user_voice:publish",
+    "name": "用户音色-publish",
+    "api_path": "app.aigc_pic_lipsync.user_voice/publish",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:user_voice:delete",
+    "name": "用户音色-delete",
+    "api_path": "app.aigc_pic_lipsync.user_voice/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:audio:lists",
+    "name": "驱动音频-lists",
+    "api_path": "app.aigc_pic_lipsync.audio/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_pic_lipsync:audio:delete",
+    "name": "驱动音频-delete",
+    "api_path": "app.aigc_pic_lipsync.audio/delete",
+    "api_method": "POST"
+  }
 ]
