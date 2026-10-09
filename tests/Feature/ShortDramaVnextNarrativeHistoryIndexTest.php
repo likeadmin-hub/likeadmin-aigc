@@ -126,7 +126,7 @@ final class ShortDramaVnextNarrativeHistoryIndexTest extends TestCase
                 self::assertSame($repairInput, $data); $units = array_values(ContentDocument::units($data['document'])); $unit = end($units);
                 return ['content' => json_encode(['patches' => [['unit_id' => $unit['unit_id'], 'before_hash' => $unit['text_hash'], 'text' => $unit['text'] . '补正。']]], JSON_UNESCAPED_UNICODE)];
             }
-            $receipt = ShortDramaVnextSceneShotTest::reply($data, $key === 'review');
+            $receipt = ShortDramaVnextSceneContentRepairTest::receipt($key, $data);
             if (isset($data['shot_plan'])) { $body = json_decode($receipt['content'], true); $body['narrative_changes'] = []; $receipt['content'] = json_encode($body, JSON_UNESCAPED_UNICODE); }
             return $receipt;
         }, static function ($key, $calls) { self::assertSame('repair_1', $key); self::assertSame(3, $calls); }, static function () {});
