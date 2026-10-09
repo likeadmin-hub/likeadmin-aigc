@@ -6,6 +6,7 @@ use app\common\service\app\aigc_short_drama\vnext\AudioMediaProbe;
 use app\common\service\app\aigc_short_drama\vnext\AudioProduction;
 use app\common\service\app\aigc_short_drama\vnext\ContentDocument;
 use app\common\service\app\aigc_short_drama\vnext\ExecutionStore;
+use app\common\service\app\aigc_short_drama\vnext\ReceiptBuffer;
 use app\common\service\app\aigc_short_drama\vnext\ShotCompiler;
 use app\common\service\app\aigc_short_drama\AigcShortDramaService as Service;
 use PHPUnit\Framework\TestCase;
@@ -106,7 +107,7 @@ final class ShortDramaVnextAudioProductionTest extends TestCase
             Db::name('aigc_short_drama_script_task')->insert($scope + ['project_id' => $project, 'task_id' => $task,
                 'status' => 'success', 'request_json' => '{"_pipeline_version":1}']);
             $candidate = $this->candidate(); $input = ['context' => ['dependency_versions' => [], 'revision_id' => 'audio-r1']];
-            $store = new ExecutionStore($tenant, $user, $task); $store->create($task, $input, time() + 600);
+            $store = new ExecutionStore($tenant, $user, $task, new ReceiptBuffer($path . '_receipts')); $store->create($task, $input, time() + 600);
             // Escaped Unicode reproduces current UTF-8 three-byte legacy database columns.
             Db::name('aigc_short_drama_vnext_job')->where($scope + ['task_id' => $task])->update([
                 'execution_status' => 'succeeded', 'document_status' => 'ready', 'candidate_json' => json_encode($candidate)]);
@@ -147,6 +148,6 @@ final class ShortDramaVnextAudioProductionTest extends TestCase
             } catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
             self::assertSame(1, Db::name('aigc_short_drama_asset')->where($scope + ['project_id' => $project, 'asset_type' => 'shot_audio'])->count());
             self::assertSame($segment['text'], AudioProduction::page($tenant, $user, $project, $task, 1)['records'][0]['text'], 'Historical audio stays readable');
-        } finally { Db::rollback(); if (is_file($path)) unlink($path); }
+        } finally { Db::rollback(); if (is_file($path)) unlink($path); if (is_dir($path . '_receipts')) rmdir($path . '_receipts'); }
     }
 }
