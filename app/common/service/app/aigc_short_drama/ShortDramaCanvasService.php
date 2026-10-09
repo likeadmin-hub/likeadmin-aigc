@@ -963,6 +963,25 @@ class ShortDramaCanvasService
             'last_frame'=>in_array('last_frame',$referenceRoles,true),
             'missing'=>$prompt==='',
         ];
+        // Resolve the exact episode that created this node, never the project's latest episode.
+        $episode=max(1,(int)($metadata['workflow_episode_number']??$workflow['series']['episode_number']??1));
+        $binding=(array)($workflow['series']['tasks']['episode_'.$episode]??[]);
+        if (!empty($binding['task_id'])) {
+            $task=Db::name('aigc_short_drama_script_task')->where([
+                'tenant_id'=>$tenantId,'user_id'=>$userId,'task_id'=>(string)$binding['task_id'],'delete_time'=>0,
+            ])->find();
+            if (!$task) throw new Exception('WORKFLOW_EPISODE_SCRIPT_MISSING');
+            $plan=ShortDramaStoryDraft::effective(self::decode((string)$task['request_json']),self::decode((string)$task['result_json']));
+            $plan=ShortDramaVisualStyle::plan($plan,(array)($workflow['creative_settings']??[]));
+            $item=\app\common\service\app\aigc_short_drama\canvas_agent\ConversationSeriesVisuals::promptItem(
+                $plan,$artifact,(string)($metadata['workflow_key']??''));
+            $assembled=AigcShortDramaService::canvasMediaSubmissionParams($tenantId,$snapshot,$artifact,$item,$plan,$params);
+            // Keep the canvas quote's model, references, billing and transport settings intact.
+            $params['prompt']=$assembled['prompt'];
+            $params['content']=$assembled['prompt'];
+            if (isset($assembled['negative_prompt'])) $params['negative_prompt']=$assembled['negative_prompt'];
+            return $params;
+        }
         $params['prompt']=AigcShortDramaService::canvasAgentSubmissionPrompt($tenantId,$snapshot,$artifact,$prompt,$templateContext);
         $params['content']=$params['prompt'];
         return $params;
