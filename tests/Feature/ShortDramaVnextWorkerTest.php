@@ -26,7 +26,7 @@ final class ShortDramaVnextWorkerTest extends TestCase
             $project = Db::name('aigc_short_drama_project')->insertGetId($scope + ['title' => '测试项目', 'prompt' => '保留结尾',
                 'last_task_id' => $task, 'current_agent_run_id' => 'agent_' . $task, 'generation_settings_json' => '{}']);
             $request = ['_pipeline_version' => 1, '_generation_version' => 3, 'prompt' => '保留结尾', 'multi_episode' => false,
-                'episode_count' => 1, 'model_selections' => ['script_plan' => ['id' => 'frozen_model']], 'quality_review_enabled' => true];
+                'episode_count' => 1, '_vnext_style_snapshot' => ['id' => '123', 'name' => '写实', 'prompt' => '自然光'], 'model_selections' => ['script_plan' => ['id' => 'frozen_model']], 'quality_review_enabled' => true];
             Db::name('aigc_short_drama_script_task')->insert($scope + ['project_id' => $project, 'task_id' => $task,
                 'prompt' => '保留结尾', 'request_json' => json_encode($request), 'result_json' => '{}']);
             $input = Workflow::input($tenant, $user, $project, $task, $request,
@@ -77,6 +77,7 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertCount(1, \app\common\service\power\MarketImageModelRuntimeService::$requests);
             $submitted = \app\common\service\power\MarketImageModelRuntimeService::$requests[0];
             self::assertStringNotContainsString('FORGED', $submitted['prompt']);
+            self::assertStringStartsWith("写实\n自然光", $submitted['prompt']);
             self::assertEmpty($submitted['reference_images']);
             self::assertSame($document['content_hash'], $image['assets'][0]['meta']['canonical_trace']['document_hash']);
             self::assertSame($image['task_id'], Service::createShotGenerationTask($tenant, $user, $imageRequest)['task_id']);

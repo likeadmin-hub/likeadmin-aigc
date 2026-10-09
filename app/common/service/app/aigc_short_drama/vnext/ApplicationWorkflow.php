@@ -48,7 +48,7 @@ final class ApplicationWorkflow
             'sources' => [$source['source_id'] => $source], 'entities' => $entities,
             'requirements' => SourceTrace::requirements($source, [['start' => 0, 'end' => mb_strlen($prompt, 'UTF-8'), 'quote' => $prompt]]),
             'target_duration_seconds' => (int)($request['target_duration_seconds'] ?? 0),
-            'style' => (string)($request['style_id'] ?? ''), 'dependency_versions' => ['source' => $source['hash']]],
+            'style' => isset($request['_vnext_style_snapshot']) ? trim(($request['_vnext_style_snapshot']['name'] ?? '') . "\n" . ($request['_vnext_style_snapshot']['prompt'] ?? '')) : (string)($request['style_id'] ?? ''), 'dependency_versions' => ['source' => $source['hash']]],
             'model' => $model, 'execution' => $execution];
     }
 

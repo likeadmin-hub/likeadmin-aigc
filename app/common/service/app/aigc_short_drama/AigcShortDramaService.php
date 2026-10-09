@@ -2750,6 +2750,9 @@ class AigcShortDramaService
             $request['_pipeline_version'] = vnext\GenerationPipeline::VERSION;
             $request['_generation_version'] = max(3, (int)$request['_generation_version']);
             $request['quality_review_enabled'] = true;
+            $styleSelection = (string)($request['style_id'] ?? '');
+            $request['_vnext_style_snapshot'] = self::canvasCreativeStyle($tenantId,
+                ctype_digit($styleSelection) && (int)$styleSelection > 0 ? 'style_id:' . $styleSelection : $styleSelection);
         }
 
         Db::startTrans();
