@@ -79,6 +79,36 @@ final class ShortDramaVnextSceneScreenplayTest extends TestCase
         }, static function () {}, static function () {}, self::execution($saved));
         self::assertSame(['screenplay', 'shots', 'review'], $keys); self::assertNull($saved);
     }
+    public function testNewLongEpisodePlansBeforeAnyWholeScreenplayPayment(): void
+    {
+        $context = self::input()['context']; $context['screenplay_preflight_version'] = 1;
+        $context['target_duration_seconds'] = 300; $saved = null; $keys = [];
+        $execution = self::execution($saved) + ['capacity' => static function ($messages) use ($context) {
+            self::assertSame(GenerationPipeline::messages(GenerationPipeline::creativeContext($context), GenerationPipeline::screenplayInstruction($context), 1), $messages);
+            return ['max_tokens' => 4096];
+        }];
+        $result = GenerationPipeline::run($context, static function ($key, $messages) use (&$keys) {
+            $keys[] = $key; self::assertNotSame('screenplay', $key);
+            return self::reply($key, json_decode($messages['content'], true));
+        }, static function () {}, static function () {}, $execution);
+        self::assertSame(['screenplay_plan', 'screenplay_scene_1', 'screenplay_scene_2', 'shots', 'review'], $keys);
+        self::assertSame('ready', $result['coverage_report']['status']); self::assertCount(5, $result['receipts']);
+    }
+    public function testCapacityFailurePreventsPaymentAndOldFrozenJobsDoNotAdoptPreflight(): void
+    {
+        foreach ([0, 1] as $version) {
+            $context = self::input()['context']; $context['screenplay_preflight_version'] = $version;
+            $saved = null; $keys = []; $capacityCalls = 0;
+            $execution = self::execution($saved) + ['capacity' => static function () use (&$capacityCalls) {
+                $capacityCalls++; throw new \RuntimeException('input too large', 413);
+            }];
+            try {
+                GenerationPipeline::run($context, static function ($key) use (&$keys) { $keys[] = $key; throw new \RuntimeException('stop', 413); }, static function () {}, static function () {}, $execution);
+                self::fail('Input overflow ignored');
+            } catch (\RuntimeException $error) { self::assertSame(413, $error->getCode()); }
+            self::assertSame($version, $capacityCalls); self::assertSame($version ? [] : ['screenplay'], $keys);
+        }
+    }
     public function testGenericFailureOldVersionAndFaithfulModeCannotStartNewCreativeCalls(): void
     {
         foreach (['transport', 'old', 'faithful'] as $mode) {
