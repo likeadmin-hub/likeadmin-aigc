@@ -326,7 +326,7 @@ final class ExecutionStore
             $budget=self::decode($job['budget_json']);$count=0;
             foreach($this->query('stage')->where('status','submitted')->lock(true)->select()->toArray() as $stage) {
                 $params=self::decode($stage['input_json']);
-                if (($params['_account_reservation_version']??0)!==1 || $stage['receipt_json']!=='') continue;
+                if (($params['_account_reservation_version']??0)!==1 || (string)$stage['receipt_json']!=='') continue;
                 $key=$this->buffer->key($this->scope+['stage_key'=>$stage['stage_key']],$stage['input_hash']);
                 if ($this->buffer->read($key)!==null || $this->buffer->read(self::rawKey($key))!==null) continue;
                 if ($release($key,(int)$stage['attempt_count'])!==true) continue;
