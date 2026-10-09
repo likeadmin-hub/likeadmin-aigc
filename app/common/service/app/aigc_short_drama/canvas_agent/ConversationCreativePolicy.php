@@ -10,6 +10,21 @@ final class ConversationCreativePolicy
     {
         return ($state['workflow_snapshot']['creative_policy_version']??'')===self::VERSION;
     }
+    public static function episodeCount(string $value): ?int
+    {
+        if (!preg_match('/^\s*([0-9零〇一二两三四五六七八九十百]+)\s*(?:集|$)/u',$value,$match)) return null;
+        $raw=$match[1];$count=0;$digit=0;
+        if (ctype_digit($raw)) $count=(int)$raw;
+        else {
+            $digits=['零'=>0,'〇'=>0,'一'=>1,'二'=>2,'两'=>2,'三'=>3,'四'=>4,'五'=>5,'六'=>6,'七'=>7,'八'=>8,'九'=>9];
+            foreach (preg_split('//u',$raw,-1,PREG_SPLIT_NO_EMPTY) as $char) {
+                if ($char==='十' || $char==='百') { $count+=max(1,$digit)*($char==='十'?10:100);$digit=0; }
+                else $digit=$digits[$char]??0;
+            }
+            $count+=$digit;
+        }
+        return $count>=1 && $count<=500 ? $count : null;
+    }
     public static function firstStage(array $state): string
     {
         return self::enabled($state) && ConversationSeries::count($state)===1 ? 'episode' : 'story';
@@ -18,6 +33,11 @@ final class ConversationCreativePolicy
     {
         foreach ($draft['candidates'] as $key=>$candidate) {
             if (array_key_exists($key,$state['slot_values'])) continue;
+            if ($key==='episode_count') {
+                $count=self::episodeCount($candidate['value']);
+                if ($count===null) throw new \RuntimeException('INVALID_AGENT_INTAKE');
+                $candidate['value']=$count.'集';
+            }
             // Only server-supported ratios can be used by production.
             if ($key==='aspect_ratio') {
                 $options=[];

@@ -34,6 +34,7 @@ namespace {
 namespace app\common\service\app\aigc_short_drama {
     class AigcShortDramaService {
         public static array $calls=[];
+        public static function normalizeStoryDraftPlanResult(array $plan): array { return $plan; }
         public static function message($tenant,$user,$params) {
             self::$calls[]=$params;
             $source=\think\facade\Db::name('aigc_short_drama_script_task')->where('task_id',$params['task_id'])->find();
@@ -48,7 +49,8 @@ namespace app\common\service\app\aigc_short_drama {
 namespace app\common\service\power {
     class MarketTextModelRuntimeService {
         public static array $models=[];public static array $errors=[];public static array $calls=[];
-        public static function options($tenant,$vision=false) { return array_values(array_filter(self::$models,static fn($m)=>!$vision || !empty($m['supports_vision']))); }
+        public static function modelGroups($tenant) { return [['key'=>'script_plan','options'=>self::options($tenant)],['key'=>'vision_describe','options'=>self::options($tenant,true)]]; }
+        private static function options($tenant,$vision=false) { return array_values(array_filter(self::$models,static fn($m)=>!$vision || !empty($m['supports_vision']))); }
         public static function resolveRoutedModel($tenant,$selection,$vision=false) {
             $models=self::options($tenant,$vision);
             foreach($models as $m) if ($m['id']===($selection['id']??'')) return $m;

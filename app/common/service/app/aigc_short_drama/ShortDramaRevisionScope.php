@@ -77,7 +77,7 @@ class ShortDramaRevisionScope
         $fields = [];
         // Preservation clauses describe immutable fields, not edit targets.
         $fieldRequest = preg_replace('/(?:保留|保持|不改|不要改|不修改)[^，。；;\n]*(?:[，。；;\n]|$)/u', '', $message);
-        if (preg_match('/(?:只|仅)(?:需要|要)?(?:修改|改|调整)(.+)$/u', $message, $only)) $fieldRequest = $only[1];
+        if (preg_match('/(?:只|仅)(?:需要|要)?(?:修改|改|调整)(.+)$/u', $fieldRequest, $only)) $fieldRequest = $only[1];
         foreach ([
             '/台词|对白|对话|说的话/u' => ['dialogue'],
             '/配音角色|说话人/u' => ['voice_role'],

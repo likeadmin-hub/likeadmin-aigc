@@ -44,6 +44,18 @@ class CanvasCreativePolicyTest extends TestCase
         self::assertSame('assumption',$s['slot_sources']['episode_count']['source']);self::assertSame('episode',$s['stage_state']['key']);
         $multi=Workflow::withIntakeDraft($this->state(),$this->draft(['episode_count'=>'10集']));
         self::assertSame('story',$multi['stage_state']['key']);self::assertSame(10,Series::count($multi));
+        self::assertSame(10,Policy::episodeCount('十集'));self::assertNull(Policy::episodeCount('600集'));
+        self::assertSame(30,Policy::episodeCount('三十集'));self::assertNull(Policy::episodeCount('1.5集'));
+    }
+    public function testSeriesWithoutCountAsksOnlyForScaleAndExactDurationIsStructured(): void
+    {
+        $s=$this->state();$s['creative_brief']='做一部连载短剧';
+        $s=Workflow::withIntakeDraft($s,$this->draft(['genre'=>'喜剧','episode_duration'=>'90秒']));
+        self::assertSame('intake',$s['stage_state']['key']);
+        $next=new \ReflectionMethod(Workflow::class,'nextSlot');$next->setAccessible(true);
+        self::assertSame('episode_count',$next->invoke(null,$s)['key']);
+        self::assertSame(90,Policy::duration($s));
+        $s['slot_values']['episode_duration']='3分钟以上';self::assertSame(0,Policy::duration($s));
     }
     public function testLegacyRetainsReviewAndConfirmedFactsCannotBeOverwritten(): void
     {
@@ -106,6 +118,7 @@ class CanvasCreativePolicyTest extends TestCase
             ['shot_id'=>'s2','dialogue'=>'二','visual_description'=>'二的画面'],
             ['shot_id'=>'s3','dialogue'=>'三','visual_description'=>'三的画面','video_prompt'=>"画面：原图\n声音：三"]]];
         $target=ShortDramaRevisionScope::shotTarget('第三个镜头保留画面，只把台词改得更冷幽默',$plan);
+        self::assertSame(['dialogue'],ShortDramaRevisionScope::shotTarget('第三个镜头只改对白，保留画面和运镜',$plan)['fields']);
         self::assertSame(['s3'],$target['ids']);self::assertSame(['dialogue'],$target['fields']);
         $result=ShortDramaRevisionScope::mergeShots($plan,['title'=>'乱改','storyboard'=>[['shot_id'=>'s3','dialogue'=>'天庭也打卡？','visual_description'=>'错误画面']]],$target);
         self::assertSame($plan['title'],$result['title']);self::assertSame($plan['storyboard'][0],$result['storyboard'][0]);self::assertSame($plan['storyboard'][1],$result['storyboard'][1]);
