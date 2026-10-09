@@ -10,7 +10,7 @@ final class ProductionCompiler
 
     public static function compile(array $document, array $plan, array $capability, array $timings, array $assets, string $style): array
     {
-        ShotCompiler::assertCurrent($document, $plan);
+        AudioHandoff::assertIntegrity($document, $plan);
         $capabilityVersion = ContentDocument::text($capability['version'] ?? null, 'capability.version');
         $durations = $capability['durations'] ?? [];
         if (!is_array($durations) || !$durations) throw new RuntimeException('制作模型未提供经过验证的片段时长', 422);
@@ -51,11 +51,7 @@ final class ProductionCompiler
                 $fragments[] = $fragment;
             }
         }
-        $audio = [];
-        foreach ($plan['audio_segments'] as $segment) {
-            $unit = $units[$segment['unit_id']];
-            $audio[] = $segment + ['text' => ContentDocument::slice($unit['text'], $segment['start'], $segment['end']), 'document_hash' => $document['content_hash']];
-        }
+        $audio = AudioHandoff::segments(['document' => $document, 'shot_plan' => $plan, 'coverage_report' => ['status' => 'ready']]);
         return ['compiler_version' => self::VERSION, 'document_hash' => $document['content_hash'], 'shot_hash' => $plan['content_hash'],
             'fragments' => $fragments, 'audio_segments' => $audio, 'status' => 'ready_to_dispatch'];
     }
@@ -63,10 +59,11 @@ final class ProductionCompiler
     /** Use before dispatch; retain old artifacts, reject new tasks with stale bindings. */
     public static function assertCurrent(array $fragment, array $document, array $plan, array $assets): void
     {
-        ShotCompiler::assertCurrent($document, $plan);
+        AudioHandoff::assertIntegrity($document, $plan);
         if (($fragment['document_hash'] ?? '') !== $document['content_hash'] || ($fragment['shot_hash'] ?? '') !== $plan['content_hash']) throw new RuntimeException('制作提示词已过期', 409);
         $signed = $fragment; unset($signed['input_hash'], $signed['fragment_id']);
-        if (($fragment['input_hash'] ?? '') !== ContentDocument::hash($signed)) throw new RuntimeException('制作输入签名不符', 409);
+        if (($fragment['input_hash'] ?? '') !== ContentDocument::hash($signed)
+            || ($fragment['fragment_id'] ?? '') !== 'fragment_' . substr((string)$fragment['input_hash'], 0, 24)) throw new RuntimeException('制作输入签名不符', 409);
         foreach ($fragment['assets'] as $binding) {
             $current = $assets[$binding['entity_id']] ?? [];
             foreach (['asset_id', 'state_version', 'reference_hash', 'style'] as $field) if (($current[$field] ?? null) !== $binding[$field]) throw new RuntimeException('制作素材版本已变化', 409);

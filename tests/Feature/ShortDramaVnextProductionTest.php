@@ -46,4 +46,18 @@ final class ShortDramaVnextProductionTest extends TestCase
         [$document, $plan, $timing, $assets] = $this->fixture(); $assets['future-character'] = [];
         self::assertSame('ready_to_dispatch', ProductionCompiler::compile($document, $plan, ['version' => 'v1', 'durations' => [10], 'audio_mode' => 'postproduction'], $timing, $assets, '写实')['status']);
     }
+    public function testChangedFragmentIdentityCannotBeDispatched(): void
+    {
+        [$document, $plan, $timing, $assets] = $this->fixture();
+        $fragment = ProductionCompiler::compile($document, $plan, ['version' => 'v1', 'durations' => [10], 'audio_mode' => 'postproduction'], $timing, $assets, '写实')['fragments'][0];
+        $fragment['fragment_id'] = 'another-fragment';
+        $this->expectExceptionCode(409); ProductionCompiler::assertCurrent($fragment, $document, $plan, $assets);
+    }
+    public function testCorruptedPlanBodyCannotHideBehindAnUnchangedDocumentReference(): void
+    {
+        [$document, $plan, $timing, $assets] = $this->fixture();
+        $plan['audio_segments'][0]['end'] = 1;
+        $this->expectExceptionCode(409);
+        ProductionCompiler::compile($document, $plan, ['version' => 'v1', 'durations' => [10], 'audio_mode' => 'postproduction'], $timing, $assets, '写实');
+    }
 }

@@ -3243,9 +3243,13 @@ class AigcShortDramaService
         return ['project_id' => $projectId, 'task_id' => $parseTaskId, 'status' => self::STATUS_RUNNING];
     }
 
-    public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0, int $manualHistoryPage = 0, int $attachmentSourcePage = 0): array
+    public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0, int $manualHistoryPage = 0, int $attachmentSourcePage = 0, int $audioPage = 0): array
     {
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+        if ($audioPage !== 0) {
+            if ($manualHistoryPage !== 0 || $attachmentSourcePage !== 0) throw new \RuntimeException('请分别读取配音、修改记录和附件来源', 422);
+            return ['task_id' => (string)$task['task_id'], 'audio_handoff' => vnext\AudioProduction::page($tenantId, $userId, (int)$task['project_id'], $taskId, $audioPage)];
+        }
         if ($attachmentSourcePage !== 0) {
             if ($manualHistoryPage !== 0) throw new \RuntimeException('请分别读取修改记录和附件来源', 422);
             $input = []; $candidate = [];
@@ -6043,6 +6047,24 @@ class AigcShortDramaService
 
     public static function registerAsset(int $tenantId, int $userId, array $params): array
     {
+        if (($params['asset_type'] ?? $params['type'] ?? '') === 'shot_audio') {
+            if ((int)($params['canvas_id'] ?? 0) !== 0) throw new \RuntimeException('请从本集正文的配音段上传录音', 422);
+            $file = request()->file('file');
+            if (!$file) throw new \RuntimeException('请选择本段配音文件', 422);
+            $ffmpeg = self::resolveFfmpegBinary();
+            $ffprobe = $ffmpeg === '' ? '' : self::resolveFfprobeBinary($ffmpeg);
+            $size = (int)$file->getSize(); $extension = strtolower((string)$file->extension());
+            $asset = vnext\AudioProduction::register($tenantId, $userId, $params, $file, $ffprobe, static function () use ($tenantId, $userId, $size, $extension): array {
+                $uploaded = UploadService::file(0, $userId, FileEnum::SOURCE_USER, 'uploads/aigc_short_drama/recordings');
+                $stored = Db::name('tenant_file')->where(['tenant_id' => $tenantId, 'id' => (int)$uploaded['id'],
+                    'source' => FileEnum::SOURCE_USER, 'source_id' => $userId])->find();
+                if (!$stored) throw new \RuntimeException('配音文件存储来源无法确认', 409);
+                return ['tenant_id' => $tenantId, 'source_id' => $userId, 'uri' => $stored['uri'],
+                    'storage_scope' => $stored['storage_scope'], 'storage_engine' => $stored['storage_engine'], 'storage_domain' => $stored['storage_domain'],
+                    'file_size' => $size, 'extension' => $extension, 'mime_type' => self::audioMimeType($stored['uri'])];
+            });
+            return self::formatAsset($asset);
+        }
         if ((int)($params['canvas_id'] ?? 0) > 0) {
             return self::registerCanvasAsset($tenantId, $userId, $params);
         }
@@ -16014,6 +16036,7 @@ class AigcShortDramaService
             'shot_video',
             'three_view',
             'bgm_audio',
+            'shot_audio',
             'timeline_project',
             'final_video',
             'export_package',
@@ -24163,6 +24186,7 @@ class AigcShortDramaService
                 $response['production_handoff'] = self::canonicalImageState((int)$task['tenant_id'], (int)$task['user_id'], (int)$task['project_id'],
                     (string)$task['task_id'], self::jsonDecode($job['candidate_json']), (string)($input['context']['style'] ?? ''));
                 unset($response['production_handoff']['bindings']);
+                $response['audio_production'] = vnext\AudioProduction::summary((int)$task['tenant_id'], (int)$task['user_id'], (int)$task['project_id'], self::jsonDecode($job['candidate_json']));
                 $response['generation_snapshot']['allowed_actions'][] = 'read_images';
                 if ($response['production_handoff']['blocked_reason'] === '') $response['generation_snapshot']['allowed_actions'][] = 'generate_images';
             }
