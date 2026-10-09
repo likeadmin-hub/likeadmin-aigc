@@ -219,6 +219,29 @@ final class ShortDramaVnextExecutionTest extends TestCase
         catch (\RuntimeException $e) { self::assertSame(422, $e->getCode()); }
         self::assertSame('canceled', $this->store->snapshot()['execution_status']); self::assertSame([], $this->resources()['holds']);
     }
+    public function testPublicationOutboxRetriesNotificationWithoutRepeatingGeneration(): void
+    {
+        $input = ShortDramaVnextSceneShotTest::input(1); $input['context']['scene_shot_version'] = 0;
+        $this->scope['task_id'] .= '_outbox';
+        $this->store = new ExecutionStore($this->scope['tenant_id'], $this->scope['user_id'], $this->scope['task_id'], $this->buffer);
+        $this->store->create($this->scope['task_id'], $input, time() + 600, 2); $paid = 0; $failedEvent = null;
+        JobRunner::run($this->store, 'worker', static function ($params) use (&$paid) {
+            $paid++; return ShortDramaVnextSceneShotTest::reply(json_decode($params['content'], true));
+        }, static function ($type, $event) use (&$failedEvent) {
+            if ($type === 'revision_published') { $failedEvent = $event; throw new \RuntimeException('receiver unavailable'); }
+        });
+        self::assertSame('succeeded', $this->store->snapshot()['execution_status']); self::assertSame(2, $paid);
+        self::assertSame(0, (int)Db::name('aigc_short_drama_vnext_outbox')->where($this->scope)->value('delivered_at'));
+        $delivered = [];
+        JobRunner::run($this->store, 'other_host', static function () { self::fail('Notification retry repeated paid generation'); }, static function ($type, $event) use (&$delivered) {
+            self::assertSame('revision_published', $type); $delivered[] = $event;
+        });
+        self::assertSame([$failedEvent], $delivered); self::assertSame($this->scope['task_id'], $delivered[0]['task_id']);
+        self::assertGreaterThan(0, (int)Db::name('aigc_short_drama_vnext_outbox')->where($this->scope)->value('delivered_at'));
+        self::assertSame(0, $this->store->deliverPublicationEvents(static function () { self::fail('Acknowledged event sent again'); }));
+        $foreign = new ExecutionStore($this->scope['tenant_id'], $this->scope['user_id'] + 1, $this->scope['task_id'], $this->buffer);
+        self::assertSame(0, $foreign->deliverPublicationEvents(static function () { self::fail('Other owner received publication'); }));
+    }
     private function receipt(): array { return ['result' => ['content' => '{"title":"完整返回"}'], 'usage' => ['input_tokens' => 12, 'output_tokens' => 34, 'user_points' => 2]]; }
     public function testReplayKeepsOneProviderCallAndOneUsageCharge(): void
     {

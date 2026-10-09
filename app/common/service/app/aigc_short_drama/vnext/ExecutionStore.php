@@ -440,6 +440,25 @@ final class ExecutionStore
                 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
         });
     }
+
+    /** At-least-once notification delivery. The receiver deduplicates event_id; publication is already committed. */
+    public function deliverPublicationEvents(callable $deliver): int
+    {
+        $delivered = 0;
+        foreach ($this->query('outbox')->where('delivered_at', 0)->order('event_seq')->limit(10)->select()->toArray() as $event) {
+            $payload = self::decode($event['payload_json']);
+            $revision = $this->query('revision')->where('revision_id', $payload['revision_id'] ?? '')->find();
+            if ($event['event_type'] !== 'revision_published' || !$revision || $revision['document_hash'] !== ($payload['document_hash'] ?? '')) {
+                throw new RuntimeException('发布事件与已保存剧本版本不符，已停止投递', 409);
+            }
+            $envelope = $this->scope + ['event_id' => ContentDocument::hash([$this->scope, (int)$event['event_seq']]),
+                'event_seq' => (int)$event['event_seq'], 'event_type' => $event['event_type'], 'payload' => $payload];
+            try { $deliver($envelope); }
+            catch (\Throwable $ignored) { break; } // Keep ordered events pending; content stays published.
+            $delivered += $this->query('outbox')->where(['id' => $event['id'], 'delivered_at' => 0])->update(['delivered_at' => time()]);
+        }
+        return $delivered;
+    }
     /** Explicit user continuation reuses the original receipts, budget and deadline. */
     public function resume(bool $automatic = false): bool
     {
