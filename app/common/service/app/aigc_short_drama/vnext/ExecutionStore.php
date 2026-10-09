@@ -19,7 +19,7 @@ final class ExecutionStore
     public function create(string $lane, array $input, int $deadline, int $baseCalls = 3): array
     {
         if ($baseCalls < 1 || strlen($lane) > 64 || $lane === '') throw new RuntimeException('执行计划无效', 422);
-        return Db::transaction(function () use ($lane, $input, $deadline, $baseCalls): array {
+        return LocalTransaction::run(function () use ($lane, $input, $deadline, $baseCalls): array {
             $job = $this->query('job')->lock(true)->find();
             if ($job) {
                 if ($job['input_hash'] !== ContentDocument::hash($input) || $job['lane_key'] !== $lane) throw new RuntimeException('生成上下文已变化，请建立新修订', 409);
@@ -49,7 +49,7 @@ final class ExecutionStore
     /** Freeze one capacity-derived shot plan. Recovery never increases or resets its budget. */
     public function sceneShotPlan(int $fence, string $key, array $document, ?array $proposal): ?array
     {
-        return Db::transaction(function () use ($fence, $key, $document, $proposal): ?array {
+        return LocalTransaction::run(function () use ($fence, $key, $document, $proposal): ?array {
             $job = $this->job(); $this->assertFence($job, $fence);
             $input = self::decode($job['input_json']); $budget = self::decode($job['budget_json']);
             if (($input['context']['scene_shot_version'] ?? 0) !== SceneShotExecution::VERSION || $key !== 'shots') throw new RuntimeException('此作业没有分场执行授权', 409);
@@ -73,7 +73,7 @@ final class ExecutionStore
     /** Replace the original one review with N observations plus one global review, once. */
     public function sceneReviewPlan(int $fence, array $document, array $shots, ?array $proposal): ?array
     {
-        return Db::transaction(function () use ($fence, $document, $shots, $proposal): ?array {
+        return LocalTransaction::run(function () use ($fence, $document, $shots, $proposal): ?array {
             $job = $this->job(); $this->assertFence($job, $fence);
             $input = self::decode($job['input_json']); $budget = self::decode($job['budget_json']);
             if (($input['context']['scene_review_version'] ?? 0) !== SceneReviewExecution::VERSION) throw new RuntimeException('此作业没有分窗核验授权', 409);
@@ -96,7 +96,7 @@ final class ExecutionStore
     /** Planning plus N scenes replaces one screenplay stage; a truncated attempt remains charged. */
     public function sceneScreenplayPlan(int $fence, array $context, ?array $proposal): ?array
     {
-        return Db::transaction(function () use ($fence, $context, $proposal): ?array {
+        return LocalTransaction::run(function () use ($fence, $context, $proposal): ?array {
             $job = $this->job(); $this->assertFence($job, $fence);
             $input = self::decode($job['input_json']); $budget = self::decode($job['budget_json']);
             if (($input['context']['scene_screenplay_version'] ?? 0) !== SceneScreenplayExecution::VERSION
@@ -120,7 +120,7 @@ final class ExecutionStore
     public function acquire(string $owner, int $leaseSeconds): int
     {
         if ($owner === '' || strlen($owner) > 64 || $leaseSeconds < 1) throw new RuntimeException('执行租约无效', 422);
-        $fence = Db::transaction(function () use ($owner, $leaseSeconds): ?int {
+        $fence = LocalTransaction::run(function () use ($owner, $leaseSeconds): ?int {
             $job = $this->job();
             if (!in_array($job['execution_status'], ['queued', 'running', 'retry_wait', 'reconciling'], true)) throw new RuntimeException('作业当前不可继续执行', 409);
             if ((int)$job['deadline_at'] <= time()) {
@@ -140,14 +140,14 @@ final class ExecutionStore
     public function heartbeat(int $fence, int $leaseSeconds): void
     {
         if ($leaseSeconds < 1) throw new RuntimeException('执行租约无效', 422);
-        Db::transaction(function () use ($fence, $leaseSeconds): void {
+        LocalTransaction::run(function () use ($fence, $leaseSeconds): void {
             $job = $this->job(); $this->assertFence($job, $fence);
             $this->query('job')->update(['lease_until' => min((int)$job['deadline_at'], time() + $leaseSeconds), 'update_time' => time()]);
         });
     }
     public function needsAttention(int $fence, string $code): void
     {
-        Db::transaction(function () use ($fence, $code): void {
+        LocalTransaction::run(function () use ($fence, $code): void {
             $job = $this->job(); $this->assertFence($job, $fence);
             $this->query('job')->update(['execution_status' => 'needs_attention', 'error_code' => $code, 'lease_until' => 0,
                 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
@@ -156,7 +156,7 @@ final class ExecutionStore
     /** Reserve a complete repair/replan/review round before changing any content. */
     public function reserveRepair(int $fence, string $key, int $calls): void
     {
-        Db::transaction(function () use ($fence, $key, $calls): void {
+        LocalTransaction::run(function () use ($fence, $key, $calls): void {
             $job = $this->job(); $this->assertFence($job, $fence); $budget = self::decode($job['budget_json']);
             if (isset($budget['reservations'][$key])) return;
             if ($key === '' || $calls < 2 || $budget['repair_rounds'] >= 2 || $budget['calls'] + array_sum($budget['reservations']) + $calls > $budget['call_limit']) {
@@ -173,7 +173,7 @@ final class ExecutionStore
         $scope = $this->scope + ['stage_key' => $key]; $hash = ContentDocument::hash($input);
         $bufferKey = $this->buffer->key($scope, $hash);
         $buffered = $this->buffer->read($bufferKey);
-        $claim = Db::transaction(function () use ($fence, $key, $input, $hash, $reservation, $buffered): array {
+        $claim = LocalTransaction::run(function () use ($fence, $key, $input, $hash, $reservation, $buffered): array {
             $job = $this->job(); $this->assertFence($job, $fence);
             $stage = $this->query('stage')->where('stage_key', $key)->lock(true)->find();
             if ($stage && $stage['input_hash'] !== $hash) throw new RuntimeException('阶段输入与已保存收据不一致', 409);
@@ -227,7 +227,7 @@ final class ExecutionStore
             };
             $admit = !$claim['resources'] ? null : function (array $bound) use ($fence, $key, $reservation, &$admitted, &$budgetRejected): void {
                 try {
-                    Db::transaction(function () use ($fence, $key, $reservation, $bound): void {
+                    LocalTransaction::run(function () use ($fence, $key, $reservation, $bound): void {
                         $job = $this->job(); $this->assertFence($job, $fence);
                         $budget = self::decode($job['budget_json']);
                         $budget['resources'] = ResourceBudget::admit($budget['resources'], $key, $bound, $reservation);
@@ -250,7 +250,7 @@ final class ExecutionStore
                 $error = new TextRequestNotSubmittedException('连接重试预算已用完，已保存内容保留', 429, $error);
             }
             if (!$resultReceived && $error instanceof TextRequestNotSubmittedException) {
-                Db::transaction(function () use ($fence, $key, $error, $budgetRejected, $reservation): void {
+                LocalTransaction::run(function () use ($fence, $key, $error, $budgetRejected, $reservation): void {
                     $job = $this->job(); $budget = self::decode($job['budget_json']);
                     if (isset($budget['resources'])) $budget['resources'] = ResourceBudget::releaseUnsubmitted($budget['resources'], $key);
                     if ($budgetRejected && $reservation !== '') $budget['rejected_reservations'][$key] = $reservation;
@@ -263,7 +263,7 @@ final class ExecutionStore
                 throw $error;
             }
             if (!$resultReceived && ShortDramaPlanningUnit::retryableBeforeSubmission($error->getMessage()) && $claim['attempt'] < 3) {
-                Db::transaction(function () use ($fence, $key, $claim): void {
+                LocalTransaction::run(function () use ($fence, $key, $claim): void {
                     $job = $this->job(); $this->assertFence($job, $fence);
                     $budget = self::decode($job['budget_json']);
                     if (isset($budget['resources'])) $budget['resources'] = ResourceBudget::releaseUnsubmitted($budget['resources'], $key);
@@ -301,7 +301,7 @@ final class ExecutionStore
     /** Bounded local settlement recovery. Never revives canceled work or resets paid-call budgets. */
     public function reconcileAutomatically(callable $reconcile): bool
     {
-        $claimed = Db::transaction(function (): bool {
+        $claimed = LocalTransaction::run(function (): bool {
             $job = $this->job();
             if (!$this->canAutomaticallyReconcile() || !$this->workerReady()) return false;
             $budget = self::decode($job['budget_json']);
@@ -342,7 +342,7 @@ final class ExecutionStore
 
     private function persistRawReceipt(string $key, string $hash, string $request, array $raw): void
     {
-        Db::transaction(function () use ($key, $hash, $request, $raw): void {
+        LocalTransaction::run(function () use ($key, $hash, $request, $raw): void {
             $this->job(); // Same job -> stage lock order as receipt settlement.
             $stage = $this->query('stage')->where('stage_key', $key)->lock(true)->find();
             if (!$stage || $stage['input_hash'] !== $hash) throw new RuntimeException('共享收据与已提交请求不符', 409);
@@ -369,7 +369,7 @@ final class ExecutionStore
     /** Receiving a late result is allowed; publication still requires the current fence. */
     private function receive(string $key, string $hash, array $receipt): void
     {
-        Db::transaction(function () use ($key, $hash, $receipt): void {
+        LocalTransaction::run(function () use ($key, $hash, $receipt): void {
             $job = $this->job(); $stage = $this->query('stage')->where('stage_key', $key)->lock(true)->find();
             if (!$stage || $stage['input_hash'] !== $hash) throw new RuntimeException('收据不属于当前生成阶段', 409);
             if ($stage['status'] === 'received') return;
@@ -387,7 +387,7 @@ final class ExecutionStore
     }
     public function checkpoint(int $fence, array $candidate): void
     {
-        Db::transaction(function () use ($fence, $candidate): void {
+        LocalTransaction::run(function () use ($fence, $candidate): void {
             $job = $this->job(); $this->assertFence($job, $fence);
             if (isset($candidate['screenplay_windows'])) {
                 $previous = self::decode($job['candidate_json'] ?: '{}');
@@ -407,7 +407,7 @@ final class ExecutionStore
     {
         ShotCompiler::assertCurrent($document, $plan);
         if (($coverage['status'] ?? '') !== 'ready' || ($coverage['document_hash'] ?? '') !== $document['content_hash'] || ($coverage['shot_hash'] ?? '') !== $plan['content_hash']) throw new RuntimeException('当前修订尚未通过完整验收', 422);
-        Db::transaction(function () use ($fence, $document, $plan, $coverage, $projection): void {
+        LocalTransaction::run(function () use ($fence, $document, $plan, $coverage, $projection): void {
             $job = $this->job();
             if ($job['execution_status'] === 'succeeded' && $job['published_revision_id'] === $document['revision_id']) {
                 $published = self::decode($job['candidate_json']);
@@ -433,7 +433,7 @@ final class ExecutionStore
     }
     public function cancel(): void
     {
-        Db::transaction(function (): void {
+        LocalTransaction::run(function (): void {
             $job = $this->job();
             if (in_array($job['execution_status'], ['succeeded', 'failed', 'canceled'], true)) return;
             $this->query('job')->update(['execution_status' => 'canceled', 'active_slot' => null, 'fence' => (int)$job['fence'] + 1,
@@ -449,7 +449,7 @@ final class ExecutionStore
             $receipt = $this->buffer->read($key);
             if ($receipt !== null) $this->receive($stage['stage_key'], $stage['input_hash'], $receipt);
         }
-        return Db::transaction(function () use ($automatic): bool {
+        return LocalTransaction::run(function () use ($automatic): bool {
             $job = $this->job();
             if ($automatic && $job['execution_status'] !== 'reconciling') return false;
             if (in_array($job['execution_status'], ['queued', 'running', 'retry_wait', 'succeeded'], true)) return false;
@@ -472,7 +472,7 @@ final class ExecutionStore
         if (array_diff(array_keys($extension), ['request_key', 'expected_event_seq', 'resource_limits', 'call_limit'])
             || !is_string($extension['request_key'] ?? null) || !preg_match('/^[a-zA-Z0-9_.:-]{1,100}$/D', $extension['request_key'])
             || !is_int($extension['expected_event_seq'] ?? null) || !is_array($extension['resource_limits'] ?? null)) throw new RuntimeException('请提交明确的预算上限和当前状态版本', 422);
-        return Db::transaction(function () use ($extension): bool {
+        return LocalTransaction::run(function () use ($extension): bool {
             $job = $this->job(); $budget = self::decode($job['budget_json']); $hash = ContentDocument::hash($extension);
             $prior = $budget['extensions'][$extension['request_key']] ?? null;
             if ($prior !== null) {
