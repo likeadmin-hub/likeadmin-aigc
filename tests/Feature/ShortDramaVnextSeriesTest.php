@@ -73,6 +73,12 @@ final class ShortDramaVnextSeriesTest extends TestCase
             self::assertNotSame('p99', $inherited['ref']); self::assertNotContains('p99', $inherited['aliases']);
             self::assertSame($first['result']['narrative_ledger']['delta'][0]['fact_id'], $secondInput['previous_narrative']['world_facts'][0]['fact_id']);
             self::assertCount(3, $secondInput['events']); self::assertSame([], $secondInput['requirements']);
+            $scene = array_values(array_filter($second['production_handoff']['targets'], static fn($target) => $target['task_type'] === 'scene_image'))[0];
+            $imageRequest = ['project_id' => $list[1]['production_project_id'], 'task_id' => $list[1]['task_id'], 'task_type' => 'scene_image',
+                'scene_id' => $scene['target_id'], 'expected_revision_id' => $second['result']['canonical_document']['revision_id'],
+                'model_id' => 'market_image_model:fixture', 'ratio' => '9:16'];
+            $image = Service::createShotGenerationTask($tenant, $user, $imageRequest);
+            self::assertSame('success', $image['status']);
             $unit = $first['result']['canonical_document']['scenes'][0]['units'][0];
             $revised = Service::saveStoryboard($tenant, $user, ['project_id' => $list[0]['production_project_id'], 'task_id' => $list[0]['task_id'],
                 'expected_revision_id' => $first['result']['canonical_document']['revision_id'],
@@ -92,6 +98,20 @@ final class ShortDramaVnextSeriesTest extends TestCase
             $list = Episodes::lists($tenant, $user, $project)['lists'];
             self::assertTrue($list[1]['needs_review']);
             self::assertSame($second['result'], Service::scriptPlanDetail($tenant, $user, $list[1]['task_id'])['result']);
+            $stale = Service::scriptPlanDetail($tenant, $user, $list[1]['task_id']);
+            self::assertContains('read_images', $stale['generation_snapshot']['allowed_actions']);
+            self::assertNotContains('generate_images', $stale['generation_snapshot']['allowed_actions']);
+            self::assertNotEmpty($stale['production_handoff']['blocked_reason']);
+            self::assertNotContains(true, array_column($stale['production_handoff']['targets'], 'can_generate'));
+            self::assertCount(1, array_filter($stale['production_handoff']['targets'], static fn($target) => !empty($target['asset'])));
+            foreach (['estimateShotGenerationTask', 'createShotGenerationTask'] as $method) {
+                try { Service::$method($tenant, $user, $imageRequest); self::fail('Stale episode accepted for production'); }
+                catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
+            }
+            Db::name('aigc_short_drama_generation_task')->where('task_id', $image['task_id'])->update(['status' => 'failed']);
+            try { Service::retryGenerationTask($tenant, $user, $image['task_id']); self::fail('Stale episode image retry accepted'); }
+            catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
+            self::assertCount(1, \app\common\service\power\MarketImageModelRuntimeService::$requests);
             $oldSecondTask = $list[1]['task_id'];
             $recheck = Episodes::retry($tenant, $user, $list[1]['id']);
             self::assertNotSame($oldSecondTask, $recheck['task_id']);
