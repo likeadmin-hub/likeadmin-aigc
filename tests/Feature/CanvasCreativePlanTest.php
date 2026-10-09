@@ -77,4 +77,15 @@ class CanvasCreativePlanTest extends TestCase
         self::assertSame('3集',$s['intake_candidates']['episode_count']['value']);
         self::assertSame([],$s['slot_values']);
     }
+
+    public function testOldUnstartedDraftRequiresConfirmationButBoundTasksArePreserved(): void
+    {
+        $s=$this->state();$s['workflow_snapshot']['creative_policy_version']='2026-10-10.1';
+        $s['stage_state']=['key'=>'episode','status'=>'ready'];
+        $updated=Plan::upgradePending($s);
+        self::assertSame('reviewing_intake',$updated['stage_state']['status']);
+        self::assertFalse($updated['creative_plan_confirmed']);
+        $s['series']['tasks']['episode_1']=['task_id'=>'saved-task'];
+        self::assertSame($s,Plan::upgradePending($s));
+    }
 }
