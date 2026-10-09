@@ -38,7 +38,7 @@ final class ShortDramaStructuredResponse
             throw new RuntimeException('模型未接受此次内容，请调整输入后再试', 403);
         }
         if (in_array($reason, ['length', 'max_tokens', 'max_output_tokens'], true)) {
-            throw new ShortDramaOutputLimitException('本次输出达到模型长度上限，已保存返回内容', 413);
+            throw new RuntimeException('本次输出达到模型长度上限，已保存返回内容', 413);
         }
         $content = trim((string)($response['content'] ?? ''));
         $content = preg_replace('/^\x{FEFF}/u', '', $content) ?? $content;

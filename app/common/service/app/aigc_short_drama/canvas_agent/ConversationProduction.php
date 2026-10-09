@@ -7,12 +7,7 @@ use app\common\service\app\aigc_short_drama\ShortDramaStoryDraft;
 use app\common\service\app\aigc_short_drama\ShortDramaStoryWorkflow;
 use app\common\service\app\aigc_short_drama\ShortDramaInputContract;
 use app\common\service\app\aigc_short_drama\ShortDramaContinuity;
-use app\common\service\app\aigc_short_drama\ShortDramaEpisodeService;
-use app\common\service\app\aigc_short_drama\ShortDramaCanvasPages;
-use app\common\service\app\aigc_short_drama\vnext\ApplicationWorkflow;
-use app\common\service\app\aigc_short_drama\vnext\AudioProduction;
-use app\common\service\app\aigc_short_drama\vnext\CanvasSeriesBridge;
-use app\common\service\app\aigc_short_drama\vnext\CanvasProductionProjection;
+use app\common\service\app\aigc_short_drama\ShortDramaRetiredTask;
 use app\common\model\app\aigc_short_drama\AigcShortDramaScriptTask;
 use RuntimeException;
 use think\facade\Db;
@@ -20,26 +15,19 @@ use think\facade\Db;
 /** Bridge to the existing durable production engine. No second model/billing path. */
 final class ConversationProduction
 {
-    /** Node text/media states cannot unlock another billable episode. */
+    /** Only an owned, current, complete screenplay can unlock the next episode. */
     public static function assertEpisodeReady(int $tenant,int $user,array $workflow): void
     {
         if (!ConversationSeries::canStartNextEpisode($workflow)) throw new RuntimeException('WORKFLOW_NEXT_EPISODE_UNAVAILABLE');
         $binding=$workflow['series']['tasks']['episode_'.ConversationSeries::episode($workflow)];
         $task=self::task($tenant,$user,$binding['task_id']);
+        ShortDramaRetiredTask::assertWritable(json_decode((string)$task['request_json'],true)?:[]);
         $project=Db::name('aigc_short_drama_project')->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>(int)$binding['project_id'],'delete_time'=>0])->lock(true)->find();
         if (!$project || (int)$task['project_id']!==(int)$binding['project_id'] || $project['last_task_id']!==$task['task_id']) throw new RuntimeException('WORKFLOW_EPISODE_VERSION_CHANGED');
         if ($task['status']!=='success') throw new RuntimeException('WORKFLOW_PREVIOUS_EPISODE_INCOMPLETE');
         $request=json_decode((string)$task['request_json'],true)?:[];
-        if (ApplicationWorkflow::current($request)) {
-            AudioProduction::context($tenant,$user,(int)$binding['project_id'],$task['task_id']);
-            $episode=ShortDramaEpisodeService::context($tenant,$user,(int)$binding['project_id']);
-            if ($episode && CanvasSeriesBridge::manual($tenant,$user,(int)$episode['project_id'])
-                && ($episode['status']!=='success' || $episode['task_id']!==$task['task_id'])) throw new RuntimeException('WORKFLOW_PREVIOUS_EPISODE_INCOMPLETE');
-            return;
-        }
-        $result=json_decode((string)$task['result_json'],true)?:[];
-        $plan=ShortDramaStoryDraft::effective($request,$result);
-        $continuity=(array)($result['_continuity']??[]);
+        $plan=ShortDramaStoryDraft::effective($request,json_decode((string)$task['result_json'],true)?:[]);
+        $continuity=(array)(json_decode((string)$task['result_json'],true)['_continuity']??[]);
         if (empty($plan['storyboard']) || empty($continuity['digest']) || $continuity['digest']!==ShortDramaContinuity::fingerprint($plan)) throw new RuntimeException('WORKFLOW_CONTINUITY_MISSING');
     }
 
@@ -58,15 +46,6 @@ final class ConversationProduction
             ConversationExecution::deferProduction($tenant,$user,$run,$claim['token'],$claim['fence']);
             return 'production_pending';
         }
-        // The core may publish before the episode worker records its durable series mapping.
-        // Wait for that mapping rather than creating the next episode with missing history.
-        if ($stage==='episode') {
-            $episode=ShortDramaEpisodeService::context($tenant,$user,(int)$binding['project_id']);
-            if ($episode && CanvasSeriesBridge::manual($tenant,$user,(int)$episode['project_id']) && $episode['status']!=='success') {
-                ConversationExecution::deferProduction($tenant,$user,$run,$claim['token'],$claim['fence']);
-                return 'production_pending';
-            }
-        }
         $request=json_decode((string)$task['request_json'],true)?:[];
         $plan=ShortDramaStoryDraft::effective($request,json_decode((string)$task['result_json'],true)?:[]);
         if (!$plan) throw new RuntimeException('EMPTY_MODEL_RESPONSE');
@@ -83,11 +62,7 @@ final class ConversationProduction
         $request=json_decode((string)$task['request_json'],true)?:[];
         $plan=ShortDramaStoryDraft::effective($request,json_decode((string)$task['result_json'],true)?:[]);
         $snapshot=(array)$workflow['workflow_snapshot']['creative_prompt_snapshot'];
-        if (ApplicationWorkflow::current($request)) {
-            $candidate=AudioProduction::context($tenant,$user,(int)$binding['project_id'],$task['task_id']);
-            $proposals=CanvasProductionProjection::proposals($candidate,(int)$binding['project_id'],$task['task_id'],$stage,
-                ConversationSeries::episode($workflow),(string)($workflow['creative_settings']['style_name']??''));
-        } else $proposals=ConversationSeriesVisuals::proposals($plan,$stage,ConversationSeries::episode($workflow),
+        $proposals=ConversationSeriesVisuals::proposals($plan,$stage,ConversationSeries::episode($workflow),
             static fn($artifact,$item)=>AigcShortDramaService::canvasProductionPrompt($plan,$artifact,$item,$snapshot));
         if (count($proposals)>ConversationSeries::maximum($workflow,$stage)) throw new RuntimeException('CANVAS_CAPACITY_EXCEEDED');
         foreach ($proposals as $proposal) if (mb_strlen($proposal['prompt'])>20000) throw new RuntimeException('CONTEXT_TOO_LARGE');
@@ -129,11 +104,7 @@ final class ConversationProduction
                 // An explicit new conversation run may resume the failed core
                 // task's saved units. Polls of the same run never retry it.
                 if (in_array($task['status'],['failed','canceled'],true) && (int)($binding['run_id']??0)!==$run) {
-                    $episode=ShortDramaEpisodeService::context($tenant,$user,(int)$binding['project_id']);
-                    if ($episode && CanvasSeriesBridge::manual($tenant,$user,(int)$episode['project_id'])) {
-                        $retried=ShortDramaEpisodeService::retry($tenant,$user,(int)$episode['id']);
-                        $binding['task_id']=$retried['task_id'];
-                    } else AigcShortDramaService::retry($tenant,$user,(string)$task['task_id']);
+                    AigcShortDramaService::retry($tenant,$user,(string)$task['task_id']);
                     $binding['run_id']=$run;
                 }
             } else {
@@ -168,9 +139,7 @@ final class ConversationProduction
                     $sourceRequest=json_decode((string)$source['request_json'],true)?:[];
                     $outline=ShortDramaStoryDraft::effective($sourceRequest,json_decode((string)$source['result_json'],true)?:[]);
                     $number=ConversationSeries::episode($state);
-                    $binding=CanvasSeriesBridge::create($tenant,$user,(int)$source['project_id'],$source['task_id'],$number,
-                        ShortDramaStoryDraft::version($sourceRequest),ShortDramaCanvasPages::root($tenant,$user,(int)$claim['canvas_id']));
-                    if ($binding===null) {
+                    {
                         $episode=null;
                         foreach ((array)($outline['episodes']??[]) as $item) if ((int)($item['episode_number']??0)===$number) {$episode=$item;break;}
                         if (!$episode) throw new RuntimeException('WORKFLOW_EPISODE_OUTLINE_MISSING');

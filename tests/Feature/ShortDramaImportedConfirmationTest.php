@@ -17,8 +17,7 @@ class ShortDramaImportedConfirmationTest extends TestCase
     }
     protected function tearDown(): void { if ($this->transaction) Db::rollback(); }
 
-    /** @dataProvider sourceVersions */
-    public function testConfirmationIsLocalLosslessAndIdempotent(bool $attachment): void
+    public function testConfirmationIsLocalLosslessAndIdempotent(): void
     {
         $scope = ['tenant_id' => 2000000719, 'user_id' => 7];
         $task = 'import_confirm_' . bin2hex(random_bytes(8));
@@ -28,15 +27,9 @@ class ShortDramaImportedConfirmationTest extends TestCase
             'episodes' => [
                 ['episode_number' => 1, 'title' => '信', 'story_outline' => '发现旧信', 'conflict_point' => '署名矛盾', 'ending_hook' => '找到地址', 'source_content' => " 原文甲\n", 'source_range' => ['start_line' => 1, 'end_line' => 5]],
                 ['episode_number' => 2, 'title' => '人', 'story_outline' => '找到故人', 'conflict_point' => '拒绝相认', 'ending_hook' => '交出日记', 'source_content' => str_repeat('完整原文乙。', 10000)]]];
-        $package = null;
-        if ($attachment) {
-            $package = ShortDramaAttachmentSourceTest::capture("第1集\n完整原文甲😀。\n第2集\n原文乙𠮷。");
-            $plan['episodes'] = \app\common\service\app\aigc_short_drama\ShortDramaAttachmentSource::bind($package, $plan['episodes']);
-        }
         $story = Imported::storyDraft($plan);
         $request = ['workflow_variant' => 'story_outline_v2', 'multi_episode' => true, 'episode_count' => 2,
             'multi_episode_stage' => 'story', 'source' => 'market_file_qa_parse', '_imported_outline_snapshot' => $plan];
-        if ($package) $request['_attachment_source'] = $package;
         $project = Db::name('aigc_short_drama_project')->insertGetId($scope + ['title' => '旧信', 'last_task_id' => $task, 'multi_episode' => 1, 'episode_count' => 2]);
         $id = Db::name('aigc_short_drama_script_task')->insertGetId($scope + ['project_id' => $project, 'task_id' => $task,
             'status' => 'success', 'prompt' => '按原文策划', 'request_json' => json_encode($request), 'result_json' => json_encode($story),
@@ -51,13 +44,7 @@ class ShortDramaImportedConfirmationTest extends TestCase
         self::assertSame(0.0, (float)$saved['user_charge_points']);
         self::assertSame($plan['episodes'], json_decode($saved['result_json'], true)['episodes']);
         self::assertSame('episodes', json_decode($saved['request_json'], true)['multi_episode_stage']);
-        if ($package) {
-            self::assertSame($package, json_decode($saved['request_json'], true)['_attachment_source']);
-            $version = Db::name('aigc_short_drama_plan_version')->where('task_id', $result['task_id'])->find();
-            self::assertSame($plan['episodes'], json_decode($version['plan_json'], true)['episodes']);
-        }
         self::assertSame($source, Db::name('aigc_short_drama_script_task')->where('id', $id)->find());
         self::assertSame(2, Db::name('aigc_short_drama_script_task')->where($scope)->where('project_id', $project)->count());
     }
-    public static function sourceVersions(): array { return [[false], [true]]; }
 }

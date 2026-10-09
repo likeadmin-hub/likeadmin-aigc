@@ -40,7 +40,6 @@ final class GenerationIntentService
             }
             if (!$node) throw new RuntimeException('NODE_NOT_FOUND');
             if (($node['type']??'')!==$type) throw new RuntimeException('NODE_TYPE_MISMATCH');
-            \app\common\service\app\aigc_short_drama\vnext\CanvasProductionProjection::assertInput($tenant,$user,$document,$node,$input);
             $now=time();
             $run=Db::name(self::RUNS)->insertGetId($scope+[
                 'node_id'=>$nodeId,'node_type'=>$type,'status'=>'queued','progress'=>0,
@@ -88,12 +87,6 @@ final class GenerationIntentService
             $snapshot=json_decode($row['snapshot_json'],true,512,JSON_THROW_ON_ERROR);
             if (!isset($snapshot['target_signature']) || !hash_equals($snapshot['target_signature'],self::nodeInputSignature($target))) {
                 self::transition($row,['state'=>'canceled','error_code'=>'INPUT_CHANGED_BEFORE_SUBMIT'],['status'=>'canceled','error'=>'节点输入已变化，请确认新参数后重新提交']);
-                return null;
-            }
-            try {
-                \app\common\service\app\aigc_short_drama\vnext\CanvasProductionProjection::assertInput($tenant,$user,$document,$target,$snapshot['input']);
-            } catch (RuntimeException $error) {
-                self::transition($row,['state'=>'canceled','error_code'=>'CANONICAL_SOURCE_CHANGED_BEFORE_SUBMIT'],['status'=>'canceled','error'=>'剧本或参考素材版本已变化，旧请求未提交']);
                 return null;
             }
             $changes=['state'=>'submitting','claim_token'=>bin2hex(random_bytes(24)),
@@ -209,8 +202,6 @@ final class GenerationIntentService
                 $metadata=(array)($node['metadata']??[]);
                 if ((int)($metadata['active_generation_id']??0)!==$runId || (int)($metadata['canvasRunId']??0)!==$runId || (int)($metadata['projected_generation_id']??0)===$runId) return false;
                 if (!isset($snapshot['target_signature']) || !hash_equals($snapshot['target_signature'],self::nodeInputSignature($node))) return false;
-                try { \app\common\service\app\aigc_short_drama\vnext\CanvasProductionProjection::assertNode($tenant,$user,$node); }
-                catch (RuntimeException $error) { return false; } // The completed run/asset stays in history.
                 $result=json_decode($run['result_json']?:'{}',true,512,JSON_THROW_ON_ERROR);
                 if ($run['node_type']==='text') {
                     $content=$result['content']??$result['text']??'';

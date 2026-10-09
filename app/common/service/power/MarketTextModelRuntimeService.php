@@ -91,7 +91,7 @@ class MarketTextModelRuntimeService
      * @param array<string, mixed> $params content, system_prompt, model_selection, action_code
      * @return array<string, mixed>
      */
-    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $tenantAdminConsumption = false, ?callable $persistResult = null, ?callable $admitResources = null): array
+    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $tenantAdminConsumption = false): array
     {
         // Server-only argument for tenant-admin authoring tools; never read from params.
         if ($tenantAdminConsumption && ($tenantId <= 0 || $userId !== 0)) throw new Exception('租户后台调用身份无效');
@@ -100,7 +100,6 @@ class MarketTextModelRuntimeService
             throw new Exception('请输入文本内容');
         }
         $resultValidator=$params['_result_validator']??null;
-        if ($persistResult !== null && $resultValidator !== null) throw new Exception('持久化调用的内容校验必须在收据接收后执行');
         if ($resultValidator!==null && !is_callable($resultValidator)) throw new Exception('文本结果校验器无效');
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
         $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? []);
@@ -136,25 +135,11 @@ class MarketTextModelRuntimeService
             'model_code' => $model['model_code'],
             'generation_params' => $generationParams + ['max_tokens' => $maxTokens],
         ];
-        if ($persistResult !== null) $requestSummary['durable_receipt_version'] = 1;
-        $accountVersion = $params['_account_reservation_version'] ?? 0;
-        if (!in_array($accountVersion, [0, 1], true)) throw new TextRequestNotSubmittedException('账户预留版本无效', 422);
-        if ($accountVersion === 1 && ($persistResult === null || $admitResources === null
-            || !is_string($params['_account_reservation_key'] ?? null) || !preg_match('/^[a-f0-9]{64}$/D', $params['_account_reservation_key'])
-            || !is_int($params['_account_reservation_attempt'] ?? null) || $params['_account_reservation_attempt'] < 1 || $params['_account_reservation_attempt'] > 3)) throw new TextRequestNotSubmittedException('账户预留缺少可靠的单次请求标识', 422);
-        $bound = $admitResources !== null ? self::admitResourceRequest($tenantId, $userId, $model, $params, $persistResult, $admitResources) : [];
-        // Actual charges always come from upstream usage. Versioned requests
-        // temporarily hold the published capacity bound, without calling it usage.
+        // Token SKU amounts must come from the upstream usage record. Showing a
+        // locally guessed total or reserving max_tokens makes the price wrong.
         $reserve = self::quote($model, 0, 0);
-        if ($accountVersion === 1) {
-            $requestSummary['account_reservation'] = ['version'=>1,'request_key'=>$params['_account_reservation_key'],
-                'attempt'=>$params['_account_reservation_attempt'],'state'=>'prepared','upper_bound'=>$bound];
-            // The shared account balances have two decimal places. Round a hold upward, never below its bound.
-            $reserve = ['tenant_cost_points'=>ceil($bound['tenant_cost_points'] * 100 - 1e-8) / 100,
-                'user_charge_points'=>ceil($bound['user_charge_points'] * 100 - 1e-8) / 100];
-        }
         $context = self::createConsumption($tenantId, $userId, $model, $action, $requestSummary, $reserve, (int)($params['parent_app_task_id'] ?? 0), $appCode, $businessTable, $businessId);
-        if ($onEvent && $accountVersion === 0) {
+        if ($onEvent) {
             $onEvent('app_task', [
                 'app_task_id' => (int)$context['appTask']['id'],
                 'consumption_id' => (int)$context['consumption']['id'],
@@ -163,43 +148,19 @@ class MarketTextModelRuntimeService
 
         $started = microtime(true);
         $requestTimeout = self::resolveRequestTimeout($params);
-        $resultReceived = false;
-        $submissionStarted = false;
         try {
-            if ($onEvent && $accountVersion === 1) $onEvent('app_task', ['app_task_id'=>(int)$context['appTask']['id'],'consumption_id'=>(int)$context['consumption']['id']]);
             self::event((int)$context['consumption']['id'], 'submit', 'running', ['model_code' => $model['model_code']]);
             $compatibilityAttempts = 0;
             $transportOptions = ['include_market_context' => true, 'include_channel' => true];
             while (true) {
                 try {
-                    if ($accountVersion === 1) self::markAccountSubmission($context);
-                    $submissionStarted = true;
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
-                    $resultReceived = true;
-                    if ($persistResult !== null) {
-                        // Save the complete provider reply before validation, settlement or event writes.
-                        $durable = array_replace($result, [
-                            'durable_receipt_version' => 1,
-                            'effective_max_tokens' => $maxTokens, 'model_code' => $model['model_code'],
-                            'channel_code' => $model['channel_code'], 'provider' => 'power_market',
-                            'app_task_id' => (int)$context['appTask']['id'],
-                            'consumption_id' => (int)$context['consumption']['id'],
-                            'billing' => ['billing_status' => 'pending_usage'],
-                            'usage' => self::normalizeUsage((array)($result['usage'] ?? [])),
-                            '_elapsed_ms' => (int)round((microtime(true) - $started) * 1000),
-                            '_require_final_content' => !empty($params['_require_final_content']),
-                        ]);
-                        $persistResult($durable);
-                        return self::recoverDurableResult($tenantId, $userId, $businessTable, $businessId, $durable);
-                    }
                     if (!empty($params['_require_final_content']) && ($result['content_source'] ?? 'content') !== 'content') {
                         throw new Exception('文本模型未返回最终正文，请检查模型输出配置后重试');
                     }
                     if ($resultValidator!==null) $resultValidator($result);
                     break;
                 } catch (\Throwable $initialError) {
-                    // Durable callers admit each transport attempt in their own budget ledger.
-                    if (($persistResult !== null && $resultReceived) || !empty($params['_disable_compatibility_retry'])) throw $initialError;
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
                     if ($retry === null) {
                         $retry = self::compatibleTransportOptions($initialError->getMessage(), $transportOptions);
@@ -248,18 +209,6 @@ class MarketTextModelRuntimeService
                 'usage' => $usage,
             ];
         } catch (\Throwable $e) {
-            // A returned reply is not a failed submission. Leave its ledger recoverable.
-            if ($persistResult !== null && $resultReceived) throw $e;
-            if ($accountVersion === 1) {
-                // A connection error or an upstream error string cannot prove that the paid request was rejected.
-                $c = AiConsumptionLog::find((int)$context['consumption']['id']);
-                $state = self::arrayValue($c['request_summary'] ?? [])['account_reservation']['state'] ?? '';
-                if (!$submissionStarted && $state === 'prepared') {
-                    self::fail($context, '账户预留后、本次提交前发生错误', 'not_submitted');
-                    throw new TextRequestNotSubmittedException('本次请求尚未提交，账户预留已释放，原内容保留', 422, $e);
-                }
-                throw $e; // Preserve the reservation and original ledger until a receipt or authoritative rejection arrives.
-            }
             self::fail($context, $e->getMessage(), 'provider_error');
             $fallback = self::fallbackModel($tenantId, $model, $requiresVision, (array)($params['_market_model_fallback_ids'] ?? []));
             if (empty($params['_disable_model_fallback']) && $fallback !== null && self::isExplicitModelUnavailable($e->getMessage())) {
@@ -272,79 +221,10 @@ class MarketTextModelRuntimeService
                     array_map('strval', (array)($params['_market_model_fallback_ids'] ?? [])),
                     [(string)$model['id']]
                 )));
-                return self::generate($tenantId, $userId, $params, $onEvent, $tenantAdminConsumption, $persistResult);
+                return self::generate($tenantId, $userId, $params, $onEvent, $tenantAdminConsumption);
             }
             throw $e instanceof Exception ? $e : new Exception('文本模型调用失败，请稍后重试');
         }
-    }
-
-    /** Seal a proven local prepared attempt; a submitted marker is never a refund proof. */
-    public static function releaseUnsubmittedReservation(int $tenantId, int $userId, string $businessTable, int $businessId, string $requestKey, int $attempt): bool
-    {
-        if (!preg_match('/^[a-f0-9]{64}$/D', $requestKey) || $attempt < 1 || $attempt > 3) throw new \RuntimeException('账户核对请求标识无效', 422);
-        return Db::transaction(static function () use ($tenantId,$userId,$businessTable,$businessId,$requestKey,$attempt): bool {
-            $consumeNo=self::accountConsumptionNo($tenantId,$userId,'aigc_short_drama',$businessTable,$businessId,$requestKey,$attempt);
-            $c=AiConsumptionLog::where(['consume_no'=>$consumeNo,'tenant_id'=>$tenantId,'user_id'=>$userId,'app_code'=>'aigc_short_drama'])->lock(true)->findOrEmpty();
-            // Absence cannot prove that an interrupted worker will never create a ledger.
-            if ($c->isEmpty()) return false;
-            $summary=self::arrayValue($c['request_summary']);$account=$summary['account_reservation']??[];
-            if (($account['version']??0)!==1 || ($account['request_key']??'')!==$requestKey || ($account['attempt']??0)!==$attempt
-                || ($summary['durable_receipt_version']??0)!==1) throw new \RuntimeException('账户预留证明与阶段请求不符',409);
-            $task=AiAppTask::where(['id'=>(int)$c['app_task_id'],'tenant_id'=>$tenantId,'user_id'=>$userId,'app_code'=>'aigc_short_drama',
-                'business_table'=>$businessTable,'business_id'=>$businessId])->lock(true)->findOrEmpty();
-            if ($task->isEmpty()) throw new \RuntimeException('账户核对任务归属不符',409);
-            if ((string)$c['billing_status']==='refunded' && (string)$c['error_code']==='not_submitted_reconciled') return true;
-            if (($account['state']??'')!=='prepared' || (string)$c['billing_status']!=='pending_usage') return false;
-            // Holding this row excludes markAccountSubmission. Refund seals the
-            // original attempt: even a late worker cannot send it after recovery.
-            self::fail(['consumption'=>$c,'appTask'=>$task],'本地提交标记确认尚未提交，原预留已释放','not_submitted_reconciled');
-            return true;
-        });
-    }
-
-    /** Reconcile a private durable receipt using its original ledger; never submits to a provider. */
-    public static function recoverDurableResult(int $tenantId, int $userId, string $businessTable, int $businessId, array $receipt): array
-    {
-        return Db::transaction(static function () use ($tenantId, $userId, $businessTable, $businessId, $receipt): array {
-            $c = AiConsumptionLog::where(['id' => (int)($receipt['consumption_id'] ?? 0),
-                'tenant_id' => $tenantId, 'user_id' => $userId])->lock(true)->findOrEmpty();
-            if ($c->isEmpty()) throw new \RuntimeException('模型收据的结算记录不存在', 409);
-            $task = AiAppTask::where(['id' => (int)$c['app_task_id'], 'tenant_id' => $tenantId,
-                'user_id' => $userId, 'business_table' => $businessTable, 'business_id' => $businessId])->lock(true)->findOrEmpty();
-            if ($task->isEmpty() || (int)$c['app_task_id'] !== (int)($receipt['app_task_id'] ?? 0)
-                || (string)$c['model_code'] !== (string)($receipt['model_code'] ?? '')
-                || (int)($receipt['durable_receipt_version'] ?? 0) !== 1
-                || (int)(self::arrayValue($c['request_summary'])['durable_receipt_version'] ?? 0) !== 1) {
-                throw new \RuntimeException('模型收据与原始任务不匹配', 409);
-            }
-            if (!in_array((string)$c['billing_status'], ['pending_usage', 'settled'], true)) {
-                throw new \RuntimeException('原账单已退款或已人工处理，不能自动补扣', 409);
-            }
-            $snapshot = self::arrayValue($c['price_snapshot']);
-            if (!isset($snapshot['input']['platform_price'], $snapshot['input']['tenant_price'],
-                $snapshot['output']['platform_price'], $snapshot['output']['tenant_price'])) {
-                throw new \RuntimeException('原账单价格快照不完整', 409);
-            }
-            $usage = self::normalizeUsage((array)($receipt['usage'] ?? []));
-            $totalOnly = (int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0;
-            if (!self::canSettleUsageFromSnapshot($snapshot, $usage)
-                || ($totalOnly && MarketUsageSettlementService::unitSize($snapshot['input']) !== MarketUsageSettlementService::unitSize($snapshot['output']))) {
-                throw new \RuntimeException('模型正文已保存，等待真实用量后继续结算', 409);
-            }
-            if ((int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0) $usage['prompt_tokens'] = (int)$usage['total_tokens'];
-            $actual = self::quote($snapshot, (int)$usage['prompt_tokens'], (int)$usage['completion_tokens']);
-            self::settle(['consumption' => $c, 'appTask' => $task], $actual, $usage, $receipt, (int)($receipt['_elapsed_ms'] ?? 0));
-            $c = AiConsumptionLog::find((int)$c['id']);
-            $result = array_replace($receipt, ['usage' => $usage, 'billing' => array_replace($actual, [
-                'billing_status' => 'settled', 'tenant_cost_points' => (float)$c['actual_tenant_cost'],
-                'user_charge_points' => (float)$c['actual_user_price'],
-            ])]);
-            // Reasoning-only responses remain recoverable/auditable but cannot become screenplay content.
-            if (!empty($receipt['_require_final_content']) && ($receipt['content_source'] ?? 'content') !== 'content') {
-                throw new \RuntimeException('已保存模型返回，但缺少最终正文，需要核对模型输出', 409);
-            }
-            return $result;
-        });
     }
 
     /**
@@ -623,37 +503,6 @@ class MarketTextModelRuntimeService
         return !empty($meta['supports_vision']) || !empty($resource['supports_vision']);
     }
 
-    /** Server-only preflight runs before consumption records or any provider I/O. */
-    private static function admitResourceRequest(int $tenantId, int $userId, array $model, array $params, ?callable $persistResult, callable $admitResources): array
-    {
-        try {
-            if ($persistResult === null || empty($params['_disable_model_fallback']) || empty($params['_disable_transient_retry']) || empty($params['_disable_compatibility_retry'])) {
-                throw new \RuntimeException('资源预算调用必须使用持久化单次提交', 422);
-            }
-            $bound = self::resourceUpperBound($model);
-            if (($params['_account_reservation_version'] ?? 0) !== 1) PointService::assertCanConsumeAmounts($tenantId, $userId, $bound['tenant_cost_points'], $bound['user_charge_points']);
-            $admitResources($bound);
-            return $bound;
-        } catch (\Throwable $error) {
-            throw new TextRequestNotSubmittedException('生成前资源预算检查未通过，已保存内容保留', $error->getCode() === 429 ? 429 : 422, $error);
-        }
-    }
-
-    /** Use published full capacities, not a heuristic prompt estimate or the requested output cap. */
-    private static function resourceUpperBound(array $model): array
-    {
-        $capacity = TextModelCapacity::metadata($model);
-        $input = $capacity['max_input_tokens'] ?: $capacity['context_window'];
-        if ($capacity['context_window'] > 0) $input = min($input, $capacity['context_window']);
-        $output = $capacity['max_output_tokens'];
-        if ($input < 1 || $output < 1 || $input + $output > 1000000000) throw new \RuntimeException('所选模型缺少可靠容量上限', 422);
-        foreach (['input', 'output'] as $direction) foreach (['platform_price', 'tenant_price'] as $price) {
-            $value = $model[$direction][$price] ?? null;
-            if (!is_numeric($value) || !is_finite((float)$value) || $value < 0) throw new \RuntimeException('所选模型价格尚未完整配置', 422);
-        }
-        return self::quote($model, $input, $output) + ['total_tokens' => $input + $output];
-    }
-
     private static function quote(array $model, int $inputTokens, int $outputTokens): array
     {
         $input = (array)$model['input']; $output = (array)$model['output'];
@@ -669,20 +518,6 @@ class MarketTextModelRuntimeService
     {
         return Db::transaction(function () use ($tenantId, $userId, $model, $action, $summary, $reserve, $parentTaskId, $appCode, $businessTable, $businessId) {
             $now = time();
-            $account = $summary['account_reservation'] ?? [];
-            $consumeNo = $account ? self::accountConsumptionNo($tenantId,$userId,$appCode,$businessTable,$businessId,$account['request_key'],$account['attempt']) : self::no('C');
-            if ($account) {
-                // Do not gap-lock a missing unique key: unrelated account requests
-                // must serialize on their balances, rather than deadlock on inserts.
-                $prior = AiConsumptionLog::where('consume_no',$consumeNo)->findOrEmpty();
-                if (!$prior->isEmpty()) {
-                    $prior = AiConsumptionLog::where('consume_no',$consumeNo)->lock(true)->findOrEmpty();
-                    $task = AiAppTask::where(['id'=>(int)$prior['app_task_id'],'tenant_id'=>$tenantId,'user_id'=>$userId,'app_code'=>$appCode,'business_table'=>$businessTable,'business_id'=>$businessId])->lock(true)->findOrEmpty();
-                    if ($task->isEmpty() || json_encode(self::arrayValue($prior['request_summary'])) !== json_encode($summary) || (string)$prior['model_code'] !== $model['model_code'] || (string)$prior['api_code'] !== $model['channel_code']
-                        || (string)$prior['billing_status'] !== 'pending_usage') throw new \RuntimeException('账户预留请求已经提交或内容不符，不能重复派发',409);
-                    return ['appTask'=>$task,'consumption'=>$prior];
-                }
-            }
             $appTask = $parentTaskId > 0 ? AiAppTask::lock(true)->findOrEmpty($parentTaskId) : AiAppTask::create([
                 'task_no' => self::no('AT'), 'tenant_id' => $tenantId, 'user_id' => $userId, 'app_code' => $appCode,
                 'action_code' => $action, 'business_table' => $businessTable, 'business_id' => $businessId,
@@ -691,7 +526,7 @@ class MarketTextModelRuntimeService
                 'actual_tenant_cost' => 0, 'actual_user_price' => 0, 'idempotency_key' => self::no('IK'), 'create_time' => $now, 'update_time' => $now, 'finish_time' => 0,
             ]);
             if ($appTask->isEmpty()) throw new Exception('应用任务不存在');
-            if ($account && ((int)$appTask['tenant_id'] !== $tenantId || (int)$appTask['user_id'] !== $userId || (string)$appTask['app_code'] !== $appCode || (string)$appTask['business_table'] !== $businessTable || (int)$appTask['business_id'] !== $businessId)) throw new TextRequestNotSubmittedException('账户预留任务归属不符',422);
+            $consumeNo = self::no('C');
             $consumption = AiConsumptionLog::create([
                 'consume_no' => $consumeNo, 'app_task_id' => (int)$appTask['id'], 'tenant_id' => $tenantId, 'user_id' => $userId,
                 'app_code' => $appCode, 'action_code' => $action, 'resource_type' => 'model', 'product_id' => (int)$model['product_id'],
@@ -700,34 +535,12 @@ class MarketTextModelRuntimeService
                 'quantity' => 0, 'usage_unit' => 'token', 'usage_snapshot' => ['settlement_basis' => 'awaiting_actual_usage'],
                 'price_snapshot' => ['input' => $model['input'], 'output' => $model['output'], 'model_code' => $model['model_code'], 'usage_unit' => 'token', 'usage_unit_size' => (float)$model['billing_unit_size']],
                 'request_summary' => $summary, 'response_summary' => [], 'run_status' => 'submitting', 'billing_status' => 'pending_usage',
-                'reserved_tenant_cost' => $account ? $reserve['tenant_cost_points'] : 0, 'reserved_user_price' => $account ? $reserve['user_charge_points'] : 0,
+                'reserved_tenant_cost' => 0, 'reserved_user_price' => 0,
                 'actual_tenant_cost' => 0, 'actual_user_price' => 0, 'tenant_point_sn' => $consumeNo . '-reserve', 'user_point_sn' => $consumeNo . '-reserve',
                 'error_code' => '', 'error_message' => '', 'refresh_requested_at' => 0, 'create_time' => $now, 'update_time' => $now, 'finish_time' => 0,
             ]);
-            if ($account) try {
-                PointService::reserveBusinessAmountsInCurrentTransaction($tenantId,$userId,(float)$reserve['tenant_cost_points'],(float)$reserve['user_charge_points'],
-                    $consumeNo.'-reserve',self::billingRemark($appCode,'reserved'),self::extra($appTask,$consumption,'reserved'));
-            } catch (\RuntimeException $error) {
-                // Point service validation runs under the same transaction; it cannot have submitted a provider request.
-                throw new TextRequestNotSubmittedException('账户预留未通过：'.$error->getMessage().'，本次请求未提交',422,$error);
-            }
             self::event((int)$consumption['id'], 'reserve', 'success', $reserve + ['settlement_mode' => 'actual_usage']);
             return compact('appTask', 'consumption');
-        });
-    }
-
-    private static function accountConsumptionNo(int $tenantId, int $userId, string $appCode, string $businessTable, int $businessId, string $key, int $attempt): string
-    {
-        return 'CSD'.substr(hash('sha256',json_encode([$tenantId,$userId,$appCode,$businessTable,$businessId,$key,$attempt])),0,45);
-    }
-
-    private static function markAccountSubmission(array $context): void
-    {
-        Db::transaction(static function () use ($context): void {
-            $c=AiConsumptionLog::where(['id'=>(int)$context['consumption']['id'],'tenant_id'=>(int)$context['consumption']['tenant_id'],'user_id'=>(int)$context['consumption']['user_id']])->lock(true)->findOrEmpty();
-            $summary=self::arrayValue($c['request_summary']??[]);
-            if ($c->isEmpty() || ($summary['account_reservation']['state']??'')!=='prepared' || (string)$c['billing_status']!=='pending_usage') throw new \RuntimeException('账户请求已进入提交核对，不能重复发送',409);
-            $summary['account_reservation']['state']='submitted';$c->save(['request_summary'=>$summary,'update_time'=>time()]);
         });
     }
 
@@ -738,16 +551,8 @@ class MarketTextModelRuntimeService
             $task = AiAppTask::lock(true)->findOrEmpty((int)$c['app_task_id']); $now = time();
             $hasActualUsage = self::canSettleUsageFromSnapshot(self::arrayValue($c['price_snapshot'] ?? []), $usage);
             if ($hasActualUsage) {
-                $account=self::arrayValue($c['request_summary'])['account_reservation']??[];
-                if ($account) {
-                    if (($account['state']??'')!=='submitted') throw new \RuntimeException('账户预留尚未记录提交，不能自动结算回包',409);
-                    foreach(['tenant_cost_points','user_charge_points'] as $side) if ((float)$actual[$side] > (float)$account['upper_bound'][$side] + 0.0000001) throw new \RuntimeException('实际用量超过已授权上限，收据保留但不能自动补扣',409);
-                    PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'],(int)$c['user_id'],(float)$c['reserved_tenant_cost'],(float)$c['reserved_user_price'],
-                        (float)$actual['tenant_cost_points'],(float)$actual['user_charge_points'],(string)$c['consume_no'],self::billingRemark((string)$c['app_code'],'settled'),self::extra($task,$c,'settled'));
-                } else {
-                    PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points']);
-                    PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points'], (string)$c['consume_no'], self::billingRemark((string)$c['app_code'], 'settled'), self::extra($task, $c, 'settled'));
-                }
+                PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points']);
+                PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points'], (string)$c['consume_no'], self::billingRemark((string)$c['app_code'], 'settled'), self::extra($task, $c, 'settled'));
             }
             $c->save(['upstream_request_id' => (string)($result['provider_request_id'] ?? ''), 'run_status' => 'success', 'billing_status' => $hasActualUsage ? 'settled' : 'pending_usage', 'usage_snapshot' => $usage + ['settlement_basis' => $hasActualUsage ? 'actual_usage' : 'awaiting_actual_usage'], 'response_summary' => ['output_length' => mb_strlen((string)($result['content'] ?? ''), 'UTF-8')], 'actual_tenant_cost' => $hasActualUsage ? $actual['tenant_cost_points'] : 0, 'actual_user_price' => $hasActualUsage ? $actual['user_charge_points'] : 0, 'tenant_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'user_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => (float)$task['actual_tenant_cost'] + ($hasActualUsage ? (float)$actual['tenant_cost_points'] : 0), 'actual_user_price' => (float)$task['actual_user_price'] + ($hasActualUsage ? (float)$actual['user_charge_points'] : 0), 'finish_time' => $now, 'update_time' => $now]);
@@ -759,8 +564,6 @@ class MarketTextModelRuntimeService
     {
         Db::transaction(function () use ($context, $message, $code) {
             $c = AiConsumptionLog::lock(true)->findOrEmpty((int)$context['consumption']['id']); if ($c->isEmpty() || in_array((string)$c['billing_status'], ['settled', 'refunded'], true)) return;
-            $account=self::arrayValue($c['request_summary'])['account_reservation']??[];
-            if ($account && ($account['state']??'')!=='prepared') throw new \RuntimeException('已提交请求不能依据本地异常退款，请核对上游收据',409);
             $task = AiAppTask::lock(true)->findOrEmpty((int)$c['app_task_id']);
             PointService::releaseReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], (string)$c['consume_no'] . '-release', self::billingRemark((string)$c['app_code'], 'failed'), self::extra($task, $c, 'refunded'));
             $now = time(); $c->save(['run_status' => 'failed', 'billing_status' => 'refunded', 'error_code' => $code, 'error_message' => mb_substr($message, 0, 1000), 'finish_time' => $now, 'update_time' => $now]);
@@ -1127,7 +930,7 @@ class MarketTextModelRuntimeService
             'aigc_llm' => 'aigc_chat',
             default => 'short_drama',
         };
-        return $appName . '_text_model_' . ($status === 'failed' ? 'refund' : ($status === 'reserved' ? 'reserve' : 'settle'));
+        return $appName . '_text_model_' . ($status === 'failed' ? 'refund' : 'settle');
     }
 
     /** @return array<string, mixed> */
