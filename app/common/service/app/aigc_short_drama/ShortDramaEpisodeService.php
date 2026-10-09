@@ -146,6 +146,7 @@ class ShortDramaEpisodeService
             array_column($rows, 'production_project_id')
         );
         $rows = self::withContinuityStatus($tenantId, $userId, $rows);
+        $rows = self::withSavedContent($tenantId, $userId, $rows);
         $completed = count(array_filter($rows, static fn($r) => (int)$r['completed_once'] === 1));
         $first = self::nextInitialEpisode($rows);
         return ['project_id' => $projectId, 'title' => $project['title'], 'multi_episode' => (bool)$project['multi_episode'],
@@ -195,14 +196,40 @@ class ShortDramaEpisodeService
         if ((int)$row['production_project_id'] > 0) {
             $child = self::project($tenantId, $userId, (int)$row['production_project_id']);
             $result['task_id'] = $child['last_task_id'];
+            $result = self::withSavedContent($tenantId, $userId, [$result])[0];
             $latest = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
                 'project_id' => $row['production_project_id'], 'status' => 'success', 'delete_time' => 0])->order('id', 'desc')->findOrEmpty();
             if (!$latest->isEmpty()) {
                 $result['result'] = self::decode($latest['result_json']);
-                if (in_array($row['status'], ['failed', 'canceled'], true)) $result['task_id'] = $latest['task_id'];
+                if (in_array($row['status'], ['failed', 'canceled'], true) && empty($result['has_saved_content'])) $result['task_id'] = $latest['task_id'];
             }
         }
         return $result;
+    }
+
+    /** Expose draft availability without fetching large documents on every poll. */
+    private static function withSavedContent(int $tenantId, int $userId, array $rows): array
+    {
+        $ids = array_values(array_filter(array_column($rows, 'task_id')));
+        if (!$ids) return $rows;
+        $tasks = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])
+            ->whereIn('task_id', $ids)->field('task_id,request_json')->select()->toArray();
+        $canonical = [];
+        foreach ($tasks as $task) if (vnext\ApplicationWorkflow::current(self::decode($task['request_json']))) $canonical[] = $task['task_id'];
+        // Historical installations/tasks do not depend on the VNext tables.
+        if (!$canonical) return $rows;
+        $jobs = Db::name('aigc_short_drama_vnext_job')->where(['tenant_id' => $tenantId, 'user_id' => $userId])
+            ->whereIn('task_id', $canonical)->field('task_id,document_status,execution_status')->select()->toArray();
+        $states = array_column($jobs, null, 'task_id');
+        foreach ($rows as &$row) {
+            if (!in_array($row['task_id'], $canonical, true)) continue;
+            $state = $states[$row['task_id']] ?? [];
+            $row['pipeline_version'] = 1;
+            $row['has_saved_content'] = in_array($state['document_status'] ?? '', ['draft', 'checked', 'blocked', 'ready'], true);
+            $row['generation_execution_status'] = (string)($state['execution_status'] ?? '');
+        }
+        unset($row);
+        return $rows;
     }
 
     public static function nextInitialEpisode(array $rows): ?array

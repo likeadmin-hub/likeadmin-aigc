@@ -7,6 +7,7 @@ class MarketTextModelRuntimeService
     public static array $requests = [];
     public static bool $failSettlementOnce = false;
     public static int $recoveries = 0;
+    public static $afterResponse = null;
     public static function modelGroups(int $tenantId): array { return [['key' => 'script_plan', 'default' => 'frozen_model', 'options' => [self::resolveModel($tenantId, '')]]]; }
     public static function resolveModel(int $tenantId, $selection, bool $vision = false): array { return ['id' => 'frozen_model', 'name' => 'Fixture', 'provider' => 'power_market', 'model_code' => 'frozen_model', 'context_window' => 32768, 'max_output_tokens' => 8192]; }
     public static function estimateTokens(string $value): int { return mb_strlen($value); }
@@ -38,6 +39,7 @@ class MarketTextModelRuntimeService
         $receipt = ['content' => json_encode($reply, JSON_UNESCAPED_UNICODE), 'finish_reason' => 'stop',
             'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 20],
             'billing' => ['tenant_cost_points' => '1.00', 'user_charge_points' => '2.00', 'billing_status' => 'settled']];
+        if (self::$afterResponse) (self::$afterResponse)($input);
         if ($persist) $persist($receipt);
         if (self::$failSettlementOnce) { self::$failSettlementOnce = false; throw new \RuntimeException('fixture settlement failure'); }
         return $receipt;
