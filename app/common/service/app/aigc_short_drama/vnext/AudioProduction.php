@@ -32,6 +32,8 @@ final class AudioProduction
         if ($segment) {
             $segment['job'] = self::jobs($tenant, $user, $project, [$segment])[$segment['audio_segment_id']] ?? null;
             $segment['asset'] = self::assets($tenant, $user, $project, [$segment])[$segment['audio_segment_id']] ?? null;
+            $segment = array_intersect_key($segment, array_flip(['audio_segment_id', 'unit_id', 'speaker_id', 'speaker_name', 'speech_type', 'order',
+                'text', 'text_hash', 'document_revision_id', 'document_hash', 'input_hash', 'start', 'end', 'compiler_version', 'asset', 'job']));
         }
         return ['revision_id' => $candidate['document']['revision_id'], 'document_hash' => $candidate['document']['content_hash'],
             'page' => $page, 'total' => $total, 'next_page' => $page < $total ? $page + 1 : null, 'records' => $segment ? [$segment] : []];
