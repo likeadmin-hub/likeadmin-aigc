@@ -7,7 +7,7 @@ use RuntimeException;
 /** One reusable core for HTTP/episode/canvas workers. Enrollment remains outside this runner. */
 final class JobRunner
 {
-    public static function run(ExecutionStore $store, string $owner, callable $provider, ?callable $progress = null, ?callable $publishProjection = null): array
+    public static function run(ExecutionStore $store, string $owner, callable $provider, ?callable $progress = null, ?callable $publishProjection = null, ?callable $reconcile = null): array
     {
         $snapshot = $store->snapshot();
         if (!$snapshot) throw new RuntimeException('生成作业不存在', 404);
@@ -25,7 +25,7 @@ final class JobRunner
         };
         try {
         $result = GenerationPipeline::run($input['context'],
-            static function (string $key, array $messages, string $reservation) use ($store, $fence, $lease, $input, $provider, $notify, $timeout): array {
+            static function (string $key, array $messages, string $reservation) use ($store, $fence, $lease, $input, $provider, $notify, $timeout, $reconcile): array {
                 $store->heartbeat($fence, $lease);
                 // Capacity preflight precedes durable admission. No silent truncation of original inputs.
                 $budget = ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $input['model'], 'script', (int)($input['execution']['max_output_tokens'] ?? 8192));
@@ -33,7 +33,7 @@ final class JobRunner
                     'request_timeout_seconds' => $timeout, '_disable_transient_retry' => true, '_disable_compatibility_retry' => true,
                     '_disable_model_fallback' => true, '_require_final_content' => true];
                 $notify('stage', ['stage' => $key]);
-                return $store->call($fence, $key, $params, $provider, $reservation);
+                return $store->call($fence, $key, $params, $provider, $reservation, $reconcile);
             },
             static fn(string $key, int $calls) => $store->reserveRepair($fence, $key, $calls),
             static function (array $candidate) use ($store, $fence, $notify): void {

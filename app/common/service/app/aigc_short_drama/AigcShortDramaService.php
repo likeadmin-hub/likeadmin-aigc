@@ -3979,11 +3979,11 @@ class AigcShortDramaService
         if (!$activated) return self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
         try {
             vnext\JobRunner::run($store, 'worker_' . bin2hex(random_bytes(12)),
-                static function (array $params, string $receiptKey) use ($tenantId, $userId, $taskData): array {
+                static function (array $params, string $receiptKey, callable $persistResult) use ($tenantId, $userId, $taskData): array {
                     $params += ['source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
                         'source_id' => (string)$taskData['task_id'], 'business_table' => 'aigc_short_drama_script_task',
                         'business_id' => (int)$taskData['id']];
-                    return MarketTextModelRuntimeService::generate($tenantId, $userId, $params);
+                    return MarketTextModelRuntimeService::generate($tenantId, $userId, $params, null, false, $persistResult);
                 },
                 static function (string $event, array $payload) use ($emit, $scope): void {
                     if ($event === 'stage') {
@@ -4015,7 +4015,8 @@ class AigcShortDramaService
                     $project->save(['status' => self::PROJECT_STATUS_PLAN_REVIEW, 'current_version_id' => (int)$version['id'], 'update_time' => $time]);
                     self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $taskId, self::STATUS_SUCCESS, $request, $model,
                         $billing + ['progress' => 100, 'finished_at' => $time, 'result' => ['version_id' => (int)$version['id']]]);
-                });
+                }, static fn(array $receipt): array => MarketTextModelRuntimeService::recoverDurableResult(
+                    $tenantId, $userId, 'aigc_short_drama_script_task', (int)$taskData['id'], $receipt));
         } catch (\Throwable $error) {
             // Receipts/candidate survive a failed projection. The next worker replays them without another charge.
             $job = $store->snapshot();
@@ -5843,6 +5844,10 @@ class AigcShortDramaService
     {
         $task = self::findTask($tenantId, $userId, $taskId);
         if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
+            $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
+            // Commit settlement before publishing a final receipt to disk. Resumption below remains atomic.
+            $store->reconcileReceipts(static fn(array $receipt): array => MarketTextModelRuntimeService::recoverDurableResult(
+                $tenantId, $userId, 'aigc_short_drama_script_task', (int)$task['id'], $receipt));
             return Db::transaction(static function () use ($tenantId, $userId, $taskId): array {
                 $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
                 if ($store->resume()) {

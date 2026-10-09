@@ -92,7 +92,7 @@ final class ExecutionStore
             $this->query('job')->update(['budget_json' => self::json($budget)]);
         });
     }
-    public function call(int $fence, string $key, array $input, callable $provider, string $reservation = ''): array
+    public function call(int $fence, string $key, array $input, callable $provider, string $reservation = '', ?callable $reconcile = null): array
     {
         if ($key === '' || strlen($key) > 100) throw new RuntimeException('阶段标识无效', 422);
         $scope = $this->scope + ['stage_key' => $key]; $hash = ContentDocument::hash($input);
@@ -124,17 +124,28 @@ final class ExecutionStore
         if (isset($claim['receipt'])) return $claim['receipt'];
         if (isset($claim['buffered'])) { $this->receive($key, $hash, $claim['buffered']); return $claim['buffered']; }
         if (isset($claim['unknown'])) {
+            try {
+                $recovered = $this->recoverBuffered($key, $hash, $reconcile);
+                if ($recovered !== null) return $recovered;
+            } catch (\Throwable $error) {
+                $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update(['execution_status' => 'reconciling', 'error_code' => 'receipt_settlement_pending', 'event_seq' => Db::raw('event_seq + 1')]);
+                throw $error;
+            }
             $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update(['execution_status' => 'reconciling', 'error_code' => 'submission_unknown', 'event_seq' => Db::raw('event_seq + 1')]);
             throw new RuntimeException('上游结果尚未确认，已停止重复提交并保留现有内容', 409);
         }
-        $started = microtime(true);
+        $started = microtime(true); $resultReceived = false;
         try {
-            $receipt = $provider($input, $bufferKey);
+            $persist = function (array $raw) use ($bufferKey, &$resultReceived): void {
+                $resultReceived = true;
+                $this->buffer->write(self::rawKey($bufferKey), $raw);
+            };
+            $receipt = $provider($input, $bufferKey, $persist);
             if (!is_array($receipt)) throw new RuntimeException('模型返回收据无效', 502);
-            $receipt['_elapsed_ms'] = (int)round((microtime(true) - $started) * 1000);
+            $receipt['_elapsed_ms'] = $receipt['_elapsed_ms'] ?? (int)round((microtime(true) - $started) * 1000);
             $this->buffer->write($bufferKey, $receipt);
         } catch (\Throwable $error) {
-            if (ShortDramaPlanningUnit::retryableBeforeSubmission($error->getMessage()) && $claim['attempt'] < 3) {
+            if (!$resultReceived && ShortDramaPlanningUnit::retryableBeforeSubmission($error->getMessage()) && $claim['attempt'] < 3) {
                 Db::transaction(function () use ($fence, $key, $claim): void {
                     $job = $this->job(); $this->assertFence($job, $fence);
                     $this->query('stage')->where('stage_key', $key)->where('fence', $fence)->update(['status' => 'retry_wait',
@@ -144,11 +155,34 @@ final class ExecutionStore
                 throw new RuntimeException('连接暂时不可用，稍后继续；已保存内容保留', 425, $error);
             }
             // Provider/buffer ambiguity never authorizes another paid submission.
-            try { $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update(['execution_status' => 'reconciling', 'error_code' => 'submission_unknown', 'event_seq' => Db::raw('event_seq + 1')]); }
+            try { $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update(['execution_status' => 'reconciling', 'error_code' => $resultReceived ? 'receipt_settlement_pending' : 'submission_unknown', 'event_seq' => Db::raw('event_seq + 1')]); }
             catch (\Throwable $ignored) { /* Original stage intent remains the durable recovery boundary. */ }
             throw $error;
         }
         $this->receive($key, $hash, $receipt);
+        return $receipt;
+    }
+    private static function rawKey(string $key): string { return hash('sha256', 'provider-result:' . $key); }
+    /** Call outside a surrounding transaction: final receipt publication must follow committed settlement. */
+    public function reconcileReceipts(callable $reconcile): void
+    {
+        foreach ($this->query('stage')->where('status', 'submitted')->select()->toArray() as $stage) {
+            $this->recoverBuffered($stage['stage_key'], $stage['input_hash'], $reconcile);
+        }
+    }
+    private function recoverBuffered(string $stage, string $hash, ?callable $reconcile): ?array
+    {
+        $key = $this->buffer->key($this->scope + ['stage_key' => $stage], $hash);
+        $receipt = $this->buffer->read($key);
+        if ($receipt === null && $reconcile !== null) {
+            $raw = $this->buffer->read(self::rawKey($key));
+            if ($raw !== null) {
+                $receipt = $reconcile($raw);
+                if (!is_array($receipt)) throw new RuntimeException('结算恢复收据无效', 409);
+                $this->buffer->write($key, $receipt);
+            }
+        }
+        if ($receipt !== null) $this->receive($stage, $hash, $receipt);
         return $receipt;
     }
     /** Receiving a late result is allowed; publication still requires the current fence. */

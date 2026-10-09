@@ -57,6 +57,48 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertSame(1, $budget['calls']); self::assertSame(34, $budget['output_tokens']); self::assertSame(2, $budget['user_points']);
         $this->expectExceptionCode(409); $this->store->call($fence, 'screenplay', ['prompt' => 'changed'], $provider);
     }
+    public function testRawReplySurvivesSettlementFailureAndResumesWithoutAnotherProviderCall(): void
+    {
+        $fence = $this->store->acquire('worker1', 100); $calls = 0;
+        try {
+            $this->store->call($fence, 'screenplay', [], function ($input, $key, $persist) use (&$calls) {
+                $calls++; $persist($this->receipt());
+                // Even misleading connection wording after a reply must not authorize resubmission.
+                throw new \RuntimeException('Could not resolve host while writing settlement audit');
+            });
+            self::fail('Settlement fault ignored');
+        } catch (\RuntimeException $e) { self::assertStringContainsString('settlement audit', $e->getMessage()); }
+        self::assertSame('reconciling', $this->store->snapshot()['execution_status']);
+        self::assertSame('receipt_settlement_pending', $this->store->snapshot()['error_code']);
+        self::assertSame([], $this->store->receipts());
+        try { $this->store->reconcileReceipts(static function () { throw new \RuntimeException('insufficient balance', 409); }); }
+        catch (\RuntimeException $e) { self::assertSame(409, $e->getCode()); }
+        self::assertSame([], $this->store->receipts());
+        $settlements = 0;
+        $recover = static function (array $receipt) use (&$settlements): array { $settlements++; return $receipt; };
+        $this->store->reconcileReceipts($recover);
+        $this->store->reconcileReceipts($recover);
+        self::assertTrue($this->store->resume());
+        $fence = $this->store->acquire('worker2', 100);
+        self::assertSame($this->receipt(), $this->store->call($fence, 'screenplay', [], static function () { self::fail('Recovered reply resubmitted'); }));
+        self::assertSame(1, $calls); self::assertSame(1, $settlements);
+        $budget = json_decode($this->store->snapshot()['budget_json'], true);
+        self::assertSame(1, $budget['calls']); self::assertSame(34, $budget['output_tokens']); self::assertSame(2, $budget['user_points']);
+    }
+    public function testWorkerRecoversRawReplyWithSameInputButNeverPublishesAfterCancellation(): void
+    {
+        $fence = $this->store->acquire('worker1', 100);
+        try { $this->store->call($fence, 'screenplay', [], function ($input, $key, $persist) {
+            $persist($this->receipt()); throw new \RuntimeException('settlement unavailable');
+        }); } catch (\RuntimeException $ignored) {}
+        $fence = $this->store->acquire('worker1', 100);
+        $receipt = $this->store->call($fence, 'screenplay', [], static function () { self::fail('Provider resubmitted'); }, '',
+            function (array $raw): array { $this->store->cancel(); return $raw; });
+        self::assertSame($this->receipt(), $receipt);
+        self::assertSame('canceled', $this->store->snapshot()['execution_status']);
+        self::assertCount(1, $this->store->receipts());
+        $this->expectExceptionCode(409); $this->store->checkpoint($fence, ['document' => []]);
+    }
     public function testWholeRepairRoundMustFitAndBudgetSurvivesWorkerChange(): void
     {
         $fence = $this->store->acquire('worker1', 100);
