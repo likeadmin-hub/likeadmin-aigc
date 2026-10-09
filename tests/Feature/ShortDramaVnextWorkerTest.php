@@ -97,7 +97,8 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertSame('success', $frame['status'], json_encode($frame, JSON_UNESCAPED_UNICODE));
             self::assertCount(2, \app\common\service\power\MarketImageModelRuntimeService::$requests);
             self::assertSame([$image['assets'][0]['id']], $frame['input_asset_ids']);
-            self::assertSame($unit['unit_id'], $frame['assets'][0]['meta']['canonical_trace']['unit_refs'][0]['unit_id']);
+            self::assertSame($frame['request']['provider_input_hash'], $frame['assets'][0]['meta']['canonical_trace']['provider_input_hash']);
+            self::assertSame($unit['unit_id'], $frame['request']['params']['_canonical_image']['trace']['unit_refs'][0]['unit_id']);
             // Another tenant/user cannot price or dispatch this project's content.
             try { Service::estimateShotGenerationTask($tenant, $user + 1, $imageRequest); self::fail('Foreign owner accepted'); }
             catch (\Exception $e) { self::assertNotSame('', $e->getMessage()); }
