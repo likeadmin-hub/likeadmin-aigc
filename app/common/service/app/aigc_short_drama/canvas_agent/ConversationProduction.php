@@ -117,7 +117,7 @@ final class ConversationProduction
                         'workflow_variant'=>ShortDramaStoryWorkflow::VARIANT,'multi_episode_stage'=>'story',
                         'model_id'=>(string)($model['id']??''),'model_selections'=>['script_plan'=>$model,'image'=>$claim['settings']['image_model']??[],'video'=>$claim['settings']['video_model']??[]],
                         'style_id'=>(string)($state['creative_settings']['style_id']??''),'ratio'=>(string)($state['creative_settings']['aspect_ratio']??'9:16'),
-                        'quality_review_enabled'=>true,'submission_key'=>$submission];
+                        'quality_review_enabled'=>false,'submission_key'=>$submission];
                     if (ConversationCreativePolicy::enabled($state) && ($duration=ConversationCreativePolicy::duration($state))>0) $params['target_duration_seconds']=$duration;
                     if ($single) unset($params['workflow_variant'],$params['multi_episode_stage']);
                     $internal=['_generation_version'=>3,'_input_contract_version'=>ShortDramaInputContract::VERSION,'_prompt_snapshot'=>ConversationProductionPolicy::capture($state)];
