@@ -17,6 +17,7 @@ final class NarrativeLedger
             . 'world是故事世界的实际状态，至少引用一处动作正文；单纯对白、谎言、误认只能记belief，不自动当作world。'
             . 'belief是observer_id相信subject_id的某种状态，可以与world不同。未知推断标uncertain，不进入下一集已确认状态。'
             . '只报告变化；同一主体/属性/观察者最多一条，取本集结束时有证据的状态；闪回和未来打算不能覆盖当前状态。'
+            . '有明确外观变化时，人物属性使用appearance、clothing、hairstyle、makeup或injury；地点使用scene_layout、scene_condition、lighting或time_of_day；道具使用prop_condition或prop_appearance。这些world状态必须有动作证据，不把角色说法当作制作外观。'
             . '不返回系统事实ID、不改写已确认历史；无明确变化返回空数组。';
     }
 

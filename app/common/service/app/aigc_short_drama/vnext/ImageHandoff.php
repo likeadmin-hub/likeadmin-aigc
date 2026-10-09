@@ -12,10 +12,12 @@ final class ImageHandoff
     {
         $document = $candidate['document']; $plan = $candidate['shot_plan'];
         ShotCompiler::assertCurrent($document, $plan);
+        $registry = SeriesVisualState::registry($document, $candidate['coverage_report']['narrative_ledger'] ?? []);
         $targets = [];
         foreach ($document['entities'] as $entity) {
             $state = ['entity_id' => $entity['entity_id'], 'kind' => $entity['kind'], 'name' => $entity['canonical_name'],
                 'identity_facts' => $entity['identity_facts'], 'appearance' => $entity['description'], 'style' => $style];
+            if ($registry[$entity['entity_id']]['visual_state']) $state['visual_state'] = $registry[$entity['entity_id']]['visual_state'];
             $targets[] = ['target_id' => $entity['entity_id'], 'task_type' => $entity['kind'] === 'location' ? 'scene_image' : 'subject_image',
                 'name' => $entity['canonical_name'], 'description' => $entity['description'], 'state_hash' => ContentDocument::hash($state),
                 'entity_ids' => [$entity['entity_id']], 'state' => $state];
@@ -49,6 +51,7 @@ final class ImageHandoff
             $prompt = ($type === 'scene_image' ? '生成场景设定图，不添加剧本未指定的人物。' : ($state['kind'] === 'prop' ? '生成道具设定图。' : '生成单个角色的主体设定图。'))
                 . "\n名称：" . $state['name'] . "\n设定：" . $state['appearance'] . "\n已确认身份："
                 . json_encode($state['identity_facts'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            if (!empty($state['visual_state'])) $prompt .= "\n已发布并确认的外观或场景状态：" . json_encode($state['visual_state'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             foreach (ContentDocument::units($document) as $unit) if ($unit['location_id'] === $id || in_array($id, $unit['entity_ids'], true)) {
                 $unitRefs[] = ['unit_id' => $unit['unit_id'], 'start' => 0, 'end' => mb_strlen($unit['text'], 'UTF-8')];
             }
