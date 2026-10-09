@@ -59,7 +59,7 @@ final class ShortDramaFileQaExtractionPersistenceTest extends TestCase
                 catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
                 $foreign = $params; $foreign['submission_key'] = 'sd:' . bin2hex(random_bytes(12));
                 try { AigcShortDramaService::parseUploadedScript($scope['tenant_id'], 8, $foreign); self::fail('Foreign project must not upload'); }
-                catch (\think\Exception $error) { self::assertSame($calls, count(\app\common\service\UploadService::$copies)); }
+                catch (\Exception $error) { self::assertSame($calls, count(\app\common\service\UploadService::$copies)); }
             }
             // A new, verified upload replaces the failure contract rather than inheriting it.
             $path = tempnam(sys_get_temp_dir(), 'sd-projection-'); $paths[] = $path; file_put_contents($path, "完整原文😀\n结尾。");
