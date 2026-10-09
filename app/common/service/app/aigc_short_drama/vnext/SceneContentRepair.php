@@ -99,6 +99,7 @@ final class SceneContentRepair
             $entry = ['round' => $round, 'base_revision_id' => $base['revision_id'], 'base_document_hash' => $base['content_hash'],
                 'revision_id' => $candidate['revision_id'], 'document_hash' => $candidate['content_hash'], 'issues' => $scope['issues'], 'changes' => $changes,
                 'replan_windows' => $scope['replan'], 'recheck_windows' => $scope['recheck']];
+            if (isset($best['missing_location'])) $entry['missing_location'] = $best['missing_location'];
             $nextReport['content_repair'] = $entry + ['history' => array_merge($report['content_repair']['history'] ?? [], [$entry])];
             $best = ['document' => $candidate, 'shot_plan' => $candidateShots, 'coverage_report' => $nextReport];
             $checkpoint($best);
@@ -115,7 +116,7 @@ final class SceneContentRepair
         $plan['plan_hash'] = ContentDocument::hash($plan);
         SceneReviewExecution::assertPlan($document, $shots, $plan);
         if ($plan['plan_hash'] !== $report['window_review']['plan_hash'] || $report['document_hash'] !== $document['content_hash'] || $report['shot_hash'] !== $shots['content_hash']) throw new RuntimeException('正文修复的核验基线已变化', 409);
-        $units = ContentDocument::units($document); $owners = [];
+        $owners = [];
         foreach ($reviews as $index => $review) {
             $actual = SceneReviewExecution::windowData([], $document, $shots, $review['window']['shot_ids'], $index + 1, count($reviews));
             if ($review['window'] !== $actual['review_window']) throw new RuntimeException('核验窗口的正文范围已变化', 409);

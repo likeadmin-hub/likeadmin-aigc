@@ -53,6 +53,7 @@ final class ShortDramaVnextMissingContentLocationTest extends TestCase
         self::assertSame('after', $issue['insertion_location']['position']); self::assertSame('u6', $issue['insertion_location']['evidence'][0]['unit']);
         $located = array_values(array_filter($snapshots, static fn($s) => isset($s['missing_location'])))[0];
         self::assertSame($located['missing_location']['location_hash'], $issue['insertion_location']['location_hash']);
+        self::assertSame($located['missing_location'], $result['coverage_report']['content_repair']['history'][0]['missing_location']);
         self::assertSame([], $located['coverage_report']['issues'][0]['repair_unit_ids']);
         self::assertSame('draft', $located['coverage_report']['status']);
         $old = ContentDocument::units($snapshots[0]['document']); $new = ContentDocument::units($result['document']);
@@ -127,5 +128,53 @@ final class ShortDramaVnextMissingContentLocationTest extends TestCase
             try { MissingContentLocation::validate($doc, $shots, $issues, [$anchor['unit_id']], $bad); self::fail('Invalid location accepted: ' . $case); }
             catch (\RuntimeException $e) { self::assertSame(422, $e->getCode()); }
         }
+    }
+    public function testMixedUncertainIssueDoesNotAuthorizeMissingContentLocation(): void
+    {
+        $keys = []; $snapshots = [];
+        $result = $this->runCase(static function ($key, $data) {
+            $receipt = self::receipt($key, $data);
+            if ($key === 'review_global') {
+                $reply = json_decode($receipt['content'], true);
+                foreach ($reply['checks'] as &$check) if ($check['id'] === 'aspect:continuity') {
+                    $check['status'] = 'uncertain'; $check['reason'] = '人物认知不确定';
+                }
+                unset($check); $receipt['content'] = json_encode($reply, JSON_UNESCAPED_UNICODE);
+            }
+            return $receipt;
+        }, static function () { self::fail('Mixed issues reserved repair'); }, $keys, $snapshots);
+        self::assertSame('windowed_content_requires_revision', $result['stop_reason']); self::assertCount(6, $keys);
+    }
+    public function testNewProblemAfterLocatedInsertionCannotReplaceBestDraft(): void
+    {
+        $keys = []; $snapshots = [];
+        $result = $this->runCase(static function ($key, $data) {
+            $receipt = self::receipt($key, $data);
+            if ($key === 'content_window_repair_1_global') {
+                $reply = json_decode($receipt['content'], true);
+                foreach ($reply['checks'] as &$check) if ($check['id'] === 'aspect:identity') {
+                    $check['status'] = 'contradiction'; $check['reason'] = '补入台词不符合登记身份';
+                }
+                unset($check); $receipt['content'] = json_encode($reply, JSON_UNESCAPED_UNICODE);
+            }
+            return $receipt;
+        }, null, $keys, $snapshots);
+        self::assertSame('repair_not_improved', $result['stop_reason']); self::assertSame($snapshots[0]['document'], $result['document']);
+        self::assertCount(7, ContentDocument::units(end($snapshots)['content_repair']['candidate_document']));
+        self::assertSame('content_missing', $result['coverage_report']['issues'][0]['code']);
+        self::assertNotEmpty(end($snapshots)['missing_location']['location_hash']);
+    }
+    public function testLocalizationCapacityFailureKeepsBestDraftAndNeverStartsRepair(): void
+    {
+        $keys = []; $snapshots = [];
+        try {
+            $this->runCase(static function ($key, $data) {
+                if (isset($data['localization_issues'])) throw new \RuntimeException('input capacity', 413);
+                return self::receipt($key, $data);
+            }, static function () { self::fail('Unlocated content reserved repair'); }, $keys, $snapshots);
+            self::fail('Capacity failure ignored');
+        } catch (\RuntimeException $e) { self::assertSame(413, $e->getCode()); }
+        self::assertSame($snapshots[0]['document'], end($snapshots)['document']); self::assertSame('draft', end($snapshots)['coverage_report']['status']);
+        self::assertCount(7, $keys);
     }
 }
