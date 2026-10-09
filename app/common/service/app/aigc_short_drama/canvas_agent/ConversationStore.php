@@ -225,6 +225,13 @@ final class ConversationStore
             if (!isset($content['video_nodes']) && !empty($content['canvas_actions']['nodes'])) {
                 $ids=array_column(array_filter($content['canvas_actions']['nodes'],static fn(array $n): bool=>($n['type']??'')==='video'),'id');
                 if ($ids) {
+                    $run=Db::name(self::PREFIX.'run')->where($scope+['id'=>$row['run_id'],'thread_id'=>$thread])->find();
+                    $frozen=(array)(json_decode((string)($run['context_snapshot']??'{}'),true)['workflow']??[]);
+                    $saved=[];
+                    foreach ((array)($frozen['artifact_memory']??[]) as $item) {
+                        if (($item['stage']??'')==='video_plan' && in_array($item['key']??'',(array)($frozen['video_selection']??[]),true))
+                            $saved[]=['key'=>(string)$item['key'],'title'=>(string)$item['title'],'prompt'=>(string)$item['content']];
+                    }
                     $document=Db::name(GraphService::TABLE)->where(['id'=>$scope['canvas_id'],'tenant_id'=>$scope['tenant_id'],'user_id'=>$scope['user_id'],'delete_time'=>0])->find();
                     // Graph ownership uses id, not the message table's canvas_id column.
                     $content['video_nodes']=[];
@@ -232,6 +239,7 @@ final class ConversationStore
                         if (!in_array((string)$node['id'],array_map('strval',$ids),true) || ($node['metadata']['workflow_artifact']??'')!=='storyboard_video') continue;
                         $content['video_nodes'][]=['key'=>(string)$node['id'],'title'=>(string)$node['title'],'prompt'=>(string)($node['metadata']['prompt']??'')];
                     }
+                    if ($saved) $content['video_nodes']=$saved;
                 }
             }
             $message=['id'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'role'=>$row['role'],'created_at'=>(int)$row['create_time'],'content'=>$content,'attachments'=>json_decode($row['attachments_json'],true,512,JSON_THROW_ON_ERROR)];
