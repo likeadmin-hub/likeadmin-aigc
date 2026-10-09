@@ -6950,6 +6950,7 @@ class AigcShortDramaService
         $job = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId)->snapshot();
         if (!$job || $job['document_status'] !== 'ready' || $job['execution_status'] !== 'succeeded') throw new \RuntimeException('剧本尚未就绪', 409);
         $candidate = self::jsonDecode($job['candidate_json']); $input = self::jsonDecode($job['input_json']);
+        vnext\SeriesContext::assertDependencies($input['context']);
         $style = (string)($input['context']['style'] ?? '');
         $state = self::canonicalImageState($tenantId, $userId, (int)$project['id'], $taskId, $candidate, $style);
         $targetId = (string)($params[$taskType === 'shot_image' ? 'shot_id' : ($taskType === 'scene_image' ? 'scene_id' : 'subject_id')] ?? $params['item_id'] ?? '');
@@ -6972,6 +6973,12 @@ class AigcShortDramaService
     /** Read-only production projection. Reuse only outputs with a verified persisted generation trace. */
     private static function canonicalImageState(int $tenantId, int $userId, int $projectId, string $taskId, array $candidate, string $style): array
     {
+        $blockedReason = '';
+        try { vnext\SeriesContext::assertDependencies(['dependency_versions' => $candidate['document']['dependency_versions']]); }
+        catch (\RuntimeException $error) {
+            if ($error->getCode() !== 409) throw $error;
+            $blockedReason = '前集已更新或尚未完成，请先回分集列表完成复核；已有正文和图片仍可查看。';
+        }
         $scope = ['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0];
         $targets = vnext\ImageHandoff::targets($candidate, $style); $bindings = [];
         $generations = AigcShortDramaGenerationTask::where($scope)->whereIn('task_type', ['subject_image', 'scene_image', 'shot_image'])->order('id', 'desc')->select()->toArray();
@@ -7008,14 +7015,14 @@ class AigcShortDramaService
             }
         }
         unset($target);
-        foreach ($targets as &$target) $target['can_generate'] = !$target['asset'] && !in_array($target['generation']['status'] ?? '', ['pending', 'running', 'queued'], true)
+        foreach ($targets as &$target) $target['can_generate'] = $blockedReason === '' && !$target['asset'] && !in_array($target['generation']['status'] ?? '', ['pending', 'running', 'queued'], true)
             && ($target['task_type'] !== 'shot_image' || !array_diff($target['entity_ids'], array_keys($bindings)));
         unset($target);
         $status = 'waiting_assets';
         if ($targets && count(array_filter($targets, static fn($target) => !empty($target['asset']))) === count($targets)) $status = 'ready';
         elseif (array_filter($targets, static fn($target) => in_array($target['generation']['status'] ?? '', ['pending', 'running', 'queued'], true))) $status = 'running';
         elseif (array_filter($targets, static fn($target) => empty($target['asset']) && ($target['generation']['status'] ?? '') === 'failed')) $status = 'failed';
-        return ['revision_id' => $candidate['document']['revision_id'], 'status' => $status, 'targets' => $targets, 'bindings' => $bindings];
+        return ['revision_id' => $candidate['document']['revision_id'], 'status' => $status, 'blocked_reason' => $blockedReason, 'targets' => $targets, 'bindings' => $bindings];
     }
 
     private static function canonicalImageReferences(int $tenantId, int $userId, int $projectId, array $handoff): array
@@ -7449,6 +7456,7 @@ class AigcShortDramaService
             $job = vnext\ApplicationWorkflow::store($tenantId, $userId, (string)$task['source_task_id'])->snapshot();
             if ($project['last_task_id'] !== $task['source_task_id'] || !$job || $job['document_status'] !== 'ready'
                 || $job['published_revision_id'] !== $canonical['trace']['document_revision_id']) throw new \RuntimeException('原制作任务的剧本已变化，请从当前版本重新制作', 409);
+            vnext\SeriesContext::assertDependencies(self::jsonDecode($job['input_json'])['context']);
             self::assertCanonicalImageCapacity($tenantId, $userId, (int)$task['project_id'], $originalRequest['params'], self::jsonDecode((string)$task['pricing_snapshot']));
         }
         $newTaskId = self::makeTaskId('sd_gen_retry');
@@ -24100,7 +24108,8 @@ class AigcShortDramaService
                 $response['production_handoff'] = self::canonicalImageState((int)$task['tenant_id'], (int)$task['user_id'], (int)$task['project_id'],
                     (string)$task['task_id'], self::jsonDecode($job['candidate_json']), (string)($input['context']['style'] ?? ''));
                 unset($response['production_handoff']['bindings']);
-                $response['generation_snapshot']['allowed_actions'][] = 'generate_images';
+                $response['generation_snapshot']['allowed_actions'][] = 'read_images';
+                if ($response['production_handoff']['blocked_reason'] === '') $response['generation_snapshot']['allowed_actions'][] = 'generate_images';
             }
             if (!$isCurrentProjectTask && $response['generation_snapshot']) {
                 $response['generation_snapshot']['allowed_actions'] = array_values(array_intersect(
