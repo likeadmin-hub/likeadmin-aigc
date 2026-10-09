@@ -3,6 +3,7 @@ namespace Tests\Feature;
 
 use app\common\service\app\aigc_short_drama\vnext\AudioHandoff;
 use app\common\service\app\aigc_short_drama\vnext\AudioMediaProbe;
+use app\common\service\app\aigc_short_drama\vnext\AudioMeasurementWorker;
 use app\common\service\app\aigc_short_drama\vnext\AudioProduction;
 use app\common\service\app\aigc_short_drama\vnext\ContentDocument;
 use app\common\service\app\aigc_short_drama\vnext\ExecutionStore;
@@ -162,6 +163,56 @@ final class ShortDramaVnextAudioProductionTest extends TestCase
             self::assertSame(3.123375, $preview['production_timeline']['audio'][0]['end_seconds']);
             self::assertSame(6.24675, $preview['production_timeline']['audio'][1]['end_seconds']);
             self::assertSame($before, Db::name('ai_consumption_log')->where($scope)->count(), 'Preview never reserves or submits');
+            $params['audio_segment_id'] = $segment['audio_segment_id']; $params['confirmed_text_hash'] = $segment['text_hash'];
+            $enqueue = static function (int $samples) use ($path, $stored, $tenant, $user, $params, $file): array {
+                $data = str_repeat("\0", $samples * 2);
+                file_put_contents($path, 'RIFF' . pack('V', 36 + strlen($data)) . 'WAVEfmt ' . pack('VvvVVvv', 16, 1, 1, 8000, 16000, 2, 16)
+                    . 'data' . pack('V', strlen($data)) . $data);
+                clearstatcache(false, $path);
+                $upload = array_replace($stored, ['uri' => 'uploads/worker-' . $samples . '.wav', 'file_size' => filesize($path)]);
+                // A Web process without exec/FFprobe still stores an owned pending asset.
+                return AudioProduction::register($tenant, $user, $params, $file, '', static fn() => $upload);
+            };
+            $queued = $enqueue(8000 * 4);
+            self::assertSame('pending', $queued['status']); self::assertSame(0, $queued['duration']);
+            self::assertSame('pending', AudioProduction::page($tenant, $user, $project, $task, 1)['records'][0]['job']['status']);
+            self::assertSame(1, AudioProduction::summary($tenant, $user, $project, $candidate)['pending']);
+            self::assertSame(3.123375, AudioProduction::page($tenant, $user, $project, $task, 1)['records'][0]['asset']['duration_seconds'], 'Previous valid audio remains playable');
+            $reads = 0; $load = static function () use ($path, &$reads): array { $reads++; return ['path' => $path, 'temporary' => false]; };
+            self::assertTrue(AudioMeasurementWorker::process((int)$queued['id'], $ffprobe, $load));
+            self::assertSame(4.0, AudioProduction::page($tenant, $user, $project, $task, 1)['records'][0]['asset']['duration_seconds']);
+            self::assertFalse(AudioMeasurementWorker::process((int)$queued['id'], $ffprobe, $load)); self::assertSame(1, $reads);
+            $queued = $enqueue(8000 * 5); $oldClaim = AudioMeasurementWorker::claim((int)$queued['id']);
+            self::assertNotNull($oldClaim); self::assertNull(AudioMeasurementWorker::claim((int)$queued['id']), 'Live worker is not dispatched twice');
+            $newClaim = AudioMeasurementWorker::claim((int)$queued['id'], time() + AudioMeasurementWorker::LEASE_SECONDS + 1);
+            self::assertNotNull($newClaim);
+            $trace = AudioHandoff::recordingTrace($segment, AudioMediaProbe::measure($path, 'wav', $ffprobe), hash_file('sha256', $path), $user);
+            self::assertFalse(AudioMeasurementWorker::finish($oldClaim, $trace), 'Expired worker cannot publish over a new lease');
+            self::assertTrue(AudioMeasurementWorker::finish($newClaim, $trace));
+            self::assertSame(5.0, AudioProduction::page($tenant, $user, $project, $task, 1)['records'][0]['asset']['duration_seconds']);
+            $queued = $enqueue(8000 * 6);
+            $failedLoad = static function () { throw new \RuntimeException('private signed storage URL and credentials'); };
+            for ($attempt = 1; $attempt <= 3; $attempt++) {
+                self::assertTrue(AudioMeasurementWorker::process((int)$queued['id'], $ffprobe, $failedLoad));
+                $row = Db::name('aigc_short_drama_asset')->where('id', $queued['id'])->find(); $meta = json_decode($row['meta_json'], true);
+                self::assertSame($attempt < 3 ? 'pending' : 'failed', $row['status']);
+                self::assertSame($attempt, $meta['probe_job']['attempts']); self::assertStringNotContainsString('credentials', $meta['probe_job']['error']);
+                if ($attempt < 3) {
+                    self::assertFalse(AudioMeasurementWorker::process((int)$queued['id'], $ffprobe, $load), 'Backoff must not immediately retry');
+                    $meta['probe_job']['retry_at'] = 0; Db::name('aigc_short_drama_asset')->where('id', $queued['id'])->update(['meta_json' => json_encode($meta)]);
+                }
+            }
+            self::assertSame(5.0, AudioProduction::page($tenant, $user, $project, $task, 1)['records'][0]['asset']['duration_seconds'], 'Failed replacement never destroys the last valid recording');
+            $retry = $enqueue(8000 * 6); self::assertNotSame((int)$queued['id'], (int)$retry['id']);
+            self::assertTrue(AudioMeasurementWorker::process((int)$retry['id'], $ffprobe, $load));
+            self::assertSame(6.0, AudioProduction::page($tenant, $user, $project, $task, 1)['records'][0]['asset']['duration_seconds']);
+            $queued = $enqueue(8000 * 7); file_put_contents($path, 'changed audio bytes');
+            self::assertTrue(AudioMeasurementWorker::process((int)$queued['id'], $ffprobe, $load));
+            self::assertSame('failed', Db::name('aigc_short_drama_asset')->where('id', $queued['id'])->value('status'));
+            self::assertSame(6.0, AudioProduction::page($tenant, $user, $project, $task, 1)['records'][0]['asset']['duration_seconds'], 'Changed stored bytes never replace the valid recording');
+            $queued = $enqueue(8000 * 7); Db::name('aigc_short_drama_asset')->where('id', $queued['id'])->update(['delete_time' => time()]);
+            self::assertFalse(AudioMeasurementWorker::process((int)$queued['id'], $ffprobe, $load), 'Deleted pending assets are not resurrected');
+            self::assertSame($before, Db::name('ai_consumption_log')->where($scope)->count(), 'Measurement and recovery are local, unbilled operations');
         } finally { Db::rollback(); if (is_file($path)) unlink($path); if (is_dir($path . '_receipts')) rmdir($path . '_receipts'); }
     }
 }

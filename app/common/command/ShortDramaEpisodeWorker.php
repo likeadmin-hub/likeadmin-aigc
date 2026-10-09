@@ -30,7 +30,8 @@ class ShortDramaEpisodeWorker extends Command
         do {
             \app\common\service\app\aigc_short_drama\ShortDramaWorkerMemory::release();
             try {
-                $processed = ShortDramaEpisodeService::tick();
+                $audio = \app\common\service\app\aigc_short_drama\AigcShortDramaService::tickCanonicalAudio();
+                $processed = ShortDramaEpisodeService::tick() + $audio;
             } catch (\Throwable $e) {
                 \think\facade\Log::error('Episode worker: ' . $e->getMessage());
                 if ($input->getOption('once')) throw $e;

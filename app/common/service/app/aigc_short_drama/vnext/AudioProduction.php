@@ -29,7 +29,10 @@ final class AudioProduction
         if ($page < 1) throw new RuntimeException('配音页码无效', 422);
         $candidate = self::context($tenant, $user, $project, $task, false); $segments = AudioHandoff::segments($candidate);
         $total = count($segments); $segment = $segments[$page - 1] ?? null;
-        if ($segment) $segment['asset'] = self::assets($tenant, $user, $project, [$segment])[$segment['audio_segment_id']] ?? null;
+        if ($segment) {
+            $segment['job'] = self::jobs($tenant, $user, $project, [$segment])[$segment['audio_segment_id']] ?? null;
+            $segment['asset'] = self::assets($tenant, $user, $project, [$segment])[$segment['audio_segment_id']] ?? null;
+        }
         return ['revision_id' => $candidate['document']['revision_id'], 'document_hash' => $candidate['document']['content_hash'],
             'page' => $page, 'total' => $total, 'next_page' => $page < $total ? $page + 1 : null, 'records' => $segment ? [$segment] : []];
     }
@@ -43,12 +46,13 @@ final class AudioProduction
             $id = $firstShots[$segment['unit_id']]; $voiceByShot[$id] = ($voiceByShot[$id] ?? 0) + $assets[$segment['audio_segment_id']]['duration_seconds'];
         }
         foreach ($voiceByShot as $id => $seconds) $suggested[$id] = max($suggested[$id], $seconds);
-        $identities = [];
-        foreach ($assets as $id => $asset) $identities[$id] = array_intersect_key($asset, array_flip(['id', 'duration_seconds', 'checksum', 'trace_hash']));
+        $jobs = self::jobs($tenant, $user, $project, $segments);
         return ['revision_id' => $candidate['document']['revision_id'], 'document_hash' => $candidate['document']['content_hash'],
-            'total' => count($segments), 'ready' => count($assets), 'status' => count($assets) === count($segments) ? 'ready' : 'waiting_recordings',
-            'recordings_hash' => ContentDocument::hash($identities), 'suggested_shot_seconds' => $suggested,
-            'voice_seconds' => array_sum(array_column($assets, 'duration_seconds'))];
+            'shot_hash' => $candidate['shot_plan']['content_hash'], 'total' => count($segments), 'ready' => count($assets), 'status' => count($assets) === count($segments) ? 'ready' : 'waiting_recordings',
+            'recordings_hash' => self::recordingsHash($assets), 'suggested_shot_seconds' => $suggested,
+            'voice_seconds' => array_sum(array_column($assets, 'duration_seconds')),
+            'pending' => count(array_filter($jobs, static fn($job) => in_array($job['status'], ['pending', 'processing'], true))),
+            'failed' => count(array_filter($jobs, static fn($job) => $job['status'] === 'failed'))];
     }
 
     /** Read-only planning preview: no provider submission, reserve, settlement or publication. */
@@ -60,8 +64,18 @@ final class AudioProduction
         $seconds = $params['shot_timings'] ?? null;
         if (!is_array($seconds)) throw new RuntimeException('请提交各分镜的画面时长', 422);
         $recordings = self::assets($tenant, $user, $project, AudioHandoff::segments($candidate));
+        foreach (self::jobs($tenant, $user, $project, AudioHandoff::segments($candidate)) as $job) if (in_array($job['status'], ['pending', 'processing'], true)) throw new RuntimeException('请等待新配音测量完成后再核对制作时间线', 409);
+        $hash = self::recordingsHash($recordings);
+        if (!empty($params['expected_recordings_hash']) && $params['expected_recordings_hash'] !== $hash) throw new RuntimeException('配音版本已变化，请刷新后核对制作时间线', 409);
         $timeline = AudioTimeline::compile($candidate, $recordings, $seconds);
-        return ['task_id' => $task, 'preview_only' => true, 'production_timeline' => $timeline];
+        return ['task_id' => $task, 'preview_only' => true, 'recordings_hash' => $hash, 'production_timeline' => $timeline];
+    }
+
+    private static function recordingsHash(array $assets): string
+    {
+        $identities = [];
+        foreach ($assets as $id => $asset) $identities[$id] = array_intersect_key($asset, array_flip(['id', 'duration_seconds', 'checksum', 'trace_hash']));
+        return ContentDocument::hash($identities);
     }
 
     /** Upload and FFprobe run outside locks. The final revision check and registration are atomic. */
@@ -73,31 +87,36 @@ final class AudioProduction
             (string)($params['expected_revision_id'] ?? ''), (string)($params['confirmed_text_hash'] ?? ''));
         if ((method_exists($file, 'getError') ? $file->getError() : 0) !== 0) throw new RuntimeException('配音文件上传失败', 422);
         $path = (string)$file->getRealPath(); $extension = strtolower((string)$file->extension());
-        $measurement = AudioMediaProbe::measure($path, $extension, $ffprobe);
+        AudioMediaProbe::assertFile($path, $extension);
+        $measurement = $ffprobe === '' ? null : AudioMediaProbe::measure($path, $extension, $ffprobe);
         $checksum = hash_file('sha256', $path);
-        $trace = AudioHandoff::recordingTrace($segment, $measurement, $checksum, $user);
-        $existing = self::existing($tenant, $user, $project, $task, $trace, $segment);
+        $upload = array_intersect_key($segment, array_flip(['audio_segment_id', 'document_revision_id', 'text_hash', 'input_hash']));
+        $upload += ['confirmed_by' => $user, 'checksum' => $checksum, 'extension' => $extension];
+        $upload['request_hash'] = ContentDocument::hash($upload);
+        $trace = $measurement === null ? null : AudioHandoff::recordingTrace($segment, $measurement, $checksum, $user);
+        $existing = self::existing($tenant, $user, $project, $task, $checksum, $segment);
         if ($existing) return $existing;
         $stored = $persist();
         if (($stored['tenant_id'] ?? 0) !== $tenant || ($stored['source_id'] ?? 0) !== $user || empty($stored['uri'])
             || empty($stored['storage_scope']) || empty($stored['storage_engine'])) throw new RuntimeException('配音文件存储来源无法确认', 409);
-        return Db::transaction(static function () use ($tenant, $user, $project, $task, $segment, $trace, $stored, $measurement, $checksum): array {
+        return Db::transaction(static function () use ($tenant, $user, $project, $task, $segment, $trace, $upload, $stored, $measurement, $checksum): array {
             $scope = ['tenant_id' => $tenant, 'user_id' => $user];
             Db::name('aigc_short_drama_vnext_job')->where($scope + ['task_id' => $task])->lock(true)->find();
             Db::name('aigc_short_drama_project')->where($scope + ['id' => $project])->lock(true)->find();
             $candidate = self::context($tenant, $user, $project, $task);
             $current = AudioHandoff::compile($candidate, $segment['audio_segment_id'], $segment['document_revision_id'], $segment['text_hash']);
             if ($current['input_hash'] !== $segment['input_hash']) throw new RuntimeException('配音来源已变化，请刷新后上传', 409);
-            $existing = self::existing($tenant, $user, $project, $task, $trace, $segment);
+            $existing = self::existing($tenant, $user, $project, $task, $checksum, $segment);
             if ($existing) return $existing;
             $now = time();
             $row = $scope + ['project_id' => $project, 'task_id' => $task, 'shot_id' => '', 'asset_type' => 'shot_audio',
                 'title' => '配音 ' . $segment['order'],
                 'uri' => $stored['uri'], 'storage_scope' => $stored['storage_scope'], 'storage_engine' => $stored['storage_engine'],
                 'storage_domain' => $stored['storage_domain'] ?? '', 'mime_type' => $stored['mime_type'] ?? 'audio/' . $stored['extension'],
-                'file_size' => $stored['file_size'], 'duration' => $measurement['duration_seconds'], 'checksum' => $checksum,
-                'meta_json' => json_encode(['source' => 'canonical_recording', 'canonical_audio' => $trace], JSON_THROW_ON_ERROR),
-                'status' => 'ready', 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0];
+                'file_size' => $stored['file_size'], 'duration' => $measurement['duration_seconds'] ?? 0, 'checksum' => $checksum,
+                'meta_json' => json_encode(['source' => 'canonical_recording', 'audio_upload' => $upload, 'canonical_audio' => $trace,
+                    'probe_job' => ['attempts' => 0, 'retry_at' => 0, 'error' => '']], JSON_THROW_ON_ERROR),
+                'status' => $measurement === null ? 'pending' : 'ready', 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0];
             $id = Db::name('aigc_short_drama_asset')->insertGetId($row); return $row + ['id' => $id];
         });
     }
@@ -120,13 +139,36 @@ final class AudioProduction
         return $result;
     }
 
-    private static function existing(int $tenant, int $user, int $project, string $task, array $trace, array $segment): ?array
+    public static function jobs(int $tenant, int $user, int $project, array $segments): array
+    {
+        if (!$segments) return [];
+        $byId = array_column($segments, null, 'audio_segment_id'); $result = [];
+        $rows = Db::name('aigc_short_drama_asset')->where(['tenant_id' => $tenant, 'user_id' => $user, 'project_id' => $project,
+            'asset_type' => 'shot_audio', 'delete_time' => 0])->order('id', 'desc')->select()->toArray();
+        foreach ($rows as $row) {
+            $meta = json_decode($row['meta_json'], true) ?: []; $upload = $meta['audio_upload'] ?? []; $id = $upload['audio_segment_id'] ?? '';
+            if (isset($byId[$id]) && !isset($result[$id]) && self::validUpload($upload, $row, $byId[$id])) $result[$id] = [
+                'asset_id' => (int)$row['id'], 'status' => $row['status'], 'error' => $meta['probe_job']['error'] ?? ''];
+        }
+        return $result;
+    }
+
+    public static function validUpload(array $upload, array $asset, array $segment): bool
+    {
+        $hash = $upload['request_hash'] ?? ''; $signed = $upload; unset($signed['request_hash']);
+        return $hash !== '' && $hash === ContentDocument::hash($signed) && ($upload['input_hash'] ?? '') === $segment['input_hash']
+            && ($upload['confirmed_by'] ?? 0) === (int)$asset['user_id'] && ($upload['checksum'] ?? '') === $asset['checksum']
+            && in_array($upload['extension'] ?? '', AudioMediaProbe::EXTENSIONS, true);
+    }
+
+    private static function existing(int $tenant, int $user, int $project, string $task, string $checksum, array $segment): ?array
     {
         $rows = Db::name('aigc_short_drama_asset')->where(['tenant_id' => $tenant, 'user_id' => $user, 'project_id' => $project,
-            'task_id' => $task, 'asset_type' => 'shot_audio', 'checksum' => $trace['checksum'], 'status' => 'ready', 'delete_time' => 0])->select()->toArray();
+            'task_id' => $task, 'asset_type' => 'shot_audio', 'checksum' => $checksum, 'delete_time' => 0])->whereIn('status', ['pending', 'processing', 'ready'])->select()->toArray();
         foreach ($rows as $row) {
-            $saved = json_decode($row['meta_json'], true)['canonical_audio'] ?? [];
-            if (($saved['trace_hash'] ?? '') === $trace['trace_hash'] && $row['uri'] !== '' && AudioHandoff::matches($saved, $segment, $row)) return $row;
+            $meta = json_decode($row['meta_json'], true) ?: [];
+            if ($row['uri'] !== '' && ($row['status'] === 'ready' ? AudioHandoff::matches($meta['canonical_audio'] ?? [], $segment, $row)
+                : self::validUpload($meta['audio_upload'] ?? [], $row, $segment))) return $row;
         }
         return null;
     }

@@ -12,14 +12,20 @@ final class AudioMediaProbe
 
     public static function measure(string $path, string $extension, string $ffprobe): array
     {
-        if (!in_array($extension, self::EXTENSIONS, true) || !is_file($path) || !is_readable($path)
-            || filesize($path) <= 0 || filesize($path) > self::MAX_BYTES) throw new RuntimeException('请上传不超过 50MB 的有效配音文件', 422);
+        self::assertFile($path, $extension);
         if ($ffprobe === '' || !function_exists('exec')) throw new RuntimeException('当前服务暂时无法测量音频长度，请管理员检查 FFprobe 后重试', 409);
         $output = []; $code = 1;
         exec(escapeshellarg($ffprobe) . ' -v error -protocol_whitelist file,pipe -show_entries format=duration -show_entries stream=codec_type,duration -of json '
             . escapeshellarg($path) . ' 2>&1', $output, $code);
         $data = $code === 0 ? json_decode(implode("\n", $output), true) : null;
         return self::measurement(is_array($data) ? $data : []);
+    }
+
+    public static function assertFile(string $path, string $extension): void
+    {
+        clearstatcache(false, $path);
+        if (!in_array($extension, self::EXTENSIONS, true) || !is_file($path) || !is_readable($path)
+            || filesize($path) <= 0 || filesize($path) > self::MAX_BYTES) throw new RuntimeException('请上传不超过 50MB 的有效配音文件', 422);
     }
 
     public static function measurement(array $probe): array
