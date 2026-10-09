@@ -16,6 +16,7 @@ final class ConversationProduction
     public static function process(int $tenant,int $user,int $run,array $claim): string
     {
         $workflow=(array)$claim['context']['workflow'];
+        ConversationCreativePlan::assertConfirmed($workflow);
         $stage=(string)$workflow['stage_state']['key'];
         if (!ConversationSeries::isScriptStage($stage)) return self::visuals($tenant,$user,$run,$claim,$workflow,$stage);
         $key=ConversationSeries::taskKey($workflow);
@@ -105,6 +106,7 @@ final class ConversationProduction
                     $prompt.=ConversationCreativePolicy::enabled($state)
                         ? "\n明确创作要求与暂定草稿参数（以 slot_sources 区分）：".json_encode(['values'=>$state['slot_values'],'sources'=>$state['slot_sources']??[]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)
                         : "\n已确认的创作要求：".json_encode($state['slot_values'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+                    if (ConversationCreativePlan::enabled($state)) $prompt.="\n上述 slot_values 是用户最终确认的整套方案，优先于原始讨论中的建议。严格保持 story_direction、episode_count、episode_duration、visual_style 和 aspect_ratio，不得重新选择剧情方向或制作规模。";
                     foreach ((array)($state['workflow_snapshot']['document_asset_ids']??[]) as $assetId) {
                         $material=ConversationDocuments::material($tenant,$user,(int)$claim['canvas_id'],(int)$assetId,'上传剧本');
                         $content=explode("\n",$material['content'],2)[1]??$material['content'];

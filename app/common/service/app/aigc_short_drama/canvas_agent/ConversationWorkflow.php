@@ -208,6 +208,7 @@ final class ConversationWorkflow
             'key'=>self::KEY, 'version'=>self::VERSION, 'name'=>'短剧成片制作',
             'manual_aliases'=>['/短剧成片制作','/短剧创作','/short-drama','/story-to-drama'],
             'slots'=>[
+                ['key'=>'story_direction','label'=>'故事方向','ask'=>'请确认核心剧情与发展方向。','options'=>[]],
                 ['key'=>'genre','label'=>'故事类型','ask'=>'想创作什么类型的故事？','options'=>['都市情感','悬疑反转','古风奇幻','甜宠喜剧','科幻冒险']],
                 ['key'=>'episode_count','label'=>'集数规模','ask'=>'计划做多少集？','options'=>['1集（短片）','10集（微短剧）','30集（连载短剧）']],
                 ['key'=>'episode_duration','label'=>'单集时长','ask'=>'每集大约多长？','options'=>['30秒','1分钟','2分钟','3分钟以上']],
@@ -536,6 +537,14 @@ final class ConversationWorkflow
                 try { $values=json_decode($value,true,8,JSON_THROW_ON_ERROR); }
                 catch (\Throwable $error) { throw new RuntimeException('INVALID_WORKFLOW_ANSWER',0,$error); }
                 if (!is_array($values) || ($values && array_is_list($values)) || count($values)>count((array)($state['workflow_snapshot']['slot_schema']??[]))) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
+                if (ConversationCreativePlan::enabled($state)) {
+                    $state=ConversationCreativePlan::confirm($state,$values);
+                    self::recordCreativeAnswer($tenant,$state,'visual_style',$state['slot_values']['visual_style']);
+                    $state['state_revision']++;
+                    $settings['workflow_state']=$state;
+                    Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
+                    return ['workflow'=>self::publicState($state),'card'=>self::card($state)];
+                }
                 foreach ($values as $key=>$answer) {
                     if (!is_string($key) || !isset($state['intake_candidates'][$key]) || !is_string($answer) || mb_strlen($answer)>240) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
                     if (trim($answer)!=='') self::recordCreativeAnswer($tenant,$state,$key,trim($answer));
@@ -561,7 +570,9 @@ final class ConversationWorkflow
             $next=self::nextSlot($state);
             if (!$next || $next['key']!==$slot) throw new RuntimeException('WORKFLOW_SLOT_OUT_OF_ORDER');
             self::recordCreativeAnswer($tenant,$state,$slot,$value);
-            if (self::nextSlot($state)===null) {
+            if (self::nextSlot($state)===null && ConversationCreativePlan::enabled($state)) {
+                $state=ConversationCreativePlan::draft($state,['candidates'=>[],'questions'=>[]]);
+            } elseif (self::nextSlot($state)===null) {
                 $state['stage_state']=['key'=>ConversationSeries::enabled($state)?(ConversationCreativePolicy::enabled($state)?ConversationCreativePolicy::firstStage($state):'story'):'script','status'=>'ready','completed'=>['intake']];
             }
             $state['state_revision']++;
@@ -967,6 +978,10 @@ final class ConversationWorkflow
         return $state;
     }
     private static function nextSlot(array $state): ?array {
+        if (ConversationCreativePlan::enabled($state)) {
+            foreach ($state['workflow_snapshot']['slot_schema'] as $slot) if (in_array($slot['key'],ConversationCreativePlan::REQUIRED,true) && empty($state['slot_values'][$slot['key']])) return $slot;
+            return null;
+        }
         if (ConversationCreativePolicy::enabled($state)) {
             foreach ((array)($state['workflow_snapshot']['slot_schema']??[]) as $slot) if (($slot['key']??'')==='episode_count' && !isset($state['slot_values']['episode_count'])) return $slot;
             return null;
@@ -1001,10 +1016,11 @@ final class ConversationWorkflow
                 $key=(string)($slot['key']??'');$candidate=$state['intake_candidates'][$key]??null;
                 if (!is_array($candidate)) continue;
                 $candidates[]=['key'=>$key,'label'=>(string)($slot['label']??$key),'value'=>(string)$candidate['value'],
-                    'source'=>(string)$candidate['source'],'evidence'=>(string)$candidate['evidence']];
+                    'source'=>(string)$candidate['source'],'evidence'=>(string)$candidate['evidence'],
+                    'options'=>$key==='aspect_ratio'?(array)$slot['options']:[]];
             }
-            return $stageCard+['type'=>'intake_review','title'=>'核对已理解的创作设定',
-                'body'=>'以下内容由 Agent 从本轮描述或已授权素材中提取，均未作为最终设定。请修改、删除不准确的内容后确认；其余信息会继续追问。',
+            return $stageCard+['type'=>'intake_review','full_plan'=>ConversationCreativePlan::enabled($state),'title'=>'核对已理解的创作设定',
+                'body'=>'请核对故事方向、集数、时长、风格与比例。标记为建议的内容尚未确认，可直接修改；确认整套方案后开始生成。',
                 'candidates'=>$candidates];
         }
         if (($stage['key']??'')==='intake' && ($stage['status']??'')==='collecting') {

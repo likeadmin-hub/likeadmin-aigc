@@ -112,13 +112,13 @@ final class ConversationExecution
                     if (($candidate['workflow_snapshot']['key']??'')!==ConversationWorkflow::KEY
                         || ($candidate['stage_state']['key']??'')!=='intake'
                         || !empty($currentThreadSettings['workflow_state'])) throw new RuntimeException('INVALID_AGENT_INTENT');
-                    $candidate['creative_brief']=trim((string)($context['messages'][count($context['messages'])-1]['content']??''));
+                    $candidate['creative_brief']=ConversationCreativePlan::brief((array)($context['messages']??[]));
                     $activatedWorkflow=isset($decision['intake'])
                         ? ConversationWorkflow::withIntakeDraft($candidate,$decision['intake'],$intakeSources) : $candidate;
                     // The eight intake slots describe production settings, not the
                     // story itself. Keep the initiating brief across compact stage
                     // handoffs so later Skills cannot replace its plot or title.
-                    $brief=trim((string)($context['messages'][count($context['messages'])-1]['content']??''));
+                    $brief=$candidate['creative_brief'];
                     $activatedWorkflow['creative_brief']=ConversationWorkflow::preservesInput($activatedWorkflow) ? $brief : mb_substr($brief,0,4000);
                 }
             }

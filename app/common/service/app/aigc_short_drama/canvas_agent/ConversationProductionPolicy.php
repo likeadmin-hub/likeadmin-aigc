@@ -24,7 +24,7 @@ final class ConversationProductionPolicy
     public static function apply(array $params,array $request): array
     {
         $policy=$request['_prompt_snapshot']['canvas_creative_policy']??[];
-        if (($policy['version']??'')!==ConversationCreativePolicy::VERSION) return $params;
+        if (!in_array($policy['version']??'', ['2026-10-10.1', ConversationCreativePolicy::VERSION], true)) return $params;
         $stage=!empty($request['multi_episode']) ? (($request['multi_episode_stage']??'')==='story'?'story':'outline') : 'episode';
         $rules=(array)($policy['stages'][$stage]??[]);
         if (!$rules) return $params;

@@ -29,10 +29,10 @@ final class ConversationIntakeDraft
         foreach ($slots as $slot) if (is_array($slot) && is_string($slot['key']??null)) {
             $labels[]=$slot['key'].'（'.(string)($slot['label']??'').'）';
         }
-        return '只从本轮用户文字、已授权附件和实际可见图片中提取明确给出的短剧设定，不把猜测当事实。'
+        return '结合对话中用户明确表达的创作要求、已授权附件和实际可见图片提取短剧设定，不把猜测当事实。'
             .'若文档尚未解析或图像不可见，不得声称读取了它。'
             .'intake 必须为 {"candidates":[],"questions":[]}。candidates 每项仅含 key、value、source、evidence、confidence；'
-            .'key 限于 '.implode('、',$labels).'；source 只能是 message、document、image；'
+            .'key 限于 '.implode('、',$labels).'；source 可以是 message、document、image；未指定项的建议必须用 suggestion，不能伪称用户事实；'
             .'evidence 是简短原文摘录或可见画面依据；confidence 为 0 到 1。只有明确且高置信的事实才放入 candidates。'
             .'questions 每项仅含 key、ask、options；只针对尚未明确的信息，ask 要结合用户灵感与已有素材，options 最多五项。'
             .'不得输出费用、任务状态、媒体调用或画布 JSON；这份提取只用于让用户核对。';
@@ -53,7 +53,7 @@ final class ConversationIntakeDraft
             ['key'=>$key,'value'=>$value,'source'=>$source,'evidence'=>$evidence,'confidence'=>$confidence]=$item;
             if (!is_string($key) || !isset($allowed[$key]) || isset($candidates[$key]) || !is_string($value)
                 || trim($value)==='' || mb_strlen($value)>240 || !is_string($source)
-                || !in_array($source,$availableSources,true) || !is_string($evidence)
+                || !in_array($source,array_merge($availableSources,['suggestion']),true) || !is_string($evidence)
                 || trim($evidence)==='' || mb_strlen($evidence)>160 || (!is_float($confidence) && !is_int($confidence))
                 || $confidence<0 || $confidence>1) throw new RuntimeException('INVALID_AGENT_INTAKE');
             // Low-confidence material remains a question, never an inferred answer.

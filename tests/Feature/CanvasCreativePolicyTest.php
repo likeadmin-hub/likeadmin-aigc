@@ -16,7 +16,7 @@ class CanvasCreativePolicyTest extends TestCase
         $slots=Workflow::catalog()['slots'];
         foreach ($slots as &$slot) if ($slot['key']==='aspect_ratio') $slot['options']=['9:16','16:9'];
         return ['workflow_snapshot'=>['key'=>Workflow::KEY,'version'=>Workflow::VERSION,'series_core'=>true,
-            'creative_policy_version'=>Policy::VERSION,'slot_schema'=>$slots,'stage_skill_versions'=>[],
+            'creative_policy_version'=>'2026-10-10.1','slot_schema'=>$slots,'stage_skill_versions'=>[],
             'creative_prompt_snapshot'=>['tenant_id'=>701]],
             'slot_values'=>[],'creative_settings'=>[],'intake_candidates'=>[],'intake_questions'=>[],
             'stage_state'=>['key'=>'intake','status'=>'collecting','completed'=>[]],
