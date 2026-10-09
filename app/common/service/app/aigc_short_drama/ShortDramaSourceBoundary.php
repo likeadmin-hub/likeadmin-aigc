@@ -56,6 +56,7 @@ final class ShortDramaSourceBoundary
 
     public static function episode(array $episode): array
     {
+        ShortDramaAttachmentSource::assertEpisode($episode);
         $original = ShortDramaImportedScript::sourceContent($episode);
         if ($original === '') return $episode; // Ordinary outline-only creation remains valid.
         $source = self::text($original);
