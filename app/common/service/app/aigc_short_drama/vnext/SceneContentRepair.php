@@ -16,6 +16,14 @@ final class SceneContentRepair
         for ($round = 1; $round <= 2 && $best['coverage_report']['status'] !== 'ready'; $round++) {
             $base = $best['document']; $shots = $best['shot_plan']; $report = $best['coverage_report'];
             $scope = self::scope($base, $shots, $report);
+            if ($scope === null && ($context['missing_content_location_version'] ?? 0) === MissingContentLocation::VERSION) {
+                $located = MissingContentLocation::run($context, $base, $shots, $report, $call, 'content_window_location_' . $round);
+                if ($located !== null) {
+                    $best['missing_location'] = $located['trace']; $checkpoint($best);
+                    if ($located['report'] === null) return $best + ['stop_reason' => 'missing_location_unresolved'];
+                    $report = $located['report']; $scope = self::scope($base, $shots, $report);
+                }
+            }
             if ($scope === null) return $best + ['stop_reason' => 'windowed_content_requires_revision'];
             $key = 'content_window_repair_' . $round;
             $calls = 2 + count($scope['replan']) + count($scope['recheck']);
@@ -26,10 +34,12 @@ final class SceneContentRepair
             unset($data['shot_plan']);
             $data['repair_issues'] = $scope['issues']; $data['allowed_patch_unit_ids'] = $scope['patch_ids'];
             $data['allowed_insertion_anchors'] = $scope['anchors'];
+            if ($scope['positions']) $data['allowed_insertion_positions'] = $scope['positions'];
             $revision = $context['revision_id'] . '_cw' . $round;
             $change = $call($key . '_text', $data,
                 '只修复repair_issues已确认的正文遗漏或矛盾，不改写无关单元。返回{patches:[{unit_id,before_hash,text}],insertions:[{issue_id,anchor_unit_id,anchor_hash,position:before或after,type:action或dialogue,text,entity_ids:[已有主体ID],speaker_id:已有人物ID或null,speech_type:spoken或voiceover或narration}]}。'
                 . 'patches只能修改allowed_patch_unit_ids的完整正文；不删除、重排或改变说话人。insertions只能对应allowed_insertion_anchors中的缺失问题与锚点，同一问题只选一个锚点，可补多个单元。'
+                . ($scope['positions'] ? 'allowed_insertion_positions指定的补入方向必须逐项遵守，不移动至锚点另一侧。' : '')
                 . '保留既有角色和场次，不创造未登记身份；不能修复则返回空列表。不把编辑指令写成剧情。' . GenerationPipeline::historyInstruction($context),
                 static fn($reply) => self::apply($base, $scope, $reply, $revision), $key);
             $candidate = $change['document'];
@@ -96,7 +106,7 @@ final class SceneContentRepair
         return $best['coverage_report']['status'] === 'ready' ? $best : $best + ['stop_reason' => 'windowed_content_requires_revision'];
     }
 
-    public static function scope(array $document, array $shots, array $report): ?array
+    public static function baseline(array $document, array $shots, array $report): ?array
     {
         if (($report['window_review']['schema_version'] ?? 0) !== SceneReviewExecution::VERSION) return null;
         $reviews = $report['window_review']['windows'];
@@ -111,10 +121,19 @@ final class SceneContentRepair
             if ($review['window'] !== $actual['review_window']) throw new RuntimeException('核验窗口的正文范围已变化', 409);
             foreach ($review['window']['unit_ids'] as $id) $owners[$id][] = $index;
         }
-        $issues = []; $patch = []; $anchors = []; $anchorOwners = []; $affected = []; $recheck = [];
+        return ['reviews' => $reviews, 'owners' => $owners];
+    }
+
+    public static function scope(array $document, array $shots, array $report): ?array
+    {
+        $baseline = self::baseline($document, $shots, $report);
+        if ($baseline === null) return null;
+        $reviews = $baseline['reviews']; $owners = $baseline['owners']; $units = ContentDocument::units($document);
+        $issues = []; $patch = []; $anchors = []; $anchorOwners = []; $affected = []; $recheck = []; $positions = [];
         foreach ($report['issues'] as $issue) if ($issue['severity'] === 'blocking') {
             if ($issue['target_id'] === 'aspect:shot_fidelity' || !in_array($issue['code'], ['content_missing', 'content_contradiction'], true) || empty($issue['repair_unit_ids'])) return null;
             $issues[] = $issue;
+            if (isset($issue['insertion_location'])) $positions[$issue['issue_id']] = $issue['insertion_location']['position'];
             foreach ($issue['repair_unit_ids'] as $id) {
                 if (!isset($units[$id], $owners[$id])) return null;
                 if ($issue['code'] === 'content_missing') {
@@ -130,7 +149,7 @@ final class SceneContentRepair
         if (!$issues) return null;
         $replan = array_keys($affected); sort($replan); $check = array_keys($recheck); sort($check);
         return ['issues' => $issues, 'patch_ids' => array_keys($patch), 'anchors' => $anchors, 'anchor_owners' => $anchorOwners,
-            'replan' => $replan, 'recheck' => $check, 'reviews' => $reviews];
+            'replan' => $replan, 'recheck' => $check, 'reviews' => $reviews, 'positions' => $positions];
     }
 
     public static function apply(array $document, array $scope, array $reply, string $revision): array
@@ -147,6 +166,7 @@ final class SceneContentRepair
             $issue = $insertion['issue_id'] ?? ''; $anchor = $insertion['anchor_unit_id'] ?? '';
             if (!is_string($issue) || !is_string($anchor) || !in_array($anchor, $scope['anchors'][$issue] ?? [], true)
                 || ($insertion['anchor_hash'] ?? '') !== $units[$anchor]['text_hash'] || (isset($chosen[$issue]) && $chosen[$issue] !== $anchor)) throw new RuntimeException('补全必须使用同一已定位锚点及原文哈希', 422);
+            if (isset($scope['positions'][$issue]) && ($insertion['position'] ?? '') !== $scope['positions'][$issue]) throw new RuntimeException('补入方向与定位证据不符', 422);
             $chosen[$issue] = $anchor;
         }
         $candidate = ContentDocument::repair($document, $patches, $insertions, $revision, $scope['issues']); $owners = []; $insertionAnchors = [];
