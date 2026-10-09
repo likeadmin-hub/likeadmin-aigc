@@ -177,6 +177,22 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertCount(3, \app\common\service\power\MarketImageModelRuntimeService::$requests);
             self::assertSame($saved['result_json'], Db::name('aigc_short_drama_script_task')->where('task_id', $task)->value('result_json'));
             self::assertNotContains('revise_content' , Service::scriptPlanDetail($tenant, $user, $task, $project)['generation_snapshot']['allowed_actions']);
+            $targets=$revised['generation_snapshot']['structural_edit_targets'];
+            $structure=['project_id'=>$project,'task_id'=>$revision['task_id'],'expected_revision_id'=>$editedDocument['revision_id'],
+                'canonical_structure'=>['entities'=>[['entity_id'=>$editedDocument['entities'][0]['entity_id'],'before_hash'=>$targets['entities'][0]['before_hash'],
+                    'canonical_name'=>'夜间书房','description'=>'窗帘拉上，保留全段说明😀']],
+                    'scenes'=>[['scene_id'=>$editedDocument['scenes'][0]['scene_id'],'before_hash'=>$targets['scenes'][0]['before_hash'],'time_context'=>'深夜']]]];
+            $structural=Service::saveStoryboard($tenant,$user,$structure);$ownedTasks[]=$structural['task_id'];
+            self::assertSame($structural['task_id'],Service::saveStoryboard($tenant,$user,$structure)['task_id']);self::assertCount(5,Provider::$requests);
+            $structuralRow=Db::name('aigc_short_drama_script_task')->where('task_id',$structural['task_id'])->find();
+            $final=$run->invoke(null,$tenant,$user,$structuralRow,static function(){});
+            self::assertSame('success',$final['status']);self::assertCount(7,Provider::$requests,'Structure correction only rebuilds shots and reviews, never recreates text');
+            self::assertSame($editedDocument['scenes'][0]['units'],$final['result']['canonical_document']['scenes'][0]['units']);
+            self::assertSame('夜间书房',$final['result']['canonical_document']['entities'][0]['canonical_name']);
+            self::assertNull($final['production_handoff']['targets'][0]['asset'],'Changed setting cannot reuse the old scene image');
+            self::assertCount(3,Db::name('aigc_short_drama_asset')->where($scope+['project_id'=>$project])->select()->toArray(),'Old media remains readable');
+            $history=Service::scriptPlanDetail($tenant,$user,$structural['task_id'],$project,1)['manual_history'];
+            self::assertSame(2,$history['total']);self::assertSame('地点：书房',$history['records'][0]['changes'][0]['target_label']);
         } finally {
             $directory = runtime_path() . 'short_drama_vnext_receipts';
             $buffer = new ReceiptBuffer($directory);

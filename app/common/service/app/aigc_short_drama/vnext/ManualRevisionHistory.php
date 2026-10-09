@@ -43,6 +43,7 @@ final class ManualRevisionHistory
             }
             $changes[] = ['unit_id' => $change['unit_id'], 'speaker_name' => $names[$change['speaker_id'] ?? ''] ?? '',
                 'before_text' => $before, 'after_text' => $text, 'before_source_quotes' => $quotes];
+            if (($event['kind'] ?? '') === 'manual_structure_edit') $changes[count($changes) - 1]['target_label'] = $change['target_label'] ?? '结构修改';
         }
         $result['records'][] = ['event_id' => $event['event_id'], 'edit_number' => $total - $page + 1,
             'created_at' => $event['created_at'], 'actor_label' => '你', 'changes' => $changes];
