@@ -146,7 +146,9 @@ final class MarketTextAccountReservationTest extends TestCase
         $this->recover($b);self::assertFalse($release('submitted'));$this->balances(19,38);
     }
 
-    public function testRealExecutorReopensOnlySealedPreparedAttemptWithoutResettingBudget(): void
+    public static function recoveryStates(): array {return [['reconciling'],['expired_running'],['canceled']];}
+    /** @dataProvider recoveryStates */
+    public function testRealExecutorReopensOnlySealedPreparedAttemptWithoutResettingBudget(string $state): void
     {
         $task='account_stage_'.bin2hex(random_bytes(8));$directory=sys_get_temp_dir().'/'.$task;
         $buffer=new \app\common\service\app\aigc_short_drama\vnext\ReceiptBuffer($directory);
@@ -161,13 +163,22 @@ final class MarketTextAccountReservationTest extends TestCase
                 throw new \RuntimeException('fixture process interrupted before marker');
             });self::fail('Interruption ignored');}catch(\RuntimeException $e){self::assertStringContainsString('interrupted',$e->getMessage());}
             $before=$store->snapshot();self::assertSame('reconciling',$before['execution_status']);
+            $scope=['tenant_id'=>$this->tenant,'user_id'=>$this->user,'task_id'=>$task];
+            if($state==='expired_running') {
+                Db::name('aigc_short_drama_vnext_job')->where($scope)->update(['execution_status'=>'running']);
+                self::assertSame(0,$store->reconcileUnsubmitted(static function(){self::fail('Active lease sealed');}));
+                Db::name('aigc_short_drama_vnext_job')->where($scope)->update(['lease_until'=>0]);
+            } elseif($state==='canceled') $store->cancel();
             $release=fn($key,$attempt)=>Runtime::releaseUnsubmittedReservation($this->tenant,$this->user,'aigc_short_drama_script_task',123,$key,$attempt);
             self::assertSame(1,$store->reconcileUnsubmitted($release));self::assertSame(0,$store->reconcileUnsubmitted($release));
             $this->balances(20,40);$this->rejected(fn()=>Fixture::call('markAccountSubmission',$context));
             $after=$store->snapshot();$budget=json_decode($after['budget_json'],true);
+            self::assertSame(['expired_running'=>'retry_wait','reconciling'=>'reconciling','canceled'=>'canceled'][$state],$after['execution_status']);
             self::assertSame(1,$budget['calls']);self::assertSame([],$budget['resources']['holds']);
             self::assertSame($before['input_hash'],$after['input_hash']);self::assertSame($before['deadline_at'],$after['deadline_at']);
-            self::assertTrue($store->resume(true));
+            if($state==='expired_running') self::assertFalse($store->resume(true));
+            elseif($state==='canceled') {self::assertFalse($store->resume(true));self::assertTrue($store->resume());}
+            else self::assertTrue($store->resume(true));
             Db::name('aigc_short_drama_vnext_stage')->where(['tenant_id'=>$this->tenant,'user_id'=>$this->user,'task_id'=>$task])->update(['retry_after'=>0]);
             $fence=$store->acquire('recovered',100);
             $result=$store->call($fence,'screenplay',$params,function($input,$key,$persist,$admit) {
