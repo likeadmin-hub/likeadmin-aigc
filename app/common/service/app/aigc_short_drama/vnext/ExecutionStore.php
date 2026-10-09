@@ -353,6 +353,16 @@ final class ExecutionStore
     {
         Db::transaction(function () use ($fence, $candidate): void {
             $job = $this->job(); $this->assertFence($job, $fence);
+            if (isset($candidate['screenplay_windows'])) {
+                $previous = self::decode($job['candidate_json'] ?: '{}');
+                $samePlan = ($previous['screenplay_windows']['plan_hash'] ?? '') === $candidate['screenplay_windows']['plan_hash'];
+                foreach ($previous['document']['transforms'] ?? [] as $transform) {
+                    if (($transform['code'] ?? '') === 'scene_creation' && ($transform['plan_hash'] ?? '') === $candidate['screenplay_windows']['plan_hash']) $samePlan = true;
+                }
+                // Replaying paid receipts must not replace a later draft with an earlier prefix.
+                if ($samePlan && (count($previous['document']['scenes'] ?? []) > count($candidate['document']['scenes'] ?? [])
+                    || isset($previous['shot_plan']) || isset($previous['coverage_report']))) return;
+            }
             $this->query('job')->update(['candidate_json' => self::json($candidate), 'document_status' => 'draft',
                 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
         });

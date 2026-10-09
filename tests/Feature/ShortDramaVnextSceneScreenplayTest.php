@@ -151,4 +151,37 @@ final class ShortDramaVnextSceneScreenplayTest extends TestCase
         self::assertSame('draft', $result['coverage_report']['status']); self::assertSame('budget_exhausted', $result['stop_reason']);
         self::assertCount(4, ContentDocument::units($result['document']));
     }
+    public function testSceneMergePreservesUnicodeSourceQuotesAndProductionReferences(): void
+    {
+        $saved = null; $context = self::input()['context'];
+        $source = \app\common\service\app\aigc_short_drama\vnext\SourceTrace::capture('s1', 'v1', '原句😀必须完整保留。', 'inspiration');
+        $context['sources'] = ['s1' => $source];
+        $link = ['source_id' => 's1', 'source_hash' => $source['hash'], 'start' => 0, 'end' => mb_strlen($source['text']), 'quote' => $source['text']];
+        $result = GenerationPipeline::run($context, static function ($key, $messages) use ($link) {
+            $data = json_decode($messages['content'], true); $reply = self::reply($key, $data);
+            if ($key === 'screenplay_scene_1') {
+                $body = json_decode($reply['content'], true);
+                $body['scene']['units'][0]['text'] = $link['quote']; $body['scene']['units'][0]['source_links'] = [$link];
+                $reply['content'] = json_encode($body, JSON_UNESCAPED_UNICODE);
+            }
+            if ($key === 'screenplay_scene_2') self::assertSame([$link], $data['previous_screenplay']['scenes'][0]['units'][0]['source_links']);
+            return $reply;
+        }, static function () {}, static function () {}, self::execution($saved));
+        $document = $result['document']; $shots = $result['shot_plan'];
+        self::assertSame([$link], $document['scenes'][0]['units'][0]['source_links']);
+        $assets = []; $timing = [];
+        foreach ($document['entities'] as $entity) $assets[$entity['entity_id']] = ['asset_id' => 'asset:' . $entity['entity_id'], 'state_version' => 'v1', 'reference_hash' => 'approved', 'style' => '写实'];
+        foreach ($shots['shots'] as $shot) $timing[$shot['shot_id']] = ['version' => 'measured', 'actual_seconds' => 5];
+        $production = \app\common\service\app\aigc_short_drama\vnext\ProductionCompiler::compile($document, $shots,
+            ['version' => 'v1', 'durations' => [5, 10], 'audio_mode' => 'postproduction'], $timing, $assets, '写实');
+        self::assertCount(4, $production['audio_segments']); self::assertSame($source['text'], $production['audio_segments'][0]['text']);
+        foreach ($production['fragments'] as $fragment) \app\common\service\app\aigc_short_drama\vnext\ProductionCompiler::assertCurrent($fragment, $document, $shots, $assets);
+    }
+    public function testImportedCanonicalContentBypassesScenePlanningEvenWithNewVersion(): void
+    {
+        $context = ShortDramaVnextSceneShotTest::input()['context']; $context['scene_shot_version'] = 0; $context['scene_screenplay_version'] = 1;
+        $result = GenerationPipeline::run($context, static fn($key, $messages) => ShortDramaVnextSceneShotTest::reply(json_decode($messages['content'], true)),
+            static function () {}, static function () {}, ['screenplay_plan' => static function () { self::fail('Imported text reached creative planner'); }]);
+        self::assertSame($context['canonical_input'], $result['document']);
+    }
 }
