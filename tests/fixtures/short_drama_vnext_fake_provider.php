@@ -35,8 +35,9 @@ class MarketTextModelRuntimeService
             $reply = ['document_hash' => $input['document']['content_hash'], 'shot_hash' => $input['shot_plan']['content_hash'], 'checks' => $checks, 'narrative_changes' => []];
             if ($series) {
                 $character = array_values(array_filter($input['document']['entities'], static fn($e) => $e['kind'] === 'character'))[0];
-                $reply['narrative_changes'][] = ['kind' => 'world', 'subject_id' => $character['entity_id'], 'predicate' => 'location', 'value' => '书房',
-                    'observer_id' => null, 'certainty' => 'confirmed', 'evidence' => [['unit' => 'u1', 'start' => 0, 'end' => mb_strlen($text), 'quote' => $text]]];
+                $dialogue = $input['document']['scenes'][0]['units'][0]['type'] === 'dialogue';
+                $reply['narrative_changes'][] = ['kind' => $dialogue ? 'belief' : 'world', 'subject_id' => $character['entity_id'], 'predicate' => 'location', 'value' => '书房',
+                    'observer_id' => $dialogue ? $character['entity_id'] : null, 'certainty' => 'confirmed', 'evidence' => [['unit' => 'u1', 'start' => 0, 'end' => mb_strlen($text), 'quote' => $text]]];
             }
         }
         $receipt = ['content' => json_encode($reply, JSON_UNESCAPED_UNICODE), 'finish_reason' => 'stop',
