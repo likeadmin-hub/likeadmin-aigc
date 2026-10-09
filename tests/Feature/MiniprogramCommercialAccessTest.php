@@ -51,6 +51,7 @@ class MiniprogramCommercialAccessTest extends TestCase
             ['platform', 'open_platform', 'promoteArtifact', '', true],
             ['platform', 'OpenPlatform', 'saveConfig', '', false],
             ['platform', 'OpenPlatform', 'authUrl', '', true],
+            ['platform', 'OpenPlatform', 'authUrl', 'official', false],
             ['platform', 'Upgrade', 'licenseInfo', '', false],
         ] as [$scope,$controller,$action,$type,$expected]) {
             self::assertSame($expected, MiniprogramAccessService::requiresAccess($scope,$controller,$action,$type), "$controller/$action ($type)");
