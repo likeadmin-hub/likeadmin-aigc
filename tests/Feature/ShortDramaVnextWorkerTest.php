@@ -20,6 +20,7 @@ final class ShortDramaVnextWorkerTest extends TestCase
         (new \think\App())->initialize();
         $task = 'vnext_worker_' . bin2hex(random_bytes(8)); $tenant = 2000000723; $user = 7;
         $scope = ['tenant_id' => $tenant, 'user_id' => $user];
+        $ownedTasks = [$task];
         Db::startTrans();
         try {
             $project = Db::name('aigc_short_drama_project')->insertGetId($scope + ['title' => '测试项目', 'prompt' => '保留结尾',
@@ -54,12 +55,27 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertSame(1, Db::name('aigc_short_drama_plan_version')->where('task_id', $task)->count());
             self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where('task_id', $task)->count());
             self::assertSame('succeeded', Service::cancel($tenant, $user, $task)['generation_snapshot']['execution_status']);
+            $document = $result['result']['canonical_document']; $unit = $document['scenes'][0]['units'][0];
+            $edit = ['project_id' => $project, 'task_id' => $task, 'expected_revision_id' => $document['revision_id'],
+                'canonical_patches' => [['unit_id' => $unit['unit_id'], 'before_hash' => $unit['text_hash'], 'text' => $unit['text'] . '新说明。']]];
+            $revision = Service::saveStoryboard($tenant, $user, $edit); $ownedTasks[] = $revision['task_id'];
+            self::assertNotSame($task, $revision['task_id']);
+            self::assertSame('draft', $revision['generation_snapshot']['document_status']);
+            self::assertSame($revision['task_id'], Service::saveStoryboard($tenant, $user, $edit)['task_id'], 'Repeated save must reuse the revision');
+            $newRow = Db::name('aigc_short_drama_script_task')->where('task_id', $revision['task_id'])->find();
+            $revised = $run->invoke(null, $tenant, $user, $newRow, static function () {});
+            self::assertSame('success', $revised['status'], json_encode($revised, JSON_UNESCAPED_UNICODE));
+            self::assertCount(5, Provider::$requests, 'Manual content must skip creative regeneration');
+            self::assertSame($unit['unit_id'], $revised['result']['canonical_document']['scenes'][0]['units'][0]['unit_id']);
+            self::assertSame($unit['text'] . '新说明。', $revised['result']['canonical_document']['scenes'][0]['units'][0]['text']);
+            self::assertSame($saved['result_json'], Db::name('aigc_short_drama_script_task')->where('task_id', $task)->value('result_json'));
+            self::assertNotContains('revise_content', Service::scriptPlanDetail($tenant, $user, $task, $project)['generation_snapshot']['allowed_actions']);
         } finally {
             $directory = runtime_path() . 'short_drama_vnext_receipts';
             $buffer = new ReceiptBuffer($directory);
             $paths = [];
-            foreach (Db::name('aigc_short_drama_vnext_stage')->where($scope + ['task_id' => $task])->select()->toArray() as $stage) {
-                $paths[] = $directory . '/' . $buffer->key($scope + ['task_id' => $task, 'stage_key' => $stage['stage_key']], $stage['input_hash']) . '.json';
+            foreach (Db::name('aigc_short_drama_vnext_stage')->where($scope)->whereIn('task_id', $ownedTasks)->select()->toArray() as $stage) {
+                $paths[] = $directory . '/' . $buffer->key($scope + ['task_id' => $stage['task_id'], 'stage_key' => $stage['stage_key']], $stage['input_hash']) . '.json';
             }
             Db::rollback();
             foreach ($paths as $path) if (is_file($path)) unlink($path);

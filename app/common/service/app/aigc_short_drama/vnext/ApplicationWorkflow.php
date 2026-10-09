@@ -63,6 +63,23 @@ final class ApplicationWorkflow
         if (self::current(is_array($request) ? $request : [])) throw new RuntimeException('当前版本不支持此编辑或制作操作，已保存的正文不会改变', 409);
     }
 
+    public static function revisionInput(array $input, array $candidate, array $patches, string $expectedRevision, string $newTask): array
+    {
+        $document = $candidate['document'] ?? [];
+        if (!$document || $expectedRevision !== $document['revision_id']) throw new RuntimeException('正文已更新，请刷新后再修改', 409);
+        if (!$patches) throw new RuntimeException('没有提交正文修改', 422);
+        $revision = 'revision_' . substr(ContentDocument::hash([$newTask, 1]), 0, 24);
+        $edited = ContentDocument::patch($document, $patches, $revision);
+        if (array_column(ContentDocument::units($document), 'text') === array_column(ContentDocument::units($edited), 'text')) {
+            throw new RuntimeException('正文没有变化', 422);
+        }
+        unset($input['context']['structured_screenplay']);
+        $input['context']['canonical_input'] = $edited;
+        $input['context']['revision_id'] = $revision;
+        // User edits are exact content. A failed semantic review may report issues but cannot rewrite them.
+        return $input;
+    }
+
     /** The compatible view is derived from accepted content, never fed back into creative validation. */
     public static function project(array $candidate): array
     {

@@ -106,4 +106,19 @@ final class ShortDramaVnextPipelineTest extends TestCase
         $this->expectExceptionCode(413);
         GenerationPipeline::run($this->context(), static fn() => ['result' => ['content' => '{"title":"x"}', 'finish_reason' => 'length']], static function () {}, static function () {});
     }
+    public function testManualRevisionRetainsUnitIdentityAndCannotBeSilentlyRepaired(): void
+    {
+        $initial = GenerationPipeline::run($this->context(), fn($key, $input) => $this->response($key, $input), static function () {}, static function () {});
+        $unit = $initial['document']['scenes'][0]['units'][0];
+        $input = \app\common\service\app\aigc_short_drama\vnext\ApplicationWorkflow::revisionInput(['context' => $this->context()], $initial,
+            [['unit_id' => $unit['unit_id'], 'before_hash' => $unit['text_hash'], 'text' => '再见。']], 'r1', 'next_task');
+        $calls = [];
+        $result = GenerationPipeline::run($input['context'], function ($key, $input) use (&$calls) {
+            $calls[] = $key; return $this->response($key, $input, true);
+        }, static function () { self::fail('A reviewer cannot authorize overwriting manual edits'); }, static function () {});
+        self::assertSame(['shots', 'review'], $calls);
+        self::assertSame($unit['unit_id'], $result['document']['scenes'][0]['units'][0]['unit_id']);
+        self::assertSame('再见。', $result['document']['scenes'][0]['units'][0]['text']);
+        self::assertSame('source_content_requires_confirmation', $result['stop_reason']);
+    }
 }

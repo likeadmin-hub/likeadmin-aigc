@@ -30,16 +30,16 @@ final class GenerationPipeline
             throw new RuntimeException('阶段未返回有效内容', 422);
         };
         // A server-validated structured import is already creative content, not an invitation to rewrite it.
-        $document = isset($context['structured_screenplay'])
+        $document = $context['canonical_input'] ?? (isset($context['structured_screenplay'])
             ? ContentDocument::normalize($context['structured_screenplay'], $context)
-            : $call('screenplay', $context, self::screenplayInstruction(), static fn($reply) => ContentDocument::normalize($reply, $context));
+            : $call('screenplay', $context, self::screenplayInstruction(), static fn($reply) => ContentDocument::normalize($reply, $context)));
         $checkpoint(['document' => $document]);
         $plan = self::shots($document, $call, 'shots', '');
         $checkpoint(['document' => $document, 'shot_plan' => $plan]);
         $report = self::review($context, $document, $plan, $call, 'review', '');
         $best = ['document' => $document, 'shot_plan' => $plan, 'coverage_report' => $report];
         $checkpoint($best);
-        if ($report['status'] !== 'ready' && (isset($context['structured_screenplay']) || ($context['source_mode'] ?? '') === 'faithful')) {
+        if ($report['status'] !== 'ready' && (isset($context['canonical_input']) || isset($context['structured_screenplay']) || ($context['source_mode'] ?? '') === 'faithful')) {
             // Review cannot authorize changing user-authored dialogue. A future scoped shot-only repair
             // can address projection defects; unresolved source-content conflicts need an explicit choice.
             return $best + ['receipts' => $receipts, 'stop_reason' => 'source_content_requires_confirmation'];

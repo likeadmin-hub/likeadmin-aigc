@@ -204,7 +204,7 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
         $snapshot = $this->store->publicSnapshot();
         self::assertSame('succeeded', $snapshot['execution_status']); self::assertSame('ready', $snapshot['document_status']);
-        self::assertSame('not_started', $snapshot['production_status']); self::assertSame(['read_content'], $snapshot['allowed_actions']);
+        self::assertSame('not_started', $snapshot['production_status']); self::assertSame(['read_content', 'revise_content'], $snapshot['allowed_actions']);
         self::assertArrayNotHasKey('budget_json', $snapshot); self::assertArrayNotHasKey('input_json', $snapshot);
     }
 }
