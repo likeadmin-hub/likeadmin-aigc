@@ -51,6 +51,14 @@ final class ShortDramaFileQaExtractionPersistenceTest extends TestCase
                 self::assertSame('failed', $mirror['status']); self::assertSame('none', $mirror['billing_status']);
                 self::assertSame('attachment_text_unverified', $mirror['error_code']);
                 self::assertSame(0, Db::name('ai_app_task')->where('task_no', $created['task_id'])->count());
+                $detail = AigcShortDramaService::scriptPlanDetail($scope['tenant_id'], $scope['user_id'], $created['task_id'], $project);
+                self::assertSame($created['task_id'], $detail['attachment_file']['task_id']);
+                self::assertSame($sha, $detail['attachment_file']['file_sha256']);
+                self::assertSame('failed', $detail['attachment_file']['extraction_status']);
+                $fileView = new \ReflectionMethod(AigcShortDramaService::class, 'attachmentFile'); $fileView->setAccessible(true);
+                self::assertNull($fileView->invoke(null, array_replace($row, ['user_id' => 8]), $request));
+                $wrongHash = $request; $wrongHash['_attachment_extraction']['file_sha256'] = str_repeat('0', 64);
+                self::assertNull($fileView->invoke(null, $row, $wrongHash));
                 $calls = count(\app\common\service\UploadService::$copies);
                 $replay = AigcShortDramaService::parseUploadedScript($scope['tenant_id'], $scope['user_id'], $params);
                 self::assertSame($created['task_id'], $replay['task_id']); self::assertTrue($replay['reused']);
