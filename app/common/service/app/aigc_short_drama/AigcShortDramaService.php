@@ -3092,14 +3092,17 @@ class AigcShortDramaService
 
         // UploadService selects the tenant-effective storage engine and stores
         // ownership metadata; the market API receives only its resolved URL.
+        $parseTaskId = self::makeTaskId('sd_parse');
+        $attachmentSource = ShortDramaAttachmentSource::capture($path, $extension, $tenantId, $userId, $parseTaskId);
+        if ($attachmentSource['file_sha256'] !== $checksum) throw new Exception('上传文件已变化，请重新提交');
         $uploaded = UploadService::file(0, 0, FileEnum::SOURCE_USER, 'uploads/aigc_short_drama/script_documents');
         $rawUri = FileService::setFileUrl((string)($uploaded['url'] ?? ''));
         $publicUrl = trim((string)($uploaded['uri'] ?? ''));
         if ($rawUri === '' || $publicUrl === '') throw new Exception('剧本文件存储失败');
         $storage = self::storageInfoForUploadedFile($tenantId, $rawUri);
-        $parseTaskId = self::makeTaskId('sd_parse');
         $now = time();
         $request = array_replace($sourceRequest, [
+            '_attachment_source' => $attachmentSource,
             'source' => 'market_file_qa_parse',
             'script_source' => 'upload',
             'script_file_name' => $name,
@@ -9519,6 +9522,15 @@ class AigcShortDramaService
         $summary = is_array($summary) ? $summary : self::jsonDecode((string)$summary);
         $parseResult = is_array($summary['parse_result'] ?? null) ? (array)$summary['parse_result'] : [];
         try {
+            if (isset($request['_attachment_source'])) {
+                $attachment = $request['_attachment_source']; ShortDramaAttachmentSource::assertPackage($attachment);
+                $asset = AigcShortDramaAsset::where(['id' => (int)($request['script_asset_id'] ?? 0), 'tenant_id' => $tenantId,
+                    'user_id' => $userId, 'project_id' => $projectId, 'task_id' => $taskId, 'asset_type' => 'script_document', 'delete_time' => 0])->findOrEmpty();
+                if ($asset->isEmpty() || ($attachment['tenant_id'] ?? 0) !== $tenantId || ($attachment['user_id'] ?? 0) !== $userId
+                    || ($attachment['task_id'] ?? '') !== $taskId || $attachment['file_sha256'] !== (string)$asset['checksum']) {
+                    throw new Exception('附件来源归属或文件版本不一致，原始回包已保留');
+                }
+            }
             $plan = self::fileQaParsePlan($parseResult, $request, (string)($taskRow['prompt'] ?? ''));
         } catch (\Throwable $e) {
             $message = self::friendlyGenerationError($e->getMessage());
@@ -9574,7 +9586,11 @@ class AigcShortDramaService
     private static function fileQaParsePlan(array $result, array $request, string $fallbackTitle): array
     {
         $source = is_array($result['short_drama_plan'] ?? null) ? $result['short_drama_plan'] : (is_array($result['plan'] ?? null) ? $result['plan'] : $result);
-        $episodes = ShortDramaSourceBoundary::episodes(array_values(array_filter((array)($source['episodes'] ?? []), 'is_array')));
+        $episodes = array_values(array_filter((array)($source['episodes'] ?? []), 'is_array'));
+        foreach ($episodes as &$episode) unset($episode['attachment_trace']); // Provider output cannot assert server provenance.
+        unset($episode);
+        if (isset($request['_attachment_source'])) $episodes = ShortDramaAttachmentSource::bind($request['_attachment_source'], $episodes);
+        $episodes = ShortDramaSourceBoundary::episodes($episodes);
         $count = count($episodes);
         if ($count < 2 || $count > self::SCRIPT_MAX_EPISODES || (int)($source['episode_count'] ?? $count) !== $count) {
             throw new Exception('解析结果的有效剧集数必须为 2～' . self::SCRIPT_MAX_EPISODES . '，且与 episodes 一致');
@@ -9599,6 +9615,7 @@ class AigcShortDramaService
                 'ending_hook' => ShortDramaText::value($episode['ending_hook'] ?? $episode['hook'] ?? ''),
                 'source_range' => is_array($episode['source_range'] ?? null) ? $episode['source_range'] : [],
                 'source_scope' => (array)($episode['source_scope'] ?? []),
+                'attachment_trace' => $episode['attachment_trace'] ?? null,
                 // Persist the complete source, not a silently shortened script.
                 // Older normalized parser receipts use source_content instead.
                 'source_content' => ShortDramaImportedScript::sourceContent($episode),
@@ -9630,6 +9647,7 @@ class AigcShortDramaService
             $plan['episodes'][$index]['source_scope'] = $episode['source_scope'];
             $plan['episodes'][$index]['source_content'] = $episode['source_content'];
             $plan['episodes'][$index]['characters'] = $episode['characters'];
+            if ($episode['attachment_trace'] !== null) $plan['episodes'][$index]['attachment_trace'] = $episode['attachment_trace'];
         }
         $issues = ShortDramaStoryWorkflow::issues($plan, self::MULTI_EPISODE_STAGE_OUTLINE, $count);
         if ($issues) throw new Exception('解析结果未满足短剧大纲要求：' . (string)($issues[0]['message'] ?? '字段不完整'));
@@ -15900,7 +15918,7 @@ class AigcShortDramaService
     private static function stripPromptDiagnostics(array $value): array
     {
         foreach ($value as $key => $item) {
-            if (is_string($key) && (str_starts_with($key, '_prompt_') || $key === '_imported_outline_snapshot')) unset($value[$key]);
+            if (is_string($key) && (str_starts_with($key, '_prompt_') || in_array($key, ['_imported_outline_snapshot', '_attachment_source'], true))) unset($value[$key]);
             elseif (is_array($item)) $value[$key] = self::stripPromptDiagnostics($item);
         }
         return $value;
