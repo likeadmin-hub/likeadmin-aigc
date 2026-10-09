@@ -405,7 +405,7 @@ class MarketTextModelRuntimeService
         $options = [];
         foreach ($products as $product) {
             $snapshot = self::arrayValue($product['source_payload'] ?? []);
-            if ($vision && !self::supportsVision($snapshot)) {
+            if ($vision && !self::supportsVision($snapshot, $product)) {
                 continue;
             }
             $prices = self::marketPrices($tenantId, (int)$product['id']);
@@ -435,10 +435,10 @@ class MarketTextModelRuntimeService
                 'max_input_tokens' => TextModelCapacity::metadata($meta)['max_input_tokens'],
                 'default_params' => self::arrayValue($meta['default_params'] ?? []),
                 'params_schema' => self::arrayValue($meta['params_schema'] ?? []),
-                'capabilities' => self::arrayValue($meta['capabilities'] ?? []),
+                'capabilities' => array_replace(self::arrayValue($meta['capabilities'] ?? []), PowerMarketService::capability($product)),
                 'developer_doc_slug' => (string)($meta['developer_doc_slug'] ?? ''),
                 'api_doc' => (string)($meta['api_doc'] ?? ''),
-                'supports_vision' => self::supportsVision($snapshot),
+                'supports_vision' => self::supportsVision($snapshot, $product),
                 'input' => $prices['input'],
                 'output' => $prices['output'],
                 'market_product_id' => (int)$product['id'],
@@ -494,13 +494,10 @@ class MarketTextModelRuntimeService
         return compact('input', 'output');
     }
 
-    private static function supportsVision(array $snapshot): bool
+    private static function supportsVision(array $snapshot, array $product = []): bool
     {
-        $meta = (array)($snapshot['market_metadata'] ?? []); $resource = (array)($snapshot['resource'] ?? []);
-        foreach ([$meta['capabilities'] ?? [], $meta['input_modalities'] ?? [], $resource['capabilities'] ?? [], $resource['input_modalities'] ?? []] as $value) {
-            foreach ((array)$value as $item) if (in_array(strtolower((string)$item), ['vision', 'image', 'image_input'], true)) return true;
-        }
-        return !empty($meta['supports_vision']) || !empty($resource['supports_vision']);
+        $product['source_payload'] = $snapshot;
+        return !empty(PowerMarketService::capability($product)['supports_vision']);
     }
 
     private static function quote(array $model, int $inputTokens, int $outputTokens): array

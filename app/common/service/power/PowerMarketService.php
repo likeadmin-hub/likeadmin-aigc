@@ -1099,6 +1099,16 @@ class PowerMarketService
         $vision = self::boolValue($sources, [
             'supports_vision', 'vision', 'supports_image_input', 'image_input', 'multimodal',
         ]) || in_array('image', $modalities, true) || in_array('vision', $modalities, true);
+        // Older catalogues encode capabilities as a list instead of boolean fields.
+        foreach ([$metadata['capabilities'] ?? [], $snapshot['resource']['capabilities'] ?? []] as $list) {
+            foreach ((array)$list as $value) {
+                if (is_string($value) && in_array(strtolower($value), ['vision', 'image', 'image_input'], true)) $vision = true;
+            }
+        }
+        if (MarketModelCapabilityVerification::vision($product)) {
+            $vision = true;
+            $modalities = array_values(array_unique(array_merge($modalities, ['image'])));
+        }
         $thinking = self::boolValue($sources, [
             'supports_thinking', 'thinking', 'supports_reasoning', 'reasoning', 'deep_thinking',
         ]) || self::hasKey($sources, ['enable_thinking', 'thinking_enabled', 'reasoning_enabled'])
@@ -1196,6 +1206,7 @@ class PowerMarketService
             $data['create_time'] = time();
             return PowerMarketProduct::create($data);
         }
+        $data['source_payload'] = MarketModelCapabilityVerification::carryForward($data['source_payload'], $row->toArray(), $data);
         $row->save($data);
         return $row;
     }
