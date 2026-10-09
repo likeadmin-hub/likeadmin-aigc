@@ -17957,6 +17957,27 @@ class AigcShortDramaService
 
     private static function generateScriptPlanResultScoped(int $tenantId, int $userId, string $prompt, array $request, string $title, array $model, ?callable $onEvent = null): array
     {
+        if (ShortDramaDirectGeneration::enabled($request)) {
+            if (!empty($request['style_id'])) $request['selected_style_name'] = self::styleName((string)$request['style_id']);
+            $messages = ShortDramaDirectGeneration::messages($prompt, $request, $title);
+            $model['_planning_fallback'] = (array)\think\facade\Config::get('short_drama', []);
+            $budget = ShortDramaPlanningBudget::fitMessages($messages, $model, 'script', 32768);
+            if ($onEvent) $onEvent('heartbeat', []);
+            $params = $messages + ['model_selection'=>$model, 'source_app_code'=>self::APP_CODE,
+                'source_type'=>'script_plan', 'source_id'=>$title,
+                'model_config'=>['max_tokens'=>$budget['max_tokens'], 'enable_thinking'=>false],
+                '_planning_count'=>1, '_planning_public'=>false, '_planning_stage'=>'script'];
+            $receipt = ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''),
+                'direct_creative_v10', $params, static fn(array $effective): array =>
+                    self::generateScriptPlanLlmWithFallback($tenantId, $userId, $effective, $model, $request, 'direct_creative', $onEvent), true);
+            $llm = (array)($receipt['result'] ?? []);
+            $result = ShortDramaDirectGeneration::result($llm, $request, $title);
+            // A user-requested local edit still cannot overwrite unrelated saved content.
+            if (!empty($request['revision_target'])) $result = self::protectRevisionTargetResult(self::mergeRevisionBasePlanPayload($result, $request), $request);
+            return ['result'=>$result, 'llm'=>$llm, 'repair_llm'=>[], 'raw_content'=>(string)($llm['content'] ?? ''),
+                'provider'=>(string)($receipt['model']['provider'] ?? $model['provider'] ?? ''), 'model_selection'=>$receipt['model'] ?? $model];
+        }
+
         if (!empty($request['_continuity_review_only']) && !empty($request['revision_base_result'])) {
             $reviewed = self::reviewScriptPlanContinuity($tenantId, $userId, $request['revision_base_result'], $request, $model, $onEvent);
             return $reviewed + ['repair_llm'=>[], 'provider'=>(string)($model['provider'] ?? ''), 'model_selection'=>$model, 'raw_content'=>''];
@@ -23586,7 +23607,8 @@ class AigcShortDramaService
     {
         $time = time();
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
-        $durationRule = ShortDramaShotDuration::rule(self::jsonDecode((string)$task['request_json']));
+        $storedRequest = self::jsonDecode((string)$task['request_json']);
+        $durationRule = ShortDramaShotDuration::rule($storedRequest);
         $submittedShotIds = [];
         $usedShotIds = [];
         foreach (array_values($storyboard) as $index => $shot) {
@@ -23613,6 +23635,9 @@ class AigcShortDramaService
                 'update_time' => $time,
                 'delete_time' => 0,
             ]));
+            if (ShortDramaDirectGeneration::enabled($storedRequest) && is_numeric($shot['recommended_duration_seconds'] ?? null)) {
+                $data['recommended_duration_seconds'] = $shot['recommended_duration_seconds'];
+            }
             $episode = ShortDramaEpisodeService::context($tenantId, $userId, $projectId);
             if ($episode) {
                 $data['episode_id'] = (int)$episode['id'];
