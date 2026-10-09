@@ -46,6 +46,14 @@ class CanvasAgentIntentRoutingTest extends TestCase
             ConversationIntentRouter::reply($this->decision(['confidence'=>0.79]),$routing));
     }
 
+    public function testStartingIntakePreservesTheModelsReply(): void
+    {
+        $routing=$this->routing();
+        $routing['workflow_candidate']['workflow_snapshot']['creative_policy_version']='2026-10-10.2';
+        $reply="天庭HR视角的职场喜剧。\n\n已确定一集60秒，只需补充风格和比例。";
+        self::assertSame($reply,ConversationIntentRouter::reply($this->decision(['reply_markdown'=>$reply]),$routing));
+    }
+
     public function testStandaloneTextAndAbilityQuestionStayInConversation(): void
     {
         $routing=$this->routing();
