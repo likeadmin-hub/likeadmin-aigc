@@ -321,8 +321,9 @@ final class ExecutionStore
     {
         return LocalTransaction::run(function () use ($release): int {
             $job=$this->job();$input=self::decode($job['input_json']);
+            $expiredRunning=$job['execution_status']==='running' && (int)$job['lease_until']<=time();
             if (($input['context']['account_reservation_version']??0)!==1
-                || !in_array($job['execution_status'],['reconciling','canceled'],true)) return 0;
+                || (!$expiredRunning && !in_array($job['execution_status'],['reconciling','canceled'],true))) return 0;
             $budget=self::decode($job['budget_json']);$count=0;
             foreach($this->query('stage')->where('status','submitted')->lock(true)->select()->toArray() as $stage) {
                 $params=self::decode($stage['input_json']);
@@ -336,6 +337,7 @@ final class ExecutionStore
                 $count++;
             }
             if($count) $this->query('job')->update(['budget_json'=>self::json($budget),'fence'=>(int)$job['fence']+1,
+                'execution_status'=>$expiredRunning?'retry_wait':$job['execution_status'],
                 'lease_until'=>0,'event_seq'=>(int)$job['event_seq']+1,'update_time'=>time()]);
             return $count;
         });
