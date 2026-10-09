@@ -65,6 +65,17 @@ final class ShortDramaVnextSeriesTest extends TestCase
             $revised = Service::saveStoryboard($tenant, $user, ['project_id' => $list[0]['production_project_id'], 'task_id' => $list[0]['task_id'],
                 'expected_revision_id' => $first['result']['canonical_document']['revision_id'],
                 'canonical_patches' => [['unit_id' => $unit['unit_id'], 'before_hash' => $unit['text_hash'], 'text' => $unit['text'] . '他又看了一遍信封。']]]);
+            self::assertSame('canceled', Episodes::cancel($tenant, $user, $list[0]['id'])['status']);
+            self::assertSame('canceled', Workflow::store($tenant, $user, $revised['task_id'])->snapshot()['execution_status']);
+            $saved = Episodes::detail($tenant, $user, $list[0]['id']);
+            self::assertTrue($saved['has_saved_content']); self::assertSame(1, $saved['pipeline_version']);
+            self::assertSame($revised['task_id'], $saved['task_id'], 'Canceled draft must not be hidden behind an older success');
+            self::assertCount(6, Provider::$requests);
+            self::assertSame($revised['task_id'], Episodes::retry($tenant, $user, $list[0]['id'])['task_id']);
+            self::assertSame(1, Episodes::cancelAll($tenant, $user, $project)['canceled_count']);
+            self::assertSame('canceled', Workflow::store($tenant, $user, $revised['task_id'])->snapshot()['execution_status']);
+            self::assertSame($revised['task_id'], Episodes::retry($tenant, $user, $list[0]['id'])['task_id']);
+            self::assertCount(6, Provider::$requests, 'Cancel/retry admission must not call the model');
             self::assertSame(1, Episodes::tick($tenant, $project));
             $list = Episodes::lists($tenant, $user, $project)['lists'];
             self::assertTrue($list[1]['needs_review']);
@@ -80,6 +91,37 @@ final class ShortDramaVnextSeriesTest extends TestCase
             $checked = Service::scriptPlanDetail($tenant, $user, $recheck['task_id']);
             self::assertSame($second['result']['script_lines'], $checked['result']['script_lines']);
             self::assertSame($second['result']['canonical_document']['scenes'], $checked['result']['canonical_document']['scenes']);
+            // A prior episode changes after this episode's preflight, during its review call.
+            $secondUnit = $checked['result']['canonical_document']['scenes'][0]['units'][0];
+            $secondEdit = Service::saveStoryboard($tenant, $user, ['project_id' => $list[1]['production_project_id'], 'task_id' => $recheck['task_id'],
+                'expected_revision_id' => $checked['result']['canonical_document']['revision_id'],
+                'canonical_patches' => [['unit_id' => $secondUnit['unit_id'], 'before_hash' => $secondUnit['text_hash'], 'text' => $secondUnit['text'] . '他收好信封。']]]);
+            Provider::$afterResponse = static function (array $input) use ($tenant, $user, $list): void {
+                if (!isset($input['shot_plan'])) return;
+                Provider::$afterResponse = null;
+                $firstNow = Service::scriptPlanDetail($tenant, $user, $list[0]['task_id']);
+                $unit = $firstNow['result']['canonical_document']['scenes'][0]['units'][0];
+                $edit = Service::saveStoryboard($tenant, $user, ['project_id' => $list[0]['production_project_id'], 'task_id' => $list[0]['task_id'],
+                    'expected_revision_id' => $firstNow['result']['canonical_document']['revision_id'],
+                    'canonical_patches' => [['unit_id' => $unit['unit_id'], 'before_hash' => $unit['text_hash'], 'text' => $unit['text'] . '窗外响起脚步声。']]]);
+                Service::streamScriptPlan($tenant, $user, ['project_id' => $list[0]['production_project_id'], 'task_id' => $edit['task_id']], static function () {}, true);
+            };
+            self::assertSame(1, Episodes::tick($tenant, $project));
+            $failed = Workflow::store($tenant, $user, $secondEdit['task_id'])->snapshot();
+            self::assertSame('needs_attention', $failed['execution_status']);
+            self::assertSame(0, Db::name('aigc_short_drama_vnext_revision')->where($scope + ['task_id' => $secondEdit['task_id']])->count());
+            $saved = Episodes::detail($tenant, $user, $list[1]['id']);
+            self::assertTrue($saved['has_saved_content']); self::assertSame($secondEdit['task_id'], $saved['task_id']);
+            self::assertSame('needs_attention', $saved['generation_execution_status']);
+            self::assertCount(14, Provider::$requests);
+            self::assertSame(1, Episodes::tick($tenant, $project)); // Finalize the already published first revision.
+            self::assertCount(14, Provider::$requests);
+            $resume = Episodes::retry($tenant, $user, $list[1]['id']);
+            self::assertNotSame($secondEdit['task_id'], $resume['task_id']);
+            self::assertSame(1, Episodes::tick($tenant, $project));
+            $fresh = Service::scriptPlanDetail($tenant, $user, $resume['task_id']);
+            self::assertSame(json_decode($failed['candidate_json'], true)['document']['scenes'], $fresh['result']['canonical_document']['scenes']);
+            self::assertCount(16, Provider::$requests);
         } finally {
             $directory = runtime_path() . 'short_drama_vnext_receipts'; $buffer = new ReceiptBuffer($directory); $paths = [];
             foreach (Db::name('aigc_short_drama_vnext_stage')->where($scope)->select()->toArray() as $stage) {

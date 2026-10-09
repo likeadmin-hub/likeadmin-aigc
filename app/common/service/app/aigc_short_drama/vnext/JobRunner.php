@@ -41,6 +41,14 @@ final class JobRunner
                 $store->checkpoint($fence, $candidate);
                 $notify('snapshot', $store->publicSnapshot());
             });
+        if ($result['coverage_report']['status'] !== 'ready') {
+            $store->needsAttention($fence, $result['stop_reason'] ?? 'content_unresolved');
+            return $result;
+        }
+        // Dependency changes detected by the atomic projection must stop this
+        // attempt immediately, just like preflight conflicts. Keep its receipts.
+        $store->publish($fence, $result['document'], $result['shot_plan'], $result['coverage_report'], $publishProjection);
+        return $result;
         } catch (RuntimeException $error) {
             if (in_array($error->getCode(), [409, 413, 422, 429], true) && $store->snapshot()['execution_status'] === 'running') {
                 try { $store->needsAttention($fence, $error->getCode() === 429 ? 'budget_exhausted' : 'content_unresolved'); }
@@ -48,11 +56,5 @@ final class JobRunner
             }
             throw $error;
         }
-        if ($result['coverage_report']['status'] !== 'ready') {
-            $store->needsAttention($fence, $result['stop_reason'] ?? 'content_unresolved');
-            return $result;
-        }
-        $store->publish($fence, $result['document'], $result['shot_plan'], $result['coverage_report'], $publishProjection);
-        return $result;
     }
 }
