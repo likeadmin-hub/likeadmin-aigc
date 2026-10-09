@@ -31,6 +31,7 @@ final class SeriesContext
         }
         $snapshot = ['schema_version' => 1, 'tenant_id' => $tenant, 'user_id' => $user, 'project_id' => $project,
             'outline_task_id' => $task, 'outline_hash' => ContentDocument::hash($plan),
+            'screenplay_preflight_version' => SceneScreenplayExecution::PREFLIGHT_VERSION,
             'entity_scope' => $scope, 'entities' => $entities, 'model_id' => (string)$model['id'], 'execution' => $execution,
             'story' => ShortDramaPlanningContext::lockedStory($request['confirmed_story_snapshot']),
             'story_hash' => ContentDocument::hash($request['confirmed_story_snapshot']),
@@ -115,6 +116,7 @@ final class SeriesContext
         }
         return ['snapshot' => $snapshot, 'context' => array_replace([
             'episode_id' => $episodeId, 'entity_scope' => $snapshot['entity_scope'], 'entities' => $entities,
+            'screenplay_preflight_version' => $snapshot['screenplay_preflight_version'] ?? 0,
             'prompt' => $snapshot['source']['text'], 'source_mode' => 'inspiration', 'sources' => $sources, 'requirements' => $requirements, 'events' => $events,
             'confirmed_story' => $snapshot['story'], 'current_episode' => $outline,
             // Story arc is a plan; only evidence from published episodes is historical state.
