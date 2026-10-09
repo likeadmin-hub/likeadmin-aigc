@@ -96,7 +96,7 @@ final class SeriesContext
             if ($revisionCheck !== null) $requirements[] = $revisionCheck;
         }
         $previous = self::publishedBefore((int)$snapshot['tenant_id'], (int)$snapshot['user_id'], (int)$snapshot['project_id'], $number);
-        $entities = $snapshot['entities']; $known = array_column($entities, 'entity_id');
+        $entities = SeriesVisualState::inherit($snapshot['entities'], $previous['entities']); $known = array_column($entities, 'entity_id');
         foreach ($previous['entities'] as $entity) {
             if (in_array($entity['entity_id'], $known, true)) continue;
             $known[] = $entity['entity_id'];
