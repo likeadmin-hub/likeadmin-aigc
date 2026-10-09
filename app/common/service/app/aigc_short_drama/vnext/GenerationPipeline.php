@@ -106,7 +106,8 @@ final class GenerationPipeline
                 'requirements' => $context['requirements'] ?? [], 'events' => $context['events'] ?? []]
                 + (isset($context['input_history']) ? ['input_history' => $context['input_history']] : [])
                 + ((int)($context['narrative_contract_version'] ?? 0) === 1 ? ['confirmed_facts' => $context['confirmed_facts'] ?? [],
-                    'previous_narrative' => self::narrativeHistory($context, array_column($base['entities'], 'entity_id'))] : []),
+                    'previous_narrative' => self::narrativeHistory($context, array_column($base['entities'], 'entity_id'))] : [])
+                + (!empty($base['identity_revision_receipts']) ? ['identity_corrections'=>EntityIdentityRevision::modelCorrections($base['identity_revision_receipts'],$base['entities'])] : []),
                 '仅修复已确认的阻断问题，不润色无关内容。返回{"patches":[{"unit_id":"系统提供的ID","before_hash":"原text_hash","text":"修复后完整文本"}]}。'
                 . ($extended ? '只有content_missing阻断项允许补入缺失单元，额外返回insertions数组：{issue_id,anchor_unit_id,anchor_hash,position:before或after,type:action或dialogue,text,entity_ids:[已有主体ID],speaker_id:已有人物ID或null,speech_type:spoken或voiceover或narration}。只在已有场次中插入，不创建人物。' : '')
                 . '只修改已有单元正文，不更换发言者，不删单元、不重排，不返回整个剧本。无法在此范围修复则patches为空。'
@@ -158,6 +159,7 @@ final class GenerationPipeline
 
     public static function creativeContext(array $context): array
     {
+        if (!empty($context['identity_revision_receipts'])) $context['identity_corrections'] = EntityIdentityRevision::modelCorrections($context['identity_revision_receipts'], $context['entities']);
         unset($context['identity_revision_receipts']);
         if ((int)($context['narrative_contract_version'] ?? 0) === NarrativeLedger::VERSION) {
             $context['previous_narrative'] = self::narrativeHistory($context, array_column($context['entities'] ?? [], 'entity_id'));
@@ -208,6 +210,9 @@ final class GenerationPipeline
                 . '必须结合完整value、全部引文和观察者核对历史，world_facts与character_beliefs保持分开，不能把角色误认升级为世界事实。'
                 . '历史引文属于其原集数，不能冒充本集正文u别名；本集核验证据和narrative_changes仍只引用当前document。';
         }
+        if (!empty($context['identity_revision_receipts']) || !empty($context['canonical_input']['identity_revision_receipts'])) $instruction .= 'identity_corrections是用户已经确认的身份修订。'
+            . '仅列出的set_facts/cleared_fields属性覆盖旧prompt、故事和大纲中的同一身份属性，不撤销其他要求、事件、世界事实或角色认知。'
+            . 'cleared_fields表示信息已取消确认，不能从旧背景自动补回；正文表达或发言者与当前身份冲突时，仍须指出具体单元和真实证据。';
         return $instruction;
     }
     private static function shots(array $document, callable $call, string $key, string $reservation, array $issues = []): array
@@ -227,7 +232,8 @@ final class GenerationPipeline
         $history = $narrative ? ['previous_narrative' => self::narrativeHistory($context, array_column($document['entities'], 'entity_id'))] : [];
         if (isset($context['input_history'])) $history['input_history'] = $context['input_history'];
         return ['document' => $document, 'shot_plan' => $plan, 'original_input' => $context['prompt'] ?? '',
-            'requirements' => $context['requirements'] ?? [], 'events' => $context['events'] ?? [], 'confirmed_facts' => $context['confirmed_facts'] ?? []] + $history;
+            'requirements' => $context['requirements'] ?? [], 'events' => $context['events'] ?? [], 'confirmed_facts' => $context['confirmed_facts'] ?? []] + $history
+            + (!empty($document['identity_revision_receipts']) ? ['identity_corrections'=>EntityIdentityRevision::modelCorrections($document['identity_revision_receipts'],$document['entities'])] : []);
     }
     public static function reviewInstruction(array $context): string
     {
