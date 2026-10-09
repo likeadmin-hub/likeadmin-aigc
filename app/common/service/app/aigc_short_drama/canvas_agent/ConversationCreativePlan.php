@@ -14,6 +14,21 @@ final class ConversationCreativePlan
         return ($state['workflow_snapshot']['creative_policy_version'] ?? '') === '2026-10-10.2';
     }
 
+    /** Upgrade only drafts which have never bound a production task. */
+    public static function upgradePending(array $state): array
+    {
+        if (($state['workflow_snapshot']['creative_policy_version']??'')!=='2026-10-10.1'
+            || !empty($state['series']['tasks'])
+            || !in_array($state['stage_state']['key']??'',['intake','story','episode'],true)
+            || !in_array($state['stage_state']['status']??'',['collecting','reviewing_intake','ready'],true)) return $state;
+        $state['workflow_snapshot']['creative_policy_version']=ConversationCreativePolicy::VERSION;
+        $keys=array_column($state['workflow_snapshot']['slot_schema']??[],'key');
+        if (!in_array('story_direction',$keys,true)) array_unshift($state['workflow_snapshot']['slot_schema'],
+            ['key'=>'story_direction','label'=>'故事方向','ask'=>'请确认核心剧情与发展方向。','options'=>[]]);
+        if (($state['stage_state']['status']??'')==='collecting') return $state;
+        return self::draft($state,['candidates'=>$state['intake_candidates']??[],'questions'=>[]]);
+    }
+
     public static function brief(array $messages): string
     {
         $parts=[];

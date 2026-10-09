@@ -975,7 +975,7 @@ final class ConversationWorkflow
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('intake_candidates',$state)) $state['intake_candidates']=[];
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('intake_questions',$state)) $state['intake_questions']=[];
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('creative_settings',$state)) $state['creative_settings']=[];
-        return $state;
+        return ConversationCreativePlan::upgradePending($state);
     }
     private static function nextSlot(array $state): ?array {
         if (ConversationCreativePlan::enabled($state)) {
