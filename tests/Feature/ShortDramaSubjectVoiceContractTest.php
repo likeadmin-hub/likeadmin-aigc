@@ -53,37 +53,23 @@ class ShortDramaSubjectVoiceContractTest extends TestCase
         self::assertSame('未命名声音', $normalizer->invoke(null, '[object Object]', '未命名声音'));
     }
 
-    public function testCompiledWorkbenchSupportsCloningAndBlocksPendingVoices(): void
+    public function testSourceWorkbenchSupportsCloningAndBlocksPendingVoices(): void
     {
-        $root = dirname(__DIR__, 2);
-        $api = (string)file_get_contents($root . '/public/_nuxt/short_drama.629b99f7.js');
-        $workbench = (string)file_get_contents($root . '/public/_nuxt/VisualCreationWorkbench.20b439b0.js');
-
-        self::assertStringContainsString('/app.aigc_short_drama.voice/save', $api);
-        self::assertStringContainsString('/app.aigc_short_drama.voice/trim', $api);
-        self::assertStringContainsString('Tt as T', $api);
-        self::assertStringContainsString('voiceCloneBusy', $workbench);
-        self::assertStringContainsString('voiceUploadInputRef', $workbench);
-        self::assertStringContainsString('status!=="ready"', $workbench);
-        self::assertStringContainsString('class:"voice-clone-btn"', $workbench);
-        self::assertStringContainsString('class:"sound-btn"', $workbench);
-        self::assertStringContainsString('Y as uploadVoiceFile', $workbench);
-        self::assertStringContainsString('T as trimVoiceSample', $workbench);
-        $handlerStart = strpos($workbench, 'handleVoiceUpload=async');
-        self::assertIsInt($handlerStart);
-        $handlerEnd = strpos($workbench, ',ut=async', $handlerStart);
-        self::assertIsInt($handlerEnd);
-        $voiceUploadHandler = substr($workbench, $handlerStart, $handlerEnd - $handlerStart);
-
-        self::assertStringContainsString('await uploadVoiceFile({file:t})', $voiceUploadHandler);
-        self::assertStringContainsString(
-            'await trimVoiceSample({file:t,data:{start:"0",duration:"10"}})',
-            $voiceUploadHandler
-        );
-        self::assertStringContainsString('String(s?.value??s??"").trim()', $voiceUploadHandler);
-        self::assertStringNotContainsString('String(s||"").trim()', $voiceUploadHandler);
-        self::assertStringContainsString('Math.min(10,Math.ceil', $voiceUploadHandler);
-        self::assertStringNotContainsString('await pl({file:t})', $voiceUploadHandler);
-        self::assertStringNotContainsString('return}const s=await m.prompt', $voiceUploadHandler);
+        // Generated filenames are not a source delivery contract. Verify the neighboring frontend checkout.
+        $web = dirname(__DIR__, 3) . '/web/pc';
+        if (!is_file($web . '/components/short-drama/VisualCreationWorkbench.vue')) self::markTestSkipped('Frontend checkout required for cross-repository source contract');
+        $api = (string)file_get_contents($web . '/api/short_drama.ts');
+        $workbench = (string)file_get_contents($web . '/components/short-drama/VisualCreationWorkbench.vue');
+        foreach (['save', 'trim'] as $action) self::assertStringContainsString('/app.aigc_short_drama.voice/' . $action, $api);
+        self::assertStringContainsString(':disabled="voice.status !== \'ready\'"', $workbench);
+        self::assertStringContainsString(':disabled="!pendingVoice || pendingVoice.status !== \'ready\'"', $workbench);
+        self::assertStringContainsString('class="voice-clone-btn"', $workbench);
+        self::assertStringContainsString('class="sound-btn"', $workbench);
+        self::assertStringContainsString('if (!file || voiceCloneBusy.value) return', $workbench);
+        self::assertStringContainsString('await uploadVoiceFile({ file })', $workbench);
+        self::assertStringContainsString("await trimShortDramaVoice({ file, data: { start: '0', duration: '10' } })", $workbench);
+        self::assertStringContainsString("String((promptResult as any)?.value ?? promptResult ?? '').trim()", $workbench);
+        self::assertStringContainsString('Math.min(10, Math.ceil(duration))', $workbench);
+        self::assertStringContainsString('await saveShortDramaVoice({ name, audio_uri: audioUri, duration: cloneDuration })', $workbench);
     }
 }
