@@ -10,6 +10,9 @@ use think\facade\Db;
 /** Local dependency/index simulation. No model requests or claim of 500 creative episodes. */
 final class ShortDramaVnextLongSeriesTest extends TestCase
 {
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
     public function testFiveHundredPublishedEpisodesKeepBoundedQueriesAndInvalidateDownstreamRevisions(): void
     {
         if (getenv('SHORT_DRAMA_STORY_DB_TESTS') !== '1') self::markTestSkipped('Opt in to local DB fixtures');
