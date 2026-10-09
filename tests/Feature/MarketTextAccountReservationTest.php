@@ -147,6 +147,32 @@ final class MarketTextAccountReservationTest extends TestCase
     }
 
     public static function recoveryStates(): array {return [['reconciling'],['expired_running'],['canceled']];}
+    public static function cancellationStates(): array {return [[false],[true]];}
+    /** @dataProvider cancellationStates */
+    public function testActualCancelApiReleasesOnlyPreparedHoldsAndKeepsUnknownSubmittedHold(bool $submitted): void
+    {
+        $task='account_cancel_'.bin2hex(random_bytes(8));
+        $project=(int)Db::name('aigc_short_drama_project')->insertGetId(['tenant_id'=>$this->tenant,'user_id'=>$this->user,
+            'title'=>'Private cancellation fixture','prompt'=>'保留正文','last_task_id'=>$task]);
+        $business=(int)Db::name('aigc_short_drama_script_task')->insertGetId(['tenant_id'=>$this->tenant,'user_id'=>$this->user,
+            'project_id'=>$project,'task_id'=>$task,'status'=>'running','prompt'=>'保留正文','request_json'=>'{"_pipeline_version":1}']);
+        $store=\app\common\service\app\aigc_short_drama\vnext\ApplicationWorkflow::store($this->tenant,$this->user,$task);
+        $store->create($task,['context'=>['account_reservation_version'=>1],'execution'=>['resource_limits'=>
+            ['total_tokens'=>8000,'tenant_cost_points'=>8,'user_charge_points'=>16]]],time()+600);
+        $context=null;$fence=$store->acquire('cancel_fixture',100);
+        try {$store->call($fence,'screenplay',['_account_reservation_version'=>1],function($input,$key,$persist,$admit)use(&$context,$submitted,$business) {
+            $admit(['total_tokens'=>4000,'tenant_cost_points'=>4,'user_charge_points'=>8]);
+            $context=Fixture::reserve($this->tenant,$this->user,$key,0,$input['_account_reservation_attempt'],$business);
+            if($submitted) Fixture::call('markAccountSubmission',$context);
+            throw new \RuntimeException('fixture canceled after interruption');
+        });}catch(\RuntimeException $e){self::assertStringContainsString('interruption',$e->getMessage());}
+        $a=\app\common\service\app\aigc_short_drama\AigcShortDramaService::cancel($this->tenant,$this->user,$task);
+        \app\common\service\app\aigc_short_drama\AigcShortDramaService::cancel($this->tenant,$this->user,$task);
+        self::assertSame('canceled',$a['status']);self::assertSame('canceled',$store->snapshot()['execution_status']);
+        $this->balances($submitted?16:20,$submitted?32:40);
+        self::assertSame($submitted?'pending_usage':'refunded',AiConsumptionLog::find($context['consumption']['id'])['billing_status']);
+        $this->rejected(fn()=>Fixture::call('markAccountSubmission',$context));
+    }
     /** @dataProvider recoveryStates */
     public function testRealExecutorReopensOnlySealedPreparedAttemptWithoutResettingBudget(string $state): void
     {

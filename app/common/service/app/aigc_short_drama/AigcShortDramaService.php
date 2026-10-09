@@ -6019,7 +6019,7 @@ class AigcShortDramaService
         $task = self::findTask($tenantId, $userId, $taskId);
         $request = self::jsonDecode((string)$task['request_json']);
         if (vnext\ApplicationWorkflow::current($request)) {
-            return Db::transaction(static function () use ($tenantId, $userId, $taskId, $request): array {
+            Db::transaction(static function () use ($tenantId, $userId, $taskId, $request): array {
                 $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
                 $store->cancel();
                 $task = self::findTask($tenantId, $userId, $taskId);
@@ -6031,6 +6031,16 @@ class AigcShortDramaService
                 }
                 return self::formatTask($task->toArray(), true);
             });
+            try {
+                vnext\ApplicationWorkflow::store($tenantId,$userId,$taskId)->reconcileUnsubmitted(
+                    static fn(string $key,int $attempt): bool => MarketTextModelRuntimeService::releaseUnsubmittedReservation(
+                        $tenantId,$userId,'aigc_short_drama_script_task',(int)$task['id'],$key,$attempt));
+            } catch (\Throwable $error) {
+                // Cancellation is already committed. Keep an uncertain reservation
+                // instead of turning a ledger error into permission to submit again.
+                Log::error('Short drama canceled reservation requires reconciliation: task='.$taskId.' code='.$error->getCode());
+            }
+            return self::formatTask(self::findTask($tenantId,$userId,$taskId)->toArray(),true);
         }
         $episode = ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
         if ($episode) return ShortDramaEpisodeService::cancel($tenantId, $userId, (int)$episode['id']);
