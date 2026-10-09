@@ -90,7 +90,23 @@ final class CanvasStepFlowTest extends TestCase
         catch(RuntimeException $error) { self::assertSame('INVALID_AGENT_ACTION',$error->getMessage()); }
     }
     public function testOldPendingStoryboardAdvancesWithoutCreatingImages(): void {
-        $state=$this->state();$state['stage_state']['key']='storyboard';Flow::answer($state,'continue');
+        $state=$this->state();$state['three_views_ready']=true;$state['stage_state']['key']='storyboard';Flow::answer($state,'continue');
         self::assertSame(['key'=>'video_plan','status'=>'ready'],$state['stage_state']);
+    }
+    public function testStoryboardWaitsForSuccessfulTurnaroundAssets(): void {
+        $s=$this->state();$s['stage_state']['key']='video_plan';
+        $s['artifact_memory'][]=['stage'=>'assets','artifact'=>'subject','key'=>'subject_a','node_id'=>'10'];
+        self::assertFalse(Flow::viewsReady($s,[]));
+        self::assertArrayNotHasKey('action_label',Flow::card($s));
+        $s['artifact_memory'][]=['stage'=>'assets','artifact'=>'three_view','key'=>'view_a','node_id'=>'11'];
+        foreach (['idle','running','failed','canceled'] as $status) {
+            self::assertFalse(Flow::viewsReady($s,[['id'=>'11','type'=>'image','metadata'=>['status'=>$status,'asset_id'=>9]]]));
+        }
+        self::assertFalse(Flow::viewsReady($s,[['id'=>'11','type'=>'image','metadata'=>['status'=>'success']]]));
+        try { Flow::answer($s,'continue');self::fail('Premature storyboard accepted'); }
+        catch(RuntimeException $e) {self::assertSame('WORKFLOW_THREE_VIEWS_PENDING',$e->getMessage());}
+        $s['three_views_ready']=Flow::viewsReady($s,[['id'=>'11','type'=>'image','metadata'=>['status'=>'success','asset_id'=>9]]]);
+        self::assertTrue($s['three_views_ready']);self::assertSame('生成分镜表',Flow::card($s)['action_label']);
+        Flow::answer($s,'continue');self::assertSame('ready',$s['stage_state']['status']);
     }
 }

@@ -41,6 +41,20 @@ final class ConversationStepFlow
         return (bool)array_diff($subjects,$views);
     }
 
+    public static function viewsReady(array $state,array $nodes): bool
+    {
+        if (self::canPrepareViews($state)) return false;
+        $live=[];
+        foreach ($nodes as $node) $live[(string)($node['id']??'')]=$node;
+        foreach ((array)($state['artifact_memory']??[]) as $item) {
+            if (($item['artifact']??'')!=='three_view') continue;
+            $node=$live[(string)($item['node_id']??'')]??[];
+            if (($node['type']??'')!=='image' || ($node['metadata']['status']??'')!=='success'
+                || (int)($node['metadata']['asset_id']??0)<=0) return false;
+        }
+        return true;
+    }
+
     public static function advance(array &$state,string $stage,array $completed): array
     {
         unset($state['asset_step']);
@@ -71,6 +85,7 @@ final class ConversationStepFlow
             if (!$selected || count($selected)!==count(array_unique($selected)) || array_diff($selected,$available)) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
             $state['video_selection']=$selected;
         } elseif ($value==='continue' && in_array($stage,['storyboard','video_plan','audio_plan'],true)) {
+            if (in_array($stage,['storyboard','video_plan'],true) && empty($state['three_views_ready'])) throw new RuntimeException('WORKFLOW_THREE_VIEWS_PENDING');
             // Old conversations waiting for storyboard images can use the new text-first flow.
             if ($stage==='storyboard') $state['stage_state']['key']='video_plan';
         } else throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
@@ -88,7 +103,8 @@ final class ConversationStepFlow
         $stage=(string)$state['stage_state']['key'];
         if ($stage==='video_nodes') return ['type'=>'next_stage','body'=>'分镜已插入画布，请自行生成分镜图片。需要制作视频时，再选择本次要准备的片段；视频仍由你在节点上确认生成。',
             'action_label'=>'准备所选视频片段','video_options'=>self::remainingVideos($state)];
-        return ['type'=>'next_stage','body'=>'主体、场景和道具记录已保留。可按需准备角色三视图，或继续查看分镜表。',
-            'action_label'=>'生成分镜表']+(self::canPrepareViews($state)?['optional_action'=>['value'=>'three_view','label'=>'准备角色三视图']]:[]);
+        if (self::canPrepareViews($state)) return ['type'=>'next_stage','body'=>'请先准备并生成角色三视图，全部生成成功后再生成分镜表。','optional_action'=>['value'=>'three_view','label'=>'准备角色三视图']];
+        if (empty($state['three_views_ready'])) return ['type'=>'next_stage','body'=>'等待角色三视图全部生成成功；失败的图片可在画布重试。'];
+        return ['type'=>'next_stage','body'=>'角色三视图已准备完成，可以生成分镜表。','action_label'=>'生成分镜表'];
     }
 }

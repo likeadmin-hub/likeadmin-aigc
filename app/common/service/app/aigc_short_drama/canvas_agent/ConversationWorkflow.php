@@ -480,6 +480,8 @@ final class ConversationWorkflow
         $state=self::stateFromSettings(self::settings($row));
         if ($state===[]) return ['enabled'=>FeatureGate::workflowEnabled($tenant,self::KEY),'workflow'=>null,'card'=>null];
         self::assertState($state);
+        $document=Db::name(GraphService::TABLE)->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find();
+        $state['three_views_ready']=ConversationStepFlow::viewsReady($state,json_decode((string)($document['nodes_json']??'[]'),true)?:[]);
         return ['enabled'=>FeatureGate::workflowEnabled($tenant,self::KEY),'workflow'=>self::publicState($state),'card'=>self::card($state)];
     }
 
@@ -529,7 +531,9 @@ final class ConversationWorkflow
             }
             if ($slot==='next_stage') {
                 if (ConversationStepFlow::enabled($state)) {
+                    $state['three_views_ready']=ConversationStepFlow::viewsReady($state,json_decode((string)$lockedCanvas['nodes_json'],true)?:[]);
                     ConversationStepFlow::answer($state,$value);
+                    unset($state['three_views_ready']);
                 } else {
                     if ($value!=='continue' || ($state['stage_state']['status']??'')!=='awaiting_stage_start'
                         || !in_array($state['stage_state']['key']??'',['storyboard','video_plan','audio_plan'],true)) throw new RuntimeException('WORKFLOW_STAGE_PLAN_STALE');
