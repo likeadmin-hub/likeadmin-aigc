@@ -4,7 +4,7 @@ namespace app\common\service\app\aigc_short_drama\vnext;
 use app\common\service\app\aigc_short_drama\ShortDramaStructuredResponse;
 use RuntimeException;
 
-/** Three core calls. The injected executor owns all persistence, billing and call admission. */
+/** Short episodes use three core calls; capacity plans add bounded stages under the same executor. */
 final class GenerationPipeline
 {
     public const VERSION = 1;
