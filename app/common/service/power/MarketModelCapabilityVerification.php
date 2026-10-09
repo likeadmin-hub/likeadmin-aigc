@@ -9,9 +9,11 @@ final class MarketModelCapabilityVerification
 
     public static function identity(array $product): array
     {
-        return array_intersect_key($product, array_flip([
-            'source_code', 'upstream_resource_key', 'upstream_model_code', 'upstream_channel_code',
-        ]));
+        $identity=[];
+        foreach (['source_code', 'upstream_resource_key', 'upstream_model_code', 'upstream_channel_code'] as $key) {
+            if (array_key_exists($key,$product)) $identity[$key]=(string)$product[$key];
+        }
+        return $identity;
     }
 
     public static function vision(array $product): bool
