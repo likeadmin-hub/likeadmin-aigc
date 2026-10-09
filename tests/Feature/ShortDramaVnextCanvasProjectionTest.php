@@ -15,7 +15,7 @@ final class ShortDramaVnextCanvasProjectionTest extends TestCase
             ['ref'=>'hero','kind'=>'character','name'=>'甲','description'=>'黑衣'],
             ['ref'=>'letter','kind'=>'prop','name'=>'旧信','description'=>'封口破损'],
             ['ref'=>'room','kind'=>'location','name'=>'书房','description'=>'旧书桌']],
-            'scenes'=>[['location'=>'room','units'=>[['type'=>'action','entities'=>['hero','letter'],'text'=>'甲握着旧信。'],
+            'scenes'=>[['location'=>'room','units'=>[['type'=>'action','characters'=>['hero'],'props'=>['letter'],'text'=>'甲握着旧信。'],
                 ['type'=>'dialogue','speaker'=>'hero','text'=>str_repeat('完整台词。',100).'尾句😀']]]]],
             ['revision_id'=>'doc1','episode_id'=>'ep1','entity_scope'=>'canvas-fixture']);
         $plan=ShotCompiler::compile($document,['shots'=>[['visual_description'=>'甲握着破损旧信','composition'=>'中景','refs'=>[['unit'=>'u1'],['unit'=>'u2']]]]],'shots1');
