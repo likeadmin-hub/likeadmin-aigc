@@ -20,7 +20,7 @@ final class MarketTextAccountConcurrencyTest extends TestCase
         if (getenv('SHORT_DRAMA_STORY_DB_TESTS')!=='1') self::markTestSkipped('Opt in to private account processes');
         (new \think\App())->initialize();
         $prefix='account_'.bin2hex(random_bytes(8));
-        Db::name('tenant')->insert(['id'=>2000000816,'sn'=>$prefix,'point_balance'=>8]);
+        Db::name('tenant')->insert(['id'=>2000000816,'sn'=>$prefix,'point_balance'=>8,'create_time'=>time(),'update_time'=>time()]);
         $this->prefix=$prefix;
         $this->user=(int)Db::name('user')->insertGetId(['tenant_id'=>2000000816,'nickname'=>$prefix,
             'sn'=>(string)random_int(10000000,99999999),'user_money'=>16]);
