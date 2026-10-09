@@ -2991,6 +2991,13 @@ class AigcShortDramaService
         }
         $project = $isHomeSubmission ? null : self::findProject($tenantId, $userId, $projectId);
         $sourceTask = $isHomeSubmission ? null : self::findTask($tenantId, $userId, $sourceTaskId, $projectId);
+        if (!$isHomeSubmission) {
+            vnext\ApplicationWorkflow::assertLegacyWrite($sourceTask->toArray());
+            if (!in_array((string)$sourceTask['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
+                throw new Exception('当前任务仍在处理，请先停止或等待完成后上传新文件');
+            }
+            ShortDramaEpisodeService::guardRevision($tenantId, $userId, $projectId, $sourceTaskId);
+        }
         $file = request()->file('file');
         if ($file === null || (method_exists($file, 'getError') && (int)$file->getError() !== 0)) {
             throw new Exception('剧本文件上传失败');
@@ -3140,7 +3147,9 @@ class AigcShortDramaService
                 'attachment_name' => $name,
             ];
         }
-        unset($request['_story_draft'], $request['confirmed_story_snapshot'], $request['confirmed_story_task_id']);
+        unset($request['_story_draft'], $request['_imported_outline_snapshot'], $request['_story_outline_obsolete'],
+            $request['confirmed_story_snapshot'], $request['confirmed_story_task_id'], $request['confirmed_story_version'],
+            $request['confirmed_outline_snapshot'], $request['confirmed_outline_task_id'], $request['confirmed_outline_version']);
         $request['episode_count'] = max(2, min(self::SCRIPT_MAX_EPISODES, (int)($sourceRequest['episode_count'] ?? ($project['episode_count'] ?? 2))));
         $request['episode_total_count'] = $request['episode_count'];
         $request['idempotency_key'] = $idempotencyKey !== '' ? $idempotencyKey : sha1($tenantId . '|' . $userId . '|' . $projectId . '|' . $checksum . '|' . $parseTaskId);
@@ -3156,6 +3165,7 @@ class AigcShortDramaService
             } else {
                 $lockedProject = AigcShortDramaProject::where(['id' => $projectId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])->lock(true)->findOrEmpty();
                 if ($lockedProject->isEmpty()) throw new Exception('项目不存在');
+                ShortDramaEpisodeService::guardRevision($tenantId, $userId, $projectId, $sourceTaskId);
             }
             $asset = AigcShortDramaAsset::create([
                 'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
