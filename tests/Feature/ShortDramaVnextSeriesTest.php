@@ -269,7 +269,8 @@ final class ShortDramaVnextSeriesTest extends TestCase
             self::assertSame($secondEdit['task_id'], $initialFailure['task_id']);
             Db::name('aigc_short_drama_episode_task')->where('id', $list[1]['id'])->update(['completed_once' => 1]);
             self::assertCount(14, Provider::$requests);
-            self::assertSame(1, Episodes::tick($tenant, $project)); // Finalize the already published first revision.
+            self::assertSame($canvas ? 0 : 1, Episodes::tick($tenant, $project)); // Canvas revision mapping is already atomic; ordinary series finalizes on its worker.
+            self::assertSame('success',Db::name('aigc_short_drama_episode_task')->where('id',$list[0]['id'])->value('status'));
             self::assertCount(14, Provider::$requests);
             $resume = Episodes::retry($tenant, $user, $list[1]['id']);
             self::assertNotSame($secondEdit['task_id'], $resume['task_id']);
