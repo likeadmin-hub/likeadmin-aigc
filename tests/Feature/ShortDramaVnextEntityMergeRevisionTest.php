@@ -24,6 +24,7 @@ final class ShortDramaVnextEntityMergeRevisionTest extends TestCase
             ['ref'=>'l1','entity_id'=>'ent_room','kind'=>'location','name'=>'书房'],
             ['ref'=>'l2','entity_id'=>'ent_room_duplicate','kind'=>'location','name'=>'办公室'],
         ]];
+        foreach($context['entities'] as &$entity) { $entity['identity_facts']=$entity['identity_facts']??[];$entity['aliases']=[];$entity['description']=$entity['description']??''; } unset($entity);
         $doc=ContentDocument::normalize(['title'=>'登记确认','scenes'=>[['location'=>'l2','units'=>[
             ['type'=>'action','characters'=>['c1','c2'],'text'=>'老陈放下信。😀'],
             ['type'=>'dialogue','speaker'=>'c1','text'=>"老陈：原文不改\n完整尾句😀"]]]]],$context);
@@ -38,7 +39,8 @@ final class ShortDramaVnextEntityMergeRevisionTest extends TestCase
     }
     private function revise(array $doc,array $context,array $origin,array $patch): array
     {
-        return ApplicationWorkflow::revisionInput(['context'=>$context],['document'=>$doc],[],$doc['revision_id'],'new',$origin,$patch);
+        $task='new_'.$doc['revision_id'];$origin['task_id']=$task;
+        return ApplicationWorkflow::revisionInput(['context'=>$context],['document'=>$doc],[],$doc['revision_id'],$task,$origin,$patch);
     }
     public function testMergePreservesEveryWordAndSourceWhileRebindingCurrentProduction(): void
     {
@@ -51,7 +53,7 @@ final class ShortDramaVnextEntityMergeRevisionTest extends TestCase
         self::assertSame($doc['entities'][0],$next['entity_merge_receipts']['ent_source']['source_entity']);
         self::assertSame($next['entity_merge_receipts'],$input['context']['entity_merge_receipts']);
         $record=ManualRevisionHistory::page($input,10,20,1)['records'][0]['changes'][0];
-        self::assertSame('entity_merge',$record['target_kind']);self::assertSame('老陈',json_decode($record['before_text'],true)['source']['canonical_name']);
+        self::assertSame('确认同一人物：老陈 → 陈默',$record['target_label']);self::assertSame('老陈',json_decode($record['before_text'],true)['source']['canonical_name']);
         self::assertSame('陈默',json_decode($record['after_text'],true)['target']['canonical_name']);
         $plan=ShotCompiler::compile($next,['shots'=>[['visual_description'=>'画面','refs'=>[['unit'=>'u1'],['unit'=>'u2']]]]],'s2');
         self::assertSame('ent_kept',$plan['audio_segments'][0]['speaker_id']);
@@ -97,7 +99,7 @@ final class ShortDramaVnextEntityMergeRevisionTest extends TestCase
         if($case==='facts')$doc['entities'][0]['identity_facts']['age']=29;
         if($case==='library')$doc['entities'][0]['identity_facts']['library_subject_id']=42;
         if($case==='alias')$doc['entities'][2]['aliases'][]='老陈';
-        $doc=ContentDocument::rebind($doc,[],'r1');$patch=$this->patch($doc);
+        $doc=ContentDocument::rebind($doc,[],'unsafe_baseline');$patch=$this->patch($doc);
         if($case==='stale')$patch['entity_merges'][0]['source_before_hash']='stale';
         if($case==='same')$patch['entity_merges'][0]['target_entity_id']='ent_source';
         if($case==='foreign')$patch['entity_merges'][0]['target_entity_id']='missing';
