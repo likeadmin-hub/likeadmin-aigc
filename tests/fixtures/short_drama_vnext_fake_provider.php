@@ -29,7 +29,7 @@ class MarketTextModelRuntimeService
         elseif (!isset($input['shot_plan'])) $reply = ['shots' => [['visual_description' => '书房天亮了', 'refs' => [['unit' => 'u1']]]]];
         else {
             $checks = []; $ids = array_merge(array_column($input['requirements'], 'id'), array_column($input['events'] ?? [], 'id'), ['aspect:identity', 'aspect:continuity', 'aspect:shot_fidelity']);
-            $series = isset($input['document']['dependency_versions']['series']);
+            $series = str_starts_with($input['document']['episode_id'], 'series:');
             $text = $input['document']['scenes'][0]['units'][0]['text'];
             foreach ($ids as $id) $checks[] = ['id' => $id, 'status' => 'covered', 'evidence' => [['unit' => 'u1', 'start' => $series ? 0 : 1200, 'end' => $series ? mb_strlen($text) : 1205, 'quote' => $series ? $text : '结尾保留。']]];
             $reply = ['document_hash' => $input['document']['content_hash'], 'shot_hash' => $input['shot_plan']['content_hash'], 'checks' => $checks, 'narrative_changes' => []];

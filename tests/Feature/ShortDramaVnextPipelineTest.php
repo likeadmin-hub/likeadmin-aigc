@@ -33,6 +33,11 @@ final class ShortDramaVnextPipelineTest extends TestCase
         }
         return ['result' => ['content' => json_encode($data, JSON_UNESCAPED_UNICODE), 'finish_reason' => 'stop']];
     }
+    public function testUnknownProjectionVersionCannotSilentlyChangeRequestContract(): void
+    {
+        $this->expectExceptionCode(409);
+        GenerationPipeline::run($this->context() + ['prompt_projection_version' => 99], static function () { self::fail('Unsupported contract submitted'); }, static function () {}, static function () {});
+    }
     public function testNormalShortEpisodeUsesExactlyThreeCallsAndAlwaysReviews(): void
     {
         $keys = []; $saved = [];
@@ -41,6 +46,30 @@ final class ShortDramaVnextPipelineTest extends TestCase
         }, static function () { self::fail('Normal generation reserved repair budget'); }, static function ($value) use (&$saved) { $saved[] = $value; });
         self::assertSame(['screenplay', 'shots', 'review'], $keys); self::assertCount(3, $saved);
         self::assertSame('ready', $result['coverage_report']['status']);
+    }
+    public function testProjectionIsFrozenAndFormatRepairUsesTheSameCompactInput(): void
+    {
+        foreach ([false, true] as $compact) {
+            $context = $this->context() + ['dependency_versions' => ['episodes' => ['prior' => ['document_hash' => 'old']]]];
+            if ($compact) $context['prompt_projection_version'] = 1;
+            $keys = []; $shotInput = null;
+            $result = GenerationPipeline::run($context, function ($key, $messages) use ($compact, &$keys, &$shotInput) {
+                $keys[] = $key; $input = json_decode($messages['content'], true);
+                if ($key === 'screenplay') self::assertSame(!$compact, array_key_exists('dependency_versions', $input));
+                if ($key === 'shots') {
+                    self::assertSame(!$compact, array_key_exists('dependency_versions', $input['document']));
+                    $shotInput = $input;
+                    return ['result' => ['content' => '{broken']];
+                }
+                if ($key === 'shots_format') self::assertSame($shotInput, $input['input']);
+                if ($key === 'review') self::assertSame(!$compact, array_key_exists('dialogue_preview', $input['shot_plan']['shots'][0]));
+                return $this->response($key, $messages);
+            }, static function () { self::fail('Unexpected semantic repair'); }, static function () {});
+            self::assertSame(['screenplay', 'shots', 'shots_format', 'review'], $keys);
+            self::assertSame('ready', $result['coverage_report']['status']);
+            self::assertSame($context['dependency_versions'], $result['document']['dependency_versions']);
+            self::assertSame('陈默：老师您好。', $result['shot_plan']['shots'][0]['dialogue_preview']);
+        }
     }
     public function testFormatRepairIsBoundedAndDoesNotRestartAcceptedStages(): void
     {
@@ -63,10 +92,13 @@ final class ShortDramaVnextPipelineTest extends TestCase
         self::assertSame(['shots', 'review'], $keys);
         self::assertSame('老师您好，最后这句也必须保留。', $result['document']['scenes'][0]['units'][0]['text']);
     }
-    public function testRepairReservesReplanningAndReviewBeforePatching(): void
+    public static function projections(): array { return [[false], [true]]; }
+    /** @dataProvider projections */
+    public function testRepairReservesReplanningAndReviewBeforePatching(bool $compact): void
     {
-        $operations = [];
-        $result = GenerationPipeline::run($this->context(), function ($key, $input, $reservation) use (&$operations) {
+        $operations = []; $context = $this->context();
+        if ($compact) $context['prompt_projection_version'] = 1;
+        $result = GenerationPipeline::run($context, function ($key, $input, $reservation) use (&$operations) {
             $operations[] = $key; return $this->response($key, $input, in_array($key, ['screenplay', 'review'], true));
         }, static function ($key, $calls) use (&$operations) { self::assertSame(3, $calls); $operations[] = 'reserve:' . $key; }, static function () {});
         self::assertSame(['screenplay', 'shots', 'review', 'reserve:repair_1', 'repair_1', 'repair_1_shots', 'repair_1_review'], $operations);
