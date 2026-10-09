@@ -31,6 +31,10 @@ final class ExecutionStore
                     'repair_rounds' => 0, 'reservations' => [], 'input_tokens' => 0, 'output_tokens' => 0,
                     'provider_cost' => 0, 'user_points' => 0, 'elapsed_ms' => 0]),
                 'deadline_at' => $deadline, 'create_time' => time(), 'update_time' => time()];
+            if (isset($input['context']['canonical_input'])) {
+                $row['candidate_json'] = self::json(['document' => $input['context']['canonical_input']]);
+                $row['document_status'] = 'draft'; $row['event_seq'] = 1;
+            }
             try { $this->query('job')->insert($row); }
             catch (\Throwable $error) {
                 if (str_contains($error->getMessage(), 'Duplicate entry')) throw new RuntimeException('本集已有生成或修订作业，请先处理当前作业', 409, $error);
@@ -251,6 +255,7 @@ final class ExecutionStore
             || ($job['execution_status'] === 'canceled' && !empty($job['pending_receipts']))) $actions[] = 'check_receipt';
         if ($job['execution_status'] === 'canceled' && isset($job['pending_receipts']) && !$job['pending_receipts']
             && (int)$job['deadline_at'] > time()) $actions[] = 'retry';
+        if (!empty($candidate['document']) && in_array($job['execution_status'], ['succeeded', 'needs_attention'], true)) $actions[] = 'revise_content';
         return ['pipeline_version' => 1, 'task_id' => $job['task_id'], 'execution_status' => $job['execution_status'],
             'document_status' => $job['document_status'], 'production_status' => $job['production_status'],
             'event_seq' => (int)$job['event_seq'], 'revision_id' => $candidate['document']['revision_id'] ?? '',

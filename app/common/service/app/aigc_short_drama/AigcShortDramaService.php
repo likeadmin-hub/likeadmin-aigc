@@ -4005,7 +4005,9 @@ class AigcShortDramaService
                         'user_charge_points' => $billing['user_charge_points'], 'provider_request_id' => $billing['provider_request_id'],
                         'error' => '', 'finished_at' => $time, 'update_time' => $time]);
                     self::createAgentRunRecord($tenantId, $userId, $projectId, $agentRunId, $taskId, 'initial_plan', $request, $result, $model, self::STATUS_SUCCESS, $time);
-                    $version = self::createPlanVersion($tenantId, $userId, $projectId, $taskId, $agentRunId, 'vnext_initial', $result, 0, true, $time);
+                    $version = self::createPlanVersion($tenantId, $userId, $projectId, $taskId, $agentRunId,
+                        empty($taskData['parent_task_id']) ? 'vnext_initial' : 'vnext_revision', $result,
+                        (int)($request['_canonical_parent_version_id'] ?? 0), true, $time);
                     $project->save(['status' => self::PROJECT_STATUS_PLAN_REVIEW, 'current_version_id' => (int)$version['id'], 'update_time' => $time]);
                     self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $taskId, self::STATUS_SUCCESS, $request, $model,
                         $billing + ['progress' => 100, 'finished_at' => $time, 'result' => ['version_id' => (int)$version['id']]]);
@@ -4457,6 +4459,45 @@ class AigcShortDramaService
         }
     }
 
+    private static function reviseCanonicalContent(int $tenantId, int $userId, array $sourceTask, array $params): array
+    {
+        $sourceId = (string)$sourceTask['task_id']; $projectId = (int)$sourceTask['project_id'];
+        $patches = vnext\ContentDocument::rows($params['canonical_patches'] ?? null, 'canonical_patches');
+        $expected = (string)($params['expected_revision_id'] ?? '');
+        $key = vnext\ContentDocument::hash([$tenantId, $userId, $sourceId, $expected, $patches]);
+        return Db::transaction(static function () use ($tenantId, $userId, $sourceTask, $sourceId, $projectId, $patches, $expected, $key): array {
+            // Same order as publication: canonical job, project, task. No network requests in this transaction.
+            $job = Db::name('aigc_short_drama_vnext_job')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $sourceId])->lock(true)->find();
+            if (!$job) throw new \RuntimeException('生成作业不存在', 404);
+            $project = AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $projectId, 'delete_time' => 0])->lock(true)->find();
+            if (!$project) throw new \RuntimeException('项目不存在', 404);
+            $existing = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
+                'parent_task_id' => $sourceId, 'idempotency_key' => $key, 'delete_time' => 0])->findOrEmpty();
+            if (!$existing->isEmpty()) return self::formatTask($existing->toArray(), true);
+            if (!in_array($job['execution_status'], ['succeeded', 'needs_attention'], true)) throw new \RuntimeException('请先停止生成或等待当前内容核对完成', 409);
+            if ($project['last_task_id'] !== $sourceId) throw new \RuntimeException('已有新修订，请打开当前任务后再修改', 409);
+            $newId = self::makeTaskId(); $agent = self::makeTaskId('sd_agent'); $time = time();
+            $input = vnext\ApplicationWorkflow::revisionInput(self::jsonDecode($job['input_json']), self::jsonDecode($job['candidate_json']), $patches, $expected, $newId);
+            if ($job['execution_status'] === 'needs_attention') vnext\ApplicationWorkflow::store($tenantId, $userId, $sourceId)->cancel();
+            vnext\ApplicationWorkflow::store($tenantId, $userId, $newId)->create($job['lane_key'], $input,
+                $time + (int)$input['execution']['deadline_seconds']);
+            $request = self::jsonDecode((string)$sourceTask['request_json']);
+            $request['_prompt_task_id'] = $newId; $request['source'] = 'revision';
+            $request['_canonical_parent_version_id'] = (int)$project['current_version_id'];
+            unset($request['_prompt_requests'], $request['_execution_attempt']);
+            $row = $sourceTask; unset($row['id']);
+            $row = array_replace($row, ['task_id' => $newId, 'parent_task_id' => $sourceId, 'app_task_id' => 0, 'request_json' => self::jsonEncode($request),
+                'result_json' => '{}', 'status' => self::STATUS_PENDING, 'progress' => 0, 'current_step' => '正文修订已保存，等待核对分镜',
+                'pricing_snapshot' => '{}', 'billing_status' => 'none', 'tenant_cost_points' => '0.00', 'user_charge_points' => '0.00',
+                'provider_request_id' => '', 'provider_task_id' => '', 'retry_count' => 0, 'error' => '', 'operator_error' => '',
+                'started_at' => 0, 'finished_at' => 0, 'create_time' => $time, 'update_time' => $time, 'idempotency_key' => $key]);
+            AigcShortDramaScriptTask::create($row);
+            $project->save(['last_task_id' => $newId, 'current_agent_run_id' => $agent, 'status' => self::PROJECT_STATUS_PLANNING, 'update_time' => $time]);
+            self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $newId, self::STATUS_PENDING, $request, $input['model']);
+            return self::formatTask(self::findTask($tenantId, $userId, $newId)->toArray(), true);
+        });
+    }
+
     public static function saveStoryboard(int $tenantId, int $userId, array $params): array
     {
         $taskId = trim((string)($params['task_id'] ?? ''));
@@ -4464,6 +4505,9 @@ class AigcShortDramaService
             throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, (int)($params['project_id'] ?? 0));
+        if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json'])) && array_key_exists('canonical_patches', $params)) {
+            return self::reviseCanonicalContent($tenantId, $userId, $task->toArray(), $params);
+        }
         vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());
         if (($task['status'] ?? '') === self::STATUS_CANCELED) {
             throw new Exception('Task has been canceled');
@@ -24144,6 +24188,10 @@ class AigcShortDramaService
                 'tenant_id' => (int)$task['tenant_id'], 'user_id' => (int)$task['user_id'], 'task_id' => (string)$task['task_id'], 'status' => 'submitted',
             ])->count();
             $response['generation_snapshot'] = $job ? vnext\ExecutionStore::publicProjection($job) : null;
+            if (!$isCurrentProjectTask && $response['generation_snapshot']) {
+                $response['generation_snapshot']['allowed_actions'] = array_values(array_intersect(
+                    $response['generation_snapshot']['allowed_actions'], ['read_content', 'cancel']));
+            }
         }
         return self::sanitizeUtf8Payload($response);
     }
