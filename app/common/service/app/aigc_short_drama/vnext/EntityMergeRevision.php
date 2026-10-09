@@ -122,7 +122,7 @@ final class EntityMergeRevision
         foreach ($receipts as $id => $proof) {
             $target = $active[self::resolve($id, $receipts)];
             $result[] = ['kind'=>$proof['kind'],'previous_name'=>$proof['source_entity']['canonical_name'],
-                'entity_id'=>$target['entity_id'],'name'=>$target['canonical_name']];
+                'entity_id'=>$target['entity_id'],'name'=>$target['canonical_name'] ?? $target['name']];
         }
         return $result;
     }
