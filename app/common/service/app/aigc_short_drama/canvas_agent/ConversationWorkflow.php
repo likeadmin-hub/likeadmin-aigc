@@ -225,10 +225,8 @@ final class ConversationWorkflow
                 ['key'=>'episode','label'=>'当前集剧本','skills'=>['剧本创作'],'creates_nodes'=>true],
                 ['key'=>'art','label'=>'画风与美术规划','skills'=>['画风设计','主体设计','场景设计','道具设计'],'creates_nodes'=>false],
                 ['key'=>'assets','label'=>'主体、场景与道具','skills'=>['主体图','场景图'],'creates_nodes'=>true,'auto_types'=>['image']],
-                ['key'=>'storyboard','label'=>'场景与分镜图','skills'=>['场景设计','道具设计','分镜设计','分镜图'],'creates_nodes'=>true,'auto_types'=>['image']],
-                ['key'=>'video_plan','label'=>'分镜表','skills'=>['分镜视频规划'],'creates_nodes'=>false],
+                ['key'=>'video_plan','label'=>'分镜表','skills'=>['分镜视频规划'],'creates_nodes'=>true],
                 ['key'=>'video_nodes','label'=>'分镜视频节点','skills'=>['分镜视频'],'creates_nodes'=>true,'manual_types'=>['video']],
-                ['key'=>'audio_plan','label'=>'音频规划','skills'=>['音频规划'],'creates_nodes'=>true,'disabled_types'=>['audio']],
             ],
             'rules'=>[
                 'platform_owned'=>true,
@@ -660,12 +658,13 @@ final class ConversationWorkflow
             $existingScript=$revising && ($stage==='script' || $seriesRevision)
                 && ($state['revision_request']['mode']??'replace')!=='fork'
                 && count(array_filter((array)$state['artifact_memory'],static fn($item): bool=>is_array($item) && ($item['stage']??'')===$stage && (string)($item['node_id']??'')!==''))>0;
+            $graphNodes=ConversationStepFlow::enabled($state) && $stage==='video_plan' ? ConversationStepFlow::storyboardNodes((array)$plan['nodes']) : (array)$plan['nodes'];
             $effects=$existingScript
                 ? GraphService::replaceWorkflowScriptLocked($document,(array)$plan['nodes'],(array)$state['artifact_memory'],$stage)
-                : ($visible ? GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),false,[],(int)$plan['run_id'],$state) : []);
+                : ($visible ? GraphService::appendAgentNodesLocked($document,$graphNodes,array_column((array)$plan['sources'],'id'),false,[],(int)$plan['run_id'],$state) : []);
             if ($effects) $effects['mode']='manual';
             if ($revising) $state['artifact_memory']=array_values(array_filter((array)$state['artifact_memory'],static fn($item): bool=>!is_array($item) || ($item['stage']??'')!==$stage));
-            self::rememberArtifacts($state,$stage,(array)$plan['nodes'],$effects);
+            self::rememberArtifacts($state,$stage,(array)$plan['nodes'],ConversationStepFlow::enabled($state) && $stage==='video_plan'?[]:$effects);
             if ($seriesRevision && $stage==='episode') {
                 $state['series']['media_review_required']=true;
             }
@@ -1031,7 +1030,7 @@ final class ConversationWorkflow
             if (ConversationSeries::enabled($state) && ConversationSeries::episode($state)<ConversationSeries::count($state)) return $stageCard+['type'=>'next_episode','title'=>'本集创作规划已完成','body'=>'完成本集视频制作后，可继续下一集。相同主体和场景将复用已有资产。','action_label'=>'开始第'.(ConversationSeries::episode($state)+1).'集创作'];
             return array_replace($stageCard,['type'=>'complete','stage_label'=>'已完成','skills'=>[],
                 'stage_index'=>count($stages),'title'=>'短剧创作规划已完成',
-                'body'=>'故事与剧本、主体和分镜素材、分镜视频待生成节点均已规划到画布。视频仍需逐节点手动确认生成；音频仅展示规划，暂未开放生成。']);
+                'body'=>'已保留故事、剧本、素材与分镜表。所选视频片段已准备到画布，可逐个核对并确认生成。']);
         }
         if ($stageKey==='intake' && ($stage['status']??'')==='reviewing_intake') {
             $candidates=[];
