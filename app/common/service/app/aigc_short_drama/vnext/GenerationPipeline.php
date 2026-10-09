@@ -147,7 +147,7 @@ final class GenerationPipeline
             . '原文指定对白完整保留；按本集范围完成事件，不提前演出后续集。目标时长仅用于控制创作密度，不截断结尾。' . self::historyInstruction($context);
         return $extended ? $instruction : str_replace([',"props":["p1"]', '动作中出现的道具须用props引用已登记的道具短别名。'], '', $instruction);
     }
-    private static function historyInstruction(array $context): string
+    public static function historyInstruction(array $context): string
     {
         return isset($context['input_history']) ? 'input_history按时间排列保存用户原始输入与修改意见。已确认的requirements/events和当前大纲为有效版本，不重新启用已替换的旧要求。'
             . '修改意见只应用于本集有关内容，不把编辑指令当作剧情或对白，也不要求每集重复跨集事件。'

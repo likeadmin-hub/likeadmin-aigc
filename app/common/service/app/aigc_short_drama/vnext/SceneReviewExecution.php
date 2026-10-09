@@ -123,6 +123,7 @@ final class SceneReviewExecution
             . '三个aspect不得用not_observed。所有covered/contradiction必须给当前正文真实引文；引文按Unicode码点且end不包含。'
             . '逐项reason说明实际观察及前后因果，不编造窗口外的事实。边界相邻单元仅供衔接核对，不要求其在当前分镜中出现。'
             . '修改意见的非covered结论需issue_kind:content或presentation；纯措辞、风格建议属于presentation。'
+            . GenerationPipeline::historyInstruction($context)
             . ((int)($context['narrative_contract_version'] ?? 0) === NarrativeLedger::VERSION ? NarrativeLedger::instruction() : '');
     }
 
