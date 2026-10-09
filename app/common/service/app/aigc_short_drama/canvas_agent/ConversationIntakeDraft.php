@@ -91,9 +91,19 @@ final class ConversationIntakeDraft
         return ['candidates'=>$candidates,'questions'=>$questions];
     }
 
+    public static function parseConversation(string $response,array $slots,array $availableSources=['message']): array
+    {
+        try { $value=ConversationResponseJson::decode($response,16); }
+        catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTAKE',0,$error); }
+        if (!is_array($value) || array_is_list($value)
+            || array_diff(array_keys($value),['reply_markdown','intake'])) throw new RuntimeException('INVALID_AGENT_INTAKE');
+        $value['intake']=self::recover($value['intake']??null,$slots,$availableSources);
+        return self::parseDirect(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$slots,$availableSources);
+    }
+
     public static function parseDirect(string $response,array $slots,array $availableSources=['message']): array
     {
-        try { $value=json_decode(trim($response),true,16,JSON_THROW_ON_ERROR); }
+        try { $value=ConversationResponseJson::decode($response,16); }
         catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTAKE',0,$error); }
         if (!is_array($value) || count($value)!==2 || array_diff(['reply_markdown','intake'],array_keys($value)) || !is_string($value['reply_markdown'])
             || trim($value['reply_markdown'])==='' || mb_strlen($value['reply_markdown'])>4000) throw new RuntimeException('INVALID_AGENT_INTAKE');

@@ -66,9 +66,9 @@ final class ConversationActionPlan
      * the actual story, prompt or model output in an event. */
     public static function failureCategory(string $reply,string $stage,bool $compact=false): string
     {
-        try { $value=json_decode(trim($reply),true,32,JSON_THROW_ON_ERROR); }
+        try { $value=ConversationResponseJson::decode($reply,32); }
         catch (\Throwable $error) { return 'action_not_json'; }
-        if (!is_array($value) || array_keys($value)!==['reply_markdown','canvas_actions']
+        if (!is_array($value) || !ConversationResponseJson::hasKeys($value,['reply_markdown','canvas_actions'])
             || !is_string($value['reply_markdown']??null)) return 'action_envelope';
         $action=$value['canvas_actions']??null;
         if (!is_array($action) || array_keys($action)!==['nodes'] || !is_array($action['nodes'])
@@ -275,9 +275,9 @@ final class ConversationActionPlan
     {
         $trim=trim($reply);
         try {
-            $envelope=json_decode($trim,true,32,JSON_THROW_ON_ERROR);
+            $envelope=ConversationResponseJson::decode($trim,32);
             if (is_array($envelope) && array_key_exists('canvas_actions',$envelope)) {
-                if (array_keys($envelope)!==['reply_markdown','canvas_actions'] || !is_string($envelope['reply_markdown']) || !is_array($envelope['canvas_actions'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+                if (!ConversationResponseJson::hasKeys($envelope,['reply_markdown','canvas_actions']) || !is_string($envelope['reply_markdown']) || !is_array($envelope['canvas_actions'])) throw new RuntimeException('INVALID_AGENT_ACTION');
                 return [trim($envelope['reply_markdown']),$envelope['canvas_actions']];
             }
         } catch (RuntimeException $error) { throw $error; }
