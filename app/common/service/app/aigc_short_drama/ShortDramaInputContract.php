@@ -4,7 +4,13 @@ namespace app\common\service\app\aigc_short_drama;
 /** New requests opt in; already queued requests retain their frozen contract. */
 final class ShortDramaInputContract
 {
-    public const VERSION = 8;
+    public const VERSION = 9;
+
+    /** New generation delegates shot budgets and speech timing to the upstream LLM. */
+    public static function providerTiming(array $request): bool
+    {
+        return (int)($request['_input_contract_version'] ?? 0) >= 9;
+    }
 
     public static function recoveryEnabled(array $request): bool
     {

@@ -103,7 +103,7 @@ final class ShortDramaTimedScriptGeneration
                 $ids = array_map(static fn($n) => 's' . ($sceneIndex + 1) . '_' . ($offset + $n + 1), array_keys($partDurations));
                 $input = $base;
                 $input['system_prompt'] .= "\n本阶段仅返回{\"storyboard\":[...]}，每项包含shot_id、scene_ref_id、subject_ref_ids、interior_exterior、visual_description、composition、camera_movement、dialogue、voice_role、speech_type、recommended_duration_seconds。"
-                    . '严格采用required_shots的ID及时长，不重新决定数量。覆盖当前片段应承载的key_events并保持前后衔接，不重复其他分段事件。'
+                    . 'required_shots来自你在上一阶段生成的分镜规划；沿用其中的ID及时长，不重新决定数量。覆盖当前片段应承载的key_events并保持前后衔接，不重复其他分段事件。'
                     . '对白务必能在片段内自然说完，保留停顿；speech_type为character、narration或none。voice_role写真实说话角色，静默留空。'
                     . ShortDramaShotSemantics::INSTRUCTION
                     . '仅返回列出的字段，不额外生成image_prompt、video_prompt、negative_prompt、风格和素材定义；它们由现有系统根据本段字段组装。'
@@ -141,7 +141,7 @@ final class ShortDramaTimedScriptGeneration
                                     && ($shot['recommended_duration_seconds'] ?? null) !== $before) $validationDurations[$index] = $shot['recommended_duration_seconds'];
                             }
                         }
-                        self::assertPart($part, $skeleton, $beat, $validationIds, $validationDurations);
+                        self::assertPart($part, $skeleton, $beat, $validationIds, $validationDurations, !ShortDramaInputContract::providerTiming($request));
                         foreach ($part['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                         break;
                     } catch (RuntimeException $e) {
@@ -226,7 +226,7 @@ final class ShortDramaTimedScriptGeneration
                 throw new RuntimeException('完整剧本的分镜ID、场景或时长不符合要求', 422);
             }
             $seen[$id] = true;
-            self::assertPart(['storyboard' => [$shot]], $plan, ['scene_ref_id' => $shot['scene_ref_id']], [$id], [$shot['recommended_duration_seconds']]);
+            self::assertPart(['storyboard' => [$shot]], $plan, ['scene_ref_id' => $shot['scene_ref_id']], [$id], [$shot['recommended_duration_seconds']], !ShortDramaInputContract::providerTiming($request));
             ShortDramaSameSceneCuts::assertShot($shot, $plan, $request);
         }
         ShortDramaEpisodeDuration::assertPlan($plan, $request);
@@ -236,6 +236,7 @@ final class ShortDramaTimedScriptGeneration
      * are actionable failures, not permission to shorten the user's story. */
     public static function fitDialogueTiming(array $part, array $request): array
     {
+        if (ShortDramaInputContract::providerTiming($request)) return $part;
         $policy = ShortDramaEpisodeDuration::policy($request);
         $rule = ShortDramaShotDuration::rule($request);
         foreach ((array)($part['storyboard'] ?? []) as $index => $shot) {
@@ -320,7 +321,7 @@ final class ShortDramaTimedScriptGeneration
      * Keep each scene's proposed total; explicit timelines remain authoritative. */
     public static function normalizeSkeletonBudgets(array $plan, array $request): array
     {
-        if (!empty($plan['storyboard']) || !empty(ShortDramaEpisodeDuration::policy($request)['timeline_segments'])) return $plan;
+        if (ShortDramaInputContract::providerTiming($request) || !empty($plan['storyboard']) || !empty(ShortDramaEpisodeDuration::policy($request)['timeline_segments'])) return $plan;
         $rule = ShortDramaShotDuration::rule($request);
         $min = (float)$rule['min_seconds']; $max = (float)$rule['max_seconds'];
         foreach ((array)($plan['scene_beats'] ?? []) as $index => $beat) {
