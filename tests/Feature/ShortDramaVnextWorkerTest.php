@@ -51,6 +51,8 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertSame('success', $result['status'], json_encode($result, JSON_UNESCAPED_UNICODE));
             self::assertCount(3, Provider::$requests);
             self::assertSame('ready', $result['generation_snapshot']['document_status']);
+            self::assertSame($result['result']['canonical_document']['content_hash'], $result['result']['narrative_ledger']['document_hash']);
+            self::assertSame($result['result']['narrative_ledger'], json_decode($store->snapshot()['candidate_json'], true)['coverage_report']['narrative_ledger']);
             self::assertStringEndsWith('结尾保留。', $result['result']['storyboard'][0]['dialogue']);
             self::assertGreaterThan(1000, mb_strlen($result['result']['storyboard'][0]['dialogue']));
             self::assertSame('frozen_model', Provider::$requests[0]['model_selection']['id']);
