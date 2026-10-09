@@ -258,6 +258,25 @@ final class ShortDramaVnextPipelineTest extends TestCase
         self::assertSame(['screenplay', 'shots', 'review'], $keys);
     }
 
+    public function testCorrectedEchoCannotHideFalseEvidenceOrGetAnotherFormatCall(): void
+    {
+        $keys = [];
+        try {
+            GenerationPipeline::run($this->context() + ['review_format_version' => 1], function ($key, $messages) use (&$keys) {
+                $keys[] = $key; $response = $this->response($key, $messages);
+                if (str_starts_with($key, 'review')) {
+                    $reply = json_decode($response['result']['content'], true);
+                    if ($key === 'review') $reply['document_hash'] = 'wrong';
+                    else $reply['checks'][0]['evidence'][0]['quote'] = '未发生的内容';
+                    $response['result']['content'] = json_encode($reply, JSON_UNESCAPED_UNICODE);
+                }
+                return $response;
+            }, static function () { self::fail('False evidence must not authorize rewriting'); }, static function () {});
+            self::fail('False evidence accepted');
+        } catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); self::assertStringContainsString('引文与正文不符', $error->getMessage()); }
+        self::assertSame(['screenplay', 'shots', 'review', 'review_format'], $keys);
+    }
+
     public function testUnknownReviewRecoveryVersionCannotSubmit(): void
     {
         $this->expectExceptionCode(409);
