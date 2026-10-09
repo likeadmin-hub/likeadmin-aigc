@@ -29,7 +29,7 @@ final class ShortDramaDialogueSplit
 
     public static function adapt(array $plan, array $request, callable $call, string $unit): array
     {
-        if (!self::enabled($request)) return $plan;
+        if (!self::enabled($request) || ShortDramaInputContract::providerTiming($request)) return $plan;
         $rule = ShortDramaShotDuration::rule($request);
         $locked = in_array(ShortDramaEpisodeDuration::policy($request)['source'] ?? '', ['user', 'timeline'], true)
             || ShortDramaEpisodeDuration::localRevision($request);
