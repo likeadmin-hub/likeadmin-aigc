@@ -504,7 +504,7 @@ class ShortDramaEpisodeService
                 $first = self::nextInitialEpisode($rows);
                 $selected = $first && empty($first['needs_review']) && in_array($first['status'], ['pending', 'running'], true) ? $first : null;
                 if (!$selected) continue;
-                $selected = array_replace($selected, Db::name(self::TABLE)->where('id', $selected['id'])->field('outline_json')->find() ?: []);
+                $selected = array_replace($selected, Db::name(self::TABLE)->where('id', $selected['id'])->field('title,outline_json,retry_count')->find() ?: []);
                 if ((int)$selected['queue_job_id'] === 0) self::queueJob($t, $u, $p, (int)$selected['id'], (int)$selected['attempt_number']);
                 $queueMessage = ShortDramaRedisQueue::claim(gethostname() . '-' . getmypid(), 1);
                 if ($queueMessage && (int)($queueMessage['data']['episode_id'] ?? 0) !== (int)$selected['id']) {
