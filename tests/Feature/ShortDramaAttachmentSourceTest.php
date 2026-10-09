@@ -117,10 +117,33 @@ final class ShortDramaAttachmentSourceTest extends TestCase
             ['<x:p><x:r><x:t>正文</x:t></x:r></x:p><x:altChunk/>'],
             ['<mc:AlternateContent><mc:Choice Requires="x"><x:p><x:r><x:t>甲的正文</x:t></x:r></x:p></mc:Choice><mc:Fallback><x:p><x:r><x:t>乙的正文</x:t></x:r></x:p></mc:Fallback></mc:AlternateContent>']];
     }
-    private function captureDocx(string $body): array
+    public function testDocxIncludesReferencedFootnotesAndEndnotesInItsFrozenTextView(): void
+    {
+        $body = '<x:tbl><x:tr><x:tc><x:p><x:r><x:t>正文😀</x:t><x:footnoteReference x:id="1"/><x:endnoteReference x:id="2"/></x:r></x:p></x:tc></x:tr></x:tbl>';
+        $notes = ['word/footnotes.xml' => '<x:footnotes xmlns:x="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><x:footnote x:id="1"><x:p><x:r><x:footnoteRef/><x:t>必须保留的脚注。</x:t></x:r></x:p></x:footnote></x:footnotes>',
+            'word/endnotes.xml' => '<x:endnotes xmlns:x="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><x:endnote x:id="2"><x:p><x:r><x:t>尾注结尾😀。</x:t></x:r></x:p></x:endnote></x:endnotes>'];
+        $source = $this->captureDocx($body, $notes); Source::assertPackage($source);
+        self::assertSame("正文😀〔脚注1〕必须保留的脚注。\n〔/脚注1〕〔尾注2〕尾注结尾😀。\n〔/尾注2〕\n", $source['source']['text']);
+        self::assertSame(3, $source['extraction']['version']); self::assertSame('inline_labeled_reference', $source['extraction']['note_projection']);
+        self::assertCount(3, $source['extraction']['parts']);
+        self::assertSame(hash('sha256', $notes['word/footnotes.xml']), $source['extraction']['parts']['word/footnotes.xml']['sha256']);
+    }
+    public function testDocxWithImageMaterialCannotPublishTextOnlyAsCompleteSource(): void
+    {
+        $this->expectExceptionCode(422);
+        $this->captureDocx('<x:p><x:r><x:t>只有部分文字。</x:t><x:drawing><a:blip xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/></x:drawing></x:r></x:p>');
+    }
+    public function testDocxCyclicNoteCannotDuplicateOrInventBodyText(): void
+    {
+        $this->expectExceptionCode(422);
+        $this->captureDocx('<x:p><x:r><x:t>原文</x:t><x:footnoteReference x:id="1"/></x:r></x:p>', [
+            'word/footnotes.xml' => '<x:footnotes xmlns:x="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><x:footnote x:id="1"><x:p><x:r><x:t>脚注</x:t><x:footnoteReference x:id="1"/></x:r></x:p></x:footnote></x:footnotes>']);
+    }
+    private function captureDocx(string $body, array $parts = []): array
     {
         $path=tempnam(sys_get_temp_dir(),'docx_material_');$zip=new \ZipArchive();$zip->open($path,\ZipArchive::OVERWRITE);
-        $zip->addFromString('word/document.xml','<x:document xmlns:x="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><x:body>'.$body.'</x:body></x:document>');$zip->close();
+        $zip->addFromString('word/document.xml','<x:document xmlns:x="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><x:body>'.$body.'</x:body></x:document>');
+        foreach ($parts as $name => $text) $zip->addFromString($name, $text); $zip->close();
         try { return Source::capture($path,'docx',1,2,'docx_material'); } finally { unlink($path); }
     }
 }

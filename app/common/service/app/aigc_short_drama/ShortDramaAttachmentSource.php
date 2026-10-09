@@ -17,7 +17,9 @@ final class ShortDramaAttachmentSource
         $bytes = @file_get_contents($path, false, null, 0, self::MAX_BYTES + 1);
         if (!is_string($bytes) || $bytes === '' || strlen($bytes) > self::MAX_BYTES) throw new RuntimeException('附件为空或超过10MB', 422);
         $encoding = 'UTF-8'; $removedBom = false;
-        if ($extension === 'docx') $text = self::docx($path);
+        if ($extension === 'docx') {
+            $view = \app\common\service\app\aigc_short_drama\vnext\DocxTextView::extract($path); $text = $view['text'];
+        }
         else {
             $text = $bytes;
             if (str_starts_with($text, "\xFF\xFE") || str_starts_with($text, "\xFE\xFF")) {
@@ -41,50 +43,11 @@ final class ShortDramaAttachmentSource
         ContentDocument::text($text, 'attachment.text');
         $package = ['schema_version' => self::VERSION, 'tenant_id' => $tenant, 'user_id' => $user, 'task_id' => $task,
             'file_sha256' => hash('sha256', $bytes), 'file_size' => strlen($bytes), 'format' => $extension,
-            'extraction' => ['version' => $extension === 'docx' ? 2 : 1, 'encoding' => $encoding, 'scope' => $extension === 'docx' ? 'word_main_document_text' : 'text_file',
+            'extraction' => ($view['extraction'] ?? ['version' => 1, 'scope' => 'text_file']) + ['encoding' => $encoding,
                 'line_endings' => 'LF', 'leading_bom_removed' => $removedBom, 'blank_lines_preserved' => true],
             'source' => SourceTrace::capture('attachment_' . $task, '1', $text, 'faithful')];
         $package['package_hash'] = ContentDocument::hash($package);
         return $package;
-    }
-
-    private static function docx(string $path): string
-    {
-        if (!class_exists('ZipArchive')) throw new RuntimeException('当前服务暂不支持 DOCX，请改用 TXT 或 MD', 422);
-        $zip = new \ZipArchive();
-        if ($zip->open($path) !== true) throw new RuntimeException('DOCX 文件损坏或加密，请检查后上传', 422);
-        try {
-            $stat = $zip->statName('word/document.xml');
-            if (!$stat || $stat['size'] <= 0 || $stat['size'] > self::MAX_BYTES) throw new RuntimeException('DOCX 正文为空或超过提取容量，请拆分文件', 422);
-            $xml = $zip->getFromName('word/document.xml', self::MAX_BYTES + 1);
-            if (!is_string($xml) || strlen($xml) !== (int)$stat['size'] || preg_match('/<!DOCTYPE|<!ENTITY/i', $xml)) throw new RuntimeException('DOCX 正文格式无法安全读取', 422);
-            $old = libxml_use_internal_errors(true);
-            try { $dom = new \DOMDocument(); $loaded = $dom->loadXML($xml, LIBXML_NONET); }
-            finally { libxml_clear_errors(); libxml_use_internal_errors($old); }
-            if (!$loaded) throw new RuntimeException('DOCX 正文 XML 不完整', 422);
-            $wordNamespace='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
-            if ($dom->documentElement->namespaceURI!==$wordNamespace || $dom->documentElement->localName!=='document'
-                || $dom->getElementsByTagNameNS($wordNamespace,'body')->length!==1) throw new RuntimeException('DOCX 正文结构无法确认，请另存为 TXT 后上传',422);
-            $walk = static function (\DOMNode $node) use (&$walk): string {
-                $word = $node->namespaceURI === 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
-                if ($word && in_array($node->localName, ['del', 'moveFrom'], true)) return '';
-                if ($word && in_array($node->localName,['footnoteReference','endnoteReference','altChunk'],true)) throw new RuntimeException('DOCX 包含尚不能完整定位的脚注、尾注或嵌入文档，请将这些内容合入正文并另存为 TXT 后上传',422);
-                if ($word && $node->localName === 't') return $node->textContent;
-                if ($word && in_array($node->localName, ['tab', 'br', 'cr'], true)) return $node->localName === 'tab' ? "\t" : "\n";
-                if ($node->namespaceURI==='http://schemas.openxmlformats.org/markup-compatibility/2006' && $node->localName==='AlternateContent') {
-                    $alternatives=[];
-                    foreach($node->childNodes as $child) if($child instanceof \DOMElement && in_array($child->localName,['Choice','Fallback'],true)) $alternatives[]=$walk($child);
-                    if (!$alternatives || count(array_unique($alternatives))>1) throw new RuntimeException('DOCX 存在不同版本的备选正文，不能确认原文；请另存为 TXT 后上传',422);
-                    // Word chooses one branch. Identical shape/fallback text must
-                    // not become repeated dialogue in the extracted screenplay.
-                    return $alternatives[0];
-                }
-                $text='';foreach ($node->childNodes as $child) $text.=$walk($child);
-                if ($word && $node->localName === 'p') $text .= "\n";
-                return $text;
-            };
-            return $walk($dom->documentElement);
-        } finally { $zip->close(); }
     }
 
     public static function assertPackage(array $package): void
