@@ -4537,11 +4537,14 @@ class AigcShortDramaService
     private static function reviseCanonicalContent(int $tenantId, int $userId, array $sourceTask, array $params, ?array $recheckContext = null): array
     {
         $sourceId = (string)$sourceTask['task_id']; $projectId = (int)$sourceTask['project_id'];
-        $patches = vnext\ContentDocument::rows($params['canonical_patches'] ?? null, 'canonical_patches');
+        $patches = vnext\ContentDocument::rows($params['canonical_patches'] ?? [], 'canonical_patches');
+        $structure = $params['canonical_structure'] ?? [];
+        if (!is_array($structure)) throw new \RuntimeException('结构修改参数无效', 422);
         $expected = (string)($params['expected_revision_id'] ?? '');
-        $key = vnext\ContentDocument::hash($recheckContext === null ? [$tenantId, $userId, $sourceId, $expected, $patches]
-            : [$tenantId, $userId, $sourceId, $expected, $patches, $recheckContext]);
-        return Db::transaction(static function () use ($tenantId, $userId, $sourceTask, $sourceId, $projectId, $patches, $expected, $key, $recheckContext): array {
+        $key = vnext\ContentDocument::hash($structure ? [$tenantId, $userId, $sourceId, $expected, $patches, $structure]
+            : ($recheckContext === null ? [$tenantId, $userId, $sourceId, $expected, $patches]
+            : [$tenantId, $userId, $sourceId, $expected, $patches, $recheckContext]));
+        return Db::transaction(static function () use ($tenantId, $userId, $sourceTask, $sourceId, $projectId, $patches, $structure, $expected, $key, $recheckContext): array {
             // Same order as publication: canonical job, project, task. No network requests in this transaction.
             $job = Db::name('aigc_short_drama_vnext_job')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $sourceId])->lock(true)->find();
             if (!$job) throw new \RuntimeException('生成作业不存在', 404);
@@ -4555,7 +4558,7 @@ class AigcShortDramaService
             $newId = self::makeTaskId(); $agent = self::makeTaskId('sd_agent'); $time = time();
             $input = $recheckContext === null
                 ? vnext\ApplicationWorkflow::revisionInput(self::jsonDecode($job['input_json']), self::jsonDecode($job['candidate_json']), $patches, $expected, $newId,
-                    ['tenant_id' => $tenantId, 'user_id' => $userId, 'parent_task_id' => $sourceId, 'task_id' => $newId, 'created_at' => $time])
+                    ['tenant_id' => $tenantId, 'user_id' => $userId, 'parent_task_id' => $sourceId, 'task_id' => $newId, 'created_at' => $time], $structure)
                 : vnext\ApplicationWorkflow::recheckInput(self::jsonDecode($job['input_json']), self::jsonDecode($job['candidate_json']), $recheckContext, $expected, $newId);
             if ($job['execution_status'] === 'needs_attention') vnext\ApplicationWorkflow::store($tenantId, $userId, $sourceId)->cancel();
             vnext\ApplicationWorkflow::store($tenantId, $userId, $newId)->create($job['lane_key'], $input,
@@ -4597,7 +4600,7 @@ class AigcShortDramaService
             throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, (int)($params['project_id'] ?? 0));
-        if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json'])) && array_key_exists('canonical_patches', $params)) {
+        if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json'])) && (array_key_exists('canonical_patches', $params) || array_key_exists('canonical_structure', $params))) {
             return self::reviseCanonicalContent($tenantId, $userId, $task->toArray(), $params);
         }
         vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());

@@ -10,11 +10,7 @@ final class ManualContentRevision
 
     public static function capture(array $input, array $document, array $patches, string $revision, array $origin): array
     {
-        foreach (['tenant_id', 'user_id', 'created_at'] as $field) {
-            if (!is_int($origin[$field] ?? null) || $origin[$field] <= 0) throw new RuntimeException('手工修改来源身份无效', 409);
-        }
-        foreach (['parent_task_id', 'task_id'] as $field) ContentDocument::text($origin[$field] ?? null, 'edit.' . $field);
-        if ($origin['parent_task_id'] === $origin['task_id']) throw new RuntimeException('手工修改须建立新任务', 409);
+        self::assertOrigin($origin);
         $history = $input['context']['manual_edit_history'] ?? null;
         if ($history !== null) self::assertHistory($history);
         // Validate every submitted patch before filtering no-ops, including duplicates and stale hashes.
@@ -68,5 +64,12 @@ final class ManualContentRevision
             }
             $ids[$id] = true; $previous = $event['event_hash'];
         }
+    }
+
+    public static function assertOrigin(array $origin): void
+    {
+        foreach (['tenant_id', 'user_id', 'created_at'] as $field) if (!is_int($origin[$field] ?? null) || $origin[$field] <= 0) throw new RuntimeException('手工修改来源身份无效', 409);
+        foreach (['parent_task_id', 'task_id'] as $field) ContentDocument::text($origin[$field] ?? null, 'edit.' . $field);
+        if ($origin['parent_task_id'] === $origin['task_id']) throw new RuntimeException('手工修改须建立新任务', 409);
     }
 }
