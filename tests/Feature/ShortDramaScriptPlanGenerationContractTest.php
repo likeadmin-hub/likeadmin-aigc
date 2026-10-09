@@ -144,13 +144,36 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
      */
     public function testDisabledQualityReviewSkipsRepairAndBothContinuityModelCalls(): void
     {
+        $this->assertGenerationSkipsQualityReview(['quality_review_enabled' => false]);
+    }
+
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testHistoricalCanvasTaskSkipsQualityReviewOnResume(): void
+    {
+        $this->assertGenerationSkipsQualityReview(['quality_review_enabled' => true,
+            '_submission_key' => 'canvas-production:397:807:episode_1']);
+    }
+
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testCanvasRevisionSkipsQualityReview(): void
+    {
+        $this->assertGenerationSkipsQualityReview(['quality_review_enabled' => true,
+            '_submission_key' => 'canvas-revision:1285:task']);
+    }
+
+    private function assertGenerationSkipsQualityReview(array $reviewSettings): void
+    {
         require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
         Container::getInstance()->instance('config', new \think\Config());
         $this->silenceLog();
         \app\common\service\power\MarketTextModelRuntimeService::reset();
         \app\common\service\power\MarketTextModelRuntimeService::$missingSpeaker = true;
-        $generated = $this->generate(['_generation_version' => 3, 'multi_episode' => false,
-            'episode_count' => 1, 'episode_number' => 2, 'quality_review_enabled' => false,
+        $generated = $this->generate($reviewSettings + ['_generation_version' => 3, 'multi_episode' => false,
+            'episode_count' => 1, 'episode_number' => 2,
             'series_context' => ['current_episode' => ['story_outline' => '主角找到线索'],
                 'continuity' => ['state' => ['subject_1:location' => '旧宅'], 'previous_digest' => 'previous']]]);
 

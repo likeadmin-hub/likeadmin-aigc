@@ -12,6 +12,13 @@ final class ShortDramaStoryWorkflow
     /** Missing on historical tasks means the original review flow. */
     public static function qualityReviewEnabled(array $request): bool
     {
+        // Canvas production and revision receipts predate the opt-out. Apply
+        // the same policy when those saved tasks are resumed or advanced.
+        $submission = (string)($request['_submission_key'] ?? $request['submission_key'] ?? '');
+        if (str_starts_with($submission, 'canvas-production:')
+            || str_starts_with($submission, 'canvas-revision:')) {
+            return false;
+        }
         return !array_key_exists('quality_review_enabled', $request)
             || filter_var($request['quality_review_enabled'], FILTER_VALIDATE_BOOLEAN);
     }
