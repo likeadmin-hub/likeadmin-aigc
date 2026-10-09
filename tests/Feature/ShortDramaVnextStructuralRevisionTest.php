@@ -57,6 +57,40 @@ final class ShortDramaVnextStructuralRevisionTest extends TestCase
         self::assertNotEmpty(ManualRevisionHistory::page($text,10,20,2)['records'][0]['changes'][0]['target_label']);
     }
 
+    public function testSceneSplitsAndMergesPreserveAllUnitIdsWordsAndOriginalAttachmentPositions(): void
+    {
+        $context=ShortDramaVnextAttachmentTest::context();$doc=\app\common\service\app\aigc_short_drama\vnext\AttachmentScreenplay::document($context);
+        $units=$doc['scenes'][0]['units'];$scene=$doc['scenes'][0];$origin=['tenant_id'=>10,'user_id'=>20,'created_at'=>1791500000,'parent_task_id'=>'old','task_id'=>'split'];
+        $group=static fn(array $ids): array=>['location_id'=>$scene['location_id'],'time_context'=>$scene['time_context'],'unit_ids'=>$ids];
+        $structure=['scene_layout'=>['before_hash'=>StructuralRevision::targets($doc)['scene_layout']['before_hash'],
+            'scenes'=>[$group([$units[0]['unit_id']]),$group([$units[1]['unit_id'],$units[2]['unit_id']])]]];
+        $input=ApplicationWorkflow::revisionInput(['context'=>$context],['document'=>$doc],[],$doc['revision_id'],'split',$origin,$structure);
+        $split=$input['context']['canonical_input'];self::assertCount(2,$split['scenes']);
+        foreach(array_values(ContentDocument::units($split)) as $index=>$unit) {unset($unit['location_id'],$unit['scene_id']);self::assertSame($units[$index],$unit);}
+        self::assertSame('我记得你😀。',\app\common\service\app\aigc_short_drama\vnext\AttachmentSourceView::page($input,['document'=>$split],2)['records'][0]['original_text']);
+        $origin['parent_task_id']='split';$origin['task_id']='merged';$structure['scene_layout']=['before_hash'=>StructuralRevision::targets($split)['scene_layout']['before_hash'],'scenes'=>[$group(array_column($units,'unit_id'))]];
+        $mergedInput=ApplicationWorkflow::revisionInput($input,['document'=>$split],[],$split['revision_id'],'merged',$origin,$structure);
+        self::assertCount(1,$mergedInput['context']['canonical_input']['scenes']);self::assertSame($units,$mergedInput['context']['canonical_input']['scenes'][0]['units']);
+        self::assertCount(2,$mergedInput['context']['manual_edit_history']['events']);
+        self::assertSame('场次拆分与合并',ManualRevisionHistory::page($mergedInput,10,20,1)['records'][0]['changes'][0]['target_label']);
+    }
+
+    /** @dataProvider invalidLayouts */
+    public function testLayoutCannotDeleteDuplicateReorderOrInventContent(string $kind): void
+    {
+        $context=ShortDramaVnextAttachmentTest::context();$doc=\app\common\service\app\aigc_short_drama\vnext\AttachmentScreenplay::document($context);
+        $scene=$doc['scenes'][0];$ids=array_column($scene['units'],'unit_id');
+        if($kind==='delete') array_pop($ids);
+        if($kind==='duplicate') $ids[]=$ids[0];
+        if($kind==='reorder') $ids=array_reverse($ids);
+        if($kind==='foreign') $ids[0]='foreign';
+        $layout=['before_hash'=>StructuralRevision::targets($doc)['scene_layout']['before_hash'], 'scenes'=>[['location_id'=>$scene['location_id'],'time_context'=>'','unit_ids'=>$ids]]];
+        if($kind==='stale') $layout['before_hash']='wrong';
+        $origin=['tenant_id'=>10,'user_id'=>20,'created_at'=>1791500000,'parent_task_id'=>'old','task_id'=>'new'];
+        $this->expectExceptionCode(409);ApplicationWorkflow::revisionInput(['context'=>$context],['document'=>$doc],[],$doc['revision_id'],'new',$origin,['scene_layout'=>$layout]);
+    }
+    public static function invalidLayouts(): array {return [['delete'],['duplicate'],['reorder'],['foreign'],['stale']];}
+
     /** @dataProvider invalidEdits */
     public function testUnsafeOrStaleStructuralEditsAreRejected(string $case,int $code): void
     {
