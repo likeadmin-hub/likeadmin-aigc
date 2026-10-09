@@ -1,11 +1,11 @@
 # 短剧生成可靠性重构 PRD
 
-日期：2026-10-09  
-文档版本：1.0  
-状态：设计交付，尚未实施、尚未达到上线验收标准  
-适用范围：短剧创作、短剧画布的故事设定、分集大纲、逐集剧本及制作交接  
-交付分支：`feature/short-drama-generation-prd`，仅文档  
-评估代码基线：本地 server develop `ba4b92be8`；web develop `4e2aea82`
+- 日期：2026-10-09
+- 文档版本：1.0
+- 状态：设计交付，尚未实施、尚未达到上线验收标准
+- 适用范围：短剧创作、短剧画布的故事设定、分集大纲、逐集剧本及制作交接
+- 交付分支：`feature/short-drama-generation-prd`，仅文档
+- 评估代码基线：本地 server develop `ba4b92be8`；web develop `4e2aea82`
 
 ## 1. 产品决策
 
