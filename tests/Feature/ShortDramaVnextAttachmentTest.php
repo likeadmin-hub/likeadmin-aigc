@@ -102,7 +102,7 @@ final class ShortDramaVnextAttachmentTest extends TestCase
         self::assertSame($result, $sanitize->invoke(null, $wrapped)['result']);
         self::assertSame('旧字段', $restored['legacy_text']);
         self::assertStringContainsString('\\ud83d\\ude00', strtolower($json));
-        self::assertStringContainsString('😀', $restored['result']['script_lines']);
+        self::assertStringContainsString('😀', json_encode($restored['result']['script_lines'], JSON_UNESCAPED_UNICODE));
         self::assertStringContainsString('😀', $restored['result']['storyboard'][0]['dialogue']);
     }
 
