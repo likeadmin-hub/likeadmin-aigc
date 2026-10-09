@@ -6945,7 +6945,11 @@ class AigcShortDramaService
         foreach ($targets as &$target) $target['can_generate'] = !$target['asset'] && !in_array($target['generation']['status'] ?? '', ['pending', 'running', 'queued'], true)
             && ($target['task_type'] !== 'shot_image' || !array_diff($target['entity_ids'], array_keys($bindings)));
         unset($target);
-        return ['revision_id' => $candidate['document']['revision_id'], 'targets' => $targets, 'bindings' => $bindings];
+        $status = 'waiting_assets';
+        if ($targets && count(array_filter($targets, static fn($target) => !empty($target['asset']))) === count($targets)) $status = 'ready';
+        elseif (array_filter($targets, static fn($target) => in_array($target['generation']['status'] ?? '', ['pending', 'running', 'queued'], true))) $status = 'running';
+        elseif (array_filter($targets, static fn($target) => empty($target['asset']) && ($target['generation']['status'] ?? '') === 'failed')) $status = 'failed';
+        return ['revision_id' => $candidate['document']['revision_id'], 'status' => $status, 'targets' => $targets, 'bindings' => $bindings];
     }
 
     private static function canonicalImageReferences(int $tenantId, int $userId, int $projectId, array $handoff): array
@@ -6961,6 +6965,14 @@ class AigcShortDramaService
         }
         if (count($payload['input_asset_ids']) !== count($handoff['trace']['bindings'])) throw new \RuntimeException('制作参考素材不完整', 409);
         return $payload;
+    }
+
+    private static function assertCanonicalImageCapacity(int $tenantId, int $userId, int $projectId, array $params, array $billing): void
+    {
+        $references = self::canonicalImageReferences($tenantId, $userId, $projectId, $params['_canonical_image']);
+        if (!$references['input_asset_ids']) return;
+        $limit = MarketImageModelRuntimeService::referenceImageLimitFromSnapshot((array)($billing['market_snapshot'] ?? []));
+        if ($limit <= 0 || count($references['input_asset_ids']) > $limit) throw new \RuntimeException('所选模型无法确认支持本分镜的全部参考素材，请更换模型', 422);
     }
 
     public static function estimateShotGenerationTask(int $tenantId, int $userId, array $params): array
@@ -6981,7 +6993,9 @@ class AigcShortDramaService
         $canonical = self::canonicalImageRequest($tenantId, $userId, $project->toArray(), $taskId, $taskType, $params);
         if ($canonical !== null) {
             $canonical = self::normalizeShortDramaImageChannelParams($tenantId, $canonical);
-            return self::estimateImageGenerationBilling($tenantId, $taskType, $canonical['_canonical_shot'], self::publicConfig($tenantId), $canonical);
+            $billing = self::estimateImageGenerationBilling($tenantId, $taskType, $canonical['_canonical_shot'], self::publicConfig($tenantId), $canonical);
+            self::assertCanonicalImageCapacity($tenantId, $userId, $projectId, $canonical, $billing);
+            return $billing;
         }
         // A selected @subject can already own its main image and three-view in
         // the subject library, so it never goes through this project's
@@ -7120,6 +7134,7 @@ class AigcShortDramaService
                 : (self::isImageGenerationTask($taskType)
                 ? self::estimateImageGenerationBilling($tenantId, $taskType, $shotPayload, $config, $params)
                 : self::estimateGenerationBilling($taskType, $shotPayload, $config, $params)));
+        if ($canonical !== null) self::assertCanonicalImageCapacity($tenantId, $userId, $projectId, $params, $billing);
         if (self::isImageGenerationTask($taskType)
             && in_array((string)($billing['market_snapshot']['model_code'] ?? ''), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true)) {
             MarketImageModelRuntimeService::qwenDimensionSummary(
@@ -7370,7 +7385,7 @@ class AigcShortDramaService
             $job = vnext\ApplicationWorkflow::store($tenantId, $userId, (string)$task['source_task_id'])->snapshot();
             if ($project['last_task_id'] !== $task['source_task_id'] || !$job || $job['document_status'] !== 'ready'
                 || $job['published_revision_id'] !== $canonical['trace']['document_revision_id']) throw new \RuntimeException('原制作任务的剧本已变化，请从当前版本重新制作', 409);
-            self::canonicalImageReferences($tenantId, $userId, (int)$task['project_id'], $canonical);
+            self::assertCanonicalImageCapacity($tenantId, $userId, (int)$task['project_id'], $originalRequest['params'], self::jsonDecode((string)$task['pricing_snapshot']));
         }
         $newTaskId = self::makeTaskId('sd_gen_retry');
         $time = time();

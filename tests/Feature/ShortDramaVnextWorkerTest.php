@@ -87,6 +87,11 @@ final class ShortDramaVnextWorkerTest extends TestCase
             $shotRequest = ['project_id' => $project, 'task_id' => $task, 'task_type' => 'shot_image',
                 'shot_id' => $targets[1]['target_id'], 'expected_revision_id' => $document['revision_id'],
                 'model_id' => 'market_image_model:fixture', 'ratio' => '9:16'];
+            \app\common\service\power\MarketImageModelRuntimeService::$limit = 0;
+            try { Service::estimateShotGenerationTask($tenant, $user, $shotRequest); self::fail('Unverified reference capacity accepted'); }
+            catch (\RuntimeException $e) { self::assertSame(422, $e->getCode()); }
+            self::assertCount(1, \app\common\service\power\MarketImageModelRuntimeService::$requests);
+            \app\common\service\power\MarketImageModelRuntimeService::$limit = 8;
             $frame = Service::createShotGenerationTask($tenant, $user, $shotRequest);
             self::assertSame('success', $frame['status'], json_encode($frame, JSON_UNESCAPED_UNICODE));
             self::assertCount(2, \app\common\service\power\MarketImageModelRuntimeService::$requests);
@@ -111,6 +116,11 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertSame($image['assets'][0]['id'], $revised['production_handoff']['targets'][0]['asset']['id'], 'Unchanged scene state reuses managed media across text revisions');
             self::assertNull($revised['production_handoff']['targets'][1]['asset'], 'Old shot images cannot imply new content coverage');
             self::assertSame(2, Db::name('aigc_short_drama_asset')->where($scope + ['project_id' => $project])->count(), 'Historical media is never deleted on revision');
+            Db::name('aigc_short_drama_generation_task')->where('task_id', $frame['task_id'])->update(['status' => 'failed']);
+            try { Service::retryGenerationTask($tenant, $user, $frame['task_id']); self::fail('Old media retry submitted after revision'); }
+            catch (\RuntimeException $e) { self::assertSame(409, $e->getCode()); }
+            self::assertSame('ready', $revised['generation_snapshot']['document_status']);
+
             try { Service::createShotGenerationTask($tenant, $user, $shotRequest); self::fail('Stale revision dispatched'); }
             catch (\RuntimeException $e) { self::assertSame(409, $e->getCode()); }
             self::assertCount(2, \app\common\service\power\MarketImageModelRuntimeService::$requests);
