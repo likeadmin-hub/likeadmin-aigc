@@ -29,7 +29,10 @@ final class ShortDramaVnextAttachmentSeriesTest extends TestCase
             $plan = $story + ['episodes' => [
                 ['episode_number' => 1, 'title' => '书信', 'story_outline' => '陈默发现旧信。', 'conflict_point' => '署名有疑点', 'ending_hook' => '发现印记'],
                 ['episode_number' => 2, 'title' => '印记', 'story_outline' => '陈默辨认印记。', 'conflict_point' => '印记来源不明', 'ending_hook' => '找到线索']]];
-            $source = ShortDramaAttachmentSourceTest::capture("第1集\n场景：书房\n陈默：我在书房发现旧信😀，署名有疑点，信封上还有印记。\n第2集\n场景：书房\n陈默：我在书房辨认印记，终于找到线索。\n");
+            $path = tempnam(sys_get_temp_dir(), 'attachment_series_');
+            file_put_contents($path, "第1集\n场景：书房\n陈默：我在书房发现旧信😀，署名有疑点，信封上还有印记。\n第2集\n场景：书房\n陈默：我在书房辨认印记，终于找到线索。\n");
+            try { $source = Source::capture($path, 'txt', $scope['tenant_id'], 7, $task); }
+            finally { unlink($path); }
             $plan['episodes'] = Source::bind($source, $plan['episodes']);
             $request = ['prompt' => '按原文制作', 'script_source' => 'upload', '_attachment_source' => $source, 'workflow_variant' => 'story_outline_v2',
                 'multi_episode' => true, 'episode_count' => 2, 'multi_episode_stage' => 'episodes', '_generation_version' => 3,
