@@ -1684,7 +1684,6 @@ class AigcShortDramaService
 
     public static function createSubjectLibraryGeneration(int $tenantId, int $userId, array $params): array
     {
-        $params = self::stripCanonicalClientParams($params);
         $taskType = self::normalizeGenerationTaskType((string)($params['task_type'] ?? $params['type'] ?? 'subject_image'));
         if (!in_array($taskType, ['subject_image', 'three_view'], true)) {
             throw new Exception('Unsupported subject generation type');
@@ -2426,8 +2425,6 @@ class AigcShortDramaService
     /** Internal queue entry; context is never accepted from HTTP parameters. */
     public static function createEpisodeProduction(int $tenantId, int $userId, array $episode, array $request, array $outline, array $previous): array
     {
-        $canonicalEpisode = isset($request['_vnext_series'])
-            ? vnext\SeriesContext::prepare($request['_vnext_series'], $episode, $outline) : null;
         // A newly created child uses the current input protocol even when its
         // parent outline predates working memory. Build context with that same protocol.
         $request = ShortDramaInputContract::begin($request);
@@ -2454,7 +2451,6 @@ class AigcShortDramaService
         unset($request['script_text'], $request['script_content']);
         $created = self::createScriptPlan($tenantId, $userId, $request, (int)$episode['production_project_id'], [
             '_input_contract_version' => (int)($request['_input_contract_version'] ?? 0),
-            '_vnext_episode_context' => $canonicalEpisode,
             '_prompt_snapshot' => ShortDramaPromptWorkspace::forTask($tenantId, $request),
             'episode_duration_policy' => $episodePolicy,
             'same_scene_cut_policy' => (array)($request['same_scene_cut_policy'] ?? []),
@@ -2629,6 +2625,12 @@ class AigcShortDramaService
 
     private static function createScriptPlanOnce(int $tenantId, int $userId, array $params, int $existingProjectId = 0, array $internalContext = []): array
     {
+        if ($existingProjectId > 0) {
+            $existing = self::findProject($tenantId, $userId, $existingProjectId);
+            $previousRequest = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
+                'task_id' => (string)$existing['last_task_id'], 'delete_time' => 0])->value('request_json');
+            ShortDramaRetiredTask::assertWritable(self::jsonDecode((string)$previousRequest));
+        }
         $prompt = trim((string)($params['prompt'] ?? ''));
         $uploadedScript = trim((string)($params['script_text'] ?? $params['script_content'] ?? ''));
         if ($uploadedScript !== '') {
@@ -2745,33 +2747,6 @@ class AigcShortDramaService
         $request['_prompt_task_id'] = $taskId;
         $time = time();
 
-        // The browser cannot select an engine. Enrollment is evaluated once, before any paid work.
-        unset($request['_pipeline_version']);
-        $episodeContext = $internalContext['_vnext_episode_context'] ?? null;
-        unset($request['_vnext_episode_context']);
-        $vnextPolicy = (array)\think\facade\Config::get('short_drama.vnext', []);
-        if ($existingProjectId === 0 && !empty($request['multi_episode']) && $request['script_source'] !== 'upload'
-            && !empty($vnextPolicy['series_enabled'])
-            && vnext\ApplicationWorkflow::enrollment($tenantId, [], $selectedModels['script_plan'] ?? [], $vnextPolicy, true) !== null) {
-            $request['_source_trace'] = vnext\SourceTrace::capture('user_input_' . $taskId, $taskId, $prompt, 'inspiration');
-        }
-        $vnextExecution = $episodeContext !== null ? $episodeContext['snapshot']['execution']
-            : vnext\ApplicationWorkflow::enrollment($tenantId, $request, $selectedModels['script_plan'] ?? [],
-                (array)\think\facade\Config::get('short_drama.vnext', []), $existingProjectId === 0);
-        if ($episodeContext !== null && ((int)$episodeContext['snapshot']['tenant_id'] !== $tenantId
-            || (int)$episodeContext['snapshot']['user_id'] !== $userId
-            || (string)($selectedModels['script_plan']['id'] ?? '') !== $episodeContext['snapshot']['model_id'])) {
-            throw new \RuntimeException('分集执行模型或身份与确认版本不一致', 409);
-        }
-        if ($vnextExecution !== null) {
-            $request['_pipeline_version'] = vnext\GenerationPipeline::VERSION;
-            $request['_generation_version'] = max(3, (int)$request['_generation_version']);
-            $request['quality_review_enabled'] = true;
-            $styleSelection = (string)($request['style_id'] ?? '');
-            $request['_vnext_style_snapshot'] = self::canvasCreativeStyle($tenantId,
-                ctype_digit($styleSelection) && (int)$styleSelection > 0 ? 'style_id:' . $styleSelection : $styleSelection);
-        }
-
         Db::startTrans();
         try {
             if ($existingProjectId > 0) {
@@ -2800,13 +2775,6 @@ class AigcShortDramaService
             ]);
             }
 
-            if ($vnextExecution !== null) {
-                $frozenModel = ($selectedModels['script_plan'] ?? []) + ['_planning_fallback' => (array)\think\facade\Config::get('short_drama', [])];
-                $input = vnext\ApplicationWorkflow::input($tenantId, $userId, (int)$project['id'], $taskId, $request, $frozenModel, $vnextExecution);
-                if ($episodeContext !== null) $input['context'] = array_replace($input['context'], $episodeContext['context']);
-                vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId)->create('project:' . $project['id'], $input,
-                    $time + (int)$vnextExecution['deadline_seconds']);
-            }
             AigcShortDramaScriptTask::create([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
@@ -2991,13 +2959,6 @@ class AigcShortDramaService
         }
         $project = $isHomeSubmission ? null : self::findProject($tenantId, $userId, $projectId);
         $sourceTask = $isHomeSubmission ? null : self::findTask($tenantId, $userId, $sourceTaskId, $projectId);
-        if (!$isHomeSubmission) {
-            vnext\ApplicationWorkflow::assertLegacyWrite($sourceTask->toArray());
-            if (!in_array((string)$sourceTask['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
-                throw new Exception('当前任务仍在处理，请先停止或等待完成后上传新文件');
-            }
-            ShortDramaEpisodeService::guardRevision($tenantId, $userId, $projectId, $sourceTaskId);
-        }
         $file = request()->file('file');
         if ($file === null || (method_exists($file, 'getError') && (int)$file->getError() !== 0)) {
             throw new Exception('剧本文件上传失败');
@@ -3099,27 +3060,13 @@ class AigcShortDramaService
 
         // UploadService selects the tenant-effective storage engine and stores
         // ownership metadata; the market API receives only its resolved URL.
-        $parseTaskId = self::makeTaskId('sd_parse');
-        $attachmentSource = []; $extractionError = '';
-        try {
-            $attachmentSource = ShortDramaAttachmentSource::capture($path, $extension, $tenantId, $userId, $parseTaskId);
-        } catch (\RuntimeException $error) {
-            if ($error->getCode() !== 422) throw $error;
-            // A rejected text projection is still an owned original document.
-            // Persist its failure without submitting an incomplete source to a provider.
-            $extractionError = $error->getMessage();
-        }
-        if (hash_file('sha256', $path) !== $checksum
-            || ($attachmentSource && $attachmentSource['file_sha256'] !== $checksum)) throw new Exception('上传文件已变化，请重新提交');
         $uploaded = UploadService::file(0, 0, FileEnum::SOURCE_USER, 'uploads/aigc_short_drama/script_documents');
         $rawUri = FileService::setFileUrl((string)($uploaded['url'] ?? ''));
         $publicUrl = trim((string)($uploaded['uri'] ?? ''));
         if ($rawUri === '' || $publicUrl === '') throw new Exception('剧本文件存储失败');
         $storage = self::storageInfoForUploadedFile($tenantId, $rawUri);
+        $parseTaskId = self::makeTaskId('sd_parse');
         $now = time();
-        $status = $extractionError === '' ? self::STATUS_PENDING : self::STATUS_FAILED;
-        $failureMessage = $extractionError === '' ? '' : $extractionError . '；原文件已保留，请提供已核对的文字版本后重新上传。';
-        unset($sourceRequest['_attachment_source'], $sourceRequest['_attachment_extraction']);
         $request = array_replace($sourceRequest, [
             'source' => 'market_file_qa_parse',
             'script_source' => 'upload',
@@ -3136,9 +3083,6 @@ class AigcShortDramaService
             'source_task_id' => $sourceTaskId,
             '_generation_version' => max(3, (int)($sourceRequest['_generation_version'] ?? 0)),
         ]);
-        if ($attachmentSource) $request['_attachment_source'] = $attachmentSource;
-        else $request['_attachment_extraction'] = ['version' => 1, 'status' => 'failed',
-            'file_sha256' => $checksum, 'error_code' => 'attachment_text_unverified', 'message' => $extractionError];
         if ($isHomeSubmission) {
             $request['submission'] = [
                 'type' => 'script_upload',
@@ -3147,14 +3091,12 @@ class AigcShortDramaService
                 'attachment_name' => $name,
             ];
         }
-        unset($request['_story_draft'], $request['_imported_outline_snapshot'], $request['_story_outline_obsolete'],
-            $request['confirmed_story_snapshot'], $request['confirmed_story_task_id'], $request['confirmed_story_version'],
-            $request['confirmed_outline_snapshot'], $request['confirmed_outline_task_id'], $request['confirmed_outline_version']);
+        unset($request['_story_draft'], $request['confirmed_story_snapshot'], $request['confirmed_story_task_id']);
         $request['episode_count'] = max(2, min(self::SCRIPT_MAX_EPISODES, (int)($sourceRequest['episode_count'] ?? ($project['episode_count'] ?? 2))));
         $request['episode_total_count'] = $request['episode_count'];
         $request['idempotency_key'] = $idempotencyKey !== '' ? $idempotencyKey : sha1($tenantId . '|' . $userId . '|' . $projectId . '|' . $checksum . '|' . $parseTaskId);
 
-        Db::transaction(function () use ($tenantId, $userId, &$projectId, $project, $parseTaskId, $request, $name, $rawUri, $storage, $mime, $size, $checksum, $now, $isHomeSubmission, $homeProject, $sourceTaskId, $status, $failureMessage) {
+        Db::transaction(function () use ($tenantId, $userId, &$projectId, $project, $parseTaskId, $request, $name, $rawUri, $storage, $mime, $size, $checksum, $now, $isHomeSubmission, $homeProject, $sourceTaskId) {
             if ($isHomeSubmission) {
                 $lockedProject = AigcShortDramaProject::create(array_replace($homeProject, [
                     'last_task_id' => $parseTaskId,
@@ -3165,7 +3107,6 @@ class AigcShortDramaService
             } else {
                 $lockedProject = AigcShortDramaProject::where(['id' => $projectId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])->lock(true)->findOrEmpty();
                 if ($lockedProject->isEmpty()) throw new Exception('项目不存在');
-                ShortDramaEpisodeService::guardRevision($tenantId, $userId, $projectId, $sourceTaskId);
             }
             $asset = AigcShortDramaAsset::create([
                 'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
@@ -3175,8 +3116,7 @@ class AigcShortDramaService
                 'storage_engine' => (string)($storage['storage_engine'] ?? 'local'),
                 'storage_domain' => (string)($storage['storage_domain'] ?? ''),
                 'mime_type' => $mime, 'file_size' => $size, 'width' => 0, 'height' => 0, 'duration' => 0,
-                'checksum' => $checksum, 'meta_json' => self::jsonEncode(['source' => 'market_file_qa_parse',
-                    'text_extraction' => $request['_attachment_extraction'] ?? ['version' => 1, 'status' => 'verified', 'package_hash' => $request['_attachment_source']['package_hash']]]),
+                'checksum' => $checksum, 'meta_json' => self::jsonEncode(['source' => 'market_file_qa_parse']),
                 'status' => 'ready', 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
             ]);
             $request['script_asset_id'] = (int)$asset['id'];
@@ -3184,32 +3124,26 @@ class AigcShortDramaService
             $scriptTask = AigcShortDramaScriptTask::create([
                 'app_task_id' => 0, 'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
                 'task_id' => $parseTaskId, 'parent_task_id' => $sourceTaskId,
-                'status' => $status, 'progress' => $failureMessage === '' ? 5 : 100,
-                'current_step' => $failureMessage === '' ? '剧本文件已上传，等待解析' : '原文件已保存，正文提取未完成',
+                'status' => self::STATUS_PENDING, 'progress' => 5, 'current_step' => '剧本文件已上传，等待解析',
                 'prompt' => $isHomeSubmission ? (string)$request['prompt'] : '解析上传剧本：' . $name, 'request_json' => self::jsonEncode($request),
                 'config_snapshot' => self::jsonEncode(['provider' => 'power_market', 'market_app_code' => 'file_qa', 'market_api_code' => 'parse']),
-                'pricing_snapshot' => self::jsonEncode([]), 'result_json' => self::jsonEncode([]), 'error' => $failureMessage,
-                'billing_status' => $failureMessage === '' ? 'pending_usage' : 'none', 'tenant_cost_points' => 0, 'user_charge_points' => 0,
+                'pricing_snapshot' => self::jsonEncode([]), 'result_json' => self::jsonEncode([]), 'error' => '',
+                'billing_status' => 'pending_usage', 'tenant_cost_points' => 0, 'user_charge_points' => 0,
                 'provider' => 'power_market', 'provider_request_id' => '', 'provider_task_id' => '',
                 'idempotency_key' => (string)$request['idempotency_key'], 'retry_count' => 0,
-                'started_at' => $now, 'finished_at' => $failureMessage === '' ? 0 : $now, 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
+                'started_at' => $now, 'finished_at' => 0, 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
             ]);
-            $generation = self::createGenerationTaskRecord($tenantId, $userId, $projectId, '', 'script_plan', $parseTaskId, $status, [
+            self::createGenerationTaskRecord($tenantId, $userId, $projectId, '', 'script_plan', $parseTaskId, self::STATUS_PENDING, [
                 'provider' => 'power_market', 'source_app_code' => 'file_qa', 'request' => $request,
-                'result' => [], 'pricing' => [], 'billing_status' => $failureMessage === '' ? 'pending_usage' : 'none', 'started_at' => $now,
-                'finished_at' => $failureMessage === '' ? 0 : $now,
+                'result' => [], 'pricing' => [], 'billing_status' => 'pending_usage', 'started_at' => $now,
             ]);
-            if ($failureMessage !== '') $generation->save(['progress' => 100, 'error_code' => 'attachment_text_unverified', 'error_msg' => $failureMessage]);
         });
 
-        if ($failureMessage !== '') return ['project_id' => $projectId, 'task_id' => $parseTaskId,
-            'status' => self::STATUS_FAILED, 'error' => $failureMessage];
         return ['project_id' => $projectId, 'task_id' => $parseTaskId, 'status' => self::STATUS_PENDING, '_dispatch_request' => $request];
     }
 
     private static function dispatchUploadedScriptTask(int $tenantId, int $userId, int $projectId, string $parseTaskId, array $request): array
     {
-        if (($request['_attachment_extraction']['status'] ?? '') === 'failed') throw new \RuntimeException('附件正文尚未核对，请重新上传文字版本', 409);
         try {
             $selection = ['upstream_app_code' => 'file_qa'];
             $reserve = MarketFileQaAppRuntimeService::reserve($tenantId, $userId, 'script_parse', $parseTaskId, $selection, $request);
@@ -3274,33 +3208,11 @@ class AigcShortDramaService
         return ['project_id' => $projectId, 'task_id' => $parseTaskId, 'status' => self::STATUS_RUNNING];
     }
 
-    public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0, int $manualHistoryPage = 0, int $attachmentSourcePage = 0, int $audioPage = 0): array
+    public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0): array
     {
-        $task = self::findTask($tenantId, $userId, $taskId, $projectId);
-        if ($audioPage !== 0) {
-            if ($manualHistoryPage !== 0 || $attachmentSourcePage !== 0) throw new \RuntimeException('请分别读取配音、修改记录和附件来源', 422);
-            return ['task_id' => (string)$task['task_id'], 'audio_handoff' => vnext\AudioProduction::page($tenantId, $userId, (int)$task['project_id'], $taskId, $audioPage)];
-        }
-        if ($attachmentSourcePage !== 0) {
-            if ($manualHistoryPage !== 0) throw new \RuntimeException('请分别读取修改记录和附件来源', 422);
-            $input = []; $candidate = [];
-            if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
-                $job = vnext\ApplicationWorkflow::store($tenantId, $userId, (string)$task['task_id'])->snapshot();
-                if (!$job) throw new \RuntimeException('附件来源暂时无法读取，请稍后重试', 409);
-                $input = self::jsonDecode($job['input_json']); $candidate = self::jsonDecode($job['candidate_json']);
-                if ($job['input_hash'] !== vnext\ContentDocument::hash($input)) throw new \RuntimeException('附件来源版本校验失败', 409);
-            }
-            return ['task_id' => (string)$task['task_id'], 'attachment_source' => vnext\AttachmentSourceView::page($input, $candidate, $attachmentSourcePage)];
-        }
-        if ($manualHistoryPage !== 0) {
-            $input = [];
-            if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
-                $job = vnext\ApplicationWorkflow::store($tenantId, $userId, (string)$task['task_id'])->snapshot();
-                if (!$job) throw new \RuntimeException('修改记录暂时无法读取，请稍后重试', 409);
-                $input = self::jsonDecode($job['input_json']);
-                if ($job['input_hash'] !== vnext\ContentDocument::hash($input)) throw new \RuntimeException('修改记录版本校验失败', 409);
-            }
-            return ['task_id' => (string)$task['task_id'], 'manual_history' => vnext\ManualRevisionHistory::page($input, $tenantId, $userId, $manualHistoryPage)];
+        $task = self::findTask($tenantId, $userId, $taskId, $projectId, true);
+        if (ShortDramaRetiredTask::isRetired(self::jsonDecode((string)$task['request_json']))) {
+            return ShortDramaRetiredTask::read($task->toArray());
         }
         if (self::isMarketFileQaParseRequest(self::jsonDecode((string)$task['request_json']))) {
             if (!in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
@@ -3310,12 +3222,11 @@ class AigcShortDramaService
                 if ($consumptionId > 0) {
                     MarketFileQaAppRuntimeService::refresh($consumptionId);
                     self::syncMarketFileQaScriptTask($task->toArray());
-                    $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+                    $task = self::findTask($tenantId, $userId, $taskId, $projectId, true);
                 }
             }
             return self::formatTask($task->toArray(), true);
         }
-        if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) return self::formatTask($task->toArray(), true);
         if (ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id'])) {
             // Script detail is a read path.  Reusing inherited visual assets
             // writes several rows and used to run here while episode switches
@@ -3951,11 +3862,6 @@ class AigcShortDramaService
             $emit(($result['status'] ?? '') === self::STATUS_SUCCESS ? 'done' : 'task', $result);
             return $result;
         }
-        if ($episodeWorker && vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
-            $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
-            if (!$store->workerReady()) return self::formatTask($task->toArray(), true);
-            return self::executeVnextScriptPlanTask($tenantId, $userId, $task->toArray(), $emit);
-        }
         if (ShortDramaStoryWorkflow::workerOwned(self::jsonDecode((string)$task['request_json']))) {
             // Subscribe only: the durable worker owns generation and billing.
             $deadline = microtime(true) + 25;
@@ -4026,9 +3932,7 @@ class AigcShortDramaService
         try {
             $task = self::findTask($tenantId, $userId, $taskId);
             if (!ShortDramaStoryWorkflow::workerOwned(self::jsonDecode((string)$task['request_json'])) || !in_array($task['status'], ['pending', 'queued', 'running'], true)) return false;
-            if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
-                if (!vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId)->workerReady()) return false;
-            } elseif (!ShortDramaPlanningUnit::ready($tenantId, $userId, $taskId)) return false;
+            if (!ShortDramaPlanningUnit::ready($tenantId, $userId, $taskId)) return false;
             $task->save(['retry_count' => (int)$task['retry_count'] + 1]);
             self::executeScriptPlanTask($tenantId, $userId, $task->toArray(), static function () {});
             return true;
@@ -4044,113 +3948,9 @@ class AigcShortDramaService
         } finally { Db::query('SELECT RELEASE_LOCK(?)', [$lock]); }
     }
 
-    /** Versioned worker adapter. Historical tasks retain their complete original execution path. */
-    private static function executeVnextScriptPlanTask(int $tenantId, int $userId, array $taskData, callable $emit): array
-    {
-        $taskId = (string)$taskData['task_id']; $projectId = (int)$taskData['project_id'];
-        $scope = ['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId];
-        $request = self::jsonDecode((string)$taskData['request_json']);
-        $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
-        $job = $store->snapshot();
-        if (!$job) throw new \RuntimeException('生成作业记录缺失，请联系管理员恢复任务', 409);
-        try {
-            if ($store->reconcileUnsubmitted(static fn(string $key,int $attempt): bool => MarketTextModelRuntimeService::releaseUnsubmittedReservation(
-                $tenantId,$userId,'aigc_short_drama_script_task',(int)$taskData['id'],$key,$attempt))) {
-                $job=$store->snapshot();
-                if ($job['execution_status']==='reconciling' && $store->resume(true)) $job=$store->snapshot();
-            }
-        } catch (\Throwable $ignored) { /* Unconfirmed submission remains closed to repeat requests. */ }
-        if ($job['execution_status'] === 'reconciling') {
-            try {
-                if ($store->reconcileAutomatically(static fn(array $receipt): array => MarketTextModelRuntimeService::recoverDurableResult(
-                    $tenantId, $userId, 'aigc_short_drama_script_task', (int)$taskData['id'], $receipt))) $job = $store->snapshot();
-            } catch (\Throwable $ignored) { /* Receipt and original ledger remain available for explicit reconciliation. */ }
-            if ($job['execution_status'] === 'reconciling') {
-                if (!$store->canAutomaticallyReconcile()) AigcShortDramaScriptTask::where($scope)->whereIn('status', ['pending', 'queued', 'running'])->update([
-                    'status' => self::STATUS_FAILED, 'current_step' => '正文已保存，等待核对结算',
-                    'error' => '自动核对尚未完成，请核对收据后继续；已保存内容不会重新生成', 'update_time' => time(),
-                ]);
-                return self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
-            }
-        }
-        if (in_array($job['execution_status'], ['succeeded', 'canceled', 'needs_attention'], true)) {
-            if ($job['execution_status'] === 'succeeded') $store->deliverPublicationEvents(static fn(array $event) => $emit('revision_published', $event));
-            return self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
-        }
-        $input = self::jsonDecode($job['input_json']); $model = $input['model'];
-        $activated = AigcShortDramaScriptTask::where($scope)->whereIn('status', ['pending', 'queued', 'running'])->update([
-            'status' => self::STATUS_RUNNING, 'current_step' => '正在生成完整剧本',
-            'started_at' => (int)$taskData['started_at'] ?: time(), 'update_time' => time(),
-        ]);
-        if (!$activated) return self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
-        try {
-            vnext\JobRunner::run($store, 'worker_' . bin2hex(random_bytes(12)),
-                static function (array $params, string $receiptKey, callable $persistResult, ?callable $admitResources = null) use ($tenantId, $userId, $taskData): array {
-                    if (($params['_account_reservation_version'] ?? 0) === 1) $params['_account_reservation_key'] = $receiptKey;
-                    $params += ['source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
-                        'source_id' => (string)$taskData['task_id'], 'business_table' => 'aigc_short_drama_script_task',
-                        'business_id' => (int)$taskData['id']];
-                    return MarketTextModelRuntimeService::generate($tenantId, $userId, $params, null, false, $persistResult, $admitResources);
-                },
-                static function (string $event, array $payload) use ($emit, $scope): void {
-                    if ($event === 'stage') {
-                        AigcShortDramaScriptTask::where($scope)->where('status', self::STATUS_RUNNING)->update([
-                            'current_step' => str_contains($payload['stage'], 'review') ? '核对内容与人物'
-                                : (str_contains($payload['stage'], 'shots') ? '编排分镜' : '生成正文'), 'update_time' => time(),
-                        ]);
-                    }
-                    $emit($event, $payload);
-                },
-                static function (array $candidate, array $receipts) use ($tenantId, $userId, $projectId, $taskId, $scope, $request, $model, $taskData, $input): void {
-                    vnext\SeriesContext::assertDependencies($input['context'], true);
-                    $project = AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $projectId])->lock(true)->find();
-                    $task = AigcShortDramaScriptTask::where($scope)->lock(true)->find();
-                    if (!$project || !$task || $project['last_task_id'] !== $taskId || $task['status'] !== self::STATUS_RUNNING) {
-                        throw new \RuntimeException('当前任务已被停止或替换，结果已保存但不会覆盖新版本', 409);
-                    }
-                    $result = vnext\ApplicationWorkflow::project($candidate);
-                    $billing = self::scriptPlanBillingFromLlm(['llm' => self::mergeScriptPlanLlmResults($receipts)], (string)$taskData['prompt'], $result, $model);
-                    $time = time(); $agentRunId = (string)$project['current_agent_run_id'];
-                    $task->save(['status' => self::STATUS_SUCCESS, 'progress' => 100, 'current_step' => '剧本生成完成',
-                        'result_json' => self::jsonEncode($result), 'pricing_snapshot' => self::jsonEncode($billing),
-                        'billing_status' => $billing['billing_status'], 'tenant_cost_points' => $billing['tenant_cost_points'],
-                        'user_charge_points' => $billing['user_charge_points'], 'provider_request_id' => $billing['provider_request_id'],
-                        'error' => '', 'finished_at' => $time, 'update_time' => $time]);
-                    self::createAgentRunRecord($tenantId, $userId, $projectId, $agentRunId, $taskId, 'initial_plan', $request, $result, $model, self::STATUS_SUCCESS, $time);
-                    $version = self::createPlanVersion($tenantId, $userId, $projectId, $taskId, $agentRunId,
-                        empty($taskData['parent_task_id']) ? 'vnext_initial' : 'vnext_revision', $result,
-                        (int)($request['_canonical_parent_version_id'] ?? 0), true, $time);
-                    $project->save(['status' => self::PROJECT_STATUS_PLAN_REVIEW, 'current_version_id' => (int)$version['id'], 'update_time' => $time]);
-                    self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $taskId, self::STATUS_SUCCESS, $request, $model,
-                        $billing + ['progress' => 100, 'finished_at' => $time, 'result' => ['version_id' => (int)$version['id']]]);
-                    vnext\CanvasSeriesBridge::publishMapping($tenantId, $userId, $projectId, $taskId, $result,
-                        (int)($input['context']['dependency_versions']['series']['project_id'] ?? 0));
-                }, static fn(array $receipt): array => MarketTextModelRuntimeService::recoverDurableResult(
-                    $tenantId, $userId, 'aigc_short_drama_script_task', (int)$taskData['id'], $receipt));
-        } catch (\Throwable $error) {
-            // Receipts/candidate survive a failed projection. The next worker replays them without another charge.
-            $job = $store->snapshot();
-            $active = in_array($job['execution_status'], ['queued', 'running', 'retry_wait'], true) || $store->canAutomaticallyReconcile();
-            AigcShortDramaScriptTask::where($scope)->where('status', self::STATUS_RUNNING)->update([
-                'status' => $active ? self::STATUS_QUEUED : self::STATUS_FAILED,
-                'current_step' => $active ? ($job['execution_status'] === 'reconciling' ? '正文已保存，正在核对结算' : '等待继续已保存的任务') : '内容已保留，等待处理',
-                'error' => $active ? '' : self::scriptPlanProviderError($error->getMessage()), 'update_time' => time(),
-            ]);
-        }
-        $job = $store->snapshot();
-        if ($job['execution_status'] === 'needs_attention') AigcShortDramaScriptTask::where($scope)->where('status', self::STATUS_RUNNING)->update([
-            'status' => self::STATUS_FAILED, 'current_step' => '内容已保留，等待处理', 'update_time' => time(),
-        ]);
-        $formatted = self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
-        try { $emit('done', $formatted); } catch (\Throwable $ignored) { /* Publication does not depend on a browser connection. */ }
-        return $formatted;
-    }
-
     private static function executeScriptPlanTask(int $tenantId, int $userId, array $taskData, callable $emit): array
     {
-        if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)($taskData['request_json'] ?? '')))) {
-            return self::executeVnextScriptPlanTask($tenantId, $userId, $taskData, $emit);
-        }
+        ShortDramaRetiredTask::assertWritable(self::jsonDecode((string)($taskData['request_json'] ?? '')));
         $taskId = (string)$taskData['task_id'];
         $projectId = (int)$taskData['project_id'];
         $project = self::findProject($tenantId, $userId, $projectId);
@@ -4574,65 +4374,6 @@ class AigcShortDramaService
         }
     }
 
-    private static function reviseCanonicalContent(int $tenantId, int $userId, array $sourceTask, array $params, ?array $recheckContext = null): array
-    {
-        $sourceId = (string)$sourceTask['task_id']; $projectId = (int)$sourceTask['project_id'];
-        $patches = vnext\ContentDocument::rows($params['canonical_patches'] ?? [], 'canonical_patches');
-        $structure = $params['canonical_structure'] ?? [];
-        if (!is_array($structure)) throw new \RuntimeException('结构修改参数无效', 422);
-        $expected = (string)($params['expected_revision_id'] ?? '');
-        $key = vnext\ContentDocument::hash($structure ? [$tenantId, $userId, $sourceId, $expected, $patches, $structure]
-            : ($recheckContext === null ? [$tenantId, $userId, $sourceId, $expected, $patches]
-            : [$tenantId, $userId, $sourceId, $expected, $patches, $recheckContext]));
-        return Db::transaction(static function () use ($tenantId, $userId, $sourceTask, $sourceId, $projectId, $patches, $structure, $expected, $key, $recheckContext): array {
-            // Same order as publication: canonical job, project, task. No network requests in this transaction.
-            $job = Db::name('aigc_short_drama_vnext_job')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $sourceId])->lock(true)->find();
-            if (!$job) throw new \RuntimeException('生成作业不存在', 404);
-            $project = AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $projectId, 'delete_time' => 0])->lock(true)->find();
-            if (!$project) throw new \RuntimeException('项目不存在', 404);
-            $existing = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
-                'parent_task_id' => $sourceId, 'idempotency_key' => $key, 'delete_time' => 0])->findOrEmpty();
-            if (!$existing->isEmpty()) return self::formatTask($existing->toArray(), true);
-            if (!in_array($job['execution_status'], ['succeeded', 'needs_attention'], true)) throw new \RuntimeException('请先停止生成或等待当前内容核对完成', 409);
-            if ($project['last_task_id'] !== $sourceId) throw new \RuntimeException('已有新修订，请打开当前任务后再修改', 409);
-            $newId = self::makeTaskId(); $agent = self::makeTaskId('sd_agent'); $time = time();
-            $input = $recheckContext === null
-                ? vnext\ApplicationWorkflow::revisionInput(self::jsonDecode($job['input_json']), self::jsonDecode($job['candidate_json']), $patches, $expected, $newId,
-                    ['tenant_id' => $tenantId, 'user_id' => $userId, 'parent_task_id' => $sourceId, 'task_id' => $newId, 'created_at' => $time], $structure)
-                : vnext\ApplicationWorkflow::recheckInput(self::jsonDecode($job['input_json']), self::jsonDecode($job['candidate_json']), $recheckContext, $expected, $newId);
-            if ($job['execution_status'] === 'needs_attention') vnext\ApplicationWorkflow::store($tenantId, $userId, $sourceId)->cancel();
-            vnext\ApplicationWorkflow::store($tenantId, $userId, $newId)->create($job['lane_key'], $input,
-                $time + (int)$input['execution']['deadline_seconds']);
-            $request = self::jsonDecode((string)$sourceTask['request_json']);
-            $request['_prompt_task_id'] = $newId; $request['source'] = 'revision';
-            $request['_canonical_parent_version_id'] = (int)$project['current_version_id'];
-            unset($request['_prompt_requests'], $request['_execution_attempt']);
-            $row = $sourceTask; unset($row['id']);
-            $row = array_replace($row, ['task_id' => $newId, 'parent_task_id' => $sourceId, 'app_task_id' => 0, 'request_json' => self::jsonEncode($request),
-                'result_json' => '{}', 'status' => self::STATUS_PENDING, 'progress' => 0, 'current_step' => '正文修订已保存，等待核对分镜',
-                'pricing_snapshot' => '{}', 'billing_status' => 'none', 'tenant_cost_points' => '0.00', 'user_charge_points' => '0.00',
-                'provider_request_id' => '', 'provider_task_id' => '', 'retry_count' => 0, 'error' => '', 'operator_error' => '',
-                'started_at' => 0, 'finished_at' => 0, 'create_time' => $time, 'update_time' => $time, 'idempotency_key' => $key]);
-            AigcShortDramaScriptTask::create($row);
-            $project->save(['last_task_id' => $newId, 'current_agent_run_id' => $agent, 'status' => self::PROJECT_STATUS_PLANNING, 'update_time' => $time]);
-            self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $newId, self::STATUS_PENDING, $request, $input['model']);
-            ShortDramaEpisodeService::revisionQueued($tenantId, $userId, $projectId, $newId);
-            return self::formatTask(self::findTask($tenantId, $userId, $newId)->toArray(), true);
-        });
-    }
-
-    /** Internal explicit episode recheck; HTTP input never supplies the frozen context. */
-    public static function recheckCanonicalEpisode(int $tenantId, int $userId, string $taskId, array $context): array
-    {
-        $task = self::findTask($tenantId, $userId, $taskId);
-        $job = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId)->snapshot();
-        $candidate = self::jsonDecode($job['candidate_json'] ?? '{}');
-        vnext\SeriesContext::assertDependencies($context);
-        return self::reviseCanonicalContent($tenantId, $userId, $task->getData(), [
-            'canonical_patches' => [], 'expected_revision_id' => $candidate['document']['revision_id'] ?? '',
-        ], $context);
-    }
-
     public static function saveStoryboard(int $tenantId, int $userId, array $params): array
     {
         $taskId = trim((string)($params['task_id'] ?? ''));
@@ -4640,10 +4381,6 @@ class AigcShortDramaService
             throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, (int)($params['project_id'] ?? 0));
-        if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json'])) && (array_key_exists('canonical_patches', $params) || array_key_exists('canonical_structure', $params))) {
-            return self::reviseCanonicalContent($tenantId, $userId, $task->toArray(), $params);
-        }
-        vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());
         if (($task['status'] ?? '') === self::STATUS_CANCELED) {
             throw new Exception('Task has been canceled');
         }
@@ -4726,7 +4463,6 @@ class AigcShortDramaService
             throw new Exception('项目任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
-        vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());
         if (($task['status'] ?? '') === self::STATUS_CANCELED) {
             throw new Exception('任务已取消，不能新增分镜');
         }
@@ -4802,7 +4538,6 @@ class AigcShortDramaService
             throw new Exception('请选择要复制的分镜');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
-        vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());
         if (($task['status'] ?? '') === self::STATUS_CANCELED) {
             throw new Exception('任务已取消，不能复制分镜');
         }
@@ -4876,7 +4611,6 @@ class AigcShortDramaService
             throw new Exception('请选择要删除的分镜');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
-        vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());
         if (($task['status'] ?? '') === self::STATUS_CANCELED) {
             throw new Exception('任务已取消，不能删除分镜');
         }
@@ -4936,7 +4670,6 @@ class AigcShortDramaService
             throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
-        vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());
         $request = self::hydrateStoredSubjectReferences(
             $tenantId,
             $userId,
@@ -5554,7 +5287,6 @@ class AigcShortDramaService
             self::checkSensitivePrompt($message);
         }
         $task = self::findTask($tenantId, $userId, $taskId);
-        vnext\ApplicationWorkflow::assertLegacyWrite($task->toArray());
         $project = self::findProject($tenantId, $userId, (int)$task['project_id']);
         $previousResult = self::jsonDecode((string)$task['result_json']);
         $sourceRequest = self::hydrateStoredSubjectReferences(
@@ -5591,7 +5323,6 @@ class AigcShortDramaService
             if ($advanceStage) {
                 $issues = ShortDramaStoryWorkflow::issues($previousResult, $currentStage, (int)$request['episode_count'],
                     ShortDramaStoryWorkflow::qualityReviewEnabled($request));
-                $issues = array_merge($issues, vnext\PlanningTrace::issues($request, $previousResult, $currentStage, (int)$request['episode_count']));
                 if ($issues) throw new Exception($issues[0]['message']);
                 $request['confirmed_story_snapshot'] = $previousResult;
                 $request['confirmed_story_task_id'] = $taskId;
@@ -5749,12 +5480,6 @@ class AigcShortDramaService
         }
         if (!empty($revisionTarget)) {
             $request['revision_target'] = $revisionTarget;
-        }
-        // Stage advancement is a system action, never a new user source. A real
-        // revision freezes this turn after scope resolution and before task persistence.
-        unset($request['_trace_revision']);
-        if (!$advanceStage && ShortDramaStoryWorkflow::enabled($sourceRequest)) {
-            $request = vnext\PlanningTrace::revisionRequest($request, $previousResult, $newTaskId, $message, $currentStage);
         }
         $request['source'] = 'revision';
         $request['model_selections'] = self::modelSelectionsSnapshot($selectedModels);
@@ -5977,32 +5702,9 @@ class AigcShortDramaService
         ];
     }
 
-    public static function retry(int $tenantId, int $userId, string $taskId, array $budgetExtension = []): array
+    public static function retry(int $tenantId, int $userId, string $taskId): array
     {
         $task = self::findTask($tenantId, $userId, $taskId);
-        if ((self::jsonDecode((string)$task['request_json'])['_attachment_extraction']['status'] ?? '') === 'failed') {
-            throw new \RuntimeException('原文件已保留，但正文提取未完成；请提供已核对的文字版本后重新上传', 409);
-        }
-        if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
-            $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
-            // Commit settlement before publishing a final receipt to disk. Resumption below remains atomic.
-            $store->reconcileReceipts(static fn(array $receipt): array => MarketTextModelRuntimeService::recoverDurableResult(
-                $tenantId, $userId, 'aigc_short_drama_script_task', (int)$task['id'], $receipt));
-            $store->reconcileUnsubmitted(static fn(string $key,int $attempt): bool => MarketTextModelRuntimeService::releaseUnsubmittedReservation(
-                $tenantId,$userId,'aigc_short_drama_script_task',(int)$task['id'],$key,$attempt));
-            return Db::transaction(static function () use ($tenantId, $userId, $taskId, $budgetExtension): array {
-                $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
-                if ($budgetExtension ? $store->extendBudget($budgetExtension) : $store->resume()) {
-                    $task = self::findTask($tenantId, $userId, $taskId);
-                    $project = self::findProject($tenantId, $userId, (int)$task['project_id']);
-                    if ($project['last_task_id'] !== $taskId) throw new \RuntimeException('已有新任务，请从当前版本继续制作', 409);
-                    $task->save(['status' => self::STATUS_PENDING, 'error' => '', 'finished_at' => 0,
-                        'current_step' => '等待继续已保存的任务', 'retry_count' => (int)$task['retry_count'] + 1, 'update_time' => time()]);
-                }
-                return self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
-            });
-        }
-        if ($budgetExtension) throw new \RuntimeException('此历史任务不支持资源预算续作', 409);
         $episode = ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
         if ($episode) return ShortDramaEpisodeService::retry($tenantId, $userId, (int)$episode['id']);
         if (!in_array((string)($task['status'] ?? ''), [self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
@@ -6051,31 +5753,6 @@ class AigcShortDramaService
     public static function cancel(int $tenantId, int $userId, string $taskId): array
     {
         $task = self::findTask($tenantId, $userId, $taskId);
-        $request = self::jsonDecode((string)$task['request_json']);
-        if (vnext\ApplicationWorkflow::current($request)) {
-            Db::transaction(static function () use ($tenantId, $userId, $taskId, $request): array {
-                $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
-                $store->cancel();
-                $task = self::findTask($tenantId, $userId, $taskId);
-                if ($store->snapshot()['execution_status'] === 'canceled') {
-                    $task->save(['status' => self::STATUS_CANCELED, 'current_step' => '已停止，已生成内容保留',
-                        'error' => '', 'finished_at' => time(), 'update_time' => time()]);
-                    self::syncScriptPlanGenerationTask($tenantId, $userId, (int)$task['project_id'], $taskId, self::STATUS_CANCELED,
-                        $request, (array)($request['model_selections']['script_plan'] ?? []), ['finished_at' => time(), 'error_code' => 'canceled']);
-                }
-                return self::formatTask($task->toArray(), true);
-            });
-            try {
-                vnext\ApplicationWorkflow::store($tenantId,$userId,$taskId)->reconcileUnsubmitted(
-                    static fn(string $key,int $attempt): bool => MarketTextModelRuntimeService::releaseUnsubmittedReservation(
-                        $tenantId,$userId,'aigc_short_drama_script_task',(int)$task['id'],$key,$attempt));
-            } catch (\Throwable $error) {
-                // Cancellation is already committed. Keep an uncertain reservation
-                // instead of turning a ledger error into permission to submit again.
-                Log::error('Short drama canceled reservation requires reconciliation: task='.$taskId.' code='.$error->getCode());
-            }
-            return self::formatTask(self::findTask($tenantId,$userId,$taskId)->toArray(),true);
-        }
         $episode = ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
         if ($episode) return ShortDramaEpisodeService::cancel($tenantId, $userId, (int)$episode['id']);
         if (in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
@@ -6108,24 +5785,6 @@ class AigcShortDramaService
 
     public static function registerAsset(int $tenantId, int $userId, array $params): array
     {
-        if (($params['asset_type'] ?? $params['type'] ?? '') === 'shot_audio') {
-            if ((int)($params['canvas_id'] ?? 0) !== 0) throw new \RuntimeException('请从本集正文的配音段上传录音', 422);
-            $file = request()->file('file');
-            if (!$file) throw new \RuntimeException('请选择本段配音文件', 422);
-            $ffmpeg = self::resolveFfmpegBinary();
-            $ffprobe = $ffmpeg === '' ? '' : self::resolveFfprobeBinary($ffmpeg);
-            $size = (int)$file->getSize(); $extension = strtolower((string)$file->extension());
-            $asset = vnext\AudioProduction::register($tenantId, $userId, $params, $file, $ffprobe, static function () use ($tenantId, $userId, $size, $extension): array {
-                $uploaded = UploadService::file(0, $userId, FileEnum::SOURCE_USER, 'uploads/aigc_short_drama/recordings');
-                $stored = Db::name('tenant_file')->where(['tenant_id' => $tenantId, 'id' => (int)$uploaded['id'],
-                    'source' => FileEnum::SOURCE_USER, 'source_id' => $userId])->find();
-                if (!$stored) throw new \RuntimeException('配音文件存储来源无法确认', 409);
-                return ['tenant_id' => $tenantId, 'source_id' => $userId, 'uri' => $stored['uri'],
-                    'storage_scope' => $stored['storage_scope'], 'storage_engine' => $stored['storage_engine'], 'storage_domain' => $stored['storage_domain'],
-                    'file_size' => $size, 'extension' => $extension, 'mime_type' => self::audioMimeType($stored['uri'])];
-            });
-            return self::formatAsset($asset);
-        }
         if ((int)($params['canvas_id'] ?? 0) > 0) {
             return self::registerCanvasAsset($tenantId, $userId, $params);
         }
@@ -6196,29 +5855,6 @@ class AigcShortDramaService
         ]);
         self::touchProject($project, ['update_time' => $time]);
         return self::formatAsset($asset->toArray());
-    }
-
-    /** CLI worker handles recordings uploaded through a hardened Web process without exec. */
-    public static function tickCanonicalAudio(): int
-    {
-        if (!in_array(PHP_SAPI, ['cli', 'phpdbg'], true)) return 0;
-        $ffmpeg = self::resolveFfmpegBinary(); if ($ffmpeg === '') return 0;
-        $ffprobe = self::resolveFfprobeBinary($ffmpeg);
-        return vnext\AudioMeasurementWorker::tick($ffprobe, static function (array $row, string $extension): array {
-            $url = FileService::getFileUrlByStorage($row['uri'], $row['storage_scope'], $row['storage_engine'], $row['storage_domain']);
-            $path = tempnam(sys_get_temp_dir(), 'short_drama_voice_');
-            if ($path === false) throw new \RuntimeException('配音临时文件无法创建');
-            try {
-                if ($row['storage_engine'] === 'local' && !preg_match('/^https?:\/\//i', $row['uri'])) {
-                    $root = realpath(public_path()); $source = realpath(public_path() . ltrim($row['uri'], '/'));
-                    if (!$root || !$source || !str_starts_with($source, $root . DIRECTORY_SEPARATOR) || !is_file($source)) throw new \RuntimeException('配音本地文件无法读取', 404);
-                    vnext\AudioMediaLoader::local($source, $path, (int)$row['file_size']);
-                } else {
-                    vnext\AudioMediaLoader::remote($url, $path, (int)$row['file_size']);
-                }
-                return ['path' => $path, 'temporary' => true];
-            } catch (\Throwable $error) { if (is_file($path)) unlink($path); throw $error; }
-        });
     }
 
     /** Register a canvas node result in the existing short-drama asset library. */
@@ -7071,130 +6707,8 @@ class AigcShortDramaService
         }
     }
 
-    private static function stripCanonicalClientParams(array $params): array
-    {
-        foreach (array_keys($params) as $key) if (str_starts_with((string)$key, '_canonical_')) unset($params[$key]);
-        if (is_array($params['params'] ?? null)) foreach (array_keys($params['params']) as $key) if (str_starts_with((string)$key, '_canonical_')) unset($params['params'][$key]);
-        return $params;
-    }
-
-    /** Both quote and submit use the same server-owned revision and asset contract. */
-    private static function canonicalImageRequest(int $tenantId, int $userId, array $project, string $taskId, string $taskType, array $params): ?array
-    {
-        $scope = ['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => (int)$project['id'], 'delete_time' => 0];
-        $current = AigcShortDramaScriptTask::where($scope)->where('task_id', (string)$project['last_task_id'])->findOrEmpty();
-        $origin = $taskId === (string)$project['last_task_id'] ? $current : AigcShortDramaScriptTask::where($scope)->where('task_id', $taskId)->findOrEmpty();
-        $isCurrent = !$current->isEmpty() && vnext\ApplicationWorkflow::current(self::jsonDecode((string)$current['request_json']));
-        $isOrigin = !$origin->isEmpty() && vnext\ApplicationWorkflow::current(self::jsonDecode((string)$origin['request_json']));
-        if (!$isCurrent && !$isOrigin) return null;
-        if (!$isOrigin || $taskId !== (string)$project['last_task_id']) throw new \RuntimeException('请从当前剧本版本开始制作，历史结果仍保留', 409);
-        if (!in_array($taskType, ['subject_image', 'scene_image', 'shot_image'], true) || self::normalizeGenerationMode($params) === 'video_generate') {
-            throw new \RuntimeException('此剧本版本尚未开放该制作步骤，正文与已有素材已保留', 409);
-        }
-        $job = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId)->snapshot();
-        if (!$job || $job['document_status'] !== 'ready' || $job['execution_status'] !== 'succeeded') throw new \RuntimeException('剧本尚未就绪', 409);
-        $candidate = self::jsonDecode($job['candidate_json']); $input = self::jsonDecode($job['input_json']);
-        vnext\SeriesContext::assertDependencies($input['context']);
-        $style = (string)($input['context']['style'] ?? '');
-        $state = self::canonicalImageState($tenantId, $userId, (int)$project['id'], $taskId, $candidate, $style);
-        $targetId = (string)($params[$taskType === 'shot_image' ? 'shot_id' : ($taskType === 'scene_image' ? 'scene_id' : 'subject_id')] ?? $params['item_id'] ?? '');
-        $handoff = vnext\ImageHandoff::compile($candidate, $style, $taskType, $targetId,
-            (string)($params['expected_revision_id'] ?? ''), $state['bindings']);
-        // Never accept client prompt snapshots, reference URLs, identity text or internal switches.
-        $clean = array_intersect_key($params, array_flip(['project_id', 'task_id', 'task_type', 'type', 'expected_revision_id',
-            'model_id', 'image_model_id', 'model_code', 'channel', 'channel_code', 'model_name', 'resolution', 'quality', 'ratio', 'aspect_ratio']));
-        $target = null;
-        foreach ($state['targets'] as $row) if ($row['target_id'] === $targetId && $row['task_type'] === $taskType) $target = $row;
-        $clean['task_id'] = $taskId; $clean['task_type'] = $taskType;
-        $clean[$taskType === 'shot_image' ? 'shot_id' : ($taskType === 'scene_image' ? 'scene_id' : 'subject_id')] = $targetId;
-        $clean['item_id'] = $targetId; $clean['item_name'] = $target['name'];
-        $clean['source'] = 'canonical_script'; $clean['_canonical_image'] = $handoff;
-        $clean['_canonical_shot'] = $target['shot'] ?? [];
-        $clean['_canonical_request_key'] = vnext\ContentDocument::hash([$taskId, $clean]);
-        return $clean;
-    }
-
-    /** Read-only production projection. Reuse only outputs with a verified persisted generation trace. */
-    private static function canonicalImageState(int $tenantId, int $userId, int $projectId, string $taskId, array $candidate, string $style): array
-    {
-        $blockedReason = '';
-        try { vnext\SeriesContext::assertDependencies(['dependency_versions' => $candidate['document']['dependency_versions']]); }
-        catch (\RuntimeException $error) {
-            if ($error->getCode() !== 409) throw $error;
-            $blockedReason = '前集已更新或尚未完成，请先回分集列表完成复核；已有正文和图片仍可查看。';
-        }
-        $scope = ['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0];
-        $targets = vnext\ImageHandoff::targets($candidate, $style); $bindings = [];
-        $generations = AigcShortDramaGenerationTask::where($scope)->whereIn('task_type', ['subject_image', 'scene_image', 'shot_image'])->order('id', 'desc')->select()->toArray();
-        $byTask = array_column($generations, null, 'task_id');
-        $assets = AigcShortDramaAsset::where($scope)->where('status', 'ready')->whereIn('asset_type', ['subject_image', 'scene_image', 'shot_image'])->order('id', 'desc')->select()->toArray();
-        foreach ($targets as &$target) {
-            $target['asset'] = null; $target['generation'] = null;
-            foreach ($assets as $asset) {
-                $generation = $byTask[$asset['task_id']] ?? null;
-                if (!$generation || $generation['status'] !== self::STATUS_SUCCESS || $asset['uri'] === ''
-                    || !in_array((int)$asset['id'], array_map('intval', self::jsonDecode($generation['output_asset_ids'])), true)) continue;
-                $request = self::jsonDecode($generation['request_json']); $handoff = $request['params']['_canonical_image'] ?? [];
-                if (!$handoff) continue;
-                try { vnext\ImageHandoff::assertIntact($handoff); } catch (\RuntimeException $e) { continue; }
-                $trace = $handoff['trace']; $meta = self::jsonDecode($asset['meta_json']);
-                if (($trace['target_id'] ?? '') !== $target['target_id'] || ($trace['task_type'] ?? '') !== $target['task_type']
-                    || ($trace['state_hash'] ?? '') !== $target['state_hash'] || ($meta['canonical_trace']['input_hash'] ?? '') !== $handoff['input_hash']) continue;
-                if ($target['task_type'] === 'shot_image') {
-                    if ($trace['document_hash'] !== $candidate['document']['content_hash']) continue;
-                    foreach ($trace['bindings'] as $binding) if (($bindings[$binding['entity_id']] ?? null) !== $binding) continue 2;
-                }
-                $target['asset'] = self::formatAsset($asset);
-                if ($target['task_type'] !== 'shot_image') $bindings[$target['target_id']] = [
-                    'entity_id' => $target['target_id'], 'asset_id' => (int)$asset['id'], 'state_hash' => $target['state_hash'],
-                    'reference_hash' => vnext\ContentDocument::hash(array_intersect_key($asset, array_flip(['uri', 'checksum', 'storage_scope', 'storage_engine', 'storage_domain']))),
-                ];
-                break;
-            }
-            foreach ($generations as $generation) {
-                $request = self::jsonDecode($generation['request_json']); $trace = $request['params']['_canonical_image']['trace'] ?? [];
-                if ($generation['source_task_id'] !== $taskId || ($trace['target_id'] ?? '') !== $target['target_id'] || ($trace['task_type'] ?? '') !== $target['task_type']) continue;
-                $target['generation'] = ['task_id' => $generation['task_id'], 'status' => $generation['status'], 'error' => $generation['error_msg'],
-                    'user_charge_points' => (float)$generation['user_charge_points'], 'model' => (string)($request['params']['model_name'] ?? $request['params']['model_id'] ?? '')]; break;
-            }
-        }
-        unset($target);
-        foreach ($targets as &$target) $target['can_generate'] = $blockedReason === '' && !$target['asset'] && !in_array($target['generation']['status'] ?? '', ['pending', 'running', 'queued'], true)
-            && ($target['task_type'] !== 'shot_image' || !array_diff($target['entity_ids'], array_keys($bindings)));
-        unset($target);
-        $status = 'waiting_assets';
-        if ($targets && count(array_filter($targets, static fn($target) => !empty($target['asset']))) === count($targets)) $status = 'ready';
-        elseif (array_filter($targets, static fn($target) => in_array($target['generation']['status'] ?? '', ['pending', 'running', 'queued'], true))) $status = 'running';
-        elseif (array_filter($targets, static fn($target) => empty($target['asset']) && ($target['generation']['status'] ?? '') === 'failed')) $status = 'failed';
-        return ['revision_id' => $candidate['document']['revision_id'], 'status' => $status, 'blocked_reason' => $blockedReason, 'targets' => $targets, 'bindings' => $bindings];
-    }
-
-    private static function canonicalImageReferences(int $tenantId, int $userId, int $projectId, array $handoff): array
-    {
-        vnext\ImageHandoff::assertIntact($handoff); $payload = self::emptyReferencePayload();
-        foreach ($handoff['trace']['bindings'] as $binding) {
-            $asset = AigcShortDramaAsset::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
-                'id' => $binding['asset_id'], 'status' => 'ready', 'delete_time' => 0])->findOrEmpty();
-            if ($asset->isEmpty() || $binding['reference_hash'] !== vnext\ContentDocument::hash(array_intersect_key($asset->toArray(), array_flip(['uri', 'checksum', 'storage_scope', 'storage_engine', 'storage_domain'])))) {
-                throw new \RuntimeException('制作参考素材已变化，请刷新后重新提交', 409);
-            }
-            self::appendReferenceAsset($payload, self::formatAsset($asset->toArray()));
-        }
-        if (count($payload['input_asset_ids']) !== count($handoff['trace']['bindings'])) throw new \RuntimeException('制作参考素材不完整', 409);
-        return $payload;
-    }
-
-    private static function assertCanonicalImageCapacity(int $tenantId, int $userId, int $projectId, array $params, array $billing): void
-    {
-        $references = self::canonicalImageReferences($tenantId, $userId, $projectId, $params['_canonical_image']);
-        if (!$references['input_asset_ids']) return;
-        $limit = MarketImageModelRuntimeService::referenceImageLimitFromSnapshot((array)($billing['market_snapshot'] ?? []));
-        if ($limit <= 0 || count($references['input_asset_ids']) > $limit) throw new \RuntimeException('所选模型无法确认支持本分镜的全部参考素材，请更换模型', 422);
-    }
-
     public static function estimateShotGenerationTask(int $tenantId, int $userId, array $params): array
     {
-        $params = self::stripCanonicalClientParams($params);
         $projectId = (int)($params['project_id'] ?? 0);
         $taskId = trim((string)($params['task_id'] ?? ''));
         $shotId = trim((string)($params['shot_id'] ?? ''));
@@ -7205,16 +6719,6 @@ class AigcShortDramaService
         }
         if ($taskId === '') {
             $taskId = (string)($project['last_task_id'] ?? '');
-        }
-        if (!empty($params['production_timeline_preview'])) {
-            return vnext\AudioProduction::preview($tenantId, $userId, array_replace($params, ['task_id' => $taskId]));
-        }
-        $canonical = self::canonicalImageRequest($tenantId, $userId, $project->toArray(), $taskId, $taskType, $params);
-        if ($canonical !== null) {
-            $canonical = self::normalizeShortDramaImageChannelParams($tenantId, $canonical);
-            $billing = self::estimateImageGenerationBilling($tenantId, $taskType, $canonical['_canonical_shot'], self::publicConfig($tenantId), $canonical);
-            self::assertCanonicalImageCapacity($tenantId, $userId, $projectId, $canonical, $billing);
-            return $billing;
         }
         // A selected @subject can already own its main image and three-view in
         // the subject library, so it never goes through this project's
@@ -7259,7 +6763,6 @@ class AigcShortDramaService
 
     public static function createShotGenerationTask(int $tenantId, int $userId, array $params, bool $deferEpisodeExport = false): array
     {
-        $params = self::stripCanonicalClientParams($params);
         // Never accept a client-supplied prompt snapshot. Retries use stored task params instead.
         unset($params['_prompt_snapshot'], $params['params']['_prompt_snapshot'], $params['_skill_snapshot'], $params['params']['_skill_snapshot'], $params['_skill_origin_task_id'], $params['_episode_duration_policy'], $params['params']['_episode_duration_policy']);
         $params['_prompt_snapshot'] = ShortDramaPromptWorkspace::capture($tenantId);
@@ -7272,11 +6775,6 @@ class AigcShortDramaService
             $params = ShortDramaImageDefaults::request($params, self::projectGenerationSettingsFromRow($project->toArray()));
         }
         $params['_skill_origin_task_id'] = $taskId !== '' ? $taskId : (string)$project['last_task_id'];
-        $canonical = self::canonicalImageRequest($tenantId, $userId, $project->toArray(), $params['_skill_origin_task_id'], $taskType, $params);
-        if ($canonical !== null) {
-            $params = $canonical + ['_skill_origin_task_id' => $canonical['task_id']];
-            $taskId = $canonical['task_id']; $shotId = (string)($canonical['shot_id'] ?? '');
-        }
         $params['_skill_snapshot'] = self::skillSnapshotForGeneration($tenantId, $params);
         if (!in_array($taskType, ['export_video', 'export_package'], true)) {
             ShortDramaSkillRuntime::assertConfirmed($tenantId, $userId, $projectId, $params['_skill_origin_task_id']);
@@ -7333,10 +6831,10 @@ class AigcShortDramaService
         if ($taskId === '') {
             $taskId = (string)($project['last_task_id'] ?? '');
         }
-        $shot = $canonical !== null ? null : (in_array($taskType, ['export_video', 'export_package', 'subject_image', 'scene_image', 'three_view', 'bgm_audio'], true) && $shotId === ''
+        $shot = in_array($taskType, ['export_video', 'export_package', 'subject_image', 'scene_image', 'three_view', 'bgm_audio'], true) && $shotId === ''
             ? null
-            : self::findShot($tenantId, $userId, $projectId, $taskId, $shotId));
-        $shotPayload = $canonical['_canonical_shot'] ?? ($shot ? $shot->toArray() : []);
+            : self::findShot($tenantId, $userId, $projectId, $taskId, $shotId);
+        $shotPayload = $shot ? $shot->toArray() : [];
         if ($taskType === 'shot_video' || self::normalizeGenerationMode($params) === 'video_generate') {
             $params = self::sanitizeVideoGenerationParams($params);
             $timing = self::videoTimingRequest($tenantId, $userId, $projectId, $taskId);
@@ -7352,7 +6850,6 @@ class AigcShortDramaService
                 : (self::isImageGenerationTask($taskType)
                 ? self::estimateImageGenerationBilling($tenantId, $taskType, $shotPayload, $config, $params)
                 : self::estimateGenerationBilling($taskType, $shotPayload, $config, $params)));
-        if ($canonical !== null) self::assertCanonicalImageCapacity($tenantId, $userId, $projectId, $params, $billing);
         if (self::isImageGenerationTask($taskType)
             && in_array((string)($billing['market_snapshot']['model_code'] ?? ''), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true)) {
             MarketImageModelRuntimeService::qwenDimensionSummary(
@@ -7372,25 +6869,12 @@ class AigcShortDramaService
         $time = time();
         Db::startTrans();
         try {
-            if ($canonical !== null) {
-                Db::name('aigc_short_drama_vnext_job')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId])->lock(true)->find();
-                $lockedProject = AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $projectId])->lock(true)->find();
-                if (!$lockedProject || $lockedProject['last_task_id'] !== $taskId) throw new \RuntimeException('剧本版本已变化，请刷新后制作', 409);
-                $existing = AigcShortDramaGenerationTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
-                    'project_id' => $projectId, 'source_task_id' => $taskId, 'task_type' => $taskType, 'delete_time' => 0])->order('id', 'desc')->select();
-                foreach ($existing as $row) {
-                    $savedParams = self::jsonDecode($row['request_json'])['params'] ?? [];
-                    if (($savedParams['_canonical_request_key'] ?? '') === $params['_canonical_request_key']) {
-                        Db::commit(); return self::formatGenerationTask($row->toArray(), true);
-                    }
-                }
-            }
             $generation = self::createGenerationTaskRecord($tenantId, $userId, $projectId, $shotId, $taskType, $localTaskId, self::STATUS_PENDING, [
                 'source_task_id' => $taskId,
                 'source_app_code' => $taskType === 'shot_video' ? 'power_market_video' : ($taskType === 'bgm_audio' ? 'power_market_music_api' : (in_array($taskType, ['export_video', 'export_package'], true) ? self::APP_CODE : (self::isNanoBananaImageSelection($params) ? 'power_market_nano_banana_api' : (self::isMarketImageSelection($params) ? 'power_market_image' : self::IMAGE_APP_CODE)))),
                 'provider' => 'pending',
                 'request' => [
-                    'shot' => $canonical !== null ? $shotPayload : ($shot ? self::formatShot($shot->toArray()) : []),
+                    'shot' => $shot ? self::formatShot($shot->toArray()) : [],
                     'params' => $params,
                 ],
                 'pricing' => $billing,
@@ -7592,19 +7076,8 @@ class AigcShortDramaService
     public static function retryGenerationTask(int $tenantId, int $userId, string $taskId): array
     {
         $task = self::findGenerationTask($tenantId, $userId, $taskId);
-        $originalRequest = self::jsonDecode((string)$task['request_json']);
-        $canonical = $originalRequest['params']['_canonical_image'] ?? null;
-        if ((string)$task['status'] !== self::STATUS_FAILED && !($canonical && $task['status'] === self::STATUS_CANCELED)) {
+        if ((string)$task['status'] !== self::STATUS_FAILED) {
             throw new Exception('当前生成任务不可重试');
-        }
-        if ($canonical) {
-            vnext\ImageHandoff::assertIntact($canonical);
-            $project = self::findProject($tenantId, $userId, (int)$task['project_id']);
-            $job = vnext\ApplicationWorkflow::store($tenantId, $userId, (string)$task['source_task_id'])->snapshot();
-            if ($project['last_task_id'] !== $task['source_task_id'] || !$job || $job['document_status'] !== 'ready'
-                || $job['published_revision_id'] !== $canonical['trace']['document_revision_id']) throw new \RuntimeException('原制作任务的剧本已变化，请从当前版本重新制作', 409);
-            vnext\SeriesContext::assertDependencies(self::jsonDecode($job['input_json'])['context']);
-            self::assertCanonicalImageCapacity($tenantId, $userId, (int)$task['project_id'], $originalRequest['params'], self::jsonDecode((string)$task['pricing_snapshot']));
         }
         $newTaskId = self::makeTaskId('sd_gen_retry');
         $time = time();
@@ -7620,15 +7093,6 @@ class AigcShortDramaService
         }
         Db::startTrans();
         try {
-            if ($canonical) {
-                Db::name('aigc_short_drama_vnext_job')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $task['source_task_id']])->lock(true)->find();
-                $project = AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $task['project_id']])->lock(true)->find();
-                if (!$project || $project['last_task_id'] !== $task['source_task_id']) throw new \RuntimeException('剧本版本已变化', 409);
-                $existing = AigcShortDramaGenerationTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
-                    'parent_task_id' => $taskId, 'delete_time' => 0])->findOrEmpty();
-                if (!$existing->isEmpty()) { Db::commit(); return self::formatGenerationTask($existing->toArray(), true); }
-                $row = array_replace($row, ['provider_task_id' => '', 'provider_request_id' => '', 'output_asset_ids' => '[]', 'result_json' => '{}']);
-            }
             $generation = AigcShortDramaGenerationTask::create(array_merge($row, [
                 'task_id' => $newTaskId,
                 'parent_task_id' => (string)$row['task_id'],
@@ -8143,13 +7607,11 @@ class AigcShortDramaService
         ]);
 
         try {
-            $canonical = $params['_canonical_image'] ?? null;
-            if ($canonical) vnext\ImageHandoff::assertIntact($canonical);
-            $plan = $canonical ? [] : self::currentProjectPlanRaw($tenantId, $userId, $projectId);
+            $plan = self::currentProjectPlanRaw($tenantId, $userId, $projectId);
             // Defense in depth for queued/retried tasks created before the
             // submission-time repair. The helper is idempotent and only adds
             // missing aliases for library subjects already bound to this plan.
-            $plan = $canonical ? [] : self::ensureCurrentProjectSubjectReferenceAssets(
+            $plan = self::ensureCurrentProjectSubjectReferenceAssets(
                 $tenantId,
                 $userId,
                 $projectId,
@@ -8157,7 +7619,7 @@ class AigcShortDramaService
                 $plan
             );
             $params['_skill_snapshot'] = self::skillSnapshotForGeneration($tenantId, $params + ['project_id' => $projectId]);
-            $projectRatio = $canonical ? self::requestGenerationRatio($params) : self::projectGenerationRatio($tenantId, $userId, $projectId, $plan);
+            $projectRatio = self::projectGenerationRatio($tenantId, $userId, $projectId, $plan);
             if ($projectRatio !== '') {
                 $params['ratio'] = $projectRatio;
                 $params['aspect_ratio'] = $projectRatio;
@@ -8169,12 +7631,7 @@ class AigcShortDramaService
             $taskType = (string)($generation['task_type'] ?? 'shot_image');
             $imageParams = self::withQwenImageDimensions((array)($billing['market_snapshot'] ?? []),
                 self::shortDramaImageParams($tenantId, $shot, $params, $taskType, $plan), $params);
-            if ($canonical) {
-                $references = self::canonicalImageReferences($tenantId, $userId, $projectId, $canonical);
-                $limit = self::imageReferenceImageLimit($tenantId, $imageParams, (array)($billing['market_snapshot'] ?? []));
-                if ($limit > 0 && count($references['reference_assets']) > $limit) throw new \RuntimeException('所选模型无法容纳本分镜的全部参考素材，请更换模型', 422);
-                $imageParams += $references;
-            } elseif ($taskType === 'shot_image') {
+            if ($taskType === 'shot_image') {
                 $shotReferenceContext = self::mergeShotReferenceContext($shot, $params);
                 $references = self::shotReferenceAssets($tenantId, $userId, $projectId, $shotReferenceContext, $plan);
                 $explicitReferences = self::generationInputReferenceAssets($tenantId, $userId, $projectId, $params, $shot);
@@ -8248,7 +7705,7 @@ class AigcShortDramaService
                 'task_id' => $taskId,
             ])->update([
                 'request_json' => self::jsonEncode([
-                    'shot' => $canonical ? $shot : self::formatShot($shot),
+                    'shot' => self::formatShot($shot),
                     'params' => $params,
                     'image_params' => $imageParams,
                     '_prompt_audit' => self::promptRequestAudit($imageParams),
@@ -8637,13 +8094,6 @@ class AigcShortDramaService
     {
         $taskId = (string)$generation['task_id'];
         $imageParams = ReferenceMentionPromptService::compile($imageParams);
-        if (!empty($params['_canonical_image'])) {
-            $current = self::findGenerationTask($tenantId, $userId, $taskId);
-            $request = self::jsonDecode((string)$current['request_json']);
-            $request['image_params'] = $imageParams;
-            $request['provider_input_hash'] = vnext\ContentDocument::hash($imageParams);
-            $current->save(['request_json' => self::jsonEncode($request), 'update_time' => time()]);
-        }
         try {
             $reserve = MarketImageModelRuntimeService::reserve($tenantId, $userId, (string)$generation['task_type'], $taskId, $params, $imageParams, 1);
             AigcShortDramaGenerationTask::where([
@@ -9126,7 +8576,6 @@ class AigcShortDramaService
 
     private static function generationImageAssetMeta(array $generation, array $params, array $imageParams, array $extra = []): array
     {
-        $params += (array)(self::jsonDecode((string)($generation['request_json'] ?? ''))['params'] ?? []);
         $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
         $value = static function (string $key) use ($params, $nested): string {
             return trim((string)($params[$key] ?? $nested[$key] ?? ''));
@@ -9162,23 +8611,11 @@ class AigcShortDramaService
         }
         $prompt = $first($imageParams['prompt'] ?? '', $value('prompt'), $value('image_prompt'), $value('visual_prompt'));
         if ($prompt !== '') {
-            $meta['prompt'] = !empty($params['_canonical_image']) ? $prompt : self::normalizeFinalProviderPrompt($prompt);
+            $meta['prompt'] = self::normalizeFinalProviderPrompt($prompt);
         }
         $model = $first($imageParams['channel'] ?? '', $value('model_id'), $value('model_name'));
         if ($model !== '') {
             $meta['model'] = $model;
-        }
-        if (!empty($params['_canonical_image'])) {
-            vnext\ImageHandoff::assertIntact($params['_canonical_image']);
-            $trace = $params['_canonical_image']['trace'];
-            // Asset metadata is a TEXT column. Keep a verifiable pointer to the full immutable
-            // trace/prompt in generation.request_json rather than duplicate an entire long episode.
-            unset($meta['prompt']);
-            $meta['canonical_trace'] = array_intersect_key($trace, array_flip(['pipeline_version', 'compiler_version',
-                'document_revision_id', 'document_hash', 'shot_revision_id', 'shot_hash', 'target_id', 'task_type', 'state_hash'])) + [
-                'input_hash' => $params['_canonical_image']['input_hash'], 'generation_task_id' => (string)$generation['task_id'],
-                'unit_count' => count($trace['unit_refs']),
-                'provider_input_hash' => vnext\ContentDocument::hash($imageParams), 'provider_prompt_hash' => hash('sha256', (string)($imageParams['prompt'] ?? ''))];
         }
         return $meta;
     }
@@ -9642,17 +9079,7 @@ class AigcShortDramaService
         $summary = is_array($summary) ? $summary : self::jsonDecode((string)$summary);
         $parseResult = is_array($summary['parse_result'] ?? null) ? (array)$summary['parse_result'] : [];
         try {
-            if (isset($request['_attachment_source'])) {
-                $attachment = $request['_attachment_source']; ShortDramaAttachmentSource::assertPackage($attachment);
-                $asset = AigcShortDramaAsset::where(['id' => (int)($request['script_asset_id'] ?? 0), 'tenant_id' => $tenantId,
-                    'user_id' => $userId, 'project_id' => $projectId, 'task_id' => $taskId, 'asset_type' => 'script_document', 'delete_time' => 0])->findOrEmpty();
-                if ($asset->isEmpty() || ($attachment['tenant_id'] ?? 0) !== $tenantId || ($attachment['user_id'] ?? 0) !== $userId
-                    || ($attachment['task_id'] ?? '') !== $taskId || $attachment['file_sha256'] !== (string)$asset['checksum']) {
-                    throw new Exception('附件来源归属或文件版本不一致，原始回包已保留');
-                }
-            }
             $plan = self::fileQaParsePlan($parseResult, $request, (string)($taskRow['prompt'] ?? ''));
-            if (isset($request['_attachment_source'])) self::jsonEncode(array_replace($request, ['_imported_outline_snapshot' => $plan]));
         } catch (\Throwable $e) {
             $message = self::friendlyGenerationError($e->getMessage());
             $updated = AigcShortDramaScriptTask::where(['id' => (int)$taskRow['id'], 'tenant_id' => $tenantId, 'user_id' => $userId])
@@ -9707,11 +9134,7 @@ class AigcShortDramaService
     private static function fileQaParsePlan(array $result, array $request, string $fallbackTitle): array
     {
         $source = is_array($result['short_drama_plan'] ?? null) ? $result['short_drama_plan'] : (is_array($result['plan'] ?? null) ? $result['plan'] : $result);
-        $episodes = array_values(array_filter((array)($source['episodes'] ?? []), 'is_array'));
-        foreach ($episodes as &$episode) unset($episode['attachment_trace']); // Provider output cannot assert server provenance.
-        unset($episode);
-        if (isset($request['_attachment_source'])) $episodes = ShortDramaAttachmentSource::bind($request['_attachment_source'], $episodes);
-        $episodes = ShortDramaSourceBoundary::episodes($episodes);
+        $episodes = ShortDramaSourceBoundary::episodes(array_values(array_filter((array)($source['episodes'] ?? []), 'is_array')));
         $count = count($episodes);
         if ($count < 2 || $count > self::SCRIPT_MAX_EPISODES || (int)($source['episode_count'] ?? $count) !== $count) {
             throw new Exception('解析结果的有效剧集数必须为 2～' . self::SCRIPT_MAX_EPISODES . '，且与 episodes 一致');
@@ -9736,7 +9159,6 @@ class AigcShortDramaService
                 'ending_hook' => ShortDramaText::value($episode['ending_hook'] ?? $episode['hook'] ?? ''),
                 'source_range' => is_array($episode['source_range'] ?? null) ? $episode['source_range'] : [],
                 'source_scope' => (array)($episode['source_scope'] ?? []),
-                'attachment_trace' => $episode['attachment_trace'] ?? null,
                 // Persist the complete source, not a silently shortened script.
                 // Older normalized parser receipts use source_content instead.
                 'source_content' => ShortDramaImportedScript::sourceContent($episode),
@@ -9768,7 +9190,6 @@ class AigcShortDramaService
             $plan['episodes'][$index]['source_scope'] = $episode['source_scope'];
             $plan['episodes'][$index]['source_content'] = $episode['source_content'];
             $plan['episodes'][$index]['characters'] = $episode['characters'];
-            if ($episode['attachment_trace'] !== null) $plan['episodes'][$index]['attachment_trace'] = $episode['attachment_trace'];
         }
         $issues = ShortDramaStoryWorkflow::issues($plan, self::MULTI_EPISODE_STAGE_OUTLINE, $count);
         if ($issues) throw new Exception('解析结果未满足短剧大纲要求：' . (string)($issues[0]['message'] ?? '字段不完整'));
@@ -12665,12 +12086,6 @@ class AigcShortDramaService
 
     private static function shortDramaImageParams(int $tenantId, array $shot, array $params, string $taskType = 'shot_image', array $plan = []): array
     {
-        if (!empty($params['_canonical_image'])) {
-            vnext\ImageHandoff::assertIntact($params['_canonical_image']);
-            return ['prompt' => $params['_canonical_image']['prompt'], 'negative_prompt' => '', 'style' => 'general',
-                'channel' => (string)($params['model_id'] ?? $params['channel'] ?? ''), 'ratio' => self::requestGenerationRatio($params) ?: '9:16',
-                'quality' => (string)($params['quality'] ?? ''), 'quantity' => 1];
-        }
         return ShortDramaPromptCatalog::run(ShortDramaPromptWorkspace::forTask($tenantId, $params),
             static fn(): array => self::shortDramaImageParamsScoped($tenantId, $shot, $params, $taskType, $plan));
     }
@@ -14727,7 +14142,6 @@ class AigcShortDramaService
         if ($row->isEmpty()) {
             return [];
         }
-        if (str_starts_with((string)$row['version_type'], 'vnext_')) return self::jsonDecode((string)$row['plan_json']);
         self::cleanStoredStoryboardForVersionRow($tenantId, $userId, $projectId, $row->toArray());
         $row = AigcShortDramaPlanVersion::where([
             'tenant_id' => $tenantId,
@@ -15889,8 +15303,7 @@ class AigcShortDramaService
         if ($detail) {
             $data['story_bible'] = self::jsonDecode((string)($row['story_bible_json'] ?? ''));
             $data['continuity'] = self::jsonDecode((string)($row['continuity_json'] ?? ''));
-            $storedPlan = self::jsonDecode((string)($row['plan_json'] ?? ''));
-            $data['plan'] = str_starts_with((string)$row['version_type'], 'vnext_') ? $storedPlan : self::enhancePlanResult($storedPlan);
+            $data['plan'] = self::enhancePlanResult(self::jsonDecode((string)($row['plan_json'] ?? '')));
             $data['plan'] = self::applyStoryboardSelectionState(
                 (int)$row['tenant_id'],
                 (int)$row['user_id'],
@@ -15949,30 +15362,12 @@ class AigcShortDramaService
         return $meta;
     }
 
-    /** Resolve an uploaded original from owned storage, never from a browser/provider URL. */
-    private static function attachmentFile(array $task, array $request): ?array
-    {
-        $assetId = (int)($request['script_asset_id'] ?? 0);
-        if ($assetId <= 0) return null;
-        $asset = AigcShortDramaAsset::where(['id' => $assetId, 'tenant_id' => (int)$task['tenant_id'],
-            'user_id' => (int)$task['user_id'], 'project_id' => (int)$task['project_id'],
-            'asset_type' => 'script_document', 'status' => 'ready', 'delete_time' => 0])->findOrEmpty();
-        if ($asset->isEmpty()) return null;
-        $hash = $request['_attachment_source']['file_sha256'] ?? $request['_attachment_extraction']['file_sha256'] ?? '';
-        if ($hash === '' || !hash_equals((string)$asset['checksum'], $hash)) return null;
-        return ['task_id' => (string)$task['task_id'], 'asset_id' => $assetId, 'name' => (string)$asset['title'],
-            'url' => FileService::getFileUrlByStorage((string)$asset['uri'], (string)$asset['storage_scope'], (string)$asset['storage_engine'], (string)$asset['storage_domain']),
-            'file_sha256' => $hash, 'file_size' => (int)$asset['file_size'],
-            'extraction_status' => isset($request['_attachment_source']) ? 'verified' : 'failed'];
-    }
-
     private static function formatAsset(array $row): array
     {
         $row = self::canvasAssetStorage($row);
         $uri = (string)($row['uri'] ?? '');
         $coverUri = (string)($row['cover_uri'] ?? '');
-        $rawMeta = self::jsonDecode((string)($row['meta_json'] ?? ''));
-        $meta = !empty($rawMeta['canonical_trace']) ? $rawMeta : self::assetReferenceMeta($row, self::localizeGenerationTaskPayload($rawMeta));
+        $meta = self::assetReferenceMeta($row, self::localizeGenerationTaskPayload(self::jsonDecode((string)($row['meta_json'] ?? ''))));
         return self::sanitizeUtf8Payload([
             'id' => (int)$row['id'],
             'episode_id' => (int)($row['episode_id'] ?? 0),
@@ -15998,8 +15393,7 @@ class AigcShortDramaService
 
     private static function formatGenerationTask(array $row, bool $detail = false): array
     {
-        $request = self::jsonDecode((string)($row['request_json'] ?? ''));
-        if (empty($request['params']['_canonical_image'])) $request = self::localizeGenerationTaskPayload($request);
+        $request = self::localizeGenerationTaskPayload(self::jsonDecode((string)($row['request_json'] ?? '')));
         $request = self::stripPromptDiagnostics($request);
         $requestParams = (array)($request['params'] ?? []);
         $subjectId = (string)($requestParams['subject_id'] ?? $request['subject_id'] ?? '');
@@ -16056,7 +15450,7 @@ class AigcShortDramaService
     private static function stripPromptDiagnostics(array $value): array
     {
         foreach ($value as $key => $item) {
-            if (is_string($key) && (str_starts_with($key, '_prompt_') || in_array($key, ['_imported_outline_snapshot', '_attachment_source'], true))) unset($value[$key]);
+            if (is_string($key) && (str_starts_with($key, '_prompt_') || $key === '_imported_outline_snapshot')) unset($value[$key]);
             elseif (is_array($item)) $value[$key] = self::stripPromptDiagnostics($item);
         }
         return $value;
@@ -16101,7 +15495,6 @@ class AigcShortDramaService
 
     private static function continuityFromResult(array $result): array
     {
-        if (isset($result['canonical_document'], $result['narrative_ledger'])) return vnext\SeriesContext::metadata($result);
         return [
             'narrative_digest' => ShortDramaContinuity::fingerprint($result),
             'ledger' => (array)($result['_continuity'] ?? []),
@@ -16140,7 +15533,6 @@ class AigcShortDramaService
             'shot_video',
             'three_view',
             'bgm_audio',
-            'shot_audio',
             'timeline_project',
             'final_video',
             'export_package',
@@ -23041,11 +22433,25 @@ class AigcShortDramaService
         return mb_substr($text, 0, 180, 'UTF-8');
     }
 
+    private static function isManualStoryboardShotId(string $shotId): bool
+    {
+        return $shotId !== '' && strpos($shotId, 'manual_') === 0;
+    }
 
+    private static function isAutoRepairedStoryboardShot(array $shot): bool
+    {
+        return in_array($shot['is_auto_repaired'] ?? null, [true, 1, '1'], true);
+    }
 
-
-
-
+    private static function isTimelineLockedStoryboardResult(array $result): bool
+    {
+        $diagnostics = (array)($result['storyboard_breaking_diagnostics'] ?? []);
+        return in_array(
+            $diagnostics['timeline_override'] ?? null,
+            [true, 1, '1'],
+            true
+        );
+    }
 
     private static function isGenericStoryboardVisual(string $text): bool
     {
@@ -23083,25 +22489,356 @@ class AigcShortDramaService
         return false;
     }
 
-
+    private static function isHighConfidenceGenericStoryboardVisual(string $text): bool
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return true;
+        }
+        foreach ([
+            '主要角色出现',
+            '主要角色出现',
+            '人物状',
+            '人物状态与场景压力形成对照',
+            '情绪开始推',
+            '建立空间关系',
+            '画面突出场景的主要视觉元',
+            '承接剧情',
+            '画面承接剧情',
+            '镜头聚焦',
+            '里的关键细节或道',
+            '揭示本场景的压力',
+            '凝视场景中的异常细节',
+            '角色完成一个单一动作',
+            '把剧情从',
+            '推向下一',
+            '镜头结果明确',
+            '完成该时间段内的画面任务',
+            '推动剧情',
+            '视觉任务',
+            '本镜',
+        ] as $keyword) {
+            if (mb_stripos($text, $keyword, 0, 'UTF-8') !== false) {
+                return true;
+            }
+        }
+        return self::isGenericStoryboardVisual($text);
+    }
 
     private static function cleanStoredStoryboardForVersionRow(int $tenantId, int $userId, int $projectId, array $versionRow): void
     {
-        // Compatibility hook: a historical read must not delete or rewrite saved production data.
+        $taskId = trim((string)($versionRow['task_id'] ?? ''));
+        if ($taskId === '') {
+            return;
+        }
+        $transStarted = false;
+        try {
+            $task = AigcShortDramaScriptTask::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'project_id' => $projectId,
+                'task_id' => $taskId,
+                'delete_time' => 0,
+            ])->findOrEmpty();
+            if (!$task->isEmpty()) {
+                self::cleanStoredStoryboardForTaskData($task->toArray());
+                $versionRow = AigcShortDramaPlanVersion::where([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'project_id' => $projectId,
+                    'task_id' => $taskId,
+                    'delete_time' => 0,
+                ])->order(['version_no' => 'desc', 'id' => 'desc'])->findOrEmpty()->toArray();
+            }
+            $plan = self::jsonDecode((string)($versionRow['plan_json'] ?? ''));
+            $cleanup = self::cleanStoryboardResultData($tenantId, $userId, $projectId, $taskId, $plan);
+            if (empty($cleanup['changed'])) {
+                return;
+            }
+            $cleanResult = (array)$cleanup['result'];
+            $removedShotIds = array_values(array_unique(array_filter(array_map('strval', (array)($cleanup['removed_shot_ids'] ?? [])))));
+            $time = time();
+            Db::startTrans();
+            $transStarted = true;
+            AigcShortDramaPlanVersion::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'project_id' => $projectId,
+                'task_id' => $taskId,
+                'delete_time' => 0,
+            ])->update([
+                'plan_json' => self::jsonEncode($cleanResult),
+                'storyboard_json' => self::jsonEncode((array)($cleanResult['storyboard'] ?? [])),
+                'story_bible_json' => self::jsonEncode(self::storyBibleFromResult($cleanResult)),
+                'continuity_json' => self::jsonEncode(self::continuityFromResult($cleanResult)),
+                'update_time' => $time,
+            ]);
+            if (!empty($removedShotIds)) {
+                AigcShortDramaStoryboard::where([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'project_id' => $projectId,
+                    'task_id' => $taskId,
+                    'delete_time' => 0,
+                ])->whereIn('shot_id', $removedShotIds)->update([
+                    'delete_time' => $time,
+                    'update_time' => $time,
+                ]);
+            }
+            Db::commit();
+            $transStarted = false;
+        } catch (\Throwable $e) {
+            if ($transStarted) {
+                Db::rollback();
+            }
+            Log::write('AI short drama storyboard cleanup skipped for version: ' . $e->getMessage(), 'error');
+        }
     }
 
     private static function cleanStoredStoryboardForTaskData(array $taskData): array
     {
+        $tenantId = (int)($taskData['tenant_id'] ?? 0);
+        $userId = (int)($taskData['user_id'] ?? 0);
+        $projectId = (int)($taskData['project_id'] ?? 0);
+        $taskId = (string)($taskData['task_id'] ?? '');
+        if ($tenantId <= 0 || $userId <= 0 || $projectId <= 0 || $taskId === '') {
+            return $taskData;
+        }
+        $result = self::jsonDecode((string)($taskData['result_json'] ?? ''));
+        $cleanup = self::cleanStoryboardResultData($tenantId, $userId, $projectId, $taskId, $result);
+        if (empty($cleanup['changed'])) {
+            return $taskData;
+        }
+
+        $cleanResult = (array)$cleanup['result'];
+        $removedShotIds = array_values(array_unique(array_filter(array_map('strval', (array)($cleanup['removed_shot_ids'] ?? [])))));
+        $keptShots = array_values(array_filter((array)($cleanResult['storyboard'] ?? []), 'is_array'));
+        $time = time();
+
+        Db::startTrans();
+        try {
+            AigcShortDramaScriptTask::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'project_id' => $projectId,
+                'task_id' => $taskId,
+                'delete_time' => 0,
+            ])->update([
+                'result_json' => self::jsonEncode($cleanResult),
+                'update_time' => $time,
+            ]);
+            AigcShortDramaPlanVersion::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'project_id' => $projectId,
+                'task_id' => $taskId,
+                'delete_time' => 0,
+            ])->update([
+                'plan_json' => self::jsonEncode($cleanResult),
+                'storyboard_json' => self::jsonEncode((array)($cleanResult['storyboard'] ?? [])),
+                'story_bible_json' => self::jsonEncode(self::storyBibleFromResult($cleanResult)),
+                'continuity_json' => self::jsonEncode(self::continuityFromResult($cleanResult)),
+                'update_time' => $time,
+            ]);
+            if (!empty($removedShotIds)) {
+                AigcShortDramaStoryboard::where([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'project_id' => $projectId,
+                    'task_id' => $taskId,
+                    'delete_time' => 0,
+                ])->whereIn('shot_id', $removedShotIds)->update([
+                    'delete_time' => $time,
+                    'update_time' => $time,
+                ]);
+            }
+            foreach ($keptShots as $index => $shot) {
+                $shotId = (string)($shot['shot_id'] ?? $shot['id'] ?? '');
+                if ($shotId === '') {
+                    continue;
+                }
+                AigcShortDramaStoryboard::where([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'project_id' => $projectId,
+                    'task_id' => $taskId,
+                    'shot_id' => $shotId,
+                    'delete_time' => 0,
+                ])->update(self::filterStoryboardWritableData([
+                    'act' => (string)($shot['act'] ?? ''),
+                    'scene_name' => (string)($shot['scene_name'] ?? ''),
+                    'time_of_day' => (string)($shot['time_of_day'] ?? ''),
+                    'interior_exterior' => in_array(($shot['interior_exterior'] ?? ''), ['interior', 'exterior'], true) ? $shot['interior_exterior'] : 'exterior',
+                    'sort' => $index + 1,
+                    'update_time' => $time,
+                ]));
+            }
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            Log::write('AI short drama storyboard cleanup failed: task=' . $taskId . ' error=' . $e->getMessage(), 'error');
+            return $taskData;
+        }
+
+        $taskData['result_json'] = self::jsonEncode($cleanResult);
+        $taskData['update_time'] = $time;
+        Log::write('AI short drama storyboard cleaned: task=' . $taskId . ' removed=' . count($removedShotIds) . ' kept=' . count($keptShots));
         return $taskData;
     }
 
     private static function cleanStoryboardResultData(int $tenantId, int $userId, int $projectId, string $taskId, array $result): array
     {
-        // Repeated visuals may be intentional; edits, never reads, own changes to saved shots.
+        // Reading a project must be side-effect free. Generic/duplicate
+        // detection cannot reliably distinguish intentional repeated shots,
+        // time-bound clips, or a user's selected material. In particular it
+        // must never remove a shot after a user has switched its asset.
+        // Storyboard changes now happen only through an explicit edit or a
+        // newly submitted generation task.
         return ['result' => $result, 'changed' => false, 'removed_shot_ids' => []];
+
+        $storyboard = array_values(array_filter((array)($result['storyboard'] ?? []), 'is_array'));
+        if (empty($storyboard)) {
+            return ['result' => $result, 'changed' => false, 'removed_shot_ids' => []];
+        }
+        // Timecode is an explicit editorial contract. Its generated shots may
+        // intentionally look alike when one segment is split into several
+        // clips, so automatic cleanup must not alter count or duration.
+        if (self::isTimelineLockedStoryboardResult($result)) {
+            return ['result' => $result, 'changed' => false, 'removed_shot_ids' => []];
+        }
+
+        $locations = array_values(array_filter((array)($result['locations'] ?? $result['scenes'] ?? []), 'is_array'));
+        $locationById = [];
+        $locationByName = [];
+        foreach ($locations as $index => $location) {
+            $id = (string)($location['id'] ?? ('location_' . ($index + 1)));
+            $locationById[$id] = $location;
+            $name = trim((string)($location['name'] ?? ''));
+            if ($name !== '') {
+                $locationByName[$name] = $id;
+            }
+        }
+
+        $rowsByShot = [];
+        if ($tenantId > 0 && $userId > 0 && $projectId > 0 && $taskId !== '') {
+            $rows = AigcShortDramaStoryboard::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'project_id' => $projectId,
+                'task_id' => $taskId,
+                'delete_time' => 0,
+            ])->select()->toArray();
+            foreach ($rows as $row) {
+                $shotId = (string)($row['shot_id'] ?? '');
+                if ($shotId !== '') {
+                    $rowsByShot[$shotId] = $row;
+                }
+            }
+        }
+
+        $changed = false;
+        $removedShotIds = [];
+        $cleaned = [];
+        $seenByScene = [];
+        foreach ($storyboard as $index => $shot) {
+            $shotId = (string)($shot['shot_id'] ?? $shot['id'] ?? '');
+            $isManualShot = self::isManualStoryboardShotId($shotId);
+            if (!$isManualShot && !self::isAutoRepairedStoryboardShot($shot) && self::isHighConfidenceGenericStoryboardVisual((string)($shot['visual_description'] ?? ''))) {
+                if ($shotId !== '') {
+                    $removedShotIds[] = $shotId;
+                }
+                $changed = true;
+                continue;
+            }
+
+            $originalShot = $shot;
+            $sceneRef = trim((string)($shot['scene_ref_id'] ?? ''));
+            $sceneName = trim((string)($shot['scene_name'] ?? ''));
+            if (($sceneRef === '' || !isset($locationById[$sceneRef])) && $sceneName !== '') {
+                $sceneRef = (string)($locationByName[$sceneName] ?? '');
+            }
+            if (($sceneRef === '' || !isset($locationById[$sceneRef])) && !empty($locations)) {
+                $sceneOrder = max(1, (int)($shot['scene_order'] ?? 1));
+                $location = $locations[min(count($locations) - 1, $sceneOrder - 1)] ?? $locations[0];
+                $sceneRef = (string)($location['id'] ?? '');
+            }
+            $location = $sceneRef !== '' && isset($locationById[$sceneRef]) ? $locationById[$sceneRef] : [];
+            if (!empty($location)) {
+                $shot['scene_ref_id'] = $sceneRef;
+                $shot['scene_name'] = (string)($location['name'] ?? $sceneName);
+                $shot['scene_order'] = max(1, (int)($location['story_order'] ?? $shot['scene_order'] ?? ($index + 1)));
+                if (trim((string)($shot['time_of_day'] ?? '')) === '' && trim((string)($location['time_light'] ?? '')) !== '') {
+                    $shot['time_of_day'] = (string)$location['time_light'];
+                }
+                if (!in_array(($shot['interior_exterior'] ?? ''), ['interior', 'exterior'], true)) {
+                    $shot['interior_exterior'] = self::inferInteriorExterior((string)($location['name'] ?? '') . ' ' . (string)($location['description'] ?? ''));
+                }
+                $episodeNumber = self::storyboardEpisodeNumber($shot);
+                $shot['act'] = self::storyboardActTitle($location, $shot);
+                if ($episodeNumber > 0) {
+                    $shot['episode_number'] = $episodeNumber;
+                    $shot['act'] = self::storyboardEpisodeActTitle($shot['act'], $episodeNumber);
+                }
+            }
+
+            if ($shot !== $originalShot) {
+                $changed = true;
+            }
+
+            $episodeNumber = self::storyboardEpisodeNumber($shot);
+            $sceneKey = ($episodeNumber > 0 ? 'episode_' . $episodeNumber . '|' : '')
+                . (string)($shot['scene_ref_id'] ?? $shot['scene_name'] ?? 'scene_' . $index);
+            $dedupeKey = self::storyboardDedupeKey($shot);
+            $canDedupeShot = $dedupeKey !== '' && !$isManualShot;
+            if ($canDedupeShot && isset($seenByScene[$sceneKey][$dedupeKey])) {
+                $existingIndex = (int)$seenByScene[$sceneKey][$dedupeKey];
+                $existingShotId = (string)($cleaned[$existingIndex]['shot_id'] ?? '');
+                if (self::storyboardStoredAssetScore($shotId, $rowsByShot) > self::storyboardStoredAssetScore($existingShotId, $rowsByShot)) {
+                    if ($existingShotId !== '') {
+                        $removedShotIds[] = $existingShotId;
+                    }
+                    $cleaned[$existingIndex] = $shot;
+                } elseif ($shotId !== '') {
+                    $removedShotIds[] = $shotId;
+                }
+                $changed = true;
+                continue;
+            }
+            if ($canDedupeShot) {
+                $seenByScene[$sceneKey][$dedupeKey] = count($cleaned);
+            }
+            $cleaned[] = $shot;
+        }
+
+        if (!$changed) {
+            return ['result' => $result, 'changed' => false, 'removed_shot_ids' => []];
+        }
+
+        $result['storyboard'] = array_values($cleaned);
+        $result['duration_stats'] = self::durationStats($result['storyboard'], count($locations));
+        $result['music_plan'] = self::normalizeMusicPlan(
+            (array)($result['music_plan'] ?? []),
+            $result['storyboard'],
+            (array)$result['duration_stats'],
+            (array)($result['art_style'] ?? []),
+            (string)($result['story_outline'] ?? '')
+        );
+        return [
+            'result' => $result,
+            'changed' => true,
+            'removed_shot_ids' => array_values(array_unique(array_filter($removedShotIds))),
+        ];
     }
 
-
+    private static function storyboardStoredAssetScore(string $shotId, array $rowsByShot): int
+    {
+        if ($shotId === '' || !isset($rowsByShot[$shotId])) {
+            return 0;
+        }
+        $row = (array)$rowsByShot[$shotId];
+        return ((int)($row['selected_video_asset_id'] ?? 0) > 0 ? 2 : 0)
+            + ((int)($row['selected_image_asset_id'] ?? 0) > 0 ? 1 : 0);
+    }
 
     private static function sceneVisualDetails(array $location): array
     {
@@ -24074,7 +23811,7 @@ class AigcShortDramaService
         return $project;
     }
 
-    private static function findTask(int $tenantId, int $userId, string $taskId, int $projectId = 0): AigcShortDramaScriptTask
+    private static function findTask(int $tenantId, int $userId, string $taskId, int $projectId = 0, bool $allowRetiredRead = false): AigcShortDramaScriptTask
     {
         $query = AigcShortDramaScriptTask::where([
             'tenant_id' => $tenantId,
@@ -24089,12 +23826,13 @@ class AigcShortDramaService
         if ($task->isEmpty()) {
             throw new Exception('任务不存在');
         }
+        if (!$allowRetiredRead) ShortDramaRetiredTask::assertWritable(self::jsonDecode((string)$task['request_json']));
         return $task;
     }
 
     private static function formatTask(array $task, bool $withResult): array
     {
-        $isVnext = vnext\ApplicationWorkflow::current(self::jsonDecode((string)($task['request_json'] ?? '')));
+        if (ShortDramaRetiredTask::isRetired(self::jsonDecode((string)($task['request_json'] ?? '')))) return ShortDramaRetiredTask::read($task, $withResult);
         if ($withResult && (string)($task['status'] ?? '') === self::STATUS_SUCCESS) {
             $task = self::cleanStoredStoryboardForTaskData($task);
         }
@@ -24123,7 +23861,7 @@ class AigcShortDramaService
         // that preview through the same public stream_content contract.  Keep
         // story-workspace previews separate: they have their own structured
         // renderer and are not a single-script token stream.
-        $isStoryWorkspace = !$isVnext && ShortDramaStoryWorkflow::enabled($request);
+        $isStoryWorkspace = ShortDramaStoryWorkflow::enabled($request);
         if ($streamContent === '' && !$isStoryWorkspace) {
             $preview = $storedResult['__story_preview'] ?? null;
             if (is_array($preview)) {
@@ -24160,7 +23898,7 @@ class AigcShortDramaService
         if ($result && empty($result['storyboard'])) {
             $result['storyboard'] = self::storyboardRows((int)$task['tenant_id'], (string)$task['task_id']);
         }
-        if ($result && !$isVnext) {
+        if ($result) {
             $result['multi_episode'] = $projectMultiEpisode;
             $result['episode_count'] = $projectEpisodeCount;
             $result['multi_episode_stage'] = self::resolveStoredMultiEpisodeStage($request, $result);
@@ -24229,7 +23967,6 @@ class AigcShortDramaService
             }
             $issues = $result !== null ? ShortDramaStoryWorkflow::issues($result, $stage, (int)$request['episode_count'],
                 ShortDramaStoryWorkflow::qualityReviewEnabled($request), !empty($request['_canvas_series_planning'])) : [];
-            if ($result !== null) $issues = array_merge($issues, vnext\PlanningTrace::issues($request, $result, $stage, (int)$request['episode_count']));
             $storyWorkspace = ['variant' => ShortDramaStoryWorkflow::VARIANT, 'stage' => $stage,
                 'preview' => $status === self::STATUS_SUCCESS ? null : ($storedResult['__story_preview'] ?? null),
                 'production_started' => $productionStarted,
@@ -24240,7 +23977,6 @@ class AigcShortDramaService
                 'saved_at' => (int)($request['_story_draft']['saved_at'] ?? 0)];
         }
         $response = [
-            'attachment_file' => self::attachmentFile($task, $request),
             'story_workspace' => $storyWorkspace,
             'skill' => self::jsonDecode((string)($task['skill_snapshot_json'] ?? '')) ?: null,
             'skill_steps' => ShortDramaSkillRuntime::executionSteps($task),
@@ -24278,28 +24014,6 @@ class AigcShortDramaService
                 ? self::scriptPlanProviderError((string)($task['error'] ?? ''))
                 : '',
         ];
-        if ((int)($request['_pipeline_version'] ?? 0) === 1) {
-            $job = Db::name('aigc_short_drama_vnext_job')->where([
-                'tenant_id' => (int)$task['tenant_id'], 'user_id' => (int)$task['user_id'], 'task_id' => (string)$task['task_id'],
-            ])->find();
-            if ($job) $job['pending_receipts'] = (int)Db::name('aigc_short_drama_vnext_stage')->where([
-                'tenant_id' => (int)$task['tenant_id'], 'user_id' => (int)$task['user_id'], 'task_id' => (string)$task['task_id'], 'status' => 'submitted',
-            ])->count();
-            $response['generation_snapshot'] = $job ? vnext\ExecutionStore::publicProjection($job) : null;
-            if ($isCurrentProjectTask && $job && $job['document_status'] === 'ready' && $job['execution_status'] === 'succeeded') {
-                $input = self::jsonDecode($job['input_json']);
-                $response['production_handoff'] = self::canonicalImageState((int)$task['tenant_id'], (int)$task['user_id'], (int)$task['project_id'],
-                    (string)$task['task_id'], self::jsonDecode($job['candidate_json']), (string)($input['context']['style'] ?? ''));
-                unset($response['production_handoff']['bindings']);
-                $response['audio_production'] = vnext\AudioProduction::summary((int)$task['tenant_id'], (int)$task['user_id'], (int)$task['project_id'], self::jsonDecode($job['candidate_json']));
-                $response['generation_snapshot']['allowed_actions'][] = 'read_images';
-                if ($response['production_handoff']['blocked_reason'] === '') $response['generation_snapshot']['allowed_actions'][] = 'generate_images';
-            }
-            if (!$isCurrentProjectTask && $response['generation_snapshot']) {
-                $response['generation_snapshot']['allowed_actions'] = array_values(array_intersect(
-                    $response['generation_snapshot']['allowed_actions'], ['read_content', 'cancel']));
-            }
-        }
         return self::sanitizeUtf8Payload($response);
     }
 
@@ -26284,32 +25998,12 @@ class AigcShortDramaService
     private static function jsonEncode(array $data): string
     {
         $json = json_encode(self::sanitizeUtf8Payload($data), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
-        if ((ShortDramaAttachmentSource::present($data) || self::hasCanonicalPayload($data)) && is_string($json)) {
-            // Existing utf8 (three-byte) columns can retain supplementary characters through JSON escapes.
-            $json = preg_replace_callback('/[\x{10000}-\x{10FFFF}]/u', static fn(array $match): string => substr(json_encode($match[0], JSON_THROW_ON_ERROR), 1, -1), $json);
-            if (strlen($json) > 16777215) throw new \RuntimeException('正文及来源追溯内容超过存储容量，请拆分内容；已保存的原文及回包保留', 422);
-        }
         return is_string($json) ? $json : '[]';
     }
 
     private static function sanitizeUtf8Payload(array $data): array
     {
-        $document = self::canonicalPayloadDocument($data);
-        if ($document !== null) {
-            // Accepted text and all derived quotes must keep their exact hashes and Unicode offsets.
-            $unsigned = $document;
-            unset($unsigned['content_hash'], $unsigned['status'], $unsigned['transforms']);
-            if (($document['schema_version'] ?? 0) !== vnext\ContentDocument::VERSION
-                || ($document['content_hash'] ?? '') !== vnext\ContentDocument::hash($unsigned)) {
-                throw new \RuntimeException('规范正文完整性校验失败，已保存内容保留', 409);
-            }
-            if (isset($data['shot_plan'])) vnext\ShotCompiler::assertCurrent($document, $data['shot_plan']);
-            return $data;
-        }
-        if (isset($data['attachment_trace'])) ShortDramaAttachmentSource::assertEpisode($data);
         foreach ($data as $key => $value) {
-            if ($key === '_attachment_source' && is_array($value)) { ShortDramaAttachmentSource::assertPackage($value); continue; }
-            if ($key === 'source_content' && isset($data['attachment_trace'])) continue;
             if (is_array($value)) {
                 $data[$key] = self::sanitizeUtf8Payload($value);
                 continue;
@@ -26319,22 +26013,6 @@ class AigcShortDramaService
             }
         }
         return $data;
-    }
-
-    private static function canonicalPayloadDocument(array $data): ?array
-    {
-        if (($data['pipeline_version'] ?? 0) !== vnext\GenerationPipeline::VERSION) return null;
-        if (is_array($data['canonical_document'] ?? null) && is_array($data['shot_plan'] ?? null)) return $data['canonical_document'];
-        if (isset($data['task_id'], $data['execution_status'], $data['document_status'], $data['event_seq'])
-            && is_array($data['content']['document'] ?? null)) return $data['content']['document'];
-        return null;
-    }
-
-    private static function hasCanonicalPayload(array $data): bool
-    {
-        if (self::canonicalPayloadDocument($data) !== null) return true;
-        foreach ($data as $value) if (is_array($value) && self::hasCanonicalPayload($value)) return true;
-        return false;
     }
 
     private static function sanitizeUtf8String(string $value): string

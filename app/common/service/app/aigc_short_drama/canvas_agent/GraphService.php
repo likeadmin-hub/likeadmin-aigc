@@ -11,7 +11,7 @@ final class GraphService
 {
     public const TABLE = 'aigc_short_drama_canvas';
     public const RECEIPTS = 'aigc_short_drama_canvas_mutation_receipt';
-    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_auto_payload_hash','agent_manual_submit','workflow_episode_number','workflow_asset_signature','workflow_source_stage','workflow_artifact','workflow_key','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash','workflow_formal_fields','workflow_formal_content_hash','workflow_prompt_run_id','workflow_style_id','workflow_style_name','workflow_planned_duration_seconds','canonical_binding','canonical_state'];
+    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_auto_payload_hash','agent_manual_submit','workflow_episode_number','workflow_asset_signature','workflow_source_stage','workflow_artifact','workflow_key','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash','workflow_formal_fields','workflow_formal_content_hash','workflow_prompt_run_id','workflow_style_id','workflow_style_name','workflow_planned_duration_seconds'];
 
     /**
      * Server-only Agent writer.  ConversationExecution already owns the
@@ -39,7 +39,6 @@ final class GraphService
             if ($index!==null) $liveSources[]=$sourceId;
         }
         $liveSources=array_values(array_unique($liveSources));
-        \app\common\service\app\aigc_short_drama\vnext\CanvasProductionProjection::assertProposals((int)$document['tenant_id'],(int)$document['user_id'],$workflow,$proposals);
         self::validateAgentProposals($proposals,$workflowStage,$compact);
         if ($workflowStage==='video_nodes' && version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.11','>=')) {
             foreach ($proposals as $proposal) {
@@ -55,8 +54,7 @@ final class GraphService
         foreach ($proposals as $offset=>$proposal) {
             $type=(string)$proposal['type']; $title=trim((string)$proposal['title']); $prompt=trim((string)$proposal['prompt']);
             $reuseSource=isset($reuse[$offset])?ConversationAssetReuse::source((int)$document['tenant_id'],(int)$document['user_id'],$reuse[$offset],$proposal):null;
-            if ($reuseSource && (int)$reuse[$offset]['canvas_id']===(int)$document['id']
-                && ($reuseSource['metadata']['canonical_binding']??null)===($proposal['canonical_binding']??null)) {
+            if ($reuseSource && (int)$reuse[$offset]['canvas_id']===(int)$document['id']) {
                 $id=(string)$reuseSource['id'];$createdByKey[(string)$proposal['key']]=$id;
                 $created[]=['id'=>$id,'type'=>$type,'auto_submit'=>false,'reused'=>true];continue;
             }
@@ -83,7 +81,6 @@ final class GraphService
                     $metadata['workflow_prompt_run_id']=$agentRunId;
                 }
             }
-            if (isset($proposal['canonical_binding'])) $metadata['canonical_binding']=$proposal['canonical_binding'];
             if (isset($signatures[$offset]) && in_array($proposal['artifact']??'',['subject','three_view','scene'],true)) $metadata['workflow_asset_signature']=$signatures[$offset];
             if ($type==='text') $metadata['model_code']=(string)($settings['reasoning_model']['id']??'');
             else $metadata['channel']=(string)($settings[$type.'_model']['id']??'');
@@ -690,7 +687,6 @@ final class GraphService
         foreach ($proposals as $proposal) {
             $fields=$allowedArtifacts ? ['type','artifact','title','prompt','key','depends_on','reference_keys'] : ['type','title','prompt','key','depends_on'];
             if ($workflowStage==='video_nodes') $fields[]='duration_seconds';
-            $fields[]='canonical_binding';
             if (!is_array($proposal) || array_diff(array_keys($proposal),$fields)) throw new RuntimeException('INVALID_AGENT_ACTION');
             $type=(string)($proposal['type']??''); $title=trim((string)($proposal['title']??'')); $prompt=trim((string)($proposal['prompt']??''));
             if (!in_array($type,$allowedTypes,true) || $title==='' || mb_strlen($title)>80 || $prompt==='' || mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');

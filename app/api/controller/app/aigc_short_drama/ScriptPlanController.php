@@ -86,10 +86,7 @@ class ScriptPlanController extends BaseApiController
                 (int)$this->request->tenantId,
                 $this->userId,
                 (string)$this->request->get('task_id', ''),
-                (int)$this->request->get('project_id', 0),
-                (int)$this->request->get('manual_history_page', 0),
-                (int)$this->request->get('attachment_source_page', 0),
-                (int)$this->request->get('audio_page', 0)
+                (int)$this->request->get('project_id', 0)
             ));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
@@ -205,9 +202,7 @@ class ScriptPlanController extends BaseApiController
     public function retry()
     {
         try {
-            $extension = $this->request->post('budget_extension', []);
-            if (!is_array($extension)) throw new Exception('预算授权格式无效');
-            return $this->success('重试成功', AigcShortDramaService::retry((int)$this->request->tenantId, $this->userId, (string)$this->request->post('task_id', ''), $extension));
+            return $this->success('重试成功', AigcShortDramaService::retry((int)$this->request->tenantId, $this->userId, (string)$this->request->post('task_id', '')));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }

@@ -156,18 +156,6 @@ final class ShortDramaStoryDraft
                     $base = AigcShortDramaService::canonicalizeStoryDraftSubjects($base, $request);
                 }
                 $result = self::merge($base, $params['result'], $stage);
-                if (vnext\PlanningTrace::enabled($request)) {
-                    if ($stage === 'story' && isset($params['result']['content_trace']['requirements'])) {
-                        $result['content_trace'] = vnext\PlanningTrace::rebuild($base['content_trace'],
-                            $params['result']['content_trace']['requirements'], (int)($result['episode_count'] ?? $request['episode_count']));
-                    } elseif ($stage === 'episodes') {
-                        foreach ($params['result']['episodes'] ?? [] as $index => $episode) {
-                            if (isset($episode['source_events'])) $result['episodes'][$index]['source_events'] = array_map(
-                                static fn($row) => array_intersect_key($row, array_flip(['requirement_id', 'field', 'quote', 'start', 'end'])),
-                                vnext\ContentDocument::rows($episode['source_events'], 'source_events'));
-                        }
-                    }
-                }
             }
             if ($stage === 'story' && isset($result['episode_count'])) {
                 $request['episode_count'] = $result['episode_count'];
@@ -177,7 +165,6 @@ final class ShortDramaStoryDraft
             $locked->save(['request_json' => json_encode($request, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'update_time' => time()]);
             $issues = ShortDramaStoryWorkflow::issues($result, $stage, (int)$request['episode_count'],
                 ShortDramaStoryWorkflow::qualityReviewEnabled($request));
-            $issues = array_merge($issues, vnext\PlanningTrace::issues($request, $result, $stage, (int)$request['episode_count']));
             return ['draft_version' => self::version($request), 'saved_at' => time(), 'issues' => $issues, 'can_confirm' => !$issues];
         });
     }
