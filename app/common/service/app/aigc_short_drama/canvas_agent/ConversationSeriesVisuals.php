@@ -17,6 +17,24 @@ final class ConversationSeriesVisuals
         return $prompt."\n\n".($speaker!==''?'说话角色：'.$speaker."\n":'').'对白：'.$dialogue;
     }
 
+    /** Match by server-owned identity, never a user-editable node title. */
+    public static function promptItem(array $plan,string $artifact,string $workflowKey): array
+    {
+        $key=substr($workflowKey,strpos($workflowKey,':')+1);
+        if (in_array($artifact,['storyboard','storyboard_video'],true)) {
+            if (preg_match('/^ep[1-9][0-9]*_shot([1-9][0-9]*)$/D',$key,$match)) {
+                $shots=array_values((array)($plan['storyboard']??[]));
+                if (isset($shots[(int)$match[1]-1])) return $shots[(int)$match[1]-1];
+            }
+        } else {
+            $kind=match($artifact) {'subject','prop'=>'subject','three_view'=>'view','scene'=>'scene',default=>''};
+            foreach ((array)($plan[$artifact==='scene'?'locations':'subjects']??[]) as $item) {
+                if ($kind!=='' && self::key($kind,(string)($item['id']??''))===$key) return $item;
+            }
+        }
+        throw new RuntimeException('WORKFLOW_PROMPT_SOURCE_MISSING');
+    }
+
     public static function proposals(array $plan,string $stage,int $episode,callable $render,array $sceneReferences=[],array $workflow=[]): array
     {
         $shots=array_values((array)($plan['storyboard']??[]));

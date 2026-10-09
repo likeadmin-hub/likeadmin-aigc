@@ -45,6 +45,7 @@ final class ConversationProduction
         if ($task['status']!=='success') throw new RuntimeException('WORKFLOW_EPISODE_SCRIPT_MISSING');
         $request=json_decode((string)$task['request_json'],true)?:[];
         $plan=ShortDramaStoryDraft::effective($request,json_decode((string)$task['result_json'],true)?:[]);
+        $plan=\app\common\service\app\aigc_short_drama\ShortDramaVisualStyle::plan($plan,(array)($workflow['creative_settings']??[]));
         $snapshot=(array)$workflow['workflow_snapshot']['creative_prompt_snapshot'];
         $sceneReferences=[];
         foreach ((array)($plan['locations']??[]) as $scene) {

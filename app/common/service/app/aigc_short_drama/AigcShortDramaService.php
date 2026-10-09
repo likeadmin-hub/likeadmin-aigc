@@ -12081,7 +12081,12 @@ class AigcShortDramaService
     private static function shortDramaImageParams(int $tenantId, array $shot, array $params, string $taskType = 'shot_image', array $plan = []): array
     {
         return ShortDramaPromptCatalog::run(ShortDramaPromptWorkspace::forTask($tenantId, $params),
-            static fn(): array => self::shortDramaImageParamsScoped($tenantId, $shot, $params, $taskType, $plan));
+            static function () use ($tenantId, $shot, $params, $taskType, $plan): array {
+                $plan = ShortDramaVisualStyle::plan($plan);
+                $result = self::shortDramaImageParamsScoped($tenantId, $shot, $params, $taskType, $plan);
+                $result['prompt'] = ShortDramaVisualStyle::append($result['prompt'], $plan);
+                return $result;
+            });
     }
 
     private static function shortDramaImageParamsScoped(int $tenantId, array $shot, array $params, string $taskType = 'shot_image', array $plan = []): array
@@ -16768,7 +16773,12 @@ class AigcShortDramaService
 
     private static function assembleVideoPromptRequest(int $tenantId, array $shot, array $params, array $plan, string $ratio, array $references, bool $generateAudio): array
     {
-        return ShortDramaPromptDocuments::scope(['shot_video'], static fn(): array => self::assembleVideoPromptDocumentScoped($tenantId, $shot, $params, $plan, $ratio, $references, $generateAudio));
+        return ShortDramaPromptDocuments::scope(['shot_video'], static function () use ($tenantId, $shot, $params, $plan, $ratio, $references, $generateAudio): array {
+            $plan = ShortDramaVisualStyle::plan($plan);
+            $result = self::assembleVideoPromptDocumentScoped($tenantId, $shot, $params, $plan, $ratio, $references, $generateAudio);
+            $result['prompt'] = ShortDramaVisualStyle::append($result['prompt'], $plan);
+            return $result;
+        });
     }
 
     /**
@@ -20326,14 +20336,46 @@ class AigcShortDramaService
     public static function canvasProductionPrompt(array $plan, string $artifact, array $item, array $snapshot): string
     {
         return ShortDramaPromptCatalog::run($snapshot, static function () use ($plan, $artifact, $item): string {
-            return match ($artifact) {
-                'subject' => self::buildSubjectImagePrompt([], ['subject_id' => $item['id']], $plan),
+            $plan = ShortDramaVisualStyle::plan($plan);
+            $prompt = match ($artifact) {
+                'subject', 'prop' => self::buildSubjectImagePrompt([], ['subject_id' => $item['id']], $plan),
                 'three_view' => self::buildSubjectImagePrompt([], ['subject_id' => $item['id'], 'view_mode' => 'three_view'], $plan),
                 'scene' => self::buildSceneImagePrompt([], ['scene_id' => $item['id']], $plan),
                 'storyboard' => self::buildShotImagePrompt($item, [], $plan),
-                'storyboard_video' => self::buildReadableShotVideoPrompt($item),
+                // Use the same authored field and precedence as regular video generation.
+                'storyboard_video' => self::shotFlexibleVideoPrompt($item, []),
                 default => throw new Exception('INVALID_PRODUCTION_ARTIFACT'),
             };
+            return ShortDramaVisualStyle::append($prompt, $plan);
+        });
+    }
+
+    /** Transport adapter only: both entry points execute the regular media assemblers. */
+    public static function canvasMediaSubmissionParams(int $tenantId, array $snapshot, string $artifact, array $item, array $plan, array $params): array
+    {
+        if ((int)($snapshot['tenant_id'] ?? -1) !== $tenantId) throw new Exception('PROMPT_SNAPSHOT_TENANT_MISMATCH');
+        $params['_prompt_snapshot'] = $snapshot;
+        return ShortDramaPromptCatalog::run($snapshot, static function () use ($tenantId, $artifact, $item, $plan, $params): array {
+            $type = match ($artifact) {
+                'subject', 'prop' => 'subject_image', 'three_view' => 'three_view',
+                'scene' => 'scene_image', 'storyboard' => 'shot_image', 'storyboard_video' => 'shot_video',
+                default => throw new Exception('INVALID_PRODUCTION_ARTIFACT'),
+            };
+            if (in_array($type, ['subject_image', 'three_view'], true)) {
+                $params['subject_id'] = (string)($item['id'] ?? '');
+                if ($type === 'three_view') $params['view_mode'] = 'three_view';
+            } elseif ($type === 'scene_image') $params['scene_id'] = (string)($item['id'] ?? '');
+            if ($type !== 'shot_video') return self::shortDramaImageParams($tenantId, $item, $params, $type, $plan);
+            $params += ['model_id' => $params['channel'] ?? '', 'resolution' => '', 'duration' => $item['recommended_duration_seconds'] ?? 5];
+            $refs = (array)($params['reference_assets'] ?? []);
+            $roles = array_column($refs, 'role');
+            $references = [
+                'reference_assets' => $refs, 'input_asset_ids' => (array)($params['input_asset_ids'] ?? array_column($refs, 'asset_id')),
+                'first_frame_image' => in_array('first_frame', $roles, true), 'last_frame_image' => in_array('last_frame', $roles, true),
+                'reference_plan' => [], 'generation_method' => $params['generation_method'] ?? '',
+            ];
+            return self::assembleVideoPromptRequest($tenantId, $item, $params, $plan,
+                (string)($params['ratio'] ?? '9:16'), $references, self::shouldGenerateShortDramaVideoAudio($params));
         });
     }
 
