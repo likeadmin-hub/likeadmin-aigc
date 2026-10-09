@@ -4,6 +4,7 @@ namespace Tests\Feature;
 use app\common\service\app\aigc_short_drama\vnext\ApplicationWorkflow;
 use app\common\service\app\aigc_short_drama\vnext\ContentDocument;
 use app\common\service\app\aigc_short_drama\vnext\ManualContentRevision;
+use app\common\service\app\aigc_short_drama\vnext\ManualRevisionHistory;
 use app\common\service\app\aigc_short_drama\vnext\SourceTrace;
 use PHPUnit\Framework\TestCase;
 
@@ -119,4 +120,43 @@ final class ShortDramaVnextManualRevisionTest extends TestCase
         ContentDocument::attachExactSources($document, [$unit['unit_id'] => [$link]], $input['context']['sources']);
     }
     public static function invalidSources(): array { return [['version'], ['partial']]; }
+
+    public function testHistoryProjectionPagesNewestFirstAndDoesNotExposeFrozenConfiguration(): void
+    {
+        [$input, $document, $patches, $origin] = $this->fixture();
+        $first = ApplicationWorkflow::revisionInput($input, ['document' => $document], $patches, 'r1', 'task_new', $origin);
+        $first['model']['private_provider_config'] = 'never-public';
+        $document = $first['context']['canonical_input']; $unit = array_values(ContentDocument::units($document))[0];
+        $origin['parent_task_id'] = 'task_new'; $origin['task_id'] = 'task_third';
+        $second = ApplicationWorkflow::revisionInput($first, ['document' => $document],
+            [['unit_id' => $unit['unit_id'], 'before_hash' => $unit['text_hash'], 'text' => '<script>完整新文字😀</script>']],
+            $document['revision_id'], 'task_third', $origin);
+        $latest = ManualRevisionHistory::page($second, 10, 20, 1);
+        self::assertSame('recorded', $latest['status']); self::assertSame(2, $latest['total']); self::assertSame(2, $latest['next_page']);
+        self::assertCount(1, $latest['records']); self::assertSame(2, $latest['records'][0]['edit_number']);
+        $change = $latest['records'][0]['changes'][0];
+        self::assertSame($unit['text'], $change['before_text']); self::assertSame('<script>完整新文字😀</script>', $change['after_text']);
+        self::assertSame([$unit['text']], $change['before_source_quotes']); self::assertSame('陈默', $change['speaker_name']);
+        self::assertSame(['event_id', 'edit_number', 'created_at', 'actor_label', 'changes'], array_keys($latest['records'][0]));
+        self::assertStringNotContainsString('never-public', json_encode($latest));
+        $older = ManualRevisionHistory::page($second, 10, 20, 2);
+        self::assertSame(1, $older['records'][0]['edit_number']); self::assertNull($older['next_page']);
+        self::assertSame($patches[0]['text'], $older['records'][0]['changes'][0]['after_text']);
+        self::assertSame([], ManualRevisionHistory::page($second, 10, 20, 3)['records']);
+        self::assertSame('not_recorded', ManualRevisionHistory::page([], 10, 20, 1)['status']);
+    }
+
+    /** @dataProvider unreadableHistory */
+    public function testHistoryReadRejectsForeignScopeAndMismatchedSource(string $kind): void
+    {
+        [$input, $document, $patches, $origin] = $this->fixture();
+        $next = ApplicationWorkflow::revisionInput($input, ['document' => $document], $patches, 'r1', 'task_new', $origin);
+        $id = $next['context']['manual_edit_history']['events'][0]['changes'][0]['source_id'];
+        if ($kind === 'text') $next['context']['sources'][$id]['text'] = 'wrong';
+        if ($kind === 'version') $next['context']['sources'][$id]['version'] = 'wrong';
+        if ($kind === 'source_owner') $next['context']['sources'][$id]['origin']['user_id'] = 99;
+        $this->expectException(\RuntimeException::class); $this->expectExceptionCode(409);
+        ManualRevisionHistory::page($next, $kind === 'tenant' ? 11 : 10, $kind === 'user' ? 21 : 20, 1);
+    }
+    public static function unreadableHistory(): array { return [['text'], ['version'], ['source_owner'], ['tenant'], ['user']]; }
 }

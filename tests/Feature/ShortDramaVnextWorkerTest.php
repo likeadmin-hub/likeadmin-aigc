@@ -142,6 +142,16 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertSame($task, $event['parent_task_id']); self::assertSame($revision['task_id'], $event['task_id']);
             self::assertSame($document['content_hash'], $event['base_document_hash']);
             self::assertSame($unit['text'], $event['changes'][0]['before_text']);
+            $historyView = Service::scriptPlanDetail($tenant, $user, $revision['task_id'], $project, 1);
+            self::assertSame(['task_id', 'manual_history'], array_keys($historyView));
+            self::assertSame($revision['task_id'], $historyView['task_id']);
+            self::assertSame($unit['text'] . '新说明。', $historyView['manual_history']['records'][0]['changes'][0]['after_text']);
+            self::assertSame('not_recorded', Service::scriptPlanDetail($tenant, $user, $task, $project, 1)['manual_history']['status']);
+            foreach ([[$tenant + 1, $user, $project], [$tenant, $user + 1, $project], [$tenant, $user, $project + 1]] as [$foreignTenant, $foreignUser, $foreignProject]) {
+                try { Service::scriptPlanDetail($foreignTenant, $foreignUser, $revision['task_id'], $foreignProject, 1); self::fail('Foreign history exposed'); }
+                catch (\Exception $e) { self::assertSame('任务不存在', $e->getMessage()); }
+            }
+            self::assertArrayNotHasKey('manual_history', Service::scriptPlanDetail($tenant, $user, $revision['task_id'], $project));
             $newRow = Db::name('aigc_short_drama_script_task')->where('task_id', $revision['task_id'])->find();
             $revised = $run->invoke(null, $tenant, $user, $newRow, static function () {});
             self::assertSame('success', $revised['status'], json_encode($revised, JSON_UNESCAPED_UNICODE));
