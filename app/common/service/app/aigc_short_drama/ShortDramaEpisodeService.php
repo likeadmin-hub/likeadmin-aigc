@@ -574,6 +574,8 @@ class ShortDramaEpisodeService
                 $first = self::nextInitialEpisode($rows);
                 $selected = $first && empty($first['needs_review']) && in_array($first['status'], ['pending', 'running'], true) ? $first : null;
                 if (!$selected) continue;
+                // A canvas series only executes children requested by an explicit conversation run.
+                if (vnext\CanvasSeriesBridge::manual($t, $u, $p) && $selected['task_id'] === '') continue;
                 $selected = self::executionEpisode($selected);
                 if ((int)$selected['queue_job_id'] === 0) self::queueJob($t, $u, $p, (int)$selected['id'], (int)$selected['attempt_number']);
                 $queueMessage = ShortDramaRedisQueue::claim(gethostname() . '-' . getmypid(), 1);
@@ -687,7 +689,7 @@ class ShortDramaEpisodeService
             });
             if ($pauseFollowing) {
                 self::cancelFollowingEpisodes($tenantId, $userId, (int)$row['project_id'], (int)$row['episode_number']);
-            } elseif ($queueNext) {
+            } elseif ($queueNext && !vnext\CanvasSeriesBridge::manual($tenantId, $userId, (int)$row['project_id'])) {
                 $next = Db::name(self::TABLE)->where(['project_id' => $row['project_id'], 'delete_time' => 0])
                     ->where('episode_number', '>', (int)$row['episode_number'])->order('episode_number')->find();
                 if ($next) self::queueJob($tenantId, $userId, (int)$row['project_id'], (int)$next['id'], (int)$next['attempt_number']);
