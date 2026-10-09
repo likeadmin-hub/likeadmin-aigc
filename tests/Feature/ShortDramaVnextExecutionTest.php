@@ -351,14 +351,16 @@ final class ShortDramaVnextExecutionTest extends TestCase
         $this->store->checkpoint($new, ['title' => 'new']);
         $this->expectExceptionCode(409); $this->store->checkpoint($fence, ['title' => 'old']);
     }
-    private function sceneStore(bool $review = false, bool $repair = false): array
+    private function sceneStore(bool $review = false, bool $repair = false, bool $textRepair = false): array
     {
         $input = $review ? ShortDramaVnextSceneReviewTest::input() : ShortDramaVnextSceneShotTest::input();
         if ($repair) $input['context'] = ShortDramaVnextSceneShotRepairTest::context();
+        if ($textRepair) $input = ShortDramaVnextSceneContentRepairTest::input();
         $input['execution']['resource_limits'] = ['total_tokens' => 10000, 'tenant_cost_points' => 3, 'user_charge_points' => 6];
+        if ($textRepair) $input['execution']['resource_limits'] = ['total_tokens' => 10000, 'tenant_cost_points' => 6, 'user_charge_points' => 12];
         $this->scope['task_id'] .= '_scene';
         $this->store = new ExecutionStore($this->scope['tenant_id'], $this->scope['user_id'], $this->scope['task_id'], $this->buffer);
-        $this->store->create($this->scope['task_id'], $input, time() + 600, 2);
+        $this->store->create($this->scope['task_id'], $input, time() + 600, $textRepair ? 3 : 2);
         return $input;
     }
     public function testFrozenScenePlanChangesOnlyPlannedCallCountOnce(): void
@@ -523,6 +525,50 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertSame($budget['resources']['limits'], $after['resources']['limits']); self::assertSame(368, $after['resources']['spent']['total_tokens']);
         self::assertSame(3200000, $after['resources']['spent']['user_charge_points']);
         self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+    }
+    public static function textRepairInterruptions(): array { return ['cancel' => ['cancel'], 'settlement' => ['settlement']]; }
+    /** @dataProvider textRepairInterruptions */
+    public function testTextRepairRestoresPaidPatchWithoutLosingBestContentOrExpandingBudget(string $mode): void
+    {
+        $this->sceneStore(false, false, true); $paid = []; $interrupted = false;
+        $provider = function ($params, $key, $persist, $admit) use (&$paid, &$interrupted, $mode): array {
+            $data = json_decode($params['content'], true); $repaired = str_contains($data['document']['revision_id'] ?? '', '_cw1');
+            if (isset($data['allowed_patch_unit_ids'])) $stage = 'content_window_repair_1_text';
+            elseif (isset($data['repair_window'])) $stage = 'content_window_repair_1_shots_' . $data['repair_window']['number'];
+            elseif (isset($data['review_window'])) $stage = ($repaired ? 'content_window_repair_1_review_' : 'review_window_') . $data['review_window']['number'];
+            elseif (isset($data['window_reviews'])) $stage = $repaired ? 'content_window_repair_1_global' : 'review_global';
+            elseif (isset($data['shot_plan'])) $stage = 'review';
+            else $stage = isset($data['document']) ? 'shots' : 'screenplay';
+            $admit(['total_tokens' => 500, 'tenant_cost_points' => .5, 'user_charge_points' => 1]);
+            $paid[] = $stage; $receipt = $this->billedReceipt(); unset($receipt['result']);
+            $receipt = ($stage === 'review' ? ['content' => '{partial', 'finish_reason' => 'length'] : ShortDramaVnextSceneContentRepairTest::receipt($stage, $data)) + $receipt;
+            $persist($receipt);
+            if ($mode === 'settlement' && !$interrupted && $stage === 'content_window_repair_1_text') { $interrupted = true; throw new \RuntimeException('settlement unavailable'); }
+            return $receipt;
+        };
+        try { JobRunner::run($this->store, 'worker', $provider, function ($event, $payload) use ($mode, &$interrupted) {
+            if ($mode === 'cancel' && !$interrupted && $event === 'stage' && $payload['stage'] === 'content_window_repair_1_shots_2') { $interrupted = true; $this->store->cancel(); }
+        }); self::fail('Interruption ignored'); }
+        catch (\RuntimeException $e) { if ($mode === 'cancel') self::assertContains($e->getCode(), [409, 422]); else self::assertSame('settlement unavailable', $e->getMessage()); }
+        $snapshot = $this->store->snapshot(); $budget = json_decode($snapshot['budget_json'], true); $best = json_decode($snapshot['candidate_json'], true);
+        self::assertSame($mode === 'cancel' ? 'canceled' : 'reconciling', $snapshot['execution_status']);
+        self::assertSame('draft', $best['coverage_report']['status']);
+        self::assertStringNotContainsString('补正', implode('', ContentDocument::render($best['document'])));
+        if ($mode === 'cancel') self::assertStringContainsString('补正', implode('', ContentDocument::render($best['content_repair']['candidate_document'])));
+        self::assertSame(0, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+        if ($mode === 'settlement') $this->store->reconcileReceipts(static fn($receipt) => $receipt);
+        self::assertTrue($this->store->resume()); $result = JobRunner::run($this->store, 'worker', $provider);
+        self::assertSame('ready', $result['coverage_report']['status']); self::assertCount(6, $result['shot_plan']['audio_segments']);
+        self::assertStringContainsString('补正', implode('', ContentDocument::render($result['document'])));
+        self::assertSame(['screenplay', 'shots', 'review', 'review_window_1', 'review_window_2', 'review_global', 'content_window_repair_1_text',
+            'content_window_repair_1_shots_2', 'content_window_repair_1_review_2', 'content_window_repair_1_global'], $paid);
+        $final = json_decode($this->store->snapshot()['budget_json'], true);
+        self::assertSame(10, $final['calls']); self::assertSame(1, $final['repair_rounds']); self::assertSame(0, $final['reservations']['content_window_repair_1']);
+        self::assertSame($budget['base_calls'], $final['base_calls']); self::assertSame($budget['call_limit'], $final['call_limit']);
+        self::assertSame($budget['resources']['limits'], $final['resources']['limits']); self::assertSame(460, $final['resources']['spent']['total_tokens']);
+        self::assertSame(4000000, $final['resources']['spent']['user_charge_points']);
+        self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+        JobRunner::run($this->store, 'another', static function () { self::fail('Published text repair recharged'); });
     }
     public function testOversizedCanonicalInputStopsBeforeProviderAndKeepsEntireDraft(): void
     {
