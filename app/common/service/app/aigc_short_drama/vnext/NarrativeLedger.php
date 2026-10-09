@@ -77,7 +77,7 @@ final class NarrativeLedger
         unset($ledger['content_hash']); return ContentDocument::hash($ledger);
     }
 
-    /** Bounded retrieval preserves each selected record's exact source and separates beliefs. */
+    /** Entity-based retrieval preserves each selected record's exact source and separates beliefs. */
     public static function relevant(array $ledger, array $entityIds): array
     {
         if (!$ledger) return ['world_facts' => [], 'character_beliefs' => []];
