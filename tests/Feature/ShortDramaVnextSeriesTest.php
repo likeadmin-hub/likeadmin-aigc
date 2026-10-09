@@ -12,10 +12,13 @@ use think\facade\Db;
 
 final class ShortDramaVnextSeriesTest extends TestCase
 {
+    public static function cohorts(): array { return [[false], [true]]; }
+
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
+     * @dataProvider cohorts
      */
-    public function testConfirmedSeriesUsesStableIdentitiesPublishedHistoryAndExplicitDependencyRecheck(): void
+    public function testConfirmedSeriesUsesStableIdentitiesPublishedHistoryAndExplicitDependencyRecheck(bool $withTrace): void
     {
         if (getenv('SHORT_DRAMA_STORY_DB_TESTS') !== '1') self::markTestSkipped('Opt in to local DB fixtures');
         require __DIR__ . '/../fixtures/short_drama_vnext_fake_provider.php';
@@ -37,6 +40,18 @@ final class ShortDramaVnextSeriesTest extends TestCase
             $request = ['prompt' => '调查员在书房寻找线索。', 'workflow_variant' => 'story_outline_v2', 'multi_episode' => true,
                 'episode_count' => 2, 'multi_episode_stage' => 'episodes', '_generation_version' => 3,
                 'confirmed_story_snapshot' => $story, 'confirmed_story_version' => 0, 'model_selections' => ['script_plan' => ['id' => 'frozen_model']]];
+            if ($withTrace) {
+                $request['prompt'] = '陈默是调查员。第一集发现书信，第二集辨认印记。';
+                $request['_source_trace'] = \app\common\service\app\aigc_short_drama\vnext\SourceTrace::capture('input_' . $task, $task, $request['prompt'], 'inspiration');
+                $trace = \app\common\service\app\aigc_short_drama\vnext\PlanningTrace::build($request['_source_trace'], [
+                    ['quote' => '第一集发现书信', 'kind' => 'event', 'episode_numbers' => [1]],
+                    ['quote' => '第二集辨认印记', 'kind' => 'event', 'episode_numbers' => [2]],
+                    ['quote' => '陈默是调查员', 'kind' => 'invariant', 'episode_numbers' => []],
+                ], 2);
+                $request['confirmed_story_snapshot']['content_trace'] = $trace; $plan['content_trace'] = $trace;
+                foreach ($plan['episodes'] as $index => &$episode) $episode['source_events'] = [['requirement_id' => $trace['requirements'][$index]['id'], 'field' => 'story_outline', 'quote' => $episode['story_outline']]];
+                unset($episode);
+            }
             Db::name('aigc_short_drama_script_task')->insert($scope + ['project_id' => $project, 'task_id' => $task, 'status' => 'success',
                 'prompt' => $request['prompt'], 'request_json' => json_encode($request), 'result_json' => json_encode($plan)]);
             \think\facade\Config::set(['generation_version' => 3, 'vnext' => ['enabled' => true, 'series_enabled' => true, 'tenant_ids' => [$tenant],
@@ -72,7 +87,14 @@ final class ShortDramaVnextSeriesTest extends TestCase
             self::assertSame('书信', $inherited['name']); self::assertSame('封面有印记的书信', $inherited['description']);
             self::assertNotSame('p99', $inherited['ref']); self::assertNotContains('p99', $inherited['aliases']);
             self::assertSame($first['result']['narrative_ledger']['delta'][0]['fact_id'], $secondInput['previous_narrative']['world_facts'][0]['fact_id']);
-            self::assertCount(3, $secondInput['events']); self::assertSame([], $secondInput['requirements']);
+            self::assertCount($withTrace ? 4 : 3, $secondInput['events']); self::assertCount($withTrace ? 1 : 0, $secondInput['requirements']);
+            if ($withTrace) {
+                self::assertSame([$trace['requirements'][1]['id']], $secondInput['events'][3]['requirement_ids']);
+                self::assertSame($plan['episodes'][1]['story_outline'], $secondInput['events'][3]['text']);
+                self::assertSame('陈默是调查员', $secondInput['requirements'][0]['text']);
+                self::assertSame($request['_source_trace']['hash'], $secondInput['events'][3]['source_hash']);
+                self::assertNotContains($trace['requirements'][0]['id'], array_merge(...array_column($secondInput['events'], 'requirement_ids')));
+            }
             $scene = array_values(array_filter($second['production_handoff']['targets'], static fn($target) => $target['task_type'] === 'scene_image'))[0];
             $imageRequest = ['project_id' => $list[1]['production_project_id'], 'task_id' => $list[1]['task_id'], 'task_type' => 'scene_image',
                 'scene_id' => $scene['target_id'], 'expected_revision_id' => $second['result']['canonical_document']['revision_id'],

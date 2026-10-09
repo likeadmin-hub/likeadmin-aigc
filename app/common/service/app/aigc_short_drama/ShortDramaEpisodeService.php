@@ -109,6 +109,8 @@ class ShortDramaEpisodeService
                 $issues = ShortDramaStoryWorkflow::issues($plan, 'episodes', (int)$project['episode_count'],
                     ShortDramaStoryWorkflow::qualityReviewEnabled($request));
                 if ($issues) throw new Exception($issues[0]['message']);
+                $traceIssues = vnext\PlanningTrace::issues($request, $plan, 'episodes', (int)$project['episode_count']);
+                if ($traceIssues) throw new Exception($traceIssues[0]['message']);
                 $request['confirmed_outline_version'] = ShortDramaStoryDraft::version($request);
                 $request['confirmed_outline_snapshot'] = $plan;
                 $task->save(['request_json' => self::encode($request), 'update_time' => time()]);

@@ -2749,6 +2749,12 @@ class AigcShortDramaService
         unset($request['_pipeline_version']);
         $episodeContext = $internalContext['_vnext_episode_context'] ?? null;
         unset($request['_vnext_episode_context']);
+        $vnextPolicy = (array)\think\facade\Config::get('short_drama.vnext', []);
+        if ($existingProjectId === 0 && !empty($request['multi_episode']) && $request['script_source'] !== 'upload'
+            && !empty($vnextPolicy['series_enabled'])
+            && vnext\ApplicationWorkflow::enrollment($tenantId, [], $selectedModels['script_plan'] ?? [], $vnextPolicy, true) !== null) {
+            $request['_source_trace'] = vnext\SourceTrace::capture('user_input_' . $taskId, $taskId, $prompt, 'inspiration');
+        }
         $vnextExecution = $episodeContext !== null ? $episodeContext['snapshot']['execution']
             : vnext\ApplicationWorkflow::enrollment($tenantId, $request, $selectedModels['script_plan'] ?? [],
                 (array)\think\facade\Config::get('short_drama.vnext', []), $existingProjectId === 0);
@@ -5511,6 +5517,7 @@ class AigcShortDramaService
             if ($advanceStage) {
                 $issues = ShortDramaStoryWorkflow::issues($previousResult, $currentStage, (int)$request['episode_count'],
                     ShortDramaStoryWorkflow::qualityReviewEnabled($request));
+                $issues = array_merge($issues, vnext\PlanningTrace::issues($request, $previousResult, $currentStage, (int)$request['episode_count']));
                 if ($issues) throw new Exception($issues[0]['message']);
                 $request['confirmed_story_snapshot'] = $previousResult;
                 $request['confirmed_story_task_id'] = $taskId;
@@ -24048,6 +24055,7 @@ class AigcShortDramaService
             }
             $issues = $result !== null ? ShortDramaStoryWorkflow::issues($result, $stage, (int)$request['episode_count'],
                 ShortDramaStoryWorkflow::qualityReviewEnabled($request), !empty($request['_canvas_series_planning'])) : [];
+            if ($result !== null) $issues = array_merge($issues, vnext\PlanningTrace::issues($request, $result, $stage, (int)$request['episode_count']));
             $storyWorkspace = ['variant' => ShortDramaStoryWorkflow::VARIANT, 'stage' => $stage,
                 'preview' => $status === self::STATUS_SUCCESS ? null : ($storedResult['__story_preview'] ?? null),
                 'production_started' => $productionStarted,

@@ -47,9 +47,11 @@ final class ShortDramaStoryGeneration
         };
         if ($stage === 'story') {
             $messages = $assemble($request);
+            $messages['system_prompt'] .= vnext\PlanningTrace::storyInstruction($request);
             $payload = [];
-            $validateStory = static function (array $candidate) use (&$payload, $total, $qualityReviewEnabled): void {
+            $validateStory = static function (array $candidate) use (&$payload, $total, $qualityReviewEnabled, $request): void {
                 $payload = $candidate;
+                vnext\PlanningTrace::story($request, $candidate);
                 $issues = ShortDramaStoryWorkflow::issues($payload, 'story', $total, $qualityReviewEnabled);
                 if ($issues) throw new RuntimeException($issues[0]['message'], 422);
             };
@@ -69,9 +71,12 @@ final class ShortDramaStoryGeneration
                 $issues = ShortDramaStoryWorkflow::issues($payload, 'story', $total, $qualityReviewEnabled);
             }
             if ($issues) throw new RuntimeException($issues[0]['message'], 422);
+            $payload = vnext\PlanningTrace::story($request, $payload);
         } else {
             $base = (array)($request['confirmed_story_snapshot'] ?? []);
             if (!$base) throw new RuntimeException('请先确认故事设定');
+            $trace = vnext\PlanningTrace::enabled($request) ? ($base['content_trace'] ?? []) : null;
+            if ($trace !== null) vnext\PlanningTrace::assertTrace($trace, $request['_source_trace']);
             $payload = $base;
             $payload['episodes'] = [];
             $sourceEpisodes = array_values((array)($request['revision_base_result']['episodes'] ?? []));
@@ -111,7 +116,7 @@ final class ShortDramaStoryGeneration
             if ($targetEpisode && ($targetEpisode < 1 || $targetEpisode > $total || array_column($sourceEpisodes, 'episode_number') !== range(1, $total))) {
                 throw new RuntimeException('原大纲集号不完整，无法安全局部修改', 422);
             }
-            $expand = function (int $start, int $count) use (&$expand, &$payload, $base, $request, $assemble, $call, $total, $progress, $sourceEpisodes, $isRevision, $roadmap, $qualityReviewEnabled): void {
+            $expand = function (int $start, int $count) use (&$expand, &$payload, $base, $request, $assemble, $call, $total, $progress, $sourceEpisodes, $isRevision, $roadmap, $qualityReviewEnabled, $trace): void {
                 $chunk = $request;
                 $chunk['episode_count'] = $count;
                 $chunk['episode_total_count'] = $total;
@@ -135,13 +140,15 @@ final class ShortDramaStoryGeneration
                 if ($progress) $progress('stage', ['status' => 'running', 'progress' => 20 + (int)(60 * count($payload['episodes']) / $total),
                     'current_step' => '已完成 ' . count($payload['episodes']) . '/' . $total . ' 集，正在生成第 ' . $start . '–' . ($start + $count - 1) . ' 集']);
                 $messages = $assemble($chunk);
+                if ($trace !== null) $messages['system_prompt'] .= vnext\PlanningTrace::outlineInstruction($trace);
                 if ($roadmap) $messages['content'] .= "\n全剧已确定的节奏分配（本批必须服从，阶段结束不等于全剧结束）：" . json_encode($roadmap, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
                 $key = 'outline_' . $start . '_' . $count;
                 $batch = [];
                 try {
                     $batch = $call($key, $messages, $count, false,
-                        static function ($candidate) use (&$batch, $count, $start, $qualityReviewEnabled): void {
+                        static function ($candidate) use (&$batch, $count, $start, $qualityReviewEnabled, $trace): void {
                             $batch = $candidate; self::episodes($candidate, $count, $start, $qualityReviewEnabled);
+                            if ($trace !== null) vnext\PlanningTrace::events($trace, $candidate['episodes'], 'candidate', false, $start);
                         });
                     $episodes = self::episodes($batch, $count, $start, $qualityReviewEnabled);
                     if ($qualityReviewEnabled) self::assertDistinctFromSaved($episodes, $payload['episodes']);
@@ -159,7 +166,10 @@ final class ShortDramaStoryGeneration
                     if ($batch) $messages['content'] .= "\n已有结果=" . json_encode($batch, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
                         . "\n保留已生成的合格剧情字段，仅修复指出的问题，不改变已确认设定。";
                     $episodes = self::episodes($call($key . '_repair_v2', $messages, 1, false,
-                        static fn($batch) => self::episodes($batch, 1, $start, $qualityReviewEnabled)), 1, $start, $qualityReviewEnabled);
+                        static function ($batch) use ($start, $qualityReviewEnabled, $trace): void {
+                            self::episodes($batch, 1, $start, $qualityReviewEnabled);
+                            if ($trace !== null) vnext\PlanningTrace::events($trace, $batch['episodes'], 'candidate', false, $start);
+                        }), 1, $start, $qualityReviewEnabled);
                     if ($qualityReviewEnabled) self::assertDistinctFromSaved($episodes, $payload['episodes']);
                 }
                 foreach ($episodes as $index => $episode) {
@@ -178,7 +188,7 @@ final class ShortDramaStoryGeneration
                     $expand($start, 1);
                     // Only creative outline fields may change; preserve identifiers and metadata too.
                     $payload['episodes'][$start - 1] = array_merge($sourceEpisodes[$start - 1], array_intersect_key(
-                        $payload['episodes'][$start - 1], array_flip(['title', 'story_outline', 'conflict_point', 'ending_hook'])
+                        $payload['episodes'][$start - 1], array_flip(array_merge(['title', 'story_outline', 'conflict_point', 'ending_hook'], $trace !== null ? ['source_events'] : []))
                     ));
                 }
                 if ($qualityReviewEnabled) self::assertDistinctFromSaved([$payload['episodes'][$targetEpisode - 1]], array_values(array_filter($sourceEpisodes,
