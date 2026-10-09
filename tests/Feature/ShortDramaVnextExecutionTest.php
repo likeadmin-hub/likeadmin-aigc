@@ -45,6 +45,90 @@ final class ShortDramaVnextExecutionTest extends TestCase
         foreach (glob($this->directory . '/*') ?: [] as $path) unlink($path);
         rmdir($this->directory);
     }
+    private function resourceStore(int $tokens = 200): void
+    {
+        $this->scope['task_id'] .= '_r';
+        $this->store = new ExecutionStore($this->scope['tenant_id'], $this->scope['user_id'], $this->scope['task_id'], $this->buffer);
+        $this->store->create($this->scope['task_id'], ['execution' => ['resource_limits' => [
+            'total_tokens' => $tokens, 'tenant_cost_points' => 2, 'user_charge_points' => 4]]], time() + 600);
+    }
+    private function bound(): array { return ['total_tokens' => 100, 'tenant_cost_points' => .5, 'user_charge_points' => 1]; }
+    private function billedReceipt(): array
+    { return $this->receipt() + ['billing' => ['billing_status' => 'settled', 'tenant_cost_points' => .2, 'user_charge_points' => .4]]; }
+    private function resources(): array { return json_decode($this->store->snapshot()['budget_json'], true)['resources']; }
+    public function testResourceAdmissionStopsBeforeNextPaidCallAndKeepsCandidate(): void
+    {
+        $this->resourceStore(145); $fence = $this->store->acquire('worker', 100); $paid = 0;
+        $provider = function ($input, $key, $persist, $admit) use (&$paid) { $admit($this->bound()); $paid++; return $this->billedReceipt(); };
+        $receipt = $this->store->call($fence, 'a', [], $provider);
+        $this->store->checkpoint($fence, ['document' => ['title' => '保留正文']]);
+        self::assertSame($receipt, $this->store->call($fence, 'a', [], $provider));
+        try { $this->store->call($fence, 'b', [], $provider); self::fail('Budget bypassed'); }
+        catch (\RuntimeException $e) { self::assertSame(429, $e->getCode()); }
+        self::assertSame(1, $paid); self::assertSame(46, $this->resources()['spent']['total_tokens']);
+        self::assertSame(400000, $this->resources()['spent']['user_charge_points']);
+        self::assertSame('needs_attention', $this->store->snapshot()['execution_status']);
+        self::assertSame('budget_exhausted', $this->store->snapshot()['error_code']);
+        self::assertStringContainsString('保留正文', $this->store->snapshot()['candidate_json']);
+        self::assertSame('not_submitted', Db::name('aigc_short_drama_vnext_stage')->where($this->scope)->where('stage_key', 'b')->value('status'));
+        self::assertSame([], $this->resources()['holds']);
+    }
+    public function testResourceHoldSurvivesSettlementFaultAndRecoveryAccountsOnlyOnce(): void
+    {
+        $this->resourceStore(); $fence = $this->store->acquire('worker', 100); $paid = 0;
+        try {
+            $this->store->call($fence, 'a', [], function ($input, $key, $persist, $admit) use (&$paid) {
+                $admit($this->bound()); $paid++; $persist($this->billedReceipt()); throw new \RuntimeException('settlement fault');
+            });
+            self::fail('Fault ignored');
+        } catch (\RuntimeException $e) { self::assertSame('settlement fault', $e->getMessage()); }
+        self::assertSame(0, $this->resources()['spent']['total_tokens']); self::assertCount(1, $this->resources()['holds']);
+        $recover = static fn($receipt) => $receipt;
+        $this->store->reconcileReceipts($recover); $this->store->reconcileReceipts($recover);
+        self::assertTrue($this->store->resume()); $fence = $this->store->acquire('worker2', 100);
+        $this->store->call($fence, 'a', [], static function () { self::fail('Paid replay'); });
+        self::assertSame(1, $paid); self::assertSame(46, $this->resources()['spent']['total_tokens']);
+        self::assertSame([], $this->resources()['holds']);
+        self::assertSame(200, $this->resources()['limits']['total_tokens']);
+    }
+    public function testUnknownSubmissionAndCancelNeverFreeResourceHold(): void
+    {
+        $this->resourceStore(); $fence = $this->store->acquire('worker', 100);
+        try { $this->store->call($fence, 'a', [], function ($input, $key, $persist, $admit) { $admit($this->bound()); throw new \RuntimeException('request timeout'); }); }
+        catch (\RuntimeException $e) { self::assertSame('request timeout', $e->getMessage()); }
+        self::assertSame('reconciling', $this->store->snapshot()['execution_status']);
+        $this->store->cancel(); self::assertCount(1, $this->resources()['holds']);
+        try { $this->store->resume(); self::fail('Unknown submission resumed'); }
+        catch (\RuntimeException $e) { self::assertSame(409, $e->getCode()); }
+        self::assertCount(1, $this->resources()['holds']);
+    }
+    public function testUnsubmittedConnectionRetryReleasesHoldWithoutResettingBudget(): void
+    {
+        $this->resourceStore(100); $fence = $this->store->acquire('worker', 100);
+        try { $this->store->call($fence, 'a', [], function ($input, $key, $persist, $admit) { $admit($this->bound()); throw new \RuntimeException('Could not resolve host'); }); self::fail('Failure ignored'); }
+        catch (\RuntimeException $e) { self::assertSame(425, $e->getCode()); }
+        self::assertSame([], $this->resources()['holds']);
+        Db::name('aigc_short_drama_vnext_stage')->where($this->scope)->update(['retry_after' => 0]);
+        $fence = $this->store->acquire('worker', 100);
+        $this->store->call($fence, 'a', [], function ($input, $key, $persist, $admit) { $admit($this->bound()); return $this->billedReceipt(); });
+        self::assertSame(46, $this->resources()['spent']['total_tokens']);
+        self::assertSame(2, json_decode($this->store->snapshot()['budget_json'], true)['calls']);
+    }
+    public function testUnverifiedReceiptCannotAuthorizeAnotherCall(): void
+    {
+        $this->resourceStore(); $fence = $this->store->acquire('worker', 100);
+        $this->store->call($fence, 'a', [], function ($input, $key, $persist, $admit) { $admit($this->bound()); return ['content' => '正文保留']; });
+        self::assertSame('resource_usage_unverified', $this->resources()['blocked']); self::assertCount(1, $this->resources()['holds']);
+        $this->expectExceptionCode(429);
+        $this->store->call($fence, 'b', [], static function () { self::fail('Unverified usage allowed another paid call'); });
+    }
+    public function testCancellationDuringAdmissionCannotBeOverwrittenByRejection(): void
+    {
+        $this->resourceStore(); $fence = $this->store->acquire('worker', 100);
+        try { $this->store->call($fence, 'a', [], function ($input, $key, $persist, $admit) { $this->store->cancel(); $admit($this->bound()); self::fail('Canceled task submitted'); }); }
+        catch (\RuntimeException $e) { self::assertSame(422, $e->getCode()); }
+        self::assertSame('canceled', $this->store->snapshot()['execution_status']); self::assertSame([], $this->resources()['holds']);
+    }
     private function receipt(): array { return ['result' => ['content' => '{"title":"完整返回"}'], 'usage' => ['input_tokens' => 12, 'output_tokens' => 34, 'user_points' => 2]]; }
     public function testReplayKeepsOneProviderCallAndOneUsageCharge(): void
     {

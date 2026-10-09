@@ -2,6 +2,7 @@
 namespace app\common\service\app\aigc_short_drama\vnext;
 
 use RuntimeException;
+use app\common\service\power\TextRequestNotSubmittedException;
 use think\facade\Db;
 use app\common\service\app\aigc_short_drama\ShortDramaPlanningUnit;
 
@@ -25,11 +26,13 @@ final class ExecutionStore
                 return $job;
             }
             if ($deadline <= time()) throw new RuntimeException('执行计划截止时间已过', 422);
+            if (array_key_exists('resource_limits', $input['execution'] ?? []) && !is_array($input['execution']['resource_limits'])) throw new RuntimeException('任务资源预算配置无效', 422);
             $extra = $baseCalls === 3 ? 5 : min(12, max(5, (int)ceil($baseCalls / 2)));
             $row = $this->scope + ['lane_key' => $lane, 'input_hash' => ContentDocument::hash($input), 'input_json' => self::json($input),
                 'budget_json' => self::json(['base_calls' => $baseCalls, 'call_limit' => $baseCalls + $extra, 'calls' => 0,
                     'repair_rounds' => 0, 'reservations' => [], 'input_tokens' => 0, 'output_tokens' => 0,
-                    'provider_cost' => 0, 'user_points' => 0, 'elapsed_ms' => 0]),
+                    'provider_cost' => 0, 'user_points' => 0, 'elapsed_ms' => 0] +
+                    (isset($input['execution']['resource_limits']) ? ['resources' => ResourceBudget::create($input['execution']['resource_limits'])] : [])),
                 'deadline_at' => $deadline, 'create_time' => time(), 'update_time' => time()];
             if (isset($input['context']['canonical_input'])) {
                 $row['candidate_json'] = self::json(['document' => $input['context']['canonical_input']]);
@@ -88,6 +91,7 @@ final class ExecutionStore
             if ($key === '' || $calls < 2 || $budget['repair_rounds'] >= 2 || $budget['calls'] + array_sum($budget['reservations']) + $calls > $budget['call_limit']) {
                 throw new RuntimeException('剩余预算不足以完成修复和复核，候选内容已保留', 429);
             }
+            if (isset($budget['resources'])) $budget['resources'] = ResourceBudget::reserveRound($budget['resources'], $key, $calls);
             $budget['repair_rounds']++; $budget['reservations'][$key] = $calls;
             $this->query('job')->update(['budget_json' => self::json($budget)]);
         });
@@ -104,10 +108,12 @@ final class ExecutionStore
             if ($stage && $stage['input_hash'] !== $hash) throw new RuntimeException('阶段输入与已保存收据不一致', 409);
             if ($stage && $stage['status'] === 'received') return ['receipt' => self::decode($stage['receipt_json'])];
             if ($stage && $buffered !== null) return ['buffered' => $buffered];
+            if ($stage && $stage['status'] === 'not_submitted') throw new RuntimeException('生成前预算检查未通过，请建立新修订', 429);
             if ($stage && $stage['status'] !== 'retry_wait') return ['unknown' => true]; // Intent alone cannot prove that submission never happened.
             if ($stage && (int)$stage['retry_after'] > time()) throw new RuntimeException('连接暂时不可用，等待延迟重试', 425);
             if ($stage && (int)$stage['attempt_count'] >= 3) throw new RuntimeException('连接重试次数已用完', 429);
             $budget = self::decode($job['budget_json']);
+            if (isset($budget['resources'])) ResourceBudget::assertVerified($budget['resources']);
             if ($reservation !== '') {
                 if (($budget['reservations'][$reservation] ?? 0) < 1) throw new RuntimeException('修复轮次预留预算已用完', 429);
                 $budget['reservations'][$reservation]--;
@@ -119,7 +125,7 @@ final class ExecutionStore
                 'attempt_count' => $attempt, 'retry_after' => 0, 'update_time' => time()];
             if ($stage) $this->query('stage')->where('stage_key', $key)->update($data);
             else $this->query('stage')->insert($this->scope + ['stage_key' => $key, 'create_time' => time()] + $data);
-            return ['submit' => true, 'attempt' => $attempt];
+            return ['submit' => true, 'attempt' => $attempt, 'resources' => isset($budget['resources'])];
         });
         if (isset($claim['receipt'])) return $claim['receipt'];
         if (isset($claim['buffered'])) { $this->receive($key, $hash, $claim['buffered']); return $claim['buffered']; }
@@ -134,20 +140,50 @@ final class ExecutionStore
             $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update(['execution_status' => 'reconciling', 'error_code' => 'submission_unknown', 'event_seq' => Db::raw('event_seq + 1')]);
             throw new RuntimeException('上游结果尚未确认，已停止重复提交并保留现有内容', 409);
         }
-        $started = microtime(true); $resultReceived = false;
+        $started = microtime(true); $resultReceived = false; $admitted = false;
         try {
             $persist = function (array $raw) use ($bufferKey, &$resultReceived): void {
                 $resultReceived = true;
                 $this->buffer->write(self::rawKey($bufferKey), $raw);
             };
-            $receipt = $provider($input, $bufferKey, $persist);
+            $admit = !$claim['resources'] ? null : function (array $bound) use ($fence, $key, $reservation, &$admitted): void {
+                try {
+                    Db::transaction(function () use ($fence, $key, $reservation, $bound): void {
+                        $job = $this->job(); $this->assertFence($job, $fence);
+                        $budget = self::decode($job['budget_json']);
+                        $budget['resources'] = ResourceBudget::admit($budget['resources'], $key, $bound, $reservation);
+                        $this->query('job')->update(['budget_json' => self::json($budget)]);
+                    });
+                    $admitted = true;
+                } catch (\Throwable $error) {
+                    throw new TextRequestNotSubmittedException('剩余资源预算不足或作业已停止，已保存内容保留', $error->getCode() === 429 ? 429 : 422, $error);
+                }
+            };
+            $receipt = $provider($input, $bufferKey, $persist, $admit);
+            // Detect an adapter contract violation; it cannot authorize any subsequent call.
+            if ($claim['resources'] && !$admitted) throw new RuntimeException('模型适配器未完成资源预算准入', 409);
             if (!is_array($receipt)) throw new RuntimeException('模型返回收据无效', 502);
             $receipt['_elapsed_ms'] = $receipt['_elapsed_ms'] ?? (int)round((microtime(true) - $started) * 1000);
             $this->buffer->write($bufferKey, $receipt);
         } catch (\Throwable $error) {
+            if (!$resultReceived && $error instanceof TextRequestNotSubmittedException) {
+                Db::transaction(function () use ($fence, $key, $error): void {
+                    $job = $this->job(); $budget = self::decode($job['budget_json']);
+                    if (isset($budget['resources'])) $budget['resources'] = ResourceBudget::releaseUnsubmitted($budget['resources'], $key);
+                    $this->query('stage')->where('stage_key', $key)->where('fence', $fence)->update(['status' => 'not_submitted', 'error_code' => 'resource_admission_rejected']);
+                    $this->query('job')->update(['budget_json' => self::json($budget)]);
+                    $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update([
+                        'execution_status' => 'needs_attention', 'error_code' => $error->getCode() === 429 ? 'budget_exhausted' : 'resource_admission_rejected',
+                        'lease_until' => 0, 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
+                });
+                throw $error;
+            }
             if (!$resultReceived && ShortDramaPlanningUnit::retryableBeforeSubmission($error->getMessage()) && $claim['attempt'] < 3) {
                 Db::transaction(function () use ($fence, $key, $claim): void {
                     $job = $this->job(); $this->assertFence($job, $fence);
+                    $budget = self::decode($job['budget_json']);
+                    if (isset($budget['resources'])) $budget['resources'] = ResourceBudget::releaseUnsubmitted($budget['resources'], $key);
+                    $this->query('job')->update(['budget_json' => self::json($budget)]);
                     $this->query('stage')->where('stage_key', $key)->where('fence', $fence)->update(['status' => 'retry_wait',
                         'retry_after' => time() + ($claim['attempt'] === 1 ? 30 : 120) + random_int(0, 10), 'error_code' => 'connection_not_submitted']);
                     $this->query('job')->update(['execution_status' => 'retry_wait', 'error_code' => 'connection_not_submitted', 'event_seq' => (int)$job['event_seq'] + 1]);
@@ -226,10 +262,11 @@ final class ExecutionStore
             $budget = self::decode($job['budget_json']); $usage = $receipt['usage'] ?? $receipt['result']['usage'] ?? [];
             $usage['input_tokens'] = $usage['input_tokens'] ?? $usage['prompt_tokens'] ?? 0;
             $usage['output_tokens'] = $usage['output_tokens'] ?? $usage['completion_tokens'] ?? 0;
-            $usage['user_points'] = $usage['user_points'] ?? $receipt['billing']['user_charge_points'] ?? 0;
+            $usage['user_points'] = $receipt['billing']['user_charge_points'] ?? $usage['user_points'] ?? 0;
             $usage['provider_cost'] = $usage['provider_cost'] ?? $receipt['billing']['provider_cost'] ?? 0;
             foreach (['input_tokens', 'output_tokens', 'provider_cost', 'user_points'] as $field) $budget[$field] += max(0, (float)($usage[$field] ?? 0));
             $budget['elapsed_ms'] += max(0, (int)($receipt['_elapsed_ms'] ?? 0));
+            if (isset($budget['resources'])) $budget['resources'] = ResourceBudget::receive($budget['resources'], $key, $receipt);
             $this->query('stage')->where('stage_key', $key)->update(['status' => 'received', 'receipt_json' => self::json($receipt), 'update_time' => time()]);
             $this->query('job')->update(['budget_json' => self::json($budget), 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
         });
@@ -253,7 +290,13 @@ final class ExecutionStore
                 if (($published['document']['content_hash'] ?? '') !== $document['content_hash'] || ($published['shot_plan']['content_hash'] ?? '') !== $plan['content_hash']) throw new RuntimeException('同一修订标识不能覆盖已发布内容', 409);
                 return;
             }
-            $this->assertFence($job, $fence); $sequence = (int)$job['event_seq'] + 1;
+            $this->assertFence($job, $fence);
+            $resources = self::decode($job['budget_json'])['resources'] ?? null;
+            if ($resources !== null) {
+                ResourceBudget::assertVerified($resources);
+                if ($resources['holds'] !== []) throw new RuntimeException('模型用量仍待核对，暂不可发布', 429);
+            }
+            $sequence = (int)$job['event_seq'] + 1;
             $document['status'] = 'ready'; $payload = ['document' => $document, 'shot_plan' => $plan, 'coverage_report' => $coverage];
             // Business task/version pointers and the canonical revision must commit together.
             // This callback performs local persistence only, never provider I/O.

@@ -91,7 +91,7 @@ class MarketTextModelRuntimeService
      * @param array<string, mixed> $params content, system_prompt, model_selection, action_code
      * @return array<string, mixed>
      */
-    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $tenantAdminConsumption = false, ?callable $persistResult = null): array
+    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $tenantAdminConsumption = false, ?callable $persistResult = null, ?callable $admitResources = null): array
     {
         // Server-only argument for tenant-admin authoring tools; never read from params.
         if ($tenantAdminConsumption && ($tenantId <= 0 || $userId !== 0)) throw new Exception('租户后台调用身份无效');
@@ -137,6 +137,19 @@ class MarketTextModelRuntimeService
             'generation_params' => $generationParams + ['max_tokens' => $maxTokens],
         ];
         if ($persistResult !== null) $requestSummary['durable_receipt_version'] = 1;
+        // Optional server-only gate. No fallback/retry may create an unadmitted paid attempt.
+        if ($admitResources !== null) {
+            try {
+                if ($persistResult === null || empty($params['_disable_model_fallback']) || empty($params['_disable_transient_retry']) || empty($params['_disable_compatibility_retry'])) {
+                    throw new \RuntimeException('资源预算调用必须使用持久化单次提交', 422);
+                }
+                $bound = self::resourceUpperBound($model);
+                PointService::assertCanConsumeAmounts($tenantId, $userId, $bound['tenant_cost_points'], $bound['user_charge_points']);
+                $admitResources($bound);
+            } catch (\Throwable $error) {
+                throw new TextRequestNotSubmittedException('生成前资源预算检查未通过，已保存内容保留', $error->getCode() === 429 ? 429 : 422, $error);
+            }
+        }
         // Token SKU amounts must come from the upstream usage record. Showing a
         // locally guessed total or reserving max_tokens makes the price wrong.
         $reserve = self::quote($model, 0, 0);
@@ -570,6 +583,21 @@ class MarketTextModelRuntimeService
             foreach ((array)$value as $item) if (in_array(strtolower((string)$item), ['vision', 'image', 'image_input'], true)) return true;
         }
         return !empty($meta['supports_vision']) || !empty($resource['supports_vision']);
+    }
+
+    /** Use published full capacities, not a heuristic prompt estimate or the requested output cap. */
+    private static function resourceUpperBound(array $model): array
+    {
+        $capacity = TextModelCapacity::metadata($model);
+        $input = $capacity['max_input_tokens'] ?: $capacity['context_window'];
+        if ($capacity['context_window'] > 0) $input = min($input, $capacity['context_window']);
+        $output = $capacity['max_output_tokens'];
+        if ($input < 1 || $output < 1 || $input + $output > 1000000000) throw new \RuntimeException('所选模型缺少可靠容量上限', 422);
+        foreach (['input', 'output'] as $direction) foreach (['platform_price', 'tenant_price'] as $price) {
+            $value = $model[$direction][$price] ?? null;
+            if (!is_numeric($value) || !is_finite((float)$value) || $value < 0) throw new \RuntimeException('所选模型价格尚未完整配置', 422);
+        }
+        return self::quote($model, $input, $output) + ['total_tokens' => $input + $output];
     }
 
     private static function quote(array $model, int $inputTokens, int $outputTokens): array

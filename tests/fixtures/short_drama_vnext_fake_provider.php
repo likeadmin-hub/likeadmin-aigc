@@ -11,8 +11,9 @@ class MarketTextModelRuntimeService
     public static function modelGroups(int $tenantId): array { return [['key' => 'script_plan', 'default' => 'frozen_model', 'options' => [self::resolveModel($tenantId, '')]]]; }
     public static function resolveModel(int $tenantId, $selection, bool $vision = false): array { return ['id' => 'frozen_model', 'name' => 'Fixture', 'provider' => 'power_market', 'model_code' => 'frozen_model', 'context_window' => 32768, 'max_output_tokens' => 8192]; }
     public static function estimateTokens(string $value): int { return mb_strlen($value); }
-    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $admin = false, ?callable $persist = null): array
+    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $admin = false, ?callable $persist = null, ?callable $admit = null): array
     {
+        if ($admit) $admit(['total_tokens' => 40960, 'tenant_cost_points' => 2, 'user_charge_points' => 4]);
         self::$requests[] = $params;
         $input = json_decode($params['content'], true, 512, JSON_THROW_ON_ERROR);
         if (isset($input['current_episode'])) {
