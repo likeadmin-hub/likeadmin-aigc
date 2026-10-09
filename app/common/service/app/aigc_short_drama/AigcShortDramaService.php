@@ -4083,7 +4083,8 @@ class AigcShortDramaService
                     $project->save(['status' => self::PROJECT_STATUS_PLAN_REVIEW, 'current_version_id' => (int)$version['id'], 'update_time' => $time]);
                     self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $taskId, self::STATUS_SUCCESS, $request, $model,
                         $billing + ['progress' => 100, 'finished_at' => $time, 'result' => ['version_id' => (int)$version['id']]]);
-                    vnext\CanvasSeriesBridge::publishMapping($tenantId, $userId, $projectId, $taskId, $result);
+                    vnext\CanvasSeriesBridge::publishMapping($tenantId, $userId, $projectId, $taskId, $result,
+                        (int)($input['context']['dependency_versions']['series']['project_id'] ?? 0));
                 }, static fn(array $receipt): array => MarketTextModelRuntimeService::recoverDurableResult(
                     $tenantId, $userId, 'aigc_short_drama_script_task', (int)$taskData['id'], $receipt));
         } catch (\Throwable $error) {

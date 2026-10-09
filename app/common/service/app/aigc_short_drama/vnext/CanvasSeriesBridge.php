@@ -83,12 +83,13 @@ final class CanvasSeriesBridge
     }
 
     /** Called inside the core publication transaction: content and series history become ready together. */
-    public static function publishMapping(int $tenant, int $user, int $productionProject, string $task, array $result): void
+    public static function publishMapping(int $tenant, int $user, int $productionProject, string $task, array $result, int $series): void
     {
+        // Ordinary single/automatic series publication retains its existing locking contract.
+        if ($series <= 0 || !self::manual($tenant, $user, $series)) return;
         $episode = Db::name('aigc_short_drama_episode_task')->where(['tenant_id' => $tenant, 'user_id' => $user,
-            'production_project_id' => $productionProject, 'task_id' => $task, 'delete_time' => 0])->lock(true)->find();
-        if (!$episode || !self::manual($tenant, $user, (int)$episode['project_id'])) return;
-        if (!in_array($episode['status'], ['pending', 'running'], true)) throw new RuntimeException('画布本集已停止或替换，正文候选保留', 409);
+            'project_id' => $series, 'production_project_id' => $productionProject, 'task_id' => $task, 'delete_time' => 0])->lock(true)->find();
+        if (!$episode || !in_array($episode['status'], ['pending', 'running'], true)) throw new RuntimeException('画布本集已停止或替换，正文候选保留', 409);
         Db::name('aigc_short_drama_episode_task')->where('id', $episode['id'])->update([
             'status' => 'success', 'completed_once' => 1, 'progress' => 100, 'error' => '', 'error_code' => '',
             'result_json' => json_encode($result, JSON_THROW_ON_ERROR),
