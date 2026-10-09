@@ -222,6 +222,18 @@ final class ConversationStore
                     $content['image_plan']['items']=array_map(static fn(array $item): array=>['title'=>$item['title'],'prompt'=>$item['content']],$content['stage_artifacts']);
                 }
             }
+            if (!isset($content['video_nodes']) && !empty($content['canvas_actions']['nodes'])) {
+                $ids=array_column(array_filter($content['canvas_actions']['nodes'],static fn(array $n): bool=>($n['type']??'')==='video'),'id');
+                if ($ids) {
+                    $document=Db::name(GraphService::TABLE)->where(['id'=>$scope['canvas_id'],'tenant_id'=>$scope['tenant_id'],'user_id'=>$scope['user_id'],'delete_time'=>0])->find();
+                    // Graph ownership uses id, not the message table's canvas_id column.
+                    $content['video_nodes']=[];
+                    foreach (json_decode((string)($document['nodes_json']??'[]'),true)?:[] as $node) {
+                        if (!in_array((string)$node['id'],array_map('strval',$ids),true) || ($node['metadata']['workflow_artifact']??'')!=='storyboard_video') continue;
+                        $content['video_nodes'][]=['key'=>(string)$node['id'],'title'=>(string)$node['title'],'prompt'=>(string)($node['metadata']['prompt']??'')];
+                    }
+                }
+            }
             $message=['id'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'role'=>$row['role'],'created_at'=>(int)$row['create_time'],'content'=>$content,'attachments'=>json_decode($row['attachments_json'],true,512,JSON_THROW_ON_ERROR)];
             $actions=$content['canvas_actions']??null;
             if ($actions!==null) {
