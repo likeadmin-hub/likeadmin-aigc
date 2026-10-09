@@ -150,7 +150,7 @@ final class ConversationExecution
                 foreach ((array)($context['selected_nodes']??[]) as $node) if (is_array($node) && is_scalar($node['id']??null)) $sourceIds[]=(string)$node['id'];
                 $auto=($settings['generation_mode']??'manual')==='auto' && ($workflow===[] || ConversationWorkflow::mayAutoSubmit($workflow));
                 $effects=GraphService::appendAgentNodesLocked($document,$proposals,$sourceIds,$auto,$settings,$runId,$workflow);
-                $effects['mode']=($settings['generation_mode']??'manual')==='auto'?'auto':'manual';
+                $effects['mode']=$auto?'auto':'manual';
             }
             $sequence=(int)$thread['next_message_sequence'];
             // Keep narration concise; deliverable bodies are stored separately

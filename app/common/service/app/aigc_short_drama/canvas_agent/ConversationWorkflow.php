@@ -226,6 +226,7 @@ final class ConversationWorkflow
                 ['key'=>'art','label'=>'画风与美术规划','skills'=>['画风设计','主体设计','场景设计','道具设计'],'creates_nodes'=>false],
                 ['key'=>'assets','label'=>'主体、场景与道具','skills'=>['主体图','场景图'],'creates_nodes'=>true,'auto_types'=>['image']],
                 ['key'=>'video_plan','label'=>'分镜表','skills'=>['分镜视频规划'],'creates_nodes'=>true],
+                ['key'=>'storyboard','label'=>'分镜图片','skills'=>['分镜图'],'creates_nodes'=>true,'manual_types'=>['image']],
                 ['key'=>'video_nodes','label'=>'分镜视频节点','skills'=>['分镜视频'],'creates_nodes'=>true,'manual_types'=>['video']],
             ],
             'rules'=>[
@@ -620,8 +621,10 @@ final class ConversationWorkflow
             $frozenSettings=['generation_mode'=>'auto','image_model'=>(array)($state['workflow_snapshot']['model_preferences']['image_model']??[])];
             if (($frozenSettings['image_model']['id']??'')==='') throw new RuntimeException('WORKFLOW_IMAGE_MODEL_UNAVAILABLE');
             $state['plan_confirmation']=['status'=>'confirmed','confirmed_at'=>time(),'plan_hash'=>$planHash];
-            $effects=GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),true,$frozenSettings,(int)$plan['run_id'],$state);
-            $effects['mode']='auto';
+            $auto=!(ConversationStepFlow::enabled($state) && $stage==='storyboard');
+            $frozenSettings['generation_mode']=$auto?'auto':'manual';
+            $effects=GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),$auto,$frozenSettings,(int)$plan['run_id'],$state);
+            $effects['mode']=$auto?'auto':'manual';
             self::rememberArtifacts($state,$stage,(array)$plan['nodes'],$effects);
             $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$stage])));
             $state['stage_state']=self::nextStageState($stage,$completed,$state);
@@ -694,6 +697,7 @@ final class ConversationWorkflow
         if (($workflow['workflow_snapshot']['key']??'')!==self::KEY || (($settings['generation_mode']??'manual')!=='auto' && !ConversationStepFlow::enabled($workflow))) return null;
         $stage=(string)($workflow['stage_state']['key']??'');
         if (!in_array($stage,['assets','storyboard'],true)) return null;
+        if (ConversationStepFlow::enabled($workflow) && $stage==='storyboard') return null;
         if (ConversationSeries::enabled($workflow) && $stage==='assets' && !$proposals) return null;
         $state=self::stateFromSettings($threadSettings); if ($state===[]) return null; self::assertState($state);
         if ((int)($state['state_revision']??0)!==(int)($workflow['state_revision']??0) || ($state['stage_state']['key']??'')!==$stage || ($state['stage_state']['status']??'')!=='running') return null;
@@ -835,6 +839,7 @@ final class ConversationWorkflow
 
     public static function mayAutoSubmit(array $workflow): bool
     {
+        if (ConversationStepFlow::enabled($workflow) && ($workflow['stage_state']['key']??'')==='storyboard') return false;
         return (($workflow['workflow_snapshot']['key']??'')===self::KEY)
             && in_array((string)($workflow['stage_state']['key']??''),['assets','storyboard'],true)
             && (($workflow['plan_confirmation']['status']??'')==='confirmed');
@@ -1060,7 +1065,7 @@ final class ConversationWorkflow
             if (ConversationSeries::requiresConfirmation($state)) return $stageCard+['type'=>'stage_confirmation','requires_user_confirmation'=>true,
                 'title'=>['story'=>'请确认故事设定','outline'=>'请确认分集大纲','episode'=>'剧本草稿已就绪','video_plan'=>'分镜表已就绪'][$stageKey],'body'=>'确认后继续下一阶段，已生成内容会保留。',
                 'artifacts'=>array_map(static fn($item)=>['title'=>$item['title'],'content'=>$item['prompt']],(array)($plan['nodes']??[])),
-                'action_label'=>['story'=>'确认，生成分集大纲','outline'=>'确认，开始第1集创作','episode'=>'采用剧本，准备素材','video_plan'=>'确认分镜表，选择视频片段'][$stageKey]];
+                'action_label'=>['story'=>'确认，生成分集大纲','outline'=>'确认，开始第1集创作','episode'=>'采用剧本，准备素材','video_plan'=>'确认分镜，插入画布'][$stageKey]];
             return $stageCard+['type'=>'stage_confirmation','title'=>'正在保存阶段成果','body'=>$internal?'系统会自动把规划保存到对话与工作流状态，不新增画布文本节点。':'系统会自动安全写入本阶段的结构化内容，随后继续下一阶段。','plan'=>['node_count'=>$internal?0:count((array)($plan['nodes']??[])),'artifact_count'=>count((array)($plan['nodes']??[]))],'action_label'=>'保存并继续'];
         }
         if (($stage['key']??'')==='script' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'创作采集已完成','body'=>self::compactOutput($state)?'系统将自动生成故事设定与大纲、当前单集剧本，并把这两项写入画布。':'系统将自动生成剧本设定、分集大纲和分镜脚本，并写回受控文本节点。'];

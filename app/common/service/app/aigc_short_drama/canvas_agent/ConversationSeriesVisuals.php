@@ -71,6 +71,7 @@ final class ConversationSeriesVisuals
                         $refs=[];
                         foreach ((array)($shot['subject_ref_ids']??[]) as $id) $refs[]='assets:'.self::key('subject',(string)$id);
                         $refs[]='assets:'.self::key('scene',(string)$shot['scene_ref_id']);
+                        foreach ((array)($workflow['artifact_memory']??[]) as $artifact) if (($artifact['stage']??'')==='storyboard' && ($artifact['key']??'')===$shotKey && !empty($artifact['node_id'])) $refs=['storyboard:'.$shotKey];
                         foreach ((array)($workflow['artifact_memory']??[]) as $artifact) if (($artifact['stage']??'')==='video_plan' && ($artifact['key']??'')===$shotKey) $proposal['prompt']=(string)$artifact['content'];
                     }
                     $proposal+=['reference_keys'=>$refs,'duration_seconds'=>$duration];
