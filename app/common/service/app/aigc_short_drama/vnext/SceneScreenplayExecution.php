@@ -8,12 +8,14 @@ use RuntimeException;
 final class SceneScreenplayExecution
 {
     public const VERSION = 1;
+    public const PREFLIGHT_VERSION = 1;
 
     public static function run(array $context, callable $call, callable $checkpoint, array $execution): array
     {
         $plan = ($execution['screenplay_plan'])($context, null);
         if ($plan === null) {
-            try {
+            $windowed = self::preflight($context, $execution);
+            if (!$windowed) try {
                 // Keep the successful short-episode request and stage key exactly as before.
                 return $call('screenplay', GenerationPipeline::creativeContext($context), GenerationPipeline::screenplayInstruction($context),
                     static fn($reply) => ContentDocument::normalize($reply, $context));
@@ -21,7 +23,7 @@ final class SceneScreenplayExecution
                 if (($context['source_mode'] ?? '') === 'faithful') throw $error;
             }
             $proposal = $call('screenplay_plan', ['context' => GenerationPipeline::creativeContext($context), 'target_ids' => self::targets($context)],
-                '完整正文超过输出容量。只制定本集有序分场计划，不输出正文、不改写用户要求、不演出后续集。'
+                '为避免完整正文超过输出容量，只制定本集有序分场计划，不输出正文、不改写用户要求、不演出后续集。'
                 . '返回{title,entities:[{ref,kind:character|location|prop,name,description,identity_facts}],scenes:[{location,time_context,brief,target_ids:[]}]}。'
                 . '按自然剧情边界安排2至32场，每场brief写清该场起因、推进与结束状态，控制单场篇幅。'
                 . 'entities一次登记全部必要新人物、场景、道具，优先沿用context.entities；之后不允许更换登记身份。'
@@ -65,6 +67,26 @@ final class SceneScreenplayExecution
                 'completed' => $number, 'total' => count($plan['scenes']), 'complete' => $number === count($plan['scenes'])]]);
         }
         return $document;
+    }
+
+    /** A frozen opt-in affects new jobs only. Estimates select a strategy, never shorten source text. */
+    private static function preflight(array $context, array $execution): bool
+    {
+        $version = $context['screenplay_preflight_version'] ?? 0;
+        if (!in_array($version, [0, self::PREFLIGHT_VERSION], true)) throw new RuntimeException('正文容量规划版本不受支持', 409);
+        if ($version === 0 || ($context['source_mode'] ?? '') === 'faithful') return false;
+        if (!isset($execution['capacity'])) throw new RuntimeException('正文容量预检未配置', 409);
+        $messages = GenerationPipeline::messages(GenerationPipeline::creativeContext($context),
+            GenerationPipeline::screenplayInstruction($context), $context['prompt_projection_version'] ?? 0);
+        $capacity = ($execution['capacity'])($messages);
+        $available = $capacity['max_tokens'] ?? null;
+        if (!is_int($available) || $available < 1200) throw new RuntimeException('正文输出容量未得到有效确认', 413);
+        // Includes JSON/entity overhead and room for action/dialogue. This is deliberately
+        // conservative; provider usage and finish_reason remain authoritative after the call.
+        $duration = max(0, (int)($context['target_duration_seconds'] ?? 0));
+        $sourceLength = mb_strlen((string)($context['prompt'] ?? ''), 'UTF-8');
+        $required = max(2048, $duration * 20, (int)ceil($sourceLength * 1.25)) + 512;
+        return $required > $available;
     }
 
     /** Normalize plan data once, independently of model-supplied hashes or IDs. */
