@@ -9,7 +9,10 @@ final class ConstraintRevision
     public static function targets(array $context): array
     {
         $state=self::state($context);$items=[];
-        foreach($state as $kind=>$rows) foreach($rows as $row) $items[]=['id'=>$row['id'],'kind'=>$kind,'label'=>$row['label']??$row['text']??''];
+        foreach($state as $kind=>$rows) foreach($rows as $row) {
+            if(!empty($row['episode_ids'])&&!in_array($context['episode_id']??'', $row['episode_ids'],true))continue;
+            $items[]=['id'=>$row['id'],'kind'=>$kind,'label'=>$row['label']??$row['text']??''];
+        }
         return ['version'=>1,'before_hash'=>ContentDocument::hash($state),'items'=>$items];
     }
     public static function apply(array $context,array $document,array $patch,string $revision,array $origin): array
@@ -21,7 +24,10 @@ final class ConstraintRevision
         $seen=[];$selected=[];
         foreach($state as $kind=>$rows) foreach($rows as $row) {
             if(isset($seen[$row['id']])) throw new RuntimeException('本集要求标识不唯一',409);$seen[$row['id']]=true;
-            if(in_array($row['id'],$ids,true))$selected[]=['kind'=>$kind,'record'=>$row];
+            if(in_array($row['id'],$ids,true)) {
+                if(!empty($row['episode_ids'])&&!in_array($document['episode_id'],$row['episode_ids'],true))throw new RuntimeException('只能选择适用当前集的要求或事件',422);
+                $selected[]=['kind'=>$kind,'record'=>$row];
+            }
         }
         if(count($selected)!==count($ids)||count(array_unique($ids,SORT_REGULAR))!==count($ids)) throw new RuntimeException('选择的要求不属于当前集或目标重复',409);
         $text=ContentDocument::text($patch['text']??null,'constraint.text');
