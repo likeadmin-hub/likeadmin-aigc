@@ -23,6 +23,9 @@ final class ShortDramaVnextExecutionTest extends TestCase
         $prefix = (string)config('database.connections.mysql.prefix', 'la_');
         SqlMigrationExecutor::execute($sql, $prefix);
         SqlMigrationExecutor::execute($sql, $prefix); // Migration is repeatable and preserves existing data.
+        $retry = file_get_contents(root_path() . 'app/apps/aigc_short_drama/migrations/upgrade_20261009_vnext_retry.sql');
+        SqlMigrationExecutor::execute($retry, $prefix);
+        SqlMigrationExecutor::execute($retry, $prefix);
     }
     protected function setUp(): void
     {
@@ -76,6 +79,19 @@ final class ShortDramaVnextExecutionTest extends TestCase
         try { $this->store->call($fence, 'screenplay', [], function () use (&$calls) { $calls++; return $this->receipt(); }); self::fail('Unknown submission retried'); }
         catch (\RuntimeException $e) { self::assertSame(409, $e->getCode()); }
         self::assertSame(1, $calls);
+    }
+    public function testOnlyProvenConnectionFailureMayRetryAfterBackoff(): void
+    {
+        $fence = $this->store->acquire('worker1', 100); $calls = 0;
+        try { $this->store->call($fence, 'screenplay', [], function () use (&$calls) { $calls++; throw new \RuntimeException('Could not resolve host'); }); }
+        catch (\RuntimeException $e) { self::assertSame(425, $e->getCode()); }
+        self::assertSame('retry_wait', $this->store->snapshot()['execution_status']);
+        $fence = $this->store->acquire('worker1', 100);
+        try { $this->store->call($fence, 'screenplay', [], static function () { self::fail('Backoff bypassed'); }); }
+        catch (\RuntimeException $e) { self::assertSame(425, $e->getCode()); }
+        Db::name('aigc_short_drama_vnext_stage')->where($this->scope)->update(['retry_after' => 0]);
+        $this->store->call($fence, 'screenplay', [], function () use (&$calls) { $calls++; return $this->receipt(); });
+        self::assertSame(2, $calls); self::assertSame(2, json_decode($this->store->snapshot()['budget_json'], true)['calls']);
     }
     public function testPrivateBufferRestoresReceiptBeforeAnyResubmission(): void
     {

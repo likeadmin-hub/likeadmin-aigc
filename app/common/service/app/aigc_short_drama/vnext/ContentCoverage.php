@@ -17,7 +17,7 @@ final class ContentCoverage
         }
         $units = ContentDocument::units($document); $byRef = array_column($units, 'unit_id', 'ref');
         $checks = [];
-        foreach ($review['checks'] ?? [] as $check) {
+        foreach (ContentDocument::rows($review['checks'] ?? [], 'review.checks') as $check) {
             $id = $check['id'] ?? '';
             if (!is_string($id) || $id === '' || isset($checks[$id])) throw new RuntimeException('验收检查标识缺失或重复', 422);
             $checks[$id] = $check;
@@ -42,7 +42,7 @@ final class ContentCoverage
             if (!in_array($check['status'] ?? '', ['covered', 'missing', 'contradiction', 'uncertain'], true)) throw new RuntimeException('验收结论无效：' . $id, 422);
             $evidence = $check['evidence'] ?? [];
             if (!is_array($evidence)) throw new RuntimeException('验收证据格式无效', 422);
-            foreach ($evidence as $link) {
+            foreach (ContentDocument::rows($evidence, 'check.evidence') as $link) {
                 $unitId = $byRef[$link['unit'] ?? ''] ?? '';
                 if (!isset($units[$unitId])) throw new RuntimeException('验收引用不存在的正文', 422);
                 ContentDocument::slice($units[$unitId]['text'], $link['start'] ?? null, $link['end'] ?? null, $link['quote'] ?? null);

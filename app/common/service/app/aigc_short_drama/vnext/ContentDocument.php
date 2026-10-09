@@ -25,6 +25,12 @@ final class ContentDocument
         }
         return $value;
     }
+    public static function rows($value, string $field): array
+    {
+        if (!is_array($value) || ($value && array_keys($value) !== range(0, count($value) - 1))) throw new RuntimeException('列表结构无效：' . $field, 422);
+        foreach ($value as $row) if (!is_array($row)) throw new RuntimeException('列表条目结构无效：' . $field, 422);
+        return $value;
+    }
 
     /** $context is server-owned, persisted before submission; models never allocate identity. */
     public static function normalize(array $reply, array $context): array
@@ -73,8 +79,8 @@ final class ContentDocument
             }
             $entities[$id]['aliases'] = array_values(array_unique($entities[$id]['aliases']));
         };
-        foreach ($context['entities'] ?? [] as $entity) $register($entity, true);
-        foreach ($reply['entities'] ?? [] as $entity) $register($entity, false);
+        foreach (self::rows($context['entities'] ?? [], 'context.entities') as $entity) $register($entity, true);
+        foreach (self::rows($reply['entities'] ?? [], 'entities') as $entity) $register($entity, false);
         $resolve = static function ($ref, string $kind) use (&$aliases): string {
             $matches = $aliases[$kind . ':' . self::text($ref, $kind . '.ref')] ?? [];
             if (count($matches) !== 1) throw new RuntimeException('实体引用无法唯一定位：' . $ref, 422);
@@ -82,17 +88,18 @@ final class ContentDocument
         };
         if (empty($reply['scenes']) || !is_array($reply['scenes'])) throw new RuntimeException('正文缺少完整场次', 422);
         $scenes = []; $ordinal = 0;
-        foreach (array_values($reply['scenes']) as $i => $scene) {
+        foreach (self::rows($reply['scenes'], 'scenes') as $i => $scene) {
             if (empty($scene['units']) || !is_array($scene['units'])) throw new RuntimeException('正文场次缺少动作或对白', 422);
             $normalized = ['scene_id' => self::id($context['revision_id'], 'scene', $i + 1),
                 'location_id' => $resolve($scene['location'] ?? null, 'location'),
                 'time_context' => (string)($scene['time_context'] ?? ''), 'units' => []];
-            foreach ($scene['units'] as $unit) {
+            foreach (self::rows($scene['units'], 'units') as $unit) {
                 $type = $unit['type'] ?? '';
                 if (!in_array($type, ['action', 'dialogue'], true)) throw new RuntimeException('正文单元类型无效', 422);
                 $text = self::text($unit['text'] ?? null, 'unit.text');
                 $row = ['unit_id' => self::id($context['revision_id'], 'unit', ++$ordinal), 'ref' => 'u' . $ordinal,
                     'type' => $type, 'text' => $text, 'text_hash' => hash('sha256', $text), 'entity_ids' => []];
+                if (isset($unit['characters']) && !is_array($unit['characters'])) throw new RuntimeException('人物引用必须为数组', 422);
                 foreach ($unit['characters'] ?? [] as $ref) $row['entity_ids'][] = $resolve($ref, 'character');
                 $row['entity_ids'] = array_values(array_unique($row['entity_ids']));
                 if ($type === 'dialogue') {
@@ -101,7 +108,7 @@ final class ContentDocument
                     $row['speaker_id'] = $row['speech_type'] === 'narration' ? null : $resolve($unit['speaker'] ?? null, 'character');
                     if ($row['speaker_id'] && !in_array($row['speaker_id'], $row['entity_ids'], true)) $row['entity_ids'][] = $row['speaker_id'];
                 }
-                $row['source_links'] = self::sourceLinks($unit['source_links'] ?? [], $context['sources'] ?? []);
+                $row['source_links'] = self::sourceLinks(self::rows($unit['source_links'] ?? [], 'source_links'), $context['sources'] ?? []);
                 $normalized['units'][] = $row;
             }
             $scenes[] = $normalized;
@@ -159,7 +166,8 @@ final class ContentDocument
         self::text($revision, 'revision_id');
         if ($revision === $document['revision_id']) throw new RuntimeException('编辑必须建立新修订', 409);
         $units = self::units($document); $seen = [];
-        foreach ($patches as $patch) {
+        foreach (self::rows($patches, 'patches') as $patch) {
+            if (array_diff(array_keys($patch), ['unit_id', 'before_hash', 'text'])) throw new RuntimeException('局部补丁含不允许修改的字段', 422);
             $id = $patch['unit_id'] ?? '';
             if (!isset($units[$id]) || isset($seen[$id]) || ($patch['before_hash'] ?? '') !== $units[$id]['text_hash']) throw new RuntimeException('编辑基线已变化或正文引用重复', 409);
             self::text($patch['text'] ?? null, 'patch.text'); $seen[$id] = $patch['text'];

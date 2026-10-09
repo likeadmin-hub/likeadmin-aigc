@@ -63,6 +63,21 @@ final class ShortDramaVnextContentTest extends TestCase
         $reply = $this->reply(); $reply['scenes'][0]['units'][1]['speaker'] = '不存在';
         $this->expectExceptionCode(422); Document::normalize($reply, $this->context());
     }
+    public function testTwoConfirmedPeopleWithSameNameUseDistinctShortAliases(): void
+    {
+        $context = $this->context();
+        $context['entities'][] = ['ref' => 'c2', 'entity_id' => 'person2', 'name' => '陈默', 'kind' => 'character', 'identity_facts' => ['age' => 18]];
+        $reply = $this->reply(); $reply['scenes'][0]['units'][1]['speaker'] = 'c2';
+        $document = Document::normalize($reply, $context);
+        self::assertSame('person2', array_values(Document::units($document))[1]['speaker_id']);
+        $reply['scenes'][0]['units'][1]['speaker'] = '陈默';
+        $this->expectExceptionCode(422); Document::normalize($reply, $context);
+    }
+    public function testMalformedRowsProduceRecoverableContractError(): void
+    {
+        $reply = $this->reply(); $reply['entities'] = ['not-an-object'];
+        $this->expectExceptionCode(422); Document::normalize($reply, $this->context());
+    }
     public function testMissingDialogueTailCannotBecomeProductionReady(): void
     {
         $document = Document::normalize($this->reply(), $this->context());

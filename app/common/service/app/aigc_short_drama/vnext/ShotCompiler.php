@@ -16,10 +16,10 @@ final class ShotCompiler
         $names = array_column($document['entities'], 'canonical_name', 'entity_id');
         $coverage = []; $shots = []; $firstDialogue = []; $dialogueOrder = [];
         foreach ($units as $id => $unit) if ($unit['type'] === 'dialogue') $dialogueOrder[] = $id;
-        foreach (array_values($reply['shots']) as $i => $shot) {
+        foreach (ContentDocument::rows($reply['shots'], 'shots') as $i => $shot) {
             if (empty($shot['refs']) || !is_array($shot['refs'])) throw new RuntimeException('分镜缺少正文引用', 422);
             $links = []; $entities = []; $locations = []; $lines = [];
-            foreach ($shot['refs'] as $ref) {
+            foreach (ContentDocument::rows($shot['refs'], 'shot.refs') as $ref) {
                 $id = $refs[$ref['unit'] ?? ''] ?? '';
                 if (!isset($units[$id])) throw new RuntimeException('分镜引用不存在的正文', 422);
                 $unit = $units[$id]; $start = $ref['start'] ?? 0; $end = $ref['end'] ?? mb_strlen($unit['text'], 'UTF-8');
