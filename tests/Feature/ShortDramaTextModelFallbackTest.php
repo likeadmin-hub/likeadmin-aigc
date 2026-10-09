@@ -85,6 +85,7 @@ class ShortDramaTextModelFallbackTest extends TestCase
     {
         require __DIR__ . '/../fixtures/short_drama_text_model_fallback.php';
         $this->silenceLog();
+        Container::getInstance()->instance('config', new \think\Config());
         \app\common\service\power\MarketTextModelRuntimeService::$returnSuccess = true;
         \app\common\service\power\MarketTextModelRuntimeService::$options = array_map(
             static fn($id) => ['id' => $id, 'model_code' => $id], ['selected', 'second', 'third', 'fourth', 'fifth']);
