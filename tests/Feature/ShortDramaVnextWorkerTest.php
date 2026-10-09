@@ -101,6 +101,13 @@ final class ShortDramaVnextWorkerTest extends TestCase
             try { Service::estimateShotGenerationTask($tenant, $user + 1, $imageRequest); self::fail('Foreign owner accepted'); }
             catch (\Exception $e) { self::assertNotSame('', $e->getMessage()); }
 
+            Db::name('aigc_short_drama_generation_task')->where('task_id', $frame['task_id'])->update(['status' => 'canceled']);
+            $retriedFrame = Service::retryGenerationTask($tenant, $user, $frame['task_id']);
+            self::assertSame('success', $retriedFrame['status']);
+            self::assertNotSame($frame['task_id'], $retriedFrame['task_id']);
+            self::assertSame($retriedFrame['task_id'], Service::retryGenerationTask($tenant, $user, $frame['task_id'])['task_id']);
+            self::assertCount(3, \app\common\service\power\MarketImageModelRuntimeService::$requests, 'Duplicate explicit retries must not submit twice');
+            self::assertSame('ready', Service::scriptPlanDetail($tenant, $user, $task, $project)['generation_snapshot']['document_status']);
             $edit = ['project_id' => $project, 'task_id' => $task, 'expected_revision_id' => $document['revision_id'],
                 'canonical_patches' => [['unit_id' => $unit['unit_id'], 'before_hash' => $unit['text_hash'], 'text' => $unit['text'] . '新说明。']]];
             $revision = Service::saveStoryboard($tenant, $user, $edit); $ownedTasks[] = $revision['task_id'];
@@ -115,7 +122,7 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertSame($unit['text'] . '新说明。', $revised['result']['canonical_document']['scenes'][0]['units'][0]['text']);
             self::assertSame($image['assets'][0]['id'], $revised['production_handoff']['targets'][0]['asset']['id'], 'Unchanged scene state reuses managed media across text revisions');
             self::assertNull($revised['production_handoff']['targets'][1]['asset'], 'Old shot images cannot imply new content coverage');
-            self::assertSame(2, Db::name('aigc_short_drama_asset')->where($scope + ['project_id' => $project])->count(), 'Historical media is never deleted on revision');
+            self::assertSame(3, Db::name('aigc_short_drama_asset')->where($scope + ['project_id' => $project])->count(), 'Historical media is never deleted on revision');
             Db::name('aigc_short_drama_generation_task')->where('task_id', $frame['task_id'])->update(['status' => 'failed']);
             try { Service::retryGenerationTask($tenant, $user, $frame['task_id']); self::fail('Old media retry submitted after revision'); }
             catch (\RuntimeException $e) { self::assertSame(409, $e->getCode()); }
@@ -123,7 +130,7 @@ final class ShortDramaVnextWorkerTest extends TestCase
 
             try { Service::createShotGenerationTask($tenant, $user, $shotRequest); self::fail('Stale revision dispatched'); }
             catch (\RuntimeException $e) { self::assertSame(409, $e->getCode()); }
-            self::assertCount(2, \app\common\service\power\MarketImageModelRuntimeService::$requests);
+            self::assertCount(3, \app\common\service\power\MarketImageModelRuntimeService::$requests);
             self::assertSame($saved['result_json'], Db::name('aigc_short_drama_script_task')->where('task_id', $task)->value('result_json'));
             self::assertNotContains('revise_content' , Service::scriptPlanDetail($tenant, $user, $task, $project)['generation_snapshot']['allowed_actions']);
         } finally {

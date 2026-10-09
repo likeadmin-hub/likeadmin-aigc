@@ -1684,6 +1684,7 @@ class AigcShortDramaService
 
     public static function createSubjectLibraryGeneration(int $tenantId, int $userId, array $params): array
     {
+        $params = self::stripCanonicalClientParams($params);
         $taskType = self::normalizeGenerationTaskType((string)($params['task_type'] ?? $params['type'] ?? 'subject_image'));
         if (!in_array($taskType, ['subject_image', 'three_view'], true)) {
             throw new Exception('Unsupported subject generation type');
@@ -6868,6 +6869,13 @@ class AigcShortDramaService
         }
     }
 
+    private static function stripCanonicalClientParams(array $params): array
+    {
+        foreach (array_keys($params) as $key) if (str_starts_with((string)$key, '_canonical_')) unset($params[$key]);
+        if (is_array($params['params'] ?? null)) foreach (array_keys($params['params']) as $key) if (str_starts_with((string)$key, '_canonical_')) unset($params['params'][$key]);
+        return $params;
+    }
+
     /** Both quote and submit use the same server-owned revision and asset contract. */
     private static function canonicalImageRequest(int $tenantId, int $userId, array $project, string $taskId, string $taskType, array $params): ?array
     {
@@ -6977,8 +6985,7 @@ class AigcShortDramaService
 
     public static function estimateShotGenerationTask(int $tenantId, int $userId, array $params): array
     {
-        foreach (array_keys($params) as $key) if (str_starts_with((string)$key, '_canonical_')) unset($params[$key]);
-        if (is_array($params['params'] ?? null)) foreach (array_keys($params['params']) as $key) if (str_starts_with((string)$key, '_canonical_')) unset($params['params'][$key]);
+        $params = self::stripCanonicalClientParams($params);
         $projectId = (int)($params['project_id'] ?? 0);
         $taskId = trim((string)($params['task_id'] ?? ''));
         $shotId = trim((string)($params['shot_id'] ?? ''));
@@ -7040,8 +7047,7 @@ class AigcShortDramaService
 
     public static function createShotGenerationTask(int $tenantId, int $userId, array $params, bool $deferEpisodeExport = false): array
     {
-        foreach (array_keys($params) as $key) if (str_starts_with((string)$key, '_canonical_')) unset($params[$key]);
-        if (is_array($params['params'] ?? null)) foreach (array_keys($params['params']) as $key) if (str_starts_with((string)$key, '_canonical_')) unset($params['params'][$key]);
+        $params = self::stripCanonicalClientParams($params);
         // Never accept a client-supplied prompt snapshot. Retries use stored task params instead.
         unset($params['_prompt_snapshot'], $params['params']['_prompt_snapshot'], $params['_skill_snapshot'], $params['params']['_skill_snapshot'], $params['_skill_origin_task_id'], $params['_episode_duration_policy'], $params['params']['_episode_duration_policy']);
         $params['_prompt_snapshot'] = ShortDramaPromptWorkspace::capture($tenantId);
@@ -7374,11 +7380,11 @@ class AigcShortDramaService
     public static function retryGenerationTask(int $tenantId, int $userId, string $taskId): array
     {
         $task = self::findGenerationTask($tenantId, $userId, $taskId);
-        if ((string)$task['status'] !== self::STATUS_FAILED) {
-            throw new Exception('当前生成任务不可重试');
-        }
         $originalRequest = self::jsonDecode((string)$task['request_json']);
         $canonical = $originalRequest['params']['_canonical_image'] ?? null;
+        if ((string)$task['status'] !== self::STATUS_FAILED && !($canonical && $task['status'] === self::STATUS_CANCELED)) {
+            throw new Exception('当前生成任务不可重试');
+        }
         if ($canonical) {
             vnext\ImageHandoff::assertIntact($canonical);
             $project = self::findProject($tenantId, $userId, (int)$task['project_id']);
