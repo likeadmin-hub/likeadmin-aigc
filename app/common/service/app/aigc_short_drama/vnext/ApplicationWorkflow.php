@@ -82,6 +82,9 @@ final class ApplicationWorkflow
                 : ManualContentRevision::capture($input, $document, $patches, $revision, $origin);
             $edited = $captured['document']; $input['context']['sources'] = $captured['sources'];
             $input['context']['manual_edit_history'] = $captured['history'];
+            if (array_key_exists('requirements',$captured)) {
+                $input['context']['requirements']=$captured['requirements']; $input['context']['events']=$captured['events'];
+            }
         } else {
             if ($structure) throw new RuntimeException('结构修改缺少服务器确认来源', 409);
             $edited = ContentDocument::patch($document, $patches, $revision);
@@ -110,6 +113,7 @@ final class ApplicationWorkflow
         if (!$document || $document['revision_id'] !== $expectedRevision) throw new RuntimeException('复核正文版本已变化', 409);
         $revision = 'revision_' . substr(ContentDocument::hash([$newTask, 1]), 0, 24);
         $input['context'] = array_replace($input['context'], $context);
+        if (!empty($document['constraint_revision_receipts'])) $input['context'] = ConstraintRevision::replay($input['context'], $document);
         $input['context']['canonical_input'] = ContentDocument::rebind($document, $context['dependency_versions'], $revision);
         $input['context']['revision_id'] = $revision;
         unset($input['context']['structured_screenplay']);
