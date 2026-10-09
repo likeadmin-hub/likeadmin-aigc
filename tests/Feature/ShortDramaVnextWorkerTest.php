@@ -39,7 +39,8 @@ final class ShortDramaVnextWorkerTest extends TestCase
             $row = Db::name('aigc_short_drama_script_task')->where('task_id', $task)->find();
             Provider::$failSettlementOnce = true;
             $paused = $run->invoke(null, $tenant, $user, $row, static function () {});
-            self::assertSame('queued', $paused['status']);
+            self::assertSame('pending', $paused['status']); // Public task API normalizes queued to pending.
+            self::assertSame('queued', Db::name('aigc_short_drama_script_task')->where('task_id', $task)->value('status'));
             self::assertSame('reconciling', $paused['generation_snapshot']['execution_status']);
             self::assertCount(1, Provider::$requests);
             self::assertFalse(Service::runStoryPlanningTask($tenant, $user, $task), 'Backoff must not spin or call the provider');
