@@ -137,6 +137,40 @@ class CanvasAgentIntentRoutingTest extends TestCase
         }
     }
 
+    public function testWorkflowActivationRecoversIntakeWithoutInventingConfirmedFacts(): void
+    {
+        $routing=$this->routing();
+        $fact=['key'=>'episode_count','value'=>'1集','source'=>'message','evidence'=>'一集','confidence'=>1];
+        $question=['key'=>'episode_duration','ask'=>'每集希望多长？','options'=>['60秒','120秒']];
+        $value=$this->decision(['confidence'=>'0.96','reply_markdown'=>'好，这次按「完整短剧」来做。',
+            'intake'=>['candidates'=>[['key'=>'genre'], $fact,
+                array_replace($fact,['key'=>'episode_duration','source'=>'image'])],
+                'questions'=>[['key'=>'unknown','ask'=>'?','options'=>[]],$question]]]);
+        $parsed=ConversationIntentRouter::parseConversation(json_encode($value,JSON_THROW_ON_ERROR),$routing);
+        self::assertTrue(ConversationIntentRouter::shouldActivateWorkflow($parsed,$routing));
+        self::assertSame($value['reply_markdown'],$parsed['reply_markdown']);
+        self::assertSame(['candidates'=>[$fact],'questions'=>[$question]],$parsed['intake']);
+        self::assertSame($parsed,ConversationIntentRouter::parse(json_encode($parsed,JSON_THROW_ON_ERROR),$routing));
+        foreach ([null,[],['candidates'=>null,'questions'=>'unknown']] as $intake) {
+            $value['intake']=$intake;
+            $parsed=ConversationIntentRouter::parseConversation(json_encode($value,JSON_THROW_ON_ERROR),$routing);
+            self::assertTrue(ConversationIntentRouter::shouldActivateWorkflow($parsed,$routing));
+            self::assertSame(['candidates'=>[],'questions'=>[]],$parsed['intake']);
+        }
+        $value['confidence']=0.5;
+        self::assertFalse(ConversationIntentRouter::shouldActivateWorkflow(
+            ConversationIntentRouter::parseConversation(json_encode($value,JSON_THROW_ON_ERROR),$routing),$routing));
+    }
+
+    public function testRoutingDiagnosticsDistinguishMetadataFailures(): void
+    {
+        foreach (['intent_confidence'=>['confidence'=>'high'], 'intent_axes'=>['scope'=>'full'],
+            'intent_intake'=>['intake'=>['candidates'=>[['key'=>'genre']],'questions'=>[]]]] as $category=>$changes) {
+            self::assertSame($category,ConversationIntentRouter::failureCategory(
+                json_encode($this->decision($changes),JSON_THROW_ON_ERROR),$this->routing()));
+        }
+    }
+
     public function testRecoveryCannotActivateWorkflowOrAcceptUnownedActions(): void
     {
         $routing=$this->routing();
@@ -145,7 +179,8 @@ class CanvasAgentIntentRoutingTest extends TestCase
             ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','scope'=>'workflow'],
             ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','deliverable'=>'full_drama'],
             ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','skill_key'=>'unowned_skill'],
-            $this->decision(['intake'=>['candidates'=>[['key'=>'genre']],'questions'=>[]]]),
+            $this->decision(['scope'=>'invented']),
+            $this->decision(['confidence'=>'high']),
             ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'<canvas-actions>{}</canvas-actions>'],
             ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','canvas_actions'=>['nodes'=>[]]],
             ['intent'=>'image','confidence'=>0.96,'reply_markdown'=>'图片已经生成'],
