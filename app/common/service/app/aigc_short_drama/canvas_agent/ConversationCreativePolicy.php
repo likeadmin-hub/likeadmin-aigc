@@ -49,14 +49,18 @@ final class ConversationCreativePolicy
             $state['slot_values'][$key]=$candidate['value'];
             $state['slot_sources'][$key]=$candidate;
         }
-        if (!isset($state['slot_values']['episode_count']) && preg_match('/多集|连载|系列/u',(string)($state['creative_brief']??''))) {
+        $brief=(string)($state['creative_brief']??'');
+        $series=preg_match('/多集|连载|系列/u',$brief)===1;
+        $delegated=preg_match('/你来定|你决定|自行决定|自动安排|按默认/u',$brief)===1;
+        if (!isset($state['slot_values']['episode_count']) && $series && !$delegated) {
             $state['intake_candidates']=[];$state['intake_questions']=$draft['questions'];
             $state['stage_state']=['key'=>'intake','status'=>'collecting','completed'=>[]];
             return $state;
         }
         if (!isset($state['slot_values']['episode_count'])) {
-            $state['slot_values']['episode_count']='1集（暂定草稿）';
-            $state['slot_sources']['episode_count']=['source'=>'assumption','value'=>'1集','evidence'=>'未指定规模，先起草一集；可在采用前调整'];
+            $count=$series?3:1;
+            $state['slot_values']['episode_count']=$count.'集（暂定草稿）';
+            $state['slot_sources']['episode_count']=['source'=>'assumption','value'=>$count.'集','evidence'=>$series?'用户授权暂定规模，先规划三集':'未指定规模，先起草一集'];
         }
         $state['intake_candidates']=[];$state['intake_questions']=[];
         $state['stage_state']=['key'=>self::firstStage($state),'status'=>'ready','completed'=>['intake']];
@@ -72,7 +76,7 @@ final class ConversationCreativePolicy
     public static function instruction(): string
     {
         return '先回应本轮实际创作要求，语言自然简洁。灵感足够时给一个具体开场或创作方向，不先填八项表单；最多问两个真正影响本轮的缺口。'
-            .'未指定的受众、结局、画风允许暂不决定；未指定规模先起草一集并明确这只是暂定。上传完整剧本时保留原剧情和人物，提取已有内容，不另编故事。'
+            .'未指定的受众、结局、画风允许暂不决定；未指定规模先起草一集；明确要求多集且授权你决定规模时先按三集规划，并说明集数暂定。上传完整剧本时保留原剧情和人物，提取已有内容，不另编故事。'
             .'用户明确要求优先于风格默认；推测必须标为草案。解释问题只解释，不能自动开始制作；“你来定”只授权创作选择，不授权图片或视频费用。';
     }
     public static function missingVisualSlot(array $state): ?array

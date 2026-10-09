@@ -57,6 +57,15 @@ class CanvasCreativePolicyTest extends TestCase
         self::assertSame(90,Policy::duration($s));
         $s['slot_values']['episode_duration']='3分钟以上';self::assertSame(0,Policy::duration($s));
     }
+    public function testDelegatingScaleStopsRepeatedQuestionsWithoutAuthorizingMedia(): void
+    {
+        $s=$this->state();$s['creative_brief']='做一部连载短剧';
+        $settings=Workflow::applyIntakeDraftLocked($s,['workflow_state'=>$s],$this->draft([]),['message'],'集数你来定');
+        $next=$settings['workflow_state'];
+        self::assertSame('story',$next['stage_state']['key']);self::assertSame(3,Series::count($next));
+        self::assertSame('assumption',$next['slot_sources']['episode_count']['source']);
+        self::assertArrayNotHasKey('plan_confirmation',$next);
+    }
     public function testLegacyRetainsReviewAndConfirmedFactsCannotBeOverwritten(): void
     {
         $old=$this->state();unset($old['workflow_snapshot']['creative_policy_version']);
