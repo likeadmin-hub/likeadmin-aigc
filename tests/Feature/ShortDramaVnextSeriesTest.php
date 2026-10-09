@@ -57,6 +57,7 @@ final class ShortDramaVnextSeriesTest extends TestCase
             Db::name('aigc_short_drama_script_task')->insert($scope + ['project_id' => $project, 'task_id' => $task, 'status' => 'success',
                 'prompt' => $request['prompt'], 'request_json' => json_encode($request), 'result_json' => json_encode($plan)]);
             \think\facade\Config::set(['generation_version' => 3, 'vnext' => ['enabled' => true, 'series_enabled' => true, 'tenant_ids' => [$tenant],
+                'canvas_series_enabled' => $canvas,
                 'models' => ['frozen_model' => ['stage_timeout_seconds' => 100, 'lease_seconds' => 150, 'deadline_seconds' => 1800]]]], 'short_drama');
             $created = Service::createScriptPlan($tenant, $user, ['prompt' => '第一集发现书信，第二集辨认印记。', 'multi_episode' => true,
                 'episode_count' => 2, 'model_selections' => ['script_plan' => ['id' => 'frozen_model']], '_source_trace' => ['text' => '伪造来源']]);
@@ -87,21 +88,33 @@ final class ShortDramaVnextSeriesTest extends TestCase
                 self::assertCount(3, PlanningTrace::sources($plan['content_trace']));
             }
             if ($canvas) {
+                $canvasId=Db::name('aigc_short_drama_canvas')->insertGetId($scope+['title'=>'Fixture','nodes_json'=>'[]','edges_json'=>'[]','viewport_json'=>'{}']);
                 // No enrollment while switches are off, and no migration after legacy episode one.
                 $policy=\think\facade\Config::get('short_drama');
                 \think\facade\Config::set(['generation_version'=>3,'vnext'=>['enabled'=>false,'series_enabled'=>false]],'short_drama');
-                self::assertNull(CanvasSeriesBridge::create($tenant,$user,$project,$task,1,0,42));
+                self::assertNull(CanvasSeriesBridge::create($tenant,$user,$project,$task,1,0,$canvasId));
                 self::assertSame(0,Db::name('aigc_short_drama_episode_task')->where($scope+['project_id'=>$project])->count());
                 \think\facade\Config::set($policy,'short_drama');
-                self::assertNull(CanvasSeriesBridge::create($tenant,$user,$project,$task,2,0,42));
-                $firstChild=CanvasSeriesBridge::create($tenant,$user,$project,$task,1,0,42);
-                self::assertSame($firstChild['task_id'],CanvasSeriesBridge::create($tenant,$user,$project,$task,1,0,42)['task_id']);
+                self::assertNull(CanvasSeriesBridge::create($tenant,$user,$project,$task,2,0,$canvasId));
+                $firstChild=CanvasSeriesBridge::create($tenant,$user,$project,$task,1,0,$canvasId);
+                self::assertSame($firstChild['task_id'],CanvasSeriesBridge::create($tenant,$user,$project,$task,1,0,$canvasId)['task_id']);
                 self::assertTrue(CanvasSeriesBridge::manual($tenant,$user,$project));
                 self::assertSame(0,Db::name('aigc_short_drama_episode_job')->where($scope+['project_id'=>$project])->count());
-                foreach ([[$tenant,$user,$project,$task,1,0,43],[$tenant,$user+1,$project,$task,1,0,42],[$tenant+1,$user,$project,$task,1,0,42],[$tenant,$user,$project,'wrong-outline',1,0,42]] as $foreign) {
+                foreach ([[$tenant,$user,$project,$task,1,0,$canvasId+1],[$tenant,$user+1,$project,$task,1,0,$canvasId],[$tenant+1,$user,$project,$task,1,0,$canvasId],[$tenant,$user,$project,'wrong-outline',1,0,$canvasId]] as $foreign) {
                     try {CanvasSeriesBridge::create(...$foreign);self::fail('Foreign canvas binding accepted');}
                     catch (\RuntimeException $error) {self::assertSame(409,$error->getCode());}
                 }
+                $thread=\app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore::create($tenant,$user,$canvasId,'bridge:'.$task,'创作');
+                $canvasState=['workflow_snapshot'=>['series_core'=>true], 'state_revision'=>1,'series'=>['episode_number'=>1,'tasks'=>['outline'=>['task_id'=>$task,'project_id'=>$project]]],
+                    'stage_state'=>['key'=>'episode'],'slot_values'=>['episode_count'=>'2集']];
+                $threadTable=\app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore::PREFIX.'thread';
+                Db::name($threadTable)->where('id',$thread['id'])->update(['active_run_id'=>12345,'settings_json'=>json_encode(['workflow_state'=>$canvasState])]);
+                $claim=['canvas_id'=>$canvasId,'thread_id'=>$thread['id'],'context'=>['workflow'=>$canvasState]];
+                $bind=new \ReflectionMethod(\app\common\service\app\aigc_short_drama\canvas_agent\ConversationProduction::class,'bind');$bind->setAccessible(true);
+                $bound=$bind->invoke(null,$tenant,$user,12345,$claim,'episode_1');
+                self::assertSame($firstChild['task_id'],$bound['task_id']);
+                $again=$bind->invoke(null,$tenant,$user,12345,$claim,'episode_1');self::assertSame($bound,$again);
+                self::assertSame(1,Db::name('aigc_short_drama_canvas_production')->where($scope+['canvas_id'=>$canvasId,'thread_id'=>$thread['id']])->count());
                 $rows=Episodes::lists($tenant,$user,$project)['lists'];
             } else $rows = Episodes::start($tenant, $user, ['project_id' => $project, 'task_id' => $task, 'draft_version' => 0])['lists'];
             self::assertCount(2, $rows);
@@ -134,8 +147,8 @@ final class ShortDramaVnextSeriesTest extends TestCase
                 self::assertCount(3,Provider::$requests);
                 self::assertSame('',Db::name('aigc_short_drama_episode_task')->where('id',$rows[1]['id'])->value('task_id'));
                 self::assertSame(0,(int)Db::name('aigc_short_drama_episode_task')->where('id',$rows[1]['id'])->value('queue_job_id'));
-                $secondChild=CanvasSeriesBridge::create($tenant,$user,$project,$task,2,0,42);
-                self::assertSame($secondChild['task_id'],CanvasSeriesBridge::create($tenant,$user,$project,$task,2,0,42)['task_id']);
+                $secondChild=CanvasSeriesBridge::create($tenant,$user,$project,$task,2,0,$canvasId);
+                self::assertSame($secondChild['task_id'],CanvasSeriesBridge::create($tenant,$user,$project,$task,2,0,$canvasId)['task_id']);
                 self::assertCount(3,Provider::$requests,'Explicit creation saves a task before Provider I/O');
             }
             self::assertSame(1, Episodes::tick($tenant, $project));
