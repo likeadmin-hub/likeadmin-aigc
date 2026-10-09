@@ -53,7 +53,7 @@ final class AudioProduction
         $measurement = AudioMediaProbe::measure($path, $extension, $ffprobe);
         $checksum = hash_file('sha256', $path);
         $trace = AudioHandoff::recordingTrace($segment, $measurement, $checksum, $user);
-        $existing = self::existing($tenant, $user, $project, $task, $trace);
+        $existing = self::existing($tenant, $user, $project, $task, $trace, $segment);
         if ($existing) return $existing;
         $stored = $persist();
         if (($stored['tenant_id'] ?? 0) !== $tenant || ($stored['source_id'] ?? 0) !== $user || empty($stored['uri'])
@@ -65,7 +65,7 @@ final class AudioProduction
             $candidate = self::context($tenant, $user, $project, $task);
             $current = AudioHandoff::compile($candidate, $segment['audio_segment_id'], $segment['document_revision_id'], $segment['text_hash']);
             if ($current['input_hash'] !== $segment['input_hash']) throw new RuntimeException('配音来源已变化，请刷新后上传', 409);
-            $existing = self::existing($tenant, $user, $project, $task, $trace);
+            $existing = self::existing($tenant, $user, $project, $task, $trace, $segment);
             if ($existing) return $existing;
             $now = time();
             $row = $scope + ['project_id' => $project, 'task_id' => $task, 'shot_id' => '', 'asset_type' => 'shot_audio',
@@ -97,11 +97,14 @@ final class AudioProduction
         return $result;
     }
 
-    private static function existing(int $tenant, int $user, int $project, string $task, array $trace): ?array
+    private static function existing(int $tenant, int $user, int $project, string $task, array $trace, array $segment): ?array
     {
         $rows = Db::name('aigc_short_drama_asset')->where(['tenant_id' => $tenant, 'user_id' => $user, 'project_id' => $project,
             'task_id' => $task, 'asset_type' => 'shot_audio', 'checksum' => $trace['checksum'], 'status' => 'ready', 'delete_time' => 0])->select()->toArray();
-        foreach ($rows as $row) if ((json_decode($row['meta_json'], true)['canonical_audio'] ?? []) === $trace) return $row;
+        foreach ($rows as $row) {
+            $saved = json_decode($row['meta_json'], true)['canonical_audio'] ?? [];
+            if (($saved['trace_hash'] ?? '') === $trace['trace_hash'] && $row['uri'] !== '' && AudioHandoff::matches($saved, $segment, $row)) return $row;
+        }
         return null;
     }
 }
