@@ -139,6 +139,8 @@ try {
     Db::name('update_source')->where('status',1)->update(['public_key'=>openssl_pkey_get_details(openssl_pkey_new(['private_key_bits'=>2048]))['key']]);
     $assert(C::policy()['source']==='none' && C::policy()['items']===[],'untrusted certificate exposed default product copyright');
     Db::name('update_source')->where('status',1)->update(['public_key'=>$public]);
+    $request->source=AdminTerminalEnum::PLATFORM;
+    $request->withServer(array_merge($request->server(),['HTTP_HOST'=>'platform.fixture']));
     $withoutIssuer=clone $payload;$withoutIssuer->license_type='free';unset($withoutIssuer->issuer);
     $license->storeCertificate($envelope($withoutIssuer));
     $assert(C::policy()['source']==='none' && C::policy()['items']===[],'missing issuer exposed default product copyright');
