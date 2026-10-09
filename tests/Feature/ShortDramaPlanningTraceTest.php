@@ -67,6 +67,23 @@ final class ShortDramaPlanningTraceTest extends TestCase
         $trace = $this->trace(); $episodes = $this->episodes($trace); $episodes[0]['story_outline'] = '老师离开教室。';
         $this->expectExceptionMessage('引文不在原文'); PlanningTrace::events($trace, $episodes, 'outline2');
     }
+    public function testMalformedModelEvidenceReturnsRepairableIssues(): void
+    {
+        $trace = $this->trace();
+        foreach ([null, [], ['id' => 'invented'], 123, false] as $invalidId) {
+            $episodes = $this->episodes($trace);
+            $episodes[0]['source_events'][0]['requirement_id'] = $invalidId;
+            $issues = PlanningTrace::issues(['_source_trace' => $this->source(), 'confirmed_story_snapshot' => ['content_trace' => $trace]],
+                ['content_trace' => $trace, 'episodes' => $episodes], 'episodes', 2);
+            self::assertCount(1, $issues);
+            self::assertStringContainsString('requirement_id', $issues[0]['message']);
+        }
+        $episodes = $this->episodes($trace); $episodes[0]['story_outline'] = ['invalid'];
+        $issues = PlanningTrace::issues(['_source_trace' => $this->source(), 'confirmed_story_snapshot' => ['content_trace' => $trace]],
+            ['content_trace' => $trace, 'episodes' => $episodes], 'episodes', 2);
+        self::assertCount(1, $issues);
+        self::assertStringContainsString('story_outline', $issues[0]['message']);
+    }
     public function testUnscopedCompoundRequirementCanMapToDifferentEpisodeParts(): void
     {
         $trace = PlanningTrace::build($this->source(), [['quote' => '第一集交信，第二集才拆信', 'kind' => 'event', 'episode_numbers' => []]], 2);
