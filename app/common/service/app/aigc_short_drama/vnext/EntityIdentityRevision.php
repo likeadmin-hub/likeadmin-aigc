@@ -10,14 +10,14 @@ final class EntityIdentityRevision
     {
         ManualContentRevision::assertOrigin($origin);
         if ($previous) self::assertReceipt($previous, $entity, ['tenant_id' => $origin['tenant_id'], 'user_id' => $origin['user_id']]);
-        if (count($facts) > 32 || ($facts && array_keys($facts) === range(0, count($facts) - 1))) throw new RuntimeException('身份事实须为不超过 32 项的属性记录', 422);
         $old = $entity['identity_facts'];
+        if (count($facts) > max(32, count($old)) || ($facts && array_keys($facts) === range(0, count($facts) - 1))) throw new RuntimeException('身份事实最多新增至 32 项，历史大记录不能继续扩张', 422);
         // A library link governs asset ownership, and is never an editable identity assertion.
         if (array_key_exists('library_subject_id', $facts) !== array_key_exists('library_subject_id', $old)
             || ($facts['library_subject_id'] ?? null) !== ($old['library_subject_id'] ?? null)) throw new RuntimeException('主体库关联不能通过身份修订修改', 422);
         foreach ($facts as $key => $value) {
-            if (!is_string($key) || !preg_match('/^[\p{L}\p{N}_-]{1,80}$/u', $key)) throw new RuntimeException('身份属性名无效', 422);
             if (array_key_exists($key, $old) && $old[$key] === $value) continue;
+            if (!is_string($key) || !preg_match('/^[\p{L}\p{N}_-]{1,80}$/u', $key)) throw new RuntimeException('身份属性名无效', 422);
             if ((!is_string($value) && !is_int($value) && !is_bool($value) && $value !== null)
                 || (is_string($value) && (!mb_check_encoding($value, 'UTF-8') || mb_strlen($value, 'UTF-8') > 2000))) throw new RuntimeException('身份属性应为明确的文本、整数或确认值', 422);
         }

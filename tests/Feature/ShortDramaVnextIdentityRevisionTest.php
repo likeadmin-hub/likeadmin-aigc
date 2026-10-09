@@ -106,4 +106,15 @@ final class ShortDramaVnextIdentityRevisionTest extends TestCase
             self::assertSame('女',json_decode($messages['content'],true)['document']['entities'][0]['identity_facts']['gender']);
         }
     }
+
+    public function testExistingComplexOrLargeIdentityRecordCanBeCorrectedWithoutLosingLegacyFields(): void
+    {
+        [$doc,,$origin]=$this->fixture();$entity=$doc['entities'][0];
+        for($index=0;$index<40;$index++)$entity['identity_facts']['历史'.$index]=['完整'=>['保留😀']];
+        $entity['identity_facts']['legacy key']='保留旧属性';$facts=$entity['identity_facts'];$facts['gender']='女';
+        $receipt=EntityIdentityRevision::capture($entity,$facts,'r2',$origin);
+        $entity['identity_facts']=$facts;EntityIdentityRevision::assertReceipt($receipt,$entity);
+        self::assertSame(['完整'=>['保留😀']],$facts['历史39']);
+        $facts['新的额外属性']='不能继续扩张';$this->expectExceptionCode(422);EntityIdentityRevision::capture($entity,$facts,'r3',$origin,$receipt);
+    }
 }
