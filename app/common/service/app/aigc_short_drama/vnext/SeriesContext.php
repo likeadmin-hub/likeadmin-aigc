@@ -33,6 +33,13 @@ final class SeriesContext
             'story' => ShortDramaPlanningContext::lockedStory($request['confirmed_story_snapshot']),
             'story_hash' => ContentDocument::hash($request['confirmed_story_snapshot']),
             'source' => SourceTrace::capture('series_source_' . $project, $task, ContentDocument::text($request['prompt'] ?? null, 'series.prompt'), 'inspiration')];
+        if (PlanningTrace::enabled($request)) {
+            $issues = PlanningTrace::issues($request, $plan, 'episodes', count($plan['episodes']));
+            if ($issues) throw new RuntimeException($issues[0]['message'], 422);
+            $snapshot['content_trace'] = $plan['content_trace'];
+            $snapshot['source'] = $plan['content_trace']['source'];
+            $snapshot['source_events'] = PlanningTrace::events($plan['content_trace'], $plan['episodes'], $snapshot['outline_hash']);
+        }
         $snapshot['snapshot_hash'] = ContentDocument::hash($snapshot);
         return $snapshot;
     }
@@ -59,6 +66,16 @@ final class SeriesContext
                 'outline_revision' => $snapshot['outline_hash'], 'requirement_ids' => [], 'origin' => 'confirmed_outline',
                 'source_id' => $source['source_id'], 'source_hash' => $source['hash'], 'start' => 0, 'end' => mb_strlen($text, 'UTF-8')];
         }
+        $requirements = [];
+        foreach ($snapshot['content_trace']['requirements'] ?? [] as $requirement) {
+            if ($requirement['kind'] === 'event') continue; // Check the allocated event, not the whole cross-episode instruction in each episode.
+            if ($requirement['episode_numbers'] && !in_array($number, $requirement['episode_numbers'], true)) continue;
+            $requirement['episode_ids'] = [$episodeId]; $requirements[] = $requirement;
+        }
+        foreach ($snapshot['source_events'] ?? [] as $event) {
+            if ($event['episode_number'] !== $number) continue;
+            $event['episode_ids'] = [$episodeId]; $events[] = $event;
+        }
         $previous = self::publishedBefore((int)$snapshot['tenant_id'], (int)$snapshot['user_id'], (int)$snapshot['project_id'], $number);
         $entities = $snapshot['entities']; $known = array_column($entities, 'entity_id');
         foreach ($previous['entities'] as $entity) {
@@ -73,7 +90,7 @@ final class SeriesContext
         }
         return ['snapshot' => $snapshot, 'context' => [
             'episode_id' => $episodeId, 'entity_scope' => $snapshot['entity_scope'], 'entities' => $entities,
-            'prompt' => $snapshot['source']['text'], 'source_mode' => 'inspiration', 'sources' => $sources, 'requirements' => [], 'events' => $events,
+            'prompt' => $snapshot['source']['text'], 'source_mode' => 'inspiration', 'sources' => $sources, 'requirements' => $requirements, 'events' => $events,
             'confirmed_story' => $snapshot['story'], 'current_episode' => $outline,
             // Story arc is a plan; only evidence from published episodes is historical state.
             'confirmed_facts' => ['identities' => $entities, 'world_rules' => $snapshot['story']['series_bible']['world_rules'] ?? []],
