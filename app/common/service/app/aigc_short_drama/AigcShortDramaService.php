@@ -3943,7 +3943,9 @@ class AigcShortDramaService
         try {
             $task = self::findTask($tenantId, $userId, $taskId);
             if (!ShortDramaStoryWorkflow::workerOwned(self::jsonDecode((string)$task['request_json'])) || !in_array($task['status'], ['pending', 'queued', 'running'], true)) return false;
-            if (!ShortDramaPlanningUnit::ready($tenantId, $userId, $taskId)) return false;
+            if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
+                if (!vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId)->workerReady()) return false;
+            } elseif (!ShortDramaPlanningUnit::ready($tenantId, $userId, $taskId)) return false;
             $task->save(['retry_count' => (int)$task['retry_count'] + 1]);
             self::executeScriptPlanTask($tenantId, $userId, $task->toArray(), static function () {});
             return true;
@@ -3968,7 +3970,20 @@ class AigcShortDramaService
         $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
         $job = $store->snapshot();
         if (!$job) throw new \RuntimeException('生成作业记录缺失，请联系管理员恢复任务', 409);
-        if (in_array($job['execution_status'], ['succeeded', 'canceled', 'needs_attention', 'reconciling'], true)) {
+        if ($job['execution_status'] === 'reconciling') {
+            try {
+                if ($store->reconcileAutomatically(static fn(array $receipt): array => MarketTextModelRuntimeService::recoverDurableResult(
+                    $tenantId, $userId, 'aigc_short_drama_script_task', (int)$taskData['id'], $receipt))) $job = $store->snapshot();
+            } catch (\Throwable $ignored) { /* Receipt and original ledger remain available for explicit reconciliation. */ }
+            if ($job['execution_status'] === 'reconciling') {
+                if (!$store->canAutomaticallyReconcile()) AigcShortDramaScriptTask::where($scope)->whereIn('status', ['pending', 'queued', 'running'])->update([
+                    'status' => self::STATUS_FAILED, 'current_step' => '正文已保存，等待核对结算',
+                    'error' => '自动核对尚未完成，请核对收据后继续；已保存内容不会重新生成', 'update_time' => time(),
+                ]);
+                return self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
+            }
+        }
+        if (in_array($job['execution_status'], ['succeeded', 'canceled', 'needs_attention'], true)) {
             return self::formatTask(self::findTask($tenantId, $userId, $taskId)->toArray(), true);
         }
         $input = self::jsonDecode($job['input_json']); $model = $input['model'];
@@ -4020,10 +4035,10 @@ class AigcShortDramaService
         } catch (\Throwable $error) {
             // Receipts/candidate survive a failed projection. The next worker replays them without another charge.
             $job = $store->snapshot();
-            $active = in_array($job['execution_status'], ['queued', 'running', 'retry_wait'], true);
+            $active = in_array($job['execution_status'], ['queued', 'running', 'retry_wait'], true) || $store->canAutomaticallyReconcile();
             AigcShortDramaScriptTask::where($scope)->where('status', self::STATUS_RUNNING)->update([
                 'status' => $active ? self::STATUS_QUEUED : self::STATUS_FAILED,
-                'current_step' => $active ? '等待继续已保存的任务' : '内容已保留，等待处理',
+                'current_step' => $active ? ($job['execution_status'] === 'reconciling' ? '正文已保存，正在核对结算' : '等待继续已保存的任务') : '内容已保留，等待处理',
                 'error' => $active ? '' : self::scriptPlanProviderError($error->getMessage()), 'update_time' => time(),
             ]);
         }

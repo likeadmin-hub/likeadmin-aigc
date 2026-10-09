@@ -5,9 +5,11 @@ namespace app\common\service\power;
 class MarketTextModelRuntimeService
 {
     public static array $requests = [];
+    public static bool $failSettlementOnce = false;
+    public static int $recoveries = 0;
     public static function modelGroups(int $tenantId): array { return []; }
     public static function estimateTokens(string $value): int { return mb_strlen($value); }
-    public static function generate(int $tenantId, int $userId, array $params): array
+    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $admin = false, ?callable $persist = null): array
     {
         self::$requests[] = $params;
         $input = json_decode($params['content'], true, 512, JSON_THROW_ON_ERROR);
@@ -19,10 +21,15 @@ class MarketTextModelRuntimeService
             foreach ($ids as $id) $checks[] = ['id' => $id, 'status' => 'covered', 'evidence' => [['unit' => 'u1', 'start' => 1200, 'end' => 1205, 'quote' => '结尾保留。']]];
             $reply = ['document_hash' => $input['document']['content_hash'], 'shot_hash' => $input['shot_plan']['content_hash'], 'checks' => $checks];
         }
-        return ['content' => json_encode($reply, JSON_UNESCAPED_UNICODE), 'finish_reason' => 'stop',
+        $receipt = ['content' => json_encode($reply, JSON_UNESCAPED_UNICODE), 'finish_reason' => 'stop',
             'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 20],
             'billing' => ['tenant_cost_points' => '1.00', 'user_charge_points' => '2.00', 'billing_status' => 'settled']];
+        if ($persist) $persist($receipt);
+        if (self::$failSettlementOnce) { self::$failSettlementOnce = false; throw new \RuntimeException('fixture settlement failure'); }
+        return $receipt;
     }
+    public static function recoverDurableResult(int $tenant, int $user, string $table, int $business, array $receipt): array
+    { self::$recoveries++; return $receipt; }
 }
 
 class MarketImageModelRuntimeService

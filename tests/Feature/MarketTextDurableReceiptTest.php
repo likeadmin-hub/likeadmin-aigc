@@ -51,6 +51,13 @@ final class MarketTextDurableReceiptTest extends TestCase
             self::assertSame('pending_usage', AiConsumptionLog::find($this->receipt['consumption_id'])['billing_status']);
         }
     }
+    public function testTotalOnlyUsageCannotGuessDifferentTokenUnitPrices(): void
+    {
+        $c = AiConsumptionLog::find($this->receipt['consumption_id']); $price = $c['price_snapshot'];
+        $price['output']['usage_unit_size'] = 1; $c->save(['price_snapshot' => $price]);
+        $this->expectExceptionCode(409);
+        $this->recover(array_replace($this->receipt, ['usage' => ['total_tokens' => 1000]]));
+    }
     public function testForeignScopeOldLedgerAndRefundedLedgerCannotBeCharged(): void
     {
         foreach ([[$this->tenant + 1, $this->user, 123], [$this->tenant, $this->user + 1, 123], [$this->tenant, $this->user, 124]] as [$tenant, $user, $business]) {
