@@ -99,7 +99,7 @@ final class ShortDramaVnextStructuralRevisionTest extends TestCase
         if ($case==='duplicate') $edits['bindings'][]=$edits['bindings'][0];
         if ($case==='foreign') $edits['entities'][0]['entity_id']='foreign';
         if ($case==='kind') $edits['entities'][0]['kind']='prop';
-        if ($case==='identity') $edits['entities'][0]['identity_facts']=['gender'=>'wrong'];
+        if ($case==='identity') $edits['entities'][0]['identity_facts']=['gender'=>['wrong']];
         if ($case==='name') $edits['entities'][0]['canonical_name']='乙';
         if ($case==='speaker') $edits['bindings'][0]['speaker_id']=$doc['entities'][2]['entity_id'];
         if ($case==='narrator') $edits['bindings'][0]['speech_type']='narration';

@@ -121,6 +121,7 @@ final class ContentDocument
             'episode_id' => $context['episode_id'], 'dependency_versions' => $context['dependency_versions'] ?? [],
             'title' => self::text($reply['title'] ?? null, 'title'), 'entities' => array_values($entities),
             'scenes' => $scenes, 'transforms' => $transforms, 'status' => 'draft'];
+        if (!empty($context['identity_revision_receipts'])) $document['identity_revision_receipts'] = EntityIdentityRevision::carry($context['identity_revision_receipts'], $document['entities']);
         return self::seal($document);
     }
 
