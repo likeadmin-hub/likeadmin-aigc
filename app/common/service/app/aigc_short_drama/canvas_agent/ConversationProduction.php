@@ -55,7 +55,7 @@ final class ConversationProduction
             }
         }
         $proposals=ConversationSeriesVisuals::proposals($plan,$stage,ConversationSeries::episode($workflow),
-            static fn($artifact,$item)=>AigcShortDramaService::canvasProductionPrompt($plan,$artifact,$item,$snapshot),$sceneReferences);
+            static fn($artifact,$item)=>AigcShortDramaService::canvasProductionPrompt($plan,$artifact,$item,$snapshot),$sceneReferences,$workflow);
         if (count($proposals)>ConversationSeries::maximum($workflow,$stage)) throw new RuntimeException('CANVAS_CAPACITY_EXCEEDED');
         foreach ($proposals as $proposal) if (mb_strlen($proposal['prompt'])>20000) throw new RuntimeException('CONTEXT_TOO_LARGE');
         // Empty-subject episodes still proceed to their real scenes and shots.

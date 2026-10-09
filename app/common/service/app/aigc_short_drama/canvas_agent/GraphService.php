@@ -720,7 +720,7 @@ final class GraphService
             if ($compact && $workflowStage==='script' && !empty($proposal['reference_keys'])) throw new RuntimeException('INVALID_AGENT_ACTION');
             if ($artifact==='three_view') {
                 $dependencies=(array)($proposal['depends_on']??[]);
-                if (count($dependencies)!==1 || ($keyArtifacts[$dependencies[0]]??'')!=='subject') throw new RuntimeException('INVALID_AGENT_ACTION');
+                if ((count($dependencies)!==1 || ($keyArtifacts[$dependencies[0]]??'')!=='subject') && (count((array)($proposal['reference_keys']??[]))!==1 || !str_starts_with((string)$proposal['reference_keys'][0],'assets:subject_'))) throw new RuntimeException('INVALID_AGENT_ACTION');
             }
             if ($artifact==='storyboard') {
                 $dependencies=(array)($proposal['depends_on']??[]);
@@ -747,7 +747,7 @@ final class GraphService
     private static function compactWorkflowReferenceSources(array $nodes,array $edges,string $stage,array $proposal,array $workflow,array $selected): array
     {
         $allowed=match ($stage) {
-            'assets'=>[],
+            'assets'=>['assets'=>['subject']],
             'storyboard'=>['assets'=>['subject','three_view','scene']],
             'video_nodes'=>['assets'=>['subject','three_view','scene'],'storyboard'=>['scene','storyboard']],
             default=>[],
@@ -759,7 +759,7 @@ final class GraphService
             $key=(string)($item['reference_key']??'');
             if ($key!=='') $memory[$key]=$item;
         }
-        $ids=[];$storyboardCount=0;$sceneCount=0;
+        $ids=[];$storyboardCount=0;$sceneCount=0;$subjectCount=0;
         foreach ((array)($proposal['reference_keys']??[]) as $key) {
             $key=(string)$key;
             if (preg_match('/^selected:node_([1-9][0-9]{0,15})$/D',$key,$match)) {
@@ -778,9 +778,15 @@ final class GraphService
             $ids[$id]=true;
             if ($sourceStage==='storyboard' && $artifact==='storyboard') $storyboardCount++;
             if ($sourceStage==='assets' && $artifact==='scene') $sceneCount++;
+            if ($sourceStage==='assets' && $artifact==='subject') {
+                $subjectCount++;
+                if (($proposal['artifact']??'')==='three_view' && (($metadata['status']??'')!=='success' || empty($metadata['asset_id']))) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
+            }
         }
         if ($stage==='storyboard' && ($proposal['artifact']??'')==='storyboard' && empty($proposal['depends_on']) && $sceneCount<1) throw new RuntimeException('WORKFLOW_SCENE_REFERENCE_MISSING');
-        if ($stage==='video_nodes' && $storyboardCount!==1) throw new RuntimeException('WORKFLOW_STORYBOARD_REFERENCE_REQUIRED');
+        if (($proposal['artifact']??'')==='three_view' && empty($proposal['depends_on']) && $subjectCount!==1) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
+        if ($stage==='video_nodes' && ConversationStepFlow::enabled($workflow) && !in_array((string)($proposal['key']??''),(array)($workflow['video_selection']??[]),true)) throw new RuntimeException('INVALID_AGENT_ACTION');
+        if ($stage==='video_nodes' && $storyboardCount!==1 && !(ConversationStepFlow::enabled($workflow) && $sceneCount>0)) throw new RuntimeException('WORKFLOW_STORYBOARD_REFERENCE_REQUIRED');
         return $stage==='video_nodes' ? self::videoReferenceSources($nodes,$edges,array_keys($ids)) : array_keys($ids);
     }
 

@@ -54,7 +54,7 @@ class CanvasSeriesProductionTest extends TestCase
     }
     public function testProjectionUsesOnlyScenesAndSubjectsActuallyUsedAndKeepsEveryShot(): void {
         $render=static fn($artifact,$item)=>$item['name']??$item['visual_description'];
-        $assets=Visuals::proposals($this->plan(),'assets',1,$render);self::assertCount(6,$assets);
+        $assets=Visuals::proposals($this->plan(),'assets',1,$render);self::assertCount(4,$assets);
         $boards=Visuals::proposals($this->plan(),'storyboard',1,$render);self::assertCount(4,$boards);
         self::assertSame(['屋内','院子','分镜1','分镜2'],array_column($boards,'title'));
         self::assertSame(['assets:'.Visuals::key('subject','a'),'assets:'.Visuals::key('subject','b')],$boards[2]['reference_keys']);
@@ -64,7 +64,7 @@ class CanvasSeriesProductionTest extends TestCase
     public function testSubjectAndSceneStepNeverCreatesStoryboardsAndLaterStepReusesScenes(): void {
         $render=static fn($artifact,$item)=>$item['name']??$item['visual_description'];
         $assets=Visuals::proposals($this->plan(),'assets',1,$render);
-        self::assertSame(['subject','three_view','subject','three_view','scene','scene'],array_column($assets,'artifact'));
+        self::assertSame(['subject','subject','scene','scene'],array_column($assets,'artifact'));
         $refs=['room'=>'assets:'.Visuals::key('scene','room'),'yard'=>'assets:'.Visuals::key('scene','yard')];
         $boards=Visuals::proposals($this->plan(),'storyboard',1,$render,$refs);
         self::assertCount(2,$boards);

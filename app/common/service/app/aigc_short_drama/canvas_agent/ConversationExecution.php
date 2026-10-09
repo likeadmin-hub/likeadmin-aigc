@@ -159,10 +159,10 @@ final class ConversationExecution
             $content=['text'=>$displayText];
             // Confirmation clears stage_plan. Retain each deliverable with its
             // immutable conversation turn, including superseded revisions.
-            if ($stagePlanSettings!==null) {
+            if ($stagePlanSettings!==null || $planSettings!==null) {
                 $content['stage_artifacts']=array_map(static fn(array $node): array=>[
                     'title'=>(string)($node['title']??''),'content'=>(string)($node['prompt']??''),
-                ],(array)($stagePlanSettings['workflow_state']['stage_plan']['nodes']??[]));
+                ],(array)($stagePlanSettings['workflow_state']['stage_plan']['nodes']??$planSettings['workflow_state']['image_plan']['nodes']??[]));
             }
             if ($effects) $content['canvas_actions']=$effects;
             $timeline=ConversationWorkflow::timeline($workflow,$proposals,$effects);
