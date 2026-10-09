@@ -80,7 +80,7 @@ final class ShortDramaVnextAttachmentSeriesTest extends TestCase
                 self::assertSame([], Service::scriptPlanDetail($scope['tenant_id'], 7, $list[$index]['task_id'], 0, 0, 2)['attachment_source']['records']);
                 foreach ([[$scope['tenant_id'] + 1, 7, 0], [$scope['tenant_id'], 8, 0], [$scope['tenant_id'], 7, $project]] as [$tenant, $user, $wrongProject]) {
                     try { Service::scriptPlanDetail($tenant, $user, $list[$index]['task_id'], $wrongProject, 0, 1); self::fail('Foreign source exposed'); }
-                    catch (\think\Exception $error) { self::assertSame('任务不存在', $error->getMessage()); }
+                    catch (\Exception $error) { self::assertSame('任务不存在', $error->getMessage()); }
                 }
                 foreach ([[-1, 0], [1, 1]] as [$sourcePage, $historyPage]) {
                     try { Service::scriptPlanDetail($scope['tenant_id'], 7, $list[$index]['task_id'], 0, $historyPage, $sourcePage); self::fail('Invalid source mode accepted'); }
