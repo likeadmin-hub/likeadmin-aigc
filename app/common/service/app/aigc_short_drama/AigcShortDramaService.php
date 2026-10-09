@@ -17331,7 +17331,8 @@ class AigcShortDramaService
                 }
                 return ['result' => $result, 'model' => $candidate];
             } catch (Exception $e) {
-                if (!self::isScriptPlanModelUnavailableError($e->getMessage())) {
+                if (!($e instanceof \app\common\service\power\MarketTextModelProviderException
+                    ? $e->allowsModelFallback : self::isScriptPlanModelUnavailableError($e->getMessage()))) {
                     throw $e;
                 }
                 $unavailable[] = (string)($candidate['model_code'] ?? $candidate['id'] ?? '');

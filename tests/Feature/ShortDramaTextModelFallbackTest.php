@@ -181,4 +181,32 @@ class ShortDramaTextModelFallbackTest extends TestCase
         self::assertCount(2, \app\common\service\power\MarketTextModelRuntimeService::$calls);
     }
 
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testSanitizedProviderRejectionStillSwitchesModels(): void
+    {
+        $this->prepareCandidates();
+        \app\common\service\power\MarketTextModelRuntimeService::$errors = ['selected' =>
+            new \app\common\service\power\MarketTextModelProviderException(
+                \app\common\service\ai\UpstreamErrorMessageService::TEMPORARILY_UNAVAILABLE, true)];
+        self::assertSame('second', $this->invokeCurrentFallback()['model']['id']);
+        self::assertCount(2, \app\common\service\power\MarketTextModelRuntimeService::$calls);
+    }
+
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testProviderMetadataStopsFallbackEvenWithModelNotFoundText(): void
+    {
+        $this->prepareCandidates();
+        \app\common\service\power\MarketTextModelRuntimeService::$errors = ['selected' =>
+            new \app\common\service\power\MarketTextModelProviderException('model_not_found', false)];
+        try { $this->invokeCurrentFallback(); self::fail('Expected unsafe retry to stop'); }
+        catch (\app\common\service\power\MarketTextModelProviderException $e) {
+            self::assertFalse($e->allowsModelFallback);
+            self::assertCount(1, \app\common\service\power\MarketTextModelRuntimeService::$calls);
+        }
+    }
+
 }

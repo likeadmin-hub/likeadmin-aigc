@@ -1125,10 +1125,11 @@ class MarketTextModelRuntimeService
                 $response = trim(preg_replace('/\s+/u', ' ', strip_tags($body)) ?? $body);
                 Log::write('Market text model rejected by Claude client policy: http=' . $status . ' response=' . mb_substr($response, 0, 1500, 'UTF-8'));
             }
-            throw new Exception(self::providerError($body) ?: '文本模型调用失败（HTTP ' . $status . '）');
+            throw self::providerException(self::providerError($body) ?: '文本模型调用失败（HTTP ' . $status . '）',
+                UpstreamErrorMessageService::allowsModelFallback($body), $state ?? []);
         }
         if ($state['error'] !== '') {
-            throw new Exception($state['error']);
+            throw self::providerException($state['error'], !empty($state['model_fallback_allowed']), $state);
         }
         // Some OpenAI-compatible reasoning models emit their only textual output
         // under reasoning_content. Preserve it as a last-resort response instead
@@ -1179,11 +1180,12 @@ class MarketTextModelRuntimeService
             throw new Exception(self::networkError($error));
         }
         if ($status >= 400) {
-            throw new Exception(self::providerError($body) ?: '文本模型调用失败（HTTP ' . $status . '）');
+            throw self::providerException(self::providerError($body) ?: '文本模型调用失败（HTTP ' . $status . '）',
+                UpstreamErrorMessageService::allowsModelFallback($body), $state ?? []);
         }
         $event = self::parseJsonResponse($body, false);
         if ($event === null || ($event['type'] ?? '') === 'error') {
-            throw new Exception((string)($event['message'] ?? '文本模型返回格式异常'));
+            throw self::providerException((string)($event['message'] ?? '文本模型返回格式异常'), !empty($event['model_fallback_allowed']));
         }
         $content = (string)($event['content'] ?? '');
         $toolCalls = (array)($event['tool_calls'] ?? []);
@@ -1258,6 +1260,7 @@ class MarketTextModelRuntimeService
         }
         if (($event['type'] ?? '') === 'error') {
             $state['error'] = (string)($event['message'] ?? '文本模型调用失败');
+            $state['model_fallback_allowed'] = !empty($event['model_fallback_allowed']);
             return;
         }
         if (!empty($event['usage']) && is_array($event['usage'])) {
@@ -1291,15 +1294,15 @@ class MarketTextModelRuntimeService
         if (isset($json['code']) && is_numeric($json['code']) && empty($json['choices']) && empty($json['output'])) {
             $providerMessage = self::providerError($json);
             if ((int)$json['code'] !== 0 || $providerMessage !== '' || array_key_exists('data', $json)) {
-                return ['type' => 'error', 'message' => $providerMessage ?: 'Provider request failed'];
+                return ['type' => 'error', 'message' => $providerMessage ?: 'Provider request failed', 'model_fallback_allowed' => UpstreamErrorMessageService::allowsModelFallback($json)];
             }
         }
         if (isset($json['error'])) {
-            return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败'];
+            return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败', 'model_fallback_allowed' => UpstreamErrorMessageService::allowsModelFallback($json)];
         }
         $eventType = strtolower((string)($json['type'] ?? $json['event'] ?? $eventName));
         if (in_array($eventType, ['error', 'failed', 'fail', 'response.failed', 'response.incomplete'], true)) {
-            return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败'];
+            return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败', 'model_fallback_allowed' => UpstreamErrorMessageService::allowsModelFallback($json)];
         }
         foreach (['data', 'result', 'output', 'response'] as $key) {
             if (!empty($json[$key]) && is_array($json[$key]) && self::looksLikePayload($json[$key])) {
@@ -1469,6 +1472,13 @@ class MarketTextModelRuntimeService
             }
         }
         return implode('', $parts);
+    }
+
+    private static function providerException(string $message, bool $fallbackAllowed, array $state = []): Exception
+    {
+        $hasOutput = !empty($state['content']) || !empty($state['reasoning']) || !empty($state['tool_calls'])
+            || (int)($state['delta_count'] ?? 0) > 0;
+        return new MarketTextModelProviderException($message, $fallbackAllowed && !$hasOutput);
     }
 
     private static function providerError($payload): string
