@@ -72,6 +72,13 @@ final class ShortDramaVnextResourceBudgetTest extends TestCase
             catch (\RuntimeException $e) { self::assertSame(422, $e->getCode()); }
         }
     }
+    public function testSubPrecisionLimitsCannotBeRoundedUpToAuthorizeOverspending(): void
+    {
+        foreach ([$this->amount(100, .0000009, 2), $this->amount(100, 1, 2.0000009)] as $limits) {
+            try { Budget::create($limits); self::fail('Cap silently rounded upward'); }
+            catch (\RuntimeException $e) { self::assertSame(422, $e->getCode()); }
+        }
+    }
     public function testOnlyKnownUnsubmittedAttemptReleasesItsOwnHold(): void
     {
         $state = Budget::admit(Budget::create($this->amount(200, 2, 4)), 'a', $this->amount(), '');
