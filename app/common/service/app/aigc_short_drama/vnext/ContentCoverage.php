@@ -33,6 +33,8 @@ final class ContentCoverage
             $seen[$id] = true;
             $applicable = empty($target['episode_ids']) || in_array($document['episode_id'], $target['episode_ids'], true);
             $row = ['id' => $id, 'trace_stage' => $target['trace_stage'], 'revision_id' => $document['revision_id'],
+                'label' => (string)($target['label'] ?? $target['text'] ?? ['aspect:identity' => '人物与发言者', 'aspect:continuity' => '前后连续性', 'aspect:shot_fidelity' => '分镜与正文一致性'][$id] ?? ''),
+                'requirement_ids' => $target['trace_stage'] === 'requirement' ? [$id] : ($target['requirement_ids'] ?? []),
                 'document_hash' => $document['content_hash'], 'shot_hash' => $plan['content_hash'],
                 'blocking' => (bool)($target['blocking'] ?? true), 'unit_refs' => [], 'shot_ids' => [],
                 'semantic_status' => 'pending', 'status' => 'pending'];

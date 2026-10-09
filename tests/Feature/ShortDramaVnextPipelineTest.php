@@ -52,6 +52,17 @@ final class ShortDramaVnextPipelineTest extends TestCase
         self::assertSame(['screenplay', 'shots', 'shots_format', 'review'], $keys);
         self::assertSame('ready', $result['coverage_report']['status']);
     }
+    public function testValidatedStructuredInputSkipsCreativeRewrite(): void
+    {
+        $context = $this->context();
+        $context['structured_screenplay'] = ['title' => '上传原文', 'scenes' => [['location' => 'l1', 'units' => [
+            ['type' => 'dialogue', 'speaker' => 'c1', 'text' => '老师您好，最后这句也必须保留。'],
+        ]]]];
+        $keys = [];
+        $result = GenerationPipeline::run($context, function ($key, $input) use (&$keys) { $keys[] = $key; return $this->response($key, $input); }, static function () {}, static function () {});
+        self::assertSame(['shots', 'review'], $keys);
+        self::assertSame('老师您好，最后这句也必须保留。', $result['document']['scenes'][0]['units'][0]['text']);
+    }
     public function testRepairReservesReplanningAndReviewBeforePatching(): void
     {
         $operations = [];
