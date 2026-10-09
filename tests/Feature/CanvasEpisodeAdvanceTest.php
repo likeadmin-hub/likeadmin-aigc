@@ -8,6 +8,8 @@ use app\common\service\app\aigc_short_drama\canvas_agent\ConversationProduction;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationSeries;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationAssetReuse;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationSeriesVisuals;
 use PHPUnit\Framework\TestCase;
 use think\facade\Db;
 
@@ -64,7 +66,28 @@ final class CanvasEpisodeAdvanceTest extends TestCase
             $nextThread=Db::name(ConversationStore::PREFIX.'thread')->where($scope+['canvas_id'=>$first['next_page_id']])->find();
             $next=json_decode($nextThread['settings_json'],true)['workflow_state'];
             self::assertSame(2,$next['series']['episode_number']);self::assertSame([1],$next['series']['script_ready_episodes']);
+            self::assertSame([$canvas,$first['next_page_id']],$next['series']['page_ids']);
             self::assertSame([],$next['series']['completed_episodes']);self::assertSame('episode',$next['stage_state']['key']);
+            // First episode assets can finish after the user enters episode two.
+            $proposal=['artifact'=>'subject','key'=>ConversationSeriesVisuals::key('subject','a'),'prompt'=>'黑外套'];
+            $settings=['image_model'=>['id'=>'fixture-image']];
+            $signature=ConversationAssetReuse::signatures([$proposal],$next,$settings)[0];
+            $asset=Db::name('aigc_short_drama_asset')->insertGetId($scope+['canvas_id'=>$canvas,'asset_type'=>'subject_image','uri'=>'uploads/fixture.png','status'=>'ready']);
+            $pending=['id'=>'2','type'=>'image','metadata'=>['status'=>'pending','image'=>'','asset_id'=>$asset,'content_revision'=>1,'prompt'=>'黑外套',
+                'workflow_asset_signature'=>$signature,'workflow_artifact'=>'subject','workflow_key'=>'assets:'.$proposal['key']]];
+            Db::name('aigc_short_drama_canvas')->where('id',$canvas)->update(['nodes_json'=>json_encode(array_merge($nodes,[$pending]))]);
+            $document=Db::name('aigc_short_drama_canvas')->where('id',$first['next_page_id'])->find();
+            self::assertSame([],ConversationAssetReuse::find($tenant,$user,$document,$next,[$proposal],$settings));
+            $pending['metadata']['status']='success';$pending['metadata']['image']='/uploads/fixture.png';
+            Db::name('aigc_short_drama_canvas')->where('id',$canvas)->update(['nodes_json'=>json_encode(array_merge($nodes,[$pending]))]);
+            $reuse=ConversationAssetReuse::find($tenant,$user,$document,$next,[$proposal],$settings);
+            self::assertSame($asset,$reuse[0]['asset_id']);self::assertSame($canvas,$reuse[0]['canvas_id']);
+            self::assertSame([],ConversationAssetReuse::find($tenant,$user,$document,$next,[$proposal],['image_model'=>['id'=>'other-model']]));
+            $copied=ConversationAssetReuse::copyAsset($tenant,$user,$first['next_page_id'],$reuse[0]);
+            self::assertNotSame($asset,$copied);self::assertSame($first['next_page_id'],(int)Db::name('aigc_short_drama_asset')->where('id',$copied)->value('canvas_id'));
+            $other=Db::name('aigc_short_drama_canvas')->insertGetId($scope+['title'=>'Unrelated','nodes_json'=>json_encode([$pending]),'edges_json'=>'[]','viewport_json'=>'{}']);
+            $isolated=$next;$isolated['series']['page_ids']=[$other];
+            self::assertSame([],ConversationAssetReuse::find($tenant,$user,$document,$isolated,[$proposal],$settings),'An unrelated owned project cannot substitute for this series');
             self::assertSame($billCount,Db::name('ai_consumption_log')->where($scope)->count(),'Page navigation creates no paid generation');
             Db::name('aigc_short_drama_canvas')->where('id',$first['next_page_id'])->update(['delete_time'=>time()]);
             $this->reject(static fn()=>ConversationWorkflow::answer($tenant,$user,$canvas,$thread['id'],4,'next_episode','continue'),'WORKFLOW_EPISODE_PAGE_UNAVAILABLE');

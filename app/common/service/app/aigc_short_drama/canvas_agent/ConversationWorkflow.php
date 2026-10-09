@@ -515,6 +515,7 @@ final class ConversationWorkflow
                 $created=\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::create($tenant,$user,$canvas,'episode:'.$thread.':'.ConversationSeries::episode($next),'第 '.ConversationSeries::episode($next).' 集');
                 Db::name(\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::TABLE)->where(['canvas_id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user])->update(['title'=>'第 '.ConversationSeries::episode($state).' 集']);
                 $nextCanvas=(int)$created['id'];
+                $next['series']['page_ids']=array_values(array_unique(array_merge((array)($state['series']['page_ids']??[]),[$canvas,$nextCanvas])));
                 $createdThread=ConversationStore::create($tenant,$user,$nextCanvas,'series:'.$canvas.':'.$thread.':'.ConversationSeries::episode($next),'第'.ConversationSeries::episode($next).'集创作');
                 $nextSettings=$settings;$nextSettings['workflow_state']=$next;
                 Db::name(ConversationStore::PREFIX.'thread')->where('id',$createdThread['id'])->update(['settings_json'=>self::json($nextSettings),'update_time'=>time()]);
