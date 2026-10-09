@@ -18,13 +18,21 @@ final class ConversationSeriesVisuals
     }
 
     /** Match by server-owned identity, never a user-editable node title. */
-    public static function promptItem(array $plan,string $artifact,string $workflowKey): array
+    public static function promptItem(array $plan,string $artifact,string $workflowKey,array $sourcePlan=[]): array
     {
         $key=substr($workflowKey,strpos($workflowKey,':')+1);
         if (in_array($artifact,['storyboard','storyboard_video'],true)) {
             if (preg_match('/^ep[1-9][0-9]*_shot([1-9][0-9]*)$/D',$key,$match)) {
                 $shots=array_values((array)($plan['storyboard']??[]));
-                if (isset($shots[(int)$match[1]-1])) return $shots[(int)$match[1]-1];
+                $index=(int)$match[1]-1;
+                if ($sourcePlan!==[]) {
+                    $source=array_values((array)($sourcePlan['storyboard']??[]))[$index]??[];
+                    $id=(string)($source['shot_id']??$source['id']??'');
+                    if ($id!=='') foreach ($shots as $shot) {
+                        if ((string)($shot['shot_id']??$shot['id']??'')===$id) return $shot;
+                    }
+                    // A deleted shot must not silently become the next shot at the same index.
+                } elseif (isset($shots[$index])) return $shots[$index];
             }
         } else {
             $kind=match($artifact) {'subject','prop'=>'subject','three_view'=>'view','scene'=>'scene',default=>''};

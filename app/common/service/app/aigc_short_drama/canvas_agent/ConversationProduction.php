@@ -30,7 +30,9 @@ final class ConversationProduction
             return 'production_pending';
         }
         $request=json_decode((string)$task['request_json'],true)?:[];
-        $plan=ShortDramaStoryDraft::effective($request,json_decode((string)$task['result_json'],true)?:[]);
+        $plan=$stage==='episode'
+            ? AigcShortDramaService::productionPlanForTask($tenant,$user,(string)$task['task_id'])
+            : ShortDramaStoryDraft::effective($request,json_decode((string)$task['result_json'],true)?:[]);
         if (!$plan) throw new RuntimeException('EMPTY_MODEL_RESPONSE');
         $proposals=ConversationSeries::proposals($plan,$stage,ConversationSeries::episode($workflow));
         $label=['story'=>'故事设定已生成，请核对后确认生成分集大纲。','outline'=>'分集大纲已生成，请核对后确认开始第一集创作。','episode'=>'本集剧本已生成，可直接告诉我需要修改的镜头或内容。采用后再准备素材。'][$stage];
@@ -43,8 +45,7 @@ final class ConversationProduction
         $binding=$workflow['series']['tasks']['episode_'.ConversationSeries::episode($workflow)]??[];
         $task=self::task($tenant,$user,(string)($binding['task_id']??''));
         if ($task['status']!=='success') throw new RuntimeException('WORKFLOW_EPISODE_SCRIPT_MISSING');
-        $request=json_decode((string)$task['request_json'],true)?:[];
-        $plan=ShortDramaStoryDraft::effective($request,json_decode((string)$task['result_json'],true)?:[]);
+        $plan=AigcShortDramaService::productionPlanForTask($tenant,$user,(string)$task['task_id']);
         $plan=\app\common\service\app\aigc_short_drama\ShortDramaVisualStyle::plan($plan,(array)($workflow['creative_settings']??[]));
         $snapshot=(array)$workflow['workflow_snapshot']['creative_prompt_snapshot'];
         $sceneReferences=[];
@@ -153,7 +154,7 @@ final class ConversationProduction
                         for ($n=1;$n<$number;$n++) {
                             $prior=self::task($tenant,$user,(string)$state['series']['tasks']['episode_'.$n]['task_id']);
                             if ($prior['status']!=='success') throw new RuntimeException('WORKFLOW_PREVIOUS_EPISODE_INCOMPLETE');
-                            $result=json_decode((string)$prior['result_json'],true)?:[];
+                            $result=AigcShortDramaService::productionPlanForTask($tenant,$user,(string)$prior['task_id']);
                             if (empty($result['_continuity'])) throw new RuntimeException('WORKFLOW_CONTINUITY_MISSING');
                             $previous[]=$result['_continuity'];
                         }
