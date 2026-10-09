@@ -34,26 +34,20 @@ final class ConversationSeries
     {
         return self::enabled($state) && in_array($state['stage_state']['key']??'', ['story','outline'],true);
     }
-    public static function assertEpisodeMedia(array $state,array $nodes): void
+    /** Display eligibility only; the command must also verify the owned durable screenplay. */
+    public static function canStartNextEpisode(array $state): bool
     {
-        $boards=[];$videos=[];
-        foreach ((array)$state['artifact_memory'] as $item) {
-            if (($item['artifact']??'')==='storyboard') $boards[]=$item;
-            if (($item['artifact']??'')==='storyboard_video') $videos[]=$item;
-        }
-        if (!$boards || count($boards)!==count($videos)) throw new RuntimeException('WORKFLOW_EPISODE_MEDIA_INCOMPLETE');
-        $byId=[];foreach($nodes as $node) $byId[(string)$node['id']]=$node;
-        foreach ($videos as $item) {
-            $meta=(array)($byId[(string)$item['node_id']]['metadata']??[]);
-            if (($meta['status']??'')!=='success' || empty($meta['video_url']) || (int)($meta['asset_id']??0)<=0) throw new RuntimeException('WORKFLOW_EPISODE_MEDIA_INCOMPLETE');
-        }
+        $binding=$state['series']['tasks']['episode_'.self::episode($state)]??[];
+        return self::enabled($state) && self::episode($state)<self::count($state)
+            && in_array($state['stage_state']['key']??'',['art','assets','storyboard','video_plan','video_nodes','audio_plan','complete'],true)
+            && is_string($binding['task_id']??null) && $binding['task_id']!=='' && (int)($binding['project_id']??0)>0;
     }
     public static function nextEpisode(array $state): array
     {
-        if (!self::enabled($state) || ($state['stage_state']['key']??'')!=='complete'
-            || self::episode($state)>=self::count($state)) throw new RuntimeException('WORKFLOW_NEXT_EPISODE_UNAVAILABLE');
+        if (!self::canStartNextEpisode($state)) throw new RuntimeException('WORKFLOW_NEXT_EPISODE_UNAVAILABLE');
         $episode=self::episode($state);
-        $state['series']['completed_episodes']=array_values(array_unique(array_merge((array)($state['series']['completed_episodes']??[]),[$episode])));
+        $state['series']['script_ready_episodes']=array_values(array_unique(array_merge((array)($state['series']['script_ready_episodes']??[]),[$episode])));
+        if (($state['stage_state']['key']??'')==='complete') $state['series']['completed_episodes']=array_values(array_unique(array_merge((array)($state['series']['completed_episodes']??[]),[$episode])));
         $state['series']['episode_number']=$episode+1;
         // Keep canonical series text and reusable visual assets; the completed
         // episode's nodes remain in the graph, not in every later model input.

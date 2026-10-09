@@ -14,7 +14,7 @@ use RuntimeException;
 class CanvasSeriesProductionTest extends TestCase
 {
     private function state(int $count=10): array { return ['workflow_snapshot'=>['series_core'=>true,'key'=>Workflow::KEY,'version'=>Series::VERSION],
-        'slot_values'=>['episode_count'=>$count.'集'],'series'=>['episode_number'=>1],'stage_state'=>['key'=>'complete','status'=>'ready'],
+        'slot_values'=>['episode_count'=>$count.'集'],'series'=>['episode_number'=>1,'tasks'=>['episode_1'=>['task_id'=>'owned-episode','project_id'=>10]]],'stage_state'=>['key'=>'complete','status'=>'ready'],
         'state_revision'=>4,'artifact_memory'=>[['stage'=>'story','artifact'=>'story_setting','content'=>'设定'],['stage'=>'episode','artifact'=>'episode_script','content'=>'旧集']]]; }
     private function plan(): array { return ['title'=>'旧宅','story_outline'=>'寻找旧信','type_judgement'=>'生活','core_theme'=>'信任',
         'subjects'=>[['id'=>'a','name'=>'甲','description'=>'黑外套'],['id'=>'b','name'=>'乙','description'=>'白外套']],
@@ -45,12 +45,19 @@ class CanvasSeriesProductionTest extends TestCase
     public function testFinalEpisodeCannotAdvance(): void {
         $this->expectException(RuntimeException::class);Series::nextEpisode($this->state(1));
     }
-    public function testPendingMissingOrDeletedVideoCannotUnlockNextEpisode(): void {
-        $state=$this->state();$state['artifact_memory']=[['artifact'=>'storyboard','node_id'=>'1'],['artifact'=>'storyboard_video','node_id'=>'2']];
-        foreach([[],[['id'=>2,'metadata'=>['status'=>'running','video_url'=>'old','asset_id'=>5]]]] as $nodes) {
-            try { Series::assertEpisodeMedia($state,$nodes);self::fail('Incomplete video accepted'); } catch(RuntimeException $e) { self::assertSame('WORKFLOW_EPISODE_MEDIA_INCOMPLETE',$e->getMessage()); }
+    public function testScriptReadyCanAdvanceAtEveryMediaStageWithoutCompletingMedia(): void {
+        foreach (['art','assets','storyboard','video_plan','video_nodes','audio_plan'] as $stage) {
+            $state=$this->state();$state['stage_state']=['key'=>$stage,'status'=>'failed'];
+            $next=Series::nextEpisode($state);
+            self::assertSame([1],$next['series']['script_ready_episodes']);
+            self::assertArrayNotHasKey('completed_episodes',$next['series']);
+            self::assertSame('owned-episode',$next['series']['tasks']['episode_1']['task_id']);
+            self::assertSame($stage,$state['stage_state']['key'],'Original page must retain its media phase');
         }
-        Series::assertEpisodeMedia($state,[['id'=>2,'metadata'=>['status'=>'success','video_url'=>'done','asset_id'=>5]]]);
+        foreach (['intake','story','outline','episode'] as $stage) {
+            $state=$this->state();$state['stage_state']['key']=$stage;self::assertFalse(Series::canStartNextEpisode($state));
+        }
+        $state=$this->state();unset($state['series']['tasks']);self::assertFalse(Series::canStartNextEpisode($state));
     }
     public function testProjectionUsesOnlyScenesAndSubjectsActuallyUsedAndKeepsEveryShot(): void {
         $render=static fn($artifact,$item)=>$item['name']??$item['visual_description'];
