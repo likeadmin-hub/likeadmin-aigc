@@ -59,6 +59,7 @@ final class ShortDramaVnextConcurrentLoadTest extends TestCase
         foreach ($workers as [$process, $pipes]) {
             fclose($pipes[0]); $output = stream_get_contents($pipes[1]); $error = stream_get_contents($pipes[2]);
             fclose($pipes[1]); fclose($pipes[2]); self::assertSame(0, proc_close($process), $error . $output);
+            self::assertStringContainsString('fixture_worker_done', $output, $error . $output);
         }
         $this->processes = [];
         for ($i = 0; $i < 500; $i++) {
