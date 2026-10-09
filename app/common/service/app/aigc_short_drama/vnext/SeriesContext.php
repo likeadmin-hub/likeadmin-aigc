@@ -97,7 +97,9 @@ final class SeriesContext
             if ($revisionCheck !== null) $requirements[] = $revisionCheck;
         }
         $previous = self::publishedBefore((int)$snapshot['tenant_id'], (int)$snapshot['user_id'], (int)$snapshot['project_id'], $number);
-        $entities = SeriesVisualState::inherit($snapshot['entities'], $previous['entities']); $known = array_column($entities, 'entity_id');
+        $identityReceipts = $previous['identity_revision_receipts'] ?? [];
+        $entities = SeriesVisualState::inherit($snapshot['entities'], $previous['entities'], $identityReceipts,
+            ['tenant_id' => (int)$snapshot['tenant_id'], 'user_id' => (int)$snapshot['user_id']]); $known = array_column($entities, 'entity_id');
         foreach ($previous['entities'] as $entity) {
             if (in_array($entity['entity_id'], $known, true)) continue;
             $known[] = $entity['entity_id'];
@@ -126,7 +128,7 @@ final class SeriesContext
                 'outline' => $snapshot['outline_hash'], 'episodes' => $previous['dependencies'],
                 'series' => ['tenant_id' => $snapshot['tenant_id'], 'user_id' => $snapshot['user_id'],
                     'project_id' => $snapshot['project_id'], 'episode_number' => $number, 'snapshot_hash' => $snapshot['snapshot_hash']]],
-        ] + ($inputHistory ? ['input_history' => $inputHistory] : []), $attachmentContext)];
+        ] + ($inputHistory ? ['input_history' => $inputHistory] : []) + ($identityReceipts ? ['identity_revision_receipts' => $identityReceipts] : []), $attachmentContext)];
     }
 
     /** Bulk-read lightweight revision metadata; load complete evidence only for the latest published state. */
@@ -162,7 +164,8 @@ final class SeriesContext
             || $document['content_hash'] !== $current['document_hash'] || ($document['revision_id'] ?? '') !== $current['revision_id']
             || ($ledger['document_hash'] ?? '') !== $document['content_hash'] || ($ledger['revision_id'] ?? '') !== $document['revision_id']
             || ($ledger['episode_id'] ?? '') !== ($document['episode_id'] ?? null)) throw new RuntimeException('前集正文、人物与事实不属于同一发布版本', 409);
-        return ['dependencies' => $dependencies, 'ledger' => $ledger, 'entities' => $document['entities']];
+        $identityReceipts = EntityIdentityRevision::carry($document['identity_revision_receipts'] ?? [], $document['entities'], ['tenant_id' => $tenant, 'user_id' => $user]);
+        return ['dependencies' => $dependencies, 'ledger' => $ledger, 'entities' => $document['entities']] + ($identityReceipts ? ['identity_revision_receipts' => $identityReceipts] : []);
     }
 
     public static function assertDependencies(array $context, bool $lock = false): void

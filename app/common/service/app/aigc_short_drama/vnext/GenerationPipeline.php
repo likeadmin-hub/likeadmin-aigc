@@ -55,7 +55,7 @@ final class GenerationPipeline
                     return $validate($reply);
                 } catch (RuntimeException $error) {
                     if ($error->getCode() !== 422 || $attempt === 1) throw $error;
-                    $messages['content'] = json_encode(['input' => $projection === PromptProjection::VERSION ? PromptProjection::apply($data) : $data, 'invalid_response' => $receipt['result']['content'] ?? $receipt['content'] ?? '',
+                    $messages['content'] = json_encode(['input' => $projection === PromptProjection::VERSION ? PromptProjection::apply(self::withoutIdentityReceipts($data)) : self::withoutIdentityReceipts($data), 'invalid_response' => $receipt['result']['content'] ?? $receipt['content'] ?? '',
                         'validation_error' => $error->getMessage(), 'repair_rule' => '仅修复结构、引用和明确指出的数据错误，保留全部正文、说话人和顺序。'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
                 }
             }
@@ -139,6 +139,7 @@ final class GenerationPipeline
 
     public static function messages(array $data, string $instruction, int $projection): array
     {
+        $data = self::withoutIdentityReceipts($data);
         if ($projection === PromptProjection::VERSION) {
             $data = PromptProjection::apply($data);
             $instruction .= 'sources中的text_ref指向同份输入的原文字段；格式修复时相对于input对象。'
@@ -157,10 +158,18 @@ final class GenerationPipeline
 
     public static function creativeContext(array $context): array
     {
+        unset($context['identity_revision_receipts']);
         if ((int)($context['narrative_contract_version'] ?? 0) === NarrativeLedger::VERSION) {
             $context['previous_narrative'] = self::narrativeHistory($context, array_column($context['entities'] ?? [], 'entity_id'));
         }
         return $context;
+    }
+
+    private static function withoutIdentityReceipts(array $data): array
+    {
+        unset($data['identity_revision_receipts']);
+        foreach (['document', 'context', 'canonical_input'] as $field) if (isset($data[$field]) && is_array($data[$field])) $data[$field] = self::withoutIdentityReceipts($data[$field]);
+        return $data;
     }
 
     public static function narrativeHistory(array $context, array $entityIds): array

@@ -180,7 +180,7 @@ final class ShortDramaVnextWorkerTest extends TestCase
             $targets=$revised['generation_snapshot']['structural_edit_targets'];
             $structure=['project_id'=>$project,'task_id'=>$revision['task_id'],'expected_revision_id'=>$editedDocument['revision_id'],
                 'canonical_structure'=>['entities'=>[['entity_id'=>$editedDocument['entities'][0]['entity_id'],'before_hash'=>$targets['entities'][0]['before_hash'],
-                    'canonical_name'=>'夜间书房','description'=>'窗帘拉上，保留全段说明😀']],
+                    'canonical_name'=>'夜间书房','description'=>'窗帘拉上，保留全段说明😀','identity_facts'=>['建筑年代'=>1920]]],
                     'scenes'=>[['scene_id'=>$editedDocument['scenes'][0]['scene_id'],'before_hash'=>$targets['scenes'][0]['before_hash'],'time_context'=>'深夜']]]];
             $structural=Service::saveStoryboard($tenant,$user,$structure);$ownedTasks[]=$structural['task_id'];
             self::assertSame($structural['task_id'],Service::saveStoryboard($tenant,$user,$structure)['task_id']);self::assertCount(5,Provider::$requests);
@@ -189,6 +189,10 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertSame('success',$final['status']);self::assertCount(7,Provider::$requests,'Structure correction only rebuilds shots and reviews, never recreates text');
             self::assertSame($editedDocument['scenes'][0]['units'],$final['result']['canonical_document']['scenes'][0]['units']);
             self::assertSame('夜间书房',$final['result']['canonical_document']['entities'][0]['canonical_name']);
+            self::assertSame(['建筑年代'=>1920],$final['result']['canonical_document']['entities'][0]['identity_facts']);
+            self::assertSame($tenant,$final['result']['canonical_document']['identity_revision_receipts'][$editedDocument['entities'][0]['entity_id']]['origin']['tenant_id']);
+            self::assertStringNotContainsString('identity_revision_receipts',Provider::$requests[6]['content']);
+            self::assertSame(['建筑年代'=>1920],json_decode(Provider::$requests[6]['content'],true)['confirmed_facts']['identities'][0]['identity_facts']);
             self::assertNull($final['production_handoff']['targets'][0]['asset'],'Changed setting cannot reuse the old scene image');
             self::assertCount(3,Db::name('aigc_short_drama_asset')->where($scope+['project_id'=>$project])->select()->toArray(),'Old media remains readable');
             $history=Service::scriptPlanDetail($tenant,$user,$structural['task_id'],$project,1)['manual_history'];

@@ -16,6 +16,7 @@ final class StructuralRevision
         }
         $result['scene_layout'] = ['before_hash' => ContentDocument::hash(self::layout($document))];
         $result['entity_registry'] = ['before_hash' => ContentDocument::hash($document['entities']), 'protected_entity_ids' => EntityRegistryRevision::protectedIds($ledgers)];
+        $result['identity_revision_version'] = 1;
         return $result;
     }
 
@@ -33,6 +34,8 @@ final class StructuralRevision
         $history = $input['context']['manual_edit_history'] ?? null;
         if ($history !== null) ManualContentRevision::assertHistory($history);
         $entities = array_column($document['entities'], null, 'entity_id'); $changes = []; $seen = [];
+        $identityReceipts = EntityIdentityRevision::carry($document['identity_revision_receipts'] ?? [], $document['entities'],
+            ['tenant_id' => $origin['tenant_id'], 'user_id' => $origin['user_id']]);
         $record = static function (string $kind, string $id, array $before, array $after, string $label) use (&$changes): void {
             if ($before === $after) return;
             $changes[] = ['unit_id' => $kind . ':' . $id, 'target_kind' => $kind, 'target_id' => $id, 'target_label' => $label,
@@ -58,18 +61,25 @@ final class StructuralRevision
             $old = $entities[$id] ?? null;
             if (!$old) throw new RuntimeException('修改对象不属于当前剧本', 409);
             if (isset($registry['removals'][$id]) || in_array($id, $registry['refs'], true)) throw new RuntimeException('不能同时修改和移除或重新修改新增主体', 422);
-            $assertPatch($patch, 'entity:' . $id, $old, ['entity_id', 'before_hash', 'canonical_name', 'description']);
+            $assertPatch($patch, 'entity:' . $id, $old, ['entity_id', 'before_hash', 'canonical_name', 'description', 'identity_facts']);
             $after = $old;
             if (array_key_exists('canonical_name', $patch)) {
                 $name = trim(ContentDocument::text($patch['canonical_name'], 'entity.canonical_name'));
                 if (mb_strlen($name, 'UTF-8') > 80) throw new RuntimeException('名称超过 80 字，请缩短名称', 422);
-                foreach ($entities as $otherId => $other) if ($otherId !== $id && $other['kind'] === $old['kind'] && $name === $other['canonical_name'] && $name !== $old['canonical_name']) throw new RuntimeException('名称与另一主体或地点重名，请明确区分', 422);
+                foreach ($entities as $otherId => $other) if ($otherId !== $id && $other['kind'] === $old['kind'] && in_array($name, array_merge([$other['canonical_name']], $other['aliases']), true) && $name !== $old['canonical_name']) throw new RuntimeException('名称与另一主体或地点及其别名重名，请明确区分', 422);
                 $after['canonical_name'] = $name;
                 $after['aliases'] = array_values(array_unique(array_merge($old['aliases'], [$old['canonical_name'], $name])));
             }
             if (array_key_exists('description', $patch)) {
                 if (!is_string($patch['description']) || !mb_check_encoding($patch['description'], 'UTF-8')) throw new RuntimeException('设定说明应为完整文本', 422);
                 $after['description'] = $patch['description'];
+            }
+            if (array_key_exists('identity_facts', $patch)) {
+                if (!is_array($patch['identity_facts'])) throw new RuntimeException('身份事实应为属性记录', 422);
+                $receipt = EntityIdentityRevision::capture($old, $patch['identity_facts'], $revision, $origin, $identityReceipts[$id] ?? []);
+                if (ContentDocument::hash($patch['identity_facts']) !== ContentDocument::hash($old['identity_facts'])) {
+                    $after['identity_facts'] = $patch['identity_facts']; $identityReceipts[$id] = $receipt;
+                }
             }
             $entities[$id] = $after; $record('entity', $id, $old, $after, ($old['kind'] === 'location' ? '地点：' : '主体：') . $old['canonical_name']);
         }
@@ -148,9 +158,12 @@ final class StructuralRevision
         if ($registry['removals']) {
             $entities = EntityRegistryRevision::remove($document, $entities, $registry['removals'], [$ledger, $input['context']['previous_narrative'] ?? []]);
             foreach ($registry['removals'] as $id => $old) $record('entity_remove', $id, $old, [], '从本集移除' . EntityRegistryRevision::kindName($old['kind']) . '：' . $old['canonical_name']);
+            foreach ($registry['removals'] as $id => $old) unset($identityReceipts[$id]);
         }
         if (!$changes) throw new RuntimeException('结构没有变化', 422);
         $document['entities'] = array_values($entities);
+        if ($identityReceipts) $document['identity_revision_receipts'] = $identityReceipts;
+        else unset($document['identity_revision_receipts']);
         $base = $unsigned; $base['content_hash'] = ContentDocument::hash($unsigned);
         $edited = ContentDocument::rebind($document, $document['dependency_versions'], $revision);
         $eventId = 'manual_structure_' . substr(ContentDocument::hash([$origin, $base['content_hash'], $revision, $changes]), 0, 24);

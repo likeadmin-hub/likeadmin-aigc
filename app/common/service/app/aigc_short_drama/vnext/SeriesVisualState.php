@@ -30,12 +30,18 @@ final class SeriesVisualState
         unset($state);return $result;
     }
     /** A published manual rename/appearance correction must not revert to the first outline. */
-    public static function inherit(array $confirmed, array $published): array
+    public static function inherit(array $confirmed, array $published, array $identityReceipts = [], array $scope = []): array
     {
+        EntityIdentityRevision::carry($identityReceipts, $published, $scope);
         $byId=array_column($published,null,'entity_id');
         foreach($confirmed as &$entity) {
             $latest=$byId[$entity['entity_id']]??null;if(!$latest) continue;
-            if ($latest['kind']!==$entity['kind'] || $latest['identity_facts']!==$entity['identity_facts']) throw new RuntimeException('前集已登记身份与系列确认身份冲突，请明确修订',409);
+            if ($latest['kind']!==$entity['kind']) throw new RuntimeException('前集已登记主体类型与系列确认身份冲突，请明确修订',409);
+            if (ContentDocument::hash($latest['identity_facts']) !== ContentDocument::hash($entity['identity_facts'])) {
+                $receipt = $identityReceipts[$entity['entity_id']] ?? [];
+                if (!$receipt || $receipt['base_facts_hash'] !== ContentDocument::hash($entity['identity_facts'])) throw new RuntimeException('前集已登记身份与系列确认身份冲突，请明确修订',409);
+                $entity['identity_facts'] = $latest['identity_facts'];
+            }
             $entity['aliases']=array_values(array_unique(array_merge($entity['aliases']??[],[$entity['name']],
                 array_values(array_filter($latest['aliases'],static fn($alias)=>!preg_match('/^[clp]\d+$/D',$alias))))));
             $entity['name']=$latest['canonical_name'];$entity['description']=$latest['description'];
