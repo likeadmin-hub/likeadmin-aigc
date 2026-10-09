@@ -56,6 +56,13 @@ final class ShortDramaVnextSeriesTest extends TestCase
                 'prompt' => $request['prompt'], 'request_json' => json_encode($request), 'result_json' => json_encode($plan)]);
             \think\facade\Config::set(['generation_version' => 3, 'vnext' => ['enabled' => true, 'series_enabled' => true, 'tenant_ids' => [$tenant],
                 'models' => ['frozen_model' => ['stage_timeout_seconds' => 100, 'lease_seconds' => 150, 'deadline_seconds' => 1800]]]], 'short_drama');
+            $created = Service::createScriptPlan($tenant, $user, ['prompt' => '第一集发现书信，第二集辨认印记。', 'multi_episode' => true,
+                'episode_count' => 2, 'model_selections' => ['script_plan' => ['id' => 'frozen_model']], '_source_trace' => ['text' => '伪造来源']]);
+            $enrolled = json_decode(Db::name('aigc_short_drama_script_task')->where($scope + ['task_id' => $created['task_id']])->value('request_json'), true);
+            self::assertSame('第一集发现书信，第二集辨认印记。', $enrolled['_source_trace']['text']);
+            self::assertSame(hash('sha256', $enrolled['prompt']), $enrolled['_source_trace']['hash']);
+            self::assertArrayNotHasKey('_pipeline_version', $enrolled, 'Story confirmation remains a planning step');
+            self::assertCount(0, Provider::$requests);
             $rows = Episodes::start($tenant, $user, ['project_id' => $project, 'task_id' => $task, 'draft_version' => 0])['lists'];
             self::assertCount(2, $rows);
             $snapshot = json_decode(Db::name('aigc_short_drama_episode_task')->where('id', $rows[0]['id'])->value('series_json'), true);
