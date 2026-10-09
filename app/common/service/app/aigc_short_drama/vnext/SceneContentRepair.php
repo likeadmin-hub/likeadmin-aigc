@@ -81,7 +81,15 @@ final class SceneContentRepair
                 $checkpoint($best + ['content_repair' => $trace + ['candidate_shot_plan' => $candidateShots, 'candidate_report' => $nextReport]]);
                 return $best + ['stop_reason' => 'repair_not_improved'];
             }
-            $nextReport['content_repair'] = ['round' => $round, 'base_document_hash' => $base['content_hash'], 'replan_windows' => $scope['replan'], 'recheck_windows' => $scope['recheck']];
+            $changes = [];
+            foreach ($newUnits as $id => $unit) if (!isset($oldUnits[$id]) || $oldUnits[$id]['text_hash'] !== $unit['text_hash']) {
+                $changes[] = ['unit_id' => $id, 'before_text_hash' => $oldUnits[$id]['text_hash'] ?? null, 'after_text_hash' => $unit['text_hash']]
+                    + (isset($change['insertion_anchors'][$id]) ? ['anchor_unit_id' => $change['insertion_anchors'][$id], 'issue_id' => $unit['repair_issue_id']] : []);
+            }
+            $entry = ['round' => $round, 'base_revision_id' => $base['revision_id'], 'base_document_hash' => $base['content_hash'],
+                'revision_id' => $candidate['revision_id'], 'document_hash' => $candidate['content_hash'], 'issues' => $scope['issues'], 'changes' => $changes,
+                'replan_windows' => $scope['replan'], 'recheck_windows' => $scope['recheck']];
+            $nextReport['content_repair'] = $entry + ['history' => array_merge($report['content_repair']['history'] ?? [], [$entry])];
             $best = ['document' => $candidate, 'shot_plan' => $candidateShots, 'coverage_report' => $nextReport];
             $checkpoint($best);
         }
@@ -141,9 +149,12 @@ final class SceneContentRepair
                 || ($insertion['anchor_hash'] ?? '') !== $units[$anchor]['text_hash'] || (isset($chosen[$issue]) && $chosen[$issue] !== $anchor)) throw new RuntimeException('补全必须使用同一已定位锚点及原文哈希', 422);
             $chosen[$issue] = $anchor;
         }
-        $candidate = ContentDocument::repair($document, $patches, $insertions, $revision, $scope['issues']); $owners = [];
-        foreach (ContentDocument::units($candidate) as $id => $unit) if (!isset($units[$id])) $owners[$id] = $scope['anchor_owners'][$chosen[$unit['repair_issue_id']]];
-        return ['document' => $candidate, 'owners' => $owners];
+        $candidate = ContentDocument::repair($document, $patches, $insertions, $revision, $scope['issues']); $owners = []; $insertionAnchors = [];
+        foreach (ContentDocument::units($candidate) as $id => $unit) if (!isset($units[$id])) {
+            $insertionAnchors[$id] = $chosen[$unit['repair_issue_id']];
+            $owners[$id] = $scope['anchor_owners'][$insertionAnchors[$id]];
+        }
+        return ['document' => $candidate, 'owners' => $owners, 'insertion_anchors' => $insertionAnchors];
     }
 
     private static function compile(array $document, array $groups, string $revision): array
