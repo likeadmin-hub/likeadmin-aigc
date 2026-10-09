@@ -75,16 +75,16 @@ final class SeriesContext
     }
 
     /** Bulk-read lightweight revision metadata; load complete evidence only for the latest published state. */
-    public static function publishedBefore(int $tenant, int $user, int $project, int $number): array
+    public static function publishedBefore(int $tenant, int $user, int $project, int $number, bool $lock = false): array
     {
         $scope = ['tenant_id' => $tenant, 'user_id' => $user, 'delete_time' => 0];
         $rows = Db::name('aigc_short_drama_episode_task')->where($scope + ['project_id' => $project])
-            ->where('episode_number', '<', $number)->order('episode_number')->field('episode_number,status,production_project_id,completed_once')->select()->toArray();
+            ->where('episode_number', '<', $number)->order('episode_number')->field('episode_number,status,production_project_id,completed_once')->lock($lock)->select()->toArray();
         if (count($rows) !== $number - 1) throw new RuntimeException('前置剧集尚未建立，不能跳集生成', 409);
         if (!$rows) return ['dependencies' => [], 'ledger' => []];
-        $projects = Db::name('aigc_short_drama_project')->where($scope)->whereIn('id', array_column($rows, 'production_project_id'))->column('current_version_id', 'id');
+        $projects = Db::name('aigc_short_drama_project')->where($scope)->whereIn('id', array_column($rows, 'production_project_id'))->lock($lock)->column('current_version_id', 'id');
         $versions = Db::name('aigc_short_drama_plan_version')->where($scope)->whereIn('id', array_values($projects))
-            ->field('id,project_id,continuity_json')->select()->toArray();
+            ->field('id,project_id,continuity_json')->lock($lock)->select()->toArray();
         $versions = array_column($versions, null, 'project_id'); $dependencies = []; $lastVersion = 0;
         foreach ($rows as $row) {
             $version = $versions[$row['production_project_id']] ?? [];
@@ -96,7 +96,7 @@ final class SeriesContext
                 'ledger_hash' => $canonical['ledger_hash']];
             $lastVersion = (int)$version['id'];
         }
-        $plan = json_decode((string)Db::name('aigc_short_drama_plan_version')->where($scope + ['id' => $lastVersion])->value('plan_json'), true, 512, JSON_THROW_ON_ERROR);
+        $plan = json_decode((string)Db::name('aigc_short_drama_plan_version')->where($scope + ['id' => $lastVersion])->lock($lock)->value('plan_json'), true, 512, JSON_THROW_ON_ERROR);
         $ledger = $plan['narrative_ledger'] ?? [];
         if (!$ledger || ($ledger['content_hash'] ?? '') !== NarrativeLedger::digest($ledger)
             || $ledger['content_hash'] !== end($dependencies)['ledger_hash']) throw new RuntimeException('前集事实收据不完整，不能推测状态', 409);
@@ -107,8 +107,12 @@ final class SeriesContext
     {
         $versions = $context['dependency_versions'] ?? []; $series = $versions['series'] ?? [];
         if (!$series) return;
-        if ($lock) Db::name('aigc_short_drama_project')->where(['tenant_id' => $series['tenant_id'], 'user_id' => $series['user_id'], 'id' => $series['project_id']])->lock(true)->find();
-        $now = self::publishedBefore((int)$series['tenant_id'], (int)$series['user_id'], (int)$series['project_id'], (int)$series['episode_number']);
+        $parent = Db::name('aigc_short_drama_project')->where(['tenant_id' => $series['tenant_id'], 'user_id' => $series['user_id'],
+            'id' => $series['project_id'], 'delete_time' => 0])->lock($lock)->find();
+        if (!$parent) throw new RuntimeException('系列项目已不存在，候选保留但不能发布', 409);
+        // A locking parent alone does not refresh an earlier REPEATABLE READ
+        // snapshot (e.g. stage receipt reads). Publication uses current reads.
+        $now = self::publishedBefore((int)$series['tenant_id'], (int)$series['user_id'], (int)$series['project_id'], (int)$series['episode_number'], $lock);
         if (($versions['episodes'] ?? []) !== $now['dependencies']) throw new RuntimeException('前集已更新，本集候选已保留，需要按最新依赖复核', 409);
     }
 

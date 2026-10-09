@@ -5,6 +5,7 @@ use app\common\service\app\aigc_short_drama\AigcShortDramaService as Service;
 use app\common\service\app\aigc_short_drama\ShortDramaEpisodeService as Episodes;
 use app\common\service\app\aigc_short_drama\vnext\ApplicationWorkflow as Workflow;
 use app\common\service\app\aigc_short_drama\vnext\ReceiptBuffer;
+use app\common\service\app\aigc_short_drama\vnext\SeriesContext;
 use app\common\service\power\MarketTextModelRuntimeService as Provider;
 use PHPUnit\Framework\TestCase;
 use think\facade\Db;
@@ -44,6 +45,14 @@ final class ShortDramaVnextSeriesTest extends TestCase
             self::assertCount(2, $rows);
             $snapshot = json_decode(Db::name('aigc_short_drama_episode_task')->where('id', $rows[0]['id'])->value('series_json'), true);
             self::assertSame(1, $snapshot['request']['_vnext_series']['schema_version']);
+            $rawRows = Db::name('aigc_short_drama_episode_task')->where($scope + ['project_id' => $project])->order('episode_number')->select()->toArray();
+            $foreign = $rawRows[0]; $foreign['user_id']++;
+            $changed = $rawRows[0]; $changed['outline_json'] = '{}';
+            foreach ([$foreign, $changed, $rawRows[1]] as $invalid) {
+                try { SeriesContext::prepare($snapshot['request']['_vnext_series'], $invalid, $snapshot['plan']); self::fail('Invalid or unpublished dependency accepted'); }
+                catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
+            }
+            self::assertCount(0, Provider::$requests);
             // Turning off enrollment cannot reroute an already confirmed series.
             \think\facade\Config::set(['generation_version' => 3, 'vnext' => ['enabled' => false, 'series_enabled' => false]], 'short_drama');
             self::assertSame(1, Episodes::tick($tenant, $project));
@@ -113,6 +122,11 @@ final class ShortDramaVnextSeriesTest extends TestCase
             $saved = Episodes::detail($tenant, $user, $list[1]['id']);
             self::assertTrue($saved['has_saved_content']); self::assertSame($secondEdit['task_id'], $saved['task_id']);
             self::assertSame('needs_attention', $saved['generation_execution_status']);
+            Db::name('aigc_short_drama_episode_task')->where('id', $list[1]['id'])->update(['completed_once' => 0]);
+            $initialFailure = Episodes::detail($tenant, $user, $list[1]['id']);
+            self::assertFalse($initialFailure['ready']); self::assertTrue($initialFailure['has_saved_content']);
+            self::assertSame($secondEdit['task_id'], $initialFailure['task_id']);
+            Db::name('aigc_short_drama_episode_task')->where('id', $list[1]['id'])->update(['completed_once' => 1]);
             self::assertCount(14, Provider::$requests);
             self::assertSame(1, Episodes::tick($tenant, $project)); // Finalize the already published first revision.
             self::assertCount(14, Provider::$requests);
