@@ -128,6 +128,30 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertSame(0, $this->resources()['spent']['total_tokens']);
         self::assertSame(3, json_decode($this->store->snapshot()['budget_json'], true)['calls']);
     }
+    public function testRepairConnectionRetryUsesExtraBudgetWithoutConsumingFinalReviewReservation(): void
+    {
+        $this->resourceStore(1000); $fence = $this->store->acquire('worker', 100);
+        $provider = function ($input, $key, $persist, $admit) { $admit($this->bound()); return $this->billedReceipt(); };
+        $this->store->call($fence, 'initial', [], $provider);
+        $this->store->reserveRepair($fence, 'repair', 3);
+        $this->store->call($fence, 'patch', [], $provider, 'repair');
+        try { $this->store->call($fence, 'local_review', [], function ($input, $key, $persist, $admit) {
+            $admit($this->bound()); throw new \RuntimeException('Could not resolve host');
+        }, 'repair'); self::fail('Connection failure ignored'); }
+        catch (\RuntimeException $e) { self::assertSame(425, $e->getCode()); }
+        self::assertSame(1, json_decode($this->store->snapshot()['budget_json'], true)['reservations']['repair']);
+        self::assertSame(1, $this->resources()['rounds']['repair']['remaining']);
+        Db::name('aigc_short_drama_vnext_stage')->where($this->scope)->update(['retry_after' => 0]);
+        $fence = $this->store->acquire('worker', 100);
+        $this->store->call($fence, 'local_review', [], $provider, 'repair');
+        self::assertSame(1, json_decode($this->store->snapshot()['budget_json'], true)['reservations']['repair']);
+        self::assertSame(1, $this->resources()['rounds']['repair']['remaining']);
+        $this->store->call($fence, 'global_review', [], $provider, 'repair');
+        self::assertSame(0, json_decode($this->store->snapshot()['budget_json'], true)['reservations']['repair']);
+        self::assertSame(0, $this->resources()['rounds']['repair']['remaining']);
+        self::assertSame(5, json_decode($this->store->snapshot()['budget_json'], true)['calls']);
+        self::assertSame(184, $this->resources()['spent']['total_tokens']);
+    }
     public function testUnverifiedReceiptCannotAuthorizeAnotherCall(): void
     {
         $this->resourceStore(); $fence = $this->store->acquire('worker', 100);
@@ -327,9 +351,10 @@ final class ShortDramaVnextExecutionTest extends TestCase
         $this->store->checkpoint($new, ['title' => 'new']);
         $this->expectExceptionCode(409); $this->store->checkpoint($fence, ['title' => 'old']);
     }
-    private function sceneStore(bool $review = false): array
+    private function sceneStore(bool $review = false, bool $repair = false): array
     {
         $input = $review ? ShortDramaVnextSceneReviewTest::input() : ShortDramaVnextSceneShotTest::input();
+        if ($repair) $input['context'] = ShortDramaVnextSceneShotRepairTest::context();
         $input['execution']['resource_limits'] = ['total_tokens' => 10000, 'tenant_cost_points' => 3, 'user_charge_points' => 6];
         $this->scope['task_id'] .= '_scene';
         $this->store = new ExecutionStore($this->scope['tenant_id'], $this->scope['user_id'], $this->scope['task_id'], $this->buffer);
@@ -458,6 +483,46 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertTrue($this->store->resume()); JobRunner::run($this->store, 'worker', $provider);
         self::assertSame(['shots', 'review', 'window_1', 'window_2', 'global'], $paid);
         self::assertSame('succeeded', $this->store->snapshot()['execution_status']);
+    }
+    public static function visualRepairInterruptions(): array { return ['connection' => [false], 'cancel' => [true]]; }
+    /** @dataProvider visualRepairInterruptions */
+    public function testVisualRepairRecoveryKeepsBestContentAndNeverRepeatsPaidPatch(bool $cancel): void
+    {
+        $input = $this->sceneStore(true, true); $paid = []; $failed = false;
+        $provider = function ($params, $key, $persist, $admit) use (&$paid, &$failed, $cancel): array {
+            $data = json_decode($params['content'], true);
+            if (isset($data['repair_targets'])) $stage = 'window_repair_1_patch_' . $data['review_window']['number'];
+            elseif (isset($data['review_window'])) $stage = (str_contains($data['shot_plan']['revision_id'], 'window_repair_1') ? 'window_repair_1_review_' : 'review_window_') . $data['review_window']['number'];
+            elseif (isset($data['window_reviews'])) $stage = str_contains($data['shot_plan']['revision_id'], 'window_repair_1') ? 'window_repair_1_global' : 'review_global';
+            else $stage = isset($data['shot_plan']) ? 'review' : 'shots';
+            $admit(['total_tokens' => 500, 'tenant_cost_points' => .5, 'user_charge_points' => 1]);
+            if (!$cancel && !$failed && $stage === 'window_repair_1_review_2') { $failed = true; throw new \RuntimeException('Could not resolve host'); }
+            $paid[] = $stage; $receipt = $this->billedReceipt(); unset($receipt['result']);
+            $receipt = ($stage === 'review' ? ['content' => '{partial', 'finish_reason' => 'length'] : ShortDramaVnextSceneShotRepairTest::receipt($stage, $data)) + $receipt;
+            $persist($receipt); return $receipt;
+        };
+        try { JobRunner::run($this->store, 'worker', $provider, function ($event, $payload) use ($cancel, &$failed) {
+            if ($cancel && !$failed && $event === 'stage' && $payload['stage'] === 'window_repair_1_review_2') { $failed = true; $this->store->cancel(); }
+        }); self::fail('Repair interruption ignored'); }
+        catch (\RuntimeException $e) { self::assertContains($e->getCode(), $cancel ? [409, 422] : [425]); }
+        $before = $this->store->snapshot(); $candidate = json_decode($before['candidate_json'], true); $budget = json_decode($before['budget_json'], true);
+        self::assertSame($cancel ? 'canceled' : 'retry_wait', $before['execution_status']);
+        self::assertSame('draft', $candidate['coverage_report']['status']); self::assertSame($input['context']['canonical_input'], $candidate['document']);
+        self::assertSame(1, $candidate['shot_repair']['completed_patches']);
+        self::assertSame($candidate['shot_plan']['content_hash'], $candidate['shot_repair']['base_shot_hash']);
+        self::assertSame(0, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+        if ($cancel) self::assertTrue($this->store->resume());
+        else Db::name('aigc_short_drama_vnext_stage')->where($this->scope)->update(['retry_after' => 0]);
+        $result = JobRunner::run($this->store, 'worker', $provider);
+        self::assertSame('ready', $result['coverage_report']['status']); self::assertSame($input['context']['canonical_input'], $result['document']);
+        self::assertSame($candidate['shot_plan']['audio_segments'], $result['shot_plan']['audio_segments']);
+        self::assertSame(['shots', 'review', 'review_window_1', 'review_window_2', 'review_global', 'window_repair_1_patch_2', 'window_repair_1_review_2', 'window_repair_1_global'], $paid);
+        $after = json_decode($this->store->snapshot()['budget_json'], true);
+        self::assertSame($cancel ? 8 : 9, $after['calls']); self::assertSame(1, $after['repair_rounds']); self::assertSame(0, $after['reservations']['window_repair_1']);
+        self::assertSame($budget['base_calls'], $after['base_calls']); self::assertSame($budget['call_limit'], $after['call_limit']);
+        self::assertSame($budget['resources']['limits'], $after['resources']['limits']); self::assertSame(368, $after['resources']['spent']['total_tokens']);
+        self::assertSame(3200000, $after['resources']['spent']['user_charge_points']);
+        self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
     }
     public function testOversizedCanonicalInputStopsBeforeProviderAndKeepsEntireDraft(): void
     {

@@ -35,8 +35,14 @@ final class SceneReviewExecution
             $checkpoint(['document' => $document, 'shot_plan' => $shots,
                 'review_windows' => ['plan_hash' => $plan['plan_hash'], 'completed' => $index + 1, 'total' => count($plan['windows']), 'reviews' => $reviews]]);
         }
+        return self::globalReview($context, $document, $shots, $reviews, $plan, $call, 'review_global');
+    }
+
+    public static function globalReview(array $context, array $document, array $shots, array $reviews, array $plan, callable $call, string $key, string $reservation = ''): array
+    {
+        self::assertPlan($document, $shots, $plan);
         $data = self::globalData($context, $document, $shots, $reviews);
-        return $call('review_global', $data, GenerationPipeline::reviewInstruction($context)
+        return $call($key, $data, GenerationPipeline::reviewInstruction($context)
             . '本次为分窗核验后的整集合并检查。document只展示已核对的证据单元与各窗口边界，不是全文；window_reviews覆盖全部分镜和正文。'
             . '综合每个窗口的逐项观察、原文证据和状态变化，逐项核对整集核心事件、复合要求全部部分、人物身份及跨窗口因果/时间/认知衔接。'
             . 'not_observed只代表该窗口未观察到，不是整集缺失；其他窗口出现可补足。covered只代表局部证据，不自动证明整条要求满足。'
@@ -48,7 +54,7 @@ final class SceneReviewExecution
                 $report['window_review'] = ['schema_version' => self::VERSION, 'plan_hash' => $plan['plan_hash'],
                     'windows' => $reviews, 'global_review' => $reply];
                 return $report;
-            });
+            }, $reservation);
     }
 
     public static function partition(array $context, array $document, array $shots, callable $capacity, int $projection, bool $afterTruncation = false): array
@@ -114,7 +120,7 @@ final class SceneReviewExecution
         return $targets;
     }
 
-    private static function windowInstruction(array $context): string
+    public static function windowInstruction(array $context): string
     {
         return '核验当前分镜窗口的完整正文、人物、连续性、分镜一致性与每项适用本集的requirements/events。'
             . '返回{document_hash,shot_hash,checks:[{id,status:covered或not_observed或contradiction或uncertain,scope:"window",reason,evidence:[{unit,start,end,quote}]}]}。'

@@ -17,6 +17,8 @@ final class GenerationPipeline
         if (!in_array($sceneVersion, [0, SceneShotExecution::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的分场请求版本', 409);
         $reviewVersion = $context['scene_review_version'] ?? 0;
         if (!in_array($reviewVersion, [0, SceneReviewExecution::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的分窗核验版本', 409);
+        $windowRepair = $context['window_shot_repair_version'] ?? 0;
+        if (!in_array($windowRepair, [0, SceneShotRepair::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的窗口修复版本', 409);
         $windowed = false;
         $makeShots = static function (array $document, callable $call, string $key, string $reservation, array $issues = []) use ($sceneVersion, $sceneExecution, $checkpoint, $projection, &$windowed): array {
             if ($sceneVersion === SceneShotExecution::VERSION && $sceneExecution && $reservation === '') {
@@ -53,7 +55,13 @@ final class GenerationPipeline
             : self::review($context, $document, $plan, $call, 'review', '');
         $best = ['document' => $document, 'shot_plan' => $plan, 'coverage_report' => $report];
         $checkpoint($best);
-        if ($windowed && $report['status'] !== 'ready') return $best + ['receipts' => $receipts, 'stop_reason' => 'windowed_content_requires_revision'];
+        if ($windowed && $report['status'] !== 'ready') {
+            if ($windowRepair === SceneShotRepair::VERSION && self::shotOnly($report)) {
+                $best = SceneShotRepair::run($context, $best, $call, $reserveRepair, $checkpoint);
+                return $best + ['receipts' => $receipts];
+            }
+            return $best + ['receipts' => $receipts, 'stop_reason' => 'windowed_content_requires_revision'];
+        }
         $extended = (int)($context['repair_contract_version'] ?? 1) >= 2;
         if ($report['status'] !== 'ready' && !($extended && self::shotOnly($report)) && (isset($context['canonical_input']) || isset($context['structured_screenplay']) || ($context['source_mode'] ?? '') === 'faithful')) {
             // Review cannot authorize changing user-authored dialogue. Shot-only failures may repair

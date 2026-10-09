@@ -161,9 +161,12 @@ final class ExecutionStore
             if ($stage && (int)$stage['attempt_count'] >= 3) throw new RuntimeException('连接重试次数已用完', 429);
             $budget = self::decode($job['budget_json']);
             if (isset($budget['resources'])) ResourceBudget::assertVerified($budget['resources']);
-            if ($reservation !== '') {
-                if (($budget['reservations'][$reservation] ?? 0) < 1) throw new RuntimeException('修复轮次预留预算已用完', 429);
-                $budget['reservations'][$reservation]--;
+            // A connection retry is an extra attempt of this stage, not the next
+            // planned stage. Keep the remaining review/global slots reserved.
+            $attemptReservation = $stage ? '' : $reservation;
+            if ($attemptReservation !== '') {
+                if (($budget['reservations'][$attemptReservation] ?? 0) < 1) throw new RuntimeException('修复轮次预留预算已用完', 429);
+                $budget['reservations'][$attemptReservation]--;
             } elseif ($budget['calls'] + array_sum($budget['reservations']) >= $budget['call_limit']) throw new RuntimeException('本集统一调用预算已用完', 429);
             $budget['calls']++;
             $this->query('job')->update(['budget_json' => self::json($budget), 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
@@ -172,7 +175,7 @@ final class ExecutionStore
                 'attempt_count' => $attempt, 'retry_after' => 0, 'update_time' => time()];
             if ($stage) $this->query('stage')->where('stage_key', $key)->update($data);
             else $this->query('stage')->insert($this->scope + ['stage_key' => $key, 'create_time' => time()] + $data);
-            return ['submit' => true, 'attempt' => $attempt, 'resources' => isset($budget['resources'])];
+            return ['submit' => true, 'attempt' => $attempt, 'resources' => isset($budget['resources']), 'reservation' => $attemptReservation];
         });
         if (isset($claim['receipt'])) return $claim['receipt'];
         if (isset($claim['buffered'])) { $this->receive($key, $hash, $claim['buffered']); return $claim['buffered']; }
@@ -187,6 +190,7 @@ final class ExecutionStore
             $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update(['execution_status' => 'reconciling', 'error_code' => 'submission_unknown', 'event_seq' => Db::raw('event_seq + 1')]);
             throw new RuntimeException('上游结果尚未确认，已停止重复提交并保留现有内容', 409);
         }
+        $reservation = $claim['reservation'];
         $started = microtime(true); $resultReceived = false; $admitted = false;
         try {
             $persist = function (array $raw) use ($bufferKey, &$resultReceived): void {
