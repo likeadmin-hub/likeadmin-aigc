@@ -96,4 +96,31 @@ final class ShortDramaAttachmentSourceTest extends TestCase
             Source::capture($path, 'docx', 1, 2, 'docx_test');
         } finally { unlink($path); }
     }
+
+    public function testDocxIdenticalAlternateTextIsReadOnceAndTrailingParagraphIsRetained(): void
+    {
+        $body='<mc:AlternateContent><mc:Choice Requires="x"><x:p><x:r><x:t>陈默：完整台词😀</x:t></x:r></x:p></mc:Choice><mc:Fallback><x:p><x:r><x:t>陈默：完整台词😀</x:t></x:r></x:p></mc:Fallback></mc:AlternateContent><x:p><x:r><x:t>尾句。</x:t></x:r></x:p>';
+        $source=$this->captureDocx($body);
+        self::assertSame("陈默：完整台词😀\n尾句。\n",$source['source']['text']);self::assertSame(2,$source['extraction']['version']);
+        Source::assertPackage($source);
+    }
+
+    /** @dataProvider unrepresentedDocx */
+    public function testDocxCannotSilentlyOmitUnrepresentedMaterialOrSelectDifferentAlternativeText(string $body): void
+    {
+        $this->expectException(\RuntimeException::class);$this->expectExceptionCode(422);$this->captureDocx($body);
+    }
+    public static function unrepresentedDocx(): array
+    {
+        return [['<x:p><x:r><x:t>正文</x:t><x:footnoteReference x:id="1"/></x:r></x:p>'],
+            ['<x:p><x:r><x:t>正文</x:t><x:endnoteReference x:id="1"/></x:r></x:p>'],
+            ['<x:p><x:r><x:t>正文</x:t></x:r></x:p><x:altChunk/>'],
+            ['<mc:AlternateContent><mc:Choice Requires="x"><x:p><x:r><x:t>甲的正文</x:t></x:r></x:p></mc:Choice><mc:Fallback><x:p><x:r><x:t>乙的正文</x:t></x:r></x:p></mc:Fallback></mc:AlternateContent>']];
+    }
+    private function captureDocx(string $body): array
+    {
+        $path=tempnam(sys_get_temp_dir(),'docx_material_');$zip=new \ZipArchive();$zip->open($path,\ZipArchive::OVERWRITE);
+        $zip->addFromString('word/document.xml','<x:document xmlns:x="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><x:body>'.$body.'</x:body></x:document>');$zip->close();
+        try { return Source::capture($path,'docx',1,2,'docx_material'); } finally { unlink($path); }
+    }
 }
