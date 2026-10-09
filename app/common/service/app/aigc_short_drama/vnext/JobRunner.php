@@ -47,6 +47,7 @@ final class JobRunner
                     $notify('snapshot', $store->publicSnapshot());
                 }, [
                     'plan' => static fn(string $key, array $document, ?array $proposal): ?array => $store->sceneShotPlan($fence, $key, $document, $proposal),
+                    'review_plan' => static fn(array $document, array $plan, ?array $proposal): ?array => $store->sceneReviewPlan($fence, $document, $plan, $proposal),
                     'capacity' => static fn(array $messages): array => ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'],
                         $input['model'], 'script', (int)($input['execution']['max_output_tokens'] ?? 8192)),
                 ]);
