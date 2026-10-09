@@ -32,6 +32,15 @@ final class ShortDramaRetiredTaskTest extends TestCase
         self::assertSame("  第一场😀𠮷  \n林安：我先解释。\n林安：明天见，这次我会先问清楚。", ShortDramaRetiredTask::text($candidate));
     }
 
+    public function testRetiredSeriesCannotCreateALegacyChildBeforeProviderSetup(): void
+    {
+        $method = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'createScriptPlanOnce');
+        $method->setAccessible(true);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionCode(409);
+        $method->invoke(null, 1, 1, ['prompt' => '下一集'], 0, ['_vnext_series' => ['version' => 1]]);
+    }
+
     public function testPublicReadAndRetryPreserveArchivedRecordsAndBilling(): void
     {
         if (getenv('SHORT_DRAMA_STORY_DB_TESTS') !== '1') self::markTestSkipped('Local DB opt-in required');
