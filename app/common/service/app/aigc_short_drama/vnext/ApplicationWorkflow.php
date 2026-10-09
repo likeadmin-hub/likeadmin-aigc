@@ -57,6 +57,12 @@ final class ApplicationWorkflow
         return new ExecutionStore($tenant, $user, $task, new ReceiptBuffer(runtime_path() . 'short_drama_vnext_receipts'));
     }
 
+    public static function assertLegacyWrite(array $task): void
+    {
+        $request = json_decode((string)($task['request_json'] ?? ''), true);
+        if (self::current(is_array($request) ? $request : [])) throw new RuntimeException('当前版本不支持此编辑或制作操作，已保存的正文不会改变', 409);
+    }
+
     /** The compatible view is derived from accepted content, never fed back into creative validation. */
     public static function project(array $candidate): array
     {

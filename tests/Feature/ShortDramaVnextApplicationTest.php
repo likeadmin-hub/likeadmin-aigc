@@ -53,4 +53,10 @@ final class ShortDramaVnextApplicationTest extends TestCase
         self::assertSame('library:11', $context['entities'][0]['entity_id']);
         self::assertSame('7:8:9', $context['entity_scope']);
     }
+    public function testLegacyWritersAcceptOldTasksButCannotMutateCanonicalTasks(): void
+    {
+        ApplicationWorkflow::assertLegacyWrite(['request_json' => '{"_generation_version":3}']);
+        $this->expectExceptionCode(409);
+        ApplicationWorkflow::assertLegacyWrite(['request_json' => '{"_pipeline_version":1}']);
+    }
 }
