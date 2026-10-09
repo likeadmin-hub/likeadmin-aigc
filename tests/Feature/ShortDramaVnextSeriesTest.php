@@ -103,6 +103,7 @@ final class ShortDramaVnextSeriesTest extends TestCase
             if ($withRevision) {
                 $firstInput = json_decode(Provider::$requests[0]['content'], true);
                 self::assertCount(1, $firstInput['input_history'], 'Second-episode instruction must not affect the first');
+                self::assertArrayNotHasKey($request['_trace_revision']['source']['source_id'], $firstInput['sources']);
             }
             self::assertCount(1, $first['result']['narrative_ledger']['delta']);
             self::assertSame(1, Episodes::tick($tenant, $project));
