@@ -213,4 +213,55 @@ final class ShortDramaVnextPipelineTest extends TestCase
         self::assertStringContainsString('"props"', $newPrompt);
     }
 
+    public static function reviewEchoCases(): array { return [['missing', false], ['wrong', false], ['wrong', true]]; }
+    /** @dataProvider reviewEchoCases */
+    public function testNewReviewEchoRecoveryIsBoundedAndKeepsFrozenInput(string $kind, bool $repeat): void
+    {
+        $context = $this->context() + ['review_format_version' => 1, 'prompt_projection_version' => 1];
+        $keys = []; $first = null; $saved = [];
+        try {
+            $result = GenerationPipeline::run($context, function ($key, $messages) use ($kind, $repeat, &$keys, &$first) {
+                $keys[] = $key; $data = json_decode($messages['content'], true);
+                if ($key === 'review') $first = $data;
+                if ($key === 'review_format') self::assertSame($first, $data['input']);
+                $response = $this->response($key, $messages);
+                if ($key === 'review' || ($repeat && $key === 'review_format')) {
+                    $reply = json_decode($response['result']['content'], true);
+                    if ($kind === 'missing') unset($reply['document_hash']); else $reply['shot_hash'] = 'wrong';
+                    $response['result']['content'] = json_encode($reply, JSON_UNESCAPED_UNICODE);
+                }
+                return $response;
+            }, static function () { self::fail('No semantic repair allowed'); }, static function ($candidate) use (&$saved) { $saved[] = $candidate; });
+            self::assertFalse($repeat); self::assertSame('ready', $result['coverage_report']['status']);
+            self::assertSame($saved[0]['document'], $result['document']);
+        } catch (\RuntimeException $error) {
+            self::assertTrue($repeat); self::assertSame(422, $error->getCode());
+            self::assertArrayHasKey('shot_plan', end($saved)); self::assertArrayNotHasKey('coverage_report', end($saved));
+        }
+        self::assertSame(['screenplay', 'shots', 'review', 'review_format'], $keys);
+    }
+
+    public function testHistoricalReviewEchoMismatchStillStopsWithoutANewCall(): void
+    {
+        $keys = [];
+        try {
+            GenerationPipeline::run($this->context(), function ($key, $messages) use (&$keys) {
+                $keys[] = $key; $response = $this->response($key, $messages);
+                if ($key === 'review') {
+                    $reply = json_decode($response['result']['content'], true); $reply['document_hash'] = 'old';
+                    $response['result']['content'] = json_encode($reply, JSON_UNESCAPED_UNICODE);
+                }
+                return $response;
+            }, static function () {}, static function () {});
+            self::fail('Old response unexpectedly accepted');
+        } catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
+        self::assertSame(['screenplay', 'shots', 'review'], $keys);
+    }
+
+    public function testUnknownReviewRecoveryVersionCannotSubmit(): void
+    {
+        $this->expectExceptionCode(409);
+        GenerationPipeline::run($this->context() + ['review_format_version' => 99], static function () { self::fail('Unsupported version submitted'); }, static function () {}, static function () {});
+    }
+
 }

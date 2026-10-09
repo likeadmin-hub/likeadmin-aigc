@@ -49,6 +49,7 @@ final class ShortDramaVnextApplicationTest extends TestCase
         $input = ApplicationWorkflow::input(7, 8, 9, 'task1', ['prompt' => " 第一行\n末尾😀 ",
             'locked_subject_references' => [['id' => 11, 'name' => '陈默']]], ['id' => 'model1'], []);
         $context = $input['context'];
+        self::assertSame(1, $context['review_format_version']);
         self::assertSame(" 第一行\n末尾😀 ", $context['requirements'][0]['text']);
         self::assertSame('library:11', $context['entities'][0]['entity_id']);
         self::assertSame('7:8:9', $context['entity_scope']);
