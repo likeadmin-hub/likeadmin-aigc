@@ -570,6 +570,75 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
         JobRunner::run($this->store, 'another', static function () { self::fail('Published text repair recharged'); });
     }
+    private function screenplayStore(): array
+    {
+        $input = ShortDramaVnextSceneScreenplayTest::input();
+        $input['execution']['resource_limits'] = ['total_tokens' => 10000, 'tenant_cost_points' => 3, 'user_charge_points' => 6];
+        $this->scope['task_id'] .= '_screenplay';
+        $this->store = new ExecutionStore($this->scope['tenant_id'], $this->scope['user_id'], $this->scope['task_id'], $this->buffer);
+        $this->store->create($this->scope['task_id'], $input, time() + 600);
+        return $input;
+    }
+    public function testCreativePlanFreezesContextAndBudgetWithoutResettingResources(): void
+    {
+        $input = $this->screenplayStore(); $context = $input['context']; $fence = $this->store->acquire('worker', 100);
+        $plan = \app\common\service\app\aigc_short_drama\vnext\SceneScreenplayExecution::plan($context, ShortDramaVnextSceneScreenplayTest::proposal());
+        $before = $this->store->snapshot();
+        self::assertNull($this->store->sceneScreenplayPlan($fence, $context, null));
+        self::assertSame($plan, $this->store->sceneScreenplayPlan($fence, $context, $plan));
+        self::assertSame($plan, $this->store->sceneScreenplayPlan($fence, $context, $plan));
+        $after = $this->store->snapshot(); $budget = json_decode($after['budget_json'], true);
+        self::assertSame(5, $budget['base_calls']); self::assertSame(10, $budget['call_limit']); self::assertSame(0, $budget['calls']);
+        self::assertSame(json_decode($before['budget_json'], true)['resources'], $budget['resources']); self::assertSame($before['deadline_at'], $after['deadline_at']);
+        $proposal = ShortDramaVnextSceneScreenplayTest::proposal(); $proposal['scenes'][0]['brief'] .= '改写';
+        $changed = \app\common\service\app\aigc_short_drama\vnext\SceneScreenplayExecution::plan($context, $proposal);
+        $this->expectExceptionCode(409); $this->store->sceneScreenplayPlan($fence, $context, $changed);
+    }
+    public static function screenplayInterruptions(): array { return [['connection'], ['cancel'], ['settlement']]; }
+    /** @dataProvider screenplayInterruptions */
+    public function testCreativeSceneRecoveryReusesPaidContentAndPublishesOnlyAfterFullReview(string $mode): void
+    {
+        $this->screenplayStore(); $paid = []; $interrupted = false;
+        $provider = function ($params, $key, $persist, $admit) use (&$paid, &$interrupted, $mode): array {
+            $data = json_decode($params['content'], true);
+            $stage = isset($data['scene_number']) ? 'screenplay_scene_' . $data['scene_number']
+                : (isset($data['target_ids']) ? 'screenplay_plan' : (isset($data['shot_plan']) ? 'review' : (isset($data['document']) ? 'shots' : 'screenplay')));
+            $admit(['total_tokens' => 500, 'tenant_cost_points' => .5, 'user_charge_points' => 1]);
+            if ($mode === 'connection' && !$interrupted && $stage === 'screenplay_scene_2') { $interrupted = true; throw new \RuntimeException('Could not resolve host'); }
+            $paid[] = $stage; $receipt = $this->billedReceipt(); unset($receipt['result']);
+            $receipt = ShortDramaVnextSceneScreenplayTest::reply($stage, $data) + $receipt; $persist($receipt);
+            if ($mode === 'settlement' && !$interrupted && $stage === 'screenplay_scene_2') { $interrupted = true; throw new \RuntimeException('settlement unavailable'); }
+            return $receipt;
+        };
+        try {
+            JobRunner::run($this->store, 'worker', $provider, function ($event, $payload) use ($mode, &$interrupted) {
+                if ($mode === 'cancel' && !$interrupted && $event === 'stage' && $payload['stage'] === 'screenplay_scene_2') { $interrupted = true; $this->store->cancel(); }
+            }); self::fail('Interruption ignored');
+        } catch (\RuntimeException $e) {
+            if ($mode === 'connection') self::assertSame(425, $e->getCode());
+            elseif ($mode === 'cancel') self::assertContains($e->getCode(), [409, 422]);
+            else self::assertSame('settlement unavailable', $e->getMessage());
+        }
+        $snapshot = $this->store->snapshot(); $before = json_decode($snapshot['budget_json'], true); $draft = json_decode($snapshot['candidate_json'], true);
+        self::assertSame(['connection' => 'retry_wait', 'cancel' => 'canceled', 'settlement' => 'reconciling'][$mode], $snapshot['execution_status']);
+        self::assertSame(1, $draft['screenplay_windows']['completed']); self::assertFalse($draft['screenplay_windows']['complete']);
+        self::assertCount(2, ContentDocument::units($draft['document'])); self::assertSame('draft', $snapshot['document_status']);
+        self::assertSame(0, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+        if ($mode === 'settlement') $this->store->reconcileReceipts(static fn($receipt) => $receipt);
+        if ($mode === 'connection') Db::name('aigc_short_drama_vnext_stage')->where($this->scope)->update(['retry_after' => 0]);
+        else self::assertTrue($this->store->resume());
+        $result = JobRunner::run($this->store, 'worker', $provider);
+        self::assertSame(['screenplay', 'screenplay_plan', 'screenplay_scene_1', 'screenplay_scene_2', 'shots', 'review'], $paid);
+        self::assertSame('ready', $result['coverage_report']['status']); self::assertCount(4, $result['shot_plan']['audio_segments']);
+        self::assertSame($draft['document']['scenes'][0], $result['document']['scenes'][0]);
+        $final = json_decode($this->store->snapshot()['budget_json'], true);
+        self::assertSame($before['scene_screenplay_plan'], $final['scene_screenplay_plan']); self::assertSame(5, $final['base_calls']);
+        self::assertSame(10, $final['call_limit']); self::assertSame($mode === 'connection' ? 7 : 6, $final['calls']);
+        self::assertSame($before['resources']['limits'], $final['resources']['limits']); self::assertSame($snapshot['deadline_at'], $this->store->snapshot()['deadline_at']);
+        self::assertSame(276, $final['resources']['spent']['total_tokens']); self::assertSame(2400000, $final['resources']['spent']['user_charge_points']);
+        self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+        JobRunner::run($this->store, 'another', static function () { self::fail('Published screenplay recharged'); });
+    }
     public function testOversizedCanonicalInputStopsBeforeProviderAndKeepsEntireDraft(): void
     {
         $text = str_repeat('全文必须保留。', 6000) . '最后一句😀';
