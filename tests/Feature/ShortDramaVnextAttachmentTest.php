@@ -57,6 +57,37 @@ final class ShortDramaVnextAttachmentTest extends TestCase
         self::assertSame(Import::document($context)['scenes'], $result['document']['scenes']);
     }
 
+    public function testIndentedMultilineDialogueActionAndNarrationRemainCompleteSingleUnits(): void
+    {
+        $text="第1集\n场景：书房\n动作（陈默）：陈默走近书桌。\n  接着打开抽屉。\n陈默：请听我说完。\n  ".str_repeat('完整台词。',200)."\n\t尾句😀。\n\n旁白：故事继续。\n  尚未结束。\n";
+        $context=self::context($text);$stages=[];
+        $result=GenerationPipeline::run($context,static function($key,$messages) use(&$stages) {
+            $stages[]=$key;return ShortDramaVnextSceneShotTest::reply(json_decode($messages['content'],true));
+        },static function(){self::fail('Imported content cannot be rewritten');},static function(){});
+        self::assertSame(['shots','review'],$stages);self::assertSame('ready',$result['coverage_report']['status']);
+        $units=array_values(ContentDocument::units($result['document']));self::assertCount(3,$units);
+        self::assertSame("陈默走近书桌。\n  接着打开抽屉。",$units[0]['text']);
+        self::assertSame("请听我说完。\n  ".str_repeat('完整台词。',200)."\n\t尾句😀。",$units[1]['text']);
+        self::assertSame("故事继续。\n  尚未结束。",$units[2]['text']);self::assertSame('char1',$units[1]['speaker_id']);
+        self::assertNull($units[2]['speaker_id']);
+        $cursor=0;foreach(end($result['document']['transforms'])['layout'] as $span){self::assertSame($cursor,$span['start']);$cursor=$span['end'];}
+        self::assertSame(mb_strlen($text),$cursor);
+        foreach($units as $unit){$link=$unit['source_links'][0];self::assertSame($unit['text'],ContentDocument::slice($context['attachment_import']['source']['text'],$link['start'],$link['end'],$link['quote']));}
+        $audio=\app\common\service\app\aigc_short_drama\vnext\AudioHandoff::segments($result);self::assertCount(2,$audio);
+        self::assertSame($units[1]['text'],$audio[0]['text']);
+        $view=\app\common\service\app\aigc_short_drama\vnext\AttachmentSourceView::page(['context'=>$context],$result,2)['records'][0];
+        self::assertSame("陈默：".$units[1]['text']."\n",$view['original_line']);self::assertSame($units[1]['text'],$view['current_text']);
+        self::assertSame('verbatim',$view['relation']);self::assertSame(5,$view['episode_line']);
+    }
+
+    public function testPreviouslyFrozenVersionOneImportsRemainReadableWithoutReparsing(): void
+    {
+        $context=self::context();$context['attachment_import']['schema_version']=1;
+        $document=Import::document($context);self::assertSame(1,end($document['transforms'])['schema_version']);
+        $view=\app\common\service\app\aigc_short_drama\vnext\AttachmentSourceView::page(['context'=>$context],['document'=>$document],2);
+        self::assertSame('我记得你😀。',$view['records'][0]['original_text']);
+    }
+
     public function testBadModelShotReferenceGetsOneFormatRecoveryWithTheSameImportedDocument(): void
     {
         $context = self::context(); $calls = []; $inputs = [];
@@ -83,7 +114,9 @@ final class ShortDramaVnextAttachmentTest extends TestCase
     {
         return [["第1集\n陈默：你好"], ["第1集\n场景：书房\n陌生人：你好"], ["第1集\n场景：未知地点\n陈默：你好"],
             ["第1集\n场景：书房\n没有标注用途的正文"], ["第1集\n场景：书房\n陈默：你好\n场景：书房"],
-            ["第1集\n场景：书房\n陈默："], ["第1集\n场景：书房\n动作：有人走近。"]];
+            ["第1集\n场景：书房\n陈默："], ["第1集\n场景：书房\n动作：有人走近。"],
+            ["第1集\n场景：书房\n  不知道是谁的正文"], ["第1集\n场景：书房\n陈默：你好\n\n  隔开后的未知正文"],
+            ["第1集\n场景：书房\n陈默：你好\n  陌生人：不能混入陈默的台词"]];
     }
 
     public function testChangedSourceAndFrozenStructureAreRejected(): void

@@ -25,7 +25,7 @@ final class AttachmentSourceView
         $trace = $traces[0]; $source = $import['source']; $origin = $source['origin'];
         $layout = $trace['layout'] ?? [];
         $baseLayout = array_map(static function ($row) { unset($row['unit_id'], $row['text_hash']); return $row; }, $layout);
-        if (($trace['schema_version'] ?? 0) !== AttachmentScreenplay::VERSION || $baseLayout !== $import['layout']
+        if (($trace['schema_version'] ?? 0) !== $import['schema_version'] || $baseLayout !== $import['layout']
             || ($trace['source_id'] ?? '') !== $source['source_id'] || ($trace['source_hash'] ?? '') !== $source['hash']
             || ($trace['origin'] ?? []) !== $origin || ($origin['kind'] ?? '') !== 'attachment_episode'
             || !is_int($origin['start'] ?? null) || !is_int($origin['end'] ?? null) || $origin['start'] < 0
