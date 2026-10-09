@@ -13,12 +13,14 @@ final class MarketTextDurableReceiptTest extends TestCase
     private bool $transaction = false;
     private array $receipt;
     private int $tenant = 2000000791;
-    private int $user = 2000000791;
+    private int $user;
     protected function setUp(): void
     {
         if (getenv('SHORT_DRAMA_STORY_DB_TESTS') !== '1') self::markTestSkipped('Opt in to local DB fixtures');
         (new \think\App())->initialize();
         Db::startTrans(); $this->transaction = true;
+        $this->user = (int)Db::name('user')->insertGetId(['tenant_id' => $this->tenant,
+            'sn' => (string)random_int(10000000, 99999999), 'nickname' => 'durable receipt fixture', 'user_money' => 0]);
         $model = ['product_id' => 0, 'model_code' => 'durable_fixture', 'channel_code' => 'fixture',
             'protocol' => 'openai_chat', 'billing_unit_size' => 1000,
             'input' => ['sku_id' => 0, 'platform_price' => 0, 'tenant_price' => 0, 'usage_unit_size' => 1000],
@@ -75,11 +77,11 @@ final class MarketTextDurableReceiptTest extends TestCase
         $c = AiConsumptionLog::find($this->receipt['consumption_id']); $price = $c['price_snapshot'];
         $price['input']['tenant_price'] = 2; $price['output']['tenant_price'] = 3;
         $c->save(['price_snapshot' => $price]);
-        // No fixture account yet: final billing fails, but must neither refund nor lose the reply.
-        try { $this->recover(); self::fail('Missing account billed'); }
-        catch (\RuntimeException $e) { self::assertStringContainsString('用户不存在', $e->getMessage()); }
+        // A fixture with no balance cannot settle, but must neither refund nor lose the reply.
+        try { $this->recover(); self::fail('Empty account billed'); }
+        catch (\RuntimeException $e) { self::assertStringContainsString('不足', $e->getMessage()); }
         self::assertSame('pending_usage', AiConsumptionLog::find($this->receipt['consumption_id'])['billing_status']);
-        Db::name('user')->insert(['id' => $this->user, 'tenant_id' => $this->tenant, 'sn' => '2000000791', 'nickname' => 'durable fixture', 'user_money' => 100]);
+        Db::name('user')->where('id', $this->user)->update(['user_money' => 100]);
         $a = $this->recover(); $this->recover();
         self::assertSame(8.0, $a['billing']['user_charge_points']);
         self::assertSame(92.0, (float)Db::name('user')->where('id', $this->user)->value('user_money'));
