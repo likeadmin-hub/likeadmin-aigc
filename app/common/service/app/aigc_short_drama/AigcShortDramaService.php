@@ -3093,16 +3093,27 @@ class AigcShortDramaService
         // UploadService selects the tenant-effective storage engine and stores
         // ownership metadata; the market API receives only its resolved URL.
         $parseTaskId = self::makeTaskId('sd_parse');
-        $attachmentSource = ShortDramaAttachmentSource::capture($path, $extension, $tenantId, $userId, $parseTaskId);
-        if ($attachmentSource['file_sha256'] !== $checksum) throw new Exception('上传文件已变化，请重新提交');
+        $attachmentSource = []; $extractionError = '';
+        try {
+            $attachmentSource = ShortDramaAttachmentSource::capture($path, $extension, $tenantId, $userId, $parseTaskId);
+        } catch (\RuntimeException $error) {
+            if ($error->getCode() !== 422) throw $error;
+            // A rejected text projection is still an owned original document.
+            // Persist its failure without submitting an incomplete source to a provider.
+            $extractionError = $error->getMessage();
+        }
+        if (hash_file('sha256', $path) !== $checksum
+            || ($attachmentSource && $attachmentSource['file_sha256'] !== $checksum)) throw new Exception('上传文件已变化，请重新提交');
         $uploaded = UploadService::file(0, 0, FileEnum::SOURCE_USER, 'uploads/aigc_short_drama/script_documents');
         $rawUri = FileService::setFileUrl((string)($uploaded['url'] ?? ''));
         $publicUrl = trim((string)($uploaded['uri'] ?? ''));
         if ($rawUri === '' || $publicUrl === '') throw new Exception('剧本文件存储失败');
         $storage = self::storageInfoForUploadedFile($tenantId, $rawUri);
         $now = time();
+        $status = $extractionError === '' ? self::STATUS_PENDING : self::STATUS_FAILED;
+        $failureMessage = $extractionError === '' ? '' : $extractionError . '；原文件已保留，请提供已核对的文字版本后重新上传。';
+        unset($sourceRequest['_attachment_source'], $sourceRequest['_attachment_extraction']);
         $request = array_replace($sourceRequest, [
-            '_attachment_source' => $attachmentSource,
             'source' => 'market_file_qa_parse',
             'script_source' => 'upload',
             'script_file_name' => $name,
@@ -3118,6 +3129,9 @@ class AigcShortDramaService
             'source_task_id' => $sourceTaskId,
             '_generation_version' => max(3, (int)($sourceRequest['_generation_version'] ?? 0)),
         ]);
+        if ($attachmentSource) $request['_attachment_source'] = $attachmentSource;
+        else $request['_attachment_extraction'] = ['version' => 1, 'status' => 'failed',
+            'file_sha256' => $checksum, 'error_code' => 'attachment_text_unverified', 'message' => $extractionError];
         if ($isHomeSubmission) {
             $request['submission'] = [
                 'type' => 'script_upload',
@@ -3131,7 +3145,7 @@ class AigcShortDramaService
         $request['episode_total_count'] = $request['episode_count'];
         $request['idempotency_key'] = $idempotencyKey !== '' ? $idempotencyKey : sha1($tenantId . '|' . $userId . '|' . $projectId . '|' . $checksum . '|' . $parseTaskId);
 
-        Db::transaction(function () use ($tenantId, $userId, &$projectId, $project, $parseTaskId, $request, $name, $rawUri, $storage, $mime, $size, $checksum, $now, $isHomeSubmission, $homeProject, $sourceTaskId) {
+        Db::transaction(function () use ($tenantId, $userId, &$projectId, $project, $parseTaskId, $request, $name, $rawUri, $storage, $mime, $size, $checksum, $now, $isHomeSubmission, $homeProject, $sourceTaskId, $status, $failureMessage) {
             if ($isHomeSubmission) {
                 $lockedProject = AigcShortDramaProject::create(array_replace($homeProject, [
                     'last_task_id' => $parseTaskId,
@@ -3151,7 +3165,8 @@ class AigcShortDramaService
                 'storage_engine' => (string)($storage['storage_engine'] ?? 'local'),
                 'storage_domain' => (string)($storage['storage_domain'] ?? ''),
                 'mime_type' => $mime, 'file_size' => $size, 'width' => 0, 'height' => 0, 'duration' => 0,
-                'checksum' => $checksum, 'meta_json' => self::jsonEncode(['source' => 'market_file_qa_parse']),
+                'checksum' => $checksum, 'meta_json' => self::jsonEncode(['source' => 'market_file_qa_parse',
+                    'text_extraction' => $request['_attachment_extraction'] ?? ['version' => 1, 'status' => 'verified', 'package_hash' => $request['_attachment_source']['package_hash']]]),
                 'status' => 'ready', 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
             ]);
             $request['script_asset_id'] = (int)$asset['id'];
@@ -3159,26 +3174,32 @@ class AigcShortDramaService
             $scriptTask = AigcShortDramaScriptTask::create([
                 'app_task_id' => 0, 'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
                 'task_id' => $parseTaskId, 'parent_task_id' => $sourceTaskId,
-                'status' => self::STATUS_PENDING, 'progress' => 5, 'current_step' => '剧本文件已上传，等待解析',
+                'status' => $status, 'progress' => $failureMessage === '' ? 5 : 100,
+                'current_step' => $failureMessage === '' ? '剧本文件已上传，等待解析' : '原文件已保存，正文提取未完成',
                 'prompt' => $isHomeSubmission ? (string)$request['prompt'] : '解析上传剧本：' . $name, 'request_json' => self::jsonEncode($request),
                 'config_snapshot' => self::jsonEncode(['provider' => 'power_market', 'market_app_code' => 'file_qa', 'market_api_code' => 'parse']),
-                'pricing_snapshot' => self::jsonEncode([]), 'result_json' => self::jsonEncode([]), 'error' => '',
-                'billing_status' => 'pending_usage', 'tenant_cost_points' => 0, 'user_charge_points' => 0,
+                'pricing_snapshot' => self::jsonEncode([]), 'result_json' => self::jsonEncode([]), 'error' => $failureMessage,
+                'billing_status' => $failureMessage === '' ? 'pending_usage' : 'none', 'tenant_cost_points' => 0, 'user_charge_points' => 0,
                 'provider' => 'power_market', 'provider_request_id' => '', 'provider_task_id' => '',
                 'idempotency_key' => (string)$request['idempotency_key'], 'retry_count' => 0,
-                'started_at' => $now, 'finished_at' => 0, 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
+                'started_at' => $now, 'finished_at' => $failureMessage === '' ? 0 : $now, 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
             ]);
-            self::createGenerationTaskRecord($tenantId, $userId, $projectId, '', 'script_plan', $parseTaskId, self::STATUS_PENDING, [
+            $generation = self::createGenerationTaskRecord($tenantId, $userId, $projectId, '', 'script_plan', $parseTaskId, $status, [
                 'provider' => 'power_market', 'source_app_code' => 'file_qa', 'request' => $request,
-                'result' => [], 'pricing' => [], 'billing_status' => 'pending_usage', 'started_at' => $now,
+                'result' => [], 'pricing' => [], 'billing_status' => $failureMessage === '' ? 'pending_usage' : 'none', 'started_at' => $now,
+                'finished_at' => $failureMessage === '' ? 0 : $now,
             ]);
+            if ($failureMessage !== '') $generation->save(['progress' => 100, 'error_code' => 'attachment_text_unverified', 'error_msg' => $failureMessage]);
         });
 
+        if ($failureMessage !== '') return ['project_id' => $projectId, 'task_id' => $parseTaskId,
+            'status' => self::STATUS_FAILED, 'error' => $failureMessage];
         return ['project_id' => $projectId, 'task_id' => $parseTaskId, 'status' => self::STATUS_PENDING, '_dispatch_request' => $request];
     }
 
     private static function dispatchUploadedScriptTask(int $tenantId, int $userId, int $projectId, string $parseTaskId, array $request): array
     {
+        if (($request['_attachment_extraction']['status'] ?? '') === 'failed') throw new \RuntimeException('附件正文尚未核对，请重新上传文字版本', 409);
         try {
             $selection = ['upstream_app_code' => 'file_qa'];
             $reserve = MarketFileQaAppRuntimeService::reserve($tenantId, $userId, 'script_parse', $parseTaskId, $selection, $request);
@@ -5949,6 +5970,9 @@ class AigcShortDramaService
     public static function retry(int $tenantId, int $userId, string $taskId, array $budgetExtension = []): array
     {
         $task = self::findTask($tenantId, $userId, $taskId);
+        if ((self::jsonDecode((string)$task['request_json'])['_attachment_extraction']['status'] ?? '') === 'failed') {
+            throw new \RuntimeException('原文件已保留，但正文提取未完成；请提供已核对的文字版本后重新上传', 409);
+        }
         if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
             $store = vnext\ApplicationWorkflow::store($tenantId, $userId, $taskId);
             // Commit settlement before publishing a final receipt to disk. Resumption below remains atomic.
