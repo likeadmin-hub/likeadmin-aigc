@@ -62,7 +62,7 @@ final class SceneShotRepair
                     if ($old['shot_plan']['shots'] !== $data['shot_plan']['shots']) throw new RuntimeException('未复核窗口的镜头已变化', 409);
                     SceneReviewExecution::validateWindow($context, $data, ['document_hash' => $document['content_hash'], 'shot_hash' => $candidate['content_hash'],
                         'checks' => $review['checks'], 'narrative_changes' => $review['narrative_changes']]);
-                    $review['reused_from_shot_hash'] = $base['content_hash'];
+                    $review['reused_from_shot_hash'] = $review['reused_from_shot_hash'] ?? $base['content_hash'];
                 }
                 $checkpoint($best + ['shot_repair' => $trace + ['candidate_shot_plan' => $candidate, 'reviews' => $reviews]]);
             }

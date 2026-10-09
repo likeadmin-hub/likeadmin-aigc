@@ -143,4 +143,40 @@ final class ShortDramaVnextSceneShotRepairTest extends TestCase
         $this->expectExceptionCode(422);
         SceneShotRepair::patches([['shot_id' => 's1', 'visual_description' => '保留']], ['patches' => [['shot_id' => 's1', 'before_hash' => 'stale', 'visual_description' => '修改']]]);
     }
+    public function testPartialImprovementCanUseSecondBoundedRoundAndRetainsOriginalReuseSource(): void
+    {
+        $keys = []; $checkpoints = []; $reserved = [];
+        $result = $this->runCase(static function ($key, $data) {
+            if ($key === 'window_repair_1_patch_2') return ['content' => '{"patches":[]}'];
+            if ($key === 'review_window_1' || $key === 'window_repair_1_review_2') return self::receipt('review_window_2', $data);
+            return self::receipt($key, $data);
+        }, static function ($key, $count) use (&$reserved) { $reserved[$key] = $count; }, $checkpoints, $keys);
+        self::assertSame(['window_repair_1' => 5, 'window_repair_2' => 3], $reserved);
+        self::assertSame('ready', $result['coverage_report']['status']); self::assertSame(2, $result['coverage_report']['shot_repair']['round']);
+        self::assertSame(['window_repair_2_patch_2', 'window_repair_2_review_2', 'window_repair_2_global'], array_slice($keys, -3));
+        $first = array_values(array_filter($checkpoints, static fn($value) => isset($value['coverage_report'])))[0];
+        self::assertSame($first['shot_plan']['content_hash'], $result['coverage_report']['window_review']['windows'][2]['reused_from_shot_hash']);
+        self::assertSame($first['document'], $result['document']); self::assertSame($first['shot_plan']['audio_segments'], $result['shot_plan']['audio_segments']);
+    }
+    public function testUnchangedSemanticFailureStopsAfterFirstRound(): void
+    {
+        $keys = []; $checkpoints = []; $reserved = [];
+        $result = $this->runCase(static fn($key, $data) => self::receipt($key === 'window_repair_1_review_2' ? 'review_window_2' : $key, $data),
+            static function ($key, $count) use (&$reserved) { $reserved[$key] = $count; }, $checkpoints, $keys);
+        self::assertSame('repair_not_improved', $result['stop_reason']); self::assertSame(['window_repair_1' => 3], $reserved);
+        self::assertSame('window_repair_1_global', end($keys));
+    }
+    public function testRepairReviewCapacityFailureKeepsBestDraftAndUnacceptedCandidate(): void
+    {
+        $keys = []; $checkpoints = [];
+        try { $this->runCase(static function ($key, $data) {
+            if ($key === 'window_repair_1_global') throw new \RuntimeException('capacity exceeded', 413);
+            return self::receipt($key, $data);
+        }, null, $checkpoints, $keys); self::fail('Unreviewed repair accepted'); }
+        catch (\RuntimeException $e) { self::assertSame(413, $e->getCode()); }
+        $last = end($checkpoints);
+        self::assertSame('draft', $last['coverage_report']['status']);
+        self::assertNotSame($last['shot_plan']['content_hash'], $last['shot_repair']['candidate_shot_plan']['content_hash']);
+        self::assertSame(self::context()['canonical_input'], $last['document']);
+    }
 }
