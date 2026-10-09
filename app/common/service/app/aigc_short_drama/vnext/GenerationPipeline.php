@@ -161,6 +161,8 @@ final class GenerationPipeline
 
     public static function creativeContext(array $context): array
     {
+        if (isset($context['dependency_versions']['fact_consumption'])) FactConsumption::assertProvided($context['dependency_versions']['fact_consumption'],
+            NarrativeLedger::relevant($context['previous_narrative'] ?? [],array_column($context['entities'] ?? [],'entity_id')));
         if (!empty($context['canonical_input']['constraint_revision_receipts'])) $context['constraint_choices']=ConstraintRevision::modelChoices($context['canonical_input']);
         if (!empty($context['identity_revision_receipts'])) $context['identity_corrections'] = EntityIdentityRevision::modelCorrections($context['identity_revision_receipts'], $context['entities']);
         if (!empty($context['entity_merge_receipts'])) $context['entity_resolutions'] = EntityMergeRevision::modelChoices($context['entity_merge_receipts'],$context['entities']);
@@ -258,6 +260,8 @@ final class GenerationPipeline
     }
     public static function validateReview(array $context, array $document, array $plan, array $reply): array
     {
+        if (isset($context['dependency_versions']['fact_consumption'])) FactConsumption::assertProvided($context['dependency_versions']['fact_consumption'],
+            NarrativeLedger::relevant($context['previous_narrative'] ?? [],array_column($document['entities'],'entity_id')));
         $report = ContentCoverage::evaluate($document, $plan, $context['requirements'] ?? [], $context['events'] ?? [], $reply);
         if ((int)($context['narrative_contract_version'] ?? 0) === NarrativeLedger::VERSION) {
             if (!array_key_exists('narrative_changes', $reply)) throw new RuntimeException('核验缺少本集事实与认知记录', 422);
