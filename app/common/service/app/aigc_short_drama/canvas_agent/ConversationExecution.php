@@ -165,6 +165,7 @@ final class ConversationExecution
                 ],(array)($stagePlanSettings['workflow_state']['stage_plan']['nodes']??$planSettings['workflow_state']['image_plan']['nodes']??[]));
             }
             if ($planSettings!==null) $content['image_plan']=ConversationWorkflow::publicImagePlan($planSettings['workflow_state']['image_plan']);
+            if (($workflow['stage_state']['key']??'')==='video_nodes' && $effects) $content['video_nodes']=array_map(static fn(array $node): array=>array_intersect_key($node,array_flip(['key','title','prompt'])), $proposals);
             if ($effects) $content['canvas_actions']=$effects;
             $timeline=ConversationWorkflow::timeline($workflow,$proposals,$effects);
             if ($timeline) $content['workflow_timeline']=$timeline;
