@@ -41,6 +41,7 @@ for ($index = 0; $index < $count; $index++) {
             return $result;
         });
     } catch (RuntimeException $error) {
+        file_put_contents($directory . '/worker_errors', $index . ':' . $worker . ':' . $error->getMessage() . "\n", FILE_APPEND | LOCK_EX);
         if ($error->getCode() !== 425 && !in_array($error->getMessage(), ['作业当前不可继续执行', '上游结果尚未确认，已停止重复提交并保留现有内容', 'injected_settlement_interrupt'], true)) { fwrite(STDERR, $error->getMessage()); exit(1); }
     }
 }
