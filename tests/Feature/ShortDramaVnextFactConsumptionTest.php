@@ -44,6 +44,12 @@ final class ShortDramaVnextFactConsumptionTest extends TestCase
         self::assertFalse(FactConsumption::applicable(['dependencies'=>['1'=>['revision_id'=>'old']]],['1'=>['revision_id'=>'new']],FactConsumption::emptyIndex()));
         $this->expectExceptionCode(409);FactConsumption::applicable(['dependencies'=>[],'fact_consumption'=>['schema_version'=>2]],[],FactConsumption::emptyIndex());
     }
+    public function testActualModelHistoryCannotExceedOrChangeItsFrozenConsumptionProof(): void
+    {
+        [$doc,$ledger]=$this->fixture();$receipt=FactConsumption::capture(FactConsumption::index($doc,$ledger),['hero']);
+        $selected=NarrativeLedger::relevant($ledger,['hero']);FactConsumption::assertProvided($receipt,$selected);self::assertCount(1,$selected['world_facts']);
+        $this->expectExceptionCode(409);FactConsumption::assertProvided($receipt,NarrativeLedger::relevant($ledger,['hero','other']));
+    }
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
      */

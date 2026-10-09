@@ -71,6 +71,14 @@ final class FactConsumption
         foreach($receipt['entity_ids'] as $id)ContentDocument::text($id,'consumption.entity_id');
         $index=['schema_version'=>1,'document_hash'=>'','ledger_hash'=>'','entities'=>$receipt['entities']??null,'facts'=>$receipt['facts']??null];$index['index_hash']=ContentDocument::hash($index);self::assertIndex($index);
     }
+    public static function assertProvided(array $receipt,array $selected): void
+    {
+        self::assertReceipt($receipt);
+        foreach(['world_facts','character_beliefs'] as $group) foreach($selected[$group]??[] as $fact) {
+            $id=$fact['fact_id'];$proof=$receipt['facts'][$id]??null;
+            if(!$proof||$proof['hash']!==ContentDocument::hash($fact))throw new RuntimeException('实际提供的历史事实超出冻结依赖，需按当前范围重新复核',409);
+        }
+    }
     public static function applicable(array $canonical,array $dependencies,?array $previousIndex): bool
     {
         if(array_key_exists('fact_consumption',$canonical)) {
