@@ -23,6 +23,8 @@ final class GenerationPipeline
         if (!in_array($contentRepair, [0, SceneContentRepair::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的正文窗口修复版本', 409);
         $screenplayVersion = $context['scene_screenplay_version'] ?? 0;
         if (!in_array($screenplayVersion, [0, SceneScreenplayExecution::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的分场创作版本', 409);
+        $locationVersion = $context['missing_content_location_version'] ?? 0;
+        if (!in_array($locationVersion, [0, MissingContentLocation::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的缺失内容定位版本', 409);
         $windowed = false;
         $makeShots = static function (array $document, callable $call, string $key, string $reservation, array $issues = []) use ($sceneVersion, $sceneExecution, $checkpoint, $projection, &$windowed): array {
             if ($sceneVersion === SceneShotExecution::VERSION && $sceneExecution && $reservation === '') {
