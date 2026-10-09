@@ -77,7 +77,7 @@ final class ApplicationWorkflow
         $revision = 'revision_' . substr(ContentDocument::hash([$newTask, 1]), 0, 24);
         if ($origin) {
             if (($origin['task_id'] ?? '') !== $newTask) throw new RuntimeException('修改来源任务不符', 409);
-            $captured = $structure ? StructuralRevision::capture($input, $document, $structure, $revision, $origin)
+            $captured = $structure ? StructuralRevision::capture($input, $document, $structure, $revision, $origin, $candidate['coverage_report']['narrative_ledger'] ?? [])
                 : ManualContentRevision::capture($input, $document, $patches, $revision, $origin);
             $edited = $captured['document']; $input['context']['sources'] = $captured['sources'];
             $input['context']['manual_edit_history'] = $captured['history'];

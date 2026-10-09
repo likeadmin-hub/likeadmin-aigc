@@ -559,7 +559,8 @@ final class ExecutionStore
             'published_revision_id' => $job['published_revision_id'], 'allowed_actions' => $actions,
             'resource_budget' => in_array('extend_budget', $actions, true) ? ResourceBudget::publicState($budget['resources']) + ['call_limit' => $budget['call_limit'], 'max_call_limit' => $budget['base_calls'] + 24] : null,
             'coverage_report' => $candidate['coverage_report'] ?? null,
-            'structural_edit_targets' => !empty($candidate['document']) && in_array('revise_content', $actions, true) ? StructuralRevision::targets($candidate['document']) : null,
+            'structural_edit_targets' => !empty($candidate['document']) && in_array('revise_content', $actions, true) ? StructuralRevision::targets($candidate['document'],
+                [$candidate['coverage_report']['narrative_ledger'] ?? [], self::decode($job['input_json'] ?? '{}')['context']['previous_narrative'] ?? []]) : null,
             'content' => isset($candidate['document']) ? ['document' => $candidate['document'], 'script_lines' => ContentDocument::render($candidate['document'])] : null,
             'error_code' => $job['error_code']];
     }
