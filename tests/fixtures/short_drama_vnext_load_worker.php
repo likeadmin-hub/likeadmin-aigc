@@ -40,6 +40,7 @@ for ($index = 0; $index < $count; $index++) {
             if ($index % 17 === 0 && !isset(json_decode($params['content'], true)['shot_plan'])) throw new RuntimeException('injected_settlement_interrupt');
             return $result;
         });
+        if ($index < 4) file_put_contents($directory . '/worker_errors', $index . ':' . $worker . ':finished:' . json_encode(array_intersect_key($store->snapshot(), array_flip(['execution_status', 'fence', 'lease_owner']))) . "\n", FILE_APPEND | LOCK_EX);
     } catch (RuntimeException $error) {
         file_put_contents($directory . '/worker_errors', $index . ':' . $worker . ':' . $error->getMessage() . "\n", FILE_APPEND | LOCK_EX);
         if ($error->getCode() !== 425 && !in_array($error->getMessage(), ['作业当前不可继续执行', '上游结果尚未确认，已停止重复提交并保留现有内容', 'injected_settlement_interrupt'], true)) { fwrite(STDERR, $error->getMessage()); exit(1); }
