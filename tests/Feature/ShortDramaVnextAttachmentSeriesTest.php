@@ -61,8 +61,9 @@ final class ShortDramaVnextAttachmentSeriesTest extends TestCase
                 self::assertSame($plan['episodes'][$index]['attachment_trace']['start'], $origin['start']);
                 self::assertSame($unit['unit_id'], $detail['result']['shot_plan']['audio_segments'][0]['unit_id']);
                 self::assertSame('ready', $detail['generation_snapshot']['document_status']);
-                self::assertSame([], $detail['result']['narrative_ledger']['world_facts']);
-                self::assertNotEmpty($detail['result']['narrative_ledger']['character_beliefs']);
+                $history = \app\common\service\app\aigc_short_drama\vnext\NarrativeLedger::relevant($detail['result']['narrative_ledger'], array_column($document['entities'], 'entity_id'));
+                self::assertSame([], $history['world_facts']);
+                self::assertNotEmpty($history['character_beliefs']);
                 $stored = Db::name('aigc_short_drama_script_task')->where($scope)->where('task_id', $list[$index]['task_id'])->value('result_json');
                 self::assertSame($detail['result'], json_decode($stored, true));
                 $unsigned = $document; unset($unsigned['content_hash'], $unsigned['status'], $unsigned['transforms']);
