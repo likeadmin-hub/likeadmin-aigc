@@ -17,7 +17,7 @@ final class ProductionCompiler
         foreach ($durations as $duration) if (!is_numeric($duration) || !is_finite((float)$duration) || (float)$duration <= 0) throw new RuntimeException('制作时长能力无效', 422);
         $durations = array_values(array_unique(array_map('floatval', $durations))); sort($durations);
         if (($capability['audio_mode'] ?? '') !== 'postproduction') throw new RuntimeException('当前编译器需要独立配音合成；原生对白片段须完成适配后使用', 422);
-        $maximum = max($durations); $units = ContentDocument::units($document); $fragments = [];
+        $maximum = max($durations); $fragments = [];
         foreach ($plan['shots'] as $shot) {
             $timing = $timings[$shot['shot_id']] ?? [];
             $seconds = $timing['actual_seconds'] ?? $timing['maximum_seconds'] ?? null;

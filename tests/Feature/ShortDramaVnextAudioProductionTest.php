@@ -115,6 +115,7 @@ final class ShortDramaVnextAudioProductionTest extends TestCase
             $segments = AudioHandoff::segments($candidate); $segment = $segments[0];
             $detail = Service::scriptPlanDetail($tenant, $user, $task, $project, 0, 0, 1);
             self::assertSame($segment['text'], $detail['audio_handoff']['records'][0]['text']);
+            self::assertArrayNotHasKey('dependency_versions', $detail['audio_handoff']['records'][0]);
             self::assertArrayNotHasKey('generation_snapshot', $detail); self::assertSame(2, $detail['audio_handoff']['next_page']);
             $params = ['project_id' => $project, 'task_id' => $task, 'audio_segment_id' => $segment['audio_segment_id'],
                 'expected_revision_id' => 'audio-r1', 'confirmed_text_hash' => $segment['text_hash'], 'duration' => 1, 'speaker_id' => 'forged'];
