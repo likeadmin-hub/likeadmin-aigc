@@ -60,12 +60,23 @@ final class SeriesContext
                 'source_id' => $source['source_id'], 'source_hash' => $source['hash'], 'start' => 0, 'end' => mb_strlen($text, 'UTF-8')];
         }
         $previous = self::publishedBefore((int)$snapshot['tenant_id'], (int)$snapshot['user_id'], (int)$snapshot['project_id'], $number);
+        $entities = $snapshot['entities']; $known = array_column($entities, 'entity_id');
+        foreach ($previous['entities'] as $entity) {
+            if (in_array($entity['entity_id'], $known, true)) continue;
+            $known[] = $entity['entity_id'];
+            // A prior published entity keeps its system identity. Model-local
+            // short aliases are reassigned to avoid collisions across episodes.
+            $entities[] = ['ref' => ($entity['kind'] === 'location' ? 'l' : ($entity['kind'] === 'prop' ? 'p' : 'c')) . (count($entities) + 1),
+                'entity_id' => $entity['entity_id'], 'kind' => $entity['kind'], 'name' => $entity['canonical_name'],
+                'description' => $entity['description'], 'identity_facts' => $entity['identity_facts'],
+                'aliases' => array_values(array_filter($entity['aliases'], static fn($alias) => !preg_match('/^[clp]\d+$/', $alias)))];
+        }
         return ['snapshot' => $snapshot, 'context' => [
-            'episode_id' => $episodeId, 'entity_scope' => $snapshot['entity_scope'], 'entities' => $snapshot['entities'],
+            'episode_id' => $episodeId, 'entity_scope' => $snapshot['entity_scope'], 'entities' => $entities,
             'prompt' => $snapshot['source']['text'], 'source_mode' => 'inspiration', 'sources' => $sources, 'requirements' => [], 'events' => $events,
             'confirmed_story' => $snapshot['story'], 'current_episode' => $outline,
             // Story arc is a plan; only evidence from published episodes is historical state.
-            'confirmed_facts' => ['identities' => $snapshot['entities'], 'world_rules' => $snapshot['story']['series_bible']['world_rules'] ?? []],
+            'confirmed_facts' => ['identities' => $entities, 'world_rules' => $snapshot['story']['series_bible']['world_rules'] ?? []],
             'previous_narrative' => $previous['ledger'],
             'dependency_versions' => ['source' => $snapshot['source']['hash'], 'bible' => $snapshot['story_hash'],
                 'outline' => $snapshot['outline_hash'], 'episodes' => $previous['dependencies'],
@@ -81,7 +92,7 @@ final class SeriesContext
         $rows = Db::name('aigc_short_drama_episode_task')->where($scope + ['project_id' => $project])
             ->where('episode_number', '<', $number)->order('episode_number')->field('episode_number,status,production_project_id,completed_once')->lock($lock)->select()->toArray();
         if (count($rows) !== $number - 1) throw new RuntimeException('前置剧集尚未建立，不能跳集生成', 409);
-        if (!$rows) return ['dependencies' => [], 'ledger' => []];
+        if (!$rows) return ['dependencies' => [], 'ledger' => [], 'entities' => []];
         $projects = Db::name('aigc_short_drama_project')->where($scope)->whereIn('id', array_column($rows, 'production_project_id'))->lock($lock)->column('current_version_id', 'id');
         $versions = Db::name('aigc_short_drama_plan_version')->where($scope)->whereIn('id', array_values($projects))
             ->field('id,project_id,continuity_json')->lock($lock)->select()->toArray();
@@ -100,7 +111,7 @@ final class SeriesContext
         $ledger = $plan['narrative_ledger'] ?? [];
         if (!$ledger || ($ledger['content_hash'] ?? '') !== NarrativeLedger::digest($ledger)
             || $ledger['content_hash'] !== end($dependencies)['ledger_hash']) throw new RuntimeException('前集事实收据不完整，不能推测状态', 409);
-        return ['dependencies' => $dependencies, 'ledger' => $ledger];
+        return ['dependencies' => $dependencies, 'ledger' => $ledger, 'entities' => $plan['canonical_document']['entities']];
     }
 
     public static function assertDependencies(array $context, bool $lock = false): void

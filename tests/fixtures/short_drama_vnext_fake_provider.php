@@ -18,9 +18,11 @@ class MarketTextModelRuntimeService
         if (isset($input['current_episode'])) {
             $location = array_values(array_filter($input['entities'], static fn($e) => $e['kind'] === 'location'))[0];
             $characters = array_values(array_filter($input['entities'], static fn($e) => $e['kind'] === 'character'));
-            $reply = ['title' => $input['current_episode']['title'], 'entities' => [],
+            $props = array_values(array_filter($input['entities'], static fn($e) => $e['kind'] === 'prop'));
+            $newProps = $props ? [] : [['ref' => 'p99', 'kind' => 'prop', 'name' => '书信', 'description' => '封面有印记的书信']];
+            $reply = ['title' => $input['current_episode']['title'], 'entities' => $newProps,
                 'scenes' => [['location' => $location['ref'], 'units' => [['type' => 'action', 'characters' => array_column($characters, 'ref'),
-                    'text' => $input['current_episode']['story_outline']]]]]];
+                    'props' => [$props[0]['ref'] ?? 'p99'], 'text' => $input['current_episode']['story_outline']]]]]];
         } elseif (!isset($input['document'])) $reply = ['title' => '完整结尾', 'entities' => [['ref' => 'l1', 'kind' => 'location', 'name' => '书房']],
             'scenes' => [['location' => 'l1', 'units' => [['type' => 'dialogue', 'speech_type' => 'narration', 'text' => str_repeat('正文。', 400) . '结尾保留。']]]]];
         elseif (!isset($input['shot_plan'])) $reply = ['shots' => [['visual_description' => '书房天亮了', 'refs' => [['unit' => 'u1']]]]];

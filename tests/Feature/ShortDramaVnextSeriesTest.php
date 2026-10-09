@@ -68,6 +68,9 @@ final class ShortDramaVnextSeriesTest extends TestCase
             $second = Service::scriptPlanDetail($tenant, $user, $list[1]['task_id']);
             self::assertSame(array_column($first['result']['canonical_document']['entities'], 'entity_id'), array_column($second['result']['canonical_document']['entities'], 'entity_id'));
             $secondInput = json_decode(Provider::$requests[3]['content'], true);
+            $inherited = array_values(array_filter($secondInput['entities'], static fn($e) => $e['kind'] === 'prop'))[0];
+            self::assertSame('书信', $inherited['name']); self::assertSame('封面有印记的书信', $inherited['description']);
+            self::assertNotSame('p99', $inherited['ref']); self::assertNotContains('p99', $inherited['aliases']);
             self::assertSame($first['result']['narrative_ledger']['delta'][0]['fact_id'], $secondInput['previous_narrative']['world_facts'][0]['fact_id']);
             self::assertCount(3, $secondInput['events']); self::assertSame([], $secondInput['requirements']);
             $unit = $first['result']['canonical_document']['scenes'][0]['units'][0];
