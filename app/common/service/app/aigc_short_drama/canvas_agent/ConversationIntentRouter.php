@@ -63,6 +63,7 @@ final class ConversationIntentRouter
                 .'无法确认完整制作与单次创作的范围、或对创作意图的信心低于 0.8 时，scope=uncertain、intent=uncertain，在 reply_markdown 只问一个针对本轮内容的区分问题。不要默认为完整短剧。'
                 .'confidence 是 0 到 1 的数字。skill_key 只能从下列已授权候选中选一个或填空；推荐不等于自动执行。'
                 .'reply_markdown 始终为非空文本：完整短剧先给贴合素材的简短创作方向，未知制作参数不要逐项追问；普通请求给出真实答复。'
+                .'用户已经明确的主题、集数、时长、画风、比例直接沿用，不得再次询问；例如“一集60s”已经明确集数和时长，不要再问单集还是多集。'
                 .'用户回答紧邻选项的 B 或完整制作时，直接进入待确认方案，不再追问是否选择完整制作。'
                 .'仅当 intent=short_drama 且 deliverable=full_drama 且 scope=workflow 时填写 intake，否则 intake 为 {"candidates":[],"questions":[]}。'
                 .'如果请求的是单次文本创作且信息足够，直接在 reply_markdown 给出真实文本结果；缺少核心主题时只问最必要的一个问题；时长和受众允许暂定。图片或视频不得声称已生成或提交；不得输出 canvas-actions、价格或任务状态。'
@@ -146,8 +147,13 @@ final class ConversationIntentRouter
         foreach ((array)($routing['skill_candidates']??[]) as $item) if (is_array($item) && is_string($item['key']??null)) $allowed[$item['key']]=true;
         if ($skillKey!=='' && !isset($allowed[$skillKey])) throw new RuntimeException('INVALID_AGENT_INTENT');
         $intake=$value['intake']??[];
-        if (!is_array($intake) || array_diff(array_keys($intake),['candidates','questions'])
-            || ($intake['candidates']??[])!==[] || ($intake['questions']??[])!==[]) throw new RuntimeException('INVALID_AGENT_INTENT');
+        if (!is_array($intake) || array_diff(array_keys($intake),['candidates','questions'])) throw new RuntimeException('INVALID_AGENT_INTENT');
+        // Advisory extraction is not an instruction to open intake or start production.
+        // Validate it, then keep only the model's ordinary reply.
+        try {
+            ConversationIntakeDraft::parse($intake+['candidates'=>[],'questions'=>[]],
+                (array)ConversationWorkflow::catalog()['slots'],$availableSources);
+        } catch (RuntimeException $error) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$error); }
         $defaults=match ($intent) {
             'chat'=>['speech_act'=>'chat','deliverable'=>'text','scope'=>'conversation'],
             'creative_plan'=>['speech_act'=>'request','deliverable'=>'text','scope'=>'standalone'],
@@ -211,6 +217,7 @@ final class ConversationIntentRouter
             return $draft['candidates'] ? '已从你的描述或素材中整理出一份待确认的短剧设定，请先核对。未明确的信息我会继续追问。'
                 : '已进入短剧成片制作流程。我会先收集必要的创作信息；请回答下面的问题卡。';
         }
+        if (($decision['intent']??'')!=='short_drama') return (string)$decision['reply_markdown'];
         if ((int)($routing['version']??2)>=3) {
             if (($decision['scope']??'')==='uncertain' || ($decision['intent']??'')==='uncertain')
                 return (string)$decision['reply_markdown'];

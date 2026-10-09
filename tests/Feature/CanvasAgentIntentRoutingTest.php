@@ -86,6 +86,23 @@ class CanvasAgentIntentRoutingTest extends TestCase
             ConversationIntentRouter::parseConversation($emptyIntake,$routing)['reply_markdown']);
     }
 
+    public function testOrdinaryReplyWithExtractedFactsDoesNotBecomeIntakeOrFail(): void
+    {
+        $routing=$this->routing();
+        foreach (['chat','creative_plan','uncertain'] as $intent) {
+            $reply="我在天庭当人事\n\n这个设定可以从神仙招聘展开。";
+            $value=$this->decision(['intent'=>$intent,'confidence'=>0.5,'scope'=>'conversation',
+                'deliverable'=>'text','reply_markdown'=>$reply,'intake'=>['candidates'=>[
+                    ['key'=>'episode_count','value'=>'1集','source'=>'message','evidence'=>'一集','confidence'=>1],
+                    ['key'=>'episode_duration','value'=>'60秒','source'=>'message','evidence'=>'60s','confidence'=>1],
+                ],'questions'=>[]]]);
+            $parsed=ConversationIntentRouter::parseConversation(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing);
+            self::assertSame($reply,ConversationIntentRouter::reply($parsed,$routing));
+            self::assertSame(['candidates'=>[],'questions'=>[]],$parsed['intake']);
+            self::assertFalse(ConversationIntentRouter::shouldActivateWorkflow($parsed,$routing));
+        }
+    }
+
     public function testRecoveryCannotActivateWorkflowOrAcceptUnownedActions(): void
     {
         $routing=$this->routing();

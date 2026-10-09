@@ -30,12 +30,14 @@ final class ConversationIntakeDraft
             $labels[]=$slot['key'].'（'.(string)($slot['label']??'').'）';
         }
         return '结合对话中用户明确表达的创作要求、已授权附件和实际可见图片提取短剧设定，不把猜测当事实。'
+            .'回顾已有用户消息，已明确的信息以 source=message 提取并直接沿用；用户后续明确修改时以最新要求为准。助手建议和默认值不代表用户确认。'
+            .'例如用户说“一集60s的短视频，我在天庭当人事”，主题、集数和时长已有答案，不得再询问这些项目。'
             .'若文档尚未解析或图像不可见，不得声称读取了它。'
             .'intake 必须为 {"candidates":[],"questions":[]}。candidates 每项仅含 key、value、source、evidence、confidence；'
             .'key 限于 '.implode('、',$labels).'；source 可以是 message、document、image；未指定项的建议必须用 suggestion，不能伪称用户事实；'
             .'evidence 是简短原文摘录或可见画面依据；confidence 为 0 到 1。只有明确且高置信的事实才放入 candidates。'
             .'questions 每项仅含 key、ask、options；只针对尚未明确的信息，ask 要结合用户灵感与已有素材，options 最多五项。'
-            .'不得输出费用、任务状态、媒体调用或画布 JSON；这份提取只用于让用户核对。';
+            .'不得输出费用、任务状态、媒体调用或画布 JSON；仅对尚未明确的信息及素材推断请求核对，用户在对话中明确的信息不重复展示为收集卡。';
     }
 
     /** @return array{candidates:array,questions:array} */
