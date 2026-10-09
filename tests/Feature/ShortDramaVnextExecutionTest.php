@@ -800,6 +800,45 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertSame(800000, $budget['resources']['spent']['user_charge_points']);
         self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
     }
+    public function testManualRevisionReceiptRecoveryRetainsExactTextAndFrozenProvenance(): void
+    {
+        $input = ShortDramaVnextSceneShotTest::input(2); $document = $input['context']['canonical_input'];
+        $unit = array_values(ContentDocument::units($document))[0]; $originalTask = $this->scope['task_id'];
+        $this->scope['task_id'] .= '_manual';
+        $patch = [['unit_id' => $unit['unit_id'], 'before_hash' => $unit['text_hash'], 'text' => "用户修改😀。\n结尾保留。"]];
+        $input = \app\common\service\app\aigc_short_drama\vnext\ApplicationWorkflow::revisionInput($input, ['document' => $document], $patch, $document['revision_id'], $this->scope['task_id'],
+            $this->scope + ['parent_task_id' => $originalTask, 'created_at' => time()]);
+        $input['context']['scene_shot_version'] = 0;
+        $input['execution']['resource_limits'] = ['total_tokens' => 10000, 'tenant_cost_points' => 3, 'user_charge_points' => 6];
+        $this->store = new ExecutionStore($this->scope['tenant_id'], $this->scope['user_id'], $this->scope['task_id'], $this->buffer);
+        $this->store->create($this->scope['task_id'], $input, time() + 600, 2); $paid = [];
+        $provider = function ($params, $key, $persist, $admit) use (&$paid): array {
+            $data = json_decode($params['content'], true); $stage = isset($data['shot_plan']) ? 'review' : 'shots';
+            self::assertArrayNotHasKey('manual_edit_history', $data);
+            self::assertArrayNotHasKey('transforms', $data['document']);
+            $admit(['total_tokens' => 500, 'tenant_cost_points' => .5, 'user_charge_points' => 1]); $paid[] = $stage;
+            $reply = ShortDramaVnextSceneShotTest::reply($data);
+            $receipt = $this->billedReceipt(); unset($receipt['result']); $receipt = $reply + $receipt; $persist($receipt);
+            if ($stage === 'review') throw new \RuntimeException('manual settlement unavailable');
+            return $receipt;
+        };
+        try { JobRunner::run($this->store, 'worker', $provider); self::fail('Settlement failure ignored'); }
+        catch (\RuntimeException $e) { self::assertSame('manual settlement unavailable', $e->getMessage()); }
+        $before = $this->store->snapshot(); self::assertSame('reconciling', $before['execution_status']);
+        $this->store->reconcileReceipts(static fn($receipt) => $receipt); self::assertTrue($this->store->resume());
+        $result = JobRunner::run($this->store, 'worker', $provider);
+        self::assertSame(['shots', 'review'], $paid); self::assertSame('ready', $result['coverage_report']['status']);
+        self::assertSame($input['context']['canonical_input']['scenes'], $result['document']['scenes']);
+        self::assertSame($input['context']['canonical_input']['content_hash'], $result['document']['content_hash']);
+        self::assertSame($input['context']['canonical_input']['transforms'], $result['document']['transforms']);
+        self::assertSame($before['input_json'], $this->store->snapshot()['input_json']);
+        $budget = json_decode($this->store->snapshot()['budget_json'], true);
+        self::assertSame(2, $budget['calls']); self::assertSame(92, $budget['resources']['spent']['total_tokens']);
+        self::assertSame(800000, $budget['resources']['spent']['user_charge_points']); self::assertSame([], $budget['resources']['holds']);
+        self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+        JobRunner::run($this->store, 'again', static function () { self::fail('Published manual revision called provider again'); });
+    }
+
     public function testOversizedCanonicalInputStopsBeforeProviderAndKeepsEntireDraft(): void
     {
         $text = str_repeat('全文必须保留。', 6000) . '最后一句😀';

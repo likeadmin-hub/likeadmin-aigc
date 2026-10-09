@@ -186,6 +186,24 @@ final class ContentDocument
         return self::seal($document);
     }
 
+    /** Attach server-captured exact replacement sources without altering unit identities or text. */
+    public static function attachExactSources(array $document, array $links, array $sources): array
+    {
+        $units = self::units($document);
+        foreach ($links as $id => $rows) {
+            if (!isset($units[$id])) throw new RuntimeException('修改来源引用了不存在的正文', 409);
+            $validated = self::sourceLinks(self::rows($rows, 'exact_sources'), $sources);
+            if (!$validated) throw new RuntimeException('手工修改缺少逐字来源', 422);
+            foreach ($validated as $link) if (($link['quote'] ?? null) !== $units[$id]['text']
+                || ($link['source_version'] ?? null) !== ($sources[$link['source_id']]['version'] ?? null)) throw new RuntimeException('修改来源与完整正文或版本不符', 422);
+        }
+        foreach ($document['scenes'] as &$scene) foreach ($scene['units'] as &$unit) {
+            if (isset($links[$unit['unit_id']])) $unit['source_links'] = $links[$unit['unit_id']];
+        }
+        unset($scene, $unit);
+        return self::seal($document);
+    }
+
     /** Automatic additions are limited to confirmed missing requirements and existing entities/scenes. */
     public static function repair(array $document, array $patches, array $insertions, string $revision, array $issues): array
     {

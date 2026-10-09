@@ -127,17 +127,33 @@ final class ShortDramaVnextWorkerTest extends TestCase
             self::assertCount(3, \app\common\service\power\MarketImageModelRuntimeService::$requests, 'Duplicate explicit retries must not submit twice');
             self::assertSame('ready', Service::scriptPlanDetail($tenant, $user, $task, $project)['generation_snapshot']['document_status']);
             $edit = ['project_id' => $project, 'task_id' => $task, 'expected_revision_id' => $document['revision_id'],
+                'origin' => ['tenant_id' => 1, 'user_id' => 1], 'manual_edit_history' => ['events' => [['event_id' => 'forged']]],
                 'canonical_patches' => [['unit_id' => $unit['unit_id'], 'before_hash' => $unit['text_hash'], 'text' => $unit['text'] . '新说明。']]];
             $revision = Service::saveStoryboard($tenant, $user, $edit); $ownedTasks[] = $revision['task_id'];
             self::assertNotSame($task, $revision['task_id']);
             self::assertSame('draft', $revision['generation_snapshot']['document_status']);
             self::assertSame($revision['task_id'], Service::saveStoryboard($tenant, $user, $edit)['task_id'], 'Repeated save must reuse the revision');
+            $revisionStore = Workflow::store($tenant, $user, $revision['task_id']);
+            $revisionInput = json_decode($revisionStore->snapshot()['input_json'], true);
+            $history = $revisionInput['context']['manual_edit_history'];
+            \app\common\service\app\aigc_short_drama\vnext\ManualContentRevision::assertHistory($history);
+            self::assertCount(1, $history['events']); $event = $history['events'][0];
+            self::assertSame($tenant, $event['tenant_id']); self::assertSame($user, $event['user_id']);
+            self::assertSame($task, $event['parent_task_id']); self::assertSame($revision['task_id'], $event['task_id']);
+            self::assertSame($document['content_hash'], $event['base_document_hash']);
+            self::assertSame($unit['text'], $event['changes'][0]['before_text']);
             $newRow = Db::name('aigc_short_drama_script_task')->where('task_id', $revision['task_id'])->find();
             $revised = $run->invoke(null, $tenant, $user, $newRow, static function () {});
             self::assertSame('success', $revised['status'], json_encode($revised, JSON_UNESCAPED_UNICODE));
             self::assertCount(5, Provider::$requests, 'Manual content must skip creative regeneration');
             self::assertSame($unit['unit_id'], $revised['result']['canonical_document']['scenes'][0]['units'][0]['unit_id']);
             self::assertSame($unit['text'] . '新说明。', $revised['result']['canonical_document']['scenes'][0]['units'][0]['text']);
+            $editedDocument = $revised['result']['canonical_document']; $sourceLink = $editedDocument['scenes'][0]['units'][0]['source_links'][0];
+            self::assertSame($unit['text'] . '新说明。', $sourceLink['quote']);
+            self::assertSame($event['document_hash'], $editedDocument['content_hash']);
+            self::assertSame($event['event_hash'], end($editedDocument['transforms'])['event_hash']);
+            self::assertSame($sourceLink['quote'], $revisionInput['context']['sources'][$sourceLink['source_id']]['text']);
+            self::assertSame($revisionInput, json_decode($revisionStore->snapshot()['input_json'], true));
             self::assertSame($image['assets'][0]['id'], $revised['production_handoff']['targets'][0]['asset']['id'], 'Unchanged scene state reuses managed media across text revisions');
             self::assertNull($revised['production_handoff']['targets'][1]['asset'], 'Old shot images cannot imply new content coverage');
             self::assertSame(3, Db::name('aigc_short_drama_asset')->where($scope + ['project_id' => $project])->count(), 'Historical media is never deleted on revision');
