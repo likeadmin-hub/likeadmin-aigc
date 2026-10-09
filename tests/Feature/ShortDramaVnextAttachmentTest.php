@@ -130,4 +130,18 @@ final class ShortDramaVnextAttachmentTest extends TestCase
         $encode->setAccessible(true); $this->expectException(\RuntimeException::class); $this->expectExceptionCode(409);
         $encode->invoke(null, ['result' => $result]);
     }
+
+    public function testUnfinishedSavedContentSnapshotKeepsFullTextAndEvidence(): void
+    {
+        $result = self::projectedResult();
+        $snapshot = \app\common\service\app\aigc_short_drama\vnext\ExecutionStore::publicProjection([
+            'candidate_json' => json_encode(['document' => $result['canonical_document'], 'coverage_report' => ['quote' => '原文😀']]),
+            'task_id' => 'saved', 'execution_status' => 'needs_attention', 'document_status' => 'draft', 'production_status' => 'unplanned',
+            'event_seq' => 2, 'published_revision_id' => '', 'error_code' => 'content_unresolved']);
+        $sanitize = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'sanitizeUtf8Payload');
+        $sanitize->setAccessible(true);
+        self::assertSame($snapshot, $sanitize->invoke(null, ['generation_snapshot' => $snapshot])['generation_snapshot']);
+        self::assertSame('draft', $snapshot['document_status']);
+        self::assertStringContainsString('😀', $snapshot['content']['document']['scenes'][0]['units'][1]['text']);
+    }
 }
