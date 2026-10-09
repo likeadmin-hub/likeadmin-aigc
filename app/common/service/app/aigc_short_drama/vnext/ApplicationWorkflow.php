@@ -93,7 +93,7 @@ final class ApplicationWorkflow
         $input['context']['revision_id'] = $revision;
         if ($structure) {
             $input['context']['entities'] = EntityIdentityRevision::confirmedEntities($input['context']['entities'] ?? [], $edited);
-            if (isset($input['context']['confirmed_facts'])) $input['context']['confirmed_facts']['identities'] = $input['context']['entities'];
+            $input['context']['confirmed_facts']['identities'] = $input['context']['entities'];
             if (!empty($edited['identity_revision_receipts'])) $input['context']['identity_revision_receipts'] = $edited['identity_revision_receipts'];
             else unset($input['context']['identity_revision_receipts']);
         }
