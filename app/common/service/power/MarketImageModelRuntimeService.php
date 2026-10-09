@@ -147,6 +147,7 @@ class MarketImageModelRuntimeService
                 'default_params' => self::arrayValue($meta['default_params'] ?? []),
                 'content_schema' => self::arrayValue($meta['content_schema'] ?? []),
                 'capabilities' => self::arrayValue($meta['capabilities'] ?? []),
+                'capability_profile' => MarketModelCapabilities::profile($product),
                 'developer_doc_slug' => (string)($meta['developer_doc_slug'] ?? ''),
                 'api_doc' => (string)($meta['api_doc'] ?? ''),
                 'max_reference_images' => self::referenceLimit($meta),
@@ -1520,10 +1521,10 @@ class MarketImageModelRuntimeService
     {
         $direct = self::arrayValue($product['market_metadata'] ?? []);
         if ($direct !== []) {
-            return $direct;
+            return MarketModelCapabilities::applyMetadata($product, $direct);
         }
         $source = self::arrayValue($product['source_payload'] ?? []);
-        return self::arrayValue($source['market_metadata'] ?? []);
+        return MarketModelCapabilities::applyMetadata($product, self::arrayValue($source['market_metadata'] ?? []));
     }
     private static function productDescription(array $product, array $metadata = []): string
     {
@@ -1543,7 +1544,7 @@ class MarketImageModelRuntimeService
         return '';
     }
     private static function referenceLimit(array $meta): int { $capabilities = self::arrayValue($meta['capabilities'] ?? []); foreach (['max_reference_images','max_reference_image_count','reference_image_limit'] as $key) { if (isset($meta[$key])) return max(0, (int)$meta[$key]); if (isset($capabilities[$key])) return max(0, (int)$capabilities[$key]); } return 0; }
-    private static function supportsReferenceImages(array $meta): bool { $capabilities = self::arrayValue($meta['capabilities'] ?? []); if (!empty($meta['supports_reference_images']) || !empty($capabilities['supports_reference_images']) || self::referenceLimit($meta) > 0) return true; $schema = self::arrayValue($meta['params_schema'] ?? []); foreach (['urls', 'image_urls', 'images', 'reference_images'] as $field) if (array_key_exists($field, $schema)) return true; return false; }
+    private static function supportsReferenceImages(array $meta): bool { if (array_key_exists('supports_reference_images', $meta['_local_capability_overrides'] ?? [])) return $meta['_local_capability_overrides']['supports_reference_images']; $capabilities = self::arrayValue($meta['capabilities'] ?? []); if (!empty($meta['supports_reference_images']) || !empty($capabilities['supports_reference_images']) || self::referenceLimit($meta) > 0) return true; $schema = self::arrayValue($meta['params_schema'] ?? []); foreach (['urls', 'image_urls', 'images', 'reference_images'] as $field) if (array_key_exists($field, $schema)) return true; return false; }
     private static function firstValue(array $params, array $keys): string { foreach ($keys as $key) if (isset($params[$key]) && $params[$key] !== '') return (string)$params[$key]; return ''; }
     private static function qualityOptions(array $locked): array { $v = self::skuQuality([], $locked); return $v === '' ? [] : [$v]; }
     private static function resolutionOptions(array $locked): array { $v = self::firstValue($locked, ['quality','resolution','image_size']); return $v === '' ? [] : [['value' => $v, 'label' => $v, 'ratio_options' => self::ratioOptions($locked, [])]]; }

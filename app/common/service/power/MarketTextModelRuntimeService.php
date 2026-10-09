@@ -412,7 +412,7 @@ class MarketTextModelRuntimeService
             if ($prices === []) {
                 continue;
             }
-            $meta = (array)($snapshot['market_metadata'] ?? []);
+            $meta = MarketModelCapabilities::applyMetadata($product, (array)($snapshot['market_metadata'] ?? []));
             $protocols = self::protocolList($meta['protocols'] ?? []);
             $options[] = [
                 'id' => (string)$product['id'],
@@ -436,6 +436,7 @@ class MarketTextModelRuntimeService
                 'default_params' => self::arrayValue($meta['default_params'] ?? []),
                 'params_schema' => self::arrayValue($meta['params_schema'] ?? []),
                 'capabilities' => array_replace(self::arrayValue($meta['capabilities'] ?? []), PowerMarketService::capability($product)),
+                'capability_profile' => MarketModelCapabilities::profile($product),
                 'developer_doc_slug' => (string)($meta['developer_doc_slug'] ?? ''),
                 'api_doc' => (string)($meta['api_doc'] ?? ''),
                 'supports_vision' => self::supportsVision($snapshot, $product),
