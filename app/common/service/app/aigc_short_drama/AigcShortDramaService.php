@@ -26144,7 +26144,7 @@ class AigcShortDramaService
     private static function jsonEncode(array $data): string
     {
         $json = json_encode(self::sanitizeUtf8Payload($data), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
-        if (ShortDramaAttachmentSource::present($data) && is_string($json)) {
+        if ((ShortDramaAttachmentSource::present($data) || self::hasCanonicalResult($data)) && is_string($json)) {
             // Existing utf8 (three-byte) columns can retain supplementary characters through JSON escapes.
             $json = preg_replace_callback('/[\x{10000}-\x{10FFFF}]/u', static fn(array $match): string => substr(json_encode($match[0], JSON_THROW_ON_ERROR), 1, -1), $json);
             if (strlen($json) > 16777215) throw new \RuntimeException('附件追溯内容超过存储容量，请拆分文件；已保存的原文及回包保留', 422);
@@ -26154,6 +26154,17 @@ class AigcShortDramaService
 
     private static function sanitizeUtf8Payload(array $data): array
     {
+        if (self::isCanonicalResult($data)) {
+            // Accepted text and all derived quotes must keep their exact hashes and Unicode offsets.
+            $document = $data['canonical_document']; $unsigned = $document;
+            unset($unsigned['content_hash'], $unsigned['status'], $unsigned['transforms']);
+            if (($document['schema_version'] ?? 0) !== vnext\ContentDocument::VERSION
+                || ($document['content_hash'] ?? '') !== vnext\ContentDocument::hash($unsigned)) {
+                throw new \RuntimeException('规范正文完整性校验失败，已保存内容保留', 409);
+            }
+            vnext\ShotCompiler::assertCurrent($document, $data['shot_plan']);
+            return $data;
+        }
         if (isset($data['attachment_trace'])) ShortDramaAttachmentSource::assertEpisode($data);
         foreach ($data as $key => $value) {
             if ($key === '_attachment_source' && is_array($value)) { ShortDramaAttachmentSource::assertPackage($value); continue; }
@@ -26167,6 +26178,19 @@ class AigcShortDramaService
             }
         }
         return $data;
+    }
+
+    private static function isCanonicalResult(array $data): bool
+    {
+        return ($data['pipeline_version'] ?? 0) === vnext\GenerationPipeline::VERSION
+            && is_array($data['canonical_document'] ?? null) && is_array($data['shot_plan'] ?? null);
+    }
+
+    private static function hasCanonicalResult(array $data): bool
+    {
+        if (self::isCanonicalResult($data)) return true;
+        foreach ($data as $value) if (is_array($value) && self::hasCanonicalResult($value)) return true;
+        return false;
     }
 
     private static function sanitizeUtf8String(string $value): string
