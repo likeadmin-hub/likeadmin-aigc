@@ -117,9 +117,9 @@ final class SceneScreenplayExecution
         foreach (array_merge($context['requirements'] ?? [], $context['events'] ?? []) as $target) {
             if (!empty($target['episode_ids']) && !in_array($context['episode_id'], $target['episode_ids'], true)) continue;
             $id = ContentDocument::text($target['id'] ?? null, 'target.id');
-            if (isset($ids[$id])) throw new RuntimeException('本集要求标识重复', 422);
-            $ids[$id] = true;
+            if (in_array($id, $ids, true)) throw new RuntimeException('本集要求标识重复', 422);
+            $ids[] = $id;
         }
-        return array_keys($ids);
+        return $ids;
     }
 }

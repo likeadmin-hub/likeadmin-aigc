@@ -570,10 +570,10 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
         JobRunner::run($this->store, 'another', static function () { self::fail('Published text repair recharged'); });
     }
-    private function screenplayStore(): array
+    private function screenplayStore(int $tokens = 10000): array
     {
         $input = ShortDramaVnextSceneScreenplayTest::input();
-        $input['execution']['resource_limits'] = ['total_tokens' => 10000, 'tenant_cost_points' => 3, 'user_charge_points' => 6];
+        $input['execution']['resource_limits'] = ['total_tokens' => $tokens, 'tenant_cost_points' => 3, 'user_charge_points' => 6];
         $this->scope['task_id'] .= '_screenplay';
         $this->store = new ExecutionStore($this->scope['tenant_id'], $this->scope['user_id'], $this->scope['task_id'], $this->buffer);
         $this->store->create($this->scope['task_id'], $input, time() + 600);
@@ -638,6 +638,65 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertSame(276, $final['resources']['spent']['total_tokens']); self::assertSame(2400000, $final['resources']['spent']['user_charge_points']);
         self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
         JobRunner::run($this->store, 'another', static function () { self::fail('Published screenplay recharged'); });
+    }
+    public function testReplayingEarlierCreativeSceneCannotDiscardLaterDraft(): void
+    {
+        $input = $this->screenplayStore(); $snapshots = []; $plan = null;
+        \app\common\service\app\aigc_short_drama\vnext\GenerationPipeline::run($input['context'],
+            static fn($key, $messages) => ShortDramaVnextSceneScreenplayTest::reply($key, json_decode($messages['content'], true)),
+            static function () {}, static function ($candidate) use (&$snapshots) { $snapshots[] = $candidate; },
+            ShortDramaVnextSceneScreenplayTest::execution($plan));
+        $fence = $this->store->acquire('worker', 100);
+        $this->store->checkpoint($fence, $snapshots[1]); $before = $this->store->snapshot();
+        $this->store->checkpoint($fence, $snapshots[0]);
+        self::assertSame($before['candidate_json'], $this->store->snapshot()['candidate_json']);
+        self::assertSame($before['event_seq'], $this->store->snapshot()['event_seq']);
+        $this->store->checkpoint($fence, end($snapshots)); $later = $this->store->snapshot();
+        $this->store->checkpoint($fence, $snapshots[1]);
+        self::assertSame($later['candidate_json'], $this->store->snapshot()['candidate_json']);
+    }
+    public function testCreativeExpansionCannotIncreaseResourceLimitAndKeepsCompletedScene(): void
+    {
+        $this->screenplayStore(600); $paid = [];
+        try {
+            JobRunner::run($this->store, 'worker', function ($params, $key, $persist, $admit) use (&$paid): array {
+                $data = json_decode($params['content'], true);
+                $stage = isset($data['scene_number']) ? 'screenplay_scene_' . $data['scene_number'] : (isset($data['target_ids']) ? 'screenplay_plan' : 'screenplay');
+                $admit(['total_tokens' => 500, 'tenant_cost_points' => .5, 'user_charge_points' => 1]);
+                $paid[] = $stage; $receipt = $this->billedReceipt(); unset($receipt['result']);
+                $receipt = ShortDramaVnextSceneScreenplayTest::reply($stage, $data) + $receipt; $persist($receipt); return $receipt;
+            }); self::fail('Resource limit expanded');
+        } catch (\RuntimeException $e) { self::assertSame(429, $e->getCode()); }
+        $job = $this->store->snapshot(); $draft = json_decode($job['candidate_json'], true); $budget = json_decode($job['budget_json'], true);
+        self::assertSame(['screenplay', 'screenplay_plan', 'screenplay_scene_1'], $paid);
+        self::assertSame('needs_attention', $job['execution_status']); self::assertSame('budget_exhausted', $job['error_code']);
+        self::assertSame(1, $draft['screenplay_windows']['completed']); self::assertFalse($draft['screenplay_windows']['complete']);
+        self::assertSame(600, $budget['resources']['limits']['total_tokens']); self::assertSame(138, $budget['resources']['spent']['total_tokens']);
+        self::assertSame(0, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+    }
+    public function testFullPreviousScenesAreNeverTrimmedToPassInputCapacity(): void
+    {
+        // Deliberately oversized received fixture tests retention/preflight, not real model output capacity.
+        $this->screenplayStore(); $text = str_repeat('第一场完整内容不可删。', 4000); $paid = [];
+        try {
+            JobRunner::run($this->store, 'worker', function ($params, $key, $persist, $admit) use ($text, &$paid): array {
+                $data = json_decode($params['content'], true);
+                $stage = isset($data['scene_number']) ? 'screenplay_scene_' . $data['scene_number'] : (isset($data['target_ids']) ? 'screenplay_plan' : 'screenplay');
+                self::assertNotSame('screenplay_scene_2', $stage);
+                $admit(['total_tokens' => 500, 'tenant_cost_points' => .5, 'user_charge_points' => 1]); $paid[] = $stage;
+                $receipt = $this->billedReceipt(); unset($receipt['result']); $reply = ShortDramaVnextSceneScreenplayTest::reply($stage, $data);
+                if ($stage === 'screenplay_scene_1') {
+                    $body = json_decode($reply['content'], true); $body['scene']['units'][0]['text'] = $text;
+                    $reply['content'] = json_encode($body, JSON_UNESCAPED_UNICODE);
+                }
+                $receipt = $reply + $receipt; $persist($receipt); return $receipt;
+            }); self::fail('Previous content trimmed');
+        } catch (\RuntimeException $e) { self::assertSame(413, $e->getCode()); }
+        $job = $this->store->snapshot(); $draft = json_decode($job['candidate_json'], true);
+        self::assertSame(['screenplay', 'screenplay_plan', 'screenplay_scene_1'], $paid);
+        self::assertSame('input_capacity_exceeded', $job['error_code']); self::assertSame($text, $draft['document']['scenes'][0]['units'][0]['text']);
+        self::assertSame(3, json_decode($job['budget_json'], true)['calls']);
+        self::assertSame(0, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
     }
     public function testOversizedCanonicalInputStopsBeforeProviderAndKeepsEntireDraft(): void
     {
