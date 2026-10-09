@@ -92,13 +92,21 @@ final class MarketModelCapabilities
         $meta=self::arrayValue($snapshot['market_metadata']??[]);
         $upstream=self::arrayValue($meta['upstream_metadata']??[]);
         // Prefer the original response: historical flattened snapshots defaulted missing flags to false.
-        $sources=$upstream!==[]?[$upstream,self::arrayValue($upstream['capabilities']??[])]:[$meta,self::arrayValue($meta['capabilities']??[]),self::arrayValue($snapshot['resource']??[])];
+        $resource=self::arrayValue($snapshot['resource']??[]);
+        $sources=$upstream!==[]?[$upstream,self::arrayValue($upstream['capabilities']??[])]:[$meta,self::arrayValue($meta['capabilities']??[]),$resource,self::arrayValue($resource['capabilities']??[])];
         $schema=self::arrayValue($meta['params_schema']??$upstream['params_schema']??[]);
         $schema=self::arrayValue($schema['properties']??$schema);
         $overrides=self::overrides($product);$rows=[];
         foreach(self::fields() as $key=>[$label,$type,$aliases]){
             $value=null;
             foreach($sources as $source){foreach([$key,...$aliases] as $alias){if(array_key_exists($alias,$source)){$value=self::normalize($source[$alias],$type);if($value!==null)break;}}if($value!==null)break;}
+            if ($value===null && in_array($key,['supports_vision','supports_audio','supports_video'],true)) {
+                $expected=['supports_vision'=>['image','vision','image_input'],'supports_audio'=>['audio'],'supports_video'=>['video']][$key];
+                foreach($sources as $source) {
+                    $declared=array_merge(self::normalize($source['input_modalities']??[],'list')??[],self::normalize($source['capabilities']??[],'list')??[],array_keys($source)===array_keys(array_values($source))?(self::normalize($source,'list')??[]):[]);
+                    if(array_intersect($expected,$declared)!==[]){$value=true;break;}
+                }
+            }
             $upstreamValue=$value;$origin=$value===null?'unknown':'upstream';
             $schemaKeys=['supports_tools'=>['tools','functions'],'supports_structured_output'=>['response_format'],'supports_streaming'=>['stream'],'supports_search'=>['enable_search'],'supports_reasoning'=>['enable_thinking']];
             if($value===null)foreach($schemaKeys[$key]??[] as $param)if(isset($schema[$param])){$value=true;$origin='schema';break;}
@@ -113,7 +121,7 @@ final class MarketModelCapabilities
         }
         // Expose provider extensions as inert data; never return credentials/default payloads.
         $extra=[];foreach(self::arrayValue($upstream['capabilities']??$meta['capabilities']??[]) as $key=>$value){
-            if(is_string($key)&&!isset(self::fields()[$key])&&!self::sensitive($key)&&(is_scalar($value)||$value===null))$extra[$key]=$value;
+            if(is_string($key)&&!isset(self::fields()[$key])&&!self::sensitive($key))$extra[$key]=self::publicValue($value);
         }
         return ['fields'=>$rows,'protocols'=>self::normalize($meta['protocols']??$upstream['protocols']??[],'list')??[],
             'parameters'=>$parameters,'extra'=>$extra,'updated_at'=>(int)($snapshot[self::KEY]['updated_at']??0)];
@@ -122,6 +130,15 @@ final class MarketModelCapabilities
     private static function sensitive(string $key): bool
     {
         return preg_match('/api.?key|secret|password|authorization|credential|access.?token/i',$key)===1;
+    }
+
+    private static function publicValue($value,int $depth=0)
+    {
+        if($depth>5)return null;
+        if(is_string($value))return mb_substr($value,0,1000);
+        if(!is_array($value))return is_scalar($value)?$value:null;
+        $result=[];foreach(array_slice($value,0,100,true) as $key=>$item)if(!self::sensitive((string)$key))$result[$key]=self::publicValue($item,$depth+1);
+        return $result;
     }
 
     /** Existing adapters retain their protocol/SKU logic; only known local corrections override it. */

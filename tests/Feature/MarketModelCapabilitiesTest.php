@@ -49,6 +49,9 @@ class MarketModelCapabilitiesTest extends TestCase
         $profile=C::profile($p);self::assertSame(['tools'],array_column($profile['parameters'],'name'));
         self::assertSame(['supports_cache'=>true],$profile['extra']);self::assertTrue($this->fields($p)['supports_tools']['value']);
         self::assertNull($this->fields($p)['max_reference_images']['value']);
+        $nested=$this->product(['capabilities'=>['custom'=>['modes'=>['a','b'],'api_key'=>'secret']]]);
+        self::assertSame(['modes'=>['a','b']],C::profile($nested)['extra']['custom']);
+        self::assertTrue($this->fields($this->product(['capabilities'=>['vision']]))['supports_vision']['value']);
     }
     public function testSharedAdaptersReceiveCorrectionsWithoutChangingPricingOrSchemas(): void
     {
