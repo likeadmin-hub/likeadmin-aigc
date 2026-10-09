@@ -880,6 +880,11 @@ final class ConversationWorkflow
      * ratio must be one of the original creation form's frozen options. */
     private static function recordCreativeAnswer(int $tenant,array &$state,string $slot,string $value): void
     {
+        if ($slot==='episode_count' && ConversationCreativePolicy::enabled($state)) {
+            $count=ConversationCreativePolicy::episodeCount($value);
+            if ($count===null) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
+            $value=$count.'集';
+        }
         if ($slot==='aspect_ratio') {
             $value=str_replace('：',':',trim($value));
             $options=[];

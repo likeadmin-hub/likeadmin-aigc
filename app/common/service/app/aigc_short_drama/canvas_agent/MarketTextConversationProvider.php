@@ -29,7 +29,7 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         if (!empty($request['context']['_input_contract_version'])) {
             $model=self::resolve($tenant,$selection,$images!==[]);
             $fitting=false;
-            foreach ([$model,...MarketTextModelRuntimeService::options($tenant,$images!==[])] as $candidate) {
+            foreach ([$model,...self::options($tenant,$images!==[])] as $candidate) {
                 try { self::outputBudget($request,$candidate,count($images));$fitting=true;break; }
                 catch (RuntimeException $error) { if ($error->getCode()!==413) throw $error; }
             }
@@ -37,11 +37,19 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         } else self::resolve($tenant,$selection,$images!==[]);
     }
 
+    private static function options(int $tenant,bool $vision): array
+    {
+        foreach (MarketTextModelRuntimeService::modelGroups($tenant) as $group) {
+            if (($group['key']??'')===($vision?'vision_describe':'script_plan')) return (array)($group['options']??[]);
+        }
+        return [];
+    }
+
     private static function resolve(int $tenant,array $selection,bool $vision): array
     {
         try { return MarketTextModelRuntimeService::resolveRoutedModel($tenant,$selection,$vision); }
         catch (\Throwable $error) {
-            if ($vision && MarketTextModelRuntimeService::options($tenant,true)===[]) throw new RuntimeException('VISION_MODEL_UNAVAILABLE',0,$error);
+            if ($vision && self::options($tenant,true)===[]) throw new RuntimeException('VISION_MODEL_UNAVAILABLE',0,$error);
             throw $error;
         }
     }
@@ -99,7 +107,7 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         $onEvent=is_callable($request['on_event']??null)?$request['on_event']:null;
         $preferred=self::resolve($tenant,(array)($settings['reasoning_model']??[]),$images!==[]);
         $candidates=[$preferred];
-        foreach (MarketTextModelRuntimeService::options($tenant,$images!==[]) as $candidate) if ((string)$candidate['id']!==(string)$preferred['id']) $candidates[]=$candidate;
+        foreach (self::options($tenant,$images!==[]) as $candidate) if ((string)$candidate['id']!==(string)$preferred['id']) $candidates[]=$candidate;
         $result=null;$lastError=null;
         $deadline=microtime(true)+$runtimeRequest['request_timeout_seconds'];
         foreach ($candidates as $candidate) {
