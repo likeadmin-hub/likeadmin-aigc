@@ -6137,6 +6137,28 @@ class AigcShortDramaService
         return self::formatAsset($asset->toArray());
     }
 
+    /** CLI worker handles recordings uploaded through a hardened Web process without exec. */
+    public static function tickCanonicalAudio(): int
+    {
+        if (!in_array(PHP_SAPI, ['cli', 'phpdbg'], true)) return 0;
+        $ffmpeg = self::resolveFfmpegBinary(); if ($ffmpeg === '') return 0;
+        $ffprobe = self::resolveFfprobeBinary($ffmpeg);
+        return vnext\AudioMeasurementWorker::tick($ffprobe, static function (array $row, string $extension): array {
+            $url = FileService::getFileUrlByStorage($row['uri'], $row['storage_scope'], $row['storage_engine'], $row['storage_domain']);
+            $path = tempnam(sys_get_temp_dir(), 'short_drama_voice_');
+            if ($path === false) throw new \RuntimeException('配音临时文件无法创建');
+            try {
+                if ($row['storage_engine'] === 'local' && !preg_match('/^https?:\/\//i', $row['uri'])) {
+                    $root = realpath(public_path()); $source = realpath(public_path() . ltrim($row['uri'], '/'));
+                    if (!$root || !$source || !str_starts_with($source, $root . DIRECTORY_SEPARATOR) || !is_file($source) || !copy($source, $path)) throw new \RuntimeException('配音本地文件无法读取');
+                } else {
+                    self::downloadRemoteAssetFile($url, $path, '配音', 90);
+                }
+                return ['path' => $path, 'temporary' => true];
+            } catch (\Throwable $error) { if (is_file($path)) unlink($path); throw $error; }
+        });
+    }
+
     /** Register a canvas node result in the existing short-drama asset library. */
     private static function registerCanvasAsset(int $tenantId, int $userId, array $params): array
     {

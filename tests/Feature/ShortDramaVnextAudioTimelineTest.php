@@ -28,7 +28,7 @@ final class ShortDramaVnextAudioTimelineTest extends TestCase
         [$candidate, $recordings, $seconds] = $this->fixture(); $timeline = AudioTimeline::compile($candidate, $recordings, $seconds);
         self::assertCount(2, $timeline['audio']); self::assertSame(6.0, $timeline['duration_seconds']);
         self::assertSame(0.0, $timeline['audio'][0]['start_seconds']); self::assertSame(3.123375, $timeline['audio'][0]['end_seconds']);
-        self::assertSame(3.123375, $timeline['audio'][1]['start_seconds']); self::assertSame(5.123375, $timeline['audio'][1]['end_seconds']);
+        self::assertSame(3.123375, $timeline['audio'][1]['start_seconds']); self::assertEqualsWithDelta(5.123375, $timeline['audio'][1]['end_seconds'], 0.000000001);
         self::assertSame(0.0, $timeline['audio'][0]['source_start_seconds']); AudioTimeline::assertCurrent($timeline, $candidate, $recordings);
     }
 
