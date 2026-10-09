@@ -21,6 +21,8 @@ final class GenerationPipeline
         if (!in_array($windowRepair, [0, SceneShotRepair::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的窗口修复版本', 409);
         $contentRepair = $context['window_content_repair_version'] ?? 0;
         if (!in_array($contentRepair, [0, SceneContentRepair::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的正文窗口修复版本', 409);
+        $screenplayVersion = $context['scene_screenplay_version'] ?? 0;
+        if (!in_array($screenplayVersion, [0, SceneScreenplayExecution::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的分场创作版本', 409);
         $windowed = false;
         $makeShots = static function (array $document, callable $call, string $key, string $reservation, array $issues = []) use ($sceneVersion, $sceneExecution, $checkpoint, $projection, &$windowed): array {
             if ($sceneVersion === SceneShotExecution::VERSION && $sceneExecution && $reservation === '') {
@@ -48,7 +50,9 @@ final class GenerationPipeline
         // A server-validated structured import is already creative content, not an invitation to rewrite it.
         $document = $context['canonical_input'] ?? (isset($context['structured_screenplay'])
             ? ContentDocument::normalize($context['structured_screenplay'], $context)
-            : $call('screenplay', self::creativeContext($context), self::screenplayInstruction($context), static fn($reply) => ContentDocument::normalize($reply, $context)));
+            : ($screenplayVersion === SceneScreenplayExecution::VERSION && isset($sceneExecution['screenplay_plan'])
+                ? SceneScreenplayExecution::run($context, $call, $checkpoint, $sceneExecution)
+                : $call('screenplay', self::creativeContext($context), self::screenplayInstruction($context), static fn($reply) => ContentDocument::normalize($reply, $context))));
         $checkpoint(['document' => $document]);
         $plan = $makeShots($document, $call, 'shots', '');
         $checkpoint(['document' => $document, 'shot_plan' => $plan]);
@@ -136,7 +140,7 @@ final class GenerationPipeline
             . '范围从0开始，以Unicode码点计数，end不含末位。完整覆盖全部动作与对白，首现顺序保持正文顺序。可多个画面引用同一句对白，声音只播放一次。不按固定14秒拆镜，不返回音频副本。';
     }
 
-    private static function creativeContext(array $context): array
+    public static function creativeContext(array $context): array
     {
         if ((int)($context['narrative_contract_version'] ?? 0) === NarrativeLedger::VERSION) {
             $context['previous_narrative'] = NarrativeLedger::relevant($context['previous_narrative'] ?? [], array_column($context['entities'] ?? [], 'entity_id'));
@@ -150,7 +154,7 @@ final class GenerationPipeline
         return $issues && array_values(array_unique(array_column($issues, 'target_id'))) === ['aspect:shot_fidelity'];
     }
 
-    private static function screenplayInstruction(array $context): string
+    public static function screenplayInstruction(array $context): string
     {
         $extended = (int)($context['repair_contract_version'] ?? 1) >= 2;
         $instruction = '本阶段仅创作本集完整正文，不生成分镜、提示词、时长合计或系统ID。'

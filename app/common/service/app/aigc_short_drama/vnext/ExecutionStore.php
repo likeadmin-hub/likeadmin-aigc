@@ -93,6 +93,30 @@ final class ExecutionStore
             return $proposal;
         });
     }
+    /** Planning plus N scenes replaces one screenplay stage; a truncated attempt remains charged. */
+    public function sceneScreenplayPlan(int $fence, array $context, ?array $proposal): ?array
+    {
+        return Db::transaction(function () use ($fence, $context, $proposal): ?array {
+            $job = $this->job(); $this->assertFence($job, $fence);
+            $input = self::decode($job['input_json']); $budget = self::decode($job['budget_json']);
+            if (($input['context']['scene_screenplay_version'] ?? 0) !== SceneScreenplayExecution::VERSION
+                || ContentDocument::hash($context) !== ContentDocument::hash($input['context'])) throw new RuntimeException('此作业没有分场创作授权', 409);
+            $saved = $budget['scene_screenplay_plan'] ?? null;
+            if ($saved !== null) {
+                SceneScreenplayExecution::assertPlan($context, $saved);
+                if ($proposal !== null && ContentDocument::hash($proposal) !== ContentDocument::hash($saved)) throw new RuntimeException('创作计划已冻结，请建立新修订', 409);
+                return $saved;
+            }
+            if ($proposal === null) return null;
+            SceneScreenplayExecution::assertPlan($context, $proposal);
+            if ($budget['repair_rounds'] > 0) throw new RuntimeException('不能在修复期间扩大创作预算', 409);
+            $budget['base_calls'] += count($proposal['scenes']);
+            $budget['call_limit'] = $budget['base_calls'] + min(12, max(5, (int)ceil($budget['base_calls'] / 2)));
+            $budget['scene_screenplay_plan'] = $proposal;
+            $this->query('job')->update(['budget_json' => self::json($budget), 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
+            return $proposal;
+        });
+    }
     public function acquire(string $owner, int $leaseSeconds): int
     {
         if ($owner === '' || strlen($owner) > 64 || $leaseSeconds < 1) throw new RuntimeException('执行租约无效', 422);
