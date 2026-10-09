@@ -42,6 +42,7 @@ final class ConversationWorker
                     : ConversationWorkflow::instruction((array)($context['workflow']??[])).($intakeAnalysis
                         ? '只输出一个 JSON 对象，字段恰好为 reply_markdown、intake；reply_markdown 是简短核对提示。'.ConversationIntakeDraft::instruction((array)($context['workflow']['workflow_snapshot']['slot_schema']??[]))
                         : ConversationActionPlan::instruction((string)($claim['settings']['generation_mode']??'manual'),$workflowStage,$compact,ConversationWorkflow::usesStageGenerationPrompts((array)($messageContext['workflow']??[])))))
+                    .ConversationCreativePolicy::instruction()
                     .ConversationCreativePrompt::forStage((array)($messageContext['workflow']??[]))
                     .ConversationShotTiming::instruction((array)($messageContext['workflow']??[])),
                 'request_timeout_seconds'=>120,'automatic_retry'=>false,
@@ -112,7 +113,7 @@ final class ConversationWorker
         } catch (\Throwable $error) {
             // No provider call occurred. Do not expose exception text, which
             // can contain policy internals or tenant configuration secrets.
-            return ConversationExecution::rejectBeforeSubmit($tenant,$user,$run,$claim['token'],$claim['fence']);
+            return ConversationExecution::rejectBeforeSubmit($tenant,$user,$run,$claim['token'],$claim['fence'],$error->getMessage());
         }
         $authorization=ConversationExecution::authorizeSubmission($tenant,$user,$run,$claim['token'],$claim['fence'],$request['request_timeout_seconds']);
         if ($authorization!=='authorized') return $authorization;

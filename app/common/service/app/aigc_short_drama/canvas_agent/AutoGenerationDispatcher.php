@@ -4,6 +4,7 @@ namespace app\common\service\app\aigc_short_drama\canvas_agent;
 
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService;
 use think\facade\Db;
+use think\facade\Cache;
 
 /**
  * Resume server-authorized Agent auto nodes from the existing Agent worker.
@@ -20,9 +21,14 @@ final class AutoGenerationDispatcher
     public static function tick(int $tenant, int $limit=20): array
     {
         $limit=max(1,min(100,$limit));
+        $cursorKey='short-drama:auto-canvas-cursor:'.$tenant;
+        $cursor=max(0,(int)Cache::get($cursorKey,0));
         $rows=Db::name(GraphService::TABLE)->where([
             'tenant_id'=>$tenant,'delete_time'=>0,
-        ])->order('id')->limit($limit)->select()->toArray();
+        ])->where('id','>',$cursor)->order('id')->limit($limit)->select()->toArray();
+        if (!$rows && $cursor>0) $rows=Db::name(GraphService::TABLE)->where(['tenant_id'=>$tenant,'delete_time'=>0])->order('id')->limit($limit)->select()->toArray();
+        // Persist before processing so a poisoned document cannot pin the scan.
+        Cache::set($cursorKey,$rows?(int)end($rows)['id']:0);
         $result=['scanned'=>count($rows),'submitted'=>0,'waiting'=>0,'failed'=>0];
         foreach ($rows as $document) {
             try {

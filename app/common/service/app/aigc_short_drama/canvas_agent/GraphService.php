@@ -200,12 +200,12 @@ final class GraphService
     /** Replace only the exact text nodes remembered by this thread's last
      * confirmed script. A manual edit or missing node refuses the revision;
      * no unrelated canvas content can be overwritten. */
-    public static function replaceWorkflowScriptLocked(array $document,array $proposals,array $memory): array
+    public static function replaceWorkflowScriptLocked(array $document,array $proposals,array $memory,string $stage='script'): array
     {
         $prior=[];
         foreach ($memory as $item) {
-            if (!is_array($item) || ($item['stage']??'')!=='script' || (string)($item['node_id']??'')==='') continue;
-            $artifact=(string)($item['artifact']??'');
+            if (!is_array($item) || ($item['stage']??'')!==$stage || (string)($item['node_id']??'')==='') continue;
+            $artifact=(string)($item['key']??$item['artifact']??'');
             if (isset($prior[$artifact])) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
             $prior[$artifact]=$item;
         }
@@ -214,19 +214,19 @@ final class GraphService
         if (!is_array($nodes) || !array_is_list($nodes)) throw new RuntimeException('INVALID_GRAPH_WRITE');
         $created=[];
         foreach ($proposals as $proposal) {
-            $artifact=(string)($proposal['artifact']??'');$old=$prior[$artifact]??null;
+            $artifact=(string)($proposal['artifact']??'');$old=$prior[(string)($proposal['key']??$artifact)]??null;
             if (!is_array($old) || ($proposal['type']??'')!=='text') throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
             $id=(string)$old['node_id'];$index=self::index($nodes,$id);
             if ($index===null || ($nodes[$index]['type']??'')!=='text') throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
             $node=&$nodes[$index];$metadata=(array)($node['metadata']??[]);
-            if (($metadata['workflow_source_stage']??'')!=='script' || ($metadata['workflow_artifact']??'')!==$artifact
-                || mb_substr((string)($metadata['content']??''),0,6000)!==(string)($old['content']??'')) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
+            if (($metadata['workflow_source_stage']??'')!==$stage || ($metadata['workflow_artifact']??'')!==$artifact
+                || ($stage==='script'?mb_substr((string)($metadata['content']??''),0,6000):(string)($metadata['content']??''))!==(string)($old['content']??'')) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
             $prompt=trim((string)($proposal['prompt']??''));
             if ($prompt==='' || mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');
             $node['title']=trim((string)($proposal['title']??''));
             $metadata['prompt']=$prompt;$metadata['content']=$prompt;
             $metadata['content_revision']=(int)($metadata['content_revision']??0)+1;
-            if (isset($proposal['key'])) $metadata['workflow_key']='script:'.(string)$proposal['key'];
+            if (isset($proposal['key'])) $metadata['workflow_key']=$stage.':'.(string)$proposal['key'];
             $node['metadata']=$metadata;unset($node);
             $created[]=['id'=>$id,'type'=>'text','auto_submit'=>false];
         }

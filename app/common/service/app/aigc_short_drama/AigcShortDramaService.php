@@ -5520,7 +5520,8 @@ class AigcShortDramaService
                 $source = self::findTask($tenantId, $userId, $taskId);
                 ShortDramaStoryDraft::assertVersion(self::jsonDecode((string)$source['request_json']), $params);
             }
-            $request['_prompt_snapshot'] = ShortDramaPromptWorkspace::capture($tenantId);
+            $request['_prompt_snapshot'] = isset($sourceRequest['_prompt_snapshot']['canvas_creative_policy'])
+                ? ShortDramaPromptWorkspace::forTask($tenantId, $sourceRequest) : ShortDramaPromptWorkspace::capture($tenantId);
             $request['_prompt_task_id'] = $newTaskId;
             unset($request['_prompt_requests']);
             AigcShortDramaScriptTask::create([
@@ -17267,6 +17268,7 @@ class AigcShortDramaService
      */
     private static function generateScriptPlanLlmWithFallback(int $tenantId, int $userId, array $params, array $model, array $request, string $stage, ?callable $onEvent = null): array
     {
+        $params = \app\common\service\app\aigc_short_drama\canvas_agent\ConversationProductionPolicy::apply($params, $request);
         if (ShortDramaInputContract::current($request)) {
             $params['_require_final_content'] = true;
         }
