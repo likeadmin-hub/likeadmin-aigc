@@ -57,6 +57,33 @@ final class ShortDramaVnextAttachmentTest extends TestCase
         self::assertSame(Import::document($context)['scenes'], $result['document']['scenes']);
     }
 
+    public function testExplicitPropBindingsKeepOriginalLabelsWordsAndProductionReferences(): void
+    {
+        $text="第1集\n场景：书房\n动作（陈默；道具=旧信）：陈默展开旧信。\n陈默（道具=旧信）：尾句😀。\n环境（道具=旧信）：信纸落在桌上。\n";
+        $context=ShortDramaVnextSceneShotTest::input()['context'];unset($context['canonical_input']);
+        $context['entities'][]=['ref'=>'p1','entity_id'=>'letter1','kind'=>'prop','name'=>'旧信','description'=>'旧信纸','identity_facts'=>[]];
+        $package=ShortDramaAttachmentSourceTest::capture($text);$episode=Source::bind($package,[['episode_number'=>1,'title'=>'道具参与']])[0];
+        $import=Import::prepare($package,$episode,$context['entities']);
+        $context=array_replace($context,['source_mode'=>'faithful','sources'=>[$import['source']['source_id']=>$import['source']],
+            'structured_screenplay'=>$import['screenplay'],'attachment_import'=>$import]);
+        $document=Import::document($context);$units=array_values(ContentDocument::units($document));
+        self::assertSame(['陈默展开旧信。','尾句😀。','信纸落在桌上。'],array_column($units,'text'));
+        foreach($units as $unit) {self::assertContains('letter1',$unit['entity_ids']);$link=$unit['source_links'][0];self::assertSame($unit['text'],ContentDocument::slice($text,$link['start'],$link['end'],$link['quote']));}
+        self::assertSame('char1',$units[1]['speaker_id']);self::assertSame(['letter1'],$units[2]['entity_ids']);
+        $shots=\app\common\service\app\aigc_short_drama\vnext\ShotCompiler::compile($document,['shots'=>[['visual_description'=>'信纸','refs'=>[['unit'=>'u1'],['unit'=>'u2'],['unit'=>'u3']]]]],'prop-shots');
+        self::assertContains('letter1',$shots['shots'][0]['entity_ids']);
+        $view=\app\common\service\app\aigc_short_drama\vnext\AttachmentSourceView::page(['context'=>$context],['document'=>$document],2);
+        self::assertSame("陈默（道具=旧信）：尾句😀。\n",$view['records'][0]['original_line']);
+        // Already-frozen v2 documents are still read directly, not reparsed by v3 grammar.
+        $legacy=self::context();$legacy['attachment_import']['schema_version']=2;
+        self::assertSame('我记得你😀。',Import::document($legacy)['scenes'][0]['units'][1]['text']);
+    }
+
+    public function testUnknownPropDoesNotFallBackToAPersonOrLoseItsReference(): void
+    {
+        $this->expectExceptionCode(422);self::context("第1集\n场景：书房\n陈默（道具=未确认物品）：完整台词。");
+    }
+
     public function testIndentedMultilineDialogueActionAndNarrationRemainCompleteSingleUnits(): void
     {
         $text="第1集\n场景：书房\n动作（陈默）：陈默走近书桌。\n  接着打开抽屉。\n陈默：请听我说完。\n  ".str_repeat('完整台词。',200)."\n\t尾句😀。\n\n旁白：故事继续。\n  尚未结束。\n";

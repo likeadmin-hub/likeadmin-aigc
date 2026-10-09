@@ -8,7 +8,7 @@ use RuntimeException;
 /** Explicit screenplay labels only. Never infer a speaker, location or missing prose. */
 final class AttachmentScreenplay
 {
-    public const VERSION = 2;
+    public const VERSION = 3;
 
     public static function prepare(array $package, array $episode, array $entities): array
     {
@@ -23,7 +23,7 @@ final class AttachmentScreenplay
             'source_id' => $full['source_id'], 'source_version' => $full['version'], 'source_hash' => $full['hash'],
             'start' => $trace['start'], 'end' => $trace['end'], 'extraction' => $package['extraction']];
         $names = [];
-        foreach ($entities as $entity) if (in_array($entity['kind'], ['location', 'character'], true)) {
+        foreach ($entities as $entity) if (in_array($entity['kind'], ['location', 'character', 'prop'], true)) {
             if ($entity['kind'] === 'character' && (in_array($entity['name'], ['场景', '地点', '动作', '环境', '旁白'], true) || preg_match('/^动作[（(]/u', $entity['name']))) throw new RuntimeException('人物名称与附件结构标记重名，请明确区分后再导入', 422);
             $names[$entity['kind']][$entity['name']][] = $entity['ref'];
         }
@@ -70,20 +70,30 @@ final class AttachmentScreenplay
                 } else {
                     if (!$scenes) throw new RuntimeException('附件正文前缺少“场景：地点名”，不能猜测拍摄地点', 422);
                     ContentDocument::text($body, 'attachment.unit');
-                    $actors = []; $action = $label === '环境';
+                    $actors = []; $props = []; $speakerLabel = $label; $action = $label === '环境';
                     if ($label === '动作') throw new RuntimeException('附件动作未标明参与人物，请使用“动作（人物名）：内容”；无人物的画面使用“环境：内容”', 422);
                     if (preg_match('/^动作[（(](.+)[）)]$/u', $label, $actorMatch)) {
                         $action = true;
-                        foreach (preg_split('/[、，,]/u', $actorMatch[1]) as $name) $actors[] = $lookup('character', trim($name));
+                        $parts = preg_split('/[；;]/u', $actorMatch[1]);
+                        foreach ($parts as $part) {
+                            $part = trim($part);
+                            if (str_starts_with($part, '道具=')) {
+                                foreach (preg_split('/[、，,]/u', substr($part, strlen('道具='))) as $name) $props[] = $lookup('prop', trim($name));
+                            } else foreach (preg_split('/[、，,]/u', $part) as $name) $actors[] = $lookup('character', trim($name));
+                        }
                         $actors = array_values(array_unique($actors));
+                    } elseif (preg_match('/^(.+?)[（(]道具=(.+)[）)]$/u', $label, $propMatch)) {
+                        $speakerLabel = trim($propMatch[1]); $action = $speakerLabel === '环境';
+                        foreach (preg_split('/[、，,]/u', $propMatch[2]) as $name) $props[] = $lookup('prop', trim($name));
                     }
                     $start = $cursor + mb_strlen($matches[1] . $matches[2] . $matches[3], 'UTF-8');
                     $unit = ['type' => $action ? 'action' : 'dialogue', 'text' => $body,
                         'source_links' => [['source_id' => $source['source_id'], 'source_version' => $source['version'], 'source_hash' => $source['hash'],
                             'start' => $start, 'end' => $cursor + $length, 'quote' => $body]]];
-                    if ($label === '旁白') $unit['speech_type'] = 'narration';
+                    if ($speakerLabel === '旁白') $unit['speech_type'] = 'narration';
                     elseif ($action) $unit['characters'] = $actors;
-                    else $unit['speaker'] = $lookup('character', $label);
+                    else $unit['speaker'] = $lookup('character', $speakerLabel);
+                    if ($props) $unit['props'] = array_values(array_unique($props));
                     $scene = count($scenes) - 1; $entry += ['kind' => 'content', 'scene_index' => $scene, 'unit_index' => count($scenes[$scene]['units']), 'text_start' => $start];
                     $scenes[$scene]['units'][] = $unit;
                 }
@@ -98,7 +108,7 @@ final class AttachmentScreenplay
     public static function document(array $context): array
     {
         $import = $context['attachment_import'];
-        if (!in_array($import['schema_version'] ?? 0, [1, self::VERSION], true) || ($context['structured_screenplay'] ?? null) !== $import['screenplay']) throw new RuntimeException('附件结构版本已变化', 409);
+        if (!in_array($import['schema_version'] ?? 0, [1, 2, self::VERSION], true) || ($context['structured_screenplay'] ?? null) !== $import['screenplay']) throw new RuntimeException('附件结构版本已变化', 409);
         $source = $import['source'];
         if (($context['sources'][$source['source_id']] ?? null) !== $source || $source['hash'] !== hash('sha256', $source['text'])) throw new RuntimeException('附件正文来源不一致', 409);
         $document = ContentDocument::normalize($import['screenplay'], $context);
