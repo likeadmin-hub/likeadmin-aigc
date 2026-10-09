@@ -6150,9 +6150,10 @@ class AigcShortDramaService
             try {
                 if ($row['storage_engine'] === 'local' && !preg_match('/^https?:\/\//i', $row['uri'])) {
                     $root = realpath(public_path()); $source = realpath(public_path() . ltrim($row['uri'], '/'));
-                    if (!$root || !$source || !str_starts_with($source, $root . DIRECTORY_SEPARATOR) || !is_file($source) || !copy($source, $path)) throw new \RuntimeException('配音本地文件无法读取');
+                    if (!$root || !$source || !str_starts_with($source, $root . DIRECTORY_SEPARATOR) || !is_file($source)) throw new \RuntimeException('配音本地文件无法读取', 404);
+                    vnext\AudioMediaLoader::local($source, $path, (int)$row['file_size']);
                 } else {
-                    self::downloadRemoteAssetFile($url, $path, '配音', 90);
+                    vnext\AudioMediaLoader::remote($url, $path, (int)$row['file_size']);
                 }
                 return ['path' => $path, 'temporary' => true];
             } catch (\Throwable $error) { if (is_file($path)) unlink($path); throw $error; }
