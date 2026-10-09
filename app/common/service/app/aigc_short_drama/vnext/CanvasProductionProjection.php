@@ -125,4 +125,28 @@ final class CanvasProductionProjection
         sort($ids); sort($submitted);
         if ($ids !== $submitted || !empty($input['skill_snapshot']) || isset($input['operation'])) throw new RuntimeException('规范制作输入已被替换', 409);
     }
+
+    /** One owned context read per episode, regardless of how many canvas targets are displayed. */
+    public static function displayStates(int $tenant, int $user, array $nodes): array
+    {
+        $contexts = [];
+        foreach ($nodes as &$node) {
+            $meta = $node['metadata'] ?? []; $binding = $meta['canonical_binding'] ?? null;
+            if (!is_array($binding)) continue;
+            $key = (string)($binding['project_id'] ?? '') . ':' . (string)($binding['task_id'] ?? '');
+            if (!array_key_exists($key, $contexts)) {
+                try { $contexts[$key] = AudioProduction::context($tenant, $user, (int)($binding['project_id'] ?? 0), (string)($binding['task_id'] ?? '')); }
+                catch (RuntimeException $error) { $contexts[$key] = null; }
+            }
+            $status = 'stale';
+            if ($contexts[$key] !== null) {
+                try {
+                    self::assertBinding($tenant, $user, $binding, $contexts[$key]);
+                    $status = hash('sha256', (string)($meta['prompt'] ?? '')) === $binding['prompt_hash'] ? 'current' : 'changed';
+                } catch (RuntimeException $error) { $status = 'unavailable'; }
+            }
+            $node['metadata']['canonical_state'] = ['status' => $status, 'revision_id' => $binding['document_revision_id'] ?? ''];
+        }
+        unset($node); return $nodes;
+    }
 }
