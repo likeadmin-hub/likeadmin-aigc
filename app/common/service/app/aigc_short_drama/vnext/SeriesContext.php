@@ -79,9 +79,9 @@ final class SeriesContext
         $inputHistory = [];
         if (($snapshot['content_trace']['schema_version'] ?? 1) >= 2) {
             foreach (PlanningTrace::sources($snapshot['content_trace']) as $source) {
-                $sources[$source['source_id']] = $source;
                 if (($source['stage'] ?? '') === 'episodes' && !empty($source['episode_numbers'])
                     && !in_array($number, $source['episode_numbers'], true)) continue;
+                $sources[$source['source_id']] = $source;
                 $inputHistory[] = $source;
             }
         }
