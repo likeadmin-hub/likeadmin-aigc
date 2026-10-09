@@ -57,6 +57,23 @@ final class ShortDramaVnextAttachmentTest extends TestCase
         self::assertSame(Import::document($context)['scenes'], $result['document']['scenes']);
     }
 
+    public function testBadModelShotReferenceGetsOneFormatRecoveryWithTheSameImportedDocument(): void
+    {
+        $context = self::context(); $calls = []; $inputs = [];
+        $result = GenerationPipeline::run($context, static function ($key, $messages) use (&$calls, &$inputs) {
+            $calls[] = $key; $data = json_decode($messages['content'], true, 512, JSON_THROW_ON_ERROR);
+            $input = $data['input'] ?? $data; $inputs[] = $input['document'];
+            if ($key === 'shots') return ['content' => '{"shots":[{"visual_description":"书房","refs":[{"unit":"unknown"}]}]}'];
+            if ($key === 'shots_format') self::assertStringContainsString('引用不存在', $data['validation_error']);
+            return ShortDramaVnextSceneShotTest::reply($input);
+        }, static function () { self::fail('No semantic repair should be reserved'); }, static function () {});
+        self::assertSame(['shots', 'shots_format', 'review'], $calls);
+        self::assertSame('ready', $result['coverage_report']['status']);
+        self::assertSame($inputs[0], $inputs[1]); self::assertSame($inputs[0], $inputs[2]);
+        self::assertSame(Import::document($context), $result['document']);
+        self::assertCount(3, $result['receipts']);
+    }
+
     /** @dataProvider invalidText */
     public function testAmbiguousFormatNeverInventsPeopleScenesOrNarration(string $text): void
     {
