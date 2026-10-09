@@ -839,19 +839,28 @@ final class ShortDramaVnextExecutionTest extends TestCase
         JobRunner::run($this->store, 'again', static function () { self::fail('Published manual revision called provider again'); });
     }
 
-    public function testAttachmentImportReplaysReceiptsWithoutRewritingOrLosingSource(): void
+    public static function attachmentReviewRecovery(): array { return [[false], [true]]; }
+    /** @dataProvider attachmentReviewRecovery */
+    public function testAttachmentImportReplaysReceiptsWithoutRewritingOrLosingSource(bool $formatRecovery): void
     {
         $input = ShortDramaVnextSceneShotTest::input(); $input['context'] = ShortDramaVnextAttachmentTest::context();
         $input['context']['scene_shot_version'] = 0;
+        if ($formatRecovery) $input['context']['review_format_version'] = 1;
         $input['execution']['resource_limits'] = ['total_tokens' => 10000, 'tenant_cost_points' => 3, 'user_charge_points' => 6];
         $this->scope['task_id'] .= '_attachment';
         $this->store = new ExecutionStore($this->scope['tenant_id'], $this->scope['user_id'], $this->scope['task_id'], $this->buffer);
         $this->store->create($this->scope['task_id'], $input, time() + 600, 2); $paid = [];
-        $provider = function ($params, $key, $persist, $admit) use (&$paid): array {
-            $data = json_decode($params['content'], true); $stage = isset($data['shot_plan']) ? 'review' : 'shots';
+        $provider = function ($params, $key, $persist, $admit) use (&$paid, $formatRecovery): array {
+            $data = json_decode($params['content'], true); $format = isset($data['input']); $data = $data['input'] ?? $data;
+            $stage = $format ? 'review_format' : (isset($data['shot_plan']) ? 'review' : 'shots');
             $admit(['total_tokens' => 500, 'tenant_cost_points' => .5, 'user_charge_points' => 1]); $paid[] = $stage;
-            $receipt = $this->billedReceipt(); unset($receipt['result']); $receipt = ShortDramaVnextSceneShotTest::reply($data) + $receipt; $persist($receipt);
-            if ($stage === 'review') throw new \RuntimeException('attachment settlement interrupted');
+            $reply = ShortDramaVnextSceneShotTest::reply($data);
+            if ($formatRecovery && $stage === 'review') {
+                $body = json_decode($reply['content'], true); $body['document_hash'] = 'model_echo_error';
+                $reply['content'] = json_encode($body, JSON_UNESCAPED_UNICODE);
+            }
+            $receipt = $this->billedReceipt(); unset($receipt['result']); $receipt = $reply + $receipt; $persist($receipt);
+            if ($stage === ($formatRecovery ? 'review_format' : 'review')) throw new \RuntimeException('attachment settlement interrupted');
             return $receipt;
         };
         try { JobRunner::run($this->store, 'worker', $provider); self::fail('Settlement failure ignored'); }
@@ -859,13 +868,15 @@ final class ShortDramaVnextExecutionTest extends TestCase
         $before = $this->store->snapshot(); self::assertSame('reconciling', $before['execution_status']);
         $this->store->reconcileReceipts(static fn($receipt) => $receipt); self::assertTrue($this->store->resume());
         $result = JobRunner::run($this->store, 'worker', $provider);
-        self::assertSame(['shots', 'review'], $paid); self::assertSame('ready', $result['coverage_report']['status']);
+        self::assertSame($formatRecovery ? ['shots', 'review', 'review_format'] : ['shots', 'review'], $paid); self::assertSame('ready', $result['coverage_report']['status']);
         $expected = \app\common\service\app\aigc_short_drama\vnext\AttachmentScreenplay::document($input['context']);
         self::assertSame($expected['scenes'], $result['document']['scenes']); self::assertSame($expected['transforms'], $result['document']['transforms']);
         self::assertSame($before['input_json'], $this->store->snapshot()['input_json']);
         $budget = json_decode($this->store->snapshot()['budget_json'], true);
-        self::assertSame(92, $budget['resources']['spent']['total_tokens']); self::assertSame(800000, $budget['resources']['spent']['user_charge_points']);
+        self::assertSame($formatRecovery ? 3 : 2, $budget['calls']);
+        self::assertSame($formatRecovery ? 138 : 92, $budget['resources']['spent']['total_tokens']); self::assertSame($formatRecovery ? 1200000 : 800000, $budget['resources']['spent']['user_charge_points']);
         self::assertSame([], $budget['resources']['holds']); self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+        JobRunner::run($this->store, 'again', static function () { self::fail('Published recovery called provider again'); });
     }
 
     public function testOversizedCanonicalInputStopsBeforeProviderAndKeepsEntireDraft(): void
