@@ -118,10 +118,13 @@ final class ShortDramaPlanningTraceTest extends TestCase
     }
     public function testMalformedReferenceUsesBoundedOutlineRepair(): void
     {
-        $trace = PlanningTrace::build($this->source(), [['quote' => '第一集交信', 'kind' => 'event', 'episode_numbers' => [1]]], 1);
-        $episode = $this->episodes($this->trace())[0];
-        $request = ['_source_trace' => $this->source(), 'multi_episode_stage' => 'episodes', 'episode_count' => 1,
-            'quality_review_enabled' => false, 'confirmed_story_snapshot' => ['content_trace' => $trace]];
+        $trace = $this->trace(); $episodes = $this->episodes($trace); $episode = $episodes[0];
+        $story = ['title' => '书信', 'type_judgement' => '校园', 'core_theme' => '关心', 'story_outline' => '师生传递书信',
+            'subjects' => [['id' => 'c1', 'name' => '老师']], 'locations' => [['id' => 'l1', 'name' => '教室']], 'content_trace' => $trace];
+        $request = ['_source_trace' => $this->source(), 'multi_episode_stage' => 'episodes', 'episode_count' => 2,
+            'quality_review_enabled' => false, 'confirmed_story_snapshot' => $story, 'revision_base_result' => $story + ['episodes' => $episodes],
+            'revision_message' => '调整第一集', 'revision_target' => ['type' => 'episode', 'id' => 1],
+            'revision_policy' => ['mode' => 'outline_confirmed_story']];
         foreach ([true, false] as $repairSucceeds) {
             $calls = [];
             try {
@@ -135,9 +138,10 @@ final class ShortDramaPlanningTraceTest extends TestCase
                     })['result'];
                 self::assertTrue($repairSucceeds, 'Invalid repair must not be accepted');
                 self::assertSame($episode['story_outline'], $result['episodes'][0]['story_outline']);
-                self::assertSame([], PlanningTrace::issues($request, $result, 'episodes', 1));
+                self::assertSame($episodes[1], $result['episodes'][1], 'Unrelated saved episode stays intact');
+                self::assertSame([], PlanningTrace::issues($request, $result, 'episodes', 2));
             } catch (\RuntimeException $error) {
-                self::assertFalse($repairSucceeds); self::assertSame(422, $error->getCode());
+                self::assertFalse($repairSucceeds, $error->getMessage()); self::assertSame(422, $error->getCode());
             }
             self::assertSame(['outline_1_1', 'outline_1_1_repair_v2'], $calls, 'Never loop or restart successful stages');
         }
