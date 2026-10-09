@@ -22,7 +22,7 @@ final class MarketTextAccountReservationTest extends TestCase
         if (getenv('SHORT_DRAMA_STORY_DB_TESTS') !== '1') self::markTestSkipped('Opt in to private account fixtures');
         (new \think\App())->initialize();
         Db::startTrans(); $this->transaction = true;
-        Db::name('tenant')->insert(['id'=>$this->tenant,'sn'=>'account_reservation_fixture','point_balance'=>20]);
+        Db::name('tenant')->insert(['id'=>$this->tenant,'sn'=>'account_reservation_fixture','point_balance'=>20,'create_time'=>time(),'update_time'=>time()]);
         $this->user = (int)Db::name('user')->insertGetId(['tenant_id'=>$this->tenant,
             'sn'=>(string)random_int(10000000,99999999),'nickname'=>'account reservation fixture','user_money'=>40]);
     }
