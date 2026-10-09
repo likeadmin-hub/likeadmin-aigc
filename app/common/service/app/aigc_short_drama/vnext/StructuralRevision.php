@@ -6,7 +6,7 @@ use RuntimeException;
 /** Explicit identity/location edits. Every word and logical unit is preserved until reviewed. */
 final class StructuralRevision
 {
-    public static function targets(array $document, array $ledgers = []): array
+    public static function targets(array $document, array $ledgers = [], array $context = []): array
     {
         $result = ['entities' => [], 'scenes' => [], 'bindings' => []];
         foreach ($document['entities'] as $entity) $result['entities'][] = ['entity_id' => $entity['entity_id'], 'before_hash' => ContentDocument::hash($entity)];
@@ -22,6 +22,7 @@ final class StructuralRevision
         $result['entity_merge_protected_source_ids'] = $protected;
         $result['identity_revision_version'] = 1;
         $result['entity_merge_version'] = EntityMergeRevision::VERSION;
+        if ($context) $result['constraint_revision'] = ConstraintRevision::targets($context);
         return $result;
     }
 
@@ -30,7 +31,8 @@ final class StructuralRevision
         ManualContentRevision::assertOrigin($origin);
         $unsigned = $document; unset($unsigned['content_hash'], $unsigned['status'], $unsigned['transforms']);
         if (($document['content_hash'] ?? '') !== ContentDocument::hash($unsigned)) throw new RuntimeException('正文结构基线已变化', 409);
-        if (array_diff(array_keys($edits), ['entities', 'scenes', 'bindings', 'scene_layout', 'entity_registry', 'entity_merges'])) throw new RuntimeException('结构修改含不允许的字段', 422);
+        if (array_diff(array_keys($edits), ['entities', 'scenes', 'bindings', 'scene_layout', 'entity_registry', 'entity_merges', 'constraint_revision'])) throw new RuntimeException('结构修改含不允许的字段', 422);
+        if (isset($edits['constraint_revision']) && (count($edits) !== 1 || !is_array($edits['constraint_revision']))) throw new RuntimeException('请将本集要求选择与正文、人物结构修改分次保存',422);
         $layoutBefore = self::layout($document);
         if (isset($edits['scene_layout']) && !empty($edits['scenes'])) throw new RuntimeException('拆分或合并时请在新场次布局中设置地点和时间', 422);
         $count = 0;
@@ -47,6 +49,12 @@ final class StructuralRevision
                 'before_text' => json_encode($before, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
                 'after_text' => json_encode($after, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'before_source_links' => []];
         };
+        $constraint = null;
+        if (isset($edits['constraint_revision'])) {
+            $constraint = ConstraintRevision::apply($input['context'] ?? [], $document, $edits['constraint_revision'], $revision, $origin);
+            $document = $constraint['document']; $change = $constraint['change'];
+            $record('constraint', $change['id'], $change['before'], $change['after'], $change['label']);
+        }
         $assertPatch = static function (array $patch, string $id, array $before, array $allowed) use (&$seen): void {
             if (isset($seen[$id]) || ($patch['before_hash'] ?? '') !== ContentDocument::hash($before)) throw new RuntimeException('结构修改基线已变化或目标重复', 409);
             if (array_diff(array_keys($patch), $allowed)) throw new RuntimeException('结构修改含不允许的字段', 422);
@@ -185,7 +193,7 @@ final class StructuralRevision
         $base = $unsigned; $base['content_hash'] = ContentDocument::hash($unsigned);
         $edited = ContentDocument::rebind($document, $document['dependency_versions'], $revision);
         $eventId = 'manual_structure_' . substr(ContentDocument::hash([$origin, $base['content_hash'], $revision, $changes]), 0, 24);
-        $sources = $input['context']['sources'] ?? [];
+        $sources = $constraint['sources'] ?? $input['context']['sources'] ?? [];
         foreach ($changes as &$change) {
             $sourceId = 'manual_source_' . substr(ContentDocument::hash([$eventId, $change['unit_id']]), 0, 24);
             $source = SourceTrace::capture($sourceId, $revision, $change['after_text'], 'faithful');
@@ -202,7 +210,8 @@ final class StructuralRevision
         $event['event_hash'] = ContentDocument::hash($event); $events[] = $event;
         $history = ['schema_version' => ManualContentRevision::VERSION, 'events' => $events]; $history['history_hash'] = ContentDocument::hash($history);
         $edited['transforms'][] = ['code' => 'manual_structure_edit', 'event_id' => $eventId, 'event_hash' => $event['event_hash']];
-        return ['document' => $edited, 'sources' => $sources, 'history' => $history];
+        return ['document' => $edited, 'sources' => $sources, 'history' => $history]
+            + ($constraint ? ['requirements'=>$constraint['requirements'], 'events'=>$constraint['events']] : []);
     }
 
     private static function sceneState(array $scene): array { return array_intersect_key($scene, array_flip(['scene_id', 'location_id', 'time_context'])); }

@@ -10,7 +10,7 @@ final class PromptProjection
     {
         // These fields govern server publication, not story facts. In a long series
         // the dependency vector can dwarf the complete screenplay itself.
-        unset($data['dependency_versions'], $data['entity_scope'], $data['identity_revision_receipts'], $data['entity_merge_receipts']);
+        unset($data['dependency_versions'], $data['entity_scope'], $data['identity_revision_receipts'], $data['entity_merge_receipts'], $data['constraint_revision_receipts']);
         $texts = [];
         foreach (['prompt', 'original_input'] as $field) if (isset($data[$field]) && is_string($data[$field])) $texts[$field] = $data[$field];
         foreach (['input_history', 'requirements', 'events'] as $field) foreach ($data[$field] ?? [] as $index => $row) {
@@ -29,7 +29,7 @@ final class PromptProjection
             $data['confirmed_facts']['identities_ref'] = 'entities';
         }
         if (isset($data['document'])) {
-            unset($data['document']['dependency_versions'], $data['document']['transforms'], $data['document']['identity_revision_receipts'], $data['document']['entity_merge_receipts']);
+            unset($data['document']['dependency_versions'], $data['document']['transforms'], $data['document']['identity_revision_receipts'], $data['document']['entity_merge_receipts'], $data['document']['constraint_revision_receipts']);
         }
         foreach (['world_facts', 'character_beliefs'] as $group) foreach ($data['previous_narrative'][$group] ?? [] as $index => $record) {
             // Keep every selected fact, observer, value and verbatim evidence quote.
