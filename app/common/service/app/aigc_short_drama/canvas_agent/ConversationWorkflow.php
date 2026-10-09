@@ -453,7 +453,7 @@ final class ConversationWorkflow
     }
 
     /** A direct /short-drama route uses its own single text turn for intake. */
-    public static function applyIntakeDraftLocked(array $workflow,array $threadSettings,mixed $raw,array $availableSources=['message']): ?array
+    public static function applyIntakeDraftLocked(array $workflow,array $threadSettings,mixed $raw,array $availableSources=['message'],string $userMessage=''): ?array
     {
         if (($workflow['workflow_snapshot']['key']??'')!==self::KEY
             || version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.4','<')
@@ -461,6 +461,9 @@ final class ConversationWorkflow
         $state=self::stateFromSettings($threadSettings);
         if (($state['stage_state']['status']??'')!=='collecting'
             || (int)($state['state_revision']??0)!==(int)($workflow['state_revision']??-1)) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
+        if (ConversationCreativePolicy::enabled($state) && trim($userMessage)!=='' && !str_contains((string)($state['creative_brief']??''),trim($userMessage))) {
+            $state['creative_brief']=trim((string)($state['creative_brief']??''))."\n用户补充：".trim($userMessage);
+        }
         $state=self::withIntakeDraft($state,$raw,$availableSources);
         $threadSettings['workflow_state']=$state;
         return $threadSettings;

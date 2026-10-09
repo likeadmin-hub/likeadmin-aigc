@@ -134,7 +134,7 @@ final class ConversationExecution
                 ? ConversationWorkflow::freezeStagePlanLocked($workflow,$context,$proposals,$runId,$currentThreadSettings)
                 : null;
             $intakeSettings=$intakeDraft
-                ? ConversationWorkflow::applyIntakeDraftLocked($workflow,$currentThreadSettings,$intakeDraft,$intakeSources) : null;
+                ? ConversationWorkflow::applyIntakeDraftLocked($workflow,$currentThreadSettings,$intakeDraft,$intakeSources,(string)($context['messages'][count($context['messages'])-1]['content']??'')) : null;
             if ($planSettings!==null) {
                 // The model's image proposal is now durable but intentionally
                 // absent from the graph. A confirmation API is the only path
