@@ -99,6 +99,30 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertCount(1, $this->store->receipts());
         $this->expectExceptionCode(409); $this->store->checkpoint($fence, ['document' => []]);
     }
+    public function testAutomaticSettlementRecoveryIsBoundedAndCancellationCannotResumeWork(): void
+    {
+        $fence = $this->store->acquire('worker1', 100);
+        try { $this->store->call($fence, 'screenplay', [], function ($input, $key, $persist) {
+            $persist($this->receipt()); throw new \RuntimeException('billing unavailable');
+        }); } catch (\RuntimeException $ignored) {}
+        self::assertFalse($this->store->workerReady());
+        self::assertFalse($this->store->reconcileAutomatically(static function () { self::fail('Backoff bypassed'); }));
+        $attempts = 0;
+        for ($i = 0; $i < 3; $i++) {
+            Db::name('aigc_short_drama_vnext_job')->where($this->scope)->update(['update_time' => time() - 301]);
+            try { $this->store->reconcileAutomatically(static function () use (&$attempts) { $attempts++; throw new \RuntimeException('still unavailable'); }); }
+            catch (\RuntimeException $ignored) {}
+        }
+        self::assertFalse($this->store->canAutomaticallyReconcile());
+        self::assertFalse($this->store->reconcileAutomatically(static function () { self::fail('Recovery limit bypassed'); }));
+        self::assertSame(3, $attempts);
+        self::assertSame(1, json_decode($this->store->snapshot()['budget_json'], true)['calls']);
+        $this->store->cancel();
+        $this->store->reconcileReceipts(static fn(array $raw): array => $raw);
+        self::assertFalse($this->store->resume(true));
+        self::assertSame('canceled', $this->store->snapshot()['execution_status']);
+        self::assertTrue($this->store->resume(), 'Explicit continuation remains available');
+    }
     public function testWholeRepairRoundMustFitAndBudgetSurvivesWorkerChange(): void
     {
         $fence = $this->store->acquire('worker1', 100);

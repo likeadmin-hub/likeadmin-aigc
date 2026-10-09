@@ -275,7 +275,9 @@ class MarketTextModelRuntimeService
                 throw new \RuntimeException('原账单价格快照不完整', 409);
             }
             $usage = self::normalizeUsage((array)($receipt['usage'] ?? []));
-            if (!self::canSettleUsageFromSnapshot($snapshot, $usage)) {
+            $totalOnly = (int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0;
+            if (!self::canSettleUsageFromSnapshot($snapshot, $usage)
+                || ($totalOnly && MarketUsageSettlementService::unitSize($snapshot['input']) !== MarketUsageSettlementService::unitSize($snapshot['output']))) {
                 throw new \RuntimeException('模型正文已保存，等待真实用量后继续结算', 409);
             }
             if ((int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0) $usage['prompt_tokens'] = (int)$usage['total_tokens'];

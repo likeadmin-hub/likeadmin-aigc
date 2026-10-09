@@ -37,7 +37,16 @@ final class ShortDramaVnextWorkerTest extends TestCase
             \think\facade\Config::set(['vnext' => ['enabled' => false]], 'short_drama');
             $run = new \ReflectionMethod(Service::class, 'executeScriptPlanTask'); $run->setAccessible(true);
             $row = Db::name('aigc_short_drama_script_task')->where('task_id', $task)->find();
-            $result = $run->invoke(null, $tenant, $user, $row, static function () {});
+            Provider::$failSettlementOnce = true;
+            $paused = $run->invoke(null, $tenant, $user, $row, static function () {});
+            self::assertSame('queued', $paused['status']);
+            self::assertSame('reconciling', $paused['generation_snapshot']['execution_status']);
+            self::assertCount(1, Provider::$requests);
+            self::assertFalse(Service::runStoryPlanningTask($tenant, $user, $task), 'Backoff must not spin or call the provider');
+            Db::name('aigc_short_drama_vnext_job')->where($scope + ['task_id' => $task])->update(['update_time' => time() - 31]);
+            self::assertTrue(Service::runStoryPlanningTask($tenant, $user, $task));
+            self::assertSame(1, Provider::$recoveries);
+            $result = Service::scriptPlanDetail($tenant, $user, $task, $project);
             self::assertSame('success', $result['status'], json_encode($result, JSON_UNESCAPED_UNICODE));
             self::assertCount(3, Provider::$requests);
             self::assertSame('ready', $result['generation_snapshot']['document_status']);
@@ -140,7 +149,9 @@ final class ShortDramaVnextWorkerTest extends TestCase
             $buffer = new ReceiptBuffer($directory);
             $paths = [];
             foreach (Db::name('aigc_short_drama_vnext_stage')->where($scope)->whereIn('task_id', $ownedTasks)->select()->toArray() as $stage) {
-                $paths[] = $directory . '/' . $buffer->key($scope + ['task_id' => $stage['task_id'], 'stage_key' => $stage['stage_key']], $stage['input_hash']) . '.json';
+                $key = $buffer->key($scope + ['task_id' => $stage['task_id'], 'stage_key' => $stage['stage_key']], $stage['input_hash']);
+                $paths[] = $directory . '/' . $key . '.json';
+                $paths[] = $directory . '/' . hash('sha256', 'provider-result:' . $key) . '.json';
             }
             Db::rollback();
             foreach ($paths as $path) if (is_file($path)) unlink($path);

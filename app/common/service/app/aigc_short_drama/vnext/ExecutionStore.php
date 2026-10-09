@@ -155,12 +155,43 @@ final class ExecutionStore
                 throw new RuntimeException('连接暂时不可用，稍后继续；已保存内容保留', 425, $error);
             }
             // Provider/buffer ambiguity never authorizes another paid submission.
-            try { $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update(['execution_status' => 'reconciling', 'error_code' => $resultReceived ? 'receipt_settlement_pending' : 'submission_unknown', 'event_seq' => Db::raw('event_seq + 1')]); }
+            try { $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update(['execution_status' => 'reconciling', 'error_code' => $resultReceived ? 'receipt_settlement_pending' : 'submission_unknown', 'update_time' => time(), 'event_seq' => Db::raw('event_seq + 1')]); }
             catch (\Throwable $ignored) { /* Original stage intent remains the durable recovery boundary. */ }
             throw $error;
         }
         $this->receive($key, $hash, $receipt);
         return $receipt;
+    }
+    public function canAutomaticallyReconcile(): bool
+    {
+        $job = $this->snapshot(); $budget = $job ? self::decode($job['budget_json']) : [];
+        return $job && $job['execution_status'] === 'reconciling' && $job['error_code'] === 'receipt_settlement_pending'
+            && (int)$job['deadline_at'] > time() && (int)($budget['reconciliation_attempts'] ?? 0) < 3;
+    }
+    public function workerReady(): bool
+    {
+        $job = $this->snapshot();
+        if (!$job) return true; // Let the worker report a missing durable job.
+        if ($job['execution_status'] === 'running') return (int)$job['lease_until'] <= time();
+        if ($job['execution_status'] === 'retry_wait') return !$this->query('stage')->where('status', 'retry_wait')->where('retry_after', '>', time())->count();
+        if (!$this->canAutomaticallyReconcile()) return true;
+        $attempt = (int)(self::decode($job['budget_json'])['reconciliation_attempts'] ?? 0);
+        return time() >= (int)$job['update_time'] + [30, 120, 300][$attempt];
+    }
+    /** Bounded local settlement recovery. Never revives canceled work or resets paid-call budgets. */
+    public function reconcileAutomatically(callable $reconcile): bool
+    {
+        $claimed = Db::transaction(function (): bool {
+            $job = $this->job();
+            if (!$this->canAutomaticallyReconcile() || !$this->workerReady()) return false;
+            $budget = self::decode($job['budget_json']);
+            $budget['reconciliation_attempts'] = (int)($budget['reconciliation_attempts'] ?? 0) + 1;
+            $this->query('job')->update(['budget_json' => self::json($budget), 'update_time' => time()]);
+            return true;
+        });
+        if (!$claimed) return false;
+        $this->reconcileReceipts($reconcile);
+        return $this->resume(true);
     }
     private static function rawKey(string $key): string { return hash('sha256', 'provider-result:' . $key); }
     /** Call outside a surrounding transaction: final receipt publication must follow committed settlement. */
@@ -243,7 +274,7 @@ final class ExecutionStore
         });
     }
     /** Explicit user continuation reuses the original receipts, budget and deadline. */
-    public function resume(): bool
+    public function resume(bool $automatic = false): bool
     {
         // A process may have buffered its response before losing database access. Reconcile only exact keys.
         foreach ($this->query('stage')->where('status', 'submitted')->select()->toArray() as $stage) {
@@ -251,8 +282,9 @@ final class ExecutionStore
             $receipt = $this->buffer->read($key);
             if ($receipt !== null) $this->receive($stage['stage_key'], $stage['input_hash'], $receipt);
         }
-        return Db::transaction(function (): bool {
+        return Db::transaction(function () use ($automatic): bool {
             $job = $this->job();
+            if ($automatic && $job['execution_status'] !== 'reconciling') return false;
             if (in_array($job['execution_status'], ['queued', 'running', 'retry_wait', 'succeeded'], true)) return false;
             if (!in_array($job['execution_status'], ['canceled', 'reconciling'], true)) throw new RuntimeException('当前问题需要修改内容或执行策略，不能通过重复调用解决', 409);
             if ($this->query('stage')->where('status', 'submitted')->count()) throw new RuntimeException('上游提交尚未确认，不能重复生成；已生成内容保留', 409);
