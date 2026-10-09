@@ -3240,9 +3240,19 @@ class AigcShortDramaService
         return ['project_id' => $projectId, 'task_id' => $parseTaskId, 'status' => self::STATUS_RUNNING];
     }
 
-    public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0): array
+    public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0, int $manualHistoryPage = 0): array
     {
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+        if ($manualHistoryPage !== 0) {
+            $input = [];
+            if (vnext\ApplicationWorkflow::current(self::jsonDecode((string)$task['request_json']))) {
+                $job = vnext\ApplicationWorkflow::store($tenantId, $userId, (string)$task['task_id'])->snapshot();
+                if (!$job) throw new \RuntimeException('修改记录暂时无法读取，请稍后重试', 409);
+                $input = self::jsonDecode($job['input_json']);
+                if ($job['input_hash'] !== vnext\ContentDocument::hash($input)) throw new \RuntimeException('修改记录版本校验失败', 409);
+            }
+            return ['task_id' => (string)$task['task_id'], 'manual_history' => vnext\ManualRevisionHistory::page($input, $tenantId, $userId, $manualHistoryPage)];
+        }
         if (self::isMarketFileQaParseRequest(self::jsonDecode((string)$task['request_json']))) {
             if (!in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
                 $consumptionId = (int)(AiConsumptionLog::where([
