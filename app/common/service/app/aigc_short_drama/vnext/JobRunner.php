@@ -45,7 +45,11 @@ final class JobRunner
                 static function (array $candidate) use ($store, $fence, $notify): void {
                     $store->checkpoint($fence, $candidate);
                     $notify('snapshot', $store->publicSnapshot());
-                });
+                }, [
+                    'plan' => static fn(string $key, array $document, ?array $proposal): ?array => $store->sceneShotPlan($fence, $key, $document, $proposal),
+                    'capacity' => static fn(array $messages): array => ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'],
+                        $input['model'], 'script', (int)($input['execution']['max_output_tokens'] ?? 8192)),
+                ]);
             if ($result['coverage_report']['status'] !== 'ready') {
                 $store->needsAttention($fence, $result['stop_reason'] ?? 'content_unresolved');
                 return $result;
@@ -56,7 +60,8 @@ final class JobRunner
             return $result;
         } catch (RuntimeException $error) {
             if (in_array($error->getCode(), [409, 413, 422, 429], true) && $store->snapshot()['execution_status'] === 'running') {
-                try { $store->needsAttention($fence, $error->getCode() === 429 ? 'budget_exhausted' : 'content_unresolved'); }
+                try { $store->needsAttention($fence, $error->getCode() === 429 ? 'budget_exhausted'
+                    : ($error->getCode() === 413 && !$error instanceof \app\common\service\app\aigc_short_drama\ShortDramaOutputLimitException ? 'input_capacity_exceeded' : 'content_unresolved')); }
                 catch (\Throwable $ignored) { /* A newer fence/cancel must win. */ }
             }
             throw $error;

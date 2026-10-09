@@ -46,6 +46,30 @@ final class ExecutionStore
             return $this->snapshot();
         });
     }
+    /** Freeze one capacity-derived shot plan. Recovery never increases or resets its budget. */
+    public function sceneShotPlan(int $fence, string $key, array $document, ?array $proposal): ?array
+    {
+        return Db::transaction(function () use ($fence, $key, $document, $proposal): ?array {
+            $job = $this->job(); $this->assertFence($job, $fence);
+            $input = self::decode($job['input_json']); $budget = self::decode($job['budget_json']);
+            if (($input['context']['scene_shot_version'] ?? 0) !== SceneShotExecution::VERSION || $key !== 'shots') throw new RuntimeException('此作业没有分场执行授权', 409);
+            $saved = $budget['scene_shot_plan'] ?? null;
+            if ($saved !== null) {
+                SceneShotExecution::assertPlan($document, $saved);
+                if ($proposal !== null && ContentDocument::hash($proposal) !== ContentDocument::hash($saved)) throw new RuntimeException('分场计划已冻结，请建立新修订', 409);
+                return $saved;
+            }
+            if ($proposal === null) return null;
+            SceneShotExecution::assertPlan($document, $proposal);
+            if (count($proposal['windows']) < 2 || $budget['repair_rounds'] > 0) throw new RuntimeException('分场计划不能在修复期间扩大预算', 409);
+            $budget['base_calls'] += count($proposal['windows']) - 1;
+            $budget['call_limit'] = $budget['base_calls'] + min(12, max(5, (int)ceil($budget['base_calls'] / 2)));
+            $budget['scene_shot_plan'] = $proposal;
+            // Actual calls, token/point limits, spent amounts and deadline remain untouched.
+            $this->query('job')->update(['budget_json' => self::json($budget), 'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
+            return $proposal;
+        });
+    }
     public function acquire(string $owner, int $leaseSeconds): int
     {
         if ($owner === '' || strlen($owner) > 64 || $leaseSeconds < 1) throw new RuntimeException('执行租约无效', 422);
