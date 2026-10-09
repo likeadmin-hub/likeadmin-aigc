@@ -88,6 +88,11 @@ final class ShortDramaVnextSceneContentRepairTest extends TestCase
         self::assertCount(7, $new); self::assertCount(7, $result['shot_plan']['audio_segments']);
         self::assertSame('ready', $result['coverage_report']['status']);
         self::assertSame('char1', end($new)['speaker_id']); self::assertNotEmpty(end($new)['repair_issue_id']);
+        $trace = $result['coverage_report']['content_repair'];
+        self::assertCount(1, $trace['history']); self::assertSame(end($new)['unit_id'], $trace['changes'][0]['unit_id']);
+        self::assertSame(end($old)['unit_id'], $trace['changes'][0]['anchor_unit_id']);
+        self::assertSame($trace['issues'][0]['issue_id'], $trace['changes'][0]['issue_id']);
+        self::assertNull($trace['changes'][0]['before_text_hash']);
     }
     public function testFaithfulOrImportedContentRequiresExplicitConfirmation(): void
     {
@@ -148,5 +153,57 @@ final class ShortDramaVnextSceneContentRepairTest extends TestCase
         self::assertSame('u7', $rebased['checks'][0]['evidence'][0]['unit']); self::assertSame($units[5]['text'], $rebased['checks'][0]['evidence'][0]['quote']);
         $candidate = ContentDocument::patch($candidate, [['unit_id' => $units[5]['unit_id'], 'before_hash' => $units[5]['text_hash'], 'text' => '已变更']], 'r3');
         $this->expectExceptionCode(409); SceneContentRepair::rebase($base, $candidate, $review);
+    }
+    public function testEarlierInsertionRebasesUnchangedLaterWindowAndNarrativeEvidence(): void
+    {
+        $context = self::input()['context']; $context['narrative_contract_version'] = 1; $snapshots = []; $keys = [];
+        $result = $this->runCase('insert', static function ($key, $data) {
+            $receipt = self::receipt($key, $data, 'insert');
+            if (!isset($data['shot_plan'])) return $receipt;
+            $reply = json_decode($receipt['content'], true); $units = array_column(ContentDocument::units($data['document']), null, 'ref');
+            if ($key === 'review_global') foreach ($reply['checks'] as &$check) if ($check['id'] === 'ending') {
+                $unit = $units['u2']; $check['evidence'] = [['unit' => 'u2', 'start' => 0, 'end' => mb_strlen($unit['text']), 'quote' => $unit['text']]];
+            }
+            unset($check);
+            if ($key === 'review_window_3') $reply['narrative_changes'] = [['kind' => 'belief', 'subject_id' => 'char1', 'predicate' => 'knowledge',
+                'observer_id' => 'char1', 'value' => '记得第六句话', 'certainty' => 'confirmed',
+                'evidence' => [['unit' => 'u6', 'start' => 0, 'end' => mb_strlen($units['u6']['text']), 'quote' => $units['u6']['text']]]]];
+            if (isset($data['window_reviews'])) $reply['narrative_changes'] = array_merge(...array_column($data['window_reviews'], 'narrative_changes'));
+            $receipt['content'] = json_encode($reply, JSON_UNESCAPED_UNICODE); return $receipt;
+        }, null, $snapshots, $keys, $context);
+        self::assertSame('ready', $result['coverage_report']['status']);
+        self::assertContains('content_window_repair_1_shots_1', $keys); self::assertNotContains('content_window_repair_1_review_3', $keys);
+        $review = $result['coverage_report']['window_review']['windows'][2];
+        self::assertCount(1, $review['reuse_chain']); self::assertSame('u7', $review['narrative_changes'][0]['evidence'][0]['unit']);
+        $delta = $result['coverage_report']['narrative_ledger']['delta'];
+        self::assertSame('第6句完整对白😀。', $delta[0]['evidence'][0]['quote']);
+        self::assertSame($result['document']['content_hash'], $delta[0]['document_hash']);
+        self::assertSame('belief', $delta[0]['kind']);
+    }
+    public function testMissingContentWithoutEvidenceAnchorDoesNotGuessWhereToInsert(): void
+    {
+        $snapshots = []; $keys = [];
+        $result = $this->runCase('insert', static function ($key, $data) {
+            $receipt = self::receipt($key, $data, 'insert');
+            if ($key === 'review_global') {
+                $reply = json_decode($receipt['content'], true);
+                foreach ($reply['checks'] as &$check) if ($check['id'] === 'ending') $check['evidence'] = [];
+                $receipt['content'] = json_encode($reply, JSON_UNESCAPED_UNICODE);
+            }
+            return $receipt;
+        }, static function () { self::fail('Unanchored content reserved repair'); }, $snapshots, $keys);
+        self::assertSame('windowed_content_requires_revision', $result['stop_reason']); self::assertCount(6, $keys);
+    }
+    public function testReplanningCapacityFailurePreservesUnacceptedTextAlongsideBestDraft(): void
+    {
+        $snapshots = []; $keys = [];
+        try { $this->runCase('patch', static function ($key, $data) {
+            if (isset($data['repair_window'])) throw new \RuntimeException('capacity exceeded', 413);
+            return self::receipt($key, $data);
+        }, null, $snapshots, $keys); self::fail('Capacity failure ignored'); }
+        catch (\RuntimeException $e) { self::assertSame(413, $e->getCode()); }
+        self::assertSame('draft', end($snapshots)['coverage_report']['status']);
+        self::assertSame($snapshots[0]['document'], end($snapshots)['document']);
+        self::assertStringContainsString('补正', implode('', ContentDocument::render(end($snapshots)['content_repair']['candidate_document'])));
     }
 }
