@@ -111,6 +111,32 @@ class CanvasAgentIntentRoutingTest extends TestCase
         }
     }
 
+    public function testClarificationSurvivesMalformedUnusedIntake(): void
+    {
+        $routing=$this->routing();
+        // Canvas 404/run 1313 streamed this useful clarification, then failed
+        // with intent_unexpected_output. Raw intake was not retained, so cover
+        // the malformed advisory shapes rather than inventing its exact JSON.
+        $reply="这个设定很有意思！程序员大战孙悟空——现代码农对上齐天大圣，反差感拉满。\n\n你是想把这个做成**一部完整的短剧**（包含剧本、角色设定、分镜、视频等全流程），还是先**写一份剧本/文案**看看效果？";
+        foreach ([null, '不适用', [], ['candidates'=>null,'questions'=>null],
+            ['candidates'=>[['key'=>'genre']],'questions'=>[]],
+            ['candidates'=>[],'questions'=>[['key'=>'scope','ask'=>'完整制作还是剧本？','options'=>['完整制作','剧本']]]],
+            ['candidates'=>[['key'=>'theme','value'=>'程序员大战孙悟空','source'=>'user','evidence'=>'程序员大战孙悟空','confidence'=>1]],'questions'=>[]],
+            ['nodes'=>[['type'=>'image']]],
+        ] as $intake) {
+            foreach (['chat','creative_plan','uncertain'] as $intent) {
+                $value=$this->decision(['intent'=>$intent,'scope'=>'uncertain','deliverable'=>'none',
+                    'speech_act'=>'question','reply_markdown'=>$reply,'intake'=>$intake]);
+                $parsed=ConversationIntentRouter::parseConversation(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing);
+                self::assertSame($reply,ConversationIntentRouter::reply($parsed,$routing));
+                self::assertSame(['candidates'=>[],'questions'=>[]],$parsed['intake']);
+                self::assertFalse(ConversationIntentRouter::shouldActivateWorkflow($parsed,$routing));
+                // complete() rechecks the strict contract before persistence.
+                self::assertSame($parsed,ConversationIntentRouter::parse(json_encode($parsed,JSON_THROW_ON_ERROR),$routing));
+            }
+        }
+    }
+
     public function testRecoveryCannotActivateWorkflowOrAcceptUnownedActions(): void
     {
         $routing=$this->routing();
@@ -119,7 +145,7 @@ class CanvasAgentIntentRoutingTest extends TestCase
             ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','scope'=>'workflow'],
             ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','deliverable'=>'full_drama'],
             ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','skill_key'=>'unowned_skill'],
-            ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','intake'=>['candidates'=>[['key'=>'genre']],'questions'=>[]]],
+            $this->decision(['intake'=>['candidates'=>[['key'=>'genre']],'questions'=>[]]]),
             ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'<canvas-actions>{}</canvas-actions>'],
             ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','canvas_actions'=>['nodes'=>[]]],
             ['intent'=>'image','confidence'=>0.96,'reply_markdown'=>'图片已经生成'],
