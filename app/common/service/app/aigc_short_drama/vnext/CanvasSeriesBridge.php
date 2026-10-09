@@ -22,6 +22,7 @@ final class CanvasSeriesBridge
             if (!$first) {
                 // Never migrate an already-started legacy canvas halfway through its story.
                 if ($number !== 1) return null;
+                if (!\think\facade\Config::get('short_drama.vnext.canvas_series_enabled', false)) return null;
                 $task = Db::name('aigc_short_drama_script_task')->where($scope + ['task_id' => $outlineTask, 'status' => 'success'])->lock(true)->find();
                 if (!$task) throw new RuntimeException('请等待大纲生成完成', 409);
                 $request = ShortDramaEpisodeService::decode($task['request_json']);
