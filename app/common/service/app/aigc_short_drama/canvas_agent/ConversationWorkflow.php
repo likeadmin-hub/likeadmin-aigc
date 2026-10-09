@@ -648,6 +648,7 @@ final class ConversationWorkflow
         if (!$proposals || count($proposals)>ConversationSeries::maximum($workflow,$stage)) throw new RuntimeException('WORKFLOW_IMAGE_PLAN_REQUIRED');
         $model=(array)($workflow['workflow_snapshot']['model_preferences']['image_model']??$settings['image_model']??[]);
         if (($model['id']??'')==='') throw new RuntimeException('WORKFLOW_IMAGE_MODEL_UNAVAILABLE');
+        \app\common\service\app\aigc_short_drama\vnext\CanvasProductionProjection::assertProposals($tenant,(int)$document['user_id'],$workflow,$proposals);
         $reuse=ConversationAssetReuse::find($tenant,(int)$document['user_id'],$document,$workflow,$proposals,$settings);
         $quotes=[];
         foreach ($proposals as $index=>$proposal) {
@@ -1072,6 +1073,8 @@ final class ConversationWorkflow
         return true;
     }
     private static function assertPlanSources(array $document,int $tenant,int $user,int $canvas,array $plan): void {
+        $candidate=null;
+        foreach ((array)($plan['nodes']??[]) as $proposal) if (isset($proposal['canonical_binding'])) $candidate=\app\common\service\app\aigc_short_drama\vnext\CanvasProductionProjection::assertBinding($tenant,$user,$proposal['canonical_binding'],$candidate);
         $live=[]; foreach (json_decode((string)($document['nodes_json']??'[]'),true,512,JSON_THROW_ON_ERROR) as $node) if (is_array($node)) $live[(string)($node['id']??'')]=$node;
         foreach ((array)($plan['reuse']??[]) as $index=>$reuse) ConversationAssetReuse::source($tenant,$user,$reuse,$plan['nodes'][$index]);
         foreach ((array)$plan['sources'] as $source) {
