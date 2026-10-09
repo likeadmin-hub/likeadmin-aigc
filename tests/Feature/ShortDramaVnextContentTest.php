@@ -106,6 +106,25 @@ final class ShortDramaVnextContentTest extends TestCase
         array_shift($review['checks']);
         $this->expectExceptionCode(422); Coverage::evaluate($document, $plan, [['id' => 'req1']], [['id' => 'event1']], $review);
     }
+    public function testRevisionInstructionsRequireAnExplicitEvidenceBackedConclusion(): void
+    {
+        $source = \app\common\service\app\aigc_short_drama\vnext\SourceTrace::capture('revision1', 'v1', '拆信后说老师您好', 'inspiration') + ['stage' => 'episodes'];
+        $later = \app\common\service\app\aigc_short_drama\vnext\SourceTrace::capture('revision2', 'v2', '称呼后增加逗号', 'inspiration') + ['stage' => 'episodes'];
+        $target = \app\common\service\app\aigc_short_drama\vnext\PlanningTrace::revisionCheck([$source, $later], 'e9');
+        self::assertCount(2, $target['source_refs']);
+        self::assertSame(['revision1', 'revision2'], array_column($target['source_refs'], 'source_id'));
+        $document = Document::normalize($this->reply(), $this->context()); $plan = $this->validPlan($document); $review = $this->validReview($document, $plan);
+        $requirements = [['id' => 'req1'], $target];
+        try { Coverage::evaluate($document, $plan, $requirements, [['id' => 'event1']], $review); self::fail('Revision check was omitted'); }
+        catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); }
+        $review['checks'][] = ['id' => $target['id'], 'status' => 'missing', 'scope' => 'whole_episode', 'reason' => '修改未生效', 'evidence' => []];
+        self::assertSame('draft', Coverage::evaluate($document, $plan, $requirements, [['id' => 'event1']], $review)['status']);
+        $review['checks'][5] = ['id' => $target['id'], 'status' => 'covered', 'evidence' => [['unit' => 'u2', 'start' => 0, 'end' => 7, 'quote' => '老师，您好😀！']]];
+        $report = Coverage::evaluate($document, $plan, $requirements, [['id' => 'event1']], $review);
+        self::assertSame('ready', $report['status']);
+        self::assertSame($target['source_refs'], $report['coverage'][1]['source_refs']);
+        self::assertNotEmpty($report['coverage'][1]['shot_ids']);
+    }
     public function testLocalEditKeepsIdentityAndInvalidatesOnlyDependentUnits(): void
     {
         $before = Document::normalize($this->reply(), $this->context()); $plan = $this->validPlan($before);

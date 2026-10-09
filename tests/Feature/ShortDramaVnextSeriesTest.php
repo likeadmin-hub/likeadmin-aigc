@@ -123,7 +123,16 @@ final class ShortDramaVnextSeriesTest extends TestCase
             self::assertSame('书信', $inherited['name']); self::assertSame('封面有印记的书信', $inherited['description']);
             self::assertNotSame('p99', $inherited['ref']); self::assertNotContains('p99', $inherited['aliases']);
             self::assertSame($first['result']['narrative_ledger']['delta'][0]['fact_id'], $secondInput['previous_narrative']['world_facts'][0]['fact_id']);
-            self::assertCount($withTrace ? 4 : 3, $secondInput['events']); self::assertCount($withTrace ? 1 : 0, $secondInput['requirements']);
+            self::assertCount($withTrace ? 4 : 3, $secondInput['events']); self::assertCount($withRevision ? 2 : ($withTrace ? 1 : 0), $secondInput['requirements']);
+            if ($withRevision) {
+                $check = $secondInput['requirements'][1];
+                self::assertSame('revision_instructions', $check['kind']);
+                self::assertSame($params['message'], $check['source_refs'][0]['quote']);
+                $report = $second['result']['coverage_report'];
+                $coverage = array_column($report['coverage'], null, 'id');
+                self::assertSame($check['source_refs'], $coverage[$check['id']]['source_refs']);
+                self::assertNotEmpty($coverage[$check['id']]['unit_refs']);
+            }
             if ($withTrace) {
                 self::assertSame([$trace['requirements'][1]['id']], $secondInput['events'][3]['requirement_ids']);
                 self::assertSame($plan['episodes'][1]['story_outline'], $secondInput['events'][3]['text']);

@@ -84,6 +84,8 @@ final class SeriesContext
                 $sources[$source['source_id']] = $source;
                 $inputHistory[] = $source;
             }
+            $revisionCheck = PlanningTrace::revisionCheck($inputHistory, $episodeId);
+            if ($revisionCheck !== null) $requirements[] = $revisionCheck;
         }
         $previous = self::publishedBefore((int)$snapshot['tenant_id'], (int)$snapshot['user_id'], (int)$snapshot['project_id'], $number);
         $entities = $snapshot['entities']; $known = array_column($entities, 'entity_id');
