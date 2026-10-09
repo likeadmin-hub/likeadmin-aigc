@@ -42,7 +42,7 @@ final class ConversationWorker
                     : ConversationWorkflow::instruction((array)($context['workflow']??[])).($intakeAnalysis
                         ? '只输出一个 JSON 对象，字段恰好为 reply_markdown、intake；reply_markdown 是简短核对提示。'.ConversationIntakeDraft::instruction((array)($context['workflow']['workflow_snapshot']['slot_schema']??[]))
                         : ConversationActionPlan::instruction((string)($claim['settings']['generation_mode']??'manual'),$workflowStage,$compact,ConversationWorkflow::usesStageGenerationPrompts((array)($messageContext['workflow']??[])))))
-                    .ConversationCreativePolicy::instruction()
+                    .(($workflowStage==='' || ConversationCreativePolicy::enabled((array)($messageContext['workflow']??$intentRouting['workflow_candidate']??[]))) ? ConversationCreativePolicy::instruction() : '')
                     .ConversationCreativePrompt::forStage((array)($messageContext['workflow']??[]))
                     .ConversationShotTiming::instruction((array)($messageContext['workflow']??[])),
                 'request_timeout_seconds'=>120,'automatic_retry'=>false,

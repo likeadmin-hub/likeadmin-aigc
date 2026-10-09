@@ -18,6 +18,7 @@ final class ConversationProductionPolicy
                 if ($text!=='') $snapshot['canvas_creative_policy']['stages'][$stage][]=['id'=>(int)$skill['id'],'version'=>(int)$skill['version'],'text'=>$text];
             }
         }
+        $snapshot['fingerprint']=hash('sha256',(string)($snapshot['fingerprint']??'').json_encode($snapshot['canvas_creative_policy'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));
         return $snapshot;
     }
     public static function apply(array $params,array $request): array
