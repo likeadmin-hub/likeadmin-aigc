@@ -12405,7 +12405,7 @@ class AigcShortDramaService
         $sceneName = (string)($scene['name'] ?? $params['scene_name'] ?? $nested['scene_name'] ?? $params['item_name'] ?? $nested['item_name'] ?? $shot['scene_name'] ?? '');
         $sceneDescription = self::cleanPromptRatioText((string)($params['scene_description'] ?? $nested['scene_description'] ?? $params['item_description'] ?? $nested['item_description'] ?? $scene['description'] ?? ''));
         $plannedScenePrompt = self::firstPromptField($scene, ['scene_image_prompt', 'image_prompt', 'visual_prompt']);
-        $sceneVisualPrompt = self::cleanPromptRatioText((string)($params['scene_prompt'] ?? $nested['scene_prompt'] ?? $params['visual_prompt'] ?? $nested['visual_prompt'] ?? $params['image_prompt'] ?? $nested['image_prompt'] ?? $plannedScenePrompt));
+        $sceneVisualPrompt = self::cleanPromptRatioText((string)($params['scene_prompt'] ?? $nested['scene_prompt'] ?? $params['visual_prompt'] ?? $nested['visual_prompt'] ?? $params['image_prompt'] ?? $nested['image_prompt'] ?? $params['prompt'] ?? $nested['prompt'] ?? $plannedScenePrompt));
         $parts = [
             '生成一张短剧场景统一参考图',
             $sceneName,
@@ -12594,11 +12594,8 @@ class AigcShortDramaService
             $nested['prompt'] ?? '',
             $shot['video_prompt'] ?? ''
         );
-        $prompt = self::cleanShotFlexiblePromptText($prompt, [
-            (string)($shot['image_prompt'] ?? ''),
-            (string)($shot['bgm_prompt'] ?? ''),
-            (string)($params['bgm_prompt'] ?? ''),
-        ]);
+        // Authored video instructions are content, not a fixed-format display to rewrite.
+        $prompt = trim($prompt);
         if ($prompt === '') {
             $fallback = self::buildShotVideoPromptFallback($shot);
             if ($fallback !== '') {
