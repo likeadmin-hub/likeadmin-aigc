@@ -17247,13 +17247,17 @@ class AigcShortDramaService
         return array_values($candidates);
     }
 
-    private static function isExplicitModelNotFoundError(string $message): bool
+    private static function isScriptPlanModelUnavailableError(string $message): bool
     {
-        return preg_match('/(?:^|[^a-z0-9_])model_not_found(?:$|[^a-z0-9_])/i', $message) === 1;
+        if (preg_match('/\b(?:model_not_found|invalid_model|unsupported_model|model_unavailable)\b|model (?:not found|unavailable|is unavailable|is not available|does not exist|not supported)|(?:invalid|unsupported) model/i', $message) === 1) return true;
+        foreach (['模型不存在', '模型不可用', '模型暂不可用', '模型已下架', '所选文本模型未上架或已不可用'] as $reason) {
+            if (str_contains($message, $reason)) return true;
+        }
+        return false;
     }
 
     /**
-     * Retry only the provider's explicit "model_not_found" response.  Such a
+     * Try every tenant-enabled text model after an explicit model rejection.  Such a
      * response is rejected before generation starts; the market runtime marks
      * that attempt failed and releases its reservation.  Other provider
      * failures (timeouts, safety, parameters, quota, etc.) must stay visible
@@ -17265,13 +17269,6 @@ class AigcShortDramaService
     {
         if (ShortDramaInputContract::current($request)) {
             $params['_require_final_content'] = true;
-            $params['_disable_model_fallback'] = true;
-        }
-        if (isset($request['_execution_attempt']) && !empty($request['_prompt_task_id'])) {
-            $active = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
-                'task_id' => $request['_prompt_task_id'], 'status' => self::STATUS_RUNNING,
-                'retry_count' => $request['_execution_attempt']])->count();
-            if (!$active) throw new Exception('任务已取消或由新尝试接管');
         }
         if ((int)($request['_generation_version'] ?? 0) >= 3) $params['_disable_transient_retry'] = true;
         if ((int)($request['_generation_version'] ?? 0) >= 3 && empty($request['_repair_unit_claimed'])
@@ -17284,24 +17281,43 @@ class AigcShortDramaService
                 static fn(array $effective): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $effective, $model,
                     array_replace($request, ['_repair_unit_claimed' => true]), $stage, $onEvent), true);
         }
-        $candidates = ShortDramaInputContract::current($request) ? ($model ? [$model] : []) : self::scriptPlanModelCandidates($tenantId, $model);
+        // One owner for routing: prevent nested runtime fallback, duplicate attempts
+        // and receipts that name a different model than the one actually used.
+        $params['_disable_model_fallback'] = true;
+        $candidates = self::scriptPlanModelCandidates($tenantId, $model);
         if ($candidates === []) {
             throw new Exception('暂无可用的剧本策划模型，请在算力市场上架文本模型');
         }
 
         $unavailable = [];
+        $capacityError = null;
+        $originalParams = $params;
         foreach ($candidates as $candidate) {
+            if (isset($request['_execution_attempt']) && !empty($request['_prompt_task_id'])) {
+                $active = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
+                    'task_id' => $request['_prompt_task_id'], 'status' => self::STATUS_RUNNING,
+                    'retry_count' => $request['_execution_attempt']])->count();
+                if (!$active) throw new Exception('任务已取消或由新尝试接管');
+            }
+            if ($onEvent) $onEvent('heartbeat', []);
+            $params = $originalParams;
             $params['model_selection'] = $candidate;
-            if (isset($params['_planning_count'])) {
-                $candidate['_planning_fallback'] = (array)\think\facade\Config::get('short_drama', []);
-                $budget = !empty($params['_planning_stage'])
-                    ? ShortDramaPlanningBudget::stage($params['system_prompt'] . $params['content'], $candidate, $params['_planning_stage'], (int)($params['model_config']['max_tokens'] ?? 8192))
-                    : ShortDramaPlanningBudget::calculate($params['system_prompt'] . $params['content'], $candidate,
-                        (int)$params['_planning_count'], (bool)$params['_planning_public']);
-                if ($budget['count'] < (int)$params['_planning_count']) throw new \RuntimeException('切换后的模型无法容纳当前批次', 413);
-                $params['model_config']['max_tokens'] = !empty($params['_planning_repair'])
-                    ? ShortDramaPlanningBudget::repairMaxTokens($budget, (int)$params['_planning_count'], (bool)$params['_planning_public'])
-                    : $budget['max_tokens'];
+            try {
+                if (isset($params['_planning_count'])) {
+                    $candidate['_planning_fallback'] = (array)\think\facade\Config::get('short_drama', []);
+                    $budget = !empty($params['_planning_stage'])
+                        ? ShortDramaPlanningBudget::stage($params['system_prompt'] . $params['content'], $candidate, $params['_planning_stage'], (int)($params['model_config']['max_tokens'] ?? 8192))
+                        : ShortDramaPlanningBudget::calculate($params['system_prompt'] . $params['content'], $candidate,
+                            (int)$params['_planning_count'], (bool)$params['_planning_public']);
+                    if ($budget['count'] < (int)$params['_planning_count']) throw new \RuntimeException('切换后的模型无法容纳当前批次', 413);
+                    $params['model_config']['max_tokens'] = !empty($params['_planning_repair'])
+                        ? ShortDramaPlanningBudget::repairMaxTokens($budget, (int)$params['_planning_count'], (bool)$params['_planning_public'])
+                        : $budget['max_tokens'];
+                }
+            } catch (\RuntimeException $e) {
+                if ($e->getCode() !== 413) throw $e;
+                $capacityError = $e;
+                continue;
             }
             try {
                 self::recordScriptPromptRequest($tenantId, $userId, $request, $params, $stage);
@@ -17315,15 +17331,16 @@ class AigcShortDramaService
                 }
                 return ['result' => $result, 'model' => $candidate];
             } catch (Exception $e) {
-                if (!self::isExplicitModelNotFoundError($e->getMessage())) {
+                if (!self::isScriptPlanModelUnavailableError($e->getMessage())) {
                     throw $e;
                 }
                 $unavailable[] = (string)($candidate['model_code'] ?? $candidate['id'] ?? '');
                 Log::write('AI short drama script planning text model unavailable: model='
-                    . end($unavailable) . ' error=model_not_found');
+                    . end($unavailable) . ' error=model_unavailable');
             }
         }
 
+        if ($capacityError !== null) throw $capacityError;
         throw new Exception('当前租户已开启的剧本策划模型均不可用，请联系管理员同步或上架文本模型后重试');
     }
 
