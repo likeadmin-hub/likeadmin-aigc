@@ -67,13 +67,18 @@ final class ApplicationWorkflow
         if (self::current(is_array($request) ? $request : [])) throw new RuntimeException('当前版本不支持此编辑或制作操作，已保存的正文不会改变', 409);
     }
 
-    public static function revisionInput(array $input, array $candidate, array $patches, string $expectedRevision, string $newTask): array
+    public static function revisionInput(array $input, array $candidate, array $patches, string $expectedRevision, string $newTask, array $origin = []): array
     {
         $document = $candidate['document'] ?? [];
         if (!$document || $expectedRevision !== $document['revision_id']) throw new RuntimeException('正文已更新，请刷新后再修改', 409);
         if (!$patches) throw new RuntimeException('没有提交正文修改', 422);
         $revision = 'revision_' . substr(ContentDocument::hash([$newTask, 1]), 0, 24);
-        $edited = ContentDocument::patch($document, $patches, $revision);
+        if ($origin) {
+            if (($origin['task_id'] ?? '') !== $newTask) throw new RuntimeException('修改来源任务不符', 409);
+            $captured = ManualContentRevision::capture($input, $document, $patches, $revision, $origin);
+            $edited = $captured['document']; $input['context']['sources'] = $captured['sources'];
+            $input['context']['manual_edit_history'] = $captured['history'];
+        } else $edited = ContentDocument::patch($document, $patches, $revision);
         if (array_column(ContentDocument::units($document), 'text') === array_column(ContentDocument::units($edited), 'text')) {
             throw new RuntimeException('正文没有变化', 422);
         }

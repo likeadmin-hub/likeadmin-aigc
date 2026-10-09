@@ -4524,7 +4524,8 @@ class AigcShortDramaService
             if ($project['last_task_id'] !== $sourceId) throw new \RuntimeException('已有新修订，请打开当前任务后再修改', 409);
             $newId = self::makeTaskId(); $agent = self::makeTaskId('sd_agent'); $time = time();
             $input = $recheckContext === null
-                ? vnext\ApplicationWorkflow::revisionInput(self::jsonDecode($job['input_json']), self::jsonDecode($job['candidate_json']), $patches, $expected, $newId)
+                ? vnext\ApplicationWorkflow::revisionInput(self::jsonDecode($job['input_json']), self::jsonDecode($job['candidate_json']), $patches, $expected, $newId,
+                    ['tenant_id' => $tenantId, 'user_id' => $userId, 'parent_task_id' => $sourceId, 'task_id' => $newId, 'created_at' => $time])
                 : vnext\ApplicationWorkflow::recheckInput(self::jsonDecode($job['input_json']), self::jsonDecode($job['candidate_json']), $recheckContext, $expected, $newId);
             if ($job['execution_status'] === 'needs_attention') vnext\ApplicationWorkflow::store($tenantId, $userId, $sourceId)->cancel();
             vnext\ApplicationWorkflow::store($tenantId, $userId, $newId)->create($job['lane_key'], $input,
