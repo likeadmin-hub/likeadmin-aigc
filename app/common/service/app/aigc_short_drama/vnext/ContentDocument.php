@@ -186,6 +186,50 @@ final class ContentDocument
         return self::seal($document);
     }
 
+    /** Automatic additions are limited to confirmed missing requirements and existing entities/scenes. */
+    public static function repair(array $document, array $patches, array $insertions, string $revision, array $issues): array
+    {
+        $original = self::units($document); $entities = array_column($document['entities'], null, 'entity_id');
+        $allowed = [];
+        foreach ($issues as $issue) if (($issue['severity'] ?? '') === 'blocking' && ($issue['code'] ?? '') === 'content_missing') $allowed[$issue['issue_id']] = true;
+        if (count($insertions) > 128) throw new RuntimeException('单轮补全超出容量，请拆分处理', 413);
+        $next = self::patch($document, $patches, $revision); $after = []; $before = [];
+        foreach (self::rows($insertions, 'insertions') as $i => $insertion) {
+            if (array_diff(array_keys($insertion), ['issue_id', 'anchor_unit_id', 'anchor_hash', 'position', 'type', 'text', 'entity_ids', 'speaker_id', 'speech_type'])) throw new RuntimeException('补全包含不允许的字段', 422);
+            $anchor = $insertion['anchor_unit_id'] ?? '';
+            if (!isset($allowed[$insertion['issue_id'] ?? ''])) throw new RuntimeException('补全必须对应已核实的内容遗漏', 422);
+            if (!isset($original[$anchor]) || ($insertion['anchor_hash'] ?? '') !== $original[$anchor]['text_hash']) throw new RuntimeException('补全位置已变化', 409);
+            if (!in_array($insertion['position'] ?? '', ['before', 'after'], true)) throw new RuntimeException('补全位置无效', 422);
+            $type = $insertion['type'] ?? '';
+            if (!in_array($type, ['action', 'dialogue'], true)) throw new RuntimeException('补全单元类型无效', 422);
+            $text = self::text($insertion['text'] ?? null, 'insertion.text'); $ids = $insertion['entity_ids'] ?? [];
+            if (!is_array($ids)) throw new RuntimeException('补全实体引用无效', 422);
+            foreach ($ids as $id) if (!is_string($id) || !isset($entities[$id]) || !in_array($entities[$id]['kind'], ['character', 'prop'], true)) throw new RuntimeException('补全引用了未确认的主体', 422);
+            $unit = ['unit_id' => self::id($revision, 'unit', count($original) + $i + 1), 'ref' => '', 'type' => $type,
+                'text' => $text, 'text_hash' => hash('sha256', $text), 'entity_ids' => array_values(array_unique($ids)), 'source_links' => [],
+                'repair_issue_id' => $insertion['issue_id']];
+            if ($type === 'dialogue') {
+                $speech = $insertion['speech_type'] ?? 'spoken'; $speaker = $insertion['speaker_id'] ?? null;
+                if (!in_array($speech, ['spoken', 'voiceover', 'narration'], true)) throw new RuntimeException('补全发声类型无效', 422);
+                if ($speech !== 'narration' && (!is_string($speaker) || ($entities[$speaker]['kind'] ?? '') !== 'character')) throw new RuntimeException('补全说话人未经确认', 422);
+                if ($speech === 'narration' && $speaker !== null) throw new RuntimeException('旁白不能替换人物发言', 422);
+                $unit['speech_type'] = $speech; $unit['speaker_id'] = $speaker;
+                if ($speaker) $unit['entity_ids'] = array_values(array_unique(array_merge($unit['entity_ids'], [$speaker])));
+            }
+            if ($insertion['position'] === 'after') $after[$anchor][] = $unit;
+            else $before[$anchor][] = $unit;
+        }
+        $ordinal = 0;
+        foreach ($next['scenes'] as &$scene) {
+            $result = [];
+            foreach ($scene['units'] as $unit) $result = array_merge($result, $before[$unit['unit_id']] ?? [], [$unit], $after[$unit['unit_id']] ?? []);
+            foreach ($result as &$unit) $unit['ref'] = 'u' . ++$ordinal;
+            unset($unit); $scene['units'] = $result;
+        }
+        unset($scene);
+        return self::seal($next);
+    }
+
     private static function seal(array $document): array
     {
         $content = $document; unset($content['content_hash'], $content['status'], $content['transforms']);
