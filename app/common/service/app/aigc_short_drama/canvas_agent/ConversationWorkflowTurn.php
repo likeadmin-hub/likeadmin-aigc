@@ -15,7 +15,7 @@ final class ConversationWorkflowTurn
      * persist the answer itself or arbitrary exception text. */
     public static function failureCategory(string $response,array $routing): string
     {
-        try { $value=json_decode(trim($response),true,32,JSON_THROW_ON_ERROR); }
+        try { $value=ConversationResponseJson::decode($response,32); }
         catch (\Throwable $error) { return 'intent_not_json'; }
         $modern=(int)($routing['version']??2)>=3;
         $fields=['intent','confidence','skill_key','reply_markdown','workflow_output'];
@@ -48,7 +48,7 @@ final class ConversationWorkflowTurn
             else ConversationActionPlan::parse($payload,$stage,ConversationWorkflow::compactOutput($workflow));
         } catch (\Throwable $error) {
             $output=$value['workflow_output'];
-            if (array_keys($output)!==['reply_markdown','canvas_actions'] || !is_string($output['reply_markdown']??null)) return 'intent_stage_keys';
+            if (!ConversationResponseJson::hasKeys($output,['reply_markdown','canvas_actions']) || !is_string($output['reply_markdown']??null)) return 'intent_stage_keys';
             $actions=$output['canvas_actions']??null;
             if (!is_array($actions) || array_keys($actions)!==['nodes'] || !is_array($actions['nodes']) || !array_is_list($actions['nodes']) || !$actions['nodes']) return 'intent_stage_nodes';
             $max=ConversationActionPlan::maximumNodesForStage($stage,ConversationWorkflow::compactOutput($workflow));
@@ -117,10 +117,40 @@ final class ConversationWorkflowTurn
             .'已授权技能：'.implode('；',$skills);
     }
 
+    /** Canonicalize advisory text and intake before the same strict parser
+     * used by completion. Never repair action nodes or revision instructions. */
+    public static function parseConversation(string $response,array $routing,array $availableSources=['message']): array
+    {
+        try { return self::parse($response,$routing,$availableSources); }
+        catch (RuntimeException $error) {
+            if ((int)($routing['version']??2)<3 || !in_array($error->getMessage(),['INVALID_AGENT_INTENT','INVALID_AGENT_INTAKE'],true)) throw $error;
+        }
+        try { $value=ConversationResponseJson::decode($response); }
+        catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$error); }
+        $fields=['intent','confidence','skill_key','reply_markdown','workflow_output','speech_act','deliverable','scope'];
+        if (!is_array($value) || !ConversationResponseJson::hasKeys($value,$fields)) throw new RuntimeException('INVALID_AGENT_INTENT');
+        if (in_array($value['intent'],['chat','creative_plan','uncertain'],true)
+            && $value['scope']!=='workflow' && $value['deliverable']!=='full_drama') {
+            $advisory=$value;
+            unset($advisory['workflow_output']);
+            $advisory['intake']=[];
+            $decision=ConversationIntentRouter::parseConversation(json_encode($advisory,JSON_THROW_ON_ERROR),$routing,$availableSources);
+            unset($decision['intake']);
+            $value=$decision+['workflow_output'=>null];
+        } elseif ($value['intent']==='continue'
+            && ($routing['workflow_candidate']['stage_state']['key']??'')==='intake'
+            && empty($routing['workflow_paused']) && is_array($value['workflow_output'])) {
+            $value['workflow_output']=ConversationIntakeDraft::parseConversation(
+                json_encode($value['workflow_output'],JSON_THROW_ON_ERROR),
+                (array)($routing['workflow_candidate']['workflow_snapshot']['slot_schema']??[]),$availableSources);
+        }
+        return self::parse(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing,$availableSources);
+    }
+
     /** @return array{intent:string,confidence:float,skill_key:string,reply_markdown:string,workflow_output:mixed,text:string,nodes:array,intake:array,continue:bool} */
     public static function parse(string $response,array $routing,array $availableSources=['message']): array
     {
-        try { $value=json_decode(trim($response),true,32,JSON_THROW_ON_ERROR); }
+        try { $value=ConversationResponseJson::decode($response,32); }
         catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$error); }
         $modern=(int)($routing['version']??2)>=3;
         $fields=['intent','confidence','skill_key','reply_markdown','workflow_output'];

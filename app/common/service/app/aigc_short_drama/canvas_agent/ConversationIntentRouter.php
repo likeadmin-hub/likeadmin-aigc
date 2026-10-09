@@ -85,7 +85,7 @@ final class ConversationIntentRouter
     /** @return array{intent:string,confidence:float,skill_key:string,reply_markdown:string} */
     public static function parse(string $response,array $routing,array $availableSources=['message']): array
     {
-        try { $value=json_decode(trim($response),true,16,JSON_THROW_ON_ERROR); }
+        try { $value=ConversationResponseJson::decode($response,16); }
         catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$error); }
         $modern=(int)($routing['version']??2)>=3;
         $fields=$modern
@@ -125,7 +125,7 @@ final class ConversationIntentRouter
             if ((int)($routing['version']??2)<3
                 || !in_array($error->getMessage(),['INVALID_AGENT_INTENT','INVALID_AGENT_INTAKE'],true)) throw $error;
         }
-        try { $value=json_decode(trim($response),true,16,JSON_THROW_ON_ERROR); }
+        try { $value=ConversationResponseJson::decode($response,16); }
         catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$error); }
         if (!is_array($value) || array_is_list($value)) throw new RuntimeException('INVALID_AGENT_INTENT');
         $advisory=['intent','confidence','skill_key','reply_markdown','intake','speech_act','deliverable','scope','reasoning','explanation'];
@@ -191,7 +191,7 @@ final class ConversationIntentRouter
     /** Safe shape-only diagnostics; never persist the model's answer. */
     public static function failureCategory(string $response,array $routing): string
     {
-        try { $value=json_decode(trim($response),true,16,JSON_THROW_ON_ERROR); }
+        try { $value=ConversationResponseJson::decode($response,16); }
         catch (\Throwable $error) { return 'intent_not_json'; }
         if (!is_array($value) || array_is_list($value)) return 'intent_shape';
         $fields=(int)($routing['version']??2)>=3

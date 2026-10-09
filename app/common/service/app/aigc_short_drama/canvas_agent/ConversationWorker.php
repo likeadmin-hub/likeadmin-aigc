@@ -71,7 +71,7 @@ final class ConversationWorker
                 // charged, markdown-only false success.
                 if ($activeRouting) {
                     try {
-                        $decision=ConversationWorkflowTurn::parse($content,$intentRouting,$intakeSources);
+                        $decision=ConversationWorkflowTurn::parseConversation($content,$intentRouting,$intakeSources);
                         if ($decision['continue'] && $decision['nodes']) {
                             $candidate=(array)($intentRouting['workflow_candidate']??[]);
                             $candidate['creative_brief']=ConversationTextContext::creativeBrief($candidate,(array)($context['messages']??[]));
@@ -92,7 +92,7 @@ final class ConversationWorker
                         throw $error;
                     }
                 }
-                elseif ($intakeAnalysis) ConversationIntakeDraft::parseDirect($content,(array)($context['workflow']['workflow_snapshot']['slot_schema']??[]),$intakeSources);
+                elseif ($intakeAnalysis) ConversationIntakeDraft::parseConversation($content,(array)($context['workflow']['workflow_snapshot']['slot_schema']??[]),$intakeSources);
                 else {
                     try {
                         $plan=ConversationActionPlan::parse($content,$workflowStage,$compact);
@@ -130,7 +130,7 @@ final class ConversationWorker
             // before settlement. Test/local adapters are checked here.
             if (empty($result['safety_checked'])) ConversationSafety::assertOutput($tenant,$user,(int)$claim['canvas_id'],(int)$claim['thread_id'],$run,$result['content']);
             if ($activeRouting) {
-                $decision=ConversationWorkflowTurn::parse($result['content'],$intentRouting,$intakeSources);
+                $decision=ConversationWorkflowTurn::parseConversation($result['content'],$intentRouting,$intakeSources);
                 return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],$decision['text'],$decision['nodes'],[],$decision['intake'],$decision)?'success':'needs_reconciliation';
             }
             if ($intentRouting) {
@@ -139,7 +139,7 @@ final class ConversationWorker
                 return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],$text,[],$decision)?'success':'needs_reconciliation';
             }
             if ($intakeAnalysis) {
-                $draft=ConversationIntakeDraft::parseDirect($result['content'],(array)($context['workflow']['workflow_snapshot']['slot_schema']??[]),$intakeSources);
+                $draft=ConversationIntakeDraft::parseConversation($result['content'],(array)($context['workflow']['workflow_snapshot']['slot_schema']??[]),$intakeSources);
                 return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],$draft['reply_markdown'],[],[],$draft['intake'])?'success':'needs_reconciliation';
             }
             try { $plan=ConversationActionPlan::parse($result['content'],$workflowStage,$compact); }
