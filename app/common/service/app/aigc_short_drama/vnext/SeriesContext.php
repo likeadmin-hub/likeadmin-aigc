@@ -33,6 +33,7 @@ final class SeriesContext
             'outline_task_id' => $task, 'outline_hash' => ContentDocument::hash($plan),
             'screenplay_preflight_version' => SceneScreenplayExecution::PREFLIGHT_VERSION,
             'account_reservation_version' => isset($execution['resource_limits']) ? 1 : 0,
+            'fact_dependency_version' => !empty($policy['fact_dependencies_enabled']) ? FactConsumption::VERSION : 0,
             'entity_scope' => $scope, 'entities' => $entities, 'model_id' => (string)$model['id'], 'execution' => $execution,
             'story' => ShortDramaPlanningContext::lockedStory($request['confirmed_story_snapshot']),
             'story_hash' => ContentDocument::hash($request['confirmed_story_snapshot']),
@@ -122,6 +123,9 @@ final class SeriesContext
             $sources[$import['source']['source_id']] = $import['source'];
             $attachmentContext = ['attachment_import' => $import, 'structured_screenplay' => $import['screenplay'], 'source_mode' => 'faithful'];
         }
+        $factVersion = $snapshot['fact_dependency_version'] ?? 0;
+        if (!in_array($factVersion,[0,FactConsumption::VERSION],true)) throw new RuntimeException('系列事实依赖版本不受支持',409);
+        $factConsumption = $factVersion===FactConsumption::VERSION ? FactConsumption::capture($previous['state_index'] ?? FactConsumption::emptyIndex(),array_column($entities,'entity_id')) : null;
         return ['snapshot' => $snapshot, 'context' => array_replace([
             'episode_id' => $episodeId, 'entity_scope' => $snapshot['entity_scope'], 'entities' => $entities,
             'screenplay_preflight_version' => $snapshot['screenplay_preflight_version'] ?? 0,
@@ -134,7 +138,8 @@ final class SeriesContext
             'dependency_versions' => ['source' => $snapshot['source']['hash'], 'bible' => $snapshot['story_hash'],
                 'outline' => $snapshot['outline_hash'], 'episodes' => $previous['dependencies'],
                 'series' => ['tenant_id' => $snapshot['tenant_id'], 'user_id' => $snapshot['user_id'],
-                    'project_id' => $snapshot['project_id'], 'episode_number' => $number, 'snapshot_hash' => $snapshot['snapshot_hash']]],
+                    'project_id' => $snapshot['project_id'], 'episode_number' => $number, 'snapshot_hash' => $snapshot['snapshot_hash']]]
+                + ($factConsumption ? ['fact_consumption'=>$factConsumption] : []),
         ] + ($inputHistory ? ['input_history' => $inputHistory] : []) + ($identityReceipts ? ['identity_revision_receipts' => $identityReceipts] : [])
             + ($mergeReceipts ? ['entity_merge_receipts'=>$mergeReceipts] : []), $attachmentContext)];
     }
@@ -150,13 +155,15 @@ final class SeriesContext
         $projects = Db::name('aigc_short_drama_project')->where($scope)->whereIn('id', array_column($rows, 'production_project_id'))->lock($lock)->column('current_version_id', 'id');
         $versions = Db::name('aigc_short_drama_plan_version')->where($scope)->whereIn('id', array_values($projects))
             ->field('id,project_id,continuity_json')->lock($lock)->select()->toArray();
-        $versions = array_column($versions, null, 'project_id'); $dependencies = []; $lastVersion = 0;
+        $versions = array_column($versions, null, 'project_id'); $dependencies = []; $lastVersion = 0; $previousIndex = FactConsumption::emptyIndex();
         foreach ($rows as $row) {
             $version = $versions[$row['production_project_id']] ?? [];
             $meta = json_decode($version['continuity_json'] ?? '{}', true) ?: [];
             $canonical = $meta['canonical'] ?? [];
             if (!$row['completed_once'] || $row['status'] !== 'success' || !$canonical
-                || ($canonical['dependencies'] ?? []) !== $dependencies) throw new RuntimeException('请先完成前集发布或复核，不能沿用过期剧情', 409);
+                || !FactConsumption::applicable($canonical,$dependencies,$previousIndex)) throw new RuntimeException('请先完成前集发布或复核，不能沿用过期剧情', 409);
+            $previousIndex = $canonical['state_index'] ?? null;
+            if ($previousIndex!==null) FactConsumption::assertIndex($previousIndex,$canonical);
             $dependencies[(string)$row['episode_number']] = ['revision_id' => $canonical['revision_id'], 'document_hash' => $canonical['document_hash'],
                 'ledger_hash' => $canonical['ledger_hash']];
             $lastVersion = (int)$version['id'];
@@ -174,13 +181,16 @@ final class SeriesContext
             || ($ledger['episode_id'] ?? '') !== ($document['episode_id'] ?? null)) throw new RuntimeException('前集正文、人物与事实不属于同一发布版本', 409);
         $identityReceipts = EntityIdentityRevision::carry($document['identity_revision_receipts'] ?? [], $document['entities'], ['tenant_id' => $tenant, 'user_id' => $user]);
         $mergeReceipts = EntityMergeRevision::carry($document['entity_merge_receipts'] ?? [], $document['entities'], ['tenant_id'=>$tenant,'user_id'=>$user]);
-        return ['dependencies' => $dependencies, 'ledger' => $ledger, 'entities' => $document['entities']] + ($identityReceipts ? ['identity_revision_receipts' => $identityReceipts] : [])
+        $stateIndex = FactConsumption::index($document,$ledger);
+        if ($previousIndex!==null && $previousIndex!==$stateIndex) throw new RuntimeException('前集事实索引与完整发布正文不符',409);
+        return ['dependencies' => $dependencies, 'ledger' => $ledger, 'entities' => $document['entities'], 'state_index'=>$stateIndex] + ($identityReceipts ? ['identity_revision_receipts' => $identityReceipts] : [])
             + ($mergeReceipts ? ['entity_merge_receipts'=>$mergeReceipts] : []);
     }
 
     public static function assertDependencies(array $context, bool $lock = false): void
     {
         $versions = $context['dependency_versions'] ?? []; $series = $versions['series'] ?? [];
+        if (isset($versions['fact_consumption'])) FactConsumption::assertReceipt($versions['fact_consumption']);
         if (!$series) return;
         $parent = Db::name('aigc_short_drama_project')->where(['tenant_id' => $series['tenant_id'], 'user_id' => $series['user_id'],
             'id' => $series['project_id'], 'delete_time' => 0])->lock($lock)->find();
@@ -188,27 +198,32 @@ final class SeriesContext
         // A locking parent alone does not refresh an earlier REPEATABLE READ
         // snapshot (e.g. stage receipt reads). Publication uses current reads.
         $now = self::publishedBefore((int)$series['tenant_id'], (int)$series['user_id'], (int)$series['project_id'], (int)$series['episode_number'], $lock);
-        if (($versions['episodes'] ?? []) !== $now['dependencies']) throw new RuntimeException('前集已更新，本集候选已保留，需要按最新依赖复核', 409);
+        if (($versions['episodes'] ?? []) !== $now['dependencies'] && !(isset($versions['fact_consumption'])
+            && FactConsumption::matches($versions['fact_consumption'],$now['state_index'] ?? FactConsumption::emptyIndex()))) throw new RuntimeException('前集已更新，本集候选已保留，需要按最新依赖复核', 409);
     }
 
     public static function metadata(array $result): array
     {
         $document = $result['canonical_document']; $ledger = $result['narrative_ledger'];
+        if (!empty($document['dependency_versions']['fact_consumption'])) FactConsumption::assertReceipt($document['dependency_versions']['fact_consumption']);
         return ['canonical' => ['revision_id' => $document['revision_id'], 'document_hash' => $document['content_hash'],
-            'ledger_hash' => $ledger['content_hash'], 'dependencies' => $document['dependency_versions']['episodes'] ?? []]];
+            'ledger_hash' => $ledger['content_hash'], 'dependencies' => $document['dependency_versions']['episodes'] ?? []]
+            + (!empty($document['dependency_versions']['fact_consumption']) ? ['fact_consumption'=>$document['dependency_versions']['fact_consumption'], 'state_index'=>FactConsumption::index($document,$ledger)] : [])];
     }
 
     public static function dependencyStatus(array $rows, array $current): array
     {
-        $dependencies = []; $stale = false;
+        $dependencies = []; $stale = false; $previousIndex = FactConsumption::emptyIndex();
         foreach ($rows as &$row) {
             $meta = $current[(int)$row['production_project_id']]['canonical'] ?? [];
             if (!$meta) continue;
-            $mismatch = $stale || ($meta['dependencies'] ?? []) !== $dependencies;
+            $mismatch = $stale || !FactConsumption::applicable($meta,$dependencies,$previousIndex);
             $row['needs_review'] = $mismatch && $row['status'] === 'success';
             $row['review_reason'] = $row['needs_review'] ? '前集已更新，需要按最新正文和事实复核；原剧本和素材保留' : '';
             $stale = $stale || $mismatch;
             $dependencies[(string)$row['episode_number']] = array_intersect_key($meta, array_flip(['revision_id', 'document_hash', 'ledger_hash']));
+            $previousIndex=$meta['state_index'] ?? null;
+            if($previousIndex!==null)FactConsumption::assertIndex($previousIndex,$meta);
         }
         unset($row); return $rows;
     }
