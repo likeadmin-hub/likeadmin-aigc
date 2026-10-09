@@ -86,4 +86,27 @@ final class MarketTextAccountConcurrencyTest extends TestCase
         self::assertSame(14.0,(float)Db::name('user')->where('id',$this->user)->value('user_money'));
         self::assertSame(4,Db::name('user_account_log')->where('user_id',$this->user)->count());
     }
+    public function testKilledProcessBeforeSubmissionReleasesCommittedHoldAndSealsItsAttempt(): void
+    {
+        $process=proc_open([PHP_BINARY,dirname(__DIR__).'/fixtures/short_drama_account_worker.php',
+            $this->prefix,(string)$this->user,'0','prepared_pause'],
+            [0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
+        self::assertIsResource($process);$this->processes[]=[$process,$pipes];
+        stream_set_blocking($pipes[1],false);$out='';$deadline=microtime(true)+5;
+        do {$out.=stream_get_contents($pipes[1]);if(str_contains($out,'prepared_saved:'))break;usleep(10000);}while(microtime(true)<$deadline);
+        self::assertMatchesRegularExpression('/prepared_saved:[0-9]+/',$out);
+        proc_terminate($process,9);foreach($pipes as $pipe)fclose($pipe);proc_close($process);$this->processes=[];
+        self::assertSame(4.0,(float)Db::name('tenant')->where('id',2000000816)->value('point_balance'));
+        self::assertSame(8.0,(float)Db::name('user')->where('id',$this->user)->value('user_money'));
+        $key=hash('sha256',$this->prefix.'_0');
+        self::assertTrue(Runtime::releaseUnsubmittedReservation(2000000816,$this->user,'aigc_short_drama_script_task',123,$key,1));
+        self::assertTrue(Runtime::releaseUnsubmittedReservation(2000000816,$this->user,'aigc_short_drama_script_task',123,$key,1));
+        self::assertSame(8.0,(float)Db::name('tenant')->where('id',2000000816)->value('point_balance'));
+        self::assertSame(16.0,(float)Db::name('user')->where('id',$this->user)->value('user_money'));
+        $c=AiConsumptionLog::where(['tenant_id'=>2000000816,'user_id'=>$this->user])->find();
+        self::assertSame('refunded',$c['billing_status']);
+        try {Fixture::call('markAccountSubmission',['consumption'=>$c]);self::fail('Killed attempt submitted after recovery');}
+        catch(\RuntimeException $error){self::assertSame(409,$error->getCode());}
+        self::assertSame(2,Db::name('user_account_log')->where('user_id',$this->user)->count());
+    }
 }
