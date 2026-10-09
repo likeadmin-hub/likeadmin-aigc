@@ -84,6 +84,15 @@ final class ShortDramaVnextContentTest extends TestCase
         $this->expectExceptionCode(422);
         Compiler::compile($document, ['shots' => [['visual_description' => '读信', 'refs' => [['unit' => 'u1'], ['unit' => 'u2', 'start' => 0, 'end' => 4]]]]], 's1');
     }
+    public function testDialogueTailCannotBeMovedBeforeItsBeginning(): void
+    {
+        $document = Document::normalize($this->reply(), $this->context());
+        $this->expectExceptionCode(422);
+        Compiler::compile($document, ['shots' => [
+            ['visual_description' => '尾句', 'refs' => [['unit' => 'u1'], ['unit' => 'u2', 'start' => 3, 'end' => 7]]],
+            ['visual_description' => '开头', 'refs' => [['unit' => 'u2', 'start' => 0, 'end' => 3]]],
+        ]], 's1');
+    }
     public function testEvidenceMustMatchUnicodeTextAndCurrentRevision(): void
     {
         self::assertSame('😀', Document::slice('老师，您好😀！', 5, 6, '😀'));

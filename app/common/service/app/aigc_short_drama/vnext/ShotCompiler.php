@@ -14,7 +14,7 @@ final class ShotCompiler
         if (empty($reply['shots']) || !is_array($reply['shots'])) throw new RuntimeException('分镜规划为空', 422);
         $units = ContentDocument::units($document); $refs = array_column($units, 'unit_id', 'ref');
         $names = array_column($document['entities'], 'canonical_name', 'entity_id');
-        $coverage = []; $shots = []; $firstDialogue = []; $dialogueOrder = [];
+        $coverage = []; $shots = []; $firstDialogue = []; $dialogueOrder = []; $dialogueEnds = [];
         foreach ($units as $id => $unit) if ($unit['type'] === 'dialogue') $dialogueOrder[] = $id;
         foreach (ContentDocument::rows($reply['shots'], 'shots') as $i => $shot) {
             if (empty($shot['refs']) || !is_array($shot['refs'])) throw new RuntimeException('分镜缺少正文引用', 422);
@@ -28,6 +28,8 @@ final class ShotCompiler
                 $coverage[$id][] = [$start, $end]; $entities = array_merge($entities, $unit['entity_ids']);
                 $locations[$unit['location_id']] = true;
                 if ($unit['type'] === 'dialogue') {
+                    if ($start > ($dialogueEnds[$id] ?? 0)) throw new RuntimeException('分镜对白片段先后顺序不符', 422);
+                    $dialogueEnds[$id] = max($dialogueEnds[$id] ?? 0, $end);
                     if (!isset($firstDialogue[$id])) $firstDialogue[$id] = count($firstDialogue);
                     $lines[] = ($unit['speaker_id'] === null ? '旁白' : $names[$unit['speaker_id']]) . '：' . $text;
                 }
