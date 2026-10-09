@@ -349,7 +349,7 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
     {
         // Supply an in-memory prompt snapshot so the contract test stops at
         // the fake provider rather than reading tenant configuration.
-        $request['_prompt_snapshot'] = ShortDramaPromptWorkspace::resolve(701, ['mode' => 'workspace'], []);
+        $request['_prompt_snapshot'] = array_replace(ShortDramaPromptWorkspace::resolve(701, ['mode' => 'workspace'], []), $request['_prompt_snapshot'] ?? []);
         $method = new ReflectionMethod(AigcShortDramaService::class, 'generateScriptPlanResult');
         $method->setAccessible(true);
         return $method->invoke(null, 701, 23, '模拟测试故事', $request, '模拟测试', [
