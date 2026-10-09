@@ -32,13 +32,29 @@ final class ConversationAssetReuse
         if ($pageIds && $signatures) {
             $root=ShortDramaCanvasPages::root($tenant,$user,(int)$document['id']);
             $owned=Db::name(ShortDramaCanvasPages::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$root])->whereIn('canvas_id',$pageIds)->column('canvas_id');
-            $pages=Db::name(GraphService::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->whereIn('id',$owned)
-                ->where(static function($query)use($signatures):void { foreach(array_unique($signatures) as $signature) $query->whereOr('nodes_json','like','%'.$signature.'%'); })
-                ->field('id,nodes_json')->order('id','asc')->select()->toArray();
-            foreach($pages as $page) {
-                $cache[(int)$page['id']]=json_decode($page['nodes_json'],true)?:[];
-                foreach($cache[(int)$page['id']] as $node) if (in_array($node['metadata']['workflow_asset_signature']??'',$signatures,true)) {
-                    $candidates[]=['canvas_id'=>(int)$page['id'],'node_id'=>(string)$node['id'],'signature'=>$node['metadata']['workflow_asset_signature']];
+            $wanted=[];
+            foreach($proposals as $index=>$proposal) if(in_array($proposal['artifact']??'',['subject','three_view','scene'],true)) $wanted[$signatures[$index]]=$proposal;
+            $found=[];$before=PHP_INT_MAX;
+            while($owned && count($found)<count($wanted)) {
+                // At most twenty bounded page documents in memory. Retain only
+                // matching nodes, never every episode's full screenplay graph.
+                $pages=Db::name(GraphService::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->whereIn('id',$owned)->where('id','<',$before)
+                    ->where(static function($query)use($wanted):void { foreach(array_keys($wanted) as $signature) $query->whereOr('nodes_json','like','%'.$signature.'%'); })
+                    ->field('id,nodes_json')->order('id','desc')->limit(20)->select()->toArray();
+                if(!$pages) break;
+                foreach($pages as $page) {
+                    $before=(int)$page['id'];$matching=[];
+                    foreach(json_decode($page['nodes_json'],true)?:[] as $node) {
+                        $signature=$node['metadata']['workflow_asset_signature']??'';
+                        if(!isset($wanted[$signature])) continue;
+                        if(isset($found[$signature]) || !self::matches($node,$signature,$wanted[$signature])) continue;
+                        $asset=Db::name('aigc_short_drama_asset')->where(['id'=>(int)$node['metadata']['asset_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0,'status'=>'ready'])->find();
+                        if(!$asset || !in_array((int)$asset['canvas_id'],[0,(int)$page['id']],true)) continue;
+                        $matching[]=$node;
+                        $found[$signature]=true;
+                        $candidates[]=['canvas_id'=>(int)$page['id'],'node_id'=>(string)$node['id'],'signature'=>$signature];
+                    }
+                    $cache[(int)$page['id']]=$matching;
                 }
             }
         }
