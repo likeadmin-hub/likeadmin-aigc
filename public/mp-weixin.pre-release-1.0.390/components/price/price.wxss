@@ -1,0 +1,1 @@
+.price-container.data-v-066e95df{display:inline-block}.price-wrap.data-v-066e95df{display:flex;align-items:baseline}.price-wrap--disabled.data-v-066e95df{position:relative}.price-wrap--disabled.data-v-066e95df:before{position:absolute;left:0;top:50%;right:0;transform:translateY(-50%);display:block;content:"";height:.05em;background-color:currentColor}

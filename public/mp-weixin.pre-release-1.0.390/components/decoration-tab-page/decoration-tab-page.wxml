@@ -1,0 +1,1 @@
+<view class="{{['decoration-app-page','data-v-d86af750',b&&'is-tab-page']}}"><slot/><tabbar wx:if="{{a}}" class="data-v-d86af750" u-i="d86af750-0" bind:__l="__l"/></view>

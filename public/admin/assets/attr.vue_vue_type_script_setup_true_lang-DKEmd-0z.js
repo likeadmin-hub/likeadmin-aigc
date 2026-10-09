@@ -1,0 +1,1 @@
+import{h as e,m as t,q as n}from"./vendor-_vue_runtime-core-B_uiLW76.js";const r=e({__name:"attr",props:{content:{type:Object,default:()=>({})},styles:{type:Object,default:()=>({})}},setup(o){return(a,c)=>(t(),n("div"))}});export{r as _};

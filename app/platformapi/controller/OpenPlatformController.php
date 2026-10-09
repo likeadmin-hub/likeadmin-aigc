@@ -12,7 +12,7 @@ class OpenPlatformController extends BaseAdminController
     public function startTicket() { try { return $this->data(OpenPlatformService::runIdempotent('ticket.start',$this->idempotencyKey(),0,fn()=>OpenPlatformService::startTicket())); } catch (\Throwable $e) { return $this->fail($e->getMessage(), ['credential_debug' => OpenPlatformService::credentialDiagnostics()]); } }
     public function authUrl()
     {
-        try { return $this->data(OpenPlatformService::authUrl()); } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+        try { return $this->data(OpenPlatformService::authUrl(null, (string)$this->request->param('authorizer_type', ''))); } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
     }
     public function authorizers() { return $this->data(OpenPlatformService::authorizers()); }
     public function syncAuthorizers() { try { return $this->success('授权账号已同步', ['items'=>OpenPlatformService::syncAuthorizers()]); } catch (\Throwable $e) { return $this->fail($e->getMessage()); } }
