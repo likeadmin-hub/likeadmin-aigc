@@ -8427,6 +8427,13 @@ class AigcShortDramaService
     {
         $taskId = (string)$generation['task_id'];
         $imageParams = ReferenceMentionPromptService::compile($imageParams);
+        if (!empty($params['_canonical_image'])) {
+            $current = self::findGenerationTask($tenantId, $userId, $taskId);
+            $request = self::jsonDecode((string)$current['request_json']);
+            $request['image_params'] = $imageParams;
+            $request['provider_input_hash'] = vnext\ContentDocument::hash($imageParams);
+            $current->save(['request_json' => self::jsonEncode($request), 'update_time' => time()]);
+        }
         try {
             $reserve = MarketImageModelRuntimeService::reserve($tenantId, $userId, (string)$generation['task_type'], $taskId, $params, $imageParams, 1);
             AigcShortDramaGenerationTask::where([
@@ -8953,8 +8960,14 @@ class AigcShortDramaService
         }
         if (!empty($params['_canonical_image'])) {
             vnext\ImageHandoff::assertIntact($params['_canonical_image']);
-            $meta['canonical_trace'] = $params['_canonical_image']['trace'] + [
+            $trace = $params['_canonical_image']['trace'];
+            // Asset metadata is a TEXT column. Keep a verifiable pointer to the full immutable
+            // trace/prompt in generation.request_json rather than duplicate an entire long episode.
+            unset($meta['prompt']);
+            $meta['canonical_trace'] = array_intersect_key($trace, array_flip(['pipeline_version', 'compiler_version',
+                'document_revision_id', 'document_hash', 'shot_revision_id', 'shot_hash', 'target_id', 'task_type', 'state_hash'])) + [
                 'input_hash' => $params['_canonical_image']['input_hash'], 'generation_task_id' => (string)$generation['task_id'],
+                'unit_count' => count($trace['unit_refs']),
                 'provider_input_hash' => vnext\ContentDocument::hash($imageParams), 'provider_prompt_hash' => hash('sha256', (string)($imageParams['prompt'] ?? ''))];
         }
         return $meta;

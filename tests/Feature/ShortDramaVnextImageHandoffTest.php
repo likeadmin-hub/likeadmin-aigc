@@ -45,4 +45,18 @@ final class ShortDramaVnextImageHandoffTest extends TestCase
         $this->expectExceptionCode(409);
         ImageHandoff::compile($candidate, '写实', 'subject_image', $candidate['document']['entities'][0]['entity_id'], 'r1');
     }
+    public function testArtifactTraceDoesNotOverflowMetadataWithLongSourceOrPrompt(): void
+    {
+        $candidate = $this->fixture(); $target = ImageHandoff::targets($candidate, '')[0];
+        $handoff = ImageHandoff::compile($candidate, '', 'subject_image', $target['target_id'], 'r1');
+        $handoff['trace']['unit_refs'] = array_fill(0, 3000, $handoff['trace']['unit_refs'][0]);
+        unset($handoff['input_hash']); $handoff['input_hash'] = Document::hash($handoff);
+        $method = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'generationImageAssetMeta'); $method->setAccessible(true);
+        $meta = $method->invoke(null, ['task_id' => 'generation1'], ['_canonical_image' => $handoff], ['prompt' => str_repeat('完整文本', 20000)]);
+        self::assertLessThan(4000, strlen(json_encode($meta, JSON_UNESCAPED_UNICODE)));
+        self::assertSame(3000, $meta['canonical_trace']['unit_count']);
+        self::assertSame('generation1', $meta['canonical_trace']['generation_task_id']);
+        self::assertSame($handoff['input_hash'], $meta['canonical_trace']['input_hash']);
+    }
+
 }
