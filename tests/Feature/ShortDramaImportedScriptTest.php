@@ -11,6 +11,7 @@ class ShortDramaImportedScriptTest extends TestCase
         $method = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'stripPromptDiagnostics');
         $method->setAccessible(true);
         $input = ['_imported_outline_snapshot' => ['episodes' => [['source_content' => '全剧原文']]],
+            '_attachment_source' => ['source' => ['text' => '附件全量原文']],
             'series_context' => ['current_episode' => ['source_content' => '本集完整原文']]];
         self::assertSame(['series_context' => $input['series_context']], $method->invoke(null, $input));
     }

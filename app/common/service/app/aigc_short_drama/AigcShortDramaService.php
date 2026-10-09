@@ -9532,6 +9532,7 @@ class AigcShortDramaService
                 }
             }
             $plan = self::fileQaParsePlan($parseResult, $request, (string)($taskRow['prompt'] ?? ''));
+            if (isset($request['_attachment_source'])) self::jsonEncode(array_replace($request, ['_imported_outline_snapshot' => $plan]));
         } catch (\Throwable $e) {
             $message = self::friendlyGenerationError($e->getMessage());
             $updated = AigcShortDramaScriptTask::where(['id' => (int)$taskRow['id'], 'tenant_id' => $tenantId, 'user_id' => $userId])
@@ -26143,12 +26144,20 @@ class AigcShortDramaService
     private static function jsonEncode(array $data): string
     {
         $json = json_encode(self::sanitizeUtf8Payload($data), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        if (ShortDramaAttachmentSource::present($data) && is_string($json)) {
+            // Existing utf8 (three-byte) columns can retain supplementary characters through JSON escapes.
+            $json = preg_replace_callback('/[\x{10000}-\x{10FFFF}]/u', static fn(array $match): string => substr(json_encode($match[0], JSON_THROW_ON_ERROR), 1, -1), $json);
+            if (strlen($json) > 16777215) throw new \RuntimeException('附件追溯内容超过存储容量，请拆分文件；已保存的原文及回包保留', 422);
+        }
         return is_string($json) ? $json : '[]';
     }
 
     private static function sanitizeUtf8Payload(array $data): array
     {
+        if (isset($data['attachment_trace'])) ShortDramaAttachmentSource::assertEpisode($data);
         foreach ($data as $key => $value) {
+            if ($key === '_attachment_source' && is_array($value)) { ShortDramaAttachmentSource::assertPackage($value); continue; }
+            if ($key === 'source_content' && isset($data['attachment_trace'])) continue;
             if (is_array($value)) {
                 $data[$key] = self::sanitizeUtf8Payload($value);
                 continue;

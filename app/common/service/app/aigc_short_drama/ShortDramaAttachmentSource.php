@@ -128,4 +128,11 @@ final class ShortDramaAttachmentSource
             throw new RuntimeException('本集附件原文或引用已变化，请重新核对原文；已有结果保留', 409);
         }
     }
+
+    public static function present(array $data): bool
+    {
+        if (isset($data['_attachment_source']) || isset($data['attachment_trace'])) return true;
+        foreach ($data as $value) if (is_array($value) && self::present($value)) return true;
+        return false;
+    }
 }
