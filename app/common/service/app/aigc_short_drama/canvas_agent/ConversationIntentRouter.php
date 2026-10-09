@@ -146,14 +146,10 @@ final class ConversationIntentRouter
         $allowed=[];
         foreach ((array)($routing['skill_candidates']??[]) as $item) if (is_array($item) && is_string($item['key']??null)) $allowed[$item['key']]=true;
         if ($skillKey!=='' && !isset($allowed[$skillKey])) throw new RuntimeException('INVALID_AGENT_INTENT');
-        $intake=$value['intake']??[];
-        if (!is_array($intake) || array_diff(array_keys($intake),['candidates','questions'])) throw new RuntimeException('INVALID_AGENT_INTENT');
-        // Advisory extraction is not an instruction to open intake or start production.
-        // Validate it, then keep only the model's ordinary reply.
-        try {
-            ConversationIntakeDraft::parse($intake+['candidates'=>[],'questions'=>[]],
-                (array)ConversationWorkflow::catalog()['slots'],$availableSources);
-        } catch (RuntimeException $error) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$error); }
+        // This branch cannot activate production. Intake is discarded below,
+        // never persisted or executed, so even malformed advisory extraction
+        // must not veto a valid ordinary reply. Workflow decisions still use
+        // the strict parser and cannot enter this recovery branch.
         $defaults=match ($intent) {
             'chat'=>['speech_act'=>'chat','deliverable'=>'text','scope'=>'conversation'],
             'creative_plan'=>['speech_act'=>'request','deliverable'=>'text','scope'=>'standalone'],
