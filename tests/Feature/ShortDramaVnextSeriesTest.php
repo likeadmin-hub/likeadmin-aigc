@@ -88,6 +88,7 @@ final class ShortDramaVnextSeriesTest extends TestCase
                 self::assertCount(3, PlanningTrace::sources($plan['content_trace']));
             }
             if ($canvas) {
+                Db::name('aigc_short_drama_config')->insert(['tenant_id'=>$tenant,'status'=>1,'config_json'=>'{"canvas_agent":{"enabled":true}}']);
                 $canvasId=Db::name('aigc_short_drama_canvas')->insertGetId($scope+['title'=>'Fixture','nodes_json'=>'[]','edges_json'=>'[]','viewport_json'=>'{}']);
                 // No enrollment while switches are off, and no migration after legacy episode one.
                 $policy=\think\facade\Config::get('short_drama');
@@ -130,7 +131,10 @@ final class ShortDramaVnextSeriesTest extends TestCase
             self::assertCount(0, Provider::$requests);
             // Turning off enrollment cannot reroute an already confirmed series.
             \think\facade\Config::set(['generation_version' => 3, 'vnext' => ['enabled' => false, 'series_enabled' => false]], 'short_drama');
-            self::assertSame(1, Episodes::tick($tenant, $project));
+            if ($canvas) {
+                Service::streamScriptPlan($tenant,$user,['project_id'=>$firstChild['project_id'],'task_id'=>$firstChild['task_id']],static function(){},true);
+                self::assertSame('success',Db::name('aigc_short_drama_episode_task')->where('id',$rows[0]['id'])->value('status'),'Core publication atomically makes canvas history ready without a separate queue tick');
+            } else self::assertSame(1, Episodes::tick($tenant, $project));
             $list = Episodes::lists($tenant, $user, $project)['lists'];
             self::assertSame('success', $list[0]['status'], json_encode($list, JSON_UNESCAPED_UNICODE));
             self::assertSame('pending', $list[1]['status']); self::assertCount(3, Provider::$requests);
