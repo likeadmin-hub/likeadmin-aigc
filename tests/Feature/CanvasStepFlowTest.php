@@ -58,6 +58,34 @@ final class CanvasStepFlowTest extends TestCase
             catch (RuntimeException $error) { self::assertSame('INVALID_WORKFLOW_ANSWER',$error->getMessage()); }
         }
     }
+    public function testViewOptionExcludesPropsAndAlreadyCreatedViews(): void {
+        $state=$this->state();
+        $state['artifact_memory'][]=['artifact'=>'art_bible','content'=>json_encode($this->plan())];
+        foreach (['a','p'] as $id) $state['artifact_memory'][]=['stage'=>'assets','artifact'=>'subject','key'=>Visuals::key('subject',$id),'node_id'=>$id];
+        self::assertTrue(Flow::canPrepareViews($state));
+        $state['artifact_memory'][]=['stage'=>'assets','artifact'=>'three_view','key'=>Visuals::key('view','a'),'node_id'=>'view'];
+        self::assertFalse(Flow::canPrepareViews($state));
+    }
+    public function testStoryboardWritesOneReadableTableAndDoesNotCarryImageReuseIntoVideo(): void {
+        $nodes=Flow::storyboardNodes([['prompt'=>'第一镜'],['prompt'=>'第二镜']]);
+        self::assertCount(1,$nodes);self::assertSame('第一镜'."\n\n".'第二镜',$nodes[0]['prompt']);
+        $state=$this->state();$state['image_plan']=['reuse'=>['old']];$state['plan_hash']='old';
+        Flow::advance($state,'assets',['assets']);
+        self::assertSame([],$state['image_plan']);self::assertSame('',$state['plan_hash']);
+    }
+    public function testGraphRejectsPendingTurnaroundSourceAndUnselectedVideo(): void {
+        $state=$this->state();$state['video_selection']=['ep1_shot2'];
+        $key='assets:'.Visuals::key('subject','a');
+        $state['artifact_memory'][]=['reference_key'=>$key,'stage'=>'assets','artifact'=>'subject','node_id'=>'10'];
+        $nodes=[['id'=>'10','type'=>'image','metadata'=>['workflow_key'=>$key,'workflow_artifact'=>'subject','status'=>'running','asset_id'=>0]]];
+        $resolve=new ReflectionMethod(GraphService::class,'compactWorkflowReferenceSources');$resolve->setAccessible(true);
+        try { $resolve->invoke(null,$nodes,[],'assets',['artifact'=>'three_view','reference_keys'=>[$key]],$state,[]);self::fail('Pending image accepted'); }
+        catch(RuntimeException $error) { self::assertSame('WORKFLOW_REFERENCE_UNAVAILABLE',$error->getMessage()); }
+        $nodes[0]['metadata']['status']='success';$nodes[0]['metadata']['asset_id']=3;
+        self::assertEquals(['10'],$resolve->invoke(null,$nodes,[],'assets',['artifact'=>'three_view','reference_keys'=>[$key]],$state,[]));
+        try { $resolve->invoke(null,$nodes,[],'video_nodes',['artifact'=>'storyboard_video','key'=>'ep1_shot1','reference_keys'=>[$key]],$state,[]);self::fail('Unselected video accepted'); }
+        catch(RuntimeException $error) { self::assertSame('INVALID_AGENT_ACTION',$error->getMessage()); }
+    }
     public function testOldPendingStoryboardAdvancesWithoutCreatingImages(): void {
         $state=$this->state();$state['stage_state']['key']='storyboard';Flow::answer($state,'continue');
         self::assertSame(['key'=>'video_plan','status'=>'ready'],$state['stage_state']);

@@ -24,12 +24,20 @@ final class ConversationStepFlow
 
     public static function canPrepareViews(array $state): bool
     {
-        $subjects=[];$views=[];
+        $subjects=[];$views=[];$characters=null;
+        foreach ((array)($state['artifact_memory']??[]) as $item) if (($item['artifact']??'')==='art_bible') {
+            $plan=json_decode((string)($item['content']??''),true);
+            if (is_array($plan['subjects']??null)) {
+                $characters=[];
+                foreach ($plan['subjects'] as $subject) if (in_array($subject['category']??'character',['character','animal'],true)) $characters[]=substr(ConversationSeriesVisuals::key('subject',(string)$subject['id']),8);
+            }
+        }
         foreach ((array)($state['artifact_memory']??[]) as $item) {
             if (($item['stage']??'')!=='assets' || empty($item['node_id'])) continue;
             if (($item['artifact']??'')==='subject') $subjects[]=substr((string)$item['key'],8);
             if (($item['artifact']??'')==='three_view') $views[]=substr((string)$item['key'],5);
         }
+        if ($characters!==null) $subjects=array_intersect($subjects,$characters);
         return (bool)array_diff($subjects,$views);
     }
 
@@ -43,6 +51,7 @@ final class ConversationStepFlow
             default=>'',
         };
         if ($next==='') return [];
+        $state['image_plan']=[];$state['plan_hash']='';$state['plan_confirmation']=['status'=>'not_required'];
         unset($state['video_selection']);
         return ['key'=>$next,'status'=>$next==='complete'?'ready':'awaiting_stage_start','completed'=>$completed];
     }
@@ -65,6 +74,12 @@ final class ConversationStepFlow
             if ($stage==='storyboard') $state['stage_state']['key']='video_plan';
         } else throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
         $state['stage_state']['status']='ready';
+    }
+
+    public static function storyboardNodes(array $nodes): array
+    {
+        $parts=mb_str_split(implode("\n\n",array_column($nodes,'prompt')),18000,'UTF-8');
+        return array_map(static fn($part,$index)=>['type'=>'text','artifact'=>'video_prompt_plan','key'=>'storyboard_table_'.($index+1),'title'=>'分镜表'.(count($parts)>1?'（'.($index+1).'）':''),'prompt'=>$part],$parts,array_keys($parts));
     }
 
     public static function card(array $state): array
