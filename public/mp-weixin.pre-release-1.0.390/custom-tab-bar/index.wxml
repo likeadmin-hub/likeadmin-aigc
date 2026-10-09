@@ -1,0 +1,6 @@
+<view wx:if="{{items.length}}" class="decoration-tabbar" style="background-color:{{backgroundColor}}">
+  <view wx:for="{{items}}" wx:key="index" class="decoration-tabbar__item" data-index="{{index}}" bindtap="select" style="color:{{selected === index ? selectedColor : color}}">
+    <image class="decoration-tabbar__icon" src="{{selected === index ? item.selectedIconPath : item.iconPath}}" mode="aspectFit" />
+    <text class="decoration-tabbar__label">{{item.text}}</text>
+  </view>
+</view>

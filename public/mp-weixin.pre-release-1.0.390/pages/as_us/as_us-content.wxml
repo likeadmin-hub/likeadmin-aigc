@@ -1,0 +1,1 @@
+<view class="as-us flex flex-1 flex-col items-center data-v-1b3ee84d"><image src="{{a}}" mode="" class="img data-v-1b3ee84d"></image><view class="text-content mt-_bl_20rpx_br_ data-v-1b3ee84d">当前版本{{b}}</view></view>

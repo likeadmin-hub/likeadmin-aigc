@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "录制声音",
+  "navigationBarTextStyle": "black",
+  "navigationBarBackgroundColor": "#ffffff",
+  "usingComponents": {
+    "mp-privacy-popup": "../../../../../components/mp-privacy-popup/mp-privacy-popup",
+    "page-content": "./record-content"
+  }
+}
