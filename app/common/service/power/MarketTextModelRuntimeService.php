@@ -91,7 +91,7 @@ class MarketTextModelRuntimeService
      * @param array<string, mixed> $params content, system_prompt, model_selection, action_code
      * @return array<string, mixed>
      */
-    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $tenantAdminConsumption = false): array
+    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $tenantAdminConsumption = false, ?callable $persistResult = null): array
     {
         // Server-only argument for tenant-admin authoring tools; never read from params.
         if ($tenantAdminConsumption && ($tenantId <= 0 || $userId !== 0)) throw new Exception('租户后台调用身份无效');
@@ -100,6 +100,7 @@ class MarketTextModelRuntimeService
             throw new Exception('请输入文本内容');
         }
         $resultValidator=$params['_result_validator']??null;
+        if ($persistResult !== null && $resultValidator !== null) throw new Exception('持久化调用的内容校验必须在收据接收后执行');
         if ($resultValidator!==null && !is_callable($resultValidator)) throw new Exception('文本结果校验器无效');
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
         $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? []);
@@ -135,6 +136,7 @@ class MarketTextModelRuntimeService
             'model_code' => $model['model_code'],
             'generation_params' => $generationParams + ['max_tokens' => $maxTokens],
         ];
+        if ($persistResult !== null) $requestSummary['durable_receipt_version'] = 1;
         // Token SKU amounts must come from the upstream usage record. Showing a
         // locally guessed total or reserving max_tokens makes the price wrong.
         $reserve = self::quote($model, 0, 0);
@@ -148,6 +150,7 @@ class MarketTextModelRuntimeService
 
         $started = microtime(true);
         $requestTimeout = self::resolveRequestTimeout($params);
+        $resultReceived = false;
         try {
             self::event((int)$context['consumption']['id'], 'submit', 'running', ['model_code' => $model['model_code']]);
             $compatibilityAttempts = 0;
@@ -155,6 +158,23 @@ class MarketTextModelRuntimeService
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
+                    $resultReceived = true;
+                    if ($persistResult !== null) {
+                        // Save the complete provider reply before validation, settlement or event writes.
+                        $durable = array_replace($result, [
+                            'durable_receipt_version' => 1,
+                            'effective_max_tokens' => $maxTokens, 'model_code' => $model['model_code'],
+                            'channel_code' => $model['channel_code'], 'provider' => 'power_market',
+                            'app_task_id' => (int)$context['appTask']['id'],
+                            'consumption_id' => (int)$context['consumption']['id'],
+                            'billing' => ['billing_status' => 'pending_usage'],
+                            'usage' => self::normalizeUsage((array)($result['usage'] ?? [])),
+                            '_elapsed_ms' => (int)round((microtime(true) - $started) * 1000),
+                            '_require_final_content' => !empty($params['_require_final_content']),
+                        ]);
+                        $persistResult($durable);
+                        return self::recoverDurableResult($tenantId, $userId, $businessTable, $businessId, $durable);
+                    }
                     if (!empty($params['_require_final_content']) && ($result['content_source'] ?? 'content') !== 'content') {
                         throw new Exception('文本模型未返回最终正文，请检查模型输出配置后重试');
                     }
@@ -162,7 +182,7 @@ class MarketTextModelRuntimeService
                     break;
                 } catch (\Throwable $initialError) {
                     // Durable callers admit each transport attempt in their own budget ledger.
-                    if (!empty($params['_disable_compatibility_retry'])) throw $initialError;
+                    if (($persistResult !== null && $resultReceived) || !empty($params['_disable_compatibility_retry'])) throw $initialError;
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
                     if ($retry === null) {
                         $retry = self::compatibleTransportOptions($initialError->getMessage(), $transportOptions);
@@ -211,6 +231,8 @@ class MarketTextModelRuntimeService
                 'usage' => $usage,
             ];
         } catch (\Throwable $e) {
+            // A returned reply is not a failed submission. Leave its ledger recoverable.
+            if ($persistResult !== null && $resultReceived) throw $e;
             self::fail($context, $e->getMessage(), 'provider_error');
             $fallback = self::fallbackModel($tenantId, $model, $requiresVision, (array)($params['_market_model_fallback_ids'] ?? []));
             if (empty($params['_disable_model_fallback']) && $fallback !== null && self::isExplicitModelUnavailable($e->getMessage())) {
@@ -223,10 +245,53 @@ class MarketTextModelRuntimeService
                     array_map('strval', (array)($params['_market_model_fallback_ids'] ?? [])),
                     [(string)$model['id']]
                 )));
-                return self::generate($tenantId, $userId, $params, $onEvent, $tenantAdminConsumption);
+                return self::generate($tenantId, $userId, $params, $onEvent, $tenantAdminConsumption, $persistResult);
             }
             throw $e instanceof Exception ? $e : new Exception('文本模型调用失败，请稍后重试');
         }
+    }
+
+    /** Reconcile a private durable receipt using its original ledger; never submits to a provider. */
+    public static function recoverDurableResult(int $tenantId, int $userId, string $businessTable, int $businessId, array $receipt): array
+    {
+        return Db::transaction(static function () use ($tenantId, $userId, $businessTable, $businessId, $receipt): array {
+            $c = AiConsumptionLog::where(['id' => (int)($receipt['consumption_id'] ?? 0),
+                'tenant_id' => $tenantId, 'user_id' => $userId])->lock(true)->findOrEmpty();
+            if ($c->isEmpty()) throw new \RuntimeException('模型收据的结算记录不存在', 409);
+            $task = AiAppTask::where(['id' => (int)$c['app_task_id'], 'tenant_id' => $tenantId,
+                'user_id' => $userId, 'business_table' => $businessTable, 'business_id' => $businessId])->lock(true)->findOrEmpty();
+            if ($task->isEmpty() || (int)$c['app_task_id'] !== (int)($receipt['app_task_id'] ?? 0)
+                || (string)$c['model_code'] !== (string)($receipt['model_code'] ?? '')
+                || (int)($receipt['durable_receipt_version'] ?? 0) !== 1
+                || (int)(self::arrayValue($c['request_summary'])['durable_receipt_version'] ?? 0) !== 1) {
+                throw new \RuntimeException('模型收据与原始任务不匹配', 409);
+            }
+            if (!in_array((string)$c['billing_status'], ['pending_usage', 'settled'], true)) {
+                throw new \RuntimeException('原账单已退款或已人工处理，不能自动补扣', 409);
+            }
+            $snapshot = self::arrayValue($c['price_snapshot']);
+            if (!isset($snapshot['input']['platform_price'], $snapshot['input']['tenant_price'],
+                $snapshot['output']['platform_price'], $snapshot['output']['tenant_price'])) {
+                throw new \RuntimeException('原账单价格快照不完整', 409);
+            }
+            $usage = self::normalizeUsage((array)($receipt['usage'] ?? []));
+            if (!self::canSettleUsageFromSnapshot($snapshot, $usage)) {
+                throw new \RuntimeException('模型正文已保存，等待真实用量后继续结算', 409);
+            }
+            if ((int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0) $usage['prompt_tokens'] = (int)$usage['total_tokens'];
+            $actual = self::quote($snapshot, (int)$usage['prompt_tokens'], (int)$usage['completion_tokens']);
+            self::settle(['consumption' => $c, 'appTask' => $task], $actual, $usage, $receipt, (int)($receipt['_elapsed_ms'] ?? 0));
+            $c = AiConsumptionLog::find((int)$c['id']);
+            $result = array_replace($receipt, ['usage' => $usage, 'billing' => array_replace($actual, [
+                'billing_status' => 'settled', 'tenant_cost_points' => (float)$c['actual_tenant_cost'],
+                'user_charge_points' => (float)$c['actual_user_price'],
+            ])]);
+            // Reasoning-only responses remain recoverable/auditable but cannot become screenplay content.
+            if (!empty($receipt['_require_final_content']) && ($receipt['content_source'] ?? 'content') !== 'content') {
+                throw new \RuntimeException('已保存模型返回，但缺少最终正文，需要核对模型输出', 409);
+            }
+            return $result;
+        });
     }
 
     /**
