@@ -24,3 +24,27 @@ class MarketTextModelRuntimeService
             'billing' => ['tenant_cost_points' => '1.00', 'user_charge_points' => '2.00', 'billing_status' => 'settled']];
     }
 }
+
+class MarketImageModelRuntimeService
+{
+    public static array $requests = [];
+    public static int $limit = 8;
+    public static function options(int $tenant): array { return [['id' => 'market_image_model:fixture', 'name' => 'Fixture']]; }
+    public static function modelGroup(int $tenant): array { return ['key' => 'image', 'options' => self::options($tenant)]; }
+    public static function referenceImageLimitFromSnapshot(array $snapshot): int { return self::$limit; }
+    public static function quote(int $tenant, array $params, int $quantity = 1): array
+    {
+        return ['tenant_cost_points' => '0.00', 'user_charge_points' => '0.00', 'market_snapshot' => ['model_code' => 'fixture'], 'billing_unit' => 'image', 'quantity' => 1];
+    }
+    public static function reserve(int $tenant, int $user, string $type, string $task, array $params, array $image, int $quantity): array
+    {
+        return ['app_task_id' => 0, 'consumption_id' => 0, 'market_snapshot' => []];
+    }
+    public static function linkBusinessTask(int $app, int $business): void {}
+    public static function submit(int $consumption, array $params): array
+    {
+        self::$requests[] = $params;
+        return ['status' => 'success', 'provider_task_id' => 'fixture_' . count(self::$requests), 'images' => [
+            ['image_uri' => 'uploads/test/vnext-fixture-' . count(self::$requests) . '.png', 'width' => 900, 'height' => 1600, 'storage_engine' => 'local', 'storage_scope' => 'tenant']]];
+    }
+}
