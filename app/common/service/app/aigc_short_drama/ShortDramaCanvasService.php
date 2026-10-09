@@ -1450,6 +1450,7 @@ class ShortDramaCanvasService
             });
         }
         $nodes = GraphService::registeredUploadNodes($row, self::decode((string)$row['nodes_json']));
+        $nodes = \app\common\service\app\aigc_short_drama\vnext\CanvasProductionProjection::displayStates((int)$row['tenant_id'], (int)$row['user_id'], $nodes);
         if ($includeRuns) self::queueVideoPosters((int)$row['tenant_id'], (int)$row['user_id'], (int)$row['id'], $nodes, false);
         $createTime = (int)($row['create_time'] ?? 0);
         $data = [
