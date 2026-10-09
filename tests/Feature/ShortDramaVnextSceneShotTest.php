@@ -92,14 +92,65 @@ final class ShortDramaVnextSceneShotTest extends TestCase
     {
         $document = self::input()['context']['canonical_input'];
         $plan = SceneShotExecution::partition($document, static fn() => ['max_tokens' => 1000], 1, false);
-        foreach (['omit', 'repeat', 'reverse'] as $kind) {
+        foreach (['omit', 'repeat', 'reverse', 'scalar', 'non_list'] as $kind) {
             $bad = $plan;
             if ($kind === 'omit') array_pop($bad['windows']);
             elseif ($kind === 'repeat') $bad['windows'][] = $bad['windows'][0];
-            else $bad['windows'] = array_reverse($bad['windows']);
+            elseif ($kind === 'reverse') $bad['windows'] = array_reverse($bad['windows']);
+            elseif ($kind === 'scalar') $bad['windows'] = 'invalid';
+            else $bad['windows'] = ['first' => $bad['windows'][0]];
             unset($bad['plan_hash']); $bad['plan_hash'] = ContentDocument::hash($bad);
             try { SceneShotExecution::assertPlan($document, $bad); self::fail('Broken plan accepted'); }
             catch (\RuntimeException $e) { self::assertSame(409, $e->getCode()); }
         }
+    }
+    public function testOversizedSingleUnitStopsBeforeCallingModelAndKeepsFullDocument(): void
+    {
+        $input = self::input(1); $saved = null; $checkpoints = [];
+        try {
+            GenerationPipeline::run($input['context'], static function () { self::fail('Oversized input reached provider'); },
+                static function () {}, static function ($candidate) use (&$checkpoints) { $checkpoints[] = $candidate; }, $this->execution(512, $saved));
+            self::fail('Oversized unit accepted');
+        } catch (\RuntimeException $error) { self::assertSame(413, $error->getCode()); }
+        self::assertNull($saved);
+        self::assertSame($input['context']['canonical_input'], end($checkpoints)['document']);
+    }
+    public function testWindowTruncationDoesNotRecursivelyExpandPlan(): void
+    {
+        $saved = null; $keys = []; $checkpoints = [];
+        try {
+            GenerationPipeline::run(self::input()['context'], static function ($key, $messages) use (&$keys) {
+                $keys[] = $key;
+                return $key === 'shots_window_2' ? ['content' => '{partial', 'finish_reason' => 'length'] : self::reply(json_decode($messages['content'], true));
+            }, static function () {}, static function ($candidate) use (&$checkpoints) { $checkpoints[] = $candidate; }, $this->execution(1000, $saved));
+            self::fail('Truncated window accepted');
+        } catch (\app\common\service\app\aigc_short_drama\ShortDramaOutputLimitException $error) { self::assertSame(413, $error->getCode()); }
+        self::assertSame(['shots_window_1', 'shots_window_2'], $keys);
+        self::assertCount(3, $saved['windows']);
+        self::assertSame(1, end($checkpoints)['shot_windows']['completed']);
+        self::assertArrayNotHasKey('shot_plan', end($checkpoints));
+    }
+    public function testReviewCapacityFailureKeepsMergedShotsWithoutAcceptance(): void
+    {
+        $input = self::input(); $saved = null; $checkpoints = [];
+        try {
+            GenerationPipeline::run($input['context'], static function ($key, $messages) {
+                if ($key === 'review') throw new \RuntimeException('Full review exceeds capacity', 413);
+                return self::reply(json_decode($messages['content'], true));
+            }, static function () {}, static function ($candidate) use (&$checkpoints) { $checkpoints[] = $candidate; }, $this->execution(1000, $saved));
+            self::fail('Unreviewed document accepted');
+        } catch (\RuntimeException $error) { self::assertSame(413, $error->getCode()); }
+        $last = end($checkpoints);
+        self::assertSame($input['context']['canonical_input'], $last['document']);
+        self::assertCount(6, $last['shot_plan']['shots']); self::assertCount(6, $last['shot_plan']['audio_segments']);
+        self::assertArrayNotHasKey('coverage_report', $last);
+    }
+    public function testWindowCountIsBoundedBeforeDispatch(): void
+    {
+        $capacity = static fn() => ['max_tokens' => 640];
+        $plan = SceneShotExecution::partition(self::input(32)['context']['canonical_input'], $capacity, 1, false);
+        self::assertCount(32, $plan['windows']);
+        $this->expectException(\RuntimeException::class); $this->expectExceptionCode(413);
+        SceneShotExecution::partition(self::input(33)['context']['canonical_input'], $capacity, 1, false);
     }
 }
