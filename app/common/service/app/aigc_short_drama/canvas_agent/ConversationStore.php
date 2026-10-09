@@ -208,6 +208,20 @@ final class ConversationStore
         return array_map(static function ($row) use ($scope,$thread) {
             $content=json_decode($row['content_json'],true,512,JSON_THROW_ON_ERROR);
             if (!is_array($content) || !is_string($content['text']??null)) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
+            // Older image turns retained prompts but not the confirmation card.
+            // Rebuild its display from the frozen run, never reprice old work.
+            if ($row['role']==='assistant' && !empty($content['stage_artifacts']) && !isset($content['image_plan'])) {
+                $run=Db::name(self::PREFIX.'run')->where($scope+['id'=>$row['run_id'],'thread_id'=>$thread])->find();
+                $context=json_decode((string)($run['context_snapshot']??'{}'),true)?:[];
+                $frozen=(array)($context['workflow']??[]);
+                if (in_array($frozen['stage_state']['key']??'',['assets','storyboard'],true)) {
+                    $model=(array)($frozen['workflow_snapshot']['model_preferences']['image_model']??[]);
+                    $content['image_plan']=['run_id'=>(int)$row['run_id'],'items'=>$content['stage_artifacts'],
+                        'node_count'=>count($content['stage_artifacts']),'model_label'=>(string)($model['model_code']??''),
+                        'image_model'=>['id'=>(string)($model['id']??'')],'ratio'=>(string)($frozen['creative_settings']['aspect_ratio']??'')];
+                    $content['image_plan']['items']=array_map(static fn(array $item): array=>['title'=>$item['title'],'prompt'=>$item['content']],$content['stage_artifacts']);
+                }
+            }
             $message=['id'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'role'=>$row['role'],'created_at'=>(int)$row['create_time'],'content'=>$content,'attachments'=>json_decode($row['attachments_json'],true,512,JSON_THROW_ON_ERROR)];
             $actions=$content['canvas_actions']??null;
             if ($actions!==null) {
