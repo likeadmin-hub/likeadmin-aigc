@@ -15,6 +15,8 @@ final class GenerationPipeline
         if (!in_array($projection, [0, PromptProjection::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的模型请求版本', 409);
         $sceneVersion = $context['scene_shot_version'] ?? 0;
         if (!in_array($sceneVersion, [0, SceneShotExecution::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的分场请求版本', 409);
+        $reviewVersion = $context['scene_review_version'] ?? 0;
+        if (!in_array($reviewVersion, [0, SceneReviewExecution::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的分窗核验版本', 409);
         $windowed = false;
         $makeShots = static function (array $document, callable $call, string $key, string $reservation, array $issues = []) use ($sceneVersion, $sceneExecution, $checkpoint, $projection, &$windowed): array {
             if ($sceneVersion === SceneShotExecution::VERSION && $sceneExecution && $reservation === '') {
@@ -46,7 +48,9 @@ final class GenerationPipeline
         $checkpoint(['document' => $document]);
         $plan = $makeShots($document, $call, 'shots', '');
         $checkpoint(['document' => $document, 'shot_plan' => $plan]);
-        $report = self::review($context, $document, $plan, $call, 'review', '');
+        $report = $reviewVersion === SceneReviewExecution::VERSION && isset($sceneExecution['review_plan'])
+            ? SceneReviewExecution::run($context, $document, $plan, $call, $checkpoint, $sceneExecution, $projection, $windowed)
+            : self::review($context, $document, $plan, $call, 'review', '');
         $best = ['document' => $document, 'shot_plan' => $plan, 'coverage_report' => $report];
         $checkpoint($best);
         if ($windowed && $report['status'] !== 'ready') return $best + ['receipts' => $receipts, 'stop_reason' => 'windowed_content_requires_revision'];
@@ -157,26 +161,36 @@ final class GenerationPipeline
     }
     private static function review(array $context, array $document, array $plan, callable $call, string $key, string $reservation): array
     {
+        return $call($key, self::reviewData($context, $document, $plan), self::reviewInstruction($context),
+            static fn($reply) => self::validateReview($context, $document, $plan, $reply), $reservation);
+    }
+    public static function reviewData(array $context, array $document, array $plan): array
+    {
         $narrative = (int)($context['narrative_contract_version'] ?? 0) === NarrativeLedger::VERSION;
         $history = $narrative ? ['previous_narrative' => NarrativeLedger::relevant($context['previous_narrative'] ?? [], array_column($document['entities'], 'entity_id'))] : [];
         if (isset($context['input_history'])) $history['input_history'] = $context['input_history'];
-        return $call($key, ['document' => $document, 'shot_plan' => $plan, 'original_input' => $context['prompt'] ?? '',
-            'requirements' => $context['requirements'] ?? [], 'events' => $context['events'] ?? [], 'confirmed_facts' => $context['confirmed_facts'] ?? []] + $history,
-            '合并核验本集内容、人物、连续性及分镜。逐项检查适用本集的requirements/events，以及aspect:identity、aspect:continuity、aspect:shot_fidelity。'
+        return ['document' => $document, 'shot_plan' => $plan, 'original_input' => $context['prompt'] ?? '',
+            'requirements' => $context['requirements'] ?? [], 'events' => $context['events'] ?? [], 'confirmed_facts' => $context['confirmed_facts'] ?? []] + $history;
+    }
+    public static function reviewInstruction(array $context): string
+    {
+        $narrative = (int)($context['narrative_contract_version'] ?? 0) === NarrativeLedger::VERSION;
+        return '合并核验本集内容、人物、连续性及分镜。逐项检查适用本集的requirements/events，以及aspect:identity、aspect:continuity、aspect:shot_fidelity。'
             . '返回{"document_hash":"输入content_hash","shot_hash":"shot_plan.content_hash","checks":[{"id":"检查项ID",'
             . '"status":"covered|missing|contradiction|uncertain","scope":"whole_episode","reason":"依据",'
             . '"evidence":[{"unit":"u1","start":0,"end":2,"quote":"实际引文"}]}]}。'
             . 'covered必须有真实正文证据，计划、摘要和想象不等于已发生；不能遗漏检查项或编造引文。范围使用Unicode码点且end不包含。'
-            . '表达优化只作为建议，不能判为核心缺陷。仅检查本集适用事件，后续大纲不属于已发生事实。' . self::historyInstruction($context) . ($narrative ? NarrativeLedger::instruction() : ''),
-            static function ($reply) use ($document, $plan, $context, $narrative): array {
-                $report = ContentCoverage::evaluate($document, $plan, $context['requirements'] ?? [], $context['events'] ?? [], $reply);
-                if ($narrative) {
-                    if (!array_key_exists('narrative_changes', $reply)) throw new RuntimeException('核验缺少本集事实与认知记录', 422);
-                    $report['narrative_ledger'] = NarrativeLedger::evaluate($document,
-                        ContentDocument::rows($reply['narrative_changes'], 'narrative_changes'), $context['previous_narrative'] ?? []);
-                }
-                return $report;
-            }, $reservation);
+            . '表达优化只作为建议，不能判为核心缺陷。仅检查本集适用事件，后续大纲不属于已发生事实。' . self::historyInstruction($context) . ($narrative ? NarrativeLedger::instruction() : '');
+    }
+    public static function validateReview(array $context, array $document, array $plan, array $reply): array
+    {
+        $report = ContentCoverage::evaluate($document, $plan, $context['requirements'] ?? [], $context['events'] ?? [], $reply);
+        if ((int)($context['narrative_contract_version'] ?? 0) === NarrativeLedger::VERSION) {
+            if (!array_key_exists('narrative_changes', $reply)) throw new RuntimeException('核验缺少本集事实与认知记录', 422);
+            $report['narrative_ledger'] = NarrativeLedger::evaluate($document,
+                ContentDocument::rows($reply['narrative_changes'], 'narrative_changes'), $context['previous_narrative'] ?? []);
+        }
+        return $report;
     }
     private static function blocking(array $report): array
     {

@@ -327,9 +327,9 @@ final class ShortDramaVnextExecutionTest extends TestCase
         $this->store->checkpoint($new, ['title' => 'new']);
         $this->expectExceptionCode(409); $this->store->checkpoint($fence, ['title' => 'old']);
     }
-    private function sceneStore(): array
+    private function sceneStore(bool $review = false): array
     {
-        $input = ShortDramaVnextSceneShotTest::input();
+        $input = $review ? ShortDramaVnextSceneReviewTest::input() : ShortDramaVnextSceneShotTest::input();
         $input['execution']['resource_limits'] = ['total_tokens' => 10000, 'tenant_cost_points' => 3, 'user_charge_points' => 6];
         $this->scope['task_id'] .= '_scene';
         $this->store = new ExecutionStore($this->scope['tenant_id'], $this->scope['user_id'], $this->scope['task_id'], $this->buffer);
@@ -384,6 +384,63 @@ final class ShortDramaVnextExecutionTest extends TestCase
         self::assertSame(1200000, $final['resources']['spent']['user_charge_points']);
         JobRunner::run($this->store, 'other_worker', static function () { self::fail('Published result resubmitted'); });
         self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+    }
+    public function testWindowReviewWorkerResumesAndDoesNotExpandFrozenBudgetAgain(): void
+    {
+        $input = $this->sceneStore(true); $paid = []; $attempts = 0;
+        $provider = function ($params, $key, $persist, $admit) use (&$paid, &$attempts): array {
+            $data = json_decode($params['content'], true);
+            $label = isset($data['review_window']) ? 'window_' . $data['review_window']['number']
+                : (isset($data['window_reviews']) ? 'global' : (isset($data['shot_plan']) ? 'review' : 'shots'));
+            $admit(['total_tokens' => 500, 'tenant_cost_points' => .5, 'user_charge_points' => 1]);
+            if ($label === 'window_2' && $attempts++ === 0) throw new \RuntimeException('Could not resolve host');
+            $paid[] = $label; $receipt = $this->billedReceipt(); unset($receipt['result']);
+            $receipt = ($label === 'review' ? ['content' => '{partial', 'finish_reason' => 'length'] : ShortDramaVnextSceneReviewTest::receipt($data)) + $receipt;
+            $persist($receipt); return $receipt;
+        };
+        try { JobRunner::run($this->store, 'worker', $provider); self::fail('Connection failure ignored'); }
+        catch (\RuntimeException $e) { self::assertSame(425, $e->getCode()); }
+        $job = $this->store->snapshot(); $budget = json_decode($job['budget_json'], true); $candidate = json_decode($job['candidate_json'], true);
+        self::assertSame(['shots', 'review', 'window_1'], $paid);
+        self::assertSame('retry_wait', $job['execution_status']); self::assertSame(1, $candidate['review_windows']['completed']);
+        self::assertSame($input['context']['canonical_input'], $candidate['document']);
+        self::assertCount(6, $candidate['shot_plan']['shots']); self::assertArrayNotHasKey('coverage_report', $candidate);
+        self::assertSame(4, $budget['base_calls']); self::assertSame(138, $budget['resources']['spent']['total_tokens']);
+        Db::name('aigc_short_drama_vnext_stage')->where($this->scope)->update(['retry_after' => 0]);
+        $result = JobRunner::run($this->store, 'worker', $provider);
+        self::assertSame(['shots', 'review', 'window_1', 'window_2', 'global'], $paid);
+        self::assertSame('ready', $result['coverage_report']['status']);
+        $final = json_decode($this->store->snapshot()['budget_json'], true);
+        self::assertSame(4, $final['base_calls']); self::assertSame(6, $final['calls']);
+        self::assertSame($budget['scene_review_plan'], $final['scene_review_plan']);
+        self::assertSame(230, $final['resources']['spent']['total_tokens']); self::assertSame(2000000, $final['resources']['spent']['user_charge_points']);
+        self::assertSame($budget['resources']['limits'], $final['resources']['limits']); self::assertSame($job['deadline_at'], $this->store->snapshot()['deadline_at']);
+        JobRunner::run($this->store, 'other', static function () { self::fail('Published review resubmitted'); });
+        self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+    }
+    public function testCancelBetweenReviewWindowsKeepsReceiptsAndRequiresExplicitResume(): void
+    {
+        $this->sceneStore(true); $paid = []; $canceled = false;
+        $provider = function ($params, $key, $persist, $admit) use (&$paid): array {
+            $data = json_decode($params['content'], true);
+            $label = isset($data['review_window']) ? 'window_' . $data['review_window']['number']
+                : (isset($data['window_reviews']) ? 'global' : (isset($data['shot_plan']) ? 'review' : 'shots'));
+            $admit(['total_tokens' => 500, 'tenant_cost_points' => .5, 'user_charge_points' => 1]);
+            $paid[] = $label; $receipt = $this->billedReceipt(); unset($receipt['result']);
+            $receipt = ($label === 'review' ? ['content' => '{partial', 'finish_reason' => 'length'] : ShortDramaVnextSceneReviewTest::receipt($data)) + $receipt;
+            $persist($receipt); return $receipt;
+        };
+        try { JobRunner::run($this->store, 'worker', $provider, function ($event, $payload) use (&$canceled) {
+            if (!$canceled && $event === 'stage' && $payload['stage'] === 'review_window_2') { $canceled = true; $this->store->cancel(); }
+        }); self::fail('Canceled job continued'); }
+        catch (\RuntimeException $e) { self::assertContains($e->getCode(), [409, 422]); }
+        self::assertSame(['shots', 'review', 'window_1'], $paid);
+        self::assertSame('canceled', $this->store->snapshot()['execution_status']);
+        self::assertSame(1, json_decode($this->store->snapshot()['candidate_json'], true)['review_windows']['completed']);
+        self::assertSame(0, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+        self::assertTrue($this->store->resume()); JobRunner::run($this->store, 'worker', $provider);
+        self::assertSame(['shots', 'review', 'window_1', 'window_2', 'global'], $paid);
+        self::assertSame('succeeded', $this->store->snapshot()['execution_status']);
     }
     public function testOversizedCanonicalInputStopsBeforeProviderAndKeepsEntireDraft(): void
     {
