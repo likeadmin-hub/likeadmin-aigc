@@ -9,6 +9,14 @@ final class ConversationSeriesVisuals
 {
     public static function key(string $kind,string $identity): string { return $kind.'_'.substr(hash('sha256',$identity),0,20); }
 
+    public static function storyboardPrompt(string $prompt,array $shot): string
+    {
+        $dialogue=trim((string)($shot['dialogue']??''));
+        if ($dialogue==='') return $prompt;
+        $speaker=trim((string)($shot['voice_role']??''));
+        return $prompt."\n\n".($speaker!==''?'说话角色：'.$speaker."\n":'').'对白：'.$dialogue;
+    }
+
     public static function proposals(array $plan,string $stage,int $episode,callable $render,array $sceneReferences=[],array $workflow=[]): array
     {
         $shots=array_values((array)($plan['storyboard']??[]));
@@ -56,7 +64,7 @@ final class ConversationSeriesVisuals
                 $sceneReference=$sceneReferences[(string)$shot['scene_ref_id']]??'';
                 if ($sceneReference!=='') $refs[]=$sceneReference;
                 if (count($refs)>6) throw new RuntimeException('WORKFLOW_REFERENCE_LIMIT');
-                $proposal=$node('image','storyboard','分镜'.$number,$render('storyboard',$shot),$shotKey);
+                $proposal=$node('image','storyboard','分镜'.$number,self::storyboardPrompt($render('storyboard',$shot),$shot),$shotKey);
                 if ($sceneReference==='') $proposal['depends_on']=[self::key('scene',(string)$shot['scene_ref_id'])];
                 if ($refs) $proposal['reference_keys']=$refs;
                 $result[]=$proposal;

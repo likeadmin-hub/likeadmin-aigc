@@ -109,4 +109,10 @@ final class CanvasStepFlowTest extends TestCase
         self::assertTrue($s['three_views_ready']);self::assertSame('生成分镜表',Flow::card($s)['action_label']);
         Flow::answer($s,'continue');self::assertSame('ready',$s['stage_state']['status']);
     }
+    public function testStoryboardImageNodesKeepDialogueAndSpeaker(): void {
+        $plan=$this->plan();$plan['storyboard'][0]['dialogue']='我来处理。';$plan['storyboard'][0]['voice_role']='甲';
+        $nodes=Visuals::proposals($plan,'storyboard',1,static fn()=>'画面描述',['room'=>'assets:scene_room'],$this->state());
+        self::assertSame("画面描述\n\n说话角色：甲\n对白：我来处理。",$nodes[0]['prompt']);
+        self::assertSame('画面描述',$nodes[1]['prompt']);
+    }
 }
