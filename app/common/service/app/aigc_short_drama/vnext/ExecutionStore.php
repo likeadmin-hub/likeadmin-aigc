@@ -3,6 +3,7 @@ namespace app\common\service\app\aigc_short_drama\vnext;
 
 use RuntimeException;
 use think\facade\Db;
+use app\common\service\app\aigc_short_drama\ShortDramaPlanningUnit;
 
 /** Owns the only VNext budget and execution lane. Transactions never include provider I/O. */
 final class ExecutionStore
@@ -87,7 +88,9 @@ final class ExecutionStore
             if ($stage && $stage['input_hash'] !== $hash) throw new RuntimeException('阶段输入与已保存收据不一致', 409);
             if ($stage && $stage['status'] === 'received') return ['receipt' => self::decode($stage['receipt_json'])];
             if ($stage && $buffered !== null) return ['buffered' => $buffered];
-            if ($stage) return ['unknown' => true]; // Intent alone cannot prove that submission never happened.
+            if ($stage && $stage['status'] !== 'retry_wait') return ['unknown' => true]; // Intent alone cannot prove that submission never happened.
+            if ($stage && (int)$stage['retry_after'] > time()) throw new RuntimeException('连接暂时不可用，等待延迟重试', 425);
+            if ($stage && (int)$stage['attempt_count'] >= 3) throw new RuntimeException('连接重试次数已用完', 429);
             $budget = self::decode($job['budget_json']);
             if ($reservation !== '') {
                 if (($budget['reservations'][$reservation] ?? 0) < 1) throw new RuntimeException('修复轮次预留预算已用完', 429);
@@ -95,9 +98,12 @@ final class ExecutionStore
             } elseif ($budget['calls'] + array_sum($budget['reservations']) >= $budget['call_limit']) throw new RuntimeException('本集统一调用预算已用完', 429);
             $budget['calls']++;
             $this->query('job')->update(['budget_json' => self::json($budget), 'update_time' => time()]);
-            $this->query('stage')->insert($this->scope + ['stage_key' => $key, 'input_hash' => $hash, 'input_json' => self::json($input),
-                'fence' => $fence, 'status' => 'submitted', 'create_time' => time(), 'update_time' => time()]);
-            return ['submit' => true];
+            $attempt = (int)($stage['attempt_count'] ?? 0) + 1;
+            $data = ['input_hash' => $hash, 'input_json' => self::json($input), 'fence' => $fence, 'status' => 'submitted',
+                'attempt_count' => $attempt, 'retry_after' => 0, 'update_time' => time()];
+            if ($stage) $this->query('stage')->where('stage_key', $key)->update($data);
+            else $this->query('stage')->insert($this->scope + ['stage_key' => $key, 'create_time' => time()] + $data);
+            return ['submit' => true, 'attempt' => $attempt];
         });
         if (isset($claim['receipt'])) return $claim['receipt'];
         if (isset($claim['buffered'])) { $this->receive($key, $hash, $claim['buffered']); return $claim['buffered']; }
@@ -112,6 +118,15 @@ final class ExecutionStore
             $receipt['_elapsed_ms'] = (int)round((microtime(true) - $started) * 1000);
             $this->buffer->write($bufferKey, $receipt);
         } catch (\Throwable $error) {
+            if (ShortDramaPlanningUnit::retryableBeforeSubmission($error->getMessage()) && $claim['attempt'] < 3) {
+                Db::transaction(function () use ($fence, $key, $claim): void {
+                    $job = $this->job(); $this->assertFence($job, $fence);
+                    $this->query('stage')->where('stage_key', $key)->where('fence', $fence)->update(['status' => 'retry_wait',
+                        'retry_after' => time() + ($claim['attempt'] === 1 ? 30 : 120) + random_int(0, 10), 'error_code' => 'connection_not_submitted']);
+                    $this->query('job')->update(['execution_status' => 'retry_wait', 'error_code' => 'connection_not_submitted']);
+                });
+                throw new RuntimeException('连接暂时不可用，稍后继续；已保存内容保留', 425, $error);
+            }
             // Provider/buffer ambiguity never authorizes another paid submission.
             try { $this->query('job')->where('fence', $fence)->where('execution_status', 'running')->update(['execution_status' => 'reconciling', 'error_code' => 'submission_unknown']); }
             catch (\Throwable $ignored) { /* Original stage intent remains the durable recovery boundary. */ }
@@ -128,6 +143,8 @@ final class ExecutionStore
             if (!$stage || $stage['input_hash'] !== $hash) throw new RuntimeException('收据不属于当前生成阶段', 409);
             if ($stage['status'] === 'received') return;
             $budget = self::decode($job['budget_json']); $usage = $receipt['usage'] ?? $receipt['result']['usage'] ?? [];
+            $usage['input_tokens'] = $usage['input_tokens'] ?? $usage['prompt_tokens'] ?? 0;
+            $usage['output_tokens'] = $usage['output_tokens'] ?? $usage['completion_tokens'] ?? 0;
             foreach (['input_tokens', 'output_tokens', 'provider_cost', 'user_points'] as $field) $budget[$field] += max(0, (float)($usage[$field] ?? 0));
             $budget['elapsed_ms'] += max(0, (int)($receipt['_elapsed_ms'] ?? 0));
             $this->query('stage')->where('stage_key', $key)->update(['status' => 'received', 'receipt_json' => self::json($receipt), 'update_time' => time()]);
@@ -138,7 +155,8 @@ final class ExecutionStore
     {
         Db::transaction(function () use ($fence, $candidate): void {
             $job = $this->job(); $this->assertFence($job, $fence);
-            $this->query('job')->update(['candidate_json' => self::json($candidate), 'document_status' => 'draft', 'update_time' => time()]);
+            $this->query('job')->update(['candidate_json' => self::json($candidate), 'document_status' => 'draft',
+                'event_seq' => (int)$job['event_seq'] + 1, 'update_time' => time()]);
         });
     }
     public function publish(int $fence, array $document, array $plan, array $coverage): void
