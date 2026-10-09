@@ -25,6 +25,8 @@ final class GenerationPipeline
         if (!in_array($screenplayVersion, [0, SceneScreenplayExecution::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的分场创作版本', 409);
         $locationVersion = $context['missing_content_location_version'] ?? 0;
         if (!in_array($locationVersion, [0, MissingContentLocation::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的缺失内容定位版本', 409);
+        $historyVersion = $context['history_evidence_index_version'] ?? 0;
+        if (!in_array($historyVersion, [0, NarrativeHistoryIndex::VERSION], true)) throw new RuntimeException('当前服务不支持此任务的历史证据索引版本', 409);
         $windowed = false;
         $makeShots = static function (array $document, callable $call, string $key, string $reservation, array $issues = []) use ($sceneVersion, $sceneExecution, $checkpoint, $projection, &$windowed): array {
             if ($sceneVersion === SceneShotExecution::VERSION && $sceneExecution && $reservation === '') {
@@ -94,10 +96,11 @@ final class GenerationPipeline
                 'requirements' => $context['requirements'] ?? [], 'events' => $context['events'] ?? []]
                 + (isset($context['input_history']) ? ['input_history' => $context['input_history']] : [])
                 + ((int)($context['narrative_contract_version'] ?? 0) === 1 ? ['confirmed_facts' => $context['confirmed_facts'] ?? [],
-                    'previous_narrative' => NarrativeLedger::relevant($context['previous_narrative'] ?? [], array_column($base['entities'], 'entity_id'))] : []),
+                    'previous_narrative' => self::narrativeHistory($context, array_column($base['entities'], 'entity_id'))] : []),
                 '仅修复已确认的阻断问题，不润色无关内容。返回{"patches":[{"unit_id":"系统提供的ID","before_hash":"原text_hash","text":"修复后完整文本"}]}。'
                 . ($extended ? '只有content_missing阻断项允许补入缺失单元，额外返回insertions数组：{issue_id,anchor_unit_id,anchor_hash,position:before或after,type:action或dialogue,text,entity_ids:[已有主体ID],speaker_id:已有人物ID或null,speech_type:spoken或voiceover或narration}。只在已有场次中插入，不创建人物。' : '')
-                . '只修改已有单元正文，不更换发言者，不删单元、不重排，不返回整个剧本。无法在此范围修复则patches为空。',
+                . '只修改已有单元正文，不更换发言者，不删单元、不重排，不返回整个剧本。无法在此范围修复则patches为空。'
+                . (($context['history_evidence_index_version'] ?? 0) === NarrativeHistoryIndex::VERSION ? self::historyInstruction($context) : ''),
                 static function ($reply) use ($base, $context, $round, $extended, $best): array {
                     if (!isset($reply['patches']) || !is_array($reply['patches'])) throw new RuntimeException('局部修复缺少补丁列表', 422);
                     return $extended
@@ -145,9 +148,17 @@ final class GenerationPipeline
     public static function creativeContext(array $context): array
     {
         if ((int)($context['narrative_contract_version'] ?? 0) === NarrativeLedger::VERSION) {
-            $context['previous_narrative'] = NarrativeLedger::relevant($context['previous_narrative'] ?? [], array_column($context['entities'] ?? [], 'entity_id'));
+            $context['previous_narrative'] = self::narrativeHistory($context, array_column($context['entities'] ?? [], 'entity_id'));
         }
         return $context;
+    }
+
+    public static function narrativeHistory(array $context, array $entityIds): array
+    {
+        $history = NarrativeLedger::relevant($context['previous_narrative'] ?? [], $entityIds);
+        $version = $context['history_evidence_index_version'] ?? 0;
+        if (!in_array($version, [0, NarrativeHistoryIndex::VERSION], true)) throw new RuntimeException('历史证据索引版本不支持', 409);
+        return $version === NarrativeHistoryIndex::VERSION ? NarrativeHistoryIndex::pack($history) : $history;
     }
 
     private static function shotOnly(array $report): bool
@@ -169,9 +180,16 @@ final class GenerationPipeline
     }
     public static function historyInstruction(array $context): string
     {
-        return isset($context['input_history']) ? 'input_history按时间排列保存用户原始输入与修改意见。已确认的requirements/events和当前大纲为有效版本，不重新启用已替换的旧要求。'
+        $instruction = isset($context['input_history']) ? 'input_history按时间排列保存用户原始输入与修改意见。已确认的requirements/events和当前大纲为有效版本，不重新启用已替换的旧要求。'
             . '修改意见只应用于本集有关内容，不把编辑指令当作剧情或对白，也不要求每集重复跨集事件。'
             . '核验kind=revision_instructions的非covered结论必须给issue_kind:content或presentation；只有纯风格、节奏、措辞建议属于presentation，遗漏内容、身份错误、剧情矛盾不得降级为表达建议。' : '';
+        if (($context['history_evidence_index_version'] ?? 0) === NarrativeHistoryIndex::VERSION) {
+            $instruction .= 'previous_narrative.evidence_index_version=1时，每条事实的source_ref在同对象source_documents中检索原集数及版本，'
+                . 'evidence_refs逐项在同对象evidence_index中检索完整原文link及source_ref；这是共享引文，不是省略证据。'
+                . '必须结合完整value、全部引文和观察者核对历史，world_facts与character_beliefs保持分开，不能把角色误认升级为世界事实。'
+                . '历史引文属于其原集数，不能冒充本集正文u别名；本集核验证据和narrative_changes仍只引用当前document。';
+        }
+        return $instruction;
     }
     private static function shots(array $document, callable $call, string $key, string $reservation, array $issues = []): array
     {
@@ -187,7 +205,7 @@ final class GenerationPipeline
     public static function reviewData(array $context, array $document, array $plan): array
     {
         $narrative = (int)($context['narrative_contract_version'] ?? 0) === NarrativeLedger::VERSION;
-        $history = $narrative ? ['previous_narrative' => NarrativeLedger::relevant($context['previous_narrative'] ?? [], array_column($document['entities'], 'entity_id'))] : [];
+        $history = $narrative ? ['previous_narrative' => self::narrativeHistory($context, array_column($document['entities'], 'entity_id'))] : [];
         if (isset($context['input_history'])) $history['input_history'] = $context['input_history'];
         return ['document' => $document, 'shot_plan' => $plan, 'original_input' => $context['prompt'] ?? '',
             'requirements' => $context['requirements'] ?? [], 'events' => $context['events'] ?? [], 'confirmed_facts' => $context['confirmed_facts'] ?? []] + $history;
@@ -209,6 +227,12 @@ final class GenerationPipeline
             if (!array_key_exists('narrative_changes', $reply)) throw new RuntimeException('核验缺少本集事实与认知记录', 422);
             $report['narrative_ledger'] = NarrativeLedger::evaluate($document,
                 ContentDocument::rows($reply['narrative_changes'], 'narrative_changes'), $context['previous_narrative'] ?? []);
+            if (($context['history_evidence_index_version'] ?? 0) === NarrativeHistoryIndex::VERSION) {
+                $selected = NarrativeLedger::relevant($context['previous_narrative'] ?? [], array_column($document['entities'], 'entity_id'));
+                $report['history_retrieval'] = ['schema_version' => NarrativeHistoryIndex::VERSION,
+                    'ledger_hash' => $context['previous_narrative']['content_hash'] ?? '', 'selection_hash' => ContentDocument::hash($selected),
+                    'fact_ids' => array_merge(array_column($selected['world_facts'], 'fact_id'), array_column($selected['character_beliefs'], 'fact_id'))];
+            }
         }
         return $report;
     }

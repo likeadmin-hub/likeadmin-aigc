@@ -139,7 +139,14 @@ final class SeriesContext
         $ledger = $plan['narrative_ledger'] ?? [];
         if (!$ledger || ($ledger['content_hash'] ?? '') !== NarrativeLedger::digest($ledger)
             || $ledger['content_hash'] !== end($dependencies)['ledger_hash']) throw new RuntimeException('前集事实收据不完整，不能推测状态', 409);
-        return ['dependencies' => $dependencies, 'ledger' => $ledger, 'entities' => $plan['canonical_document']['entities']];
+        $document = $plan['canonical_document'] ?? []; $unsignedDocument = $document;
+        unset($unsignedDocument['content_hash'], $unsignedDocument['status'], $unsignedDocument['transforms']);
+        $current = end($dependencies);
+        if (!$document || ($document['content_hash'] ?? '') !== ContentDocument::hash($unsignedDocument)
+            || $document['content_hash'] !== $current['document_hash'] || ($document['revision_id'] ?? '') !== $current['revision_id']
+            || ($ledger['document_hash'] ?? '') !== $document['content_hash'] || ($ledger['revision_id'] ?? '') !== $document['revision_id']
+            || ($ledger['episode_id'] ?? '') !== ($document['episode_id'] ?? null)) throw new RuntimeException('前集正文、人物与事实不属于同一发布版本', 409);
+        return ['dependencies' => $dependencies, 'ledger' => $ledger, 'entities' => $document['entities']];
     }
 
     public static function assertDependencies(array $context, bool $lock = false): void

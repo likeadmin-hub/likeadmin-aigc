@@ -53,6 +53,23 @@ final class ShortDramaVnextLongSeriesTest extends TestCase
                 catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
             }
             $lastPlan = Db::name('aigc_short_drama_plan_version')->where('id', $versions[500])->value('plan_json');
+            foreach (['identity', 'document_version', 'ledger_binding'] as $corruption) {
+                $broken = json_decode($lastPlan, true);
+                if ($corruption === 'identity') $broken['canonical_document']['entities'][0]['canonical_name'] = '错误人物';
+                if ($corruption === 'document_version') $broken['canonical_document']['revision_id'] = 'wrong_revision';
+                if ($corruption === 'ledger_binding') {
+                    $broken['narrative_ledger']['document_hash'] = 'another_document';
+                    $broken['narrative_ledger']['content_hash'] = NarrativeLedger::digest($broken['narrative_ledger']);
+                    $brokenMeta = $current[$episodes[499]['production_project_id']];
+                    $brokenMeta['canonical']['ledger_hash'] = $broken['narrative_ledger']['content_hash'];
+                    Db::name('aigc_short_drama_plan_version')->where('id', $versions[500])->update(['continuity_json' => json_encode($brokenMeta)]);
+                }
+                Db::name('aigc_short_drama_plan_version')->where('id', $versions[500])->update(['plan_json' => json_encode($broken, JSON_UNESCAPED_UNICODE)]);
+                try { SeriesContext::publishedBefore($scope['tenant_id'], $scope['user_id'], $parent, 501); self::fail('Mismatched historical content accepted'); }
+                catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
+                Db::name('aigc_short_drama_plan_version')->where('id', $versions[500])->update(['plan_json' => $lastPlan,
+                    'continuity_json' => json_encode($current[$episodes[499]['production_project_id']])]);
+            }
             $middleProject = $episodes[249]['production_project_id'];
             $current[$middleProject]['canonical']['revision_id'] .= '_edited';
             Db::name('aigc_short_drama_plan_version')->where('id', $versions[250])->update(['continuity_json' => json_encode($current[$middleProject])]);
