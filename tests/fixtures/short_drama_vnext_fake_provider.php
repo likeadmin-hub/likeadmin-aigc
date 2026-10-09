@@ -19,7 +19,7 @@ class MarketTextModelRuntimeService
         else {
             $checks = []; $ids = array_merge(array_column($input['requirements'], 'id'), ['aspect:identity', 'aspect:continuity', 'aspect:shot_fidelity']);
             foreach ($ids as $id) $checks[] = ['id' => $id, 'status' => 'covered', 'evidence' => [['unit' => 'u1', 'start' => 1200, 'end' => 1205, 'quote' => '结尾保留。']]];
-            $reply = ['document_hash' => $input['document']['content_hash'], 'shot_hash' => $input['shot_plan']['content_hash'], 'checks' => $checks];
+            $reply = ['document_hash' => $input['document']['content_hash'], 'shot_hash' => $input['shot_plan']['content_hash'], 'checks' => $checks, 'narrative_changes' => []];
         }
         $receipt = ['content' => json_encode($reply, JSON_UNESCAPED_UNICODE), 'finish_reason' => 'stop',
             'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 20],

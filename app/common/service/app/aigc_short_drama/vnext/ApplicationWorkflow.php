@@ -43,7 +43,7 @@ final class ApplicationWorkflow
                 'name' => $subject['name'], 'description' => (string)($subject['description'] ?? ''),
                 'identity_facts' => ['library_subject_id' => (string)$subject['id']] + $facts];
         }
-        return ['context' => ['repair_contract_version' => 2, 'revision_id' => 'revision_' . substr(ContentDocument::hash([$task, 1]), 0, 24),
+        return ['context' => ['narrative_contract_version' => 1, 'repair_contract_version' => 2, 'revision_id' => 'revision_' . substr(ContentDocument::hash([$task, 1]), 0, 24),
             'episode_id' => 'project:' . $project, 'entity_scope' => $scope, 'prompt' => $prompt, 'source_mode' => 'inspiration',
             'sources' => [$source['source_id'] => $source], 'entities' => $entities,
             'requirements' => SourceTrace::requirements($source, [['start' => 0, 'end' => mb_strlen($prompt, 'UTF-8'), 'quote' => $prompt]]),
@@ -106,6 +106,7 @@ final class ApplicationWorkflow
         return ['pipeline_version' => GenerationPipeline::VERSION, 'title' => $document['title'], 'multi_episode' => false,
             'episode_count' => 1, 'multi_episode_stage' => 'production', 'subjects' => $subjects, 'locations' => $locations,
             'storyboard' => $shots, 'script_lines' => ContentDocument::render($document),
-            'canonical_document' => $document, 'shot_plan' => $plan, 'coverage_report' => $candidate['coverage_report']];
+            'canonical_document' => $document, 'shot_plan' => $plan, 'coverage_report' => $candidate['coverage_report']]
+            + (isset($candidate['coverage_report']['narrative_ledger']) ? ['narrative_ledger' => $candidate['coverage_report']['narrative_ledger']] : []);
     }
 }

@@ -32,7 +32,7 @@ final class GenerationPipeline
         // A server-validated structured import is already creative content, not an invitation to rewrite it.
         $document = $context['canonical_input'] ?? (isset($context['structured_screenplay'])
             ? ContentDocument::normalize($context['structured_screenplay'], $context)
-            : $call('screenplay', $context, self::screenplayInstruction($context), static fn($reply) => ContentDocument::normalize($reply, $context)));
+            : $call('screenplay', self::creativeContext($context), self::screenplayInstruction($context), static fn($reply) => ContentDocument::normalize($reply, $context)));
         $checkpoint(['document' => $document]);
         $plan = self::shots($document, $call, 'shots', '');
         $checkpoint(['document' => $document, 'shot_plan' => $plan]);
@@ -56,7 +56,9 @@ final class GenerationPipeline
             }
             $base = $best['document'];
             $candidate = $shotOnly ? $base : $call($reservation, ['document' => $base, 'issues' => $best['coverage_report']['issues'],
-                'requirements' => $context['requirements'] ?? [], 'events' => $context['events'] ?? []],
+                'requirements' => $context['requirements'] ?? [], 'events' => $context['events'] ?? []]
+                + ((int)($context['narrative_contract_version'] ?? 0) === 1 ? ['confirmed_facts' => $context['confirmed_facts'] ?? [],
+                    'previous_narrative' => NarrativeLedger::relevant($context['previous_narrative'] ?? [], array_column($base['entities'], 'entity_id'))] : []),
                 '仅修复已确认的阻断问题，不润色无关内容。返回{"patches":[{"unit_id":"系统提供的ID","before_hash":"原text_hash","text":"修复后完整文本"}]}。'
                 . ($extended ? '只有content_missing阻断项允许补入缺失单元，额外返回insertions数组：{issue_id,anchor_unit_id,anchor_hash,position:before或after,type:action或dialogue,text,entity_ids:[已有主体ID],speaker_id:已有人物ID或null,speech_type:spoken或voiceover或narration}。只在已有场次中插入，不创建人物。' : '')
                 . '只修改已有单元正文，不更换发言者，不删单元、不重排，不返回整个剧本。无法在此范围修复则patches为空。',
@@ -86,6 +88,14 @@ final class GenerationPipeline
         return $best;
     }
 
+    private static function creativeContext(array $context): array
+    {
+        if ((int)($context['narrative_contract_version'] ?? 0) === NarrativeLedger::VERSION) {
+            $context['previous_narrative'] = NarrativeLedger::relevant($context['previous_narrative'] ?? [], array_column($context['entities'] ?? [], 'entity_id'));
+        }
+        return $context;
+    }
+
     private static function shotOnly(array $report): bool
     {
         $issues = array_filter($report['issues'], static fn($issue) => $issue['severity'] === 'blocking');
@@ -113,15 +123,25 @@ final class GenerationPipeline
     }
     private static function review(array $context, array $document, array $plan, callable $call, string $key, string $reservation): array
     {
+        $narrative = (int)($context['narrative_contract_version'] ?? 0) === NarrativeLedger::VERSION;
+        $history = $narrative ? ['previous_narrative' => NarrativeLedger::relevant($context['previous_narrative'] ?? [], array_column($document['entities'], 'entity_id'))] : [];
         return $call($key, ['document' => $document, 'shot_plan' => $plan, 'original_input' => $context['prompt'] ?? '',
-            'requirements' => $context['requirements'] ?? [], 'events' => $context['events'] ?? [], 'confirmed_facts' => $context['confirmed_facts'] ?? []],
+            'requirements' => $context['requirements'] ?? [], 'events' => $context['events'] ?? [], 'confirmed_facts' => $context['confirmed_facts'] ?? []] + $history,
             '合并核验本集内容、人物、连续性及分镜。逐项检查适用本集的requirements/events，以及aspect:identity、aspect:continuity、aspect:shot_fidelity。'
             . '返回{"document_hash":"输入content_hash","shot_hash":"shot_plan.content_hash","checks":[{"id":"检查项ID",'
             . '"status":"covered|missing|contradiction|uncertain","scope":"whole_episode","reason":"依据",'
             . '"evidence":[{"unit":"u1","start":0,"end":2,"quote":"实际引文"}]}]}。'
             . 'covered必须有真实正文证据，计划、摘要和想象不等于已发生；不能遗漏检查项或编造引文。范围使用Unicode码点且end不包含。'
-            . '表达优化只作为建议，不能判为核心缺陷。仅检查本集适用事件，后续大纲不属于已发生事实。',
-            static fn($reply) => ContentCoverage::evaluate($document, $plan, $context['requirements'] ?? [], $context['events'] ?? [], $reply), $reservation);
+            . '表达优化只作为建议，不能判为核心缺陷。仅检查本集适用事件，后续大纲不属于已发生事实。' . ($narrative ? NarrativeLedger::instruction() : ''),
+            static function ($reply) use ($document, $plan, $context, $narrative): array {
+                $report = ContentCoverage::evaluate($document, $plan, $context['requirements'] ?? [], $context['events'] ?? [], $reply);
+                if ($narrative) {
+                    if (!array_key_exists('narrative_changes', $reply)) throw new RuntimeException('核验缺少本集事实与认知记录', 422);
+                    $report['narrative_ledger'] = NarrativeLedger::evaluate($document,
+                        ContentDocument::rows($reply['narrative_changes'], 'narrative_changes'), $context['previous_narrative'] ?? []);
+                }
+                return $report;
+            }, $reservation);
     }
     private static function blocking(array $report): array
     {
