@@ -971,10 +971,11 @@ class ShortDramaCanvasService
                 'tenant_id'=>$tenantId,'user_id'=>$userId,'task_id'=>(string)$binding['task_id'],'delete_time'=>0,
             ])->find();
             if (!$task) throw new Exception('WORKFLOW_EPISODE_SCRIPT_MISSING');
-            $plan=ShortDramaStoryDraft::effective(self::decode((string)$task['request_json']),self::decode((string)$task['result_json']));
+            $sourcePlan=ShortDramaStoryDraft::effective(self::decode((string)$task['request_json']),self::decode((string)$task['result_json']));
+            $plan=AigcShortDramaService::productionPlanForTask($tenantId,$userId,(string)$task['task_id']);
             $plan=ShortDramaVisualStyle::plan($plan,(array)($workflow['creative_settings']??[]));
             $item=\app\common\service\app\aigc_short_drama\canvas_agent\ConversationSeriesVisuals::promptItem(
-                $plan,$artifact,(string)($metadata['workflow_key']??''));
+                $plan,$artifact,(string)($metadata['workflow_key']??''),$sourcePlan);
             $assembled=AigcShortDramaService::canvasMediaSubmissionParams($tenantId,$snapshot,$artifact,$item,$plan,$params);
             // Keep the canvas quote's model, references, billing and transport settings intact.
             $params['prompt']=$assembled['prompt'];

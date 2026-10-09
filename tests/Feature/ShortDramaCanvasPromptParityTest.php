@@ -61,6 +61,17 @@ class ShortDramaCanvasPromptParityTest extends TestCase
         $this->expectException(\RuntimeException::class);
         Visuals::promptItem($plan,'subject','assets:invalid');
     }
+    public function testUpdatedVersionResolvesOriginalShotIdentityAfterReordering(): void {
+        $source=$this->plan();
+        $current=$source;
+        $updated=array_replace($source['storyboard'][0],['dialogue'=>'修改后的对白']);
+        $current['storyboard']=[['shot_id'=>'new','dialogue'=>'不应被误选'], $updated];
+        self::assertSame($updated,Visuals::promptItem($current,'storyboard_video','video_nodes:ep1_shot1',$source));
+        self::assertSame($updated,Visuals::promptItem($current,'storyboard','storyboard:ep1_shot1',$source));
+        $current['storyboard']=[['shot_id'=>'new']];
+        $this->expectException(\RuntimeException::class);
+        Visuals::promptItem($current,'storyboard_video','video_nodes:ep1_shot1',$source);
+    }
     public function testCrossTenantSnapshotRejected(): void {
         $this->expectException(\Exception::class);
         Service::canvasMediaSubmissionParams(2,['tenant_id'=>1],'subject',[],[],[]);

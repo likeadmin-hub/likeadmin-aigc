@@ -14126,6 +14126,17 @@ class AigcShortDramaService
         return array_map([self::class, 'formatPublishedWork'], $rows);
     }
 
+    /** Resolve the bound episode project, then use the same current version as regular creation.
+     * Task output remains generation evidence; it is not a second editable production source. */
+    public static function productionPlanForTask(int $tenantId, int $userId, string $taskId): array
+    {
+        $task = self::findTask($tenantId, $userId, $taskId);
+        if ((string)$task['status'] !== self::STATUS_SUCCESS) throw new Exception('WORKFLOW_EPISODE_SCRIPT_MISSING');
+        $plan = self::currentProjectPlanRaw($tenantId, $userId, (int)$task['project_id']);
+        if ($plan === []) throw new Exception('WORKFLOW_EPISODE_SCRIPT_MISSING');
+        return $plan;
+    }
+
     private static function currentProjectPlanRaw(int $tenantId, int $userId, int $projectId): array
     {
         $row = AigcShortDramaPlanVersion::where([
