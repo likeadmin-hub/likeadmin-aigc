@@ -149,7 +149,21 @@ final class ShortDramaVnextExecutionTest extends TestCase
             }
             return ['result' => ['content' => json_encode($reply), 'finish_reason' => 'stop']];
         };
-        JobRunner::run($this->store, 'worker1', $provider, static function () { throw new \RuntimeException('display connection lost'); });
+        try {
+            JobRunner::run($this->store, 'worker1', $provider, static function () { throw new \RuntimeException('display connection lost'); },
+                function () {
+                    Db::name('aigc_short_drama_vnext_job')->where($this->scope)->update(['error_code' => 'must_rollback']);
+                    throw new \RuntimeException('projection write failed');
+                });
+            self::fail('Failed projection was published');
+        } catch (\RuntimeException $error) { self::assertSame('projection write failed', $error->getMessage()); }
+        self::assertSame('', $this->store->snapshot()['error_code']);
+        self::assertSame(0, Db::name('aigc_short_drama_vnext_revision')->where($this->scope)->count());
+        self::assertSame(0, Db::name('aigc_short_drama_vnext_outbox')->where($this->scope)->count());
+        Db::name('aigc_short_drama_vnext_job')->where($this->scope)->update(['lease_until' => 0]);
+        JobRunner::run($this->store, 'worker2', $provider, null, static function ($candidate, $receipts) {
+            self::assertCount(3, $receipts); self::assertSame('ready', $candidate['document']['status']);
+        });
         JobRunner::run($this->store, 'worker2', $provider);
         self::assertSame(3, $calls);
         self::assertSame(1, Db::name('aigc_short_drama_vnext_outbox')->where($this->scope)->count());

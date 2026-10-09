@@ -1,0 +1,68 @@
+<?php
+namespace Tests\Feature;
+
+use app\common\service\app\aigc_short_drama\AigcShortDramaService as Service;
+use app\common\service\app\aigc_short_drama\vnext\ApplicationWorkflow as Workflow;
+use app\common\service\app\aigc_short_drama\vnext\ReceiptBuffer;
+use app\common\service\power\MarketTextModelRuntimeService as Provider;
+use PHPUnit\Framework\TestCase;
+use think\facade\Db;
+
+final class ShortDramaVnextWorkerTest extends TestCase
+{
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testRealWorkerPublishesReadableVersionAndPreservesReceiptsAfterRollbackSwitch(): void
+    {
+        if (getenv('SHORT_DRAMA_STORY_DB_TESTS') !== '1') self::markTestSkipped('Opt in to local DB fixtures');
+        require __DIR__ . '/../fixtures/short_drama_vnext_fake_provider.php';
+        (new \think\App())->initialize();
+        $task = 'vnext_worker_' . bin2hex(random_bytes(8)); $tenant = 2000000723; $user = 7;
+        $scope = ['tenant_id' => $tenant, 'user_id' => $user];
+        Db::startTrans();
+        try {
+            $project = Db::name('aigc_short_drama_project')->insertGetId($scope + ['title' => '测试项目', 'prompt' => '保留结尾',
+                'last_task_id' => $task, 'current_agent_run_id' => 'agent_' . $task, 'generation_settings_json' => '{}']);
+            $request = ['_pipeline_version' => 1, '_generation_version' => 3, 'prompt' => '保留结尾', 'multi_episode' => false,
+                'episode_count' => 1, 'model_selections' => ['script_plan' => ['id' => 'frozen_model']], 'quality_review_enabled' => true];
+            Db::name('aigc_short_drama_script_task')->insert($scope + ['project_id' => $project, 'task_id' => $task,
+                'prompt' => '保留结尾', 'request_json' => json_encode($request), 'result_json' => '{}']);
+            $input = Workflow::input($tenant, $user, $project, $task, $request,
+                ['id' => 'frozen_model', 'context_window' => 32768, 'max_output_tokens' => 8192],
+                ['stage_timeout_seconds' => 100, 'lease_seconds' => 150, 'deadline_seconds' => 1800]);
+            $store = Workflow::store($tenant, $user, $task); $store->create('project:' . $project, $input, time() + 1800);
+            // Rollback of enrollment must not reroute already saved jobs into the old engine.
+            \think\facade\Config::set(['vnext' => ['enabled' => false]], 'short_drama');
+            $run = new \ReflectionMethod(Service::class, 'executeScriptPlanTask'); $run->setAccessible(true);
+            $row = Db::name('aigc_short_drama_script_task')->where('task_id', $task)->find();
+            $result = $run->invoke(null, $tenant, $user, $row, static function () {});
+            self::assertSame('success', $result['status'], json_encode($result, JSON_UNESCAPED_UNICODE));
+            self::assertCount(3, Provider::$requests);
+            self::assertSame('ready', $result['generation_snapshot']['document_status']);
+            self::assertStringEndsWith('结尾保留。', $result['result']['storyboard'][0]['dialogue']);
+            self::assertGreaterThan(1000, mb_strlen($result['result']['storyboard'][0]['dialogue']));
+            self::assertSame('frozen_model', Provider::$requests[0]['model_selection']['id']);
+            $saved = Db::name('aigc_short_drama_script_task')->where('task_id', $task)->find();
+            self::assertSame('6.00', $saved['user_charge_points']);
+            self::assertSame(6, json_decode($store->snapshot()['budget_json'], true)['user_points']);
+            $second = Service::scriptPlanDetail($tenant, $user, $task, $project);
+            self::assertSame($result['result'], $second['result']);
+            self::assertSame($saved['result_json'], Db::name('aigc_short_drama_script_task')->where('task_id', $task)->value('result_json'));
+            $run->invoke(null, $tenant, $user, $saved, static function () {});
+            self::assertCount(3, Provider::$requests);
+            self::assertSame(1, Db::name('aigc_short_drama_plan_version')->where('task_id', $task)->count());
+            self::assertSame(1, Db::name('aigc_short_drama_vnext_revision')->where('task_id', $task)->count());
+            self::assertSame('succeeded', Service::cancel($tenant, $user, $task)['generation_snapshot']['execution_status']);
+        } finally {
+            $directory = runtime_path() . 'short_drama_vnext_receipts';
+            $buffer = new ReceiptBuffer($directory);
+            $paths = [];
+            foreach (Db::name('aigc_short_drama_vnext_stage')->where($scope + ['task_id' => $task])->select()->toArray() as $stage) {
+                $paths[] = $directory . '/' . $buffer->key($scope + ['task_id' => $task, 'stage_key' => $stage['stage_key']], $stage['input_hash']) . '.json';
+            }
+            Db::rollback();
+            foreach ($paths as $path) if (is_file($path)) unlink($path);
+        }
+    }
+}

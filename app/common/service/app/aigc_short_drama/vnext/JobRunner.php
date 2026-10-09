@@ -7,7 +7,7 @@ use RuntimeException;
 /** One reusable core for HTTP/episode/canvas workers. Enrollment remains outside this runner. */
 final class JobRunner
 {
-    public static function run(ExecutionStore $store, string $owner, callable $provider, ?callable $progress = null): array
+    public static function run(ExecutionStore $store, string $owner, callable $provider, ?callable $progress = null, ?callable $publishProjection = null): array
     {
         $snapshot = $store->snapshot();
         if (!$snapshot) throw new RuntimeException('生成作业不存在', 404);
@@ -30,7 +30,8 @@ final class JobRunner
                 // Capacity preflight precedes durable admission. No silent truncation of original inputs.
                 $budget = ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $input['model'], 'script', (int)($input['execution']['max_output_tokens'] ?? 8192));
                 $params = $messages + ['model_selection' => $input['model'], 'model_config' => ['max_tokens' => $budget['max_tokens'], 'enable_thinking' => false],
-                    'request_timeout_seconds' => $timeout, '_disable_transient_retry' => true, '_disable_model_fallback' => true, '_require_final_content' => true];
+                    'request_timeout_seconds' => $timeout, '_disable_transient_retry' => true, '_disable_compatibility_retry' => true,
+                    '_disable_model_fallback' => true, '_require_final_content' => true];
                 $notify('stage', ['stage' => $key]);
                 return $store->call($fence, $key, $params, $provider, $reservation);
             },
@@ -40,7 +41,7 @@ final class JobRunner
                 $notify('snapshot', $store->publicSnapshot());
             });
         } catch (RuntimeException $error) {
-            if (in_array($error->getCode(), [413, 422, 429], true)) {
+            if (in_array($error->getCode(), [409, 413, 422, 429], true) && $store->snapshot()['execution_status'] === 'running') {
                 try { $store->needsAttention($fence, $error->getCode() === 429 ? 'budget_exhausted' : 'content_unresolved'); }
                 catch (\Throwable $ignored) { /* A newer fence/cancel must win. */ }
             }
@@ -50,7 +51,7 @@ final class JobRunner
             $store->needsAttention($fence, $result['stop_reason'] ?? 'content_unresolved');
             return $result;
         }
-        $store->publish($fence, $result['document'], $result['shot_plan'], $result['coverage_report']);
+        $store->publish($fence, $result['document'], $result['shot_plan'], $result['coverage_report'], $publishProjection);
         return $result;
     }
 }
