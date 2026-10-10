@@ -48,22 +48,41 @@ class CanvasAgentDecisionTest extends TestCase
         self::assertStringContainsString('主角还是刚才那个',$actual[20]['content']);
         self::assertStringNotContainsString('"recent_dialogue"',$actual[20]['content']);
     }
-    public function testCardMustBeChosenAndAnchoredOnce(): void {
+    public function testRequirementActionShowsMissingCardEvenWhenModelOmitsFlagAndAnchorsOnce(): void {
         $state=Plan::draft(self::state(),['candidates'=>['story_direction'=>['source'=>'message','value'=>'程序员大战孙悟空','evidence'=>'程序员大战孙悟空']],'questions'=>[]]);
         $settings=['workflow_state'=>$state];
         $settings=Decision::commit($settings,self::reply('update_requirements',self::intake()),10);
-        self::assertFalse($settings['workflow_state']['intake_presentation']['visible']);
+        self::assertTrue($settings['workflow_state']['intake_presentation']['visible']);
         $card=new \ReflectionMethod(Workflow::class,'card');$card->setAccessible(true);
-        self::assertNull($card->invoke(null,$settings['workflow_state']));
+        self::assertSame('intake_review',$card->invoke(null,$settings['workflow_state'])['type']);
         $settings=Decision::commit($settings,self::reply('update_requirements',self::intake([],true)),11);
-        self::assertSame(11,$settings['workflow_state']['intake_anchor_run_id']);
+        self::assertSame(10,$settings['workflow_state']['intake_anchor_run_id']);
         self::assertSame('intake_review',$card->invoke(null,$settings['workflow_state'])['type']);
         $before=$settings['workflow_state'];
         $settings=Decision::commit($settings,self::reply(),12);self::assertSame($before,$settings['workflow_state']);
         $settings=Decision::commit($settings,self::reply('update_requirements',self::intake([],false,'pause')),13);
-        self::assertSame(11,$settings['workflow_state']['intake_anchor_run_id']);
+        self::assertSame(10,$settings['workflow_state']['intake_anchor_run_id']);
         self::assertTrue($settings['workflow_state']['intake_presentation']['visible']);
         self::assertTrue($settings['workflow_state']['execution_paused']);
+    }
+    public function testPausedRequirementCollectionDoesNotOpenANewCard(): void {
+        $state=Plan::draft(self::state(),['candidates'=>['story_direction'=>['source'=>'message','value'=>'程序员大战孙悟空','evidence'=>'程序员大战孙悟空']],'questions'=>[]]);
+        $settings=Decision::commit(['workflow_state'=>$state],self::reply('update_requirements',self::intake([],true,'pause')),10);
+        self::assertFalse($settings['workflow_state']['intake_presentation']['visible']);
+    }
+    public function testConversationalDurationCompletesPlanWithoutPostProviderFailure(): void {
+        foreach(['一分钟左右'=>60,'约1分钟'=>60,'半分钟'=>30,'一分半'=>90,'1 MIN'=>60] as $duration=>$seconds) {
+            $state=self::state();$values=['story_direction'=>'程序员大战孙悟空','episode_duration'=>$duration,'episode_count'=>'1集','visual_style'=>'写实电影','aspect_ratio'=>'16： 9'];
+            $draft=['candidates'=>[],'questions'=>[]];
+            foreach($values as $key=>$value) $draft['candidates'][$key]=['source'=>'message','value'=>$value,'evidence'=>$value];
+            $state=Plan::draft($state,$draft);
+            self::assertTrue($state['creative_plan_confirmed']);self::assertSame($seconds,Policy::duration($state));
+            self::assertSame('ready',$state['stage_state']['status']);self::assertSame('16:9',$state['creative_settings']['aspect_ratio']);
+        }
+        $draft['candidates']['episode_duration']['value']='1到2分钟';
+        $state=Plan::draft(self::state(),$draft);
+        self::assertFalse($state['creative_plan_confirmed']);
+        self::assertSame(['episode_duration'],array_keys($state['intake_candidates']));
     }
     public function testIntentionAloneCannotShowSettingsEvenIfModelRequestsCard(): void {
         $state=Plan::draft(self::state(),['candidates'=>[],'questions'=>[]]);

@@ -90,6 +90,22 @@ final class ConversationCreativePlan
             if (isset($candidates[$key]) && (($candidates[$key]['source']??'')!=='suggestion' || $fieldDelegated)) continue;
             $candidates[$key]=['value'=>'','source'=>'suggestion','evidence'=>'尚未提供，请选择或填写'];
         }
+        // A recognized utterance may still be an unusable production value
+        // (for example a duration range). Ask only about that field; do not
+        // fail an otherwise valid paid conversation during auto-confirmation.
+        $invalid=[];
+        if (isset($state['slot_values']['episode_count']) && ConversationCreativePolicy::episodeCount($state['slot_values']['episode_count'])===null) $invalid[]='episode_count';
+        if (isset($state['slot_values']['episode_duration']) && ConversationCreativePolicy::duration($state)<=0) $invalid[]='episode_duration';
+        if (isset($state['slot_values']['aspect_ratio'])) {
+            $ratio=preg_replace('/\s/u','',str_replace('：',':',$state['slot_values']['aspect_ratio']));
+            $ratios=[];foreach ($state['workflow_snapshot']['slot_schema'] as $slot) if ($slot['key']==='aspect_ratio') $ratios=$slot['options'];
+            if (!in_array($ratio,$ratios,true)) $invalid[]='aspect_ratio';
+            else $state['slot_values']['aspect_ratio']=$ratio;
+        }
+        foreach ($invalid as $key) {
+            $candidates[$key]=$state['slot_sources'][$key]??['source'=>'message','value'=>$state['slot_values'][$key],'evidence'=>$state['slot_values'][$key]];
+            unset($state['slot_values'][$key],$state['slot_sources'][$key]);
+        }
         // Extracted values are not executable settings until this entire card is accepted.
         $state['intake_candidates']=$candidates;
         $state['intake_questions']=[];

@@ -39,7 +39,7 @@ final class ConversationAgentDecision
             .'本轮可用动作仅有：'.implode('、',$actions).'。'
             .'respond：正常聊天、解释、建议、独立文本创作或澄清，arguments={}，不会更改制作状态，也不会重新弹出旧卡片。'
             .'configure_project：用户要求开始完整短剧制作或明确补充、更改制作要求时使用。系统按真实状态创建或更新草稿，你不需要判断项目是否已建立。arguments={"intake":{"candidates":[],"questions":[]},"show_card":false,"execution":"preserve"}。'
-            .'即使没有故事方向也可开始交流，但不能假造故事。show_card=true 表示本轮明确邀请用户填写制作参数；没有实际故事方向时必须 false。用户说先聊故事、暂不填参数时 false；已经展示的历史卡片保留原位。'
+            .'即使没有故事方向也可开始交流，但不能假造故事。已有故事方向且用户开始制作或补充制作要求时，系统在回复结束后自动展示缺失参数卡；show_card 只为旧协议兼容，不能隐藏该卡。只需简短引导用户选择，不要再把集数、画风、比例选项逐项列在回复里。用户只想聊剧情、咨询建议时使用 respond；明确暂不填写或暂停制作时 execution=pause。历史卡片保留原位。'
             .'configure_project 的 execution 取 preserve、pause、resume；通常 preserve，用户同时补充要求并说先别生成时用 pause，明确恢复才用 resume。'
             .'pause/resume：只有明确要求暂停/恢复后续制作才调用，arguments={}；咨询怎么暂停只是 respond。暂停不代表取消正在运行的任务。'
             .'revise_stage：明确要求重做已完成内容时 arguments={"stage":"阶段key"}；仅允许：'.implode('、',(array)($routing['revision_allowed_stages']??[])).'。'
@@ -116,7 +116,8 @@ final class ConversationAgentDecision
             $already=!empty($state['intake_presentation']['visible']);
             $execution=$decision['action']['arguments']['execution'];
             if ($execution!=='preserve') $state['execution_paused']=$execution==='pause';
-            $show=$decision['action']['arguments']['show_card'] && ConversationCreativePlan::canShowIntake($state);
+            $show=empty($state['execution_paused']) && !empty($state['intake_candidates'])
+                && ConversationCreativePlan::canShowIntake($state);
             $state['intake_presentation']=['visible'=>$already || $show];
             if (!$already && $show) $state['intake_anchor_run_id']=$run;
             if (!$already && !$show) $state['intake_anchor_run_id']=0;
