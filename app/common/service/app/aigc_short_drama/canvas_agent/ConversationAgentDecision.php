@@ -97,6 +97,9 @@ final class ConversationAgentDecision
         $name=$decision['action']['name'];
         if (in_array($name,['start_project','update_requirements'],true) && isset($settings['workflow_state'])) {
             $state=&$settings['workflow_state'];
+            // Dialogue history remains in messages; production receives semantic
+            // story facts rather than a concatenation of greetings and commands.
+            $state['creative_brief']=(string)($state['slot_values']['story_direction']??'');
             // Once displayed, a card is a historical object; later chat must
             // neither hide it nor move it to another assistant message.
             $already=!empty($state['intake_presentation']['visible']);

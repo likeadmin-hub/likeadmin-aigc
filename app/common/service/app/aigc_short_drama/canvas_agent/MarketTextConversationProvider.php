@@ -29,7 +29,9 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         if (!empty($request['context']['_input_contract_version'])) {
             $model=self::resolve($tenant,$selection,$images!==[]);
             $fitting=false;
+            $allowed=(array)($request['context']['evaluation_model_allowlist']??[]);
             foreach ([$model,...self::options($tenant,$images!==[])] as $candidate) {
+                if ($allowed && !in_array((string)$candidate['id'],$allowed,true)) continue;
                 try { self::outputBudget($request,$candidate,count($images));$fitting=true;break; }
                 catch (RuntimeException $error) { if ($error->getCode()!==413) throw $error; }
             }
@@ -108,6 +110,9 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         $preferred=self::resolve($tenant,(array)($settings['reasoning_model']??[]),$images!==[]);
         $candidates=[$preferred];
         foreach (self::options($tenant,$images!==[]) as $candidate) if ((string)$candidate['id']!==(string)$preferred['id']) $candidates[]=$candidate;
+        $allowed=(array)($request['context']['evaluation_model_allowlist']??[]);
+        if ($allowed) $candidates=array_values(array_filter($candidates,static fn(array $model): bool=>in_array((string)$model['id'],$allowed,true)));
+        if (!$candidates) throw new RuntimeException('TEXT_MODEL_UNAVAILABLE');
         $result=null;$lastError=null;
         $deadline=microtime(true)+$runtimeRequest['request_timeout_seconds'];
         foreach ($candidates as $candidate) {
