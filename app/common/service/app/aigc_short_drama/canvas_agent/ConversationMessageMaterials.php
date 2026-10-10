@@ -33,7 +33,8 @@ final class ConversationMessageMaterials
                 }
             }
             if ($asset && $item['type']==='image') {
-                $candidate=FileService::getFileUrlByStorage($asset['uri'],$asset['storage_scope'],$asset['storage_engine'],$asset['storage_domain']);
+                $candidate=preg_match('#^https?://#i',$asset['uri']) ? $asset['uri']
+                    : FileService::getFileUrlByStorage($asset['uri'],$asset['storage_scope'],$asset['storage_engine'],$asset['storage_domain']);
                 if (preg_match('#^(https?://|/(?!/))#i',$candidate)) $url=$candidate;
             }
             return ['key'=>$item['key'],'type'=>$item['type'],'name'=>$item['name'],'url'=>$url,'status'=>'ready'];
