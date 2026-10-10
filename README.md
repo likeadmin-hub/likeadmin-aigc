@@ -463,6 +463,7 @@ docker compose --env-file .env.docker ps -a
 
 - 本站 PHP 版本选择 8.2，并启用项目所需扩展；对应 Worker 和计划任务也要使用 `/www/server/php/82/bin/php`，仅切换网站版本不会改变 CLI 进程。
 - Web 根目录必须指向 `server/public`，不能暴露服务端根目录。
+- 平台和租户后台使用 history 路由；已有宝塔站点需单独加载 `public/nginx.htaccess` 中对应的 server 级回退规则，前端更新不会自动修改站点配置。租户后台刷新 404 的处理与验证见 [部署说明](docs/admin-refresh-routing.md)。
 - 生产环境保持 `APP_DEBUG = false`。
 - 使用后台在线更新时，PHP 进程必须能够写入 `server`、`runtime`、`upgrade` 和前端构建目录。
 

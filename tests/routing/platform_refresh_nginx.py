@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the shipped rewrite template with a real, isolated Nginx process.
+"""Exercise platform and tenant-admin refresh with an isolated Nginx process.
 
 Run: python3 tests/routing/platform_refresh_nginx.py --nginx /path/to/nginx
 No PHP, database, existing vhost, or production reload is involved.
@@ -27,6 +27,12 @@ def main():
         (root / "platform/assets").mkdir(parents=True)
         (root / "platform/index.html").write_text("platform-entry", encoding="utf-8")
         (root / "platform/assets/app.js").write_text("platform-script", encoding="utf-8")
+        (root / "admin/assets").mkdir(parents=True)
+        (root / "admin/index.html").write_text("admin-entry", encoding="utf-8")
+        (root / "admin/assets/app.js").write_text("admin-script", encoding="utf-8")
+        (root / "admin/assets/app.css").write_text("admin-style", encoding="utf-8")
+        (root / "admin/.env").write_text("must-not-be-served", encoding="utf-8")
+        (root / "admin/hidden.php").write_text("must-not-be-served", encoding="utf-8")
         with socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
             port = listener.getsockname()[1]
@@ -80,7 +86,26 @@ http {{
                 "/platform-other/workbench": (200, "dynamic-entry"),
                 "/platformapi/config/getConfig": (200, "dynamic-entry"),
                 "/tenantapi/config/getConfig": (200, "dynamic-entry"),
-                "/admin/system-service/license-test": (200, "dynamic-entry"),
+                "/admin": (200, "admin-entry"),
+                "/admin/": (200, "admin-entry"),
+                "/admin/login": (200, "admin-entry"),
+                "/admin/workbench": (200, "admin-entry"),
+                "/admin/user/user": (200, "admin-entry"),
+                "/admin/channel/overview?tenant_id=42": (200, "admin-entry"),
+                "/admin/setting/system/setting": (200, "admin-entry"),
+                "/admin/system-service/license-test": (200, "admin-entry"),
+                "/admin/permission/role/edit?id=1&tenant_id=42": (200, "admin-entry"),
+                "/admin/apps/aigc_canvas/config": (200, "admin-entry"),
+                "/admin/foo/LICENSE": (200, "admin-entry"),
+                "/admin/foo/README.md": (200, "admin-entry"),
+                "/admin/assets/app.js": (200, "admin-script"),
+                "/admin/assets/app.css": (200, "admin-style"),
+                "/admin/assets/missing.js": (404, "tenant-error-page"),
+                "/admin/.env": (404, "tenant-error-page"),
+                "/admin/hidden.php": (404, "tenant-error-page"),
+                "/admin-other/workbench": (200, "dynamic-entry"),
+                "/t/42/admin/user/user": (200, "dynamic-entry"),
+                "/wechat/open-platform/callback": (200, "dynamic-entry"),
                 "/pricing?tenant_id=42": (200, "dynamic-entry"),
                 "/LICENSE": (404, "tenant-error-page"),
             }
@@ -92,7 +117,7 @@ http {{
                 with response:
                     actual = response.status, response.read().decode()
                 assert actual == expected, f"{path}: expected {expected}, got {actual}"
-            print(f"PASS: {len(paths)} real Nginx platform/static/API/tenant route checks")
+            print(f"PASS: {len(paths)} real Nginx platform/admin/static/API/tenant route checks")
         finally:
             process.terminate()
             process.wait(timeout=5)
