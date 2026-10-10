@@ -90,7 +90,11 @@ final class ConversationExecution
                     || (int)($persisted['state_revision']??-1)!==(int)($routing['base_workflow_revision']??-2)
                     || !in_array((int)($candidate['state_revision']??-2)-(int)($persisted['state_revision']??-1),[0,1],true)
                     || ($persisted['stage_state']['key']??'')!==($candidate['stage_state']['key']??'')) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
-                if ($decision['continue']) {
+                if (array_key_exists('execution_paused',$decision)) {
+                    $currentThreadSettings['workflow_state']['execution_paused']=$decision['execution_paused'];
+                    $currentThreadSettings['workflow_state']['state_revision']++;
+                    $workflowContinued=true;
+                } elseif ($decision['continue']) {
                     $workflow=$candidate;
                     $context['workflow']=$candidate;
                     $currentThreadSettings['workflow_state']=$candidate;
