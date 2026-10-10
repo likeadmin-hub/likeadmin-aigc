@@ -14169,6 +14169,7 @@ class AigcShortDramaService
 
     private static function enhancePlanResult(array $plan, ?bool $qualityReviewEnabled = null): array
     {
+        $plan = ShortDramaResultProjection::normalize($plan);
         $qualityReviewEnabled ??= self::planQualityReviewEnabled($plan);
         $subjects = [];
         // Apply the same reconciliation when reading older persisted plans so
@@ -21064,6 +21065,7 @@ class AigcShortDramaService
 
     private static function normalizeGeneratedPlanResult(array $payload, string $prompt, array $request, string $title): array
     {
+        $payload = ShortDramaResultProjection::normalize($payload);
         if (!empty($request['series_context']) && (empty($payload['storyboard']) || empty($payload['subjects']) || empty($payload['locations']))) {
             throw new Exception('本集正文、角色或场景不完整，请重试');
         }

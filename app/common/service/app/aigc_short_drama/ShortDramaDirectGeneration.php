@@ -33,6 +33,7 @@ final class ShortDramaDirectGeneration
         $json = preg_replace('/^```(?:json)?\s*|\s*```$/u', '', trim($raw)) ?? $raw;
         $payload = json_decode($json, true);
         if (!is_array($payload) || isset($payload[0])) $payload = ['story_outline'=>$raw, 'script_lines'=>[$raw]];
+        $payload = ShortDramaResultProjection::normalize($payload);
         // Keep the original response even when it cannot be projected into editor fields.
         $result = $payload + ['title'=>$title, 'story_outline'=>'', 'script_lines'=>[], 'subjects'=>[],
             'locations'=>[], 'storyboard'=>[], 'episodes'=>[], 'series_bible'=>[], 'art_style'=>[],

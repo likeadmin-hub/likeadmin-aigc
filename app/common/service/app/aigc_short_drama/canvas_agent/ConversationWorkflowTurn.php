@@ -233,7 +233,7 @@ final class ConversationWorkflowTurn
             } elseif ($intent==='continue' || (!$modern && $confidence<0.7 && $intent!=='chat')) {
                 $reply=trim($reply)!=='' ? trim($reply) : '你想继续当前作品，还是另做一份内容？';
             } elseif ($intent==='short_drama' && (!$modern || ($value['scope']??'')==='workflow')) {
-                $reply=trim($reply)."\n\n当前短剧工作流仍保留；如需开始另一部短剧，请新建聊天。";
+                $reply=trim($reply); // A repeated creation request is not evidence of a new project.
             } elseif ($skillKey!=='' && in_array($intent,['creative_plan','image','video'],true)
                 && (!$modern || in_array($value['deliverable']??'',['image','video'],true))) {
                 $reply=trim($reply)."\n\n可选技能：/".$skillKey.'（单独发送以使用）。';
