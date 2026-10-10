@@ -48,7 +48,7 @@ final class ConversationWorker
                 'request_timeout_seconds'=>120,'automatic_retry'=>false,
             ];
             if (ConversationAgentDecision::enabled($context)) {
-                $request['system_prompt']=ConversationDialoguePolicy::instruction().ConversationAgentDecision::instruction($intentRouting);
+                $request['system_prompt']=ConversationDialoguePolicy::instruction().ConversationCreativePolicy::instruction().ConversationAgentDecision::instruction($intentRouting);
             } else $request['system_prompt'].=ConversationDialoguePolicy::instruction();
             if (!empty($context['agent_memory'])) $request['system_prompt'].=ConversationAgentMemory::instruction($context['agent_memory']);
             $responseFormat=($intentRouting || $intakeAnalysis) ? ['type'=>'json_object'] : ConversationActionPlan::responseFormat($workflowStage);

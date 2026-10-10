@@ -70,9 +70,14 @@ final class ConversationCreativePolicy
     public static function duration(array $state): int
     {
         $value=(string)($state['slot_values']['episode_duration']??'');
-        if (preg_match('/以上|以下|左右|到|至|[-~]/u',$value)) return 0;
-        if (!preg_match('/^\s*([0-9]+(?:\.[0-9]+)?)\s*(秒|分钟|分|min|s)\s*$/iu',$value,$match)) return 0;
-        return min(7200,(int)round((float)$match[1]*(in_array($match[2],['分钟','分','min'],true)?60:1)));
+        if (preg_match('/以上|以下|到|至|[-~～]/u',$value)) return 0;
+        // Approximation describes the requested target, not a shot constraint.
+        $value=preg_replace('/^(?:大约|约为|大概|约)\s*|\s*(?:左右|上下)$/u','',trim($value));
+        if (!preg_match('/^([0-9]+(?:\.[0-9]+)?|[零〇一二两三四五六七八九十百]+|半)\s*(秒|分钟|分|min|s)(半)?$/iu',$value,$match)) return 0;
+        $raw=$match[1];$amount=is_numeric($raw)?(float)$raw:($raw==='半'?0.5:(float)(self::episodeCount($raw.'集')??0));
+        $minutes=in_array(mb_strtolower($match[2]),['分钟','分','min'],true);
+        if (!empty($match[3])) {if (!$minutes) return 0;$amount+=0.5;}
+        return min(7200,(int)round($amount*($minutes?60:1)));
     }
     public static function instruction(): string
     {
