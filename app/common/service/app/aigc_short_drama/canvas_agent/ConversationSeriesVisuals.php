@@ -23,7 +23,8 @@ final class ConversationSeriesVisuals
         $key=substr($workflowKey,strpos($workflowKey,':')+1);
         if (in_array($artifact,['storyboard','storyboard_video'],true)) {
             if (preg_match('/^ep[1-9][0-9]*_shot([1-9][0-9]*)$/D',$key,$match)) {
-                $shots=array_values((array)($plan['storyboard']??[]));
+                $plan=\app\common\service\app\aigc_short_drama\ShortDramaResultProjection::normalize($plan);
+        $shots=array_values((array)($plan['storyboard']??[]));
                 $index=(int)$match[1]-1;
                 if ($sourcePlan!==[]) {
                     $source=array_values((array)($sourcePlan['storyboard']??[]))[$index]??[];
@@ -45,6 +46,7 @@ final class ConversationSeriesVisuals
 
     public static function proposals(array $plan,string $stage,int $episode,callable $render,array $sceneReferences=[],array $workflow=[]): array
     {
+        $plan=\app\common\service\app\aigc_short_drama\ShortDramaResultProjection::normalize($plan);
         $shots=array_values((array)($plan['storyboard']??[]));
         if (!$shots) throw new RuntimeException('WORKFLOW_EPISODE_SCRIPT_MISSING');
         $subjects=[];$scenes=[];
