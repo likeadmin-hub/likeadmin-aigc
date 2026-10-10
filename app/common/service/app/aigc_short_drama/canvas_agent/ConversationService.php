@@ -71,14 +71,15 @@ final class ConversationService
                 }
                 $candidate=$current;
                 $status=(string)($current['stage_state']['status']??'');
-                if (!in_array($status,['awaiting_plan_confirmation','awaiting_stage_confirmation','awaiting_stage_start','reviewing_intake'],true)) {
+                $editableIntake=$status==='reviewing_intake' && ConversationCreativePlan::enabled($current);
+                if ($editableIntake || !in_array($status,['awaiting_plan_confirmation','awaiting_stage_confirmation','awaiting_stage_start','reviewing_intake'],true)) {
                     $candidate=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$workflowPreferences)['workflow'];
                 }
                 $routing=ConversationIntentRouter::snapshot($tenant);
                 $routing['kind']='active_workflow';
                 $routing['workflow_candidate']=$candidate;
                 $routing['base_workflow_revision']=(int)$current['state_revision'];
-                $routing['workflow_paused']=in_array($status,['awaiting_plan_confirmation','awaiting_stage_confirmation','awaiting_stage_start','reviewing_intake'],true);
+                $routing['workflow_paused']=!$editableIntake && in_array($status,['awaiting_plan_confirmation','awaiting_stage_confirmation','awaiting_stage_start','reviewing_intake'],true);
                 $routing['revision_allowed_stages']=ConversationWorkflow::revisableStages($current);
                 if (ConversationCreativePolicy::enabled($current)) {
                     $routing['production_revision']=ConversationProductionRevision::snapshot($tenant,(int)$conversation['user_id'],$current);

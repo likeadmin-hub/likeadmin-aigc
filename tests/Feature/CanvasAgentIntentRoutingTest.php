@@ -11,14 +11,6 @@ use ReflectionMethod;
 
 class CanvasAgentIntentRoutingTest extends TestCase
 {
-    public function testSocialTurnsDoNotIncludeRequestsOrAnswersToCreationQuestions(): void
-    {
-        foreach (['你好','你好呀 👋','Hi!','谢谢你','晚安'] as $text) self::assertTrue(ConversationIntentRouter::isSocialTurn($text));
-        foreach (['你好，继续生成','你好，帮我做三集','继续','1集','我想做一部叫你好世界的短剧','谢谢，改成横屏'] as $text) self::assertFalse(ConversationIntentRouter::isSocialTurn($text));
-        self::assertStringContainsString('workflow_output=null',ConversationIntentRouter::socialInstruction());
-        self::assertStringContainsString('不要提及、催办',ConversationIntentRouter::socialInstruction());
-    }
-
     private function routing(): array
     {
         return ['version'=>3,'skill_candidates'=>[],

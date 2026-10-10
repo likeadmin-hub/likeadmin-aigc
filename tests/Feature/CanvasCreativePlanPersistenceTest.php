@@ -36,6 +36,19 @@ class CanvasCreativePlanPersistenceTest extends TestCase
             self::assertSame('intake_review',$view['card']['type']);
             self::assertTrue($view['card']['full_plan']);
             self::assertCount(4,$view['card']['candidates']);
+            // A natural-language answer can update a pending intake card without executing production.
+            $prepared=Workflow::prepare($tenant,Db::name(Store::PREFIX.'thread')->find($thread),'一集60秒',[],[],[]);
+            self::assertSame('collecting',$prepared['workflow']['stage_state']['status']);
+            $natural=Workflow::applyIntakeDraftLocked($prepared['workflow'],$prepared['thread_settings'],[
+                'candidates'=>[
+                    ['key'=>'episode_count','value'=>'1集','source'=>'message','evidence'=>'一集','confidence'=>1],
+                    ['key'=>'episode_duration','value'=>'60秒','source'=>'message','evidence'=>'60秒','confidence'=>1],
+                ],'questions'=>[]],['message'],'一集60秒');
+            self::assertSame('1集',$natural['workflow_state']['slot_values']['episode_count']);
+            self::assertSame('60秒',$natural['workflow_state']['slot_values']['episode_duration']);
+            self::assertSame(['visual_style','aspect_ratio'],array_keys($natural['workflow_state']['intake_candidates']));
+            self::assertSame('reviewing_intake',$natural['workflow_state']['stage_state']['status']);
+            self::assertSame(123,$natural['workflow_state']['intake_anchor_run_id']);
             try { Workflow::answer($tenant,$user,$canvas,$thread,1,'intake_review','{"episode_count":"3集"}');self::fail('Partial plan accepted'); }
             catch(\RuntimeException $e) { self::assertSame('INVALID_WORKFLOW_ANSWER',$e->getMessage()); }
             $values=['episode_count'=>'3集','episode_duration'=>'120秒','visual_style'=>'国风水墨','aspect_ratio'=>'16:9'];
