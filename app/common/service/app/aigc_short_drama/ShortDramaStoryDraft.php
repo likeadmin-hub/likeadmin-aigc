@@ -13,8 +13,36 @@ final class ShortDramaStoryDraft
     public static function effective(array $request, array $original): array
     {
         $result = ShortDramaStoryWorkflow::enabled($request) && is_array($request['_story_draft']['result'] ?? null)
-            ? $request['_story_draft']['result'] : $original;
+            ? $request['_story_draft']['result'] : self::legacyResult($original);
+        if (ShortDramaStoryWorkflow::unconfirmedStory($request)) {
+            // Premature outlines remain in result_json as evidence, not as confirmed work.
+            $result['episodes'] = [];
+            $result['storyboard'] = [];
+        }
         return AigcShortDramaService::normalizeStoryDraftPlanResult($result);
+    }
+
+    /** Read-only compatibility for the retired direct-generation response shape. */
+    private static function legacyResult(array $plan): array
+    {
+        if (($plan['generation_settings']['creative_control'] ?? '') !== 'upstream') return $plan;
+        $bible = is_array($plan['series_bible'] ?? null) ? $plan['series_bible'] : [];
+        if (trim(ShortDramaText::value($plan['type_judgement'] ?? '')) === '') {
+            $plan['type_judgement'] = ShortDramaText::genre($plan['genre'] ?? $bible['genre'] ?? '');
+        }
+        if (trim(ShortDramaText::value($plan['core_theme'] ?? '')) === '') {
+            $themes = $plan['theme'] ?? $bible['core_theme'] ?? $bible['theme'] ?? $bible['themes'] ?? '';
+            $plan['core_theme'] = is_array($themes)
+                ? implode('、', array_filter(array_map([ShortDramaText::class, 'value'], $themes)))
+                : ShortDramaText::value($themes);
+        }
+        foreach ((array)($plan['episodes'] ?? []) as $i => $episode) {
+            if (!is_array($episode)) continue;
+            if (!isset($episode['episode_number']) && isset($episode['episode'])) $episode['episode_number'] = $episode['episode'];
+            if (empty($episode['story_outline']) && isset($episode['outline'])) $episode['story_outline'] = $episode['outline'];
+            $plan['episodes'][$i] = $episode;
+        }
+        return $plan;
     }
 
     public static function version(array $request): int
