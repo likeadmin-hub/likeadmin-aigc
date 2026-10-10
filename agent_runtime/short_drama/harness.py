@@ -10,6 +10,18 @@ from langchain_core.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
 
 
+class FrozenContextMiddleware(AgentMiddleware):
+    """Replace SDK summarization: PHP owns context limits and paid-call budget.
+
+    Deep Agents explicitly replaces a built-in middleware with a custom one
+    of the same name. A hidden summary invocation must never consume the one
+    authorized model receipt, nor open an unmetered model connection.
+    """
+    @property
+    def name(self):
+        return "SummarizationMiddleware"
+
+
 class DomainToolsOnly(AgentMiddleware):
     """Do not accidentally grant the SDK's generic shell/filesystem/subagent tools."""
 
@@ -39,7 +51,7 @@ def build_agent(model, *, checkpointer=None, instruction: str):
         model=model,
         tools=[propose_decision],
         system_prompt=instruction,
-        middleware=[DomainToolsOnly()],
+        middleware=[FrozenContextMiddleware(), DomainToolsOnly()],
         checkpointer=checkpointer or InMemorySaver(),
         subagents=[],
         name="short-drama-dialogue",

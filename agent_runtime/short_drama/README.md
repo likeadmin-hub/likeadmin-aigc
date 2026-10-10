@@ -9,6 +9,7 @@ The default conversation engine is now `deepagents_v1`, including subsequent tur
 - `runtime.py` runs the actual Deep Agents SDK via a private stdio subprocess, with no HTTP listener, provider secrets or business database access. Its only exposed tool is the terminal `propose_decision`. Generic file, shell and delegation tools are blocked.
 - `DeepAgentConversationProvider` bridges the graph to the existing PHP model provider. The graph may request one model operation only. PHP seals that operation to the accepted model, prompt, context and attachments; the SDK cannot substitute parameters or request an extra paid iteration. Existing explicitly safe provider fallback still operates inside this one adapter operation.
 - The provider's existing JSON/SSE protocol is converted into a native SDK terminal tool call. This is a bounded dialogue graph, not an unrestricted autonomous planning/tool loop. The PHP domain prompt remains authoritative; SDK filesystem/tool boilerplate is not sent to the market model.
+- The SDK's automatic summary middleware is replaced by the existing frozen-context policy. Long input cannot silently request an additional summary model call; the PHP provider checks the selected model's context capacity.
 - PHP checks capabilities, model output, pricing and settlement. It atomically saves the reply, source-backed memory and authorized action. No SDK tool directly creates media, changes billing or confirms a stage.
 - Current workflow state, 38 prior messages plus the current turn, and up to 32 source-backed preference notes form durable context. Active workflow dialogue keeps the original message roles and text. Production input remains the existing stage-specific prompt. This is bounded memory, not unlimited recall.
 - Information cards require an explicit model decision and a real story direction. Confirmed values are reused and existing cards retain their first message anchor.
@@ -48,6 +49,8 @@ The additional `SHORT_DRAMA_AGENT_LOCAL_ROUTING_TESTS=1` test uses a configured 
 Replay covers greeting, preference memory, creation intent, story, aspect advice, mixed requirements/pause, conversation and resume; it verifies one reply per run, idempotency, fixed card anchors, no unintended generation and old-thread migration. SDK protocol tests cover the terminal tool, scope isolation, unauthorized tools, availability and one-operation budget.
 
 The earlier authorized Kimi evaluation below covered the decision contract. This SDK rollout has no new paid model evaluation: offline integration validates execution mechanics, not general reasoning quality. Every untested provider and production scenario is not implied to pass.
+
+Local integration acceptance: 114 PHP tests / 840 assertions passed, covering both new and existing execution paths; frontend SFC script/template compilation passed. Python graph/protocol tests also include oversized history to guard against hidden summary calls.
 
 ## Kimi acceptance — 2026-10-10
 
