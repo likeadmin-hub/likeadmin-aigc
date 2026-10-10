@@ -42,6 +42,12 @@ class CanvasCreativeRuntimeTest extends TestCase
         try {(new Provider())->generate(701,23,$this->request());self::fail('accepted');}
         catch(Rejection $e) {self::assertSame(['text','vision1','vision2'],array_column(array_column(Runtime::$calls,'model_selection'),'id'));}
     }
+    public function testEvaluationCannotFallBackOutsideExplicitlyAllowedModel(): void {
+        $this->models();Runtime::$errors['text']=new Rejection('unavailable',true);
+        $request=$this->request();$request['context']['evaluation_model_allowlist']=['text'];
+        try {(new Provider())->generate(701,23,$request);self::fail('Fallback escaped evaluation scope');}
+        catch(Rejection $e) {self::assertSame(['text'],array_column(array_column(Runtime::$calls,'model_selection'),'id'));}
+    }
     private function production(): array {
         $source=['id'=>1,'tenant_id'=>701,'user_id'=>23,'delete_time'=>0,'project_id'=>9,'task_id'=>'original','status'=>'success','request_json'=>'{}','result_json'=>json_encode(['storyboard'=>[['shot_id'=>'s1','dialogue'=>'old dialogue']]])];
         Db::$tables['aigc_short_drama_script_task']=[$source];Db::$tables['aigc_short_drama_project']=[['id'=>9,'tenant_id'=>701,'user_id'=>23,'delete_time'=>0,'last_task_id'=>'original']];

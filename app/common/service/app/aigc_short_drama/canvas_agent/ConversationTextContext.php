@@ -54,7 +54,7 @@ final class ConversationTextContext
             if ($selectedSkill['id']<=0 || $selectedSkill['version']<=0) throw new RuntimeException('INVALID_CONTEXT');
             if (strlen(json_encode($selectedSkill,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR))>65536) throw new RuntimeException('CONTEXT_TOO_LARGE');
         }
-        $workflowSkills=self::workflowStageSkills($context);
+        $workflowSkills=ConversationAgentDecision::enabled($context) ? [] : self::workflowStageSkills($context);
         // A workflow is not a free-form chat continuation.  Earlier stages
         // have already written validated artifacts to the graph and the
         // thread owns a compact artifact ledger. Replaying a long screenplay
