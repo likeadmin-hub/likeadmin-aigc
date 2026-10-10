@@ -49,7 +49,7 @@ $cases=[
     ['我们刚才确定的故事、集数和时长是什么？',['respond']],
     ['把时长改为90秒，其他保留，仍然先别生成',['update_requirements']],
     ['恢复制作',['resume']],
-    ['比例用16:9，但视觉风格我还没想好',['update_requirements']],
+    ['比例用16:9，但视觉风格我还没想好，请展示待确认选项',['update_requirements']],
     ['先聊聊，暂时不要开始生成。你能帮我比较几种画风吗？',['pause','respond']],
 ];
 $report=['canvas_id'=>$canvas,'thread_id'=>$thread,'model'=>$model,'steps'=>[]];$anchor=0;
@@ -93,7 +93,8 @@ foreach(array_slice($cases,$start,$max,true) as $index=>[$text,$actions]) {
     if($index===2 && !empty($workflow['intake_presentation']['visible'])) $violations[]='premature_card';
     if($index===4 && !empty($workflow['slot_values']['aspect_ratio'])) $violations[]='suggestion_adopted';
     if(in_array($index,[5,8,11],true) && empty($workflow['execution_paused'])) $violations[]='pause_lost';
-    if($index>=5 && ($workflow['slot_values']['episode_count']??'')!=='1集') $violations[]='episode_count_lost';
+    if($index>=5 && !in_array(($workflow['slot_values']['episode_count']??''),['1集','一集','1'],true)) $violations[]='episode_count_lost';
+    if($index===10 && (empty($workflow['intake_presentation']['visible']) || ($workflow['slot_values']['aspect_ratio']??'')!=='16:9')) $violations[]='requested_card_or_ratio_missing';
     if($index===8 && !str_contains((string)($workflow['slot_values']['episode_duration']??''),'90')) $violations[]='correction_lost';
     if(!empty($workflow['intake_presentation']['visible'])) {
         $current=(int)($workflow['intake_anchor_run_id']??0);
