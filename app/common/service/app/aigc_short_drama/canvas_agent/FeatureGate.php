@@ -94,7 +94,9 @@ final class FeatureGate
     public static function dialogueEngine(int $tenant): string
     {
         $engine=self::config($tenant)['canvas_agent']['dialogue_engine']??\think\facade\Config::get('short_drama_agent.engine','legacy');
-        return in_array($engine,[ConversationAgentDecision::ENGINE,DeepAgentConversationProvider::ENGINE],true)?$engine:'legacy';
+        // Migrate future accepted turns only; queued snapshots remain immutable.
+        if (NeuronConversationProvider::supports((string)$engine)) return NeuronConversationProvider::ENGINE;
+        return $engine===ConversationAgentDecision::ENGINE?$engine:'legacy';
     }
 
     /**

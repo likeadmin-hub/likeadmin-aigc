@@ -13,7 +13,7 @@ final class ConversationAgentDecision
 
     public static function enabled(array $context): bool
     {
-        return in_array($context['intent_routing']['dialogue_engine']??'',[self::ENGINE,DeepAgentConversationProvider::ENGINE],true);
+        return in_array($context['intent_routing']['dialogue_engine']??'',[self::ENGINE,NeuronConversationProvider::ENGINE,NeuronConversationProvider::PREVIOUS_ENGINE],true);
     }
 
     public static function actions(array $routing): array

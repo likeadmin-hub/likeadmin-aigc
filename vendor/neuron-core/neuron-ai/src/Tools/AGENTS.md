@@ -1,0 +1,108 @@
+# Tools Module
+
+The tool system: callable capabilities exposed to the model. Self-contained.
+
+## Tool vs ToolCall
+
+A `Tool` is **capability**: schema, `__invoke()`, dependencies (DB connections, HTTP clients, closures). It lives on the agent's registry and never travels. A `ToolCall` is **conversation data**: the record of one invocation (name, callId, inputs, result guarded by `hasResult()`, deferred execution flag, per-call approval state). ToolCalls are what messages, stream chunks, observability events, persistence and the evaluation `Trajectory` carry; they are plain data and serialize natively. There is no separate "tool definition" value object: that role *is* `ToolCall`.
+
+Providers build them (`HandleWithTools::newToolCall()`, validating the name against the registry and recording whether the definition implements `DeferredToolInterface`), and `ToolNode` resolves each call back to a live tool at execution time against the segment's tool registry (`AgentResources::$tools`), the set the model was offered (`src/Agent/AGENTS.md`). A call naming a tool outside that set is a loud `ToolException`, never a silent no-op. Nothing about a tool, closures included, is ever serialized.
+
+`ToolCall::isDeferred()` describes execution location independently of result and approval state. The flag survives workflow persistence and chat history storage, including after completion or rejection. Custom providers and manually constructed calls must supply `deferred: true` for externally executed tools.
+
+## Defining a tool
+
+Extend `Tool`. `name` and `description` are class property defaults, so the constructor stays free for dependencies; `properties()` describes the JSON schema (`ToolProperty`, `ArrayProperty`, `ObjectProperty`), and `__invoke()` receives the inputs as named arguments.
+
+```php
+class GetTranscriptionTool extends Tool
+{
+    protected string $name = 'get_transcription';
+
+    protected ?string $description = 'Retrieve the transcription of a YouTube video.';
+
+    public function __construct(protected string $apiKey)
+    {
+    }
+
+    protected function properties(): array
+    {
+        return [
+            new ToolProperty(name: 'video_url', type: PropertyType::STRING, description: 'The URL of the YouTube video.', required: true),
+        ];
+    }
+
+    public function __invoke(string $video_url): string
+    {
+        return $this->fetchTranscription($video_url);
+    }
+}
+```
+
+Toolkits (`AbstractToolkit`) group tools and contribute `guidelines()` to the system prompt; `add()` appends tools to the provided set, and `only()` / `exclude()` / `with()` adjust it per agent. Tool names must be unique among an agent's tools: `ToolRegistry` throws `ToolException` when it is built with two tools of the same name, as when the Tavily and Jina toolkits both provide `web_search` and `url_reader`, while `ToolRegistry::add()` ignores a tool already registered. Unnamed provider tools never clash. Tool runs are counted by `getRunKey()`, the tool name by default, so `toolMaxRuns()` applies per tool over the entire agent run, including interruptions; override it, or use the `TrackByInputs` trait, which keys runs by the declared inputs in declaration order, for parameter-aware limits.
+
+## Deferred tools
+
+`DeferredToolInterface` marks tools whose execution belongs outside the backend. Construct `FrontendTool` from a name, optional description and optional input JSON Schema, without an `__invoke()` implementation:
+
+```php
+$tool = new DeferredTool(
+    name: $definition['name'],
+    description: $definition['description'],
+    inputSchema: $definition['parameters'],
+);
+```
+
+The constructor converts the supplied schema to `ToolProperty` / `ArrayProperty` / `ObjectProperty` instances through `ToolPropertyFactory::fromSchema()`. `getProperties()` exposes that list and `getRequiredProperties()` reads its required flags, just like other tools. Conversion is recursive for nested objects and array items, including enums, descriptions, nullable types, required flags and array bounds. MCP uses the same factory.
+
+The factory supports the existing property model, not arbitrary JSON Schema: `$ref`, `oneOf`, `anyOf`, `allOf`, `prefixItems`, and type unions with more than one non-null type throw `ToolException`. Missing types use the existing string default. Inline concrete property definitions before constructing a tool when using references or unions.
+
+The original schema is retained for provider serialization, preserving additional keywords such as string/numeric constraints and `additionalProperties` that the property classes do not expose. `addProperty()` rejects additions when an explicit schema was provided. Without a schema, the usual property builder and subclass `properties()` hook remain available. Approval remains independent of execution location: suppressing approval does not make a deferred tool locally executable.
+
+`ToolInterface::getInputSchema()` is the provider-neutral schema boundary. `Tool` builds it from its properties; `FrontendTool` returns its supplied schema when present. Provider mappers consume that schema and retain their provider-specific adaptations (including Gemini's nullable-type conversion). Schema preservation does not perform input validation or guarantee that a provider supports every JSON Schema keyword.
+
+`DeferredTool::execute()` is final and throws `ToolException`. Callers must identify the capability through `DeferredToolInterface` and arrange external execution instead. The default agent tool node finishes approvals and local execution, then hands outstanding external calls to `AwaitToolResultsNode`. Submit their results through `Agent::submitToolResults($results)->run()` (or `->events()` for streaming); see `src/Agent/AGENTS.md` for the durable continuation contract. Use `Agent::submitApprovalDecisions($decisions)` for the preceding approval phase. Both maps are keyed by tool call ID; result entries contain exactly one `result` value or `error` string. Protocol payload parsing remains an integration concern.
+
+## Results: return value vs exception
+
+The split falls on the natural boundary of the language:
+
+- **A return value is a conversational outcome.** A tool returns a string, an array (JSON-encoded) or a `ToolOutput`: a multimodal result built from the Chat module's content blocks (`ToolOutput::text/image/file/audio/video()`, or a block array). A failure the model should see and recover from is *returned*: `ToolOutput::error('Rate limited, retry after 60s')` carries the feedback as a text block with `isError()` true. Catch your own exceptions at the tool boundary and convert them visibly.
+- **An escaped exception is a bug.** It propagates and aborts the run (fail-fast; history stays consistent). No exception escaping `__invoke()` is converted into a result. The agent-level `toolErrorHandler(fn (Throwable $e, ToolCall $call): string|ToolOutput|null)` is the cross-cutting override: a returned value settles as the call's result and the loop continues, `null` declines and the exception propagates.
+- **Binding is casting.** `Tool::setInputs()` passes each input through its property's `cast()`, which converts what PHP's coercive mode would (`"5"` or `5.0` for an integer, `"true"` for a boolean, array elements through the items property, object fields through their own properties, or through the deserializer when the object maps to a class) and rejects the rest, including a value outside the property's `enum` and an object missing a required field. A bound tool therefore only holds typed values: `approvalPolicy()`, a `withApprovalPolicy()` callback, `getRunKey()` and `__invoke()` all judge the same inputs, so a strict comparison in a policy cannot be sidestepped by the model spelling `true` as `"true"`. The `ToolCall` keeps the model's raw spelling. A rejection is remembered and settled by `execute()` as `ToolOutput::error('Parameter "n" must be of type integer, string given.')` without calling `__invoke()`, and such a call never requires approval: a wrong type is the model's mistake to correct, not a bug. A value outside the enum is settled the same way (`Parameter "precision" must be one of "day", "month"; "week" given.`), as are a missing required input (`Parameter "n" is required.`) and a null one the property does not declare nullable (`Parameter "n" must be of type integer, null given.`). An optional input the model leaves out, or sets to null where the `__invoke()` parameter cannot take null, gets the parameter's declared default.
+
+Consumers detect multimodality on the **value** (`$call->getResult() instanceof ToolOutput`), never on the tool type. Providers whose API accepts content blocks map them natively and set their native error flag where one exists; text-only consumers (Ollama, stream adapters, token counting) fall back to `ToolOutput::getText()`, so include a `TextContent` in outputs meant to work everywhere (`ToolOutput` is `Stringable` for the same reason). `ToolNode`'s durable memo records the full `ToolOutput`, so a crash-replay restores multimodal results without re-running the tool.
+
+## Approval
+
+A tool declares its own intrinsic risk through the protected `approvalPolicy(): bool|string` hook (default `false`); a string counts as `true` and doubles as the approval reason shown to the approver. Declarations are live: `ToolNode` asks every tool on every call, with the call's inputs bound, so the answer cannot drift across a suspend/resume boundary. There is no middleware and no agent-level switch to attach.
+
+```php
+class TransferMoneyTool extends Tool
+{
+    protected function approvalPolicy(): bool|string
+    {
+        return ($this->inputs['amount'] ?? 0) > 100
+            ? 'Transfers above $100 require a human sign-off'
+            : false;
+    }
+}
+```
+
+The agent developer overrides the declaration per instance at attach time, in both directions: `requireApproval()` forces the gate, `suppressApproval()` waives a declared one, `withApprovalPolicy(fn (ToolInterface $tool): bool|string)` replaces the policy. The last override wins. `ToolInterface::requiresApproval()` is the resolution point the node consults: override first, then declaration.
+
+Per-call approval state (`ApprovalState`: pending / approved / rejected) is stamped on the `ToolCall` entries of the `ToolCallMessage` and persisted in **chat history**, the system of record for approvals; workflow state holds none of it. Two reasons travel with it in opposite directions: `approvalReason` (outbound, why the tool asked) and `rejectReason` (inbound, the approver's feedback, recorded on rejection only). The resume flow is described in `src/Agent/AGENTS.md`.
+
+## SQL select tools
+
+`MySQLSelectTool` and `PGSQLSelectTool` leave read-only enforcement to the database. Each query runs alone in a transaction opened with `START TRANSACTION READ ONLY` and always rolled back, so the database refuses a write whatever the SQL looks like (data-modifying CTEs, `SELECT INTO`, functions that write), and the rollback undoes session changes such as `set_config()`. On PostgreSQL a refusal from that transaction (SQLSTATE `25006`) reaches the model as `ToolOutput::error()` and other database errors propagate; `MySQLSelectTool` and `MySQLWriteTool` return every database error as `ToolOutput::error()` with the exception's message, so the model can correct its query. The tools throw when the connection is already inside a transaction, because their rollback would discard the application's work.
+
+The text rules cover only what a read-only transaction lets through. Each must refuse, never interpret SQL, so it stays stricter than the database in every case:
+
+- the first word of the raw query must be in `$allowedStatements`, which keeps out COPY, KILL, SET, LOCK and every other statement type; a leading comment is refused, never skipped;
+- a `;` may only be the last character, so no second statement (such as a `COMMIT` that ends the transaction) runs;
+- on MySQL, `OUTFILE`, `DUMPFILE` and `LOAD_FILE` are refused as plain substrings, because a read-only transaction allows file access.
+
+Don't add comment stripping, keyword blacklists or function lists: each earlier one was bypassed wherever the check and the database parsed the query differently.
+
+What the transaction doesn't stop depends on the connection's user: reading any table it can read, file reads and other privileged functions, sleeps, ending other sessions of the same user, session-level locks. The schema tools' `$tables` allow-list limits what the model sees, not what it can read. A dedicated connection with a least-privilege user and a statement timeout closes those gaps. That is the developer's decision: recommend it, and never create database users, change grants or edit connection settings on their behalf.

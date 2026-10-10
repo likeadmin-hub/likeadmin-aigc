@@ -12,11 +12,10 @@ use app\common\service\app\aigc_short_drama\canvas_agent\ConversationProviderInt
 /** End-to-end control replay with isolated fixtures and no external model calls. */
 class CanvasAgentDecisionPersistenceTest extends TestCase
 {
-    public static function engines(): array { return [['decision_v1'],['deepagents_v1']]; }
+    public static function engines(): array { return [['decision_v1'],['neuron_v1'],['deepagents_v1']]; }
     /** @dataProvider engines */
     public function testMultiTurnWorkerCommitRefreshPauseMemoryAndIdempotency(string $engine): void {
         if(getenv('SHORT_DRAMA_DB_TESTS')!=='1') $this->markTestSkipped('Transactional MySQL test');
-        if($engine==='deepagents_v1' && getenv('SHORT_DRAMA_AGENT_TESTS')!=='1') $this->markTestSkipped('Installed Deep Agents runtime required');
         (new \think\App())->initialize();$tenant=random_int(1500000000,1900000000);$user=$tenant;
         Db::startTrans();
         try {
@@ -24,7 +23,7 @@ class CanvasAgentDecisionPersistenceTest extends TestCase
             $canvas=Canvas::create($tenant,$user,['title'=>'Offline agent decision replay'])['id'];
             $thread=Store::create($tenant,$user,$canvas,'decision-test')['id'];
             $settings=json_decode(Db::name(Store::PREFIX.'thread')->where('id',$thread)->value('settings_json'),true);
-            self::assertSame($engine,$settings['dialogue_engine']);
+            self::assertSame($engine==='deepagents_v1'?'neuron_v1':$engine,$settings['dialogue_engine']);
             // Existing threads migrate at acceptance without losing settings.
             $settings['dialogue_engine']='legacy';$settings['retained_marker']='old-thread';
             Db::name(Store::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>json_encode($settings)]);

@@ -47,7 +47,7 @@ final class ConversationService
             }
             $current=ConversationWorkflow::currentState($conversation);
             $engine=FeatureGate::dialogueEngine($tenant);
-            $decisionEngine=in_array($engine,[ConversationAgentDecision::ENGINE,DeepAgentConversationProvider::ENGINE],true);
+            $decisionEngine=in_array($engine,[ConversationAgentDecision::ENGINE,NeuronConversationProvider::ENGINE,NeuronConversationProvider::PREVIOUS_ENGINE],true);
             if ($workflowAuto && ($skillId>0 || $attachments || $selectedIds)) throw new RuntimeException('INVALID_WORKFLOW_AUTO_CONTEXT');
             if ($workflowAuto && !ConversationWorkflow::validAutoStageRequest($current,$canvas,$thread,$key,$content)) throw new RuntimeException('INVALID_WORKFLOW_AUTO_REQUEST');
             if ($current!==[] && $skill===[] && FeatureGate::workflowEnabled($tenant,ConversationWorkflow::KEY)
