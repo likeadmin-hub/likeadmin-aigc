@@ -471,6 +471,25 @@ final class ConversationWorkflow
         return $threadSettings;
     }
 
+    /** Legacy threads recover the origin from the frozen workflow snapshot,
+     * never from the newest assistant message or current card revision. */
+    public static function intakeAnchorRun(int $tenant,int $user,int $canvas,int $thread,array $state): int
+    {
+        if ((int)($state['intake_anchor_run_id']??0)>0) return (int)$state['intake_anchor_run_id'];
+        $frozen=(int)($state['workflow_snapshot']['frozen_at']??0);
+        if (!$frozen) return 0;
+        $rows=Db::name(ConversationStore::PREFIX.'run')->where(['tenant_id'=>$tenant,'user_id'=>$user,
+            'canvas_id'=>$canvas,'thread_id'=>$thread,'status'=>'success','delete_time'=>0])
+            ->where('create_time','>=',$frozen)->order('id','asc')->field('id,context_snapshot')->select()->toArray();
+        foreach ($rows as $row) {
+            $context=json_decode((string)$row['context_snapshot'],true)?:[];
+            $candidate=$context['workflow']??$context['intent_routing']['workflow_candidate']??[];
+            if ((int)($candidate['workflow_snapshot']['frozen_at']??0)===$frozen
+                && ($candidate['stage_state']['key']??'')==='intake') return (int)$row['id'];
+        }
+        return 0;
+    }
+
     /** Read current tenant-scoped workflow and a small card projection. */
     public static function read(int $tenant,int $user,int $canvas,int $thread): array
     {
@@ -480,6 +499,7 @@ final class ConversationWorkflow
         $state=self::stateFromSettings(self::settings($row));
         if ($state===[]) return ['enabled'=>FeatureGate::workflowEnabled($tenant,self::KEY),'workflow'=>null,'card'=>null];
         self::assertState($state);
+        $state['intake_anchor_run_id']=self::intakeAnchorRun($tenant,$user,$canvas,$thread,$state);
         $document=Db::name(GraphService::TABLE)->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find();
         $state['three_views_ready']=ConversationStepFlow::viewsReady($state,json_decode((string)($document['nodes_json']??'[]'),true)?:[]);
         return ['enabled'=>FeatureGate::workflowEnabled($tenant,self::KEY),'workflow'=>self::publicState($state),'card'=>self::card($state)];
@@ -1110,7 +1130,7 @@ final class ConversationWorkflow
         }
         return $state;
     }
-    private static function publicState(array $state): array { return ['workflow_snapshot'=>self::publicWorkflowSnapshot((array)$state['workflow_snapshot']),'series'=>['episode_number'=>ConversationSeries::episode($state),'episode_count'=>ConversationSeries::count($state),'enabled'=>ConversationSeries::enabled($state),'media_review_required'=>!empty($state['series']['media_review_required'])],'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'slot_sources'=>(array)($state['slot_sources']??[]),'creative_settings'=>array_intersect_key((array)($state['creative_settings']??[]),array_flip(['style_id','style_name','aspect_ratio'])),'artifact_memory'=>self::publicArtifacts((array)($state['artifact_memory']??[])),'plan_hash'=>$state['plan_hash'],'image_plan_history'=>(array)($state['image_plan_history']??[]),'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'stage_plan'=>self::publicStagePlan((array)($state['stage_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
+    private static function publicState(array $state): array { return ['intake_anchor_run_id'=>(int)($state['intake_anchor_run_id']??0),'workflow_snapshot'=>self::publicWorkflowSnapshot((array)$state['workflow_snapshot']),'series'=>['episode_number'=>ConversationSeries::episode($state),'episode_count'=>ConversationSeries::count($state),'enabled'=>ConversationSeries::enabled($state),'media_review_required'=>!empty($state['series']['media_review_required'])],'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'slot_sources'=>(array)($state['slot_sources']??[]),'creative_settings'=>array_intersect_key((array)($state['creative_settings']??[]),array_flip(['style_id','style_name','aspect_ratio'])),'artifact_memory'=>self::publicArtifacts((array)($state['artifact_memory']??[])),'plan_hash'=>$state['plan_hash'],'image_plan_history'=>(array)($state['image_plan_history']??[]),'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'stage_plan'=>self::publicStagePlan((array)($state['stage_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
     private static function assertState(array $state): void {
         $snapshot=(array)($state['workflow_snapshot']??[]);$stage=(array)($state['stage_state']??[]);
         if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_array($snapshot['stage_skill_versions']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_array($state['creative_settings']??null) || !is_array($state['artifact_memory']??null) || !is_array($state['image_plan']??null) || !is_array($state['stage_plan']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');
