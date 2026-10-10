@@ -36,7 +36,7 @@ final class ConversationTextContext
         if (!is_array($selected) || !array_is_list($selected)) throw new RuntimeException('INVALID_CONTEXT');
         $last=count($messages)-1;
         if ($messages[$last]['role']!=='user') throw new RuntimeException('INVALID_CONTEXT');
-        $constraints=self::knownCreationConstraints($messages);
+        $constraints=[]; // Authoritative settings come from workflow slots, not regex matches in dialogue.
         $attachments=ConversationAttachments::normalize($messages[$last]['attachments']??[]);
         foreach ($messages as $index=>&$message) {
             $material=ConversationAttachments::normalize($message['attachments']??[]);
@@ -247,27 +247,4 @@ final class ConversationTextContext
         return $result;
     }
 
-    /** Extract only bounded, explicit production fields from user messages.
-     * This is context compression, not a planner or instruction authority. */
-    private static function knownCreationConstraints(array $messages): array
-    {
-        $known=[];
-        foreach ($messages as $message) {
-            if (($message['role']??'')!=='user' || !is_string($message['content']??null)) continue;
-            $text=$message['content'];
-            if (preg_match_all('/(?:画风|风格|style)\\s*(?:为|是|：|:)?\\s*([^\\n，。；;]{1,80})/iu',$text,$matches)) {
-                $values=$matches[1]; $value=trim((string)end($values));
-                if ($value!=='') $known['style']=$value;
-            }
-            if (preg_match_all('/(?:比例|aspect(?:\\s+ratio)?)\\s*(?:为|是|：|:)?\\s*([0-9]{1,2}\\s*[:：xX×]\\s*[0-9]{1,2})/iu',$text,$matches)) {
-                $values=$matches[1]; $value=preg_replace('/\\s+/u','',(string)end($values));
-                if (is_string($value) && $value!=='') $known['aspect_ratio']=str_replace(['：','X','×'],':',$value);
-            }
-            if (preg_match_all('/(?:时长|duration)\\s*(?:为|是|：|:)?\\s*([0-9]{1,3}(?:\\.[0-9]{1,2})?\\s*(?:秒|分钟|min(?:ute)?s?))/iu',$text,$matches)) {
-                $values=$matches[1]; $value=trim((string)end($values));
-                if ($value!=='') $known['duration']=$value;
-            }
-        }
-        return $known;
-    }
 }
