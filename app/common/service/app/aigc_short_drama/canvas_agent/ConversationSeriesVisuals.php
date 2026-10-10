@@ -20,11 +20,12 @@ final class ConversationSeriesVisuals
     /** Match by server-owned identity, never a user-editable node title. */
     public static function promptItem(array $plan,string $artifact,string $workflowKey,array $sourcePlan=[]): array
     {
+        $plan=\app\common\service\app\aigc_short_drama\ShortDramaResultProjection::normalize($plan);
+        if($sourcePlan!==[]) $sourcePlan=\app\common\service\app\aigc_short_drama\ShortDramaResultProjection::normalize($sourcePlan);
         $key=substr($workflowKey,strpos($workflowKey,':')+1);
         if (in_array($artifact,['storyboard','storyboard_video'],true)) {
             if (preg_match('/^ep[1-9][0-9]*_shot([1-9][0-9]*)$/D',$key,$match)) {
-                $plan=\app\common\service\app\aigc_short_drama\ShortDramaResultProjection::normalize($plan);
-        $shots=array_values((array)($plan['storyboard']??[]));
+                $shots=array_values((array)($plan['storyboard']??[]));
                 $index=(int)$match[1]-1;
                 if ($sourcePlan!==[]) {
                     $source=array_values((array)($sourcePlan['storyboard']??[]))[$index]??[];
