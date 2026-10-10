@@ -5,6 +5,7 @@ PHP remains authoritative for tenancy, billing, confirmations and execution.
 The host supplies an authorized model adapter; this module never creates one.
 """
 from deepagents import create_deep_agent
+from deepagents.middleware.filesystem import FilesystemMiddleware
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
@@ -51,7 +52,14 @@ def build_agent(model, *, checkpointer=None, instruction: str):
         model=model,
         tools=[propose_decision],
         system_prompt=instruction,
-        middleware=[FrozenContextMiddleware(), DomainToolsOnly()],
+        middleware=[
+            FrozenContextMiddleware(),
+            # Do not replace long chat/material with a file-read instruction:
+            # file tools are intentionally unavailable to this domain agent.
+            FilesystemMiddleware(tool_token_limit_before_evict=None,
+                                 human_message_token_limit_before_evict=None),
+            DomainToolsOnly(),
+        ],
         checkpointer=checkpointer or InMemorySaver(),
         subagents=[],
         name="short-drama-dialogue",
