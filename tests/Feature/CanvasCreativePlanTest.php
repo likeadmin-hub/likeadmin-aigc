@@ -15,10 +15,52 @@ class CanvasCreativePlanTest extends TestCase
         foreach ($slots as &$slot) if ($slot['key']==='aspect_ratio') $slot['options']=['9:16','16:9'];
         return ['workflow_snapshot'=>['key'=>Workflow::KEY,'version'=>Workflow::VERSION,
             'creative_policy_version'=>Policy::VERSION,'series_core'=>true,'slot_schema'=>$slots],
-            'creative_brief'=>$brief,'slot_values'=>[],'creative_settings'=>[], 'state_revision'=>1,
+            'creative_brief'=>$brief,'slot_values'=>$brief==='程序员大战孙悟空'?['story_direction'=>$brief]:[],
+            'slot_sources'=>$brief==='程序员大战孙悟空'?['story_direction'=>['value'=>$brief,'source'=>'message','evidence'=>'程序员大战孙悟空']]:[],'creative_settings'=>[], 'state_revision'=>1,
             'stage_state'=>['key'=>'intake','status'=>'collecting']];
     }
     private function draft(array $state): array { return Plan::draft($state,['candidates'=>[],'questions'=>[]]); }
+
+    public function testRawIntentIsNeverPromotedToStoryAndCardWaitsForSemanticDirection(): void
+    {
+        foreach (['我想生成短剧','帮我做个视频','你好，我想试试创作','程序员大战孙悟空'] as $raw) {
+            $state=$this->state($raw);
+            $state['slot_values']=[];$state['slot_sources']=[];
+            $state=Plan::draft($state,['candidates'=>[
+                'episode_duration'=>['value'=>'60秒','source'=>'message','evidence'=>'60秒'],
+            ],'questions'=>[]]);
+            self::assertArrayNotHasKey('story_direction',$state['slot_values']);
+            self::assertFalse(Plan::canShowIntake($state));
+            $card=new \ReflectionMethod(Workflow::class,'card');$card->setAccessible(true);
+            self::assertNull($card->invoke(null,$state));
+            // Same model turn supplies prose and semantically extracted facts.
+            $state=Workflow::withIntakeDraft($state,['candidates'=>[
+                ['key'=>'story_direction','value'=>'程序员大战孙悟空','source'=>'message','evidence'=>'程序员大战孙悟空','confidence'=>1],
+            ],'questions'=>[]]);
+            self::assertTrue(Plan::canShowIntake($state));
+            self::assertSame('60秒',$state['slot_values']['episode_duration']);
+            self::assertSame(['episode_count','visual_style','aspect_ratio'],array_keys($state['intake_candidates']));
+            self::assertSame('intake_review',$card->invoke(null,$state)['type']);
+        }
+    }
+
+    public function testOldAutomaticBriefFactIsReextractedWithoutLosingConfirmedOrRunningWork(): void
+    {
+        $state=$this->state('我想生成短剧');
+        $state['intake_collection_version']=1;
+        $state['slot_values']=['story_direction'=>'我想生成短剧'];
+        $state['slot_sources']=['story_direction'=>['source'=>'message','value'=>'我想生成短剧','evidence'=>'我想生成短剧']];
+        $state['intake_anchor_run_id']=99;
+        $updated=Plan::upgradePending($state);
+        self::assertFalse(Plan::canShowIntake($updated));
+        self::assertSame('我想生成短剧',$updated['creative_brief']);
+        self::assertSame(0,$updated['intake_anchor_run_id']);
+        self::assertSame($updated,Plan::upgradePending($updated));
+        $state['creative_plan_confirmed']=true;
+        self::assertSame($state,Plan::upgradePending($state));
+        unset($state['creative_plan_confirmed']);$state['series']['tasks']=['episode_1'=>['task_id'=>'existing']];
+        self::assertSame($state,Plan::upgradePending($state));
+    }
 
     public function testPendingLegacySuggestionsBecomeMissingQuestionsWithoutReplacingUserTopic(): void
     {
@@ -27,8 +69,9 @@ class CanvasCreativePlanTest extends TestCase
             'episode_duration'=>['value'=>'90秒','source'=>'suggestion'],'aspect_ratio'=>['value'=>'9:16','source'=>'suggestion']];
         $updated=Plan::upgradePending($state);
         self::assertSame('程序员大战孙悟空',$updated['creative_brief']);
-        self::assertSame('程序员大战孙悟空',$updated['slot_values']['story_direction']);
-        self::assertSame(['episode_count','episode_duration','aspect_ratio','visual_style'],array_keys($updated['intake_candidates']));
+        self::assertArrayNotHasKey('story_direction',$updated['slot_values']);
+        self::assertArrayHasKey('story_direction',$updated['intake_candidates']);
+        self::assertFalse(Plan::canShowIntake($updated));
         foreach ($updated['intake_candidates'] as $candidate) self::assertSame('',$candidate['value']);
         self::assertSame($updated,Plan::upgradePending($updated));
         $state['creative_plan_confirmed']=true;
@@ -121,7 +164,7 @@ class CanvasCreativePlanTest extends TestCase
         foreach ($known as $key=>$value) $items[]=['key'=>$key,'value'=>$value,'source'=>'message','evidence'=>$value,'confidence'=>1];
         $s=Workflow::withIntakeDraft($s,['candidates'=>$items,'questions'=>[]]);
         self::assertSame([],array_keys($s['intake_candidates']));
-        self::assertSame($known+['story_direction'=>'程序员大战孙悟空'],$s['slot_values']);
+        self::assertSame(['story_direction'=>'程序员大战孙悟空']+$known,$s['slot_values']);
         self::assertTrue($s['creative_plan_confirmed']);
         self::assertSame(3,Series::count($s));
         self::assertSame('16:9',$s['creative_settings']['aspect_ratio']);

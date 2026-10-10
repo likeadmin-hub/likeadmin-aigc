@@ -476,6 +476,7 @@ final class ConversationWorkflow
      * never from the newest assistant message or current card revision. */
     public static function intakeAnchorRun(int $tenant,int $user,int $canvas,int $thread,array $state): int
     {
+        if (!ConversationCreativePlan::canShowIntake($state)) return 0;
         if ((int)($state['intake_anchor_run_id']??0)>0) return (int)$state['intake_anchor_run_id'];
         $frozen=(int)($state['workflow_snapshot']['frozen_at']??0);
         if (!$frozen) return 0;
@@ -1059,6 +1060,7 @@ final class ConversationWorkflow
     }
     private static function card(array $state): ?array {
         $stage=(array)$state['stage_state'];
+        if (($stage['key']??'')==='intake' && !ConversationCreativePlan::canShowIntake($state)) return null;
         $definition=self::stageDefinition((array)$state['workflow_snapshot'],(string)($stage['key']??''));
         $stageKey=(string)($stage['key']??'');
         $configured=self::stageSkillNames((array)$state['workflow_snapshot'],$stageKey);
