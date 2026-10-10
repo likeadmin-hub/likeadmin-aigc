@@ -46,6 +46,8 @@ final class ConversationService
                 catch (\Throwable $error) {throw new RuntimeException('SKILL_UNAVAILABLE',0,$error);}
             }
             $current=ConversationWorkflow::currentState($conversation);
+            $engine=FeatureGate::dialogueEngine($tenant);
+            $decisionEngine=in_array($engine,[ConversationAgentDecision::ENGINE,NeuronConversationProvider::ENGINE,NeuronConversationProvider::PREVIOUS_ENGINE],true);
             if ($workflowAuto && ($skillId>0 || $attachments || $selectedIds)) throw new RuntimeException('INVALID_WORKFLOW_AUTO_CONTEXT');
             if ($workflowAuto && !ConversationWorkflow::validAutoStageRequest($current,$canvas,$thread,$key,$content)) throw new RuntimeException('INVALID_WORKFLOW_AUTO_REQUEST');
             if ($current!==[] && $skill===[] && FeatureGate::workflowEnabled($tenant,ConversationWorkflow::KEY)
@@ -53,7 +55,7 @@ final class ConversationService
                 // A continuing workflow keeps the models and auto/manual
                 // policy confirmed at its start. Resolve the frozen IDs again
                 // against the current tenant catalog before any Provider call.
-                $preferences=ConversationWorkflow::frozenPreferences($current,$preferences);
+                $preferences=ConversationWorkflow::frozenPreferences($current,$preferences,$workflowAuto);
             }
             $settings=ConversationSettings::resolve($tenant,$preferences);
             // Freeze server-resolved model identities, not mutable browser
@@ -71,21 +73,28 @@ final class ConversationService
                 }
                 $candidate=$current;
                 $status=(string)($current['stage_state']['status']??'');
-                if (!in_array($status,['awaiting_plan_confirmation','awaiting_stage_confirmation','reviewing_intake'],true)) {
+                $editableIntake=$status==='reviewing_intake' && ConversationCreativePlan::enabled($current);
+                if ($editableIntake || !in_array($status,['awaiting_plan_confirmation','awaiting_stage_confirmation','awaiting_stage_start','reviewing_intake'],true)) {
                     $candidate=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$workflowPreferences)['workflow'];
                 }
                 $routing=ConversationIntentRouter::snapshot($tenant);
+                if ($decisionEngine) $routing['dialogue_engine']=$engine;
                 $routing['kind']='active_workflow';
                 $routing['workflow_candidate']=$candidate;
                 $routing['base_workflow_revision']=(int)$current['state_revision'];
-                $routing['workflow_paused']=in_array($status,['awaiting_plan_confirmation','awaiting_stage_confirmation','reviewing_intake'],true);
+                $routing['workflow_paused']=!$editableIntake && in_array($status,['awaiting_plan_confirmation','awaiting_stage_confirmation','awaiting_stage_start','reviewing_intake'],true);
                 $routing['revision_allowed_stages']=ConversationWorkflow::revisableStages($current);
+                if (ConversationCreativePolicy::enabled($current)) {
+                    $routing['production_revision']=ConversationProductionRevision::snapshot($tenant,(int)$conversation['user_id'],$current);
+                    $routing['revision_allowed_stages']=array_keys($routing['production_revision']);
+                }
                 return ['settings'=>$settings,'skill'=>[],'intent_routing'=>$routing];
             }
             $workflow=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$workflowPreferences);
-            $intentRouting=ConversationIntentRouter::shouldClassify($tenant,$content,$skill,$workflow['workflow'])
+            $intentRouting=($decisionEngine && $skill===[] && $workflow['workflow']===[] && !str_starts_with(trim($content),'/')) || ConversationIntentRouter::shouldClassify($tenant,$content,$skill,$workflow['workflow'])
                 ? ConversationIntentRouter::snapshot($tenant) : [];
             if ($intentRouting) {
+                if ($decisionEngine) $intentRouting['dialogue_engine']=$engine;
                 // Freeze the same authorized workflow/Skill/model versions as a
                 // direct route before the text Provider crosses its I/O
                 // boundary. The classifier can only activate this snapshot.

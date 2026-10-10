@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace app\common\service\app\aigc_short_drama\canvas_agent;
 
 use RuntimeException;
+use app\common\service\power\MarketTextModelProviderException;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\app\aigc_short_drama\ShortDramaPlanningBudget;
 
@@ -26,9 +27,33 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         // enabled tenant model here; model routing is server-owned.
         $images=ConversationImages::urls($tenant,$user,(array)($request['context']??[]));
         if (!empty($request['context']['_input_contract_version'])) {
-            $model=MarketTextModelRuntimeService::resolveModel($tenant,$selection,$images!==[]);
-            self::outputBudget($request,$model,count($images));
-        } else MarketTextModelRuntimeService::resolveRoutedModel($tenant,$selection,$images!==[]);
+            $model=self::resolve($tenant,$selection,$images!==[]);
+            $fitting=false;
+            $allowed=(array)($request['context']['evaluation_model_allowlist']??[]);
+            foreach ([$model,...self::options($tenant,$images!==[])] as $candidate) {
+                if ($allowed && !in_array((string)$candidate['id'],$allowed,true)) continue;
+                try { self::outputBudget($request,$candidate,count($images));$fitting=true;break; }
+                catch (RuntimeException $error) { if ($error->getCode()!==413) throw $error; }
+            }
+            if (!$fitting) throw new RuntimeException('CONTEXT_TOO_LARGE');
+        } else self::resolve($tenant,$selection,$images!==[]);
+    }
+
+    private static function options(int $tenant,bool $vision): array
+    {
+        foreach (MarketTextModelRuntimeService::modelGroups($tenant) as $group) {
+            if (($group['key']??'')===($vision?'vision_describe':'script_plan')) return (array)($group['options']??[]);
+        }
+        return [];
+    }
+
+    private static function resolve(int $tenant,array $selection,bool $vision): array
+    {
+        try { return MarketTextModelRuntimeService::resolveRoutedModel($tenant,$selection,$vision); }
+        catch (\Throwable $error) {
+            if ($vision && self::options($tenant,true)===[]) throw new RuntimeException('VISION_MODEL_UNAVAILABLE',0,$error);
+            throw $error;
+        }
     }
 
     public static function outputBudget(array $request,array $model,int $images=0): int
@@ -71,12 +96,8 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
             // settlement, so a blocked reply is never published.
             '_result_validator'=>$validator,
         ];
-        if (!empty($request['context']['_input_contract_version'])) {
-            $runtimeRequest['_require_final_content']=true;
-            $runtimeRequest['_disable_model_fallback']=true;
-            $model=MarketTextModelRuntimeService::resolveModel($tenant,(array)($settings['reasoning_model']??[]),$images!==[]);
-            $request['max_tokens']=self::outputBudget($request,$model,count($images));
-        }
+        $runtimeRequest['_require_final_content']=!empty($request['context']['_input_contract_version']);
+        $runtimeRequest['_disable_model_fallback']=true;
         // The worker owns the workflow output budget.  Forward it to the
         // shared runtime instead of merely storing it on the local request;
         // otherwise a structured stage can stream an unbounded completion.
@@ -86,7 +107,36 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         if (array_key_exists('enable_thinking',$request) && is_bool($request['enable_thinking'])) $modelConfig['enable_thinking']=$request['enable_thinking'];
         if ($modelConfig) $runtimeRequest['model_config']=$modelConfig;
         $onEvent=is_callable($request['on_event']??null)?$request['on_event']:null;
-        $result=MarketTextModelRuntimeService::generate($tenant,$user,$runtimeRequest,$onEvent);
+        $preferred=self::resolve($tenant,(array)($settings['reasoning_model']??[]),$images!==[]);
+        $candidates=[$preferred];
+        foreach (self::options($tenant,$images!==[]) as $candidate) if ((string)$candidate['id']!==(string)$preferred['id']) $candidates[]=$candidate;
+        $allowed=(array)($request['context']['evaluation_model_allowlist']??[]);
+        if ($allowed) $candidates=array_values(array_filter($candidates,static fn(array $model): bool=>in_array((string)$model['id'],$allowed,true)));
+        if (!$candidates) throw new RuntimeException('TEXT_MODEL_UNAVAILABLE');
+        $result=null;$lastError=null;
+        $deadline=microtime(true)+$runtimeRequest['request_timeout_seconds'];
+        foreach ($candidates as $candidate) {
+            if ((int)($request['run_id']??0)>0) {
+                $active=\think\facade\Db::name(ConversationStore::PREFIX.'run')->where(['id'=>(int)$request['run_id'],'tenant_id'=>$tenant,'user_id'=>$user,'status'=>'running'])->count();
+                if (!$active) throw new RuntimeException('RUN_SUPERSEDED');
+            }
+            $remaining=(int)floor($deadline-microtime(true));
+            if ($remaining<1) throw new RuntimeException('MODEL_ROUTING_TIMEOUT');
+            $runtimeRequest['request_timeout_seconds']=$remaining;
+            try {
+                $runtimeRequest['model_selection']=$candidate;
+                $runtimeRequest['model_config']['max_tokens']=self::outputBudget($request,$candidate,count($images));
+                $result=MarketTextModelRuntimeService::generate($tenant,$user,$runtimeRequest,$onEvent);
+                break;
+            } catch (MarketTextModelProviderException $error) {
+                if (!$error->allowsModelFallback) throw $error;
+                $lastError=$error;
+            } catch (RuntimeException $error) {
+                if ($error->getCode()!==413) throw $error;
+                $lastError=$error;
+            }
+        }
+        if ($result===null) throw $lastError ?? new RuntimeException('TEXT_MODEL_UNAVAILABLE');
         $answer=trim((string)($result['content']??''));
         if ($answer==='') throw new RuntimeException('EMPTY_MODEL_RESPONSE');
         return ['content'=>$answer,'tool_calls'=>[],'safety_checked'=>$validator!==null];

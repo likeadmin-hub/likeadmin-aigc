@@ -405,14 +405,14 @@ class MarketTextModelRuntimeService
         $options = [];
         foreach ($products as $product) {
             $snapshot = self::arrayValue($product['source_payload'] ?? []);
-            if ($vision && !self::supportsVision($snapshot)) {
+            if ($vision && !self::supportsVision($snapshot, $product)) {
                 continue;
             }
             $prices = self::marketPrices($tenantId, (int)$product['id']);
             if ($prices === []) {
                 continue;
             }
-            $meta = (array)($snapshot['market_metadata'] ?? []);
+            $meta = MarketModelCapabilities::applyMetadata($product, (array)($snapshot['market_metadata'] ?? []));
             $protocols = self::protocolList($meta['protocols'] ?? []);
             $options[] = [
                 'id' => (string)$product['id'],
@@ -435,10 +435,11 @@ class MarketTextModelRuntimeService
                 'max_input_tokens' => TextModelCapacity::metadata($meta)['max_input_tokens'],
                 'default_params' => self::arrayValue($meta['default_params'] ?? []),
                 'params_schema' => self::arrayValue($meta['params_schema'] ?? []),
-                'capabilities' => self::arrayValue($meta['capabilities'] ?? []),
+                'capabilities' => array_replace(self::arrayValue($meta['capabilities'] ?? []), PowerMarketService::capability($product)),
+                'capability_profile' => MarketModelCapabilities::profile($product),
                 'developer_doc_slug' => (string)($meta['developer_doc_slug'] ?? ''),
                 'api_doc' => (string)($meta['api_doc'] ?? ''),
-                'supports_vision' => self::supportsVision($snapshot),
+                'supports_vision' => self::supportsVision($snapshot, $product),
                 'input' => $prices['input'],
                 'output' => $prices['output'],
                 'market_product_id' => (int)$product['id'],
@@ -494,13 +495,10 @@ class MarketTextModelRuntimeService
         return compact('input', 'output');
     }
 
-    private static function supportsVision(array $snapshot): bool
+    private static function supportsVision(array $snapshot, array $product = []): bool
     {
-        $meta = (array)($snapshot['market_metadata'] ?? []); $resource = (array)($snapshot['resource'] ?? []);
-        foreach ([$meta['capabilities'] ?? [], $meta['input_modalities'] ?? [], $resource['capabilities'] ?? [], $resource['input_modalities'] ?? []] as $value) {
-            foreach ((array)$value as $item) if (in_array(strtolower((string)$item), ['vision', 'image', 'image_input'], true)) return true;
-        }
-        return !empty($meta['supports_vision']) || !empty($resource['supports_vision']);
+        $product['source_payload'] = $snapshot;
+        return !empty(PowerMarketService::capability($product)['supports_vision']);
     }
 
     private static function quote(array $model, int $inputTokens, int $outputTokens): array
@@ -1125,10 +1123,11 @@ class MarketTextModelRuntimeService
                 $response = trim(preg_replace('/\s+/u', ' ', strip_tags($body)) ?? $body);
                 Log::write('Market text model rejected by Claude client policy: http=' . $status . ' response=' . mb_substr($response, 0, 1500, 'UTF-8'));
             }
-            throw new Exception(self::providerError($body) ?: '文本模型调用失败（HTTP ' . $status . '）');
+            throw self::providerException(self::providerError($body) ?: '文本模型调用失败（HTTP ' . $status . '）',
+                UpstreamErrorMessageService::allowsModelFallback($body), $state ?? []);
         }
         if ($state['error'] !== '') {
-            throw new Exception($state['error']);
+            throw self::providerException($state['error'], !empty($state['model_fallback_allowed']), $state);
         }
         // Some OpenAI-compatible reasoning models emit their only textual output
         // under reasoning_content. Preserve it as a last-resort response instead
@@ -1179,11 +1178,12 @@ class MarketTextModelRuntimeService
             throw new Exception(self::networkError($error));
         }
         if ($status >= 400) {
-            throw new Exception(self::providerError($body) ?: '文本模型调用失败（HTTP ' . $status . '）');
+            throw self::providerException(self::providerError($body) ?: '文本模型调用失败（HTTP ' . $status . '）',
+                UpstreamErrorMessageService::allowsModelFallback($body), $state ?? []);
         }
         $event = self::parseJsonResponse($body, false);
         if ($event === null || ($event['type'] ?? '') === 'error') {
-            throw new Exception((string)($event['message'] ?? '文本模型返回格式异常'));
+            throw self::providerException((string)($event['message'] ?? '文本模型返回格式异常'), !empty($event['model_fallback_allowed']));
         }
         $content = (string)($event['content'] ?? '');
         $toolCalls = (array)($event['tool_calls'] ?? []);
@@ -1258,6 +1258,7 @@ class MarketTextModelRuntimeService
         }
         if (($event['type'] ?? '') === 'error') {
             $state['error'] = (string)($event['message'] ?? '文本模型调用失败');
+            $state['model_fallback_allowed'] = !empty($event['model_fallback_allowed']);
             return;
         }
         if (!empty($event['usage']) && is_array($event['usage'])) {
@@ -1291,15 +1292,15 @@ class MarketTextModelRuntimeService
         if (isset($json['code']) && is_numeric($json['code']) && empty($json['choices']) && empty($json['output'])) {
             $providerMessage = self::providerError($json);
             if ((int)$json['code'] !== 0 || $providerMessage !== '' || array_key_exists('data', $json)) {
-                return ['type' => 'error', 'message' => $providerMessage ?: 'Provider request failed'];
+                return ['type' => 'error', 'message' => $providerMessage ?: 'Provider request failed', 'model_fallback_allowed' => UpstreamErrorMessageService::allowsModelFallback($json)];
             }
         }
         if (isset($json['error'])) {
-            return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败'];
+            return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败', 'model_fallback_allowed' => UpstreamErrorMessageService::allowsModelFallback($json)];
         }
         $eventType = strtolower((string)($json['type'] ?? $json['event'] ?? $eventName));
         if (in_array($eventType, ['error', 'failed', 'fail', 'response.failed', 'response.incomplete'], true)) {
-            return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败'];
+            return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败', 'model_fallback_allowed' => UpstreamErrorMessageService::allowsModelFallback($json)];
         }
         foreach (['data', 'result', 'output', 'response'] as $key) {
             if (!empty($json[$key]) && is_array($json[$key]) && self::looksLikePayload($json[$key])) {
@@ -1469,6 +1470,13 @@ class MarketTextModelRuntimeService
             }
         }
         return implode('', $parts);
+    }
+
+    private static function providerException(string $message, bool $fallbackAllowed, array $state = []): Exception
+    {
+        $hasOutput = !empty($state['content']) || !empty($state['reasoning']) || !empty($state['tool_calls'])
+            || (int)($state['delta_count'] ?? 0) > 0;
+        return new MarketTextModelProviderException($message, $fallbackAllowed && !$hasOutput);
     }
 
     private static function providerError($payload): string

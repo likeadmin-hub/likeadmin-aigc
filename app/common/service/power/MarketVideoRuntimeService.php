@@ -156,6 +156,7 @@ class MarketVideoRuntimeService
                 'default_params' => self::arrayValue($metadata['default_params'] ?? []),
                 'content_schema' => self::arrayValue($metadata['content_schema'] ?? []),
                 'capabilities' => self::arrayValue($metadata['capabilities'] ?? []),
+                'capability_profile' => MarketModelCapabilities::profile($product),
                 'developer_doc_slug' => (string)($metadata['developer_doc_slug'] ?? ''),
                 'api_doc' => (string)($metadata['api_doc'] ?? ''),
                 'supported_asset_types' => self::supportedAssetTypes($product, $metadata),
@@ -235,6 +236,8 @@ class MarketVideoRuntimeService
 
     private static function supportsAudioGeneration(array $product, array $metadata): bool
     {
+        $overrides=MarketModelCapabilities::overrides($product);
+        if(array_key_exists('supports_audio_output',$overrides))return $overrides['supports_audio_output'];
         if (strtolower((string)($product['upstream_app_code'] ?? '')) === 'seedance'
             || strtolower((string)($product['upstream_model_code'] ?? '')) === 'wan3.0-video') {
             return true;
@@ -1928,6 +1931,8 @@ class MarketVideoRuntimeService
     }
     private static function supportedAssetTypes(array $product, array $meta): array
     {
+        $overrides=MarketModelCapabilities::overrides($product);
+        if(array_key_exists('supported_asset_types',$overrides))return array_values(array_intersect(['image','video','audio'],$overrides['supported_asset_types']));
         $types = self::assetTypes($meta);
         // Older H3 market rows may omit both a content schema and
         // supported_asset_types. Its documented nine-image reference contract
@@ -1940,6 +1945,9 @@ class MarketVideoRuntimeService
     }
     private static function referenceLimit(array $product, array $meta, string $type): int
     {
+        $overrides=MarketModelCapabilities::overrides($product);
+        $key=['image'=>'max_reference_images','video'=>'max_reference_videos','audio'=>'max_reference_audios'][$type]??'';
+        if(array_key_exists($key,$overrides))return $overrides[$key];
         if ((string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API) {
             $app = strtolower((string)($product['upstream_app_code'] ?? ''));
             if ($app === 'wan') return ['image' => 4, 'video' => 1, 'audio' => 1][$type] ?? 0;
@@ -2288,6 +2296,15 @@ class MarketVideoRuntimeService
             + self::referenceLimit($product, $meta, 'audio');
     }
     private static function generationModes(array $product, array $meta): array
+    {
+        $modes=self::declaredGenerationModes($product,$meta);
+        $overrides=MarketModelCapabilities::overrides($product);
+        if(($overrides['supports_first_last_frame']??null)===false)$modes=array_values(array_diff($modes,['start_end']));
+        if(array_key_exists('input_modes',$overrides))$modes=array_values(array_intersect($modes,$overrides['input_modes']));
+        return $modes;
+    }
+
+    private static function declaredGenerationModes(array $product, array $meta): array
     {
         $isH3 = self::isH3Product($product);
         $supportsStartEndFrames = self::supportsStartEndFrames($product);
@@ -3141,7 +3158,7 @@ class MarketVideoRuntimeService
                 }
             }
         }
-        return $metadata;
+        return MarketModelCapabilities::applyMetadata($product, $metadata);
     }
     private static function inheritReferenceModelMetadata(array $product, array $metadata): array
     {

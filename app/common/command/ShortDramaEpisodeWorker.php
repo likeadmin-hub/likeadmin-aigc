@@ -28,6 +28,7 @@ class ShortDramaEpisodeWorker extends Command
             pcntl_signal(SIGINT, $stop);
         }
         do {
+            \app\common\service\app\aigc_short_drama\ShortDramaWorkerMemory::release();
             try {
                 $processed = ShortDramaEpisodeService::tick();
             } catch (\Throwable $e) {

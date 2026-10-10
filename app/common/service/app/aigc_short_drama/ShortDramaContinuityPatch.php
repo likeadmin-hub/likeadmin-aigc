@@ -22,21 +22,38 @@ final class ShortDramaContinuityPatch
 
     public static function meaningMessages(array $plan, array $review, array $context = []): array
     {
+        $checks = [];
+        foreach (['changes', 'hooks'] as $group) foreach ($review[$group] ?? [] as $index => $item) {
+            $checks[] = ['collection' => $group, 'index' => $index, 'supported' => '必须为JSON布尔值', 'reason' => '证据与事实的对应关系或缺失原因',
+                'failure_kind'=>'supported=false时必填：audit_claim(审校记录臆测或误记)、script_conflict(正文明确矛盾)、uncertain(无法判断)'];
+        }
+        foreach ($plan['_continuity_source_patch']['shot_insertions'] ?? [] as $index => $item) {
+            $checks[] = ['collection' => 'insertions', 'index' => $index, 'supported' => '必须为JSON布尔值', 'reason' => '证据与事实的对应关系或缺失原因'];
+        }
         return ['system_prompt' => '你是证据核对员，只返回JSON。核对事实含义，不创作、不改写。原文出现不等于支持所声称的事实。',
             'content' => json_encode(['instructions' => [
                 '逐条检查changes的after或hooks的description是否由指定镜头及其实际上下文支持。storyboard证明本集新增或变化的事实；previous_state和previous_open_hooks仅作为前集已记录背景，不能证明本集新增事件。',
+                'earlier_episode_shots是服务端从本集已经发生的前段镜头取出的原文，不是前集状态或未来剧情。可结合它核对延续的背景事实和伏笔铺垫（例如此前已经展示的损坏），无需当前块重复演示；本段新增动作、状态变化或伏笔兑现仍必须有storyboard中的当前证据，不能把前段动作再次记为本段新事件。',
+                'before在服务器状态管理模式下由程序读取，不代表正文正确。必须同时核对正文的初始条件和事件过程能否从previous_state推进到after。若正文与既有事实互斥（如已死亡人物无解释复活、已经交付的物品再次从旧持有人交付），判script_conflict并指出具体证据。仅审校before措辞不同不构成正文冲突。audit_corrections是审校诊断，不是剧情事实。',
                 '禁止用无关的真实引用证明事实，例如泼酒不能证明否认婚约，站在商铺不能证明获封郡主。复合状态的全部关键含义都须得到支持。',
                 '区分已发生事实与伏笔：open伏笔只核对当前镜头是否提供合理铺垫，不要求预示的未来事件已经发生，也不要把合理情绪推断当作硬性错误。resolved伏笔须结合previous_open_hooks核对是否确实兑现。',
+                'observed表示本集已经发生的事件，不打开或回收任何伏笔。必须由当前镜头证明事件完整发生，不能拿未来计划或未发生的承诺冒充已观察事件。',
+                'supported=false不等于剧本有错。必须分类failure_kind：仅审校员在记录中添加正文不存在的修饰、归属、因果，或误称未兑现伏笔已兑现，而正文自身没有相应矛盾，属于audit_claim；正文明确违反已确认事实才是script_conflict，reason应指出相冲突的正文与既有事实；无法区分则uncertain。audit_claim记录会被拒绝写入，已有伏笔保留，不能把它当成通过的事实。supported=true时省略failure_kind，不要抄写字段说明。',
+                'evidence_errors列出引用格式问题。先检查所声称的事实在当前真实镜头中是否存在：事实存在而引用抄错时说明可用镜头，随后服务器会严格修正引用；事实根本不存在且只是审校编造时判audit_claim，不强求编造一条证据。没有进展的已有open伏笔应保留原记录，不必重述或改写为“本段未涉及”。',
+                'resolved必须核对previous_open_hooks的准确ID；无此ID且不是本轮此前刚open的ID，属于审校引用错误audit_claim，不是正文矛盾。未兑现的已有伏笔保持open，本集不必重复铺垫或全部兑现。',
                 'resolved伏笔的description可能沿用前集的约定或问题，不要求本集重新发生或复述该约定。先按id定位previous_open_hooks的原始铺垫，再核对本集镜头是否完成其承诺或回答其问题；缺少兑现证据仍应返回supported=false，不可仅凭审校声称resolved放行。',
                 '逐项区分持有与所有权、暂借与归还、知情与身份、保护他人与自己受保护。一个子句得到支持不能证明整条复合after；未出现的关系、归属或动机不得用“隐含”补全，应返回supported=false并指出具体未获支持的子句。',
                 'script_lines仅用于指出遗漏情节，不可替代镜头证据。若镜头未展示但script_lines明确记载，请在reason引用该原文，供局部补镜。',
                 '每条changes、hooks以及source_patch.shot_insertions都必须返回一个检查项，index为零基索引，补镜的collection为insertions。不要省略、重复或新增检查项。',
+                'response_contract已经列出本轮全部检查项及准确索引。原样保留collection与index，填写supported与reason，changes和hooks在supported=false时还必须填写failure_kind；空数组保持空数组，不添加占位检查项。',
                 'insertions核对新增镜头是否忠实呈现source_quote的含义；允许影视化改写，不要求逐字相同，但不得杜撰新剧情或用无关镜头替代。',
             ], 'storyboard' => $plan['storyboard'] ?? [], 'script_lines' => $plan['script_lines'] ?? [],
-                'review' => $review, 'previous_state' => $context['continuity']['state'] ?? [], 'previous_open_hooks' => $context['continuity']['open_hooks'] ?? [], 'source_patch' => $plan['_continuity_source_patch'] ?? [], 'response_contract' => ['checks' => [['collection' => 'changes、hooks或insertions', 'index' => 0, 'supported' => true, 'reason' => '证据与事实的对应关系或缺失原因']]]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
+                'earlier_episode_shots' => $context['_earlier_episode_shots'] ?? [],
+                'evidence_errors' => ShortDramaContinuity::evidenceIssues($review, $plan),
+                'review' => $review, 'previous_state' => $context['continuity']['state'] ?? [], 'previous_open_hooks' => $context['continuity']['open_hooks'] ?? [], 'source_patch' => $plan['_continuity_source_patch'] ?? [], 'response_contract' => ['checks' => $checks]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
     }
 
-    public static function assertMeaning(array $review, array $response, array $sourcePatch = []): void
+    public static function assertMeaning(array $review, array $response, array $sourcePatch = [], bool $requireClassification = false): void
     {
         $response = self::normalizeMeaningResponse($response);
         if (!is_array($response['checks'] ?? null) || !array_is_list($response['checks'])) throw new RuntimeException('连续性语义核对回包不完整', 422);
@@ -47,6 +64,8 @@ final class ShortDramaContinuityPatch
         foreach ($response['checks'] as $item) {
             if (!is_array($item) || !is_string($item['collection'] ?? null) || !is_int($item['index'] ?? null)
                 || !is_bool($item['supported'] ?? null) || !is_string($item['reason'] ?? null)) throw new RuntimeException('连续性语义核对格式无效', 422);
+            if ($requireClassification && !$item['supported'] && in_array($item['collection'], ['changes','hooks'], true) && !isset($item['failure_kind'])) throw new RuntimeException('连续性语义核对缺少failure_kind：否定结论必须分类audit_claim、script_conflict或uncertain', 422);
+            if (isset($item['failure_kind']) && !in_array($item['failure_kind'], ['audit_claim','script_conflict','uncertain'], true)) throw new RuntimeException('连续性语义核对失败分类无效', 422);
             $key = $item['collection'] . ':' . $item['index'];
             if (!isset($expected[$key])) throw new RuntimeException('连续性语义核对索引重复或越界', 422);
             unset($expected[$key]);
@@ -72,13 +91,16 @@ final class ShortDramaContinuityPatch
 
     /** A model's unproven claim that a hook is resolved must not erase an
      * existing open hook. Preserve it and expose the rejected claim explicitly. */
-    public static function verifiedReview(array $review, array $response, array $context, array $sourcePatch = []): array
+    public static function verifiedReview(array $review, array $response, array $context, array $sourcePatch = [], bool $requireClassification = false): array
     {
+        foreach (['changes','hooks'] as $field) {
+            if (!is_array($review[$field] ?? null) || !array_is_list($review[$field])) throw new RuntimeException('连续性审校结构不完整，不能核验尚未接受的审校结果', 422);
+        }
         $response = self::normalizeMeaningResponse($response);
         // Validate complete, unique, typed coverage before interpreting any
         // negative verdict. A malformed verifier is not a quality warning.
         try {
-            self::assertMeaning($review, $response, $sourcePatch);
+            self::assertMeaning($review, $response, $sourcePatch, $requireClassification);
         } catch (RuntimeException $error) {
             if ($error->getCode() !== 460) throw $error;
         }
@@ -88,7 +110,7 @@ final class ShortDramaContinuityPatch
             if ($check['supported'] !== false || !in_array($check['collection'], ['changes', 'hooks'], true)) continue;
             $collection = $check['collection'];
             $rejectedClaims[] = ['collection' => $collection, 'index' => $check['index'],
-                'claim' => $review[$collection][$check['index']], 'reason' => $check['reason']];
+                'claim' => $review[$collection][$check['index']], 'reason' => $check['reason'], 'failure_kind'=>$check['failure_kind'] ?? 'uncertain'];
             // This does not approve the claim: it removes the operation below.
             // Source-backed script insertions must still pass semantic review.
             $response['checks'][$index]['supported'] = true;
@@ -98,16 +120,16 @@ final class ShortDramaContinuityPatch
             $id = $hook['id']; $existing = (array)($context['continuity']['open_hooks'] ?? []);
             if (!isset($existing[$id]) && str_ends_with($id, '_resolved')) $id = substr($id, 0, -9);
             if (!isset($existing[$id])) continue;
-            $keepOpen[$check['index']] = ['id' => $id, 'claim' => $hook, 'reason' => (string)($check['reason'] ?? '')];
+            $keepOpen[$check['index']] = ['id' => $id, 'claim' => $hook, 'reason' => (string)($check['reason'] ?? ''), 'failure_kind'=>$check['failure_kind'] ?? 'uncertain'];
             $response['checks'][$index]['supported'] = true; // No resolution operation will be applied.
         }
-        self::assertMeaning($review, $response, $sourcePatch);
+        self::assertMeaning($review, $response, $sourcePatch, $requireClassification);
         foreach ($keepOpen as $index => $rejected) {
             $review['unverified_hook_resolutions'][] = $rejected;
         }
         foreach ($rejectedClaims as $rejected) {
             unset($review[$rejected['collection']][$rejected['index']]);
-            $review['warnings'][] = '审校结论证据不足，未写入连续性记录，待复核：' . mb_substr($rejected['reason'], 0, 1000);
+            $review['warnings'][] = ($rejected['failure_kind'] === 'audit_claim' ? '已拒绝审校员的无依据记录，原有事实和伏笔保留：' : '审校结论证据不足，未写入连续性记录，待复核：') . mb_substr($rejected['reason'], 0, 1000);
             $review['unverified_claims'][] = $rejected;
         }
         // Semantic support cannot establish a ledger identity. A verifier may

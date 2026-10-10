@@ -75,6 +75,9 @@ class ShortDramaRevisionScope
         }
 
         $fields = [];
+        // Preservation clauses describe immutable fields, not edit targets.
+        $fieldRequest = preg_replace('/(?:保留|保持|不改|不要改|不修改)[^，。；;\n]*(?:[，。；;\n]|$)/u', '', $message);
+        if (preg_match('/(?:只|仅)(?:需要|要)?(?:修改|改|调整)(.+)$/u', $fieldRequest, $only)) $fieldRequest = $only[1];
         foreach ([
             '/台词|对白|对话|说的话/u' => ['dialogue'],
             '/配音角色|说话人/u' => ['voice_role'],
@@ -87,7 +90,7 @@ class ShortDramaRevisionScope
             '/视频提示词/u' => ['video_prompt', 'video_negative_prompt'],
             '/画面|动作|表情/u' => ['visual_description', 'action', 'result', 'image_prompt', 'video_prompt'],
         ] as $pattern => $allowed) {
-            if (preg_match($pattern, $message)) $fields = array_merge($fields, $allowed);
+            if (preg_match($pattern, $fieldRequest)) $fields = array_merge($fields, $allowed);
         }
         $selected = array_intersect_key($shots, $indices);
         $ids = array_map(static fn(array $shot): string => (string)($shot['shot_id'] ?? $shot['id'] ?? ''), $selected);

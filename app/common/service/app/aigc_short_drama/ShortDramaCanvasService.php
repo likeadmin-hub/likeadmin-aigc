@@ -40,7 +40,7 @@ class ShortDramaCanvasService
             if (!$row) throw new Exception('画布项目不存在或无权访问');
             return self::formatDocument($row, true);
         }
-        $row = $query->order('id', 'desc')->find();
+        $row = $query->whereRaw('id NOT IN '.Db::name(ShortDramaCanvasPages::TABLE)->whereRaw('canvas_id <> project_id')->field('canvas_id')->buildSql())->order('id', 'desc')->find();
         if (!$row) {
             return self::create($tenantId, $userId, []);
         }
@@ -49,6 +49,7 @@ class ShortDramaCanvasService
 
     public static function create(int $tenantId, int $userId, array $params): array
     {
+        if ((int)($params['canvas_project_id']??0)>0) return ShortDramaCanvasPages::create($tenantId,$userId,(int)$params['canvas_project_id'],(string)($params['request_key']??''));
         $title = mb_substr(trim((string)($params['title'] ?? '')) ?: '无标题空间', 0, 40);
         $now = time();
         $id = Db::name(self::DOCUMENT_TABLE)->insertGetId([
@@ -64,6 +65,7 @@ class ShortDramaCanvasService
         $pageNo = max(1, (int)($params['page_no'] ?? 1));
         $pageSize = min(50, max(1, (int)($params['page_size'] ?? 20)));
         $query = Db::name(self::DOCUMENT_TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0]);
+        $query->whereRaw('id NOT IN '.Db::name(ShortDramaCanvasPages::TABLE)->whereRaw('canvas_id <> project_id')->field('canvas_id')->buildSql());
         $keyword = trim((string)($params['keyword'] ?? ''));
         if ($keyword !== '') $query->whereLike('title', '%' . $keyword . '%');
         $count = (int)(clone $query)->count();
@@ -240,30 +242,21 @@ class ShortDramaCanvasService
     public static function delete(int $tenantId, int $userId, int $id): array
     {
         $document = self::ownedDocument($tenantId, $userId, $id);
-        Db::transaction(function () use ($tenantId, $userId, $document): void {
-            $running = Db::name(self::RUN_TABLE)->where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'canvas_id' => (int)$document['id'],
-                'delete_time' => 0,
-            ])->whereIn('status', ['pending', 'running'])->lock(true)->count();
-            if ($running > 0) throw new Exception('请等待画布任务完成后删除项目');
-
-            $time = time();
-            Db::name(self::DOCUMENT_TABLE)->where([
-                'id' => (int)$document['id'],
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'delete_time' => 0,
-            ])->update(['delete_time' => $time, 'update_time' => $time]);
-            Db::name(self::RUN_TABLE)->where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'canvas_id' => (int)$document['id'],
-                'delete_time' => 0,
-            ])->update(['delete_time' => $time, 'update_time' => $time]);
+        $root=ShortDramaCanvasPages::root($tenantId,$userId,$id);
+        if ($root!==$id) throw new Exception('请从项目列表删除整个画布项目');
+        Db::transaction(function () use ($tenantId,$userId,$id): void {
+            self::ownedDocument($tenantId,$userId,$id,true);
+            $ids=Db::name(ShortDramaCanvasPages::TABLE)->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'project_id'=>$id])->column('canvas_id');
+            $ids=array_unique(array_merge([$id],array_map('intval',$ids)));
+            $scope=['tenant_id'=>$tenantId,'user_id'=>$userId,'delete_time'=>0];
+            $running=Db::name(self::RUN_TABLE)->where($scope)->whereIn('canvas_id',$ids)->whereIn('status',['pending','running'])->count();
+            $conversations=Db::name(ConversationStore::PREFIX.'thread')->where($scope)->whereIn('canvas_id',$ids)->where('active_run_id','>',0)->count();
+            if ($running || $conversations) throw new Exception('请等待画布任务完成后删除项目');
+            $values=['delete_time'=>time(),'update_time'=>time()];
+            Db::name(self::DOCUMENT_TABLE)->where($scope)->whereIn('id',$ids)->update($values);
+            Db::name(self::RUN_TABLE)->where($scope)->whereIn('canvas_id',$ids)->update($values);
         });
-        return ['id' => (int)$document['id']];
+        return ['id'=>$id];
     }
 
     public static function submit(int $tenantId, int $userId, array $params): array
@@ -970,6 +963,26 @@ class ShortDramaCanvasService
             'last_frame'=>in_array('last_frame',$referenceRoles,true),
             'missing'=>$prompt==='',
         ];
+        // Resolve the exact episode that created this node, never the project's latest episode.
+        $episode=max(1,(int)($metadata['workflow_episode_number']??$workflow['series']['episode_number']??1));
+        $binding=(array)($workflow['series']['tasks']['episode_'.$episode]??[]);
+        if (!empty($binding['task_id'])) {
+            $task=Db::name('aigc_short_drama_script_task')->where([
+                'tenant_id'=>$tenantId,'user_id'=>$userId,'task_id'=>(string)$binding['task_id'],'delete_time'=>0,
+            ])->find();
+            if (!$task) throw new Exception('WORKFLOW_EPISODE_SCRIPT_MISSING');
+            $sourcePlan=ShortDramaStoryDraft::effective(self::decode((string)$task['request_json']),self::decode((string)$task['result_json']));
+            $plan=AigcShortDramaService::productionPlanForTask($tenantId,$userId,(string)$task['task_id']);
+            $plan=ShortDramaVisualStyle::plan($plan,(array)($workflow['creative_settings']??[]));
+            $item=\app\common\service\app\aigc_short_drama\canvas_agent\ConversationSeriesVisuals::promptItem(
+                $plan,$artifact,(string)($metadata['workflow_key']??''),$sourcePlan);
+            $assembled=AigcShortDramaService::canvasMediaSubmissionParams($tenantId,$snapshot,$artifact,$item,$plan,$params);
+            // Keep the canvas quote's model, references, billing and transport settings intact.
+            $params['prompt']=$assembled['prompt'];
+            $params['content']=$assembled['prompt'];
+            if (isset($assembled['negative_prompt'])) $params['negative_prompt']=$assembled['negative_prompt'];
+            return $params;
+        }
         $params['prompt']=AigcShortDramaService::canvasAgentSubmissionPrompt($tenantId,$snapshot,$artifact,$prompt,$templateContext);
         $params['content']=$params['prompt'];
         return $params;
@@ -1421,6 +1434,7 @@ class ShortDramaCanvasService
             $data['schema_version'] = (int)($row['schema_version'] ?? 1);
         }
         if (!$includeRuns) return $data;
+        $data += ShortDramaCanvasPages::info($row);
         // A browser can be refreshed after the backend creates a run but before
         // its debounce save writes canvasRunId into nodes_json. Recreate only the
         // missing visual nodes from owned run history, then return the latest run

@@ -40,7 +40,9 @@ class MarketController extends BaseAdminController
         try {
             PowerMarketService::savePrices(
                 (int)$this->request->post('product_id', 0),
-                (array)$this->request->post('prices', [])
+                (array)$this->request->post('prices', []),
+                $this->request->post('capability_overrides') === null ? null : (array)$this->request->post('capability_overrides'),
+                $this->adminId
             );
             return $this->success('保存成功', [], 1, 1);
         } catch (Exception $e) {

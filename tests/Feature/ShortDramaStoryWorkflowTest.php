@@ -8,6 +8,19 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaStoryWorkflowTest extends TestCase
 {
+    public function testCanvasSavedTasksAndRevisionsDisableReviewWithoutChangingOtherWorkflows(): void
+    {
+        foreach (['canvas-production:397:807:episode_1', 'canvas-revision:1285:task'] as $key) {
+            foreach (['_submission_key', 'submission_key'] as $field) {
+                $request = [$field => $key, 'quality_review_enabled' => true];
+                self::assertFalse(ShortDramaStoryWorkflow::qualityReviewEnabled($request));
+                self::assertFalse(ShortDramaStoryWorkflow::inheritQualityReview([], $request)['quality_review_enabled']);
+            }
+        }
+        self::assertTrue(ShortDramaStoryWorkflow::qualityReviewEnabled(['_submission_key' => 'normal-task', 'quality_review_enabled' => true]));
+        self::assertTrue(ShortDramaStoryWorkflow::qualityReviewEnabled([]));
+    }
+
     public function testNewSubmissionsDefaultOffAndHistoricalTasksKeepReview(): void
     {
         $method = new \ReflectionMethod(AigcShortDramaService::class, 'normalizeCreateRequest');

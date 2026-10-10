@@ -40,6 +40,29 @@ class UpstreamErrorMessageService
         return self::withCode($code, self::TEMPORARILY_UNAVAILABLE);
     }
 
+    /** Decide before normalizing away the provider's error category. */
+    public static function allowsModelFallback($response): bool
+    {
+        if (is_string($response)) {
+            $decoded = json_decode($response, true);
+            if (is_array($decoded)) $response = $decoded;
+        }
+        [$code, $message] = is_array($response) ? self::details($response) : ['', (string)$response];
+        $raw = strtolower($code . ' ' . $message);
+        foreach (['timeout', 'timed out', '超时', 'quota', 'balance', 'credit', 'billing', '余额', '积分', '点数',
+            'moderation', 'content_filter', 'content_policy', 'safety', '审核', '敏感', '违规',
+            'authentication', 'unauthorized', 'invalid_api_key', 'permission', '鉴权', '权限', '取消', 'cancel'] as $blocked) {
+            if (str_contains($raw, $blocked)) return false;
+        }
+        if (self::isParameterError($code, $message)) return false;
+        if (self::isClaudeClientRestricted($message)) return true;
+        if (preg_match('/model[_ ](?:not[_ ]found|unavailable)|(?:invalid|unsupported)[_ ]model|模型.*(?:不可用|不存在|下架)/iu', $raw)) return true;
+        // A generic provider rejection with no useful code can move to another
+        // model. Callers must additionally verify that no output was received.
+        return self::cleanCode($code) === '' && trim($message) !== ''
+            && self::normalize($message) === self::TEMPORARILY_UNAVAILABLE;
+    }
+
     /** @return array{0:string,1:string} */
     private static function details(array $response): array
     {

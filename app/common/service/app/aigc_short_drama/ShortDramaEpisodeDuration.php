@@ -124,7 +124,9 @@ final class ShortDramaEpisodeDuration
             $total += $duration;
             $boundaries[] = $total;
         }
-        if (!$shots || (($policy['source'] ?? '') !== 'default' && $total < $policy['min_seconds'] - 0.001) || $total > $policy['max_seconds'] + 0.001) {
+        $referenceOnly = ($policy['source'] ?? '') === 'default' && ShortDramaInputContract::recoveryEnabled($request);
+        if (!$shots || (($policy['source'] ?? '') !== 'default' && $total < $policy['min_seconds'] - 0.001)
+            || (!$referenceOnly && $total > $policy['max_seconds'] + 0.001)) {
             throw new RuntimeException('分镜总时长' . round($total, 3) . '秒不符合本集' . $policy['min_seconds'] . '-' . $policy['max_seconds'] . '秒要求', 422);
         }
         $timeline = (array)($policy['timeline_segments'] ?? []);

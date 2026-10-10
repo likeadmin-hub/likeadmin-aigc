@@ -20,7 +20,7 @@ final class ConversationExecution
             if ((int)$thread['active_run_id']!==$runId) throw new RuntimeException('RUN_SUPERSEDED');
             $claim=['token'=>bin2hex(random_bytes(24)),'fence'=>(int)$outbox['fencing_version']+1,'lease_until'=>time()+max(1,min(3600,$seconds))];
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'processing','lease_token'=>$claim['token'],'fencing_version'=>$claim['fence'],'lease_until'=>$claim['lease_until'],'attempts'=>(int)$outbox['attempts']+1,'update_time'=>time()]);
-            self::state($run,'running');self::event($run,'run.running',['status'=>'running']);
+            self::state($run,'running');if ((int)$outbox['attempts']===0) self::event($run,'run.running',['status'=>'running']);
             return $claim+['run_id'=>$runId,'thread_id'=>(int)$thread['id'],'canvas_id'=>(int)$run['canvas_id'],'context'=>json_decode($run['context_snapshot'],true,512,JSON_THROW_ON_ERROR),'settings'=>json_decode($run['settings_snapshot'],true,512,JSON_THROW_ON_ERROR),'skill'=>json_decode($run['skill_snapshot'],true,512,JSON_THROW_ON_ERROR)];
         });
     }
@@ -30,13 +30,13 @@ final class ConversationExecution
      * Complete a reply and its bounded graph proposal atomically.  The action
      * is a server-validated proposal, not an arbitrary provider tool call.
      */
-    public static function complete(int $tenant,int $user,int $runId,string $token,int $fence,string $text,array $proposals=[],array $intentDecision=[],array $intakeDraft=[],array $workflowTurn=[]): bool
+    public static function complete(int $tenant,int $user,int $runId,string $token,int $fence,string $text,array $proposals=[],array $intentDecision=[],array $intakeDraft=[],array $workflowTurn=[],array $agentDecision=[]): bool
     {
         if (trim($text)==='' || mb_strlen($text)>100000) throw new RuntimeException('INVALID_ASSISTANT_REPLY');
-        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$text,$proposals,$intentDecision,$intakeDraft,$workflowTurn): bool {
+        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$text,$proposals,$intentDecision,$intakeDraft,$workflowTurn,$agentDecision): bool {
             [$run,$thread,$outbox,$document]=self::locked($tenant,$user,$runId);
             self::identity($outbox,$token,$fence);
-            $hash=hash('sha256',$text);
+            $hash=hash('sha256',$text.($agentDecision?self::json($agentDecision):''));
             if ($run['status']==='success') {
                 $success=Db::name(ConversationStore::PREFIX.'event')->where(['run_id'=>$runId,'kind'=>'run.succeeded'])->lock(true)->value('payload_json');
                 $successPayload=(array)json_decode((string)$success,true);
@@ -50,6 +50,14 @@ final class ConversationExecution
                 return true;
             }
             if (!in_array($run['status'],['running','needs_reconciliation'],true)) throw new RuntimeException('INVALID_RUN_STATE');
+            $savedContext=json_decode((string)$run['context_snapshot'],true)?:[];
+            if ($run['status']==='running' && $outbox['state']==='processing' && (int)$outbox['lease_until']<=time()
+                && ConversationSeries::enabled((array)($savedContext['workflow']??[]))
+                && ($savedContext['workflow']['stage_state']['key']??'')!=='intake') {
+                self::state($run,'queued');
+                Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'pending','available_at'=>time(),'lease_until'=>0,'update_time'=>time()]);
+                return false; // Replay only the local projection, never the paid core task.
+            }
             if ($run['status']==='needs_reconciliation' || (int)$outbox['lease_until']<=time()) {
                 $prior=Db::name(ConversationStore::PREFIX.'event')->where(['run_id'=>$runId,'kind'=>'run.late_reply'])->lock(true)->find();
                 if ($prior) {
@@ -65,6 +73,12 @@ final class ConversationExecution
             if ((int)$thread['active_run_id']!==$runId) throw new RuntimeException('RUN_SUPERSEDED');
             $effects=[];
             $context=json_decode($run['context_snapshot'],true,512,JSON_THROW_ON_ERROR);
+            if (ConversationAgentDecision::enabled($context)) {
+                $canonical=ConversationAgentDecision::parse(self::json($agentDecision),$context);
+                $expected=json_decode($canonical['legacy'],true);
+                $actual=$intentDecision ?: array_intersect_key($workflowTurn,array_flip(array_keys($expected)));
+                if ($expected!=$actual || $proposals) throw new RuntimeException('INVALID_AGENT_INTENT');
+            } elseif ($agentDecision) throw new RuntimeException('INVALID_AGENT_INTENT');
             $intakeSources=ConversationIntakeDraft::availableSources($context);
             $settings=json_decode($run['settings_snapshot'],true,512,JSON_THROW_ON_ERROR);
             $workflow=(array)($context['workflow']??[]);
@@ -82,14 +96,20 @@ final class ConversationExecution
                     || (int)($persisted['state_revision']??-1)!==(int)($routing['base_workflow_revision']??-2)
                     || !in_array((int)($candidate['state_revision']??-2)-(int)($persisted['state_revision']??-1),[0,1],true)
                     || ($persisted['stage_state']['key']??'')!==($candidate['stage_state']['key']??'')) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
-                if ($decision['continue']) {
+                if (array_key_exists('execution_paused',$decision)) {
+                    $currentThreadSettings['workflow_state']['execution_paused']=$decision['execution_paused'];
+                    $currentThreadSettings['workflow_state']['state_revision']++;
+                    $workflowContinued=true;
+                } elseif ($decision['continue']) {
                     $workflow=$candidate;
                     $context['workflow']=$candidate;
                     $currentThreadSettings['workflow_state']=$candidate;
                     $workflowContinued=true;
                 } elseif (isset($decision['revision_stage'])) {
                     $request=(string)($context['messages'][count($context['messages'])-1]['content']??'');
-                    $currentThreadSettings['workflow_state']=ConversationWorkflow::reopenStage($persisted,(string)$decision['revision_stage'],$request);
+                    $currentThreadSettings['workflow_state']=ConversationCreativePolicy::enabled($persisted)
+                        ? ConversationProductionRevision::reopen($persisted,(string)$decision['revision_stage'],$request,(array)($routing['production_revision'][$decision['revision_stage']]??[]))
+                        : ConversationWorkflow::reopenStage($persisted,(string)$decision['revision_stage'],$request);
                     $workflowContinued=true;
                 }
             }
@@ -102,12 +122,14 @@ final class ConversationExecution
                     if (($candidate['workflow_snapshot']['key']??'')!==ConversationWorkflow::KEY
                         || ($candidate['stage_state']['key']??'')!=='intake'
                         || !empty($currentThreadSettings['workflow_state'])) throw new RuntimeException('INVALID_AGENT_INTENT');
+                    $candidate['creative_brief']=ConversationCreativePlan::brief((array)($context['messages']??[]));
                     $activatedWorkflow=isset($decision['intake'])
                         ? ConversationWorkflow::withIntakeDraft($candidate,$decision['intake'],$intakeSources) : $candidate;
+                    $activatedWorkflow['intake_anchor_run_id']=ConversationCreativePlan::canShowIntake($activatedWorkflow) ? $runId : 0;
                     // The eight intake slots describe production settings, not the
                     // story itself. Keep the initiating brief across compact stage
                     // handoffs so later Skills cannot replace its plot or title.
-                    $brief=trim((string)($context['messages'][count($context['messages'])-1]['content']??''));
+                    $brief=$candidate['creative_brief'];
                     $activatedWorkflow['creative_brief']=ConversationWorkflow::preservesInput($activatedWorkflow) ? $brief : mb_substr($brief,0,4000);
                 }
             }
@@ -123,7 +145,15 @@ final class ConversationExecution
                 ? ConversationWorkflow::freezeStagePlanLocked($workflow,$context,$proposals,$runId,$currentThreadSettings)
                 : null;
             $intakeSettings=$intakeDraft
-                ? ConversationWorkflow::applyIntakeDraftLocked($workflow,$currentThreadSettings,$intakeDraft,$intakeSources) : null;
+                ? ConversationWorkflow::applyIntakeDraftLocked($workflow,$currentThreadSettings,$intakeDraft,$intakeSources,(string)($context['messages'][count($context['messages'])-1]['content']??'')) : null;
+            if ($intakeSettings!==null && ConversationCreativePlan::canShowIntake($intakeSettings['workflow_state'])
+                && !ConversationCreativePlan::canShowIntake($workflow)) {
+                $intakeSettings['workflow_state']['intake_anchor_run_id']=$runId;
+            }
+            if ($intakeSettings!==null && ConversationCreativePlan::canShowIntake($intakeSettings['workflow_state'])
+                && empty($intakeSettings['workflow_state']['intake_anchor_run_id'])) {
+                $intakeSettings['workflow_state']['intake_anchor_run_id']=ConversationWorkflow::intakeAnchorRun($tenant,$user,(int)$run['canvas_id'],(int)$run['thread_id'],$intakeSettings['workflow_state']) ?: $runId;
+            }
             if ($planSettings!==null) {
                 // The model's image proposal is now durable but intentionally
                 // absent from the graph. A confirmation API is the only path
@@ -139,14 +169,23 @@ final class ConversationExecution
                 foreach ((array)($context['selected_nodes']??[]) as $node) if (is_array($node) && is_scalar($node['id']??null)) $sourceIds[]=(string)$node['id'];
                 $auto=($settings['generation_mode']??'manual')==='auto' && ($workflow===[] || ConversationWorkflow::mayAutoSubmit($workflow));
                 $effects=GraphService::appendAgentNodesLocked($document,$proposals,$sourceIds,$auto,$settings,$runId,$workflow);
-                $effects['mode']=($settings['generation_mode']??'manual')==='auto'?'auto':'manual';
+                $effects['mode']=$auto?'auto':'manual';
             }
             $sequence=(int)$thread['next_message_sequence'];
-            // The validated artifact bodies remain in the stage plan/graph.
-            // Only a bounded, user-facing account of the actual stage result
-            // belongs in chat; a model must not dump its internal fields here.
+            // Keep narration concise; deliverable bodies are stored separately
+            // for safe frontend presentation and durable conversation history.
             $displayText=ConversationStageReply::present($workflow,$text,$proposals ?: (array)($planSettings['workflow_state']['image_plan']['nodes'] ?? $stagePlanSettings['workflow_state']['stage_plan']['nodes'] ?? []),!empty($effects['nodes']));
             $content=['text'=>$displayText];
+            // Confirmation clears stage_plan. Retain each deliverable with its
+            // immutable conversation turn, including superseded revisions.
+            if ($stagePlanSettings!==null || $planSettings!==null) {
+                $content['stage_artifacts']=array_map(static fn(array $node): array=>[
+                    'stage'=>(string)($workflow['stage_state']['key']??''),'artifact'=>(string)($node['artifact']??''),'key'=>(string)($node['key']??''),
+                    'title'=>(string)($node['title']??''),'content'=>(string)($node['prompt']??''),
+                ],(array)($stagePlanSettings['workflow_state']['stage_plan']['nodes']??$planSettings['workflow_state']['image_plan']['nodes']??[]));
+            }
+            if ($planSettings!==null) $content['image_plan']=ConversationWorkflow::publicImagePlan($planSettings['workflow_state']['image_plan']);
+            if (($workflow['stage_state']['key']??'')==='video_nodes' && $effects) $content['video_nodes']=array_map(static fn(array $node): array=>array_intersect_key($node,array_flip(['key','title','prompt'])), $proposals);
             if ($effects) $content['canvas_actions']=$effects;
             $timeline=ConversationWorkflow::timeline($workflow,$proposals,$effects);
             if ($timeline) $content['workflow_timeline']=$timeline;
@@ -161,6 +200,12 @@ final class ConversationExecution
                 $currentThreadSettings['workflow_state']=$activatedWorkflow;
                 $threadUpdate['settings_json']=self::json($currentThreadSettings);
             }
+            if ($agentDecision) {
+                $updated=isset($threadUpdate['settings_json']) ? json_decode($threadUpdate['settings_json'],true) : $currentThreadSettings;
+                $threadUpdate['settings_json']=self::json(ConversationAgentDecision::commit($updated,$agentDecision,$runId));
+                self::event($run,'agent.decision',['engine'=>$context['intent_routing']['dialogue_engine']??ConversationAgentDecision::ENGINE,
+                    'action'=>$agentDecision['action']['name'],'remembered_keys'=>array_column($agentDecision['remember'],'key')]);
+            }
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update($threadUpdate);
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'done','lease_until'=>0,'update_time'=>time()]);
             self::state($run,'success');self::event($run,'run.succeeded',['status'=>'success','message_sequence'=>$sequence,'reply_hash'=>$hash]+($effects?['canvas_actions'=>$effects]:[]));
@@ -168,10 +213,34 @@ final class ConversationExecution
         });
     }
 
-    /** Only a server-owned no-cost preflight may use this before generate(). */
-    public static function rejectBeforeSubmit(int $tenant,int $user,int $runId,string $token,int $fence): string
+    /** The production engine owns the paid work and its recovery. This is only an observer. */
+    public static function deferProduction(int $tenant,int $user,int $runId,string $token,int $fence): void
     {
-        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence): string {
+        Db::transaction(function()use($tenant,$user,$runId,$token,$fence):void {
+            [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
+            if ($run['status']!=='running' || $outbox['state']!=='processing' || (int)$thread['active_run_id']!==$runId) throw new RuntimeException('STALE_WORKER');
+            self::state($run,'queued');
+            Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'pending','available_at'=>time()+5,'lease_until'=>0,'update_time'=>time()]);
+        });
+    }
+    public static function failProduction(int $tenant,int $user,int $runId,string $token,int $fence): string
+    {
+        return Db::transaction(function()use($tenant,$user,$runId,$token,$fence):string {
+            [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
+            if ($run['status']!=='running' || $outbox['state']!=='processing') throw new RuntimeException('STALE_WORKER');
+            self::state($run,'failed','PRODUCTION_FAILED');
+            self::event($run,'run.failed',['status'=>'failed','code'=>'PRODUCTION_FAILED']);
+            Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'failed','lease_until'=>0,'update_time'=>time()]);
+            Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(self::terminalThreadUpdate($thread,$run));
+            return 'failed';
+        });
+    }
+
+    /** Only a server-owned no-cost preflight may use this before generate(). */
+    public static function rejectBeforeSubmit(int $tenant,int $user,int $runId,string $token,int $fence,string $reason='PRECHECK_FAILED'): string
+    {
+        $reason=in_array($reason,['AGENT_SERVICE_UNAVAILABLE','VISION_MODEL_UNAVAILABLE','WORKFLOW_VERSION_CONFLICT','WORKFLOW_REVISION_TARGET_REQUIRED','WORKFLOW_PLAN_SOURCE_CHANGED','CONTEXT_TOO_LARGE'],true)?$reason:'PRECHECK_FAILED';
+        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$reason): string {
             [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
             if ($run['status']==='canceled') return 'canceled';
             if ($run['status']==='failed' && $run['error_code']==='PRECHECK_FAILED') return 'failed';
@@ -181,8 +250,8 @@ final class ConversationExecution
                 self::uncertain($run,$outbox,'WORKER_LEASE_EXPIRED');return 'needs_reconciliation';
             }
             if ((int)$thread['active_run_id']!==$runId) throw new RuntimeException('RUN_SUPERSEDED');
-            self::state($run,'failed','PRECHECK_FAILED');
-            self::event($run,'run.failed',['status'=>'failed','code'=>'PRECHECK_FAILED']);
+            self::state($run,'failed',$reason);
+            self::event($run,'run.failed',['status'=>'failed','code'=>$reason]);
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'failed','lease_until'=>0,'update_time'=>time()]);
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(self::terminalThreadUpdate($thread,$run));
             return 'failed';
@@ -217,7 +286,7 @@ final class ConversationExecution
         // Preserve a safe internal failure category without storing the
         // Provider reply, prompt, or exception trace in a user-facing event.
         if (!in_array($diagnosticCode,['UNSUPPORTED_MODEL_RESPONSE','INVALID_AGENT_ACTION','INVALID_AGENT_INTENT','INVALID_AGENT_INTAKE'],true)) $diagnosticCode='UNSUPPORTED_MODEL_RESPONSE';
-        if (!in_array($diagnosticDetail,['intent_not_json','intent_shape','intent_value','intent_skill','intent_unexpected_output','intent_noncontinue','intent_continue_reply','intent_continue_output','intent_stage_keys','intent_stage_nodes','intent_stage_node_count','intent_stage_node_fields','intent_stage_node_values','intent_stage_node_type','intent_stage_node_artifact','intent_stage_node_key','intent_stage_node_length','intent_stage_duplicate_key','intent_stage_node_links','intent_stage_contract','intent_consistency','post_settlement_projection','action_not_json','action_envelope','action_nodes','action_count','action_node_fields','action_node_values','action_node_length','action_node_type','action_node_artifact','action_node_key','action_node_key_format','action_node_key_duplicate','action_node_dependencies','action_dependency_missing_key','action_dependency_shape','action_dependency_count','action_node_dependency_order','action_node_references','action_node_reference_format','action_three_view_dependency','action_storyboard_dependency','action_script_artifacts','action_generation_prompt_reference','action_generation_prompt_length','action_storyboard_reference_overflow','action_storyboard_shot_title','action_storyboard_shot_coverage','action_contract'],true)) $diagnosticDetail='';
+        if (!in_array($diagnosticDetail,['incomplete_final_response','intent_not_json','intent_shape','intent_value','intent_confidence','intent_axes','intent_intake','intent_skill','intent_unexpected_output','intent_noncontinue','intent_continue_reply','intent_continue_output','intent_stage_keys','intent_stage_nodes','intent_stage_node_count','intent_stage_node_fields','intent_stage_node_values','intent_stage_node_type','intent_stage_node_artifact','intent_stage_node_key','intent_stage_node_length','intent_stage_duplicate_key','intent_stage_node_links','intent_stage_contract','intent_consistency','post_settlement_projection','action_not_json','action_envelope','action_nodes','action_count','action_node_fields','action_node_values','action_node_length','action_node_type','action_node_artifact','action_node_key','action_node_key_format','action_node_key_duplicate','action_node_dependencies','action_dependency_missing_key','action_dependency_shape','action_dependency_count','action_node_dependency_order','action_node_references','action_node_reference_format','action_three_view_dependency','action_storyboard_dependency','action_script_artifacts','action_generation_prompt_reference','action_generation_prompt_length','action_storyboard_reference_overflow','action_storyboard_shot_title','action_storyboard_shot_coverage','action_contract'],true)) $diagnosticDetail='';
         return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$diagnosticCode,$diagnosticDetail): string {
             [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
             if ($run['status']==='failed' && $run['error_code']==='UNSUPPORTED_MODEL_RESPONSE') return 'failed';
@@ -272,6 +341,12 @@ final class ConversationExecution
         return Db::transaction(function () use ($tenant,$user,$runId): bool {
             [$run,,$outbox]=self::locked($tenant,$user,$runId);
             if ($run['status']!=='running' || !in_array($outbox['state'],['processing','submitting'],true) || (int)$outbox['lease_until']>time()) return false;
+            $context=json_decode((string)$run['context_snapshot'],true)?:[];
+            if ($outbox['state']==='processing' && ConversationSeries::enabled((array)($context['workflow']??[])) && ($context['workflow']['stage_state']['key']??'')!=='intake') {
+                self::state($run,'queued');
+                Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'pending','available_at'=>time(),'lease_until'=>0,'update_time'=>time()]);
+                return true; // Local observer only; child task has its own provider fence.
+            }
             self::uncertain($run,$outbox,'WORKER_LEASE_EXPIRED');return true;
         });
     }
@@ -289,6 +364,7 @@ final class ConversationExecution
             $status=$run['status'];
             if (in_array($status,['success','failed','canceled'],true)) return ['run_id'=>$runId,'status'=>$status,'cancellation_confirmed'=>$status==='canceled'];
             if (($status==='queued' && $outbox['state']==='pending') || ($status==='running' && $outbox['state']==='processing')) {
+                ConversationProduction::cancelBound($tenant,$user,$thread,$run);
                 self::state($run,'canceled','USER_STOPPED_BEFORE_SUBMIT');
                 self::event($run,'run.canceled',['status'=>'canceled','code'=>'USER_STOPPED_BEFORE_SUBMIT']);
                 Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'canceled','lease_until'=>0,'update_time'=>time()]);
