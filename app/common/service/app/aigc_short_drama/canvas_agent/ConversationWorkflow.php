@@ -1073,7 +1073,7 @@ final class ConversationWorkflow
                     'options'=>$key==='aspect_ratio'?(array)$slot['options']:[]];
             }
             return $stageCard+['type'=>'intake_review','full_plan'=>ConversationCreativePlan::enabled($state),'title'=>'核对已理解的创作设定',
-                'body'=>'对话中已明确的设定将直接沿用。这里只列出尚未确认的项目，可修改建议值，也可继续在对话中补充。确认剩余设定后开始生成。',
+                'body'=>'对话中已明确的设定将直接沿用。请补充以下缺失信息，也可继续在对话中说明。确认后按你的设定开始创作。',
                 'candidates'=>$candidates];
         }
         if (($stage['key']??'')==='intake' && ($stage['status']??'')==='collecting') {

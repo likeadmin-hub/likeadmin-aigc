@@ -77,6 +77,14 @@ class CanvasCreativePlanTest extends TestCase
     {
         $s=$this->draft($this->state('程序员大战孙悟空，集数你来定'));
         self::assertSame('reviewing_intake',$s['stage_state']['status']);
+        $s=Plan::draft($this->state('程序员大战孙悟空，集数你来定'),['candidates'=>[
+            'episode_count'=>['value'=>'6集','source'=>'suggestion'],
+            'episode_duration'=>['value'=>'90秒','source'=>'suggestion'],
+            'ending'=>['value'=>'大团圆','source'=>'suggestion'],
+        ],'questions'=>[]]);
+        self::assertSame('6集',$s['intake_candidates']['episode_count']['value']);
+        self::assertSame('',$s['intake_candidates']['episode_duration']['value']);
+        self::assertArrayNotHasKey('ending',$s['intake_candidates']);
         $s=$this->draft($this->state('程序员大战孙悟空，全部你决定，直接生成'));
         self::assertFalse($s['creative_plan_confirmed']);self::assertSame('reviewing_intake',$s['stage_state']['status']);
         $s=$this->draft($this->state('程序员大战孙悟空，全部你决定，但不要直接生成'));
