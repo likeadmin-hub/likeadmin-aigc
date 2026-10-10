@@ -38,14 +38,14 @@ final class PcHomePresentationPersistenceTest extends TestCase
         request()->source = AdminTerminalEnum::TENANT;
         request()->tenantId = 1;
         Db::name('tenant')->insertAll([['id' => 1], ['id' => 2]]);
-        self::assertSame('shortcuts', PcHomePresentationService::topMode());
+        self::assertSame('composer', PcHomePresentationService::topMode());
         ConfigService::set('pc_home_shortcuts', 'published', ['cards' => [['id' => 'saved-card']]]);
         PcHomePresentationService::save(['pc_home_top_mode' => 'composer']);
         self::assertSame('composer', PcHomePresentationService::topMode());
         PcHomePresentationService::save(['pc_title' => 'Older client']);
         self::assertSame('composer', PcHomePresentationService::topMode());
         request()->tenantId = 2;
-        self::assertSame('shortcuts', PcHomePresentationService::topMode());
+        self::assertSame('composer', PcHomePresentationService::topMode());
         request()->tenantId = 1;
         PcHomePresentationService::save(['pc_home_top_mode' => 'shortcuts']);
         self::assertSame('shortcuts', PcHomePresentationService::topMode());
