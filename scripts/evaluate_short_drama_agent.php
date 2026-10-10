@@ -15,7 +15,7 @@ use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorker as W
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationAgentDecision as Decision;
 use app\common\service\app\aigc_short_drama\canvas_agent\MarketTextConversationProvider as Provider;
 use app\common\service\app\aigc_short_drama\canvas_agent\GraphService;
-$options=getopt('', ['execute','tenant:','user:','model:','max-turns:']);
+$options=getopt('', ['execute','tenant:','user:','model:','max-turns:','resume-thread:','start-turn:']);
 if(!isset($options['execute'])) {echo "Paid evaluation requires --execute --tenant=N --user=N --model=ID --max-turns=N (1..12).\n";exit(0);}
 $tenant=(int)($options['tenant']??0);$user=(int)($options['user']??0);$model=(string)($options['model']??'');$max=(int)($options['max-turns']??0);
 if($tenant<=0 || $user<=0 || $model==='' || $max<1 || $max>12) throw new RuntimeException('Explicit evaluation scope required');
@@ -24,14 +24,24 @@ foreach(AigcShortDramaService::canvasModelGroups($tenant) as $group) if(($group[
     if(($item['id']??'')===$model && stripos(($item['model_code']??'').' '.($item['name']??''),'kimi')!==false) $selected=$item;
 }
 if(!$selected) throw new RuntimeException('Only an authorized tenant Kimi text model is allowed');
-$canvas=Canvas::create($tenant,$user,['title'=>'Agent 多轮验收 '.date('m-d H:i')])['id'];
-$thread=Store::create($tenant,$user,$canvas,'eval-'.bin2hex(random_bytes(8)),'Agent 多轮验收')['id'];
-Db::name(Store::PREFIX.'thread')->where(['id'=>$thread,'tenant_id'=>$tenant,'user_id'=>$user])->update(['settings_json'=>json_encode(['dialogue_engine'=>Decision::ENGINE])]);
+$start=(int)($options['start-turn']??1)-1;
+if($start<0 || $start+$max>12) throw new RuntimeException('Evaluation budget exceeds 12 turns');
+if(isset($options['resume-thread'])) {
+    $row=Db::name(Store::PREFIX.'thread')->where(['id'=>(int)$options['resume-thread'],'tenant_id'=>$tenant,'user_id'=>$user])->find();
+    if(!$row || $row['title']!=='Agent 多轮验收' || (json_decode($row['settings_json'],true)['dialogue_engine']??'')!==Decision::ENGINE) throw new RuntimeException('Not an evaluation thread');
+    $thread=(int)$row['id'];$canvas=(int)$row['canvas_id'];
+    if(Db::name(Store::PREFIX.'run')->where('thread_id',$thread)->count()!==$start) throw new RuntimeException('Resume offset must match used turns');
+} else {
+    if($start!==0) throw new RuntimeException('Start offset requires an evaluation thread');
+    $canvas=Canvas::create($tenant,$user,['title'=>'Agent 多轮验收 '.date('m-d H:i')])['id'];
+    $thread=Store::create($tenant,$user,$canvas,'eval-'.bin2hex(random_bytes(8)),'Agent 多轮验收')['id'];
+    Db::name(Store::PREFIX.'thread')->where(['id'=>$thread,'tenant_id'=>$tenant,'user_id'=>$user])->update(['settings_json'=>json_encode(['dialogue_engine'=>Decision::ENGINE])]);
+}
 $cases=[
     ['你好',['respond']],
     ['后面回答尽量简短一些',['respond']],
-    ['我想生成短剧',['start_project']],
-    ['故事是程序员大战孙悟空',['update_requirements']],
+    ['我想生成短剧',['respond','start_project']],
+    ['故事是程序员大战孙悟空',['start_project','update_requirements']],
     ['你觉得竖屏好还是横屏好？先给建议，不要替我选',['respond']],
     ['一集，60秒，先别生成',['update_requirements']],
     ['你好',['respond']],
@@ -43,7 +53,7 @@ $cases=[
 ];
 $report=['canvas_id'=>$canvas,'thread_id'=>$thread,'model'=>$model,'steps'=>[]];$anchor=0;
 echo json_encode(['evaluation_started'=>$report],JSON_UNESCAPED_UNICODE)."\n";flush();
-foreach(array_slice($cases,0,$max) as $index=>[$text,$actions]) {
+foreach(array_slice($cases,$start,$max,true) as $index=>[$text,$actions]) {
     // Freeze the model restriction before a background worker can claim the run.
     $ack=Db::transaction(function() use($tenant,$user,$canvas,$thread,$index,$text,$model) {
         $ack=Service::send($tenant,$user,$canvas,$thread,['request_key'=>'eval-'.$index,'content'=>$text,
@@ -70,7 +80,7 @@ foreach(array_slice($cases,0,$max) as $index=>[$text,$actions]) {
     if(!in_array($event['action']??'',$actions,true)) $violations[]='unexpected_action';
     if($index===2 && !empty($workflow['intake_presentation']['visible'])) $violations[]='premature_card';
     if($index===4 && !empty($workflow['slot_values']['aspect_ratio'])) $violations[]='suggestion_adopted';
-    if(in_array($index,[5,8],true) && empty($workflow['execution_paused'])) $violations[]='pause_lost';
+    if(in_array($index,[5,8,11],true) && empty($workflow['execution_paused'])) $violations[]='pause_lost';
     if($index>=5 && ($workflow['slot_values']['episode_count']??'')!=='1集') $violations[]='episode_count_lost';
     if($index===8 && !str_contains((string)($workflow['slot_values']['episode_duration']??''),'90')) $violations[]='correction_lost';
     if(!empty($workflow['intake_presentation']['visible'])) {
