@@ -115,6 +115,7 @@ final class ConversationExecution
                     $candidate['creative_brief']=ConversationCreativePlan::brief((array)($context['messages']??[]));
                     $activatedWorkflow=isset($decision['intake'])
                         ? ConversationWorkflow::withIntakeDraft($candidate,$decision['intake'],$intakeSources) : $candidate;
+                    $activatedWorkflow['intake_anchor_run_id']=$runId;
                     // The eight intake slots describe production settings, not the
                     // story itself. Keep the initiating brief across compact stage
                     // handoffs so later Skills cannot replace its plot or title.
@@ -135,6 +136,9 @@ final class ConversationExecution
                 : null;
             $intakeSettings=$intakeDraft
                 ? ConversationWorkflow::applyIntakeDraftLocked($workflow,$currentThreadSettings,$intakeDraft,$intakeSources,(string)($context['messages'][count($context['messages'])-1]['content']??'')) : null;
+            if ($intakeSettings!==null && empty($intakeSettings['workflow_state']['intake_anchor_run_id'])) {
+                $intakeSettings['workflow_state']['intake_anchor_run_id']=ConversationWorkflow::intakeAnchorRun($tenant,$user,(int)$run['canvas_id'],(int)$run['thread_id'],$intakeSettings['workflow_state']) ?: $runId;
+            }
             if ($planSettings!==null) {
                 // The model's image proposal is now durable but intentionally
                 // absent from the graph. A confirmation API is the only path
