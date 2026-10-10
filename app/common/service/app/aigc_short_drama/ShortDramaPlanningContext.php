@@ -14,6 +14,60 @@ final class ShortDramaPlanningContext
 {
     public const VERSION = 1;
 
+    /** Diagnostic prose is retained on the task, never promoted to creative facts. */
+    public static function continuityFacts(array $source): array
+    {
+        $result = $source;
+        if (($source['audit_status'] ?? '') === 'verified') unset($result['warnings']);
+        foreach ((array)($result['recent_episodes'] ?? []) as $i => $episode) {
+            if (($episode['audit_status'] ?? '') === 'verified') unset($episode['warnings']);
+            $result['recent_episodes'][$i] = $episode;
+        }
+        return $result;
+    }
+
+    public static function seriesFacts(array $source): array
+    {
+        $result = $source;
+        if (isset($source['continuity'])) $result['continuity'] = self::continuityFacts($source['continuity']);
+        foreach ((array)($source['previous_episodes'] ?? []) as $i => $episode) {
+            if (($episode['audit_status'] ?? '') === 'verified') unset($episode['warnings']);
+            $result['previous_episodes'][$i] = $episode;
+        }
+        // The same recent narrative was historically embedded twice.
+        if (isset($result['previous_episodes'], $result['continuity']['recent_episodes'])
+            && $result['previous_episodes'] === $result['continuity']['recent_episodes']) unset($result['previous_episodes']);
+        return $result;
+    }
+
+    /** Only project machine-assembled JSON; preserve arbitrary creative text and suffixes. */
+    public static function withoutAuditDiagnostics(array $messages): array
+    {
+        $project = static function (array $data) use (&$project): array {
+            foreach ($data as $key => &$value) {
+                if ($key === 'series_context' && is_array($value)) $value = self::seriesFacts($value);
+                elseif ($key === 'previous' && is_array($value) && isset($value['audit_status'])) $value = self::continuityFacts($value);
+                elseif (is_array($value)) $value = $project($value);
+                elseif (in_array($key, ['creative_context','task'], true) && is_string($value)) {
+                    $nested = json_decode($value, true);
+                    if (is_array($nested)) $value = json_encode($project($nested), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                }
+            }
+            unset($value);
+            return $data;
+        };
+        foreach (['content','_stage_content'] as $field) {
+            $text = $messages[$field] ?? null;
+            if (!is_string($text) || !str_starts_with($text, '{')) continue;
+            try { $data = ShortDramaStructuredResponse::decode(['content'=>$text]); }
+            catch (\RuntimeException) { continue; }
+            $prefix = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            if (!str_starts_with($text, $prefix)) continue;
+            $messages[$field] = json_encode($project($data), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . substr($text, strlen($prefix));
+        }
+        return $messages;
+    }
+
     /** Lossless allow-list for confirmed facts. No arbitrary runtime/storage fields. */
     public static function lockedStory(array $source): array
     {
@@ -130,6 +184,8 @@ final class ShortDramaPlanningContext
      */
     public static function templateRequest(array $request): array
     {
+        // Local recovery controls do not alter the frozen provider prompt of a resumed task.
+        unset($request['_generation_recovery_version']);
         if (!ShortDramaStoryWorkflow::enabled($request)) {
             return $request;
         }

@@ -51,8 +51,7 @@ final class ConversationImages
                 $ownedUpload=Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>10,'uri'=>$uri,'storage_engine'=>'local'])->whereRaw('(delete_time IS NULL OR delete_time = 0)')->find();
                 $ownedGenerated=false;
                 if (!$ownedUpload && $row['task_id']!=='') {
-                    $task=Db::name('aigc_short_drama_generation_task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$row['canvas_id'],'task_id'=>$row['task_id'],'delete_time'=>0])->find();
-                    $ownedGenerated=$task && in_array((int)$row['id'],array_map('intval',json_decode($task['output_asset_ids']?:'[]',true)),true);
+                    $ownedGenerated=self::ownedGenerationReceipt($tenant,$user,$row);
                 }
                 // Asset registration alone is not proof of file ownership:
                 // a browser can submit an arbitrary URI to the asset library.
@@ -73,6 +72,23 @@ final class ConversationImages
         }
         if (count($urls)>4) throw new RuntimeException('TOO_MANY_IMAGE_REFERENCES');
         return $urls;
+    }
+
+    /** Copies may live on another page; verify the original receipt and exact stored file. */
+    public static function ownedGenerationReceipt(int $tenant,int $user,array $row): bool
+    {
+        $task=Db::name('aigc_short_drama_generation_task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$row['task_id'],'delete_time'=>0])->find();
+        if (!$task) return false;
+        $ids=array_map('intval',json_decode((string)($task['output_asset_ids']??'[]'),true)?:[]);
+        if (!$ids) return false;
+        $sources=Db::name('aigc_short_drama_asset')->where(['tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0,'status'=>'ready'])->whereIn('id',$ids)->select()->toArray();
+        foreach ($sources as $source) {
+            if ((int)$source['canvas_id']!==(int)$task['canvas_id']) continue;
+            $same=true;
+            foreach (['uri','storage_scope','storage_engine','storage_domain'] as $field) if ((string)$source[$field]!==(string)$row[$field]) $same=false;
+            if ($same) return true;
+        }
+        return false;
     }
 
     /**

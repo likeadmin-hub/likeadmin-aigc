@@ -22,23 +22,31 @@ final class ShortDramaScriptGeneration
         $receipts = [];
         $calls = 0;
         $reservedOutput = 0;
-        // Every episode reserves room for its audit and at most one
-        // audit-format correction, inside the existing overall budget.
+        $rejected = [];
+        // Keep the existing body-generation budget. The shared review stage
+        // has a separate bounded budget proportional to narrative size.
+        $boundedMemory = (int)($request['_input_contract_version'] ?? 0) >= 7;
         $auditReserve = !empty($request['series_context']);
         $callLimit = $auditReserve ? 46 : 48;
         $outputLimit = $auditReserve ? 183808 : 192000;
-        $call = static function (string $key, array $input, int $desired = 8192) use (&$receipts, &$calls, &$reservedOutput, &$model, $provider, $callLimit, $outputLimit): array {
+        $call = static function (string $key, array $input, int $desired = 8192, ?callable $validate = null) use (&$receipts, &$calls, &$reservedOutput, &$model, &$rejected, $provider, $callLimit, $outputLimit, $boundedMemory): array {
             unset($input['_stage_content']);
             if (++$calls > $callLimit) throw new RuntimeException('本集已达到自动处理上限，已保留完成内容，请缩小生成范围', 429);
-            $budget = ShortDramaPlanningBudget::stage($input['system_prompt'] . $input['content'], $model, 'script', $desired);
+            $budget = ShortDramaPlanningBudget::fitMessages($input, $model, 'script', $desired, $boundedMemory);
             $reservedOutput += $budget['max_tokens'];
             if ($reservedOutput > $outputLimit) throw new RuntimeException('本集自动生成预算已达上限，已完成内容保留，请缩小范围后继续', 429);
+            ShortDramaPlanningUnit::supersede($rejected); $rejected = [];
             $receipt = $provider('v3_' . $key, $input, $budget, $model);
             $model = (array)($receipt['model'] ?? $model);
             $receipts[$key] = (array)($receipt['result'] ?? []);
-            return ShortDramaStructuredResponse::decode($receipts[$key]);
+            try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate): array {
+                $payload = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []));
+                if ($validate) $validate($payload);
+                return $payload;
+            }); } catch (RuntimeException $error) { $rejected = $receipt; throw $error; }
         };
-        $finish = static function (array $payload) use ($request, $call, &$receipts, &$model): array {
+        $finish = static function (array $payload) use ($request, $call, $progress, &$receipts, &$model): array {
+            if ($progress) $progress('script_checkpoint', $payload);
             // Local revision patches keep their existing target-only result contract.
             if (!ShortDramaEpisodeDuration::localRevision($request) && !ShortDramaEpisodeDuration::active($request)) {
                 $payload = ShortDramaDialogueSplit::adapt($payload, $request, $call, 'final');
@@ -46,17 +54,19 @@ final class ShortDramaScriptGeneration
             return self::result($payload, $receipts, $model);
         };
         if (ShortDramaEpisodeDuration::active($request) && !ShortDramaEpisodeDuration::localRevision($request)) {
-            $budget = ShortDramaPlanningBudget::stage($messages['system_prompt'] . ($messages['_stage_content'] ?? $messages['content']), $model, 'script', 8192);
+            $preflight = ['system_prompt'=>$messages['system_prompt'], 'content'=>$messages['_stage_content'] ?? $messages['content']];
+            $budget = ShortDramaPlanningBudget::fitMessages($preflight, $model, 'script', 8192, $boundedMemory);
             $payload = ShortDramaTimedScriptGeneration::generate($request, $messages, $call, $progress, (int)$budget['max_tokens']);
             return $finish($payload);
         }
         $duration = (int)($request['target_duration_seconds'] ?? 0);
-        $budget = ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $model, 'script', 12000);
+        $preflight = $messages;
+        $budget = ShortDramaPlanningBudget::fitMessages($preflight, $model, 'script', 12000, $boundedMemory);
         // Local revisions must never fall back to rewriting the entire film.
         $revision = !empty($request['revision_message']) || !empty($request['revision_target']);
         if ($revision || ($budget['max_tokens'] >= 6000 && $duration < 120)) {
             try {
-                $payload = $call('script', $messages, 12000);
+                $payload = $call('script', $messages, 12000, $revision ? null : static fn($plan) => self::assertPlan($plan));
                 if (!$revision) self::assertPlan($payload);
                 return $finish($payload);
             } catch (RuntimeException $error) {
@@ -74,7 +84,7 @@ final class ShortDramaScriptGeneration
                     if (ShortDramaInputContract::current($request)) $repair = ShortDramaInputContract::formatRepair($repair, (array)($receipts['script'] ?? []));
                     $repair['content'] .= "\n上次结果缺失或格式不正确：" . $error->getMessage() . '。仅返回完整 JSON，不要说明或 Markdown。';
                     try {
-                        $payload = $call('format_repair', $repair, 12000);
+                        $payload = $call('format_repair', $repair, 12000, static fn($plan) => self::assertPlan($plan));
                         self::assertPlan($payload);
                         return $finish($payload);
                     } catch (RuntimeException $repairError) {
@@ -89,7 +99,11 @@ final class ShortDramaScriptGeneration
         $skeleton = [];
         for ($attempt = 0; $attempt < 2; $attempt++) {
             try {
-                $skeleton = $call('skeleton' . ($attempt ? '_repair' : ''), $skeletonMessages, 8192);
+                $skeleton = $call('skeleton' . ($attempt ? '_repair' : ''), $skeletonMessages, 8192,
+                    static function ($plan) use ($durationRule, &$skeleton): void {
+                        $skeleton = $plan;
+                        if (!self::completePlan($plan, $durationRule)) self::assertSkeleton($plan);
+                    });
                 // Some models still produce a full plan. Reuse only a valid
                 // plan; the caller continues its normal story quality review.
                 if (self::completePlan($skeleton, $durationRule)) return $finish($skeleton);
@@ -120,12 +134,13 @@ final class ShortDramaScriptGeneration
                     'locked_plan' => array_intersect_key($skeleton, array_flip(['title', 'story_outline', 'series_bible', 'subjects', 'locations', 'art_style'])),
                     'scene_continuity' => array_map(static fn($item) => array_intersect_key($item, array_flip(['scene_ref_id', 'goal', 'entry', 'exit'])), $skeleton['scene_beats']),
                     'scene_beat' => $beat, 'shot_start' => $start, 'shot_count' => $size,
+                    'scene_progress' => ShortDramaSceneProgress::window($beat, (int)$beat['shot_count'], $start - 1, $size, $sceneShots),
                     'required_shot_ids' => array_map(static fn($n) => 's' . ($sceneIndex + 1) . '_' . $n, range($start, $start + $size - 1)),
                     'previous_shots' => array_slice(array_merge($shots, $sceneShots), -2),
                 ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
                 $key = 'scene_' . ($sceneIndex + 1) . '_' . $start . '_' . $size;
                 try {
-                    $part = $call($key, $input, 1600 + $size * 650);
+                    $part = $call($key, $input, 1600 + $size * 650, static fn($part) => self::assertShots($part, $skeleton, $beat, $sceneIndex, $start, $size, $durationRule));
                     self::assertShots($part, $skeleton, $beat, $sceneIndex, $start, $size, $durationRule);
                 } catch (RuntimeException $error) {
                     if (!in_array($error->getCode(), [413, 422], true)) throw $error;
@@ -133,14 +148,16 @@ final class ShortDramaScriptGeneration
                         $left = intdiv($size, 2); $expand($start, $left); $expand($start + $left, $size - $left); return;
                     }
                     $input['content'] .= "\n修复本镜头：" . $error->getMessage();
-                    $part = $call($key . '_repair', $input, 2400);
+                    $part = $call($key . '_repair', $input, 2400, static fn($part) => self::assertShots($part, $skeleton, $beat, $sceneIndex, $start, $size, $durationRule));
                     self::assertShots($part, $skeleton, $beat, $sceneIndex, $start, $size, $durationRule);
                 }
                 foreach ($part['storyboard'] as $shot) $sceneShots[] = $shot;
+                if ($progress) $progress('script_checkpoint', array_replace($skeleton, ['storyboard'=>array_merge($shots, $sceneShots)]));
                 if ($progress) $progress('stage', ['status' => 'running', 'progress' => min(75, 30 + $sceneIndex), 'current_step' => '正在生成第' . ($sceneIndex + 1) . '场，已保留' . (count($shots) + count($sceneShots)) . '个分镜']);
             };
             for ($start = 1; $start <= $count; $start += 4) $expand($start, min(4, $count - $start + 1));
             $shots = array_merge($shots, $sceneShots);
+            unset($expand); // Release recursive closure captures between scenes.
         }
         $skeleton['storyboard'] = $shots;
         $skeleton['episodes'] = [];

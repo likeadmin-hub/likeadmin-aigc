@@ -18,20 +18,21 @@ class ShortDramaImportedScriptTest extends TestCase
     public function testParserAdapterKeepsFullSourceAndRangeAcrossNormalization(): void
     {
         $original = str_repeat('主角翻开旧信，寻找失踪者的下落。', 5000) . '结尾发现真实署名。';
-        $payload = ['title' => '旧信', 'type_judgement' => '悬疑', 'core_theme' => '寻找真相', 'story_outline' => '主角从旧信发现失踪者的踪迹。',
+        $payload = ['title' => '旧信', 'type_judgement' => ['genre'=>'悬疑'], 'core_theme' => '寻找真相', 'story_outline' => '主角从旧信发现失踪者的踪迹。',
             'subjects' => [['id' => 's1', 'name' => '调查员', 'description' => '寻找失踪者的调查员', 'category' => 'character']],
             'locations' => [['id' => 'l1', 'name' => '书房', 'description' => '堆满旧信的书房']], 'episodes' => []];
         for ($i = 1; $i <= 2; $i++) $payload['episodes'][] = ['episode_number' => $i, 'title' => '旧信线索' . $i,
             'story_outline' => $i === 1 ? '调查员寻找旧信，发现新的署名。' : '调查员赶往信中地址，遇见失踪者的妹妹。',
             'conflict_point' => $i === 1 ? '署名与记忆矛盾。' : '妹妹拒绝透露失踪者的去向。', 'ending_hook' => $i === 1 ? '信中还有一个地址。' : '妹妹交出失踪者的日记。',
-            'source_content' => $original, 'source_range' => ['start_line' => 1, 'end_line' => 5001]];
+            'source_content' => $original . $i, 'source_range' => ['start_line' => ($i - 1) * 5001 + 1, 'end_line' => $i * 5001]];
         $method = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'fileQaParsePlan');
         $method->setAccessible(true);
         $plan = $method->invoke(null, $payload, [], '旧信');
+        self::assertSame('悬疑', $plan['type_judgement']);
         self::assertCount(2, $plan['episodes']);
         foreach ($plan['episodes'] as $episode) {
-            self::assertSame($original, $episode['source_content']);
-            self::assertSame(['start_line' => 1, 'end_line' => 5001], $episode['source_range']);
+            self::assertSame($original . $episode['episode_number'], $episode['source_content']);
+            self::assertSame(['start_line' => ($episode['episode_number'] - 1) * 5001 + 1, 'end_line' => $episode['episode_number'] * 5001], $episode['source_range']);
         }
         $story = ShortDramaImportedScript::storyDraft($plan);
         self::assertSame([], $story['episodes']);

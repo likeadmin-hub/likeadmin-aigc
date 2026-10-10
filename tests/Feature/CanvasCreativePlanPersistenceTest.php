@@ -1,0 +1,71 @@
+<?php
+namespace Tests\Feature;
+
+use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationCreativePlan as Plan;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationCreativePolicy as Policy;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore as Store;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow as Workflow;
+use PHPUnit\Framework\TestCase;
+use think\facade\Db;
+
+/** Exercises the real confirmation transaction without model calls; all fixtures roll back. */
+class CanvasCreativePlanPersistenceTest extends TestCase
+{
+    public function testConfirmationPersistsExactSettingsAndRejectsIncompleteOrStaleCards(): void
+    {
+        if (getenv('SHORT_DRAMA_DB_TESTS')!=='1') $this->markTestSkipped('Transactional MySQL test');
+        (new \think\App())->initialize();
+        $tenant=random_int(1500000000,1900000000);$user=$tenant;
+        Db::startTrans();
+        try {
+            Db::name('aigc_short_drama_config')->insert(['tenant_id'=>$tenant,'config_json'=>'{"canvas_agent":{"enabled":true,"workflow":{"enabled":true}}}','status'=>1]);
+            $canvas=Canvas::create($tenant,$user,['title'=>'Creative confirmation fixture'])['id'];
+            $thread=Store::create($tenant,$user,$canvas,'creative-plan-test')['id'];
+            $slots=Workflow::catalog()['slots'];
+            foreach($slots as &$slot) if($slot['key']==='aspect_ratio') $slot['options']=['9:16','16:9'];
+            unset($slot);
+            $state=Plan::draft(['workflow_snapshot'=>['key'=>Workflow::KEY,'version'=>Workflow::VERSION,'series_core'=>true,
+                'creative_policy_version'=>Policy::VERSION,'slot_schema'=>$slots,'stage_skill_versions'=>[]],
+                'intake_anchor_run_id'=>123,'slot_values'=>['story_direction'=>'程序员大战孙悟空'],
+                'slot_sources'=>['story_direction'=>['value'=>'程序员大战孙悟空','source'=>'message','evidence'=>'程序员大战孙悟空']],'creative_settings'=>[],'creative_brief'=>'程序员大战孙悟空',
+                'artifact_memory'=>[],'plan_hash'=>'','image_plan'=>[],'stage_plan'=>[],
+                'plan_confirmation'=>['status'=>'not_required'],'state_revision'=>1],['candidates'=>[],'questions'=>[]]);
+            Db::name(Store::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>json_encode(['workflow_state'=>$state])]);
+            $view=Workflow::read($tenant,$user,$canvas,$thread);
+            self::assertSame(123,$view['workflow']['intake_anchor_run_id']);
+            self::assertSame('intake_review',$view['card']['type']);
+            self::assertTrue($view['card']['full_plan']);
+            self::assertCount(4,$view['card']['candidates']);
+            // A natural-language answer can update a pending intake card without executing production.
+            $prepared=Workflow::prepare($tenant,Db::name(Store::PREFIX.'thread')->find($thread),'一集60秒',[],[],[]);
+            self::assertSame('collecting',$prepared['workflow']['stage_state']['status']);
+            $natural=Workflow::applyIntakeDraftLocked($prepared['workflow'],$prepared['thread_settings'],[
+                'candidates'=>[
+                    ['key'=>'episode_count','value'=>'1集','source'=>'message','evidence'=>'一集','confidence'=>1],
+                    ['key'=>'episode_duration','value'=>'60秒','source'=>'message','evidence'=>'60秒','confidence'=>1],
+                ],'questions'=>[]],['message'],'一集60秒');
+            self::assertSame('1集',$natural['workflow_state']['slot_values']['episode_count']);
+            self::assertSame('60秒',$natural['workflow_state']['slot_values']['episode_duration']);
+            self::assertSame(['visual_style','aspect_ratio'],array_keys($natural['workflow_state']['intake_candidates']));
+            self::assertSame('reviewing_intake',$natural['workflow_state']['stage_state']['status']);
+            self::assertSame(123,$natural['workflow_state']['intake_anchor_run_id']);
+            try { Workflow::answer($tenant,$user,$canvas,$thread,1,'intake_review','{"episode_count":"3集"}');self::fail('Partial plan accepted'); }
+            catch(\RuntimeException $e) { self::assertSame('INVALID_WORKFLOW_ANSWER',$e->getMessage()); }
+            $values=['episode_count'=>'3集','episode_duration'=>'120秒','visual_style'=>'国风水墨','aspect_ratio'=>'16:9'];
+            $view=Workflow::answer($tenant,$user,$canvas,$thread,1,'intake_review',json_encode($values,JSON_UNESCAPED_UNICODE));
+            self::assertSame(123,$view['workflow']['intake_anchor_run_id']);
+            self::assertSame(123,Workflow::read($tenant,$user,$canvas,$thread)['workflow']['intake_anchor_run_id']);
+            self::assertSame('story',$view['workflow']['stage_state']['key']);
+            self::assertSame(['story_direction'=>'程序员大战孙悟空']+$values,$view['workflow']['slot_values']);
+            self::assertSame('16:9',$view['workflow']['creative_settings']['aspect_ratio']);
+            self::assertSame('国风水墨',$view['workflow']['creative_settings']['style_name']);
+            $saved=json_decode(Db::name(Store::PREFIX.'thread')->where('id',$thread)->value('settings_json'),true)['workflow_state'];
+            Plan::assertConfirmed($saved);
+            self::assertSame('程序员大战孙悟空',$saved['creative_brief']);
+            self::assertSame(0,Db::name('aigc_short_drama_script_task')->where('tenant_id',$tenant)->count());
+            try { Workflow::answer($tenant,$user,$canvas,$thread,1,'intake_review',json_encode($values));self::fail('Stale card accepted'); }
+            catch(\RuntimeException $e) { self::assertSame('WORKFLOW_VERSION_CONFLICT',$e->getMessage()); }
+        } finally { Db::rollback(); }
+    }
+}

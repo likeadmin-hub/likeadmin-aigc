@@ -29,13 +29,35 @@ final class ConversationIntakeDraft
         foreach ($slots as $slot) if (is_array($slot) && is_string($slot['key']??null)) {
             $labels[]=$slot['key'].'（'.(string)($slot['label']??'').'）';
         }
-        return '只从本轮用户文字、已授权附件和实际可见图片中提取明确给出的短剧设定，不把猜测当事实。'
+        return '结合对话中用户明确表达的创作要求、已授权附件和实际可见图片提取短剧设定，不把猜测当事实。'
+            .'回顾已有用户消息，已明确的信息以 source=message 提取并直接沿用；用户后续明确修改时以最新要求为准。助手建议和默认值不代表用户确认。'
+            .'story_direction 必须是实际题材、故事灵感或剧情要求；只有制作意图（如我想生成短剧）、问候、模式选择不是故事方向，不得填入。原始 creative_brief 是对话上下文，不是已经确认的故事事实。'
+            .'没有故事方向时，先自然询问一个故事问题或按用户要求协助构思，系统不会显示制作参数卡；保留已提供的其他参数，故事明确后才显示仍缺少的参数。'
+            .'例如用户说“一集60s的短视频，我在天庭当人事”，主题、集数和时长已有答案，不得再询问这些项目。'
             .'若文档尚未解析或图像不可见，不得声称读取了它。'
             .'intake 必须为 {"candidates":[],"questions":[]}。candidates 每项仅含 key、value、source、evidence、confidence；'
-            .'key 限于 '.implode('、',$labels).'；source 只能是 message、document、image；'
+            .'key 限于 '.implode('、',$labels).'；source 可以是 message、document、image；未指定项的建议必须用 suggestion，不能伪称用户事实；'
             .'evidence 是简短原文摘录或可见画面依据；confidence 为 0 到 1。只有明确且高置信的事实才放入 candidates。'
             .'questions 每项仅含 key、ask、options；只针对尚未明确的信息，ask 要结合用户灵感与已有素材，options 最多五项。'
-            .'不得输出费用、任务状态、媒体调用或画布 JSON；这份提取只用于让用户核对。';
+            .'不得输出费用、任务状态、媒体调用或画布 JSON；仅对尚未明确的信息及素材推断请求核对，用户在对话中明确的信息不重复展示为收集卡。';
+    }
+
+    /** Recover independent valid draft items; never infer missing evidence,
+     * change source ownership, or promote an invalid fact to confirmed data. */
+    public static function recover(mixed $raw,array $slots,array $availableSources=['message']): array
+    {
+        $result=['candidates'=>[],'questions'=>[]];
+        if (!is_array($raw)) return $result;
+        foreach (array_keys($result) as $group) {
+            if (!is_array($raw[$group]??null) || !array_is_list($raw[$group])) continue;
+            foreach (array_slice($raw[$group],0,count($slots)) as $item) {
+                $candidate=$result;
+                $candidate[$group][]=$item;
+                try { self::parse($candidate,$slots,$availableSources);$result=$candidate; }
+                catch (RuntimeException $error) { /* Leave this item unconfirmed. */ }
+            }
+        }
+        return $result;
     }
 
     /** @return array{candidates:array,questions:array} */
@@ -53,7 +75,7 @@ final class ConversationIntakeDraft
             ['key'=>$key,'value'=>$value,'source'=>$source,'evidence'=>$evidence,'confidence'=>$confidence]=$item;
             if (!is_string($key) || !isset($allowed[$key]) || isset($candidates[$key]) || !is_string($value)
                 || trim($value)==='' || mb_strlen($value)>240 || !is_string($source)
-                || !in_array($source,$availableSources,true) || !is_string($evidence)
+                || !in_array($source,array_merge($availableSources,['suggestion']),true) || !is_string($evidence)
                 || trim($evidence)==='' || mb_strlen($evidence)>160 || (!is_float($confidence) && !is_int($confidence))
                 || $confidence<0 || $confidence>1) throw new RuntimeException('INVALID_AGENT_INTAKE');
             // Low-confidence material remains a question, never an inferred answer.
@@ -71,9 +93,19 @@ final class ConversationIntakeDraft
         return ['candidates'=>$candidates,'questions'=>$questions];
     }
 
+    public static function parseConversation(string $response,array $slots,array $availableSources=['message']): array
+    {
+        try { $value=ConversationResponseJson::decode($response,16); }
+        catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTAKE',0,$error); }
+        if (!is_array($value) || array_is_list($value)
+            || array_diff(array_keys($value),['reply_markdown','intake'])) throw new RuntimeException('INVALID_AGENT_INTAKE');
+        $value['intake']=self::recover($value['intake']??null,$slots,$availableSources);
+        return self::parseDirect(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$slots,$availableSources);
+    }
+
     public static function parseDirect(string $response,array $slots,array $availableSources=['message']): array
     {
-        try { $value=json_decode(trim($response),true,16,JSON_THROW_ON_ERROR); }
+        try { $value=ConversationResponseJson::decode($response,16); }
         catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTAKE',0,$error); }
         if (!is_array($value) || count($value)!==2 || array_diff(['reply_markdown','intake'],array_keys($value)) || !is_string($value['reply_markdown'])
             || trim($value['reply_markdown'])==='' || mb_strlen($value['reply_markdown'])>4000) throw new RuntimeException('INVALID_AGENT_INTAKE');

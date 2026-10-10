@@ -17,6 +17,27 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
         $this->task = 'test_receipt_' . bin2hex(random_bytes(8));
     }
     protected function tearDown(): void { if ($this->transaction) Db::rollback(); }
+    public function testReviewDraftCheckpointDoesNotBecomeAPaidReceiptOrRetryUnit(): void
+    {
+        $checkpoint = \app\common\service\app\aigc_short_drama\ShortDramaReviewCheckpoint::class;
+        $checkpoint::save(2000000719, 7, $this->task, ['title'=>'原文','storyboard'=>[['shot_id'=>'s1']]], 0);
+        $checkpoint::save(2000000719, 7, $this->task, ['title'=>'原文','storyboard'=>[['shot_id'=>'s1']]], 1);
+        Unit::prepareExplicitRetry(2000000719, 7, $this->task);
+        $rows = Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->select()->toArray();
+        self::assertCount(1, $rows); self::assertSame('checkpoint', $rows[0]['status']);
+        self::assertSame(0, (int)$rows[0]['attempt']);
+        $saved = json_decode($rows[0]['result_json'], true);
+        self::assertSame('draft', $saved['content_status']); self::assertSame(1, $saved['reviewed_shots']);
+        self::assertSame('原文', $saved['plan']['title']); self::assertArrayNotHasKey('result', $saved);
+        $checkpoint::save(2000000720, 7, $this->task, ['title'=>'另租户'], 0);
+        self::assertSame('原文', json_decode(Db::name('aigc_short_drama_planning_unit')->where([
+            'task_id'=>$this->task,'tenant_id'=>2000000719])->value('result_json'),true)['plan']['title']);
+        $checkpoint::save(2000000719,7,$this->task,['title'=>'可恢复'],4,['signature'=>'signed','context'=>[]]);
+        self::assertSame(4,$checkpoint::load(2000000719,7,$this->task)['reviewed_shots']);
+        self::assertSame([],$checkpoint::load(2000000720,7,$this->task));
+        self::assertSame([],$checkpoint::load(2000000719,8,$this->task));
+    }
+
     public function testReceivedResponseIsReusedAndChangedContextCannotReplayIt(): void
     {
         $calls = 0;
@@ -58,6 +79,37 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
         self::assertFalse(Unit::ready(2000000719, 7, $this->task));
         $this->expectExceptionCode(425);
         Unit::call(2000000719, 7, $this->task, 'v3_script', [], static function () { self::fail('Backoff bypassed'); });
+    }
+
+    public function testExplicitValidationRepairRetainsOriginalReceiptAndAcceptedNeighbors(): void
+    {
+        $scope=['tenant_id'=>2000000719,'user_id'=>7,'task_id'=>$this->task];
+        $input=['content'=>'原始剧情'];
+        Unit::call(2000000719,7,$this->task,'v3_good',$input,static fn()=>['result'=>['content'=>'accepted']]);
+        $receipt=Unit::call(2000000719,7,$this->task,'v3_bad',$input,static fn()=>['result'=>['content'=>'invalid']],true);
+        try {Unit::validate($receipt,static function(){throw new \RuntimeException('镜头引用无效',422);});}
+        catch(\RuntimeException $error){self::assertSame(422,$error->getCode());}
+        $before=Db::name('aigc_short_drama_planning_unit')->where($scope)->where('unit_key','v3_bad')->find();
+        Unit::prepareExplicitRetry(2000000719,7,$this->task);
+        $calls=0;
+        $fixed=Unit::call(2000000719,7,$this->task,'v3_bad',$input,static function($effective)use(&$calls){
+            $calls++;self::assertStringContainsString('镜头引用无效',$effective['content']);
+            return ['result'=>['content'=>'fixed']];
+        });
+        self::assertSame('fixed',$fixed['result']['content']);self::assertSame(1,$calls);
+        self::assertSame($fixed,Unit::call(2000000719,7,$this->task,'v3_bad',$input,static function(){self::fail('Paid repair replayed');}));
+        Unit::call(2000000719,7,$this->task,'v3_good',$input,static function(){self::fail('Accepted neighbor regenerated');});
+        self::assertSame($before,Db::name('aigc_short_drama_planning_unit')->where($scope)->where('unit_key','v3_bad')->find());
+        self::assertSame(3,Db::name('aigc_short_drama_planning_unit')->where($scope)->count());
+    }
+
+    public function testSupersededFailureDoesNotRestartCompletedFallback(): void
+    {
+        $receipt=Unit::call(2000000719,7,$this->task,'v3_parent',[],static fn()=>['result'=>['content'=>'invalid']],true);
+        try {Unit::validate($receipt,static function(){throw new \RuntimeException('截断',413);});} catch(\RuntimeException) {}
+        Unit::supersede($receipt);
+        Unit::prepareExplicitRetry(2000000719,7,$this->task);
+        self::assertSame(1,Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->count());
     }
     public function testExplicitRetryRestartsExhaustedConnectionBudgetAndKeepsReceivedUnits(): void
     {
@@ -198,7 +250,9 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
                 self::assertTrue($canRepair); self::assertSame('钥匙', $ledger['state']['p1:item']);
             } catch (\RuntimeException $error) { self::assertFalse($canRepair); self::assertSame(422, $error->getCode()); }
         }
-        self::assertSame($canRepair ? 1 : 2, $paidCalls);
-        self::assertSame($canRepair ? 2 : 3, Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => 2000000719, 'user_id' => 7, 'task_id' => $this->task, 'status' => 'received'])->count());
+        // Identical diagnostics now produce the identical patch-only request,
+        // so even the second failed correction reuses its paid receipt.
+        self::assertSame(1, $paidCalls);
+        self::assertSame(2, Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => 2000000719, 'user_id' => 7, 'task_id' => $this->task, 'status' => 'received'])->count());
     }
 }

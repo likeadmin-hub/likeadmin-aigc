@@ -62,9 +62,11 @@ final class ConversationIntentRouter
                 .'仅当用户明确要制作包含剧本、角色、场景、分镜等连续阶段的完整短剧，或明确回答上一轮澄清要选择完整短剧时，才设置 intent=short_drama、deliverable=full_drama、scope=workflow、speech_act=request/answer/confirm。提到“短剧”但只要一份剧本，仍是 standalone。'
                 .'无法确认完整制作与单次创作的范围、或对创作意图的信心低于 0.8 时，scope=uncertain、intent=uncertain，在 reply_markdown 只问一个针对本轮内容的区分问题。不要默认为完整短剧。'
                 .'confidence 是 0 到 1 的数字。skill_key 只能从下列已授权候选中选一个或填空；推荐不等于自动执行。'
-                .'reply_markdown 始终为非空文本：完整短剧只写简短的准备提示，真正进入流程后的提示由服务端生成；普通请求给出真实答复。'
+                .'reply_markdown 始终为非空文本：完整短剧只简短承接用户题材，未知制作参数留给信息卡，不要先设计方案；普通请求给出真实答复。'
+                .'用户已经明确的主题、集数、时长、画风、比例直接沿用，不得再次询问；例如“一集60s”已经明确集数和时长，不要再问单集还是多集。'
+                .'用户回答紧邻选项的 B 或完整制作时，直接进入待确认方案，不再追问是否选择完整制作。'
                 .'仅当 intent=short_drama 且 deliverable=full_drama 且 scope=workflow 时填写 intake，否则 intake 为 {"candidates":[],"questions":[]}。'
-                .'如果请求的是单次文本创作且信息足够，直接在 reply_markdown 给出真实文本结果；缺少关键主题、时长或受众时只问最必要的一个问题。图片或视频不得声称已生成或提交；不得输出 canvas-actions、价格或任务状态。'
+                .'如果请求的是单次文本创作且信息足够，直接在 reply_markdown 给出真实文本结果；缺少核心主题时只问最必要的一个问题；时长和受众允许暂定。图片或视频不得声称已生成或提交；不得输出 canvas-actions、价格或任务状态。'
                 .ConversationIntakeDraft::instruction((array)ConversationWorkflow::catalog()['slots'])
                 .'可用技能：'.implode('；',$catalog);
         }
@@ -83,7 +85,7 @@ final class ConversationIntentRouter
     /** @return array{intent:string,confidence:float,skill_key:string,reply_markdown:string} */
     public static function parse(string $response,array $routing,array $availableSources=['message']): array
     {
-        try { $value=json_decode(trim($response),true,16,JSON_THROW_ON_ERROR); }
+        try { $value=ConversationResponseJson::decode($response,16); }
         catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$error); }
         $modern=(int)($routing['version']??2)>=3;
         $fields=$modern
@@ -123,11 +125,28 @@ final class ConversationIntentRouter
             if ((int)($routing['version']??2)<3
                 || !in_array($error->getMessage(),['INVALID_AGENT_INTENT','INVALID_AGENT_INTAKE'],true)) throw $error;
         }
-        try { $value=json_decode(trim($response),true,16,JSON_THROW_ON_ERROR); }
+        try { $value=ConversationResponseJson::decode($response,16); }
         catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$error); }
         if (!is_array($value) || array_is_list($value)) throw new RuntimeException('INVALID_AGENT_INTENT');
         $advisory=['intent','confidence','skill_key','reply_markdown','intake','speech_act','deliverable','scope','reasoning','explanation'];
         if (array_diff(array_keys($value),$advisory)) throw new RuntimeException('INVALID_AGENT_INTENT');
+        // Starting intake is distinct from executing production. Validate all
+        // routing axes first; a malformed extracted fact must not destroy the
+        // reply or prevent opening the existing confirmation flow.
+        if (($value['intent']??null)==='short_drama') {
+            $canonical=array_intersect_key($value,array_flip(array_slice($advisory,0,8)));
+            $canonical['intake']=['candidates'=>[],'questions'=>[]];
+            if (is_string($canonical['confidence']??null)
+                && preg_match('/^(?:0(?:\.\d+)?|1(?:\.0+)?)$/D',$canonical['confidence'])) {
+                $canonical['confidence']=(float)$canonical['confidence'];
+            }
+            $decision=self::parse(json_encode($canonical,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing,$availableSources);
+            if ($decision['scope']==='workflow' && $decision['deliverable']==='full_drama') {
+                $decision['intake']=ConversationIntakeDraft::recover($value['intake']??null,
+                    (array)ConversationWorkflow::catalog()['slots'],$availableSources);
+            }
+            return self::parse(json_encode($decision,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing,$availableSources);
+        }
         $intent=$value['intent']??null;
         // Neither an incomplete workflow decision nor a media-generation
         // claim can be repaired by silently changing its meaning.
@@ -144,9 +163,10 @@ final class ConversationIntentRouter
         $allowed=[];
         foreach ((array)($routing['skill_candidates']??[]) as $item) if (is_array($item) && is_string($item['key']??null)) $allowed[$item['key']]=true;
         if ($skillKey!=='' && !isset($allowed[$skillKey])) throw new RuntimeException('INVALID_AGENT_INTENT');
-        $intake=$value['intake']??[];
-        if (!is_array($intake) || array_diff(array_keys($intake),['candidates','questions'])
-            || ($intake['candidates']??[])!==[] || ($intake['questions']??[])!==[]) throw new RuntimeException('INVALID_AGENT_INTENT');
+        // This branch cannot activate production. Intake is discarded below,
+        // never persisted or executed, so even malformed advisory extraction
+        // must not veto a valid ordinary reply. Workflow decisions still use
+        // the strict parser and cannot enter this recovery branch.
         $defaults=match ($intent) {
             'chat'=>['speech_act'=>'chat','deliverable'=>'text','scope'=>'conversation'],
             'creative_plan'=>['speech_act'=>'request','deliverable'=>'text','scope'=>'standalone'],
@@ -171,7 +191,7 @@ final class ConversationIntentRouter
     /** Safe shape-only diagnostics; never persist the model's answer. */
     public static function failureCategory(string $response,array $routing): string
     {
-        try { $value=json_decode(trim($response),true,16,JSON_THROW_ON_ERROR); }
+        try { $value=ConversationResponseJson::decode($response,16); }
         catch (\Throwable $error) { return 'intent_not_json'; }
         if (!is_array($value) || array_is_list($value)) return 'intent_shape';
         $fields=(int)($routing['version']??2)>=3
@@ -180,12 +200,19 @@ final class ConversationIntentRouter
         if (array_diff($fields,array_keys($value)) || array_diff(array_keys($value),array_merge($fields,['intake']))) return 'intent_shape';
         if (!is_string($value['intent']??null) || !in_array($value['intent'],self::INTENTS,true)
             || !is_string($value['reply_markdown']??null) || trim($value['reply_markdown'])==='') return 'intent_value';
+        if ((!is_int($value['confidence']??null) && !is_float($value['confidence']??null))
+            || $value['confidence']<0 || $value['confidence']>1) return 'intent_confidence';
+        if ((int)($routing['version']??2)>=3 && !self::validAxes($value)) return 'intent_axes';
         $allowed=[];
         foreach ((array)($routing['skill_candidates']??[]) as $item) if (is_array($item) && is_string($item['key']??null)) $allowed[$item['key']]=true;
         $key=$value['skill_key']??null;
         if (!is_string($key) || ($key!=='' && !isset($allowed[$key]))) return 'intent_skill';
         if (array_key_exists('intake',$value) && (($value['intake']['candidates']??null)!==[] || ($value['intake']['questions']??null)!==[])
             && ($value['intent']??'')!=='short_drama') return 'intent_unexpected_output';
+        if (array_key_exists('intake',$value)) {
+            try { ConversationIntakeDraft::parse($value['intake'],(array)ConversationWorkflow::catalog()['slots'],['message','document','image']); }
+            catch (RuntimeException $error) { return 'intent_intake'; }
+        }
         return 'intent_value';
     }
 
@@ -203,16 +230,19 @@ final class ConversationIntentRouter
     public static function reply(array $decision,array $routing,array $availableSources=['message']): string
     {
         if (self::shouldActivateWorkflow($decision,$routing)) {
+            if (ConversationCreativePlan::enabled((array)($routing['workflow_candidate']??[]))) return (string)$decision['reply_markdown'];
+            if (ConversationCreativePolicy::enabled((array)($routing['workflow_candidate']??[]))) return (string)$decision['reply_markdown'];
             $draft=isset($decision['intake'])
                 ? ConversationIntakeDraft::parse($decision['intake'],(array)ConversationWorkflow::catalog()['slots'],$availableSources) : ['candidates'=>[]];
             return $draft['candidates'] ? '已从你的描述或素材中整理出一份待确认的短剧设定，请先核对。未明确的信息我会继续追问。'
                 : '已进入短剧成片制作流程。我会先收集必要的创作信息；请回答下面的问题卡。';
         }
+        if (($decision['intent']??'')!=='short_drama') return (string)$decision['reply_markdown'];
         if ((int)($routing['version']??2)>=3) {
             if (($decision['scope']??'')==='uncertain' || ($decision['intent']??'')==='uncertain')
                 return (string)$decision['reply_markdown'];
             if ((float)($decision['confidence']??0)<0.8 && ($decision['intent']??'')!=='chat')
-                return '我还不确定你希望得到什么结果。你是想咨询问题、单独创作一份内容，还是启动完整短剧制作？';
+                return trim((string)$decision['reply_markdown']) ?: '你希望先讨论这个想法，还是开始创作？';
             if (($decision['intent']??'')==='short_drama' && ($decision['scope']??'')==='workflow'
                 && ($decision['deliverable']??'')==='full_drama' && in_array($decision['speech_act']??'',['request','answer','confirm'],true)) {
                 return '已识别出完整短剧创作需求，但当前工作流技能配置不可用。请在租户端检查短剧画布 Agent 的阶段技能后重试。';

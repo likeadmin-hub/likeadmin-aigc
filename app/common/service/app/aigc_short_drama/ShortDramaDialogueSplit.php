@@ -29,7 +29,7 @@ final class ShortDramaDialogueSplit
 
     public static function adapt(array $plan, array $request, callable $call, string $unit): array
     {
-        if (!self::enabled($request)) return $plan;
+        if (!self::enabled($request) || ShortDramaInputContract::providerTiming($request)) return $plan;
         $rule = ShortDramaShotDuration::rule($request);
         $locked = in_array(ShortDramaEpisodeDuration::policy($request)['source'] ?? '', ['user', 'timeline'], true)
             || ShortDramaEpisodeDuration::localRevision($request);
@@ -48,6 +48,9 @@ final class ShortDramaDialogueSplit
             // Local edits must not expand the selected target or change other IDs.
             if (ShortDramaEpisodeDuration::localRevision($request)) throw new RuntimeException('局部修改需要增加分镜，请明确重新规划该场景后继续；原文保留', 409);
             if ($needed > $rule['max_seconds'] * 8) throw new RuntimeException('单镜内容过长，请按场景缩小处理范围；原文保留', 409);
+            if (ShortDramaInputContract::recoveryEnabled($request)) {
+                $segments = ShortDramaDialoguePartition::generate($shot, $rule, $locked, $call, $unit . '_dialogue_' . $index);
+            } else {
             $input = ['system_prompt' => self::instruction($rule)
                 . '只返回 {"segments":[{"dialogue":"","visual_description":"","composition":"","camera_movement":"","action":"","result":"","sound_effect":"","recommended_duration_seconds":0}]}。'
                 . '仅拆解给定原镜头，不改其他镜头。每段 dialogue 是原 dialogue 的连续原文切片，逐段拼接必须与原文逐字相等（含标点和角色前缀），不要重复前缀。'
@@ -57,7 +60,8 @@ final class ShortDramaDialogueSplit
             for ($attempt = 0; $attempt < 2; $attempt++) {
                 $reply = [];
                 try {
-                    $reply = $call($unit . '_dialogue_split_' . $index . '_' . $attempt, $input, 6000);
+                    $reply = $call($unit . '_dialogue_split_' . $index . '_' . $attempt, $input, 6000,
+                        static fn($reply) => self::validate($shot, $reply, $rule, $locked));
                     $segments = self::validate($shot, $reply, $rule, $locked);
                     break;
                 } catch (RuntimeException $error) {
@@ -69,6 +73,7 @@ final class ShortDramaDialogueSplit
                     $input['content'] .= "\n上次分段未通过：" . $error->getMessage()
                         . "\n仅修复分段，原镜头是唯一事实依据。上次返回=" . json_encode($reply, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
                 }
+            }
             }
             // These prompts describe the unsplit shot. The normal downstream builder regenerates them.
             unset($shot['image_prompt'], $shot['video_prompt'], $shot['negative_prompt'], $shot['time_range'], $shot['start_seconds'], $shot['end_seconds']);

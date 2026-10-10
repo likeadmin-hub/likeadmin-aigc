@@ -1,0 +1,395 @@
+{
+    "payload": {
+        "title": "雨停再走",
+        "type_judgement": {
+            "story_type": "都市温情短剧",
+            "emotional_tone": "从紧张对峙到温暖和解",
+            "conflict": "林晚误以为陈舟偷走她的笔记本而愤怒争吵",
+            "relationships": "陌生人因误解冲突，最终因善意理解而和解",
+            "key_imagery": "公交站、雨、笔记本、挡雨",
+            "theme": "善意需要时间被理解，认真写下的愿望值得被守护",
+            "ending_meaning": "林晚明白陈舟的善意，两人在雨中达成和解，温暖收场"
+        },
+        "core_theme": "善意需要时间被理解，认真写下的愿望值得被守护",
+        "story_outline": "傍晚，公交站下着雨。林晚匆忙跑来避雨，发现自己随身带的笔记本不见了。她看到旁边站着的陈舟手中拿着一个类似的笔记本，误以为是他偷走的。林晚情绪激动地指责陈舟，陈舟起初沉默，随后冷静解释。争执中，林晚的台词完整展现她的内心世界——笔记本里记着对已故母亲的承诺。最终林晚发现笔记本其实夹在自己的包里，陈舟手里的是他自己的本子，而他刚才一直在用身体和书包为她掉在地上的笔记本挡雨。林晚羞愧道歉，陈舟微笑原谅，两人在雨声中交流彼此的故事，雨停后各自离去，但心中留下暖意。",
+        "script_lines": "傍晚，公交站，雨不停下。林晚冲进站台躲雨，翻包发现笔记本不见了，焦急四望。旁边陈舟手里拿着一本相似的笔记本，林晚上前质问，认为他偷了自己的本子。陈舟冷静否认，但林晚情绪激动，说出自己的委屈和笔记本的重要性。争执中，陈舟让林晚自己查看包里，林晚发现笔记本其实一直夹在背包夹层里。她看到陈舟的笔记本湿了一角，才明白他刚才用身体和书包帮她挡雨保护掉在地上的笔记本。林晚羞愧道歉，陈舟微笑说没关系。两人在雨中聊起各自的故事，雨渐渐变小。最后雨停，两人各自离开，相视而笑。",
+        "series_bible": "都市温情短剧《雨停再走》系列，聚焦城市生活中陌生人之间的善意与理解。每集独立故事，以雨为媒介，展现不经意间的温暖。本集是系列第一集，奠定了温柔、克制的叙事基调。",
+        "subjects": [
+            {
+                "id": "linwan",
+                "name": "林晚",
+                "description": "年轻女性，二十五岁左右，短发，穿着浅色外套和牛仔裤，背着双肩包，性格直率但内心柔软，因为笔记本里记着对已故母亲的承诺而格外珍视。"
+            },
+            {
+                "id": "chenzhou",
+                "name": "陈舟",
+                "name_en": "Chen Zhou",
+                "description": "年轻男性，二十七岁左右，戴着黑框眼镜，穿着深色夹克和休闲裤，背着单肩包，性格沉稳内敛，观察细致，有善意但不愿张扬。"
+            }
+        ],
+        "locations": [
+            {
+                "id": "busstop",
+                "name": "公交站",
+                "description": "城市普通公交站，有遮雨棚和长凳，地面湿漉漉的，背景是街道和雨中行人，路灯昏暗但温暖。"
+            }
+        ],
+        "art_style": {
+            "color_palette": "冷色调为主——灰蓝的天空、深灰色的路面、湿润的暗色树干，辅以公交站灯光的暖黄色、林晚浅色外套的米白、陈舟夹克的深蓝，形成冷暖对比，突出温情氛围",
+            "lighting": "傍晚自然光加公交站灯光混合，雨幕中光线柔和带朦胧感，人物面部有侧光勾勒轮廓",
+            "texture": "湿润的柏油路面反光、雨滴在站棚边缘形成珠帘、笔记本纸张的微皱质感、外套上细密的水珠",
+            "composition": "以公交站为固定场景，利用站柱、长凳、雨棚制造空间层次，人物站位先远后近，通过镜头拉近关系",
+            "atmosphere": "雨声、潮湿空气感、孤独但有希望的城市黄昏",
+            "rhythm": "前段紧张对峙节奏快，台词密度高；中段揭示真相后节奏放缓，留白和眼神交流增多；结尾雨停收束柔和",
+            "emotional_tone": "从焦虑、愤怒到羞愧、温暖，情绪起伏自然克制"
+        },
+        "scene_beats": [
+            {
+                "scene_ref_id": "busstop",
+                "goal": "建立下雨傍晚公交站的氛围，林晚焦急找笔记本",
+                "entry": "林晚冲进公交站，甩了甩头发上的雨水，低头翻包",
+                "exit": "林晚发现笔记本不见了，抬头看到陈舟手里的本子",
+                "duration_seconds": 12,
+                "shot_durations": [
+                    6,
+                    6
+                ],
+                "key_events": [
+                    "林晚跑进公交站避雨",
+                    "林晚翻包发现笔记本不见了，焦急"
+                ]
+            },
+            {
+                "scene_ref_id": "busstop",
+                "goal": "林晚误以为陈舟偷了笔记本，上前质问",
+                "entry": "林晚冲向陈舟，指着他手里的本子",
+                "exit": "陈舟冷静回应，林晚情绪激动",
+                "duration_seconds": 20,
+                "shot_durations": [
+                    10,
+                    10
+                ],
+                "key_events": [
+                    "林晚质问陈舟：'那是我笔记本！'",
+                    "陈舟否认：'这是我的。'",
+                    "林晚坚持：'你拿给我看看！'"
+                ]
+            },
+            {
+                "scene_ref_id": "busstop",
+                "goal": "林晚完整讲述笔记本的意义，表达对母亲的承诺",
+                "entry": "林晚平复一下情绪，认真看着陈舟",
+                "exit": "陈舟目光柔和下来，提醒她检查自己包",
+                "duration_seconds": 35,
+                "shot_durations": [
+                    12,
+                    12,
+                    11
+                ],
+                "key_events": [
+                    "林晚讲述：'我不是舍不得这本旧笔记，我只是怕那些认真写下来的愿望，被别人当成没有用的废纸。'",
+                    "林晚继续：'你可以不理解，但请把它还给我，因为里面有我答应妈妈，一定要坚持下去的事情。'",
+                    "陈舟说：'你先看看自己包里。'"
+                ]
+            },
+            {
+                "scene_ref_id": "busstop",
+                "goal": "林晚发现笔记本实际在自己包里，意识到误会",
+                "entry": "林晚疑惑地翻包，找到自己的笔记本",
+                "exit": "林晚看到陈舟的笔记本和书包上的水渍，明白他在挡雨",
+                "duration_seconds": 20,
+                "shot_durations": [
+                    8,
+                    12
+                ],
+                "key_events": [
+                    "林晚从背包夹层拿出自己的笔记本，愣住",
+                    "林晚看到陈舟手里笔记本湿了边角，他的书包也湿了一大片，恍然大悟"
+                ]
+            },
+            {
+                "scene_ref_id": "busstop",
+                "goal": "林晚羞愧道歉，陈舟温和接受，两人和解",
+                "entry": "林晚低下头，声音变小",
+                "exit": "陈舟微笑看向雨幕，气氛缓和",
+                "duration_seconds": 25,
+                "shot_durations": [
+                    10,
+                    8,
+                    7
+                ],
+                "key_events": [
+                    "林晚说：'对不起，我……太着急了。'",
+                    "陈舟：'没事，重要的东西是得小心。'",
+                    "两人对视，微微笑了一下"
+                ]
+            },
+            {
+                "scene_ref_id": "busstop",
+                "goal": "雨停，两人各自离开，留下温暖余韵",
+                "entry": "雨声渐小，光线微明",
+                "exit": "林晚和陈舟走向不同方向，回头相视而笑",
+                "duration_seconds": 18,
+                "shot_durations": [
+                    6,
+                    6,
+                    6
+                ],
+                "key_events": [
+                    "雨渐渐停了",
+                    "林晚收起笔记本，陈舟也整理好书包",
+                    "两人各自走出公交站，回头对视一笑"
+                ]
+            }
+        ],
+        "storyboard": [
+            {
+                "shot_id": "s1_1",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan"
+                ],
+                "visual_description": "傍晚雨幕中，林晚匆忙跑进公交站，短发被雨水打湿。她站在雨棚下甩了甩头发上的水珠，浅色外套上有细密水痕。远处街灯昏黄，地面反着湿润的光。",
+                "composition": "中景，侧拍，林晚位于画面中央偏右",
+                "camera_movement": "固定镜头，跟随林晚从半身入画到停下来的动作",
+                "dialogue": "",
+                "voice_role": "",
+                "speech_type": "none",
+                "recommended_duration_seconds": 6
+            },
+            {
+                "shot_id": "s1_2",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "林晚低头翻开双肩包，神情逐渐焦急，摸了摸各个夹层后抬头。视线前方，陈舟站在雨棚另一侧，手里拿着一个灰色笔记本，正低头看。林晚的眼神从疑惑变得警觉。",
+                "composition": "中景，从林晚背后拍到陈舟侧影，两人之间有约两米距离",
+                "camera_movement": "缓慢从林晚翻包摇向她视线方向，停在对焦陈舟的手和笔记本",
+                "dialogue": "",
+                "voice_role": "",
+                "speech_type": "none",
+                "recommended_duration_seconds": 6
+            },
+            {
+                "shot_id": "s2_1",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "林晚快步走到陈舟面前，眉头紧锁，手指着他手里的灰色笔记本。雨滴在站棚边缘滴落，陈舟抬眼平静地看着她，手里本子封面微湿。两人之间距离不到一米，暖黄灯光照在林晚侧脸。",
+                "composition": "中近景，双人构图，林晚占左半侧，陈舟在右半侧",
+                "camera_movement": "固定镜头，先对焦林晚激动的表情，再微移到陈舟冷静的面部",
+                "dialogue": "那是我的笔记本！你拿给我看看！",
+                "voice_role": "林晚",
+                "speech_type": "character",
+                "recommended_duration_seconds": 10
+            },
+            {
+                "shot_id": "s2_2",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "陈舟轻轻摇头，声音低沉平稳。林晚咬住嘴唇，眼眶微红仍盯着本子不放。雨声清晰，站外路面积水映出灯光。",
+                "composition": "中景，过肩视角，从陈舟右肩后拍林晚，压紧画面制造对峙感",
+                "camera_movement": "轻微前推，从两人全身缓缓推到林晚半身，强化情绪",
+                "dialogue": "这是我的。",
+                "voice_role": "陈舟",
+                "speech_type": "character",
+                "recommended_duration_seconds": 10
+            },
+            {
+                "shot_id": "s3_1",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "林晚深吸一口气，放下指着本子的手，目光认真而恳切地看着陈舟。雨帘在站棚外垂落，路灯的光在她脸上投下柔和的阴影。陈舟站在原地，手里握着本子，安静地听她说话。",
+                "composition": "中近景，林晚正面占画面左侧，陈舟侧脸在右侧背景中",
+                "camera_movement": "缓慢推进，从林晚半身推到特写，聚焦她说话时微颤的嘴唇和湿润的眼睛",
+                "dialogue": "我不是舍不得这本旧笔记，我只是怕那些认真写下来的愿望，被别人当成没有用的废纸。",
+                "voice_role": "林晚",
+                "speech_type": "character",
+                "recommended_duration_seconds": 12
+            },
+            {
+                "shot_id": "s3_2",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "林晚停顿了一下，眼神更加坚定，直视陈舟的眼睛。雨声渐弱，站棚边缘的水珠缓缓滴落。陈舟的表情从冷静变得柔和，目光里多了一份认真和理解。",
+                "composition": "林晚面部特写，眼角微微泛红，背景虚化成暖黄色光斑",
+                "camera_movement": "固定镜头，只靠林晚细微的表情变化和雨滴滑落增加动态感",
+                "dialogue": "你可以不理解，但请把它还给我，因为里面有我答应妈妈，一定要坚持下去的事情。",
+                "voice_role": "林晚",
+                "speech_type": "character",
+                "recommended_duration_seconds": 12
+            },
+            {
+                "shot_id": "s3_3",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "林晚说完后咬住嘴唇，视线垂向地面。陈舟沉默片刻，目光从她脸上移到她背上的双肩包，声音平和而轻。他的手里仍握着本子，但姿势已从对峙转为自然垂手。雨声填满两人之间的空隙。",
+                "composition": "双人中景，陈舟占左侧，林晚在右侧，两人之间保留半个身位的空间",
+                "camera_movement": "从林晚缓慢平移到陈舟面部特写，再微微拉远包含两人，展现关系变化",
+                "dialogue": "你先看看自己包里。",
+                "voice_role": "陈舟",
+                "speech_type": "character",
+                "recommended_duration_seconds": 11
+            },
+            {
+                "shot_id": "s4_1",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "林晚听到陈舟的话，疑惑地皱眉，低头快速翻动手提包。手指在夹层中摸索，突然触到一个硬皮本子，她愣住，慢慢抽出自己的笔记本。雨声持续，站棚灯光在她脸上投下斑驳光影。",
+                "composition": "林晚近景俯拍，从包内视角或侧面特写，突出她表情从疑惑到震惊的变化",
+                "camera_movement": "固定镜头，聚焦林晚的手部动作和面部表情",
+                "dialogue": "",
+                "voice_role": "",
+                "speech_type": "none",
+                "recommended_duration_seconds": 8
+            },
+            {
+                "shot_id": "s4_2",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "林晚握着失而复得的笔记本，视线缓缓移到陈舟手中的本子——边角被雨水打湿，纸张微微卷起。她再看向他肩头湿透的书包，突然明白他刚才一直站在她掉落笔记的位置，用自己的身体和书包替本子挡雨。她张了张嘴，脸颊泛红，视线躲闪。陈舟平静地看着她，嘴角微微上扬。",
+                "composition": "从林晚的过肩视角拍到陈舟的湿书包和笔记本细节，再切到林晚面部羞愧特写",
+                "camera_movement": "缓慢推近林晚面部，再微微拉开包含陈舟的反应",
+                "dialogue": "",
+                "voice_role": "",
+                "speech_type": "none",
+                "recommended_duration_seconds": 12
+            },
+            {
+                "shot_id": "s5_1",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "林晚低下头，双手紧握着自己的笔记本，指尖泛白。她深吸一口气，耳尖发红，声音变得又低又哑。陈舟站在两步外，单手托着那本湿了边角的笔记本，目光平静地落在她脸上。雨声簌簌，站棚灯光昏黄，两人之间的地面淌着细碎的涟漪。",
+                "composition": "林晚中近景略俯，她低头时刘海遮住半边脸，后景陈舟的身影模糊呈剪影",
+                "camera_movement": "固定镜头，极轻微的下摇，跟随林晚低头动作，停在她的手与笔记本上",
+                "dialogue": "对不起，我……太着急了。",
+                "voice_role": "林晚",
+                "speech_type": "character",
+                "recommended_duration_seconds": 10
+            },
+            {
+                "shot_id": "s5_2",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "陈舟听完道歉，嘴角微微上扬，用指腹轻抚那本湿了一角的笔记本，声音很轻，像在跟自己说。他将本子收回自己包里，动作不急不躁。林晚抬头看他，眼里的愧疚还没散尽，但眼神已柔软下来。雨水顺着棚沿滴落，在两人之间拉成一道亮晶晶的线。",
+                "composition": "陈舟胸部以上中景，右侧留出林晚半张侧脸，雨幕形成柔和的光斑",
+                "camera_movement": "固定镜头，焦点从陈舟的笑缓缓移到他的手上，再拉回包含林晚反应的双人中景",
+                "dialogue": "没事，重要的东西是得小心。",
+                "voice_role": "陈舟",
+                "speech_type": "character",
+                "recommended_duration_seconds": 8
+            },
+            {
+                "shot_id": "s5_3",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "两人不约而同地看向对方，随即又同时移开目光。林晚将笔记本贴在自己胸前，嘴角浮现一丝不好意思的笑意。陈舟扶了扶眼镜框，偏头望向雨幕外渐亮的天色，笑容淡淡挂在脸上。棚檐滴落的雨珠变得稀疏，远处传来车胎碾过湿路的声音，气氛安静而温暖。",
+                "composition": "双人平视全景，公交站棚形成天然画框，两人各据左、右三分线，中间是雨帘和渐亮的天光",
+                "camera_movement": "静态镜头，轻微呼吸感，不主动移动",
+                "dialogue": "",
+                "voice_role": "",
+                "speech_type": "none",
+                "recommended_duration_seconds": 7
+            },
+            {
+                "shot_id": "s6_1",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "雨声渐渐变小，棚檐滴落的水珠从密集变得稀疏。林晚站在长凳旁，低头将湿了边角的笔记本轻轻放在掌心，指尖慢慢抚平卷起的纸页。陈舟站在两步外，书包带松松地挎在肩上，目光落在雨幕边缘。",
+                "composition": "林晚左侧三分线，陈舟右侧三分线，中间是渐亮的天空",
+                "camera_movement": "固定镜头，轻微下摇从雨棚边缘移到林晚手上，再缓推至本子特写后又拉回双人",
+                "dialogue": "",
+                "voice_role": "",
+                "speech_type": "none",
+                "recommended_duration_seconds": 6
+            },
+            {
+                "shot_id": "s6_2",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "林晚把笔记本收进背包，拉上拉链，抬头深深吸了一口气。陈舟也把单肩包带子拉到肩头，偏头看向街对面树梢透出的微光，雨基本上停了。",
+                "composition": "两人中景，站姿，棚檐作为前景框",
+                "camera_movement": "缓推，从双人全景收拢至两人上半身，留出林晚整理背包的动作",
+                "dialogue": "",
+                "voice_role": "",
+                "speech_type": "none",
+                "recommended_duration_seconds": 6
+            },
+            {
+                "shot_id": "s6_3",
+                "scene_ref_id": "busstop",
+                "subject_ref_ids": [
+                    "linwan",
+                    "chenzhou"
+                ],
+                "visual_description": "地面还反着水光。林晚先踏出一步走出公交站，走了几步后微微回头——陈舟也正好从棚下走出来，两人目光碰在一起。林晚抿嘴笑了一下，陈舟也点了点头。随后各自转身，林晚往左巷子走，陈舟往右街道走，渐行渐远。",
+                "composition": "长焦双人背影平视，以湿漉漉的人行道为地平线",
+                "camera_movement": "固定镜头，人物出框后停留两秒拍空镜——公交站棚顶还在滴水，地面倒映天光",
+                "dialogue": "",
+                "voice_role": "",
+                "speech_type": "none",
+                "recommended_duration_seconds": 6
+            }
+        ]
+    },
+    "request": {
+        "prompt": "【真实回归20261008-单集-备用模型】片名《雨停再走》。都市温情短剧，只有林晚和陈舟两名成年人，场景为公交站。林晚误以为陈舟拿走遗失的笔记本，争执后发现他是在替她挡雨保护本子，最后两人和解。保持紧凑自然的完整剧情。必须完整保留林晚的这段台词，可按停顿分成连续镜头，不得改写或漏字：“我不是舍不得这本旧笔记，我只是怕那些认真写下来的愿望，被别人当成没有用的废纸。你可以不理解，但请把它还给我，因为里面有我答应妈妈，一定要坚持下去的事情。” 不生成图片或视频。",
+        "multi_episode": false,
+        "quality_review_enabled": true,
+        "episode_count": 1,
+        "shot_duration_rule": {
+            "min_seconds": 4,
+            "max_seconds": 15,
+            "default_seconds": 5
+        },
+        "_input_contract_version": 5,
+        "_generation_version": 3,
+        "episode_duration_policy": {
+            "version": 1,
+            "source": "default",
+            "scope": "episode",
+            "target_seconds": 120,
+            "min_seconds": 60,
+            "max_seconds": 180,
+            "timeline_segments": [],
+            "episode_overrides": []
+        }
+    }
+}

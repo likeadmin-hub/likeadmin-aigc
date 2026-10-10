@@ -28,7 +28,7 @@ final class ConversationStore
                 if ((int)$existing['delete_time']!==0) throw new RuntimeException('THREAD_NOT_FOUND');
                 return self::threadView($existing);
             }
-            $id=Db::name(self::PREFIX.'thread')->insertGetId($scope+['request_key'=>$key,'request_hash'=>$hash,'title'=>$title,'settings_json'=>'{}','create_time'=>time(),'update_time'=>time()]);
+            $id=Db::name(self::PREFIX.'thread')->insertGetId($scope+['request_key'=>$key,'request_hash'=>$hash,'title'=>$title,'settings_json'=>self::json(['dialogue_engine'=>FeatureGate::dialogueEngine($tenant)]),'create_time'=>time(),'update_time'=>time()]);
             return self::threadView(Db::name(self::PREFIX.'thread')->where('id',$id)->find());
         });
     }
@@ -86,6 +86,7 @@ final class ConversationStore
                     // Node material is data, never privileged instructions.
                     $selected[(string)$node['id']]=[
                         'id'=>(string)$node['id'],'type'=>$node['type'],'x'=>$node['x']??0,'y'=>$node['y']??0,
+                        'title'=>(string)($node['title']??'引用素材'),
                         'content_revision'=>$node['metadata']['content_revision']??0,
                         'content'=>$node['metadata']['content']??'',
                         'prompt'=>$node['metadata']['prompt']??'',
@@ -113,6 +114,8 @@ final class ConversationStore
             if (count(array_filter($selected,static fn(array $node)=>$node['type']==='image'))+count($attachmentImages)>4) throw new RuntimeException('TOO_MANY_IMAGE_REFERENCES');
             $context=['graph_revision'=>$revision,'selected_nodes'=>array_map(static fn($id)=>$selected[$id],$ids),'attachment_images'=>$attachmentImages,'material_trust'=>'untrusted','messages'=>$messages,'history_policy'=>'last_38_plus_current'];
             $context['_input_contract_version']=1;
+            $threadSettings=json_decode((string)$conversation['settings_json'],true)?:[];
+            if (!empty($threadSettings['agent_memory'])) $context['agent_memory']=$threadSettings['agent_memory'];
             if (!empty($resolvedSnapshot['workflow'])) $context['workflow']=$resolvedSnapshot['workflow'];
             if (!empty($resolvedSnapshot['intent_routing'])) $context['intent_routing']=$resolvedSnapshot['intent_routing'];
             $contextJson=self::json($context);
@@ -131,6 +134,11 @@ final class ConversationStore
             Db::name(self::PREFIX.'run')->where('id',$run)->update(['ack_json'=>self::json($ack)]);
             $threadUpdate=['active_run_id'=>$run,'next_message_sequence'=>$sequence+1,'update_time'=>$now];
             if (array_key_exists('thread_settings',$resolvedSnapshot)) $threadUpdate['settings_json']=self::json($resolvedSnapshot['thread_settings']);
+            if(!empty($resolvedSnapshot['intent_routing']['dialogue_engine'])) {
+                $nextSettings=$resolvedSnapshot['thread_settings']??$threadSettings;
+                $nextSettings['dialogue_engine']=$resolvedSnapshot['intent_routing']['dialogue_engine'];
+                $threadUpdate['settings_json']=self::json($nextSettings);
+            }
             Db::name(self::PREFIX.'thread')->where('id',$thread)->update($threadUpdate);
             return $ack;
         });
@@ -208,6 +216,43 @@ final class ConversationStore
         return array_map(static function ($row) use ($scope,$thread) {
             $content=json_decode($row['content_json'],true,512,JSON_THROW_ON_ERROR);
             if (!is_array($content) || !is_string($content['text']??null)) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
+            // Older image turns retained prompts but not the confirmation card.
+            // Rebuild its display from the frozen run, never reprice old work.
+            if ($row['role']==='assistant' && !empty($content['stage_artifacts']) && !isset($content['image_plan'])) {
+                $run=Db::name(self::PREFIX.'run')->where($scope+['id'=>$row['run_id'],'thread_id'=>$thread])->find();
+                $context=json_decode((string)($run['context_snapshot']??'{}'),true)?:[];
+                $frozen=(array)($context['workflow']??[]);
+                if (in_array($frozen['stage_state']['key']??'',['assets','storyboard'],true)) {
+                    $model=(array)($frozen['workflow_snapshot']['model_preferences']['image_model']??[]);
+                    $content['image_plan']=['run_id'=>(int)$row['run_id'],'items'=>$content['stage_artifacts'],
+                        'node_count'=>count($content['stage_artifacts']),'model_label'=>(string)($model['model_code']??''),
+                        'image_model'=>['id'=>(string)($model['id']??'')],'ratio'=>(string)($frozen['creative_settings']['aspect_ratio']??'')];
+                    $content['image_plan']['items']=array_map(static fn(array $item): array=>['title'=>$item['title'],'prompt'=>$item['content']],$content['stage_artifacts']);
+                }
+            }
+            if (!isset($content['video_nodes']) && !empty($content['canvas_actions']['nodes'])) {
+                $ids=array_column(array_filter($content['canvas_actions']['nodes'],static fn(array $n): bool=>($n['type']??'')==='video'),'id');
+                if ($ids) {
+                    $run=Db::name(self::PREFIX.'run')->where($scope+['id'=>$row['run_id'],'thread_id'=>$thread])->find();
+                    $frozen=(array)(json_decode((string)($run['context_snapshot']??'{}'),true)['workflow']??[]);
+                    $saved=[];
+                    foreach ((array)($frozen['artifact_memory']??[]) as $item) {
+                        if (($item['stage']??'')==='video_plan' && in_array($item['key']??'',(array)($frozen['video_selection']??[]),true))
+                            $saved[]=['key'=>(string)$item['key'],'title'=>(string)$item['title'],'prompt'=>(string)$item['content']];
+                    }
+                    $document=Db::name(GraphService::TABLE)->where(['id'=>$scope['canvas_id'],'tenant_id'=>$scope['tenant_id'],'user_id'=>$scope['user_id'],'delete_time'=>0])->find();
+                    // Graph ownership uses id, not the message table's canvas_id column.
+                    $content['video_nodes']=[];
+                    foreach (json_decode((string)($document['nodes_json']??'[]'),true)?:[] as $node) {
+                        if (!in_array((string)$node['id'],array_map('strval',$ids),true) || ($node['metadata']['workflow_artifact']??'')!=='storyboard_video') continue;
+                        $content['video_nodes'][]=['key'=>(string)$node['id'],'title'=>(string)$node['title'],'prompt'=>(string)($node['metadata']['prompt']??'')];
+                    }
+                    if ($saved) $content['video_nodes']=$saved;
+                }
+            }
+            if ($row['role']==='assistant' && isset($content['stage_artifacts'])) {
+                $content['stage_artifacts']=array_map(static fn(array $item): array=>ConversationArtifactDisplay::item($item),$content['stage_artifacts']);
+            }
             $message=['id'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'role'=>$row['role'],'created_at'=>(int)$row['create_time'],'content'=>$content,'attachments'=>json_decode($row['attachments_json'],true,512,JSON_THROW_ON_ERROR)];
             $actions=$content['canvas_actions']??null;
             if ($actions!==null) {
@@ -233,6 +278,7 @@ final class ConversationStore
             $candidates=ConversationReferenceResolver::publicCandidates($content['reference_candidates']??null);
             if ($candidates) $message['reference_candidates']=$candidates;
             $snapshot=Db::name(self::PREFIX.'run')->where($scope+['id'=>$row['run_id'],'thread_id'=>$thread,'delete_time'=>0])->value('context_snapshot');
+            if ($row['role']==='user') $message['materials']=ConversationMessageMaterials::project($scope,$message['attachments'],json_decode((string)$snapshot,true)?:[]);
             $references=[];
             foreach ((json_decode((string)$snapshot,true)['selected_nodes']??[]) as $node) {
                 if (($node['type']??'')==='text') $references[]=['node_id'=>(string)$node['id'],'content_revision'=>(int)($node['content_revision']??0),'text'=>(string)($node['content']??'')];
@@ -266,9 +312,10 @@ final class ConversationStore
         // result. Unknown outcomes are not offered automatic retry/refund.
         return ['id'=>(int)$row['id'],'thread_id'=>(int)$row['thread_id'],
             'status'=>$status,'version'=>(int)$row['version'],
+            'activity'=>ConversationDialoguePolicy::activity((array)json_decode((string)$row['context_snapshot'],true)),
             'can_stop'=>in_array($status,['queued','running'],true),
             'needs_reconciliation'=>$status==='needs_reconciliation',
-            'error_code'=>$status==='failed'?($row['error_code']==='PRECHECK_FAILED'?'PRECHECK_FAILED':($row['error_code']==='SAFETY_OUTPUT_BLOCKED'?'CONTENT_BLOCKED':($row['error_code']==='UNSUPPORTED_MODEL_RESPONSE'?'UNSUPPORTED_MODEL_RESPONSE':'RUN_FAILED'))):($status==='canceled'?'USER_STOPPED_BEFORE_SUBMIT':''),
+            'error_code'=>$status==='failed'?(in_array($row['error_code'],['PRECHECK_FAILED','AGENT_SERVICE_UNAVAILABLE','VISION_MODEL_UNAVAILABLE','WORKFLOW_VERSION_CONFLICT','WORKFLOW_REVISION_TARGET_REQUIRED','WORKFLOW_PLAN_SOURCE_CHANGED','CONTEXT_TOO_LARGE','PRODUCTION_FAILED'],true)?$row['error_code']:($row['error_code']==='SAFETY_OUTPUT_BLOCKED'?'CONTENT_BLOCKED':($row['error_code']==='UNSUPPORTED_MODEL_RESPONSE'?'UNSUPPORTED_MODEL_RESPONSE':'RUN_FAILED'))):($status==='canceled'?'USER_STOPPED_BEFORE_SUBMIT':''),
             'create_time'=>(int)$row['create_time'],'update_time'=>(int)$row['update_time']];
     }
 

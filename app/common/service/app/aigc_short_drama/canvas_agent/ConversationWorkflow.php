@@ -20,7 +20,7 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-26.2';
+    public const VERSION = ConversationSeries::VERSION;
 
     public static function preservesInput(array $workflow): bool
     {
@@ -74,11 +74,12 @@ final class ConversationWorkflow
      * proposal, so quotation and eventual submission use the same prompt. */
     public static function materializeTextReferences(array $workflow,array $proposals): array
     {
+        if (ConversationSeries::enabled($workflow)) { ConversationShotTiming::assertProposals($workflow,$proposals); return $proposals; }
         if (!self::compactOutput($workflow)) return $proposals;
         $generationPrompts=self::usesStageGenerationPrompts($workflow);
         $memory=[];
         foreach ((array)($workflow['artifact_memory']??[]) as $item) {
-            if (!is_array($item) || !in_array((string)($item['stage']??''),['script','art','video_plan'],true)) continue;
+            if (!is_array($item) || !in_array((string)($item['stage']??''),['story','outline','episode','script','art','video_plan'],true)) continue;
             $key=(string)($item['reference_key']??'');
             if ($key!=='') $memory[$key]=$item;
         }
@@ -88,7 +89,7 @@ final class ConversationWorkflow
             foreach ((array)($proposal['reference_keys']??[]) as $key) {
                 $key=(string)$key;
                 $stage=explode(':',$key,2)[0];
-                if (!in_array($stage,['script','art','video_plan'],true)) { $refs[]=$key; continue; }
+                if (!in_array($stage,['story','outline','episode','script','art','video_plan'],true)) { $refs[]=$key; continue; }
                 $item=$memory[$key]??null;
                 if (!is_array($item)) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
                 $content=trim((string)($item['content']??''));
@@ -176,8 +177,8 @@ final class ConversationWorkflow
     {
         $script='';
         foreach ((array)($workflow['artifact_memory']??[]) as $item) {
-            if (is_array($item) && ($item['stage']??'')==='script' && ($item['artifact']??'')==='episode_script')
-                $script=(string)($item['content']??'');
+            if (is_array($item) && in_array($item['stage']??'',['script','episode'],true) && ($item['artifact']??'')==='episode_script')
+                $script.=(string)($item['content']??'');
         }
         $expected=array_values(array_unique(self::shotNumbers($script)));
         if (!$expected) return;
@@ -207,6 +208,7 @@ final class ConversationWorkflow
             'key'=>self::KEY, 'version'=>self::VERSION, 'name'=>'短剧成片制作',
             'manual_aliases'=>['/短剧成片制作','/短剧创作','/short-drama','/story-to-drama'],
             'slots'=>[
+                ['key'=>'story_direction','label'=>'故事方向','ask'=>'请确认核心剧情与发展方向。','options'=>[]],
                 ['key'=>'genre','label'=>'故事类型','ask'=>'想创作什么类型的故事？','options'=>['都市情感','悬疑反转','古风奇幻','甜宠喜剧','科幻冒险']],
                 ['key'=>'episode_count','label'=>'集数规模','ask'=>'计划做多少集？','options'=>['1集（短片）','10集（微短剧）','30集（连载短剧）']],
                 ['key'=>'episode_duration','label'=>'单集时长','ask'=>'每集大约多长？','options'=>['30秒','1分钟','2分钟','3分钟以上']],
@@ -218,13 +220,14 @@ final class ConversationWorkflow
             ],
             'stages'=>[
                 ['key'=>'intake','label'=>'创作采集','skills'=>['创作采集'],'creates_nodes'=>false],
-                ['key'=>'script','label'=>'剧本与角色设定','skills'=>['剧本创作','角色设定'],'creates_nodes'=>true],
+                ['key'=>'story','label'=>'故事设定','skills'=>['剧本创作','角色设定'],'creates_nodes'=>true],
+                ['key'=>'outline','label'=>'分集大纲','skills'=>['剧本创作'],'creates_nodes'=>true],
+                ['key'=>'episode','label'=>'当前集剧本','skills'=>['剧本创作'],'creates_nodes'=>true],
                 ['key'=>'art','label'=>'画风与美术规划','skills'=>['画风设计','主体设计','场景设计','道具设计'],'creates_nodes'=>false],
-                ['key'=>'assets','label'=>'主体资产','skills'=>['主体图','主体三视图'],'creates_nodes'=>true,'auto_types'=>['image']],
-                ['key'=>'storyboard','label'=>'场景与分镜图','skills'=>['场景设计','道具设计','分镜设计','分镜图'],'creates_nodes'=>true,'auto_types'=>['image']],
-                ['key'=>'video_plan','label'=>'分镜视频规划','skills'=>['分镜视频规划'],'creates_nodes'=>false],
+                ['key'=>'assets','label'=>'主体、场景与道具','skills'=>['主体图','场景图'],'creates_nodes'=>true,'auto_types'=>['image']],
+                ['key'=>'video_plan','label'=>'分镜表','skills'=>['分镜视频规划'],'creates_nodes'=>true],
+                ['key'=>'storyboard','label'=>'分镜图片','skills'=>['分镜图'],'creates_nodes'=>true,'manual_types'=>['image']],
                 ['key'=>'video_nodes','label'=>'分镜视频节点','skills'=>['分镜视频'],'creates_nodes'=>true,'manual_types'=>['video']],
-                ['key'=>'audio_plan','label'=>'音频规划','skills'=>['音频规划'],'creates_nodes'=>true,'disabled_types'=>['audio']],
             ],
             'rules'=>[
                 'platform_owned'=>true,
@@ -249,6 +252,9 @@ final class ConversationWorkflow
         return [
             'intake' => ['short_drama_intake'],
             'script' => ['short_drama_script', 'short_drama_character_design'],
+            'story' => ['short_drama_script', 'short_drama_character_design'],
+            'outline' => ['short_drama_script'],
+            'episode' => ['short_drama_script'],
             'art' => ['short_drama_art_direction', 'short_drama_subject_design', 'short_drama_scene_design', 'short_drama_prop_design'],
             'assets' => ['short_drama_subject_image', 'short_drama_three_view'],
             'storyboard' => ['short_drama_scene_design', 'short_drama_prop_design', 'short_drama_storyboard_design', 'short_drama_storyboard_image'],
@@ -264,9 +270,12 @@ final class ConversationWorkflow
     public static function autoStagePrompt(string $stage): string
     {
         return match ($stage) {
+            'story'=>'请生成故事设定，完成后等待我确认分集大纲。',
+            'outline'=>'请基于已确认的故事设定生成分集大纲。',
+            'episode'=>'请基于已确认的大纲生成当前集剧本。',
             'script'=>'请基于已确认的创作采集信息，生成本阶段真实的剧本与角色设定。输出结构化故事设定、角色小传、分场剧情、关键对白和分镜脚本，并按当前受控格式写回对应文本节点；不要输出提问模板。',
             'art'=>'请基于已确认剧本与角色设定，生成本阶段真实的画风、美术、主体、场景与道具规划，以及后续生图提示词。规划只保存在对话与工作流状态中，不创建画布文本节点；不要提交媒体任务。',
-            'assets'=>'请基于已完成美术规划，生成主体图与主体三视图的受控资产计划。仅提出符合工作流依赖的图片节点；不得生成视频或音频任务。',
+            'assets'=>'请基于已完成美术规划，生成主体图、主体三视图和场景图的受控资产计划。仅提出符合工作流依赖的图片节点；不得生成视频或音频任务。',
             'storyboard'=>'请基于已确认主体资产与美术规划，生成场景、道具和分镜图的受控计划，并复用真实可用的前序素材引用。',
             'video_plan'=>'请基于已完成分镜图计划，生成真实的分镜表和视频提示词规划。规划只保存在对话与工作流状态中，不创建画布文本节点，也不提交视频任务。',
             'video_nodes'=>'请基于已确认分镜视频规划，一次性插入全部分镜视频待生成节点并连接所需引用。所有视频节点必须保持待用户手动生成状态。',
@@ -279,7 +288,7 @@ final class ConversationWorkflow
     {
         $stage=(string)($state['stage_state']['key']??'');
         return ($state['workflow_snapshot']['key']??'')===self::KEY
-            && ($state['stage_state']['status']??'')==='ready'
+            && ($state['stage_state']['status']??'')==='ready' && empty($state['execution_paused'])
             && $canvas>0 && $thread>0 && (int)($state['state_revision']??0)>0
             && hash_equals('as:'.$canvas.':'.$thread.':'.(int)$state['state_revision'].':'.$stage,$key)
             && ($prompt=self::autoStagePrompt($stage))!=='' && hash_equals($prompt,$content);
@@ -321,12 +330,15 @@ final class ConversationWorkflow
                 // intentionally not a copy of the full chat transcript.
                 'slot_values'=>[], 'creative_settings'=>[], 'intake_candidates'=>[], 'intake_questions'=>[], 'artifact_memory'=>[], 'plan_hash'=>'', 'image_plan'=>[], 'stage_plan'=>[], 'plan_confirmation'=>['status'=>'not_required'],
                 'creative_brief'=>trim($content),
+                'series'=>['episode_number'=>1,'completed_episodes'=>[],'tasks'=>[]],
                 'state_revision'=>1,
             ];
         } elseif (($state['stage_state']['status']??'')==='awaiting_plan_confirmation') {
             throw new RuntimeException('WORKFLOW_PLAN_CONFIRMATION_REQUIRED');
         } elseif (($state['stage_state']['status']??'')==='reviewing_intake') {
-            throw new RuntimeException('WORKFLOW_INTAKE_REVIEW_REQUIRED');
+            if (!ConversationCreativePlan::enabled($state)) throw new RuntimeException('WORKFLOW_INTAKE_REVIEW_REQUIRED');
+            $state['stage_state']['status']='collecting';
+            $state['state_revision']++;
         } elseif (($state['stage_state']['status']??'')==='ready') {
             // A normal conversation send is the only way to execute the next
             // creative stage. Card clicks never impersonate an Agent reply.
@@ -355,6 +367,12 @@ final class ConversationWorkflow
     public static function revisableStages(array $state): array
     {
         if (($state['workflow_snapshot']['key']??'')!==self::KEY) return [];
+        if (ConversationSeries::enabled($state)) {
+            if (!ConversationCreativePolicy::enabled($state)) return [];
+            $stage=(string)($state['stage_state']['key']??'');
+            if (in_array($stage,['story','outline'],true) && ($state['stage_state']['status']??'')==='awaiting_stage_confirmation') return [$stage];
+            return !empty($state['series']['tasks']['episode_'.ConversationSeries::episode($state)]) ? ['episode'] : [];
+        }
         $current=(string)($state['stage_state']['key']??'');
         $completed=(array)($state['stage_state']['completed']??[]);
         $allowed=[];
@@ -400,11 +418,12 @@ final class ConversationWorkflow
 
     /** Keep the original selections, then reauthorize their IDs against the
      * current tenant catalog. Browser model objects never enter a run. */
-    public static function frozenPreferences(array $state,array $preferences): array
+    public static function frozenPreferences(array $state,array $preferences,bool $executingStage=true): array
     {
         $frozen=(array)($state['workflow_snapshot']['model_preferences']??[]);
         if (in_array($frozen['generation_mode']??null,['auto','manual'],true)) $preferences['generation_mode']=$frozen['generation_mode'];
         foreach (['reasoning_model','image_model','video_model'] as $field) {
+            if ($field==='reasoning_model' && !$executingStage && !empty($preferences[$field])) continue;
             $id=(string)($frozen[$field]['id']??'');
             if ($id!=='') $preferences[$field]=$id;
         }
@@ -421,8 +440,13 @@ final class ConversationWorkflow
         $draft=ConversationIntakeDraft::parse($raw,(array)($workflow['workflow_snapshot']['slot_schema']??[]),$availableSources);
         // A later intake turn may add context, but must not re-open answers
         // already confirmed by the owner on an earlier card.
-        foreach (array_keys((array)($workflow['slot_values']??[])) as $key) {
+        foreach (ConversationCreativePlan::enabled($workflow) ? [] : array_keys((array)($workflow['slot_values']??[])) as $key) {
             unset($draft['candidates'][$key],$draft['questions'][$key]);
+        }
+        if (ConversationCreativePolicy::enabled($workflow)) {
+            $workflow=ConversationCreativePolicy::adopt($workflow,$draft);
+            $workflow['state_revision']++;
+            return $workflow;
         }
         $workflow['intake_candidates']=$draft['candidates'];
         $workflow['intake_questions']=$draft['questions'];
@@ -432,7 +456,7 @@ final class ConversationWorkflow
     }
 
     /** A direct /short-drama route uses its own single text turn for intake. */
-    public static function applyIntakeDraftLocked(array $workflow,array $threadSettings,mixed $raw,array $availableSources=['message']): ?array
+    public static function applyIntakeDraftLocked(array $workflow,array $threadSettings,mixed $raw,array $availableSources=['message'],string $userMessage=''): ?array
     {
         if (($workflow['workflow_snapshot']['key']??'')!==self::KEY
             || version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.4','<')
@@ -440,9 +464,32 @@ final class ConversationWorkflow
         $state=self::stateFromSettings($threadSettings);
         if (($state['stage_state']['status']??'')!=='collecting'
             || (int)($state['state_revision']??0)!==(int)($workflow['state_revision']??-1)) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
+        if (ConversationCreativePolicy::enabled($state) && trim($userMessage)!=='' && !str_contains((string)($state['creative_brief']??''),trim($userMessage))) {
+            $state['creative_brief']=trim((string)($state['creative_brief']??''))."\n用户补充：".trim($userMessage);
+        }
         $state=self::withIntakeDraft($state,$raw,$availableSources);
         $threadSettings['workflow_state']=$state;
         return $threadSettings;
+    }
+
+    /** Legacy threads recover the origin from the frozen workflow snapshot,
+     * never from the newest assistant message or current card revision. */
+    public static function intakeAnchorRun(int $tenant,int $user,int $canvas,int $thread,array $state): int
+    {
+        if (!ConversationCreativePlan::canShowIntake($state)) return 0;
+        if ((int)($state['intake_anchor_run_id']??0)>0) return (int)$state['intake_anchor_run_id'];
+        $frozen=(int)($state['workflow_snapshot']['frozen_at']??0);
+        if (!$frozen) return 0;
+        $rows=Db::name(ConversationStore::PREFIX.'run')->where(['tenant_id'=>$tenant,'user_id'=>$user,
+            'canvas_id'=>$canvas,'thread_id'=>$thread,'status'=>'success','delete_time'=>0])
+            ->where('create_time','>=',$frozen)->order('id','asc')->field('id,context_snapshot')->select()->toArray();
+        foreach ($rows as $row) {
+            $context=json_decode((string)$row['context_snapshot'],true)?:[];
+            $candidate=$context['workflow']??$context['intent_routing']['workflow_candidate']??[];
+            if ((int)($candidate['workflow_snapshot']['frozen_at']??0)===$frozen
+                && ($candidate['stage_state']['key']??'')==='intake') return (int)$row['id'];
+        }
+        return 0;
     }
 
     /** Read current tenant-scoped workflow and a small card projection. */
@@ -454,6 +501,9 @@ final class ConversationWorkflow
         $state=self::stateFromSettings(self::settings($row));
         if ($state===[]) return ['enabled'=>FeatureGate::workflowEnabled($tenant,self::KEY),'workflow'=>null,'card'=>null];
         self::assertState($state);
+        $state['intake_anchor_run_id']=self::intakeAnchorRun($tenant,$user,$canvas,$thread,$state);
+        $document=Db::name(GraphService::TABLE)->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find();
+        $state['three_views_ready']=ConversationStepFlow::viewsReady($state,json_decode((string)($document['nodes_json']??'[]'),true)?:[]);
         return ['enabled'=>FeatureGate::workflowEnabled($tenant,self::KEY),'workflow'=>self::publicState($state),'card'=>self::card($state)];
     }
 
@@ -465,30 +515,116 @@ final class ConversationWorkflow
     public static function answer(int $tenant,int $user,int $canvas,int $thread,int $expectedRevision,string $slot,string $value): array
     {
         $slot=trim($slot);$value=trim($value);
-        if (!preg_match('/^[a-z_]{2,64}$/D',$slot) || $value==='' || strlen($value)>($slot==='intake_review'?4096:960) || ($slot!=='intake_review' && mb_strlen($value)>240)) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
+        if (!preg_match('/^[a-z_]{2,64}$/D',$slot) || $value==='' || strlen($value)>(in_array($slot,['intake_review','next_stage'],true)?4096:960) || (!in_array($slot,['intake_review','next_stage'],true) && mb_strlen($value)>240)) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
         return Db::transaction(function () use ($tenant,$user,$canvas,$thread,$expectedRevision,$slot,$value): array {
             ConversationStore::assertThreadAccess($tenant,$user,$canvas,$thread);
+            $projectRoot=\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::root($tenant,$user,$canvas);
+            if ($projectRoot!==$canvas) Db::name(GraphService::TABLE)->where(['id'=>$projectRoot,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
+            $lockedCanvas=Db::name(GraphService::TABLE)->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
+            if (!$lockedCanvas) throw new RuntimeException('CANVAS_NOT_FOUND');
             $row=Db::name(ConversationStore::PREFIX.'thread')->where(['id'=>$thread,'tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas,'delete_time'=>0])->lock(true)->find();
             if (!$row) throw new RuntimeException('THREAD_NOT_FOUND');
             if ((int)$row['active_run_id']!==0) throw new RuntimeException('THREAD_BUSY');
             $settings=self::settings($row);$state=self::stateFromSettings($settings);
             if ($state===[]) throw new RuntimeException('WORKFLOW_NOT_ACTIVE');
             self::assertState($state);
+            $state['intake_anchor_run_id']=self::intakeAnchorRun($tenant,$user,$canvas,$thread,$state);
+            if ($slot==='next_episode' && !empty($state['series']['next_page_id'])) return ['workflow'=>self::publicState($state),'card'=>self::card($state),'next_page_id'=>(int)$state['series']['next_page_id'],'canvas_project_id'=>\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::root($tenant,$user,$canvas)];
             if ((int)$state['state_revision']!==$expectedRevision) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
+            if ($slot==='image_model') {
+                FeatureGate::assertEnabled($tenant);
+                $plan=(array)($state['image_plan']??[]);
+                if (!in_array($state['stage_state']['key']??'',['assets','storyboard'],true)
+                    || ($state['stage_state']['status']??'')!=='awaiting_plan_confirmation'
+                    || !self::validImagePlan($plan)) throw new RuntimeException('WORKFLOW_PLAN_STALE');
+                self::assertPlanSources($lockedCanvas,$tenant,$user,$canvas,$plan);
+                $resolved=ConversationSettings::fromCatalog(AigcShortDramaService::canvasModelGroups($tenant),['image_model'=>$value]);
+                $state['workflow_snapshot']['model_preferences']['image_model']=$resolved['image_model'];
+                // Reuse the original proposal, references and local quote path.
+                // Nothing is published or submitted until the new hash is confirmed.
+                $state['stage_state']['status']='running';
+                $settings['workflow_state']=$state;
+                $updated=self::freezeImagePlanLocked($tenant,$state,['generation_mode'=>'auto','image_model'=>$resolved['image_model']],
+                    ['selected_nodes'=>$plan['sources'],'attachment_images'=>$plan['attachment_images']],
+                    $plan['nodes'],(int)$plan['run_id'],$settings,$lockedCanvas);
+                if ($updated===null) throw new RuntimeException('WORKFLOW_PLAN_STALE');
+                Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($updated),'update_time'=>time()]);
+                $state=$updated['workflow_state'];
+                return ['workflow'=>self::publicState($state),'card'=>self::card($state)];
+            }
+            if ($slot==='next_stage') {
+                if (ConversationStepFlow::enabled($state)) {
+                    $state['three_views_ready']=ConversationStepFlow::viewsReady($state,json_decode((string)$lockedCanvas['nodes_json'],true)?:[]);
+                    ConversationStepFlow::answer($state,$value);
+                    unset($state['three_views_ready']);
+                } else {
+                    if ($value!=='continue' || ($state['stage_state']['status']??'')!=='awaiting_stage_start'
+                        || !in_array($state['stage_state']['key']??'',['storyboard','video_plan','audio_plan'],true)) throw new RuntimeException('WORKFLOW_STAGE_PLAN_STALE');
+                    $state['stage_state']['status']='ready';
+                }
+                $state['state_revision']++;
+                $settings['workflow_state']=$state;
+                Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
+                return ['workflow'=>self::publicState($state),'card'=>self::card($state)];
+            }
+            if ($slot==='next_episode') {
+                $nodes=json_decode((string)$lockedCanvas['nodes_json'],true)?:[];
+                ConversationSeries::assertEpisodeMedia($state,$nodes);
+                $next=ConversationSeries::nextEpisode($state);
+                $library=(array)($state['series']['asset_library']??[]);
+                foreach ((array)$state['artifact_memory'] as $item) if (in_array($item['artifact']??'',['subject','three_view','scene'],true) && !empty($item['node_id'])) {
+                    $sourceNode=null;foreach($nodes as $candidate) if ((string)$candidate['id']===(string)$item['node_id']) {$sourceNode=$candidate;break;}
+                    $signature=(string)($sourceNode['metadata']['workflow_asset_signature']??'');
+                    if ($signature!=='') $library[$signature]=['canvas_id'=>$canvas,'node_id'=>(string)$item['node_id'],'signature'=>$signature];
+                }
+                $next['series']['asset_library']=$library;
+                unset($next['series']['next_page_id']);
+                $next['workflow_snapshot']['selected_node_ids']=[];
+                $next['workflow_snapshot']['attachment_asset_ids']=[];
+                $next['workflow_snapshot']['document_asset_ids']=[];
+                // Each episode is a bounded page in the same project; completed pages stay intact.
+                $created=\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::create($tenant,$user,$canvas,'episode:'.$thread.':'.ConversationSeries::episode($next),'第 '.ConversationSeries::episode($next).' 集');
+                Db::name(\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::TABLE)->where(['canvas_id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user])->update(['title'=>'第 '.ConversationSeries::episode($state).' 集']);
+                $nextCanvas=(int)$created['id'];
+                $createdThread=ConversationStore::create($tenant,$user,$nextCanvas,'series:'.$canvas.':'.$thread.':'.ConversationSeries::episode($next),'第'.ConversationSeries::episode($next).'集创作');
+                $nextSettings=$settings;$nextSettings['workflow_state']=$next;
+                Db::name(ConversationStore::PREFIX.'thread')->where('id',$createdThread['id'])->update(['settings_json'=>self::json($nextSettings),'update_time'=>time()]);
+                $state['series']['next_page_id']=$nextCanvas;$state['state_revision']++;
+                $settings['workflow_state']=$state;
+                Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
+                return ['workflow'=>self::publicState($state),'card'=>self::card($state),'next_page_id'=>$nextCanvas,'canvas_project_id'=>(int)$created['canvas_project_id']];
+            }
             if ($slot==='intake_review') {
                 if (($state['stage_state']['key']??'')!=='intake' || ($state['stage_state']['status']??'')!=='reviewing_intake') throw new RuntimeException('WORKFLOW_STAGE_NOT_COLLECTING');
                 try { $values=json_decode($value,true,8,JSON_THROW_ON_ERROR); }
                 catch (\Throwable $error) { throw new RuntimeException('INVALID_WORKFLOW_ANSWER',0,$error); }
                 if (!is_array($values) || ($values && array_is_list($values)) || count($values)>count((array)($state['workflow_snapshot']['slot_schema']??[]))) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
+                if (ConversationCreativePlan::enabled($state)) {
+                    $state=ConversationCreativePlan::confirm($state,$values);
+                    self::recordCreativeAnswer($tenant,$state,'visual_style',$state['slot_values']['visual_style']);
+                    $state['state_revision']++;
+                    $settings['workflow_state']=$state;
+                    Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
+                    return ['workflow'=>self::publicState($state),'card'=>self::card($state)];
+                }
                 foreach ($values as $key=>$answer) {
                     if (!is_string($key) || !isset($state['intake_candidates'][$key]) || !is_string($answer) || mb_strlen($answer)>240) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
                     if (trim($answer)!=='') self::recordCreativeAnswer($tenant,$state,$key,trim($answer));
                 }
                 $state['intake_candidates']=[];
                 $state['stage_state']['status']='collecting';
-                if (self::nextSlot($state)===null) $state['stage_state']=['key'=>'script','status'=>'ready','completed'=>['intake']];
+                if (self::nextSlot($state)===null) $state['stage_state']=['key'=>ConversationSeries::enabled($state)?(ConversationCreativePolicy::enabled($state)?ConversationCreativePolicy::firstStage($state):'story'):'script','status'=>'ready','completed'=>['intake']];
                 $state['state_revision']++;
                 $settings['workflow_state']=$state;
+                Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
+                return ['workflow'=>self::publicState($state),'card'=>self::card($state)];
+            }
+            if (ConversationCreativePolicy::enabled($state) && ($state['stage_state']['key']??'')==='art' && ($state['stage_state']['status']??'')==='collecting') {
+                $next=ConversationCreativePolicy::missingVisualSlot($state);
+                if (!$next || $next['key']!==$slot) throw new RuntimeException('WORKFLOW_SLOT_OUT_OF_ORDER');
+                self::recordCreativeAnswer($tenant,$state,$slot,$value);
+                if (!ConversationCreativePolicy::missingVisualSlot($state)) $state['stage_state']['status']='ready';
+                $state['state_revision']++;$settings['workflow_state']=$state;
                 Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
                 return ['workflow'=>self::publicState($state),'card'=>self::card($state)];
             }
@@ -496,8 +632,10 @@ final class ConversationWorkflow
             $next=self::nextSlot($state);
             if (!$next || $next['key']!==$slot) throw new RuntimeException('WORKFLOW_SLOT_OUT_OF_ORDER');
             self::recordCreativeAnswer($tenant,$state,$slot,$value);
-            if (self::nextSlot($state)===null) {
-                $state['stage_state']=['key'=>'script','status'=>'ready','completed'=>['intake']];
+            if (self::nextSlot($state)===null && ConversationCreativePlan::enabled($state)) {
+                $state=ConversationCreativePlan::draft($state,['candidates'=>[],'questions'=>[]]);
+            } elseif (self::nextSlot($state)===null) {
+                $state['stage_state']=['key'=>ConversationSeries::enabled($state)?(ConversationCreativePolicy::enabled($state)?ConversationCreativePolicy::firstStage($state):'story'):'script','status'=>'ready','completed'=>['intake']];
             }
             $state['state_revision']++;
             $settings['workflow_state']=$state;
@@ -530,12 +668,15 @@ final class ConversationWorkflow
             self::assertPlanSources($document,$tenant,$user,$canvas,$plan);
             $frozenSettings=['generation_mode'=>'auto','image_model'=>(array)($state['workflow_snapshot']['model_preferences']['image_model']??[])];
             if (($frozenSettings['image_model']['id']??'')==='') throw new RuntimeException('WORKFLOW_IMAGE_MODEL_UNAVAILABLE');
+            $state['image_plan_history'][(string)$plan['run_id']]=self::publicImagePlan($plan);
             $state['plan_confirmation']=['status'=>'confirmed','confirmed_at'=>time(),'plan_hash'=>$planHash];
-            $effects=GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),true,$frozenSettings,(int)$plan['run_id'],$state);
-            $effects['mode']='auto';
+            $auto=!(ConversationStepFlow::enabled($state) && $stage==='storyboard');
+            $frozenSettings['generation_mode']=$auto?'auto':'manual';
+            $effects=GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),$auto,$frozenSettings,(int)$plan['run_id'],$state);
+            $effects['mode']=$auto?'auto':'manual';
             self::rememberArtifacts($state,$stage,(array)$plan['nodes'],$effects);
             $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$stage])));
-            $state['stage_state']=['key'=>self::nextStage($stage),'status'=>'ready','completed'=>$completed];
+            $state['stage_state']=self::nextStageState($stage,$completed,$state);
             $state['state_revision']++;
             $settings['workflow_state']=$state;
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
@@ -559,23 +700,35 @@ final class ConversationWorkflow
             $settings=self::settings($row);$state=self::stateFromSettings($settings);self::assertState($state);
             if ((int)$state['state_revision']!==$expectedRevision) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
             $stage=(string)($state['stage_state']['key']??'');$plan=(array)($state['stage_plan']??[]);
-            if (!in_array($stage,['script','art','video_plan'],true) || ($state['stage_state']['status']??'')!=='awaiting_stage_confirmation' || !self::validStagePlan($plan,$stage)) throw new RuntimeException('WORKFLOW_STAGE_PLAN_STALE');
+            if (!in_array($stage,['story','outline','episode','script','art','video_plan'],true) || ($state['stage_state']['status']??'')!=='awaiting_stage_confirmation' || !self::validStagePlan($plan,$stage)) throw new RuntimeException('WORKFLOW_STAGE_PLAN_STALE');
             self::assertPlanSources($document,$tenant,$user,$canvas,$plan);
-            $visible=!self::compactOutput($state) || $stage==='script';
+            $visible=!self::compactOutput($state) || in_array($stage,['story','outline','episode','script'],true) || (ConversationStepFlow::enabled($state) && $stage==='video_plan');
             $revising=(string)($state['revision_request']['stage']??'')===$stage;
-            $existingScript=$revising && $stage==='script'
+            $seriesRevision=$revising && ConversationCreativePolicy::enabled($state) && isset($state['revision_request']['binding']);
+            $revisionReturn=$seriesRevision ? $state['revision_request']['return_stage'] : [];
+            if ($seriesRevision) ConversationProductionRevision::adopt($state,$tenant,$user);
+            $existingScript=$revising && ($stage==='script' || $seriesRevision)
                 && ($state['revision_request']['mode']??'replace')!=='fork'
-                && count(array_filter((array)$state['artifact_memory'],static fn($item): bool=>is_array($item) && ($item['stage']??'')==='script' && (string)($item['node_id']??'')!==''))>0;
+                && count(array_filter((array)$state['artifact_memory'],static fn($item): bool=>is_array($item) && ($item['stage']??'')===$stage && (string)($item['node_id']??'')!==''))>0;
+            $graphNodes=ConversationStepFlow::enabled($state) && $stage==='video_plan' ? ConversationStepFlow::storyboardNodes((array)$plan['nodes']) : (array)$plan['nodes'];
             $effects=$existingScript
-                ? GraphService::replaceWorkflowScriptLocked($document,(array)$plan['nodes'],(array)$state['artifact_memory'])
-                : ($visible ? GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),false,[],(int)$plan['run_id'],$state) : []);
+                ? GraphService::replaceWorkflowScriptLocked($document,(array)$plan['nodes'],(array)$state['artifact_memory'],$stage)
+                : ($visible ? GraphService::appendAgentNodesLocked($document,$graphNodes,array_column((array)$plan['sources'],'id'),false,[],(int)$plan['run_id'],$state) : []);
             if ($effects) $effects['mode']='manual';
             if ($revising) $state['artifact_memory']=array_values(array_filter((array)$state['artifact_memory'],static fn($item): bool=>!is_array($item) || ($item['stage']??'')!==$stage));
-            self::rememberArtifacts($state,$stage,(array)$plan['nodes'],$effects);
+            self::rememberArtifacts($state,$stage,(array)$plan['nodes'],ConversationStepFlow::enabled($state) && $stage==='video_plan'?[]:$effects);
+            if ($seriesRevision && $stage==='episode') {
+                $state['series']['media_review_required']=true;
+            }
             if ($revising) unset($state['revision_request']);
             $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$stage])));
             $state['stage_plan']=[];
-            $state['stage_state']=['key'=>self::nextStage($stage),'status'=>'ready','completed'=>$completed];
+            $state['stage_state']=self::nextStageState($stage,$completed,$state);
+            if (ConversationCreativePolicy::enabled($state) && $stage==='episode' && ConversationCreativePolicy::missingVisualSlot($state)) $state['stage_state']['status']='collecting';
+            if (!empty($seriesRevision) && ($revisionReturn['key']??'')!==$stage) {
+                $state['stage_state']=$revisionReturn;
+                if (in_array($state['stage_state']['status']??'',['awaiting_plan_confirmation','awaiting_stage_confirmation'],true)) $state['stage_state']['status']='ready';
+            }
             $state['state_revision']++;
             $settings['workflow_state']=$state;
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
@@ -590,16 +743,20 @@ final class ConversationWorkflow
      */
     public static function freezeImagePlanLocked(int $tenant,array $workflow,array $settings,array $context,array $proposals,int $runId,array $threadSettings,array $document): ?array
     {
-        if (($workflow['workflow_snapshot']['key']??'')!==self::KEY || ($settings['generation_mode']??'manual')!=='auto') return null;
+        if (($workflow['workflow_snapshot']['key']??'')!==self::KEY || (($settings['generation_mode']??'manual')!=='auto' && !ConversationStepFlow::enabled($workflow))) return null;
         $stage=(string)($workflow['stage_state']['key']??'');
         if (!in_array($stage,['assets','storyboard'],true)) return null;
+        if (ConversationStepFlow::enabled($workflow) && $stage==='storyboard') return null;
+        if (ConversationSeries::enabled($workflow) && $stage==='assets' && !$proposals) return null;
         $state=self::stateFromSettings($threadSettings); if ($state===[]) return null; self::assertState($state);
         if ((int)($state['state_revision']??0)!==(int)($workflow['state_revision']??0) || ($state['stage_state']['key']??'')!==$stage || ($state['stage_state']['status']??'')!=='running') return null;
-        if (!$proposals || count($proposals)>ConversationActionPlan::maximumNodesForStage($stage,self::compactOutput($workflow))) throw new RuntimeException('WORKFLOW_IMAGE_PLAN_REQUIRED');
+        if (!$proposals || count($proposals)>ConversationSeries::maximum($workflow,$stage)) throw new RuntimeException('WORKFLOW_IMAGE_PLAN_REQUIRED');
         $model=(array)($workflow['workflow_snapshot']['model_preferences']['image_model']??$settings['image_model']??[]);
         if (($model['id']??'')==='') throw new RuntimeException('WORKFLOW_IMAGE_MODEL_UNAVAILABLE');
+        $reuse=ConversationAssetReuse::find($tenant,(int)$document['user_id'],$document,$workflow,$proposals,$settings);
         $quotes=[];
-        foreach ($proposals as $proposal) {
+        foreach ($proposals as $index=>$proposal) {
+            if (isset($reuse[$index])) { $quotes[]=['user_charge_points'=>0,'tenant_cost_points'=>0,'reused'=>true]; continue; }
             if (!is_array($proposal) || ($proposal['type']??'')!=='image') throw new RuntimeException('WORKFLOW_IMAGE_PLAN_REQUIRED');
             try {
                 $quoteRequest=[
@@ -654,8 +811,8 @@ final class ConversationWorkflow
         $ratio=(string)($workflow['creative_settings']['aspect_ratio']??'');
         $parameters=['quantity'=>1];
         if ($ratio!=='') $parameters['ratio']=$ratio;
-        $plan=['nodes'=>array_values($proposals),'sources'=>$sources,'attachment_images'=>$attachments,'image_model'=>self::publicModel($model),'parameters'=>$parameters,'quotes'=>$quotes,'run_id'=>$runId];
-        $plan['hash']=hash('sha256',self::json(['workflow'=>$state['workflow_snapshot'],'creative_settings'=>(array)($state['creative_settings']??[]),'stage'=>$stage,'nodes'=>$plan['nodes'],'sources'=>$sources,'attachment_images'=>$attachments,'image_model'=>$plan['image_model'],'parameters'=>$plan['parameters'],'quotes'=>$quotes]));
+        $plan=['series_core'=>ConversationSeries::enabled($workflow),'reuse'=>$reuse,'nodes'=>array_values($proposals),'sources'=>$sources,'attachment_images'=>$attachments,'image_model'=>self::publicModel($model),'parameters'=>$parameters,'quotes'=>$quotes,'run_id'=>$runId];
+        $plan['hash']=hash('sha256',self::json(['workflow'=>$state['workflow_snapshot'],'creative_settings'=>(array)($state['creative_settings']??[]),'stage'=>$stage,'reuse'=>$reuse,'nodes'=>$plan['nodes'],'sources'=>$sources,'attachment_images'=>$attachments,'image_model'=>$plan['image_model'],'parameters'=>$plan['parameters'],'quotes'=>$quotes]));
         $state['image_plan']=$plan;
         $state['plan_hash']=$plan['hash'];
         $state['plan_confirmation']=['status'=>'required','plan_hash'=>$plan['hash']];
@@ -670,10 +827,10 @@ final class ConversationWorkflow
     {
         if (($workflow['workflow_snapshot']['key']??'')!==self::KEY) return null;
         $stage=(string)($workflow['stage_state']['key']??'');
-        if (!in_array($stage,['script','art','video_plan'],true)) return null;
+        if (!in_array($stage,['story','outline','episode','script','art','video_plan'],true)) return null;
         $state=self::stateFromSettings($threadSettings);if ($state===[]) return null;self::assertState($state);
         if ((int)($state['state_revision']??0)!==(int)($workflow['state_revision']??0) || ($state['stage_state']['key']??'')!==$stage || ($state['stage_state']['status']??'')!=='running') return null;
-        if (!$proposals || count($proposals)>ConversationActionPlan::maximumNodesForStage($stage,self::compactOutput($workflow)) || array_filter($proposals,static fn($node): bool=>!is_array($node) || ($node['type']??'')!=='text')) throw new RuntimeException('WORKFLOW_STAGE_PLAN_REQUIRED');
+        if (!$proposals || count($proposals)>ConversationSeries::maximum($workflow,$stage) || array_filter($proposals,static fn($node): bool=>!is_array($node) || ($node['type']??'')!=='text')) throw new RuntimeException('WORKFLOW_STAGE_PLAN_REQUIRED');
         $sources=[];
         foreach ((array)($context['selected_nodes']??[]) as $node) {
             if (!is_array($node) || !preg_match('/^[1-9][0-9]{0,15}$/D',(string)($node['id']??''))) continue;
@@ -697,7 +854,7 @@ final class ConversationWorkflow
         if ($next==='') return null;
         self::rememberArtifacts($state,$current,$proposals,$effects);
         $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$current])));
-        $state['stage_state']=['key'=>$next,'status'=>'ready','completed'=>$completed];$state['state_revision']++;
+        $state['stage_state']=self::nextStageState($current,$completed,$state);$state['state_revision']++;
         $settings['workflow_state']=$state;
         return $settings;
     }
@@ -731,6 +888,7 @@ final class ConversationWorkflow
 
     public static function mayAutoSubmit(array $workflow): bool
     {
+        if (ConversationStepFlow::enabled($workflow) && ($workflow['stage_state']['key']??'')==='storyboard') return false;
         return (($workflow['workflow_snapshot']['key']??'')===self::KEY)
             && in_array((string)($workflow['stage_state']['key']??''),['assets','storyboard'],true)
             && (($workflow['plan_confirmation']['status']??'')==='confirmed');
@@ -756,7 +914,7 @@ final class ConversationWorkflow
                 'video_nodes'=>'每个视频节点引用对应分镜图及必要素材，始终由用户逐节点手动提交。',
                 default=>'按受控产物规则执行，不连接无关节点。',
             };
-            if (in_array($stage,['script','art','video_plan'],true)) $suffix='必须输出唯一结构化结果对象。'.$suffix;
+            if (in_array($stage,['story','outline','episode','script','art','video_plan'],true)) $suffix='必须输出唯一结构化结果对象。'.$suffix;
             $suffix.='用户回复只概括本阶段实际完成的内容、关键发现和下一步，不复制完整产物正文、提示词或程序字段。';
             return "\n【短剧工作流】当前阶段：{$stage}。读取技能指令：".implode('、',$labels)."。{$contractText}{$suffix}";
         }
@@ -765,7 +923,7 @@ final class ConversationWorkflow
             : ($stage==='storyboard'
                 ? '若建议生成节点，仍须使用受限 canvas-actions 格式；分镜图必须真实依赖同批场景或道具，系统会把前序剧本、美术和主体资产写入参考连线；不能编造素材 ID、价格或任务状态。'
                 : (in_array($stage,['video_nodes','audio_plan'],true) ? '视频节点只能建议插入，绝不能自动提交；音频只可规划，不能建议生成。' : '按本阶段受控结构化交付规则输出，不能创建任意画布 JSON。'));
-        if (in_array($stage,['script','art','video_plan'],true)) $suffix='必须输出唯一的结构化结果对象，reply_markdown 仅写简短阶段摘要，canvas_actions 保存完整受限产物；缺少任一项会被服务器拒绝。'.$suffix;
+        if (in_array($stage,['story','outline','episode','script','art','video_plan'],true)) $suffix='必须输出唯一的结构化结果对象，reply_markdown 仅写简短阶段摘要，canvas_actions 保存完整受限产物；缺少任一项会被服务器拒绝。'.$suffix;
         return "\n【短剧工作流】当前阶段：{$stage}。读取技能指令：".implode('、',$labels)."。{$contractText}{$suffix}";
     }
 
@@ -790,10 +948,11 @@ final class ConversationWorkflow
         $assetIds=[];foreach ($attachments as $item) if (is_array($item) && in_array($item['type']??'', ['image','document'],true) && (int)($item['asset_id']??0)>0) $assetIds[]=(int)$item['asset_id'];
         foreach ($catalog['slots'] as &$slot) if (($slot['key']??'')==='aspect_ratio') $slot['options']=AigcShortDramaService::canvasCreativeRatios($tenant);
         unset($slot);
-        return ['key'=>$catalog['key'],'version'=>$catalog['version'],'name'=>$catalog['name'],'route'=>$route,'frozen_at'=>time(),
+        return ['key'=>$catalog['key'],'series_core'=>true,'creative_policy_version'=>ConversationCreativePolicy::VERSION,'version'=>$catalog['version'],'name'=>$catalog['name'],'route'=>$route,'frozen_at'=>time(),
             'stages'=>$catalog['stages'],'rules'=>$catalog['rules'],'slot_schema'=>$catalog['slots'],'stage_skill_versions'=>self::stageSkillSnapshots($tenant,$catalog),
             'creative_prompt_snapshot'=>ShortDramaPromptWorkspace::capture($tenant),
             'shot_duration_rule'=>\app\common\service\app\aigc_short_drama\ShortDramaShotDuration::modelRule((array)(AigcShortDramaService::config($tenant)['shot_duration_rule']??[])),
+            'document_asset_ids'=>array_values(array_map(static fn($item)=>(int)$item['asset_id'],array_filter($attachments,static fn($item)=>($item['type']??'')==='document'))),
             'selected_node_ids'=>array_values(array_unique(array_map('strval',$selectedIds))),'attachment_asset_ids'=>array_values(array_unique($assetIds)),
             'model_preferences'=>array_intersect_key($preferences,array_flip(['generation_mode','reasoning_model','image_model','video_model']))];
     }
@@ -803,6 +962,11 @@ final class ConversationWorkflow
      * ratio must be one of the original creation form's frozen options. */
     private static function recordCreativeAnswer(int $tenant,array &$state,string $slot,string $value): void
     {
+        if ($slot==='episode_count' && ConversationCreativePolicy::enabled($state)) {
+            $count=ConversationCreativePolicy::episodeCount($value);
+            if ($count===null) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
+            $value=$count.'集';
+        }
         if ($slot==='aspect_ratio') {
             $value=str_replace('：',':',trim($value));
             $options=[];
@@ -879,14 +1043,25 @@ final class ConversationWorkflow
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('intake_candidates',$state)) $state['intake_candidates']=[];
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('intake_questions',$state)) $state['intake_questions']=[];
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('creative_settings',$state)) $state['creative_settings']=[];
-        return $state;
+        if (ConversationStepFlow::enabled($state) && ($state['stage_state']['key']??'')==='video_nodes' && ($state['stage_state']['status']??'')==='ready' && empty($state['video_selection'])) $state['stage_state']['status']='awaiting_stage_start';
+        return ConversationCreativePlan::upgradePending($state);
     }
     private static function nextSlot(array $state): ?array {
+        if (ConversationCreativePlan::enabled($state)) {
+            foreach ($state['workflow_snapshot']['slot_schema'] as $slot) if (in_array($slot['key'],ConversationCreativePlan::REQUIRED,true) && empty($state['slot_values'][$slot['key']])) return $slot;
+            return null;
+        }
+        if (ConversationCreativePolicy::enabled($state)) {
+            foreach ((array)($state['workflow_snapshot']['slot_schema']??[]) as $slot) if (($slot['key']??'')==='episode_count' && !isset($state['slot_values']['episode_count'])) return $slot;
+            return null;
+        }
         foreach ((array)($state['workflow_snapshot']['slot_schema']??[]) as $slot) if (is_array($slot) && !array_key_exists((string)($slot['key']??''),(array)($state['slot_values']??[]))) return $slot;
         return null;
     }
     private static function card(array $state): ?array {
         $stage=(array)$state['stage_state'];
+        if (($stage['key']??'')==='intake' && (!ConversationCreativePlan::canShowIntake($state)
+            || (isset($state['intake_presentation']) && empty($state['intake_presentation']['visible'])))) return null;
         $definition=self::stageDefinition((array)$state['workflow_snapshot'],(string)($stage['key']??''));
         $stageKey=(string)($stage['key']??'');
         $configured=self::stageSkillNames((array)$state['workflow_snapshot'],$stageKey);
@@ -896,10 +1071,22 @@ final class ConversationWorkflow
         $stageCard=['stage'=>$stageKey,'stage_label'=>(string)($definition['label']??'短剧创作'),'skills'=>$configured?:array_values((array)($definition['skills']??[])),'creates_nodes'=>(bool)($definition['creates_nodes']??false),
             'stage_index'=>$stageIndex,'stage_total'=>count($stages),'completed'=>array_values(array_map('strval',(array)($stage['completed']??[]))),
             'output_fields'=>self::outputContract($stageKey)];
+        if (ConversationCreativePolicy::enabled($state) && $stageKey==='art' && ($stage['status']??'')==='collecting') {
+            $slot=ConversationCreativePolicy::missingVisualSlot($state);
+            if ($slot) return $stageCard+['type'=>'question','title'=>'准备视觉素材','step'=>empty($state['slot_values']['visual_style'])?1:2,'total'=>2,'slot'=>$slot];
+        }
+        if (($stage['status']??'')==='awaiting_stage_start') {
+            if (ConversationStepFlow::enabled($state) && in_array($stageKey,['storyboard','video_plan','video_nodes'],true)) return $stageCard+ConversationStepFlow::card($state);
+            $labels=['storyboard'=>'确认主体和场景，创建分镜','video_plan'=>'确认分镜，准备视频','audio_plan'=>'创建音频规划'];
+            return $stageCard+['type'=>'next_stage','title'=>'本阶段已准备完成',
+                'body'=>$stageKey==='storyboard'?'主体和场景已创建，可先检查并生成素材，再继续创建分镜。':'已保留当前阶段内容，确认后再继续下一步。',
+                'action_label'=>$labels[$stageKey]??'继续下一阶段'];
+        }
         if ($stageKey==='complete') {
+            if (ConversationSeries::enabled($state) && ConversationSeries::episode($state)<ConversationSeries::count($state)) return $stageCard+['type'=>'next_episode','title'=>'本集创作规划已完成','body'=>'完成本集视频制作后，可继续下一集。相同主体和场景将复用已有资产。','action_label'=>'开始第'.(ConversationSeries::episode($state)+1).'集创作'];
             return array_replace($stageCard,['type'=>'complete','stage_label'=>'已完成','skills'=>[],
                 'stage_index'=>count($stages),'title'=>'短剧创作规划已完成',
-                'body'=>'故事与剧本、主体和分镜素材、分镜视频待生成节点均已规划到画布。视频仍需逐节点手动确认生成；音频仅展示规划，暂未开放生成。']);
+                'body'=>'已保留故事、剧本、素材与分镜表。所选视频片段已准备到画布，可逐个核对并确认生成。']);
         }
         if ($stageKey==='intake' && ($stage['status']??'')==='reviewing_intake') {
             $candidates=[];
@@ -907,10 +1094,11 @@ final class ConversationWorkflow
                 $key=(string)($slot['key']??'');$candidate=$state['intake_candidates'][$key]??null;
                 if (!is_array($candidate)) continue;
                 $candidates[]=['key'=>$key,'label'=>(string)($slot['label']??$key),'value'=>(string)$candidate['value'],
-                    'source'=>(string)$candidate['source'],'evidence'=>(string)$candidate['evidence']];
+                    'source'=>(string)$candidate['source'],'evidence'=>(string)$candidate['evidence'],
+                    'options'=>$key==='aspect_ratio'?(array)$slot['options']:[]];
             }
-            return $stageCard+['type'=>'intake_review','title'=>'核对已理解的创作设定',
-                'body'=>'以下内容由 Agent 从本轮描述或已授权素材中提取，均未作为最终设定。请修改、删除不准确的内容后确认；其余信息会继续追问。',
+            return $stageCard+['type'=>'intake_review','full_plan'=>ConversationCreativePlan::enabled($state),'title'=>'核对已理解的创作设定',
+                'body'=>'对话中已明确的设定将直接沿用。请补充以下缺失信息，也可继续在对话中说明。确认后按你的设定开始创作。',
                 'candidates'=>$candidates];
         }
         if (($stage['key']??'')==='intake' && ($stage['status']??'')==='collecting') {
@@ -922,9 +1110,13 @@ final class ConversationWorkflow
         if (in_array(($stage['key']??''),['assets','storyboard'],true) && ($stage['status']??'')==='awaiting_plan_confirmation') {
             return $stageCard+['type'=>'confirmation','title'=>'确认图片创作计划','body'=>'本批图片的模型、提示词、引用与预估积分已冻结。确认后才会插入画布并按既有任务链路生成；视频仍需逐节点报价确认。','plan_hash'=>$state['plan_hash'],'plan'=>self::publicImagePlan((array)($state['image_plan']??[]))];
         }
-        if (in_array(($stage['key']??''),['script','art','video_plan'],true) && ($stage['status']??'')==='awaiting_stage_confirmation') {
+        if (in_array(($stage['key']??''),['story','outline','episode','script','art','video_plan'],true) && ($stage['status']??'')==='awaiting_stage_confirmation') {
             $plan=(array)($state['stage_plan']??[]);
             $internal=self::compactOutput($state) && in_array($stageKey,['art','video_plan'],true);
+            if (ConversationSeries::requiresConfirmation($state)) return $stageCard+['type'=>'stage_confirmation','requires_user_confirmation'=>true,
+                'title'=>['story'=>'请确认故事设定','outline'=>'请确认分集大纲','episode'=>'剧本草稿已就绪','video_plan'=>'分镜表已就绪'][$stageKey],'body'=>'确认后继续下一阶段，已生成内容会保留。',
+                'artifacts'=>array_map(static fn($item)=>ConversationArtifactDisplay::item($item,(string)$stage['key']),(array)($plan['nodes']??[])),
+                'action_label'=>['story'=>'确认，生成分集大纲','outline'=>'确认，开始第1集创作','episode'=>'采用剧本，准备素材','video_plan'=>'确认分镜，插入画布'][$stageKey]];
             return $stageCard+['type'=>'stage_confirmation','title'=>'正在保存阶段成果','body'=>$internal?'系统会自动把规划保存到对话与工作流状态，不新增画布文本节点。':'系统会自动安全写入本阶段的结构化内容，随后继续下一阶段。','plan'=>['node_count'=>$internal?0:count((array)($plan['nodes']??[])),'artifact_count'=>count((array)($plan['nodes']??[]))],'action_label'=>'保存并继续'];
         }
         if (($stage['key']??'')==='script' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'创作采集已完成','body'=>self::compactOutput($state)?'系统将自动生成故事设定与大纲、当前单集剧本，并把这两项写入画布。':'系统将自动生成剧本设定、分集大纲和分镜脚本，并写回受控文本节点。'];
@@ -937,13 +1129,23 @@ final class ConversationWorkflow
         return [];
     }
     /** Complete frozen state used only inside the immutable run snapshot. */
-    private static function runState(array $state): array { return $state; }
-    private static function publicState(array $state): array { return ['workflow_snapshot'=>self::publicWorkflowSnapshot((array)$state['workflow_snapshot']),'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'creative_settings'=>array_intersect_key((array)($state['creative_settings']??[]),array_flip(['style_id','style_name','aspect_ratio'])),'artifact_memory'=>self::publicArtifacts((array)($state['artifact_memory']??[])),'plan_hash'=>$state['plan_hash'],'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'stage_plan'=>self::publicStagePlan((array)($state['stage_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
+    private static function runState(array $state): array {
+        if (ConversationSeries::enabled($state) && !in_array($state['stage_state']['key']??'',['intake','story','outline'],true)) {
+            $state['artifact_memory']=array_values(array_filter((array)$state['artifact_memory'],static fn($item)=>!in_array($item['stage']??'',['story','outline'],true)));
+        }
+        return $state;
+    }
+    private static function publicState(array $state): array { return ['execution_paused'=>!empty($state['execution_paused']),'intake_anchor_run_id'=>(int)($state['intake_anchor_run_id']??0),'workflow_snapshot'=>self::publicWorkflowSnapshot((array)$state['workflow_snapshot']),'series'=>['episode_number'=>ConversationSeries::episode($state),'episode_count'=>ConversationSeries::count($state),'enabled'=>ConversationSeries::enabled($state),'media_review_required'=>!empty($state['series']['media_review_required'])],'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'slot_sources'=>(array)($state['slot_sources']??[]),'creative_settings'=>array_intersect_key((array)($state['creative_settings']??[]),array_flip(['style_id','style_name','aspect_ratio'])),'artifact_memory'=>self::publicArtifacts((array)($state['artifact_memory']??[])),'plan_hash'=>$state['plan_hash'],'image_plan_history'=>(array)($state['image_plan_history']??[]),'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'stage_plan'=>self::publicStagePlan((array)($state['stage_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
     private static function assertState(array $state): void {
         $snapshot=(array)($state['workflow_snapshot']??[]);$stage=(array)($state['stage_state']??[]);
         if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_array($snapshot['stage_skill_versions']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_array($state['creative_settings']??null) || !is_array($state['artifact_memory']??null) || !is_array($state['image_plan']??null) || !is_array($state['stage_plan']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');
     }
-    private static function nextStage(string $stage): string { return ['script'=>'art','art'=>'assets','assets'=>'storyboard','storyboard'=>'video_plan','video_plan'=>'video_nodes','video_nodes'=>'audio_plan','audio_plan'=>'complete'][$stage]??''; }
+    private static function nextStageState(string $stage,array $completed,array &$state=[]): array {
+        if (ConversationStepFlow::enabled($state) && ($next=ConversationStepFlow::advance($state,$stage,$completed))) return $next;
+        $next=self::nextStage($stage);
+        return ['key'=>$next,'status'=>in_array($next,['storyboard','video_plan','audio_plan'],true)?'awaiting_stage_start':'ready','completed'=>$completed];
+    }
+    private static function nextStage(string $stage): string { return [ 'story'=>'outline','outline'=>'episode','episode'=>'art','script'=>'art','art'=>'assets','assets'=>'storyboard','storyboard'=>'video_plan','video_plan'=>'video_nodes','video_nodes'=>'audio_plan','audio_plan'=>'complete'][$stage]??''; }
     /** Server-owned output contracts are frozen with the workflow snapshot and
      * shown to the model as writing requirements.  They are intentionally
      * fields, not executable model tools or client supplied graph JSON. */
@@ -951,7 +1153,7 @@ final class ConversationWorkflow
         return match ($stage) {
             'script'=>['project_title','logline','world_setting','character_profiles','episode_outline','scene_script','storyboard_script'],
             'art'=>['art_bible','character_asset_spec','scene_asset_spec','prop_asset_spec','subject_image_prompt','three_view_prompt','scene_image_prompt','storyboard_image_prompt'],
-            'assets'=>['subject_image_prompt','three_view_prompt'],
+            'assets'=>['subject_image_prompt','three_view_prompt','scene_image_prompt'],
             'storyboard'=>['shot_number','shot_duration','camera','action','dialogue_or_caption','image_prompt','asset_references'],
             'video_plan'=>['shot_number','duration','first_frame','last_frame','camera_motion','action_sequence','video_prompt','asset_references'],
             'video_nodes'=>['video_prompt','asset_references'],
@@ -961,9 +1163,9 @@ final class ConversationWorkflow
     }
     private static function publicModel(array $model): array { return ['id'=>(string)($model['id']??''),'model_code'=>(string)($model['model_code']??''),'market_product_id'=>(int)($model['market_product_id']??0),'market_sku_id'=>(int)($model['market_sku_id']??0)]; }
     private static function publicImageQuote(array $quote): array { return ['market_product_id'=>(int)($quote['market_product_id']??0),'market_sku_id'=>(int)($quote['market_sku_id']??0),'tenant_cost_points'=>(float)($quote['tenant_cost_points']??0),'user_charge_points'=>(float)($quote['user_charge_points']??0),'usage_unit'=>(string)($quote['usage_unit']??''),'settlement_mode'=>(string)($quote['settlement_mode']??'')]; }
-    private static function publicImagePlan(array $plan): array {
+    public static function publicImagePlan(array $plan): array {
         if (!self::validImagePlan($plan)) return [];
-        return ['node_count'=>count((array)$plan['nodes']),'estimated_tenant_cost_points'=>array_sum(array_map(static fn(array $quote): float=>(float)($quote['tenant_cost_points']??0),(array)$plan['quotes'])),'estimated_user_charge_points'=>array_sum(array_map(static fn(array $quote): float=>(float)($quote['user_charge_points']??0),(array)$plan['quotes'])),'image_model'=>self::publicModel((array)$plan['image_model']),'ratio'=>(string)($plan['parameters']['ratio']??'')];
+        return ['run_id'=>(int)$plan['run_id'],'items'=>array_map(static fn(array $node): array=>['title'=>(string)$node['title'],'prompt'=>(string)$node['prompt']],(array)$plan['nodes']),'node_count'=>count((array)$plan['nodes']),'reused_count'=>count((array)($plan['reuse']??[])),'estimated_tenant_cost_points'=>array_sum(array_map(static fn(array $quote): float=>(float)($quote['tenant_cost_points']??0),(array)$plan['quotes'])),'estimated_user_charge_points'=>array_sum(array_map(static fn(array $quote): float=>(float)($quote['user_charge_points']??0),(array)$plan['quotes'])),'image_model'=>self::publicModel((array)$plan['image_model']),'model_label'=>(string)($plan['image_model']['model_code']??$plan['image_model']['id']??''),'ratio'=>(string)($plan['parameters']['ratio']??'')];
     }
     private static function publicStagePlan(array $plan): array {
         if (!self::validStagePlan($plan,(string)($plan['stage']??''))) return [];
@@ -994,22 +1196,21 @@ final class ConversationWorkflow
     }
     private static function publicArtifacts(array $artifacts): array {
         $items=[];
-        foreach (array_slice($artifacts,-12) as $artifact) if (is_array($artifact)) $items[]=[
-            'stage'=>(string)($artifact['stage']??''),'artifact'=>(string)($artifact['artifact']??''),'title'=>(string)($artifact['title']??''),
-        ];
+        foreach ($artifacts as $artifact) if (is_array($artifact)) $items[]=ConversationArtifactDisplay::item($artifact);
         return $items;
     }
     private static function validImagePlan(array $plan): bool {
         $parameters=(array)($plan['parameters']??[]);
-        return preg_match('/^[a-f0-9]{64}$/D',(string)($plan['hash']??''))===1 && is_array($plan['nodes']??null) && $plan['nodes']!==[] && count($plan['nodes'])<=ConversationActionPlan::maximumNodesForStage('storyboard') && is_array($plan['sources']??null) && is_array($plan['attachment_images']??null) && ($parameters===['quantity'=>1] || (count($parameters)===2 && ($parameters['quantity']??null)===1 && preg_match('/^[1-9][0-9]{0,3}:[1-9][0-9]{0,3}$/D',(string)($parameters['ratio']??''))===1)) && is_array($plan['quotes']??null) && count($plan['quotes'])===count($plan['nodes']) && (int)($plan['run_id']??0)>0;
+        return preg_match('/^[a-f0-9]{64}$/D',(string)($plan['hash']??''))===1 && is_array($plan['nodes']??null) && $plan['nodes']!==[] && count($plan['nodes'])<=(!empty($plan['series_core'])?100:24) && is_array($plan['sources']??null) && is_array($plan['attachment_images']??null) && ($parameters===['quantity'=>1] || (count($parameters)===2 && ($parameters['quantity']??null)===1 && preg_match('/^[1-9][0-9]{0,3}:[1-9][0-9]{0,3}$/D',(string)($parameters['ratio']??''))===1)) && is_array($plan['quotes']??null) && count($plan['quotes'])===count($plan['nodes']) && (int)($plan['run_id']??0)>0;
     }
     private static function validStagePlan(array $plan,string $stage): bool {
-        if (!in_array($stage,['script','art','video_plan'],true) || (string)($plan['stage']??'')!==$stage || !is_array($plan['nodes']??null) || !$plan['nodes'] || count($plan['nodes'])>ConversationActionPlan::maximumNodesForStage($stage) || !is_array($plan['sources']??null) || (int)($plan['run_id']??0)<=0) return false;
+        if (!in_array($stage,['story','outline','episode','script','art','video_plan'],true) || (string)($plan['stage']??'')!==$stage || !is_array($plan['nodes']??null) || !$plan['nodes'] || count($plan['nodes'])>64 || !is_array($plan['sources']??null) || (int)($plan['run_id']??0)<=0) return false;
         foreach ($plan['nodes'] as $node) if (!is_array($node) || ($node['type']??'')!=='text' || trim((string)($node['artifact']??''))==='') return false;
         return true;
     }
     private static function assertPlanSources(array $document,int $tenant,int $user,int $canvas,array $plan): void {
         $live=[]; foreach (json_decode((string)($document['nodes_json']??'[]'),true,512,JSON_THROW_ON_ERROR) as $node) if (is_array($node)) $live[(string)($node['id']??'')]=$node;
+        foreach ((array)($plan['reuse']??[]) as $index=>$reuse) ConversationAssetReuse::source($tenant,$user,$reuse,$plan['nodes'][$index]);
         foreach ((array)$plan['sources'] as $source) {
             if (!is_array($source) || !isset($live[(string)($source['id']??'')])) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
             $node=$live[(string)$source['id']];

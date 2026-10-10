@@ -9,13 +9,13 @@ use RuntimeException;
  * validated by the existing intake/action-plan contracts. */
 final class ConversationWorkflowTurn
 {
-    private const INTENTS=['continue','revise','chat','creative_plan','image','video','short_drama','uncertain'];
+    private const INTENTS=['continue','revise','pause','resume','chat','creative_plan','image','video','short_drama','uncertain'];
 
     /** Safe shape-only diagnostics for a rejected Provider answer. Never
      * persist the answer itself or arbitrary exception text. */
     public static function failureCategory(string $response,array $routing): string
     {
-        try { $value=json_decode(trim($response),true,32,JSON_THROW_ON_ERROR); }
+        try { $value=ConversationResponseJson::decode($response,32); }
         catch (\Throwable $error) { return 'intent_not_json'; }
         $modern=(int)($routing['version']??2)>=3;
         $fields=['intent','confidence','skill_key','reply_markdown','workflow_output'];
@@ -30,7 +30,7 @@ final class ConversationWorkflowTurn
         $allowed=[];
         foreach ((array)($routing['skill_candidates']??[]) as $item) if (is_array($item) && is_string($item['key']??null)) $allowed[$item['key']]=true;
         if ($value['skill_key']!=='' && !isset($allowed[$value['skill_key']])) return 'intent_skill';
-        $resume=$intent==='continue' && $confidence>=($modern?0.8:0.7) && empty($routing['workflow_paused'])
+        $resume=$intent==='continue' && $confidence>=($modern?0.8:0.7) && empty($routing['workflow_paused']) && (empty($routing['workflow_candidate']['execution_paused']) || ($routing['workflow_candidate']['stage_state']['key']??'')==='intake')
             && (!$modern || (($value['scope']??'')==='workflow' && in_array($value['speech_act']??'',['answer','request','confirm'],true)));
         if (!$resume) {
             if ($intent==='revise' && is_array($value['workflow_output'])
@@ -48,7 +48,7 @@ final class ConversationWorkflowTurn
             else ConversationActionPlan::parse($payload,$stage,ConversationWorkflow::compactOutput($workflow));
         } catch (\Throwable $error) {
             $output=$value['workflow_output'];
-            if (array_keys($output)!==['reply_markdown','canvas_actions'] || !is_string($output['reply_markdown']??null)) return 'intent_stage_keys';
+            if (!ConversationResponseJson::hasKeys($output,['reply_markdown','canvas_actions']) || !is_string($output['reply_markdown']??null)) return 'intent_stage_keys';
             $actions=$output['canvas_actions']??null;
             if (!is_array($actions) || array_keys($actions)!==['nodes'] || !is_array($actions['nodes']) || !array_is_list($actions['nodes']) || !$actions['nodes']) return 'intent_stage_nodes';
             $max=ConversationActionPlan::maximumNodesForStage($stage,ConversationWorkflow::compactOutput($workflow));
@@ -83,7 +83,7 @@ final class ConversationWorkflowTurn
     {
         $workflow=(array)($routing['workflow_candidate']??[]);
         $stage=(string)($workflow['stage_state']['key']??'');
-        $paused=!empty($routing['workflow_paused']);
+        $paused=(!empty($workflow['execution_paused']) && $stage!=='intake') || !empty($routing['workflow_paused']) || (ConversationSeries::enabled($workflow) && $stage!=='intake');
         $skills=[];
         foreach ((array)($routing['skill_candidates']??[]) as $item) {
             if (!is_array($item)) continue;
@@ -95,13 +95,15 @@ final class ConversationWorkflowTurn
             ? 'workflow_output 必须是 {"reply_markdown":"简短核对提示","intake":{"candidates":[],"questions":[]}}。'.ConversationIntakeDraft::instruction((array)($workflow['workflow_snapshot']['slot_schema']??[]))
             : 'workflow_output 必须是 {"reply_markdown":"真实阶段回复","canvas_actions":{"nodes":[...]}}。以下阶段说明仅约束 workflow_output 子对象：'.ConversationActionPlan::nestedInstruction($mode,$stage,ConversationWorkflow::compactOutput($workflow),ConversationWorkflow::usesStageGenerationPrompts($workflow)));
         $modern=(int)($routing['version']??2)>=3;
-        $revisable=array_values(array_filter((array)($routing['revision_allowed_stages']??[]),static fn($stage): bool=>in_array($stage,['script','art','video_plan'],true)));
+        $revisable=array_values(array_filter((array)($routing['revision_allowed_stages']??[]),static fn($stage): bool=>in_array($stage,['script','art','video_plan','story','outline','episode'],true)));
         return "\n【逐轮意图判断】当前已有短剧工作流，但历史阶段不是本轮用户的新指令。先只根据本轮请求、已确认的上下文和引用素材判断意图。"
             .($modern
                 ? '只输出一个 JSON 对象，字段恰好为 intent、confidence、skill_key、reply_markdown、workflow_output、speech_act、deliverable、scope。speech_act 只能是 question、request、answer、confirm、chat；deliverable 只能是 none、text、image、video、full_drama；scope 只能是 conversation、standalone、workflow、uncertain。只有本轮明确回答当前问题卡、修改当前阶段或要求继续时才用 scope=workflow；单独索取一份脚本、图片或视频时用 standalone；咨询能力或概念用 conversation。'
                 : '只输出一个 JSON 对象，字段恰好为 intent、confidence、skill_key、reply_markdown、workflow_output。')
-            .'intent 只能是 continue、revise、chat、creative_plan、image、video、short_drama、uncertain；continue 表示本轮明确在回答或推进当前阶段。'
+            .'intent 只能是 continue、revise、pause、resume、chat、creative_plan、image、video、short_drama、uncertain；continue 表示本轮明确在回答或推进当前阶段。'
+            .'用户明确要求暂停后续制作时选 pause，明确要求恢复已暂停制作时选 resume；两者必须 scope=workflow、speech_act=request/confirm、confidence 不低于 0.8、workflow_output=null。暂停只阻止后续自动执行，不代表取消已提交的上游任务。恢复仍须满足当前确认和素材前置条件。仅咨询如何暂停或恢复不执行。'
             .'普通问候、解释性提问、与当前短剧无关的内容选 chat；单独作图或视频选 image/video；新的短剧项目选 short_drama，不要偷偷替换现有工作流。'
+            .'选 chat 或独立文本创作时，只回答本轮话题，不要主动提起历史制作任务、催填缺失设定、列出制作参数示例或要求确认信息卡。工作流仍保留不等于每轮都要提醒用户继续。只有用户主动询问项目进度或要求继续制作时才讨论待办设定。'
             .'不能判断时选 uncertain，reply_markdown 只问一个澄清问题。confidence 是 0 到 1 的数字。'
             .($modern?'如果对是否继续当前流程的信心低于 0.8，也选 uncertain，并针对本轮内容提问；不要把不相关内容当作阶段答案。':'')
             .'skill_key 只能是下面已授权候选的 key 或空字符串；它仅作推荐，绝不能自动执行 Skill。'
@@ -111,15 +113,61 @@ final class ConversationWorkflowTurn
             .($stage==='complete'
                 ? '当前工作流已完成。用户仅说“继续”时，简短告知已完成，并请其指出要修改的阶段或提出新的独立需求；不要运行不存在的下一阶段。'
                 : ($paused
-                ? '当前工作流有待用户确认的卡片。即使本轮意图是 continue，workflow_output 也必须为 null；不能绕过确认卡。明确要求重新生成该内容时可按上述 revise 规则重开阶段。'
+                ? '当前制作操作需要用户确认，普通对话、剧情讨论、咨询不受限制。尚不能执行时 workflow_output 必须为 null，reply_markdown 必须自然回答本轮内容；用户确实要求执行时说明需要确认的具体内容及下一步，不能笼统要求先处理卡片。明确要求重新生成该内容时可按上述 revise 规则重开阶段。'
                 : '只有明确属于当前阶段且 confidence 不低于 '.($modern?'0.8':'0.7').' 时才能选 continue。'.($modern?'continue 还必须是 scope=workflow 且 speech_act 为 answer、request 或 confirm。':'').'选 continue 时 reply_markdown 为空字符串，'. $stageInstruction))
+            .(ConversationCreativePolicy::enabled($workflow) ? '系列正式内容修改同样使用 revise，workflow_output 只含 revision_stage；未确认设定用 story，未确认大纲用 outline，镜头对白、画面、运镜或整集重写用 episode。只在上方允许阶段中选择；要求具体镜头但缺少定位时先问一个问题。无需用户再去项目页提交一次。' : '')
             .'已授权技能：'.implode('；',$skills);
+    }
+
+    /** Canonicalize advisory text and intake before the same strict parser
+     * used by completion. Never repair action nodes or revision instructions. */
+    public static function parseConversation(string $response,array $routing,array $availableSources=['message']): array
+    {
+        try { return self::parse($response,$routing,$availableSources); }
+        catch (RuntimeException $error) {
+            if ((int)($routing['version']??2)<3 || !in_array($error->getMessage(),['INVALID_AGENT_INTENT','INVALID_AGENT_INTAKE'],true)) throw $error;
+        }
+        try { $value=ConversationResponseJson::decode($response); }
+        catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$error); }
+        $fields=['intent','confidence','skill_key','reply_markdown','workflow_output','speech_act','deliverable','scope'];
+        if (!is_array($value) || !ConversationResponseJson::hasKeys($value,$fields)) throw new RuntimeException('INVALID_AGENT_INTENT');
+        if (is_string($value['confidence']) && preg_match('/^(?:0(?:\.\d+)?|1(?:\.0+)?)$/D',$value['confidence'])) {
+            $value['confidence']=(float)$value['confidence'];
+        }
+        // Some models put the human-facing explanation beside, rather than
+        // inside, the stage output. Move text only; nodes still pass the full
+        // stage parser and confirmation rules, and no content is discarded.
+        if ($value['intent']==='continue' && is_string($value['reply_markdown'])
+            && trim($value['reply_markdown'])!=='' && is_array($value['workflow_output'])
+            && is_string($value['workflow_output']['reply_markdown']??null)
+            && !str_contains($value['reply_markdown'],'<canvas-actions>')
+            && !str_contains($value['reply_markdown'],'</canvas-actions>')) {
+            $outer=trim($value['reply_markdown']);$inner=trim($value['workflow_output']['reply_markdown']);
+            $value['workflow_output']['reply_markdown']=$inner==='' || $inner===$outer ? $outer : $outer."\n\n".$inner;
+            $value['reply_markdown']='';
+        }
+        if (in_array($value['intent'],['chat','creative_plan','uncertain'],true)
+            && $value['scope']!=='workflow' && $value['deliverable']!=='full_drama') {
+            $advisory=$value;
+            unset($advisory['workflow_output']);
+            $advisory['intake']=[];
+            $decision=ConversationIntentRouter::parseConversation(json_encode($advisory,JSON_THROW_ON_ERROR),$routing,$availableSources);
+            unset($decision['intake']);
+            $value=$decision+['workflow_output'=>null];
+        } elseif ($value['intent']==='continue'
+            && ($routing['workflow_candidate']['stage_state']['key']??'')==='intake'
+            && empty($routing['workflow_paused']) && (empty($routing['workflow_candidate']['execution_paused']) || ($routing['workflow_candidate']['stage_state']['key']??'')==='intake') && is_array($value['workflow_output'])) {
+            $value['workflow_output']=ConversationIntakeDraft::parseConversation(
+                json_encode($value['workflow_output'],JSON_THROW_ON_ERROR),
+                (array)($routing['workflow_candidate']['workflow_snapshot']['slot_schema']??[]),$availableSources);
+        }
+        return self::parse(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing,$availableSources);
     }
 
     /** @return array{intent:string,confidence:float,skill_key:string,reply_markdown:string,workflow_output:mixed,text:string,nodes:array,intake:array,continue:bool} */
     public static function parse(string $response,array $routing,array $availableSources=['message']): array
     {
-        try { $value=json_decode(trim($response),true,32,JSON_THROW_ON_ERROR); }
+        try { $value=ConversationResponseJson::decode($response,32); }
         catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$error); }
         $modern=(int)($routing['version']??2)>=3;
         $fields=['intent','confidence','skill_key','reply_markdown','workflow_output'];
@@ -138,6 +186,15 @@ final class ConversationWorkflowTurn
         if ($skillKey!=='' && !isset($allowed[$skillKey])) throw new RuntimeException('INVALID_AGENT_INTENT');
         $workflow=(array)($routing['workflow_candidate']??[]);
         if (($routing['kind']??'')!=='active_workflow' || ($workflow['workflow_snapshot']['key']??'')!==ConversationWorkflow::KEY) throw new RuntimeException('INVALID_AGENT_INTENT');
+        if (in_array($intent,['pause','resume'],true)) {
+            if (!$modern || $confidence<0.8 || ($value['scope']??'')!=='workflow'
+                || !in_array($value['speech_act']??'',['request','confirm'],true)
+                || $value['workflow_output']!==null || trim($reply)==='') throw new RuntimeException('INVALID_AGENT_INTENT');
+            return $value+['text'=>trim($reply),'nodes'=>[],'intake'=>[],'continue'=>false,'execution_paused'=>$intent==='pause'];
+        }
+        if (ConversationSeries::enabled($workflow) && ($workflow['stage_state']['key']??'')!=='intake') {
+            if ($intent==='continue' || ($intent==='revise' && !ConversationCreativePolicy::enabled($workflow))) return array_replace($value,['workflow_output'=>null,'text'=>(trim($reply)!=='' ? trim($reply) : '请先确认本阶段内容，再继续下一步。你也可以直接告诉我要修改哪里。'),'nodes'=>[],'intake'=>[],'continue'=>false]);
+        }
         if (($workflow['stage_state']['key']??'')==='complete' && $intent==='continue') {
             // Never allow a model's stale "continue" classification to
             // project content into a non-existent ninth stage.
@@ -145,7 +202,7 @@ final class ConversationWorkflowTurn
             return $value+['text'=>'当前短剧创作规划已完成。你可以告诉我要修改哪个阶段，或提出一项新的独立创作需求。',
                 'nodes'=>[],'intake'=>[],'continue'=>false];
         }
-        $resume=$intent==='continue' && $confidence>=($modern?0.8:0.7) && empty($routing['workflow_paused'])
+        $resume=$intent==='continue' && $confidence>=($modern?0.8:0.7) && empty($routing['workflow_paused']) && (empty($routing['workflow_candidate']['execution_paused']) || ($routing['workflow_candidate']['stage_state']['key']??'')==='intake')
             && (!$modern || (($value['scope']??'')==='workflow' && in_array($value['speech_act']??'',['answer','request','confirm'],true)));
         if ($intent==='revise') {
             $output=$value['workflow_output'];
@@ -168,15 +225,15 @@ final class ConversationWorkflowTurn
         if (!$resume) {
             if ($value['workflow_output']!==null) throw new RuntimeException('INVALID_AGENT_INTENT');
             if ($intent==='continue' && !empty($routing['workflow_paused'])) {
-                $reply='当前短剧工作流有待确认的阶段卡片，请先确认或修改；你的这条消息没有改动工作流。';
+                $reply=trim($reply)!=='' ? trim($reply) : '你想继续当前方案，还是先调整其中的内容？';
             } elseif ($modern && ($value['scope']??'')==='uncertain') {
                 $reply=trim($reply);
             } elseif ($modern && $confidence<0.8 && $intent!=='chat') {
-                $reply='我还不能确定这条消息是否要继续当前短剧流程。你希望继续当前阶段，还是单独创作？';
+                $reply=trim($reply)!=='' ? trim($reply) : '你想继续当前作品，还是另做一份内容？';
             } elseif ($intent==='continue' || (!$modern && $confidence<0.7 && $intent!=='chat')) {
-                $reply='这条消息是要继续当前短剧工作流，还是开始另一项创作？请说明后我再继续。';
+                $reply=trim($reply)!=='' ? trim($reply) : '你想继续当前作品，还是另做一份内容？';
             } elseif ($intent==='short_drama' && (!$modern || ($value['scope']??'')==='workflow')) {
-                $reply=trim($reply)."\n\n当前短剧工作流仍保留；如需开始另一部短剧，请新建聊天。";
+                $reply=trim($reply); // A repeated creation request is not evidence of a new project.
             } elseif ($skillKey!=='' && in_array($intent,['creative_plan','image','video'],true)
                 && (!$modern || in_array($value['deliverable']??'',['image','video'],true))) {
                 $reply=trim($reply)."\n\n可选技能：/".$skillKey.'（单独发送以使用）。';

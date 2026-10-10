@@ -90,6 +90,13 @@ final class FeatureGate
         return is_array($allowed) && in_array($key,array_map('strval',$allowed),true);
     }
 
+    /** Server default with tenant rollback. Frozen per accepted run, not thread. */
+    public static function dialogueEngine(int $tenant): string
+    {
+        $engine=self::config($tenant)['canvas_agent']['dialogue_engine']??\think\facade\Config::get('short_drama_agent.engine','legacy');
+        return in_array($engine,[ConversationAgentDecision::ENGINE,DeepAgentConversationProvider::ENGINE],true)?$engine:'legacy';
+    }
+
     /**
      * Tenant configuration may select published Skill versions for a
      * platform-defined stage, but it cannot add stages or relax workflow

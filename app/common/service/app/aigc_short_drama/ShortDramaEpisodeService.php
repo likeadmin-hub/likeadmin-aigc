@@ -72,14 +72,14 @@ class ShortDramaEpisodeService
         return $row;
     }
 
-    public static function validateOutline(array $plan, int $count): array
+    public static function validateOutline(array $plan, int $count, bool $allowSingle = false): array
     {
         foreach (['title', 'type_judgement', 'story_outline', 'core_theme'] as $field) {
             if (trim((string)($plan[$field] ?? '')) === '') throw new Exception('大纲内容不完整，请补充后确认');
         }
         if (empty($plan['subjects']) || empty($plan['locations'])) throw new Exception('大纲缺少角色或场景，请补充后确认');
         $episodes = (array)($plan['episodes'] ?? []);
-        if (count($episodes) !== $count || $count < 2 || $count > 500) throw new Exception('大纲集数不完整，请重新生成');
+        if (count($episodes) !== $count || $count < ($allowSingle ? 1 : 2) || $count > 500) throw new Exception('大纲集数不完整，请重新生成');
         foreach (array_values($episodes) as $index => $episode) {
             if ((int)($episode['episode_number'] ?? 0) !== $index + 1) throw new Exception('大纲集号不连续，请重新生成');
             foreach (['title', 'story_outline', 'conflict_point', 'ending_hook'] as $field) {
@@ -161,6 +161,13 @@ class ShortDramaEpisodeService
         unset($row['outline_json'], $row['result_json'], $row['continuity_json'], $row['series_json'], $row['provider_request_id'], $row['provider_task_id']);
         $row['ready'] = (bool)$row['completed_once'];
         $row['queue_state'] = $row['status'];
+        $row['review_status'] = '';
+        if ($row['ready'] && $row['status'] === 'failed') {
+            $row['status'] = 'success';
+            $row['needs_review'] = true;
+            $row['review_status'] = 'failed';
+            $row['review_reason'] = '复核未完成，原剧本仍可查看：' . (string)($row['error'] ?? '请继续复核');
+        }
         // A running episode can finish after the user pauses the series. Its
         // completed plan is already durable and must remain viewable; only
         // later, not-yet-run episodes are canceled. Keep legacy rows with the
@@ -225,7 +232,7 @@ class ShortDramaEpisodeService
                 'project_id' => $row['project_id'], 'delete_time' => 0])->order('episode_number')->select()->toArray());
             $review = false;
             foreach ($siblings as $sibling) {
-                if ((int)$sibling['id'] === (int)$row['id']) { $review = !empty($sibling['needs_review']); break; }
+                if ((int)$sibling['id'] === (int)$row['id']) { $review = $review || !empty($sibling['needs_review']); break; }
                 if (!empty($sibling['needs_review'])) throw new Exception('请先复核前面的剧集，避免继续使用旧剧情');
             }
             if (!in_array($row['status'], ['failed', 'canceled'], true) && !($row['status'] === 'success' && $review)) throw new Exception('当前剧集无需重试');
@@ -241,14 +248,26 @@ class ShortDramaEpisodeService
                 $old = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id'], 'delete_time' => 0])->findOrEmpty();
                 if (!$old->isEmpty()) {
                     $request = self::decode($old['request_json']);
+                    $previousReviewBase = $request['revision_base_result'] ?? [];
+                    $wasBlockReview = !empty($request['_continuity_review_only']);
+                    // Failed user revisions must keep their original instruction.
+                    // Only a failed continuity review adopts the block-review route.
+                    $review = $review || (!empty($row['completed_once']) && empty($request['revision_target'])
+                        && ($wasBlockReview || ($request['revision_message'] ?? '') === '复核当前剧本与最新前集的连续性，只修复明确矛盾；保留其他剧情、镜头、台词和所有素材标识。'));
+                    $request['_generation_recovery_version'] = 1;
                     if ($outlineRequest !== null) $request = ShortDramaStoryWorkflow::inheritQualityReview($request, $outlineRequest);
                     $originalContext = $request['series_context'] ?? [];
+                    if (!empty($originalContext['current_episode'])) {
+                        // A corrected source is a new generation context, never a
+                        // cache hit or rewrite of the old paid receipts.
+                        $request['series_context']['current_episode'] = ShortDramaSourceBoundary::episode($originalContext['current_episode']);
+                    }
                     if ((int)($request['_generation_version'] ?? 0) >= 3) {
                         $previous = [];
                         foreach ($siblings as $sibling) {
                             if ((int)$sibling['episode_number'] < (int)$row['episode_number'] && (int)$sibling['completed_once']) $previous[] = self::decode($sibling['continuity_json']);
                         }
-                        $request['series_context']['continuity'] = ShortDramaContinuity::context($previous);
+                        $request['series_context']['continuity'] = ShortDramaContinuity::context($previous, (int)($request['_input_contract_version'] ?? 0) >= 7);
                         $request['series_context']['previous_episodes'] = ShortDramaContinuity::context($previous)['recent_episodes'];
                         if ($review) {
                             $version = Db::name('aigc_short_drama_plan_version')->where(['tenant_id' => $tenantId, 'user_id' => $userId,
@@ -256,11 +275,14 @@ class ShortDramaEpisodeService
                             $request['revision_base_result'] = self::decode($version['plan_json'] ?? $row['result_json']);
                             $request['revision_message'] = '复核当前剧本与最新前集的连续性，只修复明确矛盾；保留其他剧情、镜头、台词和所有素材标识。';
                             $request['revision_policy'] = ['mode' => 'local_only', 'preserve_unmentioned' => true];
+                            $request['_continuity_review_only'] = true;
+                            $request['source'] = 'revision';
                             unset($request['revision_target']);
                         }
                     }
-                    if (!$review && (int)($request['_generation_version'] ?? 0) >= 3
-                        && $originalContext === ($request['series_context'] ?? [])) {
+                    if ((int)($request['_generation_version'] ?? 0) >= 3
+                        && $originalContext === ($request['series_context'] ?? [])
+                        && (!$review || ($wasBlockReview && $previousReviewBase === ($request['revision_base_result'] ?? [])))) {
                         ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, (string)$row['task_id']);
                         $old->save(['request_json' => self::encode($request), 'status' => 'pending',
                             'error' => '', 'finished_at' => 0, 'update_time' => time()]);
@@ -388,7 +410,24 @@ class ShortDramaEpisodeService
     {
         $row = self::episode($tenantId, $userId, (int)($params['episode_id'] ?? 0));
         if (!(int)$row['completed_once'] || $row['status'] !== 'success') throw new Exception('请等待当前剧集完成');
-        return AigcShortDramaService::message($tenantId, $userId, ['task_id' => $row['task_id'], 'message' => (string)($params['message'] ?? '')]);
+        return AigcShortDramaService::message($tenantId, $userId, ['task_id' => $row['task_id'], 'message' => (string)($params['message'] ?? ''), 'mode'=>(string)($params['mode'] ?? '')]);
+    }
+
+    public static function refreshReviewContext(int $tenantId, int $userId, int $productionId, array $request): array
+    {
+        $episode = self::context($tenantId, $userId, $productionId);
+        if (!$episode) return $request;
+        $siblings = self::withContinuityStatus($tenantId, $userId, Db::name(self::TABLE)->where([
+            'tenant_id'=>$tenantId, 'user_id'=>$userId, 'project_id'=>$episode['project_id'], 'delete_time'=>0])->order('episode_number')->select()->toArray());
+        $previous = [];
+        foreach ($siblings as $row) {
+            if ((int)$row['episode_number'] >= (int)$episode['episode_number']) break;
+            if ($row['status'] !== 'success' || !empty($row['needs_review'])) throw new Exception('请先完成前面剧集的复核，再继续本集');
+            $previous[] = self::decode($row['continuity_json']);
+        }
+        $request['series_context']['continuity'] = ShortDramaContinuity::context($previous, true);
+        $request['series_context']['previous_episodes'] = ShortDramaContinuity::context($previous)['recent_episodes'];
+        return $request;
     }
 
     public static function export(int $tenantId, int $userId, array $params): array
@@ -460,11 +499,12 @@ class ShortDramaEpisodeService
             if (!(int)(Db::query('SELECT GET_LOCK(?, 0) AS acquired', [$lock])[0]['acquired'] ?? 0)) continue;
             try {
                 self::project($t, $u, $p);
-                $rows = Db::name(self::TABLE)->where(['tenant_id' => $t, 'user_id' => $u, 'project_id' => $p, 'delete_time' => 0])->order('episode_number')->select()->toArray();
+                $rows = Db::name(self::TABLE)->where(['tenant_id' => $t, 'user_id' => $u, 'project_id' => $p, 'delete_time' => 0])->order('episode_number')->field('id,tenant_id,user_id,project_id,episode_number,production_project_id,task_id,outline_task_id,status,completed_once,continuity_json,queue_job_id,attempt_number,started_at')->select()->toArray();
                 $rows = self::withContinuityStatus($t, $u, $rows);
                 $first = self::nextInitialEpisode($rows);
                 $selected = $first && empty($first['needs_review']) && in_array($first['status'], ['pending', 'running'], true) ? $first : null;
                 if (!$selected) continue;
+                $selected = array_replace($selected, Db::name(self::TABLE)->where('id', $selected['id'])->field('title,outline_json,retry_count')->find() ?: []);
                 if ((int)$selected['queue_job_id'] === 0) self::queueJob($t, $u, $p, (int)$selected['id'], (int)$selected['attempt_number']);
                 $queueMessage = ShortDramaRedisQueue::claim(gethostname() . '-' . getmypid(), 1);
                 if ($queueMessage && (int)($queueMessage['data']['episode_id'] ?? 0) !== (int)$selected['id']) {

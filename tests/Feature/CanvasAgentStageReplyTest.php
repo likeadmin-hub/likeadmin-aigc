@@ -11,6 +11,21 @@ use PHPUnit\Framework\TestCase;
 
 class CanvasAgentStageReplyTest extends TestCase
 {
+    public function testLegacyArtifactHistoryKeepsBodiesBeyondTheLatestTwelveItems(): void
+    {
+        $method=new \ReflectionMethod(ConversationWorkflow::class,'publicArtifacts');
+        $method->setAccessible(true);
+        $history=[];
+        for ($i=1;$i<=15;$i++) $history[]=['stage'=>'episode','artifact'=>'script','title'=>'第'.$i.'集',
+            'content'=>'第'.$i.'集完整正文','node_id'=>'private-node','reference_key'=>'private-reference'];
+        $public=$method->invoke(null,$history);
+        self::assertCount(15,$public);
+        self::assertSame('第1集完整正文',$public[0]['content']);
+        self::assertSame('第15集完整正文',$public[14]['content']);
+        self::assertArrayNotHasKey('node_id',$public[0]);
+        self::assertArrayNotHasKey('reference_key',$public[0]);
+    }
+
     private function workflow(string $stage): array
     {
         return ['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY], 'stage_state'=>['key'=>$stage]];

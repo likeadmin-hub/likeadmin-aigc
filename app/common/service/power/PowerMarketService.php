@@ -64,17 +64,29 @@ class PowerMarketService
      *
      * @param array<int, array<string, mixed>> $prices
      */
-    public static function savePrices(int $productId, array $prices): void
+    public static function savePrices(int $productId, array $prices, ?array $capabilityOverrides = null, int $adminId = 0): void
     {
         $product = PowerMarketProduct::findOrEmpty($productId);
         if ($product->isEmpty()) {
             throw new Exception('商品不存在');
         }
+        if ($capabilityOverrides !== null) {
+            if ($product['resource_type'] !== self::TYPE_MODEL || $adminId <= 0) throw new Exception('仅平台管理员可校正模型能力');
+            $capabilityOverrides = MarketModelCapabilities::validate($capabilityOverrides);
+        }
         $skuById = [];
         foreach (PowerMarketSku::where('product_id', $productId)->where('status', 1)->select()->toArray() as $sku) {
             $skuById[(int)$sku['id']] = $sku;
         }
-        Db::transaction(function () use ($prices, $skuById): void {
+        Db::transaction(function () use ($prices, $skuById, $productId, $capabilityOverrides, $adminId): void {
+            if ($capabilityOverrides !== null) {
+                $locked = PowerMarketProduct::where('id', $productId)->lock(true)->findOrEmpty();
+                if ($locked->isEmpty()) throw new Exception('商品不存在');
+                $snapshot = self::arrayValue($locked['source_payload']);
+                $snapshot[MarketModelCapabilities::KEY] = ['identity'=>MarketModelCapabilityVerification::identity($locked->toArray()),
+                    'values'=>$capabilityOverrides, 'admin_id'=>$adminId, 'updated_at'=>time()];
+                $locked->save(['source_payload'=>$snapshot]);
+            }
             foreach ($prices as $price) {
                 $skuId = (int)($price['sku_id'] ?? $price['id'] ?? 0);
                 if ($skuId <= 0 || !isset($skuById[$skuId])) {
@@ -1035,6 +1047,7 @@ class PowerMarketService
         $capability = self::capability($product);
         $product['capability'] = $capability;
         $product['capability_tags'] = self::capabilityTags($capability);
+        if (($product['resource_type'] ?? '') === self::TYPE_MODEL) $product['capability_profile'] = MarketModelCapabilities::profile($product);
         return $product;
     }
 
@@ -1099,6 +1112,16 @@ class PowerMarketService
         $vision = self::boolValue($sources, [
             'supports_vision', 'vision', 'supports_image_input', 'image_input', 'multimodal',
         ]) || in_array('image', $modalities, true) || in_array('vision', $modalities, true);
+        // Older catalogues encode capabilities as a list instead of boolean fields.
+        foreach ([$metadata['capabilities'] ?? [], $snapshot['resource']['capabilities'] ?? []] as $list) {
+            foreach ((array)$list as $value) {
+                if (is_string($value) && in_array(strtolower($value), ['vision', 'image', 'image_input'], true)) $vision = true;
+            }
+        }
+        if (MarketModelCapabilityVerification::vision($product)) {
+            $vision = true;
+            $modalities = array_values(array_unique(array_merge($modalities, ['image'])));
+        }
         $thinking = self::boolValue($sources, [
             'supports_thinking', 'thinking', 'supports_reasoning', 'reasoning', 'deep_thinking',
         ]) || self::hasKey($sources, ['enable_thinking', 'thinking_enabled', 'reasoning_enabled'])
@@ -1115,7 +1138,7 @@ class PowerMarketService
         ]);
         $maxAssets = self::positiveInt($sources, ['max_reference_assets', 'max_reference_files', 'reference_asset_limit']);
 
-        return [
+        $capability = [
             'supports_vision' => $vision,
             'supports_thinking' => $thinking,
             'max_reference_images' => $maxImages,
@@ -1124,6 +1147,13 @@ class PowerMarketService
             'max_reference_assets' => $maxAssets,
             'input_modalities' => $modalities,
         ];
+        if (($product['resource_type'] ?? '') === self::TYPE_MODEL) {
+            foreach (MarketModelCapabilities::profile($product)['fields'] as $field) {
+                if ($field['value'] !== null) $capability[$field['key']] = $field['value'];
+            }
+            if (isset($capability['supports_reasoning'])) $capability['supports_thinking'] = $capability['supports_reasoning'];
+        }
+        return $capability;
     }
 
     /**
@@ -1138,6 +1168,11 @@ class PowerMarketService
         }
         if (!empty($capability['supports_thinking'])) {
             $tags[] = ['key' => 'thinking', 'label' => '支持深度思考', 'value' => true];
+        }
+        foreach (['supports_audio'=>'音频理解','supports_video'=>'视频理解','supports_tools'=>'工具调用',
+            'supports_structured_output'=>'结构化输出','supports_streaming'=>'流式输出','supports_search'=>'联网搜索',
+            'supports_audio_output'=>'音频输出','supports_reference_images'=>'参考图生成','supports_first_last_frame'=>'首尾帧'] as $key=>$label) {
+            if (!empty($capability[$key])) $tags[]=['key'=>$key,'label'=>$label,'value'=>true];
         }
         foreach ([
             'max_reference_images' => ['reference_images', '参考图', '张'],
@@ -1196,6 +1231,8 @@ class PowerMarketService
             $data['create_time'] = time();
             return PowerMarketProduct::create($data);
         }
+        $data['source_payload'] = MarketModelCapabilityVerification::carryForward($data['source_payload'], $row->toArray(), $data);
+        $data['source_payload'] = MarketModelCapabilities::carryForward($data['source_payload'], $row->toArray(), $data);
         $row->save($data);
         return $row;
     }
