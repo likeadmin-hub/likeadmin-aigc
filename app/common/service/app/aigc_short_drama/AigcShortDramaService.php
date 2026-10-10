@@ -14234,7 +14234,7 @@ class AigcShortDramaService
         }
 
         $locations = [];
-        foreach ((array)($plan['scenes'] ?? $plan['locations'] ?? []) as $index => $location) {
+        foreach ((array)($plan['locations'] ?? []) as $index => $location) {
             if (!is_array($location)) {
                 continue;
             }

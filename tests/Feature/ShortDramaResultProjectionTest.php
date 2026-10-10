@@ -29,7 +29,14 @@ class ShortDramaResultProjectionTest extends TestCase
     public function testCanonicalEditsWinAndDeletedItemsAreNotResurrected(): void {
         $source=$this->source();$source['subjects']=[['id'=>'edited','name'=>'用户编辑']];
         $p=Projection::normalize($source);self::assertSame('edited',$p['subjects'][0]['id']);
-        $p['subjects']=[];$p['storyboard']=[];self::assertSame($p,Projection::normalize($p));
+        $p['subjects']=[];$p['storyboard']=[];$p['story_outline']='';self::assertSame($p,Projection::normalize($p));
+    }
+    public function testEmptyLegacyScenesCannotHideEditedCanonicalLocations(): void {
+        $method=new \ReflectionMethod(Service::class,'enhancePlanResult');$method->setAccessible(true);
+        $source=$this->source();$source['scenes']=[];$source['locations']=[['id'=>'edited','name'=>'用户场景']];
+        $p=$method->invoke(null,$source,false);
+        self::assertSame('edited',$p['locations'][0]['id']);self::assertSame('用户场景',$p['locations'][0]['name']);
+        $p['locations']=[];$p=$method->invoke(null,$p,false);self::assertSame([],$p['locations']);
     }
     public function testConventionalReaderUsesSameAliases(): void {
         $method=new \ReflectionMethod(Service::class,'enhancePlanResult');$method->setAccessible(true);
