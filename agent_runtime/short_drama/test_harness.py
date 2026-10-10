@@ -62,6 +62,15 @@ class HarnessTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             session_config(0, 2, 3, 4)
 
+    def test_large_frozen_history_does_not_invoke_a_hidden_summary_model(self):
+        model = ReplayModel(responses=[AIMessage(content="", tool_calls=[
+            {"name": "propose_decision", "args": proposal(), "id": "only-call"}])])
+        history = "history " * 110000
+        agent = build_agent(model, instruction="Use the frozen context without summary calls")
+        agent.invoke({"messages": [HumanMessage(content=history)]}, session_config(1, 2, 3, 4))
+        self.assertEqual(1, model.index)
+        self.assertEqual(history, model.calls[0][-1].content)
+
 
 if __name__ == "__main__":
     unittest.main()
