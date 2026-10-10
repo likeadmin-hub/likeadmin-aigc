@@ -121,7 +121,12 @@ final class ConversationWorker
         } catch (\Throwable $error) {
             // No provider call occurred. Do not expose exception text, which
             // can contain policy internals or tenant configuration secrets.
-            return ConversationExecution::rejectBeforeSubmit($tenant,$user,$run,$claim['token'],$claim['fence'],$error->getMessage());
+            $reason=$error->getMessage();
+            if (in_array($reason,['AGENT_RUNTIME_UNAVAILABLE','AGENT_RUNTIME_TIMEOUT','AGENT_RUNTIME_PROTOCOL_ERROR','AGENT_RUNTIME_SCOPE_MISMATCH'],true)) {
+                \think\facade\Log::warning('Canvas Agent runtime preflight: '.$reason.' run='.$run.' tenant='.$tenant);
+                $reason='AGENT_SERVICE_UNAVAILABLE';
+            }
+            return ConversationExecution::rejectBeforeSubmit($tenant,$user,$run,$claim['token'],$claim['fence'],$reason);
         }
         $authorization=ConversationExecution::authorizeSubmission($tenant,$user,$run,$claim['token'],$claim['fence'],$request['request_timeout_seconds']);
         if ($authorization!=='authorized') return $authorization;

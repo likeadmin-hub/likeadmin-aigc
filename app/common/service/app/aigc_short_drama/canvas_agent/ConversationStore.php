@@ -310,7 +310,7 @@ final class ConversationStore
             'activity'=>ConversationDialoguePolicy::activity((array)json_decode((string)$row['context_snapshot'],true)),
             'can_stop'=>in_array($status,['queued','running'],true),
             'needs_reconciliation'=>$status==='needs_reconciliation',
-            'error_code'=>$status==='failed'?(in_array($row['error_code'],['PRECHECK_FAILED','VISION_MODEL_UNAVAILABLE','WORKFLOW_VERSION_CONFLICT','WORKFLOW_REVISION_TARGET_REQUIRED','WORKFLOW_PLAN_SOURCE_CHANGED','CONTEXT_TOO_LARGE','PRODUCTION_FAILED'],true)?$row['error_code']:($row['error_code']==='SAFETY_OUTPUT_BLOCKED'?'CONTENT_BLOCKED':($row['error_code']==='UNSUPPORTED_MODEL_RESPONSE'?'UNSUPPORTED_MODEL_RESPONSE':'RUN_FAILED'))):($status==='canceled'?'USER_STOPPED_BEFORE_SUBMIT':''),
+            'error_code'=>$status==='failed'?(in_array($row['error_code'],['PRECHECK_FAILED','AGENT_SERVICE_UNAVAILABLE','VISION_MODEL_UNAVAILABLE','WORKFLOW_VERSION_CONFLICT','WORKFLOW_REVISION_TARGET_REQUIRED','WORKFLOW_PLAN_SOURCE_CHANGED','CONTEXT_TOO_LARGE','PRODUCTION_FAILED'],true)?$row['error_code']:($row['error_code']==='SAFETY_OUTPUT_BLOCKED'?'CONTENT_BLOCKED':($row['error_code']==='UNSUPPORTED_MODEL_RESPONSE'?'UNSUPPORTED_MODEL_RESPONSE':'RUN_FAILED'))):($status==='canceled'?'USER_STOPPED_BEFORE_SUBMIT':''),
             'create_time'=>(int)$row['create_time'],'update_time'=>(int)$row['update_time']];
     }
 

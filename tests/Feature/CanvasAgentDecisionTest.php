@@ -38,6 +38,16 @@ class CanvasAgentDecisionTest extends TestCase
             self::assertSame('我们可以先聊故事。',$legacy['reply_markdown']);
         }
     }
+    public function testActiveAgentRetainsCompleteRoleHistoryWithoutDuplicatedSummary(): void {
+        $messages=[];for($i=0;$i<20;$i++) $messages[]=['role'=>$i%2?'assistant':'user','content'=>(string)$i];
+        $messages[0]['content']=str_repeat('长对话',800);
+        $messages[]=['role'=>'user','content'=>'主角还是刚才那个'];
+        $context=$this->context(true);$context['messages']=$messages;$context['workflow']=self::state();
+        $actual=\app\common\service\app\aigc_short_drama\canvas_agent\ConversationTextContext::messages($context,[],[]);
+        self::assertCount(21,$actual);self::assertSame(array_slice($messages,0,-1),array_slice($actual,0,-1));
+        self::assertStringContainsString('主角还是刚才那个',$actual[20]['content']);
+        self::assertStringNotContainsString('"recent_dialogue"',$actual[20]['content']);
+    }
     public function testCardMustBeChosenAndAnchoredOnce(): void {
         $state=Plan::draft(self::state(),['candidates'=>['story_direction'=>['source'=>'message','value'=>'程序员大战孙悟空','evidence'=>'程序员大战孙悟空']],'questions'=>[]]);
         $settings=['workflow_state'=>$state];

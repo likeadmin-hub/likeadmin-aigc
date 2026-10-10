@@ -238,7 +238,7 @@ final class ConversationExecution
     /** Only a server-owned no-cost preflight may use this before generate(). */
     public static function rejectBeforeSubmit(int $tenant,int $user,int $runId,string $token,int $fence,string $reason='PRECHECK_FAILED'): string
     {
-        $reason=in_array($reason,['VISION_MODEL_UNAVAILABLE','WORKFLOW_VERSION_CONFLICT','WORKFLOW_REVISION_TARGET_REQUIRED','WORKFLOW_PLAN_SOURCE_CHANGED','CONTEXT_TOO_LARGE'],true)?$reason:'PRECHECK_FAILED';
+        $reason=in_array($reason,['AGENT_SERVICE_UNAVAILABLE','VISION_MODEL_UNAVAILABLE','WORKFLOW_VERSION_CONFLICT','WORKFLOW_REVISION_TARGET_REQUIRED','WORKFLOW_PLAN_SOURCE_CHANGED','CONTEXT_TOO_LARGE'],true)?$reason:'PRECHECK_FAILED';
         return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$reason): string {
             [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
             if ($run['status']==='canceled') return 'canceled';

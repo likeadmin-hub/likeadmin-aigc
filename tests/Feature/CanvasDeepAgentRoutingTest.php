@@ -53,6 +53,15 @@ class CanvasDeepAgentRoutingTest extends TestCase
             self::assertSame('deepagents_v1',$saved['dialogue_engine']);
             self::assertSame('old-history',$saved['retained_marker']);
             self::assertEmpty($saved['workflow_state']??[],'Greeting cannot create production');
+            unset($config['canvas_agent']['dialogue_engine']);
+            Db::name('aigc_short_drama_config')->where('tenant_id',$tenant)->update(['config_json'=>json_encode($config)]);
+            $request['request_key']='runtime-unavailable';
+            $failed=Service::send($tenant,$user,$canvas,$thread,$request);
+            Config::set(['engine'=>'deepagents_v1','python'=>'/nonexistent/python'],'short_drama_agent');
+            self::assertSame('failed',Worker::process($tenant,$user,$failed['run_id'],$provider));
+            self::assertSame(1,$provider->calls,'No paid transport on failed startup');
+            self::assertSame('AGENT_SERVICE_UNAVAILABLE',Db::name(Store::PREFIX.'run')->where('id',$failed['run_id'])->value('error_code'));
+            self::assertSame(0,Db::name(Store::PREFIX.'message')->where(['run_id'=>$failed['run_id'],'role'=>'assistant'])->count());
         } finally {Db::rollback();Config::set($original,'short_drama_agent');}
     }
 }

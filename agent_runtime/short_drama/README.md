@@ -1,46 +1,53 @@
-# Short-drama Agent decision candidate
+# Short-drama Agent runtime
 
-This is a staged replacement of dialogue orchestration, not a replacement of PHP production services.
+The default conversation engine is now `deepagents_v1`, including subsequent turns in existing threads. This replaces dialogue orchestration; existing PHP production services remain the sole authority for script, asset and storyboard tasks.
 
-## Architecture
+## Actual execution path
 
-`user message + scoped memory + frozen workflow → one decision → PHP validation → existing transactional executor → durable reply/events/card`
+`send → frozen tenant/user/canvas/thread snapshot → Worker → private Deep Agents graph → PHP metered model adapter → propose_decision tool → PHP transactional executor → durable reply/memory/card/events`
 
-- `ConversationAgentDecision` owns the model-neutral proposal contract and adapts to existing validated execution contracts.
-- `ConversationAgentMemory` retains up to 32 source-backed notes. A note cannot invoke tools or confirm production settings. It is not unlimited semantic recall; model extraction is still fallible.
-- A card is an explicit decision (`show_card`), only eligible with a story direction. Once shown it stays anchored to its first assistant run.
-- Production tools, task identities, billing, tenancy, revision checks, confirmations and task recovery remain in PHP.
-- `execution=pause` handles mixed requests such as “one episode, 60 seconds, don't generate yet” without losing the newly supplied requirements.
-- One response remains one metered market call. SDK loops are not authorized to bypass the billing adapter.
+- `runtime.py` runs the actual Deep Agents SDK via a private stdio subprocess, with no HTTP listener, provider secrets or business database access. Its only exposed tool is the terminal `propose_decision`. Generic file, shell and delegation tools are blocked.
+- `DeepAgentConversationProvider` bridges the graph to the existing PHP model provider. The graph may request one model operation only. PHP seals that operation to the accepted model, prompt, context and attachments; the SDK cannot substitute parameters or request an extra paid iteration. Existing explicitly safe provider fallback still operates inside this one adapter operation.
+- The provider's existing JSON/SSE protocol is converted into a native SDK terminal tool call. This is a bounded dialogue graph, not an unrestricted autonomous planning/tool loop. The PHP domain prompt remains authoritative; SDK filesystem/tool boilerplate is not sent to the market model.
+- PHP checks capabilities, model output, pricing and settlement. It atomically saves the reply, source-backed memory and authorized action. No SDK tool directly creates media, changes billing or confirms a stage.
+- Current workflow state, 38 prior messages plus the current turn, and up to 32 source-backed preference notes form durable context. Active workflow dialogue keeps the original message roles and text. Production input remains the existing stage-specific prompt. This is bounded memory, not unlimited recall.
+- Information cards require an explicit model decision and a real story direction. Confirmed values are reused and existing cards retain their first message anchor.
+- Startup, scope and graph initialization are checked before paid submission. Once submitted, an uncertain outcome does not automatically resend a paid call.
 
-## Two adapters, different readiness
+## Persistence and migration
 
-1. **PHP JSON decision adapter**: integrated in `ConversationWorker`, using the existing market provider and SSE reply stream. Only server-configured `canvas_agent.dialogue_engine=decision_v1` is frozen into NEW threads. Default is legacy. Existing threads and queued runs do not change engine. To roll back new threads, remove this config field; do not rewrite in-flight snapshots.
-2. **Deep Agents candidate (`harness.py`)**: actual SDK graph with checkpoints and a single `propose_decision` tool. Built-in file, shell and delegation tools are excluded and blocked. The SDK emits the same proposal shape. It has no production credentials, DB connection or billing adapter. **It is not the live engine and is not deployed as an HTTP service.** Its offline replay checks SDK mechanics, not real model reasoning.
+PHP conversation tables are the durable checkpoint across processes and restarts: accepted immutable snapshots, run/outbox identities, ordered messages, workflow revisions, memory and execution events. The SDK checkpoint is intentionally in-process for one decision, scoped by tenant/user/canvas/thread. A second independent conversation database is not introduced.
 
-The Python SDK must use a server-authorized metered model adapter before any live deployment. No direct API key or unmetered provider is configured here. Checkpoints are in-memory for offline testing only; production would require tenant-scoped durable storage and operational recovery.
+At acceptance, ordinary dialogue selects the server/tenant engine and freezes it into the run. Existing thread settings are merged, never reset. Already queued/in-flight runs retain their original engine, model and workflow snapshots. Explicit production-stage confirmations and explicit Skills still use existing authorized domain executors; switching the dialogue engine does not rewrite those services.
 
-## Validation
+`agent.decision` events record the actual engine and chosen action. No schema, public request or billing contract change is required. Runtime availability has a dedicated public no-submission failure code.
 
-Follow AGENTS.md: commit on feature, merge locally, run on local develop.
+## Installation and rollback
 
-PHP: `SHORT_DRAMA_DB_TESTS=1 php vendor/bin/phpunit --filter 'CanvasAgentDecision' tests/Feature`
+Install on the PHP worker host/container, before enabling the source default. Python 3.11 or newer and PHP `proc_open` are required. Follow AGENTS.md for local execution on integrated develop.
 
-Python (use an external temporary venv; do not commit installed packages):
-
-```
-python3.12 -m venv /tmp/short-drama-agent-venv
-/tmp/short-drama-agent-venv/bin/pip install -r agent_runtime/short_drama/requirements.txt
-/tmp/short-drama-agent-venv/bin/python -m unittest discover -s agent_runtime/short_drama -p 'test_*.py' -v
+```sh
+python3 -m venv /opt/short-drama-agent
+/opt/short-drama-agent/bin/pip install -r agent_runtime/short_drama/requirements.txt
+/opt/short-drama-agent/bin/python agent_runtime/short_drama/runtime.py --health
 ```
 
-PHP tests replay greeting → preference → start → story → advice → mixed update/pause → conversation → resume through enqueue, Worker, executor, message/events and read APIs. They assert one reply per run, idempotency, no generation task, stable cards, saved memory and no workflow mutation on chat. Transactions roll back isolated tenant fixtures.
+Override the interpreter through the server environment key `short_drama_agent.python` if installed elsewhere. Do not expose it in browser preferences. Packages, virtualenvs and generated bytecode are not delivery source. Tracing is disabled, and provider keys are not passed into the subprocess environment.
 
-## Acceptance before rollout
+`config/short_drama_agent.php` supplies the global default. A server-controlled tenant `canvas_agent.dialogue_engine=legacy` provides emergency rollback for future accepted turns; `decision_v1` remains readable for existing snapshots. Do not rewrite in-flight snapshots, clear histories, reset workflow state or resend uncertain tasks during rollback. Restart long-running PHP workers after a source/config update, when no active runs would be interrupted.
 
-Use real-model dialogue evaluation only after separately authorizing model cost. Evaluate existing configured providers with the same conversations, including negation, corrections, ambiguous references, long chats, quoted instructions and missing images. Compare narrative with action, memory, UI and task state; successful HTTP/JSON is not sufficient. A failing case blocks rollout.
+## Validation without model charges
 
-Retain ordinary short-drama production as the only authority for script/asset/storyboard generation. Neither model-generated prose nor a framework's generic tool can bypass three-view readiness, stage confirmation, manual video generation, or paid-task idempotency.
+```sh
+SHORT_DRAMA_DB_TESTS=1 SHORT_DRAMA_AGENT_TESTS=1 php vendor/bin/phpunit --filter 'Canvas(DeepAgent|AgentDecision)' tests/Feature
+PYTHONDONTWRITEBYTECODE=1 LANGSMITH_TRACING=false LANGCHAIN_TRACING_V2=false /opt/short-drama-agent/bin/python -m unittest discover -s agent_runtime/short_drama -p 'test_*.py' -v
+```
+
+The additional `SHORT_DRAMA_AGENT_LOCAL_ROUTING_TESTS=1` test uses a configured local tenant catalog (tenant 1 by default, override `SHORT_DRAMA_TEST_TENANT`). It creates transactional temporary fixtures, calls the real acceptance service, executes the real SDK with a fake model transport, then rolls back. It never changes an original conversation or requests a paid generation.
+
+Replay covers greeting, preference memory, creation intent, story, aspect advice, mixed requirements/pause, conversation and resume; it verifies one reply per run, idempotency, fixed card anchors, no unintended generation and old-thread migration. SDK protocol tests cover the terminal tool, scope isolation, unauthorized tools, availability and one-operation budget.
+
+The earlier authorized Kimi evaluation below covered the decision contract. This SDK rollout has no new paid model evaluation: offline integration validates execution mechanics, not general reasoning quality. Every untested provider and production scenario is not implied to pass.
 
 ## Kimi acceptance — 2026-10-10
 
@@ -63,4 +70,5 @@ Two harness assertions were corrected without counting them as product defects: 
 
 Regression result: 108 PHP tests / 701 assertions passed in the focused dialogue, state, workflow and provider suite; 3 actual Deep Agents SDK offline graph tests passed. A broader existing Canvas suite still has 12 errors from missing hard-coded compiled frontend filenames and one model-row ordering failure; those are not a passing full-suite result.
 
-Rollout decision: keep tenant defaults on `legacy`; only the isolated evaluation thread uses `decision_v1`. Seven post-fix turns are not evidence for long-context reliability, every production stage, or untested models. No production Deep Agents service has been activated. Further live testing requires a new explicit cost authorization; offline regression remains available without it.
+
+Historical rollout after the Kimi evaluation was legacy by default. The subsequent user-authorized complete replacement enables `deepagents_v1` after SDK integration replay; the prior paid-call budget remains exhausted.

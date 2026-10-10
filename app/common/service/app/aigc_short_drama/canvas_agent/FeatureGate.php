@@ -90,7 +90,7 @@ final class FeatureGate
         return is_array($allowed) && in_array($key,array_map('strval',$allowed),true);
     }
 
-    /** Opt-in rollout; frozen per new thread, never changes in-flight requests. */
+    /** Server default with tenant rollback. Frozen per accepted run, not thread. */
     public static function dialogueEngine(int $tenant): string
     {
         $engine=self::config($tenant)['canvas_agent']['dialogue_engine']??\think\facade\Config::get('short_drama_agent.engine','legacy');
