@@ -44,11 +44,13 @@ class ShortDramaDirectGenerationTest extends TestCase
         }
     }
 
-    public function testAllNewCreationStagesSkipReviewWhileLegacyRemainsFrozen(): void
+    public function testInputVersionDoesNotOverrideRequestedReviewPolicy(): void
     {
         foreach(['story','outline','production'] as $stage) {
             $request=Contract::begin(['multi_episode_stage'=>$stage,'quality_review_enabled'=>true]);
             self::assertTrue(Direct::enabled($request));
+            self::assertTrue(Workflow::qualityReviewEnabled($request));
+            $request['quality_review_enabled'] = false;
             self::assertFalse(Workflow::qualityReviewEnabled($request));
         }
         self::assertFalse(Direct::enabled(['_input_contract_version'=>8]));
