@@ -30,13 +30,17 @@ final class ConversationAgentDecision
 
     public static function instruction(array $routing): string
     {
+        $actions=self::actions($routing);
+        $canConfigure=(bool)array_intersect($actions,['start_project','update_requirements']);
+        $actions=array_values(array_diff($actions,['start_project','update_requirements']));
+        if($canConfigure) $actions[]='configure_project';
         return "\n【统一对话决策】本轮只做一次决策，不需要猜测多个互相重复的意图标签。"
             .'输出 JSON：{"reply_markdown":"给用户的自然回复","action":{"name":"respond","arguments":{}},"remember":[]}。先输出 reply_markdown，以便流式展示。'
-            .'本轮可用动作仅有：'.implode('、',self::actions($routing)).'。'
+            .'本轮可用动作仅有：'.implode('、',$actions).'。'
             .'respond：正常聊天、解释、建议、独立文本创作或澄清，arguments={}，不会更改制作状态，也不会重新弹出旧卡片。'
-            .'start_project：用户要求开始完整短剧制作时使用。update_requirements：用户明确补充、更改当前制作要求时使用。两者 arguments={"intake":{"candidates":[],"questions":[]},"show_card":false,"execution":"preserve"}。'
+            .'configure_project：用户要求开始完整短剧制作或明确补充、更改制作要求时使用。系统按真实状态创建或更新草稿，你不需要判断项目是否已建立。arguments={"intake":{"candidates":[],"questions":[]},"show_card":false,"execution":"preserve"}。'
             .'即使没有故事方向也可开始交流，但不能假造故事。show_card=true 表示本轮明确邀请用户填写制作参数；没有实际故事方向时必须 false。用户说先聊故事、暂不填参数时 false；已经展示的历史卡片保留原位。'
-            .'start_project/update_requirements 的 execution 取 preserve、pause、resume；通常 preserve，用户同时补充要求并说先别生成时用 pause，明确恢复才用 resume。'
+            .'configure_project 的 execution 取 preserve、pause、resume；通常 preserve，用户同时补充要求并说先别生成时用 pause，明确恢复才用 resume。'
             .'pause/resume：只有明确要求暂停/恢复后续制作才调用，arguments={}；咨询怎么暂停只是 respond。暂停不代表取消正在运行的任务。'
             .'revise_stage：明确要求重做已完成内容时 arguments={"stage":"阶段key"}；仅允许：'.implode('、',(array)($routing['revision_allowed_stages']??[])).'。'
             .'回复与动作必须一致。操作将在回复完成并校验后提交，不能预先宣称成功。待确认或等待素材时仍可正常聊天；执行条件由后端检查，不能绕过。'
@@ -54,6 +58,13 @@ final class ConversationAgentDecision
             || !ConversationResponseJson::hasKeys($raw['action'],['name','arguments'])) throw new RuntimeException('INVALID_AGENT_INTENT');
         $routing=(array)($context['intent_routing']??[]);
         $action=$raw['action']['name'];$args=$raw['action']['arguments'];
+        // The model supplies requirements; the server owns create/update state.
+        // Normalize only when the frozen phase actually allows this operation.
+        if($action==='configure_project') {
+            $target=($routing['kind']??'')==='active_workflow'?'update_requirements':'start_project';
+            if(!in_array($target,self::actions($routing),true)) throw new RuntimeException('INVALID_AGENT_INTENT');
+            $action=$target;$raw['action']['name']=$target;
+        }
         if (!is_string($action) || !in_array($action,self::actions($routing),true) || !is_array($args)) throw new RuntimeException('INVALID_AGENT_INTENT');
         // Memory is advisory. A bad note must not discard an otherwise valid reply.
         try { $raw['remember']=ConversationAgentMemory::validate($raw['remember'],$context); }

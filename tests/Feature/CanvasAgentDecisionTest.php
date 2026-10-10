@@ -60,6 +60,20 @@ class CanvasAgentDecisionTest extends TestCase
         $settings=Decision::commit(['workflow_state'=>$state],self::reply('start_project',self::intake([],true)),10);
         self::assertFalse($settings['workflow_state']['intake_presentation']['visible']);
     }
+    public function testRequirementProposalUsesServerOwnedLifecycle(): void {
+        foreach([false,true] as $active) {
+            $context=$this->context($active);
+            $parsed=Decision::parse(json_encode(self::reply('configure_project',self::intake(['story_direction'=>'程序员大战孙悟空']))),$context);
+            self::assertSame($active?'update_requirements':'start_project',$parsed['decision']['action']['name']);
+            $prompt=Decision::instruction($context['intent_routing']);
+            self::assertStringContainsString('configure_project',$prompt);
+            self::assertStringNotContainsString('start_project',$prompt);
+            self::assertStringNotContainsString('update_requirements',$prompt);
+        }
+        $context=$this->context(true);$context['intent_routing']['workflow_paused']=true;
+        $this->expectExceptionMessage('INVALID_AGENT_INTENT');
+        Decision::parse(json_encode(self::reply('configure_project',self::intake())),$context);
+    }
     public function testForbiddenAndOutOfPhaseActionsCannotPass(): void {
         $bad=[self::reply('generate_video'),self::reply('update_requirements',self::intake()),self::reply('pause'),
             self::reply('respond',['nodes'=>[['type'=>'video']]])];
