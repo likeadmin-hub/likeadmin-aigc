@@ -61,6 +61,9 @@ final class ConversationCreativePlan
         $brief=trim((string)($state['creative_brief']??''));
         $delegated=preg_match('/(?:全部|所有|都).{0,8}(?:你决定|你来定|自行决定)/u',$brief)
             && !preg_match('/不要|不必|先别|暂不/u',$brief);
+        if (!$delegated) foreach ($candidates as $key=>$candidate) {
+            if (($candidate['source']??'')==='suggestion' && !in_array($key,self::REQUIRED,true)) unset($candidates[$key]);
+        }
         // A user's own brief is the creation request, not an invitation to
         // replace it with a model-designed plot or a concatenated greeting.
         if ($brief!=='' && empty($state['slot_values']['story_direction'])) {
@@ -74,7 +77,10 @@ final class ConversationCreativePlan
                 unset($candidates[$key]);
                 continue;
             }
-            if (isset($candidates[$key]) && (($candidates[$key]['source']??'')!=='suggestion' || $delegated)) continue;
+            $label=['episode_count'=>'集数','episode_duration'=>'时长','visual_style'=>'画风|视觉风格','aspect_ratio'=>'比例|画幅'][$key]??'故事方向';
+            $fieldDelegated=$delegated || (!preg_match('/不要|不必|先别|暂不/u',$brief)
+                && preg_match('/(?:'.$label.').{0,8}(?:你决定|你来定|自行决定)/u',$brief));
+            if (isset($candidates[$key]) && (($candidates[$key]['source']??'')!=='suggestion' || $fieldDelegated)) continue;
             $candidates[$key]=['value'=>'','source'=>'suggestion','evidence'=>'尚未提供，请选择或填写'];
         }
         // Extracted values are not executable settings until this entire card is accepted.
