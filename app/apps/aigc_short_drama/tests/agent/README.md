@@ -1,10 +1,13 @@
 # 短剧画布 Agent 本地验收
 
-所有验收均复用现有本地 Baota 服务、应用当前配置的本地数据库和现有 Worker。不得创建 Docker 测试网络、测试数据库、测试镜像、额外容器或独立进程守护。
+本文的 `p0` 至 `p6` 脚本用于复用现有本地 Baota 服务、应用当前配置的本地数据库和现有 Worker。执行这类现有服务验收时，不额外创建业务 Worker 或独立守护，不向业务进程注入崩溃故障。
+
+PHPUnit 自动化测试可使用独立 MySQL、Redis、测试镜像与临时测试网络，优先通过数据库副本隔离业务数据。测试代码目录、连接、缓存和生命周期必须与当前业务分开，结束后只清理本次创建的资源。隔离测试不能代替现有服务或真实 Provider 的验收。
 
 ## 前置条件
 
-- `baota` 容器、MySQL、PHP 和既有 `short-drama-canvas-agent` Worker 均为运行态。
+- 当前本地 Baota 容器、MySQL 和所需 Worker 均为运行态；容器名以实际配置为准，当前工作区为 `bt`。
+- 网站、验收 CLI 和对应 Worker 使用 PHP 8.2。短剧对话执行使用 `neuron-core/neuron-ai` PHP SDK，不安装 Deep Agents 或 Python requirements；在共享宝塔环境中不要直接调用可能仍指向 PHP 8.0 的全局 `php`。
 - 应用已有的短剧画布迁移必须先由正常本地升级流程应用；测试不会自动执行迁移，也不会补建表。
 - 并发与崩溃测试需要测试专用的 `la_aigc_short_drama_test_provider_receipt` 表。若当前本地库缺少此表，先核对目标库，再手动执行 `fixtures/provider_receipt.sql`；不要在生产库执行。
 - 所有会写入夹具的脚本必须显式传入 `SHORT_DRAMA_AGENT_TEST=local-existing`；未传入时会在任何写入前退出。
@@ -17,7 +20,7 @@
 
 ```sh
 docker exec -e SHORT_DRAMA_AGENT_TEST=local-existing -w /www/wwwroot/likeadmin_aigc_saas/server bt \
-  php app/apps/aigc_short_drama/tests/agent/p0_baseline.php
+  /www/server/php/82/bin/php app/apps/aigc_short_drama/tests/agent/p0_baseline.php
 ```
 
 按阶段串行运行其他脚本，任一失败立即停止；不要并行运行共享夹具：
@@ -25,7 +28,7 @@ docker exec -e SHORT_DRAMA_AGENT_TEST=local-existing -w /www/wwwroot/likeadmin_a
 ```sh
 for test_file in p0_generation p0_controller p0_http p1_graph p1_graph_wire p1_graph_operations p1_concurrency p1_poster_save p1_save_cas p1_read_recovery p1_revision_integration p1_migrations p1_generation_intent p1_generation_projection p1_manual_authority p1_generation_crash p2_migrations p2_conversation p2_conversation_concurrency p2_execution p2_settings p2_send p2_http p2_worker p2_queue_crash p2_stop p2_stop_race p2_recovery p2_attachments p2_safety p2_reconciliation p3_asset_version_reference p3_connection_matrix p3_preflight_rejection p3_private_signed_url p3_quote p3_quote_confirmation p3_reference_assets p4_agent_auto_recovery p4_agent_dependency_scheduler p4_agent_generation_mode p5_agent_node_layout p5_compact_canvas_projection p5_multi_skill_workflow p5_shared_submission_templates p6_local_compatibility; do
   docker exec -e SHORT_DRAMA_AGENT_TEST=local-existing -w /www/wwwroot/likeadmin_aigc_saas/server bt \
-    php "app/apps/aigc_short_drama/tests/agent/${test_file}.php" || exit 1
+    /www/server/php/82/bin/php "app/apps/aigc_short_drama/tests/agent/${test_file}.php" || exit 1
 done
 ```
 
@@ -33,12 +36,12 @@ done
 
 ## 浏览器验收
 
-三份 PC 浏览器脚本会通过 `docker exec baota` 启动受限本地 HTTP 桥，并使用本机的 PC 开发服务。它们不会创建镜像、网络或数据库：
+PC 浏览器脚本通过 `docker exec` 启动受限本地 HTTP 桥，并使用本机的 PC 开发服务。现有脚本仍写死旧容器 `baota`、旧目录 `/www/wwwroot/likeadmin-aigc/server` 和 PHP 8.0 路径，不能直接用于当前工作区验收；执行前必须先适配为实际容器 `bt`、目录 `/www/wwwroot/likeadmin_aigc_saas/server` 和 `/www/server/php/82/bin/php`。未适配时记录为 BLOCKED，不得算作 PHP 8.2 浏览器验收通过。
+
+适配完成后，从前端 `web` 仓库执行，使用本机已安装 Playwright 的 Node.js 环境；脚本不会创建镜像、网络或数据库：
 
 ```sh
-CANVAS_TEST_BROWSER_CHANNEL=chrome NODE_PATH=/Users/panda/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules \
-  /Users/panda/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node \
-  pc/tests/short-drama-agent-http-browser.cjs
+CANVAS_TEST_BROWSER_CHANNEL=chrome node pc/tests/short-drama-agent-http-browser.cjs
 ```
 
 需要覆盖四类节点的模拟回归时，仅允许在当前本地运行态显式设置 `CANVAS_TEST_MOCK_GENERATION=1`；该开关只替换测试路径的最下游 Provider，不代表真实 Provider 验收。
