@@ -6,8 +6,8 @@ class PcHomePresentationService
 {
     public static function topMode(): string
     {
-        $mode = ConfigService::get('website', 'pc_home_top_mode', 'shortcuts');
-        return in_array($mode, ['shortcuts', 'composer'], true) ? $mode : 'shortcuts';
+        $mode = ConfigService::get('website', 'pc_home_top_mode', 'composer');
+        return in_array($mode, ['shortcuts', 'composer'], true) ? $mode : 'composer';
     }
 
     public static function save(array $params): void
