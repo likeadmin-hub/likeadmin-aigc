@@ -8,6 +8,30 @@ location ^~ /platform/ {
     try_files $uri $uri/ /platform/index.html;
 }
 
+# Tenant-admin history routes must reload the SPA instead of entering PHP
+# tenant-domain resolution. Business APIs retain the ThinkPHP rewrite below.
+location = /admin {
+    try_files /admin/index.html =404;
+}
+
+location ^~ /admin/ {
+    # Keep sensitive files and executable source out of this static namespace.
+    location ~ /\. {
+        return 404;
+    }
+    location ~* \.(php|phtml|phar)(/|$) {
+        return 404;
+    }
+    location ~* (runtime|application)/ {
+        return 403;
+    }
+    # A stale asset URL is a real 404, not an HTML document served as JS/CSS.
+    location /admin/assets/ {
+        try_files $uri =404;
+    }
+    try_files $uri $uri/ /admin/index.html;
+}
+
 # Other requests retain the existing ThinkPHP rewrite.
 location / {
     if (!-e $request_filename) {
