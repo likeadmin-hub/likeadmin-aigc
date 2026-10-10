@@ -69,9 +69,9 @@ final class ConversationSeries
         return $state;
     }
     /** Project production data to readable text. Never truncate a source silently. */
-    public static function text(array $plan,string $stage,int $episode): string
+    public static function text(array $plan,string $stage,int $episode,bool $project=true): string
     {
-        $plan=\app\common\service\app\aigc_short_drama\ShortDramaResultProjection::normalize($plan);
+        if($project) $plan=\app\common\service\app\aigc_short_drama\ShortDramaResultProjection::normalize($plan);
         if ($stage==='outline') {
             $lines=['# 分集大纲'];
             foreach ((array)($plan['episodes']??[]) as $item) {
