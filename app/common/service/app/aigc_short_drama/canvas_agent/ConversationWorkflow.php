@@ -526,6 +526,7 @@ final class ConversationWorkflow
             $settings=self::settings($row);$state=self::stateFromSettings($settings);
             if ($state===[]) throw new RuntimeException('WORKFLOW_NOT_ACTIVE');
             self::assertState($state);
+            $state['intake_anchor_run_id']=self::intakeAnchorRun($tenant,$user,$canvas,$thread,$state);
             if ($slot==='next_episode' && !empty($state['series']['next_page_id'])) return ['workflow'=>self::publicState($state),'card'=>self::card($state),'next_page_id'=>(int)$state['series']['next_page_id'],'canvas_project_id'=>\app\common\service\app\aigc_short_drama\ShortDramaCanvasPages::root($tenant,$user,$canvas)];
             if ((int)$state['state_revision']!==$expectedRevision) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
             if ($slot==='image_model') {
