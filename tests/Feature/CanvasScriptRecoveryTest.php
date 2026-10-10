@@ -14,6 +14,7 @@ class CanvasScriptRecoveryTest extends TestCase
             $canvas=Canvas::create($tenant,$user,['title'=>'Recovery fixture'])['id'];$thread=Store::create($tenant,$user,$canvas,'repair-test')['id'];
             $plan=['title'=>'测试','subjects'=>[],'locations'=>[],'storyboard'=>[],
                 'character_profiles'=>[['id'=>'a','name'=>'角色']],
+                'scene_script'=>[['scene_id'=>'office','dialogue'=>[['character'=>'角色','line'=>'正文对白']]]],
                 'storyboard_script'=>[['shot_id'=>'s','dialogue'=>'原始对白','recommended_duration_seconds'=>7]]];
             $old=Series::text($plan,'episode',1,false);$task='repair-'.$tenant;
             Db::name('aigc_short_drama_script_task')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$task,'status'=>'success','result_json'=>$json($plan)]);
@@ -31,7 +32,7 @@ class CanvasScriptRecoveryTest extends TestCase
             self::assertTrue(Recovery::recover($tenant,$user,$canvas,$thread)['changed']);
             self::assertFalse(Recovery::recover($tenant,$user,$canvas,$thread)['changed']);
             $message=Db::name(Store::PREFIX.'message')->where('id',$mid)->find();self::assertSame(2,(int)$message['sequence']);self::assertSame(1,(int)$message['create_time']);
-            self::assertStringContainsString('原始对白',$message['content_json']);self::assertSame(0,Db::name(Store::PREFIX.'run')->where('thread_id',$thread)->count());
+            self::assertStringContainsString('正文对白',$message['content_json']);self::assertStringNotContainsString('原始对白',$message['content_json']);self::assertSame(0,Db::name(Store::PREFIX.'run')->where('thread_id',$thread)->count());
         }finally{Db::rollback();}
     }
 }
