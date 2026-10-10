@@ -41,3 +41,26 @@ PHP tests replay greeting → preference → start → story → advice → mixe
 Use real-model dialogue evaluation only after separately authorizing model cost. Evaluate existing configured providers with the same conversations, including negation, corrections, ambiguous references, long chats, quoted instructions and missing images. Compare narrative with action, memory, UI and task state; successful HTTP/JSON is not sufficient. A failing case blocks rollout.
 
 Retain ordinary short-drama production as the only authority for script/asset/storyboard generation. Neither model-generated prose nor a framework's generic tool can bypass three-view readiness, stage confirmation, manual video generation, or paid-task idempotency.
+
+## Kimi acceptance — 2026-10-10
+
+Authorization: Kimi only, at most 12 paid text turns; no image/video generation and no mutation of the original conversation. Local tenant 1, model ID 12 (`kimi-k3`), isolated canvas 417 / thread 834. The internal frozen evaluation allowlist excludes every other fallback model. The resumable harness counts prior runs against its 12-turn ceiling.
+
+Exactly 12 conversation runs were submitted: 10 succeeded, 2 failed before the fix. Initial failures were `UNSUPPORTED_MODEL_RESPONSE` / `INVALID_AGENT_INTENT`: the model chose `update_requirements` after a natural clarification, while no project draft existed yet. The repair exposes one `configure_project` operation to the model and lets the server select create/update from the frozen workflow state. It does not relax phase eligibility or enable generation tools. After this repair, seven successive real turns succeeded.
+
+Verified in real replies and durable state:
+- Greeting and response-length preference did not start production; the preference was retained with user evidence.
+- A story premise became the draft story without concatenated greetings.
+- Aspect-ratio advice did not set an unchosen ratio.
+- One episode / 60 seconds and pause were applied together.
+- The model recalled the story, episode count and duration correctly.
+- Changing duration to 90 seconds retained other facts and the paused state.
+- Resume cleared pause while missing requirements still prevented production.
+- Explicit 16:9 plus a request for remaining choices produced a card containing only `visual_style`; the other four fields were not asked again.
+- No canvas nodes or production stages were created by this evaluation.
+
+Two harness assertions were corrected without counting them as product defects: a natural clarification need not start a project immediately, and `一集` is a valid semantic equivalent of `1集`. The paid budget includes those turns and both rejected attempts; no further live calls are authorized by this run.
+
+Regression result: 108 PHP tests / 701 assertions passed in the focused dialogue, state, workflow and provider suite; 3 actual Deep Agents SDK offline graph tests passed. A broader existing Canvas suite still has 12 errors from missing hard-coded compiled frontend filenames and one model-row ordering failure; those are not a passing full-suite result.
+
+Rollout decision: keep tenant defaults on `legacy`; only the isolated evaluation thread uses `decision_v1`. Seven post-fix turns are not evidence for long-context reliability, every production stage, or untested models. No production Deep Agents service has been activated. Further live testing requires a new explicit cost authorization; offline regression remains available without it.
