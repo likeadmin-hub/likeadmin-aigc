@@ -21,8 +21,8 @@ class CanvasScriptDetailsTest extends TestCase
     }
     public function testSeriesStagesRemainSeparateAndInOrder(): void
     {
-        self::assertSame('episode',Policy::firstStage(['slot_values'=>['episode_count'=>'1集']]));
-        self::assertSame('story',Policy::firstStage(['slot_values'=>['episode_count'=>'3集']]));
+        self::assertSame('episode',Policy::firstStage(['workflow_snapshot'=>['creative_policy_version'=>Policy::VERSION],'slot_values'=>['episode_count'=>'1集']]));
+        self::assertSame('story',Policy::firstStage(['workflow_snapshot'=>['creative_policy_version'=>Policy::VERSION],'slot_values'=>['episode_count'=>'3集']]));
         self::assertSame('outline',Series::next('story'));self::assertSame('episode',Series::next('outline'));
         $plan=['title'=>'测试','story_outline'=>'故事方向','series_bible'=>['world_rules'=>'规则','series_arc'=>'主线'],
             'episodes'=>[['episode_number'=>1,'title'=>'开篇','story_outline'=>'本集大纲','ending_hook'=>'悬念']],
