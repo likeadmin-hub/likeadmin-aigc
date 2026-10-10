@@ -34,13 +34,13 @@ class CanvasCreativePlanPersistenceTest extends TestCase
             $view=Workflow::read($tenant,$user,$canvas,$thread);
             self::assertSame('intake_review',$view['card']['type']);
             self::assertTrue($view['card']['full_plan']);
-            self::assertCount(5,$view['card']['candidates']);
+            self::assertCount(4,$view['card']['candidates']);
             try { Workflow::answer($tenant,$user,$canvas,$thread,1,'intake_review','{"episode_count":"3集"}');self::fail('Partial plan accepted'); }
             catch(\RuntimeException $e) { self::assertSame('INVALID_WORKFLOW_ANSWER',$e->getMessage()); }
-            $values=['story_direction'=>'程序员穿越西游，与孙悟空合作','episode_count'=>'3集','episode_duration'=>'120秒','visual_style'=>'国风水墨','aspect_ratio'=>'16:9'];
+            $values=['episode_count'=>'3集','episode_duration'=>'120秒','visual_style'=>'国风水墨','aspect_ratio'=>'16:9'];
             $view=Workflow::answer($tenant,$user,$canvas,$thread,1,'intake_review',json_encode($values,JSON_UNESCAPED_UNICODE));
             self::assertSame('story',$view['workflow']['stage_state']['key']);
-            self::assertSame($values,$view['workflow']['slot_values']);
+            self::assertSame(['story_direction'=>'程序员大战孙悟空']+$values,$view['workflow']['slot_values']);
             self::assertSame('16:9',$view['workflow']['creative_settings']['aspect_ratio']);
             self::assertSame('国风水墨',$view['workflow']['creative_settings']['style_name']);
             $saved=json_decode(Db::name(Store::PREFIX.'thread')->where('id',$thread)->value('settings_json'),true)['workflow_state'];
