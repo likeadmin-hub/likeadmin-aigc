@@ -53,7 +53,7 @@ final class ConversationService
                 // A continuing workflow keeps the models and auto/manual
                 // policy confirmed at its start. Resolve the frozen IDs again
                 // against the current tenant catalog before any Provider call.
-                $preferences=ConversationWorkflow::frozenPreferences($current,$preferences);
+                $preferences=ConversationWorkflow::frozenPreferences($current,$preferences,$workflowAuto);
             }
             $settings=ConversationSettings::resolve($tenant,$preferences);
             // Freeze server-resolved model identities, not mutable browser
