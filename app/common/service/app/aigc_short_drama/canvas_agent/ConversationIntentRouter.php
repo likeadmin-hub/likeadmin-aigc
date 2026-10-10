@@ -17,6 +17,17 @@ final class ConversationIntentRouter
     private const DELIVERABLES=['none','text','image','video','full_drama'];
     private const SCOPES=['conversation','standalone','workflow','uncertain'];
 
+    public static function isSocialTurn(string $content): bool
+    {
+        return preg_match('/^\s*(?:你好(?:呀|啊|哇)?|您好|嗨|哈喽|早上好|下午好|晚上好|早安|晚安|谢谢(?:你)?|再见|hello|hi|hey)[\s。！!，,.～~👋😊]*$/iu',$content)===1;
+    }
+
+    public static function socialInstruction(): string
+    {
+        return '本轮是纯问候或礼貌交流，按普通聊天自然简短回应。不要提及、催办、复述历史创作项目、缺失设定或信息卡，也不要举制作参数的例子。'
+            .'只返回 JSON：intent=chat、confidence=1、skill_key=""、reply_markdown=自然回复、speech_act=chat、deliverable=text、scope=conversation；workflow_output=null。不得推进或修改工作流。';
+    }
+
     public static function shouldClassify(int $tenant,string $content,array $skill,array $workflow): bool
     {
         $plain=mb_strtolower(trim($content),'UTF-8');

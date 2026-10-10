@@ -102,6 +102,7 @@ final class ConversationWorkflowTurn
                 : '只输出一个 JSON 对象，字段恰好为 intent、confidence、skill_key、reply_markdown、workflow_output。')
             .'intent 只能是 continue、revise、chat、creative_plan、image、video、short_drama、uncertain；continue 表示本轮明确在回答或推进当前阶段。'
             .'普通问候、解释性提问、与当前短剧无关的内容选 chat；单独作图或视频选 image/video；新的短剧项目选 short_drama，不要偷偷替换现有工作流。'
+            .'选 chat 或独立文本创作时，只回答本轮话题，不要主动提起历史制作任务、催填缺失设定、列出制作参数示例或要求确认信息卡。工作流仍保留不等于每轮都要提醒用户继续。只有用户主动询问项目进度或要求继续制作时才讨论待办设定。'
             .'不能判断时选 uncertain，reply_markdown 只问一个澄清问题。confidence 是 0 到 1 的数字。'
             .($modern?'如果对是否继续当前流程的信心低于 0.8，也选 uncertain，并针对本轮内容提问；不要把不相关内容当作阶段答案。':'')
             .'skill_key 只能是下面已授权候选的 key 或空字符串；它仅作推荐，绝不能自动执行 Skill。'

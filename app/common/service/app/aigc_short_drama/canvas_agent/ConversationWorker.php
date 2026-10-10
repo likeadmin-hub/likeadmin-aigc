@@ -47,6 +47,13 @@ final class ConversationWorker
                     .ConversationShotTiming::instruction((array)($messageContext['workflow']??[])),
                 'request_timeout_seconds'=>120,'automatic_retry'=>false,
             ];
+            $lastMessage=end($context['messages']);
+            if ($activeRouting && ConversationIntentRouter::isSocialTurn((string)($lastMessage['content']??''))) {
+                // A social turn retains the workflow in storage, not in the
+                // model's current task. No stage skills or intake reminders.
+                $request['messages']=[['role'=>'user','content'=>(string)$lastMessage['content']]];
+                $request['system_prompt']='你是友好的对话助手。'.ConversationIntentRouter::socialInstruction();
+            }
             $responseFormat=($intentRouting || $intakeAnalysis) ? ['type'=>'json_object'] : ConversationActionPlan::responseFormat($workflowStage);
             if ($responseFormat!==null) {
                 $request['response_format']=$responseFormat;
