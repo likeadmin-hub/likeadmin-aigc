@@ -74,6 +74,7 @@ class WebSettingLogic extends BaseLogic
             'pc_login_bg_poster' => $pcLoginBgPoster ? FileService::getFileUrl($pcLoginBgPoster) : '',
             'pc_login_bg_poster_url' => $pcLoginBgPoster ? FileService::getFileUrl($pcLoginBgPoster) : '',
             'pc_home_style' => ConfigService::get('website', 'pc_home_style', 'default'),
+            'pc_home_top_mode' => \app\common\service\PcHomePresentationService::topMode(),
             'pc_home_shortcuts_editor' => \app\common\service\PcHomeShortcutsService::editor(),
             'pc_home_bg_type' => ConfigService::get('website', 'pc_home_bg_type', 'none'),
             'pc_home_bg' => $pcHomeBgList,
@@ -136,6 +137,7 @@ class WebSettingLogic extends BaseLogic
         ConfigService::set('website', 'pc_login_bg', $pcLoginBg);
         ConfigService::set('website', 'pc_login_bg_poster', $pcLoginBgPoster);
         ConfigService::set('website', 'pc_home_style', $pcHomeStyle);
+        \app\common\service\PcHomePresentationService::save($params);
         ConfigService::set('website', 'pc_home_bg_type', $pcHomeBgType);
         ConfigService::set('website', 'pc_home_bg', $pcHomeBg);
         ConfigService::set('website', 'pc_home_bg_poster', $pcHomeBgPoster);
