@@ -62,7 +62,7 @@ final class ConversationIntentRouter
                 .'仅当用户明确要制作包含剧本、角色、场景、分镜等连续阶段的完整短剧，或明确回答上一轮澄清要选择完整短剧时，才设置 intent=short_drama、deliverable=full_drama、scope=workflow、speech_act=request/answer/confirm。提到“短剧”但只要一份剧本，仍是 standalone。'
                 .'无法确认完整制作与单次创作的范围、或对创作意图的信心低于 0.8 时，scope=uncertain、intent=uncertain，在 reply_markdown 只问一个针对本轮内容的区分问题。不要默认为完整短剧。'
                 .'confidence 是 0 到 1 的数字。skill_key 只能从下列已授权候选中选一个或填空；推荐不等于自动执行。'
-                .'reply_markdown 始终为非空文本：完整短剧先给贴合素材的简短创作方向，未知制作参数不要逐项追问；普通请求给出真实答复。'
+                .'reply_markdown 始终为非空文本：完整短剧只简短承接用户题材，未知制作参数留给信息卡，不要先设计方案；普通请求给出真实答复。'
                 .'用户已经明确的主题、集数、时长、画风、比例直接沿用，不得再次询问；例如“一集60s”已经明确集数和时长，不要再问单集还是多集。'
                 .'用户回答紧邻选项的 B 或完整制作时，直接进入待确认方案，不再追问是否选择完整制作。'
                 .'仅当 intent=short_drama 且 deliverable=full_drama 且 scope=workflow 时填写 intake，否则 intake 为 {"candidates":[],"questions":[]}。'
