@@ -86,6 +86,7 @@ final class ConversationStore
                     // Node material is data, never privileged instructions.
                     $selected[(string)$node['id']]=[
                         'id'=>(string)$node['id'],'type'=>$node['type'],'x'=>$node['x']??0,'y'=>$node['y']??0,
+                        'title'=>(string)($node['title']??'引用素材'),
                         'content_revision'=>$node['metadata']['content_revision']??0,
                         'content'=>$node['metadata']['content']??'',
                         'prompt'=>$node['metadata']['prompt']??'',
@@ -274,6 +275,7 @@ final class ConversationStore
             $candidates=ConversationReferenceResolver::publicCandidates($content['reference_candidates']??null);
             if ($candidates) $message['reference_candidates']=$candidates;
             $snapshot=Db::name(self::PREFIX.'run')->where($scope+['id'=>$row['run_id'],'thread_id'=>$thread,'delete_time'=>0])->value('context_snapshot');
+            if ($row['role']==='user') $message['materials']=ConversationMessageMaterials::project($scope,$message['attachments'],json_decode((string)$snapshot,true)?:[]);
             $references=[];
             foreach ((json_decode((string)$snapshot,true)['selected_nodes']??[]) as $node) {
                 if (($node['type']??'')==='text') $references[]=['node_id'=>(string)$node['id'],'content_revision'=>(int)($node['content_revision']??0),'text'=>(string)($node['content']??'')];
