@@ -250,6 +250,9 @@ final class ConversationStore
                     if ($saved) $content['video_nodes']=$saved;
                 }
             }
+            if ($row['role']==='assistant' && isset($content['stage_artifacts'])) {
+                $content['stage_artifacts']=array_map(static fn(array $item): array=>ConversationArtifactDisplay::item($item),$content['stage_artifacts']);
+            }
             $message=['id'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'role'=>$row['role'],'created_at'=>(int)$row['create_time'],'content'=>$content,'attachments'=>json_decode($row['attachments_json'],true,512,JSON_THROW_ON_ERROR)];
             $actions=$content['canvas_actions']??null;
             if ($actions!==null) {

@@ -180,6 +180,7 @@ final class ConversationExecution
             // immutable conversation turn, including superseded revisions.
             if ($stagePlanSettings!==null || $planSettings!==null) {
                 $content['stage_artifacts']=array_map(static fn(array $node): array=>[
+                    'stage'=>(string)($workflow['stage_state']['key']??''),'artifact'=>(string)($node['artifact']??''),'key'=>(string)($node['key']??''),
                     'title'=>(string)($node['title']??''),'content'=>(string)($node['prompt']??''),
                 ],(array)($stagePlanSettings['workflow_state']['stage_plan']['nodes']??$planSettings['workflow_state']['image_plan']['nodes']??[]));
             }

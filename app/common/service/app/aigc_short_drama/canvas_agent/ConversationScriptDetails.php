@@ -30,7 +30,13 @@ final class ConversationScriptDetails
             $bible=is_array($plan['series_bible']??null)?$plan['series_bible']:$plan;
             self::fields($lines,$bible,['audience'=>'目标受众','core_hook'=>'核心梗','logline'=>'一句话故事','relationships'=>'人物关系','world_rules'=>'世界规则','series_arc'=>'全剧主线与阶段反转']);
         }
-        $art=[];
+        $details=self::art($plan);
+        if($details!=='') $lines[]=$details;
+        return implode("\n\n",$lines);
+    }
+    public static function art(array $plan): string
+    {
+        $lines=[];$art=[];
         self::fields($art,(array)($plan['art_style']??[]),['base_style'=>'基础风格','visual_description'=>'视觉描述','color_tone'=>'色彩基调','lighting_design'=>'光影设计','camera_texture'=>'镜头质感','atmosphere_keywords'=>'氛围关键词']);
         if($art) $lines[]="## 画风设定\n\n".implode("\n\n",$art);
         foreach(['subjects'=>'主体角色','locations'=>'场景列表'] as $key=>$title) {

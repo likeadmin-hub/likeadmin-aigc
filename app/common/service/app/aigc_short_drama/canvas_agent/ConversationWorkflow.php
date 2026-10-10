@@ -1115,7 +1115,7 @@ final class ConversationWorkflow
             $internal=self::compactOutput($state) && in_array($stageKey,['art','video_plan'],true);
             if (ConversationSeries::requiresConfirmation($state)) return $stageCard+['type'=>'stage_confirmation','requires_user_confirmation'=>true,
                 'title'=>['story'=>'请确认故事设定','outline'=>'请确认分集大纲','episode'=>'剧本草稿已就绪','video_plan'=>'分镜表已就绪'][$stageKey],'body'=>'确认后继续下一阶段，已生成内容会保留。',
-                'artifacts'=>array_map(static fn($item)=>['title'=>$item['title'],'content'=>$item['prompt']],(array)($plan['nodes']??[])),
+                'artifacts'=>array_map(static fn($item)=>ConversationArtifactDisplay::item($item,(string)$stage['key']),(array)($plan['nodes']??[])),
                 'action_label'=>['story'=>'确认，生成分集大纲','outline'=>'确认，开始第1集创作','episode'=>'采用剧本，准备素材','video_plan'=>'确认分镜，插入画布'][$stageKey]];
             return $stageCard+['type'=>'stage_confirmation','title'=>'正在保存阶段成果','body'=>$internal?'系统会自动把规划保存到对话与工作流状态，不新增画布文本节点。':'系统会自动安全写入本阶段的结构化内容，随后继续下一阶段。','plan'=>['node_count'=>$internal?0:count((array)($plan['nodes']??[])),'artifact_count'=>count((array)($plan['nodes']??[]))],'action_label'=>'保存并继续'];
         }
@@ -1196,10 +1196,7 @@ final class ConversationWorkflow
     }
     private static function publicArtifacts(array $artifacts): array {
         $items=[];
-        foreach ($artifacts as $artifact) if (is_array($artifact)) $items[]=[
-            'stage'=>(string)($artifact['stage']??''),'artifact'=>(string)($artifact['artifact']??''),'title'=>(string)($artifact['title']??''),
-            'content'=>(string)($artifact['content']??''),
-        ];
+        foreach ($artifacts as $artifact) if (is_array($artifact)) $items[]=ConversationArtifactDisplay::item($artifact);
         return $items;
     }
     private static function validImagePlan(array $plan): bool {
