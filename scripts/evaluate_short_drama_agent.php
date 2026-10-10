@@ -30,7 +30,8 @@ if(isset($options['resume-thread'])) {
     $row=Db::name(Store::PREFIX.'thread')->where(['id'=>(int)$options['resume-thread'],'tenant_id'=>$tenant,'user_id'=>$user])->find();
     if(!$row || $row['title']!=='Agent 多轮验收' || (json_decode($row['settings_json'],true)['dialogue_engine']??'')!==Decision::ENGINE) throw new RuntimeException('Not an evaluation thread');
     $thread=(int)$row['id'];$canvas=(int)$row['canvas_id'];
-    if(Db::name(Store::PREFIX.'run')->where('thread_id',$thread)->count()!==$start) throw new RuntimeException('Resume offset must match used turns');
+    $used=Db::name(Store::PREFIX.'run')->where('thread_id',$thread)->count();
+    if($used<$start || $used+$max>12) throw new RuntimeException('Resume exceeds actual remaining budget');
 } else {
     if($start!==0) throw new RuntimeException('Start offset requires an evaluation thread');
     $canvas=Canvas::create($tenant,$user,['title'=>'Agent 多轮验收 '.date('m-d H:i')])['id'];
@@ -56,14 +57,25 @@ echo json_encode(['evaluation_started'=>$report],JSON_UNESCAPED_UNICODE)."\n";fl
 foreach(array_slice($cases,$start,$max,true) as $index=>[$text,$actions]) {
     // Freeze the model restriction before a background worker can claim the run.
     $ack=Db::transaction(function() use($tenant,$user,$canvas,$thread,$index,$text,$model) {
-        $ack=Service::send($tenant,$user,$canvas,$thread,['request_key'=>'eval-'.$index,'content'=>$text,
+        $ack=Service::send($tenant,$user,$canvas,$thread,['request_key'=>'eval-'.$index.'-'.bin2hex(random_bytes(4)),'content'=>$text,
             'selected_node_ids'=>[],'base_revision'=>0,'preferences'=>['reasoning_model'=>$model,'generation_mode'=>'manual']]);
         $context=json_decode(Db::name(Store::PREFIX.'run')->where('id',$ack['run_id'])->value('context_snapshot'),true);
         $context['evaluation_model_allowlist']=[$model];
         Db::name(Store::PREFIX.'run')->where('id',$ack['run_id'])->update(['context_snapshot'=>json_encode($context,JSON_UNESCAPED_UNICODE)]);
         return $ack;
     });
-    Worker::process($tenant,$user,$ack['run_id'],new Provider());
+    Worker::process($tenant,$user,$ack['run_id'],new class implements \app\common\service\app\aigc_short_drama\canvas_agent\ConversationProviderInterface {
+        public function preflight(int $tenant,int $user,array $request): void {(new Provider())->preflight($tenant,$user,$request);}
+        public function generate(int $tenant,int $user,array $request): array {
+            $validate=$request['result_validator'];
+            $request['result_validator']=static function(array $result) use($validate): void {
+                try {$validate($result);} catch(\Throwable $e) {
+                    echo json_encode(['rejected_decision'=>$result['content']??'', 'error'=>$e->getMessage()],JSON_UNESCAPED_UNICODE)."\n";flush();throw $e;
+                }
+            };
+            return (new Provider())->generate($tenant,$user,$request);
+        }
+    });
     $deadline=time()+130;
     do {
         $run=Db::name(Store::PREFIX.'run')->where('id',$ack['run_id'])->find();
