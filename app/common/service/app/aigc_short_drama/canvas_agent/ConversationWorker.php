@@ -47,7 +47,10 @@ final class ConversationWorker
                     .($intentRouting ? '' : ConversationShotTiming::instruction((array)($messageContext['workflow']??[]))),
                 'request_timeout_seconds'=>120,'automatic_retry'=>false,
             ];
-            $request['system_prompt'].=ConversationDialoguePolicy::instruction();
+            if (ConversationAgentDecision::enabled($context)) {
+                $request['system_prompt']=ConversationDialoguePolicy::instruction().ConversationAgentDecision::instruction($intentRouting);
+            } else $request['system_prompt'].=ConversationDialoguePolicy::instruction();
+            if (!empty($context['agent_memory'])) $request['system_prompt'].=ConversationAgentMemory::instruction($context['agent_memory']);
             $responseFormat=($intentRouting || $intakeAnalysis) ? ['type'=>'json_object'] : ConversationActionPlan::responseFormat($workflowStage);
             if ($responseFormat!==null) {
                 $request['response_format']=$responseFormat;
@@ -64,6 +67,7 @@ final class ConversationWorker
                     throw new RuntimeException('UNSUPPORTED_MODEL_RESPONSE');
                 }
                 $content=(string)($result['content']??'');
+                if (ConversationAgentDecision::enabled($context)) $content=ConversationAgentDecision::parse($content,$context)['legacy'];
                 if ($content==='') throw new RuntimeException('EMPTY_MODEL_RESPONSE');
                 ConversationSafety::assertOutput($tenant,$user,(int)$claim['canvas_id'],(int)$claim['thread_id'],$run,$content);
                 // Reject a stage response that looks successful but cannot be
@@ -130,14 +134,19 @@ final class ConversationWorker
             // Adapters with a settlement hook may have already checked this
             // before settlement. Test/local adapters are checked here.
             if (empty($result['safety_checked'])) ConversationSafety::assertOutput($tenant,$user,(int)$claim['canvas_id'],(int)$claim['thread_id'],$run,$result['content']);
+            $agentDecision=[];
+            if (ConversationAgentDecision::enabled($context)) {
+                $parsed=ConversationAgentDecision::parse($result['content'],$context);
+                $agentDecision=$parsed['decision'];$result['content']=$parsed['legacy'];
+            }
             if ($activeRouting) {
                 $decision=ConversationWorkflowTurn::parseConversation($result['content'],$intentRouting,$intakeSources);
-                return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],$decision['text'],$decision['nodes'],[],$decision['intake'],$decision)?'success':'needs_reconciliation';
+                return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],$decision['text'],$decision['nodes'],[],$decision['intake'],$decision,$agentDecision)?'success':'needs_reconciliation';
             }
             if ($intentRouting) {
                 $decision=ConversationIntentRouter::parseConversation($result['content'],$intentRouting,$intakeSources);
                 $text=ConversationIntentRouter::reply($decision,$intentRouting,$intakeSources);
-                return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],$text,[],$decision)?'success':'needs_reconciliation';
+                return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],$text,[],$decision,[],[],$agentDecision)?'success':'needs_reconciliation';
             }
             if ($intakeAnalysis) {
                 $draft=ConversationIntakeDraft::parseConversation($result['content'],(array)($context['workflow']['workflow_snapshot']['slot_schema']??[]),$intakeSources);

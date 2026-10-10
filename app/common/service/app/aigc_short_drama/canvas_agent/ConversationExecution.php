@@ -30,13 +30,13 @@ final class ConversationExecution
      * Complete a reply and its bounded graph proposal atomically.  The action
      * is a server-validated proposal, not an arbitrary provider tool call.
      */
-    public static function complete(int $tenant,int $user,int $runId,string $token,int $fence,string $text,array $proposals=[],array $intentDecision=[],array $intakeDraft=[],array $workflowTurn=[]): bool
+    public static function complete(int $tenant,int $user,int $runId,string $token,int $fence,string $text,array $proposals=[],array $intentDecision=[],array $intakeDraft=[],array $workflowTurn=[],array $agentDecision=[]): bool
     {
         if (trim($text)==='' || mb_strlen($text)>100000) throw new RuntimeException('INVALID_ASSISTANT_REPLY');
-        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$text,$proposals,$intentDecision,$intakeDraft,$workflowTurn): bool {
+        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$text,$proposals,$intentDecision,$intakeDraft,$workflowTurn,$agentDecision): bool {
             [$run,$thread,$outbox,$document]=self::locked($tenant,$user,$runId);
             self::identity($outbox,$token,$fence);
-            $hash=hash('sha256',$text);
+            $hash=hash('sha256',$text.($agentDecision?self::json($agentDecision):''));
             if ($run['status']==='success') {
                 $success=Db::name(ConversationStore::PREFIX.'event')->where(['run_id'=>$runId,'kind'=>'run.succeeded'])->lock(true)->value('payload_json');
                 $successPayload=(array)json_decode((string)$success,true);
@@ -73,6 +73,12 @@ final class ConversationExecution
             if ((int)$thread['active_run_id']!==$runId) throw new RuntimeException('RUN_SUPERSEDED');
             $effects=[];
             $context=json_decode($run['context_snapshot'],true,512,JSON_THROW_ON_ERROR);
+            if (ConversationAgentDecision::enabled($context)) {
+                $canonical=ConversationAgentDecision::parse(self::json($agentDecision),$context);
+                $expected=json_decode($canonical['legacy'],true);
+                $actual=$intentDecision ?: array_intersect_key($workflowTurn,array_flip(array_keys($expected)));
+                if ($expected!=$actual || $proposals) throw new RuntimeException('INVALID_AGENT_INTENT');
+            } elseif ($agentDecision) throw new RuntimeException('INVALID_AGENT_INTENT');
             $intakeSources=ConversationIntakeDraft::availableSources($context);
             $settings=json_decode($run['settings_snapshot'],true,512,JSON_THROW_ON_ERROR);
             $workflow=(array)($context['workflow']??[]);
@@ -192,6 +198,12 @@ final class ConversationExecution
             if ($activatedWorkflow) {
                 $currentThreadSettings['workflow_state']=$activatedWorkflow;
                 $threadUpdate['settings_json']=self::json($currentThreadSettings);
+            }
+            if ($agentDecision) {
+                $updated=isset($threadUpdate['settings_json']) ? json_decode($threadUpdate['settings_json'],true) : $currentThreadSettings;
+                $threadUpdate['settings_json']=self::json(ConversationAgentDecision::commit($updated,$agentDecision,$runId));
+                self::event($run,'agent.decision',['engine'=>ConversationAgentDecision::ENGINE,
+                    'action'=>$agentDecision['action']['name'],'remembered_keys'=>array_column($agentDecision['remember'],'key')]);
             }
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update($threadUpdate);
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'done','lease_until'=>0,'update_time'=>time()]);

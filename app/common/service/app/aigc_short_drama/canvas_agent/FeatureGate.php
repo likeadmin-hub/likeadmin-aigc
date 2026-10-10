@@ -90,6 +90,13 @@ final class FeatureGate
         return is_array($allowed) && in_array($key,array_map('strval',$allowed),true);
     }
 
+    /** Opt-in rollout; frozen per new thread, never changes in-flight requests. */
+    public static function dialogueEngine(int $tenant): string
+    {
+        return (self::config($tenant)['canvas_agent']['dialogue_engine']??'')===ConversationAgentDecision::ENGINE
+            ? ConversationAgentDecision::ENGINE : 'legacy';
+    }
+
     /**
      * Tenant configuration may select published Skill versions for a
      * platform-defined stage, but it cannot add stages or relax workflow

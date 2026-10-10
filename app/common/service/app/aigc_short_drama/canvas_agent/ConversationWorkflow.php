@@ -1060,7 +1060,8 @@ final class ConversationWorkflow
     }
     private static function card(array $state): ?array {
         $stage=(array)$state['stage_state'];
-        if (($stage['key']??'')==='intake' && !ConversationCreativePlan::canShowIntake($state)) return null;
+        if (($stage['key']??'')==='intake' && (!ConversationCreativePlan::canShowIntake($state)
+            || (isset($state['intake_presentation']) && empty($state['intake_presentation']['visible'])))) return null;
         $definition=self::stageDefinition((array)$state['workflow_snapshot'],(string)($stage['key']??''));
         $stageKey=(string)($stage['key']??'');
         $configured=self::stageSkillNames((array)$state['workflow_snapshot'],$stageKey);

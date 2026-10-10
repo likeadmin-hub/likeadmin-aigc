@@ -28,7 +28,7 @@ final class ConversationStore
                 if ((int)$existing['delete_time']!==0) throw new RuntimeException('THREAD_NOT_FOUND');
                 return self::threadView($existing);
             }
-            $id=Db::name(self::PREFIX.'thread')->insertGetId($scope+['request_key'=>$key,'request_hash'=>$hash,'title'=>$title,'settings_json'=>'{}','create_time'=>time(),'update_time'=>time()]);
+            $id=Db::name(self::PREFIX.'thread')->insertGetId($scope+['request_key'=>$key,'request_hash'=>$hash,'title'=>$title,'settings_json'=>self::json(['dialogue_engine'=>FeatureGate::dialogueEngine($tenant)]),'create_time'=>time(),'update_time'=>time()]);
             return self::threadView(Db::name(self::PREFIX.'thread')->where('id',$id)->find());
         });
     }
@@ -113,6 +113,8 @@ final class ConversationStore
             if (count(array_filter($selected,static fn(array $node)=>$node['type']==='image'))+count($attachmentImages)>4) throw new RuntimeException('TOO_MANY_IMAGE_REFERENCES');
             $context=['graph_revision'=>$revision,'selected_nodes'=>array_map(static fn($id)=>$selected[$id],$ids),'attachment_images'=>$attachmentImages,'material_trust'=>'untrusted','messages'=>$messages,'history_policy'=>'last_38_plus_current'];
             $context['_input_contract_version']=1;
+            $threadSettings=json_decode((string)$conversation['settings_json'],true)?:[];
+            if (!empty($threadSettings['agent_memory'])) $context['agent_memory']=$threadSettings['agent_memory'];
             if (!empty($resolvedSnapshot['workflow'])) $context['workflow']=$resolvedSnapshot['workflow'];
             if (!empty($resolvedSnapshot['intent_routing'])) $context['intent_routing']=$resolvedSnapshot['intent_routing'];
             $contextJson=self::json($context);
