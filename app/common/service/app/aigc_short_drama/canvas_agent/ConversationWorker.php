@@ -114,6 +114,9 @@ final class ConversationWorker
                     }
                 }
             };
+            if(($context['intent_routing']['dialogue_engine']??'')===DeepAgentConversationProvider::ENGINE) {
+                $provider=new DeepAgentConversationProvider($provider,['tenant'=>$tenant,'user'=>$user,'canvas'=>(int)$claim['canvas_id'],'thread'=>(int)$claim['thread_id']]);
+            }
             $provider->preflight($tenant,$user,$request);
         } catch (\Throwable $error) {
             // No provider call occurred. Do not expose exception text, which

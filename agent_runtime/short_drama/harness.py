@@ -1,4 +1,4 @@
-"""Isolated Deep Agents candidate. Produces proposals, never business effects.
+"""Deep Agents dialogue graph. Produces proposals, never direct business effects.
 
 No credentials, HTTP endpoints, filesystem mounts or production DB access.
 PHP remains authoritative for tenancy, billing, confirmations and execution.
@@ -42,7 +42,7 @@ def build_agent(model, *, checkpointer=None, instruction: str):
         middleware=[DomainToolsOnly()],
         checkpointer=checkpointer or InMemorySaver(),
         subagents=[],
-        name="short-drama-decision-candidate",
+        name="short-drama-dialogue",
     )
 
 
