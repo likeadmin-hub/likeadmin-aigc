@@ -17,6 +17,20 @@ final class ConversationCreativePlan
     /** Upgrade only drafts which have never bound a production task. */
     public static function upgradePending(array $state): array
     {
+        if (self::enabled($state) && ($state['intake_collection_version']??0)===1
+            && empty($state['creative_plan_confirmed']) && empty($state['series']['tasks'])
+            && ($state['stage_state']['key']??'')==='intake') {
+            $source=$state['slot_sources']['story_direction']??[];
+            $brief=trim((string)($state['creative_brief']??''));
+            if (($source['source']??'')==='message' && ($source['value']??null)===mb_substr($brief,0,240)
+                && ($source['evidence']??null)===mb_substr($brief,0,160)) {
+                // The previous version copied raw conversation into a fact. Keep
+                // the raw brief for semantic extraction, but do not execute it.
+                unset($state['slot_values']['story_direction'],$state['slot_sources']['story_direction']);
+                $state['intake_anchor_run_id']=0;
+            }
+            return self::draft($state,['candidates'=>[],'questions'=>[]]);
+        }
         if (self::enabled($state) && empty($state['intake_collection_version'])
             && empty($state['creative_plan_confirmed']) && empty($state['series']['tasks'])
             && ($state['stage_state']['key']??'')==='intake') {
@@ -64,13 +78,6 @@ final class ConversationCreativePlan
         if (!$delegated) foreach ($candidates as $key=>$candidate) {
             if (($candidate['source']??'')==='suggestion' && !in_array($key,self::REQUIRED,true)) unset($candidates[$key]);
         }
-        // A user's own brief is the creation request, not an invitation to
-        // replace it with a model-designed plot or a concatenated greeting.
-        if ($brief!=='' && empty($state['slot_values']['story_direction'])) {
-            $state['slot_values']['story_direction']=mb_substr($brief,0,240);
-            $state['slot_sources']['story_direction']=['value'=>$state['slot_values']['story_direction'],
-                'source'=>'message','evidence'=>mb_substr($brief,0,160)];
-        }
         $defaults=array_fill_keys(self::REQUIRED,'');
         foreach ($defaults as $key=>$value) {
             if (!empty($state['slot_values'][$key]) && in_array($state['slot_sources'][$key]['source']??'', ['message','confirmed','delegated'],true)) {
@@ -87,7 +94,7 @@ final class ConversationCreativePlan
         $state['intake_candidates']=$candidates;
         $state['intake_questions']=[];
         $state['creative_plan_confirmed']=false;
-        $state['intake_collection_version']=1;
+        $state['intake_collection_version']=2;
         $state['stage_state']=['key'=>'intake','status'=>'reviewing_intake','completed'=>[]];
         if (!$candidates) return self::confirm($state,[]);
         // Only explicit delegation of the whole plan AND immediate execution skips the card.
@@ -97,6 +104,16 @@ final class ConversationCreativePlan
             $state=self::confirm($state,array_map(static fn($item)=>(string)$item['value'],$candidates),'delegated');
         }
         return $state;
+    }
+
+    /** Missing production settings are useful only after a story is established. */
+    public static function canShowIntake(array $state): bool
+    {
+        if (!self::enabled($state)) return true;
+        if (trim((string)($state['slot_values']['story_direction']??''))!==''
+            && in_array($state['slot_sources']['story_direction']['source']??'', ['message','confirmed','delegated'],true)) return true;
+        // Explicitly delegated/material-derived directions still require review.
+        return trim((string)($state['intake_candidates']['story_direction']['value']??''))!=='';
     }
 
     public static function confirm(array $state,array $values,string $source='confirmed'): array

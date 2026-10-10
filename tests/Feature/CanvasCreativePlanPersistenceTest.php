@@ -27,7 +27,8 @@ class CanvasCreativePlanPersistenceTest extends TestCase
             unset($slot);
             $state=Plan::draft(['workflow_snapshot'=>['key'=>Workflow::KEY,'version'=>Workflow::VERSION,'series_core'=>true,
                 'creative_policy_version'=>Policy::VERSION,'slot_schema'=>$slots,'stage_skill_versions'=>[]],
-                'intake_anchor_run_id'=>123,'slot_values'=>[],'creative_settings'=>[],'creative_brief'=>'程序员大战孙悟空',
+                'intake_anchor_run_id'=>123,'slot_values'=>['story_direction'=>'程序员大战孙悟空'],
+                'slot_sources'=>['story_direction'=>['value'=>'程序员大战孙悟空','source'=>'message','evidence'=>'程序员大战孙悟空']],'creative_settings'=>[],'creative_brief'=>'程序员大战孙悟空',
                 'artifact_memory'=>[],'plan_hash'=>'','image_plan'=>[],'stage_plan'=>[],
                 'plan_confirmation'=>['status'=>'not_required'],'state_revision'=>1],['candidates'=>[],'questions'=>[]]);
             Db::name(Store::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>json_encode(['workflow_state'=>$state])]);
