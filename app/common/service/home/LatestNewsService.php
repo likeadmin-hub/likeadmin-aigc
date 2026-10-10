@@ -12,7 +12,7 @@ class LatestNewsService
         if ($tenantId <= 0) { return []; }
         $raw = TenantConfig::where(['tenant_id' => $tenantId, 'type' => 'system_default', 'name' => 'latest_news'])->value('value');
         $rows = $raw === null ? json_decode(file_get_contents(__DIR__ . '/latest-news-defaults.json'), true) : json_decode($raw, true);
-        $rows = is_array($rows) ? $rows : [];
+        $rows = self::curateReferenceNews(is_array($rows) ? $rows : []);
         if ($public) { $rows = array_values(array_filter($rows, fn($row) => !empty($row['enabled']))); }
         foreach ($rows as &$row) {
             $row['media_url'] = FileService::getFileUrlByStorage($row['media_url'], $row['storage_scope'] ?? '', $row['storage_engine'] ?? '', $row['storage_domain'] ?? '');
@@ -60,9 +60,29 @@ class LatestNewsService
         }
         $where = ['tenant_id' => $tenantId, 'type' => 'system_default', 'name' => 'latest_news'];
         $record = TenantConfig::where($where)->findOrEmpty();
-        $value = json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $value = json_encode(self::curateReferenceNews($clean), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($record->isEmpty()) { TenantConfig::create($where + ['value' => $value]); }
         else { $record->save(['value' => $value]); }
+    }
+
+    /** Apply the current selection to legacy samples without replacing tenant content or enabled states. */
+    private static function curateReferenceNews(array $rows): array
+    {
+        $defaults = json_decode(file_get_contents(__DIR__ . '/latest-news-defaults.json'), true);
+        $titles = array_column($defaults, 'title', 'id');
+        $result = [];
+        foreach ($rows as $row) {
+            $id = (string)($row['id'] ?? '');
+            $host = strtolower((string)parse_url($row['media_url'] ?? '', PHP_URL_HOST));
+            $isReference = preg_match('/^reference-\d+$/', $id)
+                && preg_match('/(^|\.)(imagine\.art|imagine\.animagic\.art)$/', $host);
+            if ($isReference) {
+                if (!isset($titles[$id])) { continue; }
+                $row['title'] = $titles[$id];
+            }
+            $result[] = $row;
+        }
+        return $result;
     }
 
     private static function safeMedia(string $url): bool
