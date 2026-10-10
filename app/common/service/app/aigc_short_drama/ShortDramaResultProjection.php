@@ -8,6 +8,7 @@ final class ShortDramaResultProjection
     {
         // Once projected, an intentional editor deletion must stay deleted.
         $legacy=empty($plan['_result_projection_version']);
+        if(!$legacy) return $plan;
         $aliases=['subjects'=>['character_profiles','characters','roles'],
             'locations'=>['scenes','scene_script'], 'storyboard'=>['storyboard_script','shots','shot_list']];
         foreach($aliases as $key=>$sources) {
