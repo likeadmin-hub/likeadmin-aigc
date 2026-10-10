@@ -418,11 +418,12 @@ final class ConversationWorkflow
 
     /** Keep the original selections, then reauthorize their IDs against the
      * current tenant catalog. Browser model objects never enter a run. */
-    public static function frozenPreferences(array $state,array $preferences): array
+    public static function frozenPreferences(array $state,array $preferences,bool $executingStage=true): array
     {
         $frozen=(array)($state['workflow_snapshot']['model_preferences']??[]);
         if (in_array($frozen['generation_mode']??null,['auto','manual'],true)) $preferences['generation_mode']=$frozen['generation_mode'];
         foreach (['reasoning_model','image_model','video_model'] as $field) {
+            if ($field==='reasoning_model' && !$executingStage && !empty($preferences[$field])) continue;
             $id=(string)($frozen[$field]['id']??'');
             if ($id!=='') $preferences[$field]=$id;
         }

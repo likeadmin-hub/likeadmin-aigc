@@ -51,6 +51,17 @@ class CanvasDialoguePolicyTest extends TestCase
         self::assertSame(['kind'=>'stage','stage_key'=>'art','stage_label'=>'美术','completed'=>1,'total'=>2],Policy::activity(['workflow'=>$workflow]));
         $workflow['stage_state']['key']='intake';self::assertSame(['kind'=>'conversation'],Policy::activity(['workflow'=>$workflow]));
     }
+    public function testConversationModelSelectionDoesNotChangeFrozenProductionModels(): void {
+        $state=['workflow_snapshot'=>['model_preferences'=>['reasoning_model'=>['id'=>'original-text'],
+            'image_model'=>['id'=>'original-image'],'generation_mode'=>'manual']]];
+        $preferences=['reasoning_model'=>'chosen-text','image_model'=>'new-image','generation_mode'=>'auto'];
+        self::assertSame('chosen-text',Workflow::frozenPreferences($state,$preferences,false)['reasoning_model']);
+        self::assertSame('original-image',Workflow::frozenPreferences($state,$preferences,false)['image_model']);
+        self::assertSame('manual',Workflow::frozenPreferences($state,$preferences,false)['generation_mode']);
+        self::assertSame('original-text',Workflow::frozenPreferences($state,$preferences,true)['reasoning_model']);
+        self::assertSame('original-text',Workflow::frozenPreferences($state,[],false)['reasoning_model']);
+    }
+
     public function testBoundedMemoryRetainsRolesAndMarksTruncation(): void {
         $messages=[];for($i=0;$i<15;$i++) $messages[]=['role'=>$i%2?'assistant':'user','content'=>(string)$i];
         $messages[14]['content']=str_repeat('中',2500);
