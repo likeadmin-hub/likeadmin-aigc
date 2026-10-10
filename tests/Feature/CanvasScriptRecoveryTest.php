@@ -10,7 +10,7 @@ class CanvasScriptRecoveryTest extends TestCase
         if(getenv('SHORT_DRAMA_DB_TESTS')!=='1') $this->markTestSkipped('Transactional MySQL test');
         (new \think\App())->initialize();$tenant=random_int(1500000000,1900000000);$user=$tenant;$json=static fn($v)=>json_encode($v,JSON_UNESCAPED_UNICODE);
         Db::startTrans();try {
-            Db::name('aigc_short_drama_config')->insert(['tenant_id'=>$tenant,'config_json'=>'{}','status'=>1]);
+            Db::name('aigc_short_drama_config')->insert(['tenant_id'=>$tenant,'config_json'=>'{"canvas_agent":{"enabled":true}}','status'=>1]);
             $canvas=Canvas::create($tenant,$user,['title'=>'Recovery fixture'])['id'];$thread=Store::create($tenant,$user,$canvas,'repair-test')['id'];
             $plan=['title'=>'测试','subjects'=>[],'locations'=>[],'storyboard'=>[],
                 'character_profiles'=>[['id'=>'a','name'=>'角色']],
