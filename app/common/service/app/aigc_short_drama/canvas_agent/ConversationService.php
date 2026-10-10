@@ -46,8 +46,8 @@ final class ConversationService
                 catch (\Throwable $error) {throw new RuntimeException('SKILL_UNAVAILABLE',0,$error);}
             }
             $current=ConversationWorkflow::currentState($conversation);
-            $threadSettings=json_decode((string)$conversation['settings_json'],true)?:[];
-            $decisionEngine=($threadSettings['dialogue_engine']??'')===ConversationAgentDecision::ENGINE;
+            $engine=FeatureGate::dialogueEngine($tenant);
+            $decisionEngine=in_array($engine,[ConversationAgentDecision::ENGINE,DeepAgentConversationProvider::ENGINE],true);
             if ($workflowAuto && ($skillId>0 || $attachments || $selectedIds)) throw new RuntimeException('INVALID_WORKFLOW_AUTO_CONTEXT');
             if ($workflowAuto && !ConversationWorkflow::validAutoStageRequest($current,$canvas,$thread,$key,$content)) throw new RuntimeException('INVALID_WORKFLOW_AUTO_REQUEST');
             if ($current!==[] && $skill===[] && FeatureGate::workflowEnabled($tenant,ConversationWorkflow::KEY)
@@ -78,7 +78,7 @@ final class ConversationService
                     $candidate=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$workflowPreferences)['workflow'];
                 }
                 $routing=ConversationIntentRouter::snapshot($tenant);
-                if ($decisionEngine && ConversationCreativePlan::enabled($current)) $routing['dialogue_engine']=ConversationAgentDecision::ENGINE;
+                if ($decisionEngine) $routing['dialogue_engine']=$engine;
                 $routing['kind']='active_workflow';
                 $routing['workflow_candidate']=$candidate;
                 $routing['base_workflow_revision']=(int)$current['state_revision'];
@@ -91,11 +91,10 @@ final class ConversationService
                 return ['settings'=>$settings,'skill'=>[],'intent_routing'=>$routing];
             }
             $workflow=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$workflowPreferences);
-            $intentRouting=($decisionEngine && $skill===[] && $workflow['workflow']===[] && !str_starts_with(trim($content),'/')
-                && FeatureGate::workflowEnabled($tenant,ConversationWorkflow::KEY)) || ConversationIntentRouter::shouldClassify($tenant,$content,$skill,$workflow['workflow'])
+            $intentRouting=($decisionEngine && $skill===[] && $workflow['workflow']===[] && !str_starts_with(trim($content),'/')) || ConversationIntentRouter::shouldClassify($tenant,$content,$skill,$workflow['workflow'])
                 ? ConversationIntentRouter::snapshot($tenant) : [];
             if ($intentRouting) {
-                if ($decisionEngine) $intentRouting['dialogue_engine']=ConversationAgentDecision::ENGINE;
+                if ($decisionEngine) $intentRouting['dialogue_engine']=$engine;
                 // Freeze the same authorized workflow/Skill/model versions as a
                 // direct route before the text Provider crosses its I/O
                 // boundary. The classifier can only activate this snapshot.

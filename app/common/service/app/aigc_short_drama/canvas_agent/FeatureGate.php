@@ -93,8 +93,8 @@ final class FeatureGate
     /** Opt-in rollout; frozen per new thread, never changes in-flight requests. */
     public static function dialogueEngine(int $tenant): string
     {
-        return (self::config($tenant)['canvas_agent']['dialogue_engine']??'')===ConversationAgentDecision::ENGINE
-            ? ConversationAgentDecision::ENGINE : 'legacy';
+        $engine=self::config($tenant)['canvas_agent']['dialogue_engine']??\think\facade\Config::get('short_drama_agent.engine','legacy');
+        return in_array($engine,[ConversationAgentDecision::ENGINE,DeepAgentConversationProvider::ENGINE],true)?$engine:'legacy';
     }
 
     /**

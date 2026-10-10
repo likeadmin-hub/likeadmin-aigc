@@ -12,16 +12,22 @@ use app\common\service\app\aigc_short_drama\canvas_agent\ConversationProviderInt
 /** End-to-end control replay with isolated fixtures and no external model calls. */
 class CanvasAgentDecisionPersistenceTest extends TestCase
 {
-    public function testMultiTurnWorkerCommitRefreshPauseMemoryAndIdempotency(): void {
+    public static function engines(): array { return [['decision_v1'],['deepagents_v1']]; }
+    /** @dataProvider engines */
+    public function testMultiTurnWorkerCommitRefreshPauseMemoryAndIdempotency(string $engine): void {
         if(getenv('SHORT_DRAMA_DB_TESTS')!=='1') $this->markTestSkipped('Transactional MySQL test');
+        if($engine==='deepagents_v1' && getenv('SHORT_DRAMA_AGENT_TESTS')!=='1') $this->markTestSkipped('Installed Deep Agents runtime required');
         (new \think\App())->initialize();$tenant=random_int(1500000000,1900000000);$user=$tenant;
         Db::startTrans();
         try {
-            Db::name('aigc_short_drama_config')->insert(['tenant_id'=>$tenant,'config_json'=>json_encode(['canvas_agent'=>['enabled'=>true,'dialogue_engine'=>Decision::ENGINE,'workflow'=>['enabled'=>true]]]),'status'=>1]);
+            Db::name('aigc_short_drama_config')->insert(['tenant_id'=>$tenant,'config_json'=>json_encode(['canvas_agent'=>['enabled'=>true,'dialogue_engine'=>$engine,'workflow'=>['enabled'=>true]]]),'status'=>1]);
             $canvas=Canvas::create($tenant,$user,['title'=>'Offline agent decision replay'])['id'];
             $thread=Store::create($tenant,$user,$canvas,'decision-test')['id'];
             $settings=json_decode(Db::name(Store::PREFIX.'thread')->where('id',$thread)->value('settings_json'),true);
-            self::assertSame(Decision::ENGINE,$settings['dialogue_engine']);
+            self::assertSame($engine,$settings['dialogue_engine']);
+            // Existing threads migrate at acceptance without losing settings.
+            $settings['dialogue_engine']='legacy';$settings['retained_marker']='old-thread';
+            Db::name(Store::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>json_encode($settings)]);
             $steps=[
                 ['你好','respond',[],[]],
                 ['主角叫林小凡','respond',[],[['key'=>'hero','value'=>'林小凡','evidence'=>'主角叫林小凡']]],
@@ -36,7 +42,7 @@ class CanvasAgentDecisionPersistenceTest extends TestCase
             foreach($steps as $index=>[$text,$action,$args,$remember]) {
                 $currentRow=Db::name(Store::PREFIX.'thread')->where('id',$thread)->find();
                 $current=json_decode($currentRow['settings_json'],true);$state=$current['workflow_state']??[];
-                $routing=['version'=>3,'dialogue_engine'=>Decision::ENGINE,'skill_candidates'=>[],
+                $routing=['version'=>3,'dialogue_engine'=>$engine,'skill_candidates'=>[],
                     'workflow_candidate'=>$state?:CanvasAgentDecisionTest::state()];
                 if($state) {
                     $candidate=$state;$candidate['stage_state']['status']='collecting';$candidate['state_revision']++;
@@ -62,6 +68,7 @@ class CanvasAgentDecisionPersistenceTest extends TestCase
                 self::assertSame($ack,Store::enqueue($tenant,$user,$canvas,$thread,$request,$resolved));
                 self::assertSame('not_claimed',Worker::process($tenant,$user,$ack['run_id'],$provider));
                 $saved=json_decode(Db::name(Store::PREFIX.'thread')->where('id',$thread)->value('settings_json'),true);
+                self::assertSame($engine,$saved['dialogue_engine']);self::assertSame('old-thread',$saved['retained_marker']);
                 if($index>=1) self::assertSame('林小凡',$saved['agent_memory']['hero']['value']);
                 $view=Workflow::read($tenant,$user,$canvas,$thread);
                 if($index===2) self::assertNull($view['card']);
@@ -75,6 +82,8 @@ class CanvasAgentDecisionPersistenceTest extends TestCase
                     self::assertSame('林小凡',$frozen['agent_memory']['hero']['value']);
                 }
                 self::assertSame(1,Db::name(Store::PREFIX.'event')->where(['run_id'=>$ack['run_id'],'kind'=>'agent.decision'])->count());
+                $event=json_decode(Db::name(Store::PREFIX.'event')->where(['run_id'=>$ack['run_id'],'kind'=>'agent.decision'])->value('payload_json'),true);
+                self::assertSame($engine,$event['engine']);
             }
             self::assertSame(8,$calls);self::assertSame(16,Db::name(Store::PREFIX.'message')->where('thread_id',$thread)->count());
             self::assertSame(0,Db::name('aigc_short_drama_script_task')->where('tenant_id',$tenant)->count());

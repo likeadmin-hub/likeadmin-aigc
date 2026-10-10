@@ -202,7 +202,7 @@ final class ConversationExecution
             if ($agentDecision) {
                 $updated=isset($threadUpdate['settings_json']) ? json_decode($threadUpdate['settings_json'],true) : $currentThreadSettings;
                 $threadUpdate['settings_json']=self::json(ConversationAgentDecision::commit($updated,$agentDecision,$runId));
-                self::event($run,'agent.decision',['engine'=>ConversationAgentDecision::ENGINE,
+                self::event($run,'agent.decision',['engine'=>$context['intent_routing']['dialogue_engine']??ConversationAgentDecision::ENGINE,
                     'action'=>$agentDecision['action']['name'],'remembered_keys'=>array_column($agentDecision['remember'],'key')]);
             }
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update($threadUpdate);

@@ -133,6 +133,11 @@ final class ConversationStore
             Db::name(self::PREFIX.'run')->where('id',$run)->update(['ack_json'=>self::json($ack)]);
             $threadUpdate=['active_run_id'=>$run,'next_message_sequence'=>$sequence+1,'update_time'=>$now];
             if (array_key_exists('thread_settings',$resolvedSnapshot)) $threadUpdate['settings_json']=self::json($resolvedSnapshot['thread_settings']);
+            if(!empty($resolvedSnapshot['intent_routing']['dialogue_engine'])) {
+                $nextSettings=$resolvedSnapshot['thread_settings']??$threadSettings;
+                $nextSettings['dialogue_engine']=$resolvedSnapshot['intent_routing']['dialogue_engine'];
+                $threadUpdate['settings_json']=self::json($nextSettings);
+            }
             Db::name(self::PREFIX.'thread')->where('id',$thread)->update($threadUpdate);
             return $ack;
         });
