@@ -30,6 +30,8 @@ php -r 'require "vendor/autoload.php"; exit(class_exists("NeuronAI\\Workflow\\Wo
 
 全部测试在隔离代码目录及私有 MySQL 副本运行，未升级 `bt`、未修改原业务数据，未调用外部付费模型、图片或视频服务。
 
+前置集成基线为 `074fc6706`，替换代码提交为 `18dfc6535`；最终回归在隔离后端 `develop` 的合并提交 `0b3d534da` 上执行。测试期间使用专用 Redis 容器，未使用现有业务缓存。代码分支 `feature/neuron-agent` 已导入原后端与前端仓库，原工作区仍停留在此前的 `develop`。
+
 - 替换核心及真实数据库 Worker：25 tests / 379 assertions，通过。覆盖三个引擎各八轮对话、历史快照、幂等、SSE、记忆、暂停恢复、卡片锚点、错误作用域、预检失败及未知结果不重试。
 - 扩展数据库验收及制作流程回归：81 tests / 741 assertions，通过，无跳过。覆盖创作设置、材料、脚本恢复、脚本提交幂等、文件问答终态、草稿确认重放、制作单元持久化及 Prompt 持久化。测试镜像补齐 Redis 扩展后运行，队列使用测试 Mock。
 - 原业务 Unit：16 tests / 83 assertions，通过。
