@@ -14,8 +14,9 @@ $failQueue=false;Db::listen(static function($sql)use(&$failQueue){if($failQueue&
 Db::startTrans();try{
  request()->tenantId=1;request()->userId=1;
  $resultId=Db::name('aigc_music_result')->where(['tenant_id'=>1,'user_id'=>1,'delete_time'=>0])->order('id','desc')->value('id');check($resultId,'Owned local music fixture missing');
- foreach(['lyrics','mashup_lyrics','style','timing'] as $api){
-  $params=$api==='timing'?['result_id'=>(int)$resultId]:($api==='mashup_lyrics'?['lyrics_a'=>'Synthetic first verse','lyrics_b'=>'Synthetic second verse']:['prompt'=>'Synthetic first light']);
+ $asset=app\common\model\app\aigc_music\AigcMusicAsset::create(['tenant_id'=>1,'user_id'=>1,'title'=>'Synthetic authorized fixture','uri'=>'https://example.com/voice.wav','storage_scope'=>'','storage_engine'=>'','storage_domain'=>'','status'=>1,'delete_time'=>0]+S::timestamp());
+ foreach(['lyrics','mashup_lyrics','style','timing','voice_clone'] as $api){
+  $params=$api==='voice_clone'?['reference_asset_id'=>(int)$asset['id'],'name'=>'Synthetic voice fixture','authorization_confirmed'=>1]:($api==='timing'?['result_id'=>(int)$resultId]:($api==='mashup_lyrics'?['lyrics_a'=>'Synthetic first verse','lyrics_b'=>'Synthetic second verse']:['prompt'=>'Synthetic first light']));
   $quote=Runtime::quote(1,1,$api,$params);check($api==='timing'?$quote['user_charge_points']===0.&&$quote['tenant_cost_points']===0.:$quote['user_charge_points']>0&&$quote['tenant_cost_points']>0,'Missing per-operation market pricing');
   if($api==='timing'){Db::name('power_market_sku')->where('id',$quote['market_sku_id'])->update(['sale_points'=>0.004]);$denied=false;try{Runtime::quote(1,1,$api,$params);}catch(app\common\service\open_platform\OpenException){$denied=true;}check($denied,'Sub-cent paid timing was treated as free');Db::name('power_market_sku')->where('id',$quote['market_sku_id'])->update(['sale_points'=>0]);}
   $rid='req_fixture_'.bin2hex(random_bytes(16));$budget=Runtime::budget(1,1,$api,$params);$path='/api/v1/tools/aigc_music/'.Runtime::ROUTES[$api];
@@ -24,8 +25,14 @@ Db::startTrans();try{
   Db::name('power_market_sku')->where('id',$quote['market_sku_id'])->update(['sale_points'=>999,'status'=>0]);check(S::encode(Runtime::selection(1,1,$api,$params)['quote'])===S::encode($quote),'Accepted operation repriced or lost SKU');
   $reserve=new ReflectionMethod(Runtime::class,'reserve');$cid=$reserve->invoke(null,1,1,$api,$params,$frozen);
   $c=app\common\model\ai\AiConsumptionLog::findOrEmpty($cid);$native=app\common\model\app\aigc_music\AigcMusicTask::where('consumption_id',$cid)->findOrEmpty();check(!$native->isEmpty()&&$native['action']===$api,'Native music task not linked');
-  $snapshot=S::json($c['price_snapshot']);$text=$api==='timing'?['aligned_words'=>[['word'=>'Morning','start_s'=>0.,'end_s'=>1.]],'segments'=>[],'waveform_data'=>[0.05]]:($api==='style'?['upsampled_tags'=>'Synthetic bright piano pop']:['text'=>'Synthetic complete lyric','title'=>'First Light']);$wire=['code'=>1,'data'=>['result'=>['status'=>'completed','data'=>$text]]];$snapshot['music_receipt_blob']=V::seal(S::encode($wire));$c->save(['price_snapshot'=>$snapshot,'run_status'=>'running']);
+  $snapshot=S::json($c['price_snapshot']);$text=$api==='voice_clone'?['voice_id'=>'voice_synthetic_fixture']:($api==='timing'?['aligned_words'=>[['word'=>'Morning','start_s'=>0.,'end_s'=>1.]],'segments'=>[],'waveform_data'=>[0.05]]:($api==='style'?['upsampled_tags'=>'Synthetic bright piano pop']:['text'=>'Synthetic complete lyric','title'=>'First Light']));$wire=['code'=>1,'data'=>['result'=>['status'=>'completed','data'=>$text]]];$snapshot['music_receipt_blob']=V::seal(S::encode($wire));$c->save(['price_snapshot'=>$snapshot,'run_status'=>'running']);
   app\common\service\ai\AiMarketTaskRuntimeService::refresh($cid);Runtime::refresh($cid);$c->refresh();check($c['billing_status']==='settled'&&(float)$c['actual_user_price']===$quote['user_charge_points'],'Real operation did not settle frozen price once');
+  if($api==='voice_clone'){
+   $native->refresh();$body=S::json($native['result_json']);$clone=app\common\model\app\aigc_music\AigcMusicVoiceClone::where(['id'=>$body['voice_clone_id'],'tenant_id'=>1,'user_id'=>1])->findOrEmpty();
+   check(!$clone->isEmpty()&&$clone['provider_voice_id']==='voice_synthetic_fixture'&&(int)$clone['reference_asset_id']===(int)$asset['id']&&$clone['auth_status']==='confirmed'&&$clone['audit_status']==='pending','Real voice resource missing or auto-approved');
+   check(app\common\model\app\aigc_music\AigcMusicVoiceClone::where('reference_asset_id',$asset['id'])->count()===1,'Duplicate recovery created another voice resource');
+   check(app\common\model\app\aigc_music\AigcMusicSafetyAudit::where(['target_id'=>$clone['id'],'target_type'=>'voice_clone','action'=>'voice_clone_create'])->count()===1,'Voice authorization audit missing or duplicated');
+  }
   $row=S::table('request')->where('request_id',$rid)->find();check((float)$row['actual_user']===$quote['user_charge_points'],'Music charge attributed incorrectly');app\common\service\open_platform\OpenVerification::assertLedger($row);
   if($api==='timing'){$state=app\common\service\open_platform\OpenGateway::toolLifecycle($row,['billable'=>false],Runtime::taskData($native->refresh()->toArray()));check($state['status']==='success'&&$state['active']===0&&$state['billing_status']==='settled','Free native success lost task lifecycle');}
   check(count(app\common\service\open_platform\OpenManagement::detail(1,1,$rid)['point_logs'])===($api==='timing'?0:1),'Repeated receipt recovery charged twice');
@@ -55,6 +62,7 @@ Db::startTrans();try{
    C::leave();
   }
  }
+ $denied=false;try{Runtime::input('voice_clone',['reference_asset_id'=>(int)$asset['id'],'name'=>'Foreign'],1,2);}catch(Exception){$denied=true;}check($denied,'Clone accepted foreign audio');
  $denied=false;try{Runtime::quote(1,1,'unknown',['prompt'=>'fixture']);}catch(Exception){$denied=true;}check($denied,'Arbitrary supplier operation allowed');
  $denied=false;try{Runtime::quote(1,1,'lyrics',[]);}catch(Exception){$denied=true;}check($denied,'Invalid native input accepted');
  $denied=false;try{Runtime::input('timing',['result_id'=>(int)$resultId],1,2);}catch(Exception){$denied=true;}check($denied,'Music timing accepted another user result');

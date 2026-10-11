@@ -235,30 +235,7 @@ class AigcMusicService
 
     public static function createVoiceClone(int $tenantId, int $userId, array $params): array
     {
-        $name = trim((string)($params['name'] ?? ''));
-        $assetId = (int)($params['reference_asset_id'] ?? $params['asset_id'] ?? 0);
-        if ($name === '' || $assetId <= 0) {
-            throw new Exception('请输入声音名称并选择授权音频');
-        }
-        $asset = self::assertAsset($tenantId, $assetId, $userId);
-        $clone = self::providerFor('mock')->cloneVoice($params + ['asset' => $asset]);
-        $row = AigcMusicVoiceClone::create([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'name' => $name,
-            'reference_asset_id' => $assetId,
-            'provider_voice_id' => (string)($clone['provider_voice_id'] ?? ''),
-            'auth_status' => (int)($params['authorization_confirmed'] ?? 0) === 1 ? 'confirmed' : 'pending',
-            'audit_status' => 'pending',
-            'auth_json' => self::authorizationPayload($params),
-            'provider_payload' => $clone['raw'] ?? [],
-            'status' => (string)($clone['status'] ?? 'pending'),
-            'create_time' => time(),
-            'update_time' => time(),
-            'delete_time' => 0,
-        ]);
-        self::recordSafetyAudit($tenantId, $userId, 'voice_clone', (int)$row['id'], 'voice_clone_create', 'pending', $name);
-        return $row->toArray();
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'voice_clone',$params);
     }
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array

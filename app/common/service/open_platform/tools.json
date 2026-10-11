@@ -1404,16 +1404,47 @@
         "description": "AI音乐生成 Task/detail"
       },
       "POST voiceclone/create": {
-        "controller": "VoiceClone",
-        "action": "create",
         "billable": true,
         "input": {
           "type": "object",
-          "additionalProperties": true
+          "properties": {
+            "reference_asset_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 5000
+            },
+            "authorization_confirmed": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            },
+            "authorization_text": {
+              "type": "string",
+              "maxLength": 5000
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          "required": [
+            "reference_asset_id",
+            "name"
+          ],
+          "additionalProperties": false
         },
-        "description": "AI音乐生成 VoiceClone/create",
-        "available": false,
-        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
+        "description": "使用本人音频素材创建真实声音风格，按独立商城 SKU 计费；授权及审核状态保留。",
+        "music_operation": "voice_clone"
       },
       "POST style/index": {
         "music_operation": "style",
