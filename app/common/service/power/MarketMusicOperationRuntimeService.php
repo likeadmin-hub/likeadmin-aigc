@@ -225,7 +225,11 @@ final class MarketMusicOperationRuntimeService
         if(($result['success']??null)===false)return 'failed';
         // The task query envelope carries status outside the driver result.
         // A conflicting explicit nonterminal inner state keeps the task pending.
-        return is_string($inner)&&$inner!==''?$inner:(is_string($outer)?$outer:'');
+        if(is_string($inner)&&$inner!=='')return $inner;
+        if(is_string($outer)&&$outer!=='')return $outer;
+        // Synchronous driver receipts can omit status while explicitly reporting
+        // success. Required operation-specific output is still checked before settlement.
+        return ($result['success']??null)===true?'completed':'';
     }
     private static function storeExport(int $cid,string $url): array
     {

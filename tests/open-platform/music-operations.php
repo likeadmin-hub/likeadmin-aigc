@@ -8,6 +8,16 @@ use app\common\service\open_platform\OpenVault as V;
 use think\facade\Db;
 function check($ok,$why){if(!$ok)throw new RuntimeException($why);}
 check(class_exists(Runtime::class),'Real music operation runtime is missing');
+$statusReader=new ReflectionMethod(Runtime::class,'resultStatus');
+foreach([
+ [['success'=>true],[], 'completed'],
+ [['success'=>false],[], 'failed'],
+ [['success'=>'true'],[], ''],
+ [['success'=>true,'status'=>'processing'],[], 'processing'],
+ [['success'=>true],['status'=>'processing'], 'processing'],
+ [['success'=>true,'status'=>'completed'],['status'=>'failed'], 'failed'],
+] as [$result,$envelope,$expected])check($statusReader->invoke(null,['data'=>['result'=>$result]+$envelope])===$expected,'Success flag overrode explicit or missing trustworthy status');
+
 $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&$db['database']==='z_cn','Local rollback only');
 $wallets=fn()=>[Db::name('user')->where(['tenant_id'=>1,'id'=>1])->value('user_money'),Db::name('tenant')->where('id',1)->value('point_balance')];$before=$wallets();
 $failQueue=false;Db::listen(static function($sql)use(&$failQueue){if($failQueue&&preg_match('/INSERT.*la_ai_task_job/iu',$sql))throw new RuntimeException('Synthetic queue write failure');});
@@ -32,7 +42,7 @@ Db::startTrans();try{
   Db::name('power_market_sku')->where('id',$quote['market_sku_id'])->update(['sale_points'=>999,'status'=>0]);check(S::encode(Runtime::selection(1,1,$api,$params)['quote'])===S::encode($quote),'Accepted operation repriced or lost SKU');
   $reserve=new ReflectionMethod(Runtime::class,'reserve');$cid=$reserve->invoke(null,1,1,$api,$params,$frozen);
   $c=app\common\model\ai\AiConsumptionLog::findOrEmpty($cid);$native=app\common\model\app\aigc_music\AigcMusicTask::where('consumption_id',$cid)->findOrEmpty();check(!$native->isEmpty()&&$native['action']===$api,'Native music task not linked');
-  $snapshot=S::json($c['price_snapshot']);$text=$api==='persona'?['persona_id'=>'persona_fixture']:($api==='upload_audio'?['audio_id'=>'audio_fixture']:($api==='voice_clone'?['voice_id'=>'voice_synthetic_fixture']:($api==='timing'?['aligned_words'=>[['word'=>'Morning','start_s'=>0.,'end_s'=>1.]],'segments'=>[],'waveform_data'=>[0.05]]:($api==='style'?['upsampled_tags'=>'Synthetic bright piano pop']:['text'=>'Synthetic complete lyric','title'=>'First Light']))));$wire=['code'=>1,'data'=>['result'=>['status'=>'completed','data'=>$text]]];$snapshot['music_receipt_blob']=V::seal(S::encode($wire));$c->save(['price_snapshot'=>$snapshot,'run_status'=>'running']);
+  $snapshot=S::json($c['price_snapshot']);$text=$api==='persona'?['persona_id'=>'persona_fixture']:($api==='upload_audio'?['audio_id'=>'audio_fixture']:($api==='voice_clone'?['voice_id'=>'voice_synthetic_fixture']:($api==='timing'?['aligned_words'=>[['word'=>'Morning','start_s'=>0.,'end_s'=>1.]],'segments'=>[],'waveform_data'=>[0.05]]:($api==='style'?['upsampled_tags'=>'Synthetic bright piano pop']:['text'=>'Synthetic complete lyric','title'=>'First Light']))));$wire=['code'=>1,'data'=>['result'=>$api==='upload_audio'?['success'=>true]+$text:['status'=>'completed','data'=>$text]]];$snapshot['music_receipt_blob']=V::seal(S::encode($wire));$c->save(['price_snapshot'=>$snapshot,'run_status'=>'running']);
   app\common\service\ai\AiMarketTaskRuntimeService::refresh($cid);Runtime::refresh($cid);$c->refresh();check($c['billing_status']==='settled'&&(float)$c['actual_user_price']===$quote['user_charge_points'],'Real operation did not settle frozen price once');
   if($api==='voice_clone'){
    $native->refresh();$body=S::json($native['result_json']);$clone=app\common\model\app\aigc_music\AigcMusicVoiceClone::where(['id'=>$body['voice_clone_id'],'tenant_id'=>1,'user_id'=>1])->findOrEmpty();
