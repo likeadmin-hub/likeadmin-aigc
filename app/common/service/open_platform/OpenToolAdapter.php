@@ -14,6 +14,8 @@ final class OpenToolAdapter
     {
         $app=$operation['app_code'];if(empty($operation['history']))self::authorize((int)$request->tenantId,(int)$request->userId,$app);OpenPolicy::validateInput($params);
         if(isset($operation['params']['task_id']))$params['id']=!empty($operation['internal'])?$operation['params']['task_id']:OpenToolTasks::decode($app,(string)$operation['params']['task_id']);
+        if(isset($params['id'])&&($operation['controller']??'')==='Task'&&!isset($operation['params']['task_id'])&&empty($operation['internal']))$params['id']=OpenToolTasks::decode($app,(string)$params['id']);
+        if(isset($params['task_id'])&&empty($operation['internal']))$params['task_id']=OpenToolTasks::decode($app,(string)$params['task_id']);
         if(isset($params['task_id'])&&is_string($params['task_id'])&&str_starts_with($params['task_id'],'ot_'))$params['task_id']=OpenToolTasks::decode($app,$params['task_id']);
         if(isset($params['id'])&&is_string($params['id'])&&str_starts_with($params['id'],'ot_'))$params['id']=OpenToolTasks::decode($app,$params['id']);
         $original=app()->request;$scoped=OpenToolRequest::from($request,$params,$operation);app()->instance('request',$scoped);

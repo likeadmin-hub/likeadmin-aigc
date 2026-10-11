@@ -66,7 +66,7 @@ final class OpenGateway
             self::markDispatch($row['request_id']);$dispatched=true;$wire=(new OpenTransport())->send($transportSource,$row['method'],$row['path'],$params,(array)$request->file(),$stream?function($chunk,$status,$responseHeaders){if(!headers_sent()){http_response_code($status);foreach($responseHeaders as $name=>$value)header($name.': '.$value);}echo $chunk;@flush();}:null,$headers);
             $data=json_decode($wire['body'],true);$data=is_array($data)?$data:[];$task=(string)(OpenSchema::get($data,$op['task_id_path']??'data.task_id')??'');$failed=self::wireFailed($wire['status'],$data,$op);$fields=['response_blob'=>OpenVault::seal($wire['body']),'response_type'=>$wire['headers']['content-type']??'application/json','response_code'=>$wire['status'],'duration_ms'=>(int)((microtime(true)-$start)*1000)];
             if($task!==''&&!$failed&&$op['role']==='submit'){$fields+=['upstream_task_id'=>$task,'status'=>'running','next_run_time'=>time()+30];\app\common\model\ai\AiConsumptionLog::where('consume_no',$row['request_id'])->update(['upstream_task_id'=>$task,'run_status'=>'running']);}
-            else{$fields+=['status'=>$failed?'failed':'success'];if(!empty($op['billable'])){if($stream)$data=self::streamUsage($wire['body']);OpenMarketBilling::settle($row,$data,$failed);}else $fields+=['active'=>0,'next_run_time'=>0];}
+            else{$fields+=['status'=>$failed?'failed':'success'];if(!empty($op['billable'])){if($stream)$data=self::streamUsage($wire['body']);self::settleKnownResult($row,$data,$failed);}else $fields+=['active'=>0,'next_run_time'=>0];}
             OpenAdmission::finish($row['request_id'],$fields);
             if(!$op['history']){$latest=OpenStore::table('request')->where('id',$row['id'])->find();if((int)$latest['active']===0)OpenWebhooks::enqueue($latest,$data);}
             if($op['history']&&!$failed){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);self::observeTask($owner,$data);}
@@ -74,6 +74,10 @@ final class OpenGateway
         }catch(\Throwable $e){$unknown=$dispatched;
             if(!$unknown&&$op['kind']==='market'&&!empty($op['billable'])){try{OpenMarketBilling::settle($row,[],true);}catch(\Throwable){$unknown=true;}}$fields=['status'=>$unknown?'pending_confirmation':'failed','billing_status'=>$unknown?'pending_confirmation':'none','error_code'=>$e instanceof OpenException?$e->errorType:'internal_error','error_message'=>$e instanceof OpenException?mb_substr($e->getMessage(),0,500):'服务执行失败','active'=>$unknown?1:0,'next_run_time'=>$unknown?time()+60:0];if(!$unknown){$error=self::error($e,$row['path'],$row['request_id']);$fields+=['response_blob'=>OpenVault::seal($error->getContent()),'response_type'=>'application/json','response_code'=>$error->getCode()];}
             OpenAdmission::finish($row['request_id'],$fields);throw $e;}finally{OpenCallContext::leave();}
+    }
+    public static function settleKnownResult(array $row,array $data,bool $failed): void
+    {
+        try{OpenMarketBilling::settle($row,$data,$failed);}catch(\Throwable $error){OpenAdmission::finish($row['request_id'],['status'=>$failed?'failed':'success','billing_status'=>'settlement_failed','active'=>1,'error_code'=>$error instanceof OpenException?$error->errorType:'settlement_failed','error_message'=>'结果已确认，结算待核对','next_run_time'=>time()+60]);}
     }
     private static function markDispatch(string $id): void
     {
@@ -93,7 +97,7 @@ final class OpenGateway
     public static function observeTask(array $row,array $data): void
     {
         $snapshot=OpenStore::json($row['snapshot']);$contract=$snapshot['contract']??[];$status=(string)OpenSchema::get($data,$contract['status_path']??'data.status');
-        if(in_array($status,$contract['success_statuses']??['success','completed','succeeded'],true))OpenMarketBilling::settle($row,$data);
-        elseif(in_array($status,$contract['failure_statuses']??['failed','cancelled','canceled'],true))OpenMarketBilling::settle($row,$data,true);
+        if(in_array($status,$contract['success_statuses']??['success','completed','succeeded'],true))self::settleKnownResult($row,$data,false);
+        elseif(in_array($status,$contract['failure_statuses']??['failed','cancelled','canceled'],true))self::settleKnownResult($row,$data,true);
     }
 }
