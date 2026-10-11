@@ -29,8 +29,12 @@ Db::startTrans();try{
  $consumption=Db::name('ai_consumption_log')->where('id',$reserved['consumption_id'])->find();$price=S::json($consumption['price_snapshot']);
  check((float)$consumption['reserved_user_price']===$budget['user']&&(float)$consumption['reserved_tenant_cost']===$budget['tenant'],'Native reservation changed accepted price');
  check((float)$price['platform_price']===(float)$market['sku']['sale_points']&&(float)$price['tenant_price']===(float)$market['tenant_price'],'Consumption snapshot captured edited SKU');
- check(count(M::detail(1,1,$rid)['point_logs'])===1,'Native reservation missing independent point ledger');app\common\service\open_platform\OpenVerification::assertLedger(S::table('request')->where('request_id',$rid)->find());
+ $logs=M::detail(1,1,$rid)['point_logs'];check(count($logs)===1&&(float)$logs[0]['change_amount']===$budget['user'],'Native reservation missing original independent point ledger');
+ $settle=new ReflectionMethod($runtime,'settle');$images=[['image_uri'=>'uploads/opf-price-fixture.png','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'']];
+ $settle->invoke(null,$reserved['consumption_id'],$images,'fixture','fixture',[]);$settle->invoke(null,$reserved['consumption_id'],$images,'fixture','fixture',[]);
+ $settled=Db::name('ai_consumption_log')->where('id',$reserved['consumption_id'])->find();check($settled['billing_status']==='settled'&&(float)$settled['actual_user_price']===$budget['user']&&(float)$settled['actual_tenant_cost']===$budget['tenant'],'Native completion repriced');
+ check(count(M::detail(1,1,$rid)['point_logs'])===1,'Repeated completion charged twice');app\common\service\open_platform\OpenVerification::assertLedger(S::table('request')->where('request_id',$rid)->find());
  C::leave();$fresh=$runtime::quote(1,$params,1);check((float)$fresh['tenant_cost_points']===999.,'Normal native page quote unexpectedly frozen');
- echo "PASS native image admission preserves SKU, channel and price after edits; native reserve and independent ledger use original amounts; cross-user/tool and conflicting selections rejected, normal quotes remain current\n";
+ echo "PASS native image admission preserves SKU, channel and price after edits; native reserve and repeated synthetic completion use original independent ledger amounts; cross-user/tool and conflicting selections rejected, normal quotes remain current\n";
 }finally{C::leave();Db::rollback();}
 check(Db::name('user')->where(['tenant_id'=>1,'id'=>1])->value('user_money')===$wallet&&Db::name('tenant')->where('id',1)->value('point_balance')===$tenantWallet,'Changed wallets');
