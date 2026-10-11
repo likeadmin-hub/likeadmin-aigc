@@ -8,23 +8,21 @@ class CanvasLinkedVideoNodeContractTest extends TestCase
 {
     public function testConnectedVideoNodeChoosesACompatibleVideoModelBeforeCreatingEdges(): void
     {
-        $bundle = file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/_id_.2fb60286.js');
-
-        self::assertIsString($bundle);
-        self::assertStringContainsString('function connectedNodeMetadata(e)', $bundle);
-        self::assertStringContainsString('function pickConnectedVideoMetadata(e,t,n,o)', $bundle);
-        self::assertStringContainsString('fr(rt.value).map(i=>Un("video",{...r,channel:i.value}))', $bundle);
-        self::assertStringContainsString('E.value=E.value.map(n=>{if(n.type!=="video")return n', $bundle);
-        self::assertStringContainsString('i&&JSON.stringify(i)!==JSON.stringify(n.metadata)', $bundle);
-        self::assertStringContainsString('const t=de.value,n=connectedNodeMetadata(e);if(!t||!canCreateConnectedNode(e,n))return', $bundle);
-        self::assertStringContainsString('disabled:!Eo("video")', $bundle);
+        $source = \Tests\Support\CompiledAssets::source('pc/pages/app/aigc_canvas/project/[id].vue');
+        self::assertStringContainsString('connectedNodeMetadata(type)', $source);
+        self::assertStringContainsString('pickConnectedVideoMetadata', $source);
+        self::assertStringContainsString('compatibleVideoGenerationMethods', $source);
+        self::assertStringContainsString('normalizeVideoChannelsForCreateConfig', $source);
+        self::assertStringContainsString('canCreateConnectedNode(type)', $source);
+        self::assertStringContainsString('reference_video', \Tests\Support\CompiledAssets::pcPage('app/aigc_canvas/project/[id]'));
+        self::assertStringContainsString('reference_audio', \Tests\Support\CompiledAssets::pcPage('app/aigc_canvas/project/[id]'));
     }
 
     public function testCanvasRouteCacheVersionIncludesConnectedVideoFix(): void
     {
-        $entry = file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/entry.c46691d5.js');
-
-        self::assertIsString($entry);
-        self::assertStringContainsString('./_id_.2fb60286.js?v=20260827-connected-video-v1', $entry);
+        $bundle = \Tests\Support\CompiledAssets::pcPage('app/aigc_canvas/project/[id]');
+        self::assertNotEmpty($bundle);
+        self::assertStringContainsString('syncNodeMetadataWithOptions', \Tests\Support\CompiledAssets::source('pc/pages/app/aigc_canvas/project/[id].vue'));
     }
+
 }

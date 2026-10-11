@@ -47,7 +47,7 @@ class AiTaskFilterContractTest extends TestCase
 
     public function testAdminBundleSendsAllNewFilterParameters(): void
     {
-        $bundle = (string)file_get_contents(dirname(__DIR__, 2) . '/public/admin/assets/index-BmV1gMRX.js');
+        $bundle = (string)\Tests\Support\CompiledAssets::vitePage('admin', 'consumer/task/index');
 
         foreach (['task_type:""', 'app_code:""', 'model:""', 'channel:""'] as $parameter) {
             self::assertStringContainsString($parameter, $bundle);

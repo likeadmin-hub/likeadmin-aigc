@@ -62,17 +62,15 @@ class TutorialSettingContractTest extends TestCase
     public function testCompiledTenantEntryKeepsWebsiteInformationAndTutorialPagesSeparate(): void
     {
         $root = dirname(__DIR__, 2);
-        $entry = (string)file_get_contents($root . '/public/admin/assets/information-CDL0NXGN.js');
-        $tutorial = (string)file_get_contents($root . '/public/admin/assets/tutorial-CodexTenantA1.js');
-        $websiteApi = (string)file_get_contents($root . '/public/admin/assets/website-Bu78k_2q.js');
+        $entry = \Tests\Support\CompiledAssets::vitePage('admin', 'setting/website/information');
+        $tutorial = \Tests\Support\CompiledAssets::vitePage('admin', 'setting/website/tutorial');
+        $websiteApi = \Tests\Support\CompiledAssets::read('admin', 'website', 'js');
 
-        self::assertStringContainsString('tutorial-CodexTenantA1.js', $entry);
-        self::assertStringContainsString('information-original-CodexTenantA1.js', $entry);
-        self::assertStringContainsString('route.meta.sourceMenuKey==="core_tenant_tutorial"', $entry);
-        self::assertStringContainsString('at(-1)==="tutorial"', $entry);
-        self::assertStringContainsString('getTutorial', $tutorial);
-        self::assertStringContainsString('setTutorial', $tutorial);
-        self::assertStringContainsString('getTutorial', $websiteApi);
-        self::assertStringContainsString('setTutorial', $websiteApi);
+        self::assertStringNotContainsString('显示教程入口', $entry);
+        self::assertStringContainsString('显示教程入口', $tutorial);
+        self::assertStringContainsString('/setting.web.web_setting/getTutorial', $websiteApi);
+        self::assertStringContainsString('/setting.web.web_setting/setTutorial', $websiteApi);
+        self::assertStringContainsString("['http:', 'https:'].includes(url.protocol)", \Tests\Support\CompiledAssets::source('tenant/src/views/setting/website/tutorial.vue'));
+
     }
 }

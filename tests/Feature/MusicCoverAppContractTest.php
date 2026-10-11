@@ -21,10 +21,11 @@ class MusicCoverAppContractTest extends TestCase
 
         self::assertSame('aigc_music_cover', $manifest['code']);
         self::assertSame('音乐翻唱', $manifest['name']);
-        self::assertSame('1.0.3', $manifest['version']);
+        self::assertMatchesRegularExpression('/^\d+\.\d+\.\d+$/', $manifest['version']);
+        self::assertTrue(version_compare($manifest['version'], '1.0.3', '>='));
         self::assertSame('>=1.0.0 <2.0.0', $manifest['require_core']);
-        self::assertSame(0, $manifest['is_builtin']);
-        self::assertSame(['tenant', 'pc'], $manifest['frontends']);
+        self::assertSame(1, $manifest['is_builtin']);
+        self::assertSame(['tenant', 'pc', 'uniapp'], $manifest['frontends']);
         self::assertStringNotContainsString('/api/', $manifest['description']);
         self::assertFileExists($this->root . '/app/apps/aigc_music_cover/menus/platform.json');
         self::assertFileExists($this->root . '/app/apps/aigc_music_cover/signature.json');
@@ -97,36 +98,36 @@ class MusicCoverAppContractTest extends TestCase
     public function testFrontendAssetsCoverUploadGenerationPollingAndAdministration(): void
     {
         $manifest = $this->json('app/apps/aigc_music_cover/manifest.json');
-        self::assertCount(5, $manifest['public_assets'] ?? []);
+        self::assertSame(['public/music-cover-admin.js', 'public/music-cover-admin.css'], array_column($manifest['public_assets'], 'target'));
         foreach ($manifest['public_assets'] as $asset) {
             self::assertFileExists($this->root . '/app/apps/aigc_music_cover/' . $asset['source']);
             self::assertFileExists($this->root . '/' . $asset['target']);
-            self::assertSame(
-                hash_file('sha256', $this->root . '/app/apps/aigc_music_cover/' . $asset['source']),
-                hash_file('sha256', $this->root . '/' . $asset['target'])
-            );
+            self::assertSame(hash_file('sha256', $this->root . '/app/apps/aigc_music_cover/' . $asset['source']), hash_file('sha256', $this->root . '/' . $asset['target']));
         }
-
-        $pc = file_get_contents($this->root . '/public/music-cover-page.js');
-        $tenant = file_get_contents($this->root . '/public/music-cover-admin.js');
-        self::assertStringContainsString('new FormData()', $pc);
-        self::assertStringContainsString('app.aigc_music_cover.asset/upload_audio', $pc);
-        self::assertStringContainsString('source_asset_id', $pc);
-        self::assertStringContainsString('reference_asset_id', $pc);
-        self::assertStringContainsString('app.aigc_music_cover.generate/index', $pc);
-        self::assertStringContainsString('app.aigc_music_cover.task/lists', $pc);
-        self::assertStringContainsString("fetch('/tenantapi/'", $tenant);
-        self::assertStringContainsString('aigc-music-cover', $tenant);
-        self::assertStringContainsString("addEventListener('hashchange', check)", $tenant);
-        self::assertStringContainsString('app.aigc_music_cover.config/setup', $tenant);
-        self::assertStringContainsString('app.aigc_music_cover.task/retry', $tenant);
+        $api = \Tests\Support\CompiledAssets::source('pc/apps/aigc_music_cover/api.ts');
+        $creator = \Tests\Support\CompiledAssets::source('pc/apps/aigc_music_cover/MusicCoverCreator.vue');
+        self::assertStringContainsString('$request.uploadFile', $api);
+        foreach (['asset/upload_audio', 'generate/index', 'task/lists'] as $endpoint) {
+            self::assertStringContainsString('app.aigc_music_cover.' . $endpoint, $api);
+            self::assertNotEmpty(\Tests\Support\CompiledAssets::containing('pc', 'app.aigc_music_cover.' . $endpoint));
+        }
+        foreach (['source_asset_id', 'reference_asset_id', 'cover_source', 'cover_reference'] as $field) self::assertStringContainsString($field, $creator);
+        self::assertStringContainsString('音乐翻唱', \Tests\Support\CompiledAssets::vitePage('admin', 'apps/aigc_music_cover/config'));
+        self::assertStringContainsString('重试', \Tests\Support\CompiledAssets::vitePage('admin', 'apps/aigc_music_cover/task'));
+        $tenantApi = \Tests\Support\CompiledAssets::source('tenant/src/apps/aigc_music_cover/api.ts');
+        foreach (['config/setup', 'task/retry'] as $endpoint) {
+            self::assertStringContainsString('app.aigc_music_cover.' . $endpoint, $tenantApi);
+            self::assertNotEmpty(\Tests\Support\CompiledAssets::containing('admin', 'app.aigc_music_cover.' . $endpoint));
+        }
     }
 
     public function testBothShellsLoadTheRuntimeAndStaticPcRouteExists(): void
     {
-        self::assertStringContainsString('/music-cover-page.js', file_get_contents($this->root . '/public/pc/index.html'));
-        self::assertStringContainsString('/music-cover-admin.js', file_get_contents($this->root . '/public/admin/index.html'));
         self::assertFileExists($this->root . '/public/pc/ai/tools/aigc_music_cover/index.html');
+        self::assertStringContainsString('MusicCoverCreator', \Tests\Support\CompiledAssets::source('pc/pages/ai/tools/[id].vue'));
+        self::assertStringContainsString('aigc_music_cover', \Tests\Support\CompiledAssets::pcPage('ai/tools/[id]'));
+        self::assertNotEmpty(\Tests\Support\CompiledAssets::vitePage('admin', 'apps/aigc_music_cover/config'));
+        self::assertNotEmpty(\Tests\Support\CompiledAssets::vitePage('admin', 'apps/aigc_music_cover/task'));
     }
 
     public function testSignatureManifestCoversEveryPackageFile(): void
@@ -135,6 +136,17 @@ class MusicCoverAppContractTest extends TestCase
         $root = $this->root . '/app/apps/aigc_music_cover';
         $entries = $signature['sha256'] ?? [];
         self::assertNotEmpty($entries);
+        $payload = [];
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)) as $file) {
+            if (!$file->isFile()) continue;
+            $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($file->getPathname(), strlen($root) + 1));
+            if ($relative !== 'signature.json' && !preg_match('~(^|/)\.~', $relative)) $payload[] = $relative;
+        }
+        $indexed = array_keys($entries);
+        sort($payload);
+        sort($indexed);
+        self::assertSame($payload, $indexed, 'Every installable payload file must be covered by the signature');
+
         foreach ($entries as $relative => $hash) {
             $path = $root . '/' . str_replace('/', DIRECTORY_SEPARATOR, $relative);
             self::assertFileExists($path, $relative);

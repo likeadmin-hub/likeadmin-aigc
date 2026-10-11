@@ -69,6 +69,8 @@ class SystemPackageUpdateService
                 'step_package' => true,
                 'base_version_check' => true,
                 'bridge_version' => self::STEP_UPDATE_BRIDGE_VERSION,
+                'composer_runtime' => 1,
+                'composer_runtime_updater_version' => ComposerRuntimeUpdateService::CAPABILITY_VERSION,
             ],
         ], $params);
         return (new UpdateSourceClient())->systemRequest('system/versions', $params)['data'];
@@ -183,6 +185,8 @@ class SystemPackageUpdateService
                     'step_package' => true,
                     'base_version_check' => true,
                     'bridge_version' => self::STEP_UPDATE_BRIDGE_VERSION,
+                    'composer_runtime' => 1,
+                    'composer_runtime_updater_version' => ComposerRuntimeUpdateService::CAPABILITY_VERSION,
                 ],
             ];
             $client = new UpdateSourceClient();
@@ -393,6 +397,7 @@ class SystemPackageUpdateService
                 $this->assertCoreRequirement($manifest);
                 $this->assertIncrementalManifest($manifest, $extract['path']);
                 $this->assertIncrementalComposerRuntime($manifest, $extract['path']);
+                $runtime = (new ComposerRuntimeUpdateService(UpgradeLogic::getProjectPath()))->preflight($extract['path'], $manifest);
                 $builtinApps = $this->preflightBuiltinApps($extract['path'], $manifest);
                 $result = [
                     'passed' => true,
@@ -401,6 +406,7 @@ class SystemPackageUpdateService
                     'manifest' => $manifest,
                     'environment' => $preflight['environment'],
                     'builtin_apps' => $builtinApps,
+                    'composer_runtime' => $runtime,
                 ];
                 $package->save([
                     'version' => (string)($manifest['version'] ?? $package['version']),
@@ -441,6 +447,7 @@ class SystemPackageUpdateService
             throw new RuntimeException('已有系统更新任务正在执行，请稍后再试');
         }
         try {
+            (new ComposerRuntimeUpdateService(UpgradeLogic::getProjectPath()))->recover();
             // Re-extract from the signed archive so a modified previous preflight directory
             // or an expired/rebound grant cannot bypass the final installation gate.
             $this->preflight($packageId);
@@ -450,33 +457,34 @@ class SystemPackageUpdateService
             }
             $extractPath = rtrim((string)$package['extract_path'], '/');
             (new SystemPackageGrantService())->ensure($package->toArray());
-            Db::startTrans();
-            $transactionStarted = true;
             $manifest = $this->readUpdateManifest($extractPath);
-            if (!$this->applySqlGroup($extractPath, $manifest, 'data')) {
-                throw new RuntimeException('更新数据库数据失败');
-            }
-            if (!UpgradeLogic::upgradeFile($extractPath . '/files/', UpgradeLogic::getProjectPath())) {
-                throw new RuntimeException('更新文件失败');
-            }
-            $this->applyFullReplaceDirs($extractPath, $manifest);
-            $this->applyDeleteFiles($manifest);
-            Db::commit();
-            $transactionStarted = false;
-            if (!$this->applySqlGroup($extractPath, $manifest, 'structure')) {
-                throw new RuntimeException('更新数据库结构失败');
-            }
-            $builtinApps = $this->syncBuiltinApps($extractPath, (string)$package['version']);
-            DefaultAppService::syncAllTenants();
-            PackageProvisionService::syncAllTenants();
-            $package->save(['status' => 'applied', 'error' => '', 'update_time' => time()]);
-            $this->writeLocalVersion((string)$package['version']);
-            $result = [
-                'version' => $package['version'],
-                'extract_path' => $extractPath,
-                'builtin_apps' => $builtinApps,
-            ];
-            $this->finishTask($task, 'success', $result);
+            $runtimeInstaller = new ComposerRuntimeUpdateService(UpgradeLogic::getProjectPath());
+            $installation = $runtimeInstaller->apply($extractPath, $manifest, [
+                'sql' => function () use ($extractPath, $manifest, &$transactionStarted): void {
+                    Db::startTrans();
+                    $transactionStarted = true;
+                    try {
+                        if (!$this->applySqlGroup($extractPath, $manifest, 'data')) throw new RuntimeException('更新数据库数据失败');
+                        Db::commit();
+                        $transactionStarted = false;
+                    } catch (Throwable $e) { Db::rollback(); $transactionStarted = false; throw $e; }
+                    if (!$this->applySqlGroup($extractPath, $manifest, 'structure')) throw new RuntimeException('更新数据库结构失败');
+                },
+                'files' => function () use ($extractPath, $manifest): void {
+                    if (!UpgradeLogic::upgradeFile($extractPath . '/files/', UpgradeLogic::getProjectPath())) throw new RuntimeException('更新文件失败');
+                    $this->applyFullReplaceDirs($extractPath, $manifest);
+                    $this->applyDeleteFiles($manifest);
+                },
+                'finalize' => fn (string $generation): array => $runtimeInstaller->finalize($generation, $extractPath, (string)$package['version']),
+                'marker' => fn () => $this->writeLocalVersion((string)$package['version']),
+                'complete' => function (string $generation, array $finalize) use ($package, $task, $extractPath): array {
+                    $result = ['version'=>$package['version'], 'extract_path'=>$extractPath, 'builtin_apps'=>$finalize['builtin_apps'] ?? [], 'composer_runtime'=>['generation'=>$generation]];
+                    $package->save(['status'=>'applied','error'=>'','update_time'=>time()]);
+                    $this->finishTask($task, 'success', $result);
+                    return $result;
+                },
+            ]);
+            $result = $installation['completion'] ?? ['version'=>$package['version'], 'extract_path'=>$extractPath, 'composer_runtime'=>$installation];
             return $result;
         } catch (Throwable $e) {
             if ($transactionStarted) Db::rollback();
@@ -505,6 +513,16 @@ class SystemPackageUpdateService
     {
         ini_set('max_execution_time', (string)self::UPDATE_EXECUTION_TIMEOUT);
         set_time_limit(self::UPDATE_EXECUTION_TIMEOUT);
+    }
+
+    /** Called only by the isolated candidate-runtime CLI interpreter. */
+    public function finalizeRuntimeApps(string $extractPath, string $version): array
+    {
+        if (PHP_SAPI !== 'cli' || empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])) throw new RuntimeException('运行时应用同步只能由更新器子进程执行');
+        $result = $this->syncBuiltinApps($extractPath, $version);
+        DefaultAppService::syncAllTenants();
+        PackageProvisionService::syncAllTenants();
+        return $result;
     }
 
     private function syncBuiltinApps(string $extractPath, string $coreVersion): array

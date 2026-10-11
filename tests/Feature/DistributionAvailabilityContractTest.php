@@ -28,10 +28,18 @@ class DistributionAvailabilityContractTest extends TestCase
     {
         $root = dirname(__DIR__, 3);
         $pc = file_get_contents($root . '/pc/components/ai-workspace/user-panel.vue');
-        $uniapp = file_get_contents($root . '/uniapp/src/pages/user/user.vue');
+        $uniapp = file_get_contents($root . '/uniapp/src/pages/user/user-content.vue');
+        $runtime = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/decorate/DecorateDataSourceService.php');
 
         self::assertStringContainsString('const distributionEnabled = computed', $pc);
         self::assertStringContainsString("if (distributionEnabled.value) items.push({ key: 'distribution', label: '推广中心' })", $pc);
-        self::assertStringContainsString('v-if="distributionEnabled"', $uniapp);
+        // The decorated user page receives tenant-filtered commerce entries.
+        self::assertStringContainsString('<diy-render', $uniapp);
+        self::assertStringContainsString('state.pages = parsePayload(data?.data, [])', $uniapp);
+        self::assertStringContainsString("DistributionService::isEnabled(\$tenantId)", $runtime);
+        self::assertStringContainsString("(\$widget['name'] ?? '') === 'commerce-entries'", $runtime);
+        self::assertStringContainsString("(\$row['key'] ?? '') !== 'distribution'", $runtime);
+        self::assertStringContainsString('/pages/distribution/distribution', $runtime);
+        self::assertStringContainsString('self::filterWidget($child, $context)', $runtime);
     }
 }

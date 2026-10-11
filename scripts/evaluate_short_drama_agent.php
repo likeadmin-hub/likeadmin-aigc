@@ -4,8 +4,8 @@
  * Every run is a normal metered conversation run, restricted to one Kimi model.
  */
 declare(strict_types=1);
-require dirname(__DIR__).'/vendor/autoload.php';
-(new think\App())->initialize();
+require dirname(__DIR__).'/runtime-loader.php';
+(new \AigcRuntimeApp(dirname(__DIR__)))->initialize();
 use think\facade\Db;
 use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;

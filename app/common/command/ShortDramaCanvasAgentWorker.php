@@ -38,6 +38,10 @@ final class ShortDramaCanvasAgentWorker extends Command
         $pause=max(1,min(30,(int)$input->getOption('sleep')));
         $provider=new MarketTextConversationProvider();
         do {
+                if (function_exists('aigc_runtime_generation_changed') && \aigc_runtime_generation_changed()) {
+                    $output->writeln('Runtime generation changed; worker drained and stopped.');
+                    break;
+                }
             $processed=0;
             $tenants=$tenantOption>0 ? [$tenantOption] : array_map('intval',Db::name('aigc_short_drama_config')->where('status',1)->column('tenant_id'));
             foreach (array_values(array_unique($tenants)) as $tenant) {

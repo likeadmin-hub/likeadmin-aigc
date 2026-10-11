@@ -10,7 +10,7 @@ class ShortDramaStyleSearchContractTest extends TestCase
     {
         $root = dirname(__DIR__, 2);
         $script = (string) file_get_contents($root . '/public/short-drama-style-search.js');
-        $stylesheet = (string) file_get_contents($root . '/public/_nuxt/short-drama-style-search.css');
+        $stylesheet = (string) file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/short-drama-style-search.css');
 
         self::assertStringContainsString("panelSelector = '.drama-tool-panel--style, .plan-tool-panel--style'", $script);
         self::assertStringContainsString("panel.querySelector('.drama-style-grid, .plan-style-grid')", $script);

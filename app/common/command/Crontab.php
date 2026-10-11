@@ -37,12 +37,17 @@ class Crontab extends Command
 
     protected function execute(Input $input, Output $output)
     {
+        if (function_exists('aigc_runtime_generation_changed') && \aigc_runtime_generation_changed()) return 0;
         $lists = CrontabModel::where('status', CrontabEnum::START)->select()->toArray();
         if (empty($lists)) {
             return false;
         }
         $time =  time();
         foreach ($lists as $item) {
+                if (function_exists('aigc_runtime_generation_changed') && \aigc_runtime_generation_changed()) {
+                    $output->writeln('Runtime generation changed; worker drained and stopped.');
+                    break;
+                }
             if (empty($item['last_time'])) {
                 $lastTime = (new CronExpression($item['expression']))
                     ->getNextRunDate()

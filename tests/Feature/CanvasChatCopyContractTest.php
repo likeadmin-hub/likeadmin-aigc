@@ -8,34 +8,18 @@ class CanvasChatCopyContractTest extends TestCase
 {
     public function testSelectedChatTextUsesTheNativeClipboard(): void
     {
-        $bundle = (string)file_get_contents(
-            dirname(__DIR__, 2) . '/public/_nuxt/_id_.2fb60286.js'
-        );
-
-        self::assertStringContainsString(
-            'function hasCanvasTextSelection(){if(typeof window>"u")return!1;const e=window.getSelection();return!!(e&&e.rangeCount>0&&!e.isCollapsed&&e.toString())}',
-            $bundle
-        );
-        self::assertStringContainsString(
-            'r&&n==="c"?hasCanvasTextSelection()||(e.preventDefault(),pl())',
-            $bundle
-        );
-        self::assertStringContainsString(
-            'function Yr(e){var s;const t=e.target;if(t!=null&&t.closest("input,textarea,select,[contenteditable=true]"))return;if(hasCanvasTextSelection())return;',
-            $bundle
-        );
+        $source = \Tests\Support\CompiledAssets::source('pc/pages/app/aigc_canvas/project/[id].vue');
+        self::assertGreaterThanOrEqual(3, substr_count($source, 'hasCanvasTextSelection('));
+        self::assertStringContainsString('window.getSelection()', $source);
+        self::assertStringContainsString('target?.closest(\'input,textarea,select,[contenteditable=true]\')', $source);
+        self::assertStringContainsString('getSelection()', \Tests\Support\CompiledAssets::pcPage('app/aigc_canvas/project/[id]'));
     }
 
     public function testCanvasNodesStillUseTheCanvasClipboardWithoutATextSelection(): void
     {
-        $bundle = (string)file_get_contents(
-            dirname(__DIR__, 2) . '/public/_nuxt/_id_.2fb60286.js'
-        );
-
-        self::assertGreaterThanOrEqual(
-            2,
-            substr_count($bundle, 'sessionStorage.setItem("aigc-canvas-clipboard"')
-        );
-        self::assertStringContainsString('window.addEventListener("copy",Yr)', $bundle);
+        $bundle = \Tests\Support\CompiledAssets::pcPage('app/aigc_canvas/project/[id]');
+        self::assertGreaterThanOrEqual(2, substr_count($bundle, 'sessionStorage.setItem("aigc-canvas-clipboard"'));
+        self::assertMatchesRegularExpression('/window\.addEventListener\("copy",[A-Za-z_$][\w$]*\)/', $bundle);
     }
+
 }

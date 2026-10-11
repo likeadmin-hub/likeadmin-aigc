@@ -44,6 +44,10 @@ class CanvasSubAgentWorker extends Command
         $processed = 0;
         $output->writeln(sprintf('Canvas sub-agent worker started: %s lease=%ds mode=%s', $worker, $lease, $once ? 'once' : 'daemon'));
         while ($running && (!$once || $processed < $limit)) {
+                if (function_exists('aigc_runtime_generation_changed') && \aigc_runtime_generation_changed()) {
+                    $output->writeln('Runtime generation changed; worker drained and stopped.');
+                    break;
+                }
             try {
                 $recovered = SubAgentTaskService::recoverExpiredLeases();
                 if ($recovered > 0) {

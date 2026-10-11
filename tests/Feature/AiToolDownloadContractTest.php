@@ -10,16 +10,15 @@ class AiToolDownloadContractTest extends TestCase
 {
     public function testToolBundlesUseTheServerZipEndpoint(): void
     {
-        $source = $this->frontendSource();
-
-        self::assertStringContainsString(
-            '$request.post({url:"/app.ai_tool_download/zip",params:{app_code:M,task_id:re},timeout:120*1e3,retry:0})',
-            $source
-        );
-        self::assertStringContainsString(
-            'M&&Ee>0?await serverZipDownload(M,Ee,F):await av(se,F)',
-            $source
-        );
+        $api = \Tests\Support\CompiledAssets::source('pc/apps/ai_tool_download/api.ts');
+        $source = \Tests\Support\CompiledAssets::source('pc/apps/ai_tool_download/useAiToolDownload.ts');
+        $bundle = $this->frontendSource();
+        self::assertStringContainsString('url: \'/app.ai_tool_download/zip\'', $api);
+        self::assertStringContainsString('{ app_code: appCode, task_id: taskId }', $source);
+        self::assertStringContainsString('{ timeout: 120 * 1000, retry: 0 }', $source);
+        self::assertStringContainsString('? await serverZipDownload(appCode, rawTaskId, zipName)', $source);
+        self::assertStringContainsString(': await downloadPcAssets(assets, zipName)', $source);
+        self::assertStringContainsString('/app.ai_tool_download/zip', $bundle);
     }
 
     public function testEverySupportedToolPassesItsApplicationCode(): void
@@ -52,27 +51,24 @@ class AiToolDownloadContractTest extends TestCase
             self::assertNotFalse($start, $component);
 
             $setup = substr($source, $start, 5000);
-            self::assertStringContainsString('pt("' . $appCode . '")', $setup, $component);
+            self::assertStringContainsString($appCode, $setup, $component);
+            self::assertStringContainsString("useAiToolDownload('" . $appCode . "')", \Tests\Support\CompiledAssets::source('pc/apps/' . $appCode . '/' . $component . '.vue'), $component);
             self::assertArrayHasKey($appCode, $supportedApps, $appCode);
         }
     }
 
     public function testLegacyFittingEntryAlsoUsesServerSidePackaging(): void
     {
-        $source = $this->frontendSource();
-
-        self::assertStringContainsString(
-            'ke.value?"aigc_fitting":"aigc_hairstyle"',
-            $source
-        );
-        self::assertStringContainsString(
-            't>0?await serverZipDownload(de,t,o)',
-            $source
-        );
+        $source = \Tests\Support\CompiledAssets::source('pc/components/ai-workspace/tool-detail-template.vue');
+        self::assertStringContainsString('if (taskId > 0)', $source);
+        self::assertStringContainsString('const appCode = isAiFittingTool.value ? \'aigc_fitting\' : \'aigc_hairstyle\'', $source);
+        self::assertStringContainsString('createAiToolDownloadZip({ app_code: appCode, task_id: taskId }', $source);
+        self::assertStringContainsString('triggerLegacyDownload(downloadUrl', $source);
+        self::assertStringContainsString('/app.ai_tool_download/zip', $this->frontendSource());
     }
 
     private function frontendSource(): string
     {
-        return (string)file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/_id_.57b448ac.js');
+        return (string)\Tests\Support\CompiledAssets::pcPage('ai/tools/[id]');
     }
 }

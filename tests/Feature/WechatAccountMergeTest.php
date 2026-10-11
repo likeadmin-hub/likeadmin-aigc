@@ -43,6 +43,7 @@ final class WechatAccountMergeTest extends TestCase
 
         foreach ([
             'tenant' => 'id INTEGER PRIMARY KEY, sn TEXT, tactics INTEGER DEFAULT 0, delete_time INTEGER',
+            'config' => 'id INTEGER PRIMARY KEY, type TEXT, name TEXT, value TEXT',
             'tenant_config' => 'id INTEGER PRIMARY KEY, tenant_id INTEGER, type TEXT, name TEXT, value TEXT',
             'user' => "id INTEGER PRIMARY KEY, tenant_id INTEGER, sn TEXT, account TEXT, mobile TEXT DEFAULT '', password TEXT DEFAULT '', nickname TEXT DEFAULT '', avatar TEXT DEFAULT '', is_new_user INTEGER DEFAULT 1, is_disable INTEGER DEFAULT 0, user_money NUMERIC DEFAULT 0, create_time INTEGER, update_time INTEGER, delete_time INTEGER",
             'user_auth' => "id INTEGER PRIMARY KEY, tenant_id INTEGER, user_id INTEGER, openid TEXT, unionid TEXT DEFAULT '', terminal INTEGER, create_time INTEGER, update_time INTEGER",

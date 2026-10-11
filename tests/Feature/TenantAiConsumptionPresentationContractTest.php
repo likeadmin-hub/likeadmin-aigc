@@ -102,16 +102,16 @@ class TenantAiConsumptionPresentationContractTest extends TestCase
 
     public function testTenantBundleUsesSequenceAndReadableBillingFieldsWithoutUpstreamIds(): void
     {
-        $bundle = (string)file_get_contents(dirname(__DIR__, 2) . '/public/admin/assets/consumption-DBPjHJlp.js');
+        $bundle = (string)\Tests\Support\CompiledAssets::vitePage('admin', 'power_mall/consumption');
 
         self::assertStringContainsString('label:"序号",type:"index"', $bundle);
-        self::assertStringContainsString('(Number(o(k).page)-1)*Number(o(k).size)+a+1', $bundle);
+        self::assertStringContainsString('(Number(pager.page) - 1) * Number(pager.size) + index + 1', \Tests\Support\CompiledAssets::source('tenant/src/views/power_mall/consumption.vue'));
         self::assertStringContainsString('label:"用户扣费"', $bundle);
-        self::assertStringContainsString('a.user_charge_text', $bundle);
+        self::assertStringContainsString('user_charge_text', $bundle);
         self::assertStringContainsString('label:"SKU 规格"', $bundle);
-        self::assertStringContainsString('a.sku_display', $bundle);
+        self::assertStringContainsString('sku_display', $bundle);
         self::assertStringContainsString('label:"实际用量"', $bundle);
-        self::assertStringContainsString('a.usage_display', $bundle);
+        self::assertStringContainsString('usage_display', $bundle);
         self::assertStringNotContainsString('上游任务 ID', $bundle);
         self::assertStringNotContainsString('label:"上游任务"', $bundle);
         self::assertStringNotContainsString('upstream_task_id', $bundle);

@@ -44,6 +44,10 @@ class AiTaskWorker extends Command
         $output->writeln('AI result worker started: ' . $worker);
         try {
             while ($running) {
+                if (function_exists('aigc_runtime_generation_changed') && \aigc_runtime_generation_changed()) {
+                    $output->writeln('Runtime generation changed; worker drained and stopped.');
+                    break;
+                }
                 if ($appCode === '') ShortDramaCanvasPosterJobService::recoverExpired();
                 $jobs = AiTaskJobService::claim($worker, $lease, $batch, $appCode);
                 if ($jobs === []) {
@@ -87,6 +91,10 @@ class AiTaskWorker extends Command
                         AiTaskJobService::retry($job, $e);
                         $output->writeln(sprintf('[job:%d] %s', (int)$job['id'], $e->getMessage()));
                     }
+                }
+                if (function_exists('aigc_runtime_generation_changed') && \aigc_runtime_generation_changed()) {
+                    $output->writeln('Runtime generation changed; claimed task batch completed.');
+                    break;
                 }
                 // Do not starve lightweight canvas previews while a tenant has
                 // a sustained stream of provider-result jobs.

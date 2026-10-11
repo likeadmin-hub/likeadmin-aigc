@@ -38,7 +38,8 @@ final class WechatBindingStatusTest extends TestCase
 
         foreach ([
             'tenant' => 'id INTEGER PRIMARY KEY, sn TEXT, tactics INTEGER DEFAULT 0, delete_time INTEGER',
-            'user_membership' => 'id INTEGER PRIMARY KEY, tenant_id INTEGER, user_id INTEGER',
+            'user_membership' => "id INTEGER PRIMARY KEY, tenant_id INTEGER, user_id INTEGER, plan_id INTEGER, plan_name TEXT, status INTEGER, expire_time INTEGER, source_order_sn TEXT DEFAULT '', app_codes TEXT DEFAULT '[]'",
+            'membership_order' => 'id INTEGER PRIMARY KEY, tenant_id INTEGER, user_id INTEGER, plan_id INTEGER, order_sn TEXT, pay_status INTEGER, cycle TEXT, duration_months INTEGER',
             'membership_plan' => 'id INTEGER PRIMARY KEY, tenant_id INTEGER, name TEXT, status INTEGER, delete_time INTEGER',
             'distribution_config' => 'id INTEGER PRIMARY KEY, tenant_id INTEGER, status INTEGER',
             'tenant_config' => 'id INTEGER PRIMARY KEY, tenant_id INTEGER, type TEXT, name TEXT, value TEXT',
@@ -110,5 +111,30 @@ final class WechatBindingStatusTest extends TestCase
         self::assertFalse(UserLogic::wechatBindingStatus(20)['has_oa_auth']);
         Db::name('user_auth_first')->insert(['tenant_id' => 1, 'user_id' => 20, 'openid' => 'shard-only', 'terminal' => 2]);
         self::assertTrue(UserLogic::wechatBindingStatus(20)['has_oa_auth']);
+    }
+
+    public function testProfileRefreshRetainsTenantEntitlementAndWeChatFields(): void
+    {
+        $profile = UserLogic::info(10, 1);
+        self::assertSame(0, $profile['is_member']);
+        self::assertSame('非会员', $profile['member_status_text']);
+        self::assertSame('', $profile['membership_plan']);
+        self::assertSame('--', $profile['member_expire_time_text']);
+        self::assertSame(0, $profile['distribution_enabled']);
+        self::assertTrue($profile['has_mnp_auth']);
+        self::assertArrayNotHasKey('password', $profile);
+    }
+
+    public function testProfileRefreshUsesTheAuthenticatedTenantMembership(): void
+    {
+        Db::name('user_membership')->insert([
+            'tenant_id' => 1, 'user_id' => 10, 'plan_id' => 5, 'plan_name' => '创作会员',
+            'status' => 1, 'expire_time' => time() + 3600,
+        ]);
+        $profile = UserLogic::info(10, 1);
+        self::assertSame(1, $profile['is_member']);
+        self::assertSame('创作会员', $profile['membership_plan']);
+        self::assertSame(0, UserLogic::info(10, 2)['is_member']);
+        self::assertTrue($profile['has_mnp_auth']);
     }
 }

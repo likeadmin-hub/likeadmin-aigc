@@ -119,9 +119,11 @@ class ShortDramaPromptWorkspaceContractTest extends TestCase
         $router = (string)file_get_contents($tenantRoot . '/src/router/index.ts');
         self::assertStringContainsString("import.meta.glob('/src/views/**/*.vue')", $router);
         $promptPage = (string)file_get_contents($tenantRoot . '/src/views/apps/aigc_short_drama/prompt.vue');
-        self::assertStringContainsString('prompt_config_definitions', $promptPage);
-        self::assertStringContainsString('prompt_config_values', $promptPage);
-        self::assertStringContainsString('setAigcShortDramaConfig({ prompt_config:', $promptPage);
+        self::assertStringContainsString('getShortDramaPromptWorkspace()', $promptPage);
+        self::assertStringContainsString('workspace.groups', $promptPage);
+        self::assertStringContainsString('saveShortDramaPrompts({', $promptPage);
+        self::assertStringContainsString('恢复应用默认', $promptPage);
+        self::assertStringContainsString('protected_rules', $promptPage);
 
         $service = (string)file_get_contents(
             $root . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php'
