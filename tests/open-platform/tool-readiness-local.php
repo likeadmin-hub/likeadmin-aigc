@@ -16,7 +16,8 @@ if($image===''||$video==='')throw new RuntimeException('Owned authorized synthet
 request()->tenantId=1;request()->userId=1;request()->source=app\common\enum\AdminTerminalEnum::USER;request()->userInfo=['user_id'=>1,'tenant_id'=>1,'terminal'=>4];
 $wallet=(float)$user['user_money'];$tenantWallet=(float)Db::name('tenant')->where('id',1)->value('point_balance');$results=[];
 Db::startTrans();try{
- foreach([0,1] as $tenant){$settings=S::settings($tenant);unset($settings['enabled']);$settings['apps']=array_keys(R::all());S::table('setting')->where('tenant_id',$tenant)->update(['enabled'=>1,'config'=>S::encode($settings)]);}
+ foreach([0,1] as $tenant){$settings=S::settings($tenant);unset($settings['enabled']);$settings['apps']=array_keys(R::all());$row=S::table('setting')->where('tenant_id',$tenant)->find();$values=['enabled'=>1,'config'=>S::encode($settings),'update_time'=>time()];if($row)S::table('setting')->where('id',$row['id'])->update($values);else S::table('setting')->insert($values+['tenant_id'=>$tenant,'create_time'=>time()]);}
+ S::requireEnabled(1);
  $common=['source_image'=>$image,'product_image'=>$image,'product_images'=>[$image],'source_images'=>[$image],'reference_images'=>[$image],'model_image'=>$image,'wear_image'=>$image,'person_image'=>$image,'reference_image'=>$image,'clothes_images'=>[$image],'garment_images'=>[$image],'model_images'=>[$image],'mask_image'=>$image,'prompt'=>'Synthetic bottle fixture on a plain background.','user_prompt'=>'Preserve the synthetic fixture.','channel'=>'market_image_model:154','quality'=>'1k','ratio'=>'1:1','quantity'=>1,'duration'=>15];
  $overrides=[
   'aigc_video'=>['channel'=>'market_video_model:178','quality'=>'720p','duration'=>5],
