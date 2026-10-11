@@ -8,8 +8,20 @@ final class OpenRecovery
         static $lastPrune=0;if($lastPrune<time()-60){OpenRateLimiter::prune();$lastPrune=time();}
         $count=0;foreach(['request','webhook'] as $table){$q=OpenStore::table($table)->where('next_run_time','>',0)->where('next_run_time','<=',time())->where('lease_expire','<=',time());if($table==='request')$q->where('active',1);else $q->where('status','pending');
             foreach($q->order('next_run_time','asc')->limit(min(100,$limit))->select()->toArray() as $row){$token=bin2hex(random_bytes(16));if(!OpenStore::table($table)->where('id',$row['id'])->where('lease_expire','<=',time())->update(['lease_token'=>$token,'lease_expire'=>time()+300]))continue;$row['lease_token']=$token;
-                try{if($table==='webhook')OpenWebhooks::deliver($row);else self::refresh($row);$count++;}catch(\Throwable $e){OpenStore::table($table)->where(['id'=>$row['id'],'lease_token'=>$token])->update(['next_run_time'=>time()+60,'lease_expire'=>0,'lease_token'=>'',...($table==='webhook'?['last_error'=>'通知恢复处理失败']:['error_code'=>$e instanceof OpenException?$e->errorType:'recovery_failed','error_message'=>$e instanceof OpenException?mb_substr($e->getMessage(),0,500):'恢复处理失败'])]);}
+                try{if($table==='webhook')OpenWebhooks::deliver($row);else self::refresh($row);$count++;}catch(\Throwable $e){if(self::connectionLost($e))throw $e;OpenStore::table($table)->where(['id'=>$row['id'],'lease_token'=>$token])->update(['next_run_time'=>time()+60,'lease_expire'=>0,'lease_token'=>'',...($table==='webhook'?['last_error'=>'通知恢复处理失败']:['error_code'=>$e instanceof OpenException?$e->errorType:'recovery_failed','error_message'=>$e instanceof OpenException?mb_substr($e->getMessage(),0,500):'恢复处理失败'])]);}
             }}return $count;
+    }
+    /** Never reconnect and replay SQL on an uncertain connection; let the supervisor restart. */
+    public static function connectionLost(\Throwable $error): bool
+    {
+        do{
+            $state='';$code=0;
+            if($error instanceof \PDOException){$state=(string)($error->errorInfo[0]??$error->getCode());$code=(int)($error->errorInfo[1]??0);}
+            elseif($error instanceof \think\db\exception\DbException){$data=$error->getData()['PDO Error Info']??[];$state=(string)($data['SQLSTATE']??'');$code=(int)($data['Driver Error Code']??0);}
+            if(str_starts_with($state,'08')||in_array($code,[2006,2013,2055],true))return true;
+            if(($error instanceof \PDOException||$error instanceof \think\db\exception\DbException)&&preg_match('/server has gone away|lost connection|connection (?:is )?closed|error (?:2006|2013|2055)/i',$error->getMessage()))return true;
+        }while($error=$error->getPrevious());
+        return false;
     }
     public static function refresh(array $row): void
     {
