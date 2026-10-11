@@ -60,6 +60,7 @@ LikeAdmin AIGC SaaS 不是一套普通后台，而是一套可部署、可更新
 - 需启用 `curl`、`zip`、`fileinfo`、`openssl`、`mbstring`、`pdo_mysql`、`iconv`、`gd`、`bcmath`、`dom`、`xml`、`xmlreader`、`xmlwriter` 等依赖扩展；使用 Redis 缓存时还需 `redis`。CLI Worker 应支持 `pcntl` 信号处理，以便停止时等待当前处理流程。
 - MySQL >= 5.7 或 MariaDB >= 10.3，字符集建议 `utf8mb4`。
 - Composer 2.x（源码安装使用）；完整安装包已包含配套依赖，在线升级会自动部署依赖，无需在客户服务器运行 Composer。
+- 在线依赖升级需要网站允许 `proc_open`，并能启动本项目的 PHP 8.2 CLI。更新器会检查 CLI 扩展、写入权限与配套依赖，验证通过后再切换运行代码。
 - Web 目录指向 `server/public`。
 - 需要在线更新和解压更新包时，服务器需支持 `ZipArchive`，或安装 `unzip` / `7z` / `tar` 命令之一。
 
@@ -70,6 +71,8 @@ LikeAdmin AIGC SaaS 不是一套普通后台，而是一套可部署、可更新
 代码、`composer.lock` 和匹配的 `vendor` 必须一起部署，不能通过 `--ignore-platform-reqs` 在 PHP 8.0 上启动。新接收的对话使用 `neuron_v1`；历史 `deepagents_v1` 快照由 PHP 兼容桥接处理，队列未排空时不能移除该兼容代码或依赖。
 
 启用短剧画布前，先完成应用安装和对应升级迁移，确认 `aigc_short_drama_canvas_page`、`aigc_short_drama_canvas_production` 两张表存在；缺少时依次应用 `upgrade_20261009_canvas_pages.sql`、`upgrade_20261009_canvas_production.sql`。自定义表前缀需同步调整 SQL。
+
+已安装 1.0.390 的站点可直接在线升级至完整 1.0.391。升级前先切换本项目网站至 PHP 8.2，停用对应任务守护和计划任务的自动拉起，等待在途任务完成并停止旧进程；升级成功后，用 PHP 8.2 重新启动本项目任务进程。更新器自动交付锁定的依赖，其他站点与全局 PHP 配置保持原样。详细步骤见 [1.0.391 更新说明](docs/releases/1.0.391.md)。
 
 运行时与兼容说明见 [Neuron 运行时文档](docs/short-drama-neuron-runtime.md)；当前本地网站、守护入口和迁移状态见 [PHP 8.2 本地运行记录](docs/php82-local-runtime.md)。
 
