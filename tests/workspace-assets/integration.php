@@ -1,0 +1,35 @@
+<?php
+// Local opt-in only. Fixture writes run in a rollback-only transaction.
+require dirname(__DIR__, 2) . '/vendor/autoload.php';
+use app\common\service\WorkspaceAssetService as Library;
+use think\facade\Db;
+if (getenv('WORKSPACE_ASSET_TEST') !== '1') throw new RuntimeException('Set WORKSPACE_ASSET_TEST=1 for a local database');
+(new \think\App())->initialize();
+function check($yes, $message) { if (!$yes) throw new RuntimeException($message); }
+function reject(callable $action) { try { $action(); } catch (InvalidArgumentException $e) { return; } throw new RuntimeException('Unauthorized or invalid update accepted'); }
+Db::startTrans();
+try {
+    $tenant=2000000000; $user=2000000000;
+    $task=Db::name('aigc_image_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','prompt'=>'Fixture, no provider request','create_time'=>time()]);
+    $result=Db::name('aigc_image_result')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$task,'image_uri'=>'uploads/test-fixture.png','create_time'=>time()]);
+    $ref='image:result:'.$result;
+    $state=Library::update($tenant,$user,['refs'=>[$ref],'favorite'=>1,'label'=>'todo'])['states'][0];
+    check($state['favorite']===1 && $state['label']==='todo', 'Persisted metadata');
+    reject(fn()=>Library::update($tenant+1,$user,['refs'=>[$ref],'action'=>'trash']));
+    reject(fn()=>Library::update($tenant,$user+1,['refs'=>[$ref],'action'=>'trash']));
+    reject(fn()=>Library::update($tenant,$user,['refs'=>[$ref],'action'=>'remove']));
+    Library::update($tenant,$user,['refs'=>[$ref],'action'=>'trash']);
+    $read=Library::read($tenant,$user);
+    check(count($read['supplemental'])===1 && $read['states'][0]['trashed_at']>0,'Trash can be read independently of recent source limits');
+    check(count(Library::read($tenant,$user+1)['states'])===0,'Cross-user reads are isolated');
+    check((int)Db::name('aigc_image_result')->where('id',$result)->value('delete_time')===0,'Source result retained');
+    Library::update($tenant,$user,['refs'=>[$ref],'action'=>'restore']);
+    check((int)Library::read($tenant,$user)['states'][0]['trashed_at']===0,'Restore works');
+    reject(fn()=>Library::update($tenant,$user,['refs'=>[$ref,'image:result:2147483647'],'action'=>'trash']));
+    check((int)Library::read($tenant,$user)['states'][0]['trashed_at']===0,'Mixed-ownership batch rolls back entirely');
+    Library::update($tenant,$user,['refs'=>[$ref],'action'=>'trash']);
+    Library::update($tenant,$user,['refs'=>[$ref],'action'=>'remove']);
+    reject(fn()=>Library::update($tenant,$user,['refs'=>[$ref],'action'=>'restore']));
+    check(Library::read($tenant,$user)['supplemental']===[],'Removed asset remains a tombstone');
+    echo "PASS: library persistence, partial patches, tenant/user isolation, trash/restore/remove, atomic batch; no physical files changed\n";
+} finally { Db::rollback(); }
