@@ -27,5 +27,6 @@ try{
  $cipher=V::seal('private replay body');check(V::open($cipher)==='private replay body','Replay encryption');
  $bytes=base64_decode($cipher);$bytes[strlen($bytes)-1]=chr(ord($bytes[strlen($bytes)-1])^1);
  $rejected=false;try{V::open(base64_encode($bytes));}catch(RuntimeException $e){$rejected=true;}check($rejected,'Accepted tampered encryption');
+ $limits=S::defaults();$limits['rpm']=2;S::table('setting')->where('tenant_id',$t)->update(['config'=>S::encode($limits)]);$rateKey=S::table('key')->where('id',$rotated['id'])->find();app\common\service\open_platform\OpenRateLimiter::admit($rateKey);app\common\service\open_platform\OpenRateLimiter::admit($rateKey);$blocked=false;try{app\common\service\open_platform\OpenRateLimiter::admit($rateKey);}catch(app\common\service\open_platform\OpenException $e){$blocked=$e->httpStatus===429;}check($blocked,'Replay traffic bypassed durable rate limit');check((int)S::table('rate')->where(['tenant_id'=>$t,'key_id'=>0])->value('calls')===2,'Tenant aggregate counter wrong');
  echo "PASS transactional key isolation, rotation, defaults and authenticated replay encryption\n";
 }finally{Db::rollback();}

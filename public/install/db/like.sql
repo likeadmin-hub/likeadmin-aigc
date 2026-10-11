@@ -11128,3 +11128,11 @@ CREATE TABLE IF NOT EXISTS `la_open_platform_webhook_delivery` (
 `error_message` varchar(500) NOT NULL DEFAULT '', `create_time` bigint NOT NULL DEFAULT 0,
 PRIMARY KEY (`id`), KEY `delivery_history` (`webhook_id`,`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Durable admission counts include idempotent replay and rejected business parameters.
+CREATE TABLE IF NOT EXISTS `la_open_platform_rate` (
+`id` bigint unsigned NOT NULL AUTO_INCREMENT,
+`tenant_id` bigint unsigned NOT NULL, `key_id` bigint unsigned NOT NULL DEFAULT 0,
+`slot` bigint NOT NULL, `calls` int unsigned NOT NULL DEFAULT 0,
+PRIMARY KEY (`id`), UNIQUE KEY `tenant_key_slot` (`tenant_id`,`key_id`,`slot`),
+KEY `expired_slot` (`slot`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

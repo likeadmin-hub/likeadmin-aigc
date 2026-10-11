@@ -5,6 +5,7 @@ final class OpenRecovery
 {
     public static function tick(int $limit=10): int
     {
+        static $lastPrune=0;if($lastPrune<time()-60){OpenRateLimiter::prune();$lastPrune=time();}
         $count=0;foreach(['request','webhook'] as $table){$q=OpenStore::table($table)->where('next_run_time','>',0)->where('next_run_time','<=',time())->where('lease_expire','<=',time());if($table==='request')$q->where('active',1);else $q->where('status','pending');
             foreach($q->order('next_run_time','asc')->limit(min(100,$limit))->select()->toArray() as $row){$token=bin2hex(random_bytes(16));if(!OpenStore::table($table)->where('id',$row['id'])->where('lease_expire','<=',time())->update(['lease_token'=>$token,'lease_expire'=>time()+300]))continue;$row['lease_token']=$token;
                 try{if($table==='webhook')OpenWebhooks::deliver($row);else self::refresh($row);$count++;}catch(\Throwable $e){OpenStore::table($table)->where(['id'=>$row['id'],'lease_token'=>$token])->update(['next_run_time'=>time()+60,'lease_expire'=>0,'lease_token'=>'','error_code'=>$e instanceof OpenException?$e->errorType:'recovery_failed','error_message'=>$e instanceof OpenException?mb_substr($e->getMessage(),0,500):'恢复处理失败']);}
