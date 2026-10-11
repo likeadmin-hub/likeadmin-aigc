@@ -21,7 +21,7 @@ final class OpenAssets
         if($uri===''||empty($result['storage_scope'])||empty($result['storage_engine']))return null;
         $storage=['storage_scope'=>$result['storage_scope'],'storage_engine'=>$result['storage_engine'],'storage_domain'=>(string)($result['storage_domain']??'')];
         $id='of_'.substr(hash('sha256',OpenStore::encode([$tenantId,$userId,$app,$uri,$storage])),0,32);
-        $row=['tenant_id'=>$tenantId,'user_id'=>$userId,'file_id'=>$id,'uri'=>$uri,'name'=>basename((string)(parse_url($uri,PHP_URL_PATH)?:$uri)),'mime'=>(string)($result['mime']??''),'size'=>max(0,(int)($result['size']??0))]+$storage+OpenStore::timestamp();
+        $row=['tenant_id'=>$tenantId,'user_id'=>$userId,'file_id'=>$id,'uri'=>$uri,'name'=>basename((string)(parse_url($uri,PHP_URL_PATH)?:$uri)),'mime'=>(string)($result['mime']??$result['mime_type']??''),'size'=>max(0,(int)($result['size']??$result['file_size']??0))]+$storage+OpenStore::timestamp();
         // The deterministic ID and unique file_id index make polling/recovery idempotent.
         $existing=OpenStore::table('file')->where('file_id',$id)->find();
         if(!$existing){
