@@ -144,6 +144,7 @@ class AigcImageService
     /** Submit a business app image task through a market model SKU only. */
     public static function generateMarketModelWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride, string $appCode): array
     {
+        $batchMetadata = AigcImageCreationBatch::takeFromRequest($params);
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
         if ($prompt === '') {
@@ -158,7 +159,7 @@ class AigcImageService
         $task = AigcImageTask::create([
             'app_task_id' => 0, 'tenant_id' => $tenantId, 'user_id' => $userId,
             'prompt' => $prompt, 'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
-            'reference_images' => $referenceImages, 'provider_params_json' => [],
+            'reference_images' => $referenceImages, 'provider_params_json' => $batchMetadata,
             'style' => (string)($params['style'] ?? 'general'),
             'channel' => (string)($params['model_id'] ?? $params['channel'] ?? ''),
             'quality' => (string)($params['quality'] ?? ''), 'ratio' => (string)($params['ratio'] ?? ''),
@@ -358,6 +359,7 @@ class AigcImageService
     /** Submit Nano Banana through its application-API runtime and market SKU. */
     private static function generateNanoBanana(int $tenantId, int $userId, array $params, array $selection, array $referenceImages): array
     {
+        $batchMetadata = AigcImageCreationBatch::takeFromRequest($params);
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
         AigcImageChannelService::assertChannelQuantity($selection['channel'], $quantity);
         $spec = (array)$selection['spec'];
@@ -382,7 +384,7 @@ class AigcImageService
             'prompt' => (string)$params['prompt'],
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
             'reference_images' => $referenceImages,
-            'provider_params_json' => $providerParams,
+            'provider_params_json' => array_merge($providerParams, $batchMetadata),
             'style' => (string)($params['style'] ?? 'general'),
             'channel' => (string)$selection['channel']['code'],
             'quality' => (string)($spec['quality'] ?? ''),
@@ -872,6 +874,7 @@ class AigcImageService
 
     private static function appendTaskModelDisplay(array &$task): void
     {
+        $task['creation_batch'] = AigcImageCreationBatch::fromTask($task);
         $task['model_name'] = AiTaskRecordService::modelDisplayName($task, self::APP_CODE);
         $task['channel_name'] = $task['model_name'];
     }
@@ -1197,7 +1200,7 @@ class AigcImageService
             (int)$task['quantity'],
             (array)($task['reference_images'] ?: []),
             $selection['spec'],
-            array_merge($selection['spec']['provider_params_json'] ?? [], is_array($task['provider_params_json'] ?? null) ? $task['provider_params_json'] : []),
+            AigcImageCreationBatch::providerParams(array_merge($selection['spec']['provider_params_json'] ?? [], is_array($task['provider_params_json'] ?? null) ? $task['provider_params_json'] : [])),
             array_merge($selection['channel']['config_json'] ?? [], [
                 'model' => $selection['channel']['model'],
                 'tenant_id' => (int)$task['tenant_id'],
