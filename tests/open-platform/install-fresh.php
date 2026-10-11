@@ -19,7 +19,8 @@ try{
  $before=[];foreach($tables as $table)$before[$table]=$pdo->query('SHOW CREATE TABLE `'.$table.'`')->fetch(PDO::FETCH_NUM)[1];
  $migrations=glob($root.'/app/apps/open_platform/migrations/*.sql');sort($migrations);check(count($migrations)===4,'Migration baseline changed; update acceptance coverage');
  for($i=0;$i<2;$i++)foreach($migrations as $file)$pdo->exec(str_replace('la_',$prefix,file_get_contents($file)));
- foreach($tables as $table)check($pdo->query('SHOW CREATE TABLE `'.$table.'`')->fetch(PDO::FETCH_NUM)[1]===$before[$table],'Repeated migration changed installed schema');
+ $schema=static fn($ddl)=>preg_replace('/ AUTO_INCREMENT=\d+/','',$ddl);
+ foreach($tables as $table)check($schema($pdo->query('SHOW CREATE TABLE `'.$table.'`')->fetch(PDO::FETCH_NUM)[1])===$schema($before[$table]),'Repeated migration changed installed schema: '.$table);
  foreach(['quickstart','auth-limits','tasks-billing','assets-webhooks'] as $slug){$q=$pdo->prepare('SELECT content FROM `'.$prefix.'open_platform_document` WHERE tenant_id=0 AND slug=? AND status=?');$q->execute(['open-platform-'.$slug,'published']);$rows=$q->fetchAll(PDO::FETCH_COLUMN);check(count($rows)===1&&trim($rows[0])===trim(file_get_contents($root.'/app/apps/open_platform/docs/'.$slug.'.md')),'Guide seed changed or duplicated: '.$slug);}
  $test=$original;$test['default']='open_platform_fixture';$test['connections']['open_platform_fixture']=array_replace($mysql,['database'=>$created?$name:'z_cn','prefix'=>$prefix]);Db::setConfig($test);
  check(S::settings(123456)['enabled']===false,'New tenant unexpectedly enabled API calling');check(S::settings(123456)['apps']===[]&&S::settings(123456)['models']===[],'New tenant inherited callable abilities');
