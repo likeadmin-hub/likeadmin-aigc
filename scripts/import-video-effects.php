@@ -26,6 +26,7 @@ foreach($rows as &$row){
     if(!array_intersect($row['methods'],$model['generation_modes']??[]))throw new RuntimeException('Unsupported model mode for '.$row['id']);
     $row['methods']=array_values(array_intersect($row['methods'],$model['generation_modes']));
     $row['product_ids']=[$product];$row['enabled']=true;
+    if(isset($existing[$row['id']]['template']))$row['template']=$existing[$row['id']]['template'];
     foreach(['poster'=>'webp','video'=>'mp4'] as $field=>$ext){
         $old=$existing[$row['id']][$field]??'';
         if($old!=='' && !str_contains($old,'imagine.animagic.art')){$row[$field]=$old;continue;}

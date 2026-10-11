@@ -16,3 +16,7 @@
 本轮用户要求不消耗算力：自动验证只覆盖配置、输入校验、指令编译、模型请求构造与页面交互。90 个效果均没有进行真实模型输出质量验收，复杂变身、肢体动作、文字/Logo 保真和长镜头应由用户试生成后调整；不保证与参考演示逐帧一致。
 
 Before importing into an existing installation, apply `app/apps/aigc_video/migrations/upgrade_20261012_effect_config_capacity.sql`. The configuration field uses MEDIUMTEXT to retain the full catalog; fresh installs include the same type. New tenants share this table.
+
+完整模板：`template` 保存默认模型、生成方式、场景提示词、时长、比例、清晰度和参考图片（含首尾帧用途）。旧效果没有此字段仍按原交互使用。选中完整模板替换编辑区的场景与素材；点击图片替换只变更该图，不改效果指令或参数，上传失败保留原图。
+
+`scripts/configure-video-effect-templates.php` 可给已有目录补全模板。输入目录包括 `recipes.json`（id、generation_method、duration、ratio）与 `ID-first.jpg`，六种转场还需 `ID-last.jpg`。本次默认素材来自已有演示视频的首画面和结束前 0.12 秒画面，时长取最接近的模型可用整数秒，比例取最接近的可用比例；图片在素材中心托管。默认先校验，`--apply` 才入库；不提交生成。演示素材不代表当前模型实测结果，原站隐藏配置无法据此还原。

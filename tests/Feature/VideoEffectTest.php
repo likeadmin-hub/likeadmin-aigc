@@ -103,6 +103,25 @@ final class VideoEffectTest extends TestCase
         self::assertSame($params['effect_prompt'],Effects::snapshot($effect,$params['prompt'])['instruction']);
         self::assertStringNotContainsString($this->catalog()[0]['instruction'],$compiled['prompt']);
     }
+    public function testCompleteTemplatesPreserveDefaultsAndRejectIncompleteFrames(): void {
+        $rows=$this->catalog();
+        $rows[0]['template']=['product_id'=>7,'generation_method'=>'start_end','prompt'=>'A person in a station','duration'=>6,'resolution'=>'768P','ratio'=>'9:16','reference_assets'=>[
+            ['url'=>'https://example.com/first.jpg','role'=>'first_frame_image','name'=>'首帧'],
+            ['url'=>'https://example.com/last.jpg','role'=>'last_frame_image','name'=>'尾帧'],
+        ]];
+        $normalized=Effects::normalize($rows);
+        self::assertSame(6,$normalized[0]['template']['duration']);
+        self::assertSame('image',$normalized[0]['template']['reference_assets'][0]['type']);
+        self::assertCount(2,Effects::publicCatalog($normalized)[0]['template']['reference_assets']);
+        array_pop($rows[0]['template']['reference_assets']);
+        $this->expectException(InvalidArgumentException::class);Effects::normalize($rows);
+    }
+    public function testTemplateCannotSelectUnboundModelOrUnsafeAsset(): void {
+        foreach([['product_id'=>9,'url'=>'https://example.com/a.jpg'],['product_id'=>7,'url'=>'javascript:bad']] as $case){
+            $rows=$this->catalog();$rows[0]['template']=['product_id'=>$case['product_id'],'generation_method'=>'image_to_video','prompt'=>'scene','duration'=>5,'resolution'=>'768P','ratio'=>'16:9','reference_assets'=>[['url'=>$case['url']]]];
+            try{Effects::normalize($rows);self::fail('Invalid template accepted');}catch(InvalidArgumentException $error){self::assertNotEmpty($error->getMessage());}
+        }
+    }
     public function testEnablingRequiresModels(): void {
         $rows=array_slice(Effects::defaults(),0,3);$rows[0]['enabled']=true;
         $this->expectException(InvalidArgumentException::class);Effects::normalize($rows);
