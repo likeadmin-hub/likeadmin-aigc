@@ -14,6 +14,8 @@ final class OpenRecovery
     {
         $request=request();$request->source=\app\common\enum\AdminTerminalEnum::USER;$request->tenantId=(int)$row['tenant_id'];$request->userId=(int)$row['user_id'];$request->userInfo=['tenant_id'=>(int)$row['tenant_id'],'user_id'=>(int)$row['user_id'],'terminal'=>4];OpenCallContext::enter($row['request_id']);
         try{
+            $snapshot=OpenStore::json($row['snapshot']);
+            if(($snapshot['_execution_version']??0)===2&&($snapshot['dispatch_started']??true)===false&&$row['status']==='accepted'){if($row['kind']==='market')OpenMarketBilling::settle($row,[],true);OpenAdmission::finish($row['request_id'],['status'=>'failed','billing_status'=>empty(OpenStore::json($row['consumption_ids']))?'none':'refunded','active'=>0,'budget_user'=>0,'budget_tenant'=>0,'error_code'=>'execution_not_started','error_message'=>'请求在业务执行前中断','next_run_time'=>0,'finish_time'=>time(),'lease_expire'=>0,'lease_token'=>'']);return;}
             if($row['kind']==='market'){
                 $snapshot=OpenStore::json($row['snapshot']);$contract=$snapshot['contract']??[];
                 // Unknown acceptance cannot be repaired by resubmitting the original payload.
