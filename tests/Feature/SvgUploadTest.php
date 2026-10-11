@@ -72,6 +72,7 @@ final class SvgUploadTest extends TestCase
         $dir = sys_get_temp_dir() . '/svg-output-' . bin2hex(random_bytes(8));
         file_put_contents($path, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><script>alert(1)</script><path d="M0 0h24v24z"/></svg>');
         $config = new Config();
+        Container::getInstance()->instance('env', new \think\Env());
         $config->set(require dirname(__DIR__, 2) . '/config/project.php', 'project');
         Container::getInstance()->instance('config', $config);
         $request = $this->createMock(Request::class);
