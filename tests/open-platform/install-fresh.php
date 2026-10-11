@@ -35,7 +35,7 @@ try{
  $menuKeys=static function(array $menus)use(&$menuKeys){$keys=[];foreach($menus as $menu){$keys[]=$menu['source_menu_key'];$keys=array_merge($keys,$menuKeys($menu['children']??[]));}return $keys;};
  $platformKeys=$menuKeys(json_decode(file_get_contents($root.'/app/apps/open_platform/menus/platform.json'),true));$tenantKeys=$menuKeys(json_decode(file_get_contents($root.'/app/apps/open_platform/menus/tenant.json'),true));
  $actual=Db::name('system_menu')->where('app_code','open_platform')->column('source_menu_key');sort($actual);sort($platformKeys);check($actual===$platformKeys,'Platform menus or permission actions missing or duplicated');
- Db::name('tenant')->insert(['id'=>123456,'sn'=>'opf_fixture','name'=>'opf fixture','tactics'=>0]);
+ Db::name('tenant')->insert(['id'=>123456,'sn'=>'opf_fixture','name'=>'opf fixture','tactics'=>0,'create_time'=>time(),'update_time'=>time()]);
  $customId=Db::name('tenant_system_menu')->insertGetId(['tenant_id'=>123456,'app_code'=>'open_platform','source'=>'tenant','source_menu_key'=>'opf_custom','name'=>'Owned custom menu','type'=>'C','create_time'=>time(),'update_time'=>time()]);
  for($i=0;$i<2;$i++)DefaultAppService::syncTenantDefaults(123456,'opf_fixture',false);
  $opened=Db::name('tenant_app')->where(['tenant_id'=>123456,'app_code'=>'open_platform'])->select()->toArray();check(count($opened)===1&&(int)$opened[0]['buy_status']===1&&(int)$opened[0]['shelf_status']===1&&(int)$opened[0]['enable_status']===1,'New tenant module not installed, enabled and shelved');
