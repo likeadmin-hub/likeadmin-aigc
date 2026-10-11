@@ -9,6 +9,17 @@ final class VideoEffectTest extends TestCase
         foreach($rows as &$row){$row['enabled']=true;$row['product_ids']=[7];$row['poster']='/uploads/demo.webp';$row['video']='/uploads/demo.mp4';}
         return Effects::normalize($rows);
     }
+    public function testLegacyCategoriesAndConfiguredCategories(): void {
+        $rows=Effects::defaults();
+        unset($rows[0]['categories']);
+        self::assertSame(['Camera Control'],Effects::normalize($rows)[0]['categories']);
+        $rows[0]['categories']=['Action Movement','Viral','Viral'];
+        $rows[0]['enabled']=true;$rows[0]['product_ids']=[7];
+        self::assertSame(['Action Movement','Viral'],Effects::publicCatalog(Effects::normalize($rows))[0]['categories']);
+        $rows[0]['categories']=['unknown'];
+        $this->expectException(InvalidArgumentException::class);
+        Effects::normalize($rows);
+    }
     public function testDefaultsAreNotPublicUntilEnabled(): void {
         self::assertCount(3,Effects::defaults());
         self::assertSame([],Effects::publicCatalog(Effects::defaults()));

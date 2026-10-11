@@ -14,7 +14,7 @@ class VideoEffectService
             ['pull_out', '镜头拉远', '镜头平稳远离主体，逐渐展示环境。', 'Camera slowly dollies backward away from the main subject, gradually revealing the surrounding environment in a single continuous shot. Keep subject identity and geometry consistent. Smooth restrained movement, no cuts, no morphing.'],
             ['truck_right', '镜头横移', '镜头向右平移，呈现自然视差。', 'Camera trucks slowly to the right, keeping the main subject in view with natural background parallax in a single continuous shot. Preserve subject identity, proportions and scene. No orbit, no cuts, no morphing.'],
         ];
-        return array_map(static fn($s) => ['id'=>$s[0], 'name'=>$s[1], 'description'=>$s[2], 'instruction'=>$s[3], 'enabled'=>false, 'product_ids'=>[], 'methods'=>['text_to_video','image_reference'], 'require_image'=>false, 'poster'=>'', 'video'=>''], $seeds);
+        return array_map(static fn($s) => ['categories'=>['Camera Control'], 'id'=>$s[0], 'name'=>$s[1], 'description'=>$s[2], 'instruction'=>$s[3], 'enabled'=>false, 'product_ids'=>[], 'methods'=>['text_to_video','image_reference'], 'require_image'=>false, 'poster'=>'', 'video'=>''], $seeds);
     }
 
     public static function normalize($rows): array
@@ -27,6 +27,9 @@ class VideoEffectService
                 if (!is_string($row[$key]??null) || trim($row[$key])==='' || mb_strlen($row[$key])>$max) throw new InvalidArgumentException('请检查效果名称、说明与指令长度');
                 $row[$key]=trim($row[$key]);
             }
+            $categories=$row['categories']??['Camera Control'];
+            if (!is_array($categories) || !$categories || array_filter($categories, static fn($value)=>!is_string($value)) || array_diff($categories, ['Camera Control','Action Movement','UGC','Commercial','First/Last Frame','Viral','Commercial/Ads'])) throw new InvalidArgumentException('请选择有效的效果分类');
+            $row['categories']=array_values(array_unique($categories));
             $ids=$row['product_ids']??[]; $methods=$row['methods']??[];
             if (!is_array($ids) || count($ids)>100 || !is_array($methods) || !$methods || array_diff($methods,['text_to_video','image_reference'])) throw new InvalidArgumentException('效果模型或生成方式配置无效');
             foreach ($ids as &$id) {
@@ -42,7 +45,7 @@ class VideoEffectService
             $requireImage=filter_var($row['require_image']??false,FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE);
             if ($enabled===null || $requireImage===null) throw new InvalidArgumentException('效果开关配置无效');
             if ($enabled && !$ids) throw new InvalidArgumentException('启用前请选择适配模型');
-            $result[$row['id']]=array_intersect_key($row,array_flip(['id','name','description','instruction','poster','video']))+['enabled'=>$enabled,'product_ids'=>array_values(array_unique($ids)),'methods'=>array_values(array_unique($methods)),'require_image'=>$requireImage];
+            $result[$row['id']]=array_intersect_key($row,array_flip(['id','name','description','instruction','poster','video','categories']))+['enabled'=>$enabled,'product_ids'=>array_values(array_unique($ids)),'methods'=>array_values(array_unique($methods)),'require_image'=>$requireImage];
         }
         return array_values($result);
     }
