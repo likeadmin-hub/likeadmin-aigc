@@ -67,7 +67,8 @@ final class OpenGateway
             $headers=[];foreach(['accept','anthropic-version','anthropic-beta','openai-beta','idempotency-key'] as $name){$value=(string)$request->header($name,'');if($value!=='')$headers[$name]=$value;}
             self::markDispatch($row['request_id']);$dispatched=true;$wire=(new OpenTransport())->send($transportSource,$row['method'],$row['path'],$params,(array)$request->file(),$stream?function($chunk,$status,$responseHeaders){if(!headers_sent()){http_response_code($status);foreach($responseHeaders as $name=>$value)header($name.': '.$value);}echo $chunk;@flush();}:null,$headers);
             $data=json_decode($wire['body'],true);$data=is_array($data)?$data:[];$task=(string)(OpenSchema::get($data,$op['task_id_path']??'data.task_id')??'');$failed=self::wireFailed($wire['status'],$data,$op);$fields=['response_blob'=>OpenVault::seal($wire['body']),'response_type'=>$wire['headers']['content-type']??'application/json','response_code'=>$wire['status'],'duration_ms'=>(int)((microtime(true)-$start)*1000)];
-            if($task!==''&&!$failed&&$op['role']==='submit'){$fields+=['upstream_task_id'=>$task,'status'=>'running','next_run_time'=>time()+30];\app\common\model\ai\AiConsumptionLog::where('consume_no',$row['request_id'])->update(['upstream_task_id'=>$task,'run_status'=>'running']);}
+            if(!empty($op['billable'])&&$op['role']==='submit'&&self::wireUncertain($wire['status'])){self::deferMarketAcceptance($row,$task);$fields+=['status'=>$task!==''?'running':'pending_confirmation'];}
+            elseif($task!==''&&!$failed&&$op['role']==='submit'){$fields+=['upstream_task_id'=>$task,'status'=>'running','next_run_time'=>time()+30];\app\common\model\ai\AiConsumptionLog::where('consume_no',$row['request_id'])->update(['upstream_task_id'=>$task,'run_status'=>'running']);}
             else{$fields+=['status'=>$failed?'failed':'success'];if(!empty($op['billable'])){if($stream)$data=self::streamUsage($wire['body']);self::settleKnownResult($row,$data,$failed);}else $fields+=['active'=>0,'next_run_time'=>0];}
             OpenAdmission::finish($row['request_id'],$fields);
             if(!$op['history']){$latest=OpenStore::table('request')->where('id',$row['id'])->find();if((int)$latest['active']===0)OpenWebhooks::enqueue($latest,$data);}
@@ -82,6 +83,15 @@ final class OpenGateway
     public static function settleKnownResult(array $row,array $data,bool $failed): void
     {
         try{OpenMarketBilling::settle($row,$data,$failed);}catch(\Throwable $error){OpenAdmission::finish($row['request_id'],['status'=>$failed?'failed':'success','billing_status'=>'settlement_failed','active'=>1,'error_code'=>$error instanceof OpenException?$error->errorType:'settlement_failed','error_message'=>'结果已确认，结算待核对','next_run_time'=>time()+60]);}
+    }
+    public static function wireUncertain(int $status): bool { return in_array($status,[408,425],true)||$status>=500; }
+    public static function deferMarketAcceptance(array $row,string $taskId=''): void
+    {
+        Db::transaction(function()use($row,$taskId){
+            $status=$taskId!==''?'running':'pending_confirmation';
+            \app\common\model\ai\AiConsumptionLog::where(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id'],'consume_no'=>$row['request_id']])->whereNotIn('billing_status',['settled','refunded'])->update(['run_status'=>$status,'upstream_task_id'=>$taskId,'update_time'=>time()]);
+            OpenAdmission::finish($row['request_id'],['upstream_task_id'=>$taskId,'status'=>$status,'billing_status'=>'pending_confirmation','active'=>1,'error_code'=>'pending_confirmation','error_message'=>'上游受理状态待确认','next_run_time'=>time()+60]);
+        });
     }
     private static function markDispatch(string $id): void
     {
