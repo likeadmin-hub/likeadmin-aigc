@@ -31,6 +31,7 @@ try{
   'aigc_video'=>['prompt'=>'A synthetic reusable bottle standing still on a plain background, slow gentle camera movement, product test clip.','channel'=>'market_video_model:157','quality'=>'720p','ratio'=>'1:1','duration'=>6,'quantity'=>1,'reference_images'=>[$asset]],
   'aigc_music'=>['prompt'=>'A short calm instrumental melody for a synthetic software test clip.','duration'=>15,'instrumental'=>true],
  ];
+ $selected=(string)($argv[2]??'');if($selected!==''){verify(preg_match('/^--case=(aigc_image|aigc_video|aigc_music)$/D',$selected,$match)===1,'Unknown selected case');$definitions=[$match[1]=>$definitions[$match[1]]];}
  foreach([0,1] as $tenant){$backup[$tenant]=S::table('setting')->where('tenant_id',$tenant)->find();$settings=S::settings($tenant);unset($settings['enabled']);$settings['apps']=array_values(array_unique(array_merge($settings['apps'],array_keys($definitions))));$settings['rpm']=max(120,$settings['rpm']);$values=['enabled'=>1,'config'=>S::encode($settings),'update_time'=>time()];if($backup[$tenant])S::table('setting')->where('tenant_id',$tenant)->update($values);else S::table('setting')->insert($values+['tenant_id'=>$tenant,'create_time'=>time()]);}
  $key=K::create(1,1,['name'=>$run,'daily_limit'=>1000-$spent,'monthly_limit'=>1000-$spent,'scopes'=>array_keys($definitions),'ip_allowlist'=>['127.0.0.1/32'],'expires_at'=>time()+3600]);
  request()->tenantId=1;request()->userId=1;request()->userInfo=['tenant_id'=>1,'user_id'=>1,'terminal'=>4];request()->source=app\common\enum\AdminTerminalEnum::USER;
@@ -56,7 +57,7 @@ try{
  verify((float)S::table('request')->where(['key_id'=>$key['id'],'method'=>'GET'])->sum('actual_user')===0.,'Free task queries charged');$report['result']='passed';
 }catch(Throwable $error){$report['result']='failed';$report['failure']=$error->getMessage();}
 finally{
- if($key){S::table('key')->where('id',$key['id'])->update(['status'=>-1,'update_time'=>time()]);$report['charged']=(float)S::table('request')->where('key_id',$key['id'])->sum('actual_user');$report['pending_budget']=(float)S::table('request')->where(['key_id'=>$key['id'],'active'=>1])->sum('budget_user');$report['cumulative_spent']=$spent+$report['charged']+$report['pending_budget'];}
+ if($key){S::table('key')->where('id',$key['id'])->update(['status'=>-1,'update_time'=>time()]);$report['charged']=(float)S::table('request')->where('key_id',$key['id'])->sum('actual_user');$report['pending_budget']=(float)S::table('request')->where(['key_id'=>$key['id'],'active'=>1])->sum('budget_user');$report['cumulative_spent']=round($spent+$report['charged']+$report['pending_budget'],2);}
  foreach($contracts as $id)S::table('contract')->where('id',$id)->update(['status'=>'archived','update_time'=>time()]);foreach($backup as $tenant=>$row){if($row)S::table('setting')->where('tenant_id',$tenant)->update(['enabled'=>$row['enabled'],'config'=>$row['config'],'update_time'=>time()]);else S::table('setting')->where('tenant_id',$tenant)->delete();}$report['settings_restored']=true;$report['key_revoked']=true;$save();
 }
 echo S::encode($report),"\n";exit(($report['result']??'failed')==='passed'?0:1);
