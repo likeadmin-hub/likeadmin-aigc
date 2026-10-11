@@ -29,6 +29,7 @@ class UploadExtension
             'image/png' => 'png',
             'image/gif' => 'gif',
             'image/webp' => 'webp',
+            'image/svg+xml' => 'svg',
             'image/x-icon', 'image/vnd.microsoft.icon' => 'ico',
             'video/mp4', 'application/mp4' => 'mp4',
             'video/quicktime' => 'mov',
