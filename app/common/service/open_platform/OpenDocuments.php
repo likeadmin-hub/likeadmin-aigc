@@ -16,7 +16,7 @@ final class OpenDocuments
     }
     public static function publicLists(int $tenantId,string $search=''): array
     {
-        $q=OpenStore::table('document')->whereIn('tenant_id',[0,$tenantId])->where('status','published');if($search!=='')$q->where('title|content','like','%'.mb_substr($search,0,100).'%');$rows=$q->order('tenant_id','asc')->order('sort','asc')->select()->toArray();$items=[];foreach($rows as $row)$items[$row['slug']]=$row;return array_values($items);
+        $q=OpenStore::table('document')->whereIn('tenant_id',[0,$tenantId])->where('status','published');if($search!=='')$q->where('title|content','like','%'.mb_substr($search,0,100).'%');$rows=$q->order('tenant_id','asc')->order('sort','asc')->select()->toArray();$allowed=array_column(OpenManagement::contractsForTenant($tenantId),'code');$items=[];foreach($rows as $row){if($row['contract_code']!==''&&!in_array($row['contract_code'],$allowed,true))continue;$items[$row['slug']]=$row;}return array_values($items);
     }
 
     public static function openapi(int $tenantId): array

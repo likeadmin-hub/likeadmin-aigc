@@ -29,6 +29,16 @@ final class OpenManagement
     {
         $setting=OpenStore::settings($tenantId);$enabled=$setting['enabled'];unset($setting['enabled']);$setting['pages']=OpenPages::validate($pages);self::persistSettings($tenantId,$enabled,$setting);return OpenPages::configured($tenantId);
     }
+    public static function contractsForTenant(int $tenantId): array
+    {
+        $local=OpenStore::settings($tenantId);$global=OpenStore::settings(0);$rows=[];
+        foreach(OpenStore::table('contract')->where('status','published')->order('id','desc')->limit(1000)->select()->toArray() as $row){
+            $config=OpenStore::json($row['config']);$app=(string)($config['app_code']??'');$product=(string)$row['product_id'];
+            if($row['kind']==='tool'&&(!in_array($app,$local['apps'],true)||!in_array($app,$global['apps'],true)))continue;
+            if($row['kind']==='market'&&(int)$product>0&&(!in_array($product,$local['models'],true)||!in_array($product,$global['models'],true)))continue;
+            unset($config['verification']);$row['config']=OpenStore::encode($config);$rows[]=$row;
+        }return $rows;
+    }
     public static function requests(int $tenantId,?int $userId,array $filters): array
     {
         $q=OpenStore::table('request');if($tenantId>=0)$q->where('tenant_id',$tenantId);if($userId!==null)$q->where('user_id',$userId);

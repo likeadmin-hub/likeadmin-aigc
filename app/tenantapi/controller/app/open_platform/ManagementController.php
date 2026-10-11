@@ -13,7 +13,7 @@ class ManagementController extends BaseAdminController
     public function setup(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenManagement::saveSettings($this->tenantId,$this->request->post(),false));}
     public function pages(){return $this->run(fn()=>OpenPages::configured($this->tenantId));}
     public function savePages(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenManagement::savePages($this->tenantId,(array)$this->request->post('pages',[])));}
-    public function contracts(){return $this->run(fn()=>OpenStore::table('contract')->order('id','desc')->limit(1000)->select()->toArray());}
+    public function contracts(){return $this->run(fn()=>OpenManagement::contractsForTenant($this->tenantId));}
     public function documents(){return $this->run(fn()=>OpenStore::table('document')->where('tenant_id',$this->tenantId)->order('id','desc')->limit(1000)->select()->toArray());}
     public function saveDocument(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenDocuments::save($this->tenantId,$this->request->post()));}
     public function publishDocument(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenDocuments::publish($this->tenantId,(int)$this->request->post('id')));}
