@@ -99,7 +99,7 @@ final class WorkspaceAssetService
     public static function uploads(int $tenant, int $user, int $page): array
     {
         self::identity($tenant, $user);
-        $rows = TenantFile::where(['tenant_id' => $tenant, 'source' => FileEnum::SOURCE_USER, 'source_id' => $user])
+        $rows = TenantFile::where(['tenant_id' => $tenant, 'source' => FileEnum::SOURCE_USER, 'source_id' => $user, 'upload_origin' => 'local'])
             ->whereIn('type', [FileEnum::IMAGE_TYPE, FileEnum::VIDEO_TYPE, FileEnum::FILE_TYPE])
             ->order('id', 'desc')->page(max(1, $page), 100)->select()->toArray();
         return ['lists' => array_map(fn($row) => self::presentUpload($row), $rows), 'has_more' => count($rows) === 100];
@@ -114,7 +114,7 @@ final class WorkspaceAssetService
     {
         [$source, $kind, $id] = explode(':', $ref);
         if ($source === 'upload') {
-            $file = TenantFile::where(['id' => (int)$id, 'tenant_id' => $tenant, 'source' => FileEnum::SOURCE_USER, 'source_id' => $user])->find();
+            $file = TenantFile::where(['id' => (int)$id, 'tenant_id' => $tenant, 'source' => FileEnum::SOURCE_USER, 'source_id' => $user, 'upload_origin' => 'local'])->find();
             return $file ? self::presentUpload($file->toArray()) : null;
         }
         $prefix = self::SOURCES[$source] ?? null;

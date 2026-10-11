@@ -1478,6 +1478,7 @@ CREATE TABLE `la_tenant_file`
 (
     `id`          int(10) UNSIGNED                                              NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `tenant_id`   int(11)                                                       NOT NULL COMMENT '租户ID',
+    `upload_origin` varchar(20) NOT NULL DEFAULT '' COMMENT 'local=用户本地上传，空=历史或自动保存',
     `cid`         int(10) UNSIGNED                                              NOT NULL DEFAULT 0 COMMENT '类目ID',
     `source_id`   int(11) UNSIGNED                                              NOT NULL DEFAULT 0 COMMENT '上传者id',
     `source`      tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '来源类型[0-后台,1-用户]',

@@ -17,3 +17,7 @@ Validation: `vendor/bin/phpunit tests/Unit/WorkspaceAssetTest.php`; local rollba
 Tool filters use the PC system tool catalog (including tenant display overrides), keyed by app code. Separate sources cover picture digital humans, full-drive humans, digital-human video, image/video tools, music and clips. Hairstyle uses shared image storage; fitting results retain shared image references while displaying the fitting tool. Canvas media in short-drama storage is attributed to the canvas tool.
 
 The library reads task/asset/upload pages to completion with bounded request concurrency. Image/video task controllers now forward pagination parameters; short-drama global assets add count/page metadata while keeping the lists field. Legacy non-paginated calls retain their defaults. Filters normalize nested metadata and equivalent ratios. Saved labeled records are also reconstructed when absent from the initial source results. No schema or billing changes.
+
+## Local upload provenance
+
+`tenant_file.upload_origin=local` is written only by multipart upload paths (general image/video/file uploads and music/digital-human audio). Generated and registered remote files retain the empty default. The idempotent upgrade marks legacy multipart directories and audio records with explicit upload evidence. No physical files are removed. Upload references, including saved favorites/trash, must meet the same provenance restriction. The PC All view excludes upload sources; local media belongs to Uploads (or Favorites when explicitly starred).
