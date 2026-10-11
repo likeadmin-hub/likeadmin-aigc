@@ -13,12 +13,7 @@ final class AigcMusicExportStorageService
 {
     public static function validate(string $type,string $bytes): string
     {
-        $valid=match($type){
-            'wav'=>strlen($bytes)>=44&&substr($bytes,0,4)==='RIFF'&&substr($bytes,8,4)==='WAVE',
-            'midi'=>strlen($bytes)>=14&&substr($bytes,0,4)==='MThd'&&unpack('N',substr($bytes,4,4))[1]===6,
-            'mp4'=>strlen($bytes)>=24&&substr($bytes,4,4)==='ftyp',
-            default=>false,
-        };
+        $valid=MusicExportValidator::valid($type,$bytes);
         if(!$valid)throw new OpenException('result_storage_failed','上游导出结果不是所需格式，等待恢复',502);
         return match($type){'wav'=>'audio/wav','midi'=>'audio/midi','mp4'=>'video/mp4'};
     }

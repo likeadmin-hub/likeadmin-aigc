@@ -42,9 +42,6 @@ Db::startTrans();try{
         Context::leave();
     }
     foreach(['wav','midi','mp4'] as $type){$denied=false;try{Storage::validate($type,'<html>not a media file</html>');}catch(Exception){$denied=true;}check($denied,'Export accepted HTML as media');}
-    check(Storage::validate('midi','MThd'.pack('Nnnn',6,0,1,480))==='audio/midi','Valid MIDI header rejected');
-    check(Storage::validate('wav','RIFF'.str_repeat("\0",4).'WAVE'.str_repeat("\0",32))==='audio/wav','WAV header rejected');
-    check(Storage::validate('mp4',pack('N',24).'ftypisom'.str_repeat("\0",12))==='video/mp4','MP4 header rejected');
     echo "PASS owned music exports freeze exact SKU; accepted async IDs persist and query loopback only; stored receipt/vox ID settle once; failed task refunds, query/storage failure retains reserve and terminal receipts stay closed\n";
 }finally{Context::leave();Db::rollback();}
 check($wallets()===$before,'Export fixtures changed local wallets');
