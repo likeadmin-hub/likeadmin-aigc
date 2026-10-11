@@ -8,7 +8,11 @@ final class OpenAdminRecoveryPermission
         if(!in_array($scene,['platform_admin','tenant_admin'],true)||(int)($admin['admin_id']??0)<=0)throw new OpenException('permission_denied','恢复操作需要后台权限',403);
         if((int)($admin['root']??0)===1)return;
         $cache=$scene==='platform_admin'?new \app\common\cache\AdminAuthCache($admin['admin_id']):new \app\common\cache\TenantAdminAuthCache($admin['admin_id']);
-        $uris=array_map(static fn($uri)=>strtolower(\think\helper\Str::camel((string)$uri)),(array)$cache->getAdminUri());
-        if(!in_array('app.open_platform.management/resumetracking',$uris,true))throw new OpenException('permission_denied','没有恢复原任务跟踪权限',403);
+        if(!self::granted((array)$cache->getAdminUri()))throw new OpenException('permission_denied','没有恢复原任务跟踪权限',403);
+    }
+    private static function granted(array $uris): bool
+    {
+        $normalize=static fn($uri)=>strtolower(\think\helper\Str::camel((string)$uri));
+        return in_array($normalize('app.open_platform.management/resumeTracking'),array_map($normalize,$uris),true);
     }
 }
