@@ -45,8 +45,10 @@ class XhadminAigcMusicProvider implements AigcMusicProviderInterface
             $submit = $this->request('POST', $config['create_url'], $config['api_key'], $payload, (int)$config['timeout'], (bool)$config['ssl_verify'], (int)$config['connect_timeout']);
             $taskId = $this->extractTaskId($submit);
             if ($taskId === '') {
+                if(\app\common\service\open_platform\OpenCallContext::active())throw new \app\common\service\open_platform\OpenException('upstream_uncertain','音乐任务受理状态待确认',504);
                 return new AigcMusicGenerateResult(false, [], '供应商未返回任务ID', '', $submit);
             }
+            \app\common\service\open_platform\OpenMusicReceipt::capture((int)($request->channelConfig['tenant_id']??0),(int)($request->channelConfig['user_id']??0),(int)($request->channelConfig['_native_task_id']??0),$taskId,$submit);
             if ((int)$config['poll_attempts'] === 0) {
                 return new AigcMusicGenerateResult(true, [], '', $taskId, $submit);
             }
@@ -56,6 +58,7 @@ class XhadminAigcMusicProvider implements AigcMusicProviderInterface
             }
             return $this->buildResultFromTask($task, $taskId, $request, $config, $submit);
         } catch (\Throwable $e) {
+            if(\app\common\service\open_platform\OpenCallContext::active()&&(\app\common\service\open_platform\OpenRecovery::connectionLost($e)||$e instanceof \app\common\service\open_platform\OpenException&&$e->httpStatus===409||$taskId===''&&!\app\common\service\open_platform\OpenTextLifecycle::rejectionConfirmed()))throw $e;
             if ($taskId !== '') {
                 return new AigcMusicGenerateResult(true, [], '', $taskId, ['submit' => $submit, 'poll_error' => $this->friendlyError($e->getMessage())]);
             }
@@ -73,6 +76,8 @@ class XhadminAigcMusicProvider implements AigcMusicProviderInterface
             }
             return $this->buildResultFromTask($task, $taskId, $request, $config);
         } catch (\Throwable $e) {
+            // A failed query or transfer does not prove the accepted generation failed.
+            if(\app\common\service\open_platform\OpenCallContext::active())throw $e;
             return new AigcMusicGenerateResult(false, [], $this->friendlyError($e->getMessage()), $taskId);
         }
     }
@@ -328,6 +333,7 @@ class XhadminAigcMusicProvider implements AigcMusicProviderInterface
             throw new Exception('供应商响应格式错误');
         }
         if ($httpCode >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) {
+            if($method==='POST'&&\app\common\service\open_platform\OpenCallContext::active())\app\common\service\open_platform\OpenCallContext::providerFailure($httpCode,(string)$body,false);
             throw new Exception($this->extractError($data) ?: '供应商请求失败');
         }
         return $data;

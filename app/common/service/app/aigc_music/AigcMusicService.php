@@ -284,6 +284,7 @@ class AigcMusicService
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
+        if($userId>0)\app\common\service\open_platform\OpenMusicReceipt::restore($tenantId,$userId,$taskId);
         self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcMusicTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
         if ($userId > 0) {
@@ -610,6 +611,7 @@ class AigcMusicService
         $channelConfig = array_merge($selection['channel']['config_json'] ?? [], [
             'tenant_id' => (int)$task['tenant_id'],
             'user_id' => (int)$task['user_id'],
+            '_native_task_id' => (int)$task['id'],
         ]);
         return new AigcMusicGenerateRequest(
             $payload['title'],
@@ -830,6 +832,7 @@ class AigcMusicService
                 }
                 self::finishTaskWithItems($task, $selection, $result->items);
             } catch (\Throwable $e) {
+                if(\app\common\service\open_platform\OpenCallContext::active()&&\app\common\service\open_platform\OpenRecovery::connectionLost($e))throw $e;
                 if (!$swallowErrors) {
                     throw $e;
                 }
@@ -841,7 +844,8 @@ class AigcMusicService
     {
         try {
             self::refreshRunningTasks($tenantId, $userId, $taskId, true);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            if(\app\common\service\open_platform\OpenCallContext::active()&&\app\common\service\open_platform\OpenRecovery::connectionLost($e))throw $e;
             // Read APIs must remain available while provider polling is temporarily unavailable.
         }
     }
