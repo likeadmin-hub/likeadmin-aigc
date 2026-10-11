@@ -146,6 +146,9 @@ class MarketTextModelRuntimeService
             ]);
         }
 
+        $openTextCall = \app\common\service\open_platform\OpenCallContext::id() !== '';
+        $result = null;
+        $usage = [];
         $started = microtime(true);
         $requestTimeout = self::resolveRequestTimeout($params);
         try {
@@ -161,6 +164,7 @@ class MarketTextModelRuntimeService
                     if ($resultValidator!==null) $resultValidator($result);
                     break;
                 } catch (\Throwable $initialError) {
+                    if ($openTextCall) throw $initialError;
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
                     if ($retry === null) {
                         $retry = self::compatibleTransportOptions($initialError->getMessage(), $transportOptions);
@@ -197,7 +201,13 @@ class MarketTextModelRuntimeService
                 $usage['prompt_tokens'] = (int)$usage['total_tokens'];
             }
             $actual = self::quote($model, (int)$usage['prompt_tokens'], (int)$usage['completion_tokens']);
-            self::settle($context, $actual, $usage, $result, (int)round((microtime(true) - $started) * 1000));
+            try {
+                self::settle($context, $actual, $usage, $result, (int)round((microtime(true) - $started) * 1000));
+            } catch (\Throwable $settlementError) {
+                if (!$openTextCall) throw $settlementError;
+                \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $settlementError);
+            }
+            $billingStatus = (string)AiConsumptionLog::where('id', (int)$context['consumption']['id'])->value('billing_status');
             return $result + [
                 'effective_max_tokens' => $maxTokens,
                 'model_code' => $model['model_code'],
@@ -205,10 +215,14 @@ class MarketTextModelRuntimeService
                 'provider' => 'power_market',
                 'app_task_id' => (int)$context['appTask']['id'],
                 'consumption_id' => (int)$context['consumption']['id'],
-                'billing' => ['billing_status' => (self::canSettleUsage($model, $usage) ? 'settled' : 'pending_usage')] + $actual,
+                'billing' => ['billing_status' => $billingStatus] + $actual,
                 'usage' => $usage,
             ];
         } catch (\Throwable $e) {
+            if ($openTextCall && !\app\common\service\open_platform\OpenTextLifecycle::rejectionConfirmed()) {
+                \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
+                throw $e;
+            }
             self::fail($context, $e->getMessage(), 'provider_error');
             $fallback = self::fallbackModel($tenantId, $model, $requiresVision, (array)($params['_market_model_fallback_ids'] ?? []));
             if (empty($params['_disable_model_fallback']) && $fallback !== null && self::isExplicitModelUnavailable($e->getMessage())) {

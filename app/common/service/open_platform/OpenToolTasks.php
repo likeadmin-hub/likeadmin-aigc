@@ -19,6 +19,6 @@ final class OpenToolTasks
     {
         $ids=OpenStore::json($row['consumption_ids']);if(!$ids)return $row['billing_status']==='none'?'none':'settled';
         $states=AiConsumptionLog::where(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']])->whereIn('id',$ids)->column('billing_status');
-        if(count($states)!==count($ids))return 'settlement_failed';foreach($states as $state)if(!in_array($state,['settled','refunded','none'],true))return $state==='pending_usage'?'pending_usage':'pending';return count(array_filter($states,fn($s)=>$s==='refunded'))===count($states)?'refunded':'settled';
+        if(count($states)!==count($ids))return 'settlement_failed';foreach($states as $state)if(!in_array($state,['settled','refunded','none'],true))return in_array($state,['pending_usage','pending_confirmation','settlement_failed'],true)?$state:'pending';return count(array_filter($states,fn($s)=>$s==='refunded'))===count($states)?'refunded':'settled';
     }
 }

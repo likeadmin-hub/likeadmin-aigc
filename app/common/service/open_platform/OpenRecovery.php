@@ -27,6 +27,8 @@ final class OpenRecovery
                 // before any transport. With no association, execution never
                 // reached a provider even if entry into the service was marked.
                 OpenAdmission::finish($row['request_id'],['status'=>'failed','billing_status'=>'none','active'=>0,'error_code'=>'execution_not_started','error_message'=>'文本服务在上游执行前中断','finish_time'=>time()]);
+            }elseif($row['app_code']==='aigc_llm'&&OpenStore::json($row['consumption_ids'])){
+                OpenTextLifecycle::refresh($row);
             }elseif($row['tool_task_id']!==''){
                 $tool=OpenToolRegistry::get($row['app_code']);$op=$tool['operations']['GET tasks/{task_id}']??null;if(!$op)throw new OpenException('query_unavailable','任务查询尚未接入',503);
                 $data=OpenToolAdapter::call($request,$op+['app_code'=>$row['app_code'],'route'=>'GET tasks/{task_id}','params'=>['task_id'=>$row['tool_task_id']],'history'=>true,'internal'=>true],[]);
