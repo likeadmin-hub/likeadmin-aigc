@@ -7,8 +7,9 @@ use app\common\service\power\MarketVideoRuntimeService as Runtime;
 function check($ok,$why){if(!$ok)throw new RuntimeException($why);}
 $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&$db['database']==='z_cn','Local rollback only');
 $wallets=fn()=>[Db::name('user')->where(['tenant_id'=>1,'id'=>1])->value('user_money'),Db::name('tenant')->where('id',1)->value('point_balance')];$before=$wallets();$request=request();$request->tenantId=1;$request->userId=1;
-$stop=false;Db::listen(static function($sql)use(&$stop){if($stop&&preg_match('/INSERT.*la_ai_task_job/iu',$sql))throw new RuntimeException('Stop before video provider submission');});
+$stop=false;Db::listen(static function($sql)use(&$stop){if($stop&&preg_match('/UPDATE.*la_ai_consumption_log.*submitting/iu',$sql))throw new RuntimeException('Stop before video provider submission');});
 Db::startTrans();try{
+ $source=Db::name('update_source')->where('status',1)->order('id','desc')->find();check($source,'Missing local source fixture');unset($source['id']);Db::name('update_source')->insert(array_replace($source,['name'=>'opf-video-refused-loopback','base_url'=>'http://127.0.0.1:1','online_base_url'=>'http://127.0.0.1:1','license_key'=>'fixture','online_license_key'=>'fixture','dev_mode'=>0]));check(app\common\service\update\UpdateSourceClient::getSource()['active_base_url']==='http://127.0.0.1:1','Refuse real supplier traffic before fixture execution');
  foreach([0,1] as $tenant){$settings=S::settings($tenant);$settings['apps'][]='aigc_video';M::persistSettings($tenant,true,$settings);}
  $params=['prompt'=>'Synthetic video price freeze fixture','channel'=>'market_video_model:157','quality'=>'720p','ratio'=>'1:1','duration'=>6,'quantity'=>1,'reference_images'=>[]];
  $budget=P::budget($request,$params);$captured=S::json(V::open($budget['snapshot']['native_video_blob']));check($budget['user']>0&&$budget['tenant']>0,'Missing safe native video quote');
