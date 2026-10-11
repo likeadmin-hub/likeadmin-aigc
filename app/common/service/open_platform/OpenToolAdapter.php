@@ -35,6 +35,10 @@ final class OpenToolAdapter
     public static function budget($request,array $operation,array $params): array
     {
         if(empty($operation['billable']))return ['user'=>0,'tenant'=>0,'snapshot'=>[]];
+        $nativeModel=null;if($operation['app_code']==='aigc_llm'&&isset($operation['service'])){
+            try{$nativeModel=\app\common\service\power\MarketTextModelRuntimeService::resolveModel((int)$request->tenantId,$params['model_code']??$params['model']??'',!empty($params['reference_images'])||!empty($params['image_urls']));}
+            catch(\Exception){throw new OpenException('model_unavailable','所选文本模型未上架或已不可用',403);}
+        }
         $tool=OpenToolRegistry::get($operation['app_code']);$estimate=$tool['operations']['POST estimate']??null;
         if($estimate && $operation['route']==='POST tasks'){
             $quote=self::call($request,$estimate+['app_code'=>$operation['app_code'],'params'=>[]],$params);
@@ -44,6 +48,6 @@ final class OpenToolAdapter
         }
         $rules=OpenStore::settings(0)['tool_budgets'][$operation['app_code']][$operation['route']]??null;
         if(!$rules||!isset($rules['user'],$rules['tenant'])||(float)$rules['user']<=0||(float)$rules['tenant']<=0)throw new OpenException('pricing_unavailable','该操作尚未配置可靠的计费额度边界',503);
-        return ['user'=>(float)$rules['user'],'tenant'=>(float)$rules['tenant'],'snapshot'=>['billing_owner'=>'tool','budget_rule'=>$rules]];
+        return ['user'=>(float)$rules['user'],'tenant'=>(float)$rules['tenant'],'snapshot'=>['billing_owner'=>'tool','budget_rule'=>$rules]+($nativeModel?['native_text_model'=>$nativeModel]:[])];
     }
 }

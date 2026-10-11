@@ -104,9 +104,9 @@ class MarketTextModelRuntimeService
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
         $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? []);
         $requiresVision = $referenceImages !== [] || !empty($params['requires_vision']);
-        $model = !empty($params['_disable_model_fallback'])
+        $model = \app\common\service\open_platform\OpenCallContext::textModel() ?? (!empty($params['_disable_model_fallback'])
             ? self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)
-            : self::resolveRoutedModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision);
+            : self::resolveRoutedModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision));
         if ($tenantAdminConsumption) {
             // Persist zero retail price so delayed usage settlement has the same payer.
             $model['input']['tenant_price'] = 0;

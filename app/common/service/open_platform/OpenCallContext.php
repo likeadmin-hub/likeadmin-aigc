@@ -7,6 +7,11 @@ final class OpenCallContext
     public static function enter(string $id): void { self::$requestId=$id; }
     public static function leave(): void { self::$requestId=''; }
     public static function id(): string { return self::$requestId; }
+    public static function textModel(): ?array
+    {
+        if(self::$requestId==='')return null;$row=OpenStore::table('request')->where(['request_id'=>self::$requestId,'app_code'=>'aigc_llm','kind'=>'tool'])->find();
+        return $row?(OpenStore::json($row['snapshot'])['native_text_model']??null):null;
+    }
     public static function providerFailure(int $httpStatus,string $body,bool $hasOutput): void
     {
         if(self::$requestId==='')return;
