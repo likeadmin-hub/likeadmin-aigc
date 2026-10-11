@@ -45,12 +45,15 @@ final class UserAppearanceService
         if (!is_array($backgrounds) || count($backgrounds) > count(self::PRESETS) - 1) throw new InvalidArgumentException('预设背景配置无效');
         $presetBackgrounds = [];
         foreach ($backgrounds as $background) {
-            if (!is_array($background) || array_diff(array_keys($background), ['preset_id', 'background_id', 'background_url'])) throw new InvalidArgumentException('预设背景字段无效');
+            if (!is_array($background) || array_diff(array_keys($background), ['preset_id', 'name', 'background_id', 'background_url'])) throw new InvalidArgumentException('预设背景字段无效');
             $id = $background['preset_id'] ?? '';
             if (!is_string($id) || $id === 'default' || !in_array($id, self::PRESETS, true) || isset($presetBackgrounds[$id])) throw new InvalidArgumentException('预设皮肤标识无效');
-            $fileId = filter_var($background['background_id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-            if ($fileId === false || !$ownedImage($fileId)) throw new InvalidArgumentException('背景图片不存在或不属于当前账号');
+            $name = $background['name'] ?? '';
+            if (!is_string($name) || (array_key_exists('name', $background) && (trim($name) === '' || mb_strlen($name) > 40))) throw new InvalidArgumentException('皮肤名称须为1至40个字符');
+            $fileId = filter_var($background['background_id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+            if ($fileId === false || ($fileId > 0 && !$ownedImage($fileId)) || ($fileId === 0 && trim($name) === '')) throw new InvalidArgumentException('背景图片不存在或不属于当前账号');
             $presetBackgrounds[$id] = ['preset_id' => $id, 'background_id' => $fileId];
+            if (trim($name) !== '') $presetBackgrounds[$id]['name'] = trim($name);
         }
         $selected = $input['selected'] ?? 'default';
         if (!is_string($selected) || (!in_array($selected, self::PRESETS, true) && !isset($skins[$selected]))) throw new InvalidArgumentException('请选择有效的皮肤');
@@ -114,7 +117,13 @@ final class UserAppearanceService
         $backgrounds = [];
         foreach ($prefs['preset_backgrounds'] as $background) {
             $file = self::image($tenant, $user, (int)($background['background_id'] ?? 0));
-            if (!$file) continue; // Removed files fall back to the bundled preset image.
+            if (!$file) {
+                if (empty($background['name'])) continue;
+                $background['background_id'] = 0;
+                $background['background_url'] = '';
+                $backgrounds[] = $background;
+                continue; // Keep the name while falling back to the bundled image.
+            }
             $background['background_url'] = FileService::getFileUrlByStorage($file['uri'], $file['storage_scope'] ?? '', $file['storage_engine'] ?? '', $file['storage_domain'] ?? '');
             $backgrounds[] = $background;
         }

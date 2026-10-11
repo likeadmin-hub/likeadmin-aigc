@@ -30,6 +30,16 @@ final class UserAppearanceTest extends TestCase
         self::assertSame([], UserAppearanceService::normalize([], fn()=>false)['preset_backgrounds']);
         self::assertSame([], UserAppearanceService::normalize(['preset_backgrounds'=>[]], fn()=>false)['preset_backgrounds']);
     }
+    public function testPresetNameCanBeSavedWithoutReplacingBackground(): void
+    {
+        $result = UserAppearanceService::normalize(['preset_backgrounds'=>[['preset_id'=>'voxel','name'=>' 我的世界 ','background_id'=>0]]], fn()=>false);
+        self::assertSame('我的世界', $result['preset_backgrounds'][0]['name']);
+        self::assertSame(0, $result['preset_backgrounds'][0]['background_id']);
+        foreach (['', str_repeat('名', 41), []] as $name) {
+            try { UserAppearanceService::normalize(['preset_backgrounds'=>[['preset_id'=>'voxel','name'=>$name,'background_id'=>7]]], fn()=>true); self::fail('Accepted invalid name'); }
+            catch (InvalidArgumentException $e) { self::assertNotSame('', $e->getMessage()); }
+        }
+    }
     public function testInvalidOrForeignPresetBackgroundsAreRejected(): void
     {
         $valid=['preset_id'=>'voxel','background_id'=>7];
