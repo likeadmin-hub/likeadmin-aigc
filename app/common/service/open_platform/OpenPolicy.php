@@ -42,6 +42,8 @@ final class OpenPolicy
         if ($depth > 32 || count($input) > 10000) throw new \InvalidArgumentException('请求结构超出限制');
         $blocked = ['tenant_id','user_id','admin_id','price_snapshot','billing_override','tenant_cost_points','user_charge_points','upstream_url','upstream_api_key','runtime_adapter','executor','provider_config','source_app_code','business_table','business_id','parent_task_id','tenantid','userid','app_code'];
         foreach ($input as $key => $value) {
+            if($depth===0&&is_string($key)&&str_starts_with($key,'_'))throw new \InvalidArgumentException('请求包含内部控制字段');
+            if($depth===0&&$key==='source_app'&&in_array($value,['aigc_short_drama','aigc_canvas','aigc_geo'],true))throw new \InvalidArgumentException('该工作室流程不对外开放');
             if (is_string($key) && ($depth === 0 && in_array(strtolower($key), $blocked, true) || str_starts_with($key, '_billing') || $key === '_user_id' || str_starts_with($key,'_open_platform'))) throw new \InvalidArgumentException('请求包含平台内部字段');
             if (is_array($value)) self::validateInput($value, $depth + 1);
         }
