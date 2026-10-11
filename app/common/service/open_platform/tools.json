@@ -1169,14 +1169,23 @@
       "POST export/timing": {
         "controller": "Export",
         "action": "timing",
-        "billable": true,
+        "billable": false,
         "input": {
           "type": "object",
-          "additionalProperties": true
+          "properties": {
+            "result_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "当前用户的音乐作品 ID"
+            }
+          },
+          "required": [
+            "result_id"
+          ],
+          "additionalProperties": false
         },
-        "description": "AI音乐生成 Export/timing",
-        "available": false,
-        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
+        "description": "查询当前用户音乐作品的真实歌词时间轴，使用独立免费 SKU",
+        "music_operation": "timing"
       },
       "POST export/vox": {
         "controller": "Export",

@@ -421,6 +421,7 @@ class AigcMusicService
         if ($result->isEmpty()) {
             throw new Exception('作品不存在');
         }
+        if($type==='timing')return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'timing',['result_id'=>$resultId]+$params);
         $payload = self::providerFor('mock')->export($result->toArray(), $type, $params);
         $row = AigcMusicExport::create([
             'tenant_id' => $tenantId,

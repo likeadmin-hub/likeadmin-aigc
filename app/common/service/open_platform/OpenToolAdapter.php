@@ -25,6 +25,7 @@ final class OpenToolAdapter
             'lyrics'=>\app\common\service\app\aigc_music\AigcMusicService::lyrics((int)$request->tenantId,(int)$request->userId,$params),
             'mashup_lyrics'=>\app\common\service\app\aigc_music\AigcMusicService::mashupLyrics((int)$request->tenantId,(int)$request->userId,$params),
             'style'=>\app\common\service\app\aigc_music\AigcMusicService::optimizeStyle((int)$request->tenantId,(int)$request->userId,$params),
+            'timing'=>\app\common\service\app\aigc_music\AigcMusicService::exportResult((int)$request->tenantId,(int)$request->userId,(int)($params['result_id']??0),'timing',$params),
             default=>throw new OpenException('not_found','音乐操作未注册',404),
         };
         if(($operation['service']??'')==='readTextTasks')return OpenTextLifecycle::tasks((int)$request->tenantId,(int)$request->userId,$operation['route'],$params);
@@ -52,8 +53,8 @@ final class OpenToolAdapter
     }
     public static function budget($request,array $operation,array $params): array
     {
-        if(empty($operation['billable']))return ['user'=>0,'tenant'=>0,'snapshot'=>[]];
         if(isset($operation['music_operation']))return \app\common\service\power\MarketMusicOperationRuntimeService::budget((int)$request->tenantId,(int)$request->userId,$operation['music_operation'],$params);
+        if(empty($operation['billable']))return ['user'=>0,'tenant'=>0,'snapshot'=>[]];
         if($operation['app_code']==='aigc_image'&&$operation['route']==='POST tasks')return OpenImagePricing::budget($request,$params);
         if(in_array($operation['app_code'],OpenImagePricing::COMPOSITES,true)&&$operation['route']==='POST tasks')return OpenImagePricing::compositeBudget($request,$operation['app_code'],$params);
         if($operation['app_code']==='aigc_music'&&$operation['route']==='POST tasks')return OpenToolPricing::musicBudget($request,$params);
