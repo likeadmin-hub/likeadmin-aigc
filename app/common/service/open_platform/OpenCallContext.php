@@ -17,6 +17,7 @@ final class OpenCallContext
     {
         $requestId=self::$requestId;
         if($requestId==='' && !empty($extra['consumption_id'])) { $consumption=\app\common\model\ai\AiConsumptionLog::findOrEmpty((int)$extra['consumption_id']);if(!$consumption->isEmpty())$requestId=(string)(OpenStore::json($consumption['price_snapshot'])['_open_platform_request_id']??''); }
+        if($requestId===''&&!empty($extra['_open_platform_request_id']))$requestId=(string)$extra['_open_platform_request_id'];
         if($requestId==='')return;
         $row=OpenStore::owner('request',$tenantId,$userId)->where('request_id',$requestId)->lock(true)->find();if(!$row)throw new \RuntimeException('开放请求账务关联不存在');
         $snapshot=OpenStore::json($row['snapshot']);$event=($refund?'refund:':'consume:').$source;

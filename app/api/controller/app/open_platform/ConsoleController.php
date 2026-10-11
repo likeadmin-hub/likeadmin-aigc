@@ -1,0 +1,23 @@
+<?php
+namespace app\api\controller\app\open_platform;
+use app\api\controller\BaseApiController;
+use app\common\service\open_platform\OpenKeyService;
+use app\common\service\open_platform\OpenManagement;
+use app\common\service\open_platform\OpenStore;
+use app\common\service\open_platform\OpenPages;
+use app\common\service\open_platform\OpenToolRegistry;
+class ConsoleController extends BaseApiController
+{
+    private function run(callable $fn){try{return $this->success('获取成功',$fn());}catch(\Throwable $e){return $this->fail($e instanceof \app\common\service\open_platform\OpenException?$e->getMessage():'开放平台暂不可用');}}
+    public function overview(){return $this->run(function(){$tenant=(int)$this->request->tenantId;$user=\app\common\model\user\User::where(['id'=>$this->userId,'tenant_id'=>$tenant])->findOrEmpty();return ['enabled'=>OpenStore::settings($tenant)['enabled'],'balance'=>(float)($user['user_money']??0),'base_path'=>'/api/v1','pages'=>OpenPages::configured($tenant),'usage'=>OpenManagement::usage($tenant,$this->userId,[])];});}
+    public function keys(){return $this->run(fn()=>OpenKeyService::lists((int)$this->request->tenantId,$this->userId));}
+    public function createKey(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenKeyService::create((int)$this->request->tenantId,$this->userId,$this->request->post()));}
+    public function setKey(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(function(){OpenKeyService::revoke((int)$this->request->tenantId,$this->userId,(int)$this->request->post('id'),(int)$this->request->post('status'));return [];});}
+    public function rotateKey(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenKeyService::rotate((int)$this->request->tenantId,$this->userId,(int)$this->request->post('id')));}
+    public function pages(){return $this->run(fn()=>OpenPages::configured((int)$this->request->tenantId));}
+    public function catalog(){return $this->run(fn()=>\app\common\service\open_platform\OpenCatalog::forUser((int)$this->request->tenantId,$this->userId));}
+    public function requests(){return $this->run(fn()=>OpenManagement::requests((int)$this->request->tenantId,$this->userId,$this->request->get()));}
+    public function requestDetail(){return $this->run(fn()=>OpenManagement::detail((int)$this->request->tenantId,$this->userId,(string)$this->request->get('request_id')));}
+    public function tasks(){return $this->run(fn()=>OpenManagement::requests((int)$this->request->tenantId,$this->userId,$this->request->get()+['tasks'=>true]));}
+    public function usage(){return $this->run(fn()=>OpenManagement::usage((int)$this->request->tenantId,$this->userId,$this->request->get()));}
+}

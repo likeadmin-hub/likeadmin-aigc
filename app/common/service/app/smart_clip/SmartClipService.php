@@ -142,7 +142,7 @@ class SmartClipService
         $request = self::buildRequest($task, $selection, $payload);
         $result = self::providerFor((string)$selection['channel']['provider'])->generate($request);
         $task->provider_task_id = $result->providerTaskId;
-        $task->provider_payload = ['submit' => $result->raw];
+        $task->provider_payload = ['submit' => $result->raw] + (\app\common\service\open_platform\OpenCallContext::id() !== '' ? ['_open_platform_request_id' => \app\common\service\open_platform\OpenCallContext::id()] : []);
         $task->update_time = time();
         if (!$result->success) {
             $task->status = 'failed';
@@ -588,6 +588,7 @@ class SmartClipService
                     'app_code' => self::APP_CODE,
                     'task_id' => (int)$task['id'],
                     'result_id' => (int)$row['id'],
+                    '_open_platform_request_id' => (string)(((array)$task['provider_payload'])['_open_platform_request_id'] ?? ''),
                     'clip_type' => $task['clip_type'],
                     'duration' => (int)$task['duration'],
                 ]);

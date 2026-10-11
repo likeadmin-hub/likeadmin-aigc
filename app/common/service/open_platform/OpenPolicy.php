@@ -40,17 +40,17 @@ final class OpenPolicy
     public static function validateInput(array $input, int $depth = 0): void
     {
         if ($depth > 32 || count($input) > 10000) throw new \InvalidArgumentException('请求结构超出限制');
-        $blocked = ['tenant_id','user_id','admin_id','price_snapshot','billing_override','tenant_cost_points','user_charge_points','upstream_url','upstream_api_key','runtime_adapter','executor','provider_config'];
+        $blocked = ['tenant_id','user_id','admin_id','price_snapshot','billing_override','tenant_cost_points','user_charge_points','upstream_url','upstream_api_key','runtime_adapter','executor','provider_config','source_app_code','business_table','business_id','parent_task_id','tenantid','userid','app_code'];
         foreach ($input as $key => $value) {
-            if (is_string($key) && ($depth === 0 && in_array(strtolower($key), $blocked, true) || str_starts_with($key, '_billing') || $key === '_user_id')) throw new \InvalidArgumentException('请求包含平台内部字段');
+            if (is_string($key) && ($depth === 0 && in_array(strtolower($key), $blocked, true) || str_starts_with($key, '_billing') || $key === '_user_id' || str_starts_with($key,'_open_platform'))) throw new \InvalidArgumentException('请求包含平台内部字段');
             if (is_array($value)) self::validateInput($value, $depth + 1);
         }
     }
     public static function publicData(array $data): array
     {
-        $hidden = ['api_key','active_api_key','license_key','secret','secret_key','access_key','password','token','authorization','provider_params_json','pricing_snapshot','market_snapshot','price_snapshot','upstream_price','platform_price','platform_unit_cost','tenant_cost_points','tenant_cost','tenant_unit_points','tenant_unit_cost','cost_points','reserved_tenant_cost','actual_tenant_cost','point_balance'];
+        $hidden = ['api_key','active_api_key','license_key','secret','secret_key','access_key','password','token','authorization','provider_params_json','pricing_snapshot','market_snapshot','price_snapshot','upstream_price','platform_price','platform_unit_cost','tenant_cost_points','tenant_cost','tenant_unit_points','tenant_unit_cost','cost_points','reserved_tenant_cost','actual_tenant_cost','point_balance','source_blob','key_hash','actual_tenant','budget_tenant','tenant_price','platform_sale_points','gross_margin_points','user_point_sn','tenant_point_sn'];
         foreach ($data as $key => &$value) {
-            if (in_array(strtolower((string)$key), $hidden, true) || str_ends_with((string)$key, '_secret') || str_contains((string)$key, 'credential')) { unset($data[$key]); continue; }
+            if (in_array(strtolower((string)$key), $hidden, true) || str_ends_with((string)$key, '_secret') || str_contains((string)$key, 'credential') || str_starts_with((string)$key,'_open_platform') || preg_match('/^(?:reserved_|actual_|estimated_)?tenant_(?:cost|price)|^(?:platform_|upstream_)(?:price|cost)|^.*(?:api[_-]?key|access[_-]?token)$/i',(string)$key)) { unset($data[$key]); continue; }
             if (is_array($value)) $value = self::publicData($value);
         }
         return $data;

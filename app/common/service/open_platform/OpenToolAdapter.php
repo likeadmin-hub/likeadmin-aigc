@@ -12,8 +12,10 @@ final class OpenToolAdapter
     }
     public static function call($request,array $operation,array $params,?callable $onEvent=null): array
     {
-        $app=$operation['app_code'];self::authorize((int)$request->tenantId,(int)$request->userId,$app);OpenPolicy::validateInput($params);
-        if(isset($operation['params']['task_id']))$params['id']=$operation['params']['task_id'];
+        $app=$operation['app_code'];if(empty($operation['history']))self::authorize((int)$request->tenantId,(int)$request->userId,$app);OpenPolicy::validateInput($params);
+        if(isset($operation['params']['task_id']))$params['id']=!empty($operation['internal'])?$operation['params']['task_id']:OpenToolTasks::decode($app,(string)$operation['params']['task_id']);
+        if(isset($params['task_id'])&&is_string($params['task_id'])&&str_starts_with($params['task_id'],'ot_'))$params['task_id']=OpenToolTasks::decode($app,$params['task_id']);
+        if(isset($params['id'])&&is_string($params['id'])&&str_starts_with($params['id'],'ot_'))$params['id']=OpenToolTasks::decode($app,$params['id']);
         $request->withGet($params)->withPost($params);
         if(isset($operation['service']))return $operation['service']==='streamText'?AigcLlmService::streamText((int)$request->tenantId,(int)$request->userId,$params,$onEvent):AigcLlmService::generateText((int)$request->tenantId,(int)$request->userId,$params);
         // This fixed registry reuses the existing user controller's validation and shared service.
@@ -34,7 +36,7 @@ final class OpenToolAdapter
             $tenant=$quote['tenant_cost_points']??$quote['cost_points']??null;
             if($user!==null&&$tenant!==null)return ['user'=>max(0,(float)$user),'tenant'=>max(0,(float)$tenant),'snapshot'=>['quote'=>$quote,'billing_owner'=>'tool']];
         }
-        $rules=OpenStore::settings((int)$request->tenantId)['tool_budgets'][$operation['app_code']][$operation['route']]??null;
+        $rules=OpenStore::settings(0)['tool_budgets'][$operation['app_code']][$operation['route']]??null;
         if(!$rules||!isset($rules['user'],$rules['tenant'])||(float)$rules['user']<=0||(float)$rules['tenant']<=0)throw new OpenException('pricing_unavailable','该操作尚未配置可靠的计费额度边界',503);
         return ['user'=>(float)$rules['user'],'tenant'=>(float)$rules['tenant'],'snapshot'=>['billing_owner'=>'tool','budget_rule'=>$rules]];
     }

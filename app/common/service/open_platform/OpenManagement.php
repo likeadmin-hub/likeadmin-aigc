@@ -1,0 +1,53 @@
+<?php
+namespace app\common\service\open_platform;
+use think\facade\Db;
+final class OpenManagement
+{
+    public static function saveSettings(int $tenantId,array $input,bool $platform=false): array
+    {
+        $enabled=(bool)($input['enabled']??false);$old=OpenStore::settings($tenantId);$config=$old;unset($config['enabled']);
+        foreach(['rpm','concurrency','user_concurrency','tenant_concurrency'] as $field){$value=(int)($input[$field]??$config[$field]);if($value<1||$value>100000)throw new OpenException('invalid_limits','请配置有效请求频率和并发上限');$config[$field]=$value;}
+        $global=OpenStore::settings(0);
+        if(!$platform)foreach(['rpm','concurrency','user_concurrency','tenant_concurrency'] as $field)$config[$field]=min($config[$field],$global[$field]);
+        $apps=array_values(array_unique(array_map('strval',(array)($input['apps']??$config['apps']))));foreach($apps as $app){OpenToolRegistry::get($app);if(!$platform&&!in_array($app,$global['apps'],true))throw new OpenException('permission_denied','工具超出平台开放范围',403);}$config['apps']=$apps;
+        $config['models']=array_values(array_unique(array_map('strval',(array)($input['models']??$config['models']))));if(!$platform&&array_diff($config['models'],$global['models']))throw new OpenException('permission_denied','商城能力超出平台范围',403);
+        foreach($config['features'] as $name=>$value){$config['features'][$name]=(bool)($input['features'][$name]??$value)&&($platform||!empty($global['features'][$name]));}
+        // Only platform can declare executor safety limits; they are never prices.
+        if($platform&&isset($input['tool_budgets']))$config['tool_budgets']=self::budgets((array)$input['tool_budgets']);
+        if($enabled&&$tenantId>0&&empty($input['rpm']))throw new OpenException('invalid_limits','开通前必须明确配置频率和并发');
+        self::persistSettings($tenantId,$enabled,$config);return OpenStore::settings($tenantId);
+    }
+    private static function budgets(array $rules): array
+    {
+        foreach($rules as $app=>$ops){$tool=OpenToolRegistry::get($app);foreach($ops as $route=>$rule){if(empty($tool['operations'][$route]['billable'])||!isset($rule['user'],$rule['tenant'])||!is_numeric($rule['user'])||!is_numeric($rule['tenant'])||(float)$rule['user']<=0||(float)$rule['tenant']<=0)throw new OpenException('invalid_budget','额度边界必须绑定已注册计费操作');}}return $rules;
+    }
+    public static function persistSettings(int $tenantId,bool $enabled,array $config): void
+    {
+        Db::transaction(function()use($tenantId,$enabled,$config){$row=OpenStore::table('setting')->where('tenant_id',$tenantId)->lock(true)->find();$values=['enabled'=>$enabled?1:0,'config'=>OpenStore::encode($config),'update_time'=>time()];if($row)OpenStore::table('setting')->where('id',$row['id'])->update($values);else OpenStore::table('setting')->insert($values+['tenant_id'=>$tenantId,'create_time'=>time()]);});
+    }
+    public static function savePages(int $tenantId,array $pages): array
+    {
+        $setting=OpenStore::settings($tenantId);$enabled=$setting['enabled'];unset($setting['enabled']);$setting['pages']=OpenPages::validate($pages);self::persistSettings($tenantId,$enabled,$setting);return OpenPages::configured($tenantId);
+    }
+    public static function requests(int $tenantId,?int $userId,array $filters): array
+    {
+        $q=OpenStore::table('request');if($tenantId>=0)$q->where('tenant_id',$tenantId);if($userId!==null)$q->where('user_id',$userId);
+        foreach(['request_id','key_id','app_code','status','billing_status','kind'] as $f)if(isset($filters[$f])&&$filters[$f]!=='')$q->where($f,$filters[$f]);
+        if(!empty($filters['start']))$q->where('create_time','>=',(int)$filters['start']);if(!empty($filters['end']))$q->where('create_time','<=',(int)$filters['end']);
+        if(!empty($filters['tasks']))$q->where(function($q){$q->where('tool_task_id','<>','')->whereOr('upstream_task_id','<>','');});
+        if(!empty($filters['exceptions']))$q->whereIn('billing_status',['pending_confirmation','pending_usage','settlement_failed']);
+        $count=(clone $q)->count();$rows=$q->withoutField('response_blob,snapshot,idempotency_hash,payload_hash,lease_token')->order('id','desc')->page(max(1,(int)($filters['page_no']??1)),min(100,max(1,(int)($filters['page_size']??20))))->select()->toArray();
+        if($userId!==null)foreach($rows as &$row){unset($row['budget_tenant'],$row['actual_tenant']);$row['consumption_ids']=OpenStore::json($row['consumption_ids']);}
+        return ['lists'=>$rows,'count'=>$count];
+    }
+    public static function detail(int $tenantId,?int $userId,string $id): array
+    {
+        $q=OpenStore::table('request')->where('request_id',$id);if($tenantId>=0)$q->where('tenant_id',$tenantId);if($userId!==null)$q->where('user_id',$userId);$row=$q->withoutField('response_blob,lease_token,idempotency_hash,payload_hash')->find();if(!$row)throw new OpenException('not_found','请求不存在',404);
+        $row['consumption_ids']=OpenStore::json($row['consumption_ids']);$row['snapshot']=OpenStore::json($row['snapshot']);if($userId!==null){unset($row['actual_tenant'],$row['budget_tenant'],$row['snapshot']);}return $row;
+    }
+    public static function usage(int $tenantId,int $userId,array $filters): array
+    {
+        $q=OpenStore::owner('request',$tenantId,$userId);if(!empty($filters['start']))$q->where('create_time','>=',(int)$filters['start']);if(!empty($filters['end']))$q->where('create_time','<=',(int)$filters['end']);
+        $rows=$q->field('app_code,kind,key_id,COUNT(*) AS calls,SUM(actual_user) AS charged,SUM(budget_user) AS pending_budget')->group('app_code,kind,key_id')->select()->toArray();return ['groups'=>$rows,'charged'=>array_sum(array_column($rows,'charged')),'calls'=>array_sum(array_column($rows,'calls'))];
+    }
+}
