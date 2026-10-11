@@ -578,7 +578,8 @@
         },
         "description": "AI换发型 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_image\\AigcImageTask"
   },
   "aigc_image": {
     "app_code": "aigc_image",

@@ -35,9 +35,13 @@ final class OpenCallContext
     }
     public static function linkNativeTask($model): void
     {
-        if(self::$requestId==='')return;$parts=explode('\\',get_class($model));$app=$parts[count($parts)-2]??'';$tool=OpenToolRegistry::all()[$app]??null;
-        if(!$tool||($tool['task_model']??'')!==get_class($model))return;
-        Db::transaction(function()use($model,$app){$row=OpenStore::owner('request',(int)$model['tenant_id'],(int)$model['user_id'])->where(['request_id'=>self::$requestId,'app_code'=>$app,'kind'=>'tool'])->lock(true)->find();if(!$row)return;self::assertLease($row);if($row['tool_task_id']!=='')return;OpenAdmission::finish(self::$requestId,['tool_task_id'=>(string)$model['id']]);});
+        if(self::$requestId==='')return;
+        Db::transaction(function()use($model){$row=OpenStore::owner('request',(int)$model['tenant_id'],(int)$model['user_id'])->where(['request_id'=>self::$requestId,'kind'=>'tool'])->lock(true)->find();if(!$row)return;
+            $tool=OpenToolRegistry::all()[$row['app_code']]??null;
+            // Alias tools can share a native task class. A composite child must
+            // never replace its parent's task mapping merely by namespace.
+            if(!$tool||($tool['task_model']??'')!==get_class($model))return;
+            self::assertLease($row);if($row['tool_task_id']!=='')return;OpenAdmission::finish(self::$requestId,['tool_task_id'=>(string)$model['id']]);});
     }
     public static function linkConsumption(int $id): void
     {
