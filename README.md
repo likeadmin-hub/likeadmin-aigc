@@ -55,11 +55,11 @@ LikeAdmin AIGC SaaS 不是一套普通后台，而是一套可部署、可更新
 ## 运行环境
 
 - Linux / 宝塔 / Docker 均可部署，推荐 Nginx + PHP-FPM。
-- PHP 8.2，作为当前部署与验收基线；Composer 声明的最低兼容版本为 PHP 8.1，PHP 8.0 无法加载当前依赖。
+- PHP 8.2，为当前部署与验收基线，也是 Composer 声明的最低版本。网站、任务守护进程和计划任务均须切换至 PHP 8.2。
 - 网站 PHP-FPM、任务 Worker、定时任务和 Composer CLI 均须使用匹配的 PHP 8.2 环境。共享宝塔服务器通过本项目的绝对 PHP 路径指定版本，保留其他项目使用的全局 PHP 配置。
 - 需启用 `curl`、`zip`、`fileinfo`、`openssl`、`mbstring`、`pdo_mysql`、`iconv`、`gd`、`bcmath`、`dom`、`xml`、`xmlreader`、`xmlwriter` 等依赖扩展；使用 Redis 缓存时还需 `redis`。CLI Worker 应支持 `pcntl` 信号处理，以便停止时等待当前处理流程。
 - MySQL >= 5.7 或 MariaDB >= 10.3，字符集建议 `utf8mb4`。
-- Composer 2.x。
+- Composer 2.x（源码安装使用）；完整安装包已包含配套依赖，在线升级会自动部署依赖，无需在客户服务器运行 Composer。
 - Web 目录指向 `server/public`。
 - 需要在线更新和解压更新包时，服务器需支持 `ZipArchive`，或安装 `unzip` / `7z` / `tar` 命令之一。
 
