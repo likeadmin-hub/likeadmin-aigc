@@ -16,7 +16,7 @@ function waitFor(callable $condition,string $why,int $seconds=10): void {
 $original=config('database');$mysql=$original['connections']['mysql'];
 check(PHP_SAPI==='cli'&&$mysql['hostname']==='127.0.0.1'&&$mysql['database']==='z_cn','Local process fixtures only');
 function fixtureConfig(array $original,string $prefix): void {
-    check(preg_match('/^opf_[a-f0-9]{24}_$/D',$prefix),'Unsafe fixture prefix');
+    check(preg_match('/^opf_[a-f0-9]{12}_$/D',$prefix),'Unsafe fixture prefix');
     $test=$original;$test['default']='open_platform_process';
     $test['connections']['open_platform_process']=array_replace($original['connections']['mysql'],['prefix'=>$prefix,'break_reconnect'=>false]);
     $test['connections']['mysql']=$test['connections']['open_platform_process'];
@@ -24,7 +24,7 @@ function fixtureConfig(array $original,string $prefix): void {
 }
 if(in_array($argv[1]??'',['--worker','--upstream'],true)){
     $mode=$argv[1];$prefix=(string)($argv[2]??'');$dir=(string)($argv[3]??'');
-    check(preg_match('#^/tmp/opf_worker_([a-f0-9]{24})$#D',$dir,$match)&&$prefix==='opf_'.$match[1].'_'&&is_file($dir.'/owner'),'Not an owned process fixture');
+    check(preg_match('#^/tmp/opf_worker_([a-f0-9]{24})$#D',$dir,$match)&&$prefix==='opf_'.substr($match[1],0,12).'_'&&is_file($dir.'/owner')&&file_get_contents($dir.'/owner')===$match[1],'Not an owned process fixture');
     if($mode==='--upstream'){
         $server=stream_socket_server('tcp://127.0.0.1:0',$errno,$error);check(is_resource($server),'Loopback receipt fixture unavailable');
         file_put_contents($dir.'/upstream-ready',stream_socket_get_name($server,false));
@@ -51,7 +51,7 @@ if(in_array($argv[1]??'',['--worker','--upstream'],true)){
     echo $output->fetch();exit($exit);
 }
 check(function_exists('proc_open')&&function_exists('posix_kill'),'Independent worker processes required');
-$tag=bin2hex(random_bytes(12));$prefix='opf_'.$tag.'_';$dir='/tmp/opf_worker_'.$tag;
+$tag=bin2hex(random_bytes(12));$prefix='opf_'.substr($tag,0,12).'_';$dir='/tmp/opf_worker_'.$tag;
 check(mkdir($dir,0700)&&file_put_contents($dir.'/owner',$tag)!==false,'Cannot create owned fixture directory');
 $pdo=new PDO('mysql:host='.$mysql['hostname'].';port='.($mysql['hostport']?:3306).';dbname=z_cn;charset=utf8mb4',$mysql['username'],$mysql['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::MYSQL_ATTR_MULTI_STATEMENTS=>true]);
 $tables=[];$children=[];$report=['provider_calls'=>0,'live_point_mutations'=>0,'scenarios'=>[]];
@@ -70,7 +70,7 @@ try{
     $sql=str_replace('la_',$prefix,file_get_contents(dirname(__DIR__,2).'/public/install/db/like.sql'));
     check(!preg_match('/^\s*(?:USE\b|(?:DROP|CREATE)\s+DATABASE\b)/im',$sql),'Installer escaped selected schema');
     preg_match_all('/CREATE TABLE(?: IF NOT EXISTS)?\s+`([^`]+)`/i',$sql,$matches);$tables=array_values(array_unique($matches[1]));
-    foreach($tables as $table)check(str_starts_with($table,$prefix)&&preg_match('/^[a-z0-9_]+$/D',$table),'Unsafe installer table');$pdo->exec($sql);
+    foreach($tables as $table)check(str_starts_with($table,$prefix)&&strlen($table)<=64&&preg_match('/^[a-z0-9_]+$/D',$table),'Unsafe installer table');$pdo->exec($sql);
     fixtureConfig($original,$prefix);check(config('database.connections.mysql.prefix')===$prefix,'Not isolated');
     $tenant=123456;$user=123456;
     Db::name('tenant')->insert(['id'=>$tenant,'sn'=>'opf_worker','name'=>'worker fixture','disable'=>0,'tactics'=>0,'point_balance'=>100,'delete_time'=>null]+S::timestamp());
@@ -111,7 +111,8 @@ try{
 }finally{
     foreach($children as $child){if(!is_resource($child['process']))continue;proc_terminate($child['process'],SIGKILL);foreach($child['pipes'] as $pipe)if(is_resource($pipe))fclose($pipe);proc_close($child['process']);}
     app()->config->set($original,'database');$restore=new think\Config();$restore->set($original,'database');Db::setConfig($restore);
-    foreach(array_reverse($tables) as $table)$pdo->exec('DROP TABLE IF EXISTS `'.$table.'`');
+    $existing=$pdo->prepare('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND LEFT(TABLE_NAME,?)=?');$existing->execute(['z_cn',strlen($prefix),$prefix]);
+    foreach($existing->fetchAll(PDO::FETCH_COLUMN) as $table){check(str_starts_with($table,$prefix)&&strlen($table)<=64&&preg_match('/^[a-z0-9_]+$/D',$table),'Unsafe cleanup table');$pdo->exec('DROP TABLE `'.$table.'`');}
     foreach(glob($dir.'/*') as $file)unlink($file);rmdir($dir);$report['fixture_removed']=true;
     file_put_contents(dirname(__DIR__,2).'/runtime/open-platform-acceptance/worker-process.json',S::encode($report));
 }
