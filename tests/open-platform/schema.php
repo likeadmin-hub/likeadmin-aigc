@@ -10,4 +10,10 @@ reject(1,['oneOf'=>[['type'=>'number'],['type'=>'integer']]]);reject([],['allOf'
 S::validate(null,['type'=>'string','nullable'=>true]);reject('x',['$ref'=>'https://example.com/schema']);reject([],['$ref'=>'#/missing']);reject([],['$ref'=>'#/$defs/cycle','$defs'=>['cycle'=>['$ref'=>'#/$defs/cycle']]]);
 $q=S::query(['limit'=>'2','enabled'=>'false','ids'=>'[1,2]','label'=>'007'],['type'=>'object','properties'=>['limit'=>['type'=>'integer'],'enabled'=>['type'=>'boolean'],'ids'=>['type'=>'array','items'=>['type'=>'integer']],'label'=>['type'=>['string','integer']]]]);
 if($q!==['limit'=>2,'enabled'=>false,'ids'=>[1,2],'label'=>'007'])throw new RuntimeException('Query normalization mismatch');
+$strict=['type'=>'object','properties'=>['metadata'=>['type'=>'object'],'items'=>['type'=>'array']]];
+S::validate(json_decode('{"metadata":{},"items":[]}'),$strict,'$',0,null,true);
+try{S::validate(json_decode('{"metadata":[],"items":[]}'),$strict,'$',0,null,true);throw new RuntimeException('JSON array accepted as object');}catch(OpenException){}
+try{S::validate(json_decode('{"metadata":{},"items":{}}'),$strict,'$',0,null,true);throw new RuntimeException('JSON object accepted as array');}catch(OpenException){}
+S::validate(json_decode('{"0":"zero"}'),['type'=>'object','required'=>['0']],'$',0,null,true);
+reject(1,['type'=>'number','minimum'=>1,'exclusiveMinimum'=>true]);reject(3,['type'=>'number','maximum'=>3,'exclusiveMaximum'=>true]);S::validate(2,['type'=>'number','minimum'=>1,'maximum'=>3,'exclusiveMinimum'=>true,'exclusiveMaximum'=>true]);
 echo "PASS nested refs, nullable unions, exclusive schema branches and typed query inputs\n";

@@ -15,7 +15,7 @@ final class OpenPolicy
     }
     public static function fingerprint(array $params): string
     {
-        $sort = static function ($value) use (&$sort) { if (!is_array($value)) return $value; if (!array_is_list($value)) ksort($value); foreach ($value as &$v) $v = $sort($v); return $value; };
+        $sort = static function ($value) use (&$sort) { $object=$value instanceof \stdClass;if($object)$value=(array)$value;if (!is_array($value)) return $value; if (!array_is_list($value)) ksort($value); foreach ($value as &$v) $v = $sort($v); return $object?(object)$value:$value; };
         return hash('sha256', json_encode($sort($params), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
     public static function ipAllowed(string $ip, array $ranges): bool
@@ -45,7 +45,7 @@ final class OpenPolicy
             if($depth===0&&is_string($key)&&str_starts_with($key,'_'))throw new \InvalidArgumentException('请求包含内部控制字段');
             if($depth===0&&$key==='source_app'&&in_array($value,['aigc_short_drama','aigc_canvas','aigc_geo'],true))throw new \InvalidArgumentException('该工作室流程不对外开放');
             if (is_string($key) && ($depth === 0 && in_array(strtolower($key), $blocked, true) || str_starts_with($key, '_billing') || $key === '_user_id' || str_starts_with($key,'_open_platform'))) throw new \InvalidArgumentException('请求包含平台内部字段');
-            if (is_array($value)) self::validateInput($value, $depth + 1);
+            if (is_array($value)||$value instanceof \stdClass) self::validateInput((array)$value, $depth + 1);
         }
     }
     public static function publicData(array $data): array

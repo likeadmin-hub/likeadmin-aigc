@@ -34,7 +34,7 @@ final class OpenContracts
     {
         $values=self::validate($input);return Db::transaction(function()use($input,$values){$id=(int)($input['id']??0);$old=$id?OpenStore::table('contract')->where('id',$id)->lock(true)->find():null;if($old&&$old['status']!=='draft')throw new OpenException('immutable_version','已发布契约不可修改，请新建版本',409);$version=$old?(int)$old['version']:((int)OpenStore::table('contract')->where('code',$values['code'])->max('version')+1);if($old)OpenStore::table('contract')->where('id',$id)->update($values+['update_time'=>time()]);else $id=OpenStore::table('contract')->insertGetId($values+['version'=>$version,'status'=>'draft']+OpenStore::timestamp());return self::detail($id);});
     }
-    public static function detail(int $id): array {$row=OpenStore::table('contract')->where('id',$id)->find();if(!$row)throw new OpenException('not_found','接口契约不存在',404);$row['config']=OpenStore::json($row['config']);return $row;}
+    public static function detail(int $id): array {$row=OpenStore::table('contract')->where('id',$id)->find();if(!$row)throw new OpenException('not_found','接口契约不存在',404);$typed=json_decode($row['config']);$row['config']=OpenStore::json($row['config']);if(isset($typed->example)&&$typed->example instanceof \stdClass)$row['config']['example']=(array)$typed->example;return $row;}
     public static function publish(int $id): array
     {
         return Db::transaction(function()use($id){$row=self::detail($id);self::validate($row);if($row['status']!=='draft')throw new OpenException('invalid_contract','只可发布草稿',409);

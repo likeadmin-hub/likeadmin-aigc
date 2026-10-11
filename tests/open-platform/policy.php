@@ -17,4 +17,7 @@ check(!isset($clean['api_key']) && !isset($clean['tenant_cost_points']) && $clea
 $cap=OpenPolicy::publicData(['prompt_template'=>'internal','config_json'=>['system_prompt'=>'internal'],'tenant_id'=>1,'options'=>[['upstream_unit_cost'=>7,'platform_input_unit_cost'=>8,'platform_gross_margin_points'=>2,'cost_source_url'=>'https://internal.example','tenant_unit_price'=>9,'code'=>'selectable']]]);
 check(!isset($cap['prompt_template'])&&!isset($cap['config_json'])&&!isset($cap['tenant_id']),'Internal configuration leaked');
 check($cap['options'][0]===['tenant_unit_price'=>9,'code'=>'selectable'],'Nested cost fields leaked or user price removed');
+check(OpenPolicy::fingerprint(['metadata'=>(object)[]])!==OpenPolicy::fingerprint(['metadata'=>[]]),'JSON object/array identities collapsed');
+check(OpenPolicy::fingerprint(['metadata'=>(object)['b'=>2,'a'=>1]])===OpenPolicy::fingerprint(['metadata'=>['a'=>1,'b'=>2]]),'JSON object ordering is not canonical');
+try { OpenPolicy::validateInput(['metadata'=>(object)['_billing_override'=>1]]); throw new RuntimeException('Nested object internal field accepted'); } catch (InvalidArgumentException $e) {}
 echo "PASS open platform policy\n";

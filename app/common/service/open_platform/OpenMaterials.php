@@ -9,6 +9,7 @@ final class OpenMaterials
     public static function resolve(int $tenantId,int $userId,array $params,string $context=''): array
     {
         foreach($params as $key=>&$value){$field=is_numeric($key)?$context:(string)$key;
+            if($value instanceof \stdClass){$value=(object)self::resolve($tenantId,$userId,(array)$value,$field);continue;}
             if(is_array($value)){$value=self::resolve($tenantId,$userId,$value,$field);continue;}
             if(!is_string($value)||$value===''||!preg_match('/(?:url|uri|images?|videos?|audio|file|clothes)$/i',$field))continue;
             if(preg_match('/^of_[a-f0-9]{32}$/D',$value)){$value=OpenAssets::detail($tenantId,$userId,$value)['url'];continue;}

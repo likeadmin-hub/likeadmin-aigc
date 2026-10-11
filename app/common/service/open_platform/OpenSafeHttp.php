@@ -35,6 +35,6 @@ final class OpenSafeHttp
     }
     public static function checkInputs(array $params,string $context=''): void
     {
-        foreach($params as $key=>$value){if(is_array($value)){self::checkInputs($value,is_numeric($key)?$context:(string)$key);continue;}if(is_string($value)&&preg_match('#^https?://#i',$value)&&preg_match('/(?:url|uri|image|video|audio|material)/i',(is_numeric($key)?$context:(string)$key)))self::resolve($value,false);}
+        foreach($params as $key=>$value){if(is_array($value)||$value instanceof \stdClass){self::checkInputs((array)$value,is_numeric($key)?$context:(string)$key);continue;}if(is_string($value)&&preg_match('#^https?://#i',$value)&&preg_match('/(?:url|uri|image|video|audio|material)/i',(is_numeric($key)?$context:(string)$key)))self::resolve($value,false);}
     }
 }
