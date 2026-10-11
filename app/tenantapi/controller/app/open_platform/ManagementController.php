@@ -19,7 +19,7 @@ class ManagementController extends BaseAdminController
     public function publishDocument(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenDocuments::publish($this->tenantId,(int)$this->request->post('id')));}
     public function requests(){return $this->run(fn()=>OpenManagement::requests($this->tenantId,null,$this->request->get()));}
     public function requestDetail(){return $this->run(fn()=>OpenManagement::detail($this->tenantId,null,(string)$this->request->get('request_id')));}
-    public function recoveryPreview(){return $this->run(function(){return ['preview'=>OpenManagement::detail($this->tenantId,null,(string)$this->request->param('request_id')),'operation'=>'query_only','will_charge'=>false];});}
+    public function recoveryPreview(){return $this->run(fn()=>OpenManagement::recoveryPreview($this->tenantId,(string)$this->request->param('request_id')));}
 
     public function inventory(){return $this->run(fn()=>['tools'=>array_map(fn($code,$tool)=>['code'=>$code,'name'=>$tool['name']],array_keys(\app\common\service\open_platform\OpenToolRegistry::all()),array_values(\app\common\service\open_platform\OpenToolRegistry::all())),'models'=>\think\facade\Db::name('power_market_product')->field('id,name,resource_type')->where('status',1)->order('id','asc')->limit(5000)->select()->toArray()]);}
 

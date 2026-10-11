@@ -60,6 +60,29 @@ final class OpenManagement
             unset($row['actual_tenant'],$row['budget_tenant'],$row['snapshot']);
         }return $row;
     }
+    /** Read-only diagnosis. Resuming tracking can settle an existing admitted request. */
+    public static function recoveryPreview(int $tenantId,string $id): array
+    {
+        $row=self::detail($tenantId,null,$id);$snapshot=$row['snapshot'];
+        $query=false;
+        if($row['kind']==='market')$query=$row['upstream_task_id']!==''&&str_starts_with((string)($snapshot['contract']['query_path']??''),'/api/v1/')&&!str_contains((string)($snapshot['contract']['query_path']??''),'..');
+        elseif($row['tool_task_id']!==''){
+            $tool=OpenToolRegistry::all()[$row['app_code']]??[];
+            $query=isset($tool['operations']['GET tasks/{task_id}'])&&OpenToolRegistry::executable($tool['operations']['GET tasks/{task_id}']);
+        }
+        $active=(int)$row['active']===1;$lease=(int)$row['lease_expire']>time();
+        $mayCharge=$active&&(float)$row['budget_user']>0;
+        $mayRefund=$active&&(float)$row['actual_user']>0&&!in_array($row['billing_status'],['settled','refunded','none'],true);
+        // Keep encrypted credentials, private receipts, examples and prompts server-side.
+        unset($row['snapshot']);
+        return ['preview'=>$row,'operation'=>'diagnose_only','will_query'=>false,'will_charge'=>false,'will_modify'=>false,
+            'scope'=>['requests'=>1,'tenant_id'=>(int)$row['tenant_id'],'user_id'=>(int)$row['user_id']],
+            'tracking'=>['active'=>$active,'query_available'=>$query,'lease_active'=>$lease,'lease_expires_at'=>(int)$row['lease_expire'],
+                'manual_review_required'=>$active&&!$query,'resubmission_allowed'=>false],
+            'resume_impact'=>['may_charge_existing_request'=>$mayCharge,'maximum_remaining_user_points'=>(float)$row['budget_user'],
+                'may_refund_existing_request'=>$mayRefund,'already_charged_user_points'=>(float)$row['actual_user'],
+                'historical_backcharge_allowed'=>false]];
+    }
     private static function pointLogs(array $row,int $tenantId,int $userId): array
     {
         $logs=[];
