@@ -645,6 +645,10 @@ class AigcImageService
             'provider' => 'power_market',
         ])->findOrEmpty();
         if ($consumption->isEmpty()) return;
+        if ((string)$consumption['run_status'] === 'pending_confirmation') {
+            $task->save(['status'=>'pending_confirmation','error'=>'上游受理状态待确认','finish_time'=>0,'update_time'=>time()]);
+            return;
+        }
         if (in_array((string)$consumption['run_status'], ['failed', 'canceled', 'cancelled'], true)
             || (string)$consumption['billing_status'] === 'refunded') {
             $task->save([

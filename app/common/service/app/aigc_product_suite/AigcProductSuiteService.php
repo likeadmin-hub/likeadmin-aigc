@@ -297,12 +297,16 @@ class AigcProductSuiteService
                     'prompt' => self::buildPrompt($prepared['config'], $module, $prepared['user_prompt'], $prepared),
                     'reference_images' => $prepared['product_images'],
                 ]);
-                AigcImageService::generateWithBillingOverride($tenantId, $userId, $payload, [
+                $childResponse = AigcImageService::generateWithBillingOverride($tenantId, $userId, $payload, [
                     'tenant_cost_points' => $estimate['platform_unit_cost'],
                     'user_charge_points' => $prepared['unit_price'],
                 ], static function (AigcImageTask $child) use ($task) {
                     self::attachImageTask((int)$task['id'], $child);
                 });
+                if (($childResponse['status'] ?? '') === 'pending_confirmation') {
+                    $task->save(['error'=>'部分模块受理状态待确认，后续模块暂未提交','update_time'=>time()]);
+                    break;
+                }
             }
         } catch (\Throwable $e) {
             $task->save(['error' => '部分模块提交未完成，已创建的任务将继续处理', 'update_time' => time()]);
@@ -656,6 +660,8 @@ class AigcProductSuiteService
             $task->status = 'partial_failed';
         } elseif (($failedCount === count($imageTaskIds)) || ($successCount + $failedCount === count($imageTaskIds) && $resultCount === 0)) {
             $task->status = 'failed';
+        } elseif (in_array('pending_confirmation', $statuses, true)) {
+            $task->status = 'pending_confirmation';
         } elseif (in_array('pending', $statuses, true)) {
             $task->status = 'pending';
         } else {

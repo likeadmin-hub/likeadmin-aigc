@@ -18,7 +18,9 @@ final class OpenToolTasks
     public static function billing(array $row): string
     {
         $ids=OpenStore::json($row['consumption_ids']);if(!$ids)return $row['billing_status']==='none'?'none':'settled';
-        $states=AiConsumptionLog::where(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']])->whereIn('id',$ids)->column('billing_status');
+        $logs=AiConsumptionLog::where(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']])->whereIn('id',$ids)->field('billing_status,run_status')->select()->toArray();
+        if(array_filter($logs,fn($c)=>$c['run_status']==='pending_confirmation'))return 'pending_confirmation';
+        $states=array_column($logs,'billing_status');
         if(count($states)!==count($ids))return 'settlement_failed';foreach($states as $state)if(!in_array($state,['settled','refunded','none'],true))return in_array($state,['pending_usage','pending_confirmation','settlement_failed'],true)?$state:'pending';return count(array_filter($states,fn($s)=>$s==='refunded'))===count($states)?'refunded':'settled';
     }
 }

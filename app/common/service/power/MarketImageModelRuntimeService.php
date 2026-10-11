@@ -281,6 +281,7 @@ class MarketImageModelRuntimeService
         $requestId = '';
         $images = [];
         $upstreamAccepted = false;
+        \app\common\service\open_platform\OpenSubmission::start($consumptionId);
         try {
             $submission = self::submitWithTransientRetry($consumptionId, self::origin() . self::SUBMIT_PATH, $payload);
             $response = $submission['response'];
@@ -314,6 +315,7 @@ class MarketImageModelRuntimeService
                 self::recordAcceptedSubmissionFailure($consumptionId, $taskId, $requestId, $e);
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => []];
             }
+            if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return ['status'=>'pending_confirmation','provider_task_id'=>'','provider_request_id'=>'','images'=>[]];
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('图片模型提交失败');
         }
@@ -335,6 +337,7 @@ class MarketImageModelRuntimeService
             try {
                 return ['response' => self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
             } catch (MarketImageProviderRequestException $e) {
+                if (\app\common\service\open_platform\OpenCallContext::id() !== '') throw $e;
                 if (!$e->isRetryable() || $attempt >= self::SUBMIT_MAX_ATTEMPTS) {
                     throw $e;
                 }
@@ -1297,6 +1300,7 @@ class MarketImageModelRuntimeService
         // may have accepted the request after the connection was interrupted.
         if ($errno) throw new Exception($error ?: '图片模型网络请求失败'); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('图片模型响应格式错误');
         if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) {
+            if ($method === 'POST') \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== '');
             throw new MarketImageProviderRequestException(self::error($data), self::isExplicitTransientProviderResponse($http, $data), $http);
         }
         return is_array($data['data'] ?? null) ? $data['data'] : $data;

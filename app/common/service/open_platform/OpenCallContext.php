@@ -17,7 +17,9 @@ final class OpenCallContext
         if(self::$requestId==='')return;
         Db::transaction(function()use($httpStatus,$body,$hasOutput){$row=OpenStore::table('request')->where('request_id',self::$requestId)->lock(true)->find();if(!$row)return;
             $snapshot=OpenStore::json($row['snapshot']);$payload=OpenStore::json($body);
-            $snapshot['provider_rejection_confirmed']=!$hasOutput&&($httpStatus>=400&&$httpStatus<500||array_key_exists('code',$payload)&&in_array($payload['code'],[0,'0'],true));
+            $message=(string)($payload['msg']??$payload['message']??$payload['error']['message']??'');
+            $ambiguous=(bool)preg_match('/timeout|timed out|connection|curl|超时|连接|网络|格式|响应|未返回|内部异常/iu',$message);
+            $snapshot['provider_rejection_confirmed']=!$hasOutput&&!$ambiguous&&($httpStatus>=400&&$httpStatus<500&&!in_array($httpStatus,[408,425],true)||$httpStatus<500&&array_key_exists('code',$payload)&&in_array($payload['code'],[0,'0'],true));
             // Error bodies can quote private input. Retain encrypted evidence,
             // never expose it through user records or print it in request logs.
             $snapshot['provider_error_blob']=OpenVault::seal(OpenStore::encode(['http_status'=>$httpStatus,'body'=>substr($body,0,16384)]));
