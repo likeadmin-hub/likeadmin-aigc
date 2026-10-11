@@ -22,12 +22,12 @@ try{
  $schema=static fn($ddl)=>preg_replace('/ AUTO_INCREMENT=\d+/','',$ddl);
  foreach($tables as $table)check($schema($pdo->query('SHOW CREATE TABLE `'.$table.'`')->fetch(PDO::FETCH_NUM)[1])===$schema($before[$table]),'Repeated migration changed installed schema: '.$table);
  foreach(['quickstart','auth-limits','tasks-billing','assets-webhooks'] as $slug){$q=$pdo->prepare('SELECT content FROM `'.$prefix.'open_platform_document` WHERE tenant_id=0 AND slug=? AND status=?');$q->execute(['open-platform-'.$slug,'published']);$rows=$q->fetchAll(PDO::FETCH_COLUMN);check(count($rows)===1&&trim($rows[0])===trim(file_get_contents($root.'/app/apps/open_platform/docs/'.$slug.'.md')),'Guide seed changed or duplicated: '.$slug);}
- $test=$original;$test['default']='open_platform_fixture';$test['connections']['open_platform_fixture']=array_replace($mysql,['database'=>$created?$name:'z_cn','prefix'=>$prefix]);Db::setConfig($test);
+ $test=$original;$test['default']='open_platform_fixture';$test['connections']['open_platform_fixture']=array_replace($mysql,['database'=>$created?$name:'z_cn','prefix'=>$prefix]);$fixtureConfig=new think\Config();$fixtureConfig->set($test,'database');Db::setConfig($fixtureConfig);
  check(S::settings(123456)['enabled']===false,'New tenant unexpectedly enabled API calling');check(S::settings(123456)['apps']===[]&&S::settings(123456)['models']===[],'New tenant inherited callable abilities');
  check(count(D::publicLists(123456))===4,'New tenant did not inherit published integration guides');
  echo "PASS full fresh installer, 9 tables, repeated 4 migrations, exact guide seeds and closed new tenant (",$created?'isolated schema':'isolated table prefix',")\n";
 }finally{
- Db::setConfig($original);
+ $restoreConfig=new think\Config();$restoreConfig->set($original,'database');Db::setConfig($restoreConfig);
  if($created)$pdo->exec('DROP DATABASE `'.$name.'`');
  elseif($prefix!=='la_'){foreach(array_reverse($fixtureTables) as $table)$pdo->exec('DROP TABLE IF EXISTS `'.$table.'`');}
 }
