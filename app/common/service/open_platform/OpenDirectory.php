@@ -47,10 +47,20 @@ final class OpenDirectory
     }
     private static function prices(array $product): array
     {
-        $skus=array_values(array_filter($product['skus'],fn($s)=>!empty($s['sale_status'])));$input=$skus[0];$output=$input;
-        foreach($skus as $sku){$hint=strtolower($sku['sku_key'].' '.$sku['usage_unit']);if(str_contains($hint,'input')||str_contains($hint,'prompt'))$input=$sku;if(str_contains($hint,'output')||str_contains($hint,'completion'))$output=$sku;}
-        if(str_contains(strtolower($input['usage_unit']),'token'))return ['billing_type'=>1,'per_1k_input'=>(float)$input['sale_points']*1000000/max(1,(float)$input['usage_unit_size']),'per_1k_output'=>(float)$output['sale_points']*1000000/max(1,(float)$output['usage_unit_size']),'fixed_points'=>0];
-        return ['billing_type'=>count($skus)===1?2:3,'fixed_points'=>count($skus)===1?(float)$input['sale_points']/max(1,(float)$input['usage_unit_size']):0,'pricing_matrix'=>array_map(fn($sku)=>['sku_key'=>$sku['sku_key'],'unit_price'=>(float)$sku['sale_points'],'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>(float)$sku['usage_unit_size'],'params'=>OpenStore::json($sku['locked_params']??[])],$skus)];
+        $skus=array_values(array_filter($product['skus'],fn($s)=>!empty($s['sale_status'])));
+        if(!$skus)return [];
+        $matrix=array_map(fn($sku)=>['sku_key'=>$sku['sku_key'],'unit_price'=>(float)$sku['sale_points'],'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>(float)$sku['usage_unit_size'],'params'=>OpenStore::json($sku['locked_params']??[])],$skus);
+        $units=array_unique(array_column($skus,'usage_unit'));
+        $type=count($units)===1?match($units[0]){'input_second'=>5,'output_second'=>6,'character'=>4,'token'=>1,default=>count($skus)===1?2:3}:3;
+        // Parameter tiers and cached/reasoning rates must not overwrite a base token rate by row order.
+        $base=array_values(array_filter($skus,fn($sku)=>!OpenStore::json($sku['locked_params']??[])&&!preg_match('/cache|reasoning/i',$sku['sku_key'])));
+        $input=$base[0]??null;$output=$input;
+        foreach($base as $sku){$hint=strtolower($sku['sku_key']);if(str_contains($hint,'input')||str_contains($hint,'prompt'))$input=$sku;if(str_contains($hint,'output')||str_contains($hint,'completion'))$output=$sku;}
+        $rate=fn($sku,$scale=1)=>$sku?(float)$sku['sale_points']*$scale/max(1,(float)$sku['usage_unit_size']):0.;
+        $price=['billing_type'=>$type,'fixed_points'=>$type===2&&count($skus)===1?$rate($skus[0]):0,'pricing_matrix'=>$matrix];
+        if($type===1){$price['per_1k_input']=$rate($input,1000000);$price['per_1k_output']=$rate($output,1000000);foreach($skus as $sku)if(preg_match('/cache/i',$sku['sku_key'])&&!OpenStore::json($sku['locked_params']??[]))$price['cached_input_per_1m']=$rate($sku,1000000);}
+        elseif(in_array($type,[5,6],true)){$price['per_1k_input']=$type===5?$rate($input):0.;$price['per_1k_output']=$type===6?$rate($output):0.;}
+        return $price;
     }
     public static function filterDetail(string $path,array $data,array $products): array
     {
