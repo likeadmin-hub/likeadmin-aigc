@@ -25,8 +25,9 @@ final class OpenRecovery
     }
     public static function refresh(array $row): void
     {
-        $request=request();$request->source=\app\common\enum\AdminTerminalEnum::USER;$request->tenantId=(int)$row['tenant_id'];$request->userId=(int)$row['user_id'];$request->userInfo=['tenant_id'=>(int)$row['tenant_id'],'user_id'=>(int)$row['user_id'],'terminal'=>4];OpenCallContext::enter($row['request_id']);
+        $request=request();$request->source=\app\common\enum\AdminTerminalEnum::USER;$request->tenantId=(int)$row['tenant_id'];$request->userId=(int)$row['user_id'];$request->userInfo=['tenant_id'=>(int)$row['tenant_id'],'user_id'=>(int)$row['user_id'],'terminal'=>4];OpenCallContext::enter($row['request_id'],(string)($row['lease_token']??''));
         try{
+            $current=OpenStore::table('request')->where('id',$row['id'])->find();if(!$current)throw new OpenException('not_found','恢复任务不存在',404);OpenCallContext::assertLease($current);$row=$current;
             $snapshot=OpenStore::json($row['snapshot']);
             // A completed free read is a request receipt, not a second running task.
             if($row['method']==='GET'&&$row['billing_status']==='none'&&$row['response_blob']!==''&&(int)$row['response_code']===200&&(float)$row['actual_user']===0.&&(float)$row['actual_tenant']===0.&&(float)$row['budget_user']===0.&&(float)$row['budget_tenant']===0.){OpenAdmission::finish($row['request_id'],['status'=>'success','active'=>0,'finish_time'=>time(),'next_run_time'=>0,'lease_expire'=>0,'lease_token'=>'']);return;}

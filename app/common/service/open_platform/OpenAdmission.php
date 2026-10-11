@@ -40,5 +40,9 @@ final class OpenAdmission
         if(!(($snapshot['contract']['executor']??'')==='directory'&&OpenDirectory::supports($method,$path))&&$scopes&&!in_array($scope,$scopes,true)&&!($row['kind']==='market'&&in_array('market',$scopes,true)))throw new OpenException('permission_denied','密钥无权访问原请求',403);
         return $row;
     }
-    public static function finish(string $id,array $fields): void { if(isset($fields['active'])&&(int)$fields['active']===0)$fields+=['budget_user'=>0,'budget_tenant'=>0];OpenStore::table('request')->where('request_id',$id)->update($fields+['update_time'=>time()]); }
+    public static function finish(string $id,array $fields): void { if(isset($fields['active'])&&(int)$fields['active']===0)$fields+=['budget_user'=>0,'budget_tenant'=>0];$query=OpenStore::table('request')->where('request_id',$id);$token=OpenCallContext::leaseToken($id);
+        if($token!=='')$query->where('lease_token',$token)->where('lease_expire','>',time());
+        $updated=$query->update($fields+['update_time'=>time()]);
+        // Zero affected rows can mean an identical write; verify ownership rather than retry SQL.
+        if($token!==''&&!$updated){$current=OpenStore::table('request')->where('request_id',$id)->find();if(!$current)throw new OpenException('recovery_lease_lost','恢复任务已不存在',409);OpenCallContext::assertLease($current);} }
 }
