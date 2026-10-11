@@ -41,9 +41,11 @@ final class OpenCallContext
     public static function observePoints(int $tenantId,int $userId,float $tenant,float $user,string $source,array $extra,bool $refund): void
     {
         $tenant=round(max(0,$tenant),2);$user=round(max(0,$user),2);
-        $requestId=self::$requestId;
-        if($requestId==='' && !empty($extra['consumption_id'])) { $consumption=\app\common\model\ai\AiConsumptionLog::findOrEmpty((int)$extra['consumption_id']);if(!$consumption->isEmpty())$requestId=(string)(OpenStore::json($consumption['price_snapshot'])['_open_platform_request_id']??''); }
-        if($requestId===''&&!empty($extra['_open_platform_request_id']))$requestId=(string)$extra['_open_platform_request_id'];
+        // A query may complete an older task. Its durable billing identity takes
+        // precedence over the current (free) query's request context.
+        $requestId=(string)($extra['_open_platform_request_id']??'');
+        if($requestId===''&&!empty($extra['consumption_id'])) { $consumption=\app\common\model\ai\AiConsumptionLog::findOrEmpty((int)$extra['consumption_id']);if(!$consumption->isEmpty())$requestId=(string)(OpenStore::json($consumption['price_snapshot'])['_open_platform_request_id']??''); }
+        if($requestId==='')$requestId=self::$requestId;
         if($requestId==='')return;
         $row=OpenStore::owner('request',$tenantId,$userId)->where('request_id',$requestId)->lock(true)->find();if(!$row)throw new \RuntimeException('开放请求账务关联不存在');
         $snapshot=OpenStore::json($row['snapshot']);$event=($refund?'refund:':'consume:').$source;
