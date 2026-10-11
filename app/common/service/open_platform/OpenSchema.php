@@ -59,8 +59,8 @@ final class OpenSchema
             if(isset($schema['properties'][$name]))$field=$schema['properties'][$name];elseif(($schema['type']??null)==='array')$field=$schema['items']??[];else $field=[];
             if(isset($field['$ref']))$field=self::reference($root,$field['$ref'])+$field;
             if($value instanceof \stdClass){$value=(object)self::query((array)$value,$field,$depth+1,$root);continue;}
-            if(is_array($value)){$value=self::query($value,$field,$depth+1,$root,$strictObjects);continue;}
-            $types=(array)($field['type']??[]);if(is_string($value)&&(in_array('array',$types,true)&&str_starts_with($value,'[')||in_array('object',$types,true)&&str_starts_with($value,'{'))){$decoded=json_decode($value,true,32);if(json_last_error()===JSON_ERROR_NONE&&is_array($decoded))$value=self::query($decoded,$field,$depth+1,$root,$strictObjects);continue;}if(!is_string($value)||in_array('string',$types,true))continue;
+            if(is_array($value)){$value=self::query($value,$field,$depth+1,$root);continue;}
+            $types=(array)($field['type']??[]);if(is_string($value)&&(in_array('array',$types,true)&&str_starts_with($value,'[')||in_array('object',$types,true)&&str_starts_with($value,'{'))){$decoded=json_decode($value,false,32);if(json_last_error()===JSON_ERROR_NONE&&(is_array($decoded)||$decoded instanceof \stdClass)){$typed=self::query((array)$decoded,$field,$depth+1,$root);$value=$decoded instanceof \stdClass?(object)$typed:$typed;}continue;}if(!is_string($value)||in_array('string',$types,true))continue;
             if(in_array('integer',$types,true)&&preg_match('/^-?(?:0|[1-9][0-9]*)$/D',$value)&&filter_var($value,FILTER_VALIDATE_INT)!==false)$value=(int)$value;
             elseif(in_array('number',$types,true)&&is_numeric($value)&&is_finite((float)$value))$value=(float)$value;
             elseif(in_array('boolean',$types,true)&&in_array($value,['true','false'],true))$value=$value==='true';

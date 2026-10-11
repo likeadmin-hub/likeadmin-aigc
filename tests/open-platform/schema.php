@@ -16,4 +16,6 @@ try{S::validate(json_decode('{"metadata":[],"items":[]}'),$strict,'$',0,null,tru
 try{S::validate(json_decode('{"metadata":{},"items":{}}'),$strict,'$',0,null,true);throw new RuntimeException('JSON object accepted as array');}catch(OpenException){}
 S::validate(json_decode('{"0":"zero"}'),['type'=>'object','required'=>['0']],'$',0,null,true);
 reject(1,['type'=>'number','minimum'=>1,'exclusiveMinimum'=>true]);reject(3,['type'=>'number','maximum'=>3,'exclusiveMaximum'=>true]);S::validate(2,['type'=>'number','minimum'=>1,'maximum'=>3,'exclusiveMinimum'=>true,'exclusiveMaximum'=>true]);
+$objects=S::query(['options'=>'{"speed":"1.5"}','empty'=>'{}'],['type'=>'object','properties'=>['options'=>['type'=>'object','properties'=>['speed'=>['type'=>'number']]],'empty'=>['type'=>'object']]]);
+if(!($objects['options'] instanceof \stdClass)||$objects['options']->speed!==1.5||!($objects['empty'] instanceof \stdClass))throw new RuntimeException('Multipart object shape or nested numeric value changed');
 echo "PASS nested refs, nullable unions, exclusive schema branches and typed query inputs\n";
