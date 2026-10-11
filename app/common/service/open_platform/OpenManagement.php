@@ -56,8 +56,21 @@ final class OpenManagement
         $q=OpenStore::table('request')->where('request_id',$id);if($tenantId>=0)$q->where('tenant_id',$tenantId);if($userId!==null)$q->where('user_id',$userId);$row=$q->withoutField('response_blob,lease_token,idempotency_hash,payload_hash')->find();if(!$row)throw new OpenException('not_found','请求不存在',404);
         $row['consumption_ids']=OpenStore::json($row['consumption_ids']);$row['snapshot']=OpenStore::json($row['snapshot']);if($userId!==null){
             $row['consumptions']=$row['consumption_ids']?Db::name('ai_consumption_log')->where(['tenant_id'=>$tenantId,'user_id'=>$userId])->whereIn('id',$row['consumption_ids'])->field('consume_no,run_status,billing_status,actual_user_price,create_time')->select()->toArray():[];
+            $row['point_logs']=self::pointLogs($row,$tenantId,$userId);
             unset($row['actual_tenant'],$row['budget_tenant'],$row['snapshot']);
         }return $row;
+    }
+    private static function pointLogs(array $row,int $tenantId,int $userId): array
+    {
+        $logs=[];
+        foreach($row['snapshot']['point_events']??[] as $event=>$amounts){
+            [$kind,$source]=array_pad(explode(':',(string)$event,2),2,'');
+            if(!in_array($kind,['consume','refund'],true)||$source==='')continue;
+            // Native tools can bill without AiConsumptionLog. Resolve their
+            // actual existing wallet entries, never manufacture a second bill.
+            foreach(Db::name('user_account_log')->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'source_sn'=>$source,'action'=>$kind==='consume'?2:1])->field('id,source_sn,action,change_amount,create_time')->order('id','asc')->select()->toArray() as $log)$logs[$log['id']]=$log;
+        }
+        ksort($logs);return array_values($logs);
     }
     public static function usage(int $tenantId,int $userId,array $filters): array
     {

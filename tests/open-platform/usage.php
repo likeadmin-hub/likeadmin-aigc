@@ -16,6 +16,13 @@ Db::startTrans();try{
  check(M::usage($t,$u,['model'=>"other-model' OR 1=1 --"])['calls']===0,'Untrusted model filter escaped its bound parameter');
  check(M::usage($t,$u,['app_code'=>'aigc_image'])['calls']===0,'Tool filter ignored');
  check(M::usage($t,$u,['end'=>time()-1])['calls']===0,'Date window ignored');
+ $source='opf_ledger_'.bin2hex(random_bytes(8));$rid='req_fixture_'.bin2hex(random_bytes(16));
+ S::table('request')->insert(array_replace($base,['request_id'=>$rid,'snapshot'=>S::encode(['point_events'=>['consume:'.$source=>['user'=>5,'tenant'=>9],'refund:'.$source=>['user'=>3,'tenant'=>4]]]) ]));
+ foreach([[],['action'=>1,'change_amount'=>3],['user_id'=>$u+1],['tenant_id'=>$t+1],['source_sn'=>$source.'_other']] as $override)Db::name('user_account_log')->insert(array_replace(['tenant_id'=>$t,'user_id'=>$u,'source_sn'=>$source,'action'=>2,'change_type'=>100,'change_amount'=>5,'remark'=>'private prompt','extra'=>'private metadata','create_time'=>time()],$override));
+ $detail=M::detail($t,$u,$rid);check(count($detail['point_logs'])===2&&$detail['consumptions']===[],'Native point-only bills missing or cross-account ledger leaked');
+ check(array_sum(array_map(fn($log)=>($log['action']==2?1:-1)*(float)$log['change_amount'],$detail['point_logs']))===2.,'Charge/refund actions lost');
+ foreach($detail['point_logs'] as $log)check(!isset($log['remark'],$log['extra'],$log['tenant_id'],$log['user_id']),'Ledger exposes private fields');
+ check(!isset($detail['snapshot'],$detail['actual_tenant'],$detail['budget_tenant']),'Detail exposes cost evidence');
  foreach([['method'=>'POST','path'=>'/api/v1/tools/aigc_llm/tasks'],['method'=>'GET','path'=>'/api/v1/tools/aigc_llm/tasks/ot_aigc_llm_123'],['method'=>'POST','path'=>'/api/v1/tools/aigc_llm/tasks/ot_aigc_llm_123/cancel']] as $override)S::table('request')->insert(array_replace($base,$override,['tool_task_id'=>'123','request_id'=>'req_fixture_'.bin2hex(random_bytes(16))]));
  $tasks=M::requests($t,$u,['tasks'=>true]);check($tasks['count']===1&&$tasks['lists'][0]['method']==='POST'&&$tasks['lists'][0]['path']==='/api/v1/tools/aigc_llm/tasks','Historical query/cancel records were displayed as distinct generated tasks');
  echo "PASS own usage, active reservations, frozen model, Key/tool/date filters and parameter binding\n";
