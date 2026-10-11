@@ -16,14 +16,32 @@ final class OpenToolRegistry
             if($same&&!self::executable($registered))throw new OpenException('not_found','该操作尚未实现，不能开放调用',404);
         }
     }
-    public static function capabilities(string $app,array $data): array
+    public static function ready(string $app,array $operation): bool
+    {
+        return self::executable($operation)&&!($app==='aigc_music'&&($operation['music_operation']??'')==='mp4'&&\app\common\service\app\aigc_music\MusicExportDecoder::binary()==='');
+    }
+    public static function capabilities(string $app,array $data,?array $publishedRoutes=null): array
     {
         $tool=self::get($app);
         if($app==='aigc_music') {
             $data['limitations']=$tool['limitations'];
+            // Creating a voice resource does not mean the song generator consumes it.
             $data['config_json']['allow_voice_clone']=false;
             unset($data['export_types']);
             unset($data['option_config']['export_types']);
+            if($publishedRoutes===null){
+                $publishedRoutes=[];
+                foreach(OpenStore::table('contract')->where(['kind'=>'tool','status'=>'published'])->field('method,path')->select()->toArray() as $contract){
+                    $prefix='/api/v1/tools/aigc_music/';
+                    if(str_starts_with($contract['path'],$prefix))$publishedRoutes[]=$contract['method'].' '.substr($contract['path'],strlen($prefix));
+                }
+            }
+            $publishedRoutes=array_filter($publishedRoutes,static fn($route)=>isset($tool['operations'][$route])&&self::ready($app,$tool['operations'][$route]));
+            $types=[];
+            foreach(\app\common\service\app\aigc_music\AigcMusicService::exportTypes() as $type)if(in_array('POST export/'.$type['value'],$publishedRoutes,true))$types[]=$type;
+            if($types)$data['export_types']=$types;
+            $data['limitations']['converted_exports']=(bool)array_intersect(array_column($types,'value'),['wav','midi','mp4']);
+            $data['limitations']['voice_clone_creation']=in_array('POST voiceclone/create',$publishedRoutes,true);
         }
         return $data;
     }

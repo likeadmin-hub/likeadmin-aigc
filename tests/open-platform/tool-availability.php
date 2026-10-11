@@ -25,8 +25,17 @@ Db::startTrans();try{
  check(count($catalog['operations'])===count($tool['operations']),'Catalog exposes demo operations');
  foreach(OpenManagement::contractsForTenant(1) as $c)check(!str_contains($c['code'],'availability_fixture_'),'Tenant document directory exposes demo contract');
  foreach(array_keys((array)OpenDocuments::openapi(1)['paths']) as $path)foreach(array_keys($blocked) as $route)check($path!=='/api/v1/tools/aigc_music/'.explode(' ',$route,2)[1],'OpenAPI exposes demo operation');
- $caps=R::capabilities('aigc_music',['config_json'=>['allow_voice_clone'=>true],'export_types'=>['wav']]);
+ $caps=R::capabilities('aigc_music',['config_json'=>['allow_voice_clone'=>true],'export_types'=>['wav']],[]);
  check($caps['limitations']['exact_duration']===false&&$caps['config_json']['allow_voice_clone']===false&&!isset($caps['export_types']),'Capability falsely promises exact duration, cloning or conversion');
+ $fixtureRoutes=['POST export/wav','POST export/midi','POST export/mp4','POST export/vox','POST voiceclone/create'];
+ $caps=R::capabilities('aigc_music',[],$fixtureRoutes);
+ check($caps['limitations']['voice_clone_creation']===true&&$caps['config_json']['allow_voice_clone']===false,'Creating a clone incorrectly promises generator support');
+ check($caps['limitations']['converted_exports']===true&&in_array('wav',array_column($caps['export_types'],'value'),true),'Published WAV conversion hidden');
+ if(\app\common\service\app\aigc_music\MusicExportDecoder::binary()==='')check(!in_array('mp4',array_column($caps['export_types'],'value'),true),'Missing decoder still promises MP4');
+ foreach($fixtureRoutes as $route){[$verb,$suffix]=explode(' ',$route,2);S::table('contract')->insert(['code'=>'availability_music_'.bin2hex(random_bytes(5)),'kind'=>'tool','method'=>$verb,'path'=>'/api/v1/tools/aigc_music/'.$suffix,'version'=>1,'status'=>'published','product_id'=>0,'config'=>S::encode(['executor'=>'tool','app_code'=>'aigc_music'])]+S::timestamp());}
+ $resolved=R::capabilities('aigc_music',[]);check($resolved['limitations']['voice_clone_creation']&&$resolved['limitations']['converted_exports'],'Capabilities ignore published routes');
+ $catalog=array_values(array_filter(OpenCatalog::forUser(1,1),fn($item)=>$item['code']==='aigc_music'))[0];check($catalog['limitations']['voice_clone_creation']&&$catalog['limitations']['converted_exports'],'Catalog and capabilities disagree');
+ if(\app\common\service\app\aigc_music\MusicExportDecoder::binary()==='')foreach($catalog['operations'] as $operation)if($operation['path']==='/api/v1/tools/aigc_music/export/mp4')check($operation['published']&&!$operation['execution_ready'],'Catalog hides missing decoder');
  check(R::supported('POST','/api/v1/tools/aigc_music/tasks')&&R::supported('GET','/api/v1/tools/aigc_music/results'),'Real generation and owned results disabled');
  foreach(['lyrics/index','mashuplyrics/index','style/index','voiceclone/create'] as $path)check(R::supported('POST','/api/v1/tools/aigc_music/'.$path),'Real music text operation missing');
  echo "PASS unsupported music operations denied in routing, publication, execution, catalog and OpenAPI; real generation and music text operations remain registered\n";
