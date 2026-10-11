@@ -23,7 +23,7 @@ final class OpenDocuments
     {
         $paths=[];$config=OpenStore::settings($tenantId);$global=OpenStore::settings(0);
         foreach(OpenStore::table('contract')->where('status','published')->order('id','asc')->select()->toArray() as $row){
-            $c=OpenStore::json($row['config']);$app=$c['app_code']??'';
+            $c=OpenContracts::decodeConfig($row['config']);$app=$c['app_code']??'';
             if($row['kind']==='tool'&&(!in_array($app,$config['apps'],true)||!in_array($app,$global['apps'],true)))continue;
             if($row['kind']==='market'&&(int)$row['product_id']>0&&(!in_array((string)$row['product_id'],$config['models'],true)||!in_array((string)$row['product_id'],$global['models'],true)))continue;
             $input=$c['input'];$method=strtolower($row['method']);$op=['operationId'=>$row['code'],'summary'=>$c['title']??$row['code'],'description'=>$c['description']??'','tags'=>[$row['kind']==='tool'?OpenToolRegistry::get($app)['name']:'商城 API'],'security'=>[['apiKey'=>[]]],'responses'=>$c['responses'],'x-contract-version'=>(int)$row['version'],'x-billable'=>(bool)$c['billable'],'x-billing-description'=>$c['billing_description']??''];

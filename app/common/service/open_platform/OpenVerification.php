@@ -5,12 +5,12 @@ final class OpenVerification
 {
     public static function digest(array $contract): string
     {
-        $config=OpenStore::json($contract['config']);unset($config['verification']);
+        $config=OpenContracts::decodeConfig($contract['config']);unset($config['verification']);
         return OpenPolicy::fingerprint(['kind'=>$contract['kind'],'method'=>$contract['method'],'path'=>$contract['path'],'product_id'=>(int)($contract['product_id']??0),'config'=>$config]);
     }
     public static function assertReceipt(array $contract): array
     {
-        $config=OpenStore::json($contract['config']);$id=(string)($config['verification']['request_id']??'');
+        $config=OpenContracts::decodeConfig($contract['config']);$id=(string)($config['verification']['request_id']??'');
         $row=$id!==''?OpenStore::table('request')->where('request_id',$id)->find():null;
         if(!$row||$row['status']!=='success'||(int)$row['active']!==0||!in_array($row['billing_status'],['settled','none'],true)||$row['response_blob']===''||(int)$row['response_code']<200||(int)$row['response_code']>=300)throw new OpenException('unverified_contract','请关联已成功完成并结算的真实网关请求');
         $snapshot=OpenStore::json($row['snapshot']);
@@ -21,7 +21,7 @@ final class OpenVerification
         $body=OpenVault::open($row['response_blob']);$response=$config['responses'][(string)$row['response_code']]??null;
         if(!$response)throw new OpenException('verification_response_mismatch','文档未声明已验证的响应状态');
         $schema=$response['content']['application/json']['schema']??null;
-        if($schema&&str_contains($row['response_type'],'application/json'))OpenSchema::validate(OpenStore::json($body),$schema);
+        if($schema&&str_contains($row['response_type'],'application/json')){$decoded=json_decode($body,false,64);if(json_last_error()!==JSON_ERROR_NONE)throw new OpenException('verification_response_mismatch','已验证响应不是有效 JSON');OpenSchema::validate($decoded,$schema,'$',0,null,true);}
         return ['request_id'=>$id,'verified_at'=>(int)$row['update_time'],'contract_digest'=>self::digest($contract),'evidence'=>'gateway:'.$id];
     }
     public static function assertLedger(array $row): void
