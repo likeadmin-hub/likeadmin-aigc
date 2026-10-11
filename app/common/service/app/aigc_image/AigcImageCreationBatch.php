@@ -27,12 +27,13 @@ class AigcImageCreationBatch
     {
         if (!is_array($value) || !is_string($value['id'] ?? null)
             || !preg_match('/^[a-zA-Z0-9_-]{16,80}$/D', $value['id'])
-            || !is_int($value['size'] ?? null) || !is_int($value['index'] ?? null)
-            || $value['size'] < 2 || $value['size'] > 4
-            || $value['index'] < 1 || $value['index'] > $value['size']) {
+            // app\Request's trim filter converts JSON integers to strings.
+            || !in_array($value['size'] ?? null, [2, 3, 4, '2', '3', '4'], true)
+            || !in_array($value['index'] ?? null, [1, 2, 3, 4, '1', '2', '3', '4'], true)
+            || (int)$value['index'] > (int)$value['size']) {
             return null;
         }
-        return ['id' => $value['id'], 'index' => $value['index'], 'size' => $value['size']];
+        return ['id' => $value['id'], 'index' => (int)$value['index'], 'size' => (int)$value['size']];
     }
 
     public static function fromTask(array $task): ?array
