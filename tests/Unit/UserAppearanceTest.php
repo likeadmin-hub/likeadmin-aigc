@@ -23,6 +23,21 @@ final class UserAppearanceTest extends TestCase
         self::assertSame('#abc123',$result['custom'][0]['primary']);
         self::assertArrayNotHasKey('background_url',$result['custom'][0]);
     }
+    public function testPresetBackgroundUsesOwnedFileAndIgnoresClientUrl(): void
+    {
+        $result = UserAppearanceService::normalize(['selected'=>'voxel','preset_backgrounds'=>[['preset_id'=>'voxel','background_id'=>7,'background_url'=>'https://untrusted.test/x.png']]], fn($id)=>$id===7);
+        self::assertSame([['preset_id'=>'voxel','background_id'=>7]], $result['preset_backgrounds']);
+        self::assertSame([], UserAppearanceService::normalize([], fn()=>false)['preset_backgrounds']);
+        self::assertSame([], UserAppearanceService::normalize(['preset_backgrounds'=>[]], fn()=>false)['preset_backgrounds']);
+    }
+    public function testInvalidOrForeignPresetBackgroundsAreRejected(): void
+    {
+        $valid=['preset_id'=>'voxel','background_id'=>7];
+        foreach ([[array_replace($valid,['preset_id'=>'default'])],[array_replace($valid,['preset_id'=>'unknown'])],[array_replace($valid,['background_id'=>8])],[array_replace($valid,['background_id'=>0])],[$valid,$valid],[array_replace($valid,['font'=>'x'])]] as $backgrounds) {
+            try { UserAppearanceService::normalize(['preset_backgrounds'=>$backgrounds],fn($id)=>$id===7);self::fail('Accepted invalid preset background'); }
+            catch(InvalidArgumentException $e){ self::assertNotSame('', $e->getMessage()); }
+        }
+    }
     public function testForeignAssetCannotBeAttached(): void
     {
         $this->expectException(InvalidArgumentException::class);
