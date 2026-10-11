@@ -639,7 +639,9 @@ class AppRegistryService
                     if ($migration->isEmpty()) $migration = \app\common\model\app\AppMigration::create($where+$running+['create_time'=>time()]);
                     else $migration->save($running);
                 }
+                if (!$prepare) \app\common\service\database\RuntimeMetadataTransactionGate::assertTables($plan['tables']);
                 self::executeMigrationSql($plan[$prepare ? 'prepare' : 'complete'], (string)config('database.connections.mysql.prefix'));
+                if ($prepare) \app\common\service\database\RuntimeMetadataTransactionGate::assertTables($plan['tables']);
                 $data = ['version'=>$version,'batch'=>date('YmdHis'),'status'=>$prepare?'prepared':'success','error'=>$prepare?'prepared:'.$hash:'','update_time'=>time()];
             }
             if ($migration->isEmpty()) \app\common\model\app\AppMigration::create($where+$data+['create_time'=>time()]);

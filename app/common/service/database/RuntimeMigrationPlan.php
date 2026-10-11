@@ -8,7 +8,7 @@ final class RuntimeMigrationPlan
 {
     public static function build(string $content): array
     {
-        $prepare = []; $complete = [];
+        $prepare = []; $complete = []; $tables = [];
         foreach (SqlMigrationExecutor::split($content) as $sql) {
             // Inspect SQL syntax without matching action words or @ inside string data.
             $syntax = preg_replace("/'(?:''|\\\\.|[^'])*'/s", "''", $sql);
@@ -16,6 +16,9 @@ final class RuntimeMigrationPlan
             if (strpos($syntax, '@') !== false) throw new RuntimeException('新迁移不支持会话变量或动态 SQL，请使用静态迁移');
             if (preg_match('/^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i', $syntax)) {
                 if (preg_match('/\b(?:OUTFILE|DUMPFILE)\b/i', $syntax)) throw new RuntimeException('迁移不允许写入数据库外文件');
+                if (!preg_match('/^\s*(?:(?:INSERT(?:\s+IGNORE)?|REPLACE)\s+INTO|UPDATE|DELETE\s+FROM)\s+`?([a-z0-9_]+)`?(?=\s|\()/i', $syntax, $target)) throw new RuntimeException('迁移数据写入目标不明确，禁止执行');
+                if (preg_match('/\b(?:JOIN|USING)\b/i', $syntax) || (preg_match('/^\s*UPDATE\b(.*?)\bSET\b/is', $syntax, $update) && strpos($update[1], ',') !== false)) throw new RuntimeException('新迁移不支持多表数据写入，请拆分为明确目标');
+                $tables[] = $target[1];
                 $complete[] = $sql;
             } elseif (preg_match('/^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\b/i', $syntax)
                 && !preg_match('/\b(?:SELECT|LIKE)\b/i', $syntax)) {
@@ -28,6 +31,6 @@ final class RuntimeMigrationPlan
                 throw new RuntimeException('迁移包含无法安全分类的语句，禁止执行');
             }
         }
-        return ['prepare'=>implode(";\n", $prepare), 'complete'=>implode(";\n", $complete)];
+        return ['prepare'=>implode(";\n", $prepare), 'complete'=>implode(";\n", $complete), 'tables'=>array_values(array_unique($tables))];
     }
 }

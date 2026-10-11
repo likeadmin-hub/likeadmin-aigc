@@ -13,7 +13,7 @@ foreach ([
     'ALTER TABLE t ADD COLUMN x INT, RENAME TO old_table',
     'ALTER TABLE t ADD COLUMN x INT, MODIFY y INT',
     'ALTER TABLE t ADD COLUMN x INT, CHANGE y z INT',
-    'TRUNCATE TABLE la_app', 'CALL unknown()', 'COMMIT', 'INSERT INTO t VALUES(@unknown)',
+    'UPDATE t JOIN other ON t.id=other.id SET other.name=1', 'UPDATE t,other SET other.name=1', 'TRUNCATE TABLE la_app', 'CALL unknown()', 'COMMIT', 'INSERT INTO t VALUES(@unknown)',
 ] as $bad) {
     try { RuntimeMigrationPlan::build($bad); throw new LogicException('unsafe plan accepted: '.$bad); } catch (RuntimeException $e) {}
 }

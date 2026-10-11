@@ -504,6 +504,7 @@ class SystemPackageUpdateService
     {
         if (PHP_SAPI !== 'cli' || empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])) throw new RuntimeException('自举迁移必须在隔离进程执行');
         $manifest=$this->readUpdateManifest($extractPath);
+        \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
         Db::startTrans();
         try { $this->applySqlGroup($extractPath,$manifest,'data'); Db::commit(); }
         catch (Throwable $e) { Db::rollback(); throw $e; }
@@ -517,6 +518,7 @@ class SystemPackageUpdateService
         $package=$this->getPackage((int)$binding['package_id']);
         $task=UpdateTask::where(['id'=>(int)$binding['task_id'],'package_id'=>(int)$package['id'],'status'=>'running'])->findOrEmpty();
         if($task->isEmpty())throw new RuntimeException('自举完成任务绑定无效');
+        \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
         Db::startTrans();
         try {
             $apps=$this->finalizeRuntimeApps($extractPath,(string)$package['version']);
@@ -532,6 +534,7 @@ class SystemPackageUpdateService
     public function prepareRuntimeApps(string $extractPath, string $version): array
     {
         if (PHP_SAPI !== 'cli' || empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])) throw new RuntimeException('运行时迁移只能由更新器子进程执行');
+        \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
         $result=[];
         foreach ($this->packagedBuiltinAppCodes($extractPath) as $code) {
             $manifest=AppRegistryService::getManifest($code);

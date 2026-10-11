@@ -258,6 +258,7 @@ class AppPackageUpdateService
     public function prepareRuntimeAppPackage(string $extractPath, array $binding): array
     {
         if(PHP_SAPI!=='cli'||empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE']))throw new RuntimeException('应用运行时只能由隔离更新进程准备');
+        \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
         $manifest=$this->readManifest($extractPath);$code=(string)$manifest['code'];
         AppRegistryService::prepareRuntimeMigrations($code,(string)$manifest['version']);
         \app\common\service\billing\PackageProvisionService::prepareRuntimeSchema();
@@ -270,6 +271,7 @@ class AppPackageUpdateService
         $package=$this->getPackage((int)$binding['package_id']);
         $task=UpdateTask::where(['id'=>(int)$binding['task_id'],'package_id'=>(int)$package['id'],'status'=>'running'])->findOrEmpty();
         if($task->isEmpty())throw new RuntimeException('应用运行时任务绑定无效');
+        \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
         $manifest=$this->readManifest($extractPath);Db::startTrans();
         try {
             $result=$this->installVerifiedApp($package,$task,$extractPath,$manifest,true);
