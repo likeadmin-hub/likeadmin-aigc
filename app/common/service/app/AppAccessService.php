@@ -66,10 +66,10 @@ class AppAccessService
         return in_array($appCode, self::purchasedTenantAppCodes($tenantId), true);
     }
 
-    public static function tenantCanUse(int $tenantId, string $appCode): bool
+    public static function tenantCanUse(int $tenantId, string $appCode, bool $initialize = true): bool
     {
         if (self::isDefaultApp($appCode) && self::isInstalled($appCode)) {
-            DefaultAppService::ensureTenantDefaultApp($tenantId, $appCode);
+            if ($initialize) DefaultAppService::ensureTenantDefaultApp($tenantId, $appCode);
             return true;
         }
         return in_array($appCode, self::enabledTenantAppCodes($tenantId), true);
@@ -83,9 +83,9 @@ class AppAccessService
         return null;
     }
 
-    public static function assertTenantCanUse(int $tenantId, string $appCode, int $userId = 0, bool $checkMembership = true): ?Response
+    public static function assertTenantCanUse(int $tenantId, string $appCode, int $userId = 0, bool $checkMembership = true, bool $initialize = true): ?Response
     {
-        if (!self::tenantCanUse($tenantId, $appCode)) {
+        if (!self::tenantCanUse($tenantId, $appCode, $initialize)) {
             return JsonService::fail('应用未购买、未上架或已过期', [], 0, 1);
         }
         if ($checkMembership && !MembershipService::userCanUseApp($tenantId, $userId, $appCode)) {

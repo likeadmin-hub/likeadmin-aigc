@@ -8,7 +8,7 @@ final class OpenToolAdapter
     {
         OpenToolRegistry::get($app);$global=OpenStore::settings(0);$config=OpenStore::requireEnabled($tenantId);
         if(!in_array($app,$config['apps'],true)||!in_array($app,$global['apps'],true))throw new OpenException('permission_denied','该工具未开放',403);
-        $denied=AppAccessService::assertTenantCanUse($tenantId,$app,$userId,true);if($denied)throw new OpenException('permission_denied',(string)($denied->getData()['msg']??'工具不可用'),403);
+        $denied=AppAccessService::assertTenantCanUse($tenantId,$app,$userId,true,false);if($denied)throw new OpenException('permission_denied',(string)($denied->getData()['msg']??'工具不可用'),403);
     }
     public static function call($request,array $operation,array $params,?callable $onEvent=null): array
     {

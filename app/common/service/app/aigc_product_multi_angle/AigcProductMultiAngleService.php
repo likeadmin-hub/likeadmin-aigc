@@ -388,7 +388,7 @@ class AigcProductMultiAngleService
     public static function dependencies(int $tenantId = 0, bool $readOnly = false): array
     {
         $installed = App::where(['code' => self::IMAGE_APP_CODE, 'status' => AppRegistryService::STATUS_INSTALLED])->count() > 0;
-        $tenantEnabled = $tenantId <= 0 ? true : AppAccessService::tenantCanUse($tenantId, self::IMAGE_APP_CODE);
+        $tenantEnabled = $tenantId <= 0 ? true : AppAccessService::tenantCanUse($tenantId, self::IMAGE_APP_CODE, !$readOnly);
         $channels = [];
         try {
             $channels = $readOnly ? (AigcImageChannelService::userConfig($tenantId)['channels'] ?? []) : (AigcImageService::config($tenantId)['option_config']['channels'] ?? []);
@@ -410,10 +410,10 @@ class AigcProductMultiAngleService
 
     private static function assertAvailable(int $tenantId, bool $readOnly = false): void
     {
-        if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE) !== null) {
+        if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE, 0, true, !$readOnly) !== null) {
             throw new Exception('商品多角度应用未开通或未上架');
         }
-        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE) !== null) {
+        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE, 0, true, !$readOnly) !== null) {
             throw new Exception('AIGC生图应用未开通或未上架');
         }
         $config = self::config($tenantId, $readOnly);
