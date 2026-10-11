@@ -47,7 +47,7 @@ class AigcImageCreationBatch
 
     public static function providerParams(array $params): array
     {
-        unset($params[self::STORAGE_KEY]);
+        unset($params[self::STORAGE_KEY], $params['_submission_key']);
         return $params;
     }
 }

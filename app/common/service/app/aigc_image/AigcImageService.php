@@ -144,6 +144,10 @@ class AigcImageService
     /** Submit a business app image task through a market model SKU only. */
     public static function generateMarketModelWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride, string $appCode): array
     {
+        $submissionKey = AigcImageSubmission::key($params, $appCode);
+        if ($existing = AigcImageSubmission::find($tenantId, $userId, $submissionKey)) {
+            return self::buildDuplicateGenerateResponse($existing, $tenantId, $userId);
+        }
         $batchMetadata = AigcImageCreationBatch::takeFromRequest($params);
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
@@ -156,7 +160,7 @@ class AigcImageService
         $estimate = self::estimateMarketModel($tenantId, $params, $billingOverride);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
-        $task = AigcImageTask::create([
+        $claim = AigcImageSubmission::claim([
             'app_task_id' => 0, 'tenant_id' => $tenantId, 'user_id' => $userId,
             'prompt' => $prompt, 'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
             'reference_images' => $referenceImages, 'provider_params_json' => $batchMetadata,
@@ -167,7 +171,11 @@ class AigcImageService
             'user_charge_points' => (float)$estimate['user_charge_points'], 'provider' => 'power_market',
             'model' => (string)($params['model_id'] ?? ''), 'status' => 'running', 'error' => '',
             'delete_time' => 0, 'create_time' => time(), 'update_time' => time(),
-        ]);
+        ], $submissionKey);
+        $task = $claim['task'];
+        if (!$claim['created']) {
+            return self::buildDuplicateGenerateResponse($task, $tenantId, $userId);
+        }
         try {
             $request = array_merge($params, ['quantity' => $quantity, 'reference_images' => $referenceImages]);
             $reserve = MarketImageModelRuntimeService::reserve(
@@ -359,6 +367,10 @@ class AigcImageService
     /** Submit Nano Banana through its application-API runtime and market SKU. */
     private static function generateNanoBanana(int $tenantId, int $userId, array $params, array $selection, array $referenceImages): array
     {
+        $submissionKey = AigcImageSubmission::key($params, self::APP_CODE);
+        if ($existing = AigcImageSubmission::find($tenantId, $userId, $submissionKey)) {
+            return self::buildDuplicateGenerateResponse($existing, $tenantId, $userId);
+        }
         $batchMetadata = AigcImageCreationBatch::takeFromRequest($params);
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
         AigcImageChannelService::assertChannelQuantity($selection['channel'], $quantity);
@@ -377,7 +389,7 @@ class AigcImageService
             'variant' => (string)($request['variant'] ?? ''),
             'market_sku_id' => (int)($quote['market_sku_id'] ?? 0),
         ];
-        $task = AigcImageTask::create([
+        $claim = AigcImageSubmission::claim([
             'app_task_id' => 0,
             'tenant_id' => $tenantId,
             'user_id' => $userId,
@@ -399,7 +411,11 @@ class AigcImageService
             'delete_time' => 0,
             'create_time' => time(),
             'update_time' => time(),
-        ]);
+        ], $submissionKey);
+        $task = $claim['task'];
+        if (!$claim['created']) {
+            return self::buildDuplicateGenerateResponse($task, $tenantId, $userId);
+        }
 
         try {
             $reserve = MarketNanoBananaAppRuntimeService::reserve(
