@@ -22,7 +22,7 @@ class AigcImageSubmissionTest extends TestCase
     {
         if (getenv('AIGC_IMAGE_SUBMISSION_DB_TESTS') !== '1') self::markTestSkipped('Local transactional fixtures only');
         (new \think\App())->initialize();
-        self::assertSame('z_cn', Db::connect()->getConfig('database'));
+        self::assertSame('x_cn', Db::connect()->getConfig('database'));
         self::assertContains(Db::connect()->getConfig('hostname'), ['127.0.0.1', 'localhost']);
         Db::startTrans();
         try {
