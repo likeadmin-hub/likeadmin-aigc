@@ -33,7 +33,16 @@ final class OpenGateway
 
     private static function replayResponse(array $row,string $path)
     {
-        if($row['response_blob']==='')return self::error(new OpenException('request_in_progress','已有请求正在执行或受理状态待确认',409),$path,$row['request_id']);
+        if($row['response_blob']===''){
+            // Recovery can conclusively close an interrupted receipt before an
+            // HTTP response exists. Preserve that terminal outcome; a replay
+            // must neither claim it is running nor dispatch it a second time.
+            if((int)$row['active']===0&&in_array($row['billing_status'],['none','settled','refunded'],true)){
+                if($row['status']==='failed')return self::error(new OpenException('request_failed','已有请求已失败，请通过请求 ID 查看调用记录',503),$path,$row['request_id']);
+                if(in_array($row['status'],['cancelled','canceled'],true))return self::error(new OpenException('request_cancelled','已有请求已取消',409),$path,$row['request_id']);
+            }
+            return self::error(new OpenException('request_in_progress','已有请求正在执行或受理状态待确认',409),$path,$row['request_id']);
+        }
         if($row['kind']==='asset'&&$row['method']==='GET'&&preg_match('#^/api/v1/assets/(of_[a-f0-9]{32})/download$#D',$row['path'],$match)){
             $asset=OpenAssets::detail((int)$row['tenant_id'],(int)$row['user_id'],$match[1]);return redirect($asset['url'])->header(['X-Request-Id'=>$row['request_id']]);
         }
