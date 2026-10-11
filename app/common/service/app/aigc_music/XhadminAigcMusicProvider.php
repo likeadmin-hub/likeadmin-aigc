@@ -206,7 +206,7 @@ class XhadminAigcMusicProvider implements AigcMusicProviderInterface
         if (!empty($audioUrls)) {
             $payload['audio_urls'] = $audioUrls;
         }
-        $personaId = trim((string)($request->payload['persona_id'] ?? ''));
+        $personaId = trim((string)($request->payload['provider_persona_id'] ?? $request->payload['persona_id'] ?? ''));
         if ($personaId !== '' && $personaId !== '0') {
             $payload['persona_id'] = $personaId;
         }

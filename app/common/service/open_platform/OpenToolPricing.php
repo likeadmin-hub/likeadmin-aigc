@@ -8,6 +8,7 @@ final class OpenToolPricing
     {
         OpenToolAdapter::authorize((int)$request->tenantId,(int)$request->userId,'aigc_music');
         $selection=AigcMusicChannelService::resolveSelection((int)$request->tenantId,$params);
+        $selection['resource_bindings']=\app\common\service\app\aigc_music\AigcMusicService::referenceBindings((int)$request->tenantId,(int)$request->userId,$params);
         if(!in_array(strtolower(trim($selection['channel']['provider'])),['xhadmin','xhadmin_aigc_music','music_generation'],true))throw new OpenException('capability_unavailable','当前音乐通道尚未接入真实生成能力',503);
         $quote=AigcMusicChannelService::estimateSelection($selection,$params);
         $budget=OpenToolAdapter::estimateBudget($quote);

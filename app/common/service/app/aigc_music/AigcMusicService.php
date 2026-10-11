@@ -107,6 +107,7 @@ class AigcMusicService
         self::recordSafetyAudit($tenantId, $userId, 'task', 0, 'prompt_review', 'passed', $payload['prompt'] . ' ' . $payload['lyrics']);
         $frozen=\app\common\service\open_platform\OpenToolPricing::forRequest(self::APP_CODE,$tenantId,$userId);
         $selection = $frozen['selection']??AigcMusicChannelService::resolveSelection($tenantId, $params);
+        $selection['resource_bindings']??=self::referenceBindings($tenantId,$userId,$params);
         $estimate = $frozen['quote']??AigcMusicChannelService::estimateSelection($selection,$params);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
@@ -591,6 +592,7 @@ class AigcMusicService
 
     private static function buildRequest(AigcMusicTask $task, array $selection, array $payload): AigcMusicGenerateRequest
     {
+        $payload=array_replace($payload,$selection['resource_bindings']??self::referenceBindings((int)$task['tenant_id'],(int)$task['user_id'],$payload));
         $channelConfig = array_merge($selection['channel']['config_json'] ?? [], [
             'tenant_id' => (int)$task['tenant_id'],
             'user_id' => (int)$task['user_id'],
@@ -610,6 +612,29 @@ class AigcMusicService
             $selection['spec']['provider_params_json'] ?? [],
             $channelConfig
         );
+    }
+
+    public static function referenceBindings(int $tenant,int $user,array $params): array
+    {
+        foreach(['persona_id','voice_clone_id'] as $field)if(isset($params[$field])&&(!is_int($params[$field])&&!(is_string($params[$field])&&preg_match('/^[0-9]+$/D',$params[$field]))||(int)$params[$field]<0))throw new \app\common\service\open_platform\OpenException('invalid_request','音乐资源 ID 无效');
+        if((int)($params['voice_clone_id']??0)>0)throw new \app\common\service\open_platform\OpenException('capability_unavailable','当前生成通道尚未支持声音克隆资源',503);
+        $bindings=['provider_persona_id'=>''];$id=(int)($params['persona_id']??0);
+        if($id>0){
+            $persona=AigcMusicPersona::where(['id'=>$id,'tenant_id'=>$tenant,'user_id'=>$user,'status'=>1,'delete_time'=>0])->findOrEmpty();
+            if($persona->isEmpty())throw new \app\common\service\open_platform\OpenException('not_found','歌手风格不存在或不属于当前用户',404);
+            $provider=$persona['prompt_json']['provider_persona_id']??'';
+            if(!is_string($provider)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$provider))throw new \app\common\service\open_platform\OpenException('resource_unavailable','该本地音乐人设尚未关联上游歌手风格',409);
+            $bindings['provider_persona_id']=$provider;
+        }
+        $audio=$params['audio_id']??'';
+        if(!is_string($audio)||($audio!==''&&!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$audio)))throw new \app\common\service\open_platform\OpenException('invalid_request','参考音频标识无效');
+        if($audio!==''){
+            $owned=AigcMusicResult::where(['tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->whereRaw("(JSON_UNQUOTE(JSON_EXTRACT(result_json, '$.audio_id')) = ? OR JSON_UNQUOTE(JSON_EXTRACT(result_json, '$.id')) = ?)",[$audio,$audio])->find();
+            $uploaded=AigcMusicTask::where(['tenant_id'=>$tenant,'user_id'=>$user,'provider'=>'market_music_operation','action'=>'upload_audio','status'=>'success','delete_time'=>0])->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(result_json, '$.reference_audio_id')) = ?",[$audio])->find();
+            if(!$owned&&!$uploaded)throw new \app\common\service\open_platform\OpenException('not_found','参考音频不存在或不属于当前用户',404);
+            $bindings['audio_id']=$audio;
+        }
+        return $bindings;
     }
 
     private static function boolValue(mixed $value): bool
