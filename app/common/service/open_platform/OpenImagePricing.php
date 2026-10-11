@@ -34,8 +34,13 @@ final class OpenImagePricing
     {
         if(!in_array($app,self::COMPOSITES,true))throw new OpenException('capability_unavailable','未注册图片工具',404);
         $tenant=(int)$request->tenantId;$user=(int)$request->userId;OpenToolAdapter::authorize($tenant,$user,$app);
+        if($app==='aigc_model_wear'&&!isset($params['model_image'])&&isset($params['model']))$params['model_image']=$params['model'];
+        $params=OpenMaterials::resolve($tenant,$user,$params);
         $suffix=substr($app,5);$class='app\\common\\service\\app\\'.$app.'\\Aigc'.implode('',array_map('ucfirst',explode('_',$suffix))).'Service';
         $prepared=$class::openPlatformAdmission($tenant,$user,$params);
+        // Native aliases are canonicalized by the service (e.g. model -> model_image).
+        // Check that canonical recipe as well, before freezing or dispatching it.
+        $prepared['prepared']=OpenMaterials::resolve($tenant,$user,$prepared['prepared']);
         $native=self::capture($tenant,$user,$prepared['prepared']['image_payload'],$app);
         $budget=OpenToolAdapter::estimateBudget($prepared['estimate']);
         if($budget===null||abs($budget['tenant']-$native['tenant'])>0.000001)throw new OpenException('pricing_unavailable','图片工具价格与平台 SKU 成本不一致',503);
@@ -57,6 +62,24 @@ final class OpenImagePricing
         $id=OpenCallContext::id();if($id==='')return null;
         $row=OpenStore::owner('request',$tenant,$user)->where(['request_id'=>$id,'kind'=>'tool','method'=>'POST'])->find();if(!$row||!in_array($row['app_code'],array_merge(['aigc_image'],self::COMPOSITES),true))return null;
         return OpenToolPricing::forRequest($row['app_code'],$tenant,$user);
+    }
+    /** Only accepted, owned, currently leased calls may persist input preprocessing. */
+    public static function materializePrepared(int $tenant,int $user,string $app,callable $materialize): array
+    {
+        return \think\facade\Db::transaction(static function()use($tenant,$user,$app,$materialize){
+            $row=OpenStore::owner('request',$tenant,$user)->where(['request_id'=>OpenCallContext::id(),'app_code'=>$app,'kind'=>'tool','method'=>'POST','path'=>'/api/v1/tools/'.$app.'/tasks'])->lock(true)->find();
+            if(!$row||!(int)$row['active']||$row['tool_task_id']!=='')throw new OpenException('task_context_invalid','素材处理请求上下文无效',409);
+            OpenCallContext::assertLease($row);
+            $frozen=self::prepared($tenant,$user,$app);if($frozen===null)throw new OpenException('pricing_snapshot_invalid','图片工具参数快照不存在',409);
+            $snapshot=OpenStore::json($row['snapshot']);
+            if(empty($snapshot['native_materialized'])){
+                $frozen['prepared']=$materialize($frozen['prepared']);
+                $snapshot['native_prepared_blob']=OpenVault::seal(OpenStore::encode(['app_code'=>$app,'tenant_id'=>$tenant,'user_id'=>$user]+$frozen));
+                $snapshot['native_materialized']=true;
+                OpenAdmission::finish($row['request_id'],['snapshot'=>OpenStore::encode($snapshot)]);
+            }
+            return $frozen;
+        });
     }
     /** Only an owned accepted native image request may replace a live market lookup. */
     public static function assertQuantity(int $tenant,int $quantity): void

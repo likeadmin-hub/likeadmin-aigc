@@ -25,13 +25,44 @@ Db::startTrans();try{
   S::table('request')->insert(['request_id'=>$rid,'tenant_id'=>1,'user_id'=>1,'key_id'=>0,'kind'=>'tool','app_code'=>$app,'method'=>'POST','path'=>'/api/v1/tools/'.$app.'/tasks','status'=>'accepted','billing_status'=>'pending','active'=>1,'budget_user'=>2,'budget_tenant'=>$native['tenant'],'lease_token'=>'new-owner','lease_expire'=>time()+60,'consumption_ids'=>'[]','snapshot'=>S::encode($snapshot),'response_blob'=>'','payload_hash'=>hash('sha256',$rid)]+S::timestamp());C::enter($rid,'expired-owner');
   $frozen=P::prepared(1,1,$app);check(S::encode($frozen)===S::encode(['prepared'=>$body,'estimate'=>$estimate]),$app.' prepared recipe changed');check(P::prepared(1,2,$app)===null&&P::prepared(2,1,$app)===null,$app.' private recipe leaked');
   $stopped=false;try{$class::generate(1,1,[]);}catch(OpenException $e){$stopped=$e->errorType==='recovery_lease_lost';}check($stopped,$app.' did not reach fenced native entry using accepted prepared parameters');
-  $image=Image::where(['tenant_id'=>1,'user_id'=>1,'prompt'=>$prompt])->findOrEmpty();check(!$image->isEmpty()&&(float)$image['user_charge_points']===2.&&(float)$image['tenant_cost_points']===$native['tenant'],$app.' native entry repriced');
+  $image=Image::where(['tenant_id'=>1,'user_id'=>1,'prompt'=>$prompt])->findOrEmpty();
+  if($app==='aigc_local_redraw')check($image->isEmpty(),'Stale mask materializer reached native image creation');
+  else check(!$image->isEmpty()&&(float)$image['user_charge_points']===2.&&(float)$image['tenant_cost_points']===$native['tenant'],$app.' native entry repriced');
   check(S::json(S::table('request')->where('request_id',$rid)->value('consumption_ids'))===[],$app.' reserved before handoff fence');C::leave();
  }
  // Exercise actual admission preparation with a previously owned synthetic portrait.
  $receipt=S::json(file_get_contents(dirname(__DIR__,2).'/runtime/open-platform-acceptance/multimodal-reconciliation.json'));$portrait='';foreach($receipt['items']??[] as $item)if($item['app_code']==='aigc_image')$portrait=$item['file_id'];check($portrait!=='','Owned portrait fixture missing');
  $params=app\common\service\open_platform\OpenMaterials::resolve(1,1,['source_image'=>$portrait,'template_id'=>7,'price_package'=>'default_1','prompt'=>'Synthetic immutable template fixture']);
  $actual=P::compositeBudget($request,'aigc_style_transfer',$params);check($actual['user']>0&&$actual['tenant']>0&&isset($actual['snapshot']['native_prepared_blob']),'Validated native admission recipe missing');
+
+ // Canonical native aliases must be checked before any pricing or network reads.
+ $foreignUri='uploads/opf-foreign-'.bin2hex(random_bytes(8)).'.png';
+ app\common\model\file\TenantFile::create(['tenant_id'=>1,'source_id'=>987654321,'source'=>app\common\enum\FileEnum::SOURCE_USER,'type'=>10,'uri'=>$foreignUri,'name'=>'fixture.png','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time()]);
+ $denied=false;try{P::compositeBudget($request,'aigc_model_wear',['model'=>$foreignUri,'wear_image'=>$portrait]);}catch(OpenException $e){$denied=$e->httpStatus===404;}check($denied,'model material alias bypassed user ownership');
+ $denied=false;try{P::compositeBudget($request,'aigc_model_wear',['model'=>'http://127.0.0.1/private.png','wear_image'=>$portrait]);}catch(OpenException $e){$denied=$e->errorType==='invalid_url';}check($denied,'model material alias bypassed private address validation');
+ // Actual Data URI preparation must be read-only, including mask_url alias.
+ $mask='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6zwAAAABJRU5ErkJggg==';
+ $sel=S::json(V::open($actual['snapshot']['native_selection_blob']))['selection'];
+ $localParams=['source_image'=>$portrait,'mask_url'=>$mask,'prompt'=>'Synthetic local redraw fixture','channel'=>$sel['channel']['code'],'quality'=>$sel['spec']['quality'],'ratio'=>$sel['spec']['ratio']];
+ $fileCount=Db::name('tenant_file')->where('tenant_id',1)->count();
+ $local=P::compositeBudget($request,'aigc_local_redraw',$localParams);
+ $localFrozen=S::json(V::open($local['snapshot']['native_prepared_blob']));
+ check($localFrozen['prepared']['mask_image']===$mask&&$localFrozen['prepared']['image_payload']['mask_url']===$mask,'Mask was persisted before admission');
+ $settings=S::settings(1);M::persistSettings(1,true,$settings);
+ $keyId=S::table('key')->insertGetId(['tenant_id'=>1,'user_id'=>1,'name'=>'opf-local-mask-fixture','key_hash'=>hash('sha256',random_bytes(32)),'prefix'=>'fixture','status'=>1,'scopes'=>'["aigc_style_transfer"]','ip_allowlist'=>'[]','concurrency'=>1]+S::timestamp());
+ $op=['kind'=>'tool','app_code'=>'aigc_local_redraw','billable'=>true];$path='/api/v1/tools/aigc_local_redraw/tasks';
+ foreach(['permission_denied','key_quota_exceeded','concurrency_exceeded'] as $error){
+  if($error!=='permission_denied')S::table('key')->where('id',$keyId)->update(['scopes'=>'["aigc_local_redraw"]','daily_limit'=>$error==='key_quota_exceeded'?0.01:0]);
+  if($error==='concurrency_exceeded')S::table('request')->insert(['request_id'=>'req_fixture_'.bin2hex(random_bytes(16)),'tenant_id'=>1,'user_id'=>1,'key_id'=>$keyId,'kind'=>'tool','app_code'=>'aigc_local_redraw','method'=>'POST','path'=>$path,'status'=>'accepted','billing_status'=>'pending','active'=>1,'budget_user'=>0,'budget_tenant'=>0,'consumption_ids'=>'[]','snapshot'=>'{}','response_blob'=>'','payload_hash'=>hash('sha256','mask-fixture')]+S::timestamp());
+  $key=S::table('key')->where('id',$keyId)->find();$denied=false;
+  try{app\common\service\open_platform\OpenAdmission::begin($key,'POST',$path,$localParams,$op,$local,'');}catch(OpenException $e){$denied=$e->errorType===$error;}
+  check($denied,'Mask fixture expected '.$error);check(Db::name('tenant_file')->where('tenant_id',1)->count()===$fileCount,'Rejected mask request wrote a file');
+ }
+ // Accepted preprocessing is fenced, persisted once in the private recipe, and reused.
+ $rid='req_fixture_'.bin2hex(random_bytes(16));S::table('request')->insert(['request_id'=>$rid,'tenant_id'=>1,'user_id'=>1,'key_id'=>$keyId,'kind'=>'tool','app_code'=>'aigc_local_redraw','method'=>'POST','path'=>$path,'status'=>'accepted','billing_status'=>'pending','active'=>1,'budget_user'=>$local['user'],'budget_tenant'=>$local['tenant'],'lease_token'=>'valid-mask-owner','lease_expire'=>time()+60,'consumption_ids'=>'[]','snapshot'=>S::encode($local['snapshot']),'response_blob'=>'','payload_hash'=>hash('sha256',$rid)]+S::timestamp());
+ $writes=0;$materialize=static function($recipe)use(&$writes){$writes++;$recipe['mask_image']='uploads/synthetic-stored-mask.png';$recipe['image_payload']['mask_url']=$recipe['mask_image'];return $recipe;};
+ C::enter($rid,'stale-mask-owner');$denied=false;try{P::materializePrepared(1,1,'aigc_local_redraw',$materialize);}catch(OpenException $e){$denied=$e->errorType==='recovery_lease_lost';}check($denied&&$writes===0,'Stale worker persisted a mask');
+ C::enter($rid,'valid-mask-owner');$first=P::materializePrepared(1,1,'aigc_local_redraw',$materialize);$second=P::materializePrepared(1,1,'aigc_local_redraw',$materialize);check($writes===1&&$first===$second&&$second['estimate']===$localFrozen['estimate'],'Accepted mask processing was repeated or repriced');C::leave();
  check(Db::name('user')->where(['tenant_id'=>1,'id'=>1])->value('user_money')===$wallet&&Db::name('tenant')->where('id',1)->value('point_balance')===$tenantWallet,'Fixture charged live wallet');
- echo "PASS 8 composite image native entries retain owned prepared recipe and retail price; stale lease stops before reservation/provider; actual style admission captures validated template and SKU with no charge\n";
+ echo "PASS 8 composite image native entries retain owned prepared recipe and retail price; stale lease stops before reservation/provider; actual style/local-redraw admission captures validated template, SKU and read-only mask; alias ownership, rejected mask writes and once-only leased preprocessing pass with no charge\n";
 }finally{C::leave();Db::rollback();}
