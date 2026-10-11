@@ -41,5 +41,13 @@ try {
         $saved=array_values(array_filter(Library::read($tenant,$user)['supplemental'],fn($row)=>$row['ref']===$toolRef));
         check(count($saved)===1 && $saved[0]['source']===$source,'Tool labels preserve their source without requiring a favorite');
     }
+    $secondTask=Db::name('aigc_image_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','prompt'=>'Pagination fixture','create_time'=>time()]);
+    $firstPage=\app\common\service\app\aigc_image\AigcImageService::taskLists($tenant,$user,['page_no'=>1,'page_size'=>1,'status'=>'success']);
+    $secondPage=\app\common\service\app\aigc_image\AigcImageService::taskLists($tenant,$user,['page_no'=>2,'page_size'=>1,'status'=>'success']);
+    check((int)$firstPage['count']===2 && count($firstPage['lists'])===1 && count($secondPage['lists'])===1,'Image task pagination preserves older tasks');
+    check($firstPage['lists'][0]['id']!==$secondPage['lists'][0]['id'],'Image pages do not repeat');
+    foreach (['canvas_image','shot_image'] as $type) Db::name('aigc_short_drama_asset')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>0,'task_id'=>'filter-fixture','asset_type'=>$type,'title'=>'Pagination fixture','uri'=>'uploads/test.png','status'=>'ready','create_time'=>time()]);
+    $drama=\app\common\service\app\aigc_short_drama\AigcShortDramaService::assetLists($tenant,$user,['page_no'=>2,'page_size'=>1]);
+    check((int)$drama['count']===2 && count($drama['lists'])===1,'Short-drama and canvas results paginate without exclusion');
     echo "PASS: library persistence, partial patches, tenant/user isolation, trash/restore/remove, atomic batch; no physical files changed\n";
 } finally { Db::rollback(); }
