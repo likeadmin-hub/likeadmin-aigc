@@ -28,6 +28,54 @@ curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/lyrics/index" \
 
 生成音乐使用 `POST /api/v1/tools/aigc_music/tasks`，按对应 API 参考页选择模型、通道、歌词、参考素材和规格。声音档案的本地管理不等同于真实声音克隆；实际可调用能力以已发布接口为准。
 
+## 参考音频登记
+
+先通过已发布的 `POST /api/v1/tools/aigc_music/asset/uploadAudio` 上传本人音频，使用返回的本地素材数字 `id` 作为 `reference_asset_id`。本地上传与上游登记是两次独立操作：上传不收取生成费用，上游登记按独立商城价格计费。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/asset/upload_upstream" \
+  -H "Authorization: Bearer $OPEN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: your-stable-reference-audio-key" \
+  --data @music-reference-input.json
+```
+
+`music-reference-input.json` 使用本人已上传的素材 ID：
+
+```json
+{"reference_asset_id": 123}
+```
+
+完成后返回 `reference_audio_id`。后续音乐生成可使用该标识作为 `audio_id`；服务端检查它是否来自本人生成作品或本人上游登记任务。不能直接提交其他用户的上游标识、地址或存储配置。
+
+## 创建歌手风格
+
+`POST /api/v1/tools/aigc_music/persona/upstream` 基于本人已生成作品创建真实上游歌手风格，必填 `result_id`、`name`，可选 `description`、`vocal_start`、`vocal_end`。结束时间必须晚于开始时间；费用按该操作受理时的独立售价固定。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/persona/upstream" \
+  -H "Authorization: Bearer $OPEN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: your-stable-singer-style-key" \
+  --data @music-persona-input.json
+```
+
+```json
+{"result_id": 123, "name": "My singer style", "description": "A style from my own song"}
+```
+
+将以上内容保存为 `music-persona-input.json`，作品 ID 使用自己的真实记录。成功后返回本地数字 `persona_id` 和 `provider_persona_id`。后续 `POST /api/v1/tools/aigc_music/tasks` 使用本地 `persona_id`；服务端解析本人风格对应的上游标识，在受理时保存该绑定。创建本地资料的 `persona/create` 仍是免费资料管理，本地资料须关联真实上游风格后才能用于对应生成通道。
+
+## 声音克隆
+
+`POST /api/v1/tools/aigc_music/voiceclone/create` 使用本人音频素材，必填 `reference_asset_id`、`name`。可选 `description`、`authorization_confirmed`、`authorization_text` 和 `source`，按独立商城售价计费。素材必须有本人上传记录，仅登记地址不能获得私有文件访问权限。
+
+```json
+{"reference_asset_id": 123, "name": "My authorized voice", "authorization_confirmed": 1, "authorization_text": "I am authorized to use this recording", "source": "My recording"}
+```
+
+使用对应 API 参考页的请求地址和鉴权方式提交。成功返回 `voice_clone_id`、`provider_voice_id`、授权状态和审核状态。提交授权声明不等于审核通过；该资源创建能力也不代表当前音乐生成通道支持使用克隆声音，生成支持范围以能力说明为准。
+
 ## 时间轴查询
 
 `POST /api/v1/tools/aigc_music/export/timing` 输入本人 `result_id`，返回 `timing` 中可用的对齐词、分段和波形数据。该操作须配置为免费查询；纯器乐或上游缺少歌词时，对齐结果可能为空。
