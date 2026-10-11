@@ -181,7 +181,9 @@ final class MarketMusicOperationRuntimeService
         $status=self::resultStatus($body);
         if(in_array($status,['failed','canceled','cancelled'],true)){self::complete($cid,[],true);return ['status'=>'failed'];}
         if($snapshot['api_code']==='voice_clone'){
-            $voiceId=$result['voice_id']??$data['voice_id']??'';
+            // Current synchronous driver returns a private persona ID for voice
+            // cloning; older receipts use voice_id. Both remain owned resources.
+            $voiceId=$result['voice_id']??$data['voice_id']??$result['persona_id']??$data['persona_id']??'';
             if(!in_array($status,['completed','complete','success','succeeded'],true)||!is_string($voiceId)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$voiceId)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
             self::complete($cid,['provider_voice_id'=>$voiceId],false);return ['status'=>'success'];
         }
