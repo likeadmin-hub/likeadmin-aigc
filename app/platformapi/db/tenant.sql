@@ -128,6 +128,9 @@ CREATE TABLE `la_tenant_file_{tenantSn}`  (
                                    `create_time` int(10) UNSIGNED NULL DEFAULT NULL COMMENT '创建时间',
                                    `update_time` int(10) NULL DEFAULT NULL COMMENT '更新时间',
                                    `delete_time` int(10) NULL DEFAULT NULL COMMENT '删除时间',
+                                   `storage_scope` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'platform' COMMENT '存储作用域',
+                                   `storage_engine` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'local' COMMENT '存储引擎',
+                                   `storage_domain` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '存储域名',
                                    PRIMARY KEY (`id`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '文件表' ROW_FORMAT = DYNAMIC;
 
@@ -258,6 +261,11 @@ CREATE TABLE `la_tenant_system_menu_{tenantSn}`  (
                                           `is_cache` tinyint(1) UNSIGNED NOT NULL DEFAULT 0 COMMENT '是否缓存: 0=否, 1=是',
                                           `is_show` tinyint(1) UNSIGNED NOT NULL DEFAULT 1 COMMENT '是否显示: 0=否, 1=是',
                                           `is_disable` tinyint(1) UNSIGNED NOT NULL DEFAULT 0 COMMENT '是否禁用: 0=否, 1=是',
+                                          `app_code` varchar(64) NOT NULL DEFAULT '' COMMENT '应用标识',
+                                          `source` varchar(20) NOT NULL DEFAULT 'core' COMMENT '菜单来源',
+                                          `source_menu_key` varchar(120) NOT NULL DEFAULT '' COMMENT '来源菜单key',
+                                          `is_core` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '是否核心菜单',
+                                          `delete_time` int unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
                                           `create_time` int(10) UNSIGNED NOT NULL DEFAULT 0 COMMENT '创建时间',
                                           `update_time` int(10) UNSIGNED NOT NULL DEFAULT 0 COMMENT '更新时间',
                                           PRIMARY KEY (`id`) USING BTREE

@@ -12,7 +12,16 @@ sort($files);
 $prefix = 'r' . bin2hex(random_bytes(3)) . '_';
 $tables = [];
 foreach ($files as $file) {
-    preg_match_all('/\bla_([a-zA-Z][a-zA-Z0-9_]*)/', file_get_contents($file), $matches);
+    $content = file_get_contents($file);
+    if (preg_match('/^-- likeadmin:migrate-pc-wechat-bindings-v1\s*$/m', $content)) {
+        // The PHP migration discovers base/sharded identities dynamically;
+        // its marker SQL deliberately contains no literal table names.
+        foreach (Db::query('SHOW TABLES') as $row) {
+            $name = (string)reset($row);
+            if (preg_match('/^la_(user_auth(?:_[a-zA-Z0-9]+)?)$/D', $name, $match)) $tables[$match[1]] = true;
+        }
+    }
+    preg_match_all('/\bla_([a-zA-Z][a-zA-Z0-9_]*)/', $content, $matches);
     foreach ($matches[1] as $table) $tables[$table] = true;
 }
 $created = [];

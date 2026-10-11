@@ -113,6 +113,29 @@ try:
         sql(database, content)
         sql(database, content)
     assert before == sql('parity_legacy', 'SELECT id,status,lease_token,lease_expire_time,attempts,idempotency_key FROM la_aigc_short_drama_canvas_poster_job;')
+    skill_tables = ['aigc_short_drama_script_task', 'aigc_short_drama_generation_task',
+                    'aigc_short_drama_agent_run', 'aigc_short_drama_agent_step_log']
+    skill_columns = ['skill_id', 'skill_version', 'skill_source', 'skill_snapshot_json']
+    skill_repair = (root / 'upgrade/20261011_short_drama_skill_schema.sql').read_text()
+    assert skill_repair == (root / 'public/upgrade/20261011_short_drama_skill_schema.sql').read_text()
+    # Reproduce an installed legacy schema and a partially migrated custom prefix.
+    for table in skill_tables:
+        sql('parity_legacy', 'ALTER TABLE la_' + table + ' ' + ','.join('DROP COLUMN ' + column for column in skill_columns) + ';')
+    sql('parity_custom', 'ALTER TABLE qa_aigc_short_drama_script_task DROP COLUMN skill_version;')
+    sql('parity_legacy', "INSERT INTO la_aigc_short_drama_script_task (task_id,status,billing_status,user_charge_points,request_json) VALUES ('preserve-skill-task','running','charged',17.50,'{\"preserve\":true}');")
+    preserved_skill_task = sql('parity_legacy', 'SELECT task_id,status,billing_status,user_charge_points,request_json FROM la_aigc_short_drama_script_task;')
+    for database, prefix in [('parity_fresh', 'la_'), ('parity_custom', 'qa_'), ('parity_legacy', 'la_')]:
+        migration = skill_repair.replace('`la_', '`' + prefix).replace("'la_", "'" + prefix)
+        sql(database, migration)
+        sql(database, migration)
+        for table in skill_tables:
+            for column in skill_columns:
+                assert sql(database, f"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='{prefix}{table}' AND COLUMN_NAME='{column}';").strip() == '1'
+        if with_workers:
+            print(run('docker', 'run', '--rm', *php_args(database, prefix), php_image,
+                      'php', 'tests/short-drama-skill.integration.php'))
+        print(database + ': sixteen Skill snapshot columns and twice-replayed repair passed')
+    assert preserved_skill_task == sql('parity_legacy', 'SELECT task_id,status,billing_status,user_charge_points,request_json FROM la_aigc_short_drama_script_task;')
     assert apps_before == sql('parity_legacy', 'SELECT COUNT(*) FROM la_app; SELECT COUNT(*) FROM la_tenant_app;')
     assert sql('parity_legacy', "SELECT value FROM la_config WHERE type='parity' AND name='sentinel';").strip() == 'keep'
     # Check every shipped system-upgrade and app-install CREATE TABLE prerequisite.
@@ -149,6 +172,8 @@ try:
             print(run('docker', 'run', '--rm', *php_args(database, prefix), php_image,
                       'php', 'tests/install-worker-smoke.php', 'install'))
             smoke_workers(database, prefix)
+            print(run('docker', 'run', '--rm', *php_args(database, prefix), php_image,
+                      'php', 'tests/short-drama-skill.integration.php'))
     # Verify the new-tenant permission fragment on its actual per-tenant table form.
     sql('parity_fresh', 'CREATE TABLE la_tenant_system_menu_test LIKE la_tenant_system_menu; INSERT INTO la_tenant_system_menu_test SELECT * FROM la_tenant_system_menu; UPDATE la_tenant_system_menu_test SET tenant_id=7;')
     sql('parity_fresh', "DELETE FROM la_tenant_system_menu_test WHERE perms IN ('ai_consumption/detail','decorate.template/export','decorate.template/import','decorate.data/sources');")

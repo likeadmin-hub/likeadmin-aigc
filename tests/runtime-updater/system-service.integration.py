@@ -9,13 +9,17 @@ import os
 import pathlib
 import re
 import subprocess
+import sys
 import time
 import uuid
 
 root = pathlib.Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser()
+parser.add_argument('--dev-vendor', type=pathlib.Path, help='Read-only PHPUnit vendor for a canonical no-dev checkout')
 parser.add_argument('--business', action='store_true', help='Run PHP tests excluding built asset contracts')
 parser.add_argument('--full-suite', action='store_true', help='Run the complete PHP suite after assets are ready')
+parser.add_argument('--companions', action='store_true', help='Run all independent server integration/protocol fixtures')
+parser.add_argument('--companion-start', type=int, default=0, help='Resume companion fixtures at a zero-based index')
 parser.add_argument('--updater', action='store_true', help='Run real preflight/apply success and failure cases')
 args = parser.parse_args()
 if not any(vars(args).values()):
@@ -47,6 +51,8 @@ def php(database):
         '-e', 'PHP_DATABASE_HOSTNAME=mysql', '-e', 'PHP_DATABASE_DATABASE=' + database,
         '-e', 'PHP_DATABASE_USERNAME=root', '-e', 'PHP_DATABASE_PASSWORD=',
         '-e', 'PHP_DATABASE_PREFIX=la_', '-e', 'PHP_DATABASE_HOSTPORT=3306', '-e', 'PHP_CACHE_DRIVER=file']
+    if args.dev_vendor:
+        command += ['-v', str(args.dev_vendor.resolve()) + ':/repo/vendor:ro']
     if args.updater:
         command += ['-v', str(payload.resolve()) + ':/production:ro']
     for terminal in ['pc', 'tenant', 'platform', 'uniapp']:
@@ -73,11 +79,29 @@ try:
         if not (payload / 'vendor/services.php').is_file():
             raise RuntimeError('Complete production Composer payload is required')
         cases += ['success', 'dependency-failure', 'finalize-failure', 'metadata-failure']
+    companions = ['tests/system-update/integration.php','tests/license/cache.integration.php',
+        'tests/release-306-migration.integration.php','tests/short-drama-styles.integration.php',
+        'tests/short-drama-skill.integration.php','tests/user-tool-pins.integration.php',
+        'tests/pc-home-shortcuts.integration.php','tests/license/protocol.php',
+        'tests/system-update/protocol.php','tests/framework-oem/run.php',
+        'tests/runtime-updater/system-service.lifecycle.php','tests/release-sql-replay.integration.php']
+    if args.companions:
+        cases += ['companion_' + str(index) for index in range(args.companion_start, len(companions))]
     for case in cases:
         database = 'fixture_' + case.replace('-', '_')
         sql('mysql', 'CREATE DATABASE ' + database + ';')
         sql(database, install)
-        if case == 'business':
+        if case.startswith('companion_'):
+            script = companions[int(case.split('_')[1])]
+            sql(database, "INSERT INTO la_tenant (id,sn,name,create_time) VALUES (901,'companion901','Disposable integration',1);")
+            setup = ''
+            if script == 'tests/system-update/integration.php':
+                setup = "mkdir('/tmp/system-protocol-site/public',0755,true); define('ROOT_PATH','/tmp/system-protocol-site/public');"
+            if script == 'tests/release-sql-replay.integration.php':
+                setup = "mkdir('/repo/runtime/system_update_staging/replay',0755,true); foreach(glob('/repo/upgrade/*.sql') as $file) copy($file,'/repo/runtime/system_update_staging/replay/'.basename($file)); $argv=[__FILE__,'/repo/runtime/system_update_staging/replay'];"
+            code = "$GLOBALS['acceptance_integration_finished']=false; register_shutdown_function(static function(){if(empty($GLOBALS['acceptance_integration_finished'])){fwrite(STDERR,'Integration did not reach completion');exit(1);}});" + setup + 'try { require ' + repr(script) + "; } catch(Throwable $error) { fwrite(STDERR,(string)$error); exit(1); } $GLOBALS['acceptance_integration_finished']=true; echo " + repr('PASS completed integration: ' + script) + ", PHP_EOL;"
+            run(*php(database), '-r', code)
+        elif case == 'business':
             command = php(database) + ['vendor/bin/phpunit', '--do-not-cache-result', '-c', 'phpunit.xml.dist']
             if args.business:
                 excluded = []
@@ -95,6 +119,8 @@ try:
             if 'PASS real SystemPackageUpdateService ' + case not in output:
                 raise RuntimeError('Fixture exited without a verified success result: ' + case)
         print('PASS disposable database case: ' + case, flush=True)
+    if args.companions:
+        run(sys.executable, str(root / 'tests/system-update/composer-packaging.py'))
 finally:
     for container in php_containers:
         subprocess.run(['docker', 'rm', '-f', '-v', container], capture_output=True)
