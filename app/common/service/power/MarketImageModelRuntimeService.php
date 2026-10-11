@@ -180,6 +180,7 @@ class MarketImageModelRuntimeService
     /** @return array<string, mixed> */
     public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = []): array
     {
+        \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
         $market = self::resolve($tenantId, $selection);
         return self::quoteMarket($market, $quantity, $billingOverride);
     }

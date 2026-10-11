@@ -134,6 +134,7 @@ class MarketNanoBananaAppRuntimeService
     /** @return array<string,mixed> */
     public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = []): array
     {
+        \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
         $market = self::applyRetailBinding(self::resolve($tenantId, $selection), $billingOverride, $quantity);
         return self::quoteMarket($market, $quantity);
     }
@@ -198,6 +199,7 @@ class MarketNanoBananaAppRuntimeService
             return $existing;
         }
         CanvasImagePromptSubmissionGuard::assertPrepared($appCode, $selection);
+        \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
         $market = self::applyRetailBinding(self::resolve($tenantId, $selection), $billingOverride, $quantity);
         $quantity = max(1, $quantity);
         self::assertReferences($market, $request);

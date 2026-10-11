@@ -25,6 +25,7 @@ Db::startTrans();try{
  Db::name('power_market_sku')->where('id',$market['sku']['id'])->update(['sale_points'=>999]);Db::name('tenant_power_market_sku_price')->where(['tenant_id'=>1,'sku_id'=>$market['sku']['id']])->update(['sale_points'=>999]);
  $quote=$runtime::quote(1,$params,1);check((float)$quote['tenant_cost_points']===$budget['tenant']&&(float)$quote['user_charge_points']===$budget['user'],'Accepted quote repriced');
  foreach([['quantity'=>2],['market_sku_id'=>2147483647],['channel'=>'foreign'],['quality'=>'foreign']] as $change)denied(fn()=>$runtime::quote(1,array_replace($params,$change),1),'Snapshot mismatch accepted');
+ denied(fn()=>$runtime::quote(1,$params,2),'Quantity argument bypassed accepted snapshot');
  $reserved=$runtime::reserve(1,1,'generate','fixture-'.$rid,$params,$params+['prompt'=>'synthetic freeze fixture','reference_images'=>[]],1,'aigc_image','aigc_image_task');
  $consumption=Db::name('ai_consumption_log')->where('id',$reserved['consumption_id'])->find();$price=S::json($consumption['price_snapshot']);
  check((float)$consumption['reserved_user_price']===$budget['user']&&(float)$consumption['reserved_tenant_cost']===$budget['tenant'],'Native reservation changed accepted price');

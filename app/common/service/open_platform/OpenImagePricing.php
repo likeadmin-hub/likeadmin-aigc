@@ -25,6 +25,11 @@ final class OpenImagePricing
         return $budget;
     }
     /** Only an owned accepted native image request may replace a live market lookup. */
+    public static function assertQuantity(int $tenant,int $quantity): void
+    {
+        $frozen=OpenToolPricing::forRequest('aigc_image',$tenant,(int)(request()->userId??0));
+        if($frozen&&(int)($frozen['selection']['_open_image']['quantity']??0)!==max(1,$quantity))throw new OpenException('pricing_snapshot_conflict','图片数量与受理快照不一致',409);
+    }
     public static function market(int $tenant,array $params,string $runtime): ?array
     {
         $frozen=OpenToolPricing::forRequest('aigc_image',$tenant,(int)(request()->userId??0));if(!$frozen)return null;

@@ -14,4 +14,5 @@ Route::post('app/open_platform/savePages','app.open_platform.Management/savePage
 Route::post('app/open_platform/saveDocument','app.open_platform.Management/saveDocument')->completeMatch();
 Route::post('app/open_platform/publishDocument','app.open_platform.Management/publishDocument')->completeMatch();
 Route::post('app/open_platform/saveContract','app.open_platform.Management/saveContract')->completeMatch();
+Route::post('app/open_platform/createVerification','app.open_platform.Management/createVerification')->completeMatch();
 Route::post('app/open_platform/publishContract','app.open_platform.Management/publishContract')->completeMatch();
