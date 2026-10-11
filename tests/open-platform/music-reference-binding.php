@@ -9,6 +9,11 @@ function denied(callable $fn,string $type){try{$fn();}catch(OpenException $e){ch
 $db=config('database.connections.mysql');check($db['hostname']==='127.0.0.1'&&$db['database']==='z_cn','Local rollback only');
 Db::startTrans();try{
     $persona=AigcMusicPersona::create(['tenant_id'=>1,'user_id'=>1,'name'=>'Synthetic upstream style','prompt_json'=>['provider_persona_id'=>'persona_fixture_owned'],'status'=>1,'delete_time'=>0,'create_time'=>time(),'update_time'=>time()]);
+    denied(fn()=>Music::referenceBindings(1,1,['persona_id'=>(int)$persona['id']]),'resource_unavailable');
+    AigcMusicTask::create(['tenant_id'=>1,'user_id'=>1,'provider'=>'market_music_operation','action'=>'persona','consumption_id'=>2147483647,'status'=>'success','billing_status'=>'settled','result_json'=>['persona_id'=>(int)$persona['id'],'provider_persona_id'=>'persona_fixture_owned'],'delete_time'=>0,'create_time'=>time(),'update_time'=>time()]);
+    $persona->save(['prompt_json'=>['provider_persona_id'=>'persona_fixture_owned','consumption_id'=>2147483647]]);
+    $forged=AigcMusicPersona::create(['tenant_id'=>1,'user_id'=>1,'name'=>'Forged local wrapper','prompt_json'=>$persona['prompt_json'],'status'=>1,'delete_time'=>0,'create_time'=>time(),'update_time'=>time()]);
+    denied(fn()=>Music::referenceBindings(1,1,['persona_id'=>(int)$forged['id']]),'resource_unavailable');
     $result=AigcMusicResult::create(['tenant_id'=>1,'user_id'=>1,'task_id'=>0,'title'=>'Synthetic owned audio','result_json'=>['id'=>'audio_fixture_owned'],'delete_time'=>0,'create_time'=>time()]);
     AigcMusicResult::create(['tenant_id'=>1,'user_id'=>2,'task_id'=>0,'title'=>'Foreign audio','result_json'=>['id'=>'audio_fixture_foreign'],'delete_time'=>0,'create_time'=>time()]);
     $task=AigcMusicTask::create(['tenant_id'=>1,'user_id'=>1,'provider'=>'market_music_operation','action'=>'upload_audio','status'=>'success','result_json'=>['reference_audio_id'=>'audio_fixture_uploaded'],'delete_time'=>0,'create_time'=>time(),'update_time'=>time()]);

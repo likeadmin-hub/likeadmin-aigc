@@ -624,6 +624,11 @@ class AigcMusicService
             if($persona->isEmpty())throw new \app\common\service\open_platform\OpenException('not_found','歌手风格不存在或不属于当前用户',404);
             $provider=$persona['prompt_json']['provider_persona_id']??'';
             if(!is_string($provider)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$provider))throw new \app\common\service\open_platform\OpenException('resource_unavailable','该本地音乐人设尚未关联上游歌手风格',409);
+            // Local profiles accept custom prompt JSON. That JSON is not proof
+            // of ownership of a supplier resource; the completed native task is.
+            $origin=AigcMusicTask::where(['tenant_id'=>$tenant,'user_id'=>$user,'provider'=>'market_music_operation','action'=>'persona','status'=>'success','billing_status'=>'settled','consumption_id'=>(int)($persona['prompt_json']['consumption_id']??0),'delete_time'=>0])->findOrEmpty();
+            $record=$origin->isEmpty()?[]:(array)$origin['result_json'];
+            if((int)($record['persona_id']??0)!==$id||($record['provider_persona_id']??'')!==$provider)throw new \app\common\service\open_platform\OpenException('resource_unavailable','歌手风格缺少本人成功创建的来源记录',409);
             $bindings['provider_persona_id']=$provider;
         }
         $audio=$params['audio_id']??'';
