@@ -53,6 +53,22 @@ class AigcVideoService
         return self::marketQuote($tenantId, $params);
     }
 
+    /** Prepare precisely the same video input before gateway admission. */
+    public static function openPlatformAdmission(int $tenantId,array $params): array
+    {
+        $params=ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
+        $prompt=trim((string)($params['prompt']??''));if($prompt==='')throw new Exception('请输入提示词');
+        self::checkSensitiveWords($tenantId,$prompt);
+        $params['reference_assets']=AigcVideoReferenceAssetService::normalize($params);
+        $params['reference_images']=AigcVideoReferenceAssetService::images($params['reference_assets']);
+        $selection=self::marketSelection($params);$runtime=self::marketRuntime($selection);
+        $normalized=$runtime::normalizeDurationSelection($tenantId,$selection,(int)($params['duration']??0));
+        $params['duration']=(int)$normalized['duration'];$selection=array_replace($selection,$normalized);
+        $resolved=$selection+$params;$resolved['resource_type']=$runtime===MarketVideoAppRuntimeService::class?'app_api':'model';
+        $captured=\app\common\service\power\MarketVideoRuntimeService::openPlatformAdmissionQuote($tenantId,$resolved);
+        return $captured+['selection'=>$resolved,'params'=>$params];
+    }
+
     /** Resolve the duration the chosen SKU would actually submit, without quoting or charging. */
     public static function effectiveMarketDuration(int $tenantId, array $params): int
     {
@@ -106,6 +122,8 @@ class AigcVideoService
 
     private static function generateMarketInternal(int $tenantId, int $userId, array $params, array $billingOverride = [], string $marketAppCode = self::APP_CODE): array
     {
+        $frozen=$marketAppCode===self::APP_CODE?\app\common\service\open_platform\OpenVideoPricing::forRequest($tenantId,$userId):null;
+        if($frozen!==null)$params=$frozen['params'];
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
         if ($prompt === '') {
@@ -115,12 +133,15 @@ class AigcVideoService
         $referenceAssets = AigcVideoReferenceAssetService::normalize($params);
         $params['reference_assets'] = $referenceAssets;
         $params['reference_images'] = AigcVideoReferenceAssetService::images($referenceAssets);
-        $selection = self::marketSelection($params);
+        $selection = $frozen['selection']??self::marketSelection($params);
         $runtime = self::marketRuntime($selection);
         $normalizedDuration = $runtime::normalizeDurationSelection($tenantId, $selection, (int)($params['duration'] ?? 0));
         $params['duration'] = (int)$normalizedDuration['duration'];
         $selection = array_replace($selection, $normalizedDuration);
-        $quote = self::applyMarketBillingOverride(self::marketQuote($tenantId, $selection + $params), $billingOverride);
+        if($frozen!==null){
+            if($billingOverride!==[])throw new \app\common\service\open_platform\OpenException('pricing_snapshot_conflict','开放视频请求不允许覆盖受理价格',409);
+            $params=$frozen['params'];$selection=$frozen['selection'];$referenceAssets=$params['reference_assets'];$prompt=trim((string)$params['prompt']);$runtime=self::marketRuntime($selection);$quote=$frozen['quote'];
+        }else $quote = self::applyMarketBillingOverride(self::marketQuote($tenantId, $selection + $params), $billingOverride);
         $duplicate = self::findRecentMarketDuplicateTask($tenantId, $userId, $prompt, $selection, $params);
         if ($duplicate !== null) {
             return self::marketDuplicateResponse($duplicate, $tenantId, $userId);

@@ -201,6 +201,15 @@ class MarketVideoRuntimeService
         return self::quoteMarket($market, $quantity);
     }
 
+    /** Internal admission capture; never returned by public estimate endpoints. */
+    public static function openPlatformAdmissionQuote(int $tenantId,array $selection): array
+    {
+        $market=self::resolve($tenantId,$selection);
+        self::assertAssets($market,$selection);self::assertTextToVideoRatio($market,$selection);
+        if(self::isDeferredUsageSku($market['sku']))throw new \app\common\service\open_platform\OpenException('pricing_unavailable','当前视频规格缺少可信的实际用量额度边界',503);
+        return ['market'=>$market,'quote'=>self::quoteMarket($market,self::quantity($market,$selection))];
+    }
+
     /**
      * Returns the supplier capabilities that are safe to expose to business
      * callers. These values describe implemented request adapters, not merely
@@ -639,6 +648,8 @@ class MarketVideoRuntimeService
 
     private static function resolve(int $tenantId, array $selection): array
     {
+        $frozen=\app\common\service\open_platform\OpenVideoPricing::market($tenantId,$selection);
+        if($frozen!==null){self::assertSkuMatchesSelection($frozen,$selection);return $frozen;}
         $skuId = self::intSelection($selection, ['market_sku_id', 'sku_id']);
         $resourceType = self::resourceType($selection);
         if ($skuId > 0) {
