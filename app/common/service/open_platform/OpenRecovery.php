@@ -47,7 +47,7 @@ final class OpenRecovery
                 $tool=OpenToolRegistry::get($row['app_code']);$op=$tool['operations']['GET tasks/{task_id}']??null;if(!$op)throw new OpenException('query_unavailable','任务查询尚未接入',503);
                 $data=OpenToolAdapter::call($request,$op+['app_code'=>$row['app_code'],'route'=>'GET tasks/{task_id}','params'=>['task_id'=>$row['tool_task_id']],'history'=>true,'internal'=>true],[]);
                 $status=(string)($data['status']??'running');if(in_array($status,['success','completed','failed','cancelled','canceled','partial_success','partial_failed'],true)){
-                    $latest=OpenStore::table('request')->where('id',$row['id'])->find();$billing=OpenToolTasks::billing($latest);$unresolved=!in_array($billing,['settled','refunded','none'],true);
+                    $latest=OpenStore::table('request')->where('id',$row['id'])->find();$billing=OpenToolTasks::billing(array_replace($latest,['status'=>$status]));$unresolved=!in_array($billing,['settled','refunded','none'],true);
                     OpenAdmission::finish($row['request_id'],['status'=>$status,'billing_status'=>$billing,'active'=>$unresolved?1:0,'finish_time'=>time()]);$latest=OpenStore::table('request')->where('id',$row['id'])->find();OpenWebhooks::enqueue($latest,$data);
                 }
             }

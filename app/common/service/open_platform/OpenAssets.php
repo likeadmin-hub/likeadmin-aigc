@@ -23,7 +23,19 @@ final class OpenAssets
         $id='of_'.substr(hash('sha256',OpenStore::encode([$tenantId,$userId,$app,$uri,$storage])),0,32);
         $row=['tenant_id'=>$tenantId,'user_id'=>$userId,'file_id'=>$id,'uri'=>$uri,'name'=>basename((string)(parse_url($uri,PHP_URL_PATH)?:$uri)),'mime'=>(string)($result['mime']??''),'size'=>max(0,(int)($result['size']??0))]+$storage+OpenStore::timestamp();
         // The deterministic ID and unique file_id index make polling/recovery idempotent.
-        OpenStore::table('file')->insert($row,true);return $id;
+        $existing=OpenStore::table('file')->where('file_id',$id)->find();
+        if(!$existing){
+            try{OpenStore::table('file')->insert($row);}
+            catch(\Throwable $error){
+                $code=0;if($error instanceof \PDOException)$code=(int)($error->errorInfo[1]??0);
+                elseif($error instanceof \think\db\exception\DbException)$code=(int)($error->getData()['PDO Error Info']['Driver Error Code']??0);
+                if($code!==1062)throw $error;
+            }
+            $existing=OpenStore::table('file')->where('file_id',$id)->find();
+        }
+        foreach(['tenant_id','user_id','uri','storage_scope','storage_engine','storage_domain'] as $field)
+            if(!$existing||(string)$existing[$field]!==(string)$row[$field])throw new OpenException('asset_identity_conflict','结果素材归属或存储信息冲突',500);
+        return $id;
     }
     public static function detail(int $tenantId,int $userId,string $id): array
     {

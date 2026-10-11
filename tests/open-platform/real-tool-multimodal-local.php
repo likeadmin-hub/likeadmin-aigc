@@ -47,6 +47,7 @@ try{
   do{
    $read=$call('GET','/api/v1/tools/'.$app.'/tasks/'.$task);verify($read['status']===200,'Owned task query failed');$data=$read['data']['data']??[];$polls++;
    $row=S::owner('request',1,1)->where('request_id',$row['request_id'])->find();app\common\service\open_platform\OpenRecovery::refresh($row);$row=S::owner('request',1,1)->where('request_id',$row['request_id'])->find();
+   if(($data['status']??'')!==$row['status']&&in_array($row['status'],['success','completed','partial_success'],true)){$read=$call('GET','/api/v1/tools/'.$app.'/tasks/'.$task);verify($read['status']===200,'Terminal task reread failed');$data=$read['data']['data']??[];}
    $report['cases'][$app]+= ['query_no_charge'=>true];$report['cases'][$app]=array_replace($report['cases'][$app],['status'=>$row['status'],'billing_status'=>$row['billing_status'],'charged'=>(float)$row['actual_user'],'pending_budget'=>(float)$row['budget_user'],'result_count'=>count($data['results']??[]),'polls'=>$polls]);$save();
    $terminal=in_array($row['status'],['success','completed','failed','canceled','cancelled','partial_failed','pending_confirmation'],true);if($polls===1||$polls%6===0||$terminal)echo S::encode(['stage'=>'poll','app'=>$app]+$report['cases'][$app]),"\n";
    if(!$terminal&&time()<$deadline)sleep(5);

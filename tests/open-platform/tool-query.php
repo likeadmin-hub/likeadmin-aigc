@@ -24,5 +24,8 @@ Db::startTrans();try{
  $consumption->save(['billing_status'=>'reserved']);check(G::failureBilling($failed,['kind'=>'tool','billable'=>true],false)==='pending','Failed refund prematurely released recovery');
  check(G::failureBilling($failed,['kind'=>'tool','billable'=>true],true)==='pending_confirmation','Unknown acceptance reported definitive refund');
  check(G::failureBilling(array_replace($failed,['billing_status'=>'refunded']),['kind'=>'market','billable'=>true],false)==='refunded','Market failure overwrote completed refund');
+ $music=app\common\model\app\aigc_music\AigcMusicTask::create(['tenant_id'=>1,'user_id'=>1,'status'=>'success','billing_status'=>'deducted','delete_time'=>0,'create_time'=>time(),'update_time'=>time()]);
+ $musicRow=array_replace($row,['id'=>null,'request_id'=>'req_fixture_'.bin2hex(random_bytes(16)),'app_code'=>'aigc_music','method'=>'POST','path'=>'/api/v1/tools/aigc_music/tasks','status'=>'running','billing_status'=>'pending','tool_task_id'=>(string)$music['id'],'actual_user'=>65,'active'=>1]);unset($musicRow['id']);$musicRow['id']=S::table('request')->insertGetId($musicRow);
+ app\common\service\open_platform\OpenRecovery::refresh($musicRow);$recovered=S::table('request')->where('id',$musicRow['id'])->find();check($recovered['status']==='success'&&$recovered['billing_status']==='settled'&&(int)$recovered['active']===0,'Recovery used stale running state for completed native billing');
  echo "PASS running task remains running while free query ends without a billing slot\n";
 }finally{app\common\service\open_platform\OpenCallContext::leave();Db::rollback();}

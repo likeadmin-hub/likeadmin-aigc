@@ -16,5 +16,6 @@ Db::startTrans();try{
  $denied=false;try{A::detail(request()->tenantId,request()->userId+1,$id);}catch(app\common\service\open_platform\OpenException $e){$denied=$e->httpStatus===404;}check($denied,'Reusable material leaked across users');
  check(A::registerResult(request()->tenantId,request()->userId,'aigc_image',array_replace($result,['stored'=>false]))===null,'Unstored output claimed a persisted material');
  $denied=false;try{A::registerResult(request()->tenantId,request()->userId,'aigc_image',array_replace($result,['user_id'=>request()->userId+1]));}catch(app\common\service\open_platform\OpenException){$denied=true;}check($denied,'Foreign result could be adopted');
+ S::table('file')->where('file_id',$id)->update(['user_id'=>request()->userId+1]);$denied=false;try{A::registerResult(request()->tenantId,request()->userId,'aigc_image',$result);}catch(app\common\service\open_platform\OpenException $e){$denied=$e->errorType==='asset_identity_conflict';}check($denied,'Duplicate ID silently adopted conflicting ownership');
  echo "PASS stored tool outputs become stable owned materials without copies; storage metadata and cross-user isolation preserved\n";
 }finally{Db::rollback();}
