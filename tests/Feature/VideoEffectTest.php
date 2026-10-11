@@ -55,6 +55,9 @@ final class VideoEffectTest extends TestCase
     public function testFormEncodedModelIdsAreNormalized(): void {
         $rows=Effects::defaults();$rows[0]['enabled']=true;$rows[0]['product_ids']=['98'];
         self::assertSame([98],Effects::normalize($rows)[0]['product_ids']);
+        $rows[0]['enabled']='true';$rows[0]['require_image']='false';
+        self::assertTrue(Effects::normalize($rows)[0]['enabled']);
+        self::assertFalse(Effects::normalize($rows)[0]['require_image']);
         $rows[0]['product_ids']=['98oops'];
         $this->expectException(InvalidArgumentException::class);Effects::normalize($rows);
     }
