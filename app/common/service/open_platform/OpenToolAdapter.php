@@ -12,7 +12,7 @@ final class OpenToolAdapter
     }
     public static function call($request,array $operation,array $params,?callable $onEvent=null): array
     {
-        $params=json_decode(OpenStore::encode($params),true,64,JSON_THROW_ON_ERROR);$app=$operation['app_code'];OpenToolRegistry::assertExecutable($operation);if(empty($operation['history']))self::authorize((int)$request->tenantId,(int)$request->userId,$app);OpenPolicy::validateInput($params);OpenSafeHttp::checkInputs($params);
+        $params=json_decode(OpenStore::encode($params),true,64,JSON_THROW_ON_ERROR);$app=$operation['app_code'];$params=OpenMaterials::nativeInputs($app,$params);OpenToolRegistry::assertExecutable($operation);if(empty($operation['history']))self::authorize((int)$request->tenantId,(int)$request->userId,$app);OpenPolicy::validateInput($params);OpenSafeHttp::checkInputs($params);
         OpenToolResourceOwnership::check((int)$request->tenantId,(int)$request->userId,$operation,$params);
         if(isset($operation['params']['task_id']))$params['id']=!empty($operation['internal'])?$operation['params']['task_id']:OpenToolTasks::decode($app,(string)$operation['params']['task_id']);
         if(isset($params['id'])&&($operation['controller']??'')==='Task'&&!isset($operation['params']['task_id'])&&empty($operation['internal']))$params['id']=OpenToolTasks::decode($app,(string)$params['id']);

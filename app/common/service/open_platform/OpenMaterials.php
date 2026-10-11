@@ -6,6 +6,15 @@ use app\common\enum\FileEnum;
 /** Local user uploads need ownership; external public URLs remain normal tool inputs. */
 final class OpenMaterials
 {
+    /** Preserve native fashion CSV aliases, then validate every individual file. */
+    public static function nativeInputs(string $app,array $params): array
+    {
+        if($app!=='aigc_fashion_lookbook')return $params;
+        foreach(['clothes_images','clothes','source_images'] as $field)if(isset($params[$field])&&is_string($params[$field])){
+            $value=$params[$field];$params[$field]=str_starts_with($value,'data:')?[$value]:array_values(array_filter(array_map('trim',explode(',',$value)),static fn($item)=>$item!==''));
+        }
+        return $params;
+    }
     public static function resolve(int $tenantId,int $userId,array $params,string $context=''): array
     {
         foreach($params as $key=>&$value){$field=is_numeric($key)?$context:(string)$key;

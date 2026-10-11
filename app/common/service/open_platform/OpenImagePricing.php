@@ -10,6 +10,7 @@ final class OpenImagePricing
     private const MULTI_IMAGE=['aigc_fitting','aigc_product_multi_angle','aigc_fashion_lookbook'];
     public static function fittingBudget($request,array $params): array
     {
+        $params=json_decode(OpenStore::encode($params),true,64,JSON_THROW_ON_ERROR);
         $tenant=(int)$request->tenantId;$user=(int)$request->userId;
         OpenToolAdapter::authorize($tenant,$user,'aigc_fitting');
         // Preset model images are validated by the native service. All other
@@ -33,6 +34,7 @@ final class OpenImagePricing
     }
     public static function multiAngleBudget($request,array $params): array
     {
+        $params=json_decode(OpenStore::encode($params),true,64,JSON_THROW_ON_ERROR);
         $tenant=(int)$request->tenantId;$user=(int)$request->userId;$app='aigc_product_multi_angle';
         OpenToolAdapter::authorize($tenant,$user,$app);
         $recipe=\app\common\service\app\aigc_product_multi_angle\AigcProductMultiAngleService::openPlatformAdmission($tenant,$user,$params);
@@ -48,6 +50,8 @@ final class OpenImagePricing
     }
     public static function fashionBudget($request,array $params): array
     {
+        $params=json_decode(OpenStore::encode($params),true,64,JSON_THROW_ON_ERROR);
+        $params=OpenMaterials::nativeInputs('aigc_fashion_lookbook',$params);
         $tenant=(int)$request->tenantId;$user=(int)$request->userId;$app='aigc_fashion_lookbook';OpenToolAdapter::authorize($tenant,$user,$app);
         $recipe=\app\common\service\app\aigc_fashion_lookbook\AigcFashionLookbookService::openPlatformAdmission($tenant,$user,$params);
         $native=self::capture($tenant,$user,$recipe['prepared']['image_payload'],$app);

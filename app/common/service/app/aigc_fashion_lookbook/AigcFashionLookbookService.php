@@ -202,6 +202,7 @@ class AigcFashionLookbookService
         if ($preset === null) $materials['model_image'] = $prepared['model_image'];
         $materials = \app\common\service\open_platform\OpenMaterials::resolve($tenantId, $userId, $materials);
         $prepared['clothes_images'] = $materials['clothes_images'];
+        if ($preset !== null) $prepared['model_snapshot'] = array_intersect_key($preset->toArray(), array_flip(['id', 'name', 'model_image', 'cover_image']));
         $prepared['model_image'] = $preset === null ? $materials['model_image'] : (string)$preset['model_image'];
         $prepared['image_payload']['reference_images'] = [$prepared['model_image'], $prepared['clothes_images'][0]];
         $single = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
