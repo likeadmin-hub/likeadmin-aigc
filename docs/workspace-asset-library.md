@@ -1,0 +1,13 @@
+# Account asset library
+
+The PC asset page uses the existing app result readers and preview. Account metadata lives in the global `user_asset_state` table, scoped by both `tenant_id` and `user_id`; source records and files are not copied or deleted. This is a shared account service, like Appearance, not an installable AI app. It has no app manifest, menu or permission changes.
+
+Core authenticated APIs: GET `/workspace_asset/state`, GET `/workspace_asset/uploads?page_no=1`, POST `/workspace_asset/update`, POST `/workspace_asset/upload`. Mutations accept up to 100 validated `source:kind:id` references and a partial `favorite`, `label`, or `action` (`trash`, `restore`, `remove`) patch. Every reference is resolved against its owned source record. No client file URL is trusted. Batch writes are transactional. Permanent removal retains a tombstone for the library, preserving creation history and physical media.
+
+Run `upgrade/20261012_workspace_asset_state.sql` for existing installations. The same idempotent schema is included in `public/install/db/like.sql` and the public SQL mirror. New tenants need no seed row or private table: their first metadata change inserts an owned row into this shared table. No new columns are read from app tables and no app migrations are required. Upgrades must apply the SQL before enabling the new page; missing schema returns a recoverable UI error, not request-time DDL.
+
+Uploads reuse `UploadService`, `TenantFile` and stored storage-scope/engine/domain metadata. MIME and size are checked before upload. Uploaded files and their signed/authorized URLs remain governed by existing storage rules. Generated sources retain their existing recent-results limits; saved favorites and trashed references are read independently so they can still be restored after aging out of recent results. Uploads load in pages of 100.
+
+Reference: https://www.imagine.art/asset/all (inspected 2026-10-12). Matched date groups, compact square media grid, density slider, hover selection/actions, bottom batch toolbar, right-hand navigation, multi-select tool/model/ratio/label filters and calendar range. Requested exclusions: team/private folders, creator filter and navigation grid toggle. Existing system preview is retained. Reference-site publishing and folder move have no corresponding account-library contract and are not included.
+
+Validation: `vendor/bin/phpunit tests/Unit/WorkspaceAssetTest.php`; local rollback-only integration: `WORKSPACE_ASSET_TEST=1 php tests/workspace-assets/integration.php`. Run only on local develop per AGENTS.md.
