@@ -503,8 +503,8 @@ class AigcProductSuiteService
             throw new Exception('请选择模块选项');
         }
         $modules = self::resolveModules($tenantId, $moduleCodes);
-        $channel = (string)($config['default_channel'] ?: ($config['config_json']['channel'] ?? ''));
-        $quality = (string)($config['default_quality'] ?: ($config['config_json']['quality'] ?? ''));
+        $channel = (string)($params['channel'] ?? ($config['default_channel'] ?: ($config['config_json']['channel'] ?? '')));
+        $quality = (string)($params['quality'] ?? ($config['default_quality'] ?: ($config['config_json']['quality'] ?? '')));
         $ratio = trim((string)($params['ratio'] ?? $params['ratio_code'] ?? $config['default_ratio'] ?? $config['config_json']['ratio'] ?? ''));
         $platform = self::normalizeChoice((string)($params['platform'] ?? $config['config_json']['platform'] ?? 'amazon'), self::PLATFORMS, 'amazon');
         $country = self::normalizeChoice((string)($params['country'] ?? $params['region'] ?? $config['config_json']['country'] ?? 'us'), self::COUNTRIES, 'us');

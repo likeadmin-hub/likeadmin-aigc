@@ -17,7 +17,7 @@ final class OpenToolTasks
     }
     public static function billing(array $row): string
     {
-        $ids=OpenStore::json($row['consumption_ids']);if(!$ids)return $row['billing_status']==='none'?'none':'settled';
+        $ids=OpenStore::json($row['consumption_ids']);if(!$ids)return $row['status']==='pending_confirmation'?'pending_confirmation':((float)($row['actual_user']??0)>0?'settled':'none');
         $logs=AiConsumptionLog::where(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']])->whereIn('id',$ids)->field('billing_status,run_status')->select()->toArray();
         if(array_filter($logs,fn($c)=>$c['run_status']==='pending_confirmation'))return 'pending_confirmation';
         $states=array_column($logs,'billing_status');

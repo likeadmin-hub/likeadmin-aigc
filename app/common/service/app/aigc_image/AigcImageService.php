@@ -54,6 +54,8 @@ class AigcImageService
         $estimate = AigcImageChannelService::estimate($tenantId, $params);
         $selection = AigcImageChannelService::resolveSelection($tenantId, $params);
         $spec = (array)$selection['spec'];
+        $references=array_filter(array_map('strval',(array)($params['reference_images']??[])),static fn($value)=>trim($value)!=='');
+        if(count($references)>(int)$selection['channel']['max_reference_images'])throw new Exception('参考图数量超出限制');
         if ((string)($selection['channel']['provider'] ?? '') === 'power_market_model') {
             return self::estimateMarketModel($tenantId, array_merge($params, [
                 'model_id' => (string)$selection['channel']['code'],
