@@ -44,6 +44,12 @@ try {
     Appearance::save($tenant,$user,6,$p);
     Db::name('tenant_file')->where('id',$fileId)->update(['delete_time'=>time()]);
     $check(Appearance::read($tenant,$user)['preferences']['preset_backgrounds']===[],'Deleted image falls back to preset');
+    $p['preset_backgrounds']=[['preset_id'=>'voxel','background_id'=>0,'name'=>'我的城市']];
+    $saved=Appearance::save($tenant,$user,7,$p);
+    $check(Appearance::read($tenant,$user)===$saved,'Name-only preset reload');
+    $check($saved['preferences']['preset_backgrounds'][0]['name']==='我的城市','Name persists with default background');
+    $check($saved['preferences']['preset_backgrounds'][0]['background_id']===0,'Default image remains selected');
+    echo "PASS: preset name-only persistence with default background\n";
     echo "PASS: preset background persistence/reset, legacy clients, foreign ownership and deleted images\n";
     echo "PASS: defaults, persistence, tenant/user isolation, stale-write rejection, custom create/remove\n";
 } finally { Db::rollback(); }
