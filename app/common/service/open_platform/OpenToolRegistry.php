@@ -23,6 +23,7 @@ final class OpenToolRegistry
             $data['limitations']=$tool['limitations'];
             $data['config_json']['allow_voice_clone']=false;
             unset($data['export_types']);
+            unset($data['option_config']['export_types']);
         }
         return $data;
     }

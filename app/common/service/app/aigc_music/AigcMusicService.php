@@ -105,8 +105,9 @@ class AigcMusicService
             self::assertAsset($tenantId, $payload['reference_asset_id'], $userId);
         }
         self::recordSafetyAudit($tenantId, $userId, 'task', 0, 'prompt_review', 'passed', $payload['prompt'] . ' ' . $payload['lyrics']);
-        $selection = AigcMusicChannelService::resolveSelection($tenantId, $params);
-        $estimate = AigcMusicChannelService::estimate($tenantId, $params);
+        $frozen=\app\common\service\open_platform\OpenToolPricing::forRequest(self::APP_CODE,$tenantId,$userId);
+        $selection = $frozen['selection']??AigcMusicChannelService::resolveSelection($tenantId, $params);
+        $estimate = $frozen['quote']??AigcMusicChannelService::estimateSelection($selection,$params);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
         $duplicate = self::findRecentDuplicateTask($tenantId, $userId, $payload);
@@ -705,6 +706,8 @@ class AigcMusicService
                 Db::commit();
                 return $existing;
             }
+            $frozen=\app\common\service\open_platform\OpenToolPricing::forTask(self::APP_CODE,$tenantId,$userId,(int)$task['id']);
+            if($frozen)$selection=$frozen['selection'];
             $storage = StorageConfigService::getEffectiveConfig($tenantId);
             $domain = StorageConfigService::getEffectiveDomain($tenantId);
             $rows = [];
@@ -745,6 +748,7 @@ class AigcMusicService
                     'task_id' => (int)$task['id'],
                     'result_id' => (int)$row['id'],
                     'duration' => (int)$task['duration'],
+                    '_open_platform_request_id'=>$frozen['request_id']??'',
                 ]);
                 AigcMusicBilling::create([
                     'tenant_id' => $tenantId,
@@ -799,7 +803,8 @@ class AigcMusicService
                 continue;
             }
             try {
-                $selection = AigcMusicChannelService::resolveSelection($tenantId, [
+                $frozen=\app\common\service\open_platform\OpenToolPricing::forTask(self::APP_CODE,$tenantId,(int)$task['user_id'],(int)$task['id']);
+                $selection = $frozen['selection']??AigcMusicChannelService::resolveSelection($tenantId, [
                     'channel' => $task['channel'],
                     'quality' => $task['quality'],
                 ]);
