@@ -131,7 +131,7 @@ class WatermarkRemovalAppContractTest extends TestCase
     {
         $registry = file_get_contents($this->root . '/app/common/service/app/AppRegistryService.php');
         $updater = file_get_contents($this->root . '/app/common/service/update/AppPackageUpdateService.php');
-        self::assertStringContainsString('self::installPublicAssets($manifest, root_path() . \'app/apps/\' . $appCode)', $registry);
+        self::assertStringContainsString('self::installPublicAssets($manifest, base_path() . \'apps/\' . $appCode)', $registry);
         self::assertStringContainsString('self::ensureShellAssetTag($targetRelative, $manifest)', $registry);
         self::assertStringContainsString("public/admin/index.html", $registry);
         self::assertStringContainsString("public/pc/index.html", $registry);
