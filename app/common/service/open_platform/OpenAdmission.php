@@ -12,7 +12,7 @@ final class OpenAdmission
         if(strlen($idem)>200)throw new OpenException('invalid_request','幂等键过长');
         return Db::transaction(function()use($key,$method,$path,$params,$operation,$budget,$tenantId,$userId,$fingerprint,$idemHash){
             OpenStore::table('setting')->where('tenant_id',$tenantId)->lock(true)->find();
-            $config=!empty($operation['history'])?OpenStore::settings($tenantId):OpenStore::requireEnabled($tenantId);
+            $config=!empty($operation['history'])?OpenStore::limits($tenantId):OpenStore::requireEnabled($tenantId);
             $current=OpenStore::table('key')->where('id',$key['id'])->lock(true)->find();if(!$current||(int)$current['status']!==1||((int)$current['expires_at']>0&&(int)$current['expires_at']<=time()))throw new OpenException('invalid_api_key','密钥已失效',401);
             if($idemHash!==null){$old=OpenStore::owner('request',$tenantId,$userId)->where('idempotency_hash',$idemHash)->find();if($old){if($old['payload_hash']!==$fingerprint)throw new OpenException('idempotency_conflict','同一幂等键的参数不同',409);return ['replay'=>true,'row'=>$old];}}
             $scopes=OpenStore::json($current['scopes']);$scope=$operation['kind']==='market'?(string)($operation['scope']??$operation['product_id']??'market'):$operation['app_code'];if($scopes&&!in_array($scope,$scopes,true)&&!($operation['kind']==='market'&&in_array('market',$scopes,true)))throw new OpenException('permission_denied','密钥无权调用该能力',403);

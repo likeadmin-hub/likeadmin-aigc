@@ -12,10 +12,14 @@ final class OpenStore
         $row = self::table('setting')->where('tenant_id', $tenantId)->find();
         return ['enabled'=>(bool)($row['enabled'] ?? ($tenantId===0 ? 1 : 0))] + array_replace_recursive(self::defaults(), self::json($row['config'] ?? []));
     }
+    public static function limits(int $tenantId): array
+    {
+        $config=self::settings($tenantId);$global=self::settings(0);foreach(['rpm','concurrency','user_concurrency','tenant_concurrency','body_limit'] as $field)$config[$field]=min($config[$field],$global[$field]);return $config;
+    }
     public static function requireEnabled(int $tenantId): array
     {
         if (!self::settings(0)['enabled']) throw new OpenException('platform_disabled','开放平台暂不可用',503);
-        $config=self::settings($tenantId); if (!$config['enabled']) throw new OpenException('tenant_disabled','当前租户未开通 API',403);
+        $config=self::limits($tenantId); if (!$config['enabled']) throw new OpenException('tenant_disabled','当前租户未开通 API',403);
         return $config;
     }
     public static function owner(string $table, int $tenantId, int $userId) { return self::table($table)->where(['tenant_id'=>$tenantId,'user_id'=>$userId]); }

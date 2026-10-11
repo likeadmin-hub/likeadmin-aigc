@@ -9,7 +9,7 @@ final class OpenPages
     }
     public static function configured(int $tenantId): array
     {
-        $overrides=OpenStore::settings($tenantId)['pages'];$rows=[];foreach(self::defaults() as $default){$row=array_replace($default,$overrides[$default['id']]??[]);$row['id']=$default['id'];$row['path']=$default['path'];$rows[]=$row;}usort($rows,fn($a,$b)=>[$a['sort'],$a['id']]<=>[$b['sort'],$b['id']]);return $rows;
+        $overrides=array_replace(OpenStore::settings(0)['pages'],OpenStore::settings($tenantId)['pages']);$rows=[];foreach(self::defaults() as $default){$row=array_replace($default,$overrides[$default['id']]??[]);$row['id']=$default['id'];$row['path']=$default['path'];$rows[]=$row;}usort($rows,fn($a,$b)=>[$a['sort'],$a['id']]<=>[$b['sort'],$b['id']]);return $rows;
     }
     public static function validate(array $pages): array
     {
