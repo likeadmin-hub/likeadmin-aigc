@@ -460,6 +460,7 @@ class MarketVideoRuntimeService
         try {
             $response = self::submitRequest($snapshot, $request, (string)$context['consumption']['consume_no'], $consumptionId);
             $taskId = self::taskId($response);
+            \app\common\service\open_platform\OpenSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
             $videos = self::videos(
                 $response,
                 (int)$context['consumption']['tenant_id'],
@@ -500,6 +501,12 @@ class MarketVideoRuntimeService
             return self::response($c->toArray());
         }
         $taskId = trim((string)$c['upstream_task_id']);
+        if ($taskId === '' && ($receipt=\app\common\service\open_platform\OpenSubmission::receipt($c->toArray()))!==null) {
+            try{
+                $videos=self::videos($receipt,(int)$c['tenant_id'],(int)$c['user_id'],self::requiresDurableResultStorage((string)$context['app_task']['app_code']));
+                if($videos!==[]){self::settle($consumptionId,$videos,self::requestId($receipt),'',$receipt);return ['status'=>'success','provider_task_id'=>'','videos'=>$videos];}
+            }catch(\Throwable $e){self::recordRefreshError($consumptionId,'',$e);}
+        }
         if ($taskId === '') {
             self::recordRefreshError($consumptionId, '', new Exception('视频任务尚未返回上游任务号'));
             return self::response($c->toArray());

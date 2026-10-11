@@ -293,7 +293,7 @@ class MarketSeedSvcAppRuntimeService
         }
         $taskId = trim((string)$consumption['upstream_task_id']);
         $created = self::timestamp($consumption['create_time'] ?? 0);
-        $timedOut = $created > 0 && time() - $created >= self::MAX_RUNNING_SECONDS;
+        $timedOut = $created > 0 && time() - $created >= self::MAX_RUNNING_SECONDS && !\app\common\service\open_platform\OpenSubmission::linked($consumption->toArray());
         if ($taskId === '') {
             if ($timedOut) {
                 self::fail($consumptionId, '音乐翻唱任务未返回上游任务号', 'timeout');

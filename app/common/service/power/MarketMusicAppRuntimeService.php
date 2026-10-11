@@ -298,7 +298,7 @@ class MarketMusicAppRuntimeService
         // AppBaseModel formats timestamps as date strings on read. A direct
         // integer cast would turn "2026-08-03 ..." into 2026 and time out now.
         $createTime = self::timestampValue($consumption['create_time'] ?? 0);
-        $timedOut = $createTime > 0 && time() - $createTime >= self::MAX_RUNNING_SECONDS;
+        $timedOut = $createTime > 0 && time() - $createTime >= self::MAX_RUNNING_SECONDS && !\app\common\service\open_platform\OpenSubmission::linked($consumption->toArray());
         $taskId = trim((string)$consumption['upstream_task_id']);
         if ($taskId === '') {
             if ($timedOut) {

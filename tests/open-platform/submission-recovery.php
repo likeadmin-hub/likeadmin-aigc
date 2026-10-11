@@ -24,6 +24,10 @@ Db::startTrans();try{
  $reply=B::refresh($cid);check($reply['status']==='pending_confirmation','Native query retried or timed out unknown acceptance');
  AiConsumptionLog::where('id',$cid)->update(['create_time'=>time()-86400]);
  foreach(['MarketVideoRuntimeService','MarketMusicAppRuntimeService','MarketSeedSvcAppRuntimeService','MarketPicLipsyncAppRuntimeService','MarketGenericImageAppRuntimeService'] as $name){$class='app\\common\\service\\power\\'.$name;$reply=$class::refresh($cid);check($reply['status']==='pending_confirmation','Expired unknown '.$name.' reservation was refunded or queried');}
+ N::capture($cid,['data'=>['task_id'=>'fixture-known-task'],'private_prompt'=>'private receipt'], 'fixture-known-task', 'fixture-provider-request');
+ $captured=AiConsumptionLog::findOrEmpty($cid);check($captured['upstream_task_id']==='fixture-known-task'&&$captured['run_status']==='running','Provider task ID was not committed before asset work');
+ check(N::receipt($captured->toArray())['private_prompt']==='private receipt'&&!str_contains(S::encode($captured['price_snapshot']),'private receipt'),'Receipt content was lost or stored in clear text');
+ check(N::linked($captured->toArray())&&!N::linked(['price_snapshot'=>[]]),'Native timeout rule changed non-API tasks');
  AiConsumptionLog::where('id',$cid)->update(['run_status'=>'success','upstream_task_id'=>'fixture-known-task','billing_status'=>'reserved']);
  check(N::holdUnknown($cid),'Known result settlement failure was not retained');$known=AiConsumptionLog::findOrEmpty($cid);check($known['run_status']==='success'&&$known['billing_status']==='settlement_failed','Known provider success collapsed to uncertain submission');
  check((float)Db::name('user')->where('id',1)->value('user_money')===$wallet,'Recovery changed wallet');

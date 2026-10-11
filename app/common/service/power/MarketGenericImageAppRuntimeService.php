@@ -130,9 +130,10 @@ class MarketGenericImageAppRuntimeService
         \app\common\service\open_platform\OpenSubmission::start($consumptionId);
         try {
             $body = self::request('POST', self::endpoint($snapshot, false), self::payload($snapshot, $request, (string)$c['consume_no']));
-            $assets = self::assets($body, (int)$c['tenant_id'], (int)$c['user_id'], [(string)($request['url'] ?? $request['source_url'] ?? '')]);
             $taskId = self::taskId($body);
             $requestId = self::requestId($body);
+            \app\common\service\open_platform\OpenSubmission::capture($consumptionId,$body,$taskId,$requestId);
+            $assets = self::assets($body, (int)$c['tenant_id'], (int)$c['user_id'], [(string)($request['url'] ?? $request['source_url'] ?? '')]);
             Db::transaction(function () use ($consumptionId, $taskId, $requestId, $assets) { $ctx = self::context($consumptionId, true); if ($ctx === null) return; $c = $ctx['consumption']; $c->save(['run_status' => $assets === [] ? 'running' : 'success', 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'update_time' => time()]); self::event((int)$c['id'], 'submit', 'success', ['upstream_task_id' => $taskId, 'video_count' => count($assets)]); });
             if ($assets !== []) { self::settle($consumptionId, $assets, $requestId, $taskId, $body); AiTaskJobService::enqueueProcessResult($consumptionId); return ['status' => 'success', 'provider_task_id' => $taskId, 'videos' => $assets]; }
             if ($taskId === '') throw new Exception('短视频去水印接口未返回任务 ID 或视频地址');
@@ -148,7 +149,11 @@ class MarketGenericImageAppRuntimeService
         $c = $ctx['consumption'];
         if (\app\common\service\open_platform\OpenSubmission::pending($c->toArray())) return self::response($c->toArray()); if (in_array((string)$c['billing_status'], ['settled', 'refunded'], true)) return self::response($c->toArray());
         $taskId = trim((string)$c['upstream_task_id']); $snapshot = self::arrayValue($c['price_snapshot'] ?? []);
-        $created = self::timestamp($c['create_time'] ?? 0); $timedOut = $created > 0 && time() - $created >= self::MAX_RUNNING_SECONDS;
+        $created = self::timestamp($c['create_time'] ?? 0); $timedOut = $created > 0 && time() - $created >= self::MAX_RUNNING_SECONDS && !\app\common\service\open_platform\OpenSubmission::linked($c->toArray());
+        if($taskId===''&&($receipt=\app\common\service\open_platform\OpenSubmission::receipt($c->toArray()))!==null){
+            try{$summary=self::arrayValue($c['request_summary']??[]);$videos=self::assets($receipt,(int)$c['tenant_id'],(int)$c['user_id'],[(string)($summary['url']??'')]);if($videos!==[]){self::settle($consumptionId,$videos,self::requestId($receipt),'',$receipt);return ['status'=>'success','provider_task_id'=>'','videos'=>$videos];}}
+            catch(\Throwable $e){AiTaskLifecycleEventService::record($consumptionId,'query_error','retrying',['error'=>'结果转存待重试']);}
+        }
         if ($taskId === '') { if ($timedOut) { self::fail($consumptionId, '去水印任务超时', 'timeout'); return self::failureResponse('', '去水印任务超时'); } return self::response($c->toArray()); }
         try {
             $body = self::request((string)($snapshot['query_method'] ?? 'GET'), self::endpoint($snapshot, true, $taskId), (string)($snapshot['query_method'] ?? 'GET') === 'POST' ? ['task_id' => $taskId] : [], true);
