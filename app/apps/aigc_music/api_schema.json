@@ -14,6 +14,7 @@
     {"api_path":"app.aigc_music.asset/upload_audio","api_method":"POST","permission_key":"aigc_music:asset:upload_audio:user","scene":"user","need_login":1,"need_role_permission":0},
     {"api_path":"app.aigc_music.persona/create","api_method":"POST","permission_key":"aigc_music:persona:create","scene":"user","need_login":1,"need_role_permission":0},
     {"api_path":"app.aigc_music.voice_clone/create","api_method":"POST","permission_key":"aigc_music:voice_clone:create","scene":"user","need_login":1,"need_role_permission":0},
+    {"api_path":"app.aigc_music.export/download","api_method":"GET","permission_key":"aigc_music:export:download","scene":"user","need_login":1,"need_role_permission":0},
     {"api_path":"app.aigc_music.export/wav","api_method":"POST","permission_key":"aigc_music:export:wav","scene":"user","need_login":1,"need_role_permission":0},
     {"api_path":"app.aigc_music.export/mp4","api_method":"POST","permission_key":"aigc_music:export:mp4","scene":"user","need_login":1,"need_role_permission":0},
     {"api_path":"app.aigc_music.export/midi","api_method":"POST","permission_key":"aigc_music:export:midi","scene":"user","need_login":1,"need_role_permission":0},
