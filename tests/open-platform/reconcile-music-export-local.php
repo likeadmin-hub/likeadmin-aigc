@@ -28,7 +28,8 @@ try{
     if($source['api']==='vox')check(($data['vox_audio_id']??'')!=='','Human voice reference missing');
     else{
         $asset=OpenAssets::detail(1,1,$data['file_id']);$export=Db::name('aigc_music_export')->where(['id'=>$data['export_id'],'tenant_id'=>1,'user_id'=>1])->find();
-        $metadata=S::json($export['result_json']??[]);check($export&&$asset['uri']===$export['file_uri'],'Native export and owned file differ');
+        $stored=S::owner('file',1,1)->where('file_id',$data['file_id'])->find();
+        $metadata=S::json($export['result_json']??[]);check($export&&$stored&&$stored['uri']===$export['file_uri'],'Native export and owned file differ');
         $wire=OpenSafeHttp::get($asset['url'],104857600,60);$bytes=$wire['body'];
         app\common\service\app\aigc_music\AigcMusicExportStorageService::validate($source['api'],$bytes);
         check(strlen($bytes)===(int)$metadata['file_size']&&hash('sha256',$bytes)===$metadata['sha256'],'Downloaded stored file does not match original export');
