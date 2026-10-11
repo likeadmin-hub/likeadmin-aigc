@@ -62,6 +62,13 @@ final class OpenGateway
     {
         $start=microtime(true);OpenCallContext::enter($row['request_id']);$dispatched=false;$connectionLost=false;
         try{
+            // Claim before dispatch_started or native preparation. Rejected
+            // claims bypass the execution-error writer and preserve worker state.
+            if($row['app_code']==='aigc_fitting'&&$row['method']==='POST'&&$row['path']==='/api/v1/tools/aigc_fitting/tasks'){
+                $prepared=OpenImagePricing::prepared((int)$row['tenant_id'],(int)$row['user_id'],'aigc_fitting');
+                OpenFittingDispatch::start((int)$row['tenant_id'],(int)$row['user_id'],(int)($prepared['estimate']['quantity']??0));
+            }
+        try{
             if($op['kind']==='asset'){$data=$op['role']==='upload'?OpenAssets::upload((int)$row['tenant_id'],(int)$row['user_id'],(string)($params['type']??'file')):OpenAssets::detail((int)$row['tenant_id'],(int)$row['user_id'],$op['params']['file_id']);$body=OpenStore::encode(['request_id'=>$row['request_id'],'data'=>$data]);OpenAdmission::finish($row['request_id'],['status'=>'success','active'=>0,'billing_status'=>'none','response_code'=>$op['role']==='download'?302:200,'response_blob'=>OpenVault::seal($body),'next_run_time'=>0]);return $op['role']==='download'?redirect($data['url'])->header(['X-Request-Id'=>$row['request_id']]):json(['request_id'=>$row['request_id'],'data'=>$data])->header(['X-Request-Id'=>$row['request_id']]);}
             if($op['kind']==='tool'){
                 self::markDispatch($row['request_id']);$dispatched=true;$streamBody='';$data=OpenToolAdapter::call($request,$op,$params,$stream?function($event)use(&$streamBody){$chunk='data: '.OpenStore::encode(OpenPolicy::publicData((array)$event))."\n\n";$streamBody.=$chunk;echo $chunk;@flush();}:null);$dispatched=true;
@@ -84,11 +91,12 @@ final class OpenGateway
             if(!$op['history']){$latest=OpenStore::table('request')->where('id',$row['id'])->find();if((int)$latest['active']===0)OpenWebhooks::enqueue($latest,$data);}
             if($op['history']&&!$failed){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);self::observeTask($owner,$data);}
             return $stream?response(''):response($wire['body'],$wire['status'],$wire['headers']+['X-Request-Id'=>$row['request_id']]);
-        }catch(\Throwable $e){if(OpenRecovery::connectionLost($e)){$connectionLost=true;throw $e;}$unknown=$dispatched;
+        }catch(\Throwable $e){if(OpenRecovery::connectionLost($e)||($e instanceof OpenException&&$e->errorType==='recovery_lease_lost'))throw $e;$unknown=$dispatched;
             if($op['kind']==='tool'){$latest=OpenStore::table('request')->where('id',$row['id'])->find();if(!empty(OpenStore::json($latest['snapshot'])['provider_rejection_confirmed']))$unknown=false;}
             if($op['kind']==='tool'&&$e instanceof OpenException&&$e->errorType==='tool_error'){$latest=OpenStore::table('request')->where('id',$row['id'])->find();if(empty($op['billable'])||($latest['tool_task_id']===''&&!OpenStore::json($latest['consumption_ids'])&&($op['controller']??'')==='Generate'&&!empty(OpenToolRegistry::get($op['app_code'])['task_model'])))$unknown=false;}
             if(!$unknown&&$op['kind']==='market'&&!empty($op['billable'])){try{OpenMarketBilling::settle($row,[],true);}catch(\Throwable $settlementError){if(OpenRecovery::connectionLost($settlementError)){$connectionLost=true;throw $settlementError;}$unknown=true;}}$failedLatest=OpenStore::table('request')->where('id',$row['id'])->find();$billing=self::failureBilling($failedLatest,$op,$unknown);$unresolved=$unknown||!in_array($billing,['none','settled','refunded'],true);$fields=['status'=>$unknown?'pending_confirmation':'failed','billing_status'=>$billing,'error_code'=>$e instanceof OpenException?$e->errorType:'internal_error','error_message'=>$e instanceof OpenException?mb_substr($e->getMessage(),0,500):'服务执行失败','active'=>$unresolved?1:0,'next_run_time'=>$unresolved?time()+60:0];if(!$unknown){$error=self::error($e,$row['path'],$row['request_id']);$fields+=['response_blob'=>OpenVault::seal($error->getContent()),'response_type'=>'application/json','response_code'=>$error->getCode()];}
-            OpenAdmission::finish($row['request_id'],$fields);if(!$unknown&&!($e instanceof OpenException)&&$op['kind']==='tool'&&!empty(OpenStore::json($latest['snapshot']??'')['provider_rejection_confirmed']))throw new OpenException('provider_rejected','上游已拒绝该请求，请检查工具当前模型资格',400);throw $e;}finally{try{if(!$connectionLost)OpenFittingDispatch::release($row['request_id']);}finally{OpenCallContext::leave();}}
+            OpenAdmission::finish($row['request_id'],$fields);if(!$unknown&&!($e instanceof OpenException)&&$op['kind']==='tool'&&!empty(OpenStore::json($latest['snapshot']??'')['provider_rejection_confirmed']))throw new OpenException('provider_rejected','上游已拒绝该请求，请检查工具当前模型资格',400);throw $e;}
+        }catch(\Throwable $error){$connectionLost=OpenRecovery::connectionLost($error);throw $error;}finally{try{if(!$connectionLost)OpenFittingDispatch::release($row['request_id']);}finally{OpenCallContext::leave();}}
     }
     public static function failureBilling(array $latest,array $op,bool $unknown): string
     {

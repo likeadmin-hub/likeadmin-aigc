@@ -12,6 +12,10 @@ final class OpenFittingDispatch
             if(OpenCallContext::leaseToken($id)===''&&(string)$row['lease_token']!==''&&(int)$row['lease_expire']>time())throw new OpenException('recovery_lease_lost','试衣请求已由恢复流程接管',409);
             OpenCallContext::assertLease($row);
             $snapshot=OpenStore::json($row['snapshot']);
+            // Gateway claims before marking dispatch; the native service reuses
+            // that exact live owner before materializing its sealed recipe.
+            $existing=$snapshot['fitting_dispatch']??[];
+            if((int)$row['active']&&$row['tool_task_id']===''&&($existing['state']??'')==='running'&&OpenCallContext::leaseToken($id)!==''&&hash_equals((string)$existing['owner'],OpenCallContext::leaseToken($id)))return;
             if(!(int)$row['active']||$row['tool_task_id']!==''||isset($snapshot['fitting_dispatch']))throw new OpenException('task_context_invalid','试衣批次已受理，不能再次提交',409);
             $token=OpenCallContext::leaseToken($id)?:bin2hex(random_bytes(16));
             $snapshot['fitting_dispatch']=['state'=>'running','expected'=>$expected,'owner'=>$token,'started_at'=>time()];
@@ -40,6 +44,12 @@ final class OpenFittingDispatch
     {
         if($row['app_code']!=='aigc_fitting'||$row['method']!=='POST'||$row['path']!=='/api/v1/tools/aigc_fitting/tasks')return;
         Db::transaction(static function()use($row){$current=self::owned($row['request_id'],(int)$row['tenant_id'],(int)$row['user_id'])->lock(true)->find();if(!$current)return;OpenCallContext::assertLease($current);$snapshot=OpenStore::json($current['snapshot']);$dispatch=$snapshot['fitting_dispatch']??[];
+            if(!$dispatch&&($snapshot['_execution_version']??0)===2&&isset($snapshot['native_prepared_blob'])&&$current['tool_task_id']===''&&!OpenStore::json($current['consumption_ids'])&&(float)$current['actual_user']===0.&&(float)$current['actual_tenant']===0.&&OpenCallContext::leaseToken($current['request_id'])!==''){
+                // A claimed pre-batch receipt cannot have reached transport:
+                // native handoff and consumption association precede supplier I/O.
+                $snapshot['fitting_dispatch']=['state'=>'interrupted','expected'=>0,'owner'=>OpenCallContext::leaseToken($current['request_id']),'finished_at'=>time()];
+                OpenAdmission::finish($current['request_id'],['snapshot'=>OpenStore::encode($snapshot)]);return;
+            }
             if(($dispatch['state']??'')!=='running')return;
             // An active submitter must not be classified as a crashed batch.
             if((int)$current['lease_expire']>time()&&hash_equals((string)$dispatch['owner'],(string)$current['lease_token']))return;
