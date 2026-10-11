@@ -9,6 +9,7 @@ final class OpenFittingDispatch
         $id=OpenCallContext::id();if($id==='')return;
         Db::transaction(static function()use($id,$tenant,$user,$expected){
             $row=self::owned($id,$tenant,$user)->lock(true)->find();if(!$row)return;
+            if(OpenCallContext::leaseToken($id)===''&&(string)$row['lease_token']!==''&&(int)$row['lease_expire']>time())throw new OpenException('recovery_lease_lost','试衣请求已由恢复流程接管',409);
             OpenCallContext::assertLease($row);
             $snapshot=OpenStore::json($row['snapshot']);
             if(!(int)$row['active']||$row['tool_task_id']!==''||isset($snapshot['fitting_dispatch']))throw new OpenException('task_context_invalid','试衣批次已受理，不能再次提交',409);
