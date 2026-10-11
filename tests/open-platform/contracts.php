@@ -22,4 +22,6 @@ ok(G::wireFailed(200,['code'=>0,'msg'=>'Rejected'],[])===true,'HTTP 200 business
 ok(G::wireFailed(200,['code'=>1,'data'=>[]],[])===false,'Successful business envelope');
 ok(G::wireFailed(200,['choices'=>[['message'=>['content'=>'OK']]]],[])===false,'OpenAI success');
 ok(G::wireFailed(200,['error'=>['type'=>'invalid_request']],[])===true,'Protocol error');
+ok(C::selected(['when'=>['stream'=>false]],[])&&!C::selected(['when'=>['stream'=>true]],[]),'Default non-stream selector');
+ok(C::selected(['when'=>['stream'=>true]],['stream'=>true]),'Streaming selector');
 echo "PASS route allowlist, pricing boundary, page registry, typed tasks and SSE usage contracts\n";

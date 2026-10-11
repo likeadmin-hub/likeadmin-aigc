@@ -39,8 +39,14 @@ final class OpenContracts
     {
         $registered=OpenToolRegistry::match($method,$path);foreach(OpenStore::table('contract')->where(['kind'=>'tool','status'=>'published','method'=>$method])->order('id','desc')->select()->toArray() as $row){if(OpenPolicy::matches($row['path'],$path)===null)continue;$config=OpenStore::json($row['config']);return array_replace($registered,['kind'=>'tool','contract_id'=>$row['id'],'input'=>$config['input'],'version'=>$row['version'],'code'=>$row['code']]);}throw new OpenException('not_found','工具操作尚未发布',404);
     }
+    public static function selected(array $config,array $params): bool
+    {
+        if(isset($config['model'])&&($params['model']??'')!==$config['model'])return false;
+        foreach($config['when']??[] as $name=>$value){$actual=$params[$name]??($name==='stream'?false:null);if($actual!==$value)return false;}
+        return true;
+    }
     public static function match(string $method,string $path,array $params): array
     {
-        foreach(OpenStore::table('contract')->where(['status'=>'published','method'=>$method,'kind'=>'market'])->order('id','desc')->select()->toArray() as $row){$bindings=OpenPolicy::matches($row['path'],$path);if($bindings===null)continue;$config=OpenStore::json($row['config']);if(isset($config['model'])&&($params['model']??'')!==$config['model'])continue;return $config+['kind'=>'market','contract_id'=>$row['id'],'product_id'=>$row['product_id'],'code'=>$row['code'],'path'=>$row['path'],'method'=>$method,'version'=>$row['version'],'params'=>$bindings];}throw new OpenException('not_found','接口尚未发布或模型未开放',404);
+        foreach(OpenStore::table('contract')->where(['status'=>'published','method'=>$method,'kind'=>'market'])->order('id','desc')->select()->toArray() as $row){$bindings=OpenPolicy::matches($row['path'],$path);if($bindings===null)continue;$config=OpenStore::json($row['config']);if(!self::selected($config,$params))continue;return $config+['kind'=>'market','contract_id'=>$row['id'],'product_id'=>$row['product_id'],'code'=>$row['code'],'path'=>$row['path'],'method'=>$method,'version'=>$row['version'],'params'=>$bindings];}throw new OpenException('not_found','接口尚未发布或模型未开放',404);
     }
 }

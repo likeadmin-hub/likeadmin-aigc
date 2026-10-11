@@ -21,7 +21,7 @@ final class OpenMarketBilling
             $size=max(1,(float)($sku['usage_unit_size']??1));$prices=['user'=>(float)$sku['sale_points'],'tenant'=>(float)$sku['platform_sale_points']];
             $entry=$rule+['units'=>(float)$units,'unit_size'=>$size,'prices'=>$prices,'sku_key'=>$sku['sku_key'],'usage_unit'=>$sku['usage_unit']];$rules[]=$entry;$user+=$prices['user']*(float)$units/$size;$tenant+=$prices['tenant']*(float)$units/$size;
         }
-        return ['user'=>round($user,6),'tenant'=>round($tenant,6),'snapshot'=>['billing_owner'=>'gateway','contract'=>$operation,'rules'=>$rules,'product_id'=>$productId]];
+        return ['user'=>round($user,2),'tenant'=>round($tenant,2),'snapshot'=>['billing_owner'=>'gateway','contract'=>$operation,'rules'=>$rules,'product_id'=>$productId]];
     }
     public static function reserve(array $request,array $budget): void
     {
@@ -36,7 +36,7 @@ final class OpenMarketBilling
         Db::transaction(function()use($request,$result,$failed){$c=AiConsumptionLog::where(['tenant_id'=>$request['tenant_id'],'user_id'=>$request['user_id'],'consume_no'=>$request['request_id']])->lock(true)->findOrEmpty();if($c->isEmpty()||in_array($c['billing_status'],['settled','refunded'],true))return;
             $snapshot=OpenStore::json($c['price_snapshot']);$user=0.;$tenant=0.;$usage=[];
             foreach($snapshot['rules']??[] as $rule){$units=$failed?0:($rule['basis']==='input'?$rule['units']:OpenSchema::get($result,$rule['usage_path']));if(is_array($units))$units=count($units);if(!is_numeric($units)||(float)$units<0){$c->save(['billing_status'=>'pending_usage','run_status'=>'success']);OpenAdmission::finish($request['request_id'],['billing_status'=>'pending_usage','status'=>'success','next_run_time'=>time()+60]);return;}if((float)$units>(float)$rule['max_units'])throw new OpenException('usage_boundary_exceeded','可信用量超过契约边界，等待人工核对',502);$usage[]=['sku_id'=>$rule['sku_id'],'units'=>$units];$user+=(float)$units/$rule['unit_size']*$rule['prices']['user'];$tenant+=(float)$units/$rule['unit_size']*$rule['prices']['tenant'];}
-            $user=round($user,6);$tenant=round($tenant,6);PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$request['tenant_id'],(int)$request['user_id'],(float)$c['reserved_tenant_cost'],(float)$c['reserved_user_price'],$tenant,$user,$request['request_id'],'开放平台结算',['consumption_id'=>$c['id'],'app_code'=>'open_platform']);
+            $user=round($user,2);$tenant=round($tenant,2);PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$request['tenant_id'],(int)$request['user_id'],(float)$c['reserved_tenant_cost'],(float)$c['reserved_user_price'],$tenant,$user,$request['request_id'],'开放平台结算',['consumption_id'=>$c['id'],'app_code'=>'open_platform']);
             $state=$failed?'refunded':'settled';$c->save(['run_status'=>$failed?'failed':'success','billing_status'=>$state,'usage_snapshot'=>$usage,'actual_tenant_cost'=>$tenant,'actual_user_price'=>$user,'finish_time'=>time()]);AiAppTask::where('id',$c['app_task_id'])->update(['status'=>$failed?'failed':'success','progress'=>100,'actual_tenant_cost'=>$tenant,'actual_user_price'=>$user,'finish_time'=>time()]);OpenAdmission::finish($request['request_id'],['status'=>$failed?'failed':'success','billing_status'=>$state,'actual_user'=>$user,'actual_tenant'=>$tenant,'active'=>0,'budget_user'=>0,'budget_tenant'=>0,'finish_time'=>time(),'next_run_time'=>0]);
         });
     }
