@@ -98,6 +98,12 @@ final class OpenGateway
     }
     public static function settleKnownResult(array $row,array $data,bool $failed): void
     {
+        $contract=OpenStore::json($row['snapshot'])['contract']??[];
+        // An explicitly free asynchronous operation has no consumption to settle.
+        // Close its receipt without manufacturing a bill or leaving a live job forever.
+        if(($contract['billable']??null)===false&&!OpenStore::json($row['consumption_ids'])&&(float)$row['actual_user']===0.&&(float)$row['actual_tenant']===0.&&(float)$row['budget_user']===0.&&(float)$row['budget_tenant']===0.){
+            OpenAdmission::finish($row['request_id'],['status'=>$failed?'failed':'success','billing_status'=>'none','active'=>0,'finish_time'=>time(),'next_run_time'=>0]);return;
+        }
         try{OpenMarketBilling::settle($row,$data,$failed);}catch(\Throwable $error){if(OpenRecovery::connectionLost($error))throw $error;OpenAdmission::finish($row['request_id'],['status'=>$failed?'failed':'success','billing_status'=>'settlement_failed','active'=>1,'error_code'=>$error instanceof OpenException?$error->errorType:'settlement_failed','error_message'=>'结果已确认，结算待核对','next_run_time'=>time()+60]);}
     }
     public static function wireUncertain(int $status): bool { return in_array($status,[408,425],true)||$status>=500; }
