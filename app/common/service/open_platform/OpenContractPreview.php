@@ -16,7 +16,7 @@ final class OpenContractPreview
     public static function resolve(string $token,array $key,string $method,string $path,array $params,string $idem,array $files=[]): array
     {
         try{if(strlen($token)>4096)throw new \RuntimeException('Oversized proof');$claim=OpenStore::json(OpenVault::open($token));}catch(\Throwable){throw new OpenException('invalid_verification','验收凭据无效',403);}
-        foreach(['key_id','tenant_id','user_id'] as $field)if((int)($claim[$field]??0)!==(int)$key[$field])throw new OpenException('invalid_verification','验收凭据不属于当前测试账户',403);
+        foreach(['key_id'=>'id','tenant_id'=>'tenant_id','user_id'=>'user_id'] as $field=>$column)if((int)($claim[$field]??0)!==(int)$key[$column])throw new OpenException('invalid_verification','验收凭据不属于当前测试账户',403);
         if((int)($claim['expires_at']??0)<time()||($claim['method']??'')!==$method||($claim['path']??'')!==$path||$idem===''||($claim['idempotency_key']??'')!==$idem)throw new OpenException('invalid_verification','验收凭据已过期或请求不匹配',403);
         $contract=OpenContracts::detail((int)$claim['contract_id']);$config=OpenStore::json($contract['config']);$typed=$method==='GET'?OpenSchema::query($params,$config['input']):$params;
         if($contract['status']!=='draft'||!hash_equals((string)$claim['contract_digest'],OpenVerification::digest($contract))||!hash_equals((string)$claim['payload_hash'],OpenFiles::fingerprint($typed,$files)))throw new OpenException('invalid_verification','草稿或示例已变化，请重新获取验收凭据',403);
