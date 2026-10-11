@@ -58,6 +58,8 @@ request()->withServer(array_merge(request()->server(),['HTTP_HOST'=>'system.fixt
 function appBusiness(string $site):array {
     $result=[];foreach(['tenant','user','user_account_log','recharge_order','aigc_short_drama_episode_task','aigc_short_drama_canvas_poster_job'] as $table)$result[$table]=Db::name($table)->order('id')->select()->toArray();
     $result['paid_nondefault_app']=Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'aigc_music'])->find();
+    $state=json_decode(file_get_contents('/fixture/state.json'),true,512,JSON_THROW_ON_ERROR);
+    foreach($state['customer_configuration'] as $table=>$rows)$result['customer_configuration'][$table]=Db::name($table)->whereIn('id',array_column($rows,'id'))->order('id')->select()->toArray();
     foreach(['.env','config/install.lock','upgrade/version.json','public/uploads/business.bin','runtime/task-lease.json','oem/brand.json'] as $path)$result[$path]=hash_file('sha256',$site.'/'.$path);return $result;
 }
 $service=new AppPackageUpdateService();$result=[];

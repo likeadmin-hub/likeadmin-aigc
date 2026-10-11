@@ -43,6 +43,7 @@ try:
                     if apply_process.poll() is not None:raise RuntimeError('Apply stopped before actual completion DML pause')
                     time.sleep(1)
                 else:raise RuntimeError('Completion trigger did not block the real metadata write')
+                migrations_before=sql(db,'SELECT * FROM la_app_migration ORDER BY id;')
                 pid_code="$ids=[];foreach(glob('/proc/[0-9]*/cmdline') as $f){$args=explode(chr(0),(string)@file_get_contents($f));$runner=false;foreach($args as $arg)if(strpos($arg,'/fixture/site/runtime/update_temp/')===0 && basename($arg)==='composer-runtime-runner.php')$runner=true;if(in_array('--bootstrap',$args,true) && $runner)$ids[]=basename(dirname($f));}if(count($ids)!==1){fwrite(STDERR,'Expected one private top bootstrap PID, found '.count($ids));exit(1);}echo $ids[0];"
                 pid=run('docker','exec',container,'php','-r',pid_code,quiet=True).strip();assert pid.isdigit()
                 run('docker','exec',container,'sh','-c','kill -9 "$1"','fixture-kill',pid)
@@ -54,6 +55,15 @@ try:
                 out,err=apply_process.communicate(timeout=180);print(out,end='',flush=True);assert apply_process.returncode==0,err
                 if peek.poll() is None:
                     out,err=peek.communicate(timeout=60);assert peek.returncode==0 and 'PASS concurrent fresh site entry' in out,err+out;print(out,end='',flush=True)
+                # A dead top-level child can legitimately return an uncertain HTTP response while
+                # its leased metadata writer lives. Poll actual DB completion, never replay apply.
+                for _ in range(120):
+                    completed=sql(db,"SELECT COUNT(*) FROM la_update_package p JOIN la_update_task t ON t.package_id=p.id WHERE p.status='applied' AND t.action='apply' AND t.status='success';").strip()
+                    if completed=='1':break
+                    time.sleep(1)
+                else:raise RuntimeError('Surviving metadata writer did not commit package/task success after parent death')
+                assert sql(db,'SELECT * FROM la_app_migration ORDER BY id;')==migrations_before,'Parent-death recovery replayed SQL migrations'
+                print('PASS surviving completion writer committed independently; SQL migration records unchanged; fresh observer will recover pointer/markers',flush=True)
             finally:
                 if keeper.poll() is None:keeper.terminate()
         else:phase('apply')
