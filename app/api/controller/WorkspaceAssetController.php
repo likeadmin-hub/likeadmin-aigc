@@ -16,7 +16,7 @@ class WorkspaceAssetController extends BaseApiController
     {
         return $this->respond(function ($t, $u) {
             $file = $this->request->file('file');
-            if (!$file || $file->getSize() > 100 * 1024 * 1024) throw new InvalidArgumentException('请选择100MB以内的图片、视频或音频');
+            if (!$file || $file->getSize() > 100 * 1024 * 1024) throw new InvalidArgumentException('请选择100MB以内的图片或视频');
             $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($file->getPathname());
             $ext = strtolower($file->getOriginalExtension());
             if (in_array($ext, ['jpg','jpeg','png','webp','gif'], true) && @getimagesize($file->getPathname())) {
@@ -25,10 +25,7 @@ class WorkspaceAssetController extends BaseApiController
             if (in_array($ext, ['mp4','mov','webm'], true) && str_starts_with($mime, 'video/')) {
                 return $ext === 'webm' ? UploadService::file(0, $u, FileEnum::SOURCE_USER) : UploadService::video(0, $u, FileEnum::SOURCE_USER);
             }
-            if (in_array($ext, ['mp3','wav','m4a','aac','ogg'], true) && (str_starts_with($mime, 'audio/') || $mime === 'video/mp4' || $mime === 'application/ogg')) {
-                return UploadService::file(0, $u, FileEnum::SOURCE_USER);
-            }
-            throw new InvalidArgumentException('请选择支持的图片、视频或音频格式');
+            throw new InvalidArgumentException('请选择支持的图片或视频格式');
         }, true);
     }
 
