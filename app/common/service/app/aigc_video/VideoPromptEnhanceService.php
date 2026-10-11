@@ -1,6 +1,7 @@
 <?php
 namespace app\common\service\app\aigc_video;
 
+use app\common\service\app\PromptEnhanceModelService;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\aigc_llm\AigcLlmService;
 use Exception;
@@ -53,14 +54,15 @@ PROMPT;
         foreach (['duration', 'ratio', 'resolution', 'generation_method'] as $key) {
             $context[$key] = mb_substr((string)($params[$key] ?? ''), 0, 64);
         }
-        $result = AigcLlmService::generateText($tenantId, $userId, [
-            'system_prompt' => self::instructions(),
+        $result = AigcLlmService::generateText($tenantId, $userId, array_merge(
+            PromptEnhanceModelService::requestParams($tenantId, 'aigc_video', self::instructions()), [
             'content' => "视频配置：" . json_encode($context, JSON_UNESCAPED_UNICODE) . "\n原始创作描述：\n" . $prompt,
             'source_app_code' => 'aigc_video',
             'source_type' => 'prompt_helper',
             'request_timeout_seconds' => 90,
-        ]);
+        ]));
         return ['prompt' => self::validateResult($prompt, (string)($result['content'] ?? '')),
-            'charge_points' => $result['billing']['user_charge_points'] ?? 0];
+            'charge_points' => $result['billing']['user_charge_points'] ?? 0]
+            + PromptEnhanceModelService::resultModel($result);
     }
 }

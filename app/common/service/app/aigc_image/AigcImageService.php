@@ -2,6 +2,7 @@
 
 namespace app\common\service\app\aigc_image;
 
+use app\common\service\app\PromptEnhanceModelService;
 use app\common\model\app\aigc_image\AigcImageConfig;
 use app\common\model\app\aigc_image\AigcImageBilling;
 use app\common\model\app\aigc_image\AigcImageQuota;
@@ -38,10 +39,12 @@ class AigcImageService
                 'model' => 'power_market_image',
                 'status' => 1,
                 'config_json' => [],
+                'prompt_enhance_model' => PromptEnhanceModelService::describe($tenantId, []),
                 'option_config' => AigcImageChannelService::userConfig($tenantId),
             ]);
         }
         $data = $config->toArray();
+        $data['prompt_enhance_model'] = PromptEnhanceModelService::describe($tenantId, (array)($data['config_json'] ?? []));
         $data['provider_mode'] = 'market';
         $data['provider'] = 'power_market';
         $data['model'] = 'power_market_image';
@@ -111,6 +114,9 @@ class AigcImageService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
+        if (isset($params['config_json']) && is_array($params['config_json'])) {
+            $params['config_json'] = PromptEnhanceModelService::validateConfig($tenantId, $params['config_json']);
+        }
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $row = AigcImageConfig::where('tenant_id', $tenantId)->findOrEmpty();
         $current = $row->isEmpty() ? [] : $row->toArray();
