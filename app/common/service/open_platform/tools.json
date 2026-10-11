@@ -1216,11 +1216,21 @@
         "billable": true,
         "input": {
           "type": "object",
-          "additionalProperties": true
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20000,
+              "description": "歌词主题或风格描述"
+            }
+          },
+          "required": [
+            "prompt"
+          ],
+          "additionalProperties": false
         },
-        "description": "AI音乐生成 Lyrics/index",
-        "available": false,
-        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
+        "description": "按当前商城售价生成真实歌词，返回任务和结果",
+        "music_operation": "lyrics"
       },
       "POST mashuplyrics/index": {
         "controller": "MashupLyrics",
@@ -1228,11 +1238,28 @@
         "billable": true,
         "input": {
           "type": "object",
-          "additionalProperties": true
+          "properties": {
+            "lyrics_a": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20000,
+              "description": "第一段歌词"
+            },
+            "lyrics_b": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20000,
+              "description": "第二段歌词"
+            }
+          },
+          "required": [
+            "lyrics_a",
+            "lyrics_b"
+          ],
+          "additionalProperties": false
         },
-        "description": "AI音乐生成 MashupLyrics/index",
-        "available": false,
-        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
+        "description": "将两段歌词融合为真实歌词，按独立商城 SKU 计费",
+        "music_operation": "mashup_lyrics"
       },
       "POST persona/create": {
         "controller": "Persona",
@@ -1241,15 +1268,42 @@
         "input": {
           "type": "object",
           "properties": {
-            "name": { "type": "string", "minLength": 1, "maxLength": 100 },
-            "description": { "type": "string", "maxLength": 500 },
-            "reference_asset_id": { "type": "integer", "minimum": 0 },
-            "lyrics_style": { "type": "string", "maxLength": 100 },
-            "prompt_json": { "type": "object", "additionalProperties": true },
-            "authorization_confirmed": { "type": "integer", "enum": [0, 1] },
-            "authorization_text": { "type": "string", "maxLength": 500 }
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "reference_asset_id": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "lyrics_style": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "prompt_json": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "authorization_confirmed": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            },
+            "authorization_text": {
+              "type": "string",
+              "maxLength": 500
+            }
           },
-          "required": ["name"],
+          "required": [
+            "name"
+          ],
           "additionalProperties": true
         },
         "description": "创建本地音乐人设资料，不执行生成；关联音频必须属于当前用户"
@@ -1305,6 +1359,26 @@
         "description": "AI音乐生成 VoiceClone/create",
         "available": false,
         "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
+      },
+      "POST style/index": {
+        "music_operation": "style",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20000,
+              "description": "歌词主题或风格描述"
+            }
+          },
+          "required": [
+            "prompt"
+          ],
+          "additionalProperties": false
+        },
+        "description": "优化音乐风格描述，按独立商城 SKU 计费"
       }
     },
     "task_model": "app\\common\\model\\app\\aigc_music\\AigcMusicTask",
@@ -1313,7 +1387,7 @@
       "duration_description": "duration 沿用用户端计费选择，不保证生成音频时长；实际时长以结果音频为准。",
       "converted_exports": false,
       "voice_clone": false,
-      "generated_lyrics": false
+      "generated_lyrics": true
     }
   },
   "aigc_music_cover": {

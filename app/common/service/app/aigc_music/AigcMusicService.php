@@ -186,7 +186,7 @@ class AigcMusicService
             throw new Exception('请输入歌词主题');
         }
         self::recordSafetyAudit($tenantId, $userId, 'lyrics', 0, 'prompt_review', 'passed', $prompt);
-        return self::providerFor('mock')->lyrics($params);
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'lyrics',['prompt'=>$prompt]);
     }
 
     public static function mashupLyrics(int $tenantId, int $userId, array $params): array
@@ -197,7 +197,7 @@ class AigcMusicService
             throw new Exception('请提供两段歌词');
         }
         self::recordSafetyAudit($tenantId, $userId, 'lyrics', 0, 'mashup_review', 'passed', $a . ' ' . $b);
-        return self::providerFor('mock')->mashupLyrics($params);
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'mashup_lyrics',['lyrics_a'=>$a,'lyrics_b'=>$b]);
     }
 
     public static function createPersona(int $tenantId, int $userId, array $params): array
@@ -284,6 +284,12 @@ class AigcMusicService
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
+        $operation = AigcMusicTask::where(['tenant_id'=>$tenantId,'id'=>$taskId,'provider'=>'market_music_operation','delete_time'=>0])->when($userId>0,static fn($query)=>$query->where('user_id',$userId))->findOrEmpty();
+        if (!$operation->isEmpty()) {
+            \app\common\service\power\MarketMusicOperationRuntimeService::refresh((int)$operation['consumption_id']);
+            $operation->refresh();
+            return \app\common\service\power\MarketMusicOperationRuntimeService::taskData($operation->toArray()) + ['id'=>$operation['id'],'results'=>[]];
+        }
         if($userId>0)\app\common\service\open_platform\OpenMusicReceipt::restore($tenantId,$userId,$taskId);
         self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcMusicTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);

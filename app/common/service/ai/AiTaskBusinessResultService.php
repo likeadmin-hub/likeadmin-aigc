@@ -70,6 +70,7 @@ class AiTaskBusinessResultService
             'aigc_short_drama_script_task' => AigcShortDramaService::refreshScriptTask($businessId),
             'aigc_short_drama_generation_task' => AigcShortDramaService::refreshMarketGenerationTask($businessId),
             'aigc_canvas_run' => null,
+            'aigc_music_task' => \app\common\service\power\MarketMusicOperationRuntimeService::syncNative($consumption, $businessId),
             'aigc_pic_lipsync_task' => AigcPicLipsyncService::syncConsumption($businessId, (int)$consumption['user_id']),
             'aigc_watermark_removal_task' => AigcWatermarkRemovalService::syncConsumption($businessId, (int)$consumption['user_id']),
             default => self::assertOptionalBusinessAdapter($consumption, $businessTable),
@@ -111,6 +112,7 @@ class AiTaskBusinessResultService
             'aigc_canvas_run',
             'aigc_watermark_removal_task',
             'aigc_pic_lipsync_task',
+            'aigc_music_task',
         ], true);
     }
 
