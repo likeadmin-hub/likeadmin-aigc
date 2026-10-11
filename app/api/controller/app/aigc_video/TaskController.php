@@ -11,7 +11,7 @@ class TaskController extends BaseApiController
 {
     public function lists()
     {
-        return $this->success('获取成功', AigcVideoService::taskLists((int)$this->request->tenantId, $this->userId));
+        return $this->success('获取成功', AigcVideoService::taskLists((int)$this->request->tenantId, $this->userId, $this->request->get()));
     }
 
     public function detail()

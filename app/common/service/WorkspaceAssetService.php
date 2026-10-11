@@ -15,6 +15,16 @@ final class WorkspaceAssetService
         'digital_human' => 'aigc_digital_human', 'image_human' => 'image_human',
         'action_transfer' => 'aigc_action_transfer', 'person_replacement' => 'aigc_person_replacement',
         'short_drama' => 'aigc_short_drama',
+        'pic_lipsync' => 'aigc_pic_lipsync', 'smart_clip' => 'smart_clip',
+        'music' => 'aigc_music', 'music_cover' => 'aigc_music_cover',
+        'product_image' => 'aigc_product_image', 'product_suite' => 'aigc_product_suite',
+        'product_multi_angle' => 'aigc_product_multi_angle', 'product_promo_video' => 'aigc_product_promo_video',
+        'fashion_lookbook' => 'aigc_fashion_lookbook', 'model_wear' => 'aigc_model_wear',
+        'local_redraw' => 'aigc_local_redraw', 'outpaint' => 'aigc_outpaint',
+        'photo_restore' => 'aigc_photo_restore', 'image_translate' => 'aigc_image_translate',
+        'background_removal' => 'aigc_background_removal', 'one_click_cleanup' => 'aigc_one_click_cleanup',
+        'style_transfer' => 'aigc_style_transfer', 'watermark_removal' => 'aigc_watermark_removal',
+        'fitting' => 'aigc_fitting',
     ];
     public const LABELS = ['', 'todo', 'in_progress', 'review', 'done'];
 
@@ -24,8 +34,10 @@ final class WorkspaceAssetService
         $refs = $params['refs'] ?? [];
         if (!is_array($refs) || !$refs || count($refs) > 100) throw new InvalidArgumentException('每次请选择1至100项资产');
         foreach ($refs as $ref) {
-            if (!is_string($ref) || !preg_match('/^(image|video|digital_human|image_human|action_transfer|person_replacement|short_drama|upload):(result|task):[1-9][0-9]{0,10}$/D', $ref)) throw new InvalidArgumentException('资产标识无效');
+            if (!is_string($ref) || !preg_match('/^[a-z_]+:(result|task):[1-9][0-9]{0,10}$/D', $ref)) throw new InvalidArgumentException('资产标识无效');
             [$source, $kind] = explode(':', $ref);
+            if ($source !== 'upload' && !isset(self::SOURCES[$source])) throw new InvalidArgumentException('资产标识无效');
+            if ($source === 'fitting' && $kind !== 'task') throw new InvalidArgumentException('资产标识无效');
             if (in_array($source, ['short_drama', 'upload'], true) && $kind !== 'result') throw new InvalidArgumentException('资产标识无效');
         }
         $patch = [];
@@ -50,7 +62,7 @@ final class WorkspaceAssetService
         $supplemental = [];
         // Read saved references independently of the source's recent-results limit.
         foreach ($states as $state) {
-            if ($state['hidden_at'] || (!$state['trashed_at'] && !$state['favorite'])) continue;
+            if ($state['hidden_at'] || (!$state['trashed_at'] && !$state['favorite'] && !$state['label'])) continue;
             $asset = self::owned($tenant, $user, $state['asset_ref']);
             if ($asset) $supplemental[] = $asset;
         }
@@ -117,11 +129,18 @@ final class WorkspaceAssetService
             if (!$task) return null;
         }
         // Only presentation fields may leave this service, never provider payloads or credentials.
-        $fields = ['id','task_id','title','prompt','script_text','status','create_time','width','height','duration','ratio','aspect_ratio','resolution','quality','model_name','asset_type'];
+        $fields = ['id','task_id','title','prompt','script_text','status','create_time','width','height','duration','ratio','aspect_ratio','resolution','quality','model_name','model_id','channel_name','channel','style','asset_type'];
         $raw = array_intersect_key(array_replace($task ?: [], $record), array_flip($fields));
+        $metadata = array_replace($task ?: [], $record);
+        $displayFields = array_flip(['ratio','aspect_ratio','resolution','quality','model_name','model_label','model_id','image_model_id','channel_name','channel_code','model','width','height']);
+        foreach (['params','provider_params_json','request_snapshot','image_params'] as $field) {
+            $value = $metadata[$field] ?? [];
+            if (is_string($value)) $value = json_decode($value, true) ?: [];
+            if (is_array($value)) $raw[$field] = array_intersect_key(array_replace(is_array($value['params'] ?? null) ? $value['params'] : [], $value), $displayFields);
+        }
         $raw['result_id'] = $kind === 'result' ? (int)$id : 0;
         $raw['task_id'] = $kind === 'task' ? (int)$id : ($record['task_id'] ?? 0);
-        foreach (['image', 'video', 'cover'] as $type) {
+        foreach (['image', 'video', 'audio', 'cover'] as $type) {
             $raw[$type . '_url'] = self::url($record, $type . '_uri');
         }
         if ($source === 'short_drama') {

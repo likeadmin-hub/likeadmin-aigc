@@ -31,5 +31,15 @@ try {
     Library::update($tenant,$user,['refs'=>[$ref],'action'=>'remove']);
     reject(fn()=>Library::update($tenant,$user,['refs'=>[$ref],'action'=>'restore']));
     check(Library::read($tenant,$user)['supplemental']===[],'Removed asset remains a tombstone');
+    foreach (['pic_lipsync'=>'aigc_pic_lipsync','product_image'=>'aigc_product_image'] as $source=>$table) {
+        $taskId=Db::name($table.'_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','create_time'=>time()]);
+        $media=$source==='pic_lipsync'?'video_uri':'image_uri';
+        $resultId=Db::name($table.'_result')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$taskId,$media=>'uploads/tool-fixture.'.($source==='pic_lipsync'?'mp4':'png'),'create_time'=>time()]);
+        $toolRef=$source.':result:'.$resultId;
+        Library::update($tenant,$user,['refs'=>[$toolRef],'label'=>'review']);
+        reject(fn()=>Library::update($tenant,$user+1,['refs'=>[$toolRef],'favorite'=>1]));
+        $saved=array_values(array_filter(Library::read($tenant,$user)['supplemental'],fn($row)=>$row['ref']===$toolRef));
+        check(count($saved)===1 && $saved[0]['source']===$source,'Tool labels preserve their source without requiring a favorite');
+    }
     echo "PASS: library persistence, partial patches, tenant/user isolation, trash/restore/remove, atomic batch; no physical files changed\n";
 } finally { Db::rollback(); }

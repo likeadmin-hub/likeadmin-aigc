@@ -12,6 +12,13 @@ final class WorkspaceAssetTest extends TestCase
         self::assertSame('', $action);
         self::assertSame([['upload:result:5'], ['label'=>'review'], 'restore'], WorkspaceAssetService::normalize(['refs'=>['upload:result:5'],'label'=>'review','action'=>'restore']));
     }
+    public function testToolSourcesKeepTheirOwnReferences(): void
+    {
+        foreach (['pic_lipsync','product_image','style_transfer','product_promo_video','smart_clip','music','music_cover'] as $source) {
+            $ref = $source . ':result:12';
+            self::assertSame([$ref], WorkspaceAssetService::normalize(['refs'=>[$ref],'label'=>'todo'])[0]);
+        }
+    }
     public function testRejectsUnknownReferencesAndOperations(): void
     {
         foreach ([
