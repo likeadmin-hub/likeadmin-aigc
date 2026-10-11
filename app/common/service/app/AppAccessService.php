@@ -20,9 +20,10 @@ class AppAccessService
         'aigc_music',
         'aigc_music_cover',
     ];
-    public const DEFAULT_SYSTEM_APP_CODES = ['system_default'];
+    public const DEFAULT_SYSTEM_APP_CODES = ['system_default', 'open_platform'];
     public const DEFAULT_APP_CODES = [
         'system_default',
+        'open_platform',
         'aigc_image',
         'aigc_video',
         'aigc_digital_human',

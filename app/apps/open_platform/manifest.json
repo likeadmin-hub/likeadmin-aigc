@@ -1,0 +1,48 @@
+{
+  "code": "open_platform",
+  "name": "开放平台",
+  "version": "1.0.0",
+  "require_core": ">=1.0.391",
+  "description": "统一管理 API 接入、开发者密钥、接口文档与调用记录。",
+  "is_builtin": 1,
+  "system_default": 1,
+  "expire_policy": "allow",
+  "category": "system",
+  "api_prefix": "/app/open_platform",
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc"
+  ],
+  "migrations": "migrations",
+  "menus": "menus/tenant.json",
+  "platform_menus": "menus/platform.json",
+  "permissions": "permissions/tenant.json",
+  "frontend_entries": [
+    {
+      "terminal": "platform",
+      "entry_key": "open_platform_platform",
+      "name": "开放平台",
+      "path": "/app/open_platform",
+      "status": 1,
+      "sort": 90
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "open_platform_tenant",
+      "name": "开放平台",
+      "path": "/app/open_platform",
+      "status": 1,
+      "sort": 90
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "open_platform_pc",
+      "name": "开放平台",
+      "path": "/user/developer/overview",
+      "status": 1,
+      "sort": 90
+    }
+  ],
+  "changelog": "1. 新增开发者接口接入与管理功能。\n2. 新增接口文档与调用记录。"
+}

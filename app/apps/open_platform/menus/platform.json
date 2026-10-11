@@ -1,0 +1,113 @@
+[
+  {
+    "source_menu_key": "open_platform_platform",
+    "app_code": "open_platform",
+    "source": "app",
+    "type": "M",
+    "name": "开放平台",
+    "icon": "el-icon-Connection",
+    "sort": 85,
+    "paths": "open-platform",
+    "children": [
+      {
+        "source_menu_key": "open_platform_platform_config",
+        "type": "C",
+        "name": "开放设置",
+        "perms": "app.open_platform.management/detail",
+        "paths": "config",
+        "component": "apps/open_platform/config",
+        "children": [
+          {
+            "source_menu_key": "open_platform_platform_setup",
+            "type": "A",
+            "name": "开放设置操作",
+            "perms": "app.open_platform.management/setup",
+            "is_show": 0
+          }
+        ]
+      },
+      {
+        "source_menu_key": "open_platform_platform_pages",
+        "type": "C",
+        "name": "页面管理",
+        "perms": "app.open_platform.management/pages",
+        "paths": "pages",
+        "component": "apps/open_platform/pages",
+        "children": [
+          {
+            "source_menu_key": "open_platform_platform_savePages",
+            "type": "A",
+            "name": "页面管理操作",
+            "perms": "app.open_platform.management/savePages",
+            "is_show": 0
+          }
+        ]
+      },
+      {
+        "source_menu_key": "open_platform_platform_contracts",
+        "type": "C",
+        "name": "接口契约",
+        "perms": "app.open_platform.management/contracts",
+        "paths": "contracts",
+        "component": "apps/open_platform/contracts",
+        "children": [
+          {
+            "source_menu_key": "open_platform_platform_saveContract",
+            "type": "A",
+            "name": "接口契约操作",
+            "perms": "app.open_platform.management/saveContract",
+            "is_show": 0
+          },
+          {
+            "source_menu_key": "open_platform_platform_publishContract",
+            "type": "A",
+            "name": "发布",
+            "perms": "app.open_platform.management/publishContract",
+            "is_show": 0
+          }
+        ]
+      },
+      {
+        "source_menu_key": "open_platform_platform_documents",
+        "type": "C",
+        "name": "文档管理",
+        "perms": "app.open_platform.management/documents",
+        "paths": "documents",
+        "component": "apps/open_platform/documents",
+        "children": [
+          {
+            "source_menu_key": "open_platform_platform_saveDocument",
+            "type": "A",
+            "name": "文档管理操作",
+            "perms": "app.open_platform.management/saveDocument",
+            "is_show": 0
+          },
+          {
+            "source_menu_key": "open_platform_platform_publishDocument",
+            "type": "A",
+            "name": "发布",
+            "perms": "app.open_platform.management/publishDocument",
+            "is_show": 0
+          }
+        ]
+      },
+      {
+        "source_menu_key": "open_platform_platform_requests",
+        "type": "C",
+        "name": "调用与异常",
+        "perms": "app.open_platform.management/requests",
+        "paths": "requests",
+        "component": "apps/open_platform/requests",
+        "children": [
+          {
+            "source_menu_key": "open_platform_platform_recoveryPreview",
+            "type": "A",
+            "name": "调用与异常操作",
+            "perms": "app.open_platform.management/recoveryPreview",
+            "is_show": 0
+          }
+        ]
+      }
+    ]
+  }
+]

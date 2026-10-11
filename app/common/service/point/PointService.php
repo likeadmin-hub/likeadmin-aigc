@@ -143,6 +143,9 @@ class PointService
                 'billing_side' => 'user_charge',
             ]));
         }
+        \app\common\service\open_platform\OpenCallContext::observePoints(
+            $tenantId, $userId, $tenantPoints, $userPoints, $sourceSn, $extra, false
+        );
     }
 
     public static function refundBusinessAmountsInCurrentTransaction(
@@ -164,5 +167,8 @@ class PointService
                 'billing_side' => 'user_charge',
             ]));
         }
+        \app\common\service\open_platform\OpenCallContext::observePoints(
+            $tenantId, $userId, $tenantPoints, $userPoints, $sourceSn, $extra, true
+        );
     }
 }
