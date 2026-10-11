@@ -6648,9 +6648,13 @@ class AigcShortDramaService
         if ($sourceTaskId !== '') {
             $query->where('task_id', $sourceTaskId);
         }
-        $rows = $query->where('status', 'ready')->order(['id' => 'desc'])->limit($pageSize)->select()->toArray();
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $query->where('status', 'ready');
+        $count = (int)(clone $query)->count();
+        $rows = $query->order(['id' => 'desc'])->page($pageNo, $pageSize)->select()->toArray();
         return self::sanitizeUtf8Payload([
             'lists' => array_map([self::class, 'formatAsset'], $rows),
+            'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize,
         ]);
     }
 

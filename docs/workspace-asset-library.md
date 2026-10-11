@@ -11,3 +11,9 @@ Uploads reuse `UploadService`, `TenantFile` and stored storage-scope/engine/doma
 Reference: https://www.imagine.art/asset/all (inspected 2026-10-12). Matched date groups, compact square media grid, density slider, hover selection/actions, bottom batch toolbar, right-hand navigation, multi-select tool/model/ratio/label filters and calendar range. Requested exclusions: team/private folders, creator filter and navigation grid toggle. Existing system preview is retained. Reference-site publishing and folder move have no corresponding account-library contract and are not included.
 
 Validation: `vendor/bin/phpunit tests/Unit/WorkspaceAssetTest.php`; local rollback-only integration: `WORKSPACE_ASSET_TEST=1 php tests/workspace-assets/integration.php`. Run only on local develop per AGENTS.md.
+
+## Filter completeness follow-up
+
+Tool filters use the PC system tool catalog (including tenant display overrides), keyed by app code. Separate sources cover picture digital humans, full-drive humans, digital-human video, image/video tools, music and clips. Hairstyle uses shared image storage; fitting results retain shared image references while displaying the fitting tool. Canvas media in short-drama storage is attributed to the canvas tool.
+
+The library reads task/asset/upload pages to completion with bounded request concurrency. Image/video task controllers now forward pagination parameters; short-drama global assets add count/page metadata while keeping the lists field. Legacy non-paginated calls retain their defaults. Filters normalize nested metadata and equivalent ratios. Saved labeled records are also reconstructed when absent from the initial source results. No schema or billing changes.
