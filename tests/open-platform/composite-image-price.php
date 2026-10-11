@@ -34,12 +34,14 @@ Db::startTrans();try{
  $receipt=S::json(file_get_contents(dirname(__DIR__,2).'/runtime/open-platform-acceptance/multimodal-reconciliation.json'));$portrait='';foreach($receipt['items']??[] as $item)if($item['app_code']==='aigc_image')$portrait=$item['file_id'];check($portrait!=='','Owned portrait fixture missing');
  $params=app\common\service\open_platform\OpenMaterials::resolve(1,1,['source_image'=>$portrait,'template_id'=>7,'price_package'=>'default_1','prompt'=>'Synthetic immutable template fixture']);
  $actual=P::compositeBudget($request,'aigc_style_transfer',$params);check($actual['user']>0&&$actual['tenant']>0&&isset($actual['snapshot']['native_prepared_blob']),'Validated native admission recipe missing');
+ check(app()->request===$request&&!C::active(),'Read-only native admission scope leaked into ordinary pages');
 
  // Canonical native aliases must be checked before any pricing or network reads.
  $foreignUri='uploads/opf-foreign-'.bin2hex(random_bytes(8)).'.png';
  app\common\model\file\TenantFile::create(['tenant_id'=>1,'source_id'=>987654321,'source'=>app\common\enum\FileEnum::SOURCE_USER,'type'=>10,'uri'=>$foreignUri,'name'=>'fixture.png','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time()]);
  $denied=false;try{P::compositeBudget($request,'aigc_model_wear',['model'=>$foreignUri,'wear_image'=>$portrait]);}catch(OpenException $e){$denied=$e->httpStatus===404;}check($denied,'model material alias bypassed user ownership');
  $denied=false;try{P::compositeBudget($request,'aigc_model_wear',['model'=>'http://127.0.0.1/private.png','wear_image'=>$portrait]);}catch(OpenException $e){$denied=$e->errorType==='invalid_url';}check($denied,'model material alias bypassed private address validation');
+ check(app()->request===$request&&!C::active(),'Failed native admission scope leaked into ordinary pages');
  // A public template comes from the verified native tenant template, never caller data.
  $adminUri='uploads/opf-admin-template-'.bin2hex(random_bytes(8)).'.png';
  app\common\model\file\TenantFile::create(['tenant_id'=>1,'source_id'=>1,'source'=>app\common\enum\FileEnum::SOURCE_ADMIN,'type'=>10,'uri'=>$adminUri,'name'=>'fixture.png','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time()]);

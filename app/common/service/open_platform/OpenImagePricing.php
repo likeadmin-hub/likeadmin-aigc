@@ -33,6 +33,13 @@ final class OpenImagePricing
     public static function compositeBudget($request,string $app,array $params): array
     {
         if(!in_array($app,self::COMPOSITES,true))throw new OpenException('capability_unavailable','未注册图片工具',404);
+        $original=app()->request;
+        app()->instance('request',OpenToolRequest::from($request,$params,['app_code'=>$app,'route'=>'POST tasks']));
+        try{return self::compositeBudgetScoped($request,$app,$params);}
+        finally{app()->instance('request',$original);}
+    }
+    private static function compositeBudgetScoped($request,string $app,array $params): array
+    {
         $tenant=(int)$request->tenantId;$user=(int)$request->userId;OpenToolAdapter::authorize($tenant,$user,$app);
         if($app==='aigc_model_wear'&&!isset($params['model_image'])&&isset($params['model']))$params['model_image']=$params['model'];
         $params=OpenMaterials::resolve($tenant,$user,$params);
