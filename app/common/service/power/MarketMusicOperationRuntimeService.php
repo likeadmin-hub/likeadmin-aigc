@@ -94,7 +94,7 @@ final class MarketMusicOperationRuntimeService
             PointService::reserveBusinessAmountsInCurrentTransaction($tenant,$user,$quote['tenant_cost_points'],$quote['user_charge_points'],$sn.'-reserve','音乐操作预占',['app_code'=>'aigc_music','consumption_id'=>$c['id']]);
             $native->save(['app_task_id'=>$task['id'],'consumption_id'=>$c['id']]);
             // Reserve and recovery job commit together. A queue error rolls back the wallet.
-            AiTaskJobService::enqueueQueryResult((int)$c['id']);
+            AiTaskJobService::enqueueMusicOperation((int)$c['id']);
             return (int)$c['id'];
         });
     }

@@ -39,7 +39,7 @@ Db::startTrans();try{
     check(S::table('request')->where('request_id',$caseId)->value('tool_task_id')==='','Queue failure left an accepted native mapping');C::leave();continue;
    }
    $cid2=$reserve->invoke(null,1,1,$api,$params,$frozen);$capture=new ReflectionMethod(Runtime::class,'capture');
-   check(app\common\model\ai\AiTaskJob::where(['consumption_id'=>$cid2,'job_type'=>'query_result'])->count()===1,'Reservation missing durable recovery job');
+   check(app\common\model\ai\AiTaskJob::where(['consumption_id'=>$cid2,'job_type'=>'music_operation'])->count()===1,'Reservation missing durable recovery job');
    if(in_array($scenario,['unsubmitted','dispatched'],true)){
     $marker=new ReflectionMethod(Runtime::class,'markDispatched');if($scenario==='dispatched')$marker->invoke(null,$cid2);
     app\common\model\ai\AiConsumptionLog::where('id',$cid2)->update(['create_time'=>time()-60]);
