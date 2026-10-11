@@ -90,13 +90,17 @@ try{
     foreach($children[$killed]['pipes'] as $pipe)if(is_resource($pipe))fclose($pipe);proc_close($children[$killed]['process']);$children[$killed]['process']=null;touch($dir.'/release-1');
     $early=$spawn('--worker','early',true);check(str_contains($finish($early,0),'Processed 0'),'Unexpired lease stolen');
     check(!is_file($dir.'/query-2')&&S::table('request')->where('id',$request['id'])->value('lease_token')===$leased['lease_token'],'Restart resubmitted or erased live lease');
-    S::table('request')->where('id',$request['id'])->update(['lease_expire'=>time()-1]);touch($dir.'/release-2');
+    S::table('request')->where('id',$request['id'])->update(['lease_expire'=>time()-1,'next_run_time'=>time()+3600]);
+    $impact=\app\common\service\open_platform\OpenManagement::recoveryPreview($tenant,$request['request_id']);check($impact['resume']['available'],'Interrupted original task cannot be manually resumed');
+    $balanceBefore=Db::name('user')->where('id',$user)->value('user_money');
+    $confirmed=\app\common\service\open_platform\OpenRecoveryAction::resume($tenant,$request['request_id'],$impact['resume']['preview_token'],'platform_admin',1);
+    check($confirmed['charged_now']===0&&Db::name('user')->where('id',$user)->value('user_money')===$balanceBefore,'Recovery confirmation itself charged');touch($dir.'/release-2');
     $restart=$spawn('--worker','restart',true);check(str_contains($finish($restart,0),'Processed 1'),'Expired lease not recovered');
     $done=S::table('request')->where('id',$request['id'])->find();check($done['status']==='success'&&$done['billing_status']==='settled'&&(int)$done['active']===0&&(float)$done['actual_user']===5.&&$done['lease_token']==='','Recovered receipt did not settle');
     $repeat=$spawn('--worker','repeat',true);check(str_contains($finish($repeat,0),'Processed 0')&&!is_file($dir.'/query-3'),'Completed request was queried or settled again');
     check((float)Db::name('user')->where('id',$user)->value('user_money')===95.&&(float)Db::name('tenant')->where('id',$tenant)->value('point_balance')===99.,'Recovery repeated a fixture wallet charge');
     check(Db::name('user_account_log')->where('user_id',$user)->count()===1&&Db::name('tenant_point_log')->where('tenant_id',$tenant)->count()===1,'Recovery duplicated independent ledgers');
-    $report['scenarios'][]='SIGKILL during GET, lease retained, expired takeover, single settlement';
+    $report['scenarios'][]='SIGKILL during GET, lease retained, confirmed original tracking resume, expired takeover, single settlement';
     // Lose the database after the response is in flight but before settlement.
     $second=array_replace($request,['request_id'=>'req_worker_fixture_second','next_run_time'=>time()]);unset($second['id']);
     $second['id']=S::table('request')->insertGetId($second);Billing::reserve($second,['user'=>5,'tenant'=>1,'snapshot'=>$snapshot]);

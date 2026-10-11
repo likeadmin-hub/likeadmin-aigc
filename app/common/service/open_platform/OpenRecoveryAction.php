@@ -27,6 +27,7 @@ final class OpenRecoveryAction
             $preview=OpenManagement::recoveryPreview($tenant,$id);
             if(!$preview['resume']['available']||!hash_equals(self::fingerprint($preview['preview']),(string)($proof['fingerprint']??''))||!hash_equals(hash('sha256',OpenStore::encode(OpenStore::json($row['snapshot']))),(string)($proof['revision']??'')))throw new OpenException('preview_stale','任务状态或费用影响已变化，请重新预览',409);
             $snapshot=OpenStore::json($row['snapshot']);$snapshot['manual_resume']=['scene'=>$scene,'admin_id'=>$adminId,'confirmed_at'=>time(),'attempt'=>(int)($snapshot['manual_resume']['attempt']??0)+1];
+            $snapshot['manual_resume_events'][]=$snapshot['manual_resume'];
             OpenStore::table('request')->where('id',$row['id'])->update(['snapshot'=>OpenStore::encode($snapshot),'next_run_time'=>time(),'lease_token'=>'','lease_expire'=>0,'update_time'=>time()]);
             return ['request_id'=>$id,'tenant_id'=>$tenant,'status'=>'tracking_scheduled','new_submission'=>false,'charged_now'=>0,'historical_backcharge_allowed'=>false];
         });
