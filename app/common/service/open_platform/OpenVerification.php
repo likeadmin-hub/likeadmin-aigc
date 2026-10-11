@@ -16,10 +16,7 @@ final class OpenVerification
         $snapshot=OpenStore::json($row['snapshot']);
         if(($snapshot['contract_digest']??'')!==self::digest($contract))throw new OpenException('verification_mismatch','验证请求与当前契约不同，请重新验收');
         if(!empty($config['billable'])){if($row['billing_status']!=='settled')throw new OpenException('unverified_contract','计费接口必须完成结算验收');self::assertLedger($row);}
-        // Upload examples identify reviewed fixtures without storing their content.
-        $files=(array)($config['example_files']??[]);
-        foreach($files as $name=>$file)if(!preg_match('/^[a-zA-Z0-9_\[\]-]+$/D',(string)$name)||!preg_match('/^[a-f0-9]{64}$/D',(string)($file['sha256']??''))||!isset($file['name'],$file['size'],$file['mime']))throw new OpenException('unverified_contract','上传示例缺少经过审核的素材指纹');
-        $exampleHash=OpenPolicy::fingerprint(['parameters'=>(array)$config['example'],'files'=>$files]);
+        $exampleHash=OpenFiles::exampleFingerprint($config);
         if($row['payload_hash']!==$exampleHash)throw new OpenException('verification_example_mismatch','文档示例与已验证请求参数或素材不同');
         $body=OpenVault::open($row['response_blob']);$response=$config['responses'][(string)$row['response_code']]??null;
         if(!$response)throw new OpenException('verification_response_mismatch','文档未声明已验证的响应状态');

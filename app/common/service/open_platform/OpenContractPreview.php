@@ -10,8 +10,8 @@ final class OpenContractPreview
         if($contract['status']!=='draft'||!$key||((int)$key['expires_at']>0&&(int)$key['expires_at']<=time()))throw new OpenException('invalid_verification','请选择草稿和有效的测试密钥');
         $path=$path?:$contract['path'];if(str_contains($path,'{')||OpenPolicy::matches($contract['path'],$path)===null)throw new OpenException('invalid_verification','请提供与契约匹配的实际验收路径');
         $config=OpenStore::json($contract['config']);$idem='verify_'.bin2hex(random_bytes(16));$expires=time()+300;
-        $claims=['contract_id'=>$contractId,'contract_digest'=>OpenVerification::digest($contract),'key_id'=>$keyId,'tenant_id'=>(int)$key['tenant_id'],'user_id'=>(int)$key['user_id'],'method'=>$contract['method'],'path'=>$path,'idempotency_key'=>$idem,'payload_hash'=>OpenPolicy::fingerprint(['parameters'=>(array)$config['example'],'files'=>(array)($config['example_files']??[])]),'expires_at'=>$expires];
-        return ['preview_token'=>OpenVault::seal(OpenStore::encode($claims)),'idempotency_key'=>$idem,'expires_at'=>$expires,'method'=>$contract['method'],'path'=>$path,'example'=>$config['example'],'tenant_id'=>$key['tenant_id'],'user_id'=>$key['user_id'],'billable'=>(bool)$config['billable']];
+        $claims=['contract_id'=>$contractId,'contract_digest'=>OpenVerification::digest($contract),'key_id'=>$keyId,'tenant_id'=>(int)$key['tenant_id'],'user_id'=>(int)$key['user_id'],'method'=>$contract['method'],'path'=>$path,'idempotency_key'=>$idem,'payload_hash'=>OpenFiles::exampleFingerprint($config),'expires_at'=>$expires];
+        return ['preview_token'=>OpenVault::seal(OpenStore::encode($claims)),'idempotency_key'=>$idem,'expires_at'=>$expires,'method'=>$contract['method'],'path'=>$path,'example'=>$config['example'],'content_type'=>OpenContracts::contentType($config),'example_files'=>(array)($config['example_files']??[]),'tenant_id'=>$key['tenant_id'],'user_id'=>$key['user_id'],'billable'=>(bool)$config['billable']];
     }
     public static function resolve(string $token,array $key,string $method,string $path,array $params,string $idem,array $files=[]): array
     {

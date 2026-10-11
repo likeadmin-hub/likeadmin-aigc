@@ -10,5 +10,12 @@ try{
  $schema=['type'=>'object','properties'=>['file'=>['type'=>'string','format'=>'binary']],'required'=>['file']];
  if(OpenFiles::forSchema([],['file'=>$a],$schema)['file']!=='asset.txt')throw new RuntimeException('Binary field metadata');
  $rejected=false;try{OpenFiles::forSchema(['file'=>'fake'],[],$schema);}catch(OpenException $e){$rejected=true;}if(!$rejected)throw new RuntimeException('Accepted fake file parameter');
- echo "PASS upload content identity, multipart arrays and required binary input\n";
+ $metadata=['sha256'=>hash_file('sha256',$one),'name'=>$a->getOriginalName(),'size'=>$a->getSize(),'mime'=>$a->getMime()];
+ $config=['input'=>$schema,'example'=>['file'=>'asset.txt','caption'=>'fixture'],'example_files'=>['file'=>$metadata]];
+ if(OpenFiles::exampleFingerprint($config)!==OpenFiles::fingerprint(['caption'=>'fixture'],['file'=>$a]))throw new RuntimeException('Reviewed upload example differs from multipart request');
+ if(OpenFiles::exampleFingerprint($config)===OpenFiles::fingerprint(['caption'=>'fixture'],['file'=>$b]))throw new RuntimeException('Unreviewed content accepted');
+ $config['input']=['type'=>'object','properties'=>['voices'=>['type'=>'array','items'=>['type'=>'string','format'=>'binary']]]];$config['example']=['voices'=>['asset.txt']];$config['example_files']=['voices[0]'=>$metadata];
+ if(OpenFiles::exampleFingerprint($config)!==OpenFiles::fingerprint([],['voices'=>[$a]]))throw new RuntimeException('Reviewed multipart array identity');
+ $config['example_files']=[];$rejected=false;try{OpenFiles::exampleFingerprint($config);}catch(OpenException $e){$rejected=true;}if(!$rejected)throw new RuntimeException('Upload preview without reviewed content accepted');
+ echo "PASS upload content identity, multipart arrays, reviewed example fingerprints and required binary input\n";
 }finally{@unlink($one);@unlink($two);}

@@ -44,9 +44,11 @@ final class OpenSubmission
     public static function capture(int $consumptionId,array $payload,string $taskId,string $requestId=''): void
     {
         $c=AiConsumptionLog::findOrEmpty($consumptionId);if($c->isEmpty()||!self::linked($c->toArray()))return;
-        Db::transaction(function()use($consumptionId,$payload,$taskId,$requestId){
-            $c=AiConsumptionLog::lock(true)->findOrEmpty($consumptionId);$snapshot=OpenStore::json($c['price_snapshot']);$rid=(string)$snapshot['_open_platform_request_id'];
-            $row=OpenStore::owner('request',(int)$c['tenant_id'],(int)$c['user_id'])->where('request_id',$rid)->lock(true)->find();
+        $rid=(string)OpenStore::json($c['price_snapshot'])['_open_platform_request_id'];$tenantId=(int)$c['tenant_id'];$userId=(int)$c['user_id'];
+        Db::transaction(function()use($consumptionId,$payload,$taskId,$requestId,$rid,$tenantId,$userId){
+            $row=OpenStore::owner('request',$tenantId,$userId)->where('request_id',$rid)->lock(true)->find();
+            $c=AiConsumptionLog::lock(true)->findOrEmpty($consumptionId);$snapshot=OpenStore::json($c['price_snapshot']);
+            if($c->isEmpty()||(int)$c['tenant_id']!==$tenantId||(int)$c['user_id']!==$userId||($snapshot['_open_platform_request_id']??'')!==$rid)throw new \RuntimeException('Submission receipt identity changed');
             if(!$row||!in_array($consumptionId,array_map('intval',OpenStore::json($row['consumption_ids'])),true))throw new \RuntimeException('Submission receipt ownership mismatch');
             if(in_array((string)$c['billing_status'],['settled','refunded'],true))return;
             $snapshot['_open_platform_receipt_blob']=OpenVault::seal(OpenStore::encode($payload));
