@@ -4,7 +4,7 @@ use think\facade\Db;
 /** A durable batch boundary; recovery observes created children and never resubmits them. */
 final class OpenImageBatchDispatch
 {
-    public const APPS=['aigc_fitting','aigc_product_multi_angle'];
+    public const APPS=['aigc_fitting','aigc_product_multi_angle','aigc_fashion_lookbook'];
     public static function supports(array $row): bool {return in_array($row['app_code']??'',self::APPS,true)&&($row['method']??'')==='POST'&&($row['path']??'')==='/api/v1/tools/'.$row['app_code'].'/tasks';}
     public static function start(int $tenant,int $user,int $expected): void
     {

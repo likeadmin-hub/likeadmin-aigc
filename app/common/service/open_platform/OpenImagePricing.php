@@ -7,7 +7,7 @@ use app\common\service\power\MarketNanoBananaAppRuntimeService as Nano;
 final class OpenImagePricing
 {
     public const COMPOSITES=['aigc_product_image','aigc_style_transfer','aigc_background_removal','aigc_outpaint','aigc_image_translate','aigc_local_redraw','aigc_photo_restore','aigc_model_wear','aigc_hairstyle'];
-    private const MULTI_IMAGE=['aigc_fitting','aigc_product_multi_angle'];
+    private const MULTI_IMAGE=['aigc_fitting','aigc_product_multi_angle','aigc_fashion_lookbook'];
     public static function fittingBudget($request,array $params): array
     {
         $tenant=(int)$request->tenantId;$user=(int)$request->userId;
@@ -45,6 +45,18 @@ final class OpenImagePricing
         $budget['snapshot']['native_selection_blob']=$native['snapshot']['native_selection_blob'];
         $budget['snapshot']['native_prepared_blob']=OpenVault::seal(OpenStore::encode(['app_code'=>$app,'tenant_id'=>$tenant,'user_id'=>$user]+$recipe));
         return $budget;
+    }
+    public static function fashionBudget($request,array $params): array
+    {
+        $tenant=(int)$request->tenantId;$user=(int)$request->userId;$app='aigc_fashion_lookbook';OpenToolAdapter::authorize($tenant,$user,$app);
+        $recipe=\app\common\service\app\aigc_fashion_lookbook\AigcFashionLookbookService::openPlatformAdmission($tenant,$user,$params);
+        $native=self::capture($tenant,$user,$recipe['prepared']['image_payload'],$app);
+        $selection=OpenStore::json(OpenVault::open($native['snapshot']['native_selection_blob']))['selection'];
+        if($selection['_open_image']['runtime']!=='model')throw new OpenException('capability_unavailable','服饰套图开放调用需要商城模型通道',503);
+        $budget=OpenToolAdapter::estimateBudget($recipe['estimate']);$quantity=(int)$recipe['estimate']['quantity'];
+        if($quantity<1||$quantity>6||$budget===null||abs($budget['tenant']-round($native['tenant']*$quantity,2))>0.000001)throw new OpenException('pricing_unavailable','服饰套图价格与平台 SKU 成本不一致',503);
+        $budget['snapshot']['native_selection_blob']=$native['snapshot']['native_selection_blob'];
+        $budget['snapshot']['native_prepared_blob']=OpenVault::seal(OpenStore::encode(['app_code'=>$app,'tenant_id'=>$tenant,'user_id'=>$user]+$recipe));return $budget;
     }
     public static function budget($request,array $params): array
     {

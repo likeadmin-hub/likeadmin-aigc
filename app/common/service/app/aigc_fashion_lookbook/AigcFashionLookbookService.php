@@ -27,7 +27,7 @@ class AigcFashionLookbookService
     private const DEFAULT_PROMPT_TEMPLATE = '基于用户上传的模特图和当前服饰图生成自然真实的服饰穿搭图。保持模特身份、姿态、身形比例、面部特征和画面光线稳定，将当前服饰图中的版型、材质、颜色、纹理、图案和细节准确融合到同一张模特图上，形成适合电商详情页、穿搭种草和服饰套图展示的高质量图片。{user_prompt}';
     private const DEFAULT_NEGATIVE_PROMPT = '服装变形，身体比例异常，手部畸形，多余肢体，低清晰度，文字，水印，严重穿模，脸部扭曲，材质错误，颜色失真，背景杂乱';
 
-    public static function config(int $tenantId): array
+    public static function config(int $tenantId, bool $readOnly = false): array
     {
         $row = AigcFashionLookbookConfig::where('tenant_id', $tenantId)->findOrEmpty();
         $data = $row->isEmpty() ? self::defaults() : array_merge(self::defaults(), $row->toArray());
@@ -37,8 +37,8 @@ class AigcFashionLookbookService
         $data['option_config'] = $optionConfig;
         $data['spec_options'] = self::buildSpecOptions($optionConfig);
         $data['models'] = self::modelLists($tenantId, true);
-        $data['dependencies'] = self::dependencies($tenantId);
-        if ($row->isEmpty()) {
+        $data['dependencies'] = self::dependencies($tenantId, $readOnly);
+        if ($row->isEmpty() && !$readOnly) {
             self::saveConfigSnapshot($tenantId, $data, $row);
         }
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
@@ -187,49 +187,91 @@ class AigcFashionLookbookService
         return self::buildEstimate($prepared, $imageEstimate);
     }
 
+    /** Canonicalize aliases and shared presets without writes or input preprocessing. */
+    public static function openPlatformAdmission(int $tenantId, int $userId, array $params): array
+    {
+        self::assertAvailable($tenantId, true);
+        $preset = null;
+        if (!empty($params['model_preset_id'])) {
+            $preset = AigcFashionLookbookModel::where(['tenant_id' => $tenantId, 'id' => (int)$params['model_preset_id'], 'status' => 1, 'delete_time' => 0])->findOrEmpty();
+            if ($preset->isEmpty()) throw new Exception('模特预设不存在或已停用');
+            $params['model_image'] = (string)$preset['model_image'];
+        }
+        $prepared = self::prepareGeneratePayload($tenantId, $params, true, true);
+        $materials = ['clothes_images' => $prepared['clothes_images']];
+        if ($preset === null) $materials['model_image'] = $prepared['model_image'];
+        $materials = \app\common\service\open_platform\OpenMaterials::resolve($tenantId, $userId, $materials);
+        $prepared['clothes_images'] = $materials['clothes_images'];
+        $prepared['model_image'] = $preset === null ? $materials['model_image'] : (string)$preset['model_image'];
+        $prepared['image_payload']['reference_images'] = [$prepared['model_image'], $prepared['clothes_images'][0]];
+        $single = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
+        if (($single['settlement_mode'] ?? '') !== 'reserved') throw new Exception('服饰套图暂不支持实际用量图片 SKU');
+        return ['prepared' => $prepared, 'estimate' => self::buildEstimate($prepared, $single)];
+    }
+
+    private static function materializeOpenRecipe(int $tenantId, int $userId, array $prepared): array
+    {
+        $materialize = static function(string $uri) use ($tenantId, $userId): string {
+            if (!str_starts_with($uri, 'data:image/')) return $uri;
+            $stored = \app\common\service\app\aigc_image\AigcImageAssetService::persistGeneratedImage($uri, $tenantId, $userId);
+            return (string)$stored['uri'];
+        };
+        $prepared['clothes_images'] = array_map($materialize, $prepared['clothes_images']);
+        $prepared['model_image'] = $materialize($prepared['model_image']);
+        $prepared['image_payload']['reference_images'] = [$prepared['model_image'], $prepared['clothes_images'][0]];
+        return $prepared;
+    }
+
     public static function generate(int $tenantId, int $userId, array $params): array
     {
-        self::assertAvailable($tenantId);
-        $prepared = self::prepareGeneratePayload($tenantId, $params, true);
-        $singleEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
-        $estimate = self::buildEstimate($prepared, $singleEstimate);
+        self::assertAvailable($tenantId, \app\common\service\open_platform\OpenCallContext::active());
+        $frozen = \app\common\service\open_platform\OpenImagePricing::prepared($tenantId, $userId, self::APP_CODE);
+        if ($frozen !== null) {
+            \app\common\service\open_platform\OpenImageBatchDispatch::start($tenantId, $userId, (int)$frozen['estimate']['quantity']);
+            $frozen = \app\common\service\open_platform\OpenImagePricing::materializePrepared($tenantId, $userId, self::APP_CODE,
+                static fn(array $recipe) => self::materializeOpenRecipe($tenantId, $userId, $recipe));
+            $prepared = $frozen['prepared']; $estimate = $frozen['estimate'];
+        } else {
+            $prepared = self::prepareGeneratePayload($tenantId, $params, true);
+            $singleEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
+            $estimate = self::buildEstimate($prepared, $singleEstimate);
+        }
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
-
-        $imageTaskIds = [];
-        $submitErrors = [];
+        $imageTaskIds = []; $submitErrors = []; $task = null;
+        $handoff = $frozen === null ? null : \app\common\service\open_platform\OpenImageHandoff::callback($tenantId, $userId, self::APP_CODE,
+            static function(AigcImageTask $child) use ($tenantId, $userId, $prepared, $estimate, &$imageTaskIds, &$task) {
+                $imageTaskIds = array_values(array_unique(array_merge($imageTaskIds, [(int)$child['id']])));
+                if ($task === null) $task = self::createBatchTask($tenantId, $userId, $imageTaskIds, $prepared, $estimate);
+                else $task->save(['image_task_ids' => $imageTaskIds, 'update_time' => time()]);
+                return $task;
+            }, true);
         foreach ($prepared['clothes_images'] as $index => $clothesImage) {
+            if ($frozen !== null) \app\common\service\open_platform\OpenImageBatchDispatch::heartbeat($tenantId, $userId);
             try {
-                $payload = array_merge($prepared['image_payload'], [
-                    'reference_images' => array_values(array_filter([$prepared['model_image'], $clothesImage])),
-                ]);
-                $result = AigcImageService::generateWithBillingOverride($tenantId, $userId, $payload, [
-                    'tenant_cost_points' => $estimate['platform_unit_cost'],
-                    'user_charge_points' => $prepared['unit_price'],
-                ]);
+                $payload = array_merge($prepared['image_payload'], ['reference_images' => [$prepared['model_image'], $clothesImage]]);
+                $result = $frozen !== null
+                    ? AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $payload, ['user_unit_price' => $prepared['unit_price']], self::APP_CODE, $handoff)
+                    : AigcImageService::generateWithBillingOverride($tenantId, $userId, $payload, [
+                        'tenant_cost_points' => $estimate['platform_unit_cost'], 'user_charge_points' => $prepared['unit_price'],
+                    ]);
                 $imageTaskId = (int)($result['task_id'] ?? 0);
-                if ($imageTaskId > 0) {
-                    $imageTaskIds[] = $imageTaskId;
-                }
+                if ($imageTaskId > 0) $imageTaskIds = array_values(array_unique(array_merge($imageTaskIds, [$imageTaskId])));
             } catch (\Throwable $e) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
+                \app\common\service\open_platform\OpenCallContext::assertCurrentLease();
                 $submitErrors[] = '第' . ((int)$index + 1) . '张服饰图提交失败：' . $e->getMessage();
                 break;
             }
         }
-
-        if (!$imageTaskIds) {
-            throw new Exception($submitErrors[0] ?? '服饰套图任务创建失败');
-        }
-
-        $task = self::createBatchTask($tenantId, $userId, $imageTaskIds, $prepared, $estimate, $submitErrors);
+        if (!$imageTaskIds) throw new Exception($submitErrors[0] ?? '服饰套图任务创建失败');
+        if ($frozen !== null) \app\common\service\open_platform\OpenImageBatchDispatch::complete($tenantId, $userId, (bool)$submitErrors);
+        $task ??= self::createBatchTask($tenantId, $userId, $imageTaskIds, $prepared, $estimate, $submitErrors);
+        if ($submitErrors) $task->save(['error' => implode('；', $submitErrors), 'update_time' => time()]);
         self::syncTaskFromImageTask($task);
         return [
-            'task_id' => (int)$task['id'],
-            'image_task_id' => (int)$imageTaskIds[0],
-            'image_task_ids' => $imageTaskIds,
-            'status' => (string)($task['status'] ?: 'running'),
-            'error' => (string)($task['error'] ?? ''),
-            'results' => self::taskDetail($tenantId, (int)$task['id'], $userId)['results'] ?? [],
-            'estimate' => $estimate,
+            'task_id' => (int)$task['id'], 'image_task_id' => (int)$imageTaskIds[0], 'image_task_ids' => $imageTaskIds,
+            'status' => (string)($task['status'] ?: 'running'), 'error' => (string)($task['error'] ?? ''),
+            'results' => self::taskDetail($tenantId, (int)$task['id'], $userId)['results'] ?? [], 'estimate' => $estimate,
         ];
     }
 
@@ -333,14 +375,15 @@ class AigcFashionLookbookService
         $row->save(['delete_time' => time()]);
     }
 
-    public static function dependencies(int $tenantId = 0): array
+    public static function dependencies(int $tenantId = 0, bool $readOnly = false): array
     {
         $installed = App::where(['code' => self::IMAGE_APP_CODE, 'status' => AppRegistryService::STATUS_INSTALLED])->count() > 0;
-        $tenantEnabled = $tenantId <= 0 ? true : AppAccessService::tenantCanUse($tenantId, self::IMAGE_APP_CODE);
+        $tenantEnabled = $tenantId <= 0 ? true : AppAccessService::tenantCanUse($tenantId, self::IMAGE_APP_CODE, !$readOnly);
         $channels = [];
         try {
-            $channels = AigcImageService::config($tenantId)['option_config']['channels'] ?? [];
-        } catch (Exception) {
+            $channels = AigcImageChannelService::userConfig($tenantId)['channels'] ?? [];
+        } catch (Exception $error) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($error);
             $channels = [];
         }
         $item = [
@@ -356,23 +399,23 @@ class AigcFashionLookbookService
         return ['items' => [$item], 'ready' => (bool)$item['ready']];
     }
 
-    private static function assertAvailable(int $tenantId): void
+    private static function assertAvailable(int $tenantId, bool $readOnly = false): void
     {
-        if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE) !== null) {
+        if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE, 0, true, !$readOnly) !== null) {
             throw new Exception('服饰套图应用未开通或未上架');
         }
-        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE) !== null) {
+        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE, 0, true, !$readOnly) !== null) {
             throw new Exception('AIGC生图应用未开通或未上架');
         }
-        $config = self::config($tenantId);
+        $config = self::config($tenantId, $readOnly);
         if ((int)($config['status'] ?? 1) !== 1) {
             throw new Exception('服饰套图应用已停用');
         }
     }
 
-    private static function prepareGeneratePayload(int $tenantId, array $params, bool $requireImages): array
+    private static function prepareGeneratePayload(int $tenantId, array $params, bool $requireImages, bool $readOnly = false): array
     {
-        $config = self::config($tenantId);
+        $config = self::config($tenantId, $readOnly);
         $clothesImages = self::normalizeImages($params['clothes_images'] ?? $params['clothes'] ?? $params['source_images'] ?? []);
         $maxImages = self::normalizeMaxClothes($config['max_clothes_images'] ?? self::MAX_CLOTHES_IMAGES);
         if ($requireImages && !$clothesImages) {
@@ -441,7 +484,7 @@ class AigcFashionLookbookService
 
     private static function createBatchTask(int $tenantId, int $userId, array $imageTaskIds, array $prepared, array $estimate, array $submitErrors = []): AigcFashionLookbookTask
     {
-        $firstImageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => (int)$imageTaskIds[0]])->findOrEmpty();
+        $firstImageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => (int)$imageTaskIds[0], 'delete_time' => 0])->findOrEmpty();
         if ($firstImageTask->isEmpty()) {
             throw new Exception('生图任务不存在');
         }
@@ -488,10 +531,12 @@ class AigcFashionLookbookService
         foreach ($imageTaskIds as $imageTaskId) {
             try {
                 AigcImageService::taskDetail($tenantId, $imageTaskId, $userId);
-            } catch (\Throwable) {
+            } catch (\Throwable $error) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($error);
             }
         }
-        $imageTasks = AigcImageTask::where('tenant_id', $tenantId)->whereIn('id', $imageTaskIds)->where('delete_time', 0)->select()->toArray();
+        \app\common\service\open_platform\OpenCallContext::assertCurrentLease();
+        $imageTasks = AigcImageTask::where(['tenant_id' => $tenantId, 'user_id' => $userId])->whereIn('id', $imageTaskIds)->where('delete_time', 0)->select()->toArray();
         if (!$imageTasks) {
             return;
         }
@@ -504,7 +549,11 @@ class AigcFashionLookbookService
         $failedCount = count(array_filter($statuses, static fn($status) => in_array($status, ['failed', 'canceled'], true)));
         $resultCount = (int)($syncSummary['result_count'] ?? 0);
         $missingResultCount = (int)($syncSummary['missing_result_count'] ?? 0);
-        if ($missingSubmitCount === 0 && $resultCount >= $expectedCount && $successCount === $expectedCount) {
+        $open = \app\common\service\open_platform\OpenStore::owner('request', $tenantId, $userId)->where(['app_code' => self::APP_CODE, 'kind' => 'tool', 'method' => 'POST', 'path' => '/api/v1/tools/'.self::APP_CODE.'/tasks', 'tool_task_id' => (string)$task['id']])->find();
+        $interrupted = $open && \app\common\service\open_platform\OpenImageBatchDispatch::interrupted($tenantId, $userId, (int)$task['id'], self::APP_CODE);
+        if ($open && (($missingSubmitCount > 0 && !$interrupted) || $successCount + $failedCount < $submittedCount)) {
+            $task->status = 'running';
+        } elseif ($missingSubmitCount === 0 && $resultCount >= $expectedCount && $successCount === $expectedCount) {
             $task->status = 'success';
         } elseif ($resultCount > 0 && ($successCount + $failedCount === $submittedCount || $missingSubmitCount > 0)) {
             $task->status = 'partial_failed';
@@ -542,12 +591,12 @@ class AigcFashionLookbookService
         $resultCount = 0;
         $missingResultCount = 0;
         foreach (self::taskImageIds($task->toArray()) as $imageTaskId) {
-            $imageTask = AigcImageTask::where('tenant_id', $tenantId)->where('id', $imageTaskId)->where('delete_time', 0)->findOrEmpty();
+            $imageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'user_id' => $userId])->where('id', $imageTaskId)->where('delete_time', 0)->findOrEmpty();
             if ($imageTask->isEmpty() || (string)$imageTask['status'] !== 'success') {
                 continue;
             }
             $hasUsableResult = false;
-            $imageResults = AigcImageResult::where('tenant_id', $tenantId)
+            $imageResults = AigcImageResult::where(['tenant_id' => $tenantId, 'user_id' => $userId])
                 ->where('task_id', $imageTaskId)
                 ->where('delete_time', 0)
                 ->where('image_uri', '<>', '')

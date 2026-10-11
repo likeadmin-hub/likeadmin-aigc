@@ -70,6 +70,7 @@ final class OpenToolAdapter
         if($operation['app_code']==='aigc_music'&&$operation['route']==='POST tasks')return OpenToolPricing::musicBudget($request,$params);
         if($operation['app_code']==='aigc_video'&&$operation['route']==='POST tasks')return OpenVideoPricing::budget($request,$params);
         if($operation['app_code']==='aigc_product_multi_angle'&&$operation['route']==='POST tasks')return OpenImagePricing::multiAngleBudget($request,$params);
+        if($operation['app_code']==='aigc_fashion_lookbook'&&$operation['route']==='POST tasks')return OpenImagePricing::fashionBudget($request,$params);
         if($operation['app_code']==='aigc_fitting'&&$operation['route']==='POST tasks')return OpenImagePricing::fittingBudget($request,$params);
         $nativeModel=null;if($operation['app_code']==='aigc_llm'&&isset($operation['service'])){
             try{$nativeModel=\app\common\service\power\MarketTextModelRuntimeService::resolveModel((int)$request->tenantId,$params['model_code']??$params['model']??'',!empty($params['reference_images'])||!empty($params['image_urls']));}
