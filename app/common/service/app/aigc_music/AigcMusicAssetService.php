@@ -200,6 +200,11 @@ class AigcMusicAssetService
 
     private static function downloadRemoteContent(string $url): array
     {
+        if (\app\common\service\open_platform\OpenCallContext::active()) {
+            $wire=\app\common\service\open_platform\OpenSafeHttp::get($url,self::MAX_REMOTE_AUDIO_BYTES,45);
+            $headers=[];foreach($wire['headers'] as $name=>$value)$headers[]=$name.': '.$value;
+            return [$wire['body'],$headers];
+        }
         $context = stream_context_create([
             'http' => [
                 'timeout' => 45,

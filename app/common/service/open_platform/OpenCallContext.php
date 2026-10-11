@@ -13,6 +13,7 @@ final class OpenCallContext
         $token=self::leaseToken((string)$row['request_id']);if($token!==''&&(!hash_equals($token,(string)$row['lease_token'])||(int)$row['lease_expire']<=time()))throw new OpenException('recovery_lease_lost','任务已由其他恢复实例接管',409);
     }
     public static function id(): string { return self::$requestId; }
+    public static function active(): bool {return self::$requestId!==''||request() instanceof OpenToolRequest;}
     public static function textModel(): ?array
     {
         if(self::$requestId==='')return null;$row=OpenStore::table('request')->where(['request_id'=>self::$requestId,'app_code'=>'aigc_llm','kind'=>'tool'])->find();

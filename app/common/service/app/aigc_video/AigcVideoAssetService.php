@@ -62,7 +62,7 @@ class AigcVideoAssetService
                 'header' => "User-Agent: LikeAdminAigcVideo/1.0\r\n",
             ],
         ]);
-        $openDownload=\app\common\service\open_platform\OpenCallContext::id()!==''?\app\common\service\open_platform\OpenSafeHttp::get($url,268435456):null;
+        $openDownload=\app\common\service\open_platform\OpenCallContext::active()?\app\common\service\open_platform\OpenSafeHttp::get($url,268435456):null;
         $content = $openDownload!==null?$openDownload['body']:@file_get_contents($url, false, $context);
         if ($content === false || $content === '') {
             throw new Exception('生成视频下载失败');
