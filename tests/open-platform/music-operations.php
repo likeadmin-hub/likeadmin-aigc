@@ -10,7 +10,7 @@ function check($ok,$why){if(!$ok)throw new RuntimeException($why);}
 check(class_exists(Runtime::class),'Real music operation runtime is missing');
 $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&$db['database']==='z_cn','Local rollback only');
 $wallets=fn()=>[Db::name('user')->where(['tenant_id'=>1,'id'=>1])->value('user_money'),Db::name('tenant')->where('id',1)->value('point_balance')];$before=$wallets();
-$failQueue=false;app\common\model\ai\AiTaskJob::event('before_insert',static function()use(&$failQueue){if($failQueue)throw new RuntimeException('Synthetic queue write failure');});
+$failQueue=false;Db::listen(static function($sql)use(&$failQueue){if($failQueue&&preg_match('/INSERT.*la_ai_task_job/iu',$sql))throw new RuntimeException('Synthetic queue write failure');});
 Db::startTrans();try{
  request()->tenantId=1;request()->userId=1;
  foreach(['lyrics','mashup_lyrics','style'] as $api){
