@@ -7,7 +7,7 @@ use app\common\service\open_platform\OpenStore as S;
 function check($ok,$message){if(!$ok)throw new RuntimeException($message);}
 $db=config('database.connections.mysql');check($db['hostname']==='127.0.0.1'&&$db['database']==='z_cn','Local rollback fixtures only');
 Db::startTrans();try{
- request()->tenantId=987654328;request()->userId=123456788;
+ request()->tenantId=1;request()->userId=123456788;request()->source=app\common\enum\AdminTerminalEnum::USER;request()->userInfo=['tenant_id'=>1,'user_id'=>123456788,'terminal'=>4];
  $result=['tenant_id'=>request()->tenantId,'user_id'=>request()->userId,'image_uri'=>'uploads/result-'.bin2hex(random_bytes(8)).'.png','storage_scope'=>'tenant','storage_engine'=>'qcloud','storage_domain'=>'https://example.com','size'=>2048,'mime'=>'image/png'];
  $out=T::publicResult('aigc_image',['route'=>'GET tasks/{task_id}'],['id'=>12,'status'=>'success','results'=>[$result]]);$id=$out['results'][0]['file_id']??'';check(preg_match('/^of_[a-f0-9]{32}$/D',$id)===1,'Stored native result has no reusable material ID');
  $same=T::publicResult('aigc_image',['route'=>'GET tasks/{task_id}'],['id'=>12,'status'=>'success','results'=>[$result]]);check($same['results'][0]['file_id']===$id&&S::table('file')->where('file_id',$id)->count()===1,'Repeated task polling duplicated materials');
