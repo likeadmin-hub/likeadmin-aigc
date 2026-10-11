@@ -12,14 +12,14 @@ use app\common\service\storage\StorageConfigService;
 use app\common\service\storage\Driver;
 use app\common\model\file\TenantFile;
 use app\common\service\FileService;
-use think\facade\Db;
+use app\common\model\auth\TenantAdmin;
 $options=getopt('', ['tenant:','product:','media-dir:','apply']);
 $tenant=(int)($options['tenant']??0);$product=(int)($options['product']??0);$dir=realpath($options['media-dir']??'');
 if($tenant<=0 || $product<=0 || !$dir)throw new RuntimeException('Require --tenant, --product and --media-dir');
 $config=Video::config($tenant);$model=null;
 foreach($config['option_config']['channels']??[] as $candidate)if((int)$candidate['market_product_id']===$product)$model=$candidate;
 if(!$model)throw new RuntimeException('Selected model is not available for this tenant');
-$admin=Db::name('tenant_system_admin')->where('tenant_id',$tenant)->where('is_disable',0)->order('id','asc')->value('id');
+$admin=TenantAdmin::where('tenant_id',$tenant)->where('disable',0)->order('id','asc')->value('id');
 if(!$admin)throw new RuntimeException('No tenant administrator found');
 $rows=Effects::defaults();$existing=array_column(Effects::catalog($tenant),null,'id');
 foreach($rows as &$row){
