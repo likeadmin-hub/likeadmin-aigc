@@ -28,7 +28,13 @@ try{
  check((float)Db::name('user')->where('id',$u)->value('user_money')===990.,'Reservation did not protect user wallet');
  $saved=S::table('request')->where('id',$row['id'])->find();check(count(S::json($saved['consumption_ids']))===1,'Consumption association missing');check((float)$saved['actual_user']===10.&&(float)$saved['budget_user']===0.,'Observed debit or remaining budget wrong');
  $log=AiConsumptionLog::where('consume_no',$row['request_id'])->findOrEmpty();check(S::json($log['price_snapshot'])['_open_platform_request_id']===$row['request_id'],'Durable worker billing context missing');
- Billing::settle($row,['usage'=>['count'=>1]]);Billing::settle($row,['usage'=>['count'=>1]]);
+ $query=A::begin($key,'GET','/api/v1/tasks/fixture',[],['kind'=>'market','billable'=>false],['user'=>0,'tenant'=>0,'snapshot'=>[]],'fixture-free-query')['row'];
+ Context::enter($query['request_id']);
+ try{Billing::settle($row,['usage'=>['count'=>1]]);Billing::settle($row,['usage'=>['count'=>1]]);}finally{Context::leave();}
+ $querySaved=S::table('request')->where('id',$query['id'])->find();
+ check((float)$querySaved['actual_user']===0.&&(float)$querySaved['actual_tenant']===0.,'Query inherited original generation charges or refunds');
+ check(!isset(S::json($querySaved['snapshot'])['point_events']),'Query received original generation ledger events');
+ A::finish($query['request_id'],['status'=>'success','billing_status'=>'none','active'=>0,'finish_time'=>time()]);
  check((float)Db::name('user')->where('id',$u)->value('user_money')===995.,'Final user balance or duplicate settlement wrong');
  check((float)Db::name('tenant')->where('id',$t)->value('point_balance')===998.,'Tenant cost wrong');
  check(Db::name('user_account_log')->where('user_id',$u)->count()===2,'Independent user debit/refund ledger mismatch');
@@ -47,5 +53,5 @@ try{
  $before=(float)Db::name('user')->where('id',$u)->value('user_money');Context::enter($limited['request_id']);$blocked=false;
  try{Db::transaction(function()use($t,$u){app\common\service\point\PointService::consumeBusinessAmountsInCurrentTransaction($t,$u,2,2,'fixture-excess');});}catch(app\common\service\open_platform\OpenException $e){$blocked=$e->errorType==='settlement_boundary_exceeded';}finally{Context::leave();}
  check($blocked,'Native tool exceeded its admitted consumption boundary');check((float)Db::name('user')->where('id',$u)->value('user_money')===$before,'Rejected excess settlement mutated wallet');
- echo "PASS rollback-isolated admission, replay conflicts, durable debit association, real point ledgers, partial settlement, repeated settlement and missing usage\n";
+ echo "PASS rollback-isolated admission, replay conflicts, durable debit association during free queries, real point ledgers, partial settlement, repeated settlement and missing usage\n";
 }finally{Context::leave();Db::rollback();}
