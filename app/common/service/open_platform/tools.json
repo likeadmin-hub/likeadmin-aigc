@@ -1136,11 +1136,20 @@
         "billable": true,
         "input": {
           "type": "object",
-          "additionalProperties": true
+          "properties": {
+            "result_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "当前用户音乐作品 ID"
+            }
+          },
+          "required": [
+            "result_id"
+          ],
+          "additionalProperties": false
         },
-        "description": "AI音乐生成 Export/wav",
-        "available": false,
-        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
+        "description": "当前用户音乐作品的真实wav导出；异步操作返回任务 ID，查询取得终态结果",
+        "music_operation": "wav"
       },
       "POST export/mp4": {
         "controller": "Export",
@@ -1148,11 +1157,20 @@
         "billable": true,
         "input": {
           "type": "object",
-          "additionalProperties": true
+          "properties": {
+            "result_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "当前用户音乐作品 ID"
+            }
+          },
+          "required": [
+            "result_id"
+          ],
+          "additionalProperties": false
         },
-        "description": "AI音乐生成 Export/mp4",
-        "available": false,
-        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
+        "description": "当前用户音乐作品的真实mp4导出；异步操作返回任务 ID，查询取得终态结果",
+        "music_operation": "mp4"
       },
       "POST export/midi": {
         "controller": "Export",
@@ -1160,11 +1178,20 @@
         "billable": true,
         "input": {
           "type": "object",
-          "additionalProperties": true
+          "properties": {
+            "result_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "当前用户音乐作品 ID"
+            }
+          },
+          "required": [
+            "result_id"
+          ],
+          "additionalProperties": false
         },
-        "description": "AI音乐生成 Export/midi",
-        "available": false,
-        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
+        "description": "当前用户音乐作品的真实midi导出；异步操作返回任务 ID，查询取得终态结果",
+        "music_operation": "midi"
       },
       "POST export/timing": {
         "controller": "Export",
@@ -1193,11 +1220,30 @@
         "billable": true,
         "input": {
           "type": "object",
-          "additionalProperties": true
+          "properties": {
+            "result_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "当前用户音乐作品 ID"
+            },
+            "vocal_start": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 86400
+            },
+            "vocal_end": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 86400
+            }
+          },
+          "required": [
+            "result_id"
+          ],
+          "additionalProperties": false
         },
-        "description": "AI音乐生成 Export/vox",
-        "available": false,
-        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
+        "description": "当前用户音乐作品的真实vox导出；异步操作返回任务 ID，查询取得终态结果",
+        "music_operation": "vox"
       },
       "POST estimate": {
         "controller": "Generate",

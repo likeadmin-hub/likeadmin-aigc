@@ -25,7 +25,7 @@ final class OpenToolAdapter
             'lyrics'=>\app\common\service\app\aigc_music\AigcMusicService::lyrics((int)$request->tenantId,(int)$request->userId,$params),
             'mashup_lyrics'=>\app\common\service\app\aigc_music\AigcMusicService::mashupLyrics((int)$request->tenantId,(int)$request->userId,$params),
             'style'=>\app\common\service\app\aigc_music\AigcMusicService::optimizeStyle((int)$request->tenantId,(int)$request->userId,$params),
-            'timing'=>\app\common\service\app\aigc_music\AigcMusicService::exportResult((int)$request->tenantId,(int)$request->userId,(int)($params['result_id']??0),'timing',$params),
+            'timing','wav','midi','mp4','vox'=>\app\common\service\app\aigc_music\AigcMusicService::exportResult((int)$request->tenantId,(int)$request->userId,(int)($params['result_id']??0),$operation['music_operation'],$params),
             default=>throw new OpenException('not_found','音乐操作未注册',404),
         };
         if(($operation['service']??'')==='readTextTasks')return OpenTextLifecycle::tasks((int)$request->tenantId,(int)$request->userId,$operation['route'],$params);

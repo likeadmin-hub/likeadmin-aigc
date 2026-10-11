@@ -421,25 +421,7 @@ class AigcMusicService
         if ($result->isEmpty()) {
             throw new Exception('作品不存在');
         }
-        if($type==='timing')return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'timing',['result_id'=>$resultId]+$params);
-        $payload = self::providerFor('mock')->export($result->toArray(), $type, $params);
-        $row = AigcMusicExport::create([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'result_id' => $resultId,
-            'export_type' => $type,
-            'file_uri' => (string)($payload['file_uri'] ?? ''),
-            'storage_scope' => (string)$result['storage_scope'],
-            'storage_engine' => (string)$result['storage_engine'],
-            'storage_domain' => (string)$result['storage_domain'],
-            'status' => (string)($payload['status'] ?? 'success'),
-            'error' => (string)($payload['error'] ?? ''),
-            'result_json' => $payload['raw'] ?? [],
-            'create_time' => time(),
-        ]);
-        $data = $row->toArray();
-        $data['file_url'] = FileService::getFileUrlByStorage($data['file_uri'], $data['storage_scope'], $data['storage_engine'], $data['storage_domain']);
-        return $data;
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,$type,['result_id'=>$resultId]+$params);
     }
 
     public static function assetLists(int $tenantId, array $params = [], int $userId = 0): array

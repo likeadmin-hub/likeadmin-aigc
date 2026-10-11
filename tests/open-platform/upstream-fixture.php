@@ -2,6 +2,12 @@
 // Loopback-only contract fixture. Never use this as an upstream production service.
 if(($_SERVER['REMOTE_ADDR']??'')!=='127.0.0.1'){http_response_code(403);exit;}
 $path=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);
+if(str_starts_with($path,'/api/v1/tasks/music-operation-')){
+    header('Content-Type: application/json');$id=basename($path);
+    if(str_ends_with($id,'query-error')){http_response_code(503);echo '{"code":0,"msg":"fixture query unavailable"}';exit;}
+    $status=str_ends_with($id,'completed')?'completed':(str_ends_with($id,'failed')?'failed':'processing');
+    echo json_encode(['code'=>1,'data'=>['result'=>['task_id'=>$id,'status'=>$status,'file_url'=>'https://example.com/fixture.wav','data'=>['id'=>'fixture-vox']]]]);exit;
+}
 if($path==='/api/v1/music-receipt'){header('Content-Type: application/json');echo '{"code":1,"data":{"task_id":"fixture-music-receipt","receipt":"private fixture receipt"}}';exit;}
 if($path==='/api/v1/music-no-task'){header('Content-Type: application/json');echo '{"code":1,"data":{}}';exit;}
 if($path==='/api/v1/music-reject'){http_response_code(403);header('Content-Type: application/json');echo '{"code":0,"msg":"Invalid parameter"}';exit;}

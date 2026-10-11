@@ -16,18 +16,22 @@ use think\facade\Db;
 /** Shared real music text operations. Fixed upstream routes and immutable native receipts. */
 final class MarketMusicOperationRuntimeService
 {
-    public const ROUTES=['lyrics'=>'lyrics/index','mashup_lyrics'=>'mashuplyrics/index','style'=>'style/index','timing'=>'export/timing'];
+    public const ROUTES=['lyrics'=>'lyrics/index','mashup_lyrics'=>'mashuplyrics/index','style'=>'style/index','timing'=>'export/timing','wav'=>'export/wav','midi'=>'export/midi','mp4'=>'export/mp4','vox'=>'export/vox'];
+    private const ASYNC=['wav','midi','vox'];
 
     public static function input(string $api,array $params,int $tenant=0,int $user=0): array
     {
         if(!isset(self::ROUTES[$api]))throw new OpenException('capability_unavailable','音乐操作尚未接入',404);
-        if($api==='timing'){
+        if(in_array($api,['timing','wav','midi','mp4','vox'],true)){
             $id=$params['result_id']??$params['id']??0;if(!is_int($id)&&!(is_string($id)&&preg_match('/^[1-9][0-9]*$/D',$id)))throw new OpenException('invalid_request','请选择有效的音乐作品');
             $result=\app\common\model\app\aigc_music\AigcMusicResult::where(['id'=>(int)$id,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->findOrEmpty();
             if($result->isEmpty()||$tenant<1||$user<1)throw new OpenException('not_found','音乐作品不存在或不属于当前用户',404);
             $raw=OpenStore::json($result['result_json']);$audio=$raw['audio_id']??$raw['id']??'';
             if(!is_string($audio)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$audio))throw new OpenException('resource_unavailable','音乐作品缺少可信上游音频 ID',409);
-            return ['audio_id'=>$audio];
+            $payload=['audio_id'=>$audio];
+            if($api==='vox')foreach(['vocal_start','vocal_end'] as $field)if(isset($params[$field])){if(!is_numeric($params[$field])||!is_finite((float)$params[$field])||(float)$params[$field]<0||(float)$params[$field]>86400)throw new OpenException('invalid_request','人声片段时间无效');$payload[$field]=(float)$params[$field];}
+            if(isset($payload['vocal_start'],$payload['vocal_end'])&&$payload['vocal_end']<=$payload['vocal_start'])throw new OpenException('invalid_request','人声结束时间必须晚于开始时间');
+            return $payload;
         }
         $fields=$api==='mashup_lyrics'?['lyrics_a','lyrics_b']:['prompt'];$payload=[];
         foreach($fields as $field){$aliases=['prompt'=>'theme','lyrics_a'=>'source_lyrics','lyrics_b'=>'target_lyrics'];$value=$params[$field]??$params[$aliases[$field]]??'';if(!is_string($value))throw new OpenException('invalid_request',$field.' 必须是文本');$text=trim($value);if($text===''||mb_strlen($text)>20000)throw new OpenException('invalid_request','请提供有效的 '.$field);$payload[$field]=$text;}
@@ -47,13 +51,13 @@ final class MarketMusicOperationRuntimeService
     }
     public static function budget(int $tenant,int $user,string $api,array $params): array
     {
-        $quote=self::quote($tenant,$user,$api,$params);$selection=['tenant_id'=>$tenant,'user_id'=>$user,'api_code'=>$api,'payload'=>self::input($api,$params,$tenant,$user),'quote'=>$quote];
+        $quote=self::quote($tenant,$user,$api,$params);$selection=['tenant_id'=>$tenant,'user_id'=>$user,'api_code'=>$api,'payload'=>self::input($api,$params,$tenant,$user),'quote'=>$quote,'result_id'=>(int)($params['result_id']??$params['id']??0)];
         return ['user'=>$quote['user_charge_points'],'tenant'=>$quote['tenant_cost_points'],'snapshot'=>['quote'=>$quote,'billing_owner'=>'tool','native_music_operation_blob'=>OpenVault::seal(OpenStore::encode($selection))]];
     }
     public static function selection(int $tenant,int $user,string $api,array $params): array
     {
         $payload=self::input($api,$params,$tenant,$user);$rid=OpenCallContext::id();
-        if($rid==='')return ['tenant_id'=>$tenant,'user_id'=>$user,'api_code'=>$api,'payload'=>$payload,'quote'=>self::quote($tenant,$user,$api,$params)];
+        if($rid==='')return ['tenant_id'=>$tenant,'user_id'=>$user,'api_code'=>$api,'payload'=>$payload,'quote'=>self::quote($tenant,$user,$api,$params),'result_id'=>(int)($params['result_id']??$params['id']??0)];
         $row=OpenStore::owner('request',$tenant,$user)->where(['request_id'=>$rid,'kind'=>'tool','app_code'=>'aigc_music','method'=>'POST','path'=>'/api/v1/tools/aigc_music/'.self::ROUTES[$api]])->find();
         if(!$row)throw new OpenException('task_context_invalid','音乐操作归属不一致',409);OpenCallContext::assertLease($row);
         $blob=OpenStore::json($row['snapshot'])['native_music_operation_blob']??'';if($blob==='')throw new OpenException('pricing_snapshot_invalid','音乐操作缺少受理快照',409);$selection=OpenStore::json(OpenVault::open($blob));
@@ -68,7 +72,12 @@ final class MarketMusicOperationRuntimeService
         try{
             $wire=(new OpenTransport())->send(OpenStore::json(OpenVault::open($snapshot['music_source_blob'])),'POST','/api/v1/apps/music_generation/'.$api,$selection['payload']);
             self::capture($cid,$wire);self::refresh($cid);
-        }catch(\Throwable $e){if(OpenRecovery::connectionLost($e))throw $e;$latest=AiConsumptionLog::findOrEmpty($cid);if(!in_array($latest['billing_status'],['settled','refunded'],true))self::uncertain($cid);throw $e;}
+        }catch(\Throwable $e){
+            if(OpenRecovery::connectionLost($e))throw $e;$latest=AiConsumptionLog::findOrEmpty($cid);$state=OpenStore::json($latest['price_snapshot']);
+            if($e instanceof OpenException&&in_array($e->errorType,['query_unavailable','result_storage_failed','asset_fetch_failed','invalid_url'],true)&&($latest['upstream_task_id']!==''||self::terminalReceipt($state))){
+                Db::transaction(static function()use($cid,$e){$c=AiConsumptionLog::lock(true)->findOrEmpty($cid);if(in_array($c['billing_status'],['settled','refunded'],true))return;self::assertOrigin($c->toArray());$message='音乐结果查询或保存暂未完成，将继续跟踪原任务';$c->save(['run_status'=>'running','error_code'=>$e->errorType,'error_message'=>$message,'update_time'=>time()]);AigcMusicTask::where('consumption_id',$cid)->update(['status'=>'running','error_code'=>$e->errorType,'error'=>$message,'update_time'=>time()]);});
+            }else{if(!in_array($latest['billing_status'],['settled','refunded'],true))self::uncertain($cid);throw $e;}
+        }
         $native=AigcMusicTask::where('consumption_id',$cid)->findOrEmpty();return self::taskData($native->toArray());
     }
     private static function reserve(int $tenant,int $user,string $api,array $payload,array $selection): int
@@ -79,7 +88,7 @@ final class MarketMusicOperationRuntimeService
             if($rid!==''){$row=OpenStore::owner('request',$tenant,$user)->where('request_id',$rid)->lock(true)->find();if(!$row||!$row['active']||$row['tool_task_id']!=='')throw new OpenException('task_context_invalid','音乐请求已经受理或关闭',409);OpenCallContext::assertLease($row);}
             $native=AigcMusicTask::create(['tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_music','action'=>$api,'title'=>'','prompt'=>$payload['prompt']??'','lyrics'=>'','provider'=>'market_music_operation','model'=>'music_generation','channel'=>'music_generation:'.$api,'quality'=>'per_call','ratio'=>'','quantity'=>1,'tenant_cost_points'=>$quote['tenant_cost_points'],'user_charge_points'=>$quote['user_charge_points'],'market_product_id'=>$quote['market_product_id'],'market_sku_id'=>$quote['market_sku_id'],'status'=>'running','billing_status'=>'reserved','idempotency_key'=>$rid?:$sn,'delete_time'=>0]+OpenStore::timestamp());
             $task=AiAppTask::create(['task_no'=>$sn,'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_music','action_code'=>$api,'business_table'=>'aigc_music_task','business_id'=>$native['id'],'status'=>'submitting','progress'=>0,'request_summary'=>['api_code'=>$api],'result_summary'=>[],'estimated_tenant_cost'=>$quote['tenant_cost_points'],'estimated_user_price'=>$quote['user_charge_points'],'idempotency_key'=>$rid?:$sn]+OpenStore::timestamp());
-            $snapshot=$quote+['app_code'=>'music_generation','runtime_adapter'=>'music_operation','music_source_blob'=>OpenVault::seal(OpenStore::encode($source))];
+            $snapshot=$quote+['app_code'=>'music_generation','runtime_adapter'=>'music_operation','music_source_blob'=>OpenVault::seal(OpenStore::encode($source)),'music_result_id'=>(int)($selection['result_id']??0)];
             $c=AiConsumptionLog::create(['consume_no'=>$sn,'app_task_id'=>$task['id'],'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_music','action_code'=>$api,'resource_type'=>'app_api','product_id'=>$quote['market_product_id'],'sku_id'=>$quote['market_sku_id'],'protocol'=>'application_api','provider'=>'power_market','quantity'=>1,'usage_unit'=>'per_call','price_snapshot'=>$snapshot,'usage_snapshot'=>[],'request_summary'=>['api_code'=>$api],'response_summary'=>[],'run_status'=>'reserved','billing_status'=>'reserved','reserved_tenant_cost'=>$quote['tenant_cost_points'],'reserved_user_price'=>$quote['user_charge_points'],'tenant_point_sn'=>$sn.'-reserve','user_point_sn'=>$sn.'-reserve']+OpenStore::timestamp());
             PointService::reserveBusinessAmountsInCurrentTransaction($tenant,$user,$quote['tenant_cost_points'],$quote['user_charge_points'],$sn.'-reserve','音乐操作预占',['app_code'=>'aigc_music','consumption_id'=>$c['id']]);
             $native->save(['app_task_id'=>$task['id'],'consumption_id'=>$c['id']]);
@@ -94,12 +103,23 @@ final class MarketMusicOperationRuntimeService
     }
     private static function capture(int $cid,array $wire): void
     {
-        Db::transaction(static function()use($cid,$wire){$c=AiConsumptionLog::lock(true)->findOrEmpty($cid);self::assertOrigin($c->toArray());$snapshot=OpenStore::json($c['price_snapshot']);$body=OpenStore::json($wire['body']);$snapshot['music_receipt_blob']=OpenVault::seal(OpenStore::encode(['http_status'=>$wire['status'],'body'=>$body]));$requestId=$wire['headers']['x-request-id']??$wire['headers']['request-id']??$body['request_id']??'';if(!is_string($requestId)||!preg_match('/^[A-Za-z0-9_.:-]{1,200}$/D',$requestId))$requestId='';$c->save(['price_snapshot'=>$snapshot,'run_status'=>'running','upstream_request_id'=>$requestId,'update_time'=>time()]);});
+        Db::transaction(static function()use($cid,$wire){$c=AiConsumptionLog::lock(true)->findOrEmpty($cid);if(in_array($c['billing_status'],['settled','refunded'],true))return;self::assertOrigin($c->toArray());$snapshot=OpenStore::json($c['price_snapshot']);$body=OpenStore::json($wire['body']);$snapshot['music_receipt_blob']=OpenVault::seal(OpenStore::encode(['http_status'=>$wire['status'],'body'=>$body]));$requestId=$wire['headers']['x-request-id']??$wire['headers']['request-id']??$body['request_id']??'';if(!is_string($requestId)||!preg_match('/^[A-Za-z0-9_.:-]{1,200}$/D',$requestId))$requestId='';
+            $taskId=$body['data']['task_id']??$body['data']['result']['task_id']??'';if(!is_string($taskId)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$taskId))$taskId='';
+            if($taskId!==''&&in_array($snapshot['api_code'],self::ASYNC,true)){
+                if($c['upstream_task_id']!==''&&$c['upstream_task_id']!==$taskId)throw new OpenException('receipt_identity_mismatch','音乐导出任务 ID 不一致',409);
+                $c->upstream_task_id=$taskId;AigcMusicTask::where(['consumption_id'=>$cid,'tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id']])->update(['provider_task_id'=>$taskId,'update_time'=>time()]);
+            }
+            $c->save(['price_snapshot'=>$snapshot,'run_status'=>'running','upstream_request_id'=>$requestId?:$c['upstream_request_id'],'update_time'=>time()]);});
     }
     public static function refresh(int $cid): array
     {
         $c=AiConsumptionLog::findOrEmpty($cid);if($c->isEmpty())throw new OpenException('not_found','音乐消耗记录不存在',404);$snapshot=OpenStore::json($c['price_snapshot']);if(($snapshot['runtime_adapter']??'')!=='music_operation')throw new OpenException('task_context_invalid','音乐运行时不一致',409);
         if(in_array($c['billing_status'],['settled','refunded'],true))return ['status'=>$c['run_status']];
+        if(in_array($snapshot['api_code'],self::ASYNC,true)&&$c['upstream_task_id']!==''&&!self::terminalReceipt($snapshot)){
+            $source=OpenStore::json(OpenVault::open($snapshot['music_source_blob']));$wire=(new OpenTransport())->send($source,'GET','/api/v1/tasks/'.rawurlencode((string)$c['upstream_task_id']),[]);
+            if(OpenGateway::wireFailed($wire['status'],OpenStore::json($wire['body']),[]))throw new OpenException('query_unavailable','音乐导出查询暂不可用，继续跟踪原任务',502);
+            self::capture($cid,$wire);$c->refresh();$snapshot=OpenStore::json($c['price_snapshot']);
+        }
         $blob=$snapshot['music_receipt_blob']??'';
         if($blob==='')return Db::transaction(static function()use($cid){
             $c=AiConsumptionLog::lock(true)->findOrEmpty($cid);$snapshot=OpenStore::json($c['price_snapshot']);
@@ -115,6 +135,19 @@ final class MarketMusicOperationRuntimeService
         if($ambiguous){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
         if($failed){self::complete($cid,[],true);return ['status'=>'failed'];}
         $result=(array)($body['data']['result']??[]);$data=$result['data']??[];if(is_array($data)&&array_is_list($data))$data=$data[0]??[];
+        if(in_array($result['status']??'',['failed','canceled','cancelled'],true)){self::complete($cid,[],true);return ['status'=>'failed'];}
+        if(in_array($snapshot['api_code'],self::ASYNC,true)&&$c['upstream_task_id']!==''&&!in_array($result['status']??'',['completed','complete','success','succeeded'],true))return ['status'=>'running'];
+        if(in_array($snapshot['api_code'],['wav','midi','mp4','vox'],true)){
+            if(!in_array($result['status']??'',['completed','complete','success','succeeded'],true)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+            if($snapshot['api_code']==='vox'){
+                $id=$result['audio_id']??$data['audio_id']??$data['id']??'';
+                if(!is_string($id)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$id)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+                $public=['vox_audio_id'=>$id];self::complete($cid,$public,false);return ['status'=>'success']+$public;
+            }
+            $url=$result['file_url']??$result['video_url']??$data['file_url']??$data['video_url']??'';
+            if(!is_string($url)||!preg_match('#^https?://#i',$url)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+            $public=self::storeExport($cid,$url);self::complete($cid,$public,false);return ['status'=>'success']+$public;
+        }
         if($snapshot['api_code']==='timing'){
             $valid=is_array($data)&&!array_is_list($data)&&count(array_intersect(['aligned_words','segments','waveform_data'],array_keys($data)))>0;
             foreach(['aligned_words','segments','waveform_data'] as $field)if(isset($data[$field])&&!is_array($data[$field]))$valid=false;
@@ -124,6 +157,25 @@ final class MarketMusicOperationRuntimeService
         $field=$snapshot['api_code']==='style'?'upsampled_tags':'text';$text=is_array($data)?($data[$field]??''):'';
         if(!in_array($result['status']??'',['completed','complete','success','succeeded'],true)||!is_string($text)||trim($text)===''){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
         $public=[$field==='text'?'lyrics':'style'=>$text,'title'=>(string)($data['title']??$result['title']??'')];self::complete($cid,$public,false);return ['status'=>'success']+$public;
+    }
+    private static function terminalReceipt(array $snapshot): bool
+    {
+        if(empty($snapshot['music_receipt_blob']))return false;
+        $wire=OpenStore::json(OpenVault::open($snapshot['music_receipt_blob']));$body=$wire['body']??$wire;
+        return in_array($body['data']['result']['status']??'',['completed','complete','success','succeeded','failed','canceled','cancelled'],true);
+    }
+    private static function storeExport(int $cid,string $url): array
+    {
+        return Db::transaction(static function()use($cid,$url){
+            $c=AiConsumptionLog::lock(true)->findOrEmpty($cid);self::assertOrigin($c->toArray());$snapshot=OpenStore::json($c['price_snapshot']);
+            if(!empty($snapshot['music_export_blob']))return OpenStore::json(OpenVault::open($snapshot['music_export_blob']));
+            if(in_array($c['billing_status'],['settled','refunded'],true))throw new OpenException('task_closed','音乐任务已经关闭',409);
+            $stored=\app\common\service\app\aigc_music\AigcMusicExportStorageService::persist((int)$c['tenant_id'],(int)$c['user_id'],$snapshot['api_code'],$url);
+            $export=\app\common\model\app\aigc_music\AigcMusicExport::create(['tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id'],'result_id'=>$snapshot['music_result_id'],'export_type'=>$snapshot['api_code'],'file_uri'=>$stored['file_uri'],'storage_scope'=>$stored['storage_scope'],'storage_engine'=>$stored['storage_engine'],'storage_domain'=>$stored['storage_domain'],'status'=>'success','error'=>'','result_json'=>['sha256'=>$stored['sha256'],'mime_type'=>$stored['mime_type'],'file_size'=>$stored['file_size']],'create_time'=>time()]);
+            $file=\app\common\service\open_platform\OpenAssets::registerResult((int)$c['tenant_id'],(int)$c['user_id'],'aigc_music',$stored);
+            $public=['export_id'=>(int)$export['id'],'file_id'=>$file,'file_url'=>$stored['file_url'],'results'=>[$stored+['file_id'=>$file]]];
+            $snapshot['music_export_blob']=OpenVault::seal(OpenStore::encode($public));$c->save(['price_snapshot'=>$snapshot,'update_time'=>time()]);return $public;
+        });
     }
     private static function uncertain(int $cid): void
     {
