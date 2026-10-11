@@ -12,7 +12,7 @@ $tenant=2000000001;
 $check(Config::whereIn('tenant_id',[$tenant,$tenant+1])->count()===0,'Fixture IDs occupied');
 Db::startTrans();
 try {
-    $rows=Effects::defaults();
+    $rows=array_slice(Effects::defaults(),0,3);
     foreach($rows as &$row){$row['enabled']=true;$row['product_ids']=[7];$row['poster']='/uploads/fixture.webp';$row['video']='/uploads/fixture.mp4';}unset($row);
     $rows=Effects::normalize($rows);
     Video::saveConfig($tenant,['config_json'=>['video_effects'=>$rows]]);

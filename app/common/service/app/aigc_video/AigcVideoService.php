@@ -701,6 +701,7 @@ class AigcVideoService
         return self::generate($tenantId, (int)$task['user_id'], [
             'prompt' => $task['prompt'],
             'effect_id' => (string)($task['model_json']['effect_snapshot']['id'] ?? ''),
+            ...(!empty($task['model_json']['effect_snapshot']['instruction']) ? ['effect_prompt'=>$task['model_json']['effect_snapshot']['instruction']] : []),
             'negative_prompt' => $task['negative_prompt'],
             'reference_images' => $task['reference_images'] ?: [],
             'reference_assets' => $task['reference_assets'] ?: [],
@@ -906,7 +907,7 @@ class AigcVideoService
     private static function appendTaskModelDisplay(array &$task): void
     {
         $effect = $task['model_json']['effect_snapshot'] ?? [];
-        $task['effect'] = $effect ? array_intersect_key($effect, array_flip(['id', 'name', 'version'])) : null;
+        $task['effect'] = $effect ? array_intersect_key($effect, array_flip(['id', 'name', 'version', 'instruction'])) : null;
         $task['model_name'] = AiTaskRecordService::modelDisplayName($task, self::APP_CODE);
         $task['channel_name'] = $task['model_name'];
     }
