@@ -22,6 +22,10 @@ Db::startTrans();try{
  check(N::holdUnknown($cid),'Unknown submission not deferred');$c=AiConsumptionLog::findOrEmpty($cid);check($c['run_status']==='pending_confirmation'&&$c['billing_status']==='reserved','Uncertain native reservation was refunded');
  $row=S::table('request')->where('request_id',$rid)->find();check(K::billing($row)==='pending_confirmation'&&(int)$row['active']===1,'Pending classification or admission budget lost');
  $reply=B::refresh($cid);check($reply['status']==='pending_confirmation','Native query retried or timed out unknown acceptance');
+ AiConsumptionLog::where('id',$cid)->update(['create_time'=>time()-86400]);
+ foreach(['MarketVideoRuntimeService','MarketMusicAppRuntimeService','MarketSeedSvcAppRuntimeService','MarketPicLipsyncAppRuntimeService','MarketGenericImageAppRuntimeService'] as $name){$class='app\\common\\service\\power\\'.$name;$reply=$class::refresh($cid);check($reply['status']==='pending_confirmation','Expired unknown '.$name.' reservation was refunded or queried');}
+ AiConsumptionLog::where('id',$cid)->update(['run_status'=>'success','upstream_task_id'=>'fixture-known-task','billing_status'=>'reserved']);
+ check(N::holdUnknown($cid),'Known result settlement failure was not retained');$known=AiConsumptionLog::findOrEmpty($cid);check($known['run_status']==='success'&&$known['billing_status']==='settlement_failed','Known provider success collapsed to uncertain submission');
  check((float)Db::name('user')->where('id',1)->value('user_money')===$wallet,'Recovery changed wallet');
- echo "PASS durable submit marker, per-attempt receipt, unknown native reservation and no timeout refund/resubmit\n";
+ echo "PASS durable submit marker, per-attempt receipt, 6 expired unknown native reservations, known result settlement and no timeout refund/resubmit\n";
 }finally{C::leave();Db::rollback();}

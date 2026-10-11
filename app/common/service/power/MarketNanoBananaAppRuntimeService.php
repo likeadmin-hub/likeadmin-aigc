@@ -302,7 +302,7 @@ class MarketNanoBananaAppRuntimeService
                     'status' => 'running', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => [],
                 ];
             }
-            if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return ['status'=>'pending_confirmation','provider_task_id'=>'','provider_request_id'=>'','images'=>[]];
+            if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('nano-banana 生图提交失败');
         }

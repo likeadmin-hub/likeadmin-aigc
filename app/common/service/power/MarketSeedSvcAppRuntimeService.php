@@ -245,6 +245,7 @@ class MarketSeedSvcAppRuntimeService
             return self::response($consumption->toArray());
         }
         $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
+        \app\common\service\open_platform\OpenSubmission::start($consumptionId);
         try {
             $body = self::request('POST', self::endpoint(self::SUBMIT_API_CODE), self::payload($snapshot, $request, (string)$consumption['consume_no']));
             $taskId = self::taskId($body);
@@ -272,6 +273,7 @@ class MarketSeedSvcAppRuntimeService
             AiTaskJobService::enqueueQueryResult($consumptionId);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
         } catch (\Throwable $e) {
+            if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('音乐翻唱接口提交失败');
         }
@@ -284,6 +286,7 @@ class MarketSeedSvcAppRuntimeService
             throw new Exception('市场音色修改消耗记录不存在');
         }
         $consumption = $context['consumption'];
+        if (\app\common\service\open_platform\OpenSubmission::pending($consumption->toArray())) return self::response($consumption->toArray());
         if (in_array((string)$consumption['billing_status'], ['settled', 'refunded'], true)
             || in_array((string)$consumption['run_status'], ['success', 'failed', 'canceled', 'cancelled'], true)) {
             return self::response($consumption->toArray());
@@ -601,7 +604,7 @@ class MarketSeedSvcAppRuntimeService
         if ($errno) {
             throw new Exception($error ?: '音色修改应用网络请求失败');
         }
-        $data = json_decode((string)$body, true);
+        $data = json_decode((string)$body, true); if ($method === 'POST' && is_array($data)) \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== '');
         if (!is_array($data)) {
             throw new Exception('音色修改应用响应格式错误');
         }
