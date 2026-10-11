@@ -22,6 +22,8 @@ final class OpenToolAdapter
         $original=app()->request;$scoped=OpenToolRequest::from($request,$params,$operation);app()->instance('request',$scoped);
         try{
         if(isset($operation['music_operation']))return match($operation['music_operation']) {
+            'upload_audio'=>\app\common\service\app\aigc_music\AigcMusicService::uploadUpstreamAudio((int)$request->tenantId,(int)$request->userId,$params),
+            'persona'=>\app\common\service\app\aigc_music\AigcMusicService::createUpstreamPersona((int)$request->tenantId,(int)$request->userId,$params),
             'voice_clone'=>\app\common\service\app\aigc_music\AigcMusicService::createVoiceClone((int)$request->tenantId,(int)$request->userId,$params),
             'lyrics'=>\app\common\service\app\aigc_music\AigcMusicService::lyrics((int)$request->tenantId,(int)$request->userId,$params),
             'mashup_lyrics'=>\app\common\service\app\aigc_music\AigcMusicService::mashupLyrics((int)$request->tenantId,(int)$request->userId,$params),

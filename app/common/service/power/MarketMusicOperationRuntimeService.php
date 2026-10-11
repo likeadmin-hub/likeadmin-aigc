@@ -16,20 +16,20 @@ use think\facade\Db;
 /** Shared real music text operations. Fixed upstream routes and immutable native receipts. */
 final class MarketMusicOperationRuntimeService
 {
-    public const ROUTES=['lyrics'=>'lyrics/index','mashup_lyrics'=>'mashuplyrics/index','style'=>'style/index','timing'=>'export/timing','wav'=>'export/wav','midi'=>'export/midi','mp4'=>'export/mp4','vox'=>'export/vox','voice_clone'=>'voiceclone/create'];
+    public const ROUTES=['lyrics'=>'lyrics/index','mashup_lyrics'=>'mashuplyrics/index','style'=>'style/index','timing'=>'export/timing','wav'=>'export/wav','midi'=>'export/midi','mp4'=>'export/mp4','vox'=>'export/vox','voice_clone'=>'voiceclone/create','upload_audio'=>'asset/upload_upstream','persona'=>'persona/upstream'];
     private const ASYNC=['wav','midi','vox'];
 
     public static function input(string $api,array $params,int $tenant=0,int $user=0): array
     {
         if(!isset(self::ROUTES[$api]))throw new OpenException('capability_unavailable','音乐操作尚未接入',404);
         if($api==='mp4')\app\common\service\app\aigc_music\MusicExportDecoder::assertAvailable();
-        if($api==='voice_clone'){
+        if(in_array($api,['voice_clone','upload_audio'],true)){
             $id=$params['reference_asset_id']??$params['asset_id']??0;
             if(!is_int($id)&&!(is_string($id)&&preg_match('/^[1-9][0-9]*$/D',$id)))throw new OpenException('invalid_request','请选择有效的授权音频素材');
             $asset=\app\common\model\app\aigc_music\AigcMusicAsset::where(['id'=>(int)$id,'tenant_id'=>$tenant,'user_id'=>$user,'status'=>1,'delete_time'=>0])->findOrEmpty();
             if($tenant<1||$user<1||$asset->isEmpty())throw new OpenException('not_found','音频素材不存在或不属于当前用户',404);
             $name=$params['name']??'';$description=$params['description']??'';
-            if(!is_string($name)||trim($name)===''||mb_strlen($name)>100||!is_string($description)||mb_strlen($description)>5000)throw new OpenException('invalid_request','声音名称或说明无效');
+            if($api==='voice_clone'&&(!is_string($name)||trim($name)===''||mb_strlen($name)>100||!is_string($description)||mb_strlen($description)>5000))throw new OpenException('invalid_request','声音名称或说明无效');
             foreach(['authorization_text'=>5000,'source'=>200] as $field=>$limit)if(isset($params[$field])&&(!is_string($params[$field])||mb_strlen($params[$field])>$limit))throw new OpenException('invalid_request','授权说明无效');
             if(isset($params['authorization_confirmed'])&&!in_array($params['authorization_confirmed'],[0,1,'0','1'],true))throw new OpenException('invalid_request','授权状态无效');
             $file=\app\common\model\file\TenantFile::where(['tenant_id'=>$tenant,'source_id'=>$user,'source'=>\app\common\enum\FileEnum::SOURCE_USER,'uri'=>(string)$asset['uri']])->findOrEmpty();
@@ -38,7 +38,21 @@ final class MarketMusicOperationRuntimeService
             // immutable storage metadata can select a bucket or sign a private URL.
             $url=\app\common\service\FileService::getFileUrlByStorage((string)$file['uri'],(string)$file['storage_scope'],(string)$file['storage_engine'],(string)$file['storage_domain']);
             \app\common\service\open_platform\OpenSafeHttp::resolve($url,false);
-            return ['audio_url'=>$url,'name'=>trim($name),'description'=>trim($description)];
+            return $api==='upload_audio'?['audio_url'=>$url]:['audio_url'=>$url,'name'=>trim($name),'description'=>trim($description)];
+        }
+        if($api==='persona'){
+            $id=$params['result_id']??0;
+            if(!is_int($id)&&!(is_string($id)&&preg_match('/^[1-9][0-9]*$/D',$id)))throw new OpenException('invalid_request','请选择有效的音乐作品');
+            $row=\app\common\model\app\aigc_music\AigcMusicResult::where(['id'=>(int)$id,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->findOrEmpty();
+            if($tenant<1||$user<1||$row->isEmpty())throw new OpenException('not_found','音乐作品不存在或不属于当前用户',404);
+            $raw=OpenStore::json($row['result_json']);$audio=$raw['audio_id']??$raw['id']??'';
+            if(!is_string($audio)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$audio))throw new OpenException('resource_unavailable','音乐作品缺少可信上游音频 ID',409);
+            $name=$params['name']??'';$description=$params['description']??'';
+            if(!is_string($name)||trim($name)===''||mb_strlen($name)>100||!is_string($description)||mb_strlen($description)>5000)throw new OpenException('invalid_request','歌手风格名称或说明无效');
+            $payload=['audio_id'=>$audio,'name'=>trim($name),'description'=>trim($description)];
+            foreach(['vocal_start','vocal_end'] as $field)if(isset($params[$field])){if(!is_numeric($params[$field])||!is_finite((float)$params[$field])||(float)$params[$field]<0||(float)$params[$field]>86400)throw new OpenException('invalid_request','人声片段时间无效');$payload[$field]=(float)$params[$field];}
+            if(isset($payload['vocal_start'],$payload['vocal_end'])&&$payload['vocal_end']<=$payload['vocal_start'])throw new OpenException('invalid_request','人声结束时间必须晚于开始时间');
+            return $payload;
         }
         if(in_array($api,['timing','wav','midi','mp4','vox'],true)){
             $id=$params['result_id']??$params['id']??0;if(!is_int($id)&&!(is_string($id)&&preg_match('/^[1-9][0-9]*$/D',$id)))throw new OpenException('invalid_request','请选择有效的音乐作品');
@@ -80,7 +94,7 @@ final class MarketMusicOperationRuntimeService
         if(!$row)throw new OpenException('task_context_invalid','音乐操作归属不一致',409);OpenCallContext::assertLease($row);
         $blob=OpenStore::json($row['snapshot'])['native_music_operation_blob']??'';if($blob==='')throw new OpenException('pricing_snapshot_invalid','音乐操作缺少受理快照',409);$selection=OpenStore::json(OpenVault::open($blob));
         $expected=$selection['payload']??null;$current=$payload;
-        if($api==='voice_clone'){
+        if(in_array($api,['voice_clone','upload_audio'],true)){
             // Private storage URLs may be re-signed between estimate and execution.
             // Identity and text must match; dispatch keeps the accepted URL snapshot.
             unset($expected['audio_url'],$current['audio_url']);
@@ -171,6 +185,11 @@ final class MarketMusicOperationRuntimeService
             if(!in_array($status,['completed','complete','success','succeeded'],true)||!is_string($voiceId)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$voiceId)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
             self::complete($cid,['provider_voice_id'=>$voiceId],false);return ['status'=>'success'];
         }
+        if(in_array($snapshot['api_code'],['persona','upload_audio'],true)){
+            $field=$snapshot['api_code']==='persona'?'persona_id':'audio_id';$id=$result[$field]??$data[$field]??'';
+            if(!in_array($status,['completed','complete','success','succeeded'],true)||!is_string($id)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$id)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+            self::complete($cid,[$snapshot['api_code']==='persona'?'provider_persona_id':'reference_audio_id'=>$id],false);return ['status'=>'success'];
+        }
         if(in_array($snapshot['api_code'],self::ASYNC,true)&&$c['upstream_task_id']!==''&&!in_array($status,['completed','complete','success','succeeded'],true))return ['status'=>'running'];
         if(in_array($snapshot['api_code'],['wav','midi','mp4','vox'],true)){
             if(!in_array($status,['completed','complete','success','succeeded'],true)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
@@ -236,6 +255,11 @@ final class MarketMusicOperationRuntimeService
                 $clone=\app\common\model\app\aigc_music\AigcMusicVoiceClone::create(['tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id'],'name'=>$selection['payload']['name'],'reference_asset_id'=>$selection['reference_asset_id'],'provider_voice_id'=>$result['provider_voice_id'],'auth_status'=>$auth['authorization_confirmed']===1?'confirmed':'pending','audit_status'=>'pending','auth_json'=>$auth+['created_at'=>$now],'provider_payload'=>['source'=>'market_music_operation','consumption_id'=>$cid],'status'=>'success','delete_time'=>0]+OpenStore::timestamp());
                 \app\common\model\app\aigc_music\AigcMusicSafetyAudit::create(['tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id'],'target_type'=>'voice_clone','target_id'=>$clone['id'],'action'=>'voice_clone_create','decision'=>'pending','summary'=>$selection['payload']['name'],'audit_json'=>['app_code'=>'aigc_music'],'create_time'=>$now]);
                 $result+=['voice_clone_id'=>(int)$clone['id'],'auth_status'=>$clone['auth_status'],'audit_status'=>'pending'];
+            }
+            if(!$failed&&$snapshot['api_code']==='persona'){
+                $selection=OpenStore::json(OpenVault::open($snapshot['music_selection_blob']));
+                $persona=\app\common\model\app\aigc_music\AigcMusicPersona::create(['tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id'],'name'=>$selection['payload']['name'],'description'=>$selection['payload']['description'],'reference_asset_id'=>0,'lyrics_style'=>'','prompt_json'=>['provider_persona_id'=>$result['provider_persona_id'],'source_result_id'=>$selection['result_id'],'consumption_id'=>$cid],'auth_status'=>'pending','audit_status'=>'pending','audit_json'=>['source'=>'market_music_operation'],'status'=>1,'delete_time'=>0]+OpenStore::timestamp());
+                $result['persona_id']=(int)$persona['id'];
             }
             $error=$failed?'音乐操作未完成，预占积分已退回':'';
             $native->save(['status'=>$state,'billing_status'=>$billing,'progress'=>100,'lyrics'=>$result['lyrics']??'','title'=>$result['title']??'','result_json'=>$result,'error'=>$error,'error_code'=>$failed?'upstream_failed':'','finish_time'=>$now,'update_time'=>$now]);

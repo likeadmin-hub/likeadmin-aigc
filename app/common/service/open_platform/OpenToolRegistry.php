@@ -42,6 +42,8 @@ final class OpenToolRegistry
             if($types)$data['export_types']=$types;
             $data['limitations']['converted_exports']=(bool)array_intersect(array_column($types,'value'),['wav','midi','mp4']);
             $data['limitations']['voice_clone_creation']=in_array('POST voiceclone/create',$publishedRoutes,true);
+            $data['limitations']['upstream_persona_creation']=in_array('POST persona/upstream',$publishedRoutes,true);
+            $data['limitations']['upstream_audio_registration']=in_array('POST asset/upload_upstream',$publishedRoutes,true);
         }
         return $data;
     }

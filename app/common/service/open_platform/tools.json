@@ -1465,6 +1465,62 @@
           "additionalProperties": false
         },
         "description": "优化音乐风格描述，按独立商城 SKU 计费"
+      },
+      "POST persona/upstream": {
+        "music_operation": "persona",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "result_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 5000
+            },
+            "vocal_start": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 86400
+            },
+            "vocal_end": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 86400
+            }
+          },
+          "required": [
+            "result_id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "description": "基于本人音乐作品创建上游歌手风格，按独立商城 SKU 计费，返回本地与上游风格标识。"
+      },
+      "POST asset/upload_upstream": {
+        "music_operation": "upload_audio",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "reference_asset_id": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "reference_asset_id"
+          ],
+          "additionalProperties": false
+        },
+        "description": "将本人已上传的音频素材登记到真实上游，按独立商城 SKU 计费，返回参考音频标识。"
       }
     },
     "task_model": "app\\common\\model\\app\\aigc_music\\AigcMusicTask",

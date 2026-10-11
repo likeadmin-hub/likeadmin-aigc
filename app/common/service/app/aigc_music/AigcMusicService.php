@@ -238,6 +238,16 @@ class AigcMusicService
         return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'voice_clone',$params);
     }
 
+    public static function uploadUpstreamAudio(int $tenantId,int $userId,array $params): array
+    {
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'upload_audio',$params);
+    }
+
+    public static function createUpstreamPersona(int $tenantId,int $userId,array $params): array
+    {
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'persona',$params);
+    }
+
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
         if (!array_key_exists('sync_running', $params) || self::boolValue($params['sync_running'])) {
