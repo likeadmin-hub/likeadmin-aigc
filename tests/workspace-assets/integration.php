@@ -49,5 +49,12 @@ try {
     foreach (['canvas_image','shot_image'] as $type) Db::name('aigc_short_drama_asset')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>0,'task_id'=>'filter-fixture','asset_type'=>$type,'title'=>'Pagination fixture','uri'=>'uploads/test.png','status'=>'ready','create_time'=>time()]);
     $drama=\app\common\service\app\aigc_short_drama\AigcShortDramaService::assetLists($tenant,$user,['page_no'=>2,'page_size'=>1]);
     check((int)$drama['count']===2 && count($drama['lists'])===1,'Short-drama and canvas results paginate without exclusion');
+    $localFile=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>10,'name'=>'local.png','uri'=>'uploads/images/20261012/local.png','upload_origin'=>'local','create_time'=>time()]);
+    $generatedFile=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>10,'name'=>'generated.png','uri'=>'uploads/aigc_image/20261012/generated.png','create_time'=>time()]);
+    $files=Library::uploads($tenant,$user,1)['lists'];
+    check(count($files)===1 && $files[0]['ref']==='upload:result:'.$localFile,'Uploads include only explicit local media, not user-owned generated files');
+    reject(fn()=>Library::update($tenant,$user,['refs'=>['upload:result:'.$generatedFile],'favorite'=>1]));
+    Library::update($tenant,$user,['refs'=>['upload:result:'.$localFile],'favorite'=>1]);
+    reject(fn()=>Library::update($tenant+1,$user,['refs'=>['upload:result:'.$localFile],'favorite'=>1]));
     echo "PASS: library persistence, partial patches, tenant/user isolation, trash/restore/remove, atomic batch; no physical files changed\n";
 } finally { Db::rollback(); }
