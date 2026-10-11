@@ -39,7 +39,6 @@ class VideoEffectService
             $enabled=filter_var($row['enabled']??false,FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE);
             $requireImage=filter_var($row['require_image']??false,FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE);
             if ($enabled===null || $requireImage===null) throw new InvalidArgumentException('效果开关配置无效');
-            if ($enabled && !$ids) throw new InvalidArgumentException('启用前请选择适配模型');
             $result[$row['id']]=array_intersect_key($row,array_flip(['id','name','description','instruction','poster','video','categories']))+['enabled'=>$enabled,'product_ids'=>array_values(array_unique($ids)),'methods'=>array_values(array_unique($methods)),'require_image'=>$requireImage];
             if (!empty($row['template'])) $result[$row['id']]['template']=self::normalizeTemplate($row['template'],$result[$row['id']]);
         }
@@ -51,7 +50,7 @@ class VideoEffectService
         if (!is_array($template)) throw new InvalidArgumentException('效果模板配置无效');
         $product=filter_var($template['product_id']??0,FILTER_VALIDATE_INT);
         $method=$template['generation_method']??'';
-        if (!$product || !in_array($product,$effect['product_ids'],true) || !in_array($method,$effect['methods'],true)) throw new InvalidArgumentException('模板模型和生成方式必须属于效果的适配范围');
+        if (!$product || $product<1 || !in_array($method,$effect['methods'],true)) throw new InvalidArgumentException('请检查模板默认模型和生成方式');
         $prompt=$template['prompt']??'';
         if (!is_string($prompt) || !trim($prompt) || mb_strlen($prompt)>2000) throw new InvalidArgumentException('请填写模板场景提示词，最多2000字');
         $duration=filter_var($template['duration']??0,FILTER_VALIDATE_INT);
@@ -97,7 +96,6 @@ class VideoEffectService
         $effect=null;
         foreach ($rows as $row) if ($row['id']===$id) $effect=$row;
         if (!$effect || !$effect['enabled']) throw new InvalidArgumentException('该效果暂未开放，请移除效果后重试');
-        if (!in_array($productId,$effect['product_ids'],true)) throw new InvalidArgumentException('当前模型未配置此效果，请更换模型或移除效果');
         $assets=AigcVideoReferenceAssetService::normalize($params);
         $method=(string)($params['generation_method']??($assets ? 'image_reference':'text_to_video'));
         if (!in_array($method,$effect['methods'],true)) throw new InvalidArgumentException('此效果不支持当前生成方式');
