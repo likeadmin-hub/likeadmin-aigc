@@ -34,7 +34,7 @@ final class OpenManagement
         $q=OpenStore::table('request');if($tenantId>=0)$q->where('tenant_id',$tenantId);if($userId!==null)$q->where('user_id',$userId);
         foreach(['request_id','key_id','app_code','status','billing_status','kind','contract_id'] as $f)if(isset($filters[$f])&&$filters[$f]!=='')$q->where($f,$filters[$f]);
         if(!empty($filters['start']))$q->where('create_time','>=',(int)$filters['start']);if(!empty($filters['end']))$q->where('create_time','<=',(int)$filters['end']);
-        if(!empty($filters['tasks']))$q->where(function($q){$q->where('tool_task_id','<>','')->whereOr('upstream_task_id','<>','');});
+        if(!empty($filters['tasks']))$q->where('method','POST')->whereNotLike('path','%/cancel')->where(function($q){$q->where('tool_task_id','<>','')->whereOr('upstream_task_id','<>','');});
         if(!empty($filters['exceptions']))$q->whereIn('billing_status',['pending_confirmation','pending_usage','settlement_failed']);
         $count=(clone $q)->count();$rows=$q->withoutField('response_blob,snapshot,idempotency_hash,payload_hash,lease_token')->order('id','desc')->page(max(1,(int)($filters['page_no']??1)),min(100,max(1,(int)($filters['page_size']??20))))->select()->toArray();
         if($userId!==null)foreach($rows as &$row){unset($row['budget_tenant'],$row['actual_tenant']);$row['consumption_ids']=OpenStore::json($row['consumption_ids']);}

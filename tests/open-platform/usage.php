@@ -16,5 +16,7 @@ Db::startTrans();try{
  check(M::usage($t,$u,['model'=>"other-model' OR 1=1 --"])['calls']===0,'Untrusted model filter escaped its bound parameter');
  check(M::usage($t,$u,['app_code'=>'aigc_image'])['calls']===0,'Tool filter ignored');
  check(M::usage($t,$u,['end'=>time()-1])['calls']===0,'Date window ignored');
+ foreach([['method'=>'POST','path'=>'/api/v1/tools/aigc_llm/tasks'],['method'=>'GET','path'=>'/api/v1/tools/aigc_llm/tasks/ot_aigc_llm_123'],['method'=>'POST','path'=>'/api/v1/tools/aigc_llm/tasks/ot_aigc_llm_123/cancel']] as $override)S::table('request')->insert(array_replace($base,$override,['tool_task_id'=>'123','request_id'=>'req_fixture_'.bin2hex(random_bytes(16))]));
+ $tasks=M::requests($t,$u,['tasks'=>true]);check($tasks['count']===1&&$tasks['lists'][0]['method']==='POST'&&$tasks['lists'][0]['path']==='/api/v1/tools/aigc_llm/tasks','Historical query/cancel records were displayed as distinct generated tasks');
  echo "PASS own usage, active reservations, frozen model, Key/tool/date filters and parameter binding\n";
 }finally{Db::rollback();}
