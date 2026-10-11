@@ -46,6 +46,7 @@ final class OpenCallContext
         $row=OpenStore::owner('request',$tenantId,$userId)->where('request_id',$requestId)->lock(true)->find();if(!$row)throw new \RuntimeException('开放请求账务关联不存在');
         $snapshot=OpenStore::json($row['snapshot']);$event=($refund?'refund:':'consume:').$source;
         if(isset($snapshot['point_events'][$event]))return;
+        if(!$refund&&($user>(float)$row['budget_user']+0.000001||$tenant>(float)$row['budget_tenant']+0.000001))throw new OpenException('settlement_boundary_exceeded','实际费用超过受理额度，等待人工核对',402);
         $snapshot['point_events'][$event]=['user'=>$user,'tenant'=>$tenant];
         OpenStore::table('request')->where('id',$row['id'])->update(['snapshot'=>OpenStore::encode($snapshot),'actual_user'=>max(0,(float)$row['actual_user']+($refund?-$user:$user)),'actual_tenant'=>max(0,(float)$row['actual_tenant']+($refund?-$tenant:$tenant)),'budget_user'=>max(0,(float)$row['budget_user']-($refund?0:$user)),'budget_tenant'=>max(0,(float)$row['budget_tenant']-($refund?0:$tenant)),'update_time'=>time()]);
     }
