@@ -72,6 +72,7 @@ final class OpenGateway
             if($op['history']&&!$failed){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);self::observeTask($owner,$data);}
             return $stream?response(''):response($wire['body'],$wire['status'],$wire['headers']+['X-Request-Id'=>$row['request_id']]);
         }catch(\Throwable $e){$unknown=$dispatched;
+            if($op['kind']==='tool'&&$e instanceof OpenException&&$e->errorType==='tool_error'){$latest=OpenStore::table('request')->where('id',$row['id'])->find();if(empty($op['billable'])||($latest['tool_task_id']===''&&!OpenStore::json($latest['consumption_ids'])&&($op['controller']??'')==='Generate'&&!empty(OpenToolRegistry::get($op['app_code'])['task_model'])))$unknown=false;}
             if(!$unknown&&$op['kind']==='market'&&!empty($op['billable'])){try{OpenMarketBilling::settle($row,[],true);}catch(\Throwable){$unknown=true;}}$fields=['status'=>$unknown?'pending_confirmation':'failed','billing_status'=>$unknown?'pending_confirmation':'none','error_code'=>$e instanceof OpenException?$e->errorType:'internal_error','error_message'=>$e instanceof OpenException?mb_substr($e->getMessage(),0,500):'服务执行失败','active'=>$unknown?1:0,'next_run_time'=>$unknown?time()+60:0];if(!$unknown){$error=self::error($e,$row['path'],$row['request_id']);$fields+=['response_blob'=>OpenVault::seal($error->getContent()),'response_type'=>'application/json','response_code'=>$error->getCode()];}
             OpenAdmission::finish($row['request_id'],$fields);throw $e;}finally{OpenCallContext::leave();}
     }

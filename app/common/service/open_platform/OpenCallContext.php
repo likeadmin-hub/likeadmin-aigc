@@ -7,6 +7,12 @@ final class OpenCallContext
     public static function enter(string $id): void { self::$requestId=$id; }
     public static function leave(): void { self::$requestId=''; }
     public static function id(): string { return self::$requestId; }
+    public static function linkNativeTask($model): void
+    {
+        if(self::$requestId==='')return;$parts=explode('\\',get_class($model));$app=$parts[count($parts)-2]??'';$tool=OpenToolRegistry::all()[$app]??null;
+        if(!$tool||($tool['task_model']??'')!==get_class($model))return;
+        Db::transaction(function()use($model,$app){$row=OpenStore::owner('request',(int)$model['tenant_id'],(int)$model['user_id'])->where(['request_id'=>self::$requestId,'app_code'=>$app,'kind'=>'tool'])->lock(true)->find();if(!$row||$row['tool_task_id']!=='')return;OpenAdmission::finish(self::$requestId,['tool_task_id'=>(string)$model['id']]);});
+    }
     public static function linkConsumption(int $id): void
     {
         if(self::$requestId==='')return;

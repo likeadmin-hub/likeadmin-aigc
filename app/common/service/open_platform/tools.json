@@ -73,7 +73,8 @@
         },
         "description": "动作迁移 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_action_transfer\\AigcActionTransferTask"
   },
   "aigc_background_removal": {
     "app_code": "aigc_background_removal",
@@ -159,7 +160,8 @@
         },
         "description": "图片去背景 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_background_removal\\AigcBackgroundRemovalTask"
   },
   "aigc_digital_human": {
     "app_code": "aigc_digital_human",
@@ -315,7 +317,8 @@
         },
         "description": "数字人视频 Voice/trim"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_digital_human\\AigcDigitalHumanTask"
   },
   "aigc_fashion_lookbook": {
     "app_code": "aigc_fashion_lookbook",
@@ -411,7 +414,8 @@
         },
         "description": "服饰套图 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_fashion_lookbook\\AigcFashionLookbookTask"
   },
   "aigc_fitting": {
     "app_code": "aigc_fitting",
@@ -497,7 +501,8 @@
         },
         "description": "AI试衣 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_fitting\\AigcFittingTask"
   },
   "aigc_hairstyle": {
     "app_code": "aigc_hairstyle",
@@ -669,7 +674,8 @@
         },
         "description": "AIGC生图 Task/detail"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_image\\AigcImageTask"
   },
   "aigc_image_translate": {
     "app_code": "aigc_image_translate",
@@ -755,7 +761,8 @@
         },
         "description": "图片翻译 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_image_translate\\AigcImageTranslateTask"
   },
   "aigc_llm": {
     "app_code": "aigc_llm",
@@ -951,7 +958,8 @@
         },
         "description": "局部重绘 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_local_redraw\\AigcLocalRedrawTask"
   },
   "aigc_model_wear": {
     "app_code": "aigc_model_wear",
@@ -1037,7 +1045,8 @@
         },
         "description": "模特穿戴 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_model_wear\\AigcModelWearTask"
   },
   "aigc_music": {
     "app_code": "aigc_music",
@@ -1213,7 +1222,8 @@
         },
         "description": "AI音乐生成 VoiceClone/create"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_music\\AigcMusicTask"
   },
   "aigc_music_cover": {
     "app_code": "aigc_music_cover",
@@ -1319,7 +1329,8 @@
         },
         "description": "音乐翻唱 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_music_cover\\AigcMusicCoverTask"
   },
   "aigc_one_click_cleanup": {
     "app_code": "aigc_one_click_cleanup",
@@ -1415,7 +1426,8 @@
         },
         "description": "一键消除 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_one_click_cleanup\\AigcOneClickCleanupTask"
   },
   "aigc_outpaint": {
     "app_code": "aigc_outpaint",
@@ -1501,7 +1513,8 @@
         },
         "description": "无缝扩图 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_outpaint\\AigcOutpaintTask"
   },
   "aigc_person_replacement": {
     "app_code": "aigc_person_replacement",
@@ -1577,7 +1590,8 @@
         },
         "description": "动作替换 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_person_replacement\\AigcPersonReplacementTask"
   },
   "aigc_photo_restore": {
     "app_code": "aigc_photo_restore",
@@ -1673,7 +1687,8 @@
         },
         "description": "老照片修复 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_photo_restore\\AigcPhotoRestoreTask"
   },
   "aigc_pic_lipsync": {
     "app_code": "aigc_pic_lipsync",
@@ -1869,7 +1884,8 @@
         },
         "description": "上传图片数字人音频素材"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_pic_lipsync\\AigcPicLipsyncTask"
   },
   "aigc_product_image": {
     "app_code": "aigc_product_image",
@@ -1985,7 +2001,8 @@
         },
         "description": "AI商品图 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_product_image\\AigcProductImageTask"
   },
   "aigc_product_multi_angle": {
     "app_code": "aigc_product_multi_angle",
@@ -2081,7 +2098,8 @@
         },
         "description": "商品多角度 View/lists"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_product_multi_angle\\AigcProductMultiAngleTask"
   },
   "aigc_product_promo_video": {
     "app_code": "aigc_product_promo_video",
@@ -2197,7 +2215,8 @@
         },
         "description": "产品宣传视频 Type/lists"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_product_promo_video\\AigcProductPromoVideoTask"
   },
   "aigc_product_suite": {
     "app_code": "aigc_product_suite",
@@ -2303,7 +2322,8 @@
         },
         "description": "AI商品套图 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_product_suite\\AigcProductSuiteTask"
   },
   "aigc_style_transfer": {
     "app_code": "aigc_style_transfer",
@@ -2419,7 +2439,8 @@
         },
         "description": "图片风格化 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_style_transfer\\AigcStyleTransferTask"
   },
   "aigc_video": {
     "app_code": "aigc_video",
@@ -2525,7 +2546,8 @@
         },
         "description": "AIGC视频 Task/refresh"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_video\\AigcVideoTask"
   },
   "aigc_watermark_removal": {
     "app_code": "aigc_watermark_removal",
@@ -2611,7 +2633,8 @@
         },
         "description": "短视频去水印 Task/delete"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_watermark_removal\\AigcWatermarkRemovalTask"
   },
   "image_human": {
     "app_code": "image_human",
@@ -2757,7 +2780,8 @@
         },
         "description": "全驱数字人 Voice/preview"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\image_human\\ImageHumanTask"
   },
   "smart_clip": {
     "app_code": "smart_clip",
@@ -2853,6 +2877,7 @@
         },
         "description": "AI视频剪辑 Template/detail"
       }
-    }
+    },
+    "task_model": "app\\common\\model\\app\\smart_clip\\SmartClipTask"
   }
 }
