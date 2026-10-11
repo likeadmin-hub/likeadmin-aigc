@@ -195,6 +195,7 @@ class AigcFittingService
         self::assertAvailable($tenantId);
         $frozen = \app\common\service\open_platform\OpenImagePricing::prepared($tenantId, $userId, self::APP_CODE);
         if ($frozen !== null) {
+            \app\common\service\open_platform\OpenFittingDispatch::start($tenantId, $userId, (int)$frozen['estimate']['quantity']);
             $frozen = \app\common\service\open_platform\OpenImagePricing::materializePrepared($tenantId, $userId, self::APP_CODE,
                 static fn(array $recipe) => self::materializeOpenRecipe($tenantId, $userId, $recipe));
             $prepared = $frozen['prepared'];
@@ -221,6 +222,7 @@ class AigcFittingService
                 return self::upsertTaskFromImageTask($tenantId, $userId, $imageTaskId, $prepared, $estimate, $imageTaskIds);
             }, true);
         foreach (self::splitImagePayloads($prepared) as $index => $imagePayload) {
+            if ($frozen !== null) \app\common\service\open_platform\OpenFittingDispatch::heartbeat($tenantId, $userId);
             $imageResult = AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $imagePayload, [
                 'user_unit_price' => $prepared['unit_price'],
             ], self::APP_CODE, $handoff);
@@ -236,6 +238,7 @@ class AigcFittingService
                 $imageResults[] = $result;
             }
             if (($imageResult['status'] ?? '') === 'failed') {
+                if ($frozen !== null) \app\common\service\open_platform\OpenFittingDispatch::complete($tenantId, $userId, true);
                 $task = self::upsertTaskFromImageTask($tenantId, $userId, $imageTaskId, $prepared, $estimate, $imageTaskIds);
                 self::syncTaskFromImageTask($task);
                 return [
@@ -249,6 +252,7 @@ class AigcFittingService
                 ];
             }
         }
+        if ($frozen !== null) \app\common\service\open_platform\OpenFittingDispatch::complete($tenantId, $userId);
         $task = self::upsertTaskFromImageTask($tenantId, $userId, $imageTaskId, $prepared, $estimate, $imageTaskIds);
         self::syncTaskFromImageTask($task);
         return [
@@ -275,8 +279,10 @@ class AigcFittingService
         if ($userId > 0) {
             $query->where('t.user_id', $userId);
         }
-        $status = trim((string)($params['status'] ?? ''));
-        if ($status !== '') {
+        $status = $params['status'] ?? '';
+        if (is_array($status)) {
+            $query->whereIn('t.status', array_values(array_intersect($status, ['running', 'success', 'partial_success', 'failed', 'canceled'])));
+        } elseif (($status = trim((string)$status)) !== '') {
             $query->where('t.status', $status);
         }
         $mode = trim((string)($params['mode'] ?? ''));
@@ -324,7 +330,7 @@ class AigcFittingService
 
     public static function resultLists(int $tenantId, int $userId, array $params = []): array
     {
-        $params['status'] = $params['status'] ?? 'success';
+        $params['status'] = $params['status'] ?? ['success', 'partial_success'];
         return self::taskLists($tenantId, $userId, $params);
     }
 
@@ -652,7 +658,10 @@ class AigcFittingService
         $successCount = count(array_filter($statuses, static fn($status) => $status === 'success'));
         $terminalCount = count(array_filter($statuses, static fn($status) => in_array($status, ['success', 'failed', 'canceled'], true)));
         $expectedCount = max(1, (int)$task['quantity']);
-        if (count($imageTaskIds) >= $expectedCount && ($successCount === count($imageTaskIds) || ($successCount > 0 && $terminalCount === count($imageTaskIds)))) {
+        $interrupted = count($imageTaskIds) < $expectedCount && \app\common\service\open_platform\OpenFittingDispatch::interrupted($tenantId, $userId, (int)$task['id']);
+        if ($interrupted && $terminalCount === count($imageTaskIds)) {
+            $task->status = $successCount > 0 ? 'partial_success' : 'failed';
+        } elseif (count($imageTaskIds) >= $expectedCount && ($successCount === count($imageTaskIds) || ($successCount > 0 && $terminalCount === count($imageTaskIds)))) {
             $task->status = 'success';
         } elseif (in_array('failed', $statuses, true)) {
             $task->status = 'failed';
@@ -660,8 +669,9 @@ class AigcFittingService
             $task->status = 'running';
         }
         $errors = array_values(array_filter(array_map(static fn($row) => trim((string)($row['error'] ?? '')), $imageTasks)));
+        if ($interrupted) $errors[] = '批次提交中断，仅保留已受理的 ' . count($imageTaskIds) . '/' . $expectedCount . ' 张任务';
         $task->error = implode('；', array_unique($errors));
-        $task->finish_time = in_array((string)$task->status, ['success', 'failed', 'canceled'], true) ? max($finishTimes ?: [time()]) : 0;
+        $task->finish_time = in_array((string)$task->status, ['success', 'partial_success', 'failed', 'canceled'], true) ? max($finishTimes ?: [time()]) : 0;
         $task->tenant_cost_points = number_format(array_sum(array_map(static fn($row) => (float)($row['tenant_cost_points'] ?? 0), $imageTasks)), 2, '.', '');
         $task->user_charge_points = number_format(array_sum(array_map(static fn($row) => (float)($row['user_charge_points'] ?? 0), $imageTasks)), 2, '.', '');
         $task->update_time = time();
@@ -751,6 +761,7 @@ class AigcFittingService
         $row['reference_images'] = array_values(array_unique(array_merge($row['garment_image_urls'], $row['model_image_urls'])));
         $row['status_label'] = match ((string)($row['status'] ?? '')) {
             'success' => '已完成',
+            'partial_success' => '部分完成',
             'failed' => '失败',
             'canceled' => '已取消',
             default => '生成中',

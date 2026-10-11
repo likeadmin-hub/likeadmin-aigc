@@ -29,6 +29,11 @@ final class OpenRecovery
         try{
             $current=OpenStore::table('request')->where('id',$row['id'])->find();if(!$current)throw new OpenException('not_found','恢复任务不存在',404);OpenCallContext::assertLease($current);$row=$current;
             $snapshot=OpenStore::json($row['snapshot']);
+            OpenFittingDispatch::recover($row);
+            if($row['app_code']==='aigc_fitting'&&$row['method']==='POST'&&$row['path']==='/api/v1/tools/aigc_fitting/tasks'&&$row['tool_task_id']===''&&!OpenStore::json($row['consumption_ids'])){
+                $fitting=OpenStore::json(OpenStore::table('request')->where('id',$row['id'])->value('snapshot'))['fitting_dispatch']??[];
+                if(($fitting['state']??'')==='interrupted'){OpenAdmission::finish($row['request_id'],['status'=>'failed','billing_status'=>'none','active'=>0,'error_code'=>'execution_not_started','error_message'=>'试衣批次在创建可执行子任务前中断','finish_time'=>time(),'next_run_time'=>0,'lease_expire'=>0,'lease_token'=>'']);return;}
+            }
             // A completed free read is a request receipt, not a second running task.
             if($row['method']==='GET'&&$row['billing_status']==='none'&&$row['response_blob']!==''&&(int)$row['response_code']===200&&(float)$row['actual_user']===0.&&(float)$row['actual_tenant']===0.&&(float)$row['budget_user']===0.&&(float)$row['budget_tenant']===0.){OpenAdmission::finish($row['request_id'],['status'=>'success','active'=>0,'finish_time'=>time(),'next_run_time'=>0,'lease_expire'=>0,'lease_token'=>'']);return;}
             if(($snapshot['_execution_version']??0)===2&&($snapshot['dispatch_started']??true)===false&&$row['status']==='accepted'){if($row['kind']==='market')OpenMarketBilling::settle($row,[],true);OpenAdmission::finish($row['request_id'],['status'=>'failed','billing_status'=>empty(OpenStore::json($row['consumption_ids']))?'none':'refunded','active'=>0,'budget_user'=>0,'budget_tenant'=>0,'error_code'=>'execution_not_started','error_message'=>'请求在业务执行前中断','next_run_time'=>0,'finish_time'=>time(),'lease_expire'=>0,'lease_token'=>'']);return;}
