@@ -42,6 +42,7 @@ final class MarketMusicOperationRuntimeService
         if(count($candidates)!==1)throw new OpenException('pricing_unavailable','音乐操作缺少唯一的可售按次 SKU',503);
         $sku=$candidates[0];$cost=round((float)$sku['platform_sale_points'],2);$price=round((float)$sku['sale_points'],2);
         if(!is_finite($cost)||!is_finite($price)||$cost<0||$price<0)throw new OpenException('pricing_unavailable','音乐价格无效',503);
+        if($api==='timing'&&($cost!==0.||$price!==0.))throw new OpenException('pricing_unavailable','时间轴查询尚未配置为免费操作',503);
         return ['market_product_id'=>$id,'market_sku_id'=>(int)$sku['id'],'sku_key'=>$sku['sku_key'],'api_code'=>$api,'billing_unit'=>'per_call','quantity'=>1,'tenant_cost_points'=>$cost,'user_charge_points'=>$price,'platform_unit_cost'=>$cost,'tenant_unit_price'=>$price,'price_source'=>'power_market_sku'];
     }
     public static function budget(int $tenant,int $user,string $api,array $params): array
@@ -93,7 +94,7 @@ final class MarketMusicOperationRuntimeService
     }
     private static function capture(int $cid,array $wire): void
     {
-        Db::transaction(static function()use($cid,$wire){$c=AiConsumptionLog::lock(true)->findOrEmpty($cid);self::assertOrigin($c->toArray());$snapshot=OpenStore::json($c['price_snapshot']);$snapshot['music_receipt_blob']=OpenVault::seal(OpenStore::encode(['http_status'=>$wire['status'],'body'=>OpenStore::json($wire['body'])]));$c->save(['price_snapshot'=>$snapshot,'run_status'=>'running','update_time'=>time()]);});
+        Db::transaction(static function()use($cid,$wire){$c=AiConsumptionLog::lock(true)->findOrEmpty($cid);self::assertOrigin($c->toArray());$snapshot=OpenStore::json($c['price_snapshot']);$body=OpenStore::json($wire['body']);$snapshot['music_receipt_blob']=OpenVault::seal(OpenStore::encode(['http_status'=>$wire['status'],'body'=>$body]));$requestId=$wire['headers']['x-request-id']??$wire['headers']['request-id']??$body['request_id']??'';if(!is_string($requestId)||!preg_match('/^[A-Za-z0-9_.:-]{1,200}$/D',$requestId))$requestId='';$c->save(['price_snapshot'=>$snapshot,'run_status'=>'running','upstream_request_id'=>$requestId,'update_time'=>time()]);});
     }
     public static function refresh(int $cid): array
     {
