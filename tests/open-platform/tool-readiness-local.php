@@ -20,6 +20,7 @@ Db::startTrans();try{
  S::requireEnabled(1);
  $common=['source_image'=>$image,'product_image'=>$image,'product_images'=>[$image],'source_images'=>[$image],'reference_images'=>[$image],'model_image'=>$image,'wear_image'=>$image,'person_image'=>$image,'reference_image'=>$image,'clothes_images'=>[$image],'garment_images'=>[$image],'model_images'=>[$image],'mask_image'=>$image,'prompt'=>'Synthetic bottle fixture on a plain background.','user_prompt'=>'Preserve the synthetic fixture.','channel'=>'market_image_model:154','quality'=>'1k','ratio'=>'1:1','quantity'=>1,'duration'=>15];
  $overrides=[
+  'aigc_fitting'=>['mode'=>'custom'],
   'aigc_video'=>['channel'=>'market_video_model:157','quality'=>'720p','duration'=>6],
   'aigc_action_transfer'=>['video_uri'=>$video],
   'aigc_person_replacement'=>['video_uri'=>$video],
