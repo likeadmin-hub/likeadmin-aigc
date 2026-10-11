@@ -28,6 +28,15 @@ check($data['status']==='success'&&count($data['results']??[])===$case['result_c
 check(array_column($data['results'],'file_id')===array_column($same['results'],'file_id'),'Owned material IDs changed on query');
 $output=$dir.'/media-evidence';if(!is_dir($output))mkdir($output,0700,true);
 $report=['verified_at'=>date(DATE_ATOM),'source'=>$run,'tenant_id'=>1,'user_id'=>1,'new_submissions'=>0,'items'=>[]];
+if($app==='aigc_local_redraw'){
+    $snapshot=S::json($row['snapshot']);check(!empty($snapshot['native_materialized']),'Accepted mask was not materialized');
+    $recipe=S::json(app\common\service\open_platform\OpenVault::open($snapshot['native_prepared_blob']));
+    check($recipe['tenant_id']===1&&$recipe['user_id']===1&&$recipe['app_code']===$app,'Mask recipe owner mismatch');
+    $mask=(string)$recipe['prepared']['mask_image'];check($mask!==''&&!str_starts_with($mask,'data:')&&$recipe['prepared']['image_payload']['mask_url']===$mask,'Stored mask missing from prepared native input');
+    $maskFiles=Db::name('tenant_file')->where(['tenant_id'=>1,'source_id'=>1,'source'=>app\common\enum\FileEnum::SOURCE_USER,'uri'=>$mask])->select()->toArray();check(count($maskFiles)===1,'Mask storage ownership or file identity mismatch');
+    $parent=Db::name('aigc_local_redraw_task')->where(['tenant_id'=>1,'user_id'=>1,'id'=>Tasks::decode($app,$case['task_id'])])->find();check($parent&&$parent['mask_image']===$mask,'Business task did not retain accepted mask');
+    $report['input_preprocessing']=['accepted_private_recipe'=>true,'stored_owned_mask_records'=>count($maskFiles),'native_mask_matches'=>true,'business_mask_matches'=>true,'crash_after_storage_upload'=>'not_injected'];
+}
 foreach($data['results'] as $result){
     check(!empty($result['image_url'])&&!empty($result['file_id'])&&!empty($result['storage_scope'])&&!empty($result['storage_engine']),'Result lacks owned stored material');
     $owned=S::owner('file',1,1)->where('file_id',$result['file_id'])->find();check($owned,'Material owner mismatch');
