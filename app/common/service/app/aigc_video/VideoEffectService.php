@@ -38,9 +38,11 @@ class VideoEffectService
                 if (!is_string($value) || strlen($value)>2048 || ($value!=='' && !preg_match('~^(?:https?://[^\s]+|/(?!/)[^\s]*)$~i',$value))) throw new InvalidArgumentException('演示素材地址无效');
                 $row[$field]=$value;
             }
-            $enabled=(bool)($row['enabled']??false);
+            $enabled=filter_var($row['enabled']??false,FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE);
+            $requireImage=filter_var($row['require_image']??false,FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE);
+            if ($enabled===null || $requireImage===null) throw new InvalidArgumentException('效果开关配置无效');
             if ($enabled && !$ids) throw new InvalidArgumentException('启用前请选择适配模型');
-            $result[$row['id']]=array_intersect_key($row,array_flip(['id','name','description','instruction','poster','video']))+['enabled'=>$enabled,'product_ids'=>array_values(array_unique($ids)),'methods'=>array_values(array_unique($methods)),'require_image'=>(bool)($row['require_image']??false)];
+            $result[$row['id']]=array_intersect_key($row,array_flip(['id','name','description','instruction','poster','video']))+['enabled'=>$enabled,'product_ids'=>array_values(array_unique($ids)),'methods'=>array_values(array_unique($methods)),'require_image'=>$requireImage];
         }
         return array_values($result);
     }
