@@ -7,6 +7,18 @@ final class OpenCallContext
     public static function enter(string $id): void { self::$requestId=$id; }
     public static function leave(): void { self::$requestId=''; }
     public static function id(): string { return self::$requestId; }
+    public static function providerFailure(int $httpStatus,string $body,bool $hasOutput): void
+    {
+        if(self::$requestId==='')return;
+        Db::transaction(function()use($httpStatus,$body,$hasOutput){$row=OpenStore::table('request')->where('request_id',self::$requestId)->lock(true)->find();if(!$row)return;
+            $snapshot=OpenStore::json($row['snapshot']);$payload=OpenStore::json($body);
+            $snapshot['provider_rejection_confirmed']=!$hasOutput&&($httpStatus>=400&&$httpStatus<500||array_key_exists('code',$payload)&&in_array($payload['code'],[0,'0'],true));
+            // Error bodies can quote private input. Retain encrypted evidence,
+            // never expose it through user records or print it in request logs.
+            $snapshot['provider_error_blob']=OpenVault::seal(OpenStore::encode(['http_status'=>$httpStatus,'body'=>substr($body,0,16384)]));
+            OpenAdmission::finish(self::$requestId,['snapshot'=>OpenStore::encode($snapshot)]);
+        });
+    }
     public static function linkNativeTask($model): void
     {
         if(self::$requestId==='')return;$parts=explode('\\',get_class($model));$app=$parts[count($parts)-2]??'';$tool=OpenToolRegistry::all()[$app]??null;

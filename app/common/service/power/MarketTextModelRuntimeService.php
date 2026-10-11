@@ -1119,6 +1119,7 @@ class MarketTextModelRuntimeService
             throw new Exception(self::networkError($error));
         }
         if ($status >= 400) {
+            \app\common\service\open_platform\OpenCallContext::providerFailure($status,$body,!empty($state['content'])||!empty($state['reasoning'])||!empty($state['tool_calls']));
             if (UpstreamErrorMessageService::isClaudeClientRestricted($body)) {
                 $response = trim(preg_replace('/\s+/u', ' ', strip_tags($body)) ?? $body);
                 Log::write('Market text model rejected by Claude client policy: http=' . $status . ' response=' . mb_substr($response, 0, 1500, 'UTF-8'));
@@ -1127,6 +1128,7 @@ class MarketTextModelRuntimeService
                 UpstreamErrorMessageService::allowsModelFallback($body), $state ?? []);
         }
         if ($state['error'] !== '') {
+            \app\common\service\open_platform\OpenCallContext::providerFailure($status,$body,!empty($state['content'])||!empty($state['reasoning'])||!empty($state['tool_calls']));
             throw self::providerException($state['error'], !empty($state['model_fallback_allowed']), $state);
         }
         // Some OpenAI-compatible reasoning models emit their only textual output

@@ -20,7 +20,9 @@ final class OpenToolAdapter
         if(isset($params['id'])&&is_string($params['id'])&&str_starts_with($params['id'],'ot_'))$params['id']=OpenToolTasks::decode($app,$params['id']);
         $original=app()->request;$scoped=OpenToolRequest::from($request,$params,$operation);app()->instance('request',$scoped);
         try{
-        if(isset($operation['service']))return $operation['service']==='streamText'?AigcLlmService::streamText((int)$request->tenantId,(int)$request->userId,$params,$onEvent):AigcLlmService::generateText((int)$request->tenantId,(int)$request->userId,$params);
+        if(isset($operation['service'])){$params['_disable_transient_retry']=true;$params['_disable_model_fallback']=true;
+            $emit=$onEvent?static function(string $event,array $data)use($onEvent){$onEvent(['type'=>$event,'data'=>$data]);}:null;
+            return $operation['service']==='streamText'?AigcLlmService::streamText((int)$request->tenantId,(int)$request->userId,$params,$emit):AigcLlmService::generateText((int)$request->tenantId,(int)$request->userId,$params);}
         // This fixed registry reuses the existing user controller's validation and shared service.
         // No caller-controlled class/action is ever invoked.
         $class='app\\api\\controller\\app\\'.$app.'\\'.$operation['controller'].'Controller';
