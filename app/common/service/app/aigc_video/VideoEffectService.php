@@ -29,7 +29,10 @@ class VideoEffectService
             }
             $ids=$row['product_ids']??[]; $methods=$row['methods']??[];
             if (!is_array($ids) || count($ids)>100 || !is_array($methods) || !$methods || array_diff($methods,['text_to_video','image_reference'])) throw new InvalidArgumentException('效果模型或生成方式配置无效');
-            foreach ($ids as $id) if (!is_int($id) || $id<=0) throw new InvalidArgumentException('请选择有效的视频模型');
+            foreach ($ids as &$id) {
+                if (!(is_int($id) || (is_string($id) && ctype_digit($id))) || filter_var($id, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) === false) throw new InvalidArgumentException('请选择有效的视频模型');
+                $id=(int)$id;
+            } unset($id);
             foreach (['poster','video'] as $field) {
                 $value=$row[$field]??'';
                 if (!is_string($value) || strlen($value)>2048 || ($value!=='' && !preg_match('~^(?:https?://[^\s]+|/(?!/)[^\s]*)$~i',$value))) throw new InvalidArgumentException('演示素材地址无效');
