@@ -21,7 +21,12 @@ final class OpenToolAdapter
         if(isset($params['id'])&&is_string($params['id'])&&str_starts_with($params['id'],'ot_'))$params['id']=OpenToolTasks::decode($app,$params['id']);
         $original=app()->request;$scoped=OpenToolRequest::from($request,$params,$operation);app()->instance('request',$scoped);
         try{
-        if(isset($operation['music_operation']))return \app\common\service\power\MarketMusicOperationRuntimeService::execute((int)$request->tenantId,(int)$request->userId,$operation['music_operation'],$params);
+        if(isset($operation['music_operation']))return match($operation['music_operation']) {
+            'lyrics'=>\app\common\service\app\aigc_music\AigcMusicService::lyrics((int)$request->tenantId,(int)$request->userId,$params),
+            'mashup_lyrics'=>\app\common\service\app\aigc_music\AigcMusicService::mashupLyrics((int)$request->tenantId,(int)$request->userId,$params),
+            'style'=>\app\common\service\app\aigc_music\AigcMusicService::optimizeStyle((int)$request->tenantId,(int)$request->userId,$params),
+            default=>throw new OpenException('not_found','音乐操作未注册',404),
+        };
         if(($operation['service']??'')==='readTextTasks')return OpenTextLifecycle::tasks((int)$request->tenantId,(int)$request->userId,$operation['route'],$params);
         if(isset($operation['service'])){$params['_disable_transient_retry']=true;$params['_disable_model_fallback']=true;
             $emit=$onEvent?static function(string $event,array $data)use($onEvent){$onEvent(['type'=>$event,'data'=>$data]);}:null;

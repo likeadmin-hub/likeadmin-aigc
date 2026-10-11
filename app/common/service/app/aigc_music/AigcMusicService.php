@@ -200,6 +200,13 @@ class AigcMusicService
         return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'mashup_lyrics',['lyrics_a'=>$a,'lyrics_b'=>$b]);
     }
 
+    public static function optimizeStyle(int $tenantId, int $userId, array $params): array
+    {
+        $payload=\app\common\service\power\MarketMusicOperationRuntimeService::input('style',$params);
+        self::recordSafetyAudit($tenantId,$userId,'lyrics',0,'style_review','passed',$payload['prompt']);
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'style',$payload);
+    }
+
     public static function createPersona(int $tenantId, int $userId, array $params): array
     {
         $name = trim((string)($params['name'] ?? ''));
