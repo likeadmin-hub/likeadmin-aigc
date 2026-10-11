@@ -12,7 +12,7 @@ final class OpenToolAdapter
     }
     public static function call($request,array $operation,array $params,?callable $onEvent=null): array
     {
-        $params=json_decode(OpenStore::encode($params),true,64,JSON_THROW_ON_ERROR);$app=$operation['app_code'];if(empty($operation['history']))self::authorize((int)$request->tenantId,(int)$request->userId,$app);OpenPolicy::validateInput($params);OpenSafeHttp::checkInputs($params);
+        $params=json_decode(OpenStore::encode($params),true,64,JSON_THROW_ON_ERROR);$app=$operation['app_code'];OpenToolRegistry::assertExecutable($operation);if(empty($operation['history']))self::authorize((int)$request->tenantId,(int)$request->userId,$app);OpenPolicy::validateInput($params);OpenSafeHttp::checkInputs($params);
         if(isset($operation['params']['task_id']))$params['id']=!empty($operation['internal'])?$operation['params']['task_id']:OpenToolTasks::decode($app,(string)$operation['params']['task_id']);
         if(isset($params['id'])&&($operation['controller']??'')==='Task'&&!isset($operation['params']['task_id'])&&empty($operation['internal']))$params['id']=OpenToolTasks::decode($app,(string)$params['id']);
         if(isset($params['task_id'])&&empty($operation['internal']))$params['task_id']=OpenToolTasks::decode($app,(string)$params['task_id']);
@@ -30,7 +30,7 @@ final class OpenToolAdapter
         $controller=app()->make($class,[],true);$response=$controller->{$operation['action']}();
         if(!$response instanceof \think\Response)throw new OpenException('invalid_response','工具响应无效',502);
         $payload=$response->getData();if(!is_array($payload)||(int)($payload['code']??0)!==1)throw new OpenException('tool_error',(string)($payload['msg']??'工具执行失败'));
-        return (array)($payload['data']??[]);
+        return ($operation['route']??'')==='GET capabilities'?OpenToolRegistry::capabilities($app,(array)($payload['data']??[])):(array)($payload['data']??[]);
         }finally{app()->instance('request',$original);}
     }
     public static function estimateBudget(array $quote): ?array

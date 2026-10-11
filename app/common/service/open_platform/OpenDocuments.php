@@ -24,9 +24,11 @@ final class OpenDocuments
         $paths=[];$config=OpenStore::settings($tenantId);$global=OpenStore::settings(0);
         foreach(OpenStore::table('contract')->where('status','published')->order('id','asc')->select()->toArray() as $row){
             $c=OpenContracts::decodeConfig($row['config']);$app=$c['app_code']??'';
+            if($row['kind']==='tool'&&!OpenToolRegistry::supported($row['method'],$row['path']))continue;
             if($row['kind']==='tool'&&(!in_array($app,$config['apps'],true)||!in_array($app,$global['apps'],true)))continue;
             if($row['kind']==='market'&&(int)$row['product_id']>0&&(!in_array((string)$row['product_id'],$config['models'],true)||!in_array((string)$row['product_id'],$global['models'],true)))continue;
             $input=$c['input'];$method=strtolower($row['method']);$op=['operationId'=>$row['code'],'summary'=>$c['title']??$row['code'],'description'=>$c['description']??'','tags'=>[$row['kind']==='tool'?OpenToolRegistry::get($app)['name']:'商城 API'],'security'=>[['apiKey'=>[]]],'responses'=>$c['responses'],'x-contract-version'=>(int)$row['version'],'x-billable'=>(bool)$c['billable'],'x-billing-description'=>$c['billing_description']??''];
+            if($row['kind']==='tool'&&!empty(OpenToolRegistry::get($app)['limitations']))$op['x-capability-limitations']=OpenToolRegistry::get($app)['limitations'];
             preg_match_all('/\{([a-z_]+)\}/',$row['path'],$captures);
             foreach($captures[1] as $name)$op['parameters'][]=['name'=>$name,'in'=>'path','required'=>true,'schema'=>['type'=>'string'],'description'=>$name==='task_id'?'此用户在对应能力中创建的任务 ID':'资源 ID'];
             if($method==='get'){

@@ -1137,7 +1137,9 @@
           "type": "object",
           "additionalProperties": true
         },
-        "description": "AI音乐生成 Export/wav"
+        "description": "AI音乐生成 Export/wav",
+        "available": false,
+        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
       },
       "POST export/mp4": {
         "controller": "Export",
@@ -1147,7 +1149,9 @@
           "type": "object",
           "additionalProperties": true
         },
-        "description": "AI音乐生成 Export/mp4"
+        "description": "AI音乐生成 Export/mp4",
+        "available": false,
+        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
       },
       "POST export/midi": {
         "controller": "Export",
@@ -1157,7 +1161,9 @@
           "type": "object",
           "additionalProperties": true
         },
-        "description": "AI音乐生成 Export/midi"
+        "description": "AI音乐生成 Export/midi",
+        "available": false,
+        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
       },
       "POST export/timing": {
         "controller": "Export",
@@ -1167,7 +1173,9 @@
           "type": "object",
           "additionalProperties": true
         },
-        "description": "AI音乐生成 Export/timing"
+        "description": "AI音乐生成 Export/timing",
+        "available": false,
+        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
       },
       "POST export/vox": {
         "controller": "Export",
@@ -1177,7 +1185,9 @@
           "type": "object",
           "additionalProperties": true
         },
-        "description": "AI音乐生成 Export/vox"
+        "description": "AI音乐生成 Export/vox",
+        "available": false,
+        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
       },
       "POST estimate": {
         "controller": "Generate",
@@ -1207,7 +1217,9 @@
           "type": "object",
           "additionalProperties": true
         },
-        "description": "AI音乐生成 Lyrics/index"
+        "description": "AI音乐生成 Lyrics/index",
+        "available": false,
+        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
       },
       "POST mashuplyrics/index": {
         "controller": "MashupLyrics",
@@ -1217,7 +1229,9 @@
           "type": "object",
           "additionalProperties": true
         },
-        "description": "AI音乐生成 MashupLyrics/index"
+        "description": "AI音乐生成 MashupLyrics/index",
+        "available": false,
+        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
       },
       "POST persona/create": {
         "controller": "Persona",
@@ -1277,10 +1291,19 @@
           "type": "object",
           "additionalProperties": true
         },
-        "description": "AI音乐生成 VoiceClone/create"
+        "description": "AI音乐生成 VoiceClone/create",
+        "available": false,
+        "unavailable_reason": "现有服务仅为演示实现，真实能力接入和验收前不可开放。"
       }
     },
-    "task_model": "app\\common\\model\\app\\aigc_music\\AigcMusicTask"
+    "task_model": "app\\common\\model\\app\\aigc_music\\AigcMusicTask",
+    "limitations": {
+      "exact_duration": false,
+      "duration_description": "duration 沿用用户端计费选择，不保证生成音频时长；实际时长以结果音频为准。",
+      "converted_exports": false,
+      "voice_clone": false,
+      "generated_lyrics": false
+    }
   },
   "aigc_music_cover": {
     "app_code": "aigc_music_cover",

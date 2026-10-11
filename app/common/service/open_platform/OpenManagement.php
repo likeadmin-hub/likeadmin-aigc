@@ -19,7 +19,7 @@ final class OpenManagement
     }
     private static function budgets(array $rules): array
     {
-        foreach($rules as $app=>$ops){$tool=OpenToolRegistry::get($app);foreach($ops as $route=>$rule){if(empty($tool['operations'][$route]['billable'])||!isset($rule['user'],$rule['tenant'])||!is_numeric($rule['user'])||!is_numeric($rule['tenant'])||(float)$rule['user']<=0||(float)$rule['tenant']<=0)throw new OpenException('invalid_budget','额度边界必须绑定已注册计费操作');}}return $rules;
+        foreach($rules as $app=>$ops){$tool=OpenToolRegistry::get($app);foreach($ops as $route=>$rule){if(!OpenToolRegistry::executable($tool['operations'][$route]??['available'=>false])||empty($tool['operations'][$route]['billable'])||!isset($rule['user'],$rule['tenant'])||!is_numeric($rule['user'])||!is_numeric($rule['tenant'])||(float)$rule['user']<=0||(float)$rule['tenant']<=0)throw new OpenException('invalid_budget','额度边界必须绑定已注册计费操作');}}return $rules;
     }
     public static function persistSettings(int $tenantId,bool $enabled,array $config): void
     {
@@ -34,6 +34,7 @@ final class OpenManagement
         $local=OpenStore::settings($tenantId);$global=OpenStore::settings(0);$rows=[];
         foreach(OpenStore::table('contract')->where('status','published')->order('id','desc')->limit(1000)->select()->toArray() as $row){
             $config=OpenStore::json($row['config']);$app=(string)($config['app_code']??'');$product=(string)$row['product_id'];
+            if($row['kind']==='tool'&&!OpenToolRegistry::supported($row['method'],$row['path']))continue;
             if($row['kind']==='tool'&&(!in_array($app,$local['apps'],true)||!in_array($app,$global['apps'],true)))continue;
             if($row['kind']==='market'&&(int)$product>0&&(!in_array($product,$local['models'],true)||!in_array($product,$global['models'],true)))continue;
             unset($config['verification']);$row['config']=OpenStore::encode($config);$rows[]=$row;
