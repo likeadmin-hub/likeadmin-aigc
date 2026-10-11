@@ -19,5 +19,13 @@ Db::startTrans();try{
  $claims['expires_at']=time()+10;$claims['contract_digest']='changed';reject(fn()=>$resolve(V::seal(S::encode($claims)),$key,['limit'=>1],$ticket['idempotency_key']));
  reject(fn()=>$resolve('invalid-proof',$key,['limit'=>1],$ticket['idempotency_key']));
  check(C::detail($draft['id'])['status']==='draft','Issuing verification prematurely published draft');
- echo "PASS exact draft example, typed GET, fixed executor, account/idempotency/expiry/digest binding and no publication\n";
+ $file=tempnam(sys_get_temp_dir(),'open-preview-upload-');file_put_contents($file,'reviewed upload');
+ try{
+  $upload=new \think\file\UploadedFile($file,'asset.txt','text/plain',UPLOAD_ERR_OK,true);
+  $metadata=['sha256'=>hash_file('sha256',$file),'name'=>$upload->getOriginalName(),'size'=>$upload->getSize(),'mime'=>$upload->getMime()];
+  $draft=C::save(['code'=>$code.'.upload','kind'=>'market','method'=>'POST','path'=>'/api/v1/upload','product_id'=>2,'config'=>['executor'=>'multipart','billable'=>false,'role'=>'resource','input'=>['type'=>'object','properties'=>['file'=>['type'=>'string','format'=>'binary'],'quantity'=>['type'=>'integer'],'options'=>['type'=>'object','properties'=>['speed'=>['type'=>'number']]]],'required'=>['file','quantity']],'example'=>['file'=>'asset.txt','quantity'=>1,'options'=>['speed'=>1.5]],'example_files'=>['file'=>$metadata],'responses'=>['200'=>['description'=>'OK']]]]);
+  $ticket=P::issue($draft['id'],$key['id']);$op=P::resolve($ticket['preview_token'],$key,'POST','/api/v1/upload',['quantity'=>'1','options'=>'{"speed":1.5}'],$ticket['idempotency_key'],['file'=>$upload]);
+  check($op['executor']==='multipart'&&$ticket['content_type']==='multipart/form-data','Multipart preview changed executor');
+ }finally{@unlink($file);}
+ echo "PASS exact draft example, typed GET, multipart content and typed fields, fixed executor, account/idempotency/expiry/digest binding and no publication\n";
 }finally{Db::rollback();}
