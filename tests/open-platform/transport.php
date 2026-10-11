@@ -7,4 +7,13 @@ $input=['model'=>'fixture','messages'=>[['role'=>'user','content'=>'fixture']]];
 $chunks='';$r=$t->send($s,'POST','/api/v1/responses',[],[],function($bytes)use(&$chunks){$chunks.=$bytes;});ok($chunks===$r['body']&&str_contains($chunks,'event: response.created'),'SSE bytes changed');
 $r=$t->send($s,'POST','/api/v1/messages',[]);ok($r['status']===429&&$r['headers']['retry-after']==='5','Upstream status or retry header changed');
 $r=$t->send($s,'GET','/api/v1/files/up-fixture',[]);ok($r['body']==="\x00fixture\xff"&&$r['headers']['content-type']==='application/octet-stream','Binary bytes changed');
-echo "PASS loopback HTTP payload, credential replacement, SSE bytes, HTTP errors and binary transport\n";
+$filePath=tempnam(sys_get_temp_dir(),'open-transport-');file_put_contents($filePath,'owned-upload-fixture');
+try{
+    $file=new \think\file\UploadedFile($filePath,'reviewed.txt','text/plain',UPLOAD_ERR_OK,true);
+    $payload=['quantity'=>2,'options'=>['speed'=>1.5],'enabled'=>false,'prompt'=>'@literal'];
+    $r=$t->send($s,'POST','/api/v1/fixture-upload',$payload,['file'=>$file],null,[],'multipart/form-data');$d=json_decode($r['body'],true);
+    ok($d['multipart']&&$d['form']===['quantity'=>'2','options'=>'{"speed":1.5}','enabled'=>'false','prompt'=>'@literal']&&$d['files']['file']['sha256']===hash_file('sha256',$filePath),'Multipart fields or upload bytes changed');
+    $r=$t->send($s,'POST','/api/v1/fixture-upload',['quantity'=>2],[],null,[],'multipart/form-data');$d=json_decode($r['body'],true);
+    ok($d['multipart']&&$d['form']===['quantity'=>'2']&&$d['files']===[],'Multipart without files silently became JSON');
+}finally{unlink($filePath);}
+echo "PASS loopback HTTP payload, credential replacement, SSE bytes, HTTP errors and binary transport plus typed multipart with and without files\n";
