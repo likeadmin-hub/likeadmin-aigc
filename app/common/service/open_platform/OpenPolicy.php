@@ -48,9 +48,9 @@ final class OpenPolicy
     }
     public static function publicData(array $data): array
     {
-        $hidden = ['api_key','active_api_key','license_key','secret','secret_key','access_key','password','token','authorization','provider_params_json','pricing_snapshot','market_snapshot','price_snapshot','upstream_price','platform_price','platform_unit_cost','tenant_cost_points','tenant_cost','tenant_unit_points','tenant_unit_cost','cost_points','reserved_tenant_cost','actual_tenant_cost','point_balance','source_blob','key_hash','actual_tenant','budget_tenant','tenant_price','platform_sale_points','gross_margin_points','user_point_sn','tenant_point_sn'];
+        $hidden = ['config_json','prompt_template','system_prompt','tenant_id','user_id','tenant_override_id','cost_source_url','api_key','active_api_key','license_key','secret','secret_key','access_key','password','token','authorization','provider_params_json','pricing_snapshot','market_snapshot','price_snapshot','upstream_price','platform_price','platform_unit_cost','tenant_cost_points','tenant_cost','tenant_unit_points','tenant_unit_cost','cost_points','reserved_tenant_cost','actual_tenant_cost','point_balance','source_blob','key_hash','actual_tenant','budget_tenant','tenant_price','platform_sale_points','gross_margin_points','user_point_sn','tenant_point_sn'];
         foreach ($data as $key => &$value) {
-            if (in_array(strtolower((string)$key), $hidden, true) || str_ends_with((string)$key, '_secret') || str_contains((string)$key, 'credential') || str_starts_with((string)$key,'_open_platform') || preg_match('/^(?:reserved_|actual_|estimated_)?tenant_(?:cost|price)|^(?:platform_|upstream_)(?:price|cost)|^.*(?:api[_-]?key|access[_-]?token)$/i',(string)$key)) { unset($data[$key]); continue; }
+            if (in_array(strtolower((string)$key), $hidden, true) || str_ends_with((string)$key, '_secret') || str_contains((string)$key, 'credential') || str_starts_with((string)$key,'_open_platform') || preg_match('/^(?:reserved_|actual_|estimated_)?tenant_(?:cost|price)|^(?:platform_|upstream_).*(?:price|cost|margin)|^tenant_.*(?:cost|margin)|^.*(?:api[_-]?key|access[_-]?token)$/i',(string)$key)) { unset($data[$key]); continue; }
             if (is_array($value)) $value = self::publicData($value);
         }
         return $data;

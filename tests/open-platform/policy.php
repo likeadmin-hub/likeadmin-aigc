@@ -13,5 +13,8 @@ check(!OpenPolicy::isPublicIp('127.0.0.1') && !OpenPolicy::isPublicIp('::1') && 
 check(OpenPolicy::isPublicIp('8.8.8.8'), 'public address');
 try { OpenPolicy::validateInput(['price_snapshot' => []]); throw new RuntimeException('reserved input accepted'); } catch (InvalidArgumentException $e) {}
 $clean = OpenPolicy::publicData(['tenant_cost_points' => 10, 'results' => [['url' => 'https://example.com/a']], 'api_key' => 'secret', 'display_points' => 3]);
-check(!isset($clean['api_key'], $clean['tenant_cost_points']) && $clean['display_points'] === 3, 'retail sanitization');
+check(!isset($clean['api_key']) && !isset($clean['tenant_cost_points']) && $clean['display_points'] === 3, 'retail sanitization');
+$cap=OpenPolicy::publicData(['prompt_template'=>'internal','config_json'=>['system_prompt'=>'internal'],'tenant_id'=>1,'options'=>[['upstream_unit_cost'=>7,'platform_input_unit_cost'=>8,'platform_gross_margin_points'=>2,'cost_source_url'=>'https://internal.example','tenant_unit_price'=>9,'code'=>'selectable']]]);
+check(!isset($cap['prompt_template'])&&!isset($cap['config_json'])&&!isset($cap['tenant_id']),'Internal configuration leaked');
+check($cap['options'][0]===['tenant_unit_price'=>9,'code'=>'selectable'],'Nested cost fields leaked or user price removed');
 echo "PASS open platform policy\n";
