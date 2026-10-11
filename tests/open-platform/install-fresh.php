@@ -20,7 +20,7 @@ try{
  $pdo->exec($sql);
  $tables=$pdo->query('SHOW TABLES LIKE '.$pdo->quote($prefix.'open_platform_%'))->fetchAll(PDO::FETCH_COLUMN);sort($tables);check(count($tables)===9,'Fresh installer is missing open-platform tables');
  $before=[];foreach($tables as $table)$before[$table]=$pdo->query('SHOW CREATE TABLE `'.$table.'`')->fetch(PDO::FETCH_NUM)[1];
- $migrations=glob($root.'/app/apps/open_platform/migrations/*.sql');sort($migrations);check(count($migrations)===6,'Migration baseline changed; update acceptance coverage');
+ $migrations=glob($root.'/app/apps/open_platform/migrations/*.sql');sort($migrations);check(count($migrations)===7,'Migration baseline changed; update acceptance coverage');
  for($i=0;$i<2;$i++)foreach($migrations as $file)$pdo->exec(str_replace('la_',$prefix,file_get_contents($file)));
  $schema=static fn($ddl)=>preg_replace('/ AUTO_INCREMENT=\d+/','',$ddl);
  foreach($tables as $table)check($schema($pdo->query('SHOW CREATE TABLE `'.$table.'`')->fetch(PDO::FETCH_NUM)[1])===$schema($before[$table]),'Repeated migration changed installed schema: '.$table);
@@ -44,7 +44,7 @@ try{
  $entries=array_values(array_filter(AppFrontendManifestService::tenantEntries(123456,'pc'),fn($entry)=>$entry['app_code']==='open_platform'));check(count($entries)===1&&$entries[0]['path']==='/user/developer/overview'&&!$entries[0]['need_membership']&&$entries[0]['membership_allowed'],'New tenant developer entry imposed independent API membership');
  check(S::settings(123456)['enabled']===false,'New tenant unexpectedly enabled API calling');check(S::settings(123456)['apps']===[]&&S::settings(123456)['models']===[],'New tenant inherited callable abilities');
  check(count(D::publicLists(123456))===7,'New tenant did not inherit published integration guides');
- echo "PASS full fresh installer, 9 tables, repeated 6 migrations, registry/API/frontend/menu sync, preserved tenant menus, same membership and closed new tenant (",$created?'isolated schema':'isolated table prefix',")\n";
+ echo "PASS full fresh installer, 9 tables, repeated 7 migrations, registry/API/frontend/menu sync, preserved tenant menus, same membership and closed new tenant (",$created?'isolated schema':'isolated table prefix',")\n";
 }finally{
  app()->config->set($original,'database');
  $restoreConfig=new think\Config();$restoreConfig->set($original,'database');Db::setConfig($restoreConfig);

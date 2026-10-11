@@ -65,7 +65,7 @@ curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/tasks/$OPEN_TASK_ID" \
 curl "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID" \
   -H "Authorization: Bearer $OPEN_API_KEY"
 
-curl -I "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID/download" \
+curl --request GET --dump-header - --output /dev/null "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID/download" \
   -H "Authorization: Bearer $OPEN_API_KEY"
 ```
 
