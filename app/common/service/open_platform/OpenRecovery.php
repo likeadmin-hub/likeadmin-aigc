@@ -22,6 +22,11 @@ final class OpenRecovery
                 // Unknown acceptance cannot be repaired by resubmitting the original payload.
                 if($row['upstream_task_id']===''||empty($contract['query_path'])){OpenAdmission::finish($row['request_id'],['next_run_time'=>time()+300,'lease_expire'=>0,'lease_token'=>'']);return;}
                 $source=OpenStore::json(OpenVault::open($snapshot['source_blob']));$path=str_replace('{task_id}',rawurlencode($row['upstream_task_id']),$contract['query_path']);$wire=(new OpenTransport())->send($source,'GET',$path,[]);if(OpenGateway::wireFailed($wire['status'],OpenStore::json($wire['body']),$contract))throw new OpenException('query_failed','任务查询暂不可用',502);$data=OpenStore::json($wire['body']);OpenGateway::observeTask($row,$data);$latest=OpenStore::table('request')->where('id',$row['id'])->find();if((int)$latest['active']===0)OpenWebhooks::enqueue($latest,$data);
+            }elseif($row['app_code']==='aigc_llm'&&!OpenStore::json($row['consumption_ids'])&&in_array($row['path'],['/api/v1/tools/aigc_llm/tasks','/api/v1/tools/aigc_llm/stream'],true)){
+                // Both fixed text services commit and associate consumption
+                // before any transport. With no association, execution never
+                // reached a provider even if entry into the service was marked.
+                OpenAdmission::finish($row['request_id'],['status'=>'failed','billing_status'=>'none','active'=>0,'error_code'=>'execution_not_started','error_message'=>'文本服务在上游执行前中断','finish_time'=>time()]);
             }elseif($row['tool_task_id']!==''){
                 $tool=OpenToolRegistry::get($row['app_code']);$op=$tool['operations']['GET tasks/{task_id}']??null;if(!$op)throw new OpenException('query_unavailable','任务查询尚未接入',503);
                 $data=OpenToolAdapter::call($request,$op+['app_code'=>$row['app_code'],'route'=>'GET tasks/{task_id}','params'=>['task_id'=>$row['tool_task_id']],'history'=>true,'internal'=>true],[]);
