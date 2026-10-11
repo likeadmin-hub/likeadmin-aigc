@@ -33,6 +33,16 @@ final class OpenToolAdapter
         return (array)($payload['data']??[]);
         }finally{app()->instance('request',$original);}
     }
+    public static function estimateBudget(array $quote): ?array
+    {
+        $user=$quote['user_charge_points']??$quote['display_points']??$quote['total_points']??null;
+        $tenant=$quote['tenant_cost_points']??$quote['cost_points']??null;if($user===null||$tenant===null)return null;
+        foreach([$user,$tenant] as $amount)if(!is_numeric($amount)||!is_finite((float)$amount)||(float)$amount<0||(float)$amount>999999999999.99)throw new OpenException('pricing_unavailable','工具估价未提供可靠的费用边界',503);
+        // A zero/zero estimate may be an incomplete duration/resource probe.
+        // It cannot become unrestricted paid execution; require an explicit bound.
+        if((float)$user===0.&&(float)$tenant===0.)return null;
+        return ['user'=>(float)$user,'tenant'=>(float)$tenant,'snapshot'=>['quote'=>$quote,'billing_owner'=>'tool']];
+    }
     public static function budget($request,array $operation,array $params): array
     {
         if(empty($operation['billable']))return ['user'=>0,'tenant'=>0,'snapshot'=>[]];
@@ -43,9 +53,7 @@ final class OpenToolAdapter
         $tool=OpenToolRegistry::get($operation['app_code']);$estimate=$tool['operations']['POST estimate']??null;
         if($estimate && $operation['route']==='POST tasks'){
             $quote=self::call($request,$estimate+['app_code'=>$operation['app_code'],'params'=>[]],$params);
-            $user=$quote['user_charge_points']??$quote['display_points']??$quote['total_points']??null;
-            $tenant=$quote['tenant_cost_points']??$quote['cost_points']??null;
-            if($user!==null&&$tenant!==null)return ['user'=>max(0,(float)$user),'tenant'=>max(0,(float)$tenant),'snapshot'=>['quote'=>$quote,'billing_owner'=>'tool']];
+            $budget=self::estimateBudget($quote);if($budget!==null)return $budget;
         }
         $rules=OpenStore::settings(0)['tool_budgets'][$operation['app_code']][$operation['route']]??null;
         if(!$rules||!isset($rules['user'],$rules['tenant'])||(float)$rules['user']<=0||(float)$rules['tenant']<=0)throw new OpenException('pricing_unavailable','该操作尚未配置可靠的计费额度边界',503);
