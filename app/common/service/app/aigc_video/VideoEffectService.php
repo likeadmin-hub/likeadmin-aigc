@@ -36,7 +36,7 @@ class VideoEffectService
                 $row[$field]=$value;
             }
             $enabled=(bool)($row['enabled']??false);
-            if ($enabled && (!$ids || !$row['video'] || !$row['poster'])) throw new InvalidArgumentException('启用前请配置已验证模型、实测演示视频和封面');
+            if ($enabled && !$ids) throw new InvalidArgumentException('启用前请选择适配模型');
             $result[$row['id']]=array_intersect_key($row,array_flip(['id','name','description','instruction','poster','video']))+['enabled'=>$enabled,'product_ids'=>array_values(array_unique($ids)),'methods'=>array_values(array_unique($methods)),'require_image'=>(bool)($row['require_image']??false)];
         }
         return array_values($result);
@@ -63,7 +63,7 @@ class VideoEffectService
         $effect=null;
         foreach ($rows as $row) if ($row['id']===$id) $effect=$row;
         if (!$effect || !$effect['enabled']) throw new InvalidArgumentException('该效果暂未开放，请移除效果后重试');
-        if (!in_array($productId,$effect['product_ids'],true)) throw new InvalidArgumentException('当前模型尚未通过此效果验证，请更换模型或移除效果');
+        if (!in_array($productId,$effect['product_ids'],true)) throw new InvalidArgumentException('当前模型未配置此效果，请更换模型或移除效果');
         $assets=AigcVideoReferenceAssetService::normalize($params);
         $method=(string)($params['generation_method']??($assets ? 'image_reference':'text_to_video'));
         if (!in_array($method,$effect['methods'],true)) throw new InvalidArgumentException('此效果不支持当前生成方式');
