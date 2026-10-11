@@ -9,7 +9,7 @@ final class VideoEffectTest extends TestCase
         foreach($rows as &$row){$row['enabled']=true;$row['product_ids']=[7];$row['poster']='/uploads/demo.webp';$row['video']='/uploads/demo.mp4';}
         return Effects::normalize($rows);
     }
-    public function testDefaultsAreNotPublicUntilValidated(): void {
+    public function testDefaultsAreNotPublicUntilEnabled(): void {
         self::assertCount(3,Effects::defaults());
         self::assertSame([],Effects::publicCatalog(Effects::defaults()));
         self::assertArrayNotHasKey('instruction',Effects::publicCatalog($this->catalog())[0]);
@@ -42,7 +42,17 @@ final class VideoEffectTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         Effects::resolve($rows,['effect_id'=>'push_in'],7);
     }
-    public function testEnablingRequiresModelsAndActualPreview(): void {
+    public function testPreviewIsOptionalForFrontendTesting(): void {
+        $rows=Effects::defaults();
+        foreach($rows as &$row){$row['enabled']=true;$row['product_ids']=[7];}
+        $normalized=Effects::normalize($rows);
+        self::assertCount(3,Effects::publicCatalog($normalized));
+        foreach($normalized as $effect){
+            self::assertSame('', $effect['video']);
+            self::assertSame($effect['id'],Effects::resolve($normalized,['effect_id'=>$effect['id']],7)['id']);
+        }
+    }
+    public function testEnablingRequiresModels(): void {
         $rows=Effects::defaults();$rows[0]['enabled']=true;
         $this->expectException(InvalidArgumentException::class);Effects::normalize($rows);
     }
