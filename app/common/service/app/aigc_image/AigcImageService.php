@@ -136,13 +136,13 @@ class AigcImageService
         return self::generateInternal($tenantId, $userId, $params);
     }
 
-    public static function generateWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride): array
+    public static function generateWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride, ?callable $onTaskCreated = null): array
     {
-        return self::generateInternal($tenantId, $userId, $params, $billingOverride);
+        return self::generateInternal($tenantId, $userId, $params, $billingOverride, $onTaskCreated);
     }
 
     /** Submit a business app image task through a market model SKU only. */
-    public static function generateMarketModelWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride, string $appCode): array
+    public static function generateMarketModelWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride, string $appCode, ?callable $onTaskCreated = null): array
     {
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
@@ -167,6 +167,7 @@ class AigcImageService
             'model' => (string)($params['model_id'] ?? ''), 'status' => 'running', 'error' => '',
             'delete_time' => 0, 'create_time' => time(), 'update_time' => time(),
         ]);
+        if ($onTaskCreated) $onTaskCreated($task);
         try {
             $request = array_merge($params, ['quantity' => $quantity, 'reference_images' => $referenceImages]);
             $reserve = MarketImageModelRuntimeService::reserve(
@@ -185,7 +186,7 @@ class AigcImageService
         }
     }
 
-    private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = []): array
+    private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = [], ?callable $onTaskCreated = null): array
     {
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
@@ -204,7 +205,7 @@ class AigcImageService
         }
         self::checkSensitiveWords($tenantId, $prompt);
         if ((string)($selection['channel']['provider'] ?? '') === 'power_market_app_api') {
-            return self::generateNanoBanana($tenantId, $userId, $params, $selection, $referenceImages);
+            return self::generateNanoBanana($tenantId, $userId, $params, $selection, $referenceImages, $onTaskCreated);
         }
         if ((string)($selection['channel']['provider'] ?? '') === 'power_market_model') {
             return self::generateMarketModelWithBillingOverride(
@@ -220,7 +221,8 @@ class AigcImageService
                     'reference_images' => $referenceImages,
                 ]),
                 $billingOverride,
-                self::APP_CODE
+                self::APP_CODE,
+                $onTaskCreated
             );
         }
         throw new Exception('图片生成必须选择算力市场模型或应用 API');
@@ -356,7 +358,7 @@ class AigcImageService
     }
 
     /** Submit Nano Banana through its application-API runtime and market SKU. */
-    private static function generateNanoBanana(int $tenantId, int $userId, array $params, array $selection, array $referenceImages): array
+    private static function generateNanoBanana(int $tenantId, int $userId, array $params, array $selection, array $referenceImages, ?callable $onTaskCreated = null): array
     {
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
         AigcImageChannelService::assertChannelQuantity($selection['channel'], $quantity);
@@ -399,6 +401,7 @@ class AigcImageService
             'update_time' => time(),
         ]);
 
+        if ($onTaskCreated) $onTaskCreated($task);
         try {
             $reserve = MarketNanoBananaAppRuntimeService::reserve(
                 $tenantId,

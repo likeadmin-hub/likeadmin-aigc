@@ -18,6 +18,7 @@ use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
 use Exception;
+use think\facade\Db;
 
 class AigcProductSuiteService
 {
@@ -286,25 +287,29 @@ class AigcProductSuiteService
         $estimate = self::buildEstimate($prepared, $singleEstimate);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
         $batchNo = 'product_suite_' . date('YmdHis') . '_' . substr(md5($tenantId . '_' . $userId . '_' . microtime(true)), 0, 8);
-        $imageTaskIds = [];
-        foreach ($prepared['modules'] as $module) {
-            $payload = array_merge($prepared['image_payload'], [
-                'prompt' => self::buildPrompt($prepared['config'], $module, $prepared['user_prompt'], $prepared),
-                'reference_images' => $prepared['product_images'],
-            ]);
-            $result = AigcImageService::generateWithBillingOverride($tenantId, $userId, $payload, [
-                'tenant_cost_points' => $estimate['platform_unit_cost'],
-                'user_charge_points' => $prepared['unit_price'],
-            ]);
-            $imageTaskId = (int)($result['task_id'] ?? 0);
-            if ($imageTaskId > 0) {
-                $imageTaskIds[] = $imageTaskId;
+        // Persist the parent and each created child before any provider transport.
+        // Stop on the first rejected/uncertain submission; never replay siblings.
+        $task = self::createBatchTask($tenantId, $userId, $batchNo, [], $prepared, $estimate);
+        $task->save(['status' => 'submitting']);
+        try {
+            foreach ($prepared['modules'] as $module) {
+                $payload = array_merge($prepared['image_payload'], [
+                    'prompt' => self::buildPrompt($prepared['config'], $module, $prepared['user_prompt'], $prepared),
+                    'reference_images' => $prepared['product_images'],
+                ]);
+                AigcImageService::generateWithBillingOverride($tenantId, $userId, $payload, [
+                    'tenant_cost_points' => $estimate['platform_unit_cost'],
+                    'user_charge_points' => $prepared['unit_price'],
+                ], static function (AigcImageTask $child) use ($task) {
+                    self::attachImageTask((int)$task['id'], $child);
+                });
             }
+        } catch (\Throwable $e) {
+            $task->save(['error' => '部分模块提交未完成，已创建的任务将继续处理', 'update_time' => time()]);
         }
-        if (!$imageTaskIds) {
-            throw new Exception('AI商品套图任务创建失败');
-        }
-        $task = self::createBatchTask($tenantId, $userId, $batchNo, $imageTaskIds, $prepared, $estimate);
+        $task = AigcProductSuiteTask::findOrEmpty((int)$task['id']);
+        $imageTaskIds = self::taskImageIds($task->toArray());
+        $task->save(['status' => $imageTaskIds ? 'running' : 'failed', 'finish_time' => $imageTaskIds ? 0 : time(), 'update_time' => time()]);
         self::syncTaskFromImageTask($task);
         return [
             'task_id' => (int)$task['id'],
@@ -566,12 +571,13 @@ class AigcProductSuiteService
 
     private static function createBatchTask(int $tenantId, int $userId, string $batchNo, array $imageTaskIds, array $prepared, array $estimate): AigcProductSuiteTask
     {
-        $firstImageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $imageTaskIds[0]])->findOrEmpty();
+        $firstId = (int)($imageTaskIds[0] ?? 0);
+        $firstImageTask = $firstId > 0 ? AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $firstId])->findOrEmpty() : [];
         $data = [
             'tenant_id' => $tenantId,
             'user_id' => $userId,
             'batch_no' => $batchNo,
-            'image_task_id' => (int)$imageTaskIds[0],
+            'image_task_id' => $firstId,
             'image_task_ids' => $imageTaskIds,
             'product_images' => $prepared['product_images'],
             'platform' => $prepared['platform'],
@@ -603,10 +609,27 @@ class AigcProductSuiteService
         return AigcProductSuiteTask::create($data);
     }
 
+    public static function attachImageTask(int $parentId, AigcImageTask $child): void
+    {
+        Db::transaction(function () use ($parentId, $child) {
+            $parent = AigcProductSuiteTask::lock(true)->findOrEmpty($parentId);
+            if ($parent->isEmpty() || (int)$parent['tenant_id'] !== (int)$child['tenant_id'] || (int)$parent['user_id'] !== (int)$child['user_id']) {
+                throw new \RuntimeException('商品套图子任务归属不匹配');
+            }
+            $ids = self::taskImageIds($parent->toArray());
+            if (!in_array((int)$child['id'], $ids, true)) $ids[] = (int)$child['id'];
+            $parent->save(['image_task_ids' => $ids, 'image_task_id' => $ids[0], 'update_time' => time()]);
+        });
+    }
+
     private static function syncTaskFromImageTask(AigcProductSuiteTask $task): void
     {
+        // Provider transports have a finite timeout. A fresh submitting parent
+        // must not be finalized while its sequential child loop is still alive.
+        if ((string)$task['status'] === 'submitting' && (int)$task['update_time'] > time() - 1800) return;
         $imageTaskIds = self::taskImageIds($task->toArray());
         if (!$imageTaskIds) {
+            if ((string)$task['status'] === 'submitting') $task->save(['status'=>'failed','error'=>'任务在子任务提交前中断','finish_time'=>time(),'update_time'=>time()]);
             return;
         }
         $tenantId = (int)$task['tenant_id'];
@@ -627,7 +650,7 @@ class AigcProductSuiteService
         $failedCount = count(array_filter($statuses, static fn($status) => in_array($status, ['failed', 'canceled'], true)));
         $resultCount = (int)($syncSummary['result_count'] ?? 0);
         $missingResultCount = (int)($syncSummary['missing_result_count'] ?? 0);
-        if ($resultCount >= count($imageTaskIds) && $successCount === count($imageTaskIds)) {
+        if ($resultCount >= (int)$task['quantity'] && $successCount === (int)$task['quantity']) {
             $task->status = 'success';
         } elseif ($resultCount > 0 && $successCount + $failedCount === count($imageTaskIds)) {
             $task->status = 'partial_failed';
@@ -639,6 +662,7 @@ class AigcProductSuiteService
             $task->status = 'running';
         }
         $errors = array_values(array_filter(array_map(static fn($row) => trim((string)($row['error'] ?? '')), $imageTasks)));
+        if (count($imageTaskIds) < (int)$task['quantity']) $errors[] = '部分模块未提交，已受理任务的结果与费用单独保留';
         if ($missingResultCount > 0 && in_array((string)$task->status, ['failed', 'partial_failed'], true)) {
             $errors[] = '生成任务未返回可用作品，请重新生成';
         }

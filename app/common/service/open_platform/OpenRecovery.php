@@ -32,7 +32,7 @@ final class OpenRecovery
             }elseif($row['tool_task_id']!==''){
                 $tool=OpenToolRegistry::get($row['app_code']);$op=$tool['operations']['GET tasks/{task_id}']??null;if(!$op)throw new OpenException('query_unavailable','任务查询尚未接入',503);
                 $data=OpenToolAdapter::call($request,$op+['app_code'=>$row['app_code'],'route'=>'GET tasks/{task_id}','params'=>['task_id'=>$row['tool_task_id']],'history'=>true,'internal'=>true],[]);
-                $status=(string)($data['status']??'running');if(in_array($status,['success','completed','failed','cancelled','canceled','partial_success'],true)){
+                $status=(string)($data['status']??'running');if(in_array($status,['success','completed','failed','cancelled','canceled','partial_success','partial_failed'],true)){
                     $ids=OpenStore::json(OpenStore::table('request')->where('id',$row['id'])->value('consumption_ids'));$billing='settled';if($ids){$states=AiConsumptionLog::where(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']])->whereIn('id',$ids)->column('billing_status');foreach($states as $state)if(!in_array($state,['settled','refunded','none'],true)){$billing=$state==='pending_usage'?'pending_usage':'pending';break;}}
                     OpenAdmission::finish($row['request_id'],['status'=>$status,'billing_status'=>$billing,'active'=>$billing==='pending'||$billing==='pending_usage'?1:0,'budget_user'=>in_array($billing,['pending','pending_usage'],true)?$row['budget_user']:0,'budget_tenant'=>in_array($billing,['pending','pending_usage'],true)?$row['budget_tenant']:0,'finish_time'=>time()]);$latest=OpenStore::table('request')->where('id',$row['id'])->find();OpenWebhooks::enqueue($latest,$data);
                 }
