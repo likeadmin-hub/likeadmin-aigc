@@ -13,7 +13,7 @@ foreach(['platform','tenant'] as $scene){
  if(($originalCache['default']??'')==='file'){$localCache=$originalCache;$localCache['stores']['file']['path']=$runtime.$scene.'api/cache';app()->config->set($localCache,'cache');app()->cache->forgetDriver();}
  $prefix=$scene==='platform'?'':'tenant_';$adminId=random_int(800000000,899999999);$roleId=random_int(800000000,899999999);$token=bin2hex(random_bytes(32));
  check(!Db::name($prefix.'admin_role')->where('admin_id',$adminId)->find()&&!Db::name($prefix.'system_role_menu')->where('role_id',$roleId)->find(),'Fixture collision');
- $menu=Db::name($prefix.'system_menu')->where(['perms'=>'app.open_platform.management/requests','is_disable'=>0])->find();check($menu,'Installed read permission missing');
+ $menus=Db::name($prefix.'system_menu')->where(['perms'=>'app.open_platform.management/requests','is_disable'=>0]);if($scene==='tenant')$menus->where('tenant_id',1);$menu=$menus->find();check($menu,'Installed read permission missing');
  $cache=$scene==='platform'?new app\common\cache\AdminTokenCache():new app\common\cache\TenantAdminTokenCache();$auth=$scene==='platform'?new app\common\cache\AdminAuthCache($adminId):new app\common\cache\TenantAdminAuthCache($adminId);
  $key=($scene==='platform'?'token_admin_':'token_tenant_').$token;$authKey=($scene==='platform'?'admin_auth_':'tenant_auth_').'url_'.$adminId;
  try{
