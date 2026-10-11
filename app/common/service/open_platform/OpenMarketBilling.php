@@ -14,7 +14,7 @@ final class OpenMarketBilling
         if(!in_array((string)$productId,$config['models'],true)||!in_array((string)$productId,$global['models'],true))throw new OpenException('permission_denied','该商城能力未开放',403);
         if(empty($operation['billable']))return ['user'=>0,'tenant'=>0,'snapshot'=>['contract'=>$operation,'product_id'=>$productId]];
         $product=TenantPowerMarketService::detail($tenantId,$productId);if(!$product||empty($product['status']))throw new OpenException('permission_denied','商城产品已下架',403);
-        $user=0.;$tenant=0.;$rules=[];$skus=array_column($product['skus'],'','id');
+        $user=0.;$tenant=0.;$rules=[];$skus=array_column($product['skus'],null,'id');
         foreach($operation['billing'] as $rule){$sku=$skus[(int)$rule['sku_id']]??null;if(!$sku||empty($sku['sale_status']))throw new OpenException('pricing_unavailable','计费 SKU 已下架',503);
             foreach(OpenStore::json($sku['locked_params']??[]) as $key=>$value)if(array_key_exists($key,$params)&&$params[$key]!=$value)throw new OpenException('invalid_sku','参数与已发布 SKU 不匹配');
             $units=$rule['basis']==='usage'?(float)$rule['max_units']:(empty($rule['input_path'])?1:OpenSchema::get($params,$rule['input_path']));if(is_array($units))$units=count($units);if(!is_numeric($units)||(float)$units<0||(float)$units>(float)$rule['max_units'])throw new OpenException('invalid_usage','请求超出已发布计费边界');
