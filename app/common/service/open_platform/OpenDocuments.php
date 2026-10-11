@@ -18,10 +18,28 @@ final class OpenDocuments
     {
         $q=OpenStore::table('document')->whereIn('tenant_id',[0,$tenantId])->where('status','published');if($search!=='')$q->where('title|content','like','%'.mb_substr($search,0,100).'%');$rows=$q->order('tenant_id','asc')->order('sort','asc')->select()->toArray();$items=[];foreach($rows as $row)$items[$row['slug']]=$row;return array_values($items);
     }
+
     public static function openapi(int $tenantId): array
     {
-        $paths=[];$config=OpenStore::settings($tenantId);foreach(OpenStore::table('contract')->where(['status'=>'published','kind'=>'market'])->select()->toArray() as $row){if($row['product_id']>0&&!in_array((string)$row['product_id'],$config['models'],true))continue;$c=OpenStore::json($row['config']);$paths[$row['path']][strtolower($row['method'])]=['operationId'=>$row['code'],'summary'=>$c['title']??$row['code'],'description'=>$c['description']??'','security'=>[['apiKey'=>[]]],'requestBody'=>['content'=>['application/json'=>['schema'=>$c['input'],'example'=>$c['example']]]],'responses'=>$c['responses']];}
-        foreach(OpenToolRegistry::all() as $app=>$tool){if(!in_array($app,$config['apps'],true))continue;$published=OpenStore::table('contract')->where(['kind'=>'tool','status'=>'published'])->column('path');foreach($tool['operations'] as $route=>$op){[$verb,$suffix]=explode(' ',$route,2);if(!in_array('/api/v1/tools/'.$app.'/'.$suffix,$published,true))continue;$paths['/api/v1/tools/'.$app.'/'.$suffix][strtolower($verb)]=['operationId'=>$app.'_'.str_replace(['/','{','}'],['_','',''],$suffix),'summary'=>$op['description'],'security'=>[['apiKey'=>[]]],'requestBody'=>['content'=>['application/json'=>['schema'=>$op['input']]]],'responses'=>['200'=>['description'=>'工具响应，包含 request_id 和 data']]];}}
+        $paths=[];$config=OpenStore::settings($tenantId);$global=OpenStore::settings(0);
+        foreach(OpenStore::table('contract')->where('status','published')->order('id','asc')->select()->toArray() as $row){
+            $c=OpenStore::json($row['config']);$app=$c['app_code']??'';
+            if($row['kind']==='tool'&&(!in_array($app,$config['apps'],true)||!in_array($app,$global['apps'],true)))continue;
+            if($row['kind']==='market'&&(int)$row['product_id']>0&&(!in_array((string)$row['product_id'],$config['models'],true)||!in_array((string)$row['product_id'],$global['models'],true)))continue;
+            $input=$c['input'];$method=strtolower($row['method']);$op=['operationId'=>$row['code'],'summary'=>$c['title']??$row['code'],'description'=>$c['description']??'','tags'=>[$row['kind']==='tool'?OpenToolRegistry::get($app)['name']:'商城 API'],'security'=>[['apiKey'=>[]]],'responses'=>$c['responses'],'x-contract-version'=>(int)$row['version'],'x-billable'=>(bool)$c['billable'],'x-billing-description'=>$c['billing_description']??''];
+            preg_match_all('/\{([a-z_]+)\}/',$row['path'],$captures);
+            foreach($captures[1] as $name)$op['parameters'][]=['name'=>$name,'in'=>'path','required'=>true,'schema'=>['type'=>'string'],'description'=>$name==='task_id'?'此用户在对应能力中创建的任务 ID':'资源 ID'];
+            if($method==='get'){
+                foreach($input['properties']??[] as $name=>$field)$op['parameters'][]=['name'=>$name,'in'=>'query','required'=>in_array($name,$input['required']??[],true),'schema'=>$field,'description'=>$field['description']??''];
+            }else{
+                $type=($c['executor']??'')==='multipart'?'multipart/form-data':'application/json';
+                $op['requestBody']=['required'=>!empty($input['required']),'content'=>[$type=>['schema'=>$input,'example'=>(object)$c['example']]]];
+                if(!empty($c['billable']))$op['parameters'][]=['name'=>'Idempotency-Key','in'=>'header','required'=>false,'schema'=>['type'=>'string','maxLength'=>200],'description'=>'同一用户及接口作用域的幂等键'];
+            }
+            $variant=['code'=>$row['code'],'version'=>$row['version'],'product_id'=>$row['product_id'],'model'=>$c['model']??null];
+            if(isset($paths[$row['path']][$method])){$paths[$row['path']][$method]['x-contract-variants'][]=$variant;continue;}
+            $op['x-contract-variants']=[$variant];$paths[$row['path']][$method]=$op;
+        }
         return ['openapi'=>'3.0.3','info'=>['title'=>'LikeAdmin 开放平台','version'=>'1.0.0'],'paths'=>(object)$paths,'components'=>['securitySchemes'=>['apiKey'=>['type'=>'http','scheme'=>'bearer']]]];
     }
 }

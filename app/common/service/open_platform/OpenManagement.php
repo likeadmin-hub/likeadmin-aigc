@@ -32,7 +32,7 @@ final class OpenManagement
     public static function requests(int $tenantId,?int $userId,array $filters): array
     {
         $q=OpenStore::table('request');if($tenantId>=0)$q->where('tenant_id',$tenantId);if($userId!==null)$q->where('user_id',$userId);
-        foreach(['request_id','key_id','app_code','status','billing_status','kind'] as $f)if(isset($filters[$f])&&$filters[$f]!=='')$q->where($f,$filters[$f]);
+        foreach(['request_id','key_id','app_code','status','billing_status','kind','contract_id'] as $f)if(isset($filters[$f])&&$filters[$f]!=='')$q->where($f,$filters[$f]);
         if(!empty($filters['start']))$q->where('create_time','>=',(int)$filters['start']);if(!empty($filters['end']))$q->where('create_time','<=',(int)$filters['end']);
         if(!empty($filters['tasks']))$q->where(function($q){$q->where('tool_task_id','<>','')->whereOr('upstream_task_id','<>','');});
         if(!empty($filters['exceptions']))$q->whereIn('billing_status',['pending_confirmation','pending_usage','settlement_failed']);
@@ -48,6 +48,14 @@ final class OpenManagement
     public static function usage(int $tenantId,int $userId,array $filters): array
     {
         $q=OpenStore::owner('request',$tenantId,$userId);if(!empty($filters['start']))$q->where('create_time','>=',(int)$filters['start']);if(!empty($filters['end']))$q->where('create_time','<=',(int)$filters['end']);
-        $rows=$q->field('app_code,kind,key_id,COUNT(*) AS calls,SUM(actual_user) AS charged,SUM(budget_user) AS pending_budget')->group('app_code,kind,key_id')->select()->toArray();return ['groups'=>$rows,'charged'=>array_sum(array_column($rows,'charged')),'calls'=>array_sum(array_column($rows,'calls'))];
+        $rows=$q->field('app_code,kind,key_id,contract_id,path,COUNT(*) AS calls,SUM(actual_user) AS charged,SUM(budget_user) AS pending_budget')->group('app_code,kind,key_id,contract_id,path')->select()->toArray();return ['groups'=>$rows,'charged'=>array_sum(array_column($rows,'charged')),'calls'=>array_sum(array_column($rows,'calls'))];
     }
+    public static function callbacks(int $tenantId,int $userId,string $requestId): array
+    {
+        self::detail($tenantId,$userId,$requestId);
+        $events=OpenStore::owner('webhook',$tenantId,$userId)->where('request_id',$requestId)->withoutField('secret_blob,payload_blob,lease_token')->order('id','desc')->select()->toArray();
+        foreach($events as &$event)$event['deliveries']=OpenStore::table('webhook_delivery')->where('webhook_id',$event['id'])->withoutField('lease_token')->order('id','desc')->select()->toArray();
+        return $events;
+    }
+
 }

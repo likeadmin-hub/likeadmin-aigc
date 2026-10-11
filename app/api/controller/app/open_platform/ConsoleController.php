@@ -20,4 +20,7 @@ class ConsoleController extends BaseApiController
     public function requestDetail(){return $this->run(fn()=>OpenManagement::detail((int)$this->request->tenantId,$this->userId,(string)$this->request->get('request_id')));}
     public function tasks(){return $this->run(fn()=>OpenManagement::requests((int)$this->request->tenantId,$this->userId,$this->request->get()+['tasks'=>true]));}
     public function usage(){return $this->run(fn()=>OpenManagement::usage((int)$this->request->tenantId,$this->userId,$this->request->get()));}
+    public function callbacks(){return $this->run(fn()=>OpenManagement::callbacks((int)$this->request->tenantId,$this->userId,(string)$this->request->get('request_id')));}
+    public function replayCallback(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(function(){\app\common\service\open_platform\OpenWebhooks::replay((int)$this->request->tenantId,$this->userId,(int)$this->request->post('id'));return [];});}
+
 }

@@ -12,7 +12,7 @@ final class OpenRecovery
     }
     public static function refresh(array $row): void
     {
-        $request=request();$request->tenantId=(int)$row['tenant_id'];$request->userId=(int)$row['user_id'];$request->userInfo=['tenant_id'=>(int)$row['tenant_id'],'user_id'=>(int)$row['user_id'],'terminal'=>4];OpenCallContext::enter($row['request_id']);
+        $request=request();$request->source=\app\common\enum\AdminTerminalEnum::USER;$request->tenantId=(int)$row['tenant_id'];$request->userId=(int)$row['user_id'];$request->userInfo=['tenant_id'=>(int)$row['tenant_id'],'user_id'=>(int)$row['user_id'],'terminal'=>4];OpenCallContext::enter($row['request_id']);
         try{
             if($row['kind']==='market'){
                 $snapshot=OpenStore::json($row['snapshot']);$contract=$snapshot['contract']??[];

@@ -69,6 +69,18 @@
     "permission_key": "open_platform_platform_recoveryPreview",
     "name": "调用与异常操作",
     "api_path": "app.open_platform.management/recoveryPreview",
-    "api_method": "POST"
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_platform_inventory",
+    "name": "能力清单",
+    "api_path": "app.open_platform.management/inventory",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_platform_requestDetail",
+    "name": "调用详情",
+    "api_path": "app.open_platform.management/requestDetail",
+    "api_method": "GET"
   }
 ]

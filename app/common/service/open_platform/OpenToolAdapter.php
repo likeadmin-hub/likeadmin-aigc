@@ -7,7 +7,7 @@ final class OpenToolAdapter
     public static function authorize(int $tenantId,int $userId,string $app): void
     {
         OpenToolRegistry::get($app);$global=OpenStore::settings(0);$config=OpenStore::requireEnabled($tenantId);
-        if(!in_array($app,$config['apps'],true)||($global['apps']&&!in_array($app,$global['apps'],true)))throw new OpenException('permission_denied','该工具未开放',403);
+        if(!in_array($app,$config['apps'],true)||!in_array($app,$global['apps'],true))throw new OpenException('permission_denied','该工具未开放',403);
         $denied=AppAccessService::assertTenantCanUse($tenantId,$app,$userId,true);if($denied)throw new OpenException('permission_denied',(string)($denied->getData()['msg']??'工具不可用'),403);
     }
     public static function call($request,array $operation,array $params,?callable $onEvent=null): array
@@ -16,7 +16,8 @@ final class OpenToolAdapter
         if(isset($operation['params']['task_id']))$params['id']=!empty($operation['internal'])?$operation['params']['task_id']:OpenToolTasks::decode($app,(string)$operation['params']['task_id']);
         if(isset($params['task_id'])&&is_string($params['task_id'])&&str_starts_with($params['task_id'],'ot_'))$params['task_id']=OpenToolTasks::decode($app,$params['task_id']);
         if(isset($params['id'])&&is_string($params['id'])&&str_starts_with($params['id'],'ot_'))$params['id']=OpenToolTasks::decode($app,$params['id']);
-        $request->withGet($params)->withPost($params);
+        $original=app()->request;$scoped=OpenToolRequest::from($request,$params,$operation);app()->instance('request',$scoped);
+        try{
         if(isset($operation['service']))return $operation['service']==='streamText'?AigcLlmService::streamText((int)$request->tenantId,(int)$request->userId,$params,$onEvent):AigcLlmService::generateText((int)$request->tenantId,(int)$request->userId,$params);
         // This fixed registry reuses the existing user controller's validation and shared service.
         // No caller-controlled class/action is ever invoked.
@@ -25,6 +26,7 @@ final class OpenToolAdapter
         if(!$response instanceof \think\Response)throw new OpenException('invalid_response','工具响应无效',502);
         $payload=$response->getData();if(!is_array($payload)||(int)($payload['code']??0)!==1)throw new OpenException('tool_error',(string)($payload['msg']??'工具执行失败'));
         return (array)($payload['data']??[]);
+        }finally{app()->instance('request',$original);}
     }
     public static function budget($request,array $operation,array $params): array
     {

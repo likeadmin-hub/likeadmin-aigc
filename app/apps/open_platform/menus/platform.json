@@ -23,6 +23,13 @@
             "name": "开放设置操作",
             "perms": "app.open_platform.management/setup",
             "is_show": 0
+          },
+          {
+            "source_menu_key": "open_platform_platform_inventory",
+            "type": "A",
+            "name": "能力清单",
+            "perms": "app.open_platform.management/inventory",
+            "is_show": 0
           }
         ]
       },
@@ -104,6 +111,13 @@
             "type": "A",
             "name": "调用与异常操作",
             "perms": "app.open_platform.management/recoveryPreview",
+            "is_show": 0
+          },
+          {
+            "source_menu_key": "open_platform_platform_requestDetail",
+            "type": "A",
+            "name": "调用详情",
+            "perms": "app.open_platform.management/requestDetail",
             "is_show": 0
           }
         ]

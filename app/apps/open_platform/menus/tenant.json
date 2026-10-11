@@ -23,6 +23,13 @@
             "name": "开放设置操作",
             "perms": "app.open_platform.management/setup",
             "is_show": 0
+          },
+          {
+            "source_menu_key": "open_platform_tenant_inventory",
+            "type": "A",
+            "name": "能力清单",
+            "perms": "app.open_platform.management/inventory",
+            "is_show": 0
           }
         ]
       },
@@ -50,15 +57,7 @@
         "perms": "app.open_platform.management/contracts",
         "paths": "contracts",
         "component": "apps/open_platform/contracts",
-        "children": [
-          {
-            "source_menu_key": "open_platform_tenant_saveContract",
-            "type": "A",
-            "name": "接口契约操作",
-            "perms": "app.open_platform.management/saveContract",
-            "is_show": 0
-          }
-        ]
+        "children": []
       },
       {
         "source_menu_key": "open_platform_tenant_documents",
@@ -73,6 +72,13 @@
             "type": "A",
             "name": "文档管理操作",
             "perms": "app.open_platform.management/saveDocument",
+            "is_show": 0
+          },
+          {
+            "source_menu_key": "open_platform_tenant_publishDocument",
+            "type": "A",
+            "name": "发布文档",
+            "perms": "app.open_platform.management/publishDocument",
             "is_show": 0
           }
         ]
@@ -90,6 +96,13 @@
             "type": "A",
             "name": "调用与异常操作",
             "perms": "app.open_platform.management/recoveryPreview",
+            "is_show": 0
+          },
+          {
+            "source_menu_key": "open_platform_tenant_requestDetail",
+            "type": "A",
+            "name": "调用详情",
+            "perms": "app.open_platform.management/requestDetail",
             "is_show": 0
           }
         ]

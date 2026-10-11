@@ -22,4 +22,6 @@ class ManagementController extends BaseAdminController
     public function recoveryPreview(){return $this->run(function(){return ['preview'=>OpenManagement::detail((int)$this->request->get('tenant_id',-1),null,(string)$this->request->param('request_id')),'operation'=>'query_only','will_charge'=>false];});}
     public function saveContract(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenContracts::save($this->request->post()));}
     public function publishContract(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenContracts::publish((int)$this->request->post('id')));}
+    public function inventory(){return $this->run(fn()=>['tools'=>array_map(fn($code,$tool)=>['code'=>$code,'name'=>$tool['name']],array_keys(\app\common\service\open_platform\OpenToolRegistry::all()),array_values(\app\common\service\open_platform\OpenToolRegistry::all())),'models'=>\think\facade\Db::name('power_market_product')->field('id,name,resource_type')->where('status',1)->order('id','asc')->limit(5000)->select()->toArray()]);}
+
 }

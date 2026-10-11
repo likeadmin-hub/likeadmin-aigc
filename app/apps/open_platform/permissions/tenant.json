@@ -30,12 +30,6 @@
     "api_method": "GET"
   },
   {
-    "permission_key": "open_platform_tenant_saveContract",
-    "name": "接口契约操作",
-    "api_path": "app.open_platform.management/saveContract",
-    "api_method": "POST"
-  },
-  {
     "permission_key": "open_platform_tenant_documents",
     "name": "文档管理",
     "api_path": "app.open_platform.management/documents",
@@ -57,6 +51,24 @@
     "permission_key": "open_platform_tenant_recoveryPreview",
     "name": "调用与异常操作",
     "api_path": "app.open_platform.management/recoveryPreview",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_tenant_publishDocument",
+    "name": "发布文档",
+    "api_path": "app.open_platform.management/publishDocument",
     "api_method": "POST"
+  },
+  {
+    "permission_key": "open_platform_tenant_requestDetail",
+    "name": "调用详情",
+    "api_path": "app.open_platform.management/requestDetail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_tenant_inventory",
+    "name": "能力清单",
+    "api_path": "app.open_platform.management/inventory",
+    "api_method": "GET"
   }
 ]

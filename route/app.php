@@ -79,7 +79,7 @@ $tenantFrontendRedirect = function (string $frontend, string $childPath = '') {
 };
 
 // Shared root and tenant-prefix PC routes; API/admin/callback routes stay separate.
-$pcFrontendPath = '(ai|app|account|user|page|policy|products|scenes|cases|pricing|official|join-opc)(/.*)?';
+$pcFrontendPath = '(ai|app|account|user|page|policy|products|scenes|cases|pricing|official|join-opc|docs)(/.*)?';
 
 // PC端默认访问站点根路径，平台端固定保留 /platform/
 Route::get('/', function () {
