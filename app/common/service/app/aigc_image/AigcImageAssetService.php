@@ -31,7 +31,8 @@ class AigcImageAssetService
                 'header' => "User-Agent: LikeAdminAigcImage/1.0\r\n",
             ],
         ]);
-        $content = @file_get_contents($url, false, $context);
+        $openDownload=\app\common\service\open_platform\OpenCallContext::id()!==''?\app\common\service\open_platform\OpenSafeHttp::get($url,20971520):null;
+        $content = $openDownload!==null?$openDownload['body']:@file_get_contents($url, false, $context);
         if ($content === false || $content === '') {
             throw new Exception('生成图片下载失败');
         }

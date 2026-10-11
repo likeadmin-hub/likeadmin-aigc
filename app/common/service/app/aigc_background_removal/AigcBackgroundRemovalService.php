@@ -633,7 +633,7 @@ class AigcBackgroundRemovalService
                     'header' => "User-Agent: LikeAdminAigcBackgroundRemoval/1.0\r\n",
                 ],
             ]);
-            $content = @file_get_contents($url, false, $context, 0, 20 * 1024 * 1024);
+            $content = \app\common\service\open_platform\OpenCallContext::id()!==''?\app\common\service\open_platform\OpenSafeHttp::get($url,20*1024*1024)['body']:@file_get_contents($url, false, $context, 0, 20 * 1024 * 1024);
             return is_string($content) ? $content : '';
         }
         $path = public_path() . ltrim($url, '/');

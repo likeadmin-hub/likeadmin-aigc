@@ -34,11 +34,12 @@ class SmartClipAssetService
                 'header' => "User-Agent: LikeAdminSmartClip/1.0\r\n",
             ],
         ]);
-        $content = @file_get_contents($url, false, $context);
+        $openDownload=\app\common\service\open_platform\OpenCallContext::id()!==''?\app\common\service\open_platform\OpenSafeHttp::get($url,268435456):null;
+        $content = $openDownload!==null?$openDownload['body']:@file_get_contents($url, false, $context);
         if ($content === false || $content === '') {
             throw new Exception('生成视频下载失败');
         }
-        $headers = $http_response_header ?? [];
+        $headers = $openDownload!==null?array_merge(['HTTP/1.1 '.$openDownload['status']],array_map(fn($name,$value)=>$name.': '.$value,array_keys($openDownload['headers']),array_values($openDownload['headers']))):($http_response_header ?? []);
         $httpCode = self::lastHttpStatusCode($headers);
         if ($httpCode >= 400) {
             throw new Exception('生成视频下载失败，远程地址返回HTTP ' . $httpCode);

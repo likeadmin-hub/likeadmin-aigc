@@ -854,7 +854,7 @@ class AigcImageTranslateService
         }
         if (preg_match('/^https?:\/\//', $sourceImage)) {
             $context = stream_context_create(['http' => ['timeout' => 3], 'https' => ['timeout' => 3]]);
-            $content = @file_get_contents($sourceImage, false, $context, 0, 1024 * 1024 * 4);
+            $content = \app\common\service\open_platform\OpenCallContext::id()!==''?\app\common\service\open_platform\OpenSafeHttp::get($sourceImage,4*1024*1024,3)['body']:@file_get_contents($sourceImage, false, $context, 0, 1024 * 1024 * 4);
             if (is_string($content) && $content !== '') {
                 $size = @getimagesizefromstring($content) ?: [];
                 return [(int)($size[0] ?? 0), (int)($size[1] ?? 0)];
