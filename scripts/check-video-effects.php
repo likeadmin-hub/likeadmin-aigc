@@ -14,6 +14,7 @@ Db::startTrans();
 try {
     $rows=Effects::defaults();
     foreach($rows as &$row){$row['enabled']=true;$row['product_ids']=[7];$row['poster']='/uploads/fixture.webp';$row['video']='/uploads/fixture.mp4';}unset($row);
+    $rows=Effects::normalize($rows);
     Video::saveConfig($tenant,['config_json'=>['video_effects'=>$rows]]);
     $check(Effects::catalog($tenant)===$rows,'Config reload');
     $check(Effects::publicCatalog(Effects::catalog($tenant+1))===[],'Tenant isolation');
