@@ -6,10 +6,16 @@ use app\common\service\power\MarketNanoBananaAppRuntimeService as Nano;
 /** Freeze the native image selection and supplier SKU before accepting a paid call. */
 final class OpenImagePricing
 {
+    public const COMPOSITES=['aigc_product_image','aigc_style_transfer','aigc_background_removal','aigc_outpaint','aigc_image_translate','aigc_local_redraw','aigc_photo_restore','aigc_model_wear'];
     public static function budget($request,array $params): array
     {
         $tenant=(int)$request->tenantId;$user=(int)$request->userId;
         OpenToolAdapter::authorize($tenant,$user,'aigc_image');
+        return self::capture($tenant,$user,$params,'aigc_image');
+    }
+    private static function capture(int $tenant,int $user,array $params,string $app): array
+    {
+        if(empty($params['channel'])&&!empty($params['model_id']))$params['channel']=$params['model_id'];
         $selection=Channels::resolveSelection($tenant,$params);$spec=$selection['spec'];$channel=$selection['channel'];
         $quantity=Channels::normalizeQuantity($params['quantity']??1);Channels::assertChannelQuantity($channel,$quantity);
         $references=array_filter(array_map('strval',(array)($params['reference_images']??[])),static fn($value)=>trim($value)!=='');
@@ -21,18 +27,46 @@ final class OpenImagePricing
         $quote=$capture['quote'];$budget=OpenToolAdapter::estimateBudget($quote);
         if($budget===null)throw new OpenException('pricing_unavailable','图片生成缺少可靠的计费额度边界',503);
         $selection['_open_image']=['runtime'=>$runtime,'market'=>$capture['market'],'quantity'=>$quantity];
-        $budget['snapshot']['native_selection_blob']=OpenVault::seal(OpenStore::encode(['app_code'=>'aigc_image','tenant_id'=>$tenant,'user_id'=>$user,'selection'=>$selection]));
+        $budget['snapshot']['native_selection_blob']=OpenVault::seal(OpenStore::encode(['app_code'=>$app,'tenant_id'=>$tenant,'user_id'=>$user,'selection'=>$selection]));
         return $budget;
+    }
+    public static function compositeBudget($request,string $app,array $params): array
+    {
+        if(!in_array($app,self::COMPOSITES,true))throw new OpenException('capability_unavailable','未注册图片工具',404);
+        $tenant=(int)$request->tenantId;$user=(int)$request->userId;OpenToolAdapter::authorize($tenant,$user,$app);
+        $suffix=substr($app,5);$class='app\\common\\service\\app\\'.$app.'\\Aigc'.implode('',array_map('ucfirst',explode('_',$suffix))).'Service';
+        $prepared=$class::openPlatformAdmission($tenant,$user,$params);
+        $native=self::capture($tenant,$user,$prepared['prepared']['image_payload'],$app);
+        $budget=OpenToolAdapter::estimateBudget($prepared['estimate']);
+        if($budget===null||abs($budget['tenant']-$native['tenant'])>0.000001)throw new OpenException('pricing_unavailable','图片工具价格与平台 SKU 成本不一致',503);
+        $budget['snapshot']['native_selection_blob']=$native['snapshot']['native_selection_blob'];
+        $budget['snapshot']['native_prepared_blob']=OpenVault::seal(OpenStore::encode(['app_code'=>$app,'tenant_id'=>$tenant,'user_id'=>$user]+$prepared));
+        return $budget;
+    }
+    public static function prepared(int $tenant,int $user,string $app): ?array
+    {
+        if(!in_array($app,self::COMPOSITES,true))return null;$id=OpenCallContext::id();if($id==='')return null;
+        $row=OpenStore::owner('request',$tenant,$user)->where(['request_id'=>$id,'app_code'=>$app,'kind'=>'tool','method'=>'POST','path'=>'/api/v1/tools/'.$app.'/tasks'])->find();if(!$row)return null;
+        $blob=OpenStore::json($row['snapshot'])['native_prepared_blob']??'';if($blob==='')return null;
+        $data=OpenStore::json(OpenVault::open($blob));
+        if(($data['app_code']??'')!==$app||(int)($data['tenant_id']??0)!==$tenant||(int)($data['user_id']??0)!==$user||!isset($data['prepared']['image_payload'],$data['estimate']['user_charge_points'],$data['estimate']['tenant_cost_points']))throw new OpenException('pricing_snapshot_invalid','图片工具参数快照不完整',409);
+        return ['prepared'=>$data['prepared'],'estimate'=>$data['estimate']];
+    }
+    public static function selection(int $tenant,int $user): ?array
+    {
+        $id=OpenCallContext::id();if($id==='')return null;
+        $row=OpenStore::owner('request',$tenant,$user)->where(['request_id'=>$id,'kind'=>'tool','method'=>'POST'])->find();if(!$row||!in_array($row['app_code'],array_merge(['aigc_image'],self::COMPOSITES),true))return null;
+        return OpenToolPricing::forRequest($row['app_code'],$tenant,$user);
     }
     /** Only an owned accepted native image request may replace a live market lookup. */
     public static function assertQuantity(int $tenant,int $quantity): void
     {
-        $frozen=OpenToolPricing::forRequest('aigc_image',$tenant,(int)(request()->userId??0));
+        $frozen=self::selection($tenant,(int)(request()->userId??0));
         if($frozen&&(int)($frozen['selection']['_open_image']['quantity']??0)!==max(1,$quantity))throw new OpenException('pricing_snapshot_conflict','图片数量与受理快照不一致',409);
     }
     public static function market(int $tenant,array $params,string $runtime): ?array
     {
-        $frozen=OpenToolPricing::forRequest('aigc_image',$tenant,(int)(request()->userId??0));if(!$frozen)return null;
+        $frozen=self::selection($tenant,(int)(request()->userId??0));if(!$frozen)return null;
         $selection=$frozen['selection'];$image=$selection['_open_image']??null;
         if(!is_array($image)||($image['runtime']??'')!==$runtime||!isset($image['market']['product'],$image['market']['sku'],$image['market']['tenant_price']))throw new OpenException('pricing_snapshot_invalid','图片价格快照不完整',409);
         foreach(['channel','model_id'] as $field)if(isset($params[$field])&&$params[$field]!==''&&(string)$params[$field]!==$selection['channel']['code'])throw new OpenException('pricing_snapshot_conflict','图片通道与受理快照不一致',409);

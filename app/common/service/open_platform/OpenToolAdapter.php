@@ -48,6 +48,7 @@ final class OpenToolAdapter
     {
         if(empty($operation['billable']))return ['user'=>0,'tenant'=>0,'snapshot'=>[]];
         if($operation['app_code']==='aigc_image'&&$operation['route']==='POST tasks')return OpenImagePricing::budget($request,$params);
+        if(in_array($operation['app_code'],OpenImagePricing::COMPOSITES,true)&&$operation['route']==='POST tasks')return OpenImagePricing::compositeBudget($request,$operation['app_code'],$params);
         if($operation['app_code']==='aigc_music'&&$operation['route']==='POST tasks')return OpenToolPricing::musicBudget($request,$params);
         $nativeModel=null;if($operation['app_code']==='aigc_llm'&&isset($operation['service'])){
             try{$nativeModel=\app\common\service\power\MarketTextModelRuntimeService::resolveModel((int)$request->tenantId,$params['model_code']??$params['model']??'',!empty($params['reference_images'])||!empty($params['image_urls']));}

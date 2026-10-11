@@ -195,7 +195,7 @@ class AigcImageService
         if ($prompt === '') {
             throw new Exception('请输入提示词');
         }
-        $frozen = \app\common\service\open_platform\OpenToolPricing::forRequest(self::APP_CODE, $tenantId, $userId);
+        $frozen = \app\common\service\open_platform\OpenImagePricing::selection($tenantId, $userId);
         $selection = $frozen['selection'] ?? AigcImageChannelService::resolveSelection($tenantId, $params);
         if (!empty($params['market_sku_id']) || !empty($params['sku_id'])) {
             $selection['market_sku_id'] = (int)($params['market_sku_id'] ?? $params['sku_id']);
