@@ -26,6 +26,25 @@ try {
     $check(Appearance::read($tenant,$user)['preferences']['custom'][0]['name']==='测试皮肤','Custom round trip');
     Appearance::save($tenant,$user,2,Appearance::defaults());
     $check(Appearance::read($tenant,$user)['preferences']['custom']===[],'Remove custom');
+    $fileId=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source_id'=>$user,'source'=>1,'type'=>10,'name'=>'appearance-fixture','uri'=>'uploads/appearance-fixture.webp','storage_scope'=>'platform','storage_engine'=>'local']);
+    $p=Appearance::defaults();$p['selected']='voxel';$p['preset_backgrounds']=[['preset_id'=>'voxel','background_id'=>$fileId]];
+    $saved=Appearance::save($tenant,$user,3,$p);
+    $check(Appearance::read($tenant,$user)===$saved,'Preset background reload');
+    $check($saved['preferences']['preset_backgrounds'][0]['background_id']===$fileId,'Owned preset image');
+    $legacy=$p;unset($legacy['preset_backgrounds']);
+    $saved=Appearance::save($tenant,$user,4,$legacy);
+    $check(count($saved['preferences']['preset_backgrounds'])===1,'Legacy client preserves background');
+    foreach ([[$tenant+1,$user],[$tenant,$user+1]] as [$otherTenant,$otherUser]) {
+        try { Appearance::save($otherTenant,$otherUser,0,$p);throw new LogicException('Foreign preset background accepted'); }
+        catch(InvalidArgumentException $e) { $check(str_contains($e->getMessage(),'当前账号'),'Preset ownership rejection'); }
+    }
+    $p['preset_backgrounds']=[];
+    $check(Appearance::save($tenant,$user,5,$p)['preferences']['preset_backgrounds']===[],'Reset preset background');
+    $p['preset_backgrounds']=[['preset_id'=>'voxel','background_id'=>$fileId]];
+    Appearance::save($tenant,$user,6,$p);
+    Db::name('tenant_file')->where('id',$fileId)->update(['delete_time'=>time()]);
+    $check(Appearance::read($tenant,$user)['preferences']['preset_backgrounds']===[],'Deleted image falls back to preset');
+    echo "PASS: preset background persistence/reset, legacy clients, foreign ownership and deleted images\n";
     echo "PASS: defaults, persistence, tenant/user isolation, stale-write rejection, custom create/remove\n";
 } finally { Db::rollback(); }
 $check(!Db::name('user_appearance')->where('tenant_id',$tenant)->find(),'Fixture rollback');
