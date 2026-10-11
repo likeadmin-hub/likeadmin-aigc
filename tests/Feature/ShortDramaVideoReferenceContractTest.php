@@ -607,7 +607,7 @@ class ShortDramaVideoReferenceContractTest extends TestCase
     public function testStoryboardSourcePreservesTheSingleFirstFrameContract(): void
     {
         $projectRoot = dirname(__DIR__, 2);
-        $source = (string) file_get_contents(dirname($projectRoot) . '/web/pc/components/short-drama/StoryboardCreationWorkbench.vue');
+        $source = (string) \Tests\Support\CompiledAssets::source('pc/components/short-drama/StoryboardCreationWorkbench.vue');
 
         self::assertStringContainsString("type VideoGenerationMethod = 'omni_reference' | 'image_to_video' | 'multi_frame' | 'start_end'", $source);
         self::assertStringContainsString("['omni_reference', 'image_to_video', 'multi_frame', 'start_end']", $source);

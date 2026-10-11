@@ -16,7 +16,7 @@ class ShortDramaStoryboardSelectionContractTest extends TestCase
 
     public function testWorkbenchSerializesAndProtectsExplicitRecordSelections(): void
     {
-        $source = (string) file_get_contents(dirname(__DIR__, 3) . '/web/pc/components/short-drama/StoryboardCreationWorkbench.vue');
+        $source = (string) \Tests\Support\CompiledAssets::source('pc/components/short-drama/StoryboardCreationWorkbench.vue');
 
         self::assertStringContainsString('storyboardSelectionQueues', $source);
         self::assertStringContainsString('applyStoryboardSelectionOverrides', $source);
