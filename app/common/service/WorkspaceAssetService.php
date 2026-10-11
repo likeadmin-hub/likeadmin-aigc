@@ -46,7 +46,7 @@ final class WorkspaceAssetService
             $patch['favorite'] = $params['favorite'];
         }
         if (array_key_exists('label', $params)) {
-            if (!in_array($params['label'], self::LABELS, true)) throw new InvalidArgumentException('资产标签无效');
+            if (!is_string($params['label']) || (!in_array($params['label'], self::LABELS, true) && !preg_match('/^l_[0-9a-f]{16}$/D', $params['label']))) throw new InvalidArgumentException('资产标签无效');
             $patch['label'] = $params['label'];
         }
         $action = $params['action'] ?? '';
@@ -66,7 +66,7 @@ final class WorkspaceAssetService
             $asset = self::owned($tenant, $user, $state['asset_ref']);
             if ($asset) $supplemental[] = $asset;
         }
-        return ['states' => array_map(fn($row) => array_intersect_key($row, array_flip(['asset_ref','favorite','label','trashed_at','hidden_at'])), $states), 'supplemental' => $supplemental];
+        return ['states' => array_map(fn($row) => array_intersect_key($row, array_flip(['asset_ref','favorite','label','trashed_at','hidden_at'])), $states), 'supplemental' => $supplemental, 'labels' => WorkspaceAssetLabelService::read($tenant,$user)];
     }
 
     public static function update(int $tenant, int $user, array $params): array
@@ -74,6 +74,10 @@ final class WorkspaceAssetService
         self::identity($tenant, $user);
         [$refs, $patch, $action] = self::normalize($params);
         return Db::transaction(function () use ($tenant, $user, $refs, $patch, $action) {
+            if (isset($patch['label']) && $patch['label'] !== '') {
+                $labels=WorkspaceAssetLabelService::read($tenant,$user,true);
+                if (!in_array($patch['label'],array_column($labels,'value'),true)) throw new InvalidArgumentException('标签不存在或无权操作');
+            }
             $output = [];
             foreach ($refs as $ref) {
                 if (!self::owned($tenant, $user, $ref)) throw new InvalidArgumentException('资产不存在或无权操作');
