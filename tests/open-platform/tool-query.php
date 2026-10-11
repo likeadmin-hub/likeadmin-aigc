@@ -18,5 +18,11 @@ Db::startTrans();try{
  $saved=S::table('request')->where('request_id',$rid)->find();check((int)$saved['active']===0&&$saved['status']==='success'&&$saved['billing_status']==='none','Read query occupied a billable concurrency slot');
  check(T::billing(['consumption_ids'=>'[]','status'=>'failed','billing_status'=>'pending','actual_user'=>0])==='none','Uncharged failure incorrectly reported settled');
  S::table('request')->where('request_id',$rid)->update(['status'=>'running','active'=>1]);app\common\service\open_platform\OpenRecovery::refresh(S::table('request')->where('request_id',$rid)->find());check((int)S::table('request')->where('request_id',$rid)->value('active')===0,'Recovery retained a completed free read');
+ $consumption=app\common\model\ai\AiConsumptionLog::create(['tenant_id'=>1,'user_id'=>1,'consume_no'=>'refund_fixture_'.bin2hex(random_bytes(6)),'billing_status'=>'refunded','run_status'=>'failed','price_snapshot'=>[],'request_summary'=>[],'response_summary'=>[],'usage_snapshot'=>[],'create_time'=>time(),'update_time'=>time()]);
+ $failed=['tenant_id'=>1,'user_id'=>1,'consumption_ids'=>S::encode([$consumption['id']]),'billing_status'=>'pending','actual_user'=>0];
+ check(G::failureBilling($failed,['kind'=>'tool','billable'=>true],false)==='refunded','Confirmed provider rejection hid native refund');
+ $consumption->save(['billing_status'=>'reserved']);check(G::failureBilling($failed,['kind'=>'tool','billable'=>true],false)==='pending','Failed refund prematurely released recovery');
+ check(G::failureBilling($failed,['kind'=>'tool','billable'=>true],true)==='pending_confirmation','Unknown acceptance reported definitive refund');
+ check(G::failureBilling(array_replace($failed,['billing_status'=>'refunded']),['kind'=>'market','billable'=>true],false)==='refunded','Market failure overwrote completed refund');
  echo "PASS running task remains running while free query ends without a billing slot\n";
 }finally{app\common\service\open_platform\OpenCallContext::leave();Db::rollback();}
