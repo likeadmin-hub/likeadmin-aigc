@@ -8,33 +8,27 @@ class CanvasAgentLocalReferenceMentionContractTest extends TestCase
 {
     public function testAgentMentionMenuIncludesNodeLocalReferences(): void
     {
-        $bundle = $this->agentBundle();
-
-        self::assertStringContainsString(
-            '].flatMap((t,n)=>{var a;const r=String((t==null?void 0:t.id)',
-            $bundle
-        );
-        self::assertStringContainsString('...o("referenceImages","image","图片")', $bundle);
-        self::assertStringContainsString('...o("referenceVideos","video","视频")', $bundle);
-        self::assertStringContainsString('...o("referenceAudios","audio","音频")', $bundle);
-        self::assertStringContainsString('id:`local-${r}-${i}-${g}`', $bundle);
-        self::assertStringContainsString('source:"local_upload"', $bundle);
+        $source = \Tests\Support\CompiledAssets::source('pc/apps/aigc_canvas/components/agent/CanvasAgentPanel.vue');
+        self::assertStringContainsString('referenceImages', $source);
+        self::assertStringContainsString('referenceVideos', $source);
+        self::assertStringContainsString('referenceAudios', $source);
+        self::assertStringContainsString('source: \'local_upload\'', $source);
+        self::assertStringContainsString('local-', $source);
+        self::assertStringContainsString('local_upload', $this->agentBundle());
     }
 
     public function testSelectedLocalReferenceUsesTheExistingReferenceSubmissionPath(): void
     {
-        $bundle = $this->agentBundle();
-
-        self::assertStringContainsString('Io(T)', $bundle);
-        self::assertStringContainsString('re=[...g,...N]', $bundle);
-        self::assertStringContainsString('explicit_references:re', $bundle);
-        self::assertStringContainsString('reference_assets:re', $bundle);
+        $source = \Tests\Support\CompiledAssets::source('pc/apps/aigc_canvas/components/agent/CanvasAgentPanel.vue');
+        self::assertStringContainsString('selectedComposerMentions()', $source);
+        self::assertStringContainsString('explicit_references:', $source);
+        self::assertStringContainsString('reference_assets:', $source);
+        self::assertStringContainsString('explicit_references:', $this->agentBundle());
+        self::assertStringContainsString('reference_assets:', $this->agentBundle());
     }
 
     private function agentBundle(): string
     {
-        return (string)file_get_contents(
-            dirname(__DIR__, 2) . '/public/_nuxt/projects.b63ba847.js'
-        );
+        return (string)\Tests\Support\CompiledAssets::read('pc', 'projects', 'js', ['agent-composer']);
     }
 }

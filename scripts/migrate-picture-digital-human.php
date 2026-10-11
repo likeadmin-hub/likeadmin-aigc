@@ -1,7 +1,7 @@
 <?php
 /** Installs the picture avatar app on a pinned LOCAL development database only. */
-require dirname(__DIR__) . '/vendor/autoload.php';
-(new \think\App())->initialize();
+require dirname(__DIR__) . '/runtime-loader.php';
+(new \AigcRuntimeApp(dirname(__DIR__)))->initialize();
 $db = \think\facade\Db::connect();
 $options = getopt('', ['apply', 'database:', 'tenant:', 'sync-market']);
 $database = (string)$db->getConfig('database');

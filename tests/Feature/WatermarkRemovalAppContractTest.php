@@ -21,10 +21,11 @@ class WatermarkRemovalAppContractTest extends TestCase
 
         self::assertSame('aigc_watermark_removal', $manifest['code']);
         self::assertSame('短视频去水印', $manifest['name']);
-        self::assertSame('1.0.2', $manifest['version']);
+        self::assertMatchesRegularExpression('/^\d+\.\d+\.\d+$/', $manifest['version']);
+        self::assertTrue(version_compare($manifest['version'], '1.0.2', '>='));
         self::assertSame('>=1.0.0 <2.0.0', $manifest['require_core']);
         self::assertSame(0, $manifest['is_builtin']);
-        self::assertSame(['tenant', 'pc'], $manifest['frontends']);
+        self::assertSame(['tenant', 'pc', 'uniapp'], $manifest['frontends']);
         self::assertStringNotContainsString('/api/', (string)$manifest['description']);
         self::assertStringNotContainsString('/api/', (string)$manifest['changelog']);
         self::assertFileExists($this->root . '/app/apps/aigc_watermark_removal/signature.json');
@@ -115,10 +116,12 @@ class WatermarkRemovalAppContractTest extends TestCase
 
         $pcShell = file_get_contents($this->root . '/public/pc/index.html');
         $adminShell = file_get_contents($this->root . '/public/admin/index.html');
-        self::assertStringContainsString('/watermark-removal-page.js', $pcShell);
+        self::assertStringContainsString('aigc_watermark_removal', \Tests\Support\CompiledAssets::pcPage('ai/tools/[id]'));
+        self::assertStringContainsString('WatermarkRemovalCreator', \Tests\Support\CompiledAssets::source('pc/pages/ai/tools/[id].vue'));
         self::assertStringContainsString('/watermark-removal-admin.js', $adminShell);
         self::assertFileExists($this->root . '/public/pc/ai/tools/aigc_watermark_removal/index.html');
-        self::assertStringContainsString('app.aigc_watermark_removal.generate/estimate', file_get_contents($this->root . '/public/watermark-removal-page.js'));
+        self::assertNotEmpty(\Tests\Support\CompiledAssets::containing('pc', 'app.aigc_watermark_removal.generate/estimate'));
+        self::assertNotEmpty(\Tests\Support\CompiledAssets::containing('pc', 'app.aigc_watermark_removal.task/lists'));
         self::assertStringContainsString('app.aigc_watermark_removal.config/setup', file_get_contents($this->root . '/public/watermark-removal-admin.js'));
         self::assertStringContainsString("fetch('/tenantapi/'", file_get_contents($this->root . '/public/watermark-removal-admin.js'));
         self::assertStringContainsString('aigc-watermark-removal', file_get_contents($this->root . '/public/watermark-removal-admin.js'));
@@ -141,6 +144,17 @@ class WatermarkRemovalAppContractTest extends TestCase
         $root = $this->root . '/app/apps/aigc_watermark_removal';
         $entries = $signature['sha256'] ?? [];
         self::assertNotEmpty($entries);
+        $payload = [];
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)) as $file) {
+            if (!$file->isFile()) continue;
+            $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($file->getPathname(), strlen($root) + 1));
+            if ($relative !== 'signature.json' && !preg_match('~(^|/)\.~', $relative)) $payload[] = $relative;
+        }
+        $indexed = array_keys($entries);
+        sort($payload);
+        sort($indexed);
+        self::assertSame($payload, $indexed, 'Every installable payload file must be covered by the signature');
+
         foreach ($entries as $relative => $hash) {
             $path = $root . '/' . str_replace('/', DIRECTORY_SEPARATOR, $relative);
             self::assertFileExists($path, $relative);

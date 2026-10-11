@@ -73,12 +73,12 @@ class ShortDramaDefaultCreationModelsContractTest extends TestCase
 
     public function testTenantAdminConfigContainsBothCreationModelSelectors(): void
     {
-        $asset = (string)file_get_contents(dirname(__DIR__, 2) . '/public/admin/assets/config-fge0of94.js');
+        $asset = (string)\Tests\Support\CompiledAssets::vitePage('admin', 'apps/aigc_short_drama/config');
 
         self::assertStringContainsString('default_image_model_id', $asset);
         self::assertStringContainsString('default_video_model_id', $asset);
-        self::assertStringContainsString('label:"默认图片模型"', $asset);
-        self::assertStringContainsString('label:"默认视频模型"', $asset);
+        self::assertStringContainsString('默认图片模型', $asset);
+        self::assertStringContainsString('默认视频模型', $asset);
     }
 
     private function groups(): array

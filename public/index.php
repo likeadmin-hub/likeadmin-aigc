@@ -12,9 +12,16 @@
 // [ 应用入口文件 ]
 namespace think;
 
-require __DIR__ . '/../vendor/autoload.php';
+try {
+    require __DIR__ . '/../runtime-loader.php';
+} catch (\Throwable $e) {
+    error_log('AIGC runtime bootstrap failed: ' . $e->getMessage());
+    http_response_code(503);
+    header('Content-Type: text/plain; charset=UTF-8');
+    exit('应用运行时暂不可用，请联系管理员检查更新恢复状态。');
+}
 
-$app = new App();
+$app = new \AigcRuntimeApp(dirname(__DIR__));
 $url = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 
 $whe = !str_starts_with($url, '/platformapi/config/getConfig') && !str_starts_with($url, '/tenantapi/config/getConfig') && !str_starts_with($url, '/api/pc/config') && !str_starts_with($url, '/api/index/config');

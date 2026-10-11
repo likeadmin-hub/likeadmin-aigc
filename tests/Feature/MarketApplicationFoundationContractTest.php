@@ -89,11 +89,20 @@ class MarketApplicationFoundationContractTest extends TestCase
         }
     }
 
-    public function testTextFallbackIsDisabled(): void
+    public function testTextFallbackOnlyAcceptsExplicitUnavailableModelErrors(): void
     {
+        // Compatible routing now permits a new task only after an explicit
+        // rejection. Ambiguous failures must never replay a paid request.
+        foreach (['model_not_found', 'invalid model', '模型已下架'] as $message) {
+            self::assertTrue($this->invoke(\app\common\service\power\MarketTextModelRuntimeService::class, 'isExplicitModelUnavailable', $message));
+        }
+        foreach (['provider timeout', 'network error', 'quota exceeded', 'insufficient balance', 'content moderation failed', 'permission denied'] as $message) {
+            self::assertFalse($this->invoke(\app\common\service\power\MarketTextModelRuntimeService::class, 'isExplicitModelUnavailable', $message));
+        }
         $source = (string)file_get_contents(dirname(__DIR__, 2) . '/app/common/service/power/MarketTextModelRuntimeService.php');
-        self::assertStringNotContainsString('fallbackModel', $source);
-        self::assertStringNotContainsString('_market_text_fallback_used', $source);
+        self::assertStringContainsString("empty(\$params['_disable_model_fallback'])", $source);
+        self::assertStringContainsString('self::isExplicitModelUnavailable($e->getMessage())', $source);
+        self::assertLessThan(strpos($source, 'return self::generate($tenantId'), strpos($source, "self::fail(\$context, \$e->getMessage(), 'provider_error')"));
     }
 
     public function testBlankChannelFactoryModelUsesCompleteCataloguePricing(): void

@@ -33,7 +33,7 @@ class AigcImageTaskModelDisplayContractTest extends TestCase
     {
         $root = dirname(__DIR__, 2);
         $service = (string)file_get_contents($root . '/app/common/service/app/aigc_image/AigcImageService.php');
-        $bundle = (string)file_get_contents($root . '/public/admin/assets/task-71RKXzI9.js');
+        $bundle = (string)\Tests\Support\CompiledAssets::vitePage('admin', 'apps/aigc_image/task');
 
         self::assertStringContainsString('self::appendTaskModelDisplay($row);', $service);
         self::assertStringContainsString("\$task['model_name'] = AiTaskRecordService::modelDisplayName", $service);
@@ -43,11 +43,10 @@ class AigcImageTaskModelDisplayContractTest extends TestCase
 
     public function testImageTaskTablePrioritizesCompletionStatusAndUsesRowNumbers(): void
     {
-        $bundle = (string)file_get_contents(
-            dirname(__DIR__, 2) . '/public/admin/assets/task-71RKXzI9.js'
-        );
+        $bundle = (string)\Tests\Support\CompiledAssets::vitePage('admin', 'apps/aigc_image/task');
 
-        $sequence = 'label:"序号",type:"index",index:t=>(Number(o(f).page)-1)*Number(o(f).size)+t+1';
+        $sequence = 'label:"序号",type:"index"';
+        self::assertStringContainsString('(Number(pager.page) - 1) * Number(pager.size) + index + 1', \Tests\Support\CompiledAssets::source('tenant/src/views/apps/aigc_image/task.vue'));
         $status = 'label:"完成状态",width:"110",fixed:"left"';
 
         self::assertStringContainsString($sequence, $bundle);

@@ -305,6 +305,40 @@ function verifyIncrementalComposerRuntime(manifest, entries) {
     if (forbidden.length) {
         fail(`incremental packages must not include Composer runtime files: ${forbidden.join(', ')}`)
     }
+    const present = hasEntry(entries, 'composer-runtime/')
+    const runtime = manifest.composer_runtime
+    if (!present && runtime == null) return
+    const reject = (message) => fail(`Invalid atomic Composer runtime: ${message}`)
+    const version = (value) => {
+        if (!/^\d+\.\d+\.\d+$/.test(String(value || ''))) reject('invalid version')
+        return String(value).split('.').map(Number)
+    }
+    const less = (a, b) => { for (let i=0;i<3;i++) { if(a[i]!==b[i]) return a[i]<b[i] } return false }
+    if (!present || !runtime || runtime.schema !== 1 || runtime.payload_dir !== 'composer-runtime') reject('payload/declaration mismatch')
+    const minimum = version(runtime.min_updater_version)
+    if (less(minimum,[1,0,391]) || less(version(manifest.base_version),minimum)) reject('unsupported base updater')
+    if (less(version(runtime.min_php),[8,2,0])) reject('PHP 8.2 required')
+    for (const key of ['required_extensions','probe_classes']) {
+        if (!Array.isArray(runtime[key]) || !runtime[key].length || runtime[key].some(v=>typeof v!=='string'||!v.trim())) reject(`missing ${key}`)
+    }
+    for (const rel of ['composer.json','composer.lock','vendor/autoload.php','vendor/composer/autoload_real.php','vendor/composer/installed.json','vendor/composer/installed.php','vendor/services.php']) {
+        if (!entries.has(`composer-runtime/${rel}`)) reject(`missing ${rel}`)
+    }
+    for (const entry of entries) {
+        if (entry.startsWith('composer-runtime/') && !/^composer-runtime\/(?:composer\.(?:json|lock)$|vendor(?:\/|$))/.test(entry)) reject(`unexpected payload entry ${entry}`)
+    }
+    const lock = readPackageJson(absoluteTarget,stat.isDirectory(),'composer-runtime/composer.lock')
+    const installed = readPackageJson(absoluteTarget,stat.isDirectory(),'composer-runtime/vendor/composer/installed.json')
+    const packageMap = (items) => {
+        if (!Array.isArray(items)) reject('invalid package metadata')
+        const map={}
+        for (const item of items) {
+            if (!item?.name || !item?.version || Object.hasOwn(map,item.name)) reject('invalid/duplicate package')
+            map[item.name]=item.version
+        }
+        return JSON.stringify(Object.fromEntries(Object.entries(map).sort(([a],[b])=>a.localeCompare(b))))
+    }
+    if (packageMap(lock.packages)!==packageMap(Array.isArray(installed)?installed:installed.packages)) reject('installed runtime differs from production lock')
 }
 
 function verifyIncrementalSqlSafety(targetPath, isDirectory, manifest, entries) {

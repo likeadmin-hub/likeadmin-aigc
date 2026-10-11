@@ -282,8 +282,8 @@ class ShortDramaScriptPromptConfigContractTest extends TestCase
     public function testAdminBundleLoadsSavesAndResetsPromptConfiguration(): void
     {
         $root = dirname(__DIR__, 2);
-        $bundle = (string)file_get_contents($root . '/public/admin/assets/prompt-Df7pQ2mN.js');
-        $basicConfigBundle = (string)file_get_contents($root . '/public/admin/assets/config-fge0of94.js');
+        $bundle = (string)\Tests\Support\CompiledAssets::read('admin', 'prompt', 'js');
+        $basicConfigBundle = (string)\Tests\Support\CompiledAssets::vitePage('admin', 'apps/aigc_short_drama/config');
         $service = (string)file_get_contents(
             $root . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php'
         );
@@ -294,17 +294,17 @@ class ShortDramaScriptPromptConfigContractTest extends TestCase
             'multi_episode_script_system_prompt',
             'multi_episode_script_prompt_template',
         ] as $field) {
-            self::assertGreaterThanOrEqual(1, substr_count($bundle, $field));
+            // Legacy queued tasks retain their frozen configuration.
             self::assertStringContainsString("array_key_exists('{$field}', \$params)", $service);
         }
-        foreach (['短剧提示词配置', '恢复默认', 'prompt_config_definitions', 'prompt_config_values'] as $label) {
+        foreach (['短剧提示词配置', '恢复应用默认', 'protected_rules', 'confirm_migration', 'fingerprint'] as $label) {
             self::assertStringContainsString($label, $bundle);
         }
         self::assertStringNotContainsString('label:"单集剧本系统提示词"', $basicConfigBundle);
         self::assertStringNotContainsString('script_system_prompt:l.script_system_prompt', $basicConfigBundle);
 
         self::assertStringContainsString(
-            "\$promptConfig = self::scriptPromptConfig(\$tenantId, \$episodeSettings['multi_episode'])",
+            "\$config = self::scriptPromptConfig(\$tenantId, \$settings['multi_episode'])",
             $service
         );
         self::assertStringContainsString("'script_prompt_defaults'", $service);

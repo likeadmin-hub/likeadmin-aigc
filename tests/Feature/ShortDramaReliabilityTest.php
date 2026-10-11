@@ -79,10 +79,13 @@ class ShortDramaReliabilityTest extends TestCase
         MarketTextConversationProvider::outputBudget($request,['max_input_tokens'=>1000,'context_window'=>32768]);
     }
 
-    public function testStructuralRetryDoesNotInheritPreviousTimingAdjustment(): void
+    /** @dataProvider structuralRetryTimingContracts */
+    public function testStructuralRetryDoesNotInheritPreviousTimingAdjustment(int $version, int $duration): void
     {
         $request = ShortDramaInputContract::begin(['episode_duration_policy' =>
             \app\common\service\app\aigc_short_drama\ShortDramaEpisodeDuration::snapshot([], 0, 0, [])]);
+        // Persisted v8 requests retain local timing, unlike new provider-timed requests.
+        $request['_input_contract_version'] = $version;
         $skeleton = ['title' => '测试', 'story_outline' => '甲在房间说完台词', 'script_lines' => ['保留台词'],
             'subjects' => [['id' => 'p1', 'name' => '甲']], 'locations' => [['id' => 'l1', 'name' => '房间']],
             'scene_beats' => [['scene_ref_id' => 'l1', 'goal' => '说明', 'entry' => '进入', 'exit' => '离开',
@@ -98,6 +101,11 @@ class ShortDramaReliabilityTest extends TestCase
             }, null);
         self::assertSame(['timed_skeleton_0', 'timed_scene_1_1', 'timed_scene_1_1_repair'], $calls);
         self::assertSame(str_repeat('字', 48), $result['storyboard'][0]['dialogue']);
-        self::assertEquals(9, $result['storyboard'][0]['recommended_duration_seconds']);
+        self::assertEquals($duration, $result['storyboard'][0]['recommended_duration_seconds']);
+    }
+
+    public static function structuralRetryTimingContracts(): array
+    {
+        return ['persisted local timing' => [8, 9], 'new provider timing' => [ShortDramaInputContract::VERSION, 5]];
     }
 }

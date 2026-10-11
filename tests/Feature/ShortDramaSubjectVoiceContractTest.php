@@ -55,35 +55,19 @@ class ShortDramaSubjectVoiceContractTest extends TestCase
 
     public function testCompiledWorkbenchSupportsCloningAndBlocksPendingVoices(): void
     {
-        $root = dirname(__DIR__, 2);
-        $api = (string)file_get_contents($root . '/public/_nuxt/short_drama.629b99f7.js');
-        $workbench = (string)file_get_contents($root . '/public/_nuxt/VisualCreationWorkbench.20b439b0.js');
-
-        self::assertStringContainsString('/app.aigc_short_drama.voice/save', $api);
+        $source = \Tests\Support\CompiledAssets::source('pc/components/short-drama/VisualCreationWorkbench.vue');
+        $api = \Tests\Support\CompiledAssets::containing('pc', '/app.aigc_short_drama.voice/save');
         self::assertStringContainsString('/app.aigc_short_drama.voice/trim', $api);
-        self::assertStringContainsString('Tt as T', $api);
-        self::assertStringContainsString('voiceCloneBusy', $workbench);
-        self::assertStringContainsString('voiceUploadInputRef', $workbench);
-        self::assertStringContainsString('status!=="ready"', $workbench);
-        self::assertStringContainsString('class:"voice-clone-btn"', $workbench);
-        self::assertStringContainsString('class:"sound-btn"', $workbench);
-        self::assertStringContainsString('Y as uploadVoiceFile', $workbench);
-        self::assertStringContainsString('T as trimVoiceSample', $workbench);
-        $handlerStart = strpos($workbench, 'handleVoiceUpload=async');
-        self::assertIsInt($handlerStart);
-        $handlerEnd = strpos($workbench, ',ut=async', $handlerStart);
-        self::assertIsInt($handlerEnd);
-        $voiceUploadHandler = substr($workbench, $handlerStart, $handlerEnd - $handlerStart);
-
-        self::assertStringContainsString('await uploadVoiceFile({file:t})', $voiceUploadHandler);
-        self::assertStringContainsString(
-            'await trimVoiceSample({file:t,data:{start:"0",duration:"10"}})',
-            $voiceUploadHandler
-        );
-        self::assertStringContainsString('String(s?.value??s??"").trim()', $voiceUploadHandler);
-        self::assertStringNotContainsString('String(s||"").trim()', $voiceUploadHandler);
-        self::assertStringContainsString('Math.min(10,Math.ceil', $voiceUploadHandler);
-        self::assertStringNotContainsString('await pl({file:t})', $voiceUploadHandler);
-        self::assertStringNotContainsString('return}const s=await m.prompt', $voiceUploadHandler);
+        self::assertStringContainsString('voice.status !== \'ready\'', $source);
+        self::assertStringContainsString('voiceCloneBusy.value', $source);
+        self::assertStringContainsString('const handleVoiceUpload = async', $source);
+        self::assertStringContainsString('promptResult as any', $source);
+        self::assertStringContainsString('if (duration > 10)', $source);
+        self::assertStringContainsString('await trimShortDramaVoice({ file, data: { start: \'0\', duration: \'10\' } })', $source);
+        self::assertStringContainsString('await uploadVoiceFile({ file })', $source);
+        self::assertStringContainsString('Math.min(10, Math.ceil(duration))', $source);
+        self::assertStringContainsString('voice-clone-btn', \Tests\Support\CompiledAssets::read('pc', 'VisualCreationWorkbench'));
+        self::assertStringContainsString('sound-btn', \Tests\Support\CompiledAssets::read('pc', 'VisualCreationWorkbench'));
     }
+
 }

@@ -1,8 +1,8 @@
 <?php
 
 /** Local development only. Preview by default; explicitly pin the DB for --apply. */
-require dirname(__DIR__) . '/vendor/autoload.php';
-(new \think\App())->initialize();
+require dirname(__DIR__) . '/runtime-loader.php';
+(new \AigcRuntimeApp(dirname(__DIR__)))->initialize();
 $db = \think\facade\Db::connect();
 $options = getopt('', ['apply', 'database:']);
 $database = (string)$db->getConfig('database');
