@@ -484,7 +484,7 @@ class AigcVideoChannelService
             $config = self::withDefaultChannelConfig((string)$platformChannel['code'], $platformChannel['config_json'] ?? []);
             $channelSpecRows = $specsByChannel[$platformChannel['code']] ?? [];
             $configDurationOptions = self::channelDurationOptions($config);
-            $specDurationOptions = self::durationOptionsFromSpecs($platformChannel['code'], $channelSpecRows);
+            $specDurationOptions = self::durationOptionsFromSpecs(array_replace($platformChannel,['config_json'=>$config]), $channelSpecRows);
             $durationOptions = !empty($configDurationOptions) ? $configDurationOptions : $specDurationOptions;
             $dynamicDuration = !empty($durationOptions);
             $channel = [
@@ -910,13 +910,11 @@ class AigcVideoChannelService
         return $defaults[$channelCode] ?? [];
     }
 
-    private static function durationOptionsFromSpecs(string $channelCode, array $specs): array
+    private static function durationOptionsFromSpecs(array $channel, array $specs): array
     {
-        if (self::isSecondBillingChannel($channelCode)) {
-            return [];
-        }
         $options = [];
         foreach ($specs as $spec) {
+            if(self::isDurationBillingUnit($channel,$spec))continue;
             $duration = self::explicitSpecDurationValue($spec);
             if ($duration > 0) {
                 $options[] = $duration;
@@ -939,7 +937,7 @@ class AigcVideoChannelService
         $ratioFallbackSpec = [];
         $channelFallbackSpec = [];
         $closestDiff = null;
-        $preferSecondUnitSpec = self::isSecondBillingChannel((string)($channel['code'] ?? ''));
+
         foreach ($channel['specs'] as $spec) {
             if (empty($channelFallbackSpec) && self::specMatchesPricingVariant($spec, $pricingVariant)) {
                 $channelFallbackSpec = $spec;
@@ -958,7 +956,7 @@ class AigcVideoChannelService
             }
             $specDuration = self::explicitSpecDurationValue($spec);
             if ($specDuration === $duration) {
-                if (!$preferSecondUnitSpec) {
+                if (!self::isDurationBillingUnit($channel,$spec)) {
                     return $spec;
                 }
                 if (empty($durationSpec)) {
