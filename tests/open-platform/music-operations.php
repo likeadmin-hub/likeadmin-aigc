@@ -10,6 +10,7 @@ function check($ok,$why){if(!$ok)throw new RuntimeException($why);}
 check(class_exists(Runtime::class),'Real music operation runtime is missing');
 $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&$db['database']==='z_cn','Local rollback only');
 $wallets=fn()=>[Db::name('user')->where(['tenant_id'=>1,'id'=>1])->value('user_money'),Db::name('tenant')->where('id',1)->value('point_balance')];$before=$wallets();
+$failQueue=false;app\common\model\ai\AiTaskJob::event('before_insert',static function()use(&$failQueue){if($failQueue)throw new RuntimeException('Synthetic queue write failure');});
 Db::startTrans();try{
  request()->tenantId=1;request()->userId=1;
  foreach(['lyrics','mashup_lyrics','style'] as $api){
@@ -26,9 +27,24 @@ Db::startTrans();try{
   $row=S::table('request')->where('request_id',$rid)->find();check((float)$row['actual_user']===$quote['user_charge_points'],'Music charge attributed incorrectly');app\common\service\open_platform\OpenVerification::assertLedger($row);
   check(count(app\common\service\open_platform\OpenManagement::detail(1,1,$rid)['point_logs'])===1,'Repeated receipt recovery charged twice');
   C::leave();
-  foreach(['refused','uncertain','empty'] as $scenario){
+  foreach(['refused','uncertain','empty','unsubmitted','dispatched','queue_error'] as $scenario){
    $caseId='req_fixture_'.bin2hex(random_bytes(16));$case=S::table('request')->where('request_id',$rid)->find();unset($case['id']);$case=array_replace($case,['request_id'=>$caseId,'status'=>'accepted','billing_status'=>'pending','tool_task_id'=>'','active'=>1,'budget_user'=>$budget['user'],'budget_tenant'=>$budget['tenant'],'actual_user'=>0,'actual_tenant'=>0,'consumption_ids'=>'[]','snapshot'=>S::encode($budget['snapshot'])]);S::table('request')->insert($case);C::enter($caseId);
+   $priorWallet=$wallets();$nativeCount=app\common\model\app\aigc_music\AigcMusicTask::count();
+   if($scenario==='queue_error'){
+    $failQueue=true;$denied=false;try{$reserve->invoke(null,1,1,$api,$params,$frozen);}catch(RuntimeException $e){$denied=$e->getMessage()==='Synthetic queue write failure';}finally{$failQueue=false;}
+    check($denied&&$wallets()===$priorWallet&&app\common\model\app\aigc_music\AigcMusicTask::count()===$nativeCount,'Queue failure did not atomically roll back task and wallet');
+    check(S::table('request')->where('request_id',$caseId)->value('tool_task_id')==='','Queue failure left an accepted native mapping');C::leave();continue;
+   }
    $cid2=$reserve->invoke(null,1,1,$api,$params,$frozen);$capture=new ReflectionMethod(Runtime::class,'capture');
+   check(app\common\model\ai\AiTaskJob::where(['consumption_id'=>$cid2,'job_type'=>'query_result'])->count()===1,'Reservation missing durable recovery job');
+   if(in_array($scenario,['unsubmitted','dispatched'],true)){
+    $marker=new ReflectionMethod(Runtime::class,'markDispatched');if($scenario==='dispatched')$marker->invoke(null,$cid2);
+    app\common\model\ai\AiConsumptionLog::where('id',$cid2)->update(['create_time'=>time()-60]);
+    app\common\service\ai\AiMarketTaskRuntimeService::refresh($cid2);Runtime::refresh($cid2);$caseConsumption=app\common\model\ai\AiConsumptionLog::findOrEmpty($cid2);
+    check($caseConsumption['billing_status']===($scenario==='unsubmitted'?'refunded':'reserved'),'Pre-submit crash was held or unknown dispatched call was refunded');
+    if($scenario==='unsubmitted'){$denied=false;try{$marker->invoke(null,$cid2);}catch(app\common\service\open_platform\OpenException){$denied=true;}check($denied&&$wallets()===$priorWallet,'Recovered call may dispatch or refund twice');app\common\service\open_platform\OpenVerification::assertLedger(S::table('request')->where('request_id',$caseId)->find());}
+    C::leave();continue;
+   }
    $http=$scenario==='uncertain'?503:200;$body=$scenario==='refused'?['code'=>0,'msg'=>'invalid input']:($scenario==='uncertain'?['code'=>0,'msg'=>'upstream unavailable']:['code'=>1,'data'=>['result'=>['status'=>'completed','data'=>[]]]]);$capture->invoke(null,$cid2,['status'=>$http,'body'=>S::encode($body)]);Runtime::refresh($cid2);Runtime::refresh($cid2);
    $caseConsumption=app\common\model\ai\AiConsumptionLog::findOrEmpty($cid2);check($caseConsumption['billing_status']===($scenario==='refused'?'refunded':'reserved'),'Ambiguous response refunded or definitive refusal retained');check((float)$caseConsumption['actual_user_price']===0.,'Failed/unknown response was settled');
    if($scenario==='refused')app\common\service\open_platform\OpenVerification::assertLedger(S::table('request')->where('request_id',$caseId)->find());

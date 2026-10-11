@@ -54,10 +54,8 @@ final class MarketMusicOperationRuntimeService
     public static function execute(int $tenant,int $user,string $api,array $params): array
     {
         $selection=self::selection($tenant,$user,$api,$params);$cid=self::reserve($tenant,$user,$api,$selection['payload'],$selection);
-        // Durable queue may recover a stored receipt, never repeat a submit.
-        AiTaskJobService::enqueueQueryResult($cid);
         $c=AiConsumptionLog::findOrEmpty($cid);$snapshot=OpenStore::json($c['price_snapshot']);
-        Db::transaction(static function()use($cid){$c=AiConsumptionLog::lock(true)->findOrEmpty($cid);if($c['run_status']!=='reserved')throw new OpenException('request_in_progress','音乐操作已开始',409);self::assertOrigin($c->toArray());$snapshot=OpenStore::json($c['price_snapshot']);$snapshot['music_dispatched']=true;$c->save(['price_snapshot'=>$snapshot,'run_status'=>'submitting','update_time'=>time()]);});
+        self::markDispatched($cid);
         try{
             $wire=(new OpenTransport())->send(OpenStore::json(OpenVault::open($snapshot['music_source_blob'])),'POST','/api/v1/apps/music_generation/'.$api,$selection['payload']);
             self::capture($cid,$wire);self::refresh($cid);
@@ -75,8 +73,15 @@ final class MarketMusicOperationRuntimeService
             $snapshot=$quote+['app_code'=>'music_generation','runtime_adapter'=>'music_operation','music_source_blob'=>OpenVault::seal(OpenStore::encode($source))];
             $c=AiConsumptionLog::create(['consume_no'=>$sn,'app_task_id'=>$task['id'],'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_music','action_code'=>$api,'resource_type'=>'app_api','product_id'=>$quote['market_product_id'],'sku_id'=>$quote['market_sku_id'],'protocol'=>'application_api','provider'=>'power_market','quantity'=>1,'usage_unit'=>'per_call','price_snapshot'=>$snapshot,'usage_snapshot'=>[],'request_summary'=>['api_code'=>$api],'response_summary'=>[],'run_status'=>'reserved','billing_status'=>'reserved','reserved_tenant_cost'=>$quote['tenant_cost_points'],'reserved_user_price'=>$quote['user_charge_points'],'tenant_point_sn'=>$sn.'-reserve','user_point_sn'=>$sn.'-reserve']+OpenStore::timestamp());
             PointService::reserveBusinessAmountsInCurrentTransaction($tenant,$user,$quote['tenant_cost_points'],$quote['user_charge_points'],$sn.'-reserve','音乐操作预占',['app_code'=>'aigc_music','consumption_id'=>$c['id']]);
-            $native->save(['app_task_id'=>$task['id'],'consumption_id'=>$c['id']]);return (int)$c['id'];
+            $native->save(['app_task_id'=>$task['id'],'consumption_id'=>$c['id']]);
+            // Reserve and recovery job commit together. A queue error rolls back the wallet.
+            AiTaskJobService::enqueueQueryResult((int)$c['id']);
+            return (int)$c['id'];
         });
+    }
+    private static function markDispatched(int $cid): void
+    {
+        Db::transaction(static function()use($cid){$c=AiConsumptionLog::lock(true)->findOrEmpty($cid);if($c['run_status']!=='reserved'||$c['billing_status']!=='reserved')throw new OpenException('request_in_progress','音乐操作已开始或已关闭',409);self::assertOrigin($c->toArray());$snapshot=OpenStore::json($c['price_snapshot']);if(!empty($snapshot['music_dispatched']))throw new OpenException('request_in_progress','音乐操作已提交',409);$snapshot['music_dispatched']=true;$c->save(['price_snapshot'=>$snapshot,'run_status'=>'submitting','update_time'=>time()]);});
     }
     private static function capture(int $cid,array $wire): void
     {
@@ -86,7 +91,16 @@ final class MarketMusicOperationRuntimeService
     {
         $c=AiConsumptionLog::findOrEmpty($cid);if($c->isEmpty())throw new OpenException('not_found','音乐消耗记录不存在',404);$snapshot=OpenStore::json($c['price_snapshot']);if(($snapshot['runtime_adapter']??'')!=='music_operation')throw new OpenException('task_context_invalid','音乐运行时不一致',409);
         if(in_array($c['billing_status'],['settled','refunded'],true))return ['status'=>$c['run_status']];
-        $blob=$snapshot['music_receipt_blob']??'';if($blob==='')return ['status'=>$c['run_status']==='reserved'?'running':'pending_confirmation'];
+        $blob=$snapshot['music_receipt_blob']??'';
+        if($blob==='')return Db::transaction(static function()use($cid){
+            $c=AiConsumptionLog::lock(true)->findOrEmpty($cid);$snapshot=OpenStore::json($c['price_snapshot']);
+            if(in_array($c['billing_status'],['settled','refunded'],true))return ['status'=>$c['run_status']];
+            if(!empty($snapshot['music_receipt_blob']))return self::refresh($cid);
+            // The lock also fences markDispatched: a stopped pre-submit call can be refunded
+            // after a short grace period, while a live executor cannot send after this refund.
+            if($c['run_status']==='reserved'&&empty($snapshot['music_dispatched'])&&(int)$c['create_time']<=time()-30){self::complete($cid,[],true);return ['status'=>'failed'];}
+            return ['status'=>$c['run_status']==='reserved'?'running':'pending_confirmation'];
+        });
         $wire=OpenStore::json(OpenVault::open($blob));$body=$wire['body']??$wire;$http=(int)($wire['http_status']??200);
         $failed=OpenGateway::wireFailed($http,$body,[]);$message=(string)($body['msg']??$body['message']??'');$ambiguous=OpenGateway::wireUncertain($http)||(bool)preg_match('/timeout|timed out|connection|curl|超时|连接|网络|内部异常/iu',$message);
         if($ambiguous){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
