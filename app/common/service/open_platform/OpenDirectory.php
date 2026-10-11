@@ -8,7 +8,7 @@ final class OpenDirectory
 {
     public static function supports(string $method,string $path): bool
     {
-        return $method==='GET'&&in_array($path,['/api/v1/models','/api/v1/apps','/api/v1/tools','/api/v1/tasks','/api/v1/user/balance','/api/v1/user/usage'],true);
+        return $method==='GET'&&(in_array($path,['/api/v1/models','/api/v1/models/detail','/api/v1/apps','/api/v1/tools','/api/v1/tasks','/api/v1/user/balance','/api/v1/user/usage'],true)||(bool)preg_match('#^/api/v1/apps/[a-z0-9_-]+$#D',$path));
     }
     public static function history(string $path): bool {return in_array($path,['/api/v1/tasks','/api/v1/user/balance','/api/v1/user/usage'],true);}
     public static function execute(array $key,string $path,array $params): array
@@ -19,9 +19,9 @@ final class OpenDirectory
         if($path==='/api/v1/user/balance')return self::success(['available_points'=>(float)Db::name('user')->where(['tenant_id'=>$tenant,'id'=>$user])->value('user_money')]);
         if($path==='/api/v1/user/usage')return self::usage($tenant,$user,$params);
         if($path==='/api/v1/tasks')return self::tasks($key,$params);
-        $products=self::products($key);$source=UpdateSourceClient::getSource();$wire=(new OpenTransport())->send(['base_url'=>$source['active_base_url'],'api_key'=>$source['active_api_key'],'ssl_verify'=>UpdateSourceClient::sslVerify($source)],'GET',$path,$params);
+        $products=self::products($key);if($path==='/api/v1/models/detail'){if(!array_filter($products,fn($p)=>($p['upstream_model_code']??'')===($params['model']??'')&&(!isset($params['channel'])||($p['upstream_channel_code']??'')===$params['channel'])))throw new OpenException('not_found','模型不可访问',404);}elseif(str_starts_with($path,'/api/v1/apps/')){if(!array_filter($products,fn($p)=>($p['upstream_app_code']??'')===basename($path)))throw new OpenException('not_found','应用不可访问',404);}$source=UpdateSourceClient::getSource();$wire=(new OpenTransport())->send(['base_url'=>$source['active_base_url'],'api_key'=>$source['active_api_key'],'ssl_verify'=>UpdateSourceClient::sslVerify($source)],'GET',$path,$params);
         if(OpenGateway::wireFailed($wire['status'],OpenStore::json($wire['body']),[]))return $wire;
-        $body=OpenStore::json($wire['body']);$body['data']=self::filter($path,(array)($body['data']??[]),$products);
+        $body=OpenStore::json($wire['body']);$body['data']=($path==='/api/v1/models/detail'||str_starts_with($path,'/api/v1/apps/'))?self::filterDetail($path,(array)($body['data']??[]),$products):self::filter($path,(array)($body['data']??[]),$products);
         $wire['body']=OpenStore::encode($body);return $wire;
     }
     public static function products(array $key): array
@@ -40,7 +40,7 @@ final class OpenDirectory
                 }
             }else{
                 $allowed=[];foreach($products as $product)if(($product['upstream_app_code']??'')===($item['code']??''))$allowed[(string)$product['upstream_api_code']]=$product;
-                $apis=[];foreach($item['apis']??[] as $api)if(isset($allowed[$api['code']??'']))$apis[]=$api;
+                $apis=[];foreach($item['apis']??[] as $api)if(isset($allowed[$api['code']??'']))$apis[]=self::retailApi($api,$allowed[$api['code']]);
                 if($apis){$item['apis']=$apis;$out[]=$item;}
             }
         }return array_values($out);
@@ -51,6 +51,22 @@ final class OpenDirectory
         foreach($skus as $sku){$hint=strtolower($sku['sku_key'].' '.$sku['usage_unit']);if(str_contains($hint,'input')||str_contains($hint,'prompt'))$input=$sku;if(str_contains($hint,'output')||str_contains($hint,'completion'))$output=$sku;}
         if(str_contains(strtolower($input['usage_unit']),'token'))return ['billing_type'=>1,'per_1k_input'=>(float)$input['sale_points']*1000000/max(1,(float)$input['usage_unit_size']),'per_1k_output'=>(float)$output['sale_points']*1000000/max(1,(float)$output['usage_unit_size']),'fixed_points'=>0];
         return ['billing_type'=>count($skus)===1?2:3,'fixed_points'=>count($skus)===1?(float)$input['sale_points']/max(1,(float)$input['usage_unit_size']):0,'pricing_matrix'=>array_map(fn($sku)=>['sku_key'=>$sku['sku_key'],'unit_price'=>(float)$sku['sale_points'],'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>(float)$sku['usage_unit_size'],'params'=>OpenStore::json($sku['locked_params']??[])],$skus)];
+    }
+    public static function filterDetail(string $path,array $data,array $products): array
+    {
+        if($path==='/api/v1/models/detail'){$items=self::filter('/api/v1/models',[$data],$products);if(!$items)throw new OpenException('not_found','模型不可访问',404);return $items[0];}
+        $app=(array)($data['app']??[]);$app['apis']=(array)($data['apis']??[]);$items=self::filter('/api/v1/apps',[$app],$products);if(!$items)throw new OpenException('not_found','应用不可访问',404);$item=$items[0];$apis=$item['apis'];unset($item['apis']);return array_replace($data,['app'=>$item,'apis'=>$apis]);
+    }
+    private static function retailApi(array $api,array $product): array
+    {
+        if(empty($product['skus']))return $api;
+        $price=self::prices($product);
+        // Upstream detail includes its account's commercial fields. Keep their
+        // names while binding values to the effective local retail SKUs.
+        $values=['tenant_billing_type'=>$price['billing_type'],'tenant_fixed_points'=>$price['fixed_points']??0,'tenant_points_per_1k_input'=>$price['per_1k_input']??null,'tenant_points_per_1k_output'=>$price['per_1k_output']??null,'billing_type'=>$price['billing_type'],'input_price'=>$price['per_1k_input']??0,'output_price'=>$price['per_1k_output']??0,'fixed_price'=>$price['fixed_points']??0,'pricing_matrix'=>$price['pricing_matrix']??[],'pricing_rules'=>$price['pricing_matrix']??[],'model_rates'=>[]];
+        foreach($values as $field=>$value)if(array_key_exists($field,$api))$api[$field]=$value;
+        if(array_key_exists('pricing',$api))$api['pricing']=$price;
+        return $api;
     }
     private static function tasks(array $key,array $params): array
     {
