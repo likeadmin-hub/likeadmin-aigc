@@ -164,12 +164,46 @@ class AigcFittingService
         return self::buildFittingEstimate($prepared, $imageEstimate);
     }
 
+    /** Validate the same recipe without writing or mirroring inputs before admission. */
+    public static function openPlatformAdmission(int $tenantId, int $userId, array $params): array
+    {
+        self::assertAvailable($tenantId);
+        $prepared = self::prepareGeneratePayload($tenantId, $params, true, $userId, false);
+        foreach (array_merge($prepared['garment_images'], $prepared['model_images']) as $image) {
+            if (preg_match('#^https?://#i', $image)) \app\common\service\open_platform\OpenSafeHttp::resolve($image, false);
+        }
+        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, self::singleImagePayload($prepared['image_payload'], 1), ['user_unit_price' => $prepared['unit_price']]);
+        return ['prepared' => $prepared, 'estimate' => self::buildFittingEstimate($prepared, $imageEstimate)];
+    }
+
+    private static function materializeOpenRecipe(int $tenantId, int $userId, array $prepared): array
+    {
+        $replacements = [];
+        foreach (array_unique(array_merge($prepared['garment_images'], $prepared['model_images'])) as $image) {
+            $replacements[$image] = self::prepareProviderImage($tenantId, $userId, $image);
+        }
+        $prepared['garment_images'] = array_values(array_unique(array_map(static fn($image) => $replacements[$image], $prepared['garment_images'])));
+        $prepared['model_images'] = array_values(array_unique(array_map(static fn($image) => $replacements[$image], $prepared['model_images'])));
+        $stored = array_merge($prepared['garment_images'], $prepared['model_images']);
+        $prepared['image_payload']['reference_images'] = array_values(array_unique($stored));
+        $prepared['image_payload']['prompt'] = strtr($prepared['image_payload']['prompt'], $replacements);
+        return $prepared;
+    }
+
     public static function generate(int $tenantId, int $userId, array $params): array
     {
         self::assertAvailable($tenantId);
-        $prepared = self::prepareGeneratePayload($tenantId, $params, true, $userId);
-        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, self::singleImagePayload($prepared['image_payload'], 1), ['user_unit_price' => $prepared['unit_price']]);
-        $estimate = self::buildFittingEstimate($prepared, $imageEstimate);
+        $frozen = \app\common\service\open_platform\OpenImagePricing::prepared($tenantId, $userId, self::APP_CODE);
+        if ($frozen !== null) {
+            $frozen = \app\common\service\open_platform\OpenImagePricing::materializePrepared($tenantId, $userId, self::APP_CODE,
+                static fn(array $recipe) => self::materializeOpenRecipe($tenantId, $userId, $recipe));
+            $prepared = $frozen['prepared'];
+            $estimate = $frozen['estimate'];
+        } else {
+            $prepared = self::prepareGeneratePayload($tenantId, $params, true, $userId);
+            $imageEstimate = AigcImageService::estimateMarketModel($tenantId, self::singleImagePayload($prepared['image_payload'], 1), ['user_unit_price' => $prepared['unit_price']]);
+            $estimate = self::buildFittingEstimate($prepared, $imageEstimate);
+        }
         PointService::assertCanConsumeAmounts(
             $tenantId,
             $userId,
@@ -180,10 +214,16 @@ class AigcFittingService
         $imageResults = [];
         $imageTaskIds = [];
         $imageTaskId = 0;
+        $handoff = \app\common\service\open_platform\OpenImageHandoff::callback($tenantId, $userId, self::APP_CODE,
+            static function(AigcImageTask $child) use ($tenantId, $userId, $prepared, $estimate, &$imageTaskIds, &$imageTaskId) {
+                if ($imageTaskId === 0) $imageTaskId = (int)$child['id'];
+                $imageTaskIds = array_values(array_unique(array_merge($imageTaskIds, [(int)$child['id']])));
+                return self::upsertTaskFromImageTask($tenantId, $userId, $imageTaskId, $prepared, $estimate, $imageTaskIds);
+            }, true);
         foreach (self::splitImagePayloads($prepared) as $index => $imagePayload) {
             $imageResult = AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $imagePayload, [
                 'user_unit_price' => $prepared['unit_price'],
-            ], self::APP_CODE);
+            ], self::APP_CODE, $handoff);
             $currentImageTaskId = (int)($imageResult['task_id'] ?? 0);
             if ($currentImageTaskId <= 0) {
                 throw new Exception('试衣任务创建失败');
@@ -191,7 +231,7 @@ class AigcFittingService
             if ($imageTaskId <= 0) {
                 $imageTaskId = $currentImageTaskId;
             }
-            $imageTaskIds[] = $currentImageTaskId;
+            $imageTaskIds = array_values(array_unique(array_merge($imageTaskIds, [$currentImageTaskId])));
             foreach (($imageResult['results'] ?? []) as $result) {
                 $imageResults[] = $result;
             }
@@ -426,7 +466,7 @@ class AigcFittingService
         }
     }
 
-    private static function prepareGeneratePayload(int $tenantId, array $params, bool $requireImages, int $userId = 0): array
+    private static function prepareGeneratePayload(int $tenantId, array $params, bool $requireImages, int $userId = 0, bool $materialize = true): array
     {
         $config = self::config($tenantId);
         $configJson = is_array($config['config_json'] ?? null) ? $config['config_json'] : [];
@@ -447,10 +487,22 @@ class AigcFittingService
         }
         if ($requireImages) {
             self::assertModelSelectionAllowed($tenantId, $userId, $mode, $selectedPresetIds, $modelImages, $configJson['model_examples'] ?? []);
+            if (!$materialize && $mode !== self::MODE_CUSTOM) {
+                // Native UI matching accepts storage-domain aliases. Freeze the
+                // administrator's actual preset URL, never a caller's same-path host.
+                $presetImages = [];
+                $examples = array_column(self::normalizeExamples($configJson['model_examples'] ?? [], '模特示例', 'model'), null, 'id');
+                foreach ($selectedPresetIds as $presetId) {
+                    $example = $examples[$presetId];
+                    $presetImages = array_merge($presetImages, $mode === self::MODE_GROUP
+                        ? self::normalizeImages($example['images'] ?? []) : [(string)$example['image']]);
+                }
+                $modelImages = self::normalizeImages($presetImages);
+            }
         }
 
         $quantity = self::resolveQuantity($mode, $params, count($modelImages), $requireImages);
-        if ($requireImages) {
+        if ($requireImages && $materialize) {
             $garmentImages = self::prepareProviderImages($tenantId, $userId, $garmentImages);
             $modelImages = self::prepareProviderImages($tenantId, $userId, $modelImages);
         }
@@ -520,16 +572,29 @@ class AigcFittingService
 
     private static function upsertTaskFromImageTask(int $tenantId, int $userId, int $imageTaskId, array $prepared, array $estimate, array $imageTaskIds = []): AigcFittingTask
     {
-        $imageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $imageTaskId])->findOrEmpty();
+        $imageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $imageTaskId])->findOrEmpty();
         if ($imageTask->isEmpty()) {
             throw new Exception('生图任务不存在');
         }
         $row = AigcFittingTask::where(['tenant_id' => $tenantId, 'image_task_id' => $imageTaskId])->findOrEmpty();
+        $ids = array_values(array_unique($imageTaskIds ?: [$imageTaskId]));
+        $status = (string)($imageTask['status'] ?: 'running');
+        $children = AigcImageTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])->whereIn('id', $ids)->column('status');
+        if (count($children) !== count($ids)) throw new Exception('试衣子任务归属不一致');
+        $expected = max(1, (int)($prepared['image_payload']['quantity'] ?? 1));
+        $terminal = count(array_filter($children, static fn($value) => in_array($value, ['success', 'failed', 'canceled'], true)));
+        if (count($ids) >= $expected && $terminal === count($ids)) {
+            $status = in_array('success', $children, true) ? 'success' : (in_array('failed', $children, true) ? 'failed' : 'canceled');
+        } elseif (in_array('failed', $children, true)) {
+            $status = 'failed';
+        } else {
+            $status = 'running';
+        }
         $data = [
             'tenant_id' => $tenantId,
             'user_id' => $userId,
             'image_task_id' => $imageTaskId,
-            'image_task_ids' => $imageTaskIds ?: [$imageTaskId],
+            'image_task_ids' => $ids,
             'mode' => $prepared['mode'],
             'upload_category' => $prepared['upload_category'],
             'model_filter' => $prepared['model_filter'],
@@ -547,9 +612,9 @@ class AigcFittingService
             'quantity' => (int)($prepared['image_payload']['quantity'] ?? $estimate['quantity'] ?? $imageTask['quantity'] ?? 1),
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
-            'status' => (string)($imageTask['status'] ?: 'running'),
+            'status' => $status,
             'error' => (string)$imageTask['error'],
-            'finish_time' => (int)$imageTask['finish_time'],
+            'finish_time' => $status === 'running' ? 0 : (int)$imageTask['finish_time'],
             'update_time' => time(),
         ];
         if ($row->isEmpty()) {
@@ -586,7 +651,8 @@ class AigcFittingService
         $finishTimes = array_filter(array_map(static fn($row) => (int)($row['finish_time'] ?? 0), $imageTasks));
         $successCount = count(array_filter($statuses, static fn($status) => $status === 'success'));
         $terminalCount = count(array_filter($statuses, static fn($status) => in_array($status, ['success', 'failed', 'canceled'], true)));
-        if ($successCount === count($imageTaskIds) || ($successCount > 0 && $terminalCount === count($imageTaskIds))) {
+        $expectedCount = max(1, (int)$task['quantity']);
+        if (count($imageTaskIds) >= $expectedCount && ($successCount === count($imageTaskIds) || ($successCount > 0 && $terminalCount === count($imageTaskIds)))) {
             $task->status = 'success';
         } elseif (in_array('failed', $statuses, true)) {
             $task->status = 'failed';

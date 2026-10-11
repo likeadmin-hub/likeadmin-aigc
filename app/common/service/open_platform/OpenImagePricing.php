@@ -7,6 +7,30 @@ use app\common\service\power\MarketNanoBananaAppRuntimeService as Nano;
 final class OpenImagePricing
 {
     public const COMPOSITES=['aigc_product_image','aigc_style_transfer','aigc_background_removal','aigc_outpaint','aigc_image_translate','aigc_local_redraw','aigc_photo_restore','aigc_model_wear','aigc_hairstyle'];
+    private const MULTI_IMAGE=['aigc_fitting'];
+    public static function fittingBudget($request,array $params): array
+    {
+        $tenant=(int)$request->tenantId;$user=(int)$request->userId;
+        OpenToolAdapter::authorize($tenant,$user,'aigc_fitting');
+        // Preset model images are validated by the native service. All other
+        // input, including custom model images and aliases, needs ownership first.
+        $config=\app\common\service\app\aigc_fitting\AigcFittingService::config($tenant);
+        $mode=(string)($params['mode']??$config['default_mode']??'single');
+        $params['mode']=in_array($mode,['single','group','custom'],true)?$mode:'single';
+        $private=$params;
+        if($params['mode']!=='custom')unset($private['model_images'],$private['model_image']);
+        $resolved=OpenMaterials::resolve($tenant,$user,$private);
+        $params=array_replace($params,$resolved);
+        $prepared=\app\common\service\app\aigc_fitting\AigcFittingService::openPlatformAdmission($tenant,$user,$params);
+        $payload=$prepared['prepared']['image_payload'];$payload['quantity']=1;
+        $native=self::capture($tenant,$user,$payload,'aigc_fitting');
+        $budget=OpenToolAdapter::estimateBudget($prepared['estimate']);
+        $quantity=(int)$prepared['estimate']['quantity'];
+        if($quantity<1||$quantity>4||$budget===null||abs($budget['tenant']-round($native['tenant']*$quantity,2))>0.000001)throw new OpenException('pricing_unavailable','试衣价格与平台 SKU 成本不一致',503);
+        $budget['snapshot']['native_selection_blob']=$native['snapshot']['native_selection_blob'];
+        $budget['snapshot']['native_prepared_blob']=OpenVault::seal(OpenStore::encode(['app_code'=>'aigc_fitting','tenant_id'=>$tenant,'user_id'=>$user]+$prepared));
+        return $budget;
+    }
     public static function budget($request,array $params): array
     {
         $tenant=(int)$request->tenantId;$user=(int)$request->userId;
@@ -68,9 +92,11 @@ final class OpenImagePricing
     }
     public static function prepared(int $tenant,int $user,string $app): ?array
     {
-        if(!in_array($app,self::COMPOSITES,true))return null;$id=OpenCallContext::id();if($id==='')return null;
+        if(!in_array($app,array_merge(self::COMPOSITES,self::MULTI_IMAGE),true))return null;$id=OpenCallContext::id();if($id==='')return null;
         $row=OpenStore::owner('request',$tenant,$user)->where(['request_id'=>$id,'app_code'=>$app,'kind'=>'tool','method'=>'POST','path'=>'/api/v1/tools/'.$app.'/tasks'])->find();if(!$row)return null;
-        $blob=OpenStore::json($row['snapshot'])['native_prepared_blob']??'';if($blob==='')return null;
+        $blob=OpenStore::json($row['snapshot'])['native_prepared_blob']??'';
+        if($blob===''&&in_array($app,self::MULTI_IMAGE,true))throw new OpenException('pricing_snapshot_invalid','试衣请求缺少受理快照',409);
+        if($blob==='')return null;
         $data=OpenStore::json(OpenVault::open($blob));
         if(($data['app_code']??'')!==$app||(int)($data['tenant_id']??0)!==$tenant||(int)($data['user_id']??0)!==$user||!isset($data['prepared']['image_payload'],$data['estimate']['user_charge_points'],$data['estimate']['tenant_cost_points']))throw new OpenException('pricing_snapshot_invalid','图片工具参数快照不完整',409);
         return ['prepared'=>$data['prepared'],'estimate'=>$data['estimate']];
@@ -78,7 +104,7 @@ final class OpenImagePricing
     public static function selection(int $tenant,int $user): ?array
     {
         $id=OpenCallContext::id();if($id==='')return null;
-        $row=OpenStore::owner('request',$tenant,$user)->where(['request_id'=>$id,'kind'=>'tool','method'=>'POST'])->find();if(!$row||!in_array($row['app_code'],array_merge(['aigc_image'],self::COMPOSITES),true))return null;
+        $row=OpenStore::owner('request',$tenant,$user)->where(['request_id'=>$id,'kind'=>'tool','method'=>'POST'])->find();if(!$row||!in_array($row['app_code'],array_merge(['aigc_image'],self::COMPOSITES,self::MULTI_IMAGE),true))return null;
         return OpenToolPricing::forRequest($row['app_code'],$tenant,$user);
     }
     /** Only accepted, owned, currently leased calls may persist input preprocessing. */

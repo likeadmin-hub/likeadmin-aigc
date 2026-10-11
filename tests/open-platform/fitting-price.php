@@ -1,0 +1,57 @@
+<?php
+/** Rollback only; refused loopback and a pre-reservation SQL fence prohibit supplier I/O. */
+require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
+use think\facade\Db;
+use app\common\service\open_platform\{OpenStore as S,OpenManagement as M,OpenImagePricing as P,OpenCallContext as C,OpenVault as V,OpenException,OpenImageHandoff as H};
+use app\common\service\app\aigc_fitting\AigcFittingService as F;
+use app\common\service\power\MarketImageModelRuntimeService as Runtime;
+use app\common\service\update\UpdateSourceClient as Source;
+use app\common\model\app\aigc_image\AigcImageTask as Image;
+use app\common\model\app\aigc_fitting\AigcFittingTask as ParentTask;
+use app\common\model\file\TenantFile;
+use app\common\enum\FileEnum;
+function check($ok,$why){if(!$ok)throw new RuntimeException($why);}
+$db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&$db['database']==='z_cn','Local rollback only');
+$wallets=fn()=>[Db::name('user')->where(['tenant_id'=>1,'id'=>1])->value('user_money'),Db::name('tenant')->where('id',1)->value('point_balance')];$before=$wallets();$request=request();$request->tenantId=1;$request->userId=1;
+$stop=false;Db::listen(static function($sql)use(&$stop){if($stop&&preg_match('/^INSERT INTO `la_ai_consumption_log`/',$sql))throw new RuntimeException('Stop before fitting reservation and transport');});
+Db::startTrans();try{
+ $source=Db::name('update_source')->where('status',1)->order('id','desc')->find();check($source,'Local source missing');unset($source['id']);Db::name('update_source')->insert(array_replace($source,['name'=>'opf-fitting-refused-loopback','base_url'=>'http://127.0.0.1:1','online_base_url'=>'http://127.0.0.1:1','license_key'=>'fixture','online_license_key'=>'fixture','dev_mode'=>0]));check(Source::getSource()['active_base_url']==='http://127.0.0.1:1','Supplier not isolated');
+ foreach([0,1] as $tenant){$settings=S::settings($tenant);$settings['apps']=array_values(array_unique(array_merge($settings['apps'],['aigc_fitting','aigc_image'])));M::persistSettings($tenant,true,$settings);}
+ $config=F::config(1);$channel=$config['option_config']['channels'][0];$quality=$channel['qualities'][0];$spec=$quality['ratios'][0];
+ $mask='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6zwAAAABJRU5ErkJggg==';
+ $params=['mode'=>'custom','garment_images'=>[$mask],'model_images'=>[$mask],'channel'=>$channel['code'],'quality'=>$quality['value'],'ratio'=>$spec['ratio'],'prompt'=>'Synthetic fitting admission','quantity'=>2];
+ $files=Db::name('tenant_file')->where('tenant_id',1)->count();
+ $budget=P::fittingBudget($request,$params);check(Db::name('tenant_file')->where('tenant_id',1)->count()===$files,'Admission persisted a Data URI');
+ $recipe=S::json(V::open($budget['snapshot']['native_prepared_blob']));check($recipe['estimate']['quantity']===1,'Native custom mode must use normalized model count');
+ // Metadata-only owned fixtures never create physical files or perform downloads.
+ $uris=[];foreach(['garment','model-a','model-b'] as $label){$uri='uploads/opf-fitting-'.$label.'-'.bin2hex(random_bytes(8)).'.png';TenantFile::create(['tenant_id'=>1,'source_id'=>1,'source'=>FileEnum::SOURCE_USER,'type'=>10,'uri'=>$uri,'name'=>$label.'.png','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time()]);$uris[]=$uri;}
+ $params['garment_images']=[$uris[0]];$params['model_images']=[$uris[1],$uris[2]];$params['quantity']=2;
+ $budget=P::fittingBudget($request,$params);$recipe=S::json(V::open($budget['snapshot']['native_prepared_blob']));
+ check($recipe['estimate']['quantity']===2&&$budget['user']===(float)$recipe['prepared']['unit_price']*2,'Aggregate estimate did not use both selected models');
+ $pricing=Db::name('aigc_fitting_config')->where('tenant_id',1)->find();$initial=S::json($pricing['config_json']);
+ $adminUri='uploads/opf-fitting-shared-'.bin2hex(random_bytes(8)).'.png';TenantFile::create(['tenant_id'=>1,'source_id'=>1,'source'=>FileEnum::SOURCE_ADMIN,'type'=>10,'uri'=>$adminUri,'name'=>'shared.png','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time()]);
+ $presetConfig=$initial;$presetConfig['model_examples']=[['id'=>'fixture-model','name'=>'Shared model','mode'=>'single','image'=>$adminUri,'images'=>[$adminUri],'status'=>1,'vip'=>0]];Db::name('aigc_fitting_config')->where('id',$pricing['id'])->update(['config_json'=>S::encode($presetConfig)]);
+ $presetParams=array_replace($params,['mode'=>'single','selected_preset_ids'=>['fixture-model'],'model_images'=>['http://127.0.0.1/'.$adminUri],'quantity'=>1]);
+ $shared=P::fittingBudget($request,$presetParams);$sharedRecipe=S::json(V::open($shared['snapshot']['native_prepared_blob']));check($sharedRecipe['prepared']['model_images']===[$adminUri],'Caller same-path hostname replaced a trusted preset source');
+ $denied=false;try{P::fittingBudget($request,array_replace($presetParams,['garment_images'=>[$adminUri]]));}catch(OpenException $e){$denied=$e->httpStatus===404;}check($denied,'Shared preset URI bypassed garment ownership');
+ Db::name('aigc_fitting_config')->where('id',$pricing['id'])->update(['default_mode'=>'custom']);$missingMode=$params;unset($missingMode['mode']);$missingMode['model_images']=[$adminUri];$denied=false;try{P::fittingBudget($request,$missingMode);}catch(OpenException $e){$denied=$e->httpStatus===404;}check($denied,'Omitted configured custom mode bypassed model ownership');
+ $budget['snapshot']['native_materialized']=true;
+ $rid='req_fixture_'.bin2hex(random_bytes(16));S::table('request')->insert(['request_id'=>$rid,'tenant_id'=>1,'user_id'=>1,'key_id'=>0,'kind'=>'tool','app_code'=>'aigc_fitting','method'=>'POST','path'=>'/api/v1/tools/aigc_fitting/tasks','status'=>'accepted','billing_status'=>'pending','active'=>1,'budget_user'=>$budget['user'],'budget_tenant'=>$budget['tenant'],'lease_token'=>'fitting-owner','lease_expire'=>time()+60,'consumption_ids'=>'[]','snapshot'=>S::encode($budget['snapshot']),'response_blob'=>'','payload_hash'=>hash('sha256',$rid)]+S::timestamp());
+ C::enter($rid,'stale');$denied=false;try{F::generate(1,1,[]);}catch(OpenException $e){$denied=$e->errorType==='recovery_lease_lost';}check($denied,'Stale worker materialized fitting input');
+ C::enter($rid,'fitting-owner');check(P::prepared(1,2,'aigc_fitting')===null&&P::prepared(2,1,'aigc_fitting')===null,'Recipe leaked to foreign owner');
+ $denied=false;try{Runtime::quote(1,$recipe['prepared']['image_payload'],2);}catch(OpenException $e){$denied=$e->errorType==='pricing_snapshot_conflict';}check($denied,'Aggregate quantity reached a single child SKU');
+ $selection=S::json(V::open($budget['snapshot']['native_selection_blob']))['selection'];$sku=$selection['_open_image']['market']['sku']['id'];Db::name('power_market_sku')->where('id',$sku)->update(['sale_points'=>999]);Db::name('tenant_power_market_sku_price')->where(['tenant_id'=>1,'sku_id'=>$sku])->update(['sale_points'=>999]);
+ $pricing=Db::name('aigc_fitting_config')->where('tenant_id',1)->find();$json=S::json($pricing['config_json']);$json['mode_prices']['custom']=999;Db::name('aigc_fitting_config')->where('id',$pricing['id'])->update(['config_json'=>S::encode($json)]);
+ $stop=true;try{F::generate(1,1,[]);throw new RuntimeException('Fitting reached supplier');}catch(Exception $e){check($e->getMessage()==='Stop before fitting reservation and transport','Unexpected fitting entry failure: '.$e->getMessage());}finally{$stop=false;}
+ $parentId=S::table('request')->where('request_id',$rid)->value('tool_task_id');$parent=ParentTask::findOrEmpty((int)$parentId);check(!$parent->isEmpty()&&count($parent['image_task_ids'])===1&&(int)$parent['quantity']===2,'Parent missing before reserve/transport');
+ $child=Image::findOrEmpty((int)$parent['image_task_id']);check((float)$child['user_charge_points']===$budget['user']/2&&(float)$child['tenant_cost_points']===$budget['tenant']/2,'Child was repriced after accepted configuration changed');
+ $child->save(['status'=>'success']);$upsert=new ReflectionMethod(F::class,'upsertTaskFromImageTask');$incomplete=$upsert->invoke(null,1,1,(int)$child['id'],$recipe['prepared'],$recipe['estimate'],[(int)$child['id']]);check($incomplete['status']==='running','First successful image closed an incomplete two-image parent');
+ $second=Image::create(['tenant_id'=>1,'user_id'=>1,'prompt'=>'second fixture','reference_images'=>[],'provider_params_json'=>[],'quantity'=>1,'provider'=>'fixture','status'=>'running','channel'=>$child['channel'],'quality'=>$child['quality'],'ratio'=>$child['ratio'],'error'=>'','delete_time'=>0,'create_time'=>time(),'update_time'=>time()]);
+ $attach=static fn($image)=>$upsert->invoke(null,1,1,(int)$child['id'],$recipe['prepared'],$recipe['estimate'],[(int)$child['id'],(int)$image['id']]);$handoff=H::callback(1,1,'aigc_fitting',$attach,true);$handoff($second);$handoff($second);
+ check(S::table('request')->where('request_id',$rid)->value('tool_task_id')===$parentId&&count(ParentTask::findOrEmpty((int)$parentId)['image_task_ids'])===2,'Multi-child handoff replaced parent or duplicated a child');
+ check(ParentTask::findOrEmpty((int)$parentId)['status']==='running','Running second child was hidden by first success');
+ $second->save(['status'=>'failed']);$handoff($second);check(ParentTask::findOrEmpty((int)$parentId)['status']==='success','Terminal partial success lost successful fitting results');
+ $foreign=Image::create(['tenant_id'=>1,'user_id'=>2,'prompt'=>'foreign','reference_images'=>[],'provider_params_json'=>[],'quantity'=>1,'provider'=>'fixture','status'=>'running','delete_time'=>0,'create_time'=>time(),'update_time'=>time()]);$denied=false;try{$handoff($foreign);}catch(OpenException){$denied=true;}check($denied&&count(ParentTask::findOrEmpty((int)$parentId)['image_task_ids'])===2,'Foreign child changed fitting parent');
+ C::leave();check($wallets()===$before,'Fixture charged real wallets');echo "PASS fitting immutable per-image and aggregate pricing, read-only Data URI admission, owner/lease fences and durable multi-child parent before transport with no supplier calls\n";
+}finally{C::leave();Db::rollback();}
+check($wallets()===$before,'Rollback changed wallets');
