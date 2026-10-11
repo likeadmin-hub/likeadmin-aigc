@@ -1,5 +1,5 @@
 <?php
-/** Authorized local image, video and music acceptance with draft verification tickets. */
+/** Authorized local image, video, music and hairstyle acceptance with draft verification tickets. */
 require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
 use think\facade\Db;
 use app\common\service\open_platform\OpenStore as S;
@@ -26,12 +26,14 @@ $call=function($method,$path,$params=[],$ticket=null)use(&$key){
 };
 try{
  $asset=S::json(file_get_contents($dir.'/local_text_01400e0a404f.json'))['assets']['image']['file_id']??'';verify($asset!=='','Owned synthetic fixture missing');
+ $reconciliation=S::json(file_get_contents($dir.'/multimodal-reconciliation.json'));$portrait='';foreach($reconciliation['items']??[] as $item)if($item['app_code']==='aigc_image')$portrait=$item['file_id'];
  $definitions=[
   'aigc_image'=>['prompt'=>'Photorealistic studio portrait of a fictional adult woman, plain white shirt, neutral background, clear face, front view. This is a synthetic testing character.','channel'=>'market_image_model:154','quality'=>'1k','ratio'=>'1:1','quantity'=>1],
   'aigc_video'=>['prompt'=>'A synthetic reusable bottle standing still on a plain background, slow gentle camera movement, product test clip.','channel'=>'market_video_model:157','quality'=>'720p','ratio'=>'1:1','duration'=>6,'quantity'=>1,'reference_images'=>[$asset]],
+  'aigc_hairstyle'=>['person_image'=>$portrait,'reference_image'=>$portrait,'operation'=>'hair_color','prompt'=>'Change the fictional adult character hair color to auburn; preserve facial identity and all other details.','quantity'=>1],
   'aigc_music'=>['prompt'=>'A short calm instrumental melody for a synthetic software test clip.','duration'=>15,'instrumental'=>true],
  ];
- $selected=(string)($argv[2]??'');if($selected!==''){verify(preg_match('/^--case=(aigc_image|aigc_video|aigc_music)$/D',$selected,$match)===1,'Unknown selected case');$definitions=[$match[1]=>$definitions[$match[1]]];}
+ $selected=(string)($argv[2]??'');if($selected!==''){verify(preg_match('/^--case=(aigc_image|aigc_video|aigc_music|aigc_hairstyle)$/D',$selected,$match)===1,'Unknown selected case');$definitions=[$match[1]=>$definitions[$match[1]]];}
  foreach([0,1] as $tenant){$backup[$tenant]=S::table('setting')->where('tenant_id',$tenant)->find();$settings=S::settings($tenant);unset($settings['enabled']);$settings['apps']=array_values(array_unique(array_merge($settings['apps'],array_keys($definitions))));$settings['rpm']=max(120,$settings['rpm']);$values=['enabled'=>1,'config'=>S::encode($settings),'update_time'=>time()];if($backup[$tenant])S::table('setting')->where('tenant_id',$tenant)->update($values);else S::table('setting')->insert($values+['tenant_id'=>$tenant,'create_time'=>time()]);}
  $key=K::create(1,1,['name'=>$run,'daily_limit'=>1000-$spent,'monthly_limit'=>1000-$spent,'scopes'=>array_keys($definitions),'ip_allowlist'=>['127.0.0.1/32'],'expires_at'=>time()+3600]);
  request()->tenantId=1;request()->userId=1;request()->userInfo=['tenant_id'=>1,'user_id'=>1,'terminal'=>4];request()->source=app\common\enum\AdminTerminalEnum::USER;
