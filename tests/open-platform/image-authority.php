@@ -2,7 +2,7 @@
 /** Rollback-only native fault injection; every supplier address is fenced to loopback. */
 require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
 use think\facade\Db;
-use app\common\service\open_platform\{OpenStore as S,OpenManagement as M,OpenImagePricing as P,OpenCallContext as C,OpenRecovery as Recovery,OpenVault as V,OpenSubmission as N,OpenException};
+use app\common\service\open_platform\{OpenStore as S,OpenManagement as M,OpenImagePricing as P,OpenCallContext as C,OpenRecovery as Recovery,OpenVault as V,OpenSubmission as N,OpenToolAdapter as Adapter,OpenToolRegistry as Registry,OpenException};
 use app\common\service\app\aigc_product_multi_angle\AigcProductMultiAngleService as F;
 use app\common\service\power\MarketImageModelRuntimeService as Runtime;
 use app\common\model\app\aigc_product_multi_angle\AigcProductMultiAngleTask as ParentTask;
@@ -39,8 +39,9 @@ Db::startTrans();try{
     $budget=P::multiAngleBudget(request(),['image'=>$uri,'views'=>'front,side']);$recipe=S::json(V::open($budget['snapshot']['native_prepared_blob']));$payload=$recipe['prepared']['image_payload'];
     foreach(['disconnect','lease'] as $kind){
         $rid=receipt($budget);$fault=$kind==='lease'?new OpenException('recovery_lease_lost','Fixture owner lost',409):new PDOException('Fixture server has gone away');if($fault instanceof PDOException)$fault->errorInfo=['HY000',2006,'Fixture server has gone away'];$armed='reserve';$fired=false;$after=0;
-        try{F::generate(1,1,[]);throw new RuntimeException('Reached supplier');}catch(Throwable $e){check(($e===$fault||$fault instanceof PDOException&&Recovery::connectionLost($e)&&$e->getMessage()===$fault->getMessage())&&$fired&&$after===0,'Native child authority fault: '.get_class($e).' '.$e->getMessage().' fired='.(int)$fired.' later_sql='.$after);}finally{$armed='';}
+        try{Adapter::call(request(),Registry::get(F::APP_CODE)['operations']['POST tasks']+['app_code'=>F::APP_CODE,'route'=>'POST tasks','params'=>[]],[]);throw new RuntimeException('Reached supplier');}catch(Throwable $e){check(($e===$fault||$fault instanceof PDOException&&Recovery::connectionLost($e)&&$e->getMessage()===$fault->getMessage())&&$fired&&$after===0,'Native child authority fault: '.get_class($e).' '.$e->getMessage().' fired='.(int)$fired.' later_sql='.$after);}finally{$armed='';}
         [$row,$parent,$child]=children($rid);check($child['status']==='running'&&!S::json($row['consumption_ids']),'Stale native catch changed child or reservation survived rollback');
+        S::table('request')->where('request_id',$rid)->update(['lease_token'=>'other-owner','lease_expire'=>time()+300]);$lost=false;try{(new ReflectionMethod(F::class,'syncTaskFromImageTask'))->invoke(null,$parent);}catch(OpenException $e){$lost=$e->errorType==='recovery_lease_lost';}check($lost,'Stale parent synchronization continued after takeover');
         $done=recover($rid);check($done['status']==='failed'&&$done['billing_status']==='none'&&(int)$done['active']===0&&(float)$done['budget_user']===0.,'Never-reserved durable child did not close');check(Image::findOrEmpty($child['id'])['status']==='failed','Worker did not classify unreserved child');
     }
     // Reserve commits its business binding before the separate native task ID save.

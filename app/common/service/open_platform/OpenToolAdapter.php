@@ -35,6 +35,12 @@ final class OpenToolAdapter
         if(isset($operation['service'])){$params['_disable_transient_retry']=true;$params['_disable_model_fallback']=true;
             $emit=$onEvent?static function(string $event,array $data)use($onEvent){$onEvent(['type'=>$event,'data'=>$data]);}:null;
             return $operation['service']==='streamText'?AigcLlmService::streamText((int)$request->tenantId,(int)$request->userId,$params,$emit):AigcLlmService::generateText((int)$request->tenantId,(int)$request->userId,$params);}
+        // Invoke these shared business services directly: page controllers wrap
+        // exceptions as normal JSON and erase connection/lease failure identity.
+        if(in_array($app,array_merge(['aigc_image'],OpenImagePricing::COMPOSITES,OpenImageBatchDispatch::APPS),true)&&in_array($operation['route']??'',['POST tasks','GET tasks/{task_id}'],true)){
+            $suffix=substr($app,5);$class='app\\common\\service\\app\\'.$app.'\\Aigc'.implode('',array_map('ucfirst',explode('_',$suffix))).'Service';
+            return $operation['route']==='POST tasks'?$class::generate((int)$request->tenantId,(int)$request->userId,$params):$class::taskDetail((int)$request->tenantId,(int)$params['id'],(int)$request->userId);
+        }
         // This fixed registry reuses the existing user controller's validation and shared service.
         // No caller-controlled class/action is ever invoked.
         $class='app\\api\\controller\\app\\'.$app.'\\'.$operation['controller'].'Controller';

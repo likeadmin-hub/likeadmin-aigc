@@ -646,6 +646,7 @@ class AigcFittingService
                 \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             }
         }
+        \app\common\service\open_platform\OpenCallContext::assertCurrentLease();
         $imageTasks = AigcImageTask::where('tenant_id', $tenantId)
             ->whereIn('id', $imageTaskIds)
             ->where('delete_time', 0)

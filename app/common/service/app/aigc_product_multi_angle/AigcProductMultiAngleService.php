@@ -543,9 +543,10 @@ class AigcProductMultiAngleService
             try {
                 AigcImageService::taskDetail($tenantId, $imageTaskId, $userId);
             } catch (\Throwable $error) {
-                if (\app\common\service\open_platform\OpenRecovery::connectionLost($error)) throw $error;
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($error);
             }
         }
+        \app\common\service\open_platform\OpenCallContext::assertCurrentLease();
         $imageTasks = AigcImageTask::where(['tenant_id' => $tenantId, 'user_id' => $userId])->whereIn('id', $imageTaskIds)->where('delete_time', 0)->select()->toArray();
         if (!$imageTasks) {
             return;

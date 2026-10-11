@@ -12,6 +12,13 @@ final class OpenCallContext
     {
         $token=self::leaseToken((string)$row['request_id']);if($token!==''&&(!hash_equals($token,(string)$row['lease_token'])||(int)$row['lease_expire']<=time()))throw new OpenException('recovery_lease_lost','任务已由其他恢复实例接管',409);
     }
+    public static function assertCurrentLease(): void
+    {
+        if(self::$requestId===''||self::$leaseToken==='')return;
+        $row=OpenStore::table('request')->where('request_id',self::$requestId)->find();
+        if(!$row)throw new OpenException('recovery_lease_lost','任务执行上下文已不存在',409);
+        self::assertLease($row);
+    }
     /** Lost connections and execution leases must escape every native error handler before SQL. */
     public static function rethrowLostAuthority(\Throwable $error): void
     {
