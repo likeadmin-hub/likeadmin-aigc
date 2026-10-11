@@ -20,3 +20,5 @@ Before importing into an existing installation, apply `app/apps/aigc_video/migra
 完整模板：`template` 保存默认模型、生成方式、场景提示词、时长、比例、清晰度和参考图片（含首尾帧用途）。旧效果没有此字段仍按原交互使用。选中完整模板替换编辑区的场景与素材；点击图片替换只变更该图，不改效果指令或参数，上传失败保留原图。
 
 `scripts/configure-video-effect-templates.php` 可给已有目录补全模板。输入目录包括 `recipes.json`（id、generation_method、duration、ratio）与 `ID-first.jpg`，六种转场还需 `ID-last.jpg`。本次默认素材来自已有演示视频的首画面和结束前 0.12 秒画面，时长取最接近的模型可用整数秒，比例取最接近的可用比例；图片在素材中心托管。默认先校验，`--apply` 才入库；不提交生成。演示素材不代表当前模型实测结果，原站隐藏配置无法据此还原。
+
+模型兼容性更新：`product_ids` 仅兼容旧数据，不再作为效果模型白名单；模板 `product_id` 是默认模型，不限制用户改选。前端改选模型时按生成方式、参考素材和当前规格检查，不兼容则清除效果及隐藏指令并提示。前端不再展示效果提示词输入区，后台仍可管理指令。

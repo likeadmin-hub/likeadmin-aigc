@@ -44,7 +44,7 @@ final class VideoEffectTest extends TestCase
         foreach ([['effect_id'=>'unknown'],['effect_id'=>'push_in','generation_method'=>'omni_reference']] as $params) {
             try{Effects::resolve($this->catalog(),$params,7);self::fail('Invalid effect accepted');}catch(InvalidArgumentException $e){self::assertNotEmpty($e->getMessage());}
         }
-        foreach ([Effects::defaults(),$this->catalog()] as $rows) {
+        foreach ([Effects::defaults()] as $rows) {
             try{Effects::resolve($rows,['effect_id'=>'push_in'],8);self::fail('Unsupported model accepted');}catch(InvalidArgumentException $e){self::assertNotEmpty($e->getMessage());}
         }
     }
@@ -116,14 +116,15 @@ final class VideoEffectTest extends TestCase
         array_pop($rows[0]['template']['reference_assets']);
         $this->expectException(InvalidArgumentException::class);Effects::normalize($rows);
     }
-    public function testTemplateCannotSelectUnboundModelOrUnsafeAsset(): void {
-        foreach([['product_id'=>9,'url'=>'https://example.com/a.jpg'],['product_id'=>7,'url'=>'javascript:bad']] as $case){
+    public function testTemplateAcceptsUnboundDefaultModelAndRejectsUnsafeAsset(): void {
+        foreach([['product_id'=>0,'url'=>'https://example.com/a.jpg'],['product_id'=>7,'url'=>'javascript:bad']] as $case){
             $rows=$this->catalog();$rows[0]['template']=['product_id'=>$case['product_id'],'generation_method'=>'image_to_video','prompt'=>'scene','duration'=>5,'resolution'=>'768P','ratio'=>'16:9','reference_assets'=>[['url'=>$case['url']]]];
             try{Effects::normalize($rows);self::fail('Invalid template accepted');}catch(InvalidArgumentException $error){self::assertNotEmpty($error->getMessage());}
         }
     }
-    public function testEnablingRequiresModels(): void {
-        $rows=array_slice(Effects::defaults(),0,3);$rows[0]['enabled']=true;
-        $this->expectException(InvalidArgumentException::class);Effects::normalize($rows);
+    public function testEnablingAndResolvingDoesNotRequireModelAllowlist(): void {
+        $rows=array_slice(Effects::defaults(),0,3);$rows[0]['enabled']=true;$rows[0]['product_ids']=[];
+        $rows=Effects::normalize($rows);
+        self::assertSame('push_in',Effects::resolve($rows,['effect_id'=>'push_in','generation_method'=>'text_to_video'],999)['id']);
     }
 }

@@ -23,7 +23,7 @@ $existing=array_column(Effects::catalog($tenant),null,'id');$templates=[];$paths
 foreach($recipes as $recipe){
     $id=$recipe['id'];if(!isset($existing[$id]) || !preg_match('/^[a-z0-9_]+$/D',$id))throw new RuntimeException('Unknown effect');
     $row=$existing[$id];$method=$recipe['generation_method'];
-    if(!in_array($product,$row['product_ids'],true) || !in_array($method,$row['methods'],true) || !in_array($method,$model['generation_modes'],true))throw new RuntimeException('Unsupported template model/mode: '.$id);
+    if(!in_array($method,$row['methods'],true) || !in_array($method,$model['generation_modes'],true))throw new RuntimeException('Unsupported template model/mode: '.$id);
     if(!in_array($recipe['duration'],$model['duration_options']??[],true))throw new RuntimeException('Unsupported duration: '.$id);
     $quality=null;foreach($model['qualities']??[] as $q)if(($q['resolution']??'')==='768P')$quality=$q;
     if(!$quality || !in_array($recipe['ratio'],array_column($quality['ratios'],'value'),true))throw new RuntimeException('Unsupported resolution/ratio: '.$id);
