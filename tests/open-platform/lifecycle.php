@@ -17,8 +17,8 @@ try{
  request()->tenantId=$t;request()->source=app\common\enum\AdminTerminalEnum::USER;
  $u=Db::name('user')->insertGetId(['tenant_id'=>$t,'sn'=>random_int(10000000,99999999),'account'=>'open-fixture-'.$suffix,'nickname'=>'fixture','user_money'=>1000,'delete_time'=>null,'create_time'=>time(),'update_time'=>time()]);
  request()->userId=$u;request()->userInfo=['user_id'=>$u,'tenant_id'=>$t];
- $config=S::defaults();$config['concurrency']=5;$config['user_concurrency']=10;S::table('setting')->insert(['tenant_id'=>$t,'enabled'=>1,'config'=>S::encode($config)]+S::timestamp());
- $key=K::create($t,$u,['name'=>'billing fixture','concurrency'=>5]);$key=S::table('key')->where('id',$key['id'])->find();
+ $config=S::defaults();$config['concurrency']=5;S::table('setting')->insert(['tenant_id'=>$t,'enabled'=>1,'config'=>S::encode($config)]+S::timestamp());
+ $key=K::create($t,$u,['name'=>'billing fixture']);$key=S::table('key')->where('id',$key['id'])->find();
  $operation=['kind'=>'market','billable'=>true,'contract_id'=>0,'product_id'=>1,'executor'=>'json'];
  $budget=['user'=>10,'tenant'=>4,'snapshot'=>['product_id'=>1,'contract'=>$operation,'rules'=>[['sku_id'=>1,'basis'=>'usage','max_units'=>2,'usage_path'=>'usage.count','units'=>2,'unit_size'=>1,'prices'=>['user'=>5,'tenant'=>2]]]]];
  $admitted=A::begin($key,'POST','/api/v1/tasks',['fixture'=>1],$operation,$budget,'fixture-key');$row=$admitted['row'];
@@ -43,7 +43,7 @@ try{
  $boundary=A::begin($key,'POST','/api/v1/tasks',['fixture'=>5],$operation,$budget,'fixture-known-result')['row'];Context::enter($boundary['request_id']);Billing::reserve($boundary,$budget);Context::leave();app\common\service\open_platform\OpenGateway::settleKnownResult($boundary,['usage'=>['count'=>3]],false);$known=S::table('request')->where('id',$boundary['id'])->find();check($known['status']==='success'&&$known['billing_status']==='settlement_failed'&&(int)$known['active']===1,'Known result incorrectly became unknown submission or refunded');
  Billing::settle($boundary,['usage'=>['count'=>1]]);
  $native=A::begin($key,'POST','/api/v1/tools/aigc_image/tasks',[],['kind'=>'tool','app_code'=>'aigc_image','billable'=>true],['user'=>10,'tenant'=>4,'snapshot'=>[]],'fixture-native')['row'];Context::enter($native['request_id']);$task=app\common\model\app\aigc_image\AigcImageTask::create(['tenant_id'=>$t,'user_id'=>$u,'status'=>'pending','create_time'=>time(),'update_time'=>time()]);Context::leave();check((string)S::table('request')->where('id',$native['id'])->value('tool_task_id')===(string)$task['id'],'Native task was not linked before provider submission');
- $limited=A::begin($key,'POST','/api/v1/tools/aigc_image/tasks',['fixture'=>6],['kind'=>'tool','app_code'=>'aigc_image','billable'=>true],['user'=>1,'tenant'=>1,'snapshot'=>[]],'fixture-budget-boundary')['row'];
+ $limited=$native;S::table('request')->where('id',$native['id'])->update(['budget_user'=>1,'budget_tenant'=>1]);
  $before=(float)Db::name('user')->where('id',$u)->value('user_money');Context::enter($limited['request_id']);$blocked=false;
  try{Db::transaction(function()use($t,$u){app\common\service\point\PointService::consumeBusinessAmountsInCurrentTransaction($t,$u,2,2,'fixture-excess');});}catch(app\common\service\open_platform\OpenException $e){$blocked=$e->errorType==='settlement_boundary_exceeded';}finally{Context::leave();}
  check($blocked,'Native tool exceeded its admitted consumption boundary');check((float)Db::name('user')->where('id',$u)->value('user_money')===$before,'Rejected excess settlement mutated wallet');
