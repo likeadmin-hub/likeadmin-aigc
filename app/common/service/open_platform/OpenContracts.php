@@ -33,7 +33,8 @@ final class OpenContracts
     {
         return Db::transaction(function()use($id){$row=self::detail($id);self::validate($row);if($row['status']!=='draft')throw new OpenException('invalid_contract','只可发布草稿',409);
             $doc=OpenStore::table('document')->where(['tenant_id'=>0,'contract_code'=>$row['code'],'status'=>'published'])->find();if(!$doc)throw new OpenException('missing_document','请先发布对应接口文档');
-            if(empty($row['config']['verification']['evidence'])||empty($row['config']['verification']['verified_at']))throw new OpenException('unverified_contract','发布前必须填写网关验证证据');
+            $row['config']['verification']=OpenVerification::assertReceipt($row);
+            OpenStore::table('contract')->where('id',$id)->update(['config'=>OpenStore::encode($row['config'])]);
             OpenStore::table('contract')->where(['code'=>$row['code'],'status'=>'published'])->update(['status'=>'archived','update_time'=>time()]);OpenStore::table('contract')->where('id',$id)->update(['status'=>'published','update_time'=>time()]);return self::detail($id);});
     }
     public static function tool(string $method,string $path): array
