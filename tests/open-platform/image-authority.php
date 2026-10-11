@@ -39,7 +39,7 @@ Db::startTrans();try{
     $budget=P::multiAngleBudget(request(),['image'=>$uri,'views'=>'front,side']);$recipe=S::json(V::open($budget['snapshot']['native_prepared_blob']));$payload=$recipe['prepared']['image_payload'];
     foreach(['disconnect','lease'] as $kind){
         $rid=receipt($budget);$fault=$kind==='lease'?new OpenException('recovery_lease_lost','Fixture owner lost',409):new PDOException('Fixture server has gone away');if($fault instanceof PDOException)$fault->errorInfo=['HY000',2006,'Fixture server has gone away'];$armed='reserve';$fired=false;$after=0;
-        try{F::generate(1,1,[]);throw new RuntimeException('Reached supplier');}catch(Throwable $e){check($e===$fault&&$fired&&$after===0,'Native child handler swallowed authority loss or issued SQL afterward');}finally{$armed='';}
+        try{F::generate(1,1,[]);throw new RuntimeException('Reached supplier');}catch(Throwable $e){check($e===$fault&&$fired&&$after===0,'Native child authority fault: '.get_class($e).' '.$e->getMessage().' fired='.(int)$fired.' later_sql='.$after);}finally{$armed='';}
         [$row,$parent,$child]=children($rid);check($child['status']==='running'&&!S::json($row['consumption_ids']),'Stale native catch changed child or reservation survived rollback');
         $done=recover($rid);check($done['status']==='failed'&&$done['billing_status']==='none'&&(int)$done['active']===0&&(float)$done['budget_user']===0.,'Never-reserved durable child did not close');check(Image::findOrEmpty($child['id'])['status']==='failed','Worker did not classify unreserved child');
     }
