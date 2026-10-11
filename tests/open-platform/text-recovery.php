@@ -13,7 +13,7 @@ $config=config('database.connections.mysql');check($config['hostname']==='127.0.
 Db::startTrans();
 try{
  $rid='req_fixture_'.bin2hex(random_bytes(12));
- S::table('request')->insert(['request_id'=>$rid,'tenant_id'=>1,'user_id'=>1,'key_id'=>0,'kind'=>'tool','app_code'=>'aigc_llm','method'=>'POST','path'=>'/api/v1/tools/aigc_llm/tasks','status'=>'pending_confirmation','billing_status'=>'pending_confirmation','active'=>1,'budget_user'=>10,'budget_tenant'=>10,'snapshot'=>S::encode([])]+S::timestamp());
+ S::table('request')->insert(['request_id'=>$rid,'tenant_id'=>1,'user_id'=>1,'key_id'=>0,'kind'=>'tool','app_code'=>'aigc_llm','method'=>'POST','path'=>'/api/v1/tools/aigc_llm/tasks','status'=>'pending_confirmation','billing_status'=>'pending_confirmation','active'=>1,'budget_user'=>10,'budget_tenant'=>10,'snapshot'=>S::encode([]),'payload_hash'=>hash('sha256','fixture'),'consumption_ids'=>'[]','response_blob'=>'']+S::timestamp());
  C::enter($rid);$model=T::resolveModel(1,'65');$create=new ReflectionMethod(T::class,'createConsumption');$context=$create->invoke(null,1,1,$model,'fixture',[],['user_charge_points'=>0,'tenant_cost_points'=>0],0,'aigc_llm','aigc_llm_message',0);
  $cid=(int)$context['consumption']['id'];$wallet=(float)Db::name('user')->where('id',1)->value('user_money');
  L::defer($context,null,[],new RuntimeException('private provider diagnostic'));
