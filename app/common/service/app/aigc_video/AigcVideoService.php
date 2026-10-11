@@ -2,6 +2,7 @@
 
 namespace app\common\service\app\aigc_video;
 
+use app\common\service\app\PromptEnhanceModelService;
 use app\common\model\app\aigc_video\AigcVideoConfig;
 use app\common\model\app\aigc_video\AigcVideoBilling;
 use app\common\model\app\aigc_video\AigcVideoQuota;
@@ -37,10 +38,12 @@ class AigcVideoService
                 'model' => 'power_market_video',
                 'status' => 1,
                 'config_json' => [],
+                'prompt_enhance_model' => PromptEnhanceModelService::describe($tenantId, []),
                 'option_config' => self::marketOptionConfig($tenantId),
             ]);
         }
         $data = $config->toArray();
+        $data['prompt_enhance_model'] = PromptEnhanceModelService::describe($tenantId, (array)($data['config_json'] ?? []));
         $data['provider_mode'] = 'market';
         $data['provider'] = 'power_market';
         $data['model'] = 'power_market_video';
@@ -64,6 +67,9 @@ class AigcVideoService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
+        if (isset($params['config_json']) && is_array($params['config_json'])) {
+            $params['config_json'] = PromptEnhanceModelService::validateConfig($tenantId, $params['config_json']);
+        }
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $row = AigcVideoConfig::where('tenant_id', $tenantId)->findOrEmpty();
         $current = $row->isEmpty() ? [] : $row->toArray();
