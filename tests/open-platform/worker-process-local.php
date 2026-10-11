@@ -97,17 +97,32 @@ try{
     check((float)Db::name('user')->where('id',$user)->value('user_money')===95.&&(float)Db::name('tenant')->where('id',$tenant)->value('point_balance')===99.,'Recovery repeated a fixture wallet charge');
     check(Db::name('user_account_log')->where('user_id',$user)->count()===1&&Db::name('tenant_point_log')->where('tenant_id',$tenant)->count()===1,'Recovery duplicated independent ledgers');
     $report['scenarios'][]='SIGKILL during GET, lease retained, expired takeover, single settlement';
+    // Lose the database after the response is in flight but before settlement.
+    $second=array_replace($request,['request_id'=>'req_worker_fixture_second','next_run_time'=>time()]);unset($second['id']);
+    $second['id']=S::table('request')->insertGetId($second);Billing::reserve($second,['user'=>5,'tenant'=>1,'snapshot'=>$snapshot]);
+    $settlementDisconnect=$spawn('--worker','settlement-disconnect');waitFor(fn()=>is_file($dir.'/query-3'),'Second receipt query did not start');
+    $connection=(int)file_get_contents($dir.'/ready-settlement-disconnect');check($connection>0,'Invalid settlement connection');$pdo->exec('KILL CONNECTION '.$connection);touch($dir.'/release-3');
+    check(str_contains($finish($settlementDisconnect,1),'Database connection lost; worker stopped for supervisor restart.'),'Settlement disconnect was swallowed');
+    $interrupted=S::table('request')->where('id',$second['id'])->find();
+    check((int)$interrupted['active']===1&&$interrupted['status']==='running'&&$interrupted['lease_token']!==''&&(float)$interrupted['actual_user']===0.,'Disconnected worker mutated receipt or declared settlement');
+    check(Db::name('ai_consumption_log')->where('consume_no',$second['request_id'])->value('billing_status')==='reserved','Interrupted settlement changed reserved accounting');
+    S::table('request')->where('id',$second['id'])->update(['lease_expire'=>time()-1]);touch($dir.'/release-4');
+    $settlementRestart=$spawn('--worker','settlement-restart',true);check(str_contains($finish($settlementRestart,0),'Processed 1'),'Settlement did not resume through GET');
+    $secondDone=S::table('request')->where('id',$second['id'])->find();check($secondDone['billing_status']==='settled'&&(int)$secondDone['active']===0&&(float)$secondDone['actual_user']===5.,'Settlement restart did not finish');
+    $settlementRepeat=$spawn('--worker','settlement-repeat',true);check(str_contains($finish($settlementRepeat,0),'Processed 0')&&!is_file($dir.'/query-5'),'Settlement replay queried or charged again');
+    check((float)Db::name('user')->where('id',$user)->value('user_money')===90.&&(float)Db::name('tenant')->where('id',$tenant)->value('point_balance')===98.&&Db::name('user_account_log')->where('user_id',$user)->count()===2&&Db::name('tenant_point_log')->where('tenant_id',$tenant)->count()===2,'Settlement disconnect duplicated fixture charges or ledgers');
+    $report['scenarios'][]='KILL database during GET before settlement, reservation retained, GET restart settles once';
     // Kill only the connection ID advertised by our isolated child, while idle.
     $disconnect=$spawn('--worker','disconnect');waitFor(fn()=>is_file($dir.'/ready-disconnect'),'No child database ID');usleep(150000);
     $connection=(int)file_get_contents($dir.'/ready-disconnect');check($connection>0,'Invalid child connection');$pdo->exec('KILL CONNECTION '.$connection);
     check(str_contains($finish($disconnect,1),'Database connection lost; worker stopped for supervisor restart.'),'Disconnect did not retire worker');
     $after=$spawn('--worker','after-disconnect',true);check(str_contains($finish($after,0),'Processed 0'),'Fresh worker did not recover after disconnect');
-    check((float)Db::name('user')->where('id',$user)->value('user_money')===95.&&Db::name('user_account_log')->where('user_id',$user)->count()===1,'Disconnected process replayed billing');
+    check((float)Db::name('user')->where('id',$user)->value('user_money')===90.&&Db::name('user_account_log')->where('user_id',$user)->count()===2,'Disconnected process replayed billing');
     $report['scenarios'][]='KILL owned idle database connection, exit 1, fresh connection restart';
     $signal=$spawn('--worker','signal');waitFor(fn()=>is_file($dir.'/ready-signal'),'No signal child');usleep(150000);
     check(posix_kill(proc_get_status($children[$signal]['process'])['pid'],SIGTERM),'Cannot terminate owned worker');$finish($signal,0);
     $report['scenarios'][]='SIGTERM graceful exit 0';$report['result']='passed';
-    echo "PASS actual worker SIGKILL during receipt query, lease takeover and single fixture settlement; real MySQL disconnect retirement/restart; SIGTERM shutdown; no paid provider or live wallet changes\n";
+    echo "PASS actual worker SIGKILL during receipt query, lease takeover and single fixture settlement; real MySQL disconnect before settlement and while idle, retirement/GET recovery; SIGTERM shutdown; no paid provider or live wallet changes\n";
 }finally{
     foreach($children as $child){if(!is_resource($child['process']))continue;proc_terminate($child['process'],SIGKILL);foreach($child['pipes'] as $pipe)if(is_resource($pipe))fclose($pipe);proc_close($child['process']);}
     app()->config->set($original,'database');$restore=new think\Config();$restore->set($original,'database');Db::setConfig($restore);
