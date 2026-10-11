@@ -15,7 +15,12 @@ Db::startTrans();try{
  $key=M::usage($t,$u,['key_id'=>11]);check($key['calls']===1&&(float)$key['charged']===4.,'Key filter mismatch');
  check(M::usage($t,$u,['model'=>"other-model' OR 1=1 --"])['calls']===0,'Untrusted model filter escaped its bound parameter');
  check(M::usage($t,$u,['app_code'=>'aigc_image'])['calls']===0,'Tool filter ignored');
- check(M::usage($t,$u,['end'=>time()-1])['calls']===0,'Date window ignored');
+ // Bound the window to the fixture timestamp. Wall-clock time()-1 can
+ // include the fixtures when earlier SQL crosses a one-second boundary.
+ $created=(int)$base['create_time'];
+ check(M::usage($t,$u,['end'=>$created-1])['calls']===0,'End date window ignored');
+ check(M::usage($t,$u,['start'=>$created+1])['calls']===0,'Start date window ignored');
+ check(M::usage($t,$u,['start'=>$created,'end'=>$created])['calls']===3,'Inclusive date boundary ignored');
  $source='opf_ledger_'.bin2hex(random_bytes(8));$rid='req_fixture_'.bin2hex(random_bytes(16));
  S::table('request')->insert(array_replace($base,['request_id'=>$rid,'snapshot'=>S::encode(['point_events'=>['consume:'.$source=>['user'=>5,'tenant'=>9],'refund:'.$source=>['user'=>3,'tenant'=>4]]]) ]));
  foreach([[],['action'=>1,'change_amount'=>3],['user_id'=>$u+1],['tenant_id'=>$t+1],['source_sn'=>$source.'_other']] as $override)Db::name('user_account_log')->insert(array_replace(['tenant_id'=>$t,'user_id'=>$u,'source_sn'=>$source,'action'=>2,'change_type'=>100,'change_amount'=>5,'remark'=>'private prompt','extra'=>'private metadata','create_time'=>time()],$override));
