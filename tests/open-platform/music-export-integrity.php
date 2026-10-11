@@ -20,4 +20,7 @@ reject('midi',substr_replace($midi,chr(1),strlen($midi)-1,1)); // invalid end-of
 reject('mp4',pack('N',24).'ftypisom'.str_repeat("\0",12));
 $offset=strpos($mp4,'stco');check($offset!==false,'Fixture requires flat sample table');reject('mp4',substr_replace($mp4,pack('N',strlen($mp4)+20),$offset+12,4));
 $mdat=strpos($mp4,'mdat');check($mdat!==false,'Fixture requires media bytes');reject('mp4',substr_replace($mp4,pack('N',strlen($mp4)*2),$mdat-4,4));
+foreach(['mvhd','tkhd','mdhd','avcC'] as $tag){$p=strpos($mp4,$tag);check($p!==false,'Missing '.$tag.' fixture');$size=unpack('N',substr($mp4,$p-4,4))[1]-8;reject('mp4',substr_replace($mp4,str_repeat("\0",$size),$p+4,$size));}
+$p=strpos($mp4,'avc1');reject('mp4',substr_replace($mp4,str_repeat("\0",78),$p+4,78));
+$sampleOffset=unpack('N',substr($mp4,$offset+12,4))[1];reject('mp4',substr_replace($mp4,pack('N',strlen($mp4)),$sampleOffset,4));
 echo "PASS complete PCM WAV, MIDI note tracks and generated MP4 sample tables; truncated containers, missing media, invalid sizes/events and out-of-range offsets stay unbillable\n";

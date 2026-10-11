@@ -72,6 +72,33 @@ final class MusicExportValidator
         $found=array_values(array_filter($boxes,static fn($box)=>$box['type']===$type));self::require(count($found)===1);return $found[0];
     }
     private static function children(string $b,array $box): array {return self::boxes($b,$box['start'],$box['end']);}
+    private static function duration(string $b,array $box,bool $movie=false): void
+    {
+        $p=$box['start'];self::require($p+4<=$box['end']);$version=ord($b[$p]);self::require($version===0||$version===1);
+        $scale=$p+($version===0?12:20);$duration=$scale+4;self::require($box['end']-$p>=($movie?($version===0?100:112):($version===0?24:36)));
+        self::require(self::u32($b,$scale)>0);if($version===1)self::require(self::u32($b,$duration)===0);self::require(self::u32($b,$duration+($version===1?4:0))>0);
+    }
+    private static function descriptions(string $b,array $desc,string $kind): array
+    {
+        $lengths=[];
+        foreach($desc as $d){$p=$d['start'];self::require($d['end']-$p>=($kind==='vide'?78:28)&&self::u16($b,$p+6)>0);
+            if($kind==='vide'){
+                self::require(in_array($d['type'],['avc1','avc3'],true)&&self::u16($b,$p+24)>0&&self::u16($b,$p+26)>0&&self::u16($b,$p+40)>0);
+                $config=self::one(self::boxes($b,$p+78,$d['end']),'avcC');$q=$config['start'];self::require($q+7<=$config['end']&&ord($b[$q])===1);$width=(ord($b[$q+4])&3)+1;self::require(in_array($width,[1,2,4],true));$q+=5;$sps=ord($b[$q++])&31;self::require($sps>0);
+                for($i=0;$i<$sps;$i++){$size=self::u16($b,$q);$q+=2;self::require($size>=4&&$q+$size<=$config['end']&&(ord($b[$q])&159)===7);$q+=$size;}
+                self::require($q<$config['end']);$pps=ord($b[$q++]);self::require($pps>0);for($i=0;$i<$pps;$i++){$size=self::u16($b,$q);$q+=2;self::require($size>=2&&$q+$size<=$config['end']&&(ord($b[$q])&159)===8);$q+=$size;}$lengths[]=$width;
+            }else{
+                self::require($d['type']==='mp4a'&&self::u16($b,$p+8)===0&&self::u16($b,$p+16)>0&&self::u16($b,$p+18)>0&&self::u32($b,$p+24)>0);
+                $esds=self::one(self::boxes($b,$p+28,$d['end']),'esds');self::require($esds['end']-$esds['start']>=12&&self::u32($b,$esds['start'])===0);$lengths[]=0;
+            }
+        }return $lengths;
+    }
+    private static function avcSample(string $b,int $offset,int $size,int $width): void
+    {
+        $end=$offset+$size;$vcl=false;
+        while($offset<$end){self::require($offset+$width<=$end);$n=0;for($i=0;$i<$width;$i++)$n=($n<<8)|ord($b[$offset++]);self::require($n>=2&&$n<=$end-$offset);$type=ord($b[$offset])&31;self::require(!(ord($b[$offset])&128)&&$type>0&&$type<24);if($type<=5)$vcl=true;$offset+=$n;}
+        self::require($vcl);
+    }
     private static function table(string $b,array $box,int $width): array
     {
         $p=$box['start'];self::require($p+8<=$box['end']&&self::u32($b,$p)===0);$count=self::u32($b,$p+4);self::require($count>0&&$count<=1000000&&8+$width*$count===$box['end']-$p);$out=[];
@@ -80,18 +107,19 @@ final class MusicExportValidator
     private static function mp4(string $b): bool
     {
         $top=self::boxes($b,0,strlen($b));$ftyp=self::one($top,'ftyp');self::require($ftyp['end']-$ftyp['start']>=8&&($ftyp['end']-$ftyp['start'])%4===0);
-        $moov=self::children($b,self::one($top,'moov'));self::one($moov,'mvhd');$mdat=array_values(array_filter($top,static fn($box)=>$box['type']==='mdat'&&$box['end']>$box['start']));self::require($mdat!==[]);
+        $moov=self::children($b,self::one($top,'moov'));self::duration($b,self::one($moov,'mvhd'),true);$mdat=array_values(array_filter($top,static fn($box)=>$box['type']==='mdat'&&$box['end']>$box['start']));self::require($mdat!==[]);
         $tracks=array_values(array_filter($moov,static fn($box)=>$box['type']==='trak'));self::require(count($tracks)>0&&count($tracks)<=64);$video=false;$ranges=[];
         foreach($tracks as $track){
-            $mdia=self::children($b,self::one(self::children($b,$track),'mdia'));$handler=self::one($mdia,'hdlr');self::require($handler['start']+12<=$handler['end']);$kind=substr($b,$handler['start']+8,4);self::require(in_array($kind,['vide','soun'],true));$video=$video||$kind==='vide';
+            $tc=self::children($b,$track);$tkhd=self::one($tc,'tkhd');$p=$tkhd['start'];self::require($p+4<=$tkhd['end']);$version=ord($b[$p]);self::require(in_array($version,[0,1],true)&&$tkhd['end']-$p>=($version===0?84:96)&&self::u32($b,$p+($version===0?12:20))>0);
+            $mdia=self::children($b,self::one($tc,'mdia'));self::duration($b,self::one($mdia,'mdhd'));$handler=self::one($mdia,'hdlr');self::require($handler['start']+24<=$handler['end']);$kind=substr($b,$handler['start']+8,4);self::require(in_array($kind,['vide','soun'],true));$video=$video||$kind==='vide';if($kind==='vide')self::require(self::u32($b,$tkhd['end']-8)>0&&self::u32($b,$tkhd['end']-4)>0);
             $minf=self::children($b,self::one($mdia,'minf'));$tables=self::children($b,self::one($minf,'stbl'));$descriptions=self::one($tables,'stsd');$dp=$descriptions['start'];self::require($dp+8<=$descriptions['end']&&self::u32($b,$dp)===0);$desc=self::boxes($b,$dp+8,$descriptions['end']);self::require(count($desc)===self::u32($b,$dp+4)&&count($desc)>0);
-            foreach($desc as $d)self::require($d['end']-$d['start']>=($kind==='vide'?78:28));
+            $lengths=self::descriptions($b,$desc,$kind);
             $stsz=self::one($tables,'stsz');$p=$stsz['start'];self::require($p+12<=$stsz['end']&&self::u32($b,$p)===0);$fixed=self::u32($b,$p+4);$samples=self::u32($b,$p+8);self::require($samples>0&&$samples<=1000000&&$stsz['end']-$p===12+($fixed?0:4*$samples));
             $sizes=[];for($i=0;$i<$samples;$i++){$size=$fixed?:self::u32($b,$p+12+$i*4);self::require($size>0);$sizes[]=$size;}
             $timings=self::table($b,self::one($tables,'stts'),8);$timed=0;foreach($timings as [$count,$delta]){self::require($count>0&&$delta>0);$timed+=$count;}self::require($timed===$samples);
             $maps=self::table($b,self::one($tables,'stsc'),12);self::require($maps[0][0]===1);$previous=0;foreach($maps as [$first,$count,$index]){self::require($first>$previous&&$count>0&&$index>0&&$index<=count($desc));$previous=$first;}
             $offsetBoxes=array_values(array_filter($tables,static fn($box)=>in_array($box['type'],['stco','co64'],true)));self::require(count($offsetBoxes)===1);$offsetBox=$offsetBoxes[0];$offsets=self::table($b,$offsetBox,$offsetBox['type']==='co64'?8:4);self::require($previous<=count($offsets));$sample=0;$map=0;
-            foreach($offsets as $i=>$parts){if(count($parts)===2){self::require($parts[0]===0);$offset=$parts[1];}else $offset=$parts[0];while(isset($maps[$map+1])&&$maps[$map+1][0]<=$i+1)$map++;$count=$maps[$map][1];self::require($count<=$samples-$sample);$len=0;for($j=0;$j<$count;$j++)$len+=$sizes[$sample++];$end=$offset+$len;$inside=false;foreach($mdat as $m)if($offset>=$m['start']&&$end<=$m['end'])$inside=true;self::require($inside);$ranges[]=[$offset,$end];}
+            foreach($offsets as $i=>$parts){if(count($parts)===2){self::require($parts[0]===0);$offset=$parts[1];}else $offset=$parts[0];while(isset($maps[$map+1])&&$maps[$map+1][0]<=$i+1)$map++;$count=$maps[$map][1];self::require($count<=$samples-$sample);$len=0;for($j=0;$j<$count;$j++){$size=$sizes[$sample++];if($kind==='vide')self::avcSample($b,$offset+$len,$size,$lengths[$maps[$map][2]-1]);$len+=$size;}$end=$offset+$len;$inside=false;foreach($mdat as $m)if($offset>=$m['start']&&$end<=$m['end'])$inside=true;self::require($inside);$ranges[]=[$offset,$end];}
             self::require($sample===$samples);
         }
         usort($ranges,static fn($a,$c)=>$a[0]<=>$c[0]);$last=0;foreach($ranges as [$start,$end]){self::require($start>=$last);$last=$end;}return $video;
