@@ -40,7 +40,18 @@ final class OpenImagePricing
         $prepared=$class::openPlatformAdmission($tenant,$user,$params);
         // Native aliases are canonicalized by the service (e.g. model -> model_image).
         // Check that canonical recipe as well, before freezing or dispatching it.
-        $prepared['prepared']=OpenMaterials::resolve($tenant,$user,$prepared['prepared']);
+        $materials=$prepared['prepared'];
+        // These two native services load templates by tenant and check status/VIP.
+        // Their administrator-owned template image is a shared business asset;
+        // caller input was already checked above, even when it equals that URI.
+        $shared=in_array($app,['aigc_product_image','aigc_style_transfer'],true)&&!empty($materials['template']['id'])
+            &&(int)$materials['template']['id']===(int)$materials['template_id']?(string)($materials['template']['image']??''):'';
+        unset($materials['template']);
+        if($shared!==''){
+            unset($materials[$app==='aigc_product_image'?'scene_image':'style_image']);
+            $materials['image_payload']['reference_images']=array_values(array_filter($materials['image_payload']['reference_images'],static fn($uri)=>$uri!==$shared));
+        }
+        OpenMaterials::resolve($tenant,$user,$materials);
         $native=self::capture($tenant,$user,$prepared['prepared']['image_payload'],$app);
         $budget=OpenToolAdapter::estimateBudget($prepared['estimate']);
         if($budget===null||abs($budget['tenant']-$native['tenant'])>0.000001)throw new OpenException('pricing_unavailable','图片工具价格与平台 SKU 成本不一致',503);
