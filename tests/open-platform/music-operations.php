@@ -22,10 +22,18 @@ Db::startTrans();try{
   $reserve=new ReflectionMethod(Runtime::class,'reserve');$cid=$reserve->invoke(null,1,1,$api,$params,$frozen);
   $c=app\common\model\ai\AiConsumptionLog::findOrEmpty($cid);$native=app\common\model\app\aigc_music\AigcMusicTask::where('consumption_id',$cid)->findOrEmpty();check(!$native->isEmpty()&&$native['action']===$api,'Native music task not linked');
   $snapshot=S::json($c['price_snapshot']);$text=$api==='style'?['upsampled_tags'=>'Synthetic bright piano pop']:['text'=>'Synthetic complete lyric','title'=>'First Light'];$wire=['code'=>1,'data'=>['result'=>['status'=>'completed','data'=>$text]]];$snapshot['music_receipt_blob']=V::seal(S::encode($wire));$c->save(['price_snapshot'=>$snapshot,'run_status'=>'running']);
-  Runtime::refresh($cid);Runtime::refresh($cid);$c->refresh();check($c['billing_status']==='settled'&&(float)$c['actual_user_price']===$quote['user_charge_points'],'Real operation did not settle frozen price once');
+  app\common\service\ai\AiMarketTaskRuntimeService::refresh($cid);Runtime::refresh($cid);$c->refresh();check($c['billing_status']==='settled'&&(float)$c['actual_user_price']===$quote['user_charge_points'],'Real operation did not settle frozen price once');
   $row=S::table('request')->where('request_id',$rid)->find();check((float)$row['actual_user']===$quote['user_charge_points'],'Music charge attributed incorrectly');app\common\service\open_platform\OpenVerification::assertLedger($row);
   check(count(app\common\service\open_platform\OpenManagement::detail(1,1,$rid)['point_logs'])===1,'Repeated receipt recovery charged twice');
   C::leave();
+  foreach(['refused','uncertain','empty'] as $scenario){
+   $caseId='req_fixture_'.bin2hex(random_bytes(16));$case=S::table('request')->where('request_id',$rid)->find();unset($case['id']);$case=array_replace($case,['request_id'=>$caseId,'status'=>'accepted','billing_status'=>'pending','tool_task_id'=>'','active'=>1,'budget_user'=>$budget['user'],'budget_tenant'=>$budget['tenant'],'actual_user'=>0,'actual_tenant'=>0,'consumption_ids'=>'[]','snapshot'=>S::encode($budget['snapshot'])]);S::table('request')->insert($case);C::enter($caseId);
+   $cid2=$reserve->invoke(null,1,1,$api,$params,$frozen);$capture=new ReflectionMethod(Runtime::class,'capture');
+   $http=$scenario==='uncertain'?503:200;$body=$scenario==='refused'?['code'=>0,'msg'=>'invalid input']:($scenario==='uncertain'?['code'=>0,'msg'=>'upstream unavailable']:['code'=>1,'data'=>['result'=>['status'=>'completed','data'=>[]]]]);$capture->invoke(null,$cid2,['status'=>$http,'body'=>S::encode($body)]);Runtime::refresh($cid2);Runtime::refresh($cid2);
+   $caseConsumption=app\common\model\ai\AiConsumptionLog::findOrEmpty($cid2);check($caseConsumption['billing_status']===($scenario==='refused'?'refunded':'reserved'),'Ambiguous response refunded or definitive refusal retained');check((float)$caseConsumption['actual_user_price']===0.,'Failed/unknown response was settled');
+   if($scenario==='refused')app\common\service\open_platform\OpenVerification::assertLedger(S::table('request')->where('request_id',$caseId)->find());
+   C::leave();
+  }
  }
  $denied=false;try{Runtime::quote(1,1,'unknown',['prompt'=>'fixture']);}catch(Exception){$denied=true;}check($denied,'Arbitrary supplier operation allowed');
  $denied=false;try{Runtime::quote(1,1,'lyrics',[]);}catch(Exception){$denied=true;}check($denied,'Invalid native input accepted');

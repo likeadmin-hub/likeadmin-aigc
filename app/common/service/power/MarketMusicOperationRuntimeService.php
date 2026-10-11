@@ -22,7 +22,7 @@ final class MarketMusicOperationRuntimeService
     {
         if(!isset(self::ROUTES[$api]))throw new OpenException('capability_unavailable','音乐操作尚未接入',404);
         $fields=$api==='mashup_lyrics'?['lyrics_a','lyrics_b']:['prompt'];$payload=[];
-        foreach($fields as $field){$aliases=['prompt'=>'theme','lyrics_a'=>'source_lyrics','lyrics_b'=>'target_lyrics'];$text=trim((string)($params[$field]??$params[$aliases[$field]]??''));if($text===''||mb_strlen($text)>20000)throw new OpenException('invalid_request','请提供有效的 '.$field);$payload[$field]=$text;}
+        foreach($fields as $field){$aliases=['prompt'=>'theme','lyrics_a'=>'source_lyrics','lyrics_b'=>'target_lyrics'];$value=$params[$field]??$params[$aliases[$field]]??'';if(!is_string($value))throw new OpenException('invalid_request',$field.' 必须是文本');$text=trim($value);if($text===''||mb_strlen($text)>20000)throw new OpenException('invalid_request','请提供有效的 '.$field);$payload[$field]=$text;}
         return $payload;
     }
     public static function quote(int $tenant,int $user,string $api,array $params): array
