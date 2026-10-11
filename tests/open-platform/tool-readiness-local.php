@@ -1,5 +1,5 @@
 <?php
-/** Free estimates using only owned synthetic fixtures. Never submits a generation. */
+/** Free estimates and admission budgets using owned fixtures. Never executes a task. */
 require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
 use think\facade\Db;
 use app\common\service\open_platform\OpenStore as S;
@@ -34,11 +34,19 @@ Db::startTrans();try{
  foreach(R::all() as $app=>$tool){$entry=['app_code'=>$app,'name'=>$tool['name'],'acceptance'=>'not_submitted'];try{
    A::authorize(1,1,$app);$estimate=$tool['operations']['POST estimate']??null;
    if(!$estimate){$entry+=['estimate_status'=>'unavailable','reason'=>'No registered native estimate; requires published bounded usage contract'];}
-   else{$params=array_replace($common,$overrides[$app]??[]);if(in_array($app,['aigc_digital_human','aigc_music','smart_clip','aigc_pic_lipsync','image_human'],true))foreach(['channel','quality','ratio'] as $field)unset($params[$field]);$quote=A::call(request(),$estimate+['app_code'=>$app,'route'=>'POST estimate','params'=>[]],M::resolve(1,1,$params));$entry+=['estimate_status'=>'passed','quote'=>P::publicData($quote),'budget_bounded'=>A::estimateBudget($quote)!==null];}
+   else{$params=array_replace($common,$overrides[$app]??[]);if(in_array($app,['aigc_digital_human','aigc_music','smart_clip','aigc_pic_lipsync','image_human'],true))foreach(['channel','quality','ratio'] as $field)unset($params[$field]);$params=M::resolve(1,1,M::nativeInputs($app,$params));$quote=A::call(request(),$estimate+['app_code'=>$app,'route'=>'POST estimate','params'=>[]],$params);$entry+=['estimate_status'=>'passed','quote'=>P::publicData($quote),'budget_bounded'=>A::estimateBudget($quote)!==null];
+     // An estimate is not proof that native input, SKU and reference limits
+     // permit submission. Probe the exact budget branch without admission,
+     // reservation, execution, publication or a generation transport call.
+     $submit=$tool['operations']['POST tasks']??null;
+     if(!$submit)$entry+=['admission_status'=>'unavailable','admission_reason'=>'No registered native task submission'];
+     else try{$budget=A::budget(request(),$submit+['app_code'=>$app,'route'=>'POST tasks','params'=>[]],$params);$entry+=['admission_status'=>'passed','admission_budget'=>['user'=>(float)$budget['user']],'admission_scope'=>'budget_preflight_only'];}
+     catch(Throwable $error){$entry+=['admission_status'=>'blocked','admission_reason'=>$error->getMessage()];}
+   }
   }catch(Throwable $error){$entry+=['estimate_status'=>'blocked','reason'=>$error->getMessage()];}
-  $results[]=$entry;echo S::encode(['app_code'=>$app,'estimate_status'=>$entry['estimate_status'],'reason'=>$entry['reason']??'']),"\n";
+  $results[]=$entry;echo S::encode(['app_code'=>$app,'estimate_status'=>$entry['estimate_status'],'reason'=>$entry['reason']??'','admission_status'=>$entry['admission_status']??'not_probed','admission_reason'=>$entry['admission_reason']??'']),"\n";
  }
  if((float)Db::name('user')->where('id',1)->value('user_money')!==$wallet||(float)Db::name('tenant')->where('id',1)->value('point_balance')!==$tenantWallet)throw new RuntimeException('Free estimate changed a wallet');
  $report=['generated_at'=>date(DATE_ATOM),'tenant_id'=>1,'user_id'=>1,'tools'=>$results,'generation_submissions'=>0,'wallets_unchanged'=>true,'fixture_writes'=>'rolled_back'];
- file_put_contents($dir.'/tool-readiness.json',S::encode($report));echo "PASS 27 free estimate probes recorded, no generation submitted, both wallets unchanged, temporary settings rolled back\n";
+ file_put_contents($dir.'/tool-readiness.json',S::encode($report));echo "PASS 27 free estimate and native budget probes recorded, no generation submitted, both wallets unchanged, temporary settings rolled back\n";
 }finally{Db::rollback();}
