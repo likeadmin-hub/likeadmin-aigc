@@ -104,6 +104,13 @@
             "name": "调用详情",
             "perms": "app.open_platform.management/requestDetail",
             "is_show": 0
+          },
+          {
+            "source_menu_key": "open_platform_tenant_resumeTracking",
+            "type": "A",
+            "name": "确认恢复原任务跟踪",
+            "perms": "app.open_platform.management/resumeTracking",
+            "is_show": 0
           }
         ]
       }

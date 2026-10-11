@@ -88,5 +88,11 @@
     "name": "草稿验收",
     "api_path": "app.open_platform.management/createVerification",
     "api_method": "POST"
+  },
+  {
+    "permission_key": "open_platform_platform_resumeTracking",
+    "name": "确认恢复原任务跟踪",
+    "api_path": "app.open_platform.management/resumeTracking",
+    "api_method": "POST"
   }
 ]

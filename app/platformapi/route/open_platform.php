@@ -7,6 +7,7 @@ Route::get('app/open_platform/documents','app.open_platform.Management/documents
 Route::get('app/open_platform/requests','app.open_platform.Management/requests')->completeMatch();
 Route::get('app/open_platform/requestDetail','app.open_platform.Management/requestDetail')->completeMatch();
 Route::get('app/open_platform/recoveryPreview','app.open_platform.Management/recoveryPreview')->completeMatch();
+Route::post('app/open_platform/resumeTracking','app.open_platform.Management/resumeTracking')->completeMatch();
 Route::get('app/open_platform/inventory','app.open_platform.Management/inventory')->completeMatch();
 Route::post('app/open_platform/setup','app.open_platform.Management/setup')->completeMatch();
 Route::post('app/open_platform/savePages','app.open_platform.Management/savePages')->completeMatch();

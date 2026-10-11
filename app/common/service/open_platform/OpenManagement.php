@@ -75,13 +75,14 @@ final class OpenManagement
         $mayRefund=$active&&(float)$row['actual_user']>0&&!in_array($row['billing_status'],['settled','refunded','none'],true);
         // Keep encrypted credentials, private receipts, examples and prompts server-side.
         unset($row['snapshot']);
-        return ['preview'=>$row,'operation'=>'diagnose_only','will_query'=>false,'will_charge'=>false,'will_modify'=>false,
+        $preview=['preview'=>$row,'operation'=>'diagnose_only','will_query'=>false,'will_charge'=>false,'will_modify'=>false,
             'scope'=>['requests'=>1,'tenant_id'=>(int)$row['tenant_id'],'user_id'=>(int)$row['user_id']],
             'tracking'=>['active'=>$active,'query_available'=>$query,'lease_active'=>$lease,'lease_expires_at'=>(int)$row['lease_expire'],
                 'manual_review_required'=>$active&&!$query,'resubmission_allowed'=>false],
             'resume_impact'=>['may_charge_existing_request'=>$mayCharge,'maximum_remaining_user_points'=>(float)$row['budget_user'],
                 'may_refund_existing_request'=>$mayRefund,'already_charged_user_points'=>(float)$row['actual_user'],
                 'historical_backcharge_allowed'=>false]];
+        $preview['resume']=OpenRecoveryAction::offer($preview,$snapshot);return $preview;
     }
     private static function pointLogs(array $row,int $tenantId,int $userId): array
     {
