@@ -314,11 +314,23 @@ class ComposerRuntimeUpdateService
     {
         if (!preg_match('/^[a-f0-9]{64}$/',(string)($journal['backup']??''))) throw new RuntimeException('Composer 回滚备份路径无效');
         // Restore code first; all existing processes still pin immutable generations.
-        foreach ((array)$journal['paths'] as $relative=>$existed) {
+        $paths=(array)$journal['paths'];
+        // Restore old entries before removing/restoring the loader they may depend on.
+        $rank=static fn(string $path):int=>in_array($path,['think','public/index.php'],true)?0:($path==='runtime-loader.php'?100:10);
+        uksort($paths,static fn(string $a,string $b):int=>($rank($a)<=>$rank($b))?:strcmp($a,$b));
+        foreach ($paths as $relative=>$existed) {
             $this->assertTargetPath($relative);
             $target=$this->root.'/'.$relative;
-            $this->remove($target);
-            if ($existed) $this->copyPath($this->store.'/backups/'.$journal['backup'].'/'.$relative,$target);
+            $source=$this->store.'/backups/'.$journal['backup'].'/'.$relative;
+            if ($existed && in_array($relative,['think','public/index.php','runtime-loader.php'],true) && is_file($source)) {
+                $temporary=dirname($target).'/.'.basename($target).'.runtime-restore-'.bin2hex(random_bytes(12));
+                try {
+                    if(!copy($source,$temporary)||!chmod($temporary,fileperms($source)&0777)||!rename($temporary,$target))throw new RuntimeException('共享入口原子回滚失败');
+                } finally {if(is_file($temporary))unlink($temporary);}
+            } else {
+                $this->remove($target);
+                if ($existed) $this->copyPath($source,$target);
+            }
         }
         $this->generationFromPointer($journal['previous_pointer']);
         $this->atomicJson($this->store.'/current.json',$journal['previous_pointer']);
@@ -384,7 +396,7 @@ class ComposerRuntimeUpdateService
     {
         if(is_link($source) || is_link($target)) throw new RuntimeException('Composer 复制路径不允许链接');
         if(is_dir($source)) { $this->copyTree($source,$target); return; }
-        $this->directory(dirname($target)); if(!is_file($source) || !copy($source,$target)) throw new RuntimeException('Composer 更新文件复制失败: '.$source); chmod($target,0644);
+        $this->directory(dirname($target)); if(!is_file($source) || !copy($source,$target)) throw new RuntimeException('Composer 更新文件复制失败: '.$source); chmod($target,fileperms($source)&0777);
     }
 
     private function remove(string $path): void

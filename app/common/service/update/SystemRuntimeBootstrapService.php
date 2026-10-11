@@ -97,12 +97,23 @@ class SystemRuntimeBootstrapService
             if(!in_array($directory,['public/admin','public/platform','public/pc','public/_nuxt','public/media','public/mobile','public/mp-weixin','public/static'],true))throw new RuntimeException('自举覆盖目录无效');
             $this->remove(root_path().$directory);
         }
-        $files=$extract.'/files';
+        $files=$extract.'/files';$shared=[];
         foreach(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($files,\FilesystemIterator::SKIP_DOTS)) as $file){
             $relative=substr($file->getPathname(),strlen($files)+1);
             if(in_array(explode('/',$relative)[0],ComposerRuntimeUpdateService::CODE_DIRS,true))continue;
+            $shared[$relative]=$file->getPathname();
+        }
+        // Genuine390 has no loader. Install its dependency before exposing either new entry.
+        $rank=static fn(string $path):int=>$path==='runtime-loader.php'?0:(in_array($path,['think','public/index.php'],true)?100:10);
+        uksort($shared,static fn(string $a,string $b):int=>($rank($a)<=>$rank($b))?:strcmp($a,$b));
+        foreach($shared as $relative=>$source){
             $target=root_path().$relative;if(!is_dir(dirname($target))&&!mkdir(dirname($target),0755,true))throw new RuntimeException('无法创建更新目录');
-            if(!copy($file->getPathname(),$target))throw new RuntimeException('共享更新文件复制失败');
+            $temporary=dirname($target).'/.'.basename($target).'.runtime-update-'.bin2hex(random_bytes(12));
+            try {
+                if(!copy($source,$temporary))throw new RuntimeException('共享更新文件复制失败');
+                $mode=is_file($target)?(fileperms($target)&0777):(fileperms($source)&0777);
+                if(!chmod($temporary,$mode)||!rename($temporary,$target))throw new RuntimeException('共享更新文件原子替换失败');
+            } finally {if(is_file($temporary))unlink($temporary);}
         }
         foreach((array)($manifest['delete_files']??[]) as $relative)if(!in_array(explode('/',$relative)[0],ComposerRuntimeUpdateService::CODE_DIRS,true))$this->remove(root_path().$relative);
     }
