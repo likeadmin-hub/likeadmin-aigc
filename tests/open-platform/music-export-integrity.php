@@ -23,6 +23,7 @@ reject('mp4',pack('N',24).'ftypisom'.str_repeat("\0",12));
 $offset=strpos($mp4,'stco');check($offset!==false,'Fixture requires flat sample table');reject('mp4',substr_replace($mp4,pack('N',strlen($mp4)+20),$offset+12,4));
 $mdat=strpos($mp4,'mdat');check($mdat!==false,'Fixture requires media bytes');reject('mp4',substr_replace($mp4,pack('N',strlen($mp4)*2),$mdat-4,4));
 foreach(['mvhd','tkhd','mdhd','avcC'] as $tag){$p=strpos($mp4,$tag);check($p!==false,'Missing '.$tag.' fixture');$size=unpack('N',substr($mp4,$p-4,4))[1]-8;reject('mp4',substr_replace($mp4,str_repeat("\0",$size),$p+4,$size));}
+$p=strpos($mp4,'url ');check($p!==false,'Missing self-contained data reference');reject('mp4',substr_replace($mp4,pack('N',0),$p+4,4));
 $p=strpos($mp4,'avc1');reject('mp4',substr_replace($mp4,str_repeat("\0",78),$p+4,78));
 $sampleOffset=unpack('N',substr($mp4,$offset+12,4))[1];reject('mp4',substr_replace($mp4,pack('N',strlen($mp4)),$sampleOffset,4));
 if(Decoder::binary()!==''){$q=strpos($mp4,'avcC')+4;$q+=6;$count=ord($mp4[$q-1])&31;$broken=$mp4;for($i=0;$i<$count;$i++){$len=unpack('n',substr($mp4,$q,2))[1];$q+=2;$broken=substr_replace($broken,str_repeat("\0",$len-1),$q+1,$len-1);$q+=$len;}reject('mp4',$broken);}

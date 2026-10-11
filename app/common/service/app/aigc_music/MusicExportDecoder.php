@@ -24,7 +24,7 @@ final class MusicExportDecoder
         try{
             if(file_put_contents($file,$bytes)!==strlen($bytes))return false;
             // Local MP4 only. No shell, playlists, protocol credentials or external references.
-            $args=[self::binary(),'-nostdin','-hide_banner','-v','error','-xerror','-max_alloc','67108864','-protocol_whitelist','file','-format_whitelist','mov','-threads','1','-i',$file,'-map','0:v:0','-map','0:a?','-threads','1','-f','null','-'];
+            $args=[self::binary(),'-nostdin','-hide_banner','-v','error','-xerror','-max_alloc','67108864','-protocol_whitelist','file','-format_whitelist','mov','-threads','1','-i',$file,'-map','0:v','-map','0:a?','-threads','1','-f','null','-'];
             $process=proc_open($args,[0=>['file','/dev/null','r'],1=>['file','/dev/null','w'],2=>['pipe','w']],$pipes,null,[]);if(!is_resource($process))return false;
             stream_set_blocking($pipes[2],false);$deadline=microtime(true)+60;$errors='';$code=-1;
             do{$errors.=stream_get_contents($pipes[2]);if(strlen($errors)>65536||microtime(true)>$deadline){proc_terminate($process,9);break;}$state=proc_get_status($process);if(!$state['running']){$code=$state['exitcode'];break;}usleep(50000);}while(true);
