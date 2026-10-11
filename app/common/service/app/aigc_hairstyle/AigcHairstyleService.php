@@ -76,12 +76,27 @@ class AigcHairstyleService
         return self::buildHairstyleEstimate($prepared, $imageEstimate);
     }
 
-    public static function generate(int $tenantId, int $userId, array $params): array
+    /** Validate native inputs and freeze operation pricing before open-call acceptance. */
+    public static function openPlatformAdmission(int $tenantId, int $userId, array $params): array
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, true);
         $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
-        $estimate = self::buildHairstyleEstimate($prepared, $imageEstimate);
+        return ['prepared' => $prepared, 'estimate' => self::buildHairstyleEstimate($prepared, $imageEstimate)];
+    }
+
+    public static function generate(int $tenantId, int $userId, array $params): array
+    {
+        $frozen = \app\common\service\open_platform\OpenImagePricing::prepared($tenantId, $userId, self::APP_CODE);
+        if ($frozen !== null) {
+            $prepared = $frozen['prepared'];
+            $estimate = $frozen['estimate'];
+        } else {
+            self::assertAvailable($tenantId);
+            $prepared = self::prepareGeneratePayload($tenantId, $params, true);
+            $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
+            $estimate = self::buildHairstyleEstimate($prepared, $imageEstimate);
+        }
         PointService::assertCanConsumeAmounts(
             $tenantId,
             $userId,
@@ -90,7 +105,10 @@ class AigcHairstyleService
         );
         return AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $prepared['image_payload'], [
             'user_unit_price' => $prepared['unit_price'],
-        ], self::APP_CODE);
+        ] + ($frozen !== null ? [
+            'user_charge_points' => (float)$estimate['user_charge_points'],
+            'tenant_cost_points' => (float)$estimate['tenant_cost_points'],
+        ] : []), self::APP_CODE);
     }
 
     public static function taskLists(int $tenantId, int $userId, array $params = []): array

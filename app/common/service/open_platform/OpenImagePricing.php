@@ -6,7 +6,7 @@ use app\common\service\power\MarketNanoBananaAppRuntimeService as Nano;
 /** Freeze the native image selection and supplier SKU before accepting a paid call. */
 final class OpenImagePricing
 {
-    public const COMPOSITES=['aigc_product_image','aigc_style_transfer','aigc_background_removal','aigc_outpaint','aigc_image_translate','aigc_local_redraw','aigc_photo_restore','aigc_model_wear'];
+    public const COMPOSITES=['aigc_product_image','aigc_style_transfer','aigc_background_removal','aigc_outpaint','aigc_image_translate','aigc_local_redraw','aigc_photo_restore','aigc_model_wear','aigc_hairstyle'];
     public static function budget($request,array $params): array
     {
         $tenant=(int)$request->tenantId;$user=(int)$request->userId;
