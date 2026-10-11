@@ -34,6 +34,7 @@ final class OpenAdmission
         $hash=hash('sha256',$method.' '.$path.' '.$idem);
         $row=OpenStore::owner('request',(int)$key['tenant_id'],(int)$key['user_id'])->where('idempotency_hash',$hash)->find();
         if(!$row)return null;
+        if($method==='GET'&&$row['payload_hash']!==OpenFiles::fingerprint($params,$files)){$schema=OpenStore::json($row['snapshot'])['published_contract']['config']['input']??[];if($schema)$params=OpenSchema::query($params,$schema);}
         if($row['payload_hash']!==OpenFiles::fingerprint($params,$files))throw new OpenException('idempotency_conflict','同一幂等键的参数不同',409);
         $scopes=OpenStore::json($key['scopes']);$snapshot=OpenStore::json($row['snapshot']);$scope=$row['kind']==='market'?(string)($snapshot['product_id']??'market'):$row['app_code'];
         if(!(($snapshot['contract']['executor']??'')==='directory'&&OpenDirectory::supports($method,$path))&&$scopes&&!in_array($scope,$scopes,true)&&!($row['kind']==='market'&&in_array('market',$scopes,true)))throw new OpenException('permission_denied','密钥无权访问原请求',403);

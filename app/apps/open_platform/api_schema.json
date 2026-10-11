@@ -386,6 +386,15 @@
       "scene": "user",
       "need_login": 0,
       "need_role_permission": 0
+    },
+    {
+      "permission_key": "open_platform_platform_createVerification",
+      "name": "草稿验收",
+      "api_path": "app.open_platform.management/createVerification",
+      "api_method": "POST",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
     }
   ]
 }

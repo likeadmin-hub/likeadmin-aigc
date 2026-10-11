@@ -82,5 +82,11 @@
     "name": "调用详情",
     "api_path": "app.open_platform.management/requestDetail",
     "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_platform_createVerification",
+    "name": "草稿验收",
+    "api_path": "app.open_platform.management/createVerification",
+    "api_method": "POST"
   }
 ]
