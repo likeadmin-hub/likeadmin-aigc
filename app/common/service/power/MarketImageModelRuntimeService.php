@@ -249,7 +249,7 @@ class MarketImageModelRuntimeService
                 'model_code' => (string)$market['product']['upstream_model_code'], 'api_code' => (string)$market['product']['upstream_channel_code'],
                 'protocol' => 'image_generate', 'provider' => 'power_market', 'upstream_request_id' => '', 'upstream_task_id' => '',
                 'quantity' => $deferredUsage ? 0 : $quantity, 'usage_unit' => (string)$market['sku']['usage_unit'], 'usage_snapshot' => ['settlement_basis' => $deferredUsage ? 'awaiting_actual_usage' : 'submit_snapshot'],
-                'price_snapshot' => self::snapshotWithBillingOverride($market, $billingOverride), 'request_summary' => self::requestSummary($request), 'response_summary' => [],
+                'price_snapshot' => self::snapshotWithBillingOverride($market, $billingOverride, $quantity), 'request_summary' => self::requestSummary($request), 'response_summary' => [],
                 'run_status' => 'reserved', 'billing_status' => $deferredUsage ? 'pending_usage' : 'reserved',
                 'reserved_tenant_cost' => $tenantCost, 'reserved_user_price' => $userPrice,
                 'actual_tenant_cost' => 0, 'actual_user_price' => 0,
@@ -603,6 +603,8 @@ class MarketImageModelRuntimeService
             && abs((float)$billingOverride['tenant_unit_cost'] - (float)$quote['tenant_unit_points']) > 0.000001) {
             throw new Exception('应用不能覆盖算力市场平台成本');
         }
+        if (array_key_exists('tenant_cost_points', $billingOverride) && abs((float)$billingOverride['tenant_cost_points'] - (float)$quote['tenant_cost_points']) > 0.000001) throw new Exception('应用不能覆盖算力市场平台成本');
+        if (array_key_exists('user_charge_points', $billingOverride)) $billingOverride['user_unit_price'] = (float)$billingOverride['user_charge_points'] / max(1, (int)$quote['quantity']);
         if (array_key_exists('user_unit_price', $billingOverride)) {
             $unit = self::points((float)$billingOverride['user_unit_price']);
             $quote['user_unit_points'] = $unit;
@@ -611,9 +613,10 @@ class MarketImageModelRuntimeService
         return $quote;
     }
 
-    private static function snapshotWithBillingOverride(array $market, array $billingOverride): array
+    private static function snapshotWithBillingOverride(array $market, array $billingOverride, int $quantity = 1): array
     {
         $snapshot = self::snapshot($market);
+        if (array_key_exists('user_charge_points', $billingOverride)) $billingOverride['user_unit_price'] = (float)$billingOverride['user_charge_points'] / max(1, $quantity);
         if (array_key_exists('user_unit_price', $billingOverride)) {
             $snapshot['fixed_user_unit_price'] = self::points((float)$billingOverride['user_unit_price']);
             $snapshot['app_sale_price_override'] = true;

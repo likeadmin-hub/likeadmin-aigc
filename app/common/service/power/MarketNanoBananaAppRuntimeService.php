@@ -132,9 +132,9 @@ class MarketNanoBananaAppRuntimeService
     }
 
     /** @return array<string,mixed> */
-    public static function quote(int $tenantId, array $selection, int $quantity = 1): array
+    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = []): array
     {
-        $market = self::resolve($tenantId, $selection);
+        $market = self::applyRetailBinding(self::resolve($tenantId, $selection), $billingOverride, $quantity);
         $quantity = max(1, $quantity);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
         return [
@@ -153,6 +153,19 @@ class MarketNanoBananaAppRuntimeService
         ];
     }
 
+    private static function applyRetailBinding(array $market, array $billingOverride, int $quantity): array
+    {
+        if ($billingOverride === []) return $market;
+        if (MarketUsageSettlementService::isActualUsageSku($market['sku'])) throw new Exception('按应用售价结算暂不支持按实际用量计费的图片 SKU');
+        $quantity = max(1, $quantity);
+        $cost = (float)$market['sku']['sale_points'];
+        if (array_key_exists('tenant_unit_cost', $billingOverride) && abs((float)$billingOverride['tenant_unit_cost'] - $cost) > 0.000001
+            || array_key_exists('tenant_cost_points', $billingOverride) && abs((float)$billingOverride['tenant_cost_points'] - $cost * $quantity) > 0.000001) throw new Exception('应用不能覆盖算力市场平台成本');
+        if (array_key_exists('user_charge_points', $billingOverride)) $market['tenant_price'] = self::points((float)$billingOverride['user_charge_points'] / $quantity);
+        elseif (array_key_exists('user_unit_price', $billingOverride)) $market['tenant_price'] = self::points((float)$billingOverride['user_unit_price']);
+        return $market;
+    }
+
     /** @return array{app_task_id:int,consumption_id:int,consume_no:string,market_snapshot:array<string,mixed>} */
     public static function reserve(
         int $tenantId,
@@ -163,7 +176,8 @@ class MarketNanoBananaAppRuntimeService
         array $request,
         int $quantity = 1,
         string $appCode = self::APP_CODE,
-        string $businessTable = 'aigc_short_drama_generation_task'
+        string $businessTable = 'aigc_short_drama_generation_task',
+        array $billingOverride = []
     ): array
     {
         $idempotencyKey = self::reservationKey($tenantId, $businessTaskId);
@@ -172,7 +186,7 @@ class MarketNanoBananaAppRuntimeService
             return $existing;
         }
         CanvasImagePromptSubmissionGuard::assertPrepared($appCode, $selection);
-        $market = self::resolve($tenantId, $selection);
+        $market = self::applyRetailBinding(self::resolve($tenantId, $selection), $billingOverride, $quantity);
         $quantity = max(1, $quantity);
         self::assertReferences($market, $request);
         self::assertDocumentedRatio($market, $request);

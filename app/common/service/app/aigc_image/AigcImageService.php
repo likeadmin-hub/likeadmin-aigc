@@ -205,7 +205,7 @@ class AigcImageService
         }
         self::checkSensitiveWords($tenantId, $prompt);
         if ((string)($selection['channel']['provider'] ?? '') === 'power_market_app_api') {
-            return self::generateNanoBanana($tenantId, $userId, $params, $selection, $referenceImages, $onTaskCreated);
+            return self::generateNanoBanana($tenantId, $userId, $params, $selection, $referenceImages, $onTaskCreated, $billingOverride);
         }
         if ((string)($selection['channel']['provider'] ?? '') === 'power_market_model') {
             return self::generateMarketModelWithBillingOverride(
@@ -358,7 +358,7 @@ class AigcImageService
     }
 
     /** Submit Nano Banana through its application-API runtime and market SKU. */
-    private static function generateNanoBanana(int $tenantId, int $userId, array $params, array $selection, array $referenceImages, ?callable $onTaskCreated = null): array
+    private static function generateNanoBanana(int $tenantId, int $userId, array $params, array $selection, array $referenceImages, ?callable $onTaskCreated = null, array $billingOverride = []): array
     {
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
         AigcImageChannelService::assertChannelQuantity($selection['channel'], $quantity);
@@ -372,7 +372,7 @@ class AigcImageService
             'quantity' => $quantity,
             'reference_images' => $referenceImages,
         ]);
-        $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, $request, $quantity);
+        $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, $request, $quantity, $billingOverride);
         $providerParams = [
             'variant' => (string)($request['variant'] ?? ''),
             'market_sku_id' => (int)($quote['market_sku_id'] ?? 0),
@@ -412,7 +412,8 @@ class AigcImageService
                 $request,
                 $quantity,
                 self::APP_CODE,
-                'aigc_image_task'
+                'aigc_image_task',
+                $billingOverride
             );
             $task->save(['app_task_id' => (int)$reserve['app_task_id'], 'update_time' => time()]);
             MarketNanoBananaAppRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$task['id']);
