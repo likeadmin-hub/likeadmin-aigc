@@ -117,6 +117,7 @@ if (normalized.has('files/think/') || normalized.has('files/think/think')) {
 
 const signature = readSignature(absoluteTarget, stat.isDirectory())
 const updateManifest = readPackageJson(absoluteTarget, stat.isDirectory(), 'update.json')
+verifyUpdaterBridge(updateManifest, normalized)
 verifyIncrementalManifest(updateManifest, normalized)
 verifyIncrementalComposerRuntime(updateManifest, normalized)
 verifyIncrementalSqlSafety(absoluteTarget, stat.isDirectory(), updateManifest, normalized)
@@ -223,6 +224,21 @@ function verifyPlatformEntrypoints(targetPath, isDirectory, entries, manifest) {
     }
 }
 
+function verifyUpdaterBridge(manifest, entries) {
+    if ('updater_bridge' in manifest && typeof manifest.updater_bridge !== 'boolean') fail('updater_bridge must be a boolean')
+    if (manifest.updater_bridge !== true) return
+    const reject = message => fail('Invalid updater_bridge: ' + message)
+    if (manifest.package_mode !== 'incremental' || manifest.base_version !== '1.0.390' || manifest.target_version !== '1.0.391' || manifest.version !== '1.0.391') reject('only the exact 1.0.390 to 1.0.391 step is supported')
+    if ('composer_runtime' in manifest || [...entries].some(entry => /^(?:composer-runtime|vendor)(?:\/|$)|^composer\.(?:json|lock)$/.test(entry))) reject('dependencies must wait for the functional release')
+    for (const field of ['sql_order','delete_files','full_replace_dirs']) if (!Array.isArray(manifest[field]) || manifest[field].length) reject(field + ' must be empty')
+    if (!Array.isArray(manifest.included_versions) || [...new Set(manifest.included_versions)].sort().join(',') !== '1.0.390,1.0.391') reject('included_versions must contain only supported endpoints')
+    const allowed = new Set(['runtime-loader.php','think','public/index.php','scripts/composer-runtime-runner.php','scripts/verify-composer-runtime.php','app/common/service/update/ComposerRuntimeUpdateService.php','app/common/service/update/SystemPackageUpdateService.php','config/project.php',
+        ...['AiTaskWorker','CanvasSubAgentWorker','ShortDramaEpisodeWorker','ShortDramaPlanningWorker','ShortDramaCanvasAgentWorker','Crontab'].map(name => 'app/common/command/' + name + '.php')])
+    const actual = [...entries].filter(entry => entry.startsWith('files/') && !entry.endsWith('/')).map(entry => entry.slice(6))
+    if ([...entries].some(entry => /\.sql$/i.test(entry))) reject('no SQL may be delivered')
+    if (actual.length !== allowed.size || actual.some(entry => !allowed.has(entry))) reject('runtime files must match updater/worker allowlist exactly')
+}
+
 function verifyIncrementalManifest(manifest, entries) {
     if ((manifest.package_mode || '') !== 'incremental') return
     for (const field of ['base_version', 'target_version', 'included_versions', 'full_replace_dirs', 'delete_files', 'sql_order']) {
@@ -288,6 +304,7 @@ function verifyIncrementalManifest(manifest, entries) {
             }
         }
     }
+    if (manifest.updater_bridge === true) return
     for (const appCode of bridgeAppCodes) {
         for (const rel of bridgeAppRequiredPaths) {
             const required = `files/app/apps/${appCode}/${rel}`

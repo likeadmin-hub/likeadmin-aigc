@@ -15,6 +15,30 @@ const fullDirs=['public/admin','public/platform','public/pc','public/_nuxt','pub
 const bridgePaths=new Set(['runtime-loader.php','think','public/index.php','scripts/composer-runtime-runner.php',
     'scripts/verify-composer-runtime.php','app/common/service/update/ComposerRuntimeUpdateService.php',
     'app/common/service/update/SystemPackageUpdateService.php','config/project.php'])
+// Generate guards from the previous release, never from functional code.
+// Unsupported or ambiguous base contexts fail before any staging is written.
+const bridgeWorkerPatches=new Map([
+    ['AiTaskWorker', [['            while ($running) {\n',16], ['                // Do not starve lightweight canvas previews while a tenant has\n',16,'before']]],
+    ['CanvasSubAgentWorker', [['        while ($running && (!$once || $processed < $limit)) {\n',12]]],
+    ['ShortDramaEpisodeWorker', [['        do {\n',12]]],
+    ['ShortDramaPlanningWorker', [['        do {\n',12]]],
+    ['ShortDramaCanvasAgentWorker', [['        do {\n',12]]],
+    ['Crontab', [["        $lists = CrontabModel::where('status', CrontabEnum::START)->select()->toArray();\n",8,'before','return 0'], ['        foreach ($lists as $item) {\n',12]]],
+].map(([name,patches])=>['app/common/command/'+name+'.php',patches]))
+function bridgeWorker(relative,patches){
+    let source=git('show',`${baseRef}:${relative}`)
+    if(source.includes('aigc_runtime_generation_changed'))fail(`Bridge base already has an epoch guard: ${relative}`)
+    for(const [context,spaces,position='after',action='break'] of patches){
+        if(source.split(context).length!==2)fail(`Bridge worker context must occur exactly once: ${relative}`)
+        const indent=' '.repeat(spaces)
+        const guard=indent+'// Bridge epoch boundary: finish current work before retiring.\n'
+            +indent+"if (\\function_exists('aigc_runtime_generation_changed') && \\aigc_runtime_generation_changed()) {\n"
+            +indent+"    $output->writeln('Runtime generation changed; retiring for supervisor restart.');\n"
+            +indent+'    '+action+';\n'+indent+'}\n'
+        source=source.replace(context,position==='before'?guard+context:context+guard)
+    }
+    return source
+}
 function fail(message){throw new Error(message)}
 function git(...command){return execFileSync('git',command,{cwd:repo,encoding:'utf8',maxBuffer:64*1024*1024})}
 function safe(relative){
@@ -46,12 +70,15 @@ try {
     const deleted=new Set(git('diff','--no-renames','--name-only','--diff-filter=D',baseRef,'HEAD').trim().split('\n').filter(Boolean))
     if(!bridge&&changed.some(dependency)&&!runtime)fail('Composer runtime changes require --composer-runtime')
     if(bridge&&runtime)fail('Bridge package must not contain new dependencies')
+    if(bridge&&(baseVersion!=='1.0.390'||version!=='1.0.391'))fail('Worker bridge requires the supported 1.0.390 to 1.0.391 chain')
+    const generatedWorkers=bridge?[...bridgeWorkerPatches].map(([p,patches])=>[p,bridgeWorker(p,patches)]):[]
     if(runtime&&compareVersion(baseVersion)<compareVersion('1.0.391'))fail('Install updater bridge 1.0.391 first')
     for(const dir of ['files','sql/data','sql/structure','menus','rollback'])fs.mkdirSync(path.join(out,dir),{recursive:true})
     const coverage=[], uncovered=[], sql=new Map(), remove=[], replaced=[]
     for(const p of changed){
         safe(p)
         if(ignored(p)){coverage.push({path:p,delivery:'source-only-or-protected'});continue}
+        if(bridge&&bridgeWorkerPatches.has(p)){coverage.push({path:p,delivery:'bridge-base-worker-with-epoch-guard'});continue}
         if(bridge&&!bridgePaths.has(p)){coverage.push({path:p,delivery:'deferred-to-functional-step'});continue}
         if(dependency(p)){coverage.push({path:p,delivery:'composer-runtime'});continue}
         if(deleted.has(p)){
@@ -68,6 +95,10 @@ try {
         }
     }
     if(bridge){
+        for(const [p,contents] of generatedWorkers){
+            const target=path.join(out,'files',p);fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,contents)
+            if(!coverage.some(entry=>entry.path===p))coverage.push({path:p,delivery:'bridge-base-worker-with-epoch-guard'})
+        }
         for(const p of bridgePaths)if(fs.existsSync(path.join(repo,p)))copy(p,'files/'+p)
         const projectPath=path.join(out,'files/config/project.php')
         fs.writeFileSync(projectPath,fs.readFileSync(projectPath,'utf8').replace(/(['"]version['"]\s*=>\s*['"])[^'"]+(['"])/,`$1${version}$2`))
@@ -79,6 +110,7 @@ try {
         target_version:version,included_versions:[baseVersion,version],summary:changelog.join('\n'),changelog,
         full_replace_dirs:replaced,delete_files:remove.filter(p=>!replaced.some(d=>p.startsWith(d+'/'))).sort(),
         sql_order:[...sql.keys()].sort().map(n=>'sql/structure/'+n)}
+    if(bridge)manifest.updater_bridge=true
     for(const [name,contents] of sql)fs.writeFileSync(path.join(out,'sql/structure',name),contents)
     if(runtime){
         for(const p of ['composer.json','composer.lock']){

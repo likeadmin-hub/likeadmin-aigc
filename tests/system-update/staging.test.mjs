@@ -57,3 +57,43 @@ test('dependency changes cannot silently ship without standalone runtime', () =>
         assert.match(result.stderr,/Composer runtime changes require --composer-runtime/)
     } finally { fs.rmSync(f.dir,{recursive:true,force:true}) }
 })
+
+const bridgeWorkers=['AiTaskWorker','CanvasSubAgentWorker','ShortDramaEpisodeWorker','ShortDramaPlanningWorker','ShortDramaCanvasAgentWorker','Crontab']
+function bridgeFixture(changeBase=source=>source) {
+    const f=fixture()
+    f.git=(...args)=>execFileSync('git',args,{cwd:f.repo,encoding:'utf8',stdio:'pipe'})
+    f.write('config/project.php',"<?php return ['version'=>'1.0.390'];")
+    f.original={}
+    for(const name of bridgeWorkers){
+        const source=fs.readFileSync(new URL('./fixtures/bridge-1.0.390/'+name+'.php',import.meta.url),'utf8')
+        const relative='app/common/command/'+name+'.php'
+        f.original[name]=source;f.write(relative,changeBase(source,name))
+    }
+    f.git('add','.');f.git('commit','-m','real old worker fixture')
+    f.base=f.git('rev-parse','HEAD').trim()
+    f.write('config/project.php',"<?php return ['version'=>'1.0.392'];")
+    for(const name of bridgeWorkers)f.write('app/common/command/'+name+'.php',f.original[name]+"\n// NEW_BUSINESS_NEURON_SENTINEL\n")
+    f.git('add','.');f.git('commit','-m','functional source')
+    f.run=()=>spawnSync(process.execPath,[script.pathname,'--repo',f.repo,'--base-ref',f.base,'--base-version','1.0.390','--version','1.0.391','--out-dir',path.join(f.dir,'bridge'),'--bridge'],{encoding:'utf8'})
+    return f
+}
+test('bridge workers derive solely from base source plus safe epoch boundaries',()=>{
+    const f=bridgeFixture()
+    try {
+        const result=f.run();assert.equal(result.status,0,result.stderr)
+        const manifest=JSON.parse(fs.readFileSync(path.join(f.dir,'bridge/update.json')))
+        assert.deepEqual(manifest.sql_order,[]);assert.equal(manifest.composer_runtime,undefined);assert.equal(manifest.updater_bridge,true)
+        for(const name of bridgeWorkers){
+            const output=fs.readFileSync(path.join(f.dir,'bridge/files/app/common/command/'+name+'.php'),'utf8')
+            assert.match(output,/aigc_runtime_generation_changed/,name)
+            assert.doesNotMatch(output,/NEW_BUSINESS_NEURON_SENTINEL/,name)
+            // Removing only the inserted guard must recover every original byte.
+            assert.equal(output.replace(/^[ \t]*\/\/ Bridge epoch boundary: finish current work before retiring\.\n[\s\S]*?^[ \t]*\}\n/gm,''),f.original[name],name)
+        }
+    } finally {fs.rmSync(f.dir,{recursive:true,force:true})}
+})
+for(const mode of ['missing','ambiguous'])test('bridge fails closed on '+mode+' source context',()=>{
+    const f=bridgeFixture((source,name)=>name!=='AiTaskWorker'?source:mode==='missing'?source.replace('            while ($running) {','            while (true) {'):source+'\n            while ($running) {\n')
+    try {const result=f.run();assert.notEqual(result.status,0);assert.match(result.stderr,/Bridge worker context must occur exactly once/)}
+    finally {fs.rmSync(f.dir,{recursive:true,force:true})}
+})
