@@ -5,9 +5,9 @@ use think\facade\Db;
 final class OpenAdmission
 {
     /** Durable limits are serialized on the tenant setting row, independent of cache. */
-    public static function begin(array $key,string $method,string $path,array $params,array $operation,array $budget,string $idem): array
+    public static function begin(array $key,string $method,string $path,array $params,array $operation,array $budget,string $idem,array $files=[]): array
     {
-        $tenantId=(int)$key['tenant_id'];$userId=(int)$key['user_id'];$fingerprint=OpenPolicy::fingerprint($params);
+        $tenantId=(int)$key['tenant_id'];$userId=(int)$key['user_id'];$fingerprint=OpenFiles::fingerprint($params,$files);
         $idemHash=$idem!==''?hash('sha256',$method.' '.$path.' '.$idem):null;
         if(strlen($idem)>200)throw new OpenException('invalid_request','幂等键过长');
         return Db::transaction(function()use($key,$method,$path,$params,$operation,$budget,$tenantId,$userId,$fingerprint,$idemHash){
@@ -26,6 +26,18 @@ final class OpenAdmission
             $id='req_'.bin2hex(random_bytes(16));$row=['request_id'=>$id,'tenant_id'=>$tenantId,'user_id'=>$userId,'key_id'=>$key['id'],'method'=>$method,'path'=>$path,'app_code'=>$operation['kind']==='market'?'':$scope,'kind'=>$operation['kind'],'contract_id'=>(int)($operation['contract_id']??0),'idempotency_hash'=>$idemHash,'payload_hash'=>$fingerprint,'status'=>'accepted','billing_status'=>!empty($operation['billable'])?'pending':'none','budget_user'=>$budget['user'],'budget_tenant'=>$budget['tenant'],'rate_slot'=>$slot,'active'=>1,'consumption_ids'=>'[]','snapshot'=>OpenStore::encode($budget['snapshot']??[]),'response_blob'=>'','next_run_time'=>time()+60]+OpenStore::timestamp();
             $row['id']=OpenStore::table('request')->insertGetId($row);OpenStore::table('key')->where('id',$key['id'])->update(['last_used_at'=>time()]);return ['replay'=>false,'row'=>$row];
         });
+    }
+
+    public static function replay(array $key,string $method,string $path,array $params,string $idem,array $files=[]): ?array
+    {
+        if($idem==='')return null;if(strlen($idem)>200)throw new OpenException('invalid_request','幂等键过长');
+        $hash=hash('sha256',$method.' '.$path.' '.$idem);
+        $row=OpenStore::owner('request',(int)$key['tenant_id'],(int)$key['user_id'])->where('idempotency_hash',$hash)->find();
+        if(!$row)return null;
+        if($row['payload_hash']!==OpenFiles::fingerprint($params,$files))throw new OpenException('idempotency_conflict','同一幂等键的参数不同',409);
+        $scopes=OpenStore::json($key['scopes']);$snapshot=OpenStore::json($row['snapshot']);$scope=$row['kind']==='market'?(string)($snapshot['product_id']??'market'):$row['app_code'];
+        if($scopes&&!in_array($scope,$scopes,true)&&!($row['kind']==='market'&&in_array('market',$scopes,true)))throw new OpenException('permission_denied','密钥无权访问原请求',403);
+        return $row;
     }
     public static function finish(string $id,array $fields): void { OpenStore::table('request')->where('request_id',$id)->update($fields+['update_time'=>time()]); }
 }

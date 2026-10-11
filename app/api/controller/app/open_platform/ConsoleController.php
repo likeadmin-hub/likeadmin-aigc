@@ -23,4 +23,8 @@ class ConsoleController extends BaseApiController
     public function callbacks(){return $this->run(fn()=>OpenManagement::callbacks((int)$this->request->tenantId,$this->userId,(string)$this->request->get('request_id')));}
     public function replayCallback(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(function(){\app\common\service\open_platform\OpenWebhooks::replay((int)$this->request->tenantId,$this->userId,(int)$this->request->post('id'));return [];});}
 
+    public function updateKey(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenKeyService::update((int)$this->request->tenantId,$this->userId,(int)$this->request->post('id'),$this->request->post()));}
+    public function debugPermit(){return $this->run(function(){$config=OpenStore::requireEnabled((int)$this->request->tenantId);if(empty($config['features']['playground'])||empty(OpenStore::settings(0)['features']['playground']))throw new \app\common\service\open_platform\OpenException('feature_disabled','在线调试已关闭',403);return ['permitted'=>true];});}
+    public function usageExport(){return $this->run(function(){if(empty(OpenStore::settings((int)$this->request->tenantId)['features']['exports'])||empty(OpenStore::settings(0)['features']['exports']))throw new \app\common\service\open_platform\OpenException('feature_disabled','导出已关闭',403);return OpenManagement::usage((int)$this->request->tenantId,$this->userId,$this->request->get());});}
+
 }

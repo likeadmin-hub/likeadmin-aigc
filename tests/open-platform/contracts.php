@@ -18,4 +18,8 @@ ok(P::validate([['id'=>'keys','name'=>'接口密钥','visible'=>false]])['keys']
 ok(T::decode('aigc_image',T::encode('aigc_image',12))==='12','Typed task identifier');reject(fn()=>T::decode('aigc_video',T::encode('aigc_image',12)));
 $stream="data: {\"message\":{\"usage\":{\"input_tokens\":10}}}\n\ndata: {\"usage\":{\"output_tokens\":4}}\n\ndata: [DONE]\n\n";
 ok(G::streamUsage($stream)['usage']===['input_tokens'=>10,'output_tokens'=>4],'Provider usage events merge');
+ok(G::wireFailed(200,['code'=>0,'msg'=>'Rejected'],[])===true,'HTTP 200 business rejection');
+ok(G::wireFailed(200,['code'=>1,'data'=>[]],[])===false,'Successful business envelope');
+ok(G::wireFailed(200,['choices'=>[['message'=>['content'=>'OK']]]],[])===false,'OpenAI success');
+ok(G::wireFailed(200,['error'=>['type'=>'invalid_request']],[])===true,'Protocol error');
 echo "PASS route allowlist, pricing boundary, page registry, typed tasks and SSE usage contracts\n";

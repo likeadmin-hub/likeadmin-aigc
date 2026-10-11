@@ -17,6 +17,10 @@ try{
  $db=S::table('key')->where('id',$k['id'])->find();check($db['key_hash']===hash('sha256',$k['key']),'Key digest mismatch');
  check(strpos(S::encode(K::lists($t,$u)),$k['key'])===false,'Key leaked by list');
  check(K::lists($t,$u+1)===[],'Cross-user key leaked');
+ $edited=K::update($t,$u,$k['id'],['name'=>'edited','daily_limit'=>15,'scopes'=>['assets']]);check($edited['name']==='edited'&&(float)$edited['daily_limit']===15.&&!isset($edited['key_hash']),'Key metadata edit or disclosure wrong');
+ check(S::table('key')->where('id',$k['id'])->value('key_hash')===$db['key_hash'],'Editing changed credentials');
+ try{K::update($t,$u+1,$k['id'],['name'=>'other']);throw new RuntimeException('Cross-user key edit');}catch(app\common\service\open_platform\OpenException $e){check($e->httpStatus===404,'Wrong owner rejection');}
+ $denied=false;try{app\common\service\open_platform\OpenMarketBilling::quote($t,['kind'=>'market','billable'=>false,'product_id'=>1,'role'=>'resource'],[]);}catch(app\common\service\open_platform\OpenException $e){$denied=$e->httpStatus===403;}check($denied,'Free market operation bypassed allowlist');
  $rotated=K::rotate($t,$u,$k['id']);check($rotated['key']!==$k['key'],'Rotation reused key');
  check((int)S::table('key')->where('id',$k['id'])->value('status')===-1,'Old key not revoked');
  try{K::revoke($t,$u,$k['id'],1);throw new RuntimeException('Revoked key reactivated');}catch(app\common\service\open_platform\OpenException $e){check($e->httpStatus===404,'Wrong revocation error');}

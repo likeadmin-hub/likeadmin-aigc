@@ -9,9 +9,10 @@ final class OpenMarketBilling
 {
     public static function quote(int $tenantId,array $operation,array $params): array
     {
-        if(empty($operation['billable']))return ['user'=>0,'tenant'=>0,'snapshot'=>['contract'=>$operation]];
-        $global=OpenStore::settings(0);$config=OpenStore::requireEnabled($tenantId);$productId=(int)$operation['product_id'];
+        if(!empty($operation['history']))return ['user'=>0,'tenant'=>0,'snapshot'=>['contract'=>$operation]];
+        $global=OpenStore::settings(0);$config=OpenStore::requireEnabled($tenantId);$productId=(int)($operation['product_id']??0);
         if(!in_array((string)$productId,$config['models'],true)||!in_array((string)$productId,$global['models'],true))throw new OpenException('permission_denied','该商城能力未开放',403);
+        if(empty($operation['billable']))return ['user'=>0,'tenant'=>0,'snapshot'=>['contract'=>$operation,'product_id'=>$productId]];
         $product=TenantPowerMarketService::detail($tenantId,$productId);if(!$product||empty($product['status']))throw new OpenException('permission_denied','商城产品已下架',403);
         $user=0.;$tenant=0.;$rules=[];$skus=array_column($product['skus'],'','id');
         foreach($operation['billing'] as $rule){$sku=$skus[(int)$rule['sku_id']]??null;if(!$sku||empty($sku['sale_status']))throw new OpenException('pricing_unavailable','计费 SKU 已下架',503);
