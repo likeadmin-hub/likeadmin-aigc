@@ -181,6 +181,18 @@ class MarketImageModelRuntimeService
     public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = []): array
     {
         $market = self::resolve($tenantId, $selection);
+        return self::quoteMarket($market, $quantity, $billingOverride);
+    }
+
+    /** Server-side admission only; never included in public estimate responses. */
+    public static function openPlatformAdmissionQuote(int $tenantId, array $selection, int $quantity): array
+    {
+        $market = self::resolve($tenantId, $selection);
+        return ['market' => $market, 'quote' => self::quoteMarket($market, $quantity, [])];
+    }
+
+    private static function quoteMarket(array $market, int $quantity, array $billingOverride): array
+    {
         $quantity = max(1, $quantity);
         self::assertImageQuantity($market, $quantity);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
@@ -658,6 +670,8 @@ class MarketImageModelRuntimeService
     /** @return array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float} */
     private static function resolve(int $tenantId, array $selection): array
     {
+        $frozen = \app\common\service\open_platform\OpenImagePricing::market($tenantId, $selection, 'model');
+        if ($frozen !== null) return $frozen;
         $skuId = self::skuId($selection);
         if ($skuId > 0) {
             $sku = PowerMarketSku::where(['id' => $skuId, 'status' => 1, 'sale_status' => 1])->findOrEmpty();

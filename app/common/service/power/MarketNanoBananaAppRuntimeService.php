@@ -135,6 +135,18 @@ class MarketNanoBananaAppRuntimeService
     public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = []): array
     {
         $market = self::applyRetailBinding(self::resolve($tenantId, $selection), $billingOverride, $quantity);
+        return self::quoteMarket($market, $quantity);
+    }
+
+    /** Private market details are returned only to the server-side admission service. */
+    public static function openPlatformAdmissionQuote(int $tenantId, array $selection, int $quantity): array
+    {
+        $market = self::resolve($tenantId, $selection);
+        return ['market' => $market, 'quote' => self::quoteMarket($market, $quantity)];
+    }
+
+    private static function quoteMarket(array $market, int $quantity): array
+    {
         $quantity = max(1, $quantity);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
         return [
@@ -492,6 +504,8 @@ class MarketNanoBananaAppRuntimeService
     /** @return array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float,model:string,reference_limit:int} */
     private static function resolve(int $tenantId, array $selection): array
     {
+        $frozen = \app\common\service\open_platform\OpenImagePricing::market($tenantId, $selection, 'nano');
+        if ($frozen !== null) return $frozen;
         [$productId, $selectedModel] = self::selection($selection);
         if ($productId <= 0 || $selectedModel === '') throw new Exception('请选择 nano-banana 应用 API 模型');
         $product = PowerMarketProduct::where(['id' => $productId, 'resource_type' => PowerMarketService::TYPE_APP_API, 'upstream_app_code' => self::UPSTREAM_APP_CODE, 'upstream_api_code' => self::SUBMIT_API_CODE, 'status' => 1])->findOrEmpty();
