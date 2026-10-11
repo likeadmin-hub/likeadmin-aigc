@@ -163,6 +163,14 @@ mysql --default-character-set=utf8mb4 -uroot -p likeadmin_aigc_saas < public/ins
 mysql --default-character-set=utf8mb4 -uroot -p likeadmin_aigc_saas < public/upgrade/20261001_install_schema_parity.sql
 ```
 
+若结果守护进程启动时报短剧画布任务表不存在（例如 `aigc_short_drama_canvas_poster_job`），先备份数据库，再补齐短剧任务结构。无需重装、删除任务或重放全部历史升级脚本：
+
+```bash
+mysql --default-character-set=utf8mb4 -uroot -p likeadmin_aigc_saas < public/upgrade/20261011_short_drama_worker_schema.sql
+```
+
+该修复可重复执行，保留现有任务、租约、租户配置和应用状态；旧站点先执行前面的基础结构修复，再执行此短剧修复，完成后重启本项目对应守护进程。自定义表前缀需同时替换脚本中的反引号表名和单引号元数据表名里的 `la_`。全新安装的 `like.sql` 已包含这些结构，新租户共用带 `tenant_id` 的应用表，无需重复创建。
+
 该脚本补齐表结构和核心操作权限，不会开通应用或覆盖租户自定义菜单。应用专属升级仍应先通过应用中心安装对应应用，再按目标版本发布说明执行依赖它的 SQL；自定义数据库表前缀需先替换脚本中的 `la_`。
 
 1. 配置伪静态。Nginx 示例：
