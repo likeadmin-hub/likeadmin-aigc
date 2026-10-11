@@ -797,10 +797,14 @@ class AigcMusicService
         }
         $tasks = $query->limit(10)->select();
         foreach ($tasks as $task) {
-            if (!self::isAsyncProvider((string)$task['provider'])) {
-                continue;
-            }
             try {
+                if ($task['provider'] === 'market_music_operation') {
+                    \app\common\service\power\MarketMusicOperationRuntimeService::refresh((int)$task['consumption_id']);
+                    continue;
+                }
+                if (!self::isAsyncProvider((string)$task['provider'])) {
+                    continue;
+                }
                 $frozen=\app\common\service\open_platform\OpenToolPricing::forTask(self::APP_CODE,$tenantId,(int)$task['user_id'],(int)$task['id']);
                 $selection = $frozen['selection']??AigcMusicChannelService::resolveSelection($tenantId, [
                     'channel' => $task['channel'],
@@ -891,7 +895,7 @@ class AigcMusicService
     private static function attachTaskResults(int $tenantId, array $tasks, int $userId = 0): array
     {
         foreach ($tasks as &$task) {
-            $task['results'] = self::existingResultRows($tenantId, $userId, (int)$task['id']);
+            $task = self::attachTaskResult($task, $tenantId, $userId);
         }
         return $tasks;
     }
@@ -899,9 +903,19 @@ class AigcMusicService
     private static function attachPlatformTaskResults(array $tasks): array
     {
         foreach ($tasks as &$task) {
-            $task['results'] = self::existingResultRows((int)$task['tenant_id'], 0, (int)$task['id']);
+            $task = self::attachTaskResult($task, (int)$task['tenant_id'], 0);
         }
         return $tasks;
+    }
+
+    private static function attachTaskResult(array $task, int $tenantId, int $userId): array
+    {
+        if ($task['provider'] === 'market_music_operation') {
+            // Auxiliary operations produce text, references or exports, not song rows.
+            return array_replace($task, \app\common\service\power\MarketMusicOperationRuntimeService::taskData($task)) + ['results' => []];
+        }
+        $task['results'] = self::existingResultRows($tenantId, $userId, (int)$task['id']);
+        return $task;
     }
 
     private static function formatResultRow(array $row): array

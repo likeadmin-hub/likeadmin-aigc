@@ -38,6 +38,13 @@ Db::startTrans();try{
         $c->refresh();
         if($scenario==='completed'){
             check($c['run_status']==='success'&&$c['billing_status']==='settled'&&(float)$c['actual_user_price']===(float)$budget['user'],'Stored export or vox ID did not settle exactly once');
+            $native=AigcMusicTask::where('consumption_id',$cid)->findOrEmpty();
+            $lists=\app\common\service\app\aigc_music\AigcMusicService::taskLists(1,1,['sync_running'=>false]);
+            $listed=array_values(array_filter($lists,static fn($task)=>(int)$task['id']===(int)$native['id']));
+            check(count($listed)===1&&$listed[0]['billing_status']==='settled','Settled export missing from native user task list');
+            check($api==='vox'?($listed[0]['vox_audio_id']??'')!=='':($listed[0]['file_id']??'')==='of_fixture'&&!empty($listed[0]['results']),'Native list lost auxiliary operation result');
+            $other=\app\common\service\app\aigc_music\AigcMusicService::taskLists(1,2,['sync_running'=>false]);
+            check(!array_filter($other,static fn($task)=>(int)$task['id']===(int)$native['id']),'Export leaked through another user task list');
             $row=S::table('request')->where('request_id',$rid)->find();OpenVerification::assertLedger($row);check(count(app\common\service\open_platform\OpenManagement::detail(1,1,$rid)['point_logs'])===1,'Repeated export recovery charged again');
             $capture->invoke(null,$cid,['status'=>503,'body'=>'{"code":0}']);$c->refresh();check($c['run_status']==='success'&&$c['billing_status']==='settled','Late receipt reopened terminal export');
         }elseif($scenario==='failed'){check($c['billing_status']==='refunded','Definitive async failure did not refund');OpenVerification::assertLedger(S::table('request')->where('request_id',$rid)->find());}
