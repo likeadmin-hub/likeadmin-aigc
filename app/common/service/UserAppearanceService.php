@@ -69,11 +69,16 @@ final class UserAppearanceService
         self::identity($tenant, $user);
         if ($revision < 0) throw new InvalidArgumentException('配置版本无效');
         $prefs = self::normalize($input, fn($id) => self::image($tenant, $user, $id));
-        Db::transaction(function () use ($tenant, $user, $revision, $prefs) {
+        Db::transaction(function () use ($tenant, $user, $revision, &$prefs, $input) {
             $scope = ['tenant_id' => $tenant, 'user_id' => $user];
             // Unique identity plus CAS prevents two devices overwriting another edit.
             $row = Db::name(self::TABLE)->where($scope)->lock(true)->find();
             if ((int)($row['revision'] ?? 0) !== $revision) throw new RuntimeException('皮肤已在其他设备更新，请重新加载后再保存');
+            // Older clients have no background field: preserve existing overrides.
+            if (!array_key_exists('preset_backgrounds', $input) && $row) {
+                $stored = json_decode($row['preferences_json'], true);
+                $prefs['preset_backgrounds'] = $stored['preset_backgrounds'] ?? [];
+            }
             $data = ['preferences_json' => json_encode($prefs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), 'revision' => $revision + 1, 'update_time' => time()];
             if ($row) {
                 if (Db::name(self::TABLE)->where($scope)->where('revision', $revision)->update($data) !== 1) throw new RuntimeException('皮肤配置已更新，请重试');
