@@ -13,7 +13,7 @@ function check($ok,$why){if(!$ok)throw new RuntimeException($why);}
 $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&$db['database']==='z_cn','Local evidence only');
 check(Db::name('user')->where(['id'=>1,'tenant_id'=>1,'account'=>'xhadmin001'])->find(),'Authorized local identity missing');
 $app=(string)($argv[1]??'');$run=(string)($argv[2]??'');
-check(in_array($app,['aigc_image','aigc_hairstyle','aigc_fitting'],true)&&preg_match('/^local_text_[a-f0-9]{12}$/D',$run),'Only explicitly accepted synthetic image cases');
+check(in_array($app,['aigc_image','aigc_hairstyle','aigc_fitting','aigc_style_transfer'],true)&&preg_match('/^local_text_[a-f0-9]{12}$/D',$run),'Only explicitly accepted synthetic image cases');
 $dir=dirname(__DIR__,2).'/runtime/open-platform-acceptance';$source=S::json(file_get_contents($dir.'/'.$run.'.json'));
 check(($source['result']??'')==='passed'&&$source['tenant_id']===1&&$source['user_id']===1&&isset($source['cases'][$app]),'No completed acceptance report');
 $lock=fopen($dir.'/paid.lock','c');check($lock&&flock($lock,LOCK_EX|LOCK_NB),'Another paid test is active');
