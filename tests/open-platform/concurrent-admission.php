@@ -13,10 +13,10 @@ if(($argv[1]??'')==='--child'){
  try{$row=Admission::begin($key,'POST','/api/v1/tools/aigc_image/tasks',[],['kind'=>'tool','app_code'=>'aigc_image','billable'=>true,'history'=>true],['user'=>75,'tenant'=>75,'snapshot'=>[]],'concurrent-fixture-'.$keyId)['row'];echo S::encode(['accepted'=>true,'request_id'=>$row['request_id']]);}
  catch(app\common\service\open_platform\OpenException $e){check(in_array($e->errorType,['insufficient_quota','concurrency_exceeded'],true),'Unexpected admission rejection');echo S::encode(['accepted'=>false,'error'=>$e->errorType]);}exit(0);
 }
-$tag=bin2hex(random_bytes(12));$barrier='/tmp/opf_concurrency_'.$tag;$tenant=$user=0;$processes=[];$report=['parallel_keys'=>8,'provider_calls'=>0,'point_mutations'=>0];
+$tag=bin2hex(random_bytes(12));$barrier='/tmp/opf_concurrency_'.$tag;$tenant=$user=0;$fixtureName='opf-'.substr($tag,0,10);$processes=[];$report=['parallel_keys'=>8,'provider_calls'=>0,'point_mutations'=>0];
 try{
- $tenant=Db::name('tenant')->insertGetId(['sn'=>'opf'.substr($tag,0,10),'name'=>'opf-concurrency-'.$tag,'disable'=>0,'tactics'=>0,'point_balance'=>100,'delete_time'=>null]+S::timestamp());
- $user=Db::name('user')->insertGetId(['tenant_id'=>$tenant,'sn'=>random_int(10000000,99999999),'account'=>'opf-concurrency-'.$tag,'nickname'=>'disposable fixture','user_money'=>100,'delete_time'=>null]+S::timestamp());
+ $tenant=Db::name('tenant')->insertGetId(['sn'=>'opf'.substr($tag,0,10),'name'=>$fixtureName,'disable'=>0,'tactics'=>0,'point_balance'=>100,'delete_time'=>null]+S::timestamp());
+ $user=Db::name('user')->insertGetId(['tenant_id'=>$tenant,'sn'=>random_int(10000000,99999999),'account'=>$fixtureName,'nickname'=>'disposable fixture','user_money'=>100,'delete_time'=>null]+S::timestamp());
  S::table('setting')->insert(['tenant_id'=>$tenant,'enabled'=>0,'config'=>S::encode(S::defaults())]+S::timestamp());
  for($i=0;$i<8;$i++){$key=S::table('key')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'name'=>'opf-concurrency-'.$tag,'key_hash'=>hash('sha256',random_bytes(32)),'prefix'=>'disposable','status'=>1,'scopes'=>'["aigc_image"]','ip_allowlist'=>'[]']+S::timestamp());$pipes=[];$process=proc_open([PHP_BINARY,__FILE__,'--child',(string)$tenant,(string)$user,(string)$key,$barrier],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);check(is_resource($process),'Child process unavailable');fclose($pipes[0]);$processes[]=[$process,$pipes];}
  touch($barrier);$results=[];foreach($processes as [$process,$pipes]){$output=stream_get_contents($pipes[1]);$errors=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);$exit=proc_close($process);check($exit===0&&$errors===''&&json_validate_compat($output),'Concurrent child failed');$results[]=S::json($output);}$processes=[];
@@ -25,7 +25,7 @@ try{
  $report+=['accepted'=>$accepted,'rejected'=>8-$accepted,'pending_budget'=>$pending,'result'=>'passed'];echo "PASS eight independent PHP processes and Keys share atomic user/tenant budget, with no provider calls or point writes\n";
 }finally{
  foreach($processes as [$process,$pipes]){proc_terminate($process);foreach($pipes as $pipe)if(is_resource($pipe))fclose($pipe);proc_close($process);}
- @unlink($barrier);if($tenant){S::table('request')->where('tenant_id',$tenant)->delete();S::table('key')->where(['tenant_id'=>$tenant,'name'=>'opf-concurrency-'.$tag])->delete();S::table('setting')->where('tenant_id',$tenant)->delete();}if($user)Db::name('user')->where(['id'=>$user,'account'=>'opf-concurrency-'.$tag])->delete();if($tenant)Db::name('tenant')->where(['id'=>$tenant,'name'=>'opf-concurrency-'.$tag])->delete();
+ @unlink($barrier);if($tenant){S::table('request')->where('tenant_id',$tenant)->delete();S::table('key')->where(['tenant_id'=>$tenant,'name'=>'opf-concurrency-'.$tag])->delete();S::table('setting')->where('tenant_id',$tenant)->delete();}if($user)Db::name('user')->where(['id'=>$user,'account'=>$fixtureName])->delete();if($tenant)Db::name('tenant')->where(['id'=>$tenant,'name'=>$fixtureName])->delete();
  $report['fixture_removed']=true;file_put_contents(dirname(__DIR__,2).'/runtime/open-platform-acceptance/concurrent-admission.json',S::encode($report));
 }
 function json_validate_compat(string $input): bool{json_decode($input);return json_last_error()===JSON_ERROR_NONE;}
