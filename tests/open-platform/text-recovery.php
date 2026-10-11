@@ -19,6 +19,12 @@ try{
  L::defer($context,null,[],new RuntimeException('private provider diagnostic'));
  $c=AiConsumptionLog::findOrEmpty($cid);check($c['run_status']==='pending_confirmation'&&$c['billing_status']==='pending_confirmation','Uncertain submit must not become failed/refunded');
  $result=['content'=>'private generated answer','provider_request_id'=>'fixture-provider','usage'=>['prompt_tokens'=>2,'completion_tokens'=>3,'total_tokens'=>5]];
+ L::recordResult($context,$result,$result['usage']);
+ $captured=S::table('request')->where('request_id',$rid)->find();
+ $saved=S::json(app\common\service\open_platform\OpenVault::open(S::json($captured['snapshot'])['native_text_result_blob']));
+ check($saved===$result,'Provider result must be committed before settlement');
+ check(AiConsumptionLog::findOrEmpty($cid)['run_status']==='success','Captured provider evidence lost on restart');
+ check((float)Db::name('user')->where('id',1)->value('user_money')===$wallet,'Result capture must not charge');
  L::defer($context,$result,$result['usage'],new RuntimeException('point settlement unavailable'));
  $c=AiConsumptionLog::findOrEmpty($cid);check($c['run_status']==='success'&&$c['billing_status']==='settlement_failed','Known result must survive billing failure');
  check((int)$c['usage_snapshot']['total_tokens']===5,'Trusted usage lost');

@@ -6,6 +6,19 @@ use think\facade\Db;
 /** Preserves provider evidence independently of wallet settlement. */
 final class OpenTextLifecycle
 {
+    /** Commit provider output before attempting wallet settlement or result validation. */
+    public static function recordResult(array $context,array $result,array $usage): void
+    {
+        $id=OpenCallContext::id();if($id==='')return;
+        Db::transaction(function()use($context,$result,$usage,$id){
+            $row=OpenStore::table('request')->where('request_id',$id)->lock(true)->find();
+            $c=AiConsumptionLog::lock(true)->findOrEmpty((int)$context['consumption']['id']);
+            if(!$row||$c->isEmpty()||(int)$c['tenant_id']!==(int)$row['tenant_id']||(int)$c['user_id']!==(int)$row['user_id']||!in_array((int)$c['id'],array_map('intval',OpenStore::json($row['consumption_ids'])),true))throw new \RuntimeException('Text result ownership mismatch');
+            $snapshot=OpenStore::json($row['snapshot']);$snapshot['native_text_result_blob']=OpenVault::seal(OpenStore::encode($result));
+            OpenAdmission::finish($id,['snapshot'=>OpenStore::encode($snapshot),'status'=>'success','next_run_time'=>time()+60]);
+            if(!in_array((string)$c['billing_status'],['settled','refunded'],true))$c->save(['run_status'=>'success','usage_snapshot'=>$usage+['settlement_basis'=>'awaiting_settlement'],'upstream_request_id'=>(string)($result['provider_request_id']??''),'response_summary'=>['output_length'=>mb_strlen((string)($result['content']??''),'UTF-8')],'update_time'=>time()]);
+        });
+    }
     public static function rejectionConfirmed(): bool
     {
         if(OpenCallContext::id()==='')return false;

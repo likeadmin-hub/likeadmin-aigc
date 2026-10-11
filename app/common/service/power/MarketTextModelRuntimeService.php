@@ -158,6 +158,10 @@ class MarketTextModelRuntimeService
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
+                    if ($openTextCall) {
+                        $usage = self::normalizeUsage((array)($result['usage'] ?? []));
+                        \app\common\service\open_platform\OpenTextLifecycle::recordResult($context, $result, $usage);
+                    }
                     if (!empty($params['_require_final_content']) && ($result['content_source'] ?? 'content') !== 'content') {
                         throw new Exception('文本模型未返回最终正文，请检查模型输出配置后重试');
                     }

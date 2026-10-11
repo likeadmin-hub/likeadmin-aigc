@@ -48,7 +48,13 @@ final class OpenManagement
     public static function usage(int $tenantId,int $userId,array $filters): array
     {
         $q=OpenStore::owner('request',$tenantId,$userId);if(!empty($filters['start']))$q->where('create_time','>=',(int)$filters['start']);if(!empty($filters['end']))$q->where('create_time','<=',(int)$filters['end']);
-        $rows=$q->field('app_code,kind,key_id,contract_id,path,COUNT(*) AS calls,SUM(actual_user) AS charged,SUM(budget_user) AS pending_budget')->group('app_code,kind,key_id,contract_id,path')->select()->toArray();return ['groups'=>$rows,'charged'=>array_sum(array_column($rows,'charged')),'calls'=>array_sum(array_column($rows,'calls'))];
+        foreach(['app_code','kind','key_id','contract_id','path','billing_status','status'] as $field)if(isset($filters[$field])&&$filters[$field]!=='')$q->where($field,$filters[$field]);
+        // Aggregate durable snapshots rather than today's mutable model/pricing catalog.
+        $snapshot="CASE WHEN JSON_VALID(snapshot) THEN snapshot ELSE '{}' END";
+        $model="COALESCE(NULLIF(NULLIF(JSON_UNQUOTE(JSON_EXTRACT($snapshot, '$.native_text_model.model_code')), 'null'), ''),NULLIF(NULLIF(JSON_UNQUOTE(JSON_EXTRACT($snapshot, '$.contract.model')), 'null'), ''),'')";
+        if(isset($filters['model'])&&$filters['model']!=='')$q->whereRaw($model.' = ?',[(string)$filters['model']]);
+        $rows=$q->fieldRaw("app_code,kind,key_id,contract_id,path,$model AS model,COUNT(*) AS calls,SUM(actual_user) AS charged,SUM(CASE WHEN active=1 THEN budget_user ELSE 0 END) AS pending_budget")->group('app_code,kind,key_id,contract_id,path,model')->select()->toArray();
+        return ['groups'=>$rows,'charged'=>array_sum(array_column($rows,'charged')),'pending_budget'=>array_sum(array_column($rows,'pending_budget')),'calls'=>array_sum(array_column($rows,'calls'))];
     }
     public static function callbacks(int $tenantId,int $userId,string $requestId): array
     {
