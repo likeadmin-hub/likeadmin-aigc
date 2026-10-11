@@ -51,8 +51,13 @@ try {
     check((int)$drama['count']===2 && count($drama['lists'])===1,'Short-drama and canvas results paginate without exclusion');
     $localFile=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>10,'name'=>'local.png','uri'=>'uploads/images/20261012/local.png','upload_origin'=>'local','create_time'=>time()]);
     $generatedFile=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>10,'name'=>'generated.png','uri'=>'uploads/aigc_image/20261012/generated.png','create_time'=>time()]);
+    $webm=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>30,'name'=>'local.webm','uri'=>'uploads/file/local.webm','upload_origin'=>'local','create_time'=>time()]);
+    foreach (['mp3','pdf'] as $ext) {
+        $nonvisual=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>30,'name'=>'local.'.$ext,'uri'=>'uploads/file/local.'.$ext,'upload_origin'=>'local','create_time'=>time()]);
+        reject(fn()=>Library::update($tenant,$user,['refs'=>['upload:result:'.$nonvisual],'favorite'=>1]));
+    }
     $files=Library::uploads($tenant,$user,1)['lists'];
-    check(count($files)===1 && $files[0]['ref']==='upload:result:'.$localFile,'Uploads include only explicit local media, not user-owned generated files');
+    check(count($files)===2 && $files[0]['ref']==='upload:result:'.$webm && $files[1]['ref']==='upload:result:'.$localFile,'Uploads include only explicit local media, not user-owned generated files');
     reject(fn()=>Library::update($tenant,$user,['refs'=>['upload:result:'.$generatedFile],'favorite'=>1]));
     Library::update($tenant,$user,['refs'=>['upload:result:'.$localFile],'favorite'=>1]);
     reject(fn()=>Library::update($tenant+1,$user,['refs'=>['upload:result:'.$localFile],'favorite'=>1]));
