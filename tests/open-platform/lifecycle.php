@@ -40,6 +40,8 @@ try{
  check(Db::name('user_account_log')->where('user_id',$u)->count()===2,'Independent user debit/refund ledger mismatch');
  check(Db::name('tenant_point_log')->where('tenant_id',$t)->count()===2,'Independent tenant ledger mismatch');
  $saved=S::table('request')->where('id',$row['id'])->find();check($saved['billing_status']==='settled'&&(int)$saved['active']===0&&(float)$saved['actual_user']===5.,'Request terminal billing wrong');
+ app\common\service\open_platform\OpenVerification::assertLedger($saved);
+ $corrupt=$saved;$corrupt['actual_user']=6;try{app\common\service\open_platform\OpenVerification::assertLedger($corrupt);throw new RuntimeException('Mismatched independent billing receipt accepted');}catch(app\common\service\open_platform\OpenException $e){check($e->errorType==='verification_ledger_mismatch','Wrong ledger proof rejection');}
  $detail=app\common\service\open_platform\OpenManagement::detail($t,$u,$row['request_id']);
  check(count($detail['consumptions'])===1&&$detail['consumptions'][0]['consume_no']===$row['request_id']&&(float)$detail['consumptions'][0]['actual_user_price']===5.,'User detail lost independently associated consumption');
  check(!isset($detail['consumptions'][0]['actual_tenant_cost'],$detail['snapshot'],$detail['actual_tenant']),'User detail exposed internal pricing evidence');
