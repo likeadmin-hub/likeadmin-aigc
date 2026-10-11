@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync, lstatSync, mkdtempSync, rmSync } from 'node:fs'
+import os from 'node:os'
+import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const target = process.argv[2]
+const delegated = process.argv.includes('--bootstrap-inner')
 
 if (!target) {
     fail('Usage: node scripts/verify-system-update-package.mjs <package.zip|staging-dir>')
@@ -93,6 +96,9 @@ if (!existsSync(absoluteTarget)) {
 const stat = statSync(absoluteTarget)
 const entries = stat.isDirectory() ? listDirectoryEntries(absoluteTarget) : listZipEntries(absoluteTarget)
 const normalized = new Set(entries.map(normalizeEntry))
+for(const entry of normalized)if(entry.startsWith('/')||entry.includes('\\')||/^[A-Za-z]:/.test(entry)||entry.split('/').some(p=>p==='.'||p==='..'))fail('Unsafe package entry: '+entry)
+if(!stat.isDirectory()&&execFileSync('unzip',['-Z','-l',absoluteTarget],{encoding:'utf8',maxBuffer:32*1024*1024}).split('\n').some(line=>/^l[rwx-]{9}/.test(line)))fail('Package symlinks are forbidden')
+
 
 for (const required of requiredPaths) {
     if (!hasEntry(normalized, required)) {
@@ -117,6 +123,14 @@ if (normalized.has('files/think/') || normalized.has('files/think/think')) {
 
 const signature = readSignature(absoluteTarget, stat.isDirectory())
 const updateManifest = readPackageJson(absoluteTarget, stat.isDirectory(), 'update.json')
+if(updateManifest.runtime_bootstrap && !stat.isDirectory()){
+    const temporary=mkdtempSync(path.join(os.tmpdir(),'aigc-bootstrap-verify-'))
+    try{execFileSync('unzip',['-oq',absoluteTarget,'-d',temporary]);console.log(execFileSync(process.execPath,[fileURLToPath(import.meta.url),temporary],{encoding:'utf8',maxBuffer:32*1024*1024}).trim())}
+    finally{rmSync(temporary,{recursive:true,force:true})}
+    process.exit(0)
+}
+verifyRuntimeBootstrap(updateManifest,normalized)
+
 verifyUpdaterBridge(updateManifest, normalized)
 verifyIncrementalManifest(updateManifest, normalized)
 verifyIncrementalComposerRuntime(updateManifest, normalized)
@@ -187,7 +201,8 @@ function listDirectoryEntries(root) {
         for (const item of names) {
             const name = path.basename(item)
             const relative = normalizeEntry(path.posix.join(prefix, name))
-            const itemStat = statSync(item)
+            const itemStat = lstatSync(item)
+            if(itemStat.isSymbolicLink())fail(`Package symlink forbidden: ${relative}`)
             if (itemStat.isDirectory()) {
                 results.push(`${relative}/`)
                 walk(item, relative)
@@ -222,6 +237,23 @@ function verifyPlatformEntrypoints(targetPath, isDirectory, entries, manifest) {
     if (missing.length) {
         fail(`platform index.html references missing static assets: ${missing.join(', ')}`)
     }
+}
+
+function verifyRuntimeBootstrap(manifest,entries){
+    if(delegated && (manifest.base_version!=='1.0.390'||manifest.version!=='1.0.391'||manifest.target_version!=='1.0.391'||!manifest.composer_runtime||manifest.runtime_bootstrap))fail('Unsupported delegated bootstrap payload')
+    if(!manifest.runtime_bootstrap)return
+    const spec=manifest.runtime_bootstrap
+    if(spec.schema!==1||spec.base_version!=='1.0.390'||spec.target_version!=='1.0.391'||spec.payload_dir!=='bootstrap-payload'||spec.min_php!=='8.2.0'||manifest.base_version!=='1.0.390'||manifest.version!=='1.0.391'||manifest.target_version!=='1.0.391'||manifest.package_mode!=='incremental'||manifest.composer_runtime||manifest.updater_bridge)fail('Invalid single-operation bootstrap schema')
+    const actual=[...entries].filter(p=>p.startsWith('files/')&&!p.endsWith('/'))
+    if(actual.length!==1||actual[0]!=='files/app/common/service/database/PcWechatMigration.php'||manifest.full_replace_dirs.length||manifest.delete_files.length)fail('Bootstrap outer files exceed compatible wrapper allowlist')
+    const sql={'sql/structure/000_runtime_bootstrap.sql':'-- likeadmin:migrate-pc-wechat-bindings-v1\n-- likeadmin:system-runtime-bootstrap-v1\nSELECT 1;\n','sql/structure/001_runtime_bootstrap_guard.sql':'CALL la_system_runtime_bootstrap_not_completed_391();\n'}
+    if(JSON.stringify(manifest.sql_order)!==JSON.stringify(Object.keys(sql)))fail('Bootstrap handoff gates differ')
+    const actualSql=[...entries].filter(p=>p.startsWith('sql/')&&!p.endsWith('/'))
+    if(actualSql.length!==2)fail('Bootstrap outer SQL is not exclusively control gates')
+    for(const [relative,content] of Object.entries(sql))if(readPackageText(absoluteTarget,true,relative)!==content)fail('Bootstrap SQL gate changed')
+    const files=new Set(normalizeSignature(signature).map(p=>p.path))
+    for(const entry of entries)if(!entry.endsWith('/')&&entry!=='signature.json'&&!files.has(entry))fail('Unsigned bootstrap file: '+entry)
+    execFileSync(process.execPath,[fileURLToPath(import.meta.url),path.join(absoluteTarget,'bootstrap-payload'),'--bootstrap-inner'],{stdio:'pipe',maxBuffer:32*1024*1024})
 }
 
 function verifyUpdaterBridge(manifest, entries) {
@@ -304,7 +336,7 @@ function verifyIncrementalManifest(manifest, entries) {
             }
         }
     }
-    if (manifest.updater_bridge === true) return
+    if (manifest.updater_bridge === true || manifest.runtime_bootstrap) return
     for (const appCode of bridgeAppCodes) {
         for (const rel of bridgeAppRequiredPaths) {
             const required = `files/app/apps/${appCode}/${rel}`
@@ -333,7 +365,7 @@ function verifyIncrementalComposerRuntime(manifest, entries) {
     const less = (a, b) => { for (let i=0;i<3;i++) { if(a[i]!==b[i]) return a[i]<b[i] } return false }
     if (!present || !runtime || runtime.schema !== 1 || runtime.payload_dir !== 'composer-runtime') reject('payload/declaration mismatch')
     const minimum = version(runtime.min_updater_version)
-    if (less(minimum,[1,0,391]) || less(version(manifest.base_version),minimum)) reject('unsupported base updater')
+    if (less(minimum,[1,0,391]) || (!delegated && less(version(manifest.base_version),minimum))) reject('unsupported base updater')
     if (less(version(runtime.min_php),[8,2,0])) reject('PHP 8.2 required')
     for (const key of ['required_extensions','probe_classes']) {
         if (!Array.isArray(runtime[key]) || !runtime[key].length || runtime[key].some(v=>typeof v!=='string'||!v.trim())) reject(`missing ${key}`)
@@ -342,7 +374,7 @@ function verifyIncrementalComposerRuntime(manifest, entries) {
         if (!entries.has(`composer-runtime/${rel}`)) reject(`missing ${rel}`)
     }
     for (const entry of entries) {
-        if (entry.startsWith('composer-runtime/') && !/^composer-runtime\/(?:composer\.(?:json|lock)$|vendor(?:\/|$))/.test(entry)) reject(`unexpected payload entry ${entry}`)
+        if (entry !== 'composer-runtime/' && entry.startsWith('composer-runtime/') && !/^composer-runtime\/(?:composer\.(?:json|lock)$|vendor(?:\/|$))/.test(entry)) reject(`unexpected payload entry ${entry}`)
     }
     const lock = readPackageJson(absoluteTarget,stat.isDirectory(),'composer-runtime/composer.lock')
     const installed = readPackageJson(absoluteTarget,stat.isDirectory(),'composer-runtime/vendor/composer/installed.json')

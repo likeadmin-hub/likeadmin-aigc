@@ -97,3 +97,30 @@ for(const mode of ['missing','ambiguous'])test('bridge fails closed on '+mode+' 
     try {const result=f.run();assert.notEqual(result.status,0);assert.match(result.stderr,/Bridge worker context must occur exactly once/)}
     finally {fs.rmSync(f.dir,{recursive:true,force:true})}
 })
+
+function baselineFixture() {
+    const f=fixture();const git=(...args)=>execFileSync('git',args,{cwd:f.repo,encoding:'utf8',stdio:'pipe'})
+    f.write('config/project.php',"<?php return ['version'=>'1.0.390'];")
+    f.write('app/apps/fixture/migrations/history.sql','UPDATE la_fixture SET customer_price=0;')
+    git('add','.');git('commit','-m','genuine predecessor SQL identity');f.base=git('rev-parse','HEAD').trim()
+    f.write('config/project.php',"<?php return ['version'=>'1.0.391'];")
+    f.write('app/apps/fixture/migrations/new.sql','CREATE TABLE IF NOT EXISTS la_new(id int);')
+    const source=fs.readFileSync(script,'utf8')
+    const helpers=source.match(/if\(delegated\)for\(const relative of \[(.*?)\]\)/s)[1].match(/'([^']+)'/g).map(v=>v.slice(1,-1))
+    for(const helper of helpers)f.write(helper,'<?php // fixture helper')
+    git('add','.');git('commit','-m','target')
+    f.run=out=>spawnSync(process.execPath,[script.pathname,'--repo',f.repo,'--base-ref',f.base,'--base-version','1.0.390','--version','1.0.391','--out-dir',path.join(f.dir,out),'--composer-runtime','--bootstrap-inner'],{encoding:'utf8'})
+    return f
+}
+test('signed runtime baseline derives migration identity solely from predecessor Git bytes',()=>{
+    const f=baselineFixture()
+    try {
+        const result=f.run('stage');assert.equal(result.status,0,result.stderr)
+        const baseline=fs.readFileSync(path.join(f.dir,'stage/files/config/runtime_migration_baseline.php'),'utf8')
+        assert.match(baseline,/app\/apps\/fixture\/migrations\/history.sql/)
+        assert.doesNotMatch(baseline,/migrations\/new.sql/)
+        assert.doesNotMatch(baseline,/UPDATE la_fixture/)
+        f.write('app/apps/fixture/migrations/history.sql','UPDATE la_fixture SET customer_price=100;')
+        const changed=f.run('changed');assert.notEqual(changed.status,0);assert.match(changed.stderr,/Historical migration changed; use a new filename/)
+    } finally {fs.rmSync(f.dir,{recursive:true,force:true})}
+})

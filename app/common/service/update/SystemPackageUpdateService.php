@@ -459,30 +459,15 @@ class SystemPackageUpdateService
             (new SystemPackageGrantService())->ensure($package->toArray());
             $manifest = $this->readUpdateManifest($extractPath);
             $runtimeInstaller = new ComposerRuntimeUpdateService(UpgradeLogic::getProjectPath());
+            $binding=['kind'=>'system','package_id'=>(int)$package['id'],'task_id'=>(int)$task['id'],'context'=>array_intersect_key($_SERVER,array_flip(['HTTP_HOST','SERVER_NAME','SERVER_ADDR','SERVER_PORT','HTTPS']))];
+            $encoded=json_encode($binding,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
             $installation = $runtimeInstaller->apply($extractPath, $manifest, [
-                'sql' => function () use ($extractPath, $manifest, &$transactionStarted): void {
-                    Db::startTrans();
-                    $transactionStarted = true;
-                    try {
-                        if (!$this->applySqlGroup($extractPath, $manifest, 'data')) throw new RuntimeException('更新数据库数据失败');
-                        Db::commit();
-                        $transactionStarted = false;
-                    } catch (Throwable $e) { Db::rollback(); $transactionStarted = false; throw $e; }
-                    if (!$this->applySqlGroup($extractPath, $manifest, 'structure')) throw new RuntimeException('更新数据库结构失败');
-                },
-                'files' => function () use ($extractPath, $manifest): void {
-                    if (!UpgradeLogic::upgradeFile($extractPath . '/files/', UpgradeLogic::getProjectPath())) throw new RuntimeException('更新文件失败');
-                    $this->applyFullReplaceDirs($extractPath, $manifest);
-                    $this->applyDeleteFiles($manifest);
-                },
-                'finalize' => fn (string $generation): array => $runtimeInstaller->finalize($generation, $extractPath, (string)$package['version']),
-                'marker' => fn () => $this->writeLocalVersion((string)$package['version']),
-                'complete' => function (string $generation, array $finalize) use ($package, $task, $extractPath): array {
-                    $result = ['version'=>$package['version'], 'extract_path'=>$extractPath, 'builtin_apps'=>$finalize['builtin_apps'] ?? [], 'composer_runtime'=>['generation'=>$generation]];
-                    $package->save(['status'=>'applied','error'=>'','update_time'=>time()]);
-                    $this->finishTask($task, 'success', $result);
-                    return $result;
-                },
+                'immutable_code'=>true,'bootstrap_context'=>$binding,
+                'sql'=>fn(string $generation)=>$runtimeInstaller->bootstrapChild(['--bootstrap-prepare',$generation,$extractPath,$encoded]),
+                'files'=>fn()=> (new SystemRuntimeBootstrapService())->copySharedFiles($extractPath,$manifest),
+                'finalize'=>fn()=>[],
+                'marker'=>fn()=>null,
+                'complete'=>fn(string $generation)=>$runtimeInstaller->bootstrapChild(['--bootstrap-complete',$generation,$extractPath,$encoded])['completion'],
             ]);
             $result = $installation['completion'] ?? ['version'=>$package['version'], 'extract_path'=>$extractPath, 'composer_runtime'=>$installation];
             return $result;
@@ -513,6 +498,47 @@ class SystemPackageUpdateService
     {
         ini_set('max_execution_time', (string)self::UPDATE_EXECUTION_TIMEOUT);
         set_time_limit(self::UPDATE_EXECUTION_TIMEOUT);
+    }
+
+    public function prepareBootstrapSql(string $extractPath): array
+    {
+        if (PHP_SAPI !== 'cli' || empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])) throw new RuntimeException('自举迁移必须在隔离进程执行');
+        $manifest=$this->readUpdateManifest($extractPath);
+        Db::startTrans();
+        try { $this->applySqlGroup($extractPath,$manifest,'data'); Db::commit(); }
+        catch (Throwable $e) { Db::rollback(); throw $e; }
+        $this->applySqlGroup($extractPath,$manifest,'structure');
+        return $this->prepareRuntimeApps($extractPath,(string)$manifest['version']);
+    }
+
+    public function completeBootstrap(string $extractPath, array $binding): array
+    {
+        if (PHP_SAPI !== 'cli' || empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])) throw new RuntimeException('自举完成必须在隔离进程执行');
+        $package=$this->getPackage((int)$binding['package_id']);
+        $task=UpdateTask::where(['id'=>(int)$binding['task_id'],'package_id'=>(int)$package['id'],'status'=>'running'])->findOrEmpty();
+        if($task->isEmpty())throw new RuntimeException('自举完成任务绑定无效');
+        Db::startTrans();
+        try {
+            $apps=$this->finalizeRuntimeApps($extractPath,(string)$package['version']);
+            $result=['version'=>$package['version'],'extract_path'=>$extractPath,'builtin_apps'=>$apps,'composer_runtime'=>['generation'=>$GLOBALS['AIGC_RUNTIME_GENERATION']]];
+            $package->save(['status'=>'applied','error'=>'','update_time'=>time()]);
+            $this->finishTask($task,'success',$result);
+            if(!Db::connect()->getPdo()->inTransaction())throw new RuntimeException('自举元数据事务被隐式提交，禁止成功标记');
+            $this->writeLocalVersion((string)$package['version']);
+            Db::commit();return $result;
+        } catch (Throwable $e) { Db::rollback(); throw $e; }
+    }
+
+    public function prepareRuntimeApps(string $extractPath, string $version): array
+    {
+        if (PHP_SAPI !== 'cli' || empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])) throw new RuntimeException('运行时迁移只能由更新器子进程执行');
+        $result=[];
+        foreach ($this->packagedBuiltinAppCodes($extractPath) as $code) {
+            $manifest=AppRegistryService::getManifest($code);
+            $result[$code]=AppRegistryService::prepareRuntimeMigrations($code,(string)$manifest['version']);
+        }
+        PackageProvisionService::prepareRuntimeSchema();
+        return $result;
     }
 
     /** Called only by the isolated candidate-runtime CLI interpreter. */

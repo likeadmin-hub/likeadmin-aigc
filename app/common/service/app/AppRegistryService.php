@@ -128,7 +128,7 @@ class AppRegistryService
     public static function manifestPath(string $appCode): string
     {
         self::assertValidCode($appCode);
-        return root_path() . 'app/apps/' . $appCode . '/manifest.json';
+        return base_path() . 'apps/' . $appCode . '/manifest.json';
     }
 
     public static function getManifest(string $appCode): array
@@ -158,7 +158,7 @@ class AppRegistryService
         $manifest = self::getManifest($appCode);
         self::assertCoreCompatible($manifest, $coreVersion);
         $migrations = self::runLocalMigrations($appCode, (string)($manifest['version'] ?? '1.0.0'));
-        self::installPublicAssets($manifest, root_path() . 'app/apps/' . $appCode);
+        self::installPublicAssets($manifest, base_path() . 'apps/' . $appCode);
         $time = time();
         $appData = DefaultAppService::normalizeAppData($appCode, [
             'code' => $appCode,
@@ -602,9 +602,57 @@ class AppRegistryService
         return $entries;
     }
 
+    /** Updater executes durable DDL before beginning metadata-only finalization. */
+    public static function prepareRuntimeMigrations(string $appCode, string $version): array
+    {
+        self::assertValidCode($appCode);
+        return self::runRuntimeMigrations($appCode, $version, true);
+    }
+
+    private static function runRuntimeMigrations(string $appCode, string $version, bool $prepare): array
+    {
+        $baseline = config('runtime_migration_baseline') ?: [];
+        $result = [];
+        foreach (glob(base_path().'apps/'.$appCode.'/migrations/*.sql') ?: [] as $file) {
+            $key = basename($file);
+            $relative = 'app/apps/'.$appCode.'/migrations/'.$key;
+            $hash = hash_file('sha256', $file);
+            $where = ['scope'=>'platform','app_code'=>$appCode,'tenant_id'=>0,'migration_key'=>$key];
+            $migration = \app\common\model\app\AppMigration::where($where)->findOrEmpty();
+            if (!$migration->isEmpty() && $migration['status'] === 'success') continue;
+            $historical = isset($baseline[$relative]);
+            if ($historical && !hash_equals((string)$baseline[$relative], $hash)) throw new RuntimeException('历史迁移字节已改变，必须使用新的迁移文件: '.$relative);
+            if ($historical) {
+                // Source identity comes from the signed genuine-390 Git baseline. Never replay its SQL.
+                if ($prepare) continue;
+                $data = ['version'=>$version,'batch'=>date('YmdHis'),'status'=>'success','error'=>'baseline-adopted:'.$hash,'update_time'=>time()];
+            } else {
+                $plan = \app\common\service\database\RuntimeMigrationPlan::build((string)file_get_contents($file));
+                if ($prepare && !$migration->isEmpty() && $migration['status'] === 'prepared') {
+                    if ($migration['error'] !== 'prepared:'.$hash) throw new RuntimeException('已准备迁移内容改变: '.$relative);
+                    continue;
+                }
+                if (!$prepare && ($migration->isEmpty() || $migration['status'] !== 'prepared' || $migration['error'] !== 'prepared:'.$hash)) throw new RuntimeException('迁移尚未安全准备: '.$relative);
+                if ($prepare && !$migration->isEmpty() && $migration['status'] === 'running') throw new RuntimeException('迁移执行结果不确定，禁止自动重放: '.$relative);
+                if ($prepare) {
+                    $running = ['version'=>$version,'batch'=>date('YmdHis'),'status'=>'running','error'=>'preparing:'.$hash,'update_time'=>time()];
+                    if ($migration->isEmpty()) $migration = \app\common\model\app\AppMigration::create($where+$running+['create_time'=>time()]);
+                    else $migration->save($running);
+                }
+                self::executeMigrationSql($plan[$prepare ? 'prepare' : 'complete'], (string)config('database.connections.mysql.prefix'));
+                $data = ['version'=>$version,'batch'=>date('YmdHis'),'status'=>$prepare?'prepared':'success','error'=>$prepare?'prepared:'.$hash:'','update_time'=>time()];
+            }
+            if ($migration->isEmpty()) \app\common\model\app\AppMigration::create($where+$data+['create_time'=>time()]);
+            else $migration->save($data);
+            $result[] = ['migration_key'=>$key,'status'=>$historical?'baseline-adopted':($prepare?'prepared':'executed'),'error'=>''];
+        }
+        return $result;
+    }
+
     private static function runLocalMigrations(string $appCode, string $version): array
     {
-        $dir = root_path() . 'app/apps/' . $appCode . '/migrations';
+        if (!empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])) return self::runRuntimeMigrations($appCode, $version, false);
+        $dir = base_path() . 'apps/' . $appCode . '/migrations';
         if (!is_dir($dir)) {
             return [];
         }
@@ -671,7 +719,7 @@ class AppRegistryService
     {
         $executor = '\\app\\common\\service\\database\\SqlMigrationExecutor';
         if (!class_exists($executor)) {
-            $executorPath = root_path() . 'app/common/service/database/SqlMigrationExecutor.php';
+            $executorPath = base_path() . 'common/service/database/SqlMigrationExecutor.php';
             if (is_file($executorPath)) {
                 require_once $executorPath;
             }
@@ -797,7 +845,7 @@ class AppRegistryService
 
     private static function syncApiSchema(array $manifest): void
     {
-        $path = root_path() . 'app/apps/' . $manifest['code'] . '/api_schema.json';
+        $path = base_path() . 'apps/' . $manifest['code'] . '/api_schema.json';
         if (!is_file($path)) {
             return;
         }

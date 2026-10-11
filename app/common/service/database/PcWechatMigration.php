@@ -9,6 +9,23 @@ class PcWechatMigration
 {
     public static function run(string $prefix, $connection = null, bool $dryRun = false): array
     {
+        $bootstrapPath=''; $bootstrapMarker=false;
+        foreach(debug_backtrace(0,24) as $frame){
+            if(($frame['class']??'')===SqlMigrationExecutor::class && ($frame['function']??'')==='execute') $bootstrapMarker=preg_match('/^-- likeadmin:system-runtime-bootstrap-v1\\s*$/m',(string)($frame['args'][0]??''))===1;
+            if(($frame['class']??'')==='app\\common\\service\\update\\SystemPackageUpdateService' && ($frame['function']??'')==='applySqlGroup') $bootstrapPath=(string)($frame['args'][0]??'');
+        }
+        if($bootstrapMarker){
+            if(version_compare(PHP_VERSION,'8.2.0','<'))throw new \RuntimeException('本次完整更新要求先将网站及本项目任务进程切换到 PHP 8.2，并平滑停止旧任务进程后重试');
+            $signature=json_decode((string)@file_get_contents($bootstrapPath.'/signature.json'),true);
+            foreach(['app/common/service/update/ComposerRuntimeUpdateService.php','app/common/service/update/SystemRuntimeBootstrapService.php','scripts/composer-runtime-runner.php'] as $helper){
+                $relative='bootstrap-payload/files/'.$helper;$expected=$signature['sha256'][$relative]??'';
+                if(!is_string($expected)||!preg_match('/^[a-f0-9]{64}$/D',$expected)||!is_file($bootstrapPath.'/'.$relative)||is_link($bootstrapPath.'/'.$relative)||!hash_equals($expected,(string)hash_file('sha256',$bootstrapPath.'/'.$relative)))throw new \RuntimeException('签名自举 helper 校验失败');
+            }
+            if($bootstrapPath==='' || !is_file($bootstrapPath.'/bootstrap-payload/files/app/common/service/update/SystemRuntimeBootstrapService.php'))throw new \RuntimeException('签名运行时自举入口缺失');
+            require_once $bootstrapPath.'/bootstrap-payload/files/app/common/service/update/ComposerRuntimeUpdateService.php';
+            require_once $bootstrapPath.'/bootstrap-payload/files/app/common/service/update/SystemRuntimeBootstrapService.php';
+            \app\common\service\update\SystemRuntimeBootstrapService::handoffFromMigration($bootstrapPath);
+        }
         if (!preg_match('/^[a-zA-Z0-9_]+$/D', $prefix)) throw new \RuntimeException('Invalid database prefix');
         $db = $connection ?: Db::connect();
         $rows = $db->query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()');

@@ -15,12 +15,15 @@ class ComposerRuntimeUpdateService
     private string $root;
     private string $store;
     private string $php;
+    private string $runner;
+    private $heldLock = null;
 
-    public function __construct(string $root, string $php = '')
+    public function __construct(string $root, string $php = '', string $runner = '')
     {
         $this->root = rtrim($root, '/\\');
         $this->store = $this->root . '/.composer-runtime';
         $this->php = $php ?: (PHP_SAPI === 'cli' ? PHP_BINARY : PHP_BINDIR . '/php');
+        $this->runner=$runner;
     }
 
     public function preflight(string $extract, array $manifest): array
@@ -132,8 +135,11 @@ class ComposerRuntimeUpdateService
             $generation = $this->store . '/generations/' . $id;
             $this->directory($generation);
             foreach (self::CODE_DIRS as $dir) if (is_dir($this->root . '/' . $dir)) $this->copyTree($this->root . '/' . $dir, $generation . '/' . $dir);
-            $this->atomicJson($generation . '/generation.json', ['schema'=>1, 'vendor'=>'site', 'version'=>self::CAPABILITY_VERSION]);
-            $this->atomicJson($this->store . '/current.json', ['schema'=>1, 'generation'=>$id, 'version'=>self::CAPABILITY_VERSION]);
+            $project=(string)@file_get_contents($this->root.'/config/project.php');
+            preg_match("/['\"]version['\"]\s*=>\s*['\"]([^'\"]+)['\"]/",$project,$matched);
+            $baselineVersion=$matched[1]??self::CAPABILITY_VERSION;
+            $this->atomicJson($generation . '/generation.json', ['schema'=>1, 'vendor'=>'site', 'version'=>$baselineVersion]);
+            $this->atomicJson($this->store . '/current.json', ['schema'=>1, 'generation'=>$id, 'version'=>$baselineVersion]);
             return $generation;
         } finally { $this->unlock($lock); }
     }
@@ -146,7 +152,9 @@ class ComposerRuntimeUpdateService
     public function apply(string $extract, array $manifest, array $callbacks): array
     {
         $this->ensureBaseline();
+        if(!empty($callbacks['immutable_code']))$manifest['immutable_code']=true;
         $lock = $this->lock();
+        $this->heldLock=$lock;
         try {
             $this->recoverLocked();
             $this->preflight($extract, $manifest);
@@ -173,14 +181,16 @@ class ComposerRuntimeUpdateService
                     $this->copyPath($source, $stage . '/' . $file);
                 }
             }
+            $currentCode=$this->generationFromPointer($this->readJson($this->store.'/current.json'));
             foreach (self::CODE_DIRS as $dir) {
-                if (is_dir($this->root . '/' . $dir)) $this->copyTree($this->root . '/' . $dir, $stage . '/' . $dir);
+                if (is_dir($currentCode . '/' . $dir)) $this->copyTree($currentCode . '/' . $dir, $stage . '/' . $dir);
                 if (is_dir($extract . '/files/' . $dir)) $this->copyTree($extract . '/files/' . $dir, $stage . '/' . $dir);
             }
             foreach ((array)($manifest['delete_files'] ?? []) as $relative) {
                 $this->safePath((string)$relative);
                 if (in_array(explode('/', $relative)[0], self::CODE_DIRS, true)) $this->remove($stage . '/' . $relative);
             }
+            if(is_file($extract.'/files/runtime-loader.php'))$this->copyPath($extract.'/files/runtime-loader.php',$stage.'/runtime-loader.php');
             if (is_file($stage . '/config/project.php')) {
                 $version = (string)$manifest['version'];
                 if (!preg_match('/^\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?$/', $version)) throw new RuntimeException('运行时目标版本无效');
@@ -204,13 +214,13 @@ class ComposerRuntimeUpdateService
                 $saved[$relative] = file_exists($target);
                 if ($saved[$relative]) $this->copyPath($target, $backup . '/' . $relative);
             }
-            $journal = ['schema'=>1, 'digest'=>$digest, 'status'=>'prepared', 'sql_state'=>$prior['sql_state'] ?? 'pending', 'previous_pointer'=>$this->readJson($this->store . '/current.json'), 'generation'=>$id, 'backup'=>$digest, 'paths'=>$saved];
+            $journal = ['schema'=>1, 'digest'=>$digest, 'status'=>'prepared', 'sql_state'=>$prior['sql_state'] ?? 'pending', 'previous_pointer'=>$this->readJson($this->store . '/current.json'), 'generation'=>$id, 'backup'=>$digest, 'paths'=>$saved,'bootstrap_context'=>$callbacks['bootstrap_context']??[],'owner_pid'=>getmypid()];
             $this->atomicJson($journalPath, $journal);
             $this->atomicJson($this->store . '/active.json', ['digest'=>$digest]);
             try {
                 if ($journal['sql_state'] !== 'done') {
                     $journal['sql_state']='running'; $this->atomicJson($journalPath,$journal);
-                    ($callbacks['sql'])();
+                    ($callbacks['sql'])($generation);
                     $journal['sql_state']='done'; $this->atomicJson($journalPath,$journal);
                 }
                 $journal['status']='copying'; $this->atomicJson($journalPath,$journal);
@@ -224,16 +234,39 @@ class ComposerRuntimeUpdateService
                 unlink($this->store . '/active.json');
                 return ['generation'=>$generation,'finalize'=>$finalize,'completion'=>$completion];
             } catch (Throwable $failure) {
+                // Close only our lease, then reacquire. A live inherited candidate
+                // must finish before either rollback or committed-state recovery.
+                $this->heldLock=null;$this->unlock($lock);$lock=null;
+                $lock=$this->lock();$this->heldLock=$lock;
+                $confirmed=$this->confirmBootstrapCommit($journal);
+                if($confirmed!==null){$journal['status']='committed';$journal['completion']=$confirmed;$this->atomicJson($journalPath,$journal);unlink($this->store.'/active.json');return ['generation'=>$generation,'completion'=>$confirmed,'recovered'=>true];}
                 try { $this->restore($journal); $journal['status']='rolled_back'; $this->atomicJson($journalPath,$journal); unlink($this->store . '/active.json'); }
                 catch (Throwable $restoreFailure) { throw new RuntimeException($failure->getMessage() . '; 文件回滚失败，恢复日志已保留: ' . $restoreFailure->getMessage(), 0, $failure); }
                 throw $failure;
             }
-        } finally { $this->unlock($lock); }
+        } finally { $this->heldLock=null; $this->unlock($lock); }
     }
 
     public function recover(): void
     {
         $lock=$this->lock(); try { $this->recoverLocked(); } finally { $this->unlock($lock); }
+    }
+
+    /** Live updates keep ordinary requests pinned to the previously committed generation. */
+    public function recoverBeforeBootstrap(): ?string
+    {
+        if(!is_file($this->store.'/active.json'))return null;
+        $handle=fopen($this->store.'/update.lock','c');
+        if(!$handle)throw new RuntimeException('无法检查运行时恢复锁');
+        if(!flock($handle,LOCK_EX|LOCK_NB)){
+            fclose($handle);
+            $active=$this->readJson($this->store.'/active.json');
+            if(!preg_match('/^[a-f0-9]{64}$/',(string)($active['digest']??'')))throw new RuntimeException('更新日志无效');
+            $journal=$this->readJson($this->store.'/journals/'.$active['digest'].'.json');
+            return $this->generationFromPointer($journal['previous_pointer']);
+        }
+        try{$this->recoverLocked();}finally{$this->unlock($handle);}
+        return null;
     }
 
     public function finalize(string $generation, string $extract, string $version): array
@@ -257,8 +290,24 @@ class ComposerRuntimeUpdateService
         if (!preg_match('/^[a-f0-9]{64}$/',(string)($active['digest']??''))) throw new RuntimeException('Composer 更新恢复日志无效');
         $path=$this->store.'/journals/'.$active['digest'].'.json';
         $journal=$this->readJson($path);
-        if (($journal['status']??'')!=='committed') { $this->restore($journal); $journal['status']='rolled_back'; $this->atomicJson($path,$journal); }
+        if (($journal['status']??'')!=='committed') {
+            $confirmed=$this->confirmBootstrapCommit($journal);
+            if($confirmed!==null){$journal['status']='committed';$journal['completion']=$confirmed;}
+            else {$this->restore($journal);$journal['status']='rolled_back';}
+            $this->atomicJson($path,$journal);
+        }
         unlink($this->store.'/active.json');
+    }
+
+    private function confirmBootstrapCommit(array $journal): ?array
+    {
+        $binding=$journal['bootstrap_context']??[];
+        if(!in_array($binding['kind']??'',['system','app'],true) || ($journal['status']??'')!=='activating')return null;
+        $generation=$this->generationFromPointer(['schema'=>1,'generation'=>$journal['generation']]);
+        $pointer=$this->readJson($this->store.'/current.json');
+        if(($pointer['generation']??'')!==$journal['generation'])return null;
+        $result=$this->runChild([($binding['kind']==='app'?'--app-runtime-recover':'--bootstrap-recover'),$generation,'-',json_encode($binding,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)]);
+        return !empty($result['committed'])?(array)$result['completion']:null;
     }
 
     private function restore(array $journal): void
@@ -278,6 +327,7 @@ class ComposerRuntimeUpdateService
     private function changedPaths(string $extract,array $manifest): array
     {
         $paths=array_keys($this->treeFiles($extract.'/files'));
+        if(!empty($manifest['immutable_code']))$paths=array_values(array_filter($paths,fn($p)=>!in_array(explode('/',$p)[0],self::CODE_DIRS,true)));
         $paths=array_merge($paths,(array)($manifest['full_replace_dirs']??[]),(array)($manifest['delete_files']??[]),['config/project.php','upgrade/version.json']);
         // Builtin-app synchronization can deploy declared static bridges and edit
         // the legacy HTML shells; include those side effects in the same backup.
@@ -346,6 +396,7 @@ class ComposerRuntimeUpdateService
 
     private function directory(string $path): void
     {
+        for($parent=$path;str_starts_with($parent,$this->root.'/')||$parent===$this->root;$parent=dirname($parent))if(is_link($parent))throw new RuntimeException('Composer 运行时路径不允许链接');
         if(is_link($path) || (!is_dir($path) && !mkdir($path,0755,true)) || !is_writable($path)) throw new RuntimeException('Composer 运行时目录不可写: '.$path);
     }
 
@@ -378,15 +429,36 @@ class ComposerRuntimeUpdateService
         throw new RuntimeException('已有 Composer 运行时升级正在执行');
     }
 
-    private function unlock($lock): void { flock($lock,LOCK_UN); fclose($lock); }
+    private function unlock($lock): void { if(is_resource($lock))fclose($lock); }
+
+    public function confirmHandoffCompletion(int $packageId, int $taskId, string $archiveHash): ?array
+    {
+        if(is_file($this->store.'/active.json'))$this->recover();
+        if(!is_file($this->store.'/current.json'))return null;
+        $pointer=$this->readJson($this->store.'/current.json');
+        foreach(glob($this->store.'/journals/*.json')?:[] as $path){
+            $journal=$this->readJson($path);$binding=$journal['bootstrap_context']??[];
+            if(($journal['status']??'')!=='committed'||($binding['package_id']??0)!==$packageId||($binding['task_id']??0)!==$taskId||($binding['archive_sha256']??'')!==$archiveHash||($pointer['generation']??'')!==($journal['generation']??''))continue;
+            $generation=$this->generationFromPointer($pointer);
+            $verified=$this->runChild(['--bootstrap-recover',$generation,'-',json_encode($binding,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)]);
+            if(!empty($verified['committed']))return (array)$verified['completion'];
+        }
+        return null;
+    }
+
+    public function bootstrapChild(array $arguments): array { return $this->runChild($arguments); }
 
     private function runChild(array $arguments): array
     {
         if(!function_exists('proc_open') || !is_file($this->php) || !is_executable($this->php)) throw new RuntimeException('自动依赖升级需要可执行的 PHP CLI 和 proc_open');
-        $script=$this->root.'/scripts/composer-runtime-runner.php';
+        $script=$this->runner?:$this->root.'/scripts/composer-runtime-runner.php';
         if(!is_file($script)) $script=dirname(__DIR__,4).'/scripts/composer-runtime-runner.php';
-        $command=array_merge([$this->php,'-d','opcache.enable_cli=0',$script],$arguments);
-        $pipes=[]; $process=proc_open($command,[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,$this->root);
+        $command=array_merge([$this->php,'-d','opcache.enable_cli=0',$script,'--site-root',$this->root],$arguments);
+        $descriptors=[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']];
+        // Inherit the same flock file description. A candidate keeps the writer lease
+        // alive even if its coordinating interpreter is killed before metadata commit.
+        if(is_resource($this->heldLock))$descriptors[3]=$this->heldLock;
+        $pipes=[]; $process=proc_open($command,$descriptors,$pipes,$this->root);
         if(!is_resource($process)) throw new RuntimeException('无法启动 PHP CLI 运行时验证');
         fclose($pipes[0]); stream_set_blocking($pipes[1],false); stream_set_blocking($pipes[2],false); $stdout='';$stderr='';$started=microtime(true);
         do { $stdout.=stream_get_contents($pipes[1]);$stderr.=stream_get_contents($pipes[2]);$status=proc_get_status($process); if(!$status['running']) break; if(microtime(true)-$started>300 || strlen($stdout)+strlen($stderr)>1048576) { proc_terminate($process); fclose($pipes[1]);fclose($pipes[2]);proc_close($process);throw new RuntimeException('PHP CLI 运行时验证超时或输出过大'); } usleep(10000); } while(true);

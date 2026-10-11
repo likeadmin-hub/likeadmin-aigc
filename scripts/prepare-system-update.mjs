@@ -2,6 +2,7 @@
 // Official staging builder. package_update.py owns archives/signatures/version bump.
 import fs from 'node:fs'
 import path from 'node:path'
+import crypto from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 const args=process.argv.slice(2)
@@ -9,6 +10,7 @@ const option=(key,fallback='')=>{const i=args.indexOf(key);return i<0?fallback:a
 const repo=path.resolve(option('--repo',path.join(path.dirname(fileURLToPath(import.meta.url)),'..')))
 const baseRef=option('--base-ref'), baseVersion=option('--base-version'), version=option('--version')
 const out=path.resolve(option('--out-dir',path.join(repo,'runtime/system_update_staging',version)))
+const bootstrap=args.includes('--runtime-bootstrap'), delegated=args.includes('--bootstrap-inner')
 const bridge=args.includes('--bridge'), runtime=args.includes('--composer-runtime')
 const composerSource=path.resolve(option('--composer-source',repo))
 const fullDirs=['public/admin','public/platform','public/pc','public/_nuxt','public/media','public/mobile','public/mp-weixin']
@@ -65,6 +67,28 @@ try {
     const baseProject=git('show',`${baseRef}:config/project.php`)
     if(baseProject.match(/['"]version['"]\s*=>\s*['"]([^'"]+)['"]/)?.[1]!==baseVersion)fail('Base Git tree version differs from --base-version')
     if(fs.existsSync(out)&&fs.readdirSync(out).length)fail('Staging directory must be new or empty; preserve prior artifacts')
+    if(bootstrap){
+        if(bridge||runtime||delegated||baseVersion!=='1.0.390'||version!=='1.0.391')fail('Runtime bootstrap is exclusively the complete 390 to 391 step')
+        const inner=path.join(out,'bootstrap-payload')
+        const childArgs=args.filter((a,i)=>a!=='--runtime-bootstrap' && a!=='--out-dir' && args[i-1]!=='--out-dir')
+        execFileSync(process.execPath,[fileURLToPath(import.meta.url),...childArgs,'--out-dir',inner,'--composer-runtime','--bootstrap-inner'],{stdio:'inherit'})
+        const pc='app/common/service/database/PcWechatMigration.php'
+        const before=git('show',`${baseRef}:${pc}`),context="        if (!preg_match('/^[a-zA-Z0-9_]+$/D', $prefix))"
+        const current=fs.readFileSync(path.join(repo,pc),'utf8'),start=current.indexOf("        $bootstrapPath='';"),end=current.indexOf(context)
+        if(start<0||end<start||before.split(context).length!==2)fail('Legacy bootstrap hook context must match exactly')
+        const patched=before.replace(context,current.slice(start,end)+context)
+        const target=path.join(out,'files',pc);fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,patched)
+        for(const dir of ['sql/data','sql/structure','menus','rollback'])fs.mkdirSync(path.join(out,dir),{recursive:true})
+        fs.writeFileSync(path.join(out,'sql/structure/000_runtime_bootstrap.sql'),'-- likeadmin:migrate-pc-wechat-bindings-v1\n-- likeadmin:system-runtime-bootstrap-v1\nSELECT 1;\n')
+        fs.writeFileSync(path.join(out,'sql/structure/001_runtime_bootstrap_guard.sql'),'CALL la_system_runtime_bootstrap_not_completed_391();\n')
+        const next=JSON.parse(fs.readFileSync(path.join(inner,'update.json')))
+        json('update.json',{product_code:'likeadmin_aigc_saas',version:baseVersion,package_mode:'incremental',base_version:baseVersion,target_version:version,included_versions:[baseVersion,version],summary:next.summary,changelog:next.changelog,full_replace_dirs:[],delete_files:[],sql_order:['sql/structure/000_runtime_bootstrap.sql','sql/structure/001_runtime_bootstrap_guard.sql'],runtime_bootstrap:{schema:1,base_version:baseVersion,target_version:version,payload_dir:'bootstrap-payload',min_php:'8.2.0'}})
+        fs.writeFileSync(path.join(out,'menus/README.txt'),'Application metadata is installed by the signed immutable payload.\n')
+        fs.writeFileSync(path.join(out,'rollback/README.txt'),'The compatible legacy migration wrapper remains after failure; all feature code, dependency pointer, public assets and version markers are transactional.\n')
+        console.log(JSON.stringify({ok:true,out,runtime_bootstrap:true,target_version:version}));process.exit(0)
+    }
+    if(delegated&&(baseVersion!=='1.0.390'||version!=='1.0.391'||!runtime))fail('Unsupported delegated runtime staging')
+
     if(out===repo||repo.startsWith(out+path.sep))fail('Staging directory must not contain the source repository')
     const changed=git('diff','--no-renames','--name-only',baseRef,'HEAD').trim().split('\n').filter(Boolean)
     const deleted=new Set(git('diff','--no-renames','--name-only','--diff-filter=D',baseRef,'HEAD').trim().split('\n').filter(Boolean))
@@ -72,7 +96,7 @@ try {
     if(bridge&&runtime)fail('Bridge package must not contain new dependencies')
     if(bridge&&(baseVersion!=='1.0.390'||version!=='1.0.391'))fail('Worker bridge requires the supported 1.0.390 to 1.0.391 chain')
     const generatedWorkers=bridge?[...bridgeWorkerPatches].map(([p,patches])=>[p,bridgeWorker(p,patches)]):[]
-    if(runtime&&compareVersion(baseVersion)<compareVersion('1.0.391'))fail('Install updater bridge 1.0.391 first')
+    if(runtime&&!delegated&&compareVersion(baseVersion)<compareVersion('1.0.391'))fail('Install updater bridge 1.0.391 first')
     for(const dir of ['files','sql/data','sql/structure','menus','rollback'])fs.mkdirSync(path.join(out,dir),{recursive:true})
     const coverage=[], uncovered=[], sql=new Map(), remove=[], replaced=[]
     for(const p of changed){
@@ -104,6 +128,20 @@ try {
         fs.writeFileSync(projectPath,fs.readFileSync(projectPath,'utf8').replace(/(['"]version['"]\s*=>\s*['"])[^'"]+(['"])/,`$1${version}$2`))
     }
     else for(const dir of fullDirs){if(fs.existsSync(path.join(repo,dir))){copy(dir,'files/'+dir);replaced.push(dir)}}
+    if(delegated)for(const relative of ['runtime-loader.php','think','public/index.php','scripts/composer-runtime-runner.php','scripts/verify-composer-runtime.php','app/common/service/update/ComposerRuntimeUpdateService.php','app/common/service/update/SystemRuntimeBootstrapService.php','app/common/service/update/ProjectUpdateProcessGate.php','app/common/service/update/SystemPackageUpdateService.php','app/common/service/update/AppPackageUpdateService.php','app/common/service/database/PcWechatMigration.php','app/common/service/app/AppRegistryService.php','app/common/service/app/AppMenuService.php','app/common/service/app/DefaultAppService.php','app/common/service/billing/PackageProvisionService.php','app/common/service/database/RuntimeMigrationPlan.php']){copy(relative,'files/'+relative);if(!coverage.some(entry=>entry.path===relative))coverage.push({path:relative,delivery:'bootstrap-required-runtime-file'})}
+
+    if(delegated){
+        const historical={}
+        for(const relative of git('ls-tree','-r','--name-only',baseRef,'app/apps').trim().split('\n').filter(p=>/^app\/apps\/[^/]+\/migrations\/[^/]+\.sql$/.test(p))){
+            const bytes=execFileSync('git',['show',`${baseRef}:${relative}`],{cwd:repo,maxBuffer:64*1024*1024})
+            if(fs.existsSync(path.join(repo,relative))&&!bytes.equals(fs.readFileSync(path.join(repo,relative))))fail(`Historical migration changed; use a new filename: ${relative}`)
+            historical[relative]=crypto.createHash('sha256').update(bytes).digest('hex')
+        }
+        const destination=path.join(out,'files/config/runtime_migration_baseline.php');fs.mkdirSync(path.dirname(destination),{recursive:true})
+        fs.writeFileSync(destination,`<?php\n// Signed identity of genuine ${baseVersion} migrations; never replay customer data.\nreturn [\n${Object.entries(historical).map(([p,h])=>`    '${p}' => '${h}',`).join('\n')}\n];\n`)
+        coverage.push({path:'config/runtime_migration_baseline.php',delivery:'generated-genuine-base-migration-identity'})
+    }
+
     const notesPath=option('--notes')
     const changelog=notesPath?fs.readFileSync(notesPath,'utf8').split('\n').filter(line=>/^\d+\./.test(line)):['1. 更新后必须将网站及对应任务进程的 PHP 版本切换到 8.2。']
     const manifest={product_code:'likeadmin_aigc_saas',version:baseVersion,package_mode:'incremental',base_version:baseVersion,

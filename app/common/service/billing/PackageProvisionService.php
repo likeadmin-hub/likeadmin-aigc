@@ -10,6 +10,16 @@ class PackageProvisionService
 {
     private const MENU_TIME = 1778000000;
 
+    /** Prepare only additive schema; balances, orders and plans are untouched. */
+    public static function prepareRuntimeSchema(): void
+    {
+        self::ensureRechargeOrderColumns();
+        self::ensureMenuColumns('tenant_system_menu');
+        foreach (Tenant::field('id,sn,tactics')->select()->toArray() as $tenant) {
+            if ((int)($tenant['tactics'] ?? 0) === 1 && (string)($tenant['sn'] ?? '') !== '') self::ensureMenuColumns('tenant_system_menu_' . $tenant['sn']);
+        }
+    }
+
     public static function syncAllTenants(): void
     {
         self::ensureRechargeOrderColumns();

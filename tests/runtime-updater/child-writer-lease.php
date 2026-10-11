@@ -1,0 +1,44 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/integration.php';
+// Verify the actual proc_open descriptor lease, not a callback-only lock simulation.
+unlink($package.'/composer-runtime/vendor/extra.php');
+put($package.'/files/public/lease.txt','candidate');
+$hashes=[];foreach(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($package,FilesystemIterator::SKIP_DOTS)) as $f)if($f->isFile()&&$f->getFilename()!=='signature.json')$hashes[substr($f->getPathname(),strlen($package)+1)]=hash_file('sha256',$f->getPathname());
+put($package.'/signature.json',json_encode(['sha256'=>$hashes]));
+$paused=$workspace.'/candidate-paused';$release=$workspace.'/candidate-release';$runner=$workspace.'/lease-runner.php';
+put($runner,'<?php if(($argv[3]??"")==="--lease-pause"){file_put_contents($argv[4],(string)getmypid());$deadline=time()+15;while(!is_file($argv[5])&&time()<$deadline)usleep(10000);echo json_encode(["passed"=>true]);exit;} require '.var_export($root.'/scripts/composer-runtime-runner.php',true).';');
+$program=$workspace.'/lease-parent.php';
+put($program,'<?php require '.var_export($serviceFile,true).'; $m=new \\app\\common\\service\\update\\ComposerRuntimeUpdateService('.var_export($site,true).',PHP_BINARY,'.var_export($runner,true).');$m->apply('.var_export($package,true).','.var_export($manifest,true).',["sql"=>function(){},"files"=>function(){file_put_contents('.var_export($site.'/public/lease.txt',true).',"candidate");},"finalize"=>fn()=> $m->bootstrapChild(["--lease-pause",'.var_export($paused,true).','.var_export($release,true).']),"marker"=>function(){}]);');
+$before=file_get_contents($site.'/.composer-runtime/current.json');$pipes=[];$parent=proc_open([PHP_BINARY,$program],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
+$deadline=microtime(true)+5;while(!is_file($paused)&&microtime(true)<$deadline)usleep(10000);
+check(is_file($paused),'candidate child did not pause');
+proc_terminate($parent,9);usleep(100000);
+$pinned=$service->recoverBeforeBootstrap();check(is_string($pinned),'live candidate lease was lost when parent died');
+check(is_file($site.'/.composer-runtime/active.json'),'live candidate journal was recovered prematurely');
+check(file_get_contents($site.'/public/lease.txt')==='candidate','live candidate assets restored prematurely');
+put($release,'continue');
+$deadline=microtime(true)+5;do{usleep(20000);$pinned=$service->recoverBeforeBootstrap();}while($pinned!==null&&microtime(true)<$deadline);
+check($pinned===null,'finished candidate lease did not release');
+check(!is_file($site.'/.composer-runtime/active.json'),'abandoned parent journal not recovered after child exit');
+check(!is_file($site.'/public/lease.txt'),'abandoned candidate shared file not restored');
+check(file_get_contents($site.'/.composer-runtime/current.json')===$before,'lease recovery changed previous pointer');
+foreach($pipes as $pipe)fclose($pipe);proc_close($parent);
+echo "PASS: real candidate inherits writer lease across parent SIGKILL; live requests pin previous generation, recovery waits for candidate exit\n";
+// A parent Throwable must not explicitly unlock a lease still held by a candidate.
+unlink($paused);unlink($release);
+$throwing=$workspace.'/lease-parent-throw.php';
+put($throwing,'<?php require '.var_export($serviceFile,true).';$m=new \\app\\common\\service\\update\\ComposerRuntimeUpdateService('.var_export($site,true).',PHP_BINARY,'.var_export($runner,true).');$m->apply('.var_export($package,true).','.var_export($manifest,true).',["sql"=>function(){},"files"=>function(){file_put_contents('.var_export($site.'/public/lease.txt',true).',"candidate");},"finalize"=>function()use($m){$property=new ReflectionProperty($m,"heldLock");$property->setAccessible(true);$p=[];$GLOBALS["lease_candidate"]=proc_open([PHP_BINARY,'.var_export($runner,true).',"--site-root",'.var_export($site,true).',"--lease-pause",'.var_export($paused,true).','.var_export($release,true).'],[0=>["file","/dev/null","r"],1=>["file","/dev/null","w"],2=>["file","/dev/null","w"],3=>$property->getValue($m)],$p);$deadline=microtime(true)+5;while(!is_file('.var_export($paused,true).')&&microtime(true)<$deadline)usleep(10000);throw new RuntimeException("injected parent Throwable with live candidate");},"marker"=>function(){}]);');
+$pipes=[];$parent=proc_open([PHP_BINARY,$throwing],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
+$deadline=microtime(true)+5;while(!is_file($paused)&&microtime(true)<$deadline)usleep(10000);usleep(100000);
+check(is_file($paused),'Throwable candidate did not start');
+check(is_string($service->recoverBeforeBootstrap()),'parent Throwable explicitly unlocked a live inherited candidate');
+check(is_file($site.'/.composer-runtime/active.json'),'parent Throwable prematurely rolled back active candidate');
+check(file_get_contents($site.'/public/lease.txt')==='candidate','parent Throwable restored assets while candidate alive');
+put($release,'continue');$deadline=microtime(true)+5;
+do{usleep(20000);$pinned=$service->recoverBeforeBootstrap();}while($pinned!==null&&microtime(true)<$deadline);
+check($pinned===null,'Throwable candidate lease stuck after exit');
+check(!is_file($site.'/public/lease.txt'),'Throwable recovery failed to restore assets');
+check(file_get_contents($site.'/.composer-runtime/current.json')===$before,'Throwable recovery changed previous pointer');
+foreach($pipes as $pipe)fclose($pipe);proc_close($parent);
+echo "PASS: parent Throwable closes only its own writer lease; rollback waits for inherited candidate lifecycle\n";
