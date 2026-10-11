@@ -1,5 +1,5 @@
 {
-    "generated_at": "2026-10-12T00:22:08+08:00",
+    "generated_at": "2026-10-12T01:01:47+08:00",
     "test_identity": {
         "tenant_id": 1,
         "user_id": 1,
@@ -15,8 +15,8 @@
         "unmapped_user_operations": 1,
         "unclassified_user_operations": 0
     },
-    "charged": 310.64,
-    "settled_points": 296.64,
+    "charged": 334.64,
+    "settled_points": 320.64,
     "unsettled_net_points": 14,
     "pending_budget": 0,
     "cap": 1000,
@@ -625,9 +625,22 @@
                     "registered_executable": true,
                     "execution_ready": true,
                     "unavailable_reason": "",
-                    "contract_state": [],
-                    "successful_local_receipts": [],
-                    "acceptance": "not_executed",
+                    "contract_state": [
+                        {
+                            "id": 591,
+                            "code": "local_text_df22e2c7d90c.aigc_fitting",
+                            "version": 1,
+                            "kind": "tool",
+                            "path": "/api/v1/tools/aigc_fitting/tasks",
+                            "method": "POST",
+                            "product_id": 0,
+                            "status": "archived"
+                        }
+                    ],
+                    "successful_local_receipts": [
+                        "req_4ac5b5cb6ec2b3b5e60e7cdacce8bc8b"
+                    ],
+                    "acceptance": "gateway_receipt_present",
                     "schema_properties": []
                 },
                 {
@@ -678,8 +691,18 @@
                     "execution_ready": true,
                     "unavailable_reason": "",
                     "contract_state": [],
-                    "successful_local_receipts": [],
-                    "acceptance": "not_executed",
+                    "successful_local_receipts": [
+                        "req_b0eb10e176ed417bb5582c4f177a6a10",
+                        "req_d61e7ab13cb76de2f56b1c10a53c31a7",
+                        "req_36df5a3e6b0955f190985c544a00c581",
+                        "req_57c55548706be013e6c84e8966af0b32",
+                        "req_6b745ee74fb1071740bbed9dc84cce8a",
+                        "req_c70ee716030133261832c9222ed1a093",
+                        "req_6ec23e42937633ab41dfac39c62dbab5",
+                        "req_aca0d7511d3bf52559b1b923382fd217",
+                        "req_3ee908caf14b65c402f885f580c01124"
+                    ],
+                    "acceptance": "gateway_receipt_present",
                     "schema_properties": []
                 },
                 {
