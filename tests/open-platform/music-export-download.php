@@ -22,7 +22,7 @@ Db::startTrans();try{
     $file->save(['source_id'=>2]);denied(fn()=>Download::read(1,1,$id),'not_found');$file->save(['source_id'=>1]);
     $file->save(['storage_engine'=>'qcloud']);denied(fn()=>Download::read(1,1,$id),'result_unverified');$file->save(['storage_engine'=>'local']);
     file_put_contents($path,str_repeat('X',strlen($bytes)));denied(fn()=>Download::read(1,1,$id),'result_storage_failed');
-    $export->save(['status'=>'running']);denied(fn()=>Download::read(1,1,$id),'not_found');
+    Db::name('aigc_music_export')->where('id',$id)->update(['status'=>'running']);denied(fn()=>Download::read(1,1,$id),'not_found');
     echo "PASS owned export downloads preserve bytes and MIME; foreign export/file, storage mismatch, damaged bytes and unfinished exports denied without billing\n";
 }finally{Db::rollback();@unlink($path);}
 check($wallets()===$before,'Download charged wallets');
