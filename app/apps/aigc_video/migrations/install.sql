@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_config` (
   `provider_mode` varchar(30) NOT NULL DEFAULT 'platform',
   `provider` varchar(50) NOT NULL DEFAULT 'mock',
   `model` varchar(100) NOT NULL DEFAULT 'mock-video',
-  `config_json` text,
+  `config_json` mediumtext,
   `status` tinyint NOT NULL DEFAULT 1,
   `create_time` int unsigned NOT NULL DEFAULT 0,
   `update_time` int unsigned NOT NULL DEFAULT 0,
