@@ -71,6 +71,13 @@
             "name": "发布",
             "perms": "app.open_platform.management/publishContract",
             "is_show": 0
+          },
+          {
+            "source_menu_key": "open_platform_platform_createVerification",
+            "type": "A",
+            "name": "草稿验收",
+            "perms": "app.open_platform.management/createVerification",
+            "is_show": 0
           }
         ]
       },
