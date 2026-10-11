@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Authorized real local SDK calls. Fixture credentials stay in private process pipes."""
 import importlib.metadata, json, subprocess, sys
-from openai import OpenAI
+from openai import OpenAI, DefaultHttpxClient
 
 if sys.argv[1:] != ['--authorized-1000']:
     raise SystemExit('Explicit local 1000 point cap required')
@@ -9,7 +9,10 @@ child = subprocess.Popen(['docker', 'exec', '-i', '-w', '/www/wwwroot/likeadmin_
 result = {'passed': False, 'sdk_version': importlib.metadata.version('openai'), 'automatic_retries': 0, 'cases': []}
 try:
     fixture = json.loads(child.stdout.readline())
-    client = OpenAI(api_key=fixture['key'], base_url='http://127.0.0.1:19875/api/v1', max_retries=0, timeout=210)
+    # macOS system proxies can route localhost through an external proxy. Scope
+    # this override to the loopback fixture; leave all system settings intact.
+    client = OpenAI(api_key=fixture['key'], base_url='http://127.0.0.1:19875/api/v1', max_retries=0, timeout=210,
+                    http_client=DefaultHttpxClient(trust_env=False, follow_redirects=False))
     for case in fixture['cases']:
         options = dict(case['params'])
         options['extra_headers'] = {'Idempotency-Key': case['idempotency_key']}
