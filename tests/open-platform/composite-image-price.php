@@ -50,12 +50,13 @@ Db::startTrans();try{
  check($localFrozen['prepared']['mask_image']===$mask&&$localFrozen['prepared']['image_payload']['mask_url']===$mask,'Mask was persisted before admission');
  $settings=S::settings(1);M::persistSettings(1,true,$settings);
  $keyId=S::table('key')->insertGetId(['tenant_id'=>1,'user_id'=>1,'name'=>'opf-local-mask-fixture','key_hash'=>hash('sha256',random_bytes(32)),'prefix'=>'fixture','status'=>1,'scopes'=>'["aigc_style_transfer"]','ip_allowlist'=>'[]','concurrency'=>1]+S::timestamp());
+ $admissionBudget=array_replace($local,['user'=>max(1.,$local['user'])]); // Explicit positive boundary fixture; native free retail remains unchanged.
  $op=['kind'=>'tool','app_code'=>'aigc_local_redraw','billable'=>true];$path='/api/v1/tools/aigc_local_redraw/tasks';
  foreach(['permission_denied','key_quota_exceeded','concurrency_exceeded'] as $error){
   if($error!=='permission_denied')S::table('key')->where('id',$keyId)->update(['scopes'=>'["aigc_local_redraw"]','daily_limit'=>$error==='key_quota_exceeded'?0.01:0]);
   if($error==='concurrency_exceeded')S::table('request')->insert(['request_id'=>'req_fixture_'.bin2hex(random_bytes(16)),'tenant_id'=>1,'user_id'=>1,'key_id'=>$keyId,'kind'=>'tool','app_code'=>'aigc_local_redraw','method'=>'POST','path'=>$path,'status'=>'accepted','billing_status'=>'pending','active'=>1,'budget_user'=>0,'budget_tenant'=>0,'consumption_ids'=>'[]','snapshot'=>'{}','response_blob'=>'','payload_hash'=>hash('sha256','mask-fixture')]+S::timestamp());
   $key=S::table('key')->where('id',$keyId)->find();$denied=false;
-  try{app\common\service\open_platform\OpenAdmission::begin($key,'POST',$path,$localParams,$op,$local,'');}catch(OpenException $e){$denied=$e->errorType===$error;}
+  try{app\common\service\open_platform\OpenAdmission::begin($key,'POST',$path,$localParams,$op,$admissionBudget,'');}catch(OpenException $e){$denied=$e->errorType===$error;}
   check($denied,'Mask fixture expected '.$error);check(Db::name('tenant_file')->where('tenant_id',1)->count()===$fileCount,'Rejected mask request wrote a file');
  }
  // Accepted preprocessing is fenced, persisted once in the private recipe, and reused.
