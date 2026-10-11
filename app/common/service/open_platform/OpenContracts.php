@@ -8,9 +8,10 @@ final class OpenContracts
         $kind=(string)($input['kind']??'market');
         $path=(string)($input['path']??'');$method=strtoupper((string)($input['method']??''));$code=(string)($input['code']??'');$config=(array)($input['config']??[]);
         if($kind==='tool'){$registered=OpenToolRegistry::match($method,$path);$config['executor']='tool';$config['billable']=$registered['billable'];$config['app_code']=$registered['app_code'];$config['route']=$registered['route'];}elseif($kind!=='market')throw new OpenException('invalid_contract','接口种类无效');
-        if(($kind==='market'&&!preg_match('#^/api/v1/(?:models(?:/detail)?|chat/completions|completions|responses|messages|tasks(?:/\{task_id\}(?:/cancel)?)?|apps(?:/[a-z0-9_-]+/[a-z0-9_-]+)?|files(?:/\{file_id\})?|upload)$#D',$path))||!in_array($method,['GET','POST','DELETE','PUT'],true)||!preg_match('/^[a-z0-9_.-]{1,160}$/D',$code))throw new OpenException('invalid_contract','接口方法、路径或编码不在可注册范围');
-        if($kind==='market'&&$config['executor']==='tool')throw new OpenException('invalid_contract','商城接口不可使用工具执行器');
-        if(!in_array($config['executor']??'',['json','sse','multipart','binary','tool'],true))throw new OpenException('invalid_contract','执行器未注册');
+        if(($kind==='market'&&!preg_match('#^/api/v1/(?:models(?:/detail)?|chat/completions|completions|responses|messages|tasks(?:/\{task_id\}(?:/cancel)?)?|apps(?:/[a-z0-9_-]+/[a-z0-9_-]+)?|files(?:/\{file_id\})?|upload|user/(?:balance|usage))$#D',$path))||!in_array($method,['GET','POST','DELETE','PUT'],true)||!preg_match('/^[a-z0-9_.-]{1,160}$/D',$code))throw new OpenException('invalid_contract','接口方法、路径或编码不在可注册范围');
+        if($kind==='market'&&($config['executor']??'')==='tool')throw new OpenException('invalid_contract','商城接口不可使用工具执行器');
+        if(!in_array($config['executor']??'',['json','sse','multipart','binary','tool','directory'],true))throw new OpenException('invalid_contract','执行器未注册');
+        if(($config['executor']??'')==='directory'&&($kind!=='market'||!OpenDirectory::supports($method,$path)||!empty($config['billable'])||($config['role']??'')!=='resource'||(int)($input['product_id']??0)!==0))throw new OpenException('invalid_contract','目录执行器只支持固定的免费读取接口');
         if(!in_array($config['role']??'',['submit','query','cancel','resource'],true))throw new OpenException('invalid_contract','必须声明操作生命周期');
         if(!isset($config['input'],$config['example'],$config['responses'],$config['billable']))throw new OpenException('invalid_contract','必须声明参数、可执行示例、响应和计费规则');
         if(($config['input']['type']??'')!=='object')throw new OpenException('invalid_contract','输入必须声明对象结构');
@@ -19,7 +20,7 @@ final class OpenContracts
         if($kind==='market'&&in_array($config['role'],['query','cancel'],true)&&!str_contains($path,'{task_id}'))throw new OpenException('invalid_contract','任务操作必须通过本地归属映射解析');
         if(isset($config['query_path'])&&!preg_match('#^/api/v1/tasks/\{task_id\}$#D',$config['query_path']))throw new OpenException('invalid_contract','查询地址未注册');
         if($kind==='market'&&str_contains($path,'{file_id}'))throw new OpenException('adapter_required','上游文件归属适配器尚未发布');
-        if($kind==='market'&&$method==='GET'&&in_array($path,['/api/v1/tasks','/api/v1/models','/api/v1/apps'],true))throw new OpenException('adapter_required','列表接口必须使用本地权限目录适配器');
+        if($kind==='market'&&$config['executor']!=='directory'&&$method==='GET'&&in_array($path,['/api/v1/tasks','/api/v1/models','/api/v1/apps'],true))throw new OpenException('adapter_required','列表接口必须使用本地权限目录适配器');
         foreach(['upstream_url','api_key','executor_class','credentials'] as $unsafe)if(isset($config[$unsafe]))throw new OpenException('invalid_contract','契约不能包含凭据或任意执行器');
         return ['code'=>$code,'path'=>$path,'method'=>$method,'kind'=>$kind,'product_id'=>$product,'config'=>OpenStore::encode($config)];
     }

@@ -15,7 +15,7 @@ final class OpenAdmission
             $config=!empty($operation['history'])?OpenStore::limits($tenantId):OpenStore::requireEnabled($tenantId);
             $current=OpenStore::table('key')->where('id',$key['id'])->lock(true)->find();if(!$current||(int)$current['status']!==1||((int)$current['expires_at']>0&&(int)$current['expires_at']<=time()))throw new OpenException('invalid_api_key','密钥已失效',401);
             if($idemHash!==null){$old=OpenStore::owner('request',$tenantId,$userId)->where('idempotency_hash',$idemHash)->find();if($old){if($old['payload_hash']!==$fingerprint)throw new OpenException('idempotency_conflict','同一幂等键的参数不同',409);return ['replay'=>true,'row'=>$old];}}
-            $scopes=OpenStore::json($current['scopes']);$scope=$operation['kind']==='market'?(string)($operation['scope']??$operation['product_id']??'market'):$operation['app_code'];if($scopes&&!in_array($scope,$scopes,true)&&!($operation['kind']==='market'&&in_array('market',$scopes,true)))throw new OpenException('permission_denied','密钥无权调用该能力',403);
+            $scopes=OpenStore::json($current['scopes']);$scope=$operation['kind']==='market'?(string)($operation['scope']??$operation['product_id']??'market'):$operation['app_code'];if(!((($operation['executor']??'')==='directory')&&OpenDirectory::supports($method,$path))&&$scopes&&!in_array($scope,$scopes,true)&&!($operation['kind']==='market'&&in_array('market',$scopes,true)))throw new OpenException('permission_denied','密钥无权调用该能力',403);
             $slot=intdiv(time(),60);
             $concurrency=max(1,min((int)$config['concurrency'],(int)$current['concurrency']?:PHP_INT_MAX));
             if(!empty($operation['billable'])&&(OpenStore::table('request')->where(['key_id'=>$key['id'],'active'=>1])->count()>=$concurrency||OpenStore::owner('request',$tenantId,$userId)->where('active',1)->count()>=(int)$config['user_concurrency']||OpenStore::table('request')->where(['tenant_id'=>$tenantId,'active'=>1])->count()>=(int)$config['tenant_concurrency']))throw new OpenException('concurrency_exceeded','并发调用数量超限',429);
@@ -35,7 +35,7 @@ final class OpenAdmission
         if(!$row)return null;
         if($row['payload_hash']!==OpenFiles::fingerprint($params,$files))throw new OpenException('idempotency_conflict','同一幂等键的参数不同',409);
         $scopes=OpenStore::json($key['scopes']);$snapshot=OpenStore::json($row['snapshot']);$scope=$row['kind']==='market'?(string)($snapshot['product_id']??'market'):$row['app_code'];
-        if($scopes&&!in_array($scope,$scopes,true)&&!($row['kind']==='market'&&in_array('market',$scopes,true)))throw new OpenException('permission_denied','密钥无权访问原请求',403);
+        if(!(($snapshot['contract']['executor']??'')==='directory'&&OpenDirectory::supports($method,$path))&&$scopes&&!in_array($scope,$scopes,true)&&!($row['kind']==='market'&&in_array('market',$scopes,true)))throw new OpenException('permission_denied','密钥无权访问原请求',403);
         return $row;
     }
     public static function finish(string $id,array $fields): void { if(isset($fields['active'])&&(int)$fields['active']===0)$fields+=['budget_user'=>0,'budget_tenant'=>0];OpenStore::table('request')->where('request_id',$id)->update($fields+['update_time'=>time()]); }
