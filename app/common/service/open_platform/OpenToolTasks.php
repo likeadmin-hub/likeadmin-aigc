@@ -13,6 +13,10 @@ final class OpenToolTasks
         if(isset($data['task_id'])&&is_numeric($data['task_id']))$data['task_id']=self::encode($app,(string)$data['task_id']);
         if(($op['route']??'')==='GET tasks/{task_id}'&&isset($data['id']))$data['task_id']=self::encode($app,(string)$data['id']);
         if(($op['route']??'')==='GET tasks'&&isset($data['lists']))foreach($data['lists'] as &$item)if(isset($item['id']))$item['task_id']=self::encode($app,(string)$item['id']);
+        if(in_array($op['route']??'',['POST tasks','GET tasks/{task_id}','GET results'],true)){
+            $collection=isset($data['results'])?'results':(($op['route']??'')==='GET results'&&isset($data['lists'])?'lists':null);
+            if($collection!==null)foreach($data[$collection] as &$result)if(is_array($result)){$file=OpenAssets::registerResult((int)request()->tenantId,(int)request()->userId,$app,$result);if($file!==null)$result['file_id']=$file;}unset($result);
+        }
         return OpenPolicy::publicData($data);
     }
     public static function billing(array $row): string
