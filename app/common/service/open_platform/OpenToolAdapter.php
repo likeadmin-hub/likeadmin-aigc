@@ -20,6 +20,7 @@ final class OpenToolAdapter
         if(isset($params['id'])&&is_string($params['id'])&&str_starts_with($params['id'],'ot_'))$params['id']=OpenToolTasks::decode($app,$params['id']);
         $original=app()->request;$scoped=OpenToolRequest::from($request,$params,$operation);app()->instance('request',$scoped);
         try{
+        if(($operation['service']??'')==='readTextTasks')return OpenTextLifecycle::tasks((int)$request->tenantId,(int)$request->userId,$operation['route'],$params);
         if(isset($operation['service'])){$params['_disable_transient_retry']=true;$params['_disable_model_fallback']=true;
             $emit=$onEvent?static function(string $event,array $data)use($onEvent){$onEvent(['type'=>$event,'data'=>$data]);}:null;
             return $operation['service']==='streamText'?AigcLlmService::streamText((int)$request->tenantId,(int)$request->userId,$params,$emit):AigcLlmService::generateText((int)$request->tenantId,(int)$request->userId,$params);}

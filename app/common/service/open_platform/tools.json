@@ -871,6 +871,63 @@
           "type": "object"
         },
         "description": "流式文本生成"
+      },
+      "GET tasks": {
+        "service": "readTextTasks",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "properties": {
+            "page_no": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "page_size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        },
+        "description": "文本任务列表"
+      },
+      "GET tasks/{task_id}": {
+        "service": "readTextTasks",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "properties": {
+            "page_no": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "page_size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        },
+        "description": "文本任务结果"
+      },
+      "GET results": {
+        "service": "readTextTasks",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "properties": {
+            "page_no": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "page_size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        },
+        "description": "文本结果列表"
       }
     }
   },
