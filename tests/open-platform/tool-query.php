@@ -17,5 +17,6 @@ Db::startTrans();try{
  check($wire->getCode()===200&&S::json($wire->getContent())['data']['status']==='running','Running task query altered task state');
  $saved=S::table('request')->where('request_id',$rid)->find();check((int)$saved['active']===0&&$saved['status']==='success'&&$saved['billing_status']==='none','Read query occupied a billable concurrency slot');
  check(T::billing(['consumption_ids'=>'[]','status'=>'failed','billing_status'=>'pending','actual_user'=>0])==='none','Uncharged failure incorrectly reported settled');
+ S::table('request')->where('request_id',$rid)->update(['status'=>'running','active'=>1]);app\common\service\open_platform\OpenRecovery::refresh(S::table('request')->where('request_id',$rid)->find());check((int)S::table('request')->where('request_id',$rid)->value('active')===0,'Recovery retained a completed free read');
  echo "PASS running task remains running while free query ends without a billing slot\n";
 }finally{app\common\service\open_platform\OpenCallContext::leave();Db::rollback();}
