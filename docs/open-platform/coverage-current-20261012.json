@@ -1,5 +1,5 @@
 {
-    "generated_at": "2026-10-12T01:01:47+08:00",
+    "generated_at": "2026-10-12T01:32:49+08:00",
     "test_identity": {
         "tenant_id": 1,
         "user_id": 1,
@@ -28,6 +28,14 @@
                 "eligible": true,
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
+            },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
             },
             "billing_owner": "existing_tool_service",
             "limitations": [],
@@ -132,6 +140,13 @@
                 "eligible": true,
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
+            },
+            "local_probe": {
+                "estimate_status": "blocked",
+                "reason": "参考图数量超出限制",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
             },
             "billing_owner": "existing_tool_service",
             "limitations": [],
@@ -249,6 +264,14 @@
                 "eligible": true,
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
+            },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
             },
             "billing_owner": "existing_tool_service",
             "limitations": [],
@@ -458,6 +481,13 @@
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "blocked",
+                "reason": "参考图数量超出限制",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -485,7 +515,18 @@
                     "contract_state": [],
                     "successful_local_receipts": [],
                     "acceptance": "not_executed",
-                    "schema_properties": []
+                    "schema_properties": [
+                        "clothes_images",
+                        "clothes",
+                        "source_images",
+                        "model_image",
+                        "model",
+                        "model_preset_id",
+                        "ratio",
+                        "prompt",
+                        "user_prompt",
+                        "negative_prompt"
+                    ]
                 },
                 {
                     "method": "POST",
@@ -498,7 +539,18 @@
                     "contract_state": [],
                     "successful_local_receipts": [],
                     "acceptance": "not_executed",
-                    "schema_properties": []
+                    "schema_properties": [
+                        "clothes_images",
+                        "clothes",
+                        "source_images",
+                        "model_image",
+                        "model",
+                        "model_preset_id",
+                        "ratio",
+                        "prompt",
+                        "user_prompt",
+                        "negative_prompt"
+                    ]
                 },
                 {
                     "method": "GET",
@@ -587,6 +639,14 @@
                 "eligible": true,
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
+            },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
             },
             "billing_owner": "existing_tool_service",
             "limitations": [],
@@ -728,6 +788,14 @@
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -855,6 +923,14 @@
                 "eligible": true,
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
+            },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
             },
             "billing_owner": "existing_tool_service",
             "limitations": [],
@@ -1020,6 +1096,14 @@
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -1136,6 +1220,13 @@
                 "eligible": true,
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
+            },
+            "local_probe": {
+                "estimate_status": "unavailable",
+                "reason": "No registered native estimate; requires published bounded usage contract",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
             },
             "billing_owner": "existing_tool_service",
             "limitations": [],
@@ -1535,6 +1626,14 @@
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -1676,6 +1775,14 @@
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -1792,6 +1899,14 @@
                 "eligible": true,
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
+            },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
             },
             "billing_owner": "existing_tool_service",
             "limitations": {
@@ -2505,6 +2620,14 @@
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -2656,6 +2779,13 @@
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "blocked",
+                "reason": "参考图数量超出限制",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -2786,6 +2916,14 @@
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -2903,6 +3041,14 @@
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -3006,6 +3152,13 @@
                 "eligible": true,
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
+            },
+            "local_probe": {
+                "estimate_status": "blocked",
+                "reason": "参考图数量超出限制",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
             },
             "billing_owner": "existing_tool_service",
             "limitations": [],
@@ -3136,6 +3289,14 @@
                 "eligible": true,
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
+            },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "blocked",
+                "admission_reason": "该操作尚未配置可靠的计费额度边界",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
             },
             "billing_owner": "existing_tool_service",
             "limitations": [],
@@ -3397,6 +3558,14 @@
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -3579,6 +3748,13 @@
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "blocked",
+                "reason": "参考图数量超出限制",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -3708,6 +3884,14 @@
                 "eligible": true,
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
+            },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
             },
             "billing_owner": "existing_tool_service",
             "limitations": [],
@@ -3864,6 +4048,14 @@
                 "eligible": true,
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
+            },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
             },
             "billing_owner": "existing_tool_service",
             "limitations": [],
@@ -4078,6 +4270,14 @@
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "blocked",
+                "admission_reason": "请选择风格模板",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -4258,6 +4458,14 @@
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -4412,6 +4620,13 @@
                 "reason": "应用未购买、未上架或已过期",
                 "observed_at": "2026-10-11T19:03:34+08:00"
             },
+            "local_probe": {
+                "estimate_status": "blocked",
+                "reason": "应用未购买、未上架或已过期",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
+            },
             "billing_owner": "existing_tool_service",
             "limitations": [],
             "operations": [
@@ -4528,6 +4743,14 @@
                 "eligible": true,
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
+            },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
             },
             "billing_owner": "existing_tool_service",
             "limitations": [],
@@ -4723,6 +4946,14 @@
                 "eligible": true,
                 "reason": "",
                 "observed_at": "2026-10-11T19:03:34+08:00"
+            },
+            "local_probe": {
+                "estimate_status": "passed",
+                "admission_status": "passed",
+                "admission_scope": "budget_preflight_only",
+                "observed_at": "2026-10-12T01:32:35+08:00",
+                "generation_submissions": 0,
+                "scope": "owned_fixture_estimate_and_budget_only"
             },
             "billing_owner": "existing_tool_service",
             "limitations": [],
