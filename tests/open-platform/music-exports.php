@@ -15,6 +15,7 @@ Db::startTrans();try{
     $ownedId=(int)Db::name('aigc_music_result')->where(['tenant_id'=>1,'user_id'=>1,'delete_time'=>0])->order('id','desc')->value('id');check($ownedId>0,'Owned music fixture absent');
     $reserve=new ReflectionMethod(Runtime::class,'reserve');$capture=new ReflectionMethod(Runtime::class,'capture');
     foreach(['wav','midi','mp4','vox'] as $api)foreach(['completed','processing','failed','query-error','storage-error'] as $scenario){
+        if($api==='mp4'&&\app\common\service\app\aigc_music\MusicExportDecoder::binary()===''){try{Runtime::input('mp4',['result_id'=>$ownedId],1,1);throw new RuntimeException('Missing MP4 verifier accepted submission');}catch(app\common\service\open_platform\OpenException $e){check($e->errorType==='capability_unavailable','Wrong missing verifier rejection');}continue;}
         if($api==='mp4'&&in_array($scenario,['processing','query-error'],true)||$api==='vox'&&$scenario==='storage-error')continue;
         $params=['result_id'=>$ownedId];$budget=Runtime::budget(1,1,$api,$params);check($budget['user']>0&&$budget['tenant']>0,'Missing export-specific quote');
         $denied=false;try{Runtime::input($api,$params,1,2);}catch(Exception){$denied=true;}check($denied,'Cross-user result accepted');
