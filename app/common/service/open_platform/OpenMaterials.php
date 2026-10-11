@@ -15,6 +15,11 @@ final class OpenMaterials
             if(str_starts_with($value,'data:')){if(!preg_match('#^data:(?:image/(?:png|jpeg|webp|gif)|audio/[a-z0-9.+-]+|video/[a-z0-9.+-]+);base64,#i',$value))throw new OpenException('invalid_material','素材 Data URI 格式无效');continue;}
             if(preg_match('#^https?://#i',$value)){
                 $uri=FileService::setFileUrl($value);
+                // Native storage readers recognize an existing uploads path even
+                // on another hostname. Enforce ownership before that alias can
+                // become a local file in a shared tool service.
+                $local=ltrim((string)(parse_url($value,PHP_URL_PATH)?:''),'/');
+                if((str_starts_with($local,'uploads/')||str_starts_with($local,'resource/'))&&is_file(public_path().$local))$uri=$local;
                 // The storage service only strips configured local domains, preserving external URLs.
                 if($uri===$value||preg_match('#^https?://#i',$uri)){OpenSafeHttp::resolve($value,false);continue;}
             }else $uri=ltrim($value,'/');

@@ -1626,7 +1626,9 @@ class MarketTextModelRuntimeService
     }
     private static function sourceBaseUrl(string $baseUrl): string { $parts = parse_url(trim($baseUrl)); if (!is_array($parts) || empty($parts['host'])) return rtrim($baseUrl, '/'); return (string)($parts['scheme'] ?? 'https') . '://' . $parts['host'] . (isset($parts['port']) ? ':' . (int)$parts['port'] : ''); }
     private static function arrayValue($value): array { if (is_array($value)) return $value; $decoded = is_string($value) ? json_decode($value, true) : []; return is_array($decoded) ? $decoded : []; }
-    private static function points($value): float { return round(max(0, (float)$value), 6); }
+    // Wallets and their independent ledgers use two decimals. Keep SKU unit
+    // prices intact and round only the combined final charge, exactly once.
+    private static function points($value): float { return round(max(0, (float)$value), 2); }
     private static function no(string $prefix): string { return $prefix . date('YmdHis') . strtoupper(substr(bin2hex(random_bytes(6)), 0, 10)); }
     private static function extra(AiAppTask $task, AiConsumptionLog $consumption, string $stage): array { return ['app_code' => (string)$task['app_code'], 'task_id' => (int)$task['id'], 'app_task_no' => (string)$task['task_no'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => (string)$consumption['consume_no'], 'billing_stage' => $stage]; }
     private static function event(int $id, string $type, string $status, array $payload, int $elapsed = 0): void { AiConsumptionEvent::create(['consumption_id' => $id, 'event_type' => $type, 'event_status' => $status, 'attempt_no' => 1, 'payload_summary' => $payload, 'payload_ciphertext' => '', 'http_status' => 0, 'elapsed_ms' => $elapsed, 'create_time' => time()]); }
