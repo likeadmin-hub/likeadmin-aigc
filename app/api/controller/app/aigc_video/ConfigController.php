@@ -12,7 +12,8 @@ class ConfigController extends BaseApiController
     public function detail()
     {
         $data = AigcVideoService::config((int)$this->request->tenantId);
-        unset($data['config_json']['prompt_enhance_system_prompt']);
+        unset($data['config_json']['prompt_enhance_system_prompt'], $data['config_json']['video_effects']);
+        $data['video_effects'] = \app\common\service\app\aigc_video\VideoEffectService::publicCatalog($data['video_effects'] ?? []);
         return $this->success('获取成功', $data);
     }
 }

@@ -38,11 +38,13 @@ class AigcVideoService
                 'model' => 'power_market_video',
                 'status' => 1,
                 'config_json' => [],
+                'video_effects' => VideoEffectService::defaults(),
                 'prompt_enhance_model' => PromptEnhanceModelService::describe($tenantId, []),
                 'option_config' => self::marketOptionConfig($tenantId),
             ]);
         }
         $data = $config->toArray();
+        $data['video_effects'] = VideoEffectService::catalog($tenantId);
         $data['prompt_enhance_model'] = PromptEnhanceModelService::describe($tenantId, (array)($data['config_json'] ?? []));
         $data['provider_mode'] = 'market';
         $data['provider'] = 'power_market';
@@ -53,7 +55,9 @@ class AigcVideoService
 
     public static function estimate(int $tenantId, array $params): array
     {
-        return self::marketQuote($tenantId, $params);
+        $quote = self::marketQuote($tenantId, $params);
+        VideoEffectService::resolve(VideoEffectService::catalog($tenantId), $params, (int)$quote['market_product_id']);
+        return $quote;
     }
 
     /** Resolve the duration the chosen SKU would actually submit, without quoting or charging. */
@@ -68,11 +72,15 @@ class AigcVideoService
     public static function saveConfig(int $tenantId, array $params): void
     {
         if (isset($params['config_json']) && is_array($params['config_json'])) {
+            if (array_key_exists('video_effects', $params['config_json'])) $params['config_json']['video_effects'] = VideoEffectService::normalize($params['config_json']['video_effects']);
             $params['config_json'] = PromptEnhanceModelService::validateConfig($tenantId, $params['config_json']);
         }
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $row = AigcVideoConfig::where('tenant_id', $tenantId)->findOrEmpty();
         $current = $row->isEmpty() ? [] : $row->toArray();
+        if (isset($params['config_json']) && !array_key_exists('video_effects', $params['config_json']) && isset($current['config_json']['video_effects'])) {
+            $params['config_json']['video_effects'] = $current['config_json']['video_effects'];
+        }
         $data = [
             'tenant_id' => $tenantId,
             'provider_mode' => 'market',
@@ -112,6 +120,9 @@ class AigcVideoService
 
     private static function generateMarketInternal(int $tenantId, int $userId, array $params, array $billingOverride = [], string $marketAppCode = self::APP_CODE): array
     {
+        unset($params['effect_snapshot']);
+        if (is_array($params['params'] ?? null)) unset($params['params']['effect_snapshot']);
+        $originalPrompt = trim((string)($params['prompt'] ?? ''));
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
         if ($prompt === '') {
@@ -127,6 +138,13 @@ class AigcVideoService
         $params['duration'] = (int)$normalizedDuration['duration'];
         $selection = array_replace($selection, $normalizedDuration);
         $quote = self::applyMarketBillingOverride(self::marketQuote($tenantId, $selection + $params), $billingOverride);
+        $effect = VideoEffectService::resolve(VideoEffectService::catalog($tenantId), $params, (int)$quote['market_product_id']);
+        if ($effect) {
+            $params = VideoEffectService::compile($params, $effect);
+            self::checkSensitiveWords($tenantId, $params['prompt']);
+            $prompt = $originalPrompt;
+            $selection['effect_snapshot'] = VideoEffectService::snapshot($effect, $originalPrompt);
+        }
         $duplicate = self::findRecentMarketDuplicateTask($tenantId, $userId, $prompt, $selection, $params);
         if ($duplicate !== null) {
             return self::marketDuplicateResponse($duplicate, $tenantId, $userId);
@@ -322,6 +340,7 @@ class AigcVideoService
             ->order('id', 'desc')->limit(3)->select();
         $signature = self::referenceAssetSignature((array)$params['reference_assets'], (array)$params['reference_images']);
         foreach ($rows as $row) {
+            if (($row['model_json']['effect_snapshot']['version'] ?? '') !== ($selection['effect_snapshot']['version'] ?? '')) continue;
             if (in_array((string)$row['status'], ['failed', 'canceled'], true)) {
                 continue;
             }
@@ -681,6 +700,7 @@ class AigcVideoService
         }
         return self::generate($tenantId, (int)$task['user_id'], [
             'prompt' => $task['prompt'],
+            'effect_id' => (string)($task['model_json']['effect_snapshot']['id'] ?? ''),
             'negative_prompt' => $task['negative_prompt'],
             'reference_images' => $task['reference_images'] ?: [],
             'reference_assets' => $task['reference_assets'] ?: [],
@@ -885,6 +905,8 @@ class AigcVideoService
 
     private static function appendTaskModelDisplay(array &$task): void
     {
+        $effect = $task['model_json']['effect_snapshot'] ?? [];
+        $task['effect'] = $effect ? array_intersect_key($effect, array_flip(['id', 'name', 'version'])) : null;
         $task['model_name'] = AiTaskRecordService::modelDisplayName($task, self::APP_CODE);
         $task['channel_name'] = $task['model_name'];
     }
