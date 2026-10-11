@@ -34,7 +34,16 @@ final class OpenGateway
     private static function replayResponse(array $row,string $path)
     {
         if($row['response_blob']==='')return self::error(new OpenException('request_in_progress','已有请求正在执行或受理状态待确认',409),$path,$row['request_id']);
-        return response(OpenVault::open($row['response_blob']),(int)$row['response_code'],['Content-Type'=>$row['response_type'],'X-Request-Id'=>$row['request_id']]);
+        if($row['kind']==='asset'&&$row['method']==='GET'&&preg_match('#^/api/v1/assets/(of_[a-f0-9]{32})/download$#D',$row['path'],$match)){
+            $asset=OpenAssets::detail((int)$row['tenant_id'],(int)$row['user_id'],$match[1]);return redirect($asset['url'])->header(['X-Request-Id'=>$row['request_id']]);
+        }
+        $snapshot=OpenStore::json($row['snapshot']);$headers=isset($snapshot['response_headers_blob'])?OpenStore::json(OpenVault::open($snapshot['response_headers_blob'])):[];
+        return response(OpenVault::open($row['response_blob']),(int)$row['response_code'],$headers+['Content-Type'=>$row['response_type'],'X-Request-Id'=>$row['request_id']]);
+    }
+
+    public static function recordWire(string $id,array $fields,array $headers): void
+    {
+        Db::transaction(function()use($id,$fields,$headers){$row=OpenStore::table('request')->where('request_id',$id)->lock(true)->find();if(!$row)throw new OpenException('not_found','响应请求不存在',404);OpenCallContext::assertLease($row);$snapshot=OpenStore::json($row['snapshot']);$snapshot['response_headers_blob']=OpenVault::seal(OpenStore::encode($headers));OpenAdmission::finish($id,$fields+['snapshot'=>OpenStore::encode($snapshot)]);});
     }
 
     private static function historicalMarket(array $key,string $method,string $path): ?array
@@ -53,7 +62,7 @@ final class OpenGateway
     {
         $start=microtime(true);OpenCallContext::enter($row['request_id']);$dispatched=false;
         try{
-            if($op['kind']==='asset'){$data=$op['role']==='upload'?OpenAssets::upload((int)$row['tenant_id'],(int)$row['user_id'],(string)($params['type']??'file')):OpenAssets::detail((int)$row['tenant_id'],(int)$row['user_id'],$op['params']['file_id']);$body=OpenStore::encode(['request_id'=>$row['request_id'],'data'=>$data]);OpenAdmission::finish($row['request_id'],['status'=>'success','active'=>0,'billing_status'=>'none','response_code'=>200,'response_blob'=>OpenVault::seal($body),'next_run_time'=>0]);return $op['role']==='download'?redirect($data['url']):json(['request_id'=>$row['request_id'],'data'=>$data])->header(['X-Request-Id'=>$row['request_id']]);}
+            if($op['kind']==='asset'){$data=$op['role']==='upload'?OpenAssets::upload((int)$row['tenant_id'],(int)$row['user_id'],(string)($params['type']??'file')):OpenAssets::detail((int)$row['tenant_id'],(int)$row['user_id'],$op['params']['file_id']);$body=OpenStore::encode(['request_id'=>$row['request_id'],'data'=>$data]);OpenAdmission::finish($row['request_id'],['status'=>'success','active'=>0,'billing_status'=>'none','response_code'=>$op['role']==='download'?302:200,'response_blob'=>OpenVault::seal($body),'next_run_time'=>0]);return $op['role']==='download'?redirect($data['url'])->header(['X-Request-Id'=>$row['request_id']]):json(['request_id'=>$row['request_id'],'data'=>$data])->header(['X-Request-Id'=>$row['request_id']]);}
             if($op['kind']==='tool'){
                 self::markDispatch($row['request_id']);$dispatched=true;$streamBody='';$data=OpenToolAdapter::call($request,$op,$params,$stream?function($event)use(&$streamBody){$chunk='data: '.OpenStore::encode(OpenPolicy::publicData((array)$event))."\n\n";$streamBody.=$chunk;echo $chunk;@flush();}:null);$dispatched=true;
                 if($op['app_code']==='aigc_llm'&&in_array($op['service']??'',['generateText','streamText'],true))$data+=['task_id'=>(string)$row['id'],'status'=>'success'];$native=$data['task_id']??OpenStore::table('request')->where('id',$row['id'])->value('tool_task_id');if($native==='')$native=null;$status=(string)($data['status']??($native!==null?'running':'success'));$body=OpenStore::encode(['request_id'=>$row['request_id'],'data'=>OpenToolTasks::publicResult($op['app_code'],$op,$data)]);$done=$stream?'event: done'."\n".'data: '.$body."\n\n":'';$replayBody=$stream?$streamBody.$done:$body;$pending=in_array($status,['pending','queued','running','submitting','processing','pending_confirmation'],true);$latest=OpenStore::table('request')->where('id',$row['id'])->find();$billing=empty($op['billable'])?'none':OpenToolTasks::billing(array_replace($latest,['status'=>$status]));$pending=!empty($op['billable'])&&($pending||in_array($billing,['pending_usage','pending','pending_confirmation','settlement_failed'],true));
@@ -71,7 +80,7 @@ final class OpenGateway
             if(!empty($op['billable'])&&$op['role']==='submit'&&self::wireUncertain($wire['status'])){self::deferMarketAcceptance($row,$task);$fields+=['status'=>$task!==''?'running':'pending_confirmation'];}
             elseif($task!==''&&!$failed&&$op['role']==='submit'){$fields+=['upstream_task_id'=>$task,'status'=>'running','next_run_time'=>time()+30];\app\common\model\ai\AiConsumptionLog::where('consume_no',$row['request_id'])->update(['upstream_task_id'=>$task,'run_status'=>'running']);}
             else{$fields+=['status'=>$failed?'failed':'success'];if(!empty($op['billable'])){if($stream)$data=self::streamUsage($wire['body']);self::settleKnownResult($row,$data,$failed);}else $fields+=['active'=>0,'next_run_time'=>0];}
-            OpenAdmission::finish($row['request_id'],$fields);
+            self::recordWire($row['request_id'],$fields,$wire['headers']);
             if(!$op['history']){$latest=OpenStore::table('request')->where('id',$row['id'])->find();if((int)$latest['active']===0)OpenWebhooks::enqueue($latest,$data);}
             if($op['history']&&!$failed){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);self::observeTask($owner,$data);}
             return $stream?response(''):response($wire['body'],$wire['status'],$wire['headers']+['X-Request-Id'=>$row['request_id']]);

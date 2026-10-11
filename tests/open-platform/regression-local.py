@@ -3,7 +3,7 @@
 from pathlib import Path
 import datetime, json, re, subprocess, sys
 root=Path(__file__).resolve().parents[2]
-tests="policy registry contracts database lifecycle request-context upload-identity transport stream-response safe-http material-fetch text-price text-recovery composite-task schema documents directory protocol-errors usage image-price-binding tool-budget result-assets submission-recovery tool-query publication webhooks preview worker-recovery recovery-lease install-fresh".split()
+tests="policy registry contracts database lifecycle request-context upload-identity transport stream-response response-replay safe-http material-fetch text-price text-recovery composite-task schema documents directory protocol-errors usage image-price-binding tool-budget result-assets submission-recovery tool-query publication webhooks preview worker-recovery recovery-lease install-fresh".split()
 base=["docker","exec","-w","/www/wwwroot/likeadmin_aigc_saas/server","bt","/www/server/php/82/bin/php"]
 report={"generated_at":datetime.datetime.now(datetime.timezone.utc).isoformat(),"commit":subprocess.check_output(["git","rev-parse","HEAD"],cwd=root,text=True).strip(),"paid_calls":False,"tests":[]}
 for name in tests:
