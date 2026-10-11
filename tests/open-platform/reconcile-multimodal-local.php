@@ -14,11 +14,13 @@ function check($ok,$why){if(!$ok)throw new RuntimeException($why);}
 $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&$db['database']==='z_cn','Local evidence only');
 check(Db::name('user')->where(['id'=>1,'tenant_id'=>1,'account'=>'xhadmin001'])->find(),'Authorized identity missing');
 $dir=dirname(__DIR__,2).'/runtime/open-platform-acceptance';$lock=fopen($dir.'/paid.lock','c');check($lock&&flock($lock,LOCK_EX|LOCK_NB),'Acceptance lock busy');
+$runs=['aigc_image'=>'local_text_1bd7b6a0ba3c','aigc_music'=>'local_text_8e766ab3ca3d'];$reportName='multimodal-reconciliation';
+if(isset($argv[1])){check(preg_match('/^--music-run=(local_text_[a-f0-9]{12})$/D',$argv[1],$match)===1,'Select an existing authorized music report');$runs=['aigc_music'=>$match[1]];$reportName=$match[1].'-content';}
 $balances=fn()=>[(string)Db::name('user')->where(['id'=>1,'tenant_id'=>1])->value('user_money'),(string)Db::name('tenant')->where('id',1)->value('point_balance')];$before=$balances();
 $output=$dir.'/media-evidence';if(!is_dir($output))mkdir($output,0700,true);$report=['verified_at'=>date(DATE_ATOM),'tenant_id'=>1,'user_id'=>1,'new_submissions'=>0,'items'=>[],'result'=>'pending'];
 try{
- foreach(['aigc_image'=>'local_text_1bd7b6a0ba3c','aigc_music'=>'local_text_8e766ab3ca3d'] as $app=>$run){
-  $source=S::json(file_get_contents($dir.'/'.$run.'.json'));check($source['tenant_id']===1&&$source['user_id']===1,'Unexpected report owner');$case=$source['cases'][$app];$row=S::owner('request',1,1)->where('request_id',$case['request_id'])->find();check($row&&$row['status']==='success'&&(float)$row['actual_user']===(float)$case['quote']&&(float)$row['budget_user']===0.,'Known task charge/state changed');
+ foreach($runs as $app=>$run){
+  $source=S::json(file_get_contents($dir.'/'.$run.'.json'));check($source['tenant_id']===1&&$source['user_id']===1&&($source['cap']??0)===1000&&($source['result']??'')==='passed','Unexpected authorized report');$case=$source['cases'][$app];$row=S::owner('request',1,1)->where('request_id',$case['request_id'])->find();check($row&&$row['status']==='success'&&(float)$row['actual_user']===(float)$case['quote']&&(float)$row['budget_user']===0.,'Known task charge/state changed');
   if((int)$row['active']===1)Recovery::refresh($row);$row=S::owner('request',1,1)->where('id',$row['id'])->find();check($row['billing_status']==='settled'&&(int)$row['active']===0,'Recovered billing unresolved');
   Verification::assertLedger($row);$contract=Contracts::detail($case['contract_id']);$contract['config']['verification']=['request_id'=>$row['request_id']];Verification::assertReceipt($contract);
   request()->tenantId=1;request()->userId=1;request()->userInfo=['tenant_id'=>1,'user_id'=>1,'terminal'=>4];request()->source=app\common\enum\AdminTerminalEnum::USER;
@@ -32,4 +34,4 @@ try{
  }
  check($balances()===$before,'Evidence query unexpectedly changed wallets');$report['wallets_unchanged']=true;$report['result']='pending_host_audio_probe';
 }catch(Throwable $e){$report['result']='failed';$report['failure']=$e->getMessage();}
-file_put_contents($dir.'/multimodal-reconciliation.json',S::encode($report));echo S::encode($report),"\n";exit($report['result']==='failed'?1:0);
+file_put_contents($dir.'/'.$reportName.'.json',S::encode($report));echo S::encode($report),"\n";exit($report['result']==='failed'?1:0);
