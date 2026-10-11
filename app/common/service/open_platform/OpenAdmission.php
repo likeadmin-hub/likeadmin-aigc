@@ -38,5 +38,5 @@ final class OpenAdmission
         if($scopes&&!in_array($scope,$scopes,true)&&!($row['kind']==='market'&&in_array('market',$scopes,true)))throw new OpenException('permission_denied','密钥无权访问原请求',403);
         return $row;
     }
-    public static function finish(string $id,array $fields): void { OpenStore::table('request')->where('request_id',$id)->update($fields+['update_time'=>time()]); }
+    public static function finish(string $id,array $fields): void { if(isset($fields['active'])&&(int)$fields['active']===0)$fields+=['budget_user'=>0,'budget_tenant'=>0];OpenStore::table('request')->where('request_id',$id)->update($fields+['update_time'=>time()]); }
 }
