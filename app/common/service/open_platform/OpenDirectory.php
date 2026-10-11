@@ -8,13 +8,14 @@ final class OpenDirectory
 {
     public static function supports(string $method,string $path): bool
     {
-        return $method==='GET'&&in_array($path,['/api/v1/models','/api/v1/apps','/api/v1/tasks','/api/v1/user/balance','/api/v1/user/usage'],true);
+        return $method==='GET'&&in_array($path,['/api/v1/models','/api/v1/apps','/api/v1/tools','/api/v1/tasks','/api/v1/user/balance','/api/v1/user/usage'],true);
     }
     public static function history(string $path): bool {return in_array($path,['/api/v1/tasks','/api/v1/user/balance','/api/v1/user/usage'],true);}
     public static function execute(array $key,string $path,array $params): array
     {
         $tenant=(int)$key['tenant_id'];$user=(int)$key['user_id'];
         if(!self::history($path))OpenStore::requireEnabled($tenant);
+        if($path==='/api/v1/tools'){$scopes=OpenStore::json($key['scopes']);$items=array_values(array_filter(OpenCatalog::forUser($tenant,$user),fn($item)=>$item['kind']==='tool'&&(!$scopes||in_array($item['code'],$scopes,true))));return ['status'=>200,'headers'=>['content-type'=>'application/json'],'body'=>OpenStore::encode(['data'=>$items])];}
         if($path==='/api/v1/user/balance')return self::success(['available_points'=>(float)Db::name('user')->where(['tenant_id'=>$tenant,'id'=>$user])->value('user_money')]);
         if($path==='/api/v1/user/usage')return self::usage($tenant,$user,$params);
         if($path==='/api/v1/tasks')return self::tasks($key,$params);
