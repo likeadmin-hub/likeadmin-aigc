@@ -260,10 +260,12 @@ class AigcProductImageService
         $imageEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
         $estimate = self::buildEstimate($prepared, $imageEstimate);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
+        $handoff = \app\common\service\open_platform\OpenImageHandoff::callback($tenantId, $userId, self::APP_CODE,
+            static fn(AigcImageTask $image) => self::upsertTaskFromImageTask($tenantId, $userId, (int)$image['id'], $prepared, $estimate));
         $imageResult = AigcImageService::generateWithBillingOverride($tenantId, $userId, $prepared['image_payload'], [
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
-        ]);
+        ], $handoff);
         $imageTaskId = (int)($imageResult['task_id'] ?? 0);
         if ($imageTaskId <= 0) {
             throw new Exception('商品图任务创建失败');
@@ -564,7 +566,7 @@ class AigcProductImageService
 
     private static function upsertTaskFromImageTask(int $tenantId, int $userId, int $imageTaskId, array $prepared, array $estimate): AigcProductImageTask
     {
-        $imageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $imageTaskId])->findOrEmpty();
+        $imageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $imageTaskId])->findOrEmpty();
         if ($imageTask->isEmpty()) {
             throw new Exception('生图任务不存在');
         }

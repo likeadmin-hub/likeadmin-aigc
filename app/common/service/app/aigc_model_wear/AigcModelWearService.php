@@ -121,9 +121,11 @@ class AigcModelWearService
         $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
         $estimate = self::buildEstimate($prepared, $imageEstimate);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
+        $handoff = \app\common\service\open_platform\OpenImageHandoff::callback($tenantId, $userId, self::APP_CODE,
+            static fn(AigcImageTask $image) => self::upsertTaskFromImageTask($tenantId, $userId, (int)$image['id'], $prepared, $estimate));
         $imageResult = AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $prepared['image_payload'], [
             'user_unit_price' => $prepared['unit_price'],
-        ], self::APP_CODE);
+        ], self::APP_CODE, $handoff);
         $imageTaskId = (int)($imageResult['task_id'] ?? 0);
         if ($imageTaskId <= 0) {
             throw new Exception('模特穿戴任务创建失败');
@@ -337,7 +339,7 @@ class AigcModelWearService
 
     private static function upsertTaskFromImageTask(int $tenantId, int $userId, int $imageTaskId, array $prepared, array $estimate): AigcModelWearTask
     {
-        $imageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $imageTaskId])->findOrEmpty();
+        $imageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $imageTaskId])->findOrEmpty();
         if ($imageTask->isEmpty()) {
             throw new Exception('生图任务不存在');
         }
