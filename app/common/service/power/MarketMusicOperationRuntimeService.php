@@ -22,6 +22,7 @@ final class MarketMusicOperationRuntimeService
     public static function input(string $api,array $params,int $tenant=0,int $user=0): array
     {
         if(!isset(self::ROUTES[$api]))throw new OpenException('capability_unavailable','音乐操作尚未接入',404);
+        if($api==='mp4')\app\common\service\app\aigc_music\MusicExportDecoder::assertAvailable();
         if(in_array($api,['timing','wav','midi','mp4','vox'],true)){
             $id=$params['result_id']??$params['id']??0;if(!is_int($id)&&!(is_string($id)&&preg_match('/^[1-9][0-9]*$/D',$id)))throw new OpenException('invalid_request','请选择有效的音乐作品');
             $result=\app\common\model\app\aigc_music\AigcMusicResult::where(['id'=>(int)$id,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->findOrEmpty();

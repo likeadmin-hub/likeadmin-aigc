@@ -14,6 +14,7 @@ final class AigcMusicExportStorageService
     public static function validate(string $type,string $bytes): string
     {
         $valid=MusicExportValidator::valid($type,$bytes);
+        if($valid&&$type==='mp4')$valid=MusicExportDecoder::valid($bytes);
         if(!$valid)throw new OpenException('result_storage_failed','上游导出结果不是所需格式，等待恢复',502);
         return match($type){'wav'=>'audio/wav','midi'=>'audio/midi','mp4'=>'video/mp4'};
     }
