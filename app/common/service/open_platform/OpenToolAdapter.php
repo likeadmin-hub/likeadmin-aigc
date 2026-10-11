@@ -39,7 +39,8 @@ final class OpenToolAdapter
         // exceptions as normal JSON and erase connection/lease failure identity.
         if(in_array($app,array_merge(['aigc_image'],OpenImagePricing::COMPOSITES,OpenImageBatchDispatch::APPS),true)&&in_array($operation['route']??'',['POST tasks','GET tasks/{task_id}'],true)){
             $suffix=substr($app,5);$class='app\\common\\service\\app\\'.$app.'\\Aigc'.implode('',array_map('ucfirst',explode('_',$suffix))).'Service';
-            return $operation['route']==='POST tasks'?$class::generate((int)$request->tenantId,(int)$request->userId,$params):$class::taskDetail((int)$request->tenantId,(int)$params['id'],(int)$request->userId);
+            try{return $operation['route']==='POST tasks'?$class::generate((int)$request->tenantId,(int)$request->userId,$params):$class::taskDetail((int)$request->tenantId,(int)$params['id'],(int)$request->userId);}
+            catch(\Throwable $error){OpenCallContext::rethrowLostAuthority($error);if($error instanceof OpenException||$error instanceof \PDOException||$error instanceof \think\db\exception\DbException)throw $error;throw new OpenException('tool_error',$error->getMessage());}
         }
         // This fixed registry reuses the existing user controller's validation and shared service.
         // No caller-controlled class/action is ever invoked.

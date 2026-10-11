@@ -58,6 +58,7 @@ Db::startTrans();try{
         try{Runtime::submit($cid,$payload);throw new RuntimeException('Runtime swallowed connection loss');}catch(Throwable $e){check(($e===$fault||$fault instanceof PDOException&&Recovery::connectionLost($e)&&$e->getMessage()===$fault->getMessage())&&$fired&&$after===0,'Runtime error handler or advisory lane issued SQL after disconnect');}finally{$armed='';}
         check(Consumption::findOrEmpty($cid)['run_status']==='submitting','Authority loss was incorrectly classified as supplier failure');C::leave();
     }
+    C::leave();$invalid=false;try{Adapter::call(request(),Registry::get('aigc_image')['operations']['POST tasks']+['app_code'=>'aigc_image','route'=>'POST tasks','params'=>[]],[]);}catch(OpenException $e){$invalid=$e->errorType==='tool_error'&&$e->httpStatus===400;}check($invalid,'Native validation lost its business error status');
     echo "PASS native PDO and lease faults escape without later SQL, unreserved children close, atomic reservation binding recovers, reserved-only refunds, unknown acceptance remains held, accepted response and provider-rejection lane disconnects retire; loopback and rollback only\n";
 }finally{$armed='';C::leave();Db::rollback();}
 check($wallets()===$before,'Rollback changed wallets');
