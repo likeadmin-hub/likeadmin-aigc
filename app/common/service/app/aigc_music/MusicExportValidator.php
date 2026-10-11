@@ -95,7 +95,7 @@ final class MusicExportValidator
     }
     private static function avcSample(string $b,int $offset,int $size,int $width): void
     {
-        $end=$offset+$size;$vcl=false;
+        $end=$offset+$size;self::require($offset>=0&&$end<=strlen($b));$vcl=false;
         while($offset<$end){self::require($offset+$width<=$end);$n=0;for($i=0;$i<$width;$i++)$n=($n<<8)|ord($b[$offset++]);self::require($n>=2&&$n<=$end-$offset);$type=ord($b[$offset])&31;self::require(!(ord($b[$offset])&128)&&$type>0&&$type<24);if($type<=5)$vcl=true;$offset+=$n;}
         self::require($vcl);
     }

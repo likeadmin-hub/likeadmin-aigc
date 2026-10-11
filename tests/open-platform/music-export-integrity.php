@@ -2,6 +2,7 @@
 require dirname(__DIR__,2).'/vendor/autoload.php';
 use app\common\service\app\aigc_music\AigcMusicExportStorageService as Storage;
 use app\common\service\open_platform\OpenException;
+set_error_handler(static function($level,$message,$file,$line){throw new ErrorException($message,0,$level,$file,$line);});
 function check($ok,$message){if(!$ok)throw new RuntimeException($message);}
 function reject($type,$bytes){try{Storage::validate($type,$bytes);}catch(OpenException $e){check($e->errorType==='result_storage_failed','Malformed export must stay recoverable');return;}throw new RuntimeException('Malformed '.$type.' accepted');}
 $fmt=pack('vvVVvv',1,1,8000,16000,2,16);$chunks='fmt '.pack('V',16).$fmt.'data'.pack('V',4).str_repeat("\0",4);$wav='RIFF'.pack('V',4+strlen($chunks)).'WAVE'.$chunks;
