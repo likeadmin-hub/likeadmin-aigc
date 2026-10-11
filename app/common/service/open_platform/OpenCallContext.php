@@ -12,6 +12,12 @@ final class OpenCallContext
     {
         $token=self::leaseToken((string)$row['request_id']);if($token!==''&&(!hash_equals($token,(string)$row['lease_token'])||(int)$row['lease_expire']<=time()))throw new OpenException('recovery_lease_lost','任务已由其他恢复实例接管',409);
     }
+    /** Lost connections and execution leases must escape every native error handler before SQL. */
+    public static function rethrowLostAuthority(\Throwable $error): void
+    {
+        if(OpenRecovery::connectionLost($error))throw $error;
+        for($cause=$error;$cause;$cause=$cause->getPrevious())if($cause instanceof OpenException&&$cause->errorType==='recovery_lease_lost')throw $error;
+    }
     public static function id(): string { return self::$requestId; }
     public static function active(): bool {return self::$requestId!==''||request() instanceof OpenToolRequest;}
     public static function textModel(): ?array

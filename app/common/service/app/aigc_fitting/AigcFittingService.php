@@ -642,7 +642,8 @@ class AigcFittingService
         foreach ($imageTaskIds as $imageTaskId) {
             try {
                 AigcImageService::taskDetail($tenantId, $imageTaskId, $userId);
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             }
         }
         $imageTasks = AigcImageTask::where('tenant_id', $tenantId)
@@ -707,7 +708,8 @@ class AigcFittingService
                     $imageTask['reference_image_urls'] = self::imageUrls($imageTask['reference_images'] ?? []);
                     $resultTasks[] = $imageTask;
                     $results = array_merge($results, $imageTask['results'] ?? []);
-                } catch (\Throwable) {
+                } catch (\Throwable $e) {
+                    \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
                 }
             }
             $row['results'] = $results;
@@ -828,7 +830,8 @@ class AigcFittingService
                 if ($storedUri !== '') {
                     return FileService::getFileUrl($storedUri);
                 }
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
                 return $url;
             }
         }

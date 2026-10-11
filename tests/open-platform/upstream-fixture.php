@@ -9,6 +9,15 @@ if(str_starts_with($path,'/api/v1/tasks/music-operation-')){
     if(str_ends_with($id,'outer-completed')){echo json_encode(['code'=>1,'data'=>['task_id'=>$id,'status'=>'completed','result'=>['success'=>true,'file_url'=>'https://example.com/fixture.wav','data'=>[['id'=>'fixture-vox']]]]]);exit;}
     echo json_encode(['code'=>1,'data'=>['result'=>['task_id'=>$id,'status'=>$status,'file_url'=>'https://example.com/fixture.wav','data'=>['id'=>'fixture-vox']]]]);exit;
 }
+if($path==='/api/v1/tasks'&&($_SERVER['REQUEST_METHOD']??'')==='POST'){
+    $input=json_decode(file_get_contents('php://input'),true)?:[];
+    if(str_starts_with((string)($input['model']??''),'opf-image-authority')){
+        header('Content-Type: application/json');
+        if($input['model']==='opf-image-authority-reject'){http_response_code(400);echo '{"code":0,"msg":"Invalid fixture parameter"}';exit;}
+        echo '{"code":1,"data":{"task_id":"opf-image-authority-task","status":"running"}}';exit;
+    }
+}
+if($path==='/api/v1/tasks/opf-image-authority-task'){header('Content-Type: application/json');echo '{"code":1,"data":{"task_id":"opf-image-authority-task","status":"running"}}';exit;}
 if($path==='/api/v1/music-receipt'){header('Content-Type: application/json');echo '{"code":1,"data":{"task_id":"fixture-music-receipt","receipt":"private fixture receipt"}}';exit;}
 if($path==='/api/v1/music-no-task'){header('Content-Type: application/json');echo '{"code":1,"data":{}}';exit;}
 if($path==='/api/v1/music-reject'){http_response_code(403);header('Content-Type: application/json');echo '{"code":0,"msg":"Invalid parameter"}';exit;}

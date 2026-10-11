@@ -246,7 +246,7 @@ class MarketImageModelRuntimeService
             $appTask = AiAppTask::create([
                 'task_no' => self::no('AT'), 'tenant_id' => $tenantId, 'user_id' => $userId,
                 'app_code' => $appCode, 'action_code' => $action,
-                'business_table' => $businessTable, 'business_id' => 0, 'parent_task_id' => 0,
+                'business_table' => $businessTable, 'business_id' => (int)$businessTaskId, 'parent_task_id' => 0,
                 'status' => 'running', 'progress' => 10,
                 'request_summary' => self::requestSummary($request), 'result_summary' => [],
                 'estimated_tenant_cost' => $tenantCost, 'estimated_user_price' => $userPrice,
@@ -324,6 +324,7 @@ class MarketImageModelRuntimeService
             }
             return ['status' => $images === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => $images];
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             if ($upstreamAccepted) {
                 self::recordAcceptedSubmissionFailure($consumptionId, $taskId, $requestId, $e);
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => []];
@@ -381,7 +382,8 @@ class MarketImageModelRuntimeService
                 'delay_ms' => $delayMs,
                 'provider_http_status' => (int)$e->getCode(),
             ]);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             // Audit failures must not turn a safe supplier retry into a user failure.
         }
     }
@@ -400,6 +402,7 @@ class MarketImageModelRuntimeService
             throw new Exception('图片模型当前请求较多，请稍后重试');
         }
         $cooldownKey = 'aigc:' . $lane;
+        $connectionLost = false;
         try {
             try {
                 $nextAt = (float)Cache::get($cooldownKey, 0);
@@ -407,19 +410,26 @@ class MarketImageModelRuntimeService
                 if ($waitMs > 0) {
                     usleep($waitMs * 1000);
                 }
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
                 // The advisory lock still serializes submits when cache is unavailable.
             }
             return self::request('POST', $url, $payload);
+        } catch (\Throwable $error) {
+            $connectionLost = \app\common\service\open_platform\OpenRecovery::connectionLost($error);
+            throw $error;
         } finally {
             try {
                 Cache::set($cooldownKey, microtime(true) + (self::SUBMIT_LANE_INTERVAL_MS / 1000), 5);
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
                 // A transient cache outage must not break a paid task submit.
             }
             try {
-                Db::query('SELECT RELEASE_LOCK(?)', [$lane]);
+                // A dead connection owns no reusable lane. Retire without another SQL call.
+                if (!$connectionLost) Db::query('SELECT RELEASE_LOCK(?)', [$lane]);
             } catch (\Throwable $e) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
                 Log::warning('Market image submit lane release failed: ' . $e->getMessage());
             }
         }
@@ -538,6 +548,7 @@ class MarketImageModelRuntimeService
             self::event($consumptionId, 'poll', 'running', ['upstream_task_id' => $taskId, 'upstream_status' => $status]);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             self::recordRefreshError($consumptionId, $taskId, $e);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
         }
@@ -1350,7 +1361,8 @@ class MarketImageModelRuntimeService
                 'upstream_task_id' => $taskId,
                 'error' => mb_substr($message, 0, 300),
             ]);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             // Diagnostics must not interrupt the next provider retry.
         }
     }
@@ -1607,6 +1619,7 @@ class MarketImageModelRuntimeService
             }
             AiTaskJobService::enqueueQueryResult($consumptionId);
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             AiTaskLifecycleEventService::record($consumptionId, 'job_enqueue_failed', 'pending', [
                 'job_type' => $processResult ? AiTaskJobService::TYPE_PROCESS_RESULT : AiTaskJobService::TYPE_QUERY_RESULT,
                 'reason' => mb_substr($e->getMessage(), 0, 300),
@@ -1635,6 +1648,7 @@ class MarketImageModelRuntimeService
             ]);
             self::enqueueResultJob($consumptionId);
         } catch (\Throwable $recoveryError) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($recoveryError);
             Log::warning('Market image accepted submission recovery failed: consumption=' . $consumptionId . ' error=' . $recoveryError->getMessage());
         }
     }

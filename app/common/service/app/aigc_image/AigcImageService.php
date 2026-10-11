@@ -183,6 +183,7 @@ class AigcImageService
             self::syncMarketTaskResult($tenantId, (int)$task['id'], $userId);
             return ['task_id' => (int)$task['id'], 'results' => self::existingResultRows($tenantId, $userId, (int)$task['id']), 'status' => (string)($result['status'] ?? 'running')];
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             $task->save(['status' => 'failed', 'error' => $e->getMessage(), 'finish_time' => time(), 'update_time' => time()]);
             throw $e;
         }
@@ -295,6 +296,7 @@ class AigcImageService
             AiUsageService::attachImageTask((int)$usage['app_task']['id'], (int)$task['id']);
             Db::commit();
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             Db::rollback();
             throw $e;
         }
@@ -325,6 +327,7 @@ class AigcImageService
                 $channelConfig
             ));
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             $task->status = 'failed';
             $task->error = '生图提交失败';
             $task->finish_time = time();
@@ -431,6 +434,7 @@ class AigcImageService
                 'status' => (string)($result['status'] ?? 'running'),
             ];
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             $task->save([
                 'status' => 'failed',
                 'error' => $e->getMessage(),
@@ -1045,6 +1049,7 @@ class AigcImageService
                 ];
                 self::finishTaskWithImages($task, $selection, $estimate, $result->images);
             } catch (\Throwable $e) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
                 if (!$swallowErrors) {
                     throw $e;
                 }
@@ -1134,7 +1139,8 @@ class AigcImageService
     {
         try {
             self::refreshRunningTasks($tenantId, $userId, $taskId, true);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             // Listing/detail pages must remain readable even if async task polling fails.
         }
     }
@@ -1148,7 +1154,8 @@ class AigcImageService
             $task->update_time = time();
             $task->save();
             AiUsageService::failImageTask((int)$task['id'], $message, 'refresh_failed');
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             // Never let failure-state persistence break read-only task list APIs.
         }
     }
@@ -1542,6 +1549,7 @@ class AigcImageService
             $task->save();
             Db::commit();
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             Db::rollback();
             $task->status = 'failed';
             $task->error = $e->getMessage();

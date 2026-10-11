@@ -21,7 +21,7 @@ final class OpenImageBatchDispatch
             if(!(int)$row['active']||$row['tool_task_id']!==''||isset($snapshot['fitting_dispatch']))throw new OpenException('task_context_invalid','图片批次已受理，不能再次提交',409);
             $token=OpenCallContext::leaseToken($id)?:bin2hex(random_bytes(16));
             // Preserve the existing durable snapshot key for accepted fitting receipts.
-            $snapshot['fitting_dispatch']=['state'=>'running','expected'=>$expected,'owner'=>$token,'started_at'=>time()];
+            $snapshot['fitting_dispatch']=['state'=>'running','expected'=>$expected,'owner'=>$token,'started_at'=>time(),'reservation_binding'=>1];
             OpenStore::table('request')->where('id',$row['id'])->update(['snapshot'=>OpenStore::encode($snapshot),'lease_token'=>$token,'lease_expire'=>time()+600,'update_time'=>time()]);
             OpenCallContext::enter($id,$token);
         });
@@ -53,11 +53,43 @@ final class OpenImageBatchDispatch
                 $snapshot['fitting_dispatch']=['state'=>'interrupted','expected'=>0,'owner'=>OpenCallContext::leaseToken($current['request_id']),'finished_at'=>time()];
                 OpenAdmission::finish($current['request_id'],['snapshot'=>OpenStore::encode($snapshot)]);return;
             }
+            if(($dispatch['state']??'')==='interrupted'){self::repairInterruptedChildren($current,$dispatch);return;}
             if(($dispatch['state']??'')!=='running')return;
             // An active submitter must not be classified as a crashed batch.
             if((int)$current['lease_expire']>time()&&hash_equals((string)$dispatch['owner'],(string)$current['lease_token']))return;
             $snapshot['fitting_dispatch']['state']='interrupted';$snapshot['fitting_dispatch']['finished_at']=time();OpenAdmission::finish($current['request_id'],['snapshot'=>OpenStore::encode($snapshot)]);
+            self::repairInterruptedChildren($current,$dispatch);
         });
+    }
+    /** Resolve only receipts that atomically bound their reservation before supplier submission. */
+    private static function repairInterruptedChildren(array $row,array $dispatch): void
+    {
+        if(($dispatch['reservation_binding']??0)!==1||$row['tool_task_id']==='')return;
+        $parentModel=OpenToolRegistry::get($row['app_code'])['task_model'];
+        $owner=['tenant_id'=>(int)$row['tenant_id'],'user_id'=>(int)$row['user_id']];
+        $parent=$parentModel::where($owner)->where(['id'=>(int)$row['tool_task_id'],'delete_time'=>0])->findOrEmpty();
+        if($parent->isEmpty())return;
+        $ids=array_values(array_unique(array_filter(array_map('intval',array_merge((array)$parent['image_task_ids'],[(int)$parent['image_task_id']])))));
+        $consumptionIds=array_map('intval',OpenStore::json($row['consumption_ids']));
+        foreach($ids as $id){
+            $child=\app\common\model\app\aigc_image\AigcImageTask::where($owner)->where(['id'=>$id,'delete_time'=>0,'provider'=>'power_market'])->lock(true)->findOrEmpty();
+            if($child->isEmpty()||!in_array((string)$child['status'],['pending','running'],true))continue;
+            $tasks=\app\common\model\ai\AiAppTask::where($owner)->where(['app_code'=>$row['app_code'],'business_table'=>'aigc_image_task','business_id'=>$id])->select()->toArray();
+            // Missing business binding in a legacy receipt remains uncertain.
+            $bound=[];foreach($tasks as $task){$c=\app\common\model\ai\AiConsumptionLog::where($owner)->where(['app_task_id'=>$task['id'],'app_code'=>$row['app_code']])->findOrEmpty();
+                if(!$c->isEmpty()&&in_array((int)$c['id'],$consumptionIds,true)&&(OpenStore::json($c['price_snapshot'])['_open_platform_request_id']??'')===$row['request_id'])$bound[]=$c;
+            }
+            if(count($bound)===1){
+                $c=$bound[0];if((int)$child['app_task_id']===0)$child->save(['app_task_id'=>(int)$c['app_task_id'],'update_time'=>time()]);
+                if((string)$c['run_status']==='reserved'&&(string)$c['upstream_task_id']===''){
+                    // start() durably changes reserved to submitting before transport.
+                    \app\common\service\power\MarketImageModelRuntimeService::cancel((int)$c['id']);
+                    $child->save(['status'=>'failed','error'=>'图片子任务在上游提交前中断','tenant_cost_points'=>0,'user_charge_points'=>0,'finish_time'=>time(),'update_time'=>time()]);
+                }
+            }elseif(!$tasks&&(int)$child['app_task_id']===0){
+                $child->save(['status'=>'failed','error'=>'图片子任务在额度预占前中断','tenant_cost_points'=>0,'user_charge_points'=>0,'finish_time'=>time(),'update_time'=>time()]);
+            }
+        }
     }
     public static function interrupted(int $tenant,int $user,int $parent,string $app='aigc_fitting'): bool
     {
