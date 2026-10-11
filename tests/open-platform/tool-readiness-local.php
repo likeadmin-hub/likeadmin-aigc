@@ -20,10 +20,10 @@ Db::startTrans();try{
  S::requireEnabled(1);
  $common=['source_image'=>$image,'product_image'=>$image,'product_images'=>[$image],'source_images'=>[$image],'reference_images'=>[$image],'model_image'=>$image,'wear_image'=>$image,'person_image'=>$image,'reference_image'=>$image,'clothes_images'=>[$image],'garment_images'=>[$image],'model_images'=>[$image],'mask_image'=>$image,'prompt'=>'Synthetic bottle fixture on a plain background.','user_prompt'=>'Preserve the synthetic fixture.','channel'=>'market_image_model:154','quality'=>'1k','ratio'=>'1:1','quantity'=>1,'duration'=>15];
  $overrides=[
-  'aigc_video'=>['channel'=>'market_video_model:178','quality'=>'720p','duration'=>5],
+  'aigc_video'=>['channel'=>'market_video_model:182','quality'=>'720p','duration'=>5],
   'aigc_action_transfer'=>['video_uri'=>$video],
   'aigc_person_replacement'=>['video_uri'=>$video],
-  'aigc_image_translate'=>['target_language'=>'English'],
+  'aigc_image_translate'=>['target_language'=>'en'],
   'aigc_product_suite'=>['module_codes'=>['hero','detail'],'language'=>'none'],
   'aigc_product_multi_angle'=>['view_codes'=>['front']],
   'aigc_one_click_cleanup'=>['option_codes'=>['watermark']],
@@ -34,7 +34,7 @@ Db::startTrans();try{
  foreach(R::all() as $app=>$tool){$entry=['app_code'=>$app,'name'=>$tool['name'],'acceptance'=>'not_submitted'];try{
    A::authorize(1,1,$app);$estimate=$tool['operations']['POST estimate']??null;
    if(!$estimate){$entry+=['estimate_status'=>'unavailable','reason'=>'No registered native estimate; requires published bounded usage contract'];}
-   else{$params=array_replace($common,$overrides[$app]??[]);$quote=A::call(request(),$estimate+['app_code'=>$app,'route'=>'POST estimate','params'=>[]],M::resolve(1,1,$params));$entry+=['estimate_status'=>'passed','quote'=>P::publicData($quote)];}
+   else{$params=array_replace($common,$overrides[$app]??[]);if(in_array($app,['aigc_digital_human','aigc_music','smart_clip','aigc_pic_lipsync','image_human'],true))foreach(['channel','quality','ratio'] as $field)unset($params[$field]);$quote=A::call(request(),$estimate+['app_code'=>$app,'route'=>'POST estimate','params'=>[]],M::resolve(1,1,$params));$entry+=['estimate_status'=>'passed','quote'=>P::publicData($quote)];}
   }catch(Throwable $error){$entry+=['estimate_status'=>'blocked','reason'=>$error->getMessage()];}
   $results[]=$entry;echo S::encode(['app_code'=>$app,'estimate_status'=>$entry['estimate_status'],'reason'=>$entry['reason']??'']),"\n";
  }
