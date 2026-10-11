@@ -41,8 +41,39 @@ class VideoEffectService
             if ($enabled===null || $requireImage===null) throw new InvalidArgumentException('效果开关配置无效');
             if ($enabled && !$ids) throw new InvalidArgumentException('启用前请选择适配模型');
             $result[$row['id']]=array_intersect_key($row,array_flip(['id','name','description','instruction','poster','video','categories']))+['enabled'=>$enabled,'product_ids'=>array_values(array_unique($ids)),'methods'=>array_values(array_unique($methods)),'require_image'=>$requireImage];
+            if (!empty($row['template'])) $result[$row['id']]['template']=self::normalizeTemplate($row['template'],$result[$row['id']]);
         }
         return array_values($result);
+    }
+
+    private static function normalizeTemplate($template, array $effect): array
+    {
+        if (!is_array($template)) throw new InvalidArgumentException('效果模板配置无效');
+        $product=filter_var($template['product_id']??0,FILTER_VALIDATE_INT);
+        $method=$template['generation_method']??'';
+        if (!$product || !in_array($product,$effect['product_ids'],true) || !in_array($method,$effect['methods'],true)) throw new InvalidArgumentException('模板模型和生成方式必须属于效果的适配范围');
+        $prompt=$template['prompt']??'';
+        if (!is_string($prompt) || !trim($prompt) || mb_strlen($prompt)>2000) throw new InvalidArgumentException('请填写模板场景提示词，最多2000字');
+        $duration=filter_var($template['duration']??0,FILTER_VALIDATE_INT);
+        if (!$duration || $duration<1 || $duration>120) throw new InvalidArgumentException('模板时长需为1至120秒');
+        $ratio=$template['ratio']??''; $resolution=$template['resolution']??'';
+        if (!is_string($ratio) || !preg_match('/^(adaptive|[1-9][0-9]?:[1-9][0-9]?)$/D',$ratio) || !is_string($resolution) || !preg_match('/^[A-Za-z0-9_-]{1,20}$/D',$resolution)) throw new InvalidArgumentException('请检查模板比例和清晰度');
+        $assets=$template['reference_assets']??[];
+        if (!is_array($assets) || count($assets)>9) throw new InvalidArgumentException('模板参考图数量无效');
+        $normalized=[];
+        foreach($assets as $asset){
+            if (!is_array($asset)) throw new InvalidArgumentException('模板参考图配置无效');
+            $url=$asset['url']??''; $role=$asset['role']??'reference_image'; $name=$asset['name']??'参考图';
+            if (!is_string($url) || strlen($url)>2048 || !preg_match('~^(https?://[^\s]+|/(?!/)[^\s]+)$~i',$url) || !in_array($role,['reference_image','first_frame_image','last_frame_image'],true) || !is_string($name) || mb_strlen($name)>100) throw new InvalidArgumentException('模板图片地址、名称或用途无效');
+            $normalized[]=['type'=>'image','url'=>$url,'role'=>$role,'name'=>$name];
+        }
+        $roles=array_column($normalized,'role');
+        if ($method==='start_end') {
+            if(count($normalized)!==2 || !in_array('first_frame_image',$roles,true) || !in_array('last_frame_image',$roles,true)) throw new InvalidArgumentException('首尾帧模板需要各配置一张首帧和尾帧');
+        } elseif (array_diff($roles,['reference_image']) || ($method==='text_to_video' && $normalized) || ($method==='image_to_video' && count($normalized)!==1) || (($method==='image_reference' || $effect['require_image']) && !$normalized)) {
+            throw new InvalidArgumentException('模板图片与生成方式不匹配');
+        }
+        return ['product_id'=>$product,'generation_method'=>$method,'prompt'=>trim($prompt),'duration'=>$duration,'ratio'=>$ratio,'resolution'=>$resolution,'reference_assets'=>$normalized];
     }
 
     public static function catalog(int $tenantId): array
