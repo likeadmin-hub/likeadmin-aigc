@@ -1237,12 +1237,22 @@
       "POST persona/create": {
         "controller": "Persona",
         "action": "create",
-        "billable": true,
+        "billable": false,
         "input": {
           "type": "object",
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+            "description": { "type": "string", "maxLength": 500 },
+            "reference_asset_id": { "type": "integer", "minimum": 0 },
+            "lyrics_style": { "type": "string", "maxLength": 100 },
+            "prompt_json": { "type": "object", "additionalProperties": true },
+            "authorization_confirmed": { "type": "integer", "enum": [0, 1] },
+            "authorization_text": { "type": "string", "maxLength": 500 }
+          },
+          "required": ["name"],
           "additionalProperties": true
         },
-        "description": "AI音乐生成 Persona/create"
+        "description": "创建本地音乐人设资料，不执行生成；关联音频必须属于当前用户"
       },
       "GET results": {
         "controller": "Result",
