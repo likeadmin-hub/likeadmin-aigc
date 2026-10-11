@@ -45,13 +45,13 @@ Db::startTrans();try{
  app\common\model\file\TenantFile::create(['tenant_id'=>1,'source_id'=>1,'source'=>app\common\enum\FileEnum::SOURCE_ADMIN,'type'=>10,'uri'=>$adminUri,'name'=>'fixture.png','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time()]);
  Db::name('aigc_style_transfer_style_template')->where(['tenant_id'=>1,'id'=>7])->update(['image'=>$adminUri]);
  $public=P::compositeBudget($request,'aigc_style_transfer',$params);$publicRecipe=S::json(V::open($public['snapshot']['native_prepared_blob']))['prepared'];
- check($public['user']===$actual['user']&&$public['tenant']===$actual['tenant']&&$publicRecipe['template']['image']===$adminUri,'Authorized administrator template was rejected or repriced');
+ check($public['user']===$actual['user']&&$public['tenant']===$actual['tenant']&&app\common\service\FileService::setFileUrl($publicRecipe['template']['image'])===$adminUri,'Authorized administrator template was rejected or repriced');
  $denied=false;try{P::compositeBudget($request,'aigc_style_transfer',array_replace($params,['source_image'=>$adminUri]));}catch(OpenException $e){$denied=$e->httpStatus===404;}check($denied,'Caller could pass shared template URI as private source input');
  $scene=Db::name('aigc_product_image_scene_template')->where(['tenant_id'=>1,'status'=>1,'delete_time'=>0])->find();check($scene,'Local scene template fixture missing');
  Db::name('aigc_product_image_scene_template')->where('id',$scene['id'])->update(['image'=>$adminUri,'vip'=>0]);
  $styleSelection=S::json(V::open($actual['snapshot']['native_selection_blob']))['selection'];
  $product=P::compositeBudget($request,'aigc_product_image',['product_image'=>$portrait,'template_id'=>$scene['id'],'channel'=>$styleSelection['channel']['code'],'quality'=>$styleSelection['spec']['quality'],'prompt'=>'Synthetic administrator template fixture']);
- $productRecipe=S::json(V::open($product['snapshot']['native_prepared_blob']))['prepared'];check($productRecipe['template']['image']===$adminUri,'Authorized product scene template rejected');
+ $productRecipe=S::json(V::open($product['snapshot']['native_prepared_blob']))['prepared'];check(app\common\service\FileService::setFileUrl($productRecipe['template']['image'])===$adminUri,'Authorized product scene template rejected');
  // Actual Data URI preparation must be read-only, including mask_url alias.
  $mask='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6zwAAAABJRU5ErkJggg==';
  $sel=S::json(V::open($actual['snapshot']['native_selection_blob']))['selection'];
