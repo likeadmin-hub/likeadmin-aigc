@@ -24,6 +24,12 @@ final class OpenContracts
         foreach(['upstream_url','api_key','executor_class','credentials'] as $unsafe)if(isset($config[$unsafe]))throw new OpenException('invalid_contract','契约不能包含凭据或任意执行器');
         return ['code'=>$code,'path'=>$path,'method'=>$method,'kind'=>$kind,'product_id'=>$product,'config'=>OpenStore::encode($config)];
     }
+    public static function contentType(array $config): string
+    {
+        if(($config['executor']??'')==='multipart')return 'multipart/form-data';
+        foreach($config['input']['properties']??[] as $field)if(($field['format']??'')==='binary'||($field['items']['format']??'')==='binary')return 'multipart/form-data';
+        return 'application/json';
+    }
     public static function save(array $input): array
     {
         $values=self::validate($input);return Db::transaction(function()use($input,$values){$id=(int)($input['id']??0);$old=$id?OpenStore::table('contract')->where('id',$id)->lock(true)->find():null;if($old&&$old['status']!=='draft')throw new OpenException('immutable_version','已发布契约不可修改，请新建版本',409);$version=$old?(int)$old['version']:((int)OpenStore::table('contract')->where('code',$values['code'])->max('version')+1);if($old)OpenStore::table('contract')->where('id',$id)->update($values+['update_time'=>time()]);else $id=OpenStore::table('contract')->insertGetId($values+['version'=>$version,'status'=>'draft']+OpenStore::timestamp());return self::detail($id);});

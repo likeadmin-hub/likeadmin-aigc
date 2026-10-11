@@ -33,7 +33,7 @@ final class OpenDocuments
                 foreach($input['properties']??[] as $name=>$field)$op['parameters'][]=['name'=>$name,'in'=>'query','required'=>in_array($name,$input['required']??[],true),'schema'=>$field,'description'=>$field['description']??'','example'=>$c['example'][$name]??$field['example']??$field['default']??null];
                 foreach($op['parameters']??[] as &$parameter)if(array_key_exists('example',$parameter)&&$parameter['example']===null)unset($parameter['example']);unset($parameter);
             }else{
-                $type=($c['executor']??'')==='multipart'?'multipart/form-data':'application/json';
+                $type=OpenContracts::contentType($c);
                 $op['requestBody']=['required'=>!empty($input['required']),'content'=>[$type=>['schema'=>$input,'example'=>(object)$c['example']]]];
                 if(!empty($c['billable']))$op['parameters'][]=['name'=>'Idempotency-Key','in'=>'header','required'=>false,'schema'=>['type'=>'string','maxLength'=>200],'description'=>'同一用户及接口作用域的幂等键'];
             }
