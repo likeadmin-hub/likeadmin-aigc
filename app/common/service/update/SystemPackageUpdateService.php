@@ -459,7 +459,7 @@ class SystemPackageUpdateService
             (new SystemPackageGrantService())->ensure($package->toArray());
             $manifest = $this->readUpdateManifest($extractPath);
             $runtimeInstaller = new ComposerRuntimeUpdateService(UpgradeLogic::getProjectPath());
-            $binding=['kind'=>'system','package_id'=>(int)$package['id'],'task_id'=>(int)$task['id'],'context'=>array_intersect_key($_SERVER,array_flip(['HTTP_HOST','SERVER_NAME','SERVER_ADDR','SERVER_PORT','HTTPS']))];
+            $binding=['kind'=>'system','package_id'=>(int)$package['id'],'task_id'=>(int)$task['id'],'archive_sha256'=>(string)$package['sha256'],'context'=>array_intersect_key($_SERVER,array_flip(['HTTP_HOST','SERVER_NAME','SERVER_ADDR','SERVER_PORT','HTTPS']))];
             $encoded=json_encode($binding,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
             $installation = $runtimeInstaller->apply($extractPath, $manifest, [
                 'immutable_code'=>true,'bootstrap_context'=>$binding,

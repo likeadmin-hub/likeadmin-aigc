@@ -61,7 +61,14 @@ try {
             $package=\app\common\model\update\UpdatePackage::find((int)$binding['package_id']);
             $task=\app\common\model\update\UpdateTask::find((int)$binding['task_id']);
             $completion=$task?$task['result_json']:[];
-            $committed=$package && $task && $package['status']==='applied' && $task['status']==='success' && ($completion['composer_runtime']['generation']??'')===$GLOBALS['AIGC_RUNTIME_GENERATION'];
+            $committed=$package && $task && (int)$task['package_id']===(int)$package['id'] && $task['action']==='apply' && $package['status']==='applied' && $task['status']==='success' && ($completion['composer_runtime']['generation']??'')===$GLOBALS['AIGC_RUNTIME_GENERATION'];
+            if ($committed) {
+                if ($package['type'] !== 'system' || $task['type'] !== 'system' || !hash_equals((string)$package['sha256'],(string)($binding['archive_sha256']??''))) throw new RuntimeException('已提交系统任务与恢复绑定不一致');
+                $project=(string)file_get_contents($siteRoot.'/config/project.php');
+                preg_match("/['\"]version['\"]\s*=>\s*['\"]([^'\"]+)['\"]/",$project,$matched);
+                $marker=json_decode((string)file_get_contents($siteRoot.'/upgrade/version.json'),true);
+                if (($matched[1]??'')!==(string)$package['version'] || ($marker['version']??'')!==(string)$package['version']) throw new RuntimeException('已提交系统版本标记不一致，禁止自动回滚数据库对应代码');
+            }
             $result=['passed'=>true,'committed'=>(bool)$committed,'completion'=>$completion];
         }
         echo json_encode($result,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
@@ -77,7 +84,7 @@ try {
         else {
             $package=\app\common\model\update\UpdatePackage::find((int)$binding['package_id']);
             $task=\app\common\model\update\UpdateTask::find((int)$binding['task_id']);$completion=$task?$task['result_json']:[];
-            $committed=$package && $task && $package['status']==='applied' && $task['status']==='success' && ($completion['composer_runtime']['generation']??'')===$GLOBALS['AIGC_RUNTIME_GENERATION'];
+            $committed=$package && $task && (int)$task['package_id']===(int)$package['id'] && $task['action']==='apply' && $package['status']==='applied' && $task['status']==='success' && ($completion['composer_runtime']['generation']??'')===$GLOBALS['AIGC_RUNTIME_GENERATION'];
             $result=['passed'=>true,'committed'=>(bool)$committed,'completion'=>$completion];
         }
         echo json_encode($result,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);

@@ -18,7 +18,7 @@ final class RuntimeMetadataTransactionGate
             $name = (string)($row['table_name'] ?? '');
             if (preg_match('/^'.preg_quote($prefix,'/').'(tenant_system_menu|tenant_system_role_menu)_[a-z0-9_]+$/i', $name)) $tables[] = substr($name, strlen($prefix));
         }
-        self::assertTables($tables, false);
+        self::assertTables($tables);
     }
 
     public static function assertTables(array $tables, bool $required = true): void
