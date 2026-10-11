@@ -6,7 +6,7 @@ final class OpenWebhooks
     public static function enqueue(array $request,array $data): void
     {
         $snapshot=OpenStore::json($request['snapshot']);$callback=$snapshot['customer_callback']??null;if(!$callback)return;
-        $event='evt_'.hash('sha256',$request['request_id'].' terminal');if(OpenStore::table('webhook')->where('event_id',$event)->find())return;
+        $event='evt_'.substr(hash('sha256',$request['request_id'].' terminal'),0,48);if(OpenStore::table('webhook')->where('event_id',$event)->find())return;
         OpenStore::table('webhook')->insert(['tenant_id'=>$request['tenant_id'],'user_id'=>$request['user_id'],'request_id'=>$request['request_id'],'event_id'=>$event,'url'=>$callback['url'],'secret_blob'=>$callback['secret_blob'],'payload_blob'=>OpenVault::seal(OpenStore::encode(['event_id'=>$event,'request_id'=>$request['request_id'],'type'=>'task.completed','data'=>OpenPolicy::publicData($data)])),'status'=>'pending','attempts'=>0,'next_run_time'=>time()]+OpenStore::timestamp());
     }
     public static function deliver(array $row): void
