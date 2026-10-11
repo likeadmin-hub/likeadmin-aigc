@@ -13,6 +13,10 @@ Db::startTrans();try{
     request()->tenantId=1;request()->userId=1;request()->userInfo=['tenant_id'=>1,'user_id'=>1,'terminal'=>4];request()->source=app\common\enum\AdminTerminalEnum::USER;
     $owned=Asset::create(['tenant_id'=>1,'user_id'=>1,'title'=>'fixture','uri'=>'uploads/opf-music-fixture.mp3','url'=>'https://example.com/opf-music-fixture.mp3','storage_scope'=>'tenant','storage_engine'=>'local','status'=>1,'delete_time'=>0]+S::timestamp());
     $foreign=Asset::create(['tenant_id'=>1,'user_id'=>2,'title'=>'foreign fixture','uri'=>'uploads/opf-foreign.mp3','status'=>1,'delete_time'=>0]+S::timestamp());
+    $file=app\common\model\file\TenantFile::create(['tenant_id'=>1,'source_id'=>1,'source'=>app\common\enum\FileEnum::SOURCE_USER,'uri'=>'uploads/opf-owned-audio.mp3','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','name'=>'Fixture audio','create_time'=>time()]);
+    $registered=app\common\service\app\aigc_music\AigcMusicAssetService::registerExisting(1,1,['uri'=>$file['uri'],'storage_scope'=>'platform','storage_engine'=>'aliyun','storage_domain'=>'https://127.0.0.1']);
+    check($registered['storage_scope']==='tenant'&&$registered['storage_engine']==='local'&&$registered['storage_domain']==='','Registered audio accepted client storage credentials or scope');
+    $denied=false;try{app\common\service\app\aigc_music\AigcMusicAssetService::registerExisting(1,2,['uri'=>$file['uri']]);}catch(app\common\service\open_platform\OpenException $e){$denied=$e->httpStatus===404;}check($denied,'Audio registration accepted foreign file');
     foreach(['source_asset_id','source_id','asset_id','reference_asset_id','ref_asset_id','voice_asset_id'] as $field){
         $op=['app_code'=>'aigc_music_cover','controller'=>'Generate'];Ownership::check(1,1,$op,[$field=>(int)$owned['id']]);
         foreach([[1,1,(int)$foreign['id']],[2,1,(int)$owned['id']],[1,2,(int)$owned['id']]] as [$tenant,$user,$id]){$denied=false;try{Ownership::check($tenant,$user,$op,[$field=>$id]);}catch(app\common\service\open_platform\OpenException $e){$denied=$e->httpStatus===404;}check($denied,'Music cover asset alias bypassed owner: '.$field);}

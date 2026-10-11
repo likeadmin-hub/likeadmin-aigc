@@ -93,9 +93,26 @@ class AigcMusicAssetService
             throw new Exception('请上传或选择音频');
         }
         self::assertAudioUri($uri);
-        $scope = trim((string)($params['storage_scope'] ?? StorageConfigService::currentScope()));
-        $engine = trim((string)($params['storage_engine'] ?? StorageConfigService::getEffectiveDefault($tenantId)));
-        $domain = trim((string)($params['storage_domain'] ?? StorageConfigService::getEffectiveDomain($tenantId)));
+        $canonical = FileService::setFileUrl($uri);
+        $path = ltrim((string)(parse_url($uri, PHP_URL_PATH) ?: ''), '/');
+        if ((str_starts_with($path, 'uploads/') || str_starts_with($path, 'resource/')) && is_file(public_path() . $path)) {
+            $canonical = $path;
+        }
+        $canonical = preg_match('#^https?://#i', $canonical) ? $canonical : ltrim($canonical, '/');
+        $file = TenantFile::where(['tenant_id'=>$tenantId,'source_id'=>$userId,'source'=>FileEnum::SOURCE_USER,'uri'=>$canonical])->findOrEmpty();
+        if (!$file->isEmpty()) {
+            $uri = (string)$file['uri'];
+            $scope = (string)$file['storage_scope'];
+            $engine = (string)$file['storage_engine'];
+            $domain = (string)$file['storage_domain'];
+        } elseif (preg_match('#^https?://#i', $canonical)) {
+            \app\common\service\open_platform\OpenSafeHttp::resolve($canonical, false);
+            $uri = $canonical;
+            // External public audio is never signed using client-selected storage.
+            $scope = $engine = $domain = '';
+        } else {
+            throw new \app\common\service\open_platform\OpenException('not_found', '音频文件不存在或不属于当前用户', 404);
+        }
         return self::createAsset($tenantId, $userId, [
             'asset_type' => $params['asset_type'] ?? 'reference_audio',
             'source_action' => $params['source_action'] ?? 'register_audio',

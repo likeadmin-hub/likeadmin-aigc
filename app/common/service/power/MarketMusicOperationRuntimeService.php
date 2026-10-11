@@ -32,7 +32,11 @@ final class MarketMusicOperationRuntimeService
             if(!is_string($name)||trim($name)===''||mb_strlen($name)>100||!is_string($description)||mb_strlen($description)>5000)throw new OpenException('invalid_request','声音名称或说明无效');
             foreach(['authorization_text'=>5000,'source'=>200] as $field=>$limit)if(isset($params[$field])&&(!is_string($params[$field])||mb_strlen($params[$field])>$limit))throw new OpenException('invalid_request','授权说明无效');
             if(isset($params['authorization_confirmed'])&&!in_array($params['authorization_confirmed'],[0,1,'0','1'],true))throw new OpenException('invalid_request','授权状态无效');
-            $url=\app\common\service\FileService::getFileUrlByStorage((string)$asset['uri'],(string)$asset['storage_scope'],(string)$asset['storage_engine'],(string)$asset['storage_domain']);
+            $file=\app\common\model\file\TenantFile::where(['tenant_id'=>$tenant,'source_id'=>$user,'source'=>\app\common\enum\FileEnum::SOURCE_USER,'uri'=>(string)$asset['uri']])->findOrEmpty();
+            if($file->isEmpty())throw new OpenException('not_found','克隆音频缺少本人上传文件记录',404);
+            // Asset registration accepts display metadata. Only an owned upload's
+            // immutable storage metadata can select a bucket or sign a private URL.
+            $url=\app\common\service\FileService::getFileUrlByStorage((string)$file['uri'],(string)$file['storage_scope'],(string)$file['storage_engine'],(string)$file['storage_domain']);
             \app\common\service\open_platform\OpenSafeHttp::resolve($url,false);
             return ['audio_url'=>$url,'name'=>trim($name),'description'=>trim($description)];
         }
@@ -160,15 +164,16 @@ final class MarketMusicOperationRuntimeService
         if($ambiguous){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
         if($failed){self::complete($cid,[],true);return ['status'=>'failed'];}
         $result=(array)($body['data']['result']??[]);$data=$result['data']??[];if(is_array($data)&&array_is_list($data))$data=$data[0]??[];
-        if(in_array($result['status']??'',['failed','canceled','cancelled'],true)){self::complete($cid,[],true);return ['status'=>'failed'];}
+        $status=self::resultStatus($body);
+        if(in_array($status,['failed','canceled','cancelled'],true)){self::complete($cid,[],true);return ['status'=>'failed'];}
         if($snapshot['api_code']==='voice_clone'){
             $voiceId=$result['voice_id']??$data['voice_id']??'';
-            if(!in_array($result['status']??'',['completed','complete','success','succeeded'],true)||!is_string($voiceId)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$voiceId)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+            if(!in_array($status,['completed','complete','success','succeeded'],true)||!is_string($voiceId)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$voiceId)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
             self::complete($cid,['provider_voice_id'=>$voiceId],false);return ['status'=>'success'];
         }
-        if(in_array($snapshot['api_code'],self::ASYNC,true)&&$c['upstream_task_id']!==''&&!in_array($result['status']??'',['completed','complete','success','succeeded'],true))return ['status'=>'running'];
+        if(in_array($snapshot['api_code'],self::ASYNC,true)&&$c['upstream_task_id']!==''&&!in_array($status,['completed','complete','success','succeeded'],true))return ['status'=>'running'];
         if(in_array($snapshot['api_code'],['wav','midi','mp4','vox'],true)){
-            if(!in_array($result['status']??'',['completed','complete','success','succeeded'],true)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+            if(!in_array($status,['completed','complete','success','succeeded'],true)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
             if($snapshot['api_code']==='vox'){
                 $id=$result['audio_id']??$data['audio_id']??$data['id']??'';
                 if(!is_string($id)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$id)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
@@ -181,18 +186,27 @@ final class MarketMusicOperationRuntimeService
         if($snapshot['api_code']==='timing'){
             $valid=is_array($data)&&!array_is_list($data)&&count(array_intersect(['aligned_words','segments','waveform_data'],array_keys($data)))>0;
             foreach(['aligned_words','segments','waveform_data'] as $field)if(isset($data[$field])&&!is_array($data[$field]))$valid=false;
-            if(!$valid||!in_array($result['status']??'',['completed','complete','success','succeeded'],true)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+            if(!$valid||!in_array($status,['completed','complete','success','succeeded'],true)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
             $public=['timing'=>array_intersect_key($data,array_flip(['aligned_words','segments','waveform_data']))];self::complete($cid,$public,false);return ['status'=>'success']+$public;
         }
         $field=$snapshot['api_code']==='style'?'upsampled_tags':'text';$text=is_array($data)?($data[$field]??''):'';
-        if(!in_array($result['status']??'',['completed','complete','success','succeeded'],true)||!is_string($text)||trim($text)===''){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+        if(!in_array($status,['completed','complete','success','succeeded'],true)||!is_string($text)||trim($text)===''){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
         $public=[$field==='text'?'lyrics':'style'=>$text,'title'=>(string)($data['title']??$result['title']??'')];self::complete($cid,$public,false);return ['status'=>'success']+$public;
     }
     private static function terminalReceipt(array $snapshot): bool
     {
         if(empty($snapshot['music_receipt_blob']))return false;
         $wire=OpenStore::json(OpenVault::open($snapshot['music_receipt_blob']));$body=$wire['body']??$wire;
-        return in_array($body['data']['result']['status']??'',['completed','complete','success','succeeded','failed','canceled','cancelled'],true);
+        return in_array(self::resultStatus($body),['completed','complete','success','succeeded','failed','canceled','cancelled'],true);
+    }
+    private static function resultStatus(array $body): string
+    {
+        $result=$body['data']['result']??[];$outer=$body['data']['status']??'';$inner=$result['status']??'';
+        foreach([$inner,$outer] as $status)if(in_array($status,['failed','canceled','cancelled'],true))return $status;
+        if(($result['success']??null)===false)return 'failed';
+        // The task query envelope carries status outside the driver result.
+        // A conflicting explicit nonterminal inner state keeps the task pending.
+        return is_string($inner)&&$inner!==''?$inner:(is_string($outer)?$outer:'');
     }
     private static function storeExport(int $cid,string $url): array
     {

@@ -14,7 +14,7 @@ Db::startTrans();try{
     request()->tenantId=1;request()->userId=1;
     $ownedId=(int)Db::name('aigc_music_result')->where(['tenant_id'=>1,'user_id'=>1,'delete_time'=>0])->order('id','desc')->value('id');check($ownedId>0,'Owned music fixture absent');
     $reserve=new ReflectionMethod(Runtime::class,'reserve');$capture=new ReflectionMethod(Runtime::class,'capture');
-    foreach(['wav','midi','mp4','vox'] as $api)foreach(['completed','processing','failed','query-error','storage-error'] as $scenario){
+    foreach(['wav','midi','mp4','vox'] as $api)foreach(['completed','outer-completed','processing','failed','query-error','storage-error'] as $scenario){
         if($api==='mp4'&&\app\common\service\app\aigc_music\MusicExportDecoder::binary()===''){try{Runtime::input('mp4',['result_id'=>$ownedId],1,1);throw new RuntimeException('Missing MP4 verifier accepted submission');}catch(app\common\service\open_platform\OpenException $e){check($e->errorType==='capability_unavailable','Wrong missing verifier rejection');}continue;}
         if($api==='mp4'&&in_array($scenario,['processing','query-error'],true)||$api==='vox'&&$scenario==='storage-error')continue;
         $params=['result_id'=>$ownedId];$budget=Runtime::budget(1,1,$api,$params);check($budget['user']>0&&$budget['tenant']>0,'Missing export-specific quote');
@@ -27,7 +27,7 @@ Db::startTrans();try{
         check(\app\common\model\ai\AiTaskJob::where('id',$job['id'])->whereIn('job_type',['query_result','process_result','transfer_result','settle','refund','admin_action'])->count()===0,'Legacy worker can claim new operation');
         $legacyDenied=false;try{\app\common\service\power\MarketMusicAppRuntimeService::refresh($cid);}catch(Exception){$legacyDenied=true;}check($legacyDenied,'Legacy music generation can settle export');
         $snapshot['music_source_blob']=Vault::seal(S::encode(['base_url'=>'http://127.0.0.1:19873','api_key'=>'fixture-server-key','ssl_verify'=>false]));
-        if($scenario==='completed'&&$api!=='vox')$snapshot['music_export_blob']=Vault::seal(S::encode(['export_id'=>1,'file_id'=>'of_fixture','file_url'=>'https://example.com/stored.'.$api,'results'=>[['stored'=>true]]]));
+        if(in_array($scenario,['completed','outer-completed'],true)&&$api!=='vox')$snapshot['music_export_blob']=Vault::seal(S::encode(['export_id'=>1,'file_id'=>'of_fixture','file_url'=>'https://example.com/stored.'.$api,'results'=>[['stored'=>true]]]));
         $c->save(['price_snapshot'=>$snapshot]);
         $task='music-operation-'.$api.'-'.($scenario==='storage-error'?'completed':$scenario);
         $wire=['code'=>1,'data'=>['task_id'=>$task,'status'=>'processing']];
@@ -36,7 +36,7 @@ Db::startTrans();try{
         if($api!=='mp4'&&$scenario!=='storage-error'){$c->refresh();check($c['upstream_task_id']===$task&&AigcMusicTask::where('consumption_id',$cid)->value('provider_task_id')===$task,'Accepted async task ID not durably linked');}
         $error=null;try{\app\common\service\ai\AiTaskJobService::run($job->toArray());Runtime::refresh($cid);}catch(app\common\service\open_platform\OpenException $caught){$error=$caught;}
         $c->refresh();
-        if($scenario==='completed'){
+        if(in_array($scenario,['completed','outer-completed'],true)){
             check($c['run_status']==='success'&&$c['billing_status']==='settled'&&(float)$c['actual_user_price']===(float)$budget['user'],'Stored export or vox ID did not settle exactly once');
             $native=AigcMusicTask::where('consumption_id',$cid)->findOrEmpty();
             $lists=\app\common\service\app\aigc_music\AigcMusicService::taskLists(1,1,['sync_running'=>false]);

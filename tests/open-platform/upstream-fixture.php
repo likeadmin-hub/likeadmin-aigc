@@ -6,6 +6,7 @@ if(str_starts_with($path,'/api/v1/tasks/music-operation-')){
     header('Content-Type: application/json');$id=basename($path);
     if(str_ends_with($id,'query-error')){http_response_code(503);echo '{"code":0,"msg":"fixture query unavailable"}';exit;}
     $status=str_ends_with($id,'completed')?'completed':(str_ends_with($id,'failed')?'failed':'processing');
+    if(str_ends_with($id,'outer-completed')){echo json_encode(['code'=>1,'data'=>['task_id'=>$id,'status'=>'completed','result'=>['success'=>true,'file_url'=>'https://example.com/fixture.wav','data'=>[['id'=>'fixture-vox']]]]]);exit;}
     echo json_encode(['code'=>1,'data'=>['result'=>['task_id'=>$id,'status'=>$status,'file_url'=>'https://example.com/fixture.wav','data'=>['id'=>'fixture-vox']]]]);exit;
 }
 if($path==='/api/v1/music-receipt'){header('Content-Type: application/json');echo '{"code":1,"data":{"task_id":"fixture-music-receipt","receipt":"private fixture receipt"}}';exit;}
