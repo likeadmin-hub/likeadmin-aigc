@@ -85,7 +85,7 @@ class VideoEffectService
 
     public static function compile(array $params, ?array $effect): array
     {
-        // Drop client-supplied snapshots/instructions; use only the server catalog.
+        // Snapshots are server-owned; resolve() has already validated any editable direction.
         unset($params['effect_snapshot']);
         if (!$effect) return $params;
         $prompt=trim((string)($params['prompt']??''));

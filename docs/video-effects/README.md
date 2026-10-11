@@ -14,3 +14,5 @@
 导入脚本 `scripts/import-video-effects.php` 默认只校验。明确传入租户、商品模型、已下载的素材目录及 `--apply` 后才上传素材中心并保存。重跑会替换同标识预设、保留自定义效果及已有托管素材，并复用按内容散列命名的素材记录。素材文件需命名为效果标识加 `.webp` / `.mp4`。
 
 本轮用户要求不消耗算力：自动验证只覆盖配置、输入校验、指令编译、模型请求构造与页面交互。90 个效果均没有进行真实模型输出质量验收，复杂变身、肢体动作、文字/Logo 保真和长镜头应由用户试生成后调整；不保证与参考演示逐帧一致。
+
+Before importing into an existing installation, apply `app/apps/aigc_video/migrations/upgrade_20261012_effect_config_capacity.sql`. The configuration field uses MEDIUMTEXT to retain the full catalog; fresh installs include the same type. New tenants share this table.
