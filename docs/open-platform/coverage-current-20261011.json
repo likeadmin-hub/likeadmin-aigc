@@ -1,5 +1,5 @@
 {
-    "generated_at": "2026-10-11T22:02:09+08:00",
+    "generated_at": "2026-10-11T22:41:47+08:00",
     "test_identity": {
         "tenant_id": 1,
         "user_id": 1,
@@ -15,7 +15,7 @@
         "unmapped_user_operations": 1,
         "unclassified_user_operations": 0
     },
-    "charged": 130.23,
+    "charged": 146.64,
     "pending_budget": 0,
     "cap": 1000,
     "tools": [
@@ -1460,9 +1460,22 @@
                     "billable": true,
                     "registered_executable": true,
                     "unavailable_reason": "",
-                    "contract_state": [],
-                    "successful_local_receipts": [],
-                    "acceptance": "not_executed",
+                    "contract_state": [
+                        {
+                            "id": 334,
+                            "code": "local_text_011ae532a2c2.aigc_local_redraw",
+                            "version": 1,
+                            "kind": "tool",
+                            "path": "/api/v1/tools/aigc_local_redraw/tasks",
+                            "method": "POST",
+                            "product_id": 0,
+                            "status": "archived"
+                        }
+                    ],
+                    "successful_local_receipts": [
+                        "req_4badeef93241b28a1b452919ae3407e6"
+                    ],
+                    "acceptance": "gateway_receipt_present",
                     "schema_properties": []
                 },
                 {
@@ -1509,8 +1522,19 @@
                     "registered_executable": true,
                     "unavailable_reason": "",
                     "contract_state": [],
-                    "successful_local_receipts": [],
-                    "acceptance": "not_executed",
+                    "successful_local_receipts": [
+                        "req_5c7f858e405646275e33ac1b34e258f5",
+                        "req_bddaa26352716b4a82de59cb8cf92f86",
+                        "req_6a17aba22249ad219b58dcc8d72481fe",
+                        "req_f9a24463cf8087d3ee3cb563a2c13cec",
+                        "req_acf818369b82c4d66e4f8b2f7a8a3fca",
+                        "req_0b104b60b5b1004086ae1b34e6023d08",
+                        "req_057e1b1db9559a7e8fb7466b76f4967b",
+                        "req_d6aa1983a5fa519b7cb33bdddc0611af",
+                        "req_1e396066095f5f13785ac21121edfe3b",
+                        "req_112d5fa6e455147043dabae49a402260"
+                    ],
+                    "acceptance": "gateway_receipt_present",
                     "schema_properties": []
                 },
                 {
@@ -2761,9 +2785,22 @@
                     "billable": true,
                     "registered_executable": true,
                     "unavailable_reason": "",
-                    "contract_state": [],
-                    "successful_local_receipts": [],
-                    "acceptance": "not_executed",
+                    "contract_state": [
+                        {
+                            "id": 318,
+                            "code": "local_text_5716843e3b3f.aigc_product_image",
+                            "version": 1,
+                            "kind": "tool",
+                            "path": "/api/v1/tools/aigc_product_image/tasks",
+                            "method": "POST",
+                            "product_id": 0,
+                            "status": "archived"
+                        }
+                    ],
+                    "successful_local_receipts": [
+                        "req_4c46ded6caa843e3a1a015a1b632cfc0"
+                    ],
+                    "acceptance": "gateway_receipt_present",
                     "schema_properties": []
                 },
                 {
@@ -2846,8 +2883,21 @@
                     "registered_executable": true,
                     "unavailable_reason": "",
                     "contract_state": [],
-                    "successful_local_receipts": [],
-                    "acceptance": "not_executed",
+                    "successful_local_receipts": [
+                        "req_b615cbc162fbe1208b20271ba9d23e6e",
+                        "req_f62f807acd4edec1bd98880f68d5457c",
+                        "req_740946290d05f96f33b53d40ceb8fa55",
+                        "req_c8236640132315e67d47dada4c7743c6",
+                        "req_0dc1bc7a9d95a41ee58bb9938666a2a9",
+                        "req_f8eecc667d668c77ef29d0fb1f578e86",
+                        "req_865976f45181020562396ac515f34e9e",
+                        "req_ea3521ad422a30a3392e9705681f27ad",
+                        "req_44c7f57d1456eb8e0d7384d08ed9c1d3",
+                        "req_12689195d2721c181db428eea1138489",
+                        "req_9ffe4b76857bc3f0839bae696eec92d6",
+                        "req_07d0af7251728b47827443010965a82a"
+                    ],
+                    "acceptance": "gateway_receipt_present",
                     "schema_properties": []
                 },
                 {
@@ -4257,6 +4307,46 @@
                 {
                     "id": 6,
                     "code": "local_text_fa8bc0bdaf88.stream",
+                    "version": 1,
+                    "kind": "market",
+                    "path": "/api/v1/chat/completions",
+                    "method": "POST",
+                    "product_id": 2,
+                    "status": "archived"
+                },
+                {
+                    "id": 335,
+                    "code": "local_text_86bc8efa558b.sync",
+                    "version": 1,
+                    "kind": "market",
+                    "path": "/api/v1/chat/completions",
+                    "method": "POST",
+                    "product_id": 2,
+                    "status": "archived"
+                },
+                {
+                    "id": 336,
+                    "code": "local_text_86bc8efa558b.stream",
+                    "version": 1,
+                    "kind": "market",
+                    "path": "/api/v1/chat/completions",
+                    "method": "POST",
+                    "product_id": 2,
+                    "status": "archived"
+                },
+                {
+                    "id": 337,
+                    "code": "local_text_f615e5991328.sync",
+                    "version": 1,
+                    "kind": "market",
+                    "path": "/api/v1/chat/completions",
+                    "method": "POST",
+                    "product_id": 2,
+                    "status": "archived"
+                },
+                {
+                    "id": 338,
+                    "code": "local_text_f615e5991328.stream",
                     "version": 1,
                     "kind": "market",
                     "path": "/api/v1/chat/completions",
