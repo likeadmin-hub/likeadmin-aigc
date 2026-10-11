@@ -30,14 +30,15 @@ final class OpenDocuments
             preg_match_all('/\{([a-z_]+)\}/',$row['path'],$captures);
             foreach($captures[1] as $name)$op['parameters'][]=['name'=>$name,'in'=>'path','required'=>true,'schema'=>['type'=>'string'],'description'=>$name==='task_id'?'此用户在对应能力中创建的任务 ID':'资源 ID'];
             if($method==='get'){
-                foreach($input['properties']??[] as $name=>$field)$op['parameters'][]=['name'=>$name,'in'=>'query','required'=>in_array($name,$input['required']??[],true),'schema'=>$field,'description'=>$field['description']??'','example'=>$c['example'][$name]??$field['default']??null];
+                foreach($input['properties']??[] as $name=>$field)$op['parameters'][]=['name'=>$name,'in'=>'query','required'=>in_array($name,$input['required']??[],true),'schema'=>$field,'description'=>$field['description']??'','example'=>$c['example'][$name]??$field['example']??$field['default']??null];
+                foreach($op['parameters']??[] as &$parameter)if(array_key_exists('example',$parameter)&&$parameter['example']===null)unset($parameter['example']);unset($parameter);
             }else{
                 $type=($c['executor']??'')==='multipart'?'multipart/form-data':'application/json';
                 $op['requestBody']=['required'=>!empty($input['required']),'content'=>[$type=>['schema'=>$input,'example'=>(object)$c['example']]]];
                 if(!empty($c['billable']))$op['parameters'][]=['name'=>'Idempotency-Key','in'=>'header','required'=>false,'schema'=>['type'=>'string','maxLength'=>200],'description'=>'同一用户及接口作用域的幂等键'];
             }
             $variant=['code'=>$row['code'],'version'=>$row['version'],'product_id'=>$row['product_id'],'model'=>$c['model']??null,'when'=>$c['when']??[],'operation'=>$op];
-            if(isset($paths[$row['path']][$method])){$existing=&$paths[$row['path']][$method];$existing['x-contract-variants'][]=$variant;foreach($op['requestBody']['content']??[] as $type=>$content){if(!isset($existing['requestBody']['content'][$type])){$existing['requestBody']['content'][$type]=$content;continue;}$old=$existing['requestBody']['content'][$type]['schema'];$existing['requestBody']['content'][$type]['schema']=['oneOf'=>array_merge($old['oneOf']??[$old],[$content['schema']])];$existing['requestBody']['content'][$type]['examples'][$row['code']]=['value'=>(object)$c['example']];}$existing['responses']=array_replace($existing['responses'],$op['responses']);unset($existing);continue;}
+            if(isset($paths[$row['path']][$method])){$existing=&$paths[$row['path']][$method];$existing['x-contract-variants'][]=$variant;foreach($op['requestBody']['content']??[] as $type=>$content){if(!isset($existing['requestBody']['content'][$type])){$existing['requestBody']['content'][$type]=$content;continue;}$old=$existing['requestBody']['content'][$type]['schema'];$existing['requestBody']['content'][$type]['schema']=['anyOf'=>array_merge($old['anyOf']??[$old],[$content['schema']])];$existing['requestBody']['content'][$type]['examples'][$row['code']]=['value'=>(object)$c['example']];}$existing['responses']=array_replace($existing['responses'],$op['responses']);unset($existing);continue;}
             $op['x-contract-variants']=[$variant];$paths[$row['path']][$method]=$op;
         }
         return ['openapi'=>'3.0.3','info'=>['title'=>'LikeAdmin 开放平台','version'=>'1.0.0'],'paths'=>(object)$paths,'components'=>['securitySchemes'=>['apiKey'=>['type'=>'http','scheme'=>'bearer']]]];
