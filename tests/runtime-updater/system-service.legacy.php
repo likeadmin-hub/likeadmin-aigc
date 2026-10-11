@@ -74,19 +74,18 @@ request()->withServer(array_merge(request()->server(),['HTTP_HOST'=>'system.fixt
 if($phase==='prepare') {
     legacyCheck(UpdateSourceClient::currentCoreVersion()==='1.0.390','Baseline is not genuine 390');
     legacyCheck(!class_exists('NeuronAI\\Agent\\Agent'),'Old vendor unexpectedly has new SDK');
-    // Installed 390 app migrations, rather than importing the future fresh-install schema.
-    foreach(['upgrade_20260909_episode_queue.sql','upgrade_20260910_redis_episode_queue.sql','upgrade_20260919_canvas_video_poster.sql'] as $file)
-        app\common\service\database\SqlMigrationExecutor::execute(file_get_contents($site.'/app/apps/aigc_short_drama/migrations/'.$file),'la_');
+    // Pure genuine-390 install: never pre-run historical app migrations to hide upgrade schema gaps.
+    legacyCheck(Db::query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='la_aigc_short_drama_generation_task' AND COLUMN_NAME='canvas_id'")[0]['n']==0,'390 fixture was pre-repaired');
     legacySeed('tenant',['id'=>901,'sn'=>'legacy901','name'=>'preserve-tenant','point_balance'=>'128.50','create_time'=>1]);
     legacySeed('user',['id'=>901,'tenant_id'=>901,'sn'=>901,'account'=>'legacy901','user_money'=>'77.25']);
     legacySeed('user_account_log',['tenant_id'=>901,'user_id'=>901,'sn'=>'fixture-ledger','change_amount'=>'2.50','left_amount'=>'77.25']);
     legacySeed('recharge_order',['tenant_id'=>901,'user_id'=>901,'sn'=>'fixture-order','order_amount'=>'3.00','pay_status'=>1]);
     legacySeed('aigc_short_drama_episode_task',['tenant_id'=>901,'user_id'=>901,'status'=>'running','heartbeat_at'=>123456,'attempt_number'=>2]);
-    legacySeed('aigc_short_drama_canvas_poster_job',['tenant_id'=>901,'user_id'=>901,'status'=>'running','lease_token'=>'existing-owner','lease_expire_time'=>4294967295,'attempts'=>2,'idempotency_key'=>sha1('fixture-existing-task')]);
+    legacySeed('aigc_short_drama_generation_task',['tenant_id'=>901,'user_id'=>901,'status'=>'running','task_id'=>'customer-running-generation','tenant_cost_points'=>'6.25','user_charge_points'=>'9.75','request_json'=>'{"customer_request":"KEEP_RUNNING_TASK"}']);
     legacySeed('tenant_system_menu',['id'=>99001,'tenant_id'=>901,'name'=>'Customer custom menu','app_code'=>'','source'=>'custom','is_core'=>0,'perms'=>'fixture:custom','paths'=>'fixture/custom','create_time'=>1]);
     legacySeed('tenant_app',['tenant_id'=>901,'app_code'=>'aigc_music','version'=>'customer-purchased-version','buy_status'=>'paid','shelf_status'=>'off','enable_status'=>'disabled','expire_time'=>4294967295,'create_time'=>1]);
     $customerConfiguration=legacyCustomerConfiguration();
-    $business=[];foreach(['tenant','user','user_account_log','recharge_order','aigc_short_drama_episode_task','aigc_short_drama_canvas_poster_job'] as $table)$business[$table]=Db::name($table)->order('id')->select()->toArray();
+    $business=[];foreach(['tenant','user','user_account_log','recharge_order','aigc_short_drama_episode_task','aigc_short_drama_generation_task'] as $table)$business[$table]=Db::name($table)->order('id')->select()->toArray();
     $metadata=[];foreach(['app','app_version','tenant_app','app_api','app_frontend_entry','app_install','system_menu','tenant_system_menu','system_role_menu','tenant_system_role_menu','app_plan','membership_plan','membership_plan_app','tenant_package_app_plan'] as $table)$metadata[$table]=legacyMetadataRows($table);
     $key=openssl_pkey_new(['private_key_bits'=>2048]);$public=openssl_pkey_get_details($key)['key'];
     Db::name('update_source')->where('status',1)->update(['status'=>0]);
@@ -178,6 +177,13 @@ if($success) {
     legacyCheck(str_contains((new ReflectionClass(SystemPackageUpdateService::class))->getFileName(),'/.composer-runtime/generations/'),'New application code not pinned');
     legacyCheck(app\common\service\OemBrandService::read()['name']==='Fixture brand','Fresh loader lost site OEM');
     $ffmpeg=new ReflectionMethod(app\common\service\app\aigc_short_drama\AigcShortDramaService::class,'resolveFfmpegBinary');$ffmpeg->setAccessible(true);legacyCheck($ffmpeg->invoke(null)===$site.'/runtime/bin/ffmpeg/bin/ffmpeg','Fresh loader lost site-only FFmpeg');
+    foreach(['asset','storyboard','generation_task','script_task','plan_version'] as $table) {
+        $columns=['episode_id','episode_number'];if(in_array($table,['asset','generation_task'],true))$columns[]='canvas_id';
+        // Actual SQL must succeed even when the table currently has no rows.
+        Db::name('aigc_short_drama_'.$table)->field($columns)->limit(1)->select();
+    }
+    $generationList=app\common\service\app\aigc_short_drama\AigcShortDramaService::adminGenerationTaskLists(901,['keyword'=>'customer-running-generation']);
+    legacyCheck($generationList['count']===1,'Real 391 generation-task API cannot read the preserved 390 task through canvas join');
     if($case==='committed-reply-failure')legacyCheck(is_file('/fixture/committed-reply-lost.json') && json_decode(file_get_contents('/fixture/committed-reply-lost.json'),true)['passed']===true,'Committed child did not reach the exit77 fault');
     echo 'PASS fresh observer: terminal 390 → 391, outer metadata, immutable code/new SDK, original vendor bytes and protected business/site state; SDK='.$sdk.PHP_EOL;
 } else {
@@ -205,6 +211,20 @@ if($success) {
 if(($argv[3]??'')==='after-retry') {
     // Completed real migrations must remain journaled, rather than running again on retry.
     foreach($state['retry_journals'] as $name=>$before){$after=json_decode(file_get_contents($site.'/.composer-runtime/journals/'.$name),true);legacyCheck($after['sql_state']==='done' && $after['status']==='committed' && $before['digest']===$after['digest'],'Retry lost completed SQL journal binding');}
-    legacyCheck(Db::name('app_migration')->order('id')->select()->toArray()===$state['retry_migrations'],'Retry reran app migrations');
+    $after=Db::name('app_migration')->order('id')->select()->toArray();$beforeById=array_column($state['retry_migrations'],null,'id');$baseline=config('runtime_migration_baseline')?:[];
+    legacyCheck(array_diff(array_keys($beforeById),array_column($after,'id'))===[],'Retry deleted existing migration journal rows');
+    foreach($after as $migration) {
+        $before=$beforeById[$migration['id']]??null;
+        if($before!==null) {
+            if($before['status']==='success')legacyCheck($migration===$before,'Retry changed a previously completed app migration');
+            else {
+                legacyCheck($before['status']==='prepared' && $migration['status']==='success','Retry did not complete a prepared migration once');
+                foreach(['scope','app_code','tenant_id','migration_key','create_time'] as $field)legacyCheck($migration[$field]===$before[$field],'Retry changed prepared migration identity: '.$field);
+            }
+        } else {
+            $path='app/apps/'.$migration['app_code'].'/migrations/'.$migration['migration_key'];
+            legacyCheck(isset($baseline[$path]) && $migration['status']==='success' && $migration['error']==='baseline-adopted:'.$baseline[$path],'Retry introduced a migration outside the signed historical baseline');
+        }
+    }
     echo "PASS same package retry after dropping only disposable metadata trigger\n";
 }

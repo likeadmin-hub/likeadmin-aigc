@@ -15,6 +15,16 @@ function copyFixture(string $from, string $to): void {
         }
     } else { if (!is_dir(dirname($to))) mkdir(dirname($to), 0755, true); verify(copy($from, $to), 'Fixture copy failed'); }
 }
+function freshFixtureGeneration(string $site):void {
+    $code='require '.var_export($site.'/runtime-loader.php',true).'; (new AigcRuntimeApp('.var_export($site,true).'))->initialize(); if(\\app\\FixtureVersion::VERSION!=="new" || config("project.version")!=="1.0.392" || !str_contains((new ReflectionClass(\\app\\FixtureVersion::class))->getFileName(),"/.composer-runtime/generations/")){throw new RuntimeException("Fresh entry did not serve immutable new code/version");} echo "PASS actual fresh site entry serves new immutable PHP code/version\\n";';
+    $pipes=[];$child=proc_open([PHP_BINARY,'-r',$code],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);verify(is_resource($child),'Fresh observer failed to start');fclose($pipes[0]);$out=stream_get_contents($pipes[1]);$err=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);verify(proc_close($child)===0,'Fresh observer failed: '.$err.$out);echo $out;
+}
+function fixtureMetadata():array {
+    $result=[];foreach(['app','app_version','tenant_app','app_api','app_frontend_entry','app_install','system_menu','tenant_system_menu','system_role_menu','tenant_system_role_menu','app_plan','membership_plan','membership_plan_app','tenant_package_app_plan'] as $table) {
+        $indexes=think\facade\Db::query("SHOW INDEX FROM la_".$table." WHERE Key_name='PRIMARY'");usort($indexes,static fn(array $a,array $b):int=>(int)$a['Seq_in_index']<=>(int)$b['Seq_in_index']);
+        $result[$table]=think\facade\Db::name($table)->order(array_fill_keys(array_column($indexes,'Column_name'),'asc'))->select()->toArray();
+    }return $result;
+}
 if (($argv[1] ?? '') !== '--run') {
     verify(getenv('SYSTEM_SERVICE_DISPOSABLE') === '1', 'Only disposable database execution is allowed');
     $case = $argv[1] ?? '';
@@ -75,6 +85,7 @@ seedBusiness('aigc_short_drama_episode_task', ['tenant_id'=>901,'user_id'=>901,'
 seedBusiness('aigc_short_drama_canvas_poster_job', ['status'=>'running','lease_token'=>'existing-owner','lease_expire_time'=>4294967295,'attempts'=>2,'idempotency_key'=>'fixture-existing-task']);
 $businessTables = ['tenant','user','user_account_log','recharge_order','aigc_short_drama_episode_task','aigc_short_drama_canvas_poster_job'];
 $business = []; foreach ($businessTables as $table) $business[$table] = Db::name($table)->order('id')->select()->toArray();
+$metadata=fixtureMetadata();
 $package = $site . '/fixture-package';
 foreach (['composer.json','composer.lock','vendor'] as $path) copyFixture('/production/' . $path, $package . '/composer-runtime/' . $path);
 writeFixture($package . '/files/app/FixtureVersion.php', '<?php namespace app; class FixtureVersion { const VERSION="new"; }');
@@ -82,6 +93,10 @@ writeFixture($package . '/files/config/project.php', "<?php return ['version'=>'
 writeFixture($package . '/sql/data/fixture.sql', "INSERT INTO `la_config` (`type`,`name`,`value`) VALUES ('system_fixture','sql_once','1');\n");
 writeFixture($package . '/menus/README', 'No menu replacement');
 writeFixture($package . '/rollback/README', 'Filesystem rollback exercised by runtime updater');
+// Match the official stager: signed source identities adopt installed historical SQL, never replay it.
+$baseline=[];foreach(glob($site.'/app/apps/*/migrations/*.sql') as $file)$baseline[substr($file,strlen($site)+1)]=hash_file('sha256',$file);
+writeFixture($package.'/files/config/runtime_migration_baseline.php','<?php return '.var_export($baseline,true).';');
+foreach(['aigc_short_drama','aigc_image'] as $code)copyFixture($site.'/app/apps/'.$code.'/manifest.json',$package.'/files/app/apps/'.$code.'/manifest.json');
 if ($case === 'dependency-failure') {
     // Real candidate Composer autoload executes and throws in its fresh PHP subprocess.
     $autoloadPath = $package . '/composer-runtime/vendor/autoload.php';
@@ -137,7 +152,8 @@ if ($case === 'success') {
     verify(Db::name('update_package')->where('id',$id)->value('status') === 'applied', 'Success package status not persisted');
     verify(Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply'])->value('status') === 'success', 'Success task status not persisted');
     verify(file_get_contents($site . '/.composer-runtime/current.json') !== $pointer, 'Success pointer did not switch');
-    verify(str_contains(file_get_contents($site . '/app/FixtureVersion.php'), '"new"'), 'Success files not installed');
+    verify(file_get_contents($site.'/app/FixtureVersion.php')===$original['app/FixtureVersion.php'],'Immutable apply changed canonical baseline code');
+    freshFixtureGeneration($site);
     verify(str_contains(file_get_contents($site . '/config/project.php'),'1.0.392'), 'Success config version not installed');
     verify(json_decode(file_get_contents($site . '/upgrade/version.json'),true)['version']==='1.0.392', 'Success version marker not installed');
 } else {
@@ -149,6 +165,7 @@ if ($case === 'success') {
     verify(file_get_contents($site . '/.composer-runtime/current.json') === $pointer, 'Failure changed runtime pointer');
     foreach (['app/FixtureVersion.php','app/common/service/app/AppRegistryService.php','config/project.php','upgrade/version.json'] as $path)
         verify(file_get_contents($site . '/' . $path) === $original[$path], 'Failure did not restore ' . $path);
+    if($case==='metadata-failure')verify(fixtureMetadata()===$metadata,'Final metadata failure did not roll back all application/tenant/menu/plan metadata');
 }
 foreach (['.env','public/uploads/business.bin','runtime/task-lease.json'] as $path)
     verify(file_get_contents($site . '/' . $path) === $original[$path], 'Protected state changed: ' . $path);
@@ -160,6 +177,7 @@ if ($case === 'metadata-failure') {
     $service->apply($id);
     verify(Db::name('update_package')->where('id',$id)->value('status') === 'applied', 'Retry did not complete');
     verify(Db::name('config')->where(['type'=>'system_fixture','name'=>'sql_once'])->count() === 1, 'Retry replayed completed SQL');
+    freshFixtureGeneration($site);
     foreach ($business as $table=>$rows) verify(Db::name($table)->order('id')->select()->toArray() === $rows, 'Retry changed business records: ' . $table);
     echo "PASS final metadata failure retry: actual service apply completed without replaying SQL or altering business records\n";
 }

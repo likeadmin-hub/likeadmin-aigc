@@ -43,7 +43,6 @@ try:
                     if apply_process.poll() is not None:raise RuntimeError('Apply stopped before actual completion DML pause')
                     time.sleep(1)
                 else:raise RuntimeError('Completion trigger did not block the real metadata write')
-                migrations_before=sql(db,'SELECT * FROM la_app_migration ORDER BY id;')
                 pid_code="$ids=[];foreach(glob('/proc/[0-9]*/cmdline') as $f){$args=explode(chr(0),(string)@file_get_contents($f));$runner=false;foreach($args as $arg)if(strpos($arg,'/fixture/site/runtime/update_temp/')===0 && basename($arg)==='composer-runtime-runner.php')$runner=true;if(in_array('--bootstrap',$args,true) && $runner)$ids[]=basename(dirname($f));}if(count($ids)!==1){fwrite(STDERR,'Expected one private top bootstrap PID, found '.count($ids));exit(1);}echo $ids[0];"
                 pid=run('docker','exec',container,'php','-r',pid_code,quiet=True).strip();assert pid.isdigit()
                 run('docker','exec',container,'sh','-c','kill -9 "$1"','fixture-kill',pid)
@@ -62,14 +61,23 @@ try:
                     if completed=='1':break
                     time.sleep(1)
                 else:raise RuntimeError('Surviving metadata writer did not commit package/task success after parent death')
-                assert sql(db,'SELECT * FROM la_app_migration ORDER BY id;')==migrations_before,'Parent-death recovery replayed SQL migrations'
-                print('PASS surviving completion writer committed independently; SQL migration records unchanged; fresh observer will recover pointer/markers',flush=True)
+                migrations_after_commit=sql(db,'SELECT * FROM la_app_migration ORDER BY id;')
+                print('PASS surviving completion writer committed independently; fresh observer will recover pointer/markers',flush=True)
             finally:
                 if keeper.poll() is None:keeper.terminate()
         else:phase('apply')
         if case in ['success','committed-reply-failure','paused-complete-kill']: assert 'PASS fresh observer' in phase('observe')
         else: assert 'PASS failed observer' in phase('observe')
-        if case=='metadata-failure':phase('retry');assert 'PASS same package retry' in phase('observe','after-retry')
+        if case=='metadata-failure':
+            phase('retry');assert 'PASS same package retry' in phase('observe','after-retry')
+            migrations_after_commit=sql(db,'SELECT * FROM la_app_migration ORDER BY id;')
+            assert 'PASS same package retry' in phase('observe','after-retry')
+            assert sql(db,'SELECT * FROM la_app_migration ORDER BY id;')==migrations_after_commit,'Repeated fresh entry replayed completed SQL migrations'
+        if case=='paused-complete-kill':
+            assert sql(db,'SELECT * FROM la_app_migration ORDER BY id;')==migrations_after_commit,'Parent-death fresh recovery replayed SQL migrations'
+            assert 'PASS fresh observer' in phase('observe')
+            assert sql(db,'SELECT * FROM la_app_migration ORDER BY id;')==migrations_after_commit,'Repeated fresh recovery replayed SQL migrations'
+            print('PASS parent-death recovery and repeated fresh entry retained final migration records exactly',flush=True)
         if case in ['success','committed-reply-failure','metadata-failure','paused-complete-kill']:
             cli=run('docker','exec',container,'php','/fixture/site/think','list','--raw',quiet=True)
             assert 'short-drama:' in cli and 'Exception' not in cli, 'Actual site CLI did not boot new commands'

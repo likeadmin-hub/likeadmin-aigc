@@ -4262,6 +4262,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_digital_human_voice` (
   `create_time` int unsigned NOT NULL DEFAULT 0,
   `update_time` int unsigned NOT NULL DEFAULT 0,
   `delete_time` int unsigned NOT NULL DEFAULT 0,
+  `preview_audio_uri` varchar(500) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`),
   KEY `idx_owner` (`tenant_id`,`user_id`,`source`,`delete_time`),
   KEY `idx_provider` (`tenant_id`,`provider`,`provider_asset_id`)
@@ -7719,6 +7720,8 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_script_task` (
   `skill_version` int unsigned NOT NULL DEFAULT 0,
   `skill_source` varchar(16) NOT NULL DEFAULT 'none',
   `skill_snapshot_json` longtext,
+  `episode_id` int unsigned NOT NULL DEFAULT 0,
+  `episode_number` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_task_id` (`task_id`),
   KEY `idx_tenant_user` (`tenant_id`,`user_id`,`delete_time`),
@@ -7763,6 +7766,8 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_storyboard` (
   `create_time` int unsigned NOT NULL DEFAULT 0,
   `update_time` int unsigned NOT NULL DEFAULT 0,
   `delete_time` int unsigned NOT NULL DEFAULT 0,
+  `episode_id` int unsigned NOT NULL DEFAULT 0,
+  `episode_number` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_task_shot` (`tenant_id`,`task_id`,`shot_id`,`delete_time`),
   KEY `idx_task_sort` (`tenant_id`,`task_id`,`sort`)
@@ -7906,6 +7911,8 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_plan_version` (
   `create_time` int unsigned NOT NULL DEFAULT 0,
   `update_time` int unsigned NOT NULL DEFAULT 0,
   `delete_time` int unsigned NOT NULL DEFAULT 0,
+  `episode_id` int unsigned NOT NULL DEFAULT 0,
+  `episode_number` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `idx_project_version` (`tenant_id`,`project_id`,`version_no`,`delete_time`),
   KEY `idx_current` (`tenant_id`,`project_id`,`is_current`)
@@ -7936,9 +7943,13 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_asset` (
   `create_time` int unsigned NOT NULL DEFAULT 0,
   `update_time` int unsigned NOT NULL DEFAULT 0,
   `delete_time` int unsigned NOT NULL DEFAULT 0,
+  `episode_id` int unsigned NOT NULL DEFAULT 0,
+  `episode_number` int unsigned NOT NULL DEFAULT 0,
+  `canvas_id` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `idx_project_type` (`tenant_id`,`project_id`,`asset_type`,`delete_time`),
-  KEY `idx_task` (`tenant_id`,`task_id`,`shot_id`)
+  KEY `idx_task` (`tenant_id`,`task_id`,`shot_id`),
+  KEY `idx_canvas_type` (`tenant_id`,`canvas_id`,`asset_type`,`delete_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧项目资产';
 
 CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_generation_task` (
@@ -7985,12 +7996,16 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_generation_task` (
   `skill_version` int unsigned NOT NULL DEFAULT 0,
   `skill_source` varchar(16) NOT NULL DEFAULT 'none',
   `skill_snapshot_json` longtext,
+  `episode_id` int unsigned NOT NULL DEFAULT 0,
+  `episode_number` int unsigned NOT NULL DEFAULT 0,
+  `canvas_id` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_task_id` (`tenant_id`,`task_id`),
   KEY `idx_app_task` (`app_task_id`),
   KEY `idx_consumption` (`consumption_id`),
   KEY `idx_project_type` (`tenant_id`,`project_id`,`task_type`,`status`),
-  KEY `idx_shot` (`tenant_id`,`project_id`,`shot_id`)
+  KEY `idx_shot` (`tenant_id`,`project_id`,`shot_id`),
+  KEY `idx_canvas_type` (`tenant_id`,`canvas_id`,`task_type`,`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧生成任务';
 
 CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_published_work` (
