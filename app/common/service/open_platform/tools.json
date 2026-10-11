@@ -340,9 +340,296 @@
         "billable": false,
         "input": {
           "type": "object",
+          "properties": {
+            "clothes_images": {
+              "description": "服饰素材，按每张服饰生成一张结果；支持数组或逗号分隔字符串。最多 6 张，租户配置可以进一步收紧。数组中可使用完整图片 Data URI。重复素材会由业务服务去重。",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "items": {
+                    "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "image": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": [
+                              "uri"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "image"
+                            ]
+                          }
+                        ],
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            },
+            "clothes": {
+              "description": "服饰素材，按每张服饰生成一张结果；支持数组或逗号分隔字符串。最多 6 张，租户配置可以进一步收紧。数组中可使用完整图片 Data URI。重复素材会由业务服务去重。",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "items": {
+                    "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "image": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": [
+                              "uri"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "image"
+                            ]
+                          }
+                        ],
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            },
+            "source_images": {
+              "description": "服饰素材，按每张服饰生成一张结果；支持数组或逗号分隔字符串。最多 6 张，租户配置可以进一步收紧。数组中可使用完整图片 Data URI。重复素材会由业务服务去重。",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "items": {
+                    "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "image": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": [
+                              "uri"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "image"
+                            ]
+                          }
+                        ],
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            },
+            "model_image": {
+              "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "url": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "image": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "uri"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "url"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "image"
+                      ]
+                    }
+                  ],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "model": {
+              "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "url": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "image": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "uri"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "url"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "image"
+                      ]
+                    }
+                  ],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "model_preset_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "从本工具 GET model/lists 选择当前租户启用的模特预设。选择预设时优先使用预设图片；不能仅凭预设图片地址访问他人的私有素材。"
+            },
+            "ratio": {
+              "type": "string",
+              "description": "从能力查询选择宽高比，缺省使用本工具租户默认值。"
+            },
+            "prompt": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "附加创作要求。"
+            },
+            "user_prompt": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "prompt 的原生别名；同时传入时以 prompt 为准。"
+            },
+            "negative_prompt": {
+              "type": "string",
+              "description": "负向提示词，缺省沿用租户工具配置。"
+            }
+          },
           "additionalProperties": true
         },
-        "description": "服饰套图 Generate/estimate"
+        "description": "服饰套图费用预估，不提交生成。报价仍需通过提交前的素材、模型与 SKU 检查。"
       },
       "POST tasks": {
         "controller": "Generate",
@@ -350,9 +637,336 @@
         "billable": true,
         "input": {
           "type": "object",
-          "additionalProperties": true
+          "properties": {
+            "clothes_images": {
+              "description": "服饰素材，按每张服饰生成一张结果；支持数组或逗号分隔字符串。最多 6 张，租户配置可以进一步收紧。数组中可使用完整图片 Data URI。重复素材会由业务服务去重。",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "items": {
+                    "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "image": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": [
+                              "uri"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "image"
+                            ]
+                          }
+                        ],
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            },
+            "clothes": {
+              "description": "服饰素材，按每张服饰生成一张结果；支持数组或逗号分隔字符串。最多 6 张，租户配置可以进一步收紧。数组中可使用完整图片 Data URI。重复素材会由业务服务去重。",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "items": {
+                    "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "image": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": [
+                              "uri"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "image"
+                            ]
+                          }
+                        ],
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            },
+            "source_images": {
+              "description": "服饰素材，按每张服饰生成一张结果；支持数组或逗号分隔字符串。最多 6 张，租户配置可以进一步收紧。数组中可使用完整图片 Data URI。重复素材会由业务服务去重。",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "items": {
+                    "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "image": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": [
+                              "uri"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "image"
+                            ]
+                          }
+                        ],
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            },
+            "model_image": {
+              "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "url": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "image": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "uri"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "url"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "image"
+                      ]
+                    }
+                  ],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "model": {
+              "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "url": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "image": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "uri"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "url"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "image"
+                      ]
+                    }
+                  ],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "model_preset_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "从本工具 GET model/lists 选择当前租户启用的模特预设。选择预设时优先使用预设图片；不能仅凭预设图片地址访问他人的私有素材。"
+            },
+            "ratio": {
+              "type": "string",
+              "description": "从能力查询选择宽高比，缺省使用本工具租户默认值。"
+            },
+            "prompt": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "附加创作要求。"
+            },
+            "user_prompt": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "prompt 的原生别名；同时传入时以 prompt 为准。"
+            },
+            "negative_prompt": {
+              "type": "string",
+              "description": "负向提示词，缺省沿用租户工具配置。"
+            }
+          },
+          "additionalProperties": true,
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "clothes_images"
+                  ]
+                },
+                {
+                  "required": [
+                    "clothes"
+                  ]
+                },
+                {
+                  "required": [
+                    "source_images"
+                  ]
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "model_image"
+                  ]
+                },
+                {
+                  "required": [
+                    "model"
+                  ]
+                },
+                {
+                  "required": [
+                    "model_preset_id"
+                  ]
+                }
+              ]
+            }
+          ]
         },
-        "description": "服饰套图 Generate/index"
+        "description": "为模特分别生成每张服饰的套图，返回本工具任务 ID。沿用租户工具的默认渠道和清晰度、用户售价及会员资格；客户端不能覆盖成本或强制选择渠道。查询任务与结果不收取生成费用。子任务可能部分成功，最终费用以实际原生消费为准。"
       },
       "GET model/lists": {
         "controller": "Model",

@@ -18,4 +18,15 @@ S::validate(json_decode('{"0":"zero"}'),['type'=>'object','required'=>['0']],'$'
 reject(1,['type'=>'number','minimum'=>1,'exclusiveMinimum'=>true]);reject(3,['type'=>'number','maximum'=>3,'exclusiveMaximum'=>true]);S::validate(2,['type'=>'number','minimum'=>1,'maximum'=>3,'exclusiveMinimum'=>true,'exclusiveMaximum'=>true]);
 $objects=S::query(['options'=>'{"speed":"1.5"}','empty'=>'{}'],['type'=>'object','properties'=>['options'=>['type'=>'object','properties'=>['speed'=>['type'=>'number']]],'empty'=>['type'=>'object']]]);
 if(!($objects['options'] instanceof \stdClass)||$objects['options']->speed!==1.5||!($objects['empty'] instanceof \stdClass))throw new RuntimeException('Multipart object shape or nested numeric value changed');
-echo "PASS nested refs, nullable unions, exclusive schema branches and typed query inputs\n";
+$fashion=\app\common\service\open_platform\OpenToolRegistry::get('aigc_fashion_lookbook')['operations'];$native=$fashion['POST tasks']['input'];
+foreach([
+ ['clothes_images'=>['of_'.str_repeat('a',32)],'model_image'=>['uri'=>'of_'.str_repeat('b',32)]],
+ ['clothes'=>'https://example.com/a.png,https://example.com/b.png','model_preset_id'=>1],
+ ['source_images'=>[['image'=>'https://example.com/a.png']],'model'=>['url'=>'https://example.com/model.png']],
+] as $params)S::validate(json_decode(json_encode($params)),$native,'$',0,null,true);
+reject(['clothes_images'=>['a']],$native);reject(['model_preset_id'=>1],$native);
+reject(['clothes_images'=>array_fill(0,7,'a'),'model_image'=>'b'],$native);
+reject(['clothes_images'=>['a'],'model_preset_id'=>0],$native);
+reject(['clothes_images'=>['a'],'model_image'=>['unexpected'=>'b']],$native);
+S::validate([],$fashion['POST estimate']['input']);
+echo "PASS nested refs, nullable unions, exclusive schema branches, typed query inputs and native fashion aliases/preset/list bounds\n";
