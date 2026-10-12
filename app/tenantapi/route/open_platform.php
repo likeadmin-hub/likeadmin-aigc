@@ -13,3 +13,5 @@ Route::post('app/open_platform/setup','app.open_platform.Management/setup')->com
 Route::post('app/open_platform/savePages','app.open_platform.Management/savePages')->completeMatch();
 Route::post('app/open_platform/saveDocument','app.open_platform.Management/saveDocument')->completeMatch();
 Route::post('app/open_platform/publishDocument','app.open_platform.Management/publishDocument')->completeMatch();
+
+Route::post('app/open_platform/setMarketExposure','app.open_platform.Management/setMarketExposure')->completeMatch();

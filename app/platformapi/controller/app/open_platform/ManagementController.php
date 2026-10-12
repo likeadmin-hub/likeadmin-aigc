@@ -9,7 +9,7 @@ use app\common\service\open_platform\OpenDocuments;
 class ManagementController extends BaseAdminController
 {
     private function run(callable $fn){try{\app\common\service\open_platform\OpenAdminPermission::assert('platform_admin',$this->adminInfo,(string)$this->request->action());return $this->success('操作成功',$fn());}catch(\Throwable $e){return $this->fail($e instanceof \app\common\service\open_platform\OpenException?$e->getMessage():'开放平台操作失败，请查看服务日志');}}
-    public function detail(){return $this->run(fn()=>OpenStore::settings((int)$this->request->param('tenant_id',0)));}
+    public function detail(){return $this->run(fn()=>OpenManagement::adminSettings((int)$this->request->param('tenant_id',0)));}
     public function setup(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenManagement::saveSettings((int)$this->request->param('tenant_id',0),$this->request->post(),true));}
     public function pages(){return $this->run(fn()=>OpenPages::configured((int)$this->request->param('tenant_id',0)));}
     public function savePages(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenManagement::savePages((int)$this->request->param('tenant_id',0),(array)$this->request->post('pages',[])));}
@@ -24,6 +24,7 @@ class ManagementController extends BaseAdminController
     public function saveContract(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenContracts::save(OpenContracts::requestInput($this->request)));}
     public function createVerification(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>\app\common\service\open_platform\OpenContractPreview::issue((int)$this->request->post('id'),(int)$this->request->post('key_id'),(string)$this->request->post('path','')));}
     public function publishContract(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenContracts::publish((int)$this->request->post('id')));}
+    public function setMarketExposure(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenManagement::setMarketExposure(0,(array)$this->request->post('product_ids',[]),(bool)$this->request->post('enabled',false),true));}
     public function inventory(){return $this->run(fn()=>['tools'=>array_map(fn($code,$tool)=>['code'=>$code,'name'=>$tool['name']],array_keys(\app\common\service\open_platform\OpenToolRegistry::all()),array_values(\app\common\service\open_platform\OpenToolRegistry::all())),'models'=>\think\facade\Db::name('power_market_product')->field('id,name,resource_type')->where('status',1)->order('id','asc')->limit(5000)->select()->toArray()]);}
     public function marketPlan()
     {

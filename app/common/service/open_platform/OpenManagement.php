@@ -5,17 +5,56 @@ final class OpenManagement
 {
     public static function saveSettings(int $tenantId,array $input,bool $platform=false): array
     {
-        $enabled=(bool)($input['enabled']??false);$old=OpenStore::settings($tenantId);$config=$old;unset($config['enabled']);
+        return Db::transaction(function()use($tenantId,$input,$platform){
+            OpenStore::table('setting')->where('tenant_id',$tenantId)->lock(true)->find();
+            return self::saveLockedSettings($tenantId,$input,$platform);
+        });
+    }
+    private static function saveLockedSettings(int $tenantId,array $input,bool $platform): array
+    {
+        if(!$platform&&$tenantId<=0)throw new OpenException('permission_denied','租户范围无效',403);
+        if($tenantId<0||($tenantId>0&&!Db::name('tenant')->where('id',$tenantId)->find()))throw new OpenException('not_found','租户不存在',404);
+        $old=OpenStore::settings($tenantId);$config=$old;unset($config['enabled'],$config['authorized']);
+        // The durable enabled column is a platform grant; tenant pause is separate.
+        $enabled=$platform?(bool)($input['enabled']??$old['authorized']):$old['authorized'];
+        if(!$platform)$config['tenant_enabled']=(bool)($input['enabled']??$old['tenant_enabled']);
         foreach(['rpm','concurrency','user_concurrency','tenant_concurrency'] as $field){$value=(int)($input[$field]??$config[$field]);if($value<1||$value>100000)throw new OpenException('invalid_limits','请配置有效请求频率和并发上限');$config[$field]=$value;}
         $global=OpenStore::settings(0);
-        if(!$platform)foreach(['rpm','concurrency','user_concurrency','tenant_concurrency'] as $field)$config[$field]=min($config[$field],$global[$field]);
-        $apps=array_values(array_unique(array_map('strval',(array)($input['apps']??$config['apps']))));foreach($apps as $app){OpenToolRegistry::get($app);if(!$platform&&!in_array($app,$global['apps'],true))throw new OpenException('permission_denied','工具超出平台开放范围',403);}$config['apps']=$apps;
-        $config['models']=array_values(array_unique(array_map('strval',(array)($input['models']??$config['models']))));if(!$platform&&array_diff($config['models'],$global['models']))throw new OpenException('permission_denied','商城能力超出平台范围',403);
-        foreach($config['features'] as $name=>$value){$config['features'][$name]=(bool)($input['features'][$name]??$value)&&($platform||!empty($global['features'][$name]));}
+        if(!$platform)foreach(['rpm','concurrency','user_concurrency','tenant_concurrency'] as $field)$config[$field]=min($config[$field],$global[$field],$old['grant_limits'][$field]??$global[$field]);
+        $apps=array_values(array_unique(array_map('strval',(array)($input['apps']??$config['apps']))));foreach($apps as $app){OpenToolRegistry::get($app);if(!$platform&&!in_array($app,$old['apps'],true)&&(!in_array($app,$global['apps'],true)||!in_array($app,$old['grant_apps']??$global['apps'],true)))throw new OpenException('permission_denied','工具超出平台开放范围',403);}$config['apps']=$apps;
+        $config['models']=array_values(array_unique(array_map('strval',(array)($input['models']??$config['models']))));if(!$platform&&array_diff($config['models'],$old['models'],$global['models']))throw new OpenException('permission_denied','商城能力超出平台范围',403);
+        foreach($config['features'] as $name=>$value){$config['features'][$name]=(bool)($input['features'][$name]??$value)&&($platform||(!empty($global['features'][$name])&&($old['grant_features'][$name]??true)));}
+        if($platform&&$tenantId>0){
+            $config['grant_limits']=array_intersect_key($config,array_flip(['rpm','concurrency','user_concurrency','tenant_concurrency']));
+            $config['grant_features']=$config['features'];$config['grant_apps']=$config['apps'];
+        }
         // Only platform can declare executor safety limits; they are never prices.
         if($platform&&isset($input['tool_budgets']))$config['tool_budgets']=self::budgets((array)$input['tool_budgets']);
         if($enabled&&$tenantId>0&&empty($input['rpm']))throw new OpenException('invalid_limits','开通前必须明确配置频率和并发');
         self::persistSettings($tenantId,$enabled,$config);return OpenStore::settings($tenantId);
+    }
+    public static function adminSettings(int $tenantId): array
+    {
+        if($tenantId<0||($tenantId>0&&!Db::name('tenant')->where('id',$tenantId)->find()))throw new OpenException('not_found','租户不存在',404);
+        $global=OpenStore::settings(0);
+        return OpenStore::settings($tenantId)+['platform_enabled'=>$global['enabled'],'platform_models'=>$global['models'],'platform_apps'=>$global['apps']];
+    }
+    /** Independent API exposure; never changes price, SKU shelf, or contract publication. */
+    public static function setMarketExposure(int $tenantId,array $productIds,bool $enabled,bool $platform): array
+    {
+        $ids=array_values(array_unique(array_map('intval',$productIds)));
+        if(!$ids||count($ids)>500||min($ids)<1)throw new OpenException('invalid_request','请选择有效商城能力');
+        if(!$platform&&$tenantId<=0)throw new OpenException('permission_denied','租户范围无效',403);
+        $count=Db::name('power_market_product')->whereIn('id',$ids)->whereIn('resource_type',['model','application_api'])->count();
+        if($count!==count($ids))throw new OpenException('not_found','商城能力不存在',404);
+        return Db::transaction(function()use($tenantId,$ids,$enabled,$platform){
+            OpenStore::table('setting')->where('tenant_id',$tenantId)->lock(true)->find();
+            $setting=self::adminSettings($tenantId);$global=OpenStore::settings(0);$strings=array_map('strval',$ids);
+            if($enabled&&!$platform&&(!$setting['authorized']||array_diff($strings,$global['models'])))throw new OpenException('permission_denied','该能力未获平台 API 授权',403);
+            $models=$enabled?array_values(array_unique(array_merge($setting['models'],$strings))):array_values(array_diff($setting['models'],$strings));
+            $config=OpenStore::settings($tenantId);$authorized=$config['authorized'];unset($config['enabled'],$config['authorized']);$config['models']=$models;
+            self::persistSettings($tenantId,$authorized,$config);return self::adminSettings($tenantId);
+        });
     }
     private static function budgets(array $rules): array
     {
@@ -23,11 +62,15 @@ final class OpenManagement
     }
     public static function persistSettings(int $tenantId,bool $enabled,array $config): void
     {
+        unset($config['enabled'],$config['authorized']);
         Db::transaction(function()use($tenantId,$enabled,$config){$row=OpenStore::table('setting')->where('tenant_id',$tenantId)->lock(true)->find();$values=['enabled'=>$enabled?1:0,'config'=>OpenStore::encode($config),'update_time'=>time()];if($row)OpenStore::table('setting')->where('id',$row['id'])->update($values);else OpenStore::table('setting')->insert($values+['tenant_id'=>$tenantId,'create_time'=>time()]);});
     }
     public static function savePages(int $tenantId,array $pages): array
     {
-        $setting=OpenStore::settings($tenantId);$enabled=$setting['enabled'];unset($setting['enabled']);$setting['pages']=OpenPages::validate($pages);self::persistSettings($tenantId,$enabled,$setting);return OpenPages::configured($tenantId);
+        return Db::transaction(function()use($tenantId,$pages){
+            OpenStore::table('setting')->where('tenant_id',$tenantId)->lock(true)->find();
+            $setting=OpenStore::settings($tenantId);$enabled=$setting['authorized'];unset($setting['enabled'],$setting['authorized']);$setting['pages']=OpenPages::validate($pages);self::persistSettings($tenantId,$enabled,$setting);return OpenPages::configured($tenantId);
+        });
     }
     public static function contractsForTenant(int $tenantId): array
     {

@@ -63,9 +63,11 @@ class TenantLists extends BaseAdminDataLists implements ListsExcelInterface
             ->order('id desc')
             ->select()->toArray();
 
+        $apiSettings = \think\facade\Db::name('open_platform_setting')->whereIn('tenant_id', array_column($lists, 'id'))->column('enabled', 'tenant_id');
         $domain = TenantUrlService::tenantRootDomain(request()->domain());
 
-        return array_map(function ($item) use ($domain) {
+        return array_map(function ($item) use ($domain, $apiSettings) {
+            $item['api_authorized'] = (bool)($apiSettings[$item['id']] ?? false);
             $item['domain_aliases'] = TenantDomainAliasService::getAliasesByTenantId((int)$item['id']);
             $item['contract_summary'] = TenantContractService::summary($item);
             return TenantUrlService::attach($item, $domain);
