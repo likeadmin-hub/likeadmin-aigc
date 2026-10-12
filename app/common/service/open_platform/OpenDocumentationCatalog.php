@@ -41,7 +41,7 @@ final class OpenDocumentationCatalog
                 [$method,$path]=array_pad(explode(' ',$route,2),2,'');if($route==='reference'){$method='';$path='';}
                 $first=self::transport($first,$method,$path);$first['method']=$method;$first['path']=$path;$first['key']='market:'.$id.':'.hash('crc32b',$route);
                 $first['summary']=(string)$product['name'];$first['description']=self::text((string)($product['description']??''));
-                $first['protocol_label']=['openai_chat'=>'Chat Completions','openai_responses'=>'Responses','anthropic_messages'=>'Messages','gemini_contents'=>'Gemini','model_task'=>'异步任务','application_api'=>'应用接口'][$definition['protocol']??'']??'';
+                $first['protocol_label']=['openai_chat'=>'Chat Completions','openai_completions'=>'Completions','openai_responses'=>'Responses','anthropic_messages'=>'Messages','gemini_contents'=>'Gemini','model_task'=>'异步任务','application_api'=>'应用接口'][$definition['protocol']??'']??'';
                 $first['section']=$model?'模型 API':'应用 API';$first['category']=$category;$first['group']=self::text($group);$first['model']=$compiled['model_code'];
                 $first['x-catalog-entry']=true;$first['x-product-id']=$id;$first['x-api-selected']=$selected;
                 $first['x-contract-variants']=$variants;$first['x-prices']=array_map(static fn($sku)=>['sku_key'=>$sku['sku_key'],'price'=>(float)$sku['sale_points'],'unit'=>$sku['usage_unit'],'unit_size'=>(float)$sku['usage_unit_size'],'sale_status'=>(int)$sku['sale_status']===1],$product['skus']);
