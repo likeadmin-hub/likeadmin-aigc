@@ -13,6 +13,7 @@ function assertAgent($ok,$message){global $passed;$passed++;if(!$ok)throw new Ru
 config(['enabled'=>true],'decoration_agent');request()->tenantId=1;
 $baseline=Db::name('decorate_page')->where('tenant_id',1)->where('id',1)->find();
 $baselineJson=json_encode($baseline);
+$conflict=new ReflectionMethod(S::class,'conflictMessage');$conflict->setAccessible(true);$message=$conflict->invoke(null,[['widget_id'=>'n','field'=>'data','reason'=>'move_modify_conflict']],['data'=>[C::create('news','n')]],['data'=>[]]);assertAgent(str_contains($message,'资讯')&&str_contains($message,'最新草稿')&&!str_contains($message,'widget_id'),'conflict explains actual component without internal IDs');
 $tools=new ReflectionMethod(S::class,'queryTool');$tools->setAccessible(true);$icons=$tools->invoke(null,1,1,[],[],[],['type'=>'icons'],[],[]);assertAgent($icons[0]['options'][0]['value']==='⌕'&&$icons[1]['options'][0]['value']==='auto','icon tool uses mobile renderer values, not desktop icon class names');
 $index=new ReflectionMethod(S::class,'componentIndex');$index->setAccessible(true);$legacy=$index->invoke(null,[['name'=>'news','content'=>[]]]);assertAgent($legacy[0]['id']==='legacy_news_0'&&$legacy[0]['path']===[0],'context exposes legacy component IDs without stored rewrites');
 $template=T::add(1,['name'=>'Agent isolated acceptance '.date('His'),'terminal'=>'mobile']);

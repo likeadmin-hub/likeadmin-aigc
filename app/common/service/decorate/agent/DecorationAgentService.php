@@ -178,6 +178,12 @@ final class DecorationAgentService
     {$r=self::owned('candidate',$tenant,$admin,$id);$p=self::decode($r['payload_json']);$s=self::owned('session',$tenant,$admin,(int)$r['session_id']);$page=self::page($tenant,(int)$s['template_id'],(int)$s['page_id']);if($p['new_page']??false)$page['page_code']='';$p['resolved_sources']=self::resolvedPage($tenant,$page,$p)['resolved_sources'];return $p+['base_data'=>self::decode($r['base_json'])['data']??[],'base_meta'=>self::decode($r['base_json'])['meta']??[],'id'=>$id,'revision'=>(int)$r['revision'],'status'=>$r['status'],'base_hash'=>$r['base_hash'],'changes'=>self::decode($r['changes_json']),'image_slots'=>self::slots($tenant,$admin,(int)$r['run_id'],$id)];}
     public static function discard(int $tenant,int $admin,int $id): array
     {$r=self::owned('candidate',$tenant,$admin,$id);if($r['status']==='applied')throw new RuntimeException('已应用的候选请通过撤销恢复');self::q('candidate',$tenant,$admin)->where('id',$id)->update(['status'=>'discarded']);self::q('session',$tenant,$admin)->where('id',$r['session_id'])->where('active_candidate_id',$id)->update(['active_candidate_id'=>0]);return ['id'=>$id,'status'=>'discarded'];}
+    private static function conflictMessage(array $conflicts,array $current,array $candidate): string
+    {
+        $nodes=DecorationAgentOperations::index($current['data']??[])+DecorationAgentOperations::index($candidate['data']??[]);$labels=[];
+        foreach($conflicts as $conflict){$widget=$nodes[(string)($conflict['widget_id']??'')]['widget']??null;$label='页面';$field='配置';if($widget){try{$definition=DecorationAgentCatalog::definition($widget['name']);$label=$definition['title'];$path=explode('.',(string)($conflict['field']??''));$schema=$definition[$path[0]==='styles'?'style_fields':'content_fields'][$path[1]??'']??[];$field=$schema['label']??'组件排列或内容';}catch(\Throwable $e){$label=(string)($widget['title']??'组件');}}$labels[]=$label.'（'.$field.'）';}
+        return '草稿修改冲突：'.implode('、',array_unique($labels)).'。请基于最新草稿重新生成方案。';
+    }
     public static function apply(int $tenant,int $admin,array $p): array
     {
         $id=(int)($p['candidate_id']??0);$key=(string)($p['idempotency_key']??'');if($key===''||strlen($key)>100)throw new RuntimeException('应用标识无效');
@@ -190,7 +196,7 @@ final class DecorationAgentService
             if(!empty($p['expected_hash'])&&$p['expected_hash']!==self::hash($current))throw new RuntimeException('页面已经变化，请刷新后重新应用');
             $before=$new?['origin_page_id'=>(int)$s['page_id']]:$current;
             if($new){$page=DecorateTemplateService::addPage($tenant,['template_id'=>$s['template_id'],'terminal'=>'mobile','name'=>$target['name'],'page_code'=>'ai_'.bin2hex(random_bytes(6))]);}
-            else{$base=self::decode($c['base_json']);$base['new_page']=false;$target['new_page']=false;$merge=DecorationAgentMerge::merge($base,$current,$target);if($merge['conflicts'])throw new RuntimeException('页面修改冲突：'.self::json($merge['conflicts']));$target=$merge['merged'];}
+            else{$base=self::decode($c['base_json']);$base['new_page']=false;$target['new_page']=false;$merge=DecorationAgentMerge::merge($base,$current,$target);if($merge['conflicts'])throw new RuntimeException(self::conflictMessage($merge['conflicts'],$current,$target));$target=$merge['merged'];}
             $target['new_page']=false;
             $saved=DecorateTemplateService::savePage($tenant,['template_id'=>$s['template_id'],'id'=>$page['id'],'terminal'=>'mobile','name'=>$target['name'],'data'=>self::json($target['data']),'meta'=>self::json($target['meta'])]);
             $after=self::payload($saved);
@@ -215,7 +221,7 @@ final class DecorationAgentService
                 DecorateTemplateService::deletePage($tenant,(int)$page['id']);$origin=(int)($before['origin_page_id']??0);$saved=self::page($tenant,(int)$s['template_id'],$origin);$deleted=true;
                 self::q('session',$tenant,$admin)->where('id',$s['id'])->update(['page_id'=>$origin]);
             }else{
-                $merge=DecorationAgentMerge::merge($after,$current,$before);if($merge['conflicts'])throw new RuntimeException('恢复冲突：'.self::json($merge['conflicts']));$target=$merge['merged'];
+                $merge=DecorationAgentMerge::merge($after,$current,$before);if($merge['conflicts'])throw new RuntimeException(self::conflictMessage($merge['conflicts'],$current,$before));$target=$merge['merged'];
                 $saved=DecorateTemplateService::savePage($tenant,['template_id'=>$s['template_id'],'id'=>$page['id'],'terminal'=>'mobile','name'=>$target['name'],'data'=>self::json($target['data']),'meta'=>self::json($target['meta'])]);
             }
             self::q('candidate',$tenant,$admin)->where('id',$c['candidate_id'])->update(['status'=>'rolled_back','applied_page_id'=>$deleted?0:$page['id']]);
