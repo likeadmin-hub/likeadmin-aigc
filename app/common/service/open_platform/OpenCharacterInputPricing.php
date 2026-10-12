@@ -38,6 +38,7 @@ final class OpenCharacterInputPricing
         $metadata = self::object($source['market_metadata'] ?? []);
         $defaults = self::object($metadata['default_params'] ?? []);
         OpenPolicy::validateInput($defaults); self::assertDefaultVoice($defaults);
+        foreach (['callback_url','webhook_url','callbackUrl','storage','mode'] as $name) if (array_key_exists($name,$defaults)) throw new OpenException('pricing_unavailable','默认回调或执行控制参数尚未接入公开协议',503);
         foreach (self::TEXT_KEYS as $name) if (isset($defaults[$name]) && self::length($defaults[$name]) > 0) throw new OpenException('pricing_unavailable','字符接口存在尚未适配的默认计费文本',503);
         $schema = self::object($metadata['params_schema'] ?? []);$properties=self::object($schema['properties']??$schema);
         foreach ($defaults as $name=>$value) if (!isset($properties[$name])) throw new OpenException('pricing_unavailable','默认参数未声明在原协议中',503);
