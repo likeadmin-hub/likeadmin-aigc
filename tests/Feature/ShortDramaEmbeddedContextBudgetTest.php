@@ -87,7 +87,7 @@ class ShortDramaEmbeddedContextBudgetTest extends TestCase
             'locations' => [['id' => 'room', 'name' => '房间']],
             'storyboard' => [['shot_id' => 's1', 'scene_ref_id' => 'room', 'subject_ref_ids' => ['p'],
                 'visual_description' => '林舟握住铜钥匙。', 'dialogue' => '', 'voice_role' => '',
-                'speech_type' => 'none', 'recommended_duration_seconds' => 6]]];
+                'speech_type' => 'none', 'recommended_duration_seconds' => 6.0]]];
         $result = Generation::generate(['_input_contract_version' => 7], [], $messages,
             static function ($key, $input, $budget) use (&$calls, $payload) {
                 $calls[] = $key;
