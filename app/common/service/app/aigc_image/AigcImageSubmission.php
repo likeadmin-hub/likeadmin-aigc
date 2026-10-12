@@ -11,6 +11,9 @@ class AigcImageSubmission
 {
     public static function key(array $params, string $appCode): string
     {
+        // API admission owns idempotency and immutable native-task associations.
+        // A page batch key must not reuse another request's task or consumption.
+        if (\app\common\service\open_platform\OpenCallContext::active()) return '';
         $key = $params['batch_key'] ?? '';
         if ($key === '') {
             return ''; // Older clients retain their existing submission behavior.
