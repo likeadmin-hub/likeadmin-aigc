@@ -16,16 +16,29 @@ final class OpenNativeMarketPricing
     }
 
     /** Identity is supplied by the bound contract, never by a pricing override in the body. */
-    public static function bind(array $product, array $raw, int $skuId): array
+    public static function bind(array $product, array $raw, int $skuId, array $sku = []): array
     {
         if (!self::supports($product) || $skuId <= 0) throw new OpenException('pricing_unavailable', '该商品尚未接入原生价格映射', 503);
         $isImage = ($product['model_type'] ?? '') === 'image' && $product['resource_type'] === 'model';
         $selection = ['market_product_id' => (int)$product['id'], 'market_sku_id' => $skuId, 'resource_type' => $product['resource_type']];
+        $locked = self::object($sku['locked_params'] ?? []);
         foreach (['model' => 'upstream_model_code', 'channel' => 'upstream_channel_code'] as $name => $column) {
             $value = self::alias($raw, [$name]);
-            if ($value !== null && (string)$value !== (string)($product[$column] ?? '')) throw new OpenException('invalid_sku', '模型或渠道与所选商品不一致');
+            $expected = $name === 'model' && $product['resource_type'] === 'app_api' ? ($locked['model'] ?? $product[$column] ?? '') : ($product[$column] ?? '');
+            if ($value !== null && (string)$value !== (string)$expected) throw new OpenException('invalid_sku', '模型或渠道与所选商品不一致');
         }
-        foreach (['quality' => ['quality', 'resolution', 'image_size'], 'ratio' => ['ratio', 'aspect_ratio'], 'duration' => ['duration', 'seconds', 'video_duration']] as $name => $aliases) {
+        // These fields can be independent wire dimensions (quality=high, resolution=2k).
+        // Project only the dimension which the native SKU uses for its price selector.
+        $dimensions = [];
+        foreach (['quality', 'resolution', 'image_size'] as $name) {
+            $value = self::alias($raw, [$name]);
+            if ($value !== null) $dimensions[$name] = $value;
+            if ($value !== null && isset($locked[$name]) && strcasecmp($value, (string)$locked[$name]) !== 0) throw new OpenException('invalid_sku', '参数与所选 SKU 的锁定规格不一致');
+        }
+        $priority = $isImage ? ['quality','resolution','image_size'] : ['resolution','quality','image_size'];
+        foreach ($priority as $name) if (isset($locked[$name]) && (string)$locked[$name] !== '') { $selection['quality'] = (string)$locked[$name]; break; }
+        if (!isset($selection['quality'])) foreach ($priority as $name) if (isset($dimensions[$name])) { $selection['quality'] = $dimensions[$name]; break; }
+        foreach (['ratio' => ['ratio', 'aspect_ratio'], 'duration' => ['duration', 'seconds', 'video_duration']] as $name => $aliases) {
             $value = self::alias($raw, $aliases, $name === 'duration');
             if ($value !== null) $selection[$name] = $value;
         }
@@ -71,7 +84,9 @@ final class OpenNativeMarketPricing
         if($user<=0)throw new OpenException('permission_denied','原生价格映射需要已认证的素材归属',403);
         $materials=OpenMaterials::resolve($tenantId,$user,$raw);
         if(OpenPolicy::fingerprint($materials)!==OpenPolicy::fingerprint($raw))throw new OpenException('local_material_mapping_required','原协议透传请使用素材 URL；本地 file_id 尚未接入资源映射');
-        $bound = self::bind($product, $raw, $skuId);
+        $sku = \app\common\model\power\PowerMarketSku::where(['id'=>$skuId,'product_id'=>(int)$product['id'],'status'=>1,'sale_status'=>1])->find();
+        if (!$sku) throw new OpenException('invalid_sku', '所选商品规格不可用');
+        $bound = self::bind($product, $raw, $skuId, $sku->toArray());
         try {
             $captured = $bound['kind'] === 'image'
                 ? Images::openPlatformAdmissionQuote($tenantId, $bound['selection'], $bound['selection']['quantity'])

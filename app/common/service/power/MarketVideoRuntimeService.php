@@ -3290,13 +3290,27 @@ class MarketVideoRuntimeService
     /** Pricing-only reuse for the raw protocol gateway, without changing its payload. */
     public static function openPlatformSettlementQuantity(array $snapshot, array $response): ?float
     {
-        $submitted = max(1, (float)($snapshot['quantity'] ?? 1));
-        $usage = self::usage($response, $submitted);
+        $unit = strtolower((string)($snapshot['usage_unit'] ?? ''));
+        if ($unit === 'per_call') return 1.;
         if (self::isTokenSnapshot($snapshot)) {
-            $usage['actual_quantity'] = MarketUsageSettlementService::tokenUsage($response);
-            if ($usage['actual_quantity'] <= 0) return null;
+            $tokens = MarketUsageSettlementService::tokenUsage($response);
+            return $tokens > 0 ? $tokens : null;
         }
-        return self::settlementQuantity($snapshot, $submitted, $usage);
+        if (!in_array($unit, ['input_second','output_second','second','seconds','sec'], true)) return null;
+        $root = self::root($response);
+        $result = self::arrayValue($root['result'] ?? $root['Result'] ?? []);
+        $usage = self::arrayValue($root['usage'] ?? $response['usage'] ?? $result['usage'] ?? $result['Usage'] ?? []);
+        $specific = $unit === 'input_second' ? ['input_seconds','input_duration'] : ['output_seconds','output_duration'];
+        if (in_array($unit, ['second','seconds','sec'], true)) $specific = ['output_seconds','output_duration'];
+        foreach (array_merge($specific, ['duration','seconds']) as $field) {
+            foreach ([$usage, $result, $root, $response] as $source) {
+                $value = $source[$field] ?? null;
+                if (is_numeric($value) && is_finite((float)$value) && (float)$value > 0) return (float)$value;
+            }
+        }
+        // Only input seconds are known from the accepted input; output requires a receipt.
+        $submitted = (float)($snapshot['quantity'] ?? 0);
+        return $unit === 'input_second' && $submitted > 0 ? $submitted : null;
     }
     private static function root(array $data): array { return self::arrayValue($data['data'] ?? $data); }
     private static function status(array $data): string { $root = self::root($data); return strtolower((string)($data['status'] ?? $data['state'] ?? $root['status'] ?? $root['state'] ?? $root['task_status'] ?? '')); }
