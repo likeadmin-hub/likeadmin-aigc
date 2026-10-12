@@ -15,11 +15,11 @@ class ConsoleController extends BaseApiController
     public function setKey(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(function(){OpenKeyService::revoke((int)$this->request->tenantId,$this->userId,(int)$this->request->post('id'),(int)$this->request->post('status'));return [];});}
     public function rotateKey(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenKeyService::rotate((int)$this->request->tenantId,$this->userId,(int)$this->request->post('id')));}
     public function pages(){return $this->run(fn()=>OpenPages::configured((int)$this->request->tenantId));}
-    public function catalog(){return $this->run(fn()=>\app\common\service\open_platform\OpenCatalog::forUser((int)$this->request->tenantId,$this->userId));}
+    public function catalog(){return $this->run(fn()=>\app\common\service\open_platform\OpenCatalog::forConsole((int)$this->request->tenantId,$this->userId));}
     public function requests(){return $this->run(fn()=>OpenManagement::requests((int)$this->request->tenantId,$this->userId,$this->request->get()));}
     public function requestDetail(){return $this->run(fn()=>OpenManagement::detail((int)$this->request->tenantId,$this->userId,(string)$this->request->get('request_id')));}
     public function tasks(){return $this->run(fn()=>OpenManagement::requests((int)$this->request->tenantId,$this->userId,$this->request->get()+['tasks'=>true]));}
-    public function usage(){return $this->run(fn()=>OpenManagement::usage((int)$this->request->tenantId,$this->userId,$this->request->get()));}
+    public function usage(){return $this->run(fn()=>OpenManagement::usage((int)$this->request->tenantId,$this->userId,$this->request->get(),true));}
     public function callbacks(){return $this->run(fn()=>OpenManagement::callbacks((int)$this->request->tenantId,$this->userId,(string)$this->request->get('request_id')));}
     public function replayCallback(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(function(){\app\common\service\open_platform\OpenWebhooks::replay((int)$this->request->tenantId,$this->userId,(int)$this->request->post('id'));return [];});}
 

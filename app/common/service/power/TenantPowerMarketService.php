@@ -129,6 +129,24 @@ class TenantPowerMarketService
         return $data;
     }
 
+    /** Internal catalogue projection using the same retail and shelf rules as the market. */
+    public static function catalogueProducts(int $tenantId): array
+    {
+        $products = PowerMarketProduct::where('status', 1)->order('id', 'asc')->select()->toArray();
+        if (!$products) return [];
+        $skus = PowerMarketSku::whereIn('product_id', array_column($products, 'id'))->select()->toArray();
+        $skus = self::applyTenantPrices($tenantId, array_values(array_filter($skus, [self::class, 'isPlatformAvailableSku'])));
+        $byProduct = [];
+        foreach ($skus as $sku) if ((int)$sku['sale_status'] === 1) $byProduct[(int)$sku['product_id']][] = $sku;
+        self::applyProductDisplays($tenantId, $products);
+        $result = [];
+        foreach ($products as $product) if (isset($byProduct[(int)$product['id']])) {
+            $product['skus'] = $byProduct[(int)$product['id']];
+            $result[] = $product;
+        }
+        return $result;
+    }
+
     public static function saveProductDisplay(int $tenantId, int $productId, array $params): void
     {
         $product = PowerMarketProduct::where(['id' => $productId, 'resource_type' => PowerMarketService::TYPE_MODEL, 'status' => 1])->findOrEmpty();

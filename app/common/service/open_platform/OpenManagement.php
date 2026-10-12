@@ -96,7 +96,7 @@ final class OpenManagement
         }
         ksort($logs);return array_values($logs);
     }
-    public static function usage(int $tenantId,int $userId,array $filters): array
+    public static function usage(int $tenantId,int $userId,array $filters,bool $paginate=false): array
     {
         $q=OpenStore::owner('request',$tenantId,$userId);if(!empty($filters['start']))$q->where('create_time','>=',(int)$filters['start']);if(!empty($filters['end']))$q->where('create_time','<=',(int)$filters['end']);
         foreach(['app_code','kind','key_id','contract_id','path','billing_status','status'] as $field)if(isset($filters[$field])&&$filters[$field]!=='')$q->where($field,$filters[$field]);
@@ -104,10 +104,16 @@ final class OpenManagement
         $snapshot="CASE WHEN JSON_VALID(snapshot) THEN snapshot ELSE '{}' END";
         $model="COALESCE(NULLIF(NULLIF(JSON_UNQUOTE(JSON_EXTRACT($snapshot, '$.native_text_model.model_code')), 'null'), ''),NULLIF(NULLIF(JSON_UNQUOTE(JSON_EXTRACT($snapshot, '$.contract.model')), 'null'), ''),'')";
         if(isset($filters['model'])&&$filters['model']!=='')$q->whereRaw($model.' = ?',[(string)$filters['model']]);
-        $rows=$q->fieldRaw("app_code,kind,key_id,contract_id,path,$model AS model,COUNT(*) AS calls,SUM(actual_user) AS charged,SUM(CASE WHEN active=1 THEN budget_user ELSE 0 END) AS pending_budget")->group('app_code,kind,key_id,contract_id,path,model')->select()->toArray();
-        // SQL aggregates fixed-precision ledger amounts. Summing the grouped
-        // values as PHP floats can otherwise expose 334.63999999999993 in the
-        // console despite every individual charge having two decimal places.
+        $fields="app_code,kind,key_id,contract_id,path,$model AS model,COUNT(*) AS calls,SUM(actual_user) AS charged,SUM(CASE WHEN active=1 THEN budget_user ELSE 0 END) AS pending_budget";
+        $grouped=(clone $q)->fieldRaw($fields)->group('app_code,kind,key_id,contract_id,path,model');
+        if($paginate){
+            $page=max(1,(int)($filters['page_no']??1));$size=min(100,max(1,(int)($filters['page_size']??20)));
+            $count=(clone $grouped)->count();
+            $totals=(clone $q)->fieldRaw('COUNT(*) AS calls,SUM(actual_user) AS charged,SUM(CASE WHEN active=1 THEN budget_user ELSE 0 END) AS pending_budget')->find();
+            $rows=$grouped->order(['app_code'=>'asc','kind'=>'asc','key_id'=>'asc','contract_id'=>'asc','path'=>'asc','model'=>'asc'])->page($page,$size)->select()->toArray();
+            return ['groups'=>$rows,'charged'=>round((float)$totals['charged'],2),'pending_budget'=>round((float)$totals['pending_budget'],2),'calls'=>(int)$totals['calls'],'total_groups'=>(int)$count,'page_no'=>$page,'page_size'=>$size];
+        }
+        $rows=$grouped->select()->toArray();
         return ['groups'=>$rows,'charged'=>round(array_sum(array_column($rows,'charged')),2),'pending_budget'=>round(array_sum(array_column($rows,'pending_budget')),2),'calls'=>array_sum(array_column($rows,'calls'))];
     }
     public static function callbacks(int $tenantId,int $userId,string $requestId): array

@@ -11,6 +11,11 @@ Db::startTrans();try{
  foreach([[],['active'=>1,'status'=>'running','billing_status'=>'pending_usage','actual_user'=>0,'budget_user'=>3],['tenant_id'=>$t+1],['user_id'=>$u+1],['key_id'=>11,'snapshot'=>S::encode(['contract'=>['model'=>'other-model']]),'actual_user'=>4]] as $override)S::table('request')->insert(array_replace($base,$override,['request_id'=>'req_fixture_'.bin2hex(random_bytes(16))]));
  $all=M::usage($t,$u,[]);check($all['calls']===3&&(float)$all['charged']===6.,'Usage ownership or recorded charges mismatch');
  check((float)$all['pending_budget']===3.,'Inactive historical reservation counted as pending');
+ $first=M::usage($t,$u,['page_no'=>1,'page_size'=>1],true);$second=M::usage($t,$u,['page_no'=>2,'page_size'=>1],true);
+ check($first['total_groups']===2&&count($first['groups'])===1&&count($second['groups'])===1,'Usage group pagination ignored');
+ check($first['groups'][0]['key_id']!==$second['groups'][0]['key_id'],'Usage pages duplicate a group');
+ foreach([$first,$second] as $slice)check($slice['calls']===3&&$slice['charged']===6.&&$slice['pending_budget']===3.,'Paging changed whole-filter summary');
+ $empty=M::usage($t,$u,['app_code'=>'no_fixture'],true);check($empty['total_groups']===0&&$empty['groups']===[]&&$empty['calls']===0&&$empty['charged']===0.,'Empty paged usage mismatch');
  $model=M::usage($t,$u,['model'=>'frozen-model']);check($model['calls']===2&&(float)$model['charged']===2.&&(float)$model['pending_budget']===3.,'Snapshot model filter mismatch');
  $key=M::usage($t,$u,['key_id'=>11]);check($key['calls']===1&&(float)$key['charged']===4.,'Key filter mismatch');
  check(M::usage($t,$u,['model'=>"other-model' OR 1=1 --"])['calls']===0,'Untrusted model filter escaped its bound parameter');
