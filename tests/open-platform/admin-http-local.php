@@ -23,7 +23,7 @@ foreach(['platform','tenant'] as $scene){
   foreach([false,true] as $alias){
   $read=$call('requests','GET',$alias);check((int)($read['code']??-1)===1,$scene.' read role failed HTTP pipeline: '.($read['msg']??'unknown'));
   $report['scenarios'][]=['scene'=>$scene,'action'=>'requests','alias'=>$alias,'allowed'=>true];
-  $writes=['savePages','saveDocument','publishDocument','resumeTracking'];if($scene==='platform')$writes=array_merge($writes,['saveContract','publishContract','createVerification']);
+  $writes=['savePages','saveDocument','publishDocument','resumeTracking'];if($scene==='platform')$writes=array_merge($writes,['saveContract','publishContract','createVerification','setTenantAuthorization']);
   foreach(array_merge(['requestDetail','recoveryPreview'],$writes) as $action){$reply=$call($action,in_array($action,$writes,true)?'POST':'GET',$alias);check((int)($reply['code']??-1)===0&&str_contains($reply['msg']??'','权限'),$scene.' unauthorized '.$action.' was not rejected by permission guard');$report['scenarios'][]=['scene'=>$scene,'action'=>$action,'alias'=>$alias,'allowed'=>false,'message'=>$reply['msg']];}
   }
  }finally{
