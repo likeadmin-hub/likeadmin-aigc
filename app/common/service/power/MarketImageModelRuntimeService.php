@@ -27,10 +27,12 @@ use think\facade\Log;
 final class MarketImageProviderRequestException extends Exception
 {
     private $retryable;
+    private $accepted;
 
-    public function __construct(string $message, bool $retryable = false, int $code = 0)
+    public function __construct(string $message, bool $retryable = false, int $code = 0, bool $accepted = false)
     {
         $this->retryable = $retryable;
+        $this->accepted = $accepted;
         parent::__construct($message, $code);
     }
 
@@ -38,6 +40,8 @@ final class MarketImageProviderRequestException extends Exception
     {
         return $this->retryable;
     }
+
+    public function wasAccepted(): bool { return $this->accepted; }
 }
 
 /**
@@ -178,10 +182,11 @@ class MarketImageModelRuntimeService
     }
 
     /** @return array<string, mixed> */
-    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = []): array
+    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = [], bool $tenantAdminConsumption = false): array
     {
         \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
-        $market = self::resolve($tenantId, $selection);
+        $market = self::tenantAdminMarket(self::resolve($tenantId, $selection), $tenantId, 0, $tenantAdminConsumption);
+        if ($tenantAdminConsumption && $billingOverride !== []) throw new Exception('租户后台调用不能覆盖用户售价');
         return self::quoteMarket($market, $quantity, $billingOverride);
     }
 
@@ -226,18 +231,21 @@ class MarketImageModelRuntimeService
         int $quantity = 1,
         string $appCode = self::APP_CODE,
         string $businessTable = 'aigc_short_drama_generation_task',
-        array $billingOverride = []
+        array $billingOverride = [],
+        bool $tenantAdminConsumption = false
     ): array {
         CanvasImagePromptSubmissionGuard::assertPrepared($appCode, $selection);
-        $market = self::resolve($tenantId, $selection);
+        $market = self::tenantAdminMarket(self::resolve($tenantId, $selection), $tenantId, $userId, $tenantAdminConsumption);
+        if ($tenantAdminConsumption && $billingOverride !== []) throw new Exception('租户后台调用不能覆盖用户售价');
         $quantity = max(1, $quantity);
+        \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
         self::assertImageQuantity($market, $quantity);
         self::assertReferenceImagesAllowed($market, $request);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
         if ($deferredUsage && $billingOverride !== []) {
             throw new Exception('按应用售价结算暂不支持按实际用量计费的图片 SKU');
         }
-        $quote = self::quote($tenantId, $selection, $quantity, $billingOverride);
+        $quote = self::quoteMarket($market, $quantity, $billingOverride);
         $tenantCost = (float)$quote['tenant_cost_points'];
         $userPrice = (float)$quote['user_charge_points'];
         if (!$deferredUsage) PointService::assertCanConsumeAmounts($tenantId, $userId, $tenantCost, $userPrice);
@@ -278,18 +286,25 @@ class MarketImageModelRuntimeService
     }
 
     /** @return array<string,mixed> */
-    public static function submit(int $consumptionId, array $request): array
+    public static function submit(int $consumptionId, array $request, bool $tenantAdminConsumption = false): array
     {
         $context = self::context($consumptionId, false);
         if ($context === null) {
             throw new Exception('市场图片消耗记录不存在');
         }
         $consumption = $context['consumption'];
+        if ($tenantAdminConsumption && ((int)$consumption['user_id'] !== 0 || (string)$consumption['app_code'] !== 'system_default'
+            || (string)$context['app_task']['business_table'] !== 'decorate_agent_image_slot' || (float)($consumption['price_snapshot']['tenant_price'] ?? -1) !== 0.0)) throw new Exception('租户后台图片调用身份无效');
         if ((string)$consumption['run_status'] !== 'reserved') {
             return self::responseFromConsumption($consumption->toArray());
         }
         $price = (array)$consumption['price_snapshot'];
         $payload = self::payload($price, $request, (string)$consumption['consume_no'], (int)$consumption['tenant_id']);
+        if ($tenantAdminConsumption) {
+            // Commit a claim before outbound I/O. A restarted worker must never replay it.
+            $claimed = AiConsumptionLog::where('id', $consumptionId)->where('run_status', 'reserved')->update(['run_status' => 'submitting', 'update_time' => time()]);
+            if (!$claimed) return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+        }
         $started = microtime(true);
         $taskId = '';
         $requestId = '';
@@ -297,11 +312,15 @@ class MarketImageModelRuntimeService
         $upstreamAccepted = false;
         \app\common\service\open_platform\OpenSubmission::start($consumptionId);
         try {
-            $submission = self::submitWithTransientRetry($consumptionId, self::origin() . self::SUBMIT_PATH, $payload);
+            $submission = self::submitWithTransientRetry($consumptionId, self::origin() . self::SUBMIT_PATH, $payload, $tenantAdminConsumption);
             $response = $submission['response'];
             $upstreamAccepted = true;
             $submitAttempts = $submission['attempts'];
             $taskId = self::taskId($response);
+            if ($tenantAdminConsumption) {
+                $requestId = self::requestId($response);
+                AiConsumptionLog::where('id', $consumptionId)->update(['run_status' => 'running', 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'update_time' => time()]);
+            }
             $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
             $requestId = self::requestId($response);
             if ($taskId === '' && $images === []) {
@@ -330,6 +349,15 @@ class MarketImageModelRuntimeService
                 self::recordAcceptedSubmissionFailure($consumptionId, $taskId, $requestId, $e);
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => []];
             }
+            if ($tenantAdminConsumption && (!($e instanceof MarketImageProviderRequestException) || $e->wasAccepted())) {
+                // A timeout/invalid response proves neither rejection nor acceptance. Keep cost reserved.
+                AiConsumptionLog::where('id', $consumptionId)->whereIn('billing_status', ['reserved', 'pending_usage'])->update([
+                    'run_status' => 'pending_confirmation', 'error_code' => 'pending_confirmation',
+                    'error_message' => '图片服务受理状态待核对，禁止自动重试', 'finish_time' => 0, 'update_time' => time(),
+                ]);
+                self::event($consumptionId, 'submit_unknown', 'pending_confirmation', []);
+                return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+            }
             if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('图片模型提交失败');
@@ -344,7 +372,7 @@ class MarketImageModelRuntimeService
      *
      * @return array{response:array<string,mixed>,attempts:int}
      */
-    private static function submitWithTransientRetry(int $consumptionId, string $url, array $payload): array
+    private static function submitWithTransientRetry(int $consumptionId, string $url, array $payload, bool $singleAttempt = false): array
     {
         $attempt = 0;
         while ($attempt < self::SUBMIT_MAX_ATTEMPTS) {
@@ -353,7 +381,7 @@ class MarketImageModelRuntimeService
                 return ['response' => self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
             } catch (MarketImageProviderRequestException $e) {
                 if (\app\common\service\open_platform\OpenCallContext::id() !== '') throw $e;
-                if (!$e->isRetryable() || $attempt >= self::SUBMIT_MAX_ATTEMPTS) {
+                if (!self::shouldRetrySubmit($e, $attempt, $singleAttempt)) {
                     throw $e;
                 }
                 $delay = self::submitRetryDelayMs($attempt);
@@ -367,6 +395,11 @@ class MarketImageModelRuntimeService
     private static function submitRetryDelayMs(int $attempt): int
     {
         return (int)(self::SUBMIT_RETRY_DELAYS_MS[max(0, min(count(self::SUBMIT_RETRY_DELAYS_MS) - 1, $attempt - 1))] ?? 1800);
+    }
+
+    private static function shouldRetrySubmit(MarketImageProviderRequestException $error, int $attempt, bool $singleAttempt): bool
+    {
+        return !$singleAttempt && $error->isRetryable() && $attempt < self::SUBMIT_MAX_ATTEMPTS;
     }
 
     private static function recordSubmitRetry(int $consumptionId, int $attempt, int $delayMs, \Throwable $e): void
@@ -644,6 +677,7 @@ class MarketImageModelRuntimeService
     private static function snapshotWithBillingOverride(array $market, array $billingOverride, int $quantity = 1): array
     {
         $snapshot = self::snapshot($market);
+        if (!empty($market['_tenant_admin_consumption'])) $snapshot['_tenant_admin_image_quantity'] = max(1, $quantity);
         if (array_key_exists('user_charge_points', $billingOverride)) $billingOverride['user_unit_price'] = (float)$billingOverride['user_charge_points'] / max(1, $quantity);
         if (array_key_exists('user_unit_price', $billingOverride)) {
             $snapshot['fixed_user_unit_price'] = self::points((float)$billingOverride['user_unit_price']);
@@ -669,15 +703,31 @@ class MarketImageModelRuntimeService
                 return;
             }
             $billedQuantity = $deferredUsage ? $actualUsage : $quantity;
-            $tenant = $deferredUsage ? MarketUsageSettlementService::price((float)($snapshot['platform_price'] ?? 0), $billedQuantity, $snapshot) : self::points((float)($snapshot['platform_price'] ?? 0) * $quantity);
-            $user = array_key_exists('fixed_user_unit_price', $snapshot)
-                ? self::points((float)$snapshot['fixed_user_unit_price'] * $quantity)
-                : ($deferredUsage ? MarketUsageSettlementService::price((float)($snapshot['tenant_price'] ?? 0), $billedQuantity, $snapshot) : self::points((float)($snapshot['tenant_price'] ?? 0) * $quantity));
+            [$tenant, $user] = self::settlementAmounts($snapshot, $quantity, $billedQuantity, $deferredUsage);
             if ($deferredUsage) { PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user); PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user, (string)$c['consume_no'], self::taskLabel((string)$task['app_code']) . '实际用量结算', self::extra($task, $c, 'settled')); } else PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], $tenant, $user, (string)$c['consume_no'], self::taskLabel((string)$task['app_code']) . '结算', self::extra($task, $c, 'settled'));
             $now = time(); $c->save(['run_status' => 'success', 'billing_status' => 'settled', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'], 'quantity' => $billedQuantity, 'usage_snapshot' => ['image_count' => $quantity, 'actual_token_usage' => $deferredUsage ? $actualUsage : 0], 'response_summary' => ['image_count' => $quantity, 'images' => $images], 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'tenant_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['consume_no'] . '-reserve', 'user_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['consume_no'] . '-reserve', 'error_code' => '', 'error_message' => '', 'refresh_requested_at' => 0, 'finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'finish_time' => $now, 'update_time' => $now]);
             self::event((int)$c['id'], 'settle', 'success', ['image_count' => $quantity]);
         });
+    }
+
+    /** Server-only opt-in: persisted zero retail also governs delayed usage settlement. */
+    private static function tenantAdminMarket(array $market, int $tenantId, int $userId, bool $tenantAdminConsumption): array
+    {
+        if (!$tenantAdminConsumption) return $market;
+        if ($tenantId <= 0 || $userId !== 0) throw new Exception('租户后台调用身份无效');
+        $market['tenant_price'] = 0;
+        $market['_tenant_admin_consumption'] = true;
+        return $market;
+    }
+
+    private static function settlementAmounts(array $snapshot, int $quantity, float $billedQuantity, bool $deferredUsage): array
+    {
+        $tenant = $deferredUsage ? MarketUsageSettlementService::price((float)($snapshot['platform_price'] ?? 0), $billedQuantity, $snapshot) : self::points((float)($snapshot['platform_price'] ?? 0) * $quantity);
+        $user = array_key_exists('fixed_user_unit_price', $snapshot)
+            ? self::points((float)$snapshot['fixed_user_unit_price'] * $quantity)
+            : ($deferredUsage ? MarketUsageSettlementService::price((float)($snapshot['tenant_price'] ?? 0), $billedQuantity, $snapshot) : self::points((float)($snapshot['tenant_price'] ?? 0) * $quantity));
+        return [$tenant, $user];
     }
 
     /** @return array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float} */
@@ -1328,7 +1378,7 @@ class MarketImageModelRuntimeService
         if ($errno) throw new Exception($error ?: '图片模型网络请求失败'); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('图片模型响应格式错误');
         if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) {
             if ($method === 'POST') \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== '');
-            throw new MarketImageProviderRequestException(self::error($data), self::isExplicitTransientProviderResponse($http, $data), $http);
+            throw new MarketImageProviderRequestException(self::error($data), self::isExplicitTransientProviderResponse($http, $data), $http, self::taskId($data) !== '');
         }
         return is_array($data['data'] ?? null) ? $data['data'] : $data;
     }
