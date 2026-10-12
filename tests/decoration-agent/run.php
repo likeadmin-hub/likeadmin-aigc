@@ -95,5 +95,6 @@ rejects(fn()=>O::apply($p,[['type'=>'update_component','widget_id'=>'w1','fields
 $r=O::apply($p,[['type'=>'update_component','widget_id'=>'w1','fields'=>['content.data.0.image'=>'https://assets.test/a.png']]],['scope'=>'page','approved_urls'=>['https://assets.test/a.png']]);check($r['candidate']['data'][1]['content']['data'][0]['image']==='https://assets.test/a.png','approved image accepted');
 $historic=$p;$historic['data'][1]['content']['data'][0]['image']='https://historic.test/banner.png';
 $r=O::apply($historic,[['type'=>'update_component','widget_id'=>'w1','fields'=>['content.data'=>[['image'=>'https://historic.test/banner.png','name'=>'旧图新标题']]]]],['scope'=>'page']);check($r['candidate']['data'][1]['content']['data'][0]['image']==='https://historic.test/banner.png','historic image list edit accepted');
+rejects(fn()=>O::apply(page(['title-bar']),[['type'=>'update_component','widget_id'=>'w0','fields'=>['styles.background'=>'url(https://invented.invalid/x.png)']]],['scope'=>'page']),'style cannot bypass image allowlist');
 echo "PASS $n deterministic decoration assertions\n";
 

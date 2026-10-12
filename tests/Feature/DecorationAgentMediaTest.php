@@ -69,5 +69,9 @@ class DecorationAgentMediaTest extends TestCase
         self::assertArrayHasKey('bad',$result['request_errors']);
         self::assertSame([],$result['search_reference_only']);
         self::assertSame(1,$result['search_asset'][0]['file_id']);
+        self::assertSame(1,$result['vision_count']);
+        self::assertSame('data:image/png;base64',$result['vision_header']);
+        self::assertTrue($result['vision_bytes_match']);
+        self::assertSame([],$result['vision_asset']);
     }
 }

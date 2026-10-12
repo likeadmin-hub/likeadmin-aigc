@@ -4,6 +4,9 @@ namespace app\common\service\decorate\agent;
 
 use app\common\model\decorate\DecoratePage;
 use app\common\model\ai\AiConsumptionLog;
+use app\common\model\auth\TenantAdmin;
+use app\tenantapi\logic\auth\AuthLogic;
+use app\common\service\app\AppFrontendManifestService;
 use app\common\service\decorate\DecorateTemplateService;
 use app\common\service\decorate\DecorateDataSourceService;
 use app\common\service\power\MarketTextModelRuntimeService;
@@ -20,6 +23,23 @@ final class DecorationAgentService
         if(!isset(self::$leases[$id]))return;
         $ok=Db::name('decorate_agent_run')->where('id',$id)->where('lease_token',self::$leases[$id])->where('lease_expire_time','>=',time())->update(['lease_expire_time'=>time()+600]);
         if(!$ok && Db::name('decorate_agent_run')->where('id',$id)->where('lease_token',self::$leases[$id])->where('lease_expire_time','>=',time())->count()===0)throw new RuntimeException('装修执行租约已失效');
+    }
+    private static function assertOperator(int $tenant,int $admin,string $scope): void
+    {
+        $actor=TenantAdmin::where(['tenant_id'=>$tenant,'id'=>$admin])->find();
+        if(!$actor||(int)$actor['disable']!==0)throw new RuntimeException('管理员已停用，装修执行已停止');
+        if((int)$actor['root']===1)return;
+        $uris=array_map('strtolower',AuthLogic::getAuthByAdminId($admin));
+        if(!in_array('decorate.page/save',$uris,true)||($scope==='new_page'&&!in_array('decorate.page/add',$uris,true)))throw new RuntimeException('装修权限已变化，执行已停止');
+    }
+    private static function availableLinks(int $tenant,int $template): array
+    {
+        $links=DecorateTemplateService::linkLists($tenant,$template,'mobile');
+        foreach(AppFrontendManifestService::tenantEntries($tenant,'uniapp') as $entry){
+            $pages=$entry['meta']['pages']??[];if(!$pages)$pages=[['name'=>$entry['name'],'path'=>$entry['path']]];
+            foreach($pages as $page)if(!empty($page['path']))$links[]=['path'=>$page['path'],'query'=>$page['query']??[],'name'=>$page['name']??$entry['name'],'canTab'=>(bool)($page['canTab']??false),'type'=>'app_center','app_code'=>$entry['app_code'],'entry_key'=>$entry['entry_key']??'','terminal'=>'uniapp'];
+        }
+        return $links;
     }
     private static function compactCatalog(): array
     {return array_map(fn($d)=>array_intersect_key($d,array_flip(['name','title','category','repeatable','container'])),DecorationAgentCatalog::summary()['components']);}
@@ -53,7 +73,8 @@ final class DecorationAgentService
         $catalog=new DecorationAgentCatalog();
         $data=['enabled'=>self::enabled(),'catalog_hash'=>$catalog->hash(),'catalog_version'=>$catalog->version(),'text_models'=>[],'image_models'=>[],'limits'=>['model_calls'=>6,'tools'=>20,'images'=>5,'attachments'=>5,'attachment_bytes'=>10485760],'sources'=>['tenant','content','upload','generate']];
         if(!$data['enabled'])return $data;
-        try{self::q('session',$tenant,$admin)->limit(1)->select();}catch(\Throwable $e){$data['enabled']=false;$data['reason']='装修Agent数据尚未初始化';return $data;}
+        if(!class_exists(Workflow::class)){$data['enabled']=false;$data['reason']='装修Agent运行依赖尚未安装';return $data;}
+        try{foreach(['session','message','run','candidate','image_slot','checkpoint'] as $table)self::q($table,$tenant,$admin)->limit(1)->select();}catch(\Throwable $e){$data['enabled']=false;$data['reason']='装修Agent数据尚未初始化';return $data;}
         $data['text_models']=MarketTextModelRuntimeService::textOptions($tenant);
         $data['image_models']=DecorationAgentMediaService::options($tenant);
         if(!empty($p['page_id']))$data['current_hash']=self::hash(self::payload(self::page($tenant,(int)$p['template_id'],(int)$p['page_id'])));
@@ -70,7 +91,7 @@ final class DecorationAgentService
     public static function session(int $tenant,int $admin,int $id): array
     {
         $s=self::owned('session',$tenant,$admin,$id);$s['preferences']=self::decode($s['preferences']);$s['facts']=self::decode($s['facts']);
-        $s['messages']=self::q('message',$tenant,$admin)->where('session_id',$id)->order('id')->select()->toArray();
+        $s['messages']=array_map(function($m){$m['attachments']=self::decode($m['attachments']);return $m;},self::q('message',$tenant,$admin)->where('session_id',$id)->order('id')->select()->toArray());
         $s['candidates']=self::q('candidate',$tenant,$admin)->where('session_id',$id)->field('id,run_id,revision,status,applied_page_id,create_time')->order('id','desc')->limit(50)->select()->toArray();
         $s['checkpoints']=self::q('checkpoint',$tenant,$admin)->where('session_id',$id)->field('id,page_id,kind,create_time,after_hash')->order('id','desc')->limit(50)->select()->toArray();
         $s['current_hash']=self::hash(self::payload(self::page($tenant,(int)$s['template_id'],(int)$s['page_id'])));
@@ -143,18 +164,24 @@ final class DecorationAgentService
     }
     private static function slots(int $tenant,int $admin,int $runId): array
     {return array_map(function($r){$r['request']=self::decode($r['request_json']);$r['result']=self::decode($r['result_json']);unset($r['request_json'],$r['result_json']);return $r;},self::q('image_slot',$tenant,$admin)->where('run_id',$runId)->order('id')->select()->toArray());}
+    private static function resolvedPage(int $tenant,array $page,?array $payload=null): array
+    {
+        $payload=$payload??self::payload($page);$source=$page;$source['data']=self::json($payload['data']);$source['meta']=self::json($payload['meta']);
+        $resolved=DecorateDataSourceService::applyToPage($source,['tenant_id'=>$tenant,'user_id'=>0,'terminal'=>'mobile','preview'=>true]);
+        $page['resolved_sources']=$resolved['resolved_sources']??[];return $page;
+    }
     public static function candidate(int $tenant,int $admin,int $id): array
-    {$r=self::owned('candidate',$tenant,$admin,$id);$p=self::decode($r['payload_json']);return $p+['id'=>$id,'revision'=>(int)$r['revision'],'status'=>$r['status'],'base_hash'=>$r['base_hash'],'changes'=>self::decode($r['changes_json']),'image_slots'=>self::slots($tenant,$admin,(int)$r['run_id'])];}
+    {$r=self::owned('candidate',$tenant,$admin,$id);$p=self::decode($r['payload_json']);$s=self::owned('session',$tenant,$admin,(int)$r['session_id']);$page=self::page($tenant,(int)$s['template_id'],(int)$s['page_id']);if($p['new_page']??false)$page['page_code']='';$p['resolved_sources']=self::resolvedPage($tenant,$page,$p)['resolved_sources'];return $p+['id'=>$id,'revision'=>(int)$r['revision'],'status'=>$r['status'],'base_hash'=>$r['base_hash'],'changes'=>self::decode($r['changes_json']),'image_slots'=>self::slots($tenant,$admin,(int)$r['run_id'])];}
     public static function discard(int $tenant,int $admin,int $id): array
     {$r=self::owned('candidate',$tenant,$admin,$id);if($r['status']==='applied')throw new RuntimeException('已应用的候选请通过撤销恢复');self::q('candidate',$tenant,$admin)->where('id',$id)->update(['status'=>'discarded']);self::q('session',$tenant,$admin)->where('id',$r['session_id'])->where('active_candidate_id',$id)->update(['active_candidate_id'=>0]);return ['id'=>$id,'status'=>'discarded'];}
     public static function apply(int $tenant,int $admin,array $p): array
     {
         $id=(int)($p['candidate_id']??0);$key=(string)($p['idempotency_key']??'');if($key===''||strlen($key)>100)throw new RuntimeException('应用标识无效');
         return Db::transaction(function()use($tenant,$admin,$p,$id,$key){
-            $old=self::q('checkpoint',$tenant,$admin)->where('idempotency_key',$key)->find();if($old){$s=self::owned('session',$tenant,$admin,(int)$old['session_id']);$page=self::page($tenant,(int)$s['template_id'],(int)$old['page_id']);return ['page'=>$page,'checkpoint_id'=>$old['id'],'current_hash'=>self::hash(self::payload($page))];}
+            $old=self::q('checkpoint',$tenant,$admin)->where('idempotency_key',$key)->find();if($old){$s=self::owned('session',$tenant,$admin,(int)$old['session_id']);$page=self::page($tenant,(int)$s['template_id'],(int)$old['page_id']);return ['page'=>self::resolvedPage($tenant,$page),'checkpoint_id'=>$old['id'],'current_hash'=>self::hash(self::payload($page))];}
             $c=self::q('candidate',$tenant,$admin)->where('id',$id)->lock(true)->find();if(!$c||!in_array($c['status'],['ready','waiting_images','applied','rolled_back'],true))throw new RuntimeException('候选不可应用');
             if(isset($p['revision'])&&(int)$p['revision']!==(int)$c['revision'])throw new RuntimeException('候选已更新，请重新预览');
-            $old=self::q('checkpoint',$tenant,$admin)->where('idempotency_key',$key)->lock(true)->find();if($old){$ss=self::owned('session',$tenant,$admin,(int)$old['session_id']);$pp=self::page($tenant,(int)$ss['template_id'],(int)$old['page_id']);return ['page'=>$pp,'checkpoint_id'=>$old['id'],'current_hash'=>self::hash(self::payload($pp))];}$s=self::owned('session',$tenant,$admin,(int)$c['session_id']);$target=self::decode($c['payload_json']);$new=($target['new_page']??false)&&!(int)$c['applied_page_id'];
+            $old=self::q('checkpoint',$tenant,$admin)->where('idempotency_key',$key)->lock(true)->find();if($old){$ss=self::owned('session',$tenant,$admin,(int)$old['session_id']);$pp=self::page($tenant,(int)$ss['template_id'],(int)$old['page_id']);return ['page'=>self::resolvedPage($tenant,$pp),'checkpoint_id'=>$old['id'],'current_hash'=>self::hash(self::payload($pp))];}$s=self::owned('session',$tenant,$admin,(int)$c['session_id']);$target=self::decode($c['payload_json']);$new=($target['new_page']??false)&&!(int)$c['applied_page_id'];
             $page=self::page($tenant,(int)$s['template_id'],(int)($c['applied_page_id']?:$s['page_id']),true);$current=self::payload($page);
             if(!empty($p['expected_hash'])&&$p['expected_hash']!==self::hash($current))throw new RuntimeException('页面已经变化，请刷新后重新应用');
             $before=$new?['origin_page_id'=>(int)$s['page_id']]:$current;
@@ -165,7 +192,7 @@ final class DecorationAgentService
             $after=self::payload($saved);
             $checkpoint=self::insert('checkpoint',$tenant,$admin,['session_id'=>$s['id'],'candidate_id'=>$id,'page_id'=>$page['id'],'kind'=>$new?'create':'apply','before_json'=>self::json($before),'after_json'=>self::json($after),'before_hash'=>self::hash($before),'after_hash'=>self::hash($after),'idempotency_key'=>$key]);
             self::q('candidate',$tenant,$admin)->where('id',$id)->update(['status'=>'applied','applied_page_id'=>$page['id']]);self::q('session',$tenant,$admin)->where('id',$s['id'])->update(['page_id'=>$page['id'],'active_candidate_id'=>0]);
-            return ['page'=>$saved,'checkpoint_id'=>$checkpoint,'candidate_id'=>$id,'current_hash'=>self::hash($after)];
+            return ['page'=>self::resolvedPage($tenant,$saved),'checkpoint_id'=>$checkpoint,'candidate_id'=>$id,'current_hash'=>self::hash($after)];
         });
     }
     public static function rollback(int $tenant,int $admin,array $p): array
@@ -175,7 +202,7 @@ final class DecorationAgentService
             $c=self::q('checkpoint',$tenant,$admin)->where('id',(int)($p['checkpoint_id']??0))->lock(true)->find();if(!$c)throw new RuntimeException('检查点不存在');
             $s=self::owned('session',$tenant,$admin,(int)$c['session_id']);
             $old=self::q('checkpoint',$tenant,$admin)->where('idempotency_key',$key)->lock(true)->find();
-            if($old){$page=self::page($tenant,(int)$s['template_id'],(int)$old['page_id']);return ['page'=>$page,'checkpoint_id'=>$old['id'],'current_hash'=>self::hash(self::payload($page)),'deleted'=>$old['kind']==='undo_create','deleted_page_id'=>$old['kind']==='undo_create'?$c['page_id']:0];}
+            if($old){$page=self::page($tenant,(int)$s['template_id'],(int)$old['page_id']);return ['page'=>self::resolvedPage($tenant,$page),'checkpoint_id'=>$old['id'],'current_hash'=>self::hash(self::payload($page)),'deleted'=>$old['kind']==='undo_create','deleted_page_id'=>$old['kind']==='undo_create'?$c['page_id']:0];}
             $page=self::page($tenant,(int)$s['template_id'],(int)$c['page_id'],true);$current=self::payload($page);$before=self::decode($c['before_json']);$after=self::decode($c['after_json']);
             $deleted=false;
             if($c['kind']==='create'){
@@ -189,7 +216,7 @@ final class DecorationAgentService
             self::q('candidate',$tenant,$admin)->where('id',$c['candidate_id'])->update(['status'=>'rolled_back','applied_page_id'=>$deleted?0:$page['id']]);
             self::q('session',$tenant,$admin)->where('id',$s['id'])->update(['active_candidate_id'=>0]);
             $record=self::insert('checkpoint',$tenant,$admin,['session_id'=>$s['id'],'candidate_id'=>$c['candidate_id'],'page_id'=>$saved['id'],'kind'=>$deleted?'undo_create':'rollback','before_json'=>self::json($current),'after_json'=>self::json(self::payload($saved)),'before_hash'=>self::hash($current),'after_hash'=>self::hash(self::payload($saved)),'idempotency_key'=>$key]);
-            return ['page'=>$saved,'deleted'=>$deleted,'deleted_page_id'=>$deleted?$page['id']:0,'checkpoint_id'=>$record,'current_hash'=>self::hash(self::payload($saved))];
+            return ['page'=>self::resolvedPage($tenant,$saved),'deleted'=>$deleted,'deleted_page_id'=>$deleted?$page['id']:0,'checkpoint_id'=>$record,'current_hash'=>self::hash(self::payload($saved))];
         });
     }
     public static function retryImage(int $tenant,int $admin,array $p): array
@@ -219,12 +246,13 @@ final class DecorationAgentService
     private static function step(int $id,string $token): void
     {
         $r=Db::name('decorate_agent_run')->where('id',$id)->find();$tenant=(int)$r['tenant_id'];$admin=(int)$r['admin_id'];$input=self::decode($r['input_json']);$ctx=self::decode($r['context_json']);request()->tenantId=$tenant;$input['attachments']=DecorationAgentMediaService::validateAttachments($tenant,$input['attachments']);
+        self::assertOperator($tenant,$admin,$input['scope']);
         if((int)$r['cancel_requested']){self::finish($id,'canceled',['summary'=>'后续执行已停止']);return;}
         if($r['status']==='waiting_images'){self::processImages($r,$input);return;}
         if($ctx['calling']??false){self::finish($id,'needs_review',['error'=>'上次模型调用结果待核实，禁止自动重复提交']);return;}
         if((int)$r['model_calls']>=6){self::finish($id,'limited',['error'=>'已达到本轮模型调用上限，请分轮继续']);return;}
         $s=self::owned('session',$tenant,$admin,(int)$r['session_id']);
-        $links=DecorateTemplateService::linkLists($tenant,(int)$s['template_id'],'mobile');$sources=DecorateDataSourceService::catalog($tenant);
+        $links=self::availableLinks($tenant,(int)$s['template_id']);$sources=DecorateDataSourceService::catalog($tenant);
         $recent=self::q('message',$tenant,$admin)->where('session_id',$s['id'])->order('id','desc')->limit(16)->select()->toArray();$recent=array_reverse($recent);
         $catalog=self::compactCatalog();$details=[];$nodes=DecorationAgentOperations::index($ctx['candidate']['data']);$selected=$nodes[$input['selected_id']]??null;if($selected)$details[]=DecorationAgentCatalog::definition($selected['widget']['name']);
         foreach($catalog as $item){$name=$item['name']??'';if($name&&((!empty($item['title'])&&str_contains($input['message'],$item['title']))||in_array($name,['news','banner','nav'],true))){$details[]=DecorationAgentCatalog::definition($name);if(count($details)>=8)break;}}
@@ -232,8 +260,8 @@ final class DecorationAgentService
         $content=self::json($context)."\n用户需求：".$input['message'];$model=MarketTextModelRuntimeService::resolveModel($tenant,$input['model_selection'],$input['requires_vision']);$spent=self::spent($r);
         if($spent+self::textEstimate($model,$content.DecorationAgentDecision::prompt().str_repeat('v',count(array_filter($input['attachments'],fn($a)=>array_intersect($a['uses'],['layout','style']))) * 6000))>$input['budget_points']){self::finish($id,'budget_exceeded',['error'=>'本轮预算不足以继续，请提高预算后发起新一轮']);return;}
         Db::name('decorate_agent_run')->where('id',$id)->update(['status'=>'running','model_calls'=>(int)$r['model_calls']+1,'spent_points'=>$spent]);$ctx['calling']=true;self::saveContext($id,$ctx);self::event($id,'model',['message'=>'理解需求并安排组件','step'=>(int)$r['model_calls']+1]);
-        $references=[];foreach($input['attachments'] as $a)if(array_intersect($a['uses'],['layout','style']))$references[]=$a['url'];
-        $provider=function()use($tenant,$id,$input,$content,$references,&$ctx){return MarketTextModelRuntimeService::generate($tenant,0,['content'=>$content,'reference_images'=>$references,'model_selection'=>$input['model_selection'],'system_prompt'=>DecorationAgentDecision::prompt(),'max_tokens'=>4096,'request_timeout_seconds'=>180,'action_code'=>'decoration_agent_text','source_app_code'=>'system_default','business_table'=>'decorate_agent_run','business_id'=>$id,'_disable_model_fallback'=>true,'_disable_transient_retry'=>true,'_disable_compatibility_retry'=>true,'_decoration_preserve_uncertain'=>true],function($event,$data)use($id,&$ctx){self::fence($id);if($event==='app_task'){$ctx['receipts'][]=$data;self::saveContext($id,$ctx);}},true);};
+        $references=DecorationAgentMediaService::visionReferences($tenant,$input['attachments']);
+        $provider=function()use($tenant,$id,$input,$content,$references,&$ctx){return MarketTextModelRuntimeService::generate($tenant,0,['content'=>$content,'reference_images'=>$references,'model_selection'=>$input['model_selection'],'system_prompt'=>DecorationAgentDecision::prompt(),'max_tokens'=>4096,'request_timeout_seconds'=>180,'action_code'=>'decoration_agent_text','source_app_code'=>'system_default','business_table'=>'decorate_agent_run','business_id'=>$id,'_disable_model_fallback'=>true,'_disable_transient_retry'=>true,'_disable_compatibility_retry'=>true,'_decoration_preserve_uncertain'=>true],function($event,$data)use($id,&$ctx){if($event==='app_task'){self::fence($id);$ctx['receipts'][]=$data;self::saveContext($id,$ctx);}},true);};
         try{$workflow=new Workflow('decoration:'.$id.':'.((int)$r['model_calls']+1));$workflow->setMaxSteps(1)->addNode(new DecorationAgentDecisionNode($provider));$result=$workflow->run()->get('result');}
         catch(\Throwable $e){$latest=end($ctx['receipts']);$receipt=!empty($latest['consumption_id'])?AiConsumptionLog::where('id',$latest['consumption_id'])->find():null;$known=$receipt&&$receipt['run_status']==='failed'&&$receipt['billing_status']==='refunded';if($known){$ctx['calling']=false;self::saveContext($id,$ctx);}self::finish($id,$known?'failed':'needs_review',['error'=>'模型调用未完成：'.mb_substr($e->getMessage(),0,800)]);return;}
         $ctx['calling']=false;$ctx['last_result']=$result;self::fence($id);if(in_array($result['billing']['billing_status']??'', ['pending_usage','pending_confirmation'],true)){self::saveContext($id,$ctx);self::finish($id,'needs_review',['error'=>'模型结果费用待核实，已停止后续调用']);return;}self::saveContext($id,$ctx);
@@ -260,7 +288,7 @@ final class DecorationAgentService
         return match($op['type']){
             'get_context'=>['page'=>$ctx['candidate'],'selected_id'=>$input['selected_id']],
             'catalog'=>empty($op['name'])?self::compactCatalog():DecorationAgentCatalog::definition((string)$op['name']),
-            'data_sources'=>$sources,'links'=>$links,
+            'data_sources'=>empty($op['key'])?$sources: ['key'=>$op['key'],'items'=>DecorateDataSourceService::resolve((string)$op['key'],array_intersect_key((array)($op['params']??[]),array_flip(['limit','sort','terminal'])),$tenant,['user_id'=>0,'terminal'=>'uniapp'])],'links'=>$links,
             'search_materials'=>DecorationAgentMediaService::search($tenant,(string)($op['query']??''),$input['sources'],$input['attachments'],min(12,(int)($op['limit']??12))),
             'icons'=>[['name'=>'el-icon-Search','label'=>'搜索'],['name'=>'el-icon-Document','label'=>'资讯'],['name'=>'el-icon-Picture','label'=>'图片'],['name'=>'el-icon-Star','label'=>'收藏'],['name'=>'el-icon-Service','label'=>'客服']],
             'validate'=>DecorationAgentOperations::apply($ctx['candidate'],[],['scope'=>$input['scope'],'selected_id'=>$input['selected_id'],'allowed_links'=>$links,'approved_urls'=>array_merge(self::explicitUrls($input['message'],$input['attachments']),$ctx['approved_material_urls']??[])]),
@@ -281,7 +309,7 @@ final class DecorationAgentService
     private static function processImages(array $r,array $input): void
     {
         $tenant=(int)$r['tenant_id'];$admin=(int)$r['admin_id'];$pending=0;$uncertain=false;
-        foreach(self::slots($tenant,$admin,(int)$r['id']) as $slot){if(!in_array($slot['status'],['queued','running','submitting'],true))continue;$request=$slot['request'];$request['attachments']=$input['attachments'];$request['reference_file_ids']=(array)($request['reference_file_ids']??[]);$request['reference_images']=[];self::fence((int)$r['id']);if(Db::name('decorate_agent_run')->where('id',$r['id'])->value('cancel_requested')){self::finish((int)$r['id'],'canceled',[]);return;}
+        foreach(self::slots($tenant,$admin,(int)$r['id']) as $slot){if(!in_array($slot['status'],['queued','running','submitting'],true))continue;$request=$slot['request'];$request['attachments']=$input['attachments'];self::assertOperator($tenant,$admin,$input['scope']);$request['reference_file_ids']=(array)($request['reference_file_ids']??[]);$request['reference_images']=[];self::fence((int)$r['id']);if(Db::name('decorate_agent_run')->where('id',$r['id'])->value('cancel_requested')){self::finish((int)$r['id'],'canceled',[]);return;}
             foreach($input['attachments'] as $a)if(in_array($a['file_id'],(array)($request['reference_file_ids']??[]),true)||in_array('generation',$a['uses'],true))$request['reference_file_ids'][]=$a['file_id'];$request['reference_file_ids']=array_values(array_unique($request['reference_file_ids']));
             try{
                 if($slot['status']==='submitting'){$uncertain=true;continue;}

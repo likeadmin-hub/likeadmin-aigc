@@ -180,6 +180,7 @@ class DecorationAgentOperations
         if (!preg_match('/^(content|styles)\.([a-zA-Z0-9_-]+)(?:\.(.*))?$/D', $path, $match)) self::fail('Invalid field path: ' . $path);
         $section = $match[1]; $key = $match[2]; $rest = $match[3] ?? '';
         $schema = $definition[($section==='styles'?'style':'content') . '_fields'][$key] ?? null;
+        if($schema && $section==='styles')$schema['style']=true;
         if (!$schema) self::fail('Unapproved component field: ' . $path);
         if ($rest === '') {
             if (in_array($key, ['source_key','source_params','data_mode','field_map'], true)) self::fail('Use bind_source for source configuration');
@@ -214,6 +215,7 @@ class DecorationAgentOperations
         $type = $schema['value_type'] ?? 'string';
         $valid = $type === 'number' ? (is_int($value)||is_float($value)) : ($type === 'string' ? is_string($value) : ($type === 'boolean' ? is_bool($value) : ($type === 'null' ? $value===null : is_array($value))));
         if (!$valid) self::fail('Wrong field value type: expected ' . $type);
+        if(is_string($value)&&(($schema['style']??false)||($schema['type']??'')==='color')&&preg_match('/url\s*\(|expression\s*\(|javascript:|@import|[;\x00-\x1f]/i',$value))self::fail('Unsafe style value');
         if ($type === 'array' && array_values($value)!==$value) self::fail('Expected a list');
         if ($type === 'number' && (!is_finite((float)$value) || (isset($schema['min']) && $value < $schema['min']) || (isset($schema['max']) && $value > $schema['max']))) self::fail('Field is outside allowed numeric range');
         if (isset($schema['max_length']) && mb_strlen($value) > $schema['max_length']) self::fail('Field text is too long');

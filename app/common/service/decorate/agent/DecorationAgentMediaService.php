@@ -44,6 +44,25 @@ final class DecorationAgentMediaService
         return array_values($result);
     }
 
+    /** Ephemeral transport only: never persist these data URIs in agent context or events. */
+    public static function visionReferences(int $tenantId, array $attachments): array
+    {
+        $validated = self::validateAttachments($tenantId, $attachments);
+        $references = [];
+        foreach ($validated as $attachment) {
+            if (array_intersect($attachment['uses'], ['layout', 'style']) === []) continue;
+            // Reload ownership before reading bytes; a removed file must not become a vision input.
+            $file = TenantFile::where(['tenant_id' => $tenantId, 'id' => $attachment['file_id'], 'source' => FileEnum::SOURCE_ADMIN, 'type' => FileEnum::IMAGE_TYPE])->findOrEmpty();
+            $row = $file->isEmpty() ? [] : $file->toArray();
+            self::assertAttachmentRow($tenantId, $row);
+            $bytes = self::readImage($row, self::fileUrl($row));
+            self::inspectImage($bytes);
+            $info = getimagesizefromstring($bytes);
+            $references[] = 'data:' . $info['mime'] . ';base64,' . base64_encode($bytes);
+        }
+        return $references;
+    }
+
     public static function options(int $tenantId): array
     {
         self::assertTenant($tenantId);
