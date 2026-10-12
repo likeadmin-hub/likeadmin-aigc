@@ -160,7 +160,7 @@ final class OpenMarketContractCompiler
                 $draft = ['code' => $code, 'kind' => 'market', 'product_id' => (int)$product['id'], 'method' => $method, 'path' => $route['path'], 'config' => $config];
                 try { OpenContracts::validate($draft); } catch (\Throwable $error) { $issues[] = self::block('contract_validation_failed', $error instanceof OpenException ? $error->getMessage() : '契约结构无法验证'); }
                 $issues = self::unique($issues);
-                $candidates[] = ['code' => $code, 'sku_id' => (int)$sku['id'], 'method' => $method, 'path' => $route['path'], 'protocol' => $route['protocol'], 'route_source' => $route['source'], 'input' => OpenPolicy::publicData($candidateInput), 'example' => OpenPolicy::publicData($candidateExample), 'schema_sources' => $candidateSources, 'draftable' => !$issues, 'blockers' => $issues];
+                $candidates[] = ['code' => $code, 'sku_id' => (int)$sku['id'], 'method' => $method, 'path' => $route['path'], 'protocol' => $route['protocol'], 'route_source' => $route['source'], 'input' => OpenPolicy::publicData($candidateInput), 'example' => OpenPolicy::publicData($candidateExample), 'schema_sources' => $candidateSources, 'responses' => OpenPolicy::publicData($responses), 'draftable' => !$issues, 'blockers' => $issues];
                 if (!$issues) $drafts[] = $draft;
             }
         }

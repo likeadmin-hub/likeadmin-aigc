@@ -20,3 +20,9 @@
 若本地存在 `.composer-runtime/current.json`，Nginx 会继续加载已安装的固定版本，合入 develop 不等于切换 HTTP 运行代码。源码验收使用 `tests/open-platform/source-router.php` 的 loopback 预览，通过独立临时代理连接，验收结束删除代理和临时账号。不要为了预览修改当前版本指针。
 
 本次浏览器验收已验证两端 API 一级菜单、租户列表弹窗加载与保存入库、租户 API 设置、商城 API 选择关闭及恢复；原租户设置已恢复，临时验收账号及会话已清理。前端使用显式 `app/open_platform/*` 路由，权限仍依据对应控制器动作检查。
+
+Bulk market API selection uses the existing atomic settings write. Application cancellation also clears historical children that are now off-shelf. Pricing and SKU shelf state are independent.
+
+Public documentation reads current sellable market products and registered tools through the read-only x-documentation-catalog extension. New products appear without manual import; unknown gateway adapters remain parameter references with no invented callable route. Categories, request/response schemas, retail prices, publication and site availability are projected live. OpenAPI paths preserve existing published variants by code; built-in history queries have their own status. Internal credentials/costs are excluded and source URL examples use public placeholders.
+
+The rollback test tests/open-platform/live-documentation-catalog.php verifies discovery, schema/category/retail, shelf removal, disabled SKU, GET examples, multipart, history, and cancellation of off-shelf application children.
