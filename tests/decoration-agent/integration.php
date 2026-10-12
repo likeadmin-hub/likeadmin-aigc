@@ -24,8 +24,12 @@ try{S::session(2,1,$session['id']);throw new RuntimeException('cross tenant acce
 $candidate=O::apply($initial,[['type'=>'update_component','widget_id'=>'n','fields'=>['styles.margin_top'=>30]]],['scope'=>'page'])['candidate'];
 $insertCandidate=function($payload,$base,$run=0)use($session){return Db::name('decorate_agent_candidate')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'session_id'=>$session['id'],'run_id'=>$run,'status'=>'ready','revision'=>1,'base_hash'=>S::hash($base),'base_json'=>S::json($base),'payload_json'=>S::json($payload),'changes_json'=>'[]','create_time'=>time(),'update_time'=>time()]);};
 $cid=$insertCandidate($candidate,$initial);
+assertAgent(array_key_exists('resolved_sources',S::candidate(1,1,$cid)),'candidate resolves its own sources without storing results');
+$messageId=Db::name('decorate_agent_message')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'session_id'=>$session['id'],'run_id'=>0,'role'=>'user','content'=>'参考图片','attachments'=>S::json([['file_id'=>1,'uses'=>['style']]]),'create_time'=>time(),'update_time'=>time()]);
+$history=S::session(1,1,$session['id']);assertAgent($history['messages'][0]['attachments'][0]['uses']===['style'],'history attachments decoded');
 assertAgent(S::hash(S::payload(T::pageDetail(1,['template_id'=>$template['id'],'id'=>$page['id']])))===S::hash($initial),'candidate did not mutate draft');
 $applied=S::apply(1,1,['candidate_id'=>$cid,'idempotency_key'=>'acceptance:'.$cid]);
+assertAgent(array_key_exists('resolved_sources',$applied['page']),'applied page returns fresh sources');
 assertAgent(S::payload($applied['page'])['data'][0]['styles']['margin_top']===30,'apply changes draft');
 $replayed=S::apply(1,1,['candidate_id'=>$cid,'idempotency_key'=>'acceptance:'.$cid]);assertAgent($replayed['checkpoint_id']===$applied['checkpoint_id'],'apply idempotent');
 $rolled=S::rollback(1,1,['checkpoint_id'=>$applied['checkpoint_id'],'idempotency_key'=>'undo:'.$cid]);assertAgent(S::hash(S::payload($rolled['page']))===S::hash($initial),'rollback restores');

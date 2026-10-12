@@ -26,6 +26,11 @@ namespace {
         foreach([2,3] as $id){try{$media::validateAttachments(7,[['file_id'=>$id,'uses'=>['asset']]]);$result['rejected'][$id]=false;}catch(\Throwable $e){$result['rejected'][$id]=true;}}
         $result['search_reference_only']=$media::search(7,'',['upload'],[['file_id'=>1,'uses'=>['layout','style','generation']]]);
         $result['search_asset']=$media::search(7,'',['upload'],[['file_id'=>1,'uses'=>['asset']]]);
+        $vision=$media::visionReferences(7,[['file_id'=>1,'uses'=>['layout','style']]]);
+        $result['vision_count']=count($vision);
+        $result['vision_header']=explode(',', $vision[0])[0];
+        $result['vision_bytes_match']=base64_decode(explode(',', $vision[0],2)[1],true)===$png;
+        $result['vision_asset']=$media::visionReferences(7,[['file_id'=>1,'uses'=>['asset','generation']]]);
         $method=new \ReflectionMethod($media,'referenceRequest');$method->setAccessible(true);
         foreach(['none'=>['reference_file_ids'=>[]],'one'=>['reference_file_ids'=>[1]],'bad'=>['reference_file_ids'=>[2]]] as $key=>$refs){
             try{$result['requests'][$key]=$method->invoke(null,7,['attachments'=>[['file_id'=>1,'uses'=>['generation']]],'reference_images'=>['https://owned.test/expired-signature.png'],'provider_params'=>['input'=>['image'=>'https://evil.test']]]+$refs);}catch(\Throwable $e){$result['request_errors'][$key]=$e->getMessage();}
