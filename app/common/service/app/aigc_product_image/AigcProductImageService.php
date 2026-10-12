@@ -64,7 +64,7 @@ class AigcProductImageService
             AigcProductImageConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function categoryLists(int $tenantId, array $params = []): array

@@ -87,7 +87,7 @@ class AigcImageTranslateService
             AigcImageTranslateConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function priceDetail(int $tenantId): array
@@ -989,7 +989,7 @@ class AigcImageTranslateService
             AigcImageTranslateConfig::create($payload);
             return;
         }
-        $row->save($payload);
+        $row->force()->save($payload);
     }
 
     private static function renderPrompt(string $template, array $data): string

@@ -82,7 +82,7 @@ class AigcLocalRedrawService
             AigcLocalRedrawConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function estimate(int $tenantId, array $params): array
@@ -761,7 +761,7 @@ class AigcLocalRedrawService
             AigcLocalRedrawConfig::create($payload);
             return;
         }
-        $row->save($payload);
+        $row->force()->save($payload);
     }
 
     private static function taskImageIds(array $task): array

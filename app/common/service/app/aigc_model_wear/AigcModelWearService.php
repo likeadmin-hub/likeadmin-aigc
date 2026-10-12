@@ -78,7 +78,7 @@ class AigcModelWearService
             AigcModelWearConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function priceDetail(int $tenantId): array
@@ -1099,7 +1099,7 @@ class AigcModelWearService
             AigcModelWearConfig::create($payload);
             return;
         }
-        $row->save($payload);
+        $row->force()->save($payload);
     }
 
     private static function renderPrompt(string $template, array $data): string

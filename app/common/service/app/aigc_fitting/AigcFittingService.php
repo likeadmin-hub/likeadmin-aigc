@@ -115,7 +115,7 @@ class AigcFittingService
             AigcFittingConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function materialDetail(int $tenantId, string $type): array

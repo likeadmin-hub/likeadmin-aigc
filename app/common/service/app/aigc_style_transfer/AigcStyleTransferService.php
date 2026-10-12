@@ -101,7 +101,7 @@ class AigcStyleTransferService
             AigcStyleTransferConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function priceDetail(int $tenantId): array
@@ -1071,7 +1071,7 @@ class AigcStyleTransferService
             AigcStyleTransferConfig::create($payload);
             return;
         }
-        $row->save($payload);
+        $row->force()->save($payload);
     }
 
     private static function resolvePackageRatio(array $package, string $ratio): string

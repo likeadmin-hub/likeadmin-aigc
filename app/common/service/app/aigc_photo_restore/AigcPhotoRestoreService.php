@@ -94,7 +94,7 @@ class AigcPhotoRestoreService
             AigcPhotoRestoreConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function restoreTypeLists(int $tenantId, array $params = []): array
@@ -1089,7 +1089,7 @@ class AigcPhotoRestoreService
             AigcPhotoRestoreConfig::create($payload);
             return;
         }
-        $row->save($payload);
+        $row->force()->save($payload);
     }
 
     private static function renderPrompt(string $template, array $data): string
