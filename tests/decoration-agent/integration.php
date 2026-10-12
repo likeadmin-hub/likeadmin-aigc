@@ -32,6 +32,7 @@ assertAgent(S::hash(S::payload(T::pageDetail(1,['template_id'=>$template['id'],'
 $applied=S::apply(1,1,['candidate_id'=>$cid,'idempotency_key'=>'acceptance:'.$cid]);
 assertAgent(array_key_exists('resolved_sources',$applied['page']),'applied page returns fresh sources');
 assertAgent(S::payload($applied['page'])['data'][0]['styles']['margin_top']===30,'apply changes draft');
+assertAgent((int)S::session(1,1,$session['id'])['checkpoints'][0]['candidate_id']===(int)$cid,'persistent checkpoint identifies applied candidate');
 $replayed=S::apply(1,1,['candidate_id'=>$cid,'idempotency_key'=>'acceptance:'.$cid]);assertAgent($replayed['checkpoint_id']===$applied['checkpoint_id'],'apply idempotent');
 $rolled=S::rollback(1,1,['checkpoint_id'=>$applied['checkpoint_id'],'idempotency_key'=>'undo:'.$cid]);assertAgent(S::hash(S::payload($rolled['page']))===S::hash($initial),'rollback restores');
 $again=S::rollback(1,1,['checkpoint_id'=>$applied['checkpoint_id'],'idempotency_key'=>'undo:'.$cid]);assertAgent($again['checkpoint_id']===$rolled['checkpoint_id'],'rollback idempotent');
