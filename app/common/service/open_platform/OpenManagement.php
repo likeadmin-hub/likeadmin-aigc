@@ -124,4 +124,32 @@ final class OpenManagement
         return $events;
     }
 
+    /** Account-only durable request statistics; never reprice or inspect private payloads. */
+    public static function analytics(int $tenantId,int $userId,int $days=7): array
+    {
+        if(!in_array($days,[7,30],true))throw new OpenException('invalid_request','统计周期仅支持 7 或 30 天');
+        $today=new \DateTimeImmutable('today');$start=$today->modify('-'.($days-1).' days');$end=$today->modify('+1 day');$previousStart=$start->modify('-'.$days.' days');
+        $owner=OpenStore::owner('request',$tenantId,$userId);
+        $current=(clone $owner)->where('create_time','>=',$start->getTimestamp())->where('create_time','<',$end->getTimestamp());
+        $prior=(clone $owner)->where('create_time','>=',$previousStart->getTimestamp())->where('create_time','<',$start->getTimestamp());
+        $success="status IN ('success','completed','partial_success')";$failed="status='failed'";
+        $fields="COUNT(*) AS calls,COALESCE(SUM(actual_user),0) AS charged,SUM(CASE WHEN $success THEN 1 ELSE 0 END) AS success,SUM(CASE WHEN $failed THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN active=1 THEN 1 ELSE 0 END) AS pending,AVG(CASE WHEN ($success OR $failed) AND duration_ms>0 THEN duration_ms ELSE NULL END) AS average_latency_ms";
+        $normalize=static function(array $row): array {
+            $success=(int)($row['success']??0);$failed=(int)($row['failed']??0);
+            return ['calls'=>(int)($row['calls']??0),'charged'=>round((float)($row['charged']??0),2),'success'=>$success,'failed'=>$failed,'pending'=>(int)($row['pending']??0),'success_rate'=>$success+$failed?round(100*$success/($success+$failed),2):null,'average_latency_ms'=>isset($row['average_latency_ms'])?round((float)$row['average_latency_ms'],2):null];
+        };
+        $metrics=$normalize((clone $current)->fieldRaw($fields)->find()??[]);$previous=$normalize((clone $prior)->fieldRaw($fields)->find()??[]);
+        $growth=[];foreach(['calls','charged'] as $name)$growth[$name]=['delta'=>$name==='calls'?$metrics[$name]-$previous[$name]:round($metrics[$name]-$previous[$name],2),'percent'=>$previous[$name]>0?round(100*($metrics[$name]-$previous[$name])/$previous[$name],2):null];
+        // Explicit local-day timestamp buckets avoid dependence on the DB session timezone
+        // and also preserve actual calendar days if a deployment uses daylight saving time.
+        $buckets=[];$trend=[];for($i=0;$i<$days;$i++){$day=$start->modify('+'.$i.' days');$next=$day->modify('+1 day');$buckets[]='WHEN create_time>='.$day->getTimestamp().' AND create_time<'.$next->getTimestamp().' THEN '.$i;$trend[]=['date'=>$day->format('Y-m-d'),'calls'=>0,'charged'=>0.,'success'=>0,'failed'=>0,'pending'=>0];}
+        $bucket='CASE '.implode(' ',$buckets).' END';
+        foreach((clone $current)->fieldRaw($bucket.' AS day_bucket,'.$fields)->group('day_bucket')->select()->toArray() as $row){$i=(int)$row['day_bucket'];$values=$normalize($row);unset($values['success_rate'],$values['average_latency_ms']);$trend[$i]=array_replace($trend[$i],$values);}
+        $distribution=(clone $current)->fieldRaw('kind,COUNT(*) AS calls,SUM(actual_user) AS charged')->group('kind')->order('kind','asc')->select()->toArray();
+        $top=(clone $current)->fieldRaw('kind,app_code,path,COUNT(*) AS calls,SUM(actual_user) AS charged')->group('kind,app_code,path')->order(['calls'=>'desc','kind'=>'asc','app_code'=>'asc','path'=>'asc'])->limit(8)->select()->toArray();
+        $normalizeGroup=static fn($r)=>array_replace($r,['calls'=>(int)$r['calls'],'charged'=>round((float)$r['charged'],2)]);
+        $distribution=array_map($normalizeGroup,$distribution);$top=array_map($normalizeGroup,$top);
+        return ['days'=>$days,'timezone'=>date_default_timezone_get(),'period'=>['start'=>$start->format('Y-m-d'),'end'=>$today->format('Y-m-d')],'previous_period'=>['start'=>$previousStart->format('Y-m-d'),'end'=>$start->modify('-1 day')->format('Y-m-d')],'metrics'=>$metrics,'previous'=>$previous,'growth'=>$growth,'trend'=>$trend,'distribution'=>$distribution,'top_capabilities'=>$top];
+    }
+
 }
