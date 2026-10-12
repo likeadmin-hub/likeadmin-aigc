@@ -23,6 +23,12 @@ class SqlMigrationExecutor
             return;
         }
         foreach (self::split($content) as $sql) {
+            if (!class_exists(RuntimeAppSalePriceInheritance::class)) require_once __DIR__.'/RuntimeAppSalePriceInheritance.php';
+            $salePriceTable = RuntimeAppSalePriceInheritance::target($sql);
+            if ($salePriceTable !== null) {
+                RuntimeAppSalePriceInheritance::apply($salePriceTable, $prefix, $connection);
+                continue;
+            }
             if (preg_match('/^\s*ALTER\s+TABLE\s+`?la_aigc_video_config`?\s+MODIFY\s+(?:COLUMN\s+)?`?config_json`?\s+MEDIUMTEXT\s*$/iD', $sql)) {
                 if (!class_exists(RuntimeVideoConfigCapacity::class)) require_once __DIR__.'/RuntimeVideoConfigCapacity.php';
                 RuntimeVideoConfigCapacity::apply($prefix, $connection);

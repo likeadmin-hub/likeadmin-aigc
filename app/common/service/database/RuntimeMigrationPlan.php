@@ -9,6 +9,7 @@ final class RuntimeMigrationPlan
     public static function build(string $content): array
     {
         $prepare = []; $complete = []; $tables = [];
+        if (!class_exists(RuntimeAppSalePriceInheritance::class)) require_once __DIR__.'/RuntimeAppSalePriceInheritance.php';
         foreach (SqlMigrationExecutor::split($content) as $sql) {
             // Inspect SQL syntax without matching action words or @ inside string data.
             $syntax = preg_replace("/'(?:''|\\\\.|[^'])*'/s", "''", $sql);
@@ -26,6 +27,9 @@ final class RuntimeMigrationPlan
             } elseif (preg_match('/^\s*ALTER\s+TABLE\s+`?la_aigc_video_config`?\s+MODIFY\s+(?:COLUMN\s+)?`?config_json`?\s+MEDIUMTEXT\s*$/iD', $sql)) {
                 // The executor reads the original column/engine and performs only
                 // this reviewed, lossless capacity increase (or a true no-op).
+                $prepare[] = $sql;
+            } elseif (RuntimeAppSalePriceInheritance::target($sql) !== null) {
+                // Exact reviewed nullable-price intent; the executor retains the observed DECIMAL type.
                 $prepare[] = $sql;
             } elseif (preg_match('/^\s*ALTER\s+TABLE\s+`?[a-z0-9_]+`?\s+ADD\s+(?:COLUMN\s+|(?:UNIQUE\s+)?(?:INDEX|KEY)\s+)/i', $syntax)
                 && !preg_match('/\b(?:DROP|MODIFY|CHANGE|RENAME|TRUNCATE|ALTER|ADD)\b/i', preg_replace('/^\s*ALTER\s+TABLE\s+`?[a-z0-9_]+`?\s+ADD\b/i', '', $syntax))) {
