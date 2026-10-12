@@ -73,10 +73,15 @@ final class OpenMarketContractCompiler
         }
         $example = $review['example'] ?? self::requestExample($input, (array)($meta['default_params'] ?? []), $jsonExamples);
         $responseSamples = array_values(array_filter($jsonExamples, static fn($sample) => isset($sample['code']) && $sample['code'] === 1 || isset($sample['choices']) || isset($sample['task_id'])));
-        $responses = $review['responses'] ?? self::responses($responseSamples);
+        $responses = OpenMarketResponse::retailSchemas($review['responses'] ?? self::responses($responseSamples));
         if (!$responses) $base[] = self::block('response_schema_missing', '缺少明确成功响应或已审核响应结构');
-        if ((self::economicFields($responses) || self::economicFields($responseSamples)) && !OpenMarketResponse::schemaSupported($responses)) $base[] = self::block('response_projection_required', '上游响应含尚未适配的成本/共享账户商业字段');
-        $hasTask = false; foreach ($responseSamples as $sample) if (isset($sample['task_id']) || isset($sample['data']['task_id'])) $hasTask = true;
+        // A reviewed omission cannot erase evidence in the original source envelope.
+        $sourceSupported = true;
+        foreach ($jsonExamples as $sample) if (isset($sample['code']) || isset($sample['choices']) || isset($sample['task_id']) || isset($sample['error'])) {
+            if (!OpenMarketResponse::bodySupported(OpenStore::encode((object)$sample))) $sourceSupported = false;
+        }
+        if (!$sourceSupported || !OpenMarketResponse::schemaSupported($responses)) $base[] = self::block('response_projection_required', '上游原始响应或审核结构含尚未适配的协议字段');
+        $hasTask = false; foreach ($responseSamples as $sample) if (OpenSchema::get($sample,'task_id')!==null || OpenSchema::get($sample,'data.task_id')!==null) $hasTask = true;
         if ($callType === 2 && !$hasTask && !isset($responses['200']['content']['application/json']['schema']['properties']['data']['properties']['task_id']) && !isset($responses['200']['content']['application/json']['schema']['properties']['task_id'])) $base[] = self::block('task_response_missing', '异步操作缺少任务 ID 响应声明');
         $taskRoot = isset($responses['200']['content']['application/json']['schema']['properties']['task_id']);
         $skus = []; $candidates = []; $drafts = []; $signatures = [];
@@ -153,14 +158,14 @@ final class OpenMarketContractCompiler
     {
         preg_match_all('/```json\s*([\s\S]*?)```/i', $doc, $matches); $examples = [];
         foreach ($matches[1] ?? [] as $text) { $object = json_decode(trim($text)); if ($object instanceof \stdClass) $examples[] = (array)$object; }
-        // Decode nested JSON objects as arrays for paths while preserving empty object/list distinctions in examples.
-        return array_map(static fn($example) => json_decode(OpenStore::encode($example), true), $examples);
+        // Only the request root becomes an array. Nested objects stay typed.
+        return $examples;
     }
     private static function requestExample(array $input, array $defaults, array $examples): array
     {
         foreach ($examples as $example) {
             if (isset($example['code']) || isset($example['error']) || isset($example['choices'])) continue;
-            try { OpenPolicy::validateInput($example); OpenSchema::validate($example, $input); if ($example || empty($input['required'])) return $example; } catch (\Throwable) {}
+            try { OpenPolicy::validateInput($example); OpenSchema::validate((object)$example, $input,'$',0,null,true); if ($example || empty($input['required'])) return $example; } catch (\Throwable) {}
         }
         $example = [];
         foreach ($input['properties'] ?? [] as $name => $field) {
@@ -173,26 +178,18 @@ final class OpenMarketContractCompiler
     private static function responses(array $samples): array
     {
         if (!$samples) return [];
-        return ['200' => ['description' => '上游文档声明的成功响应，须由真实网关回执验收', 'content' => ['application/json' => ['schema' => self::responseShape($samples[0])]]]];
+        return ['200' => ['description' => '上游文档声明的成功响应，须由真实网关回执验收', 'content' => ['application/json' => ['schema' => self::responseShape((object)$samples[0])]]]];
     }
-    private static function responseShape(mixed $value, int $depth = 0): array
+    private static function responseShape(mixed $value, int $depth = 0,string $path=''): array
     {
         if ($depth > 32) return [];
-        if (is_array($value)) {
-            if ($value && array_is_list($value)) return ['type' => 'array', 'items' => self::responseShape($value[0], $depth + 1)];
-            $properties = []; foreach ($value as $key => $item) $properties[$key] = self::responseShape($item, $depth + 1);
+        if ($value instanceof \stdClass) {
+            $properties = []; foreach (get_object_vars($value) as $key => $item) $properties[$key] = self::responseShape($item, $depth + 1,$path.$key.'.');
             return ['type' => 'object', 'properties' => $properties];
         }
+        if (is_array($value)) return ['type' => 'array', 'items' => $value ? self::responseShape(reset($value), $depth + 1,$path.'[].') : []];
+        if(OpenMarketResponse::retailPath(rtrim($path,'.'))&&(is_int($value)||is_float($value)))return ['type'=>'number'];
         return ['type' => match (true) {is_int($value) => 'integer', is_float($value) => 'number', is_bool($value) => 'boolean', $value === null => 'null', default => 'string'}];
-    }
-    private static function economicFields(array $value, int $depth = 0): bool
-    {
-        if ($depth > 32) return true;
-        foreach ($value as $key => $item) {
-            if (is_string($key) && (OpenSchemaNormalizer::sensitiveName($key) || in_array(strtolower($key), ['points_cost', 'actual_points', 'frozen_points', 'points', 'upstream_price', 'tenant_cost'], true))) return true;
-            if (is_array($item) && self::economicFields($item, $depth + 1)) return true;
-        }
-        return false;
     }
     private static function document(array $product, array $draft): string
     {

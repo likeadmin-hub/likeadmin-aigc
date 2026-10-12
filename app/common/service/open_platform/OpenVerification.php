@@ -20,6 +20,10 @@ final class OpenVerification
         if($row['payload_hash']!==$exampleHash)throw new OpenException('verification_example_mismatch','文档示例与已验证请求参数或素材不同');
         $body=OpenVault::open($row['response_blob']);$response=$config['responses'][(string)$row['response_code']]??null;
         if(!$response)throw new OpenException('verification_response_mismatch','文档未声明已验证的响应状态');
+        if($contract['kind']==='market'&&($config['response_adapter']??'')===OpenMarketResponse::ADAPTER){
+            $private=isset($snapshot['market_response_blob'])?OpenVault::open($snapshot['market_response_blob']):$body;
+            if(!OpenMarketResponse::schemaSupported($config['responses'])||!OpenMarketResponse::bodySupported($private)||!OpenMarketResponse::bodySupported($body))throw new OpenException('response_adapter_required','原始验收响应或文档包含尚未适配的协议字段');
+        }
         $schema=$response['content']['application/json']['schema']??null;
         if($schema&&str_contains($row['response_type'],'application/json')){$decoded=json_decode($body,false,64);if(json_last_error()!==JSON_ERROR_NONE)throw new OpenException('verification_response_mismatch','已验证响应不是有效 JSON');OpenSchema::validate($decoded,$schema,'$',0,null,true);}
         return ['request_id'=>$id,'verified_at'=>(int)$row['update_time'],'contract_digest'=>self::digest($contract),'evidence'=>'gateway:'.$id];

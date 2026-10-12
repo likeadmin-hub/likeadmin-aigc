@@ -54,6 +54,26 @@ final class OpenGateway
     {
         Db::transaction(function()use($id,$fields,$headers){$row=OpenStore::table('request')->where('request_id',$id)->lock(true)->find();if(!$row)throw new OpenException('not_found','响应请求不存在',404);OpenCallContext::assertLease($row);$snapshot=OpenStore::json($row['snapshot']);$snapshot['response_headers_blob']=OpenVault::seal(OpenStore::encode($headers));OpenAdmission::finish($id,$fields+['snapshot'=>OpenStore::encode($snapshot)]);});
     }
+    /** Preserve private evidence and known lifecycle even when public projection is unsupported. */
+    private static function marketWire(array $row,array $financeRow,array $wire,array $fields): array
+    {
+        return Db::transaction(function()use($row,$financeRow,$wire,$fields){
+            $owner=OpenStore::table('request')->where('request_id',$row['request_id'])->lock(true)->find();if(!$owner)throw new OpenException('not_found','响应请求不存在',404);OpenCallContext::assertLease($owner);
+            $snapshot=OpenStore::json($owner['snapshot']);$snapshot['market_response_blob']=OpenVault::seal($wire['body']);$snapshot['market_response_status']=(int)$wire['status'];
+            OpenAdmission::finish($row['request_id'],['snapshot'=>OpenStore::encode($snapshot)]);
+            try{
+                if(!OpenMarketResponse::bodySupported($wire['body']))throw new OpenException('response_adapter_required','上游响应协议尚未适配，已保留原请求等待核对',502);
+                $wire['body']=OpenMarketResponse::project($wire['body'],OpenMarketResponse::amounts($financeRow));
+            }catch(OpenException $error){
+                if($error->errorType!=='response_adapter_required')throw $error;
+                $wire['body']=self::error($error,$row['path'],$row['request_id'])->getContent();$wire['status']=502;$wire['headers']=['content-type'=>'application/json'];$wire['adapter_blocked']=true;
+                // This is a response-adaptation failure, not a failed upstream task.
+                $fields['error_code']='response_adapter_required';$fields['error_message']='上游响应协议尚未适配，原任务及计费状态保留';
+            }
+            $fields['response_blob']=OpenVault::seal($wire['body']);$fields['response_code']=$wire['status'];$fields['response_type']=$wire['headers']['content-type']??'application/json';
+            self::recordWire($row['request_id'],$fields,$wire['headers']);return $wire;
+        });
+    }
 
     private static function historicalMarket(array $key,string $method,string $path): ?array
     {
@@ -100,11 +120,9 @@ final class OpenGateway
             if($op['history']&&!$failed){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);self::observeTask($owner,$data);$financeRow=$owner;}
             if(($op['response_adapter']??'')===OpenMarketResponse::ADAPTER){
                 $financeRow=OpenStore::table('request')->where('id',$financeRow['id'])->find();
-                $wire['body']=OpenMarketResponse::project($wire['body'],OpenMarketResponse::amounts($financeRow));
-                $fields['response_blob']=OpenVault::seal($wire['body']);$data=OpenStore::json($wire['body']);
-            }
-            self::recordWire($row['request_id'],$fields,$wire['headers']);
-            if(!$op['history']){$latest=OpenStore::table('request')->where('id',$row['id'])->find();if((int)$latest['active']===0)OpenWebhooks::enqueue($latest,$data);}
+                $wire=self::marketWire($row,$financeRow,$wire,$fields);$data=OpenStore::json($wire['body']);
+            }else self::recordWire($row['request_id'],$fields,$wire['headers']);
+            if(!$op['history']&&empty($wire['adapter_blocked'])){$latest=OpenStore::table('request')->where('id',$row['id'])->find();if((int)$latest['active']===0)OpenWebhooks::enqueue($latest,$data);}
             return $stream?response(''):response($wire['body'],$wire['status'],$wire['headers']+['X-Request-Id'=>$row['request_id']]);
         }catch(\Throwable $e){if(OpenRecovery::connectionLost($e)||($e instanceof OpenException&&$e->errorType==='recovery_lease_lost'))throw $e;$unknown=$dispatched;
             if($op['kind']==='tool'){$latest=OpenStore::table('request')->where('id',$row['id'])->find();if(!empty(OpenStore::json($latest['snapshot'])['provider_rejection_confirmed']))$unknown=false;}

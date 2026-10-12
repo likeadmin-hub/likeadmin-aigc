@@ -5,22 +5,87 @@ namespace app\common\service\open_platform;
 final class OpenMarketResponse
 {
     public const ADAPTER='likeadmin_retail_v1';
+    private const OPAQUE_PATHS=['choices','output','content','data.content','result.content','data.result.content'];
+    public static function financialPath(string $path): bool
+    {
+        $name=substr($path,(int)strrpos('.'.$path,'.'));$name=preg_replace('/([a-z0-9])([A-Z])/','$1_$2',$name);
+        return (bool)preg_match('/(?:^|_)(?:points?|price|cost|balance|amount)(?:$|_)/i',$name)||in_array($name,['actual_tenant','budget_tenant'],true);
+    }
+    public static function retailPath(string $path): bool
+    {
+        foreach(['','data.','data.result.'] as $prefix)if(in_array($path,[$prefix.'frozen_points',$prefix.'actual_points',$prefix.'points_cost'],true))return true;
+        foreach(['usage.','data.usage.','data.result.usage.'] as $prefix)if(in_array($path,[$prefix.'points_cost',$prefix.'actual_points'],true))return true;
+        return false;
+    }
+    private static function opaque(string $path): bool{return in_array(rtrim($path,'.'),self::OPAQUE_PATHS,true);}
+    /** Retail currency is a JSON number; shared refs must not change business integers. */
+    public static function retailSchemas(array $responses): array
+    {
+        if(!self::schemaSupported($responses))return $responses;
+        foreach($responses as &$response)if(isset($response['content']['application/json']['schema'])){
+            $schema=$response['content']['application/json']['schema'];$budget=5000;
+            $response['content']['application/json']['schema']=self::numericNode($schema,$schema,'',0,$budget);
+        }unset($response);return $responses;
+    }
+    private static function numericNode(array $schema,array $root,string $path,int $depth,int &$budget): array
+    {
+        if(self::opaque($path)||$depth>32||--$budget<0)return $schema;
+        if(isset($schema['$ref'])){
+            $node=$root;foreach(explode('/',substr($schema['$ref'],2)) as $part)$node=$node[str_replace(['~1','~0'],['/','~'],$part)];
+            unset($schema['$ref']);$schema=self::numericNode(array_replace($node,$schema),$root,$path,$depth+1,$budget);
+        }
+        if(self::retailPath(rtrim($path,'.'))&&isset($schema['type'])){
+            if($schema['type']==='integer')$schema['type']='number';
+            elseif(is_array($schema['type']))$schema['type']=array_values(array_unique(array_map(static fn($type)=>$type==='integer'?'number':$type,$schema['type'])));
+        }
+        foreach($schema['properties']??[] as $name=>$field)$schema['properties'][$name]=self::numericNode($field,$root,$path.$name.'.',$depth+1,$budget);
+        foreach(['items','additionalProperties'] as $key)if(isset($schema[$key])&&is_array($schema[$key]))$schema[$key]=self::numericNode($schema[$key],$root,$path.'[].',$depth+1,$budget);
+        foreach(['oneOf','anyOf','allOf'] as $union)foreach($schema[$union]??[] as $i=>$branch)$schema[$union][$i]=self::numericNode($branch,$root,$path,$depth+1,$budget);
+        return $schema;
+    }
     public static function schemaSupported(array $responses): bool
     {
-        $allowed=[];foreach(['','data.','data.result.'] as $prefix)foreach(['frozen_points','actual_points','points_cost'] as $name)$allowed[]=$prefix.$name;
-        foreach(['usage.','data.usage.','data.result.usage.'] as $prefix)foreach(['points_cost','actual_points'] as $name)$allowed[]=$prefix.$name;
-        $walk=static function(array $schema,string $path='')use(&$walk,$allowed): bool {
-            foreach($schema['properties']??[] as $name=>$field){$full=$path.$name;if(in_array($name,['points','points_cost','actual_points','frozen_points'],true)&&!in_array($full,$allowed,true))return false;if(OpenSchemaNormalizer::sensitiveName($name)||preg_match('/tenant_(?:cost|price)|(?:platform|upstream)_(?:price|cost)/i',$name))return false;if(is_array($field)&&!$walk($field,$full.'.'))return false;}
-            if(isset($schema['items'])&&!$walk($schema['items'],$path.'[].'))return false;
-            foreach(['oneOf','anyOf','allOf'] as $union)foreach($schema[$union]??[] as $branch)if(!$walk($branch,$path))return false;
-            return true;
-        };
-        foreach($responses as $response)if(!$walk($response['content']['application/json']['schema']??[]))return false;
+        foreach($responses as $response){$schema=$response['content']['application/json']['schema']??[];$budget=5000;if(!is_array($schema)||!self::schemaNode($schema,$schema,'',[],0,$budget))return false;}
         return true;
+    }
+    private static function schemaNode(array $schema,array $root,string $path,array $refs,int $depth,int &$budget): bool
+    {
+        if(self::opaque($path))return true;
+        if($depth>32||--$budget<0)return false;
+        if(isset($schema['$ref'])){
+            $ref=$schema['$ref'];if(!is_string($ref)||!str_starts_with($ref,'#/')||in_array($ref,$refs,true))return false;
+            $node=$root;foreach(explode('/',substr($ref,2)) as $part){$part=str_replace(['~1','~0'],['/','~'],$part);if(!is_array($node)||!array_key_exists($part,$node))return false;$node=$node[$part];}
+            if(!is_array($node)||!self::schemaNode($node,$root,$path,array_merge($refs,[$ref]),$depth+1,$budget))return false;
+        }
+        foreach($schema['properties']??[] as $name=>$field){$full=$path.$name;if(!self::opaque($full)&&(OpenSchemaNormalizer::sensitiveName((string)$name)||self::financialPath($full)&&!self::retailPath($full)))return false;if(!is_array($field)||!self::schemaNode($field,$root,$full.'.',$refs,$depth+1,$budget))return false;}
+        foreach(['items','additionalProperties'] as $key)if(isset($schema[$key])&&is_array($schema[$key])&&!self::schemaNode($schema[$key],$root,$path.'[].',$refs,$depth+1,$budget))return false;
+        foreach(['oneOf','anyOf','allOf'] as $union)foreach($schema[$union]??[] as $branch)if(!is_array($branch)||!self::schemaNode($branch,$root,$path,$refs,$depth+1,$budget))return false;
+        foreach($schema['patternProperties']??[] as $branch)if(!is_array($branch)||!self::schemaNode($branch,$root,$path.'[].',$refs,$depth+1,$budget))return false;
+        return true;
+    }
+    /** Actual envelopes are checked independently of the documented schema. */
+    public static function bodySupported(string $body): bool
+    {
+        $value=json_decode($body,false,64);if(json_last_error()!==JSON_ERROR_NONE||!($value instanceof \stdClass))return false;
+        $budget=5000;return self::bodyNode($value,'',0,$budget);
+    }
+    private static function bodyNode(mixed $value,string $path,int $depth,int &$budget): bool
+    {
+        if(self::opaque($path))return true;if($depth>32||--$budget<0)return false;
+        if($value instanceof \stdClass)foreach(get_object_vars($value) as $name=>$child){$full=$path.$name;if(self::removablePath($full))continue;if(!self::opaque($full)){if(self::financialPath($full)&&!self::retailPath($full))return false;if(OpenSchemaNormalizer::sensitiveName($name))return false;}if(!self::bodyNode($child,$full.'.',$depth+1,$budget))return false;}
+        elseif(is_array($value))foreach($value as $child)if(!self::bodyNode($child,$path.'[].',$depth+1,$budget))return false;
+        return true;
+    }
+    private static function removablePath(string $path): bool
+    {
+        foreach(['','data.','data.result.'] as $prefix)foreach(['api_key','api_secret','credentials','provider_config','source_blob','price_snapshot','pricing_snapshot','tenant_cost','platform_sale_points','upstream_price'] as $name)if($path===$prefix.$name)return true;
+        return false;
     }
     public static function project(string $body,array $amounts): string
     {
-        $value=json_decode($body);if(!($value instanceof \stdClass)||json_last_error()!==JSON_ERROR_NONE)return $body;
+        $value=json_decode($body);if(is_array($value)&&json_last_error()===JSON_ERROR_NONE)throw new OpenException('response_adapter_required','上游响应不是已适配的对象协议',502);
+        if(!($value instanceof \stdClass)||json_last_error()!==JSON_ERROR_NONE)return $body;
+        if(!self::bodySupported($body))throw new OpenException('response_adapter_required','上游响应包含尚未适配的协议字段，已保留原请求等待核对',502);
         $changed=false;
         foreach(['','data.','data.result.'] as $prefix){
             foreach(['frozen_points'=>'reserved','actual_points'=>'charged','points_cost'=>'charged'] as $name=>$amount)self::replace($value,$prefix.$name,(float)($amounts[$amount]??0),$changed);
