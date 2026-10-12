@@ -79,5 +79,21 @@ $fixtures=json_decode(file_get_contents(__DIR__.'/evaluation-fixtures.json'),tru
 $fixture=$fixtures['cases'][0];$evaluated=O::apply($fixture['initial'],[['type'=>'update_component','widget_id'=>'w0','fields'=>['content.title'=>'开始创作']]],$fixture['scope']);check(evaluateDecorationAgentFixture($fixture,$evaluated)['passed'],'evaluation assertions real engine');
 $evaluated['candidate']['data'][1]['content']['image_height']=500;check(!evaluateDecorationAgentFixture($fixture,$evaluated)['passed'],'evaluation detects collateral edit');
 $stylePage=page(['news']);$styleResult=O::apply($stylePage,[['type'=>'update_component','widget_id'=>'w0','fields'=>['styles.margin_top'=>30,'styles.color'=>'#123456']]],['scope'=>'page']);check($styleResult['candidate']['data'][0]['styles']['margin_top']===30,'declared style spacing accepted');check($styleResult['candidate']['data'][0]['styles']['color']==='#123456','declared style color accepted');
+
+$r=O::apply(page([]),[['type'=>'add_component','name'=>'title-bar','content'=>['title'=>'新标题'],'styles'=>['color'=>'#123456']]],['scope'=>'page']);check($r['candidate']['data'][0]['content']['title']==='新标题','add content alias applies');check($r['candidate']['data'][0]['styles']['color']==='#123456','add styles alias applies');
+rejects(fn()=>O::apply(page([]),[['type'=>'add_component','name'=>'title-bar','content'=>['unsafe_unknown'=>'x']]],['scope'=>'page']),'add alias unknown rejected');
+$r=O::apply($buttons,[['type'=>'edit_list','widget_id'=>'w0','action'=>'add','item'=>['title'=>'追加']]],['scope'=>'page']);check(end($r['candidate']['data'][0]['content']['data'])['title']==='追加','list item alias');
+$r=O::apply(page([]),[['type'=>'replace_page','name'=>'新画布','components'=>[['name'=>'title-bar','content'=>['title'=>'Hello']]]]],['scope'=>'new_page']);check($r['candidate']['name']==='新画布'&&$r['candidate']['data'][0]['content']['title']==='Hello','replacement name/content');
+check(C::pageMeta()['defaults']['content']['bg_type']==='0'&&C::pageMeta()['defaults']['content']['title_type']==='1','real page meta defaults');
+$r=O::apply(page([]),[['type'=>'configure_page','fields'=>['title_type'=>'2','bg_type'=>'4','show_back'=>1,'gradient_colors'=>['#ffffff','#000000'],'gradient_direction'=>'135deg']]],['scope'=>'page']);check($r['candidate']['meta'][0]['content']['bg_type']==='4'&&$r['candidate']['meta'][0]['content']['show_back']===1,'real page meta fields');
+rejects(fn()=>O::apply(page([]),[['type'=>'configure_page','fields'=>['gradient_colors'=>['#fff']]]],['scope'=>'page']),'gradient count');
+rejects(fn()=>O::apply(page([]),[['type'=>'configure_page','fields'=>['gradient_direction'=>'url(javascript:evil)']]],['scope'=>'page']),'gradient enum');
+rejects(fn()=>O::apply(page([]),[['type'=>'configure_page','fields'=>['bg_video'=>'https://evil.test/a.mp4']]],['scope'=>'page']),'video asset approval');
+$r=O::apply(page([]),[['type'=>'configure_page','fields'=>['bg_video'=>'https://assets.test/a.mp4']]],['scope'=>'page','approved_urls'=>['https://assets.test/a.mp4']]);check($r['candidate']['meta'][0]['content']['bg_video']==='https://assets.test/a.mp4','trusted video');
+
+rejects(fn()=>O::apply($p,[['type'=>'update_component','widget_id'=>'w1','fields'=>['content.data.0.image'=>'https://invented.test/a.png']]],['scope'=>'page']),'invented image rejected');
+$r=O::apply($p,[['type'=>'update_component','widget_id'=>'w1','fields'=>['content.data.0.image'=>'https://assets.test/a.png']]],['scope'=>'page','approved_urls'=>['https://assets.test/a.png']]);check($r['candidate']['data'][1]['content']['data'][0]['image']==='https://assets.test/a.png','approved image accepted');
+$historic=$p;$historic['data'][1]['content']['data'][0]['image']='https://historic.test/banner.png';
+$r=O::apply($historic,[['type'=>'update_component','widget_id'=>'w1','fields'=>['content.data'=>[['image'=>'https://historic.test/banner.png','name'=>'旧图新标题']]]]],['scope'=>'page']);check($r['candidate']['data'][1]['content']['data'][0]['image']==='https://historic.test/banner.png','historic image list edit accepted');
 echo "PASS $n deterministic decoration assertions\n";
 

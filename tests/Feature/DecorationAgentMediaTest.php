@@ -67,5 +67,7 @@ class DecorationAgentMediaTest extends TestCase
         self::assertSame(['https://owned.test/uploads/owned.png'],$result['requests']['one']['reference_images']);
         self::assertArrayNotHasKey('provider_params',$result['requests']['one']);
         self::assertArrayHasKey('bad',$result['request_errors']);
+        self::assertSame([],$result['search_reference_only']);
+        self::assertSame(1,$result['search_asset'][0]['file_id']);
     }
 }

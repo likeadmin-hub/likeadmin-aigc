@@ -9,10 +9,16 @@ class DecorationAgentOperations
     private array $scope;
     private array $changes = [];
     private array $images = [];
+    private array $trustedImages = [];
 
     public static function apply(array $candidate, array $operations, array $scope, ?DecorationAgentCatalog $catalog = null): array
     {
         $engine = new self(); $engine->scope = $scope;
+        foreach (DecorationAgentCatalog::summary()['components'] as $definition) $engine->collectImages($definition['defaults'], $definition);
+        foreach (DecorationAgentOperations::index($candidate['data'] ?? []) as $node) {
+            try { $definition=DecorationAgentCatalog::definition($node['widget']['name']); $engine->collectImages($node['widget'],$definition); } catch (InvalidArgumentException $e) { /* Unknown legacy widgets remain untouched. */ }
+        }
+        foreach ($candidate['meta'] ?? [] as $meta) if (($meta['name']??'')==='page-meta') $engine->collectImages($meta,DecorationAgentCatalog::pageMeta());
         if (!in_array($scope['scope'] ?? '', ['page', 'selected', 'new_page'], true)) self::fail('Invalid edit scope');
         if (count($operations) > 100) self::fail('Too many operations');
         $candidate['data'] = $candidate['data'] ?? [];
@@ -43,6 +49,16 @@ class DecorationAgentOperations
             if (!empty($widget['children'])) $map += self::index($widget['children'], $path, $depth + 1, $seen);
         }
         return $map;
+    }
+    private function collectImages(array $widget,array $definition): void
+    {
+        foreach (['content'=>'content_fields','styles'=>'style_fields'] as $section=>$fields) foreach ($definition[$fields] ?? [] as $key=>$schema) {
+            if (($schema['type'] ?? '')==='image' && is_string($widget[$section][$key] ?? null) && $widget[$section][$key]!=='') $this->trustedImages[]=$widget[$section][$key];
+        }
+        foreach ($definition['lists'] ?? [] as $key=>$contract) foreach ($widget['content'][$key] ?? [] as $row) {
+            if (!is_array($row)) continue;
+            foreach ($contract['fields'] as $field=>$schema) if (($schema['type'] ?? '')==='image' && is_string($row[$field] ?? null) && $row[$field]!=='') $this->trustedImages[]=$row[$field];
+        }
     }
     private static function fail(string $message): void { throw new InvalidArgumentException($message); }
     private function assertScope(string $id, array $tree): void
@@ -99,6 +115,7 @@ class DecorationAgentOperations
                 $next = [];
                 foreach ($op['components'] ?? [] as $spec) $next[] = $this->build($spec);
                 $page['data'] = $next;
+                if (isset($op['name'])) $this->configurePage($page, ['name'=>$op['name']]);
             }
         } elseif ($type === 'add_component') {
             $widget = $this->build($op); $id = $widget['id']; $this->insert($page['data'], $widget, $op);
@@ -127,7 +144,14 @@ class DecorationAgentOperations
     {
         $widget = DecorationAgentCatalog::create((string)($spec['name'] ?? ''), self::newId());
         $definition = DecorationAgentCatalog::definition($widget['name']);
-        $this->fields($widget, $definition, $spec['fields'] ?? []);
+        $fields = [];
+        foreach (['content','styles'] as $section) {
+            if (isset($spec[$section]) && !is_array($spec[$section])) self::fail('Component '.$section.' must be an object');
+            foreach ($spec[$section] ?? [] as $key=>$value) $fields[$section.'.'.$key] = $value;
+        }
+        if (isset($spec['fields']) && !is_array($spec['fields'])) self::fail('Component fields must be an object');
+        $fields = array_replace($fields,$spec['fields'] ?? []);
+        $this->fields($widget, $definition, $fields);
         if (!empty($spec['children'])) {
             if (!$definition['children']['supported']) self::fail('Component does not support children');
             $widget['children'] = array_map(fn($child) => $this->build($child), $spec['children']);
@@ -200,7 +224,15 @@ class DecorationAgentOperations
             // navigation require dedicated approved fields rather than HTML.
             if (preg_match('/<[^>]*[\s=][^>]*>|<\s*!(?:--|DOCTYPE)/i', $value) || strip_tags($value, '<p><br><b><strong><em><i><u><ul><ol><li><h1><h2><h3><blockquote>') !== $value) self::fail('Unsafe rich text');
         }
-        if (($schema['type'] ?? '') === 'image' && $value !== '' && (!is_string($value) || !preg_match('~^(https?://|/)(?!/)~i',$value))) self::fail('Invalid image URL');
+        if (($schema['type'] ?? '') === 'image' && $value !== '') {
+            if (!is_string($value) || !preg_match('~^(https?://|/)(?!/)~i',$value) || preg_match('/[\\\\\x00-\x20]/',$value)) self::fail('Invalid image URL');
+            if (!in_array($value,array_merge($this->trustedImages,$this->scope['approved_urls'] ?? []),true)) self::fail('Image URL is not an existing or approved asset');
+        }
+        if (($schema['type'] ?? '') === 'video' && $value !== '') {
+            if (!filter_var($value,FILTER_VALIDATE_URL) || !in_array(strtolower(parse_url($value,PHP_URL_SCHEME) ?: ''),['http','https'],true) || !in_array($value,array_merge($this->scope['approved_urls'] ?? [],$this->scope['allowed_video_urls'] ?? []),true)) self::fail('Video asset is not approved');
+        }
+        if (isset($schema['min_items']) && (count($value)<$schema['min_items'] || count($value)>$schema['max_items'])) self::fail('Array length outside field limits');
+        if (($schema['item_type'] ?? '') === 'color') foreach ($value as $color) { if (!is_string($color) || !preg_match('/^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\)|hsla?\([\d\s.,%]+\)|transparent)$/iD',$color)) self::fail('Invalid gradient color'); }
         if (isset($schema['list'])) $this->validateList($value,$schema['list']);
         if ($type === 'object' && !empty($schema['default']) && ($schema['type'] ?? '') !== 'link') {
             foreach ($value as $key=>$entry) {
@@ -243,7 +275,7 @@ class DecorationAgentOperations
         $field=$op['field'] ?? 'data';$contract=$definition['lists'][$field]??null;
         if (!$contract) self::fail('Unapproved component list');
         $rows=$widget['content'][$field]??[];$oldCount=count($rows);$action=$op['action']??'';$i=$op['index']??null;
-        if ($action==='add') { $row=$op['row']??[];$this->validateList([$row],array_replace($contract,['min_items'=>0]));$row['id']=self::newId();$i=$i??count($rows);if(!is_int($i)||$i<0||$i>count($rows))self::fail('List insertion index invalid');array_splice($rows,$i,0,[$row]); }
+        if ($action==='add') { $row=$op['row']??$op['item']??[];$this->validateList([$row],array_replace($contract,['min_items'=>0]));$row['id']=self::newId();$i=$i??count($rows);if(!is_int($i)||$i<0||$i>count($rows))self::fail('List insertion index invalid');array_splice($rows,$i,0,[$row]); }
         else {
             if (!is_int($i)||!isset($rows[$i])) self::fail('List row index invalid');
             if ($action==='update') foreach ($op['fields']??[] as $key=>$value) {if($key==='id'||!isset($contract['fields'][$key]))self::fail('Unapproved list row field');$this->validate($value,$contract['fields'][$key]);$rows[$i][$key]=$value;}
@@ -276,10 +308,10 @@ class DecorationAgentOperations
     }
     private function configurePage(array &$page,array $op): void
     {
-        $schema=['title'=>['value_type'=>'string'],'title_type'=>['value_type'=>'number','options'=>[['value'=>0],['value'=>1],['value'=>2]]],'title_img'=>['value_type'=>'string','type'=>'image'],'show_nav'=>['value_type'=>'number','min'=>0,'max'=>1],'nav_bg_color'=>['value_type'=>'string'],'bg_type'=>['value_type'=>'number','min'=>0,'max'=>2],'bg_color'=>['value_type'=>'string'],'bg_image'=>['value_type'=>'string','type'=>'image'],'text_color'=>['value_type'=>'string','options'=>[['value'=>'1'],['value'=>'2']]]];
+        $contract = DecorationAgentCatalog::pageMeta(); $schema = $contract['content_fields'];
         if(isset($op['name'])){if(!is_string($op['name'])||trim($op['name'])===''||mb_strlen($op['name'])>100)self::fail('Invalid page name');$page['name']=$op['name'];}
         $meta=$page['meta']??[];$idx=null;foreach($meta as $i=>$entry)if(($entry['name']??'')==='page-meta'){$idx=$i;break;}
-        if($idx===null){$meta[]=['name'=>'page-meta','title'=>'页面设置','content'=>['title_type'=>1,'bg_type'=>0],'styles'=>[]];$idx=count($meta)-1;}
+        if($idx===null){$meta[]=$contract['defaults'];$idx=count($meta)-1;}
         foreach($op['fields']??[] as $key=>$value){$key=preg_replace('/^content\./','',$key);if(!isset($schema[$key]))self::fail('Unapproved page meta field');$this->validate($value,$schema[$key]);$meta[$idx]['content'][$key]=$value;}
         $page['meta']=$meta;
     }

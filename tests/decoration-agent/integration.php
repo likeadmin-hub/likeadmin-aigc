@@ -8,7 +8,8 @@ use app\common\service\decorate\agent\DecorationAgentService as S;
 use app\common\service\decorate\agent\DecorationAgentCatalog as C;
 use app\common\service\decorate\agent\DecorationAgentOperations as O;
 use app\common\service\decorate\DecorateTemplateService as T;
-function assertAgent($ok,$message){if(!$ok)throw new RuntimeException($message);}
+$passed=0;
+function assertAgent($ok,$message){global $passed;$passed++;if(!$ok)throw new RuntimeException($message);}
 config(['enabled'=>true],'decoration_agent');request()->tenantId=1;
 $baseline=Db::name('decorate_page')->where('tenant_id',1)->where('id',1)->find();
 $baselineJson=json_encode($baseline);
@@ -32,7 +33,13 @@ $again=S::rollback(1,1,['checkpoint_id'=>$applied['checkpoint_id'],'idempotency_
 $new=$candidate;$new['new_page']=true;$new['name']='Agent新页面';$nid=$insertCandidate($new,$initial);
 $created=S::apply(1,1,['candidate_id'=>$nid,'idempotency_key'=>'new:'.$nid]);assertAgent($created['page']['id']!==$page['id'],'new page created');
 $undone=S::rollback(1,1,['checkpoint_id'=>$created['checkpoint_id'],'idempotency_key'=>'undo_new:'.$nid]);assertAgent($undone['deleted']&&$undone['page']['id']===$page['id'],'new page rollback restores origin');
-assertAgent(S::session(1,1,$session['id'])['page_id']===$page['id'],'new page session origin restored');
+assertAgent(S::session(1,1,$session['id'])['page_id']===$page['id'],'new page session origin restored');$replayNew=S::rollback(1,1,['checkpoint_id'=>$created['checkpoint_id'],'idempotency_key'=>'undo_new:'.$nid]);assertAgent($replayNew['deleted_page_id']===$created['page']['id'],'new page rollback replay preserves deleted id');
 $redo=S::apply(1,1,['candidate_id'=>$nid,'idempotency_key'=>'redo_new:'.$nid]);assertAgent($redo['page']['id']!==$created['page']['id'],'new page redo recreates');
+$imageBase=S::payload($redo['page']);$imageCandidate=O::apply($imageBase,[['type'=>'add_component','name'=>'banner']],['scope'=>'page'])['candidate'];$imageId=$insertCandidate($imageCandidate,$imageBase);$imageApplied=S::apply(1,1,['candidate_id'=>$imageId,'idempotency_key'=>'image_apply:'.$imageId]);
+$banner=end($imageCandidate['data']);$imageRequest=O::apply($imageCandidate,[['type'=>'request_image','widget_id'=>$banner['id'],'field'=>'content.data.0.image','prompt'=>'仅数据库回填测试']],['scope'=>'page'])['image_requests'][0];
+$slotId=Db::name('decorate_agent_image_slot')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'session_id'=>$session['id'],'run_id'=>0,'candidate_id'=>$imageId,'slot_key'=>$banner['id'].':content.data.0.image','status'=>'running','request_json'=>S::json($imageRequest),'result_json'=>'{}','create_time'=>time(),'update_time'=>time()]);$slot=Db::name('decorate_agent_image_slot')->where('id',$slotId)->find();
+$hydrate=new ReflectionMethod(S::class,'hydrate');$hydrate->setAccessible(true);$hydrate->invoke(null,$slot,'https://fixture.invalid/generated-image.png');
+$imageUndo=S::rollback(1,1,['checkpoint_id'=>$imageApplied['checkpoint_id'],'idempotency_key'=>'image_undo:'.$imageId]);assertAgent(S::hash(S::payload($imageUndo['page']))===S::hash($imageBase),'whole AI apply rollback includes later image completion');
+$hydrate->invoke(null,$slot,'https://fixture.invalid/late-image.png');assertAgent(S::hash(S::payload(T::pageDetail(1,['template_id'=>$template['id'],'id'=>$imageUndo['page']['id']])))===S::hash($imageBase),'late image cannot resurrect undone apply');
 assertAgent(json_encode(Db::name('decorate_page')->where('tenant_id',1)->where('id',1)->find())===$baselineJson,'existing page untouched');
-echo json_encode(['passed'=>13,'template_id'=>$template['id'],'session_id'=>$session['id'],'original_unchanged'=>true],JSON_UNESCAPED_UNICODE)."\n";
+echo json_encode(['passed'=>$passed,'template_id'=>$template['id'],'session_id'=>$session['id'],'original_unchanged'=>true],JSON_UNESCAPED_UNICODE)."\n";
