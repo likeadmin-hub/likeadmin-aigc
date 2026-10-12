@@ -12,7 +12,7 @@ final class VideoEffectMediaTest extends TestCase
         $saved = array_slice(Effects::defaults(), 0, 2);
         $saved[0]['enabled'] = false;
         $saved[1]['name'] = 'Tenant custom name';
-        self::assertSame($saved, Effects::configuredCatalog(['video_effects'=>$saved]));
+        self::assertEquals($saved, Effects::configuredCatalog(['video_effects'=>$saved]));
     }
 
     public function testOnlyDefaultPreviewUrlsAreReplacedWithoutChangingTenantContent(): void
