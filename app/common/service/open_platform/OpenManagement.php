@@ -146,10 +146,32 @@ final class OpenManagement
         $bucket='CASE '.implode(' ',$buckets).' END';
         foreach((clone $current)->fieldRaw($bucket.' AS day_bucket,'.$fields)->group('day_bucket')->select()->toArray() as $row){$i=(int)$row['day_bucket'];$values=$normalize($row);unset($values['success_rate'],$values['average_latency_ms']);$trend[$i]=array_replace($trend[$i],$values);}
         $distribution=(clone $current)->fieldRaw('kind,COUNT(*) AS calls,SUM(actual_user) AS charged')->group('kind')->order('kind','asc')->select()->toArray();
-        $top=(clone $current)->fieldRaw('kind,app_code,path,COUNT(*) AS calls,SUM(actual_user) AS charged')->group('kind,app_code,path')->order(['calls'=>'desc','kind'=>'asc','app_code'=>'asc','path'=>'asc'])->limit(8)->select()->toArray();
+        $route="CASE WHEN path LIKE '/api/v1/tools/%/tasks/%' THEN CONCAT(SUBSTRING_INDEX(path,'/tasks/',1),'/tasks/{task_id}',IF(path LIKE '%/cancel','/cancel','')) WHEN path LIKE '/api/v1/tasks/%' THEN CONCAT('/api/v1/tasks/{task_id}',IF(path LIKE '%/cancel','/cancel','')) WHEN path LIKE '/api/v1/assets/%' THEN CONCAT('/api/v1/assets/{file_id}',IF(path LIKE '%/download','/download','')) ELSE path END";
+        $top=(clone $current)->fieldRaw("kind,app_code,$route AS route_path,COUNT(*) AS calls,SUM(actual_user) AS charged")->group('kind,app_code,route_path')->order(['calls'=>'desc','kind'=>'asc','app_code'=>'asc','route_path'=>'asc'])->limit(8)->select()->toArray();
+        foreach($top as &$item){$item['path']=$item['route_path'];unset($item['route_path']);}unset($item);
         $normalizeGroup=static fn($r)=>array_replace($r,['calls'=>(int)$r['calls'],'charged'=>round((float)$r['charged'],2)]);
         $distribution=array_map($normalizeGroup,$distribution);$top=array_map($normalizeGroup,$top);
         return ['days'=>$days,'timezone'=>date_default_timezone_get(),'period'=>['start'=>$start->format('Y-m-d'),'end'=>$today->format('Y-m-d')],'previous_period'=>['start'=>$previousStart->format('Y-m-d'),'end'=>$start->modify('-1 day')->format('Y-m-d')],'metrics'=>$metrics,'previous'=>$previous,'growth'=>$growth,'trend'=>$trend,'distribution'=>$distribution,'top_capabilities'=>$top];
+    }
+
+    /** Retail estimate uses the same published SKU rules as submission and never calls upstream. */
+    public static function quote(int $tenantId,int $userId,string $code,array $params): array
+    {
+        $settings=OpenStore::requireEnabled($tenantId);
+        if(empty($settings['features']['playground'])||empty(OpenStore::settings(0)['features']['playground']))throw new OpenException('feature_disabled','在线调试已关闭',403);
+        $contract=OpenStore::table('contract')->where(['code'=>$code,'kind'=>'market','status'=>'published'])->order('version','desc')->find();
+        if(!$contract)throw new OpenException('not_found','请选择已发布的商城接口',404);
+        $config=OpenContracts::decodeConfig($contract['config']);
+        if(!OpenContracts::selected($config,$params))throw new OpenException('invalid_request','参数不符合当前选择的接口');
+        try{OpenPolicy::validateInput($params);}catch(\InvalidArgumentException $e){throw new OpenException('invalid_request',$e->getMessage());}
+        OpenSchema::validate($params,$config['input']);OpenSafeHttp::checkInputs($params);
+        $op=$config+['kind'=>'market','product_id'=>(int)$contract['product_id']];
+        // Directory and history do not reserve a new generation budget.
+        if(($config['executor']??'')==='directory'||empty($config['billable']))return ['billable'=>false,'reserved_points'=>0.,'pricing_mode'=>'free','items'=>[],'currency'=>'points'];
+        if(!in_array($config['role'],['submit','resource'],true))throw new OpenException('invalid_request','任务操作请查询原任务账单');
+        $budget=OpenMarketBilling::quote($tenantId,$op,$params);$items=[];$variable=false;
+        foreach($budget['snapshot']['rules']??[] as $rule){$variable=$variable||$rule['basis']==='usage';$items[]=['sku_key'=>$rule['sku_key'],'unit_price'=>(float)$rule['prices']['user'],'usage_unit'=>$rule['usage_unit'],'usage_unit_size'=>(float)$rule['unit_size'],'reserved_units'=>(float)$rule['units']];}
+        return ['billable'=>true,'reserved_points'=>$budget['user'],'pricing_mode'=>$variable?'reservation':'fixed','items'=>$items,'currency'=>'points'];
     }
 
 }

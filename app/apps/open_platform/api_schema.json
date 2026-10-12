@@ -431,6 +431,14 @@
       "scene": "platform_admin",
       "need_login": 1,
       "need_role_permission": 1
+    },
+    {
+      "api_path": "app.open_platform.console/quote",
+      "api_method": "POST",
+      "permission_key": "open_platform:console:quote",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
     }
   ]
 }
