@@ -44,7 +44,7 @@ final class OpenDocumentationCatalog
                 $first['protocol_label']=['openai_chat'=>'Chat Completions','openai_completions'=>'Completions','openai_responses'=>'Responses','anthropic_messages'=>'Messages','gemini_contents'=>'Gemini','model_task'=>'异步任务','application_api'=>'应用接口'][$definition['protocol']??'']??'';
                 $first['section']=$model?'模型 API':'应用 API';$first['category']=$category;$first['group']=self::text($group);$first['model']=$compiled['model_code'];
                 $first['x-catalog-entry']=true;$first['x-product-id']=$id;$first['x-api-selected']=$selected;
-                $first['x-contract-variants']=$variants;$first['x-prices']=array_map(static fn($sku)=>['sku_key'=>$sku['sku_key'],'price'=>(float)$sku['sale_points'],'unit'=>$sku['usage_unit'],'unit_size'=>(float)$sku['usage_unit_size'],'sale_status'=>(int)$sku['sale_status']===1],$product['skus']);
+                $first['x-contract-variants']=$variants;$first['x-prices']=array_map(static fn($sku)=>['sku_key'=>$sku['sku_key'],'title'=>(string)($sku['title']??''),'price'=>(float)$sku['sale_points'],'unit'=>$sku['usage_unit'],'unit_label'=>$model&&($product['model_type']??'')==='image'&&$sku['usage_unit']==='per_call'?'成功图片':'','unit_size'=>(float)$sku['usage_unit_size'],'sale_status'=>(int)$sku['sale_status']===1],$product['skus']);
                 $entries[]=self::sanitize($first);
             }
         }
