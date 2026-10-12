@@ -96,5 +96,7 @@ $r=O::apply($p,[['type'=>'update_component','widget_id'=>'w1','fields'=>['conten
 $historic=$p;$historic['data'][1]['content']['data'][0]['image']='https://historic.test/banner.png';
 $r=O::apply($historic,[['type'=>'update_component','widget_id'=>'w1','fields'=>['content.data'=>[['image'=>'https://historic.test/banner.png','name'=>'旧图新标题']]]]],['scope'=>'page']);check($r['candidate']['data'][1]['content']['data'][0]['image']==='https://historic.test/banner.png','historic image list edit accepted');
 rejects(fn()=>O::apply(page(['title-bar']),[['type'=>'update_component','widget_id'=>'w0','fields'=>['styles.background'=>'url(https://invented.invalid/x.png)']]],['scope'=>'page']),'style cannot bypass image allowlist');
+$legacyMove=page(['banner','title-bar']);foreach($legacyMove['data'] as &$entry)unset($entry['id']);unset($entry);
+$legacyMoved=O::apply($legacyMove,[['type'=>'move_component','widget_id'=>'legacy_banner_0','index'=>1],['type'=>'update_component','widget_id'=>'legacy_banner_0','fields'=>['content.image_height'=>333]]],['scope'=>'page']);check($legacyMoved['candidate']['data'][1]['content']['image_height']===333,'legacy identity survives structural edit and next operation');check(!isset($legacyMove['data'][0]['id']),'legacy structural edit does not mutate original');
 echo "PASS $n deterministic decoration assertions\n";
 

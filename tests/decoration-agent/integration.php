@@ -26,6 +26,7 @@ try{S::session(2,1,$session['id']);throw new RuntimeException('cross tenant acce
 $candidate=O::apply($initial,[['type'=>'update_component','widget_id'=>'n','fields'=>['styles.margin_top'=>30]]],['scope'=>'page'])['candidate'];
 $insertCandidate=function($payload,$base,$run=0)use($session){return Db::name('decorate_agent_candidate')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'session_id'=>$session['id'],'run_id'=>$run,'status'=>'ready','revision'=>1,'base_hash'=>S::hash($base),'base_json'=>S::json($base),'payload_json'=>S::json($payload),'changes_json'=>'[]','create_time'=>time(),'update_time'=>time()]);};
 $cid=$insertCandidate($candidate,$initial);
+assertAgent(S::candidate(1,1,(int)$cid)['base_data']===$initial['data'],'candidate supplies owned base for concrete change details');
 assertAgent(array_key_exists('resolved_sources',S::candidate(1,1,(int)$cid)),'candidate resolves its own sources without storing results');
 $messageId=Db::name('decorate_agent_message')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'session_id'=>$session['id'],'run_id'=>0,'role'=>'user','content'=>'参考图片','attachments'=>S::json([['file_id'=>1,'uses'=>['style']]]),'create_time'=>time(),'update_time'=>time()]);
 $history=S::session(1,1,$session['id']);assertAgent($history['messages'][0]['attachments'][0]['uses']===['style'],'history attachments decoded');
