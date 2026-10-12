@@ -12,7 +12,7 @@ class DecorationAgentCatalog
     public static function all(): array
     {
         if (self::$catalog === null) {
-            $file = dirname(__DIR__, 5) . '/resources/decoration/mobile-catalog.json';
+            $file = __DIR__ . '/catalog/mobile-catalog.json';
             $json = file_get_contents($file);
             $object = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
             $expected = $object->hash ?? '';
