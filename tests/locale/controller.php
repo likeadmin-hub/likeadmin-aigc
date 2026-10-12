@@ -15,6 +15,7 @@ namespace app\api\controller {
     }
 }
 namespace {
+    require __DIR__.'/../../app/common/service/PcDefaultLocaleService.php';
     require __DIR__.'/../../app/api/controller/LocaleController.php';
     function check($value) { if (!$value) throw new \RuntimeException('Locale controller regression'); }
     $controller = new \app\api\controller\LocaleController();
@@ -24,6 +25,14 @@ namespace {
     check($controller->save()['data']['locale']==='en');
     check($controller->detail()['data']['locale']==='en');
     $controller->userId=8;check($controller->detail()['data']['locale']==='zh-CN');
+    \app\common\service\PcDefaultLocaleService::save(['pc_default_locale'=>'zh-TW']);
+    check($controller->detail()['data']['locale']==='zh-TW');
+    check($controller->detail()['data']['configured']===false);
+    $controller->userId=7;check($controller->detail()['data']['locale']==='en');
+    \app\common\service\PcDefaultLocaleService::save([]);
+    check(\app\common\service\PcDefaultLocaleService::read()==='zh-TW');
+    try { \app\common\service\PcDefaultLocaleService::validate(['pc_default_locale'=>'xx']); throw new \RuntimeException('Accepted invalid locale'); }
+    catch (\InvalidArgumentException $expected) {}
     $request->value='xx';check(!$controller->save()['ok']);
     $request->value='zh-TW';$request->post=false;check(!$controller->save()['ok']);
     $request->post=true;$request->tenantId=2;check(!$controller->save()['ok']);
