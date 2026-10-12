@@ -10,4 +10,5 @@ check(!isset($data->data->api_key,$data->data->tenant_cost),'Supplier control fi
 $object=R::project('{"code":1,"data":{"result":{},"usage":{"points_cost":7}}}',['charged'=>3]);check(json_decode($object)->data->result instanceof stdClass,'Empty object became an array');
 $plain="data: {\"choices\":[]}\n\n";check(R::project($plain,[])===$plain,'Non-JSON protocol changed');
 $json='{"choices":[{"message":{"content":"hello"}}],"usage":{"total_tokens":8}}';check(R::project($json,[])===$json,'Unchanged OpenAI response was reserialized');
+$legacy=json_decode(R::project('{"usage":{"points":"100","total_tokens":8}}',['charged'=>1.234]));check($legacy->usage->points==='1.23'&&$legacy->usage->total_tokens===8,'Legacy user charge alias or string type changed');
 echo "PASS retail protocol amounts, original IDs/usage, opaque results and JSON object preservation\n";

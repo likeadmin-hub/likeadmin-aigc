@@ -14,11 +14,11 @@ final class OpenMarketResponse
     public static function retailPath(string $path): bool
     {
         foreach(['','data.','data.result.'] as $prefix)if(in_array($path,[$prefix.'frozen_points',$prefix.'actual_points',$prefix.'points_cost'],true))return true;
-        foreach(['usage.','data.usage.','data.result.usage.'] as $prefix)if(in_array($path,[$prefix.'points_cost',$prefix.'actual_points'],true))return true;
+        foreach(['usage.','data.usage.','data.result.usage.'] as $prefix)if(in_array($path,[$prefix.'points_cost',$prefix.'actual_points',$prefix.'points'],true))return true;
         return false;
     }
     private static function opaque(string $path): bool{return in_array(rtrim($path,'.'),self::OPAQUE_PATHS,true);}
-    /** Retail currency is a JSON number; shared refs must not change business integers. */
+    /** Numeric retail currency permits decimals; numeric-string contracts retain string type. */
     public static function retailSchemas(array $responses): array
     {
         if(!self::schemaSupported($responses))return $responses;
@@ -58,6 +58,10 @@ final class OpenMarketResponse
     {
         if(self::opaque($path))return true;
         if($depth>32||--$budget<0)return false;
+        if(self::retailPath(rtrim($path,'.'))){
+            foreach((array)($schema['type']??[]) as $type)if(!in_array($type,['integer','number','string'],true))return false;
+            foreach(['properties','items','patternProperties'] as $key)if(isset($schema[$key]))return false;
+        }
         if(isset($schema['$ref'])){
             $ref=$schema['$ref'];if(!is_string($ref)||!str_starts_with($ref,'#/')||in_array($ref,$refs,true))return false;
             $node=$root;foreach(explode('/',substr($ref,2)) as $part){$part=str_replace(['~1','~0'],['/','~'],$part);if(!is_array($node)||!array_key_exists($part,$node))return false;$node=$node[$part];}
@@ -78,9 +82,13 @@ final class OpenMarketResponse
     private static function bodyNode(mixed $value,string $path,int $depth,int &$budget): bool
     {
         if(self::opaque($path))return true;if($depth>32||--$budget<0)return false;
-        if($value instanceof \stdClass)foreach(get_object_vars($value) as $name=>$child){$full=$path.$name;if(self::removablePath($full))continue;if(!self::opaque($full)){if(self::financialPath($full)&&!self::retailPath($full))return false;if(OpenSchemaNormalizer::sensitiveName($name))return false;}if(!self::bodyNode($child,$full.'.',$depth+1,$budget))return false;}
+        if($value instanceof \stdClass)foreach(get_object_vars($value) as $name=>$child){$full=$path.$name;if(self::removablePath($full))continue;if(!self::opaque($full)){if(self::financialPath($full)&&!self::retailPath($full))return false;if(self::retailPath($full)&&!self::moneyValue($child))return false;if(OpenSchemaNormalizer::sensitiveName($name))return false;}if(!self::bodyNode($child,$full.'.',$depth+1,$budget))return false;}
         elseif(is_array($value))foreach($value as $child)if(!self::bodyNode($child,$path.'[].',$depth+1,$budget))return false;
         return true;
+    }
+    private static function moneyValue(mixed $value): bool
+    {
+        return (is_int($value)||is_float($value)||is_string($value))&&is_numeric($value)&&is_finite((float)$value);
     }
     private static function removablePath(string $path): bool
     {
@@ -96,7 +104,7 @@ final class OpenMarketResponse
         foreach(['','data.','data.result.'] as $prefix){
             foreach(['frozen_points'=>'reserved','actual_points'=>'charged','points_cost'=>'charged'] as $name=>$amount)self::replace($value,$prefix.$name,(float)($amounts[$amount]??0),$changed);
         }
-        foreach(['usage.','data.usage.','data.result.usage.'] as $prefix)foreach(['points_cost','actual_points'] as $name)self::replace($value,$prefix.$name,(float)($amounts['charged']??0),$changed);
+        foreach(['usage.','data.usage.','data.result.usage.'] as $prefix)foreach(['points_cost','actual_points','points'] as $name)self::replace($value,$prefix.$name,(float)($amounts['charged']??0),$changed);
         // Provider routing/configuration belongs to the server. Do not traverse
         // generated result text, tool arguments, or arbitrary user JSON output.
         foreach(['','data.','data.result.'] as $prefix)foreach(['api_key','api_secret','credentials','provider_config','source_blob','price_snapshot','pricing_snapshot','tenant_cost','platform_sale_points','upstream_price'] as $name)self::remove($value,$prefix.$name,$changed);
@@ -105,7 +113,7 @@ final class OpenMarketResponse
     private static function replace(\stdClass $root,string $path,float $value,bool &$changed): void
     {
         $parts=explode('.',$path);$name=array_pop($parts);$node=$root;foreach($parts as $part){if(!isset($node->$part)||!($node->$part instanceof \stdClass))return;$node=$node->$part;}
-        if(property_exists($node,$name)){$node->$name=$value;$changed=true;}
+        if(property_exists($node,$name)){if(!is_finite($value))throw new OpenException('response_adapter_required','本地金额不是有限数值',502);$value=round($value,2);$node->$name=is_string($node->$name)?number_format($value,2,'.',''):$value;$changed=true;}
     }
     private static function remove(\stdClass $root,string $path,bool &$changed): void
     {
