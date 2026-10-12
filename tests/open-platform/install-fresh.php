@@ -43,7 +43,7 @@ try{
  check(Db::name('tenant_system_menu')->where('id',$customId)->value('name')==='Owned custom menu','Default sync overwrote tenant-owned menu');
  $entries=array_values(array_filter(AppFrontendManifestService::tenantEntries(123456,'pc'),fn($entry)=>$entry['app_code']==='open_platform'));check(count($entries)===1&&$entries[0]['path']==='/user/developer/overview'&&!$entries[0]['need_membership']&&$entries[0]['membership_allowed'],'New tenant developer entry imposed independent API membership');
  check(S::settings(123456)['enabled']===false,'New tenant unexpectedly enabled API calling');check(S::settings(123456)['apps']===[]&&S::settings(123456)['models']===[],'New tenant inherited callable abilities');
- check(count(D::publicLists(123456))===7,'New tenant did not inherit published integration guides');
+ $publicDocs=D::publicLists(123456);check(count(array_filter($publicDocs,fn($doc)=>empty($doc['generated'])))===7&&count(array_filter($publicDocs,fn($doc)=>!empty($doc['generated'])))===2,'New tenant did not inherit published guides and read-only documentation fallbacks');
  echo "PASS full fresh installer, 9 tables, repeated 8 migrations, registry/API/frontend/menu sync, preserved tenant menus, same membership and closed new tenant (",$created?'isolated schema':'isolated table prefix',")\n";
 }finally{
  app()->config->set($original,'database');

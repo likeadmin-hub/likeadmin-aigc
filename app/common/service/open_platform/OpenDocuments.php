@@ -16,7 +16,11 @@ final class OpenDocuments
     }
     public static function publicLists(int $tenantId,string $search=''): array
     {
-        $q=OpenStore::table('document')->whereIn('tenant_id',[0,$tenantId])->where('status','published');if($search!=='')$q->where('title|content','like','%'.mb_substr($search,0,100).'%');$rows=$q->order('tenant_id','asc')->order('sort','asc')->select()->toArray();$allowed=array_column(OpenManagement::contractsForTenant($tenantId),'code');$items=[];foreach($rows as $row){if($row['contract_code']!==''&&!in_array($row['contract_code'],$allowed,true))continue;$items[$row['slug']]=$row;}return array_values($items);
+        $q=OpenStore::table('document')->whereIn('tenant_id',[0,$tenantId])->where('status','published');$rows=(clone $q)->order('tenant_id','asc')->order('sort','asc')->select()->toArray();$contracts=OpenManagement::contractsForTenant($tenantId);$allowed=array_column($contracts,'code');$items=[];foreach($rows as $row){if($row['contract_code']!==''&&!in_array($row['contract_code'],$allowed,true))continue;$items[$row['slug']]=$row;}
+        // Detect authored categories before search, so a search miss cannot displace an override.
+        $documents=array_values($items);$documents=array_merge($documents,OpenPublicDocumentation::fallbacks($tenantId,$documents,$contracts));
+        if($search!==''){$needle=mb_substr($search,0,100);$ids=(clone $q)->where('title|content','like','%'.$needle.'%')->column('id');$documents=array_values(array_filter($documents,static fn($row)=>!empty($row['generated'])?mb_stripos($row['title'].' '.$row['content'],$needle)!==false:in_array($row['id'],$ids)));}
+        return $documents;
     }
 
     /** Internal receipt guidance is not part of the public protocol description. */
@@ -29,13 +33,15 @@ final class OpenDocuments
 
     public static function openapi(int $tenantId): array
     {
-        $paths=[];$config=OpenStore::settings($tenantId);$global=OpenStore::settings(0);
+        $paths=[];$config=OpenStore::settings($tenantId);$global=OpenStore::settings(0);$introductions=[];
+        foreach(self::publicLists($tenantId) as $document)if($document['contract_code']!=='')$introductions[$document['contract_code']]=OpenPublicDocumentation::introduction($document['content']);
         foreach(OpenStore::table('contract')->where('status','published')->order('id','asc')->select()->toArray() as $row){
             $c=OpenContracts::decodeConfig($row['config']);$app=$c['app_code']??'';
             if($row['kind']==='tool'&&!OpenToolRegistry::supported($row['method'],$row['path']))continue;
             if($row['kind']==='tool'&&(!in_array($app,$config['apps'],true)||!in_array($app,$global['apps'],true)))continue;
             if($row['kind']==='market'&&(int)$row['product_id']>0&&(!in_array((string)$row['product_id'],$config['models'],true)||!in_array((string)$row['product_id'],$global['models'],true)))continue;
             $input=$c['input'];$method=strtolower($row['method']);$op=['operationId'=>$row['code'],'summary'=>$c['title']??$row['code'],'description'=>$c['description']??'','tags'=>[$row['kind']==='tool'?OpenToolRegistry::get($app)['name']:'商城 API'],'security'=>[['apiKey'=>[]]],'responses'=>self::publicResponses($c),'x-contract-version'=>(int)$row['version'],'x-billable'=>(bool)$c['billable'],'x-billing-description'=>$c['billing_description']??''];
+            if(trim($op['description'])==='')$op['description']=$introductions[$row['code']]??'';
             if($row['kind']==='tool'&&!empty(OpenToolRegistry::get($app)['limitations']))$op['x-capability-limitations']=OpenToolRegistry::get($app)['limitations'];
             preg_match_all('/\{([a-z_]+)\}/',$row['path'],$captures);
             foreach($captures[1] as $name)$op['parameters'][]=['name'=>$name,'in'=>'path','required'=>true,'schema'=>['type'=>'string'],'description'=>$name==='task_id'?'此用户在对应能力中创建的任务 ID':'资源 ID'];
