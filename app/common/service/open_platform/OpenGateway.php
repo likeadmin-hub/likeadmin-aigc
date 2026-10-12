@@ -96,9 +96,15 @@ final class OpenGateway
             if(!empty($op['billable'])&&$op['role']==='submit'&&self::wireUncertain($wire['status'])){self::deferMarketAcceptance($row,$task);$fields+=['status'=>$task!==''?'running':'pending_confirmation'];}
             elseif($task!==''&&!$failed&&$op['role']==='submit'){$fields+=['upstream_task_id'=>$task,'status'=>'running','next_run_time'=>time()+30];\app\common\model\ai\AiConsumptionLog::where('consume_no',$row['request_id'])->update(['upstream_task_id'=>$task,'run_status'=>'running']);}
             else{$fields+=['status'=>$failed?'failed':'success'];if(!empty($op['billable'])){if($stream)$data=self::streamUsage($wire['body']);self::settleKnownResult($row,$data,$failed);}else $fields+=['active'=>0,'next_run_time'=>0];}
+            $financeRow=$row;
+            if($op['history']&&!$failed){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);self::observeTask($owner,$data);$financeRow=$owner;}
+            if(($op['response_adapter']??'')===OpenMarketResponse::ADAPTER){
+                $financeRow=OpenStore::table('request')->where('id',$financeRow['id'])->find();
+                $wire['body']=OpenMarketResponse::project($wire['body'],OpenMarketResponse::amounts($financeRow));
+                $fields['response_blob']=OpenVault::seal($wire['body']);$data=OpenStore::json($wire['body']);
+            }
             self::recordWire($row['request_id'],$fields,$wire['headers']);
             if(!$op['history']){$latest=OpenStore::table('request')->where('id',$row['id'])->find();if((int)$latest['active']===0)OpenWebhooks::enqueue($latest,$data);}
-            if($op['history']&&!$failed){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);self::observeTask($owner,$data);}
             return $stream?response(''):response($wire['body'],$wire['status'],$wire['headers']+['X-Request-Id'=>$row['request_id']]);
         }catch(\Throwable $e){if(OpenRecovery::connectionLost($e)||($e instanceof OpenException&&$e->errorType==='recovery_lease_lost'))throw $e;$unknown=$dispatched;
             if($op['kind']==='tool'){$latest=OpenStore::table('request')->where('id',$row['id'])->find();if(!empty(OpenStore::json($latest['snapshot'])['provider_rejection_confirmed']))$unknown=false;}

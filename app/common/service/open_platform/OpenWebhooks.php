@@ -11,6 +11,7 @@ final class OpenWebhooks
             // Serialize terminal notification creation with the durable parent request.
             $owner=OpenStore::owner('request',(int)$request['tenant_id'],(int)$request['user_id'])->where('request_id',$request['request_id'])->lock(true)->find();
             if(!$owner)return;OpenCallContext::assertLease($owner);if(OpenStore::table('webhook')->where('event_id',$event)->find())return;
+            if($owner['kind']==='market'&&(OpenStore::json($owner['snapshot'])['contract']['response_adapter']??'')===OpenMarketResponse::ADAPTER)$data=OpenStore::json(OpenMarketResponse::project(OpenStore::encode($data),OpenMarketResponse::amounts($owner)));
             OpenStore::table('webhook')->insert(['tenant_id'=>$request['tenant_id'],'user_id'=>$request['user_id'],'request_id'=>$request['request_id'],'event_id'=>$event,'url'=>$callback['url'],'secret_blob'=>$callback['secret_blob'],'payload_blob'=>OpenVault::seal(OpenStore::encode(['event_id'=>$event,'request_id'=>$request['request_id'],'type'=>'task.completed','data'=>OpenPolicy::publicData($data)])),'status'=>'pending','attempts'=>0,'next_run_time'=>time()]+OpenStore::timestamp());
         });
     }

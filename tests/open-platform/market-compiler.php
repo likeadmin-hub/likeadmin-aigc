@@ -40,7 +40,8 @@ checkCompiler(!C::compileProduct($usage)['drafts'], 'Actual usage boundaries nee
 $locked = $fixture; $locked['skus'][0]['locked_params'] = '{"_pricing_variant":"with_video"}';
 checkCompiler(!C::compileProduct($locked)['drafts'], 'Internal SKU variants must be server-derived');
 $economic = $fixture; $meta = S::json($economic['source_payload']); $meta['market_metadata']['developer_doc_content'] = "```json\n{\"code\":1,\"data\":{\"usage\":{\"points_cost\":1}}}\n```"; $economic['source_payload'] = S::encode($meta);
-checkCompiler(!C::compileProduct($economic)['drafts'], 'Upstream economic response needs a projection adapter');
+checkCompiler(C::compileProduct($economic)['drafts'][0]['config']['response_adapter']===\app\common\service\open_platform\OpenMarketResponse::ADAPTER, 'Known protocol price fields must use the registered retail projection');
+$meta['market_metadata']['developer_doc_content']="```json\n{\"code\":1,\"data\":{\"custom\":{\"points_cost\":1}}}\n```";$economic['source_payload']=S::encode($meta);checkCompiler(!C::compileProduct($economic)['drafts'],'Unregistered economic field path must still block');
 $missing = $fixture; $meta = S::json($missing['source_payload']); unset($meta['market_metadata']['params_schema']); $missing['source_payload'] = S::encode($meta);
 checkCompiler(!C::compileProduct($missing)['drafts'], 'Absent request schema must block');
 $review = ['review_note' => 'Verified source schema review', 'input' => ['type' => 'object', 'properties' => ['url' => ['type' => 'string']], 'required' => ['url']], 'example' => ['url' => 'https://example.com/public-post']];

@@ -75,7 +75,7 @@ final class OpenMarketContractCompiler
         $responseSamples = array_values(array_filter($jsonExamples, static fn($sample) => isset($sample['code']) && $sample['code'] === 1 || isset($sample['choices']) || isset($sample['task_id'])));
         $responses = $review['responses'] ?? self::responses($responseSamples);
         if (!$responses) $base[] = self::block('response_schema_missing', '缺少明确成功响应或已审核响应结构');
-        if (self::economicFields($responses) || self::economicFields($responseSamples)) $base[] = self::block('response_projection_required', '上游响应含成本/共享账户商业字段，需响应适配后复核');
+        if ((self::economicFields($responses) || self::economicFields($responseSamples)) && !OpenMarketResponse::schemaSupported($responses)) $base[] = self::block('response_projection_required', '上游响应含尚未适配的成本/共享账户商业字段');
         $hasTask = false; foreach ($responseSamples as $sample) if (isset($sample['task_id']) || isset($sample['data']['task_id'])) $hasTask = true;
         if ($callType === 2 && !$hasTask && !isset($responses['200']['content']['application/json']['schema']['properties']['data']['properties']['task_id']) && !isset($responses['200']['content']['application/json']['schema']['properties']['task_id'])) $base[] = self::block('task_response_missing', '异步操作缺少任务 ID 响应声明');
         $taskRoot = isset($responses['200']['content']['application/json']['schema']['properties']['task_id']);
@@ -96,7 +96,7 @@ final class OpenMarketContractCompiler
                 }
                 if ($model && !empty($product['upstream_channel_code'])) $when['channel'] = (string)$product['upstream_channel_code'];
                 $code = 'market.p' . (int)$product['id'] . '.' . $route['protocol'] . '.s' . (int)$sku['id'];
-                $config = ['executor' => 'json', 'role' => 'submit', 'title' => (string)$product['name'], 'billable' => true, 'input' => $candidateInput, 'example' => $candidateExample, 'responses' => $responses, 'when' => $when, 'billing' => [['sku_id' => (int)$sku['id'], 'basis' => 'input', 'max_units' => 1]], 'billing_description' => '按当前租户有效商城 SKU 售价，单调用计费；任务查询不重复收费', 'query_path' => '/api/v1/tasks/{task_id}', 'task_id_path' => $taskRoot ? 'task_id' : 'data.task_id'];
+                $config = ['response_adapter' => OpenMarketResponse::ADAPTER, 'executor' => 'json', 'role' => 'submit', 'title' => (string)$product['name'], 'billable' => true, 'input' => $candidateInput, 'example' => $candidateExample, 'responses' => $responses, 'when' => $when, 'billing' => [['sku_id' => (int)$sku['id'], 'basis' => 'input', 'max_units' => 1]], 'billing_description' => '按当前租户有效商城 SKU 售价，单调用计费；任务查询不重复收费', 'query_path' => '/api/v1/tasks/{task_id}', 'task_id_path' => $taskRoot ? 'task_id' : 'data.task_id'];
                 if ($model) $config['model'] = (string)$product['upstream_model_code'];
                 $draft = ['code' => $code, 'kind' => 'market', 'product_id' => (int)$product['id'], 'method' => $method, 'path' => $route['path'], 'config' => $config];
                 try { OpenContracts::validate($draft); } catch (\Throwable $error) { $issues[] = self::block('contract_validation_failed', $error instanceof OpenException ? $error->getMessage() : '契约结构无法验证'); }

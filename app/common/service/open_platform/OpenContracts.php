@@ -10,6 +10,7 @@ final class OpenContracts
         if($kind==='tool'){$registered=OpenToolRegistry::match($method,$path);$config['executor']='tool';$config['billable']=$registered['billable'];$config['app_code']=$registered['app_code'];$config['route']=$registered['route'];}elseif($kind!=='market')throw new OpenException('invalid_contract','接口种类无效');
         if(($kind==='market'&&!preg_match('#^/api/v1/(?:models(?:/detail)?|chat/completions|completions|responses|messages|tasks(?:/\{task_id\}(?:/cancel)?)?|apps(?:/[a-z0-9_-]+(?:/[a-z0-9_-]+)?)?|files(?:/\{file_id\})?|upload|user/(?:balance|usage))$#D',$path))||!in_array($method,['GET','POST','DELETE','PUT'],true)||!preg_match('/^[a-z0-9_.-]{1,160}$/D',$code))throw new OpenException('invalid_contract','接口方法、路径或编码不在可注册范围');
         if($kind==='market'&&($config['executor']??'')==='tool')throw new OpenException('invalid_contract','商城接口不可使用工具执行器');
+        if(isset($config['response_adapter'])&&($kind!=='market'||$config['response_adapter']!==OpenMarketResponse::ADAPTER||($config['executor']??'')!=='json'))throw new OpenException('invalid_contract','响应适配器未注册或不支持该协议');
         if(!in_array($config['executor']??'',['json','sse','multipart','binary','tool','directory'],true))throw new OpenException('invalid_contract','执行器未注册');
         if(($config['executor']??'')==='directory'&&($kind!=='market'||!OpenDirectory::supports($method,$path)||!empty($config['billable'])||($config['role']??'')!=='resource'||(int)($input['product_id']??0)!==0))throw new OpenException('invalid_contract','目录执行器只支持固定的免费读取接口');
         if(!in_array($config['role']??'',['submit','query','cancel','resource'],true))throw new OpenException('invalid_contract','必须声明操作生命周期');
@@ -51,6 +52,7 @@ final class OpenContracts
     public static function publish(int $id): array
     {
         return Db::transaction(function()use($id){$row=self::detail($id);self::validate($row);if($row['status']!=='draft')throw new OpenException('invalid_contract','只可发布草稿',409);
+            if($row['kind']==='market'&&$row['config']['executor']==='json'&&(str_starts_with($row['path'],'/api/v1/apps/')||str_starts_with($row['path'],'/api/v1/tasks'))&&(($row['config']['response_adapter']??'')!==OpenMarketResponse::ADAPTER||!OpenMarketResponse::schemaSupported($row['config']['responses'])))throw new OpenException('adapter_required','商城业务协议必须使用已验证的用户费用响应适配');
             $doc=OpenStore::table('document')->where(['tenant_id'=>0,'contract_code'=>$row['code'],'status'=>'published'])->find();if(!$doc)throw new OpenException('missing_document','请先发布对应接口文档');
             $row['config']['verification']=OpenVerification::assertReceipt($row);
             OpenStore::table('contract')->where('id',$id)->update(['config'=>OpenStore::encode($row['config'])]);
@@ -63,7 +65,7 @@ final class OpenContracts
     public static function selected(array $config,array $params): bool
     {
         if(isset($config['model'])&&($params['model']??'')!==$config['model'])return false;
-        foreach($config['when']??[] as $name=>$value){$actual=$params[$name]??($name==='stream'?false:null);if($actual!==$value)return false;}
+        foreach($config['when']??[] as $name=>$value){$actual=OpenSchema::get($params,$name)??($name==='stream'?false:null);if($actual!==$value)return false;}
         return true;
     }
     public static function match(string $method,string $path,array $params): array
