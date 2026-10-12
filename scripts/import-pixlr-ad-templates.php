@@ -64,5 +64,5 @@ if(($latest['config_json']??[])!==($config['config_json']??[]))throw new Runtime
 $rows=Effects::normalize(array_merge($existing,$prepared));
 Video::saveConfig($tenant,['config_json'=>array_replace($latest['config_json']??[],['video_effects'=>$rows])]);
 $saved=array_column(Effects::catalog($tenant),null,'id');
-foreach($prepared as $row)if(($saved[$row['id']]??null)!==$row)throw new RuntimeException('Readback mismatch');
+foreach(Effects::normalize($prepared) as $row)if(($saved[$row['id']]??null)!==$row)throw new RuntimeException('Readback mismatch');
 echo 'Saved '.count($prepared).' Ads templates; total '.count($saved).". No generation submitted. Backup: ".$backup."\n";
