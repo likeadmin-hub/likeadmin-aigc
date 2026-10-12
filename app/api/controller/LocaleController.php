@@ -22,7 +22,8 @@ class LocaleController extends BaseApiController
             if (!in_array($locale, ['zh-CN', 'zh-TW', 'en'], true)) return $this->fail('不支持的语言');
             ConfigService::set('pc_user_locale', $key, $locale);
         }
-        $locale = ConfigService::get('pc_user_locale', $key, 'zh-CN');
-        return $this->data(['locale' => in_array($locale, ['zh-CN', 'zh-TW', 'en'], true) ? $locale : 'zh-CN']);
+        $locale = ConfigService::get('pc_user_locale', $key, null);
+        $configured = in_array($locale, ['zh-CN', 'zh-TW', 'en'], true);
+        return $this->data(['locale' => $configured ? $locale : \app\common\service\PcDefaultLocaleService::read(), 'configured' => $configured]);
     }
 }
