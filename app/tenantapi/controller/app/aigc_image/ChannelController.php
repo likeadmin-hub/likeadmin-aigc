@@ -14,36 +14,16 @@ class ChannelController extends BaseAdminController
 
     public function save()
     {
-        try {
-            AigcImageChannelService::saveTenant($this->tenantId, $this->request->post());
-            return $this->success('保存成功', [], 1, 1);
-        } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->fail('生图通道调价已停用，请在算力市场配置价格');
     }
 
     public function batchSave()
     {
-        try {
-            AigcImageChannelService::batchSaveTenantSpecs($this->tenantId, $this->request->post());
-            return $this->success('保存成功', [], 1, 1);
-        } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->save();
     }
 
     public function status()
     {
-        try {
-            $params = $this->request->post();
-            if (($params['type'] ?? '') === 'spec') {
-                AigcImageChannelService::saveTenantSpec($this->tenantId, $params);
-            } else {
-                AigcImageChannelService::saveTenant($this->tenantId, $params);
-            }
-            return $this->success('设置成功', [], 1, 1);
-        } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->save();
     }
 }
