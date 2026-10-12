@@ -82,6 +82,10 @@ final class OpenGateway
         $body=json_decode($wire['body'],false,64);if(json_last_error()!==JSON_ERROR_NONE||!($body instanceof \stdClass)||!(array)$body)return false;$data=(array)$body;
         if(($operation['response_adapter']??'')===OpenMarketResponse::ADAPTER&&!OpenMarketResponse::bodySupported($wire['body']))return false;
         if(!self::marketSchemaAccepted($operation,$wire,$body))return false;
+        if(($operation['response_adapter']??'')===OpenMarketResponse::ADAPTER&&!empty($operation['billable'])&&($operation['role']??'')==='submit'&&in_array($data['code']??null,[1,'1'],true)){
+            $id=OpenSchema::get($data,$operation['task_id_path']??'data.task_id');
+            if(!((is_string($id)||is_int($id))&&(string)$id!=='')&&!self::marketHasResult($data))return false;
+        }
         if(isset($operation['success_path']))return OpenSchema::get($data,$operation['success_path'])===($operation['success_value']??1);
         if(in_array($data['code']??null,[1,'1'],true))return true;
         $task=OpenSchema::get($data,$operation['task_id_path']??'data.task_id');if((is_string($task)||is_int($task))&&(string)$task!=='')return true;
@@ -97,8 +101,14 @@ final class OpenGateway
     public static function marketQueryAccepted(array $wire,string $taskId,array $operation): bool
     {
         $data=OpenStore::json($wire['body']);$actual=OpenSchema::get($data,'data.task_id');
-        $query=$operation;unset($query['responses']);if(!empty($operation['query_responses']))$query['responses']=$operation['query_responses'];
+        if(($operation['response_adapter']??'')===OpenMarketResponse::ADAPTER&&in_array(OpenSchema::get($data,$operation['status_path']??'data.status'),$operation['success_statuses']??['success','completed','succeeded'],true)&&!self::marketHasResult($data))return false;
+        $query=$operation;unset($query['responses']);$query['role']='query';$query['billable']=false;if(!empty($operation['query_responses']))$query['responses']=$operation['query_responses'];
         return (is_string($actual)||is_int($actual))&&(string)$actual===$taskId&&self::marketAccepted($query,$wire);
+    }
+    /** Primary AppController/TaskController publish successful business output in these nodes. */
+    private static function marketHasResult(array $data): bool
+    {
+        foreach(['data.result','data.results'] as $path){$value=OpenSchema::get($data,$path);if($value instanceof \stdClass&&count((array)$value)>0||is_array($value)&&count($value)>0)return true;}return false;
     }
     /** Failed queries cannot publish another task's business data. Plain errors have no task result. */
     public static function marketQueryFailureSafe(array $wire,string $taskId,array $operation): bool

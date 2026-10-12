@@ -35,7 +35,7 @@ if(in_array($argv[1]??'',['--worker','--upstream'],true)){
             check(str_starts_with($headers,"GET /api/v1/tasks/fixture "),'Recovery resubmitted instead of querying');
             $number++;file_put_contents($dir.'/query-'.$number,'GET');
             waitFor(fn()=>is_file($dir.'/release-'.$number),'Fixture response barrier timed out',30);
-            $body='{"code":1,"msg":"success","data":{"task_id":"fixture","status":"completed"}}';
+            $body='{"code":1,"msg":"success","data":{"task_id":"fixture","status":"completed","result":{"audio_url":"https://example.com/fixture.mp3"}}}';
             @fwrite($client,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ".strlen($body)."\r\nConnection: close\r\n\r\n".$body);
             fclose($client);
         }
