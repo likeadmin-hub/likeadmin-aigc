@@ -27,7 +27,7 @@ API `/tenantapi/decorate.agent/{bootstrap,createSession,sessions,session,quote,s
 
 `tests/decoration-agent/run.php`纯编排；`decision.php`决策；`integration.php`真实本地数据库隔离模板测试，不对原页面执行写入；`evaluation-fixtures.json`25智能性场景，真实模型评测不得用单元桩冒充。
 
-发布时包含新资源目录、增量SQL、worker启动脚本；关闭开关即可退回普通装修。推送和线上发布未获本任务授权。
+发布时包含app内组件契约、增量SQL、worker启动脚本；关闭开关即可退回普通装修。推送和线上发布未获本任务授权。
 
 - Ruling: 共享Agent记录覆盖所有新租户，撤回tenantData重复CREATE；不改变原租户初始化。
 - 实际模型路由验证：2、175、176被上游拒绝，175/176返回INSUFFICIENT_BALANCE，3次实际消费均为0。未通过20真实场景/90%验收，不以程序测试替代。
@@ -78,3 +78,6 @@ API `/tenantapi/decorate.agent/{bootstrap,createSession,sessions,session,quote,s
 验收候选明确标为数据库回归 fixture，不是模型生成效果。尚缺的模型智能性、真实截图理解及真实生图供应商成功验收由上游余额/模型错误阻挡。可复用25自动场景与manual-acceptance.md复杂场景矩阵完成后续验收，不能以113程序断言或浏览器候选证明达到90%。
 
 回滚也先锁候选，再锁检查点/页面，与图片回填共享候选串行化边界，避免撤销与补图互相等待。操作管理员通过消费关联的run/image_slot.admin_id追溯，不改变现有计费账本的价格快照。
+
+
+组件契约JSON位于`app/common/service/decorate/agent/catalog/mobile-catalog.json`，由前端导出脚本生成，随app进入immutable Composer generation。加载器只读取自身目录内的冻结契约，不依赖站点根resources目录；`php tests/decoration-agent/catalog-deployment.php`在无站点资源的临时运行目录核验46组件及SHA256。未改变现有运行版本指针或全局运行目录规则。
