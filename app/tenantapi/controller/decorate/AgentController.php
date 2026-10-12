@@ -28,7 +28,7 @@ final class AgentController extends BaseAdminController
             elseif(in_array($method,['candidate','discard'],true))$result=Agent::$method($this->tenantId,$this->adminId,(int)($p['candidate_id']??0));
             else $result=Agent::$method($this->tenantId,$this->adminId,$p);
             return $this->success('操作成功',$result);
-        }catch(\Throwable $e){return $this->fail($e->getMessage());}
+        }catch(\Throwable $e){return $this->fail($e->getMessage(),['message'=>$e->getMessage()]);}
     }
     public function bootstrap(){return $this->call('bootstrap');}
     public function createSession(){return $this->call('createSession',true);}
