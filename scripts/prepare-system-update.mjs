@@ -92,13 +92,18 @@ try {
     if(out===repo||repo.startsWith(out+path.sep))fail('Staging directory must not contain the source repository')
     const changed=git('diff','--no-renames','--name-only',baseRef,'HEAD').trim().split('\n').filter(Boolean)
     const deleted=new Set(git('diff','--no-renames','--name-only','--diff-filter=D',baseRef,'HEAD').trim().split('\n').filter(Boolean))
+    // Ordinary updates must preserve the signed identity of every historical app migration too.
+    for(const relative of git('ls-tree','-r','--name-only',baseRef,'app/apps').trim().split('\n').filter(p=>/^app\/apps\/[^/]+\/migrations\/[^/]+\.sql$/.test(p))){
+        const before=execFileSync('git',['show',`${baseRef}:${relative}`],{cwd:repo,maxBuffer:64*1024*1024})
+        if(!fs.existsSync(path.join(repo,relative))||!before.equals(fs.readFileSync(path.join(repo,relative))))fail(`Historical migration changed; use a new filename: ${relative}`)
+    }
     if(!bridge&&changed.some(dependency)&&!runtime)fail('Composer runtime changes require --composer-runtime')
     if(bridge&&runtime)fail('Bridge package must not contain new dependencies')
     if(bridge&&(baseVersion!=='1.0.390'||version!=='1.0.391'))fail('Worker bridge requires the supported 1.0.390 to 1.0.391 chain')
     const generatedWorkers=bridge?[...bridgeWorkerPatches].map(([p,patches])=>[p,bridgeWorker(p,patches)]):[]
     if(runtime&&!delegated&&compareVersion(baseVersion)<compareVersion('1.0.391'))fail('Install updater bridge 1.0.391 first')
     for(const dir of ['files','sql/data','sql/structure','menus','rollback'])fs.mkdirSync(path.join(out,dir),{recursive:true})
-    const coverage=[], uncovered=[], sql=new Map(), remove=[], replaced=[]
+    const coverage=[], uncovered=[], sql=new Map(), sqlSources=new Map(), remove=[], replaced=[]
     for(const p of changed){
         safe(p)
         if(ignored(p)){coverage.push({path:p,delivery:'source-only-or-protected'});continue}
@@ -112,10 +117,29 @@ try {
         }
         copy(p,'files/'+p)
         coverage.push({path:p,delivery:'files/'+p})
-        if(/^(?:public\/)?upgrade\/.*\.sql$/.test(p)){
+        if(/^(?:public\/)?upgrade\/.*\.sql$/.test(p)||(/^app\/apps\/[^/]+\/migrations\/[^/]+\.sql$/.test(p)&&path.basename(p)!=='install.sql')){
             const name=path.basename(p),contents=fs.readFileSync(path.join(repo,p),'utf8')
             if(sql.has(name)&&sql.get(name)!==contents)fail(`Upgrade SQL mirrors differ: ${name}`)
             sql.set(name,contents)
+            sqlSources.set(name,[...(sqlSources.get(name)||[]),p])
+        }
+    }
+    if(!bridge){
+        // A changed API schema/migration needs its app manifest in the package
+        // so the existing builtin registry actually synchronizes that metadata.
+        const appCodes=[...new Set(changed.map(p=>p.match(/^app\/apps\/([^/]+)\//)?.[1]).filter(Boolean))]
+        for(const code of appCodes){
+            const root='app/apps/'+code,manifestPath=path.join(repo,root,'manifest.json')
+            if(!fs.existsSync(manifestPath))continue
+            const metadata=JSON.parse(fs.readFileSync(manifestPath,'utf8'))
+            if(!metadata.is_builtin)continue
+            if(metadata.code!==code)fail(`Builtin app manifest differs: ${code}`)
+            for(const entry of ['manifest.json','api_schema.json','menus','permissions','frontend','migrations']){
+                const relative=root+'/'+entry
+                if(!fs.existsSync(path.join(repo,relative))){if(entry==='frontend')continue;fail(`Builtin app metadata missing: ${relative}`)}
+                copy(relative,'files/'+relative)
+                if(!coverage.some(row=>row.path===relative))coverage.push({path:relative,delivery:'builtin-app-metadata-files/'+relative})
+            }
         }
     }
     if(bridge){
@@ -172,7 +196,12 @@ try {
             probe_classes:['think\\App','NeuronAI\\Agent\\Agent']}
     }
     json('update.json',manifest)
-    json('release-change-manifest.json',{base_ref:baseRef,source_commit:git('rev-parse','HEAD').trim(),base_version:baseVersion,target_version:version,bridge,paths:coverage,uncovered})
+    const migrations=[...sql.keys()].sort().map(name=>{
+        const sources=(sqlSources.get(name)||[]).sort(),appSources=sources.filter(p=>p.startsWith('app/apps/'))
+        if(appSources.length>1)fail(`Ambiguous runtime migration owner: ${name}`)
+        return {package_path:'sql/structure/'+name,source_paths:sources,sha256:crypto.createHash('sha256').update(sql.get(name)).digest('hex'),execution_owner:appSources.length?'app/runtime':'system',app_code:appSources.length?appSources[0].split('/')[2]:null}
+    })
+    json('release-change-manifest.json',{base_ref:baseRef,source_commit:git('rev-parse','HEAD').trim(),base_version:baseVersion,target_version:version,bridge,paths:coverage,migrations,uncovered})
     fs.writeFileSync(path.join(out,'menus/README.txt'),'Preserve tenant custom menus; packaged app metadata uses the existing synchronization service.\n')
     fs.writeFileSync(path.join(out,'rollback/README.txt'),'Back up the database and persistent data before upgrading. Runtime transaction restores code and its dependency pointer on failure. Additive SQL is journaled, never automatically reversed or replayed after an interrupted migration.\n')
     console.log(JSON.stringify({ok:true,out,target_version:version,changed_paths:changed.length,full_replace_dirs:replaced,sql_order:manifest.sql_order,composer_runtime:runtime,bridge},null,2))

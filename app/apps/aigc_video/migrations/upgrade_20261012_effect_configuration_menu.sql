@@ -19,14 +19,14 @@ AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` e WHERE e.app_code='aigc_v
 
 UPDATE `la_tenant_system_menu` SET sort=30 WHERE app_code='aigc_video' AND source='app' AND source_menu_key='aigc_video_config';
 INSERT INTO `la_tenant_system_role_menu` (`role_id`, `menu_id`)
-SELECT DISTINCT rm.role_id, e.id FROM `la_tenant_system_role_menu` rm
-JOIN `la_tenant_system_menu` c ON c.id=rm.menu_id AND c.app_code='aigc_video' AND c.source='app' AND c.source_menu_key='aigc_video_config'
-JOIN `la_tenant_system_menu` e ON e.app_code='aigc_video' AND e.source='app' AND e.source_menu_key='aigc_video_effects' AND e.tenant_id=c.tenant_id
-WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_role_menu` existing WHERE existing.role_id=rm.role_id AND existing.menu_id=e.id);
+SELECT DISTINCT rm.role_id, e.id FROM `la_tenant_system_role_menu` rm, `la_tenant_system_menu` e
+WHERE e.app_code='aigc_video' AND e.source='app' AND e.source_menu_key='aigc_video_effects'
+AND EXISTS (SELECT 1 FROM `la_tenant_system_menu` c WHERE c.id=rm.menu_id AND c.app_code='aigc_video' AND c.source='app' AND c.source_menu_key='aigc_video_config' AND c.tenant_id=e.tenant_id)
+AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_role_menu` existing WHERE existing.role_id=rm.role_id AND existing.menu_id=e.id);
 
 UPDATE `la_system_menu` SET sort=30 WHERE app_code='aigc_video' AND source='app' AND source_menu_key='aigc_video_platform_config';
 INSERT INTO `la_system_role_menu` (`role_id`, `menu_id`)
-SELECT DISTINCT rm.role_id, e.id FROM `la_system_role_menu` rm
-JOIN `la_system_menu` c ON c.id=rm.menu_id AND c.app_code='aigc_video' AND c.source='app' AND c.source_menu_key='aigc_video_platform_config'
-JOIN `la_system_menu` e ON e.app_code='aigc_video' AND e.source='app' AND e.source_menu_key='aigc_video_platform_effects'
-WHERE NOT EXISTS (SELECT 1 FROM `la_system_role_menu` existing WHERE existing.role_id=rm.role_id AND existing.menu_id=e.id);
+SELECT DISTINCT rm.role_id, e.id FROM `la_system_role_menu` rm, `la_system_menu` e
+WHERE e.app_code='aigc_video' AND e.source='app' AND e.source_menu_key='aigc_video_platform_effects'
+AND EXISTS (SELECT 1 FROM `la_system_menu` c WHERE c.id=rm.menu_id AND c.app_code='aigc_video' AND c.source='app' AND c.source_menu_key='aigc_video_platform_config')
+AND NOT EXISTS (SELECT 1 FROM `la_system_role_menu` existing WHERE existing.role_id=rm.role_id AND existing.menu_id=e.id);

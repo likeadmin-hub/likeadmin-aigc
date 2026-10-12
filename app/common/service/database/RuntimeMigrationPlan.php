@@ -23,6 +23,10 @@ final class RuntimeMigrationPlan
             } elseif (preg_match('/^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\b/i', $syntax)
                 && !preg_match('/\b(?:SELECT|LIKE)\b/i', $syntax)) {
                 $prepare[] = $sql;
+            } elseif (preg_match('/^\s*ALTER\s+TABLE\s+`?la_aigc_video_config`?\s+MODIFY\s+(?:COLUMN\s+)?`?config_json`?\s+MEDIUMTEXT\s*$/iD', $sql)) {
+                // The executor reads the original column/engine and performs only
+                // this reviewed, lossless capacity increase (or a true no-op).
+                $prepare[] = $sql;
             } elseif (preg_match('/^\s*ALTER\s+TABLE\s+`?[a-z0-9_]+`?\s+ADD\s+(?:COLUMN\s+|(?:UNIQUE\s+)?(?:INDEX|KEY)\s+)/i', $syntax)
                 && !preg_match('/\b(?:DROP|MODIFY|CHANGE|RENAME|TRUNCATE|ALTER|ADD)\b/i', preg_replace('/^\s*ALTER\s+TABLE\s+`?[a-z0-9_]+`?\s+ADD\b/i', '', $syntax))) {
                 $prepare[] = $sql;

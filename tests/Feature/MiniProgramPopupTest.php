@@ -5,7 +5,10 @@ use PHPUnit\Framework\TestCase;
 use think\facade\Config;
 use think\facade\Db;
 
-/** @runTestsInSeparateProcesses @preserveGlobalState disabled */
+/**
+ * @runTestsInSeparateProcesses
+ * @preserveGlobalState disabled
+ */
 final class MiniProgramPopupTest extends TestCase
 {
     protected function setUp(): void

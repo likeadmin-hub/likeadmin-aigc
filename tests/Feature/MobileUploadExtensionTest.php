@@ -15,7 +15,10 @@ require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
 
 class MobileUploadExtensionTest extends TestCase
 {
-    /** @runInSeparateProcess */
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
     public function testExtensionlessMobileImageUsesItsContentTypeAndGetsAUsableName(): void
     {
         $path = $this->temporaryFile(base64_decode(
@@ -32,7 +35,10 @@ class MobileUploadExtensionTest extends TestCase
         }
     }
 
-    /** @runInSeparateProcess */
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
     public function testDisallowedOriginalExtensionIsStillRejected(): void
     {
         $path = $this->temporaryFile(base64_decode(
@@ -47,7 +53,10 @@ class MobileUploadExtensionTest extends TestCase
         }
     }
 
-    /** @runInSeparateProcess */
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
     public function testUnrecognizedExtensionlessContentIsRejected(): void
     {
         $path = $this->temporaryFile("\x00\x01\x02\x03");
