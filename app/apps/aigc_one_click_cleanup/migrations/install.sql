@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_one_click_cleanup_config` (
   `default_channel` varchar(80) NOT NULL DEFAULT '',
   `default_quality` varchar(80) NOT NULL DEFAULT '',
   `default_ratio` varchar(80) NOT NULL DEFAULT '',
-  `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `unit_price` decimal(12,2) NULL DEFAULT NULL,
   `max_images` int unsigned NOT NULL DEFAULT 10,
   `prompt_template` text,
   `negative_prompt` text,

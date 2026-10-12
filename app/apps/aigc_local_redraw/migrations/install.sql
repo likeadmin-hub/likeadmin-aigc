@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_local_redraw_config` (
   `default_channel` varchar(80) NOT NULL DEFAULT '',
   `default_quality` varchar(80) NOT NULL DEFAULT '',
   `default_ratio` varchar(80) NOT NULL DEFAULT '',
-  `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `unit_price` decimal(12,2) NULL DEFAULT NULL,
   `prompt_template` text,
   `negative_prompt` text,
   `config_json` text,

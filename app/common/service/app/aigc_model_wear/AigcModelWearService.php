@@ -8,6 +8,7 @@ use app\common\model\app\aigc_model_wear\AigcModelWearResult;
 use app\common\model\app\aigc_model_wear\AigcModelWearTask;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\app\AppSalePriceService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
@@ -110,7 +111,7 @@ class AigcModelWearService
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, false);
-        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
+        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], AppSalePriceService::imageOverride($prepared['unit_price']));
         return self::buildEstimate($prepared, $imageEstimate);
     }
 
@@ -119,7 +120,7 @@ class AigcModelWearService
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, true);
-        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
+        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], AppSalePriceService::imageOverride($prepared['unit_price']));
         $estimate = self::buildEstimate($prepared, $imageEstimate);
         return ['prepared' => $prepared, 'estimate' => $estimate];
     }
@@ -133,14 +134,14 @@ class AigcModelWearService
             $estimate = $frozen['estimate'];
         } else {
             $prepared = self::prepareGeneratePayload($tenantId, $params, true);
-            $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
+            $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], AppSalePriceService::imageOverride($prepared['unit_price']));
             $estimate = self::buildEstimate($prepared, $imageEstimate);
         }
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
         $handoff = \app\common\service\open_platform\OpenImageHandoff::callback($tenantId, $userId, self::APP_CODE,
             static fn(AigcImageTask $image) => self::upsertTaskFromImageTask($tenantId, $userId, (int)$image['id'], $prepared, $estimate));
         $imageResult = AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $prepared['image_payload'], [
-            'user_unit_price' => $prepared['unit_price'],
+            'user_unit_price' => $estimate['tenant_unit_price'],
         ], self::APP_CODE, $handoff);
         $imageTaskId = (int)($imageResult['task_id'] ?? 0);
         if ($imageTaskId <= 0) {
@@ -321,7 +322,7 @@ class AigcModelWearService
             'model_image' => $modelImage,
             'wear_image' => $wearImage,
             'user_prompt' => $userPrompt,
-            'unit_price' => round(max(0, (float)$package['unit_price']), 2),
+            'unit_price' => AppSalePriceService::normalize($package['unit_price'] ?? null),
             'image_payload' => $imagePayload,
             'width' => (int)($spec['width'] ?? 0),
             'height' => (int)($spec['height'] ?? 0),
@@ -336,7 +337,7 @@ class AigcModelWearService
             throw new Exception('Model wear only supports fixed-price market image SKUs');
         }
         $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
-        $userUnitPrice = (float)$prepared['unit_price'];
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0));
         return array_merge($imageEstimate, [
             'quantity' => 1,
             'target_width' => $prepared['width'],
@@ -753,7 +754,7 @@ class AigcModelWearService
                         'channel' => $channel,
                         'quality' => $quality,
                         'quality_label' => mb_substr(trim((string)($item['quality_label'] ?? '')), 0, 80),
-                        'unit_price' => round(max(0, (float)($item['unit_price'] ?? $item['tenant_unit_price'] ?? 0)), 2),
+                        'unit_price' => AppSalePriceService::fromRow($item),
                         'status' => (int)($item['status'] ?? $item['tenant_status'] ?? 1) ? 1 : 0,
                         'sort' => (int)($item['sort'] ?? (100 - $index)),
                     ];
@@ -774,7 +775,7 @@ class AigcModelWearService
                     'channel' => $channel,
                     'quality' => $quality,
                     'ratio' => $ratio,
-                    'unit_price' => round(max(0, (float)($item['unit_price'] ?? $item['tenant_unit_price'] ?? 0)), 2),
+                    'unit_price' => AppSalePriceService::fromRow($item),
                     'status' => (int)($item['status'] ?? $item['tenant_status'] ?? 1) ? 1 : 0,
                 ];
             }
@@ -799,7 +800,7 @@ class AigcModelWearService
                     'channel' => $channel,
                     'quality' => $quality,
                     'ratio' => $ratio,
-                    'unit_price' => round(max(0, (float)($item['unit_price'] ?? $item['tenant_unit_price'] ?? 0)), 2),
+                    'unit_price' => AppSalePriceService::fromRow($item),
                     'status' => (int)($item['status'] ?? $item['tenant_status'] ?? 1) ? 1 : 0,
                 ];
             }
@@ -825,7 +826,7 @@ class AigcModelWearService
                 'channel_name' => (string)($source['channel_name'] ?? $item['channel']),
                 'quality' => (string)$item['quality'],
                 'quality_label' => (string)($item['quality_label'] ?: ($source['quality_label'] ?? $item['quality'])),
-                'unit_price' => round((float)$item['unit_price'], 2),
+                'unit_price' => AppSalePriceService::normalize($item['unit_price'] ?? null),
                 'status' => (int)($item['status'] ?? 1),
                 'sort' => (int)($item['sort'] ?? 0),
                 'ratios' => $ratios,
@@ -938,14 +939,14 @@ class AigcModelWearService
         }
         foreach (array_slice($sourceItems, 0, 2) as $index => $source) {
             $legacyRows = $legacyMap[self::qualityKey((string)$source['channel'], (string)$source['quality'])] ?? [];
-            $legacyPrice = $legacyRows ? max(array_map(static fn($row) => (float)($row['unit_price'] ?? 0), $legacyRows)) : (float)$source['default_unit_price'];
+            $legacyPrice = $legacyRows ? max(array_map(static fn($row) => (float)($row['unit_price'] ?? 0), $legacyRows)) : null;
             $packages[] = [
                 'code' => 'default_' . ($index + 1),
                 'name' => self::DEFAULT_PRICE_PACKAGE_NAMES[$index] ?? ('价格包' . ($index + 1)),
                 'channel' => (string)$source['channel'],
                 'quality' => (string)$source['quality'],
                 'quality_label' => (string)$source['quality_label'],
-                'unit_price' => round(max(0, $legacyPrice), 2),
+                'unit_price' => AppSalePriceService::normalize($legacyPrice),
                 'status' => 1,
                 'sort' => 100 - $index,
             ];
@@ -1019,7 +1020,7 @@ class AigcModelWearService
                         'width' => (int)($ratio['width'] ?? 0),
                         'height' => (int)($ratio['height'] ?? 0),
                         'platform_unit_cost' => round((float)($ratio['platform_unit_cost'] ?? 0), 2),
-                        'unit_price' => round((float)($price['unit_price'] ?? 0), 2),
+                        'unit_price' => AppSalePriceService::normalize($price['unit_price'] ?? null),
                         'status' => (int)($price['status'] ?? 1),
                     ];
                 }
@@ -1029,7 +1030,7 @@ class AigcModelWearService
         return $channels;
     }
 
-    private static function unitPrice(array $priceConfig, string $channel, string $quality, string $ratio): float
+    private static function unitPrice(array $priceConfig, string $channel, string $quality, string $ratio): ?float
     {
         $key = self::priceKey($channel, $quality, $ratio);
         foreach ($priceConfig as $item) {
@@ -1039,7 +1040,7 @@ class AigcModelWearService
             if ((int)($item['status'] ?? 1) !== 1) {
                 throw new Exception('当前模型规格已停用');
             }
-            return round(max(0, (float)($item['unit_price'] ?? 0)), 2);
+            return AppSalePriceService::normalize($item['unit_price'] ?? null);
         }
         throw new Exception('请先配置模特穿戴价格');
     }

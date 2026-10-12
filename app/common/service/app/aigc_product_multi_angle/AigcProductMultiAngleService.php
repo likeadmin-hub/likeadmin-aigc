@@ -11,6 +11,7 @@ use app\common\model\app\aigc_product_multi_angle\AigcProductMultiAngleResult;
 use app\common\model\app\aigc_product_multi_angle\AigcProductMultiAngleTask;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\app\AppSalePriceService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
@@ -63,7 +64,7 @@ class AigcProductMultiAngleService
             'default_channel' => self::normalizeCode((string)($params['default_channel'] ?? $configJson['channel'] ?? $current['default_channel'] ?? '')),
             'default_quality' => trim((string)($params['default_quality'] ?? $configJson['quality'] ?? $current['default_quality'] ?? '')),
             'default_ratio' => trim((string)($params['default_ratio'] ?? $configJson['ratio'] ?? $current['default_ratio'] ?? '')),
-            'unit_price' => round(max(0, (float)($params['unit_price'] ?? $current['unit_price'] ?? 0)), 2),
+            'unit_price' => AppSalePriceService::normalize(array_key_exists('unit_price', $params) ? $params['unit_price'] : ($current['unit_price'] ?? null)),
             'prompt_template' => self::normalizeTemplate((string)($params['prompt_template'] ?? $current['prompt_template'])),
             'negative_prompt' => trim((string)($params['negative_prompt'] ?? $current['negative_prompt'])),
             'config_json' => self::normalizeConfigJson($configJson),
@@ -84,7 +85,7 @@ class AigcProductMultiAngleService
         $config = self::config($tenantId);
         return [
             'channels' => self::buildSpecOptions($config['option_config'] ?? []),
-            'unit_price' => round((float)($config['unit_price'] ?? 0), 2),
+            'unit_price' => AppSalePriceService::normalize($config['unit_price'] ?? null),
             'default_channel' => (string)($config['default_channel'] ?? ''),
             'default_quality' => (string)($config['default_quality'] ?? ''),
             'default_ratio' => (string)($config['default_ratio'] ?? ''),
@@ -99,7 +100,7 @@ class AigcProductMultiAngleService
             'default_channel' => $params['default_channel'] ?? $current['default_channel'],
             'default_quality' => $params['default_quality'] ?? $current['default_quality'],
             'default_ratio' => $params['default_ratio'] ?? $current['default_ratio'],
-            'unit_price' => $params['unit_price'] ?? $current['unit_price'],
+            'unit_price' => array_key_exists('unit_price', $params) ? $params['unit_price'] : $current['unit_price'],
             'prompt_template' => $current['prompt_template'],
             'negative_prompt' => $current['negative_prompt'],
             'config_json' => [
@@ -208,7 +209,7 @@ class AigcProductMultiAngleService
         $material = \app\common\service\open_platform\OpenMaterials::resolve($tenantId, $userId, ['source_image' => $prepared['source_image']]);
         $prepared['source_image'] = $material['source_image'];
         $prepared['image_payload']['reference_images'] = [$prepared['source_image']];
-        $single = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
+        $single = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], AppSalePriceService::imageOverride($prepared['unit_price']));
         if (($single['settlement_mode'] ?? '') !== 'reserved') throw new Exception('商品多角度暂不支持实际用量图片 SKU');
         return ['prepared' => $prepared, 'estimate' => self::buildEstimate($prepared, $single)];
     }
@@ -256,9 +257,9 @@ class AigcProductMultiAngleService
                 'reference_images' => [$prepared['source_image']],
             ]);
             $result = $frozen !== null
-                ? AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $payload, ['user_unit_price' => $prepared['unit_price']], self::APP_CODE, $handoff)
+                ? AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $payload, AppSalePriceService::imageOverride($estimate['tenant_unit_price']), self::APP_CODE, $handoff)
                 : AigcImageService::generateWithBillingOverride($tenantId, $userId, $payload, [
-                    'tenant_cost_points' => $estimate['platform_unit_cost'], 'user_charge_points' => $prepared['unit_price'],
+                    'tenant_cost_points' => $estimate['platform_unit_cost'], 'user_charge_points' => $estimate['tenant_unit_price'],
                 ]);
             $imageTaskId = (int)($result['task_id'] ?? 0);
             if ($imageTaskId > 0) {
@@ -453,7 +454,7 @@ class AigcProductMultiAngleService
             'style' => 'product_multi_angle',
         ];
         $resolved = AigcImageChannelService::resolveSelection($tenantId, $imagePayload);
-        $unitPrice = round(max(0, (float)($config['unit_price'] ?? 0)), 2);
+        $unitPrice = AppSalePriceService::normalize($config['unit_price'] ?? null);
         return [
             'source_image' => $sourceImage,
             'view_codes' => array_values(array_column($views, 'code')),
@@ -477,7 +478,7 @@ class AigcProductMultiAngleService
     {
         $quantity = max(1, count($prepared['views']));
         $platformUnitCost = round((float)($singleEstimate['platform_unit_cost'] ?? 0), 2);
-        $userUnitPrice = round((float)$prepared['unit_price'], 2);
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($singleEstimate['tenant_unit_price'] ?? 0));
         return array_merge($singleEstimate, [
             'quantity' => $quantity,
             'view_count' => $quantity,
@@ -518,7 +519,7 @@ class AigcProductMultiAngleService
             'quality_label' => $prepared['quality_label'],
             'ratio' => (string)($firstImageTask['ratio'] ?? $prepared['image_payload']['ratio']),
             'quantity' => count($prepared['views']),
-            'unit_price' => $prepared['unit_price'],
+            'unit_price' => $estimate['tenant_unit_price'],
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
             'status' => 'running',
@@ -877,7 +878,7 @@ class AigcProductMultiAngleService
             'default_channel' => (string)($data['default_channel'] ?? ''),
             'default_quality' => (string)($data['default_quality'] ?? ''),
             'default_ratio' => (string)($data['default_ratio'] ?? ''),
-            'unit_price' => round(max(0, (float)($data['unit_price'] ?? 0)), 2),
+            'unit_price' => AppSalePriceService::normalize($data['unit_price'] ?? null),
             'prompt_template' => (string)($data['prompt_template'] ?? self::DEFAULT_PROMPT_TEMPLATE),
             'negative_prompt' => (string)($data['negative_prompt'] ?? self::DEFAULT_NEGATIVE_PROMPT),
             'config_json' => self::normalizeConfigJson($data['config_json'] ?? []),
@@ -893,7 +894,7 @@ class AigcProductMultiAngleService
 
     private static function defaults(): array
     {
-        return ['status' => 1, 'default_channel' => '', 'default_quality' => '', 'default_ratio' => '', 'unit_price' => 0, 'prompt_template' => self::DEFAULT_PROMPT_TEMPLATE, 'negative_prompt' => self::DEFAULT_NEGATIVE_PROMPT, 'config_json' => []];
+        return ['status' => 1, 'default_channel' => '', 'default_quality' => '', 'default_ratio' => '', 'unit_price' => null, 'prompt_template' => self::DEFAULT_PROMPT_TEMPLATE, 'negative_prompt' => self::DEFAULT_NEGATIVE_PROMPT, 'config_json' => []];
     }
 
     private static function sanitizeConfig(array $data): array
@@ -902,7 +903,7 @@ class AigcProductMultiAngleService
         $data['default_channel'] = self::normalizeCode((string)($data['default_channel'] ?? ''));
         $data['default_quality'] = trim((string)($data['default_quality'] ?? ''));
         $data['default_ratio'] = trim((string)($data['default_ratio'] ?? ''));
-        $data['unit_price'] = round(max(0, (float)($data['unit_price'] ?? 0)), 2);
+        $data['unit_price'] = AppSalePriceService::normalize($data['unit_price'] ?? null);
         $data['prompt_template'] = self::normalizeTemplate((string)($data['prompt_template'] ?? self::DEFAULT_PROMPT_TEMPLATE));
         $data['negative_prompt'] = trim((string)($data['negative_prompt'] ?? self::DEFAULT_NEGATIVE_PROMPT));
         $data['config_json'] = is_array($data['config_json'] ?? null) ? self::normalizeConfigJson($data['config_json']) : [];

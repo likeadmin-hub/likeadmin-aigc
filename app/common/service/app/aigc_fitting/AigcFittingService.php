@@ -7,6 +7,7 @@ use app\common\model\app\aigc_fitting\AigcFittingTask;
 use app\common\model\app\aigc_image\AigcImageTask;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\app\AppSalePriceService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\FileService;
@@ -160,7 +161,7 @@ class AigcFittingService
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, false);
-        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, self::singleImagePayload($prepared['image_payload'], 1), ['user_unit_price' => $prepared['unit_price']]);
+        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, self::singleImagePayload($prepared['image_payload'], 1), AppSalePriceService::imageOverride($prepared['unit_price']));
         return self::buildFittingEstimate($prepared, $imageEstimate);
     }
 
@@ -172,7 +173,7 @@ class AigcFittingService
         foreach (array_merge($prepared['garment_images'], $prepared['model_images']) as $image) {
             if (preg_match('#^https?://#i', $image)) \app\common\service\open_platform\OpenSafeHttp::resolve($image, false);
         }
-        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, self::singleImagePayload($prepared['image_payload'], 1), ['user_unit_price' => $prepared['unit_price']]);
+        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, self::singleImagePayload($prepared['image_payload'], 1), AppSalePriceService::imageOverride($prepared['unit_price']));
         return ['prepared' => $prepared, 'estimate' => self::buildFittingEstimate($prepared, $imageEstimate)];
     }
 
@@ -202,7 +203,7 @@ class AigcFittingService
             $estimate = $frozen['estimate'];
         } else {
             $prepared = self::prepareGeneratePayload($tenantId, $params, true, $userId);
-            $imageEstimate = AigcImageService::estimateMarketModel($tenantId, self::singleImagePayload($prepared['image_payload'], 1), ['user_unit_price' => $prepared['unit_price']]);
+            $imageEstimate = AigcImageService::estimateMarketModel($tenantId, self::singleImagePayload($prepared['image_payload'], 1), AppSalePriceService::imageOverride($prepared['unit_price']));
             $estimate = self::buildFittingEstimate($prepared, $imageEstimate);
         }
         PointService::assertCanConsumeAmounts(
@@ -223,9 +224,7 @@ class AigcFittingService
             }, true);
         foreach (self::splitImagePayloads($prepared) as $index => $imagePayload) {
             if ($frozen !== null) \app\common\service\open_platform\OpenImageBatchDispatch::heartbeat($tenantId, $userId);
-            $imageResult = AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $imagePayload, [
-                'user_unit_price' => $prepared['unit_price'],
-            ], self::APP_CODE, $handoff);
+            $imageResult = AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $imagePayload, AppSalePriceService::imageOverride($estimate['tenant_unit_price']), self::APP_CODE, $handoff);
             $currentImageTaskId = (int)($imageResult['task_id'] ?? 0);
             if ($currentImageTaskId <= 0) {
                 throw new Exception('试衣任务创建失败');
@@ -563,7 +562,7 @@ class AigcFittingService
         }
         $quantity = max(1, (int)($prepared['image_payload']['quantity'] ?? 1));
         $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
-        $userUnitPrice = (float)$prepared['unit_price'];
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0));
         return array_merge($imageEstimate, [
             'mode' => $prepared['mode'],
             'mode_label' => self::MODE_LABELS[$prepared['mode']] ?? '单图',
@@ -1066,11 +1065,10 @@ class AigcFittingService
         return $ids;
     }
 
-    private static function modeUnitPrice(array $configJson, string $mode): float
+    private static function modeUnitPrice(array $configJson, string $mode): ?float
     {
         $prices = is_array($configJson['mode_prices'] ?? null) ? $configJson['mode_prices'] : [];
-        $defaults = self::defaultModePrices();
-        return max(0, round((float)($prices[$mode] ?? $defaults[$mode] ?? 0), 2));
+        return AppSalePriceService::normalize($prices[$mode] ?? null);
     }
 
     private static function normalizeMode(mixed $mode): string
@@ -1294,11 +1292,10 @@ class AigcFittingService
     private static function normalizeModePrices(mixed $prices): array
     {
         $prices = is_array($prices) ? $prices : [];
-        $defaults = self::defaultModePrices();
         return [
-            self::MODE_SINGLE => max(0, round((float)($prices[self::MODE_SINGLE] ?? $defaults[self::MODE_SINGLE]), 2)),
-            self::MODE_GROUP => max(0, round((float)($prices[self::MODE_GROUP] ?? $defaults[self::MODE_GROUP]), 2)),
-            self::MODE_CUSTOM => max(0, round((float)($prices[self::MODE_CUSTOM] ?? $defaults[self::MODE_CUSTOM]), 2)),
+            self::MODE_SINGLE => AppSalePriceService::normalize($prices[self::MODE_SINGLE] ?? null),
+            self::MODE_GROUP => AppSalePriceService::normalize($prices[self::MODE_GROUP] ?? null),
+            self::MODE_CUSTOM => AppSalePriceService::normalize($prices[self::MODE_CUSTOM] ?? null),
         ];
     }
 
@@ -1443,9 +1440,9 @@ class AigcFittingService
     private static function defaultModePrices(): array
     {
         return [
-            self::MODE_SINGLE => 10,
-            self::MODE_GROUP => 10,
-            self::MODE_CUSTOM => 12,
+            self::MODE_SINGLE => null,
+            self::MODE_GROUP => null,
+            self::MODE_CUSTOM => null,
         ];
     }
 }
