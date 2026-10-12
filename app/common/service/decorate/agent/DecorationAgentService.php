@@ -115,7 +115,8 @@ final class DecorationAgentService
         $scope=(string)($p['scope']??'page');if(!in_array($scope,['page','selected','new_page'],true))throw new RuntimeException('装修范围无效');
         if($scope==='selected'&&empty($p['selected_id']))throw new RuntimeException('请先选择组件');
         $budget=(float)($p['budget_points']??0);if(!is_finite($budget)||$budget<=0)throw new RuntimeException('请确认本轮消费预算');
-        return ['message'=>trim((string)$p['message']),'model_selection'=>['id'=>$model['id'],'sku_id'=>$model['market_sku_id']],'image_model_selection'=>(array)($p['image_model_selection']??[]),'sources'=>$sources,'image_strategy'=>($p['image_strategy']??'')==='generate_first'?'generate_first':'existing_first','attachments'=>$attachments,'requires_vision'=>$vision,'scope'=>$scope,'selected_id'=>(string)($p['selected_id']??''),'budget_points'=>$budget,'catalog_hash'=>$p['catalog_hash']];
+        $imageName='';if(in_array('generate',$sources,true)){$selection=(array)$p['image_model_selection'];$product=(int)($selection['market_product_id']??$selection['id']??$selection['product_id']??$selection['model_id']??0);foreach(DecorationAgentMediaService::options($tenant) as $option)if((int)($option['market_product_id']??$option['id'])===$product){$imageName=(string)$option['name'];break;}}
+        return ['image_model_name'=>$imageName,'message'=>trim((string)$p['message']),'model_selection'=>['id'=>$model['id'],'sku_id'=>$model['market_sku_id']],'image_model_selection'=>(array)($p['image_model_selection']??[]),'sources'=>$sources,'image_strategy'=>($p['image_strategy']??'')==='generate_first'?'generate_first':'existing_first','attachments'=>$attachments,'requires_vision'=>$vision,'scope'=>$scope,'selected_id'=>(string)($p['selected_id']??''),'budget_points'=>$budget,'catalog_hash'=>$p['catalog_hash']];
     }
     private static function textEstimate(array $model,string $text,int $output=4096): float
     {
@@ -167,7 +168,10 @@ final class DecorationAgentService
         Db::transaction(function()use($runId,$type,$data){$r=Db::name('decorate_agent_run')->where('id',$runId)->lock(true)->find();if(!$r)return;$events=self::decode($r['events_json']);$last=end($events);$events[]=['id'=>(int)($last['id']??0)+1,'type'=>$type,'data'=>$data,'time'=>time()];Db::name('decorate_agent_run')->where('id',$runId)->update(['events_json'=>self::json(array_slice($events,-200)),'update_time'=>time()]);});
     }
     private static function slots(int $tenant,int $admin,int $runId,int $candidateId=0): array
-    {return array_map(function($r){$r['request']=self::decode($r['request_json']);$r['result']=self::decode($r['result_json']);unset($r['request_json'],$r['result_json']);return $r;},self::q('image_slot',$tenant,$admin)->where('run_id',$runId)->when($candidateId>0,fn($q)=>$q->where('candidate_id',$candidateId))->order('id')->select()->toArray());}
+    {
+        $run=$runId>0?self::q('run',$tenant,$admin)->where('id',$runId)->find():null;$input=$run?self::decode($run['input_json']):[];$remaining=$run?max(0,(float)($input['budget_points']??0)-self::spent($run)):null;
+        return array_map(function($r)use($input,$remaining){$r['request']=self::decode($r['request_json']);$r['result']=self::decode($r['result_json']);$r['image_model_name']=$input['image_model_name']??'原生图模型';$r['remaining_budget_points']=$remaining;unset($r['request_json'],$r['result_json']);return $r;},self::q('image_slot',$tenant,$admin)->where('run_id',$runId)->when($candidateId>0,fn($q)=>$q->where('candidate_id',$candidateId))->order('id')->select()->toArray());
+    }
     private static function resolvedPage(int $tenant,array $page,?array $payload=null): array
     {
         $payload=$payload??self::payload($page);$source=$page;$source['data']=self::json($payload['data']);$source['meta']=self::json($payload['meta']);
