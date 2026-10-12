@@ -10,8 +10,8 @@ use app\common\service\database\RuntimeVideoConfigCapacity as Capacity;
 function releaseCheck(bool $value,string $label): void { if(!$value)throw new RuntimeException($label); }
 releaseCheck(str_starts_with((string)config('database.connections.mysql.database'),'fixture_'),'Wrong disposable database');
 $pdo=Db::connect()->connect();$prefix='release392_'.bin2hex(random_bytes(4)).'_';
-$connection=new class($pdo) { public function __construct(private PDO $pdo){} public function query(string $sql,array $bindings=[]):array{$q=$this->pdo->prepare($sql);$q->execute($bindings);return $q->fetchAll(PDO::FETCH_ASSOC);} public function execute(string $sql):int{return $this->pdo->exec($sql);} };
-$tables=['aigc_video_config','capacity_journal','system_menu','tenant_system_menu','system_role_menu','tenant_system_role_menu','open_platform_document'];
+$connection=new class($pdo) { public function __construct(private PDO $pdo){} public function query(string $sql,array $bindings=[]):array{$q=$this->pdo->prepare($sql);$q->execute($bindings);return $q->fetchAll(PDO::FETCH_ASSOC);} public function execute(string $sql):int{if(preg_match('/^\s*(?:SELECT|EXECUTE)\b/i',$sql)){$q=$this->pdo->query($sql);$count=$q->rowCount();if($q->columnCount()>0)$q->fetchAll();$q->closeCursor();return $count;}return $this->pdo->exec($sql);} };
+$tables=['aigc_video_config','capacity_journal','system_menu','tenant_system_menu','system_role_menu','tenant_system_role_menu','open_platform_document','tenant_file','aigc_music_asset'];
 $q=fn(string $sql,array $bindings=[])=>$connection->query(str_replace('la_',$prefix,$sql),$bindings);
 $run=fn(string $sql)=>Executor::execute($sql,$prefix,$connection);
 $root=dirname(__DIR__,2);
@@ -32,6 +32,23 @@ try {
  $pdo->exec('ALTER TABLE `'.$prefix.'aigc_video_config` MODIFY config_json TEXT');$pdo->exec('ALTER TABLE `'.$prefix.'aigc_video_config` ENGINE=MyISAM');
  try{Capacity::apply($prefix,$connection);throw new LogicException('Unsafe engine accepted');}catch(RuntimeException $e){}
  $pdo->exec('ALTER TABLE `'.$prefix.'aigc_video_config` ENGINE=InnoDB');
+ // Real391 core URI collation differs from a MySQL8-created app table.
+ // Exact upload identity must also preserve case, owner and existing provenance.
+ $pdo->exec('CREATE TABLE `'.$prefix.'tenant_file` (id int PRIMARY KEY,tenant_id int,source_id int,source int,uri varchar(200),upload_origin varchar(20) NOT NULL DEFAULT \'\') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci');
+ $pdo->exec('CREATE TABLE `'.$prefix.'aigc_music_asset` (id int PRIMARY KEY,tenant_id int,user_id int,uri varchar(500),source_action varchar(50)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci');
+ $q("INSERT INTO la_tenant_file VALUES (1,1,10,1,'uploads/audio/song.mp3',''),(2,1,20,1,'uploads/audio/song.mp3',''),(3,2,10,1,'uploads/audio/song.mp3',''),(4,1,10,1,'uploads/audio/Song.mp3',''),(5,1,10,1,'uploads/audio/generated.mp3',''),(6,1,10,1,'uploads/audio/song.mp3','owned'),(7,1,10,1,'uploads/images/20261012/upload.png',''),(8,1,10,2,'uploads/audio/song.mp3','')");
+ $q("INSERT INTO la_aigc_music_asset VALUES (1,1,10,'uploads/audio/song.mp3','upload_audio'),(2,1,10,'uploads/audio/generated.mp3','generated')");
+ $uploadSql=str_replace('la_',$prefix,file_get_contents($root.'/upgrade/20261012_workspace_local_uploads.sql'));
+ $collationSql='SELECT TABLE_NAME,COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN (?,?) AND COLUMN_NAME=\'uri\' ORDER BY TABLE_NAME';
+ $collationBindings=[$prefix.'tenant_file',$prefix.'aigc_music_asset'];
+ $collations=$connection->query($collationSql,$collationBindings);
+ releaseCheck(array_column($collations,'COLLATION_NAME')===['utf8mb4_0900_ai_ci','utf8mb4_general_ci'],'Mixed-collation regression fixture lost genuine schema difference');
+ $run($uploadSql);
+ $origins=array_column($q('SELECT upload_origin FROM la_tenant_file ORDER BY id'),'upload_origin');
+ releaseCheck($origins===['local','','','','','owned','local',''],'Mixed-collation URI matching changed ownership, case, generated or existing provenance');
+ $run($uploadSql);releaseCheck(array_column($q('SELECT upload_origin FROM la_tenant_file ORDER BY id'),'upload_origin')===$origins,'Provenance replay changed records');
+ releaseCheck($connection->query($collationSql,$collationBindings)===$collations,'Provenance migration changed historical collations');
+ echo "PASS: mixed MySQL8 collations preserved; URI case/tenant/user/source/provenance isolation and replay verified\n";
  foreach(['system_menu','tenant_system_menu'] as $table)$pdo->exec('CREATE TABLE `'.$prefix.$table.'` (id int AUTO_INCREMENT PRIMARY KEY,tenant_id int NOT NULL DEFAULT 0,pid int NOT NULL DEFAULT 0,type char(1),name varchar(100),sort int,perms varchar(150),paths varchar(150),component varchar(200),app_code varchar(50),source varchar(20),source_menu_key varchar(100),is_core int,create_time int,update_time int) ENGINE=InnoDB');
  foreach(['system_role_menu','tenant_system_role_menu'] as $table)$pdo->exec('CREATE TABLE `'.$prefix.$table.'` (id int AUTO_INCREMENT PRIMARY KEY,role_id int,menu_id int) ENGINE=InnoDB');
  $pdo->exec('CREATE TABLE `'.$prefix.'open_platform_document` (id bigint AUTO_INCREMENT PRIMARY KEY,tenant_id bigint,slug varchar(100),version int,title varchar(150),category varchar(40),status varchar(20),content MEDIUMTEXT,contract_code varchar(100),sort int,create_time int,update_time int, UNIQUE KEY tenant_slug_version(tenant_id,slug,version)) ENGINE=InnoDB');
