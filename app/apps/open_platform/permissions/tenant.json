@@ -76,5 +76,11 @@
     "name": "确认恢复原任务跟踪",
     "api_path": "app.open_platform.management/resumeTracking",
     "api_method": "POST"
+  },
+  {
+    "permission_key": "open_platform_tenant_setMarketExposure",
+    "name": "商城 API 开放设置",
+    "api_path": "app.open_platform.management/setMarketExposure",
+    "api_method": "POST"
   }
 ]

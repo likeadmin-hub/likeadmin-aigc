@@ -16,7 +16,7 @@ $caches=[];Db::startTrans();try{
   Db::name($prefix.'admin_role')->insert(['admin_id'=>$adminId,'role_id'=>$roleId]);Db::name($prefix.'system_role_menu')->insert(['role_id'=>$roleId,'menu_id'=>$menu['id']]);
   $cache=$scene==='platform'?new app\common\cache\AdminAuthCache($adminId):new app\common\cache\TenantAdminAuthCache($adminId);$caches[]=[$cache,($scene==='platform'?'admin_auth_':'tenant_auth_').'url_'.$adminId];
   $actor=['admin_id'=>$adminId,'root'=>0,'tenant_id'=>1];Permission::assert($scene.'_admin',$actor,'requests');
-  foreach(['setup','savePages','saveDocument','publishDocument','saveContract','publishContract','createVerification','resumeTracking','requestDetail','unregisteredAction'] as $action)denied(fn()=>Permission::assert($scene.'_admin',$actor,$action),$scene.' read role gained '.$action);
+  foreach(['setup','setMarketExposure','savePages','saveDocument','publishDocument','saveContract','publishContract','createVerification','resumeTracking','requestDetail','unregisteredAction'] as $action)denied(fn()=>Permission::assert($scene.'_admin',$actor,$action),$scene.' read role gained '.$action);
   $class='app\\'.$scene.'api\\controller\\app\\open_platform\\ManagementController';$controller=(new ReflectionClass($class))->newInstanceWithoutConstructor();
   foreach(['request'=>(new app\Request())->setAction('requests'),'adminInfo'=>$actor,'adminId'=>$adminId] as $name=>$value)(new ReflectionProperty($class,$name))->setValue($controller,$value);
   $run=new ReflectionMethod($class,'run');$called=0;$fn=function()use(&$called){++$called;return ['fixture'=>true];};

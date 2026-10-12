@@ -4,7 +4,7 @@
     "app_code": "open_platform",
     "source": "app",
     "type": "M",
-    "name": "开放平台",
+    "name": "API 管理",
     "icon": "el-icon-Connection",
     "sort": 85,
     "paths": "open-platform",
@@ -12,7 +12,7 @@
       {
         "source_menu_key": "open_platform_tenant_config",
         "type": "C",
-        "name": "开放设置",
+        "name": "API 设置",
         "perms": "app.open_platform.management/detail",
         "paths": "config",
         "component": "apps/open_platform/config",
@@ -29,6 +29,13 @@
             "type": "A",
             "name": "能力清单",
             "perms": "app.open_platform.management/inventory",
+            "is_show": 0
+          },
+          {
+            "source_menu_key": "open_platform_tenant_setMarketExposure",
+            "type": "A",
+            "name": "商城 API 开放设置",
+            "perms": "app.open_platform.management/setMarketExposure",
             "is_show": 0
           }
         ]
