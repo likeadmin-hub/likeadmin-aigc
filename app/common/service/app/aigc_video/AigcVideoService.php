@@ -38,7 +38,7 @@ class AigcVideoService
                 'model' => 'power_market_video',
                 'status' => 1,
                 'config_json' => [],
-                'video_effects' => VideoEffectService::defaults(),
+                'video_effects' => VideoEffectService::catalog($tenantId),
                 'prompt_enhance_model' => PromptEnhanceModelService::describe($tenantId, []),
                 'option_config' => self::marketOptionConfig($tenantId),
             ]);

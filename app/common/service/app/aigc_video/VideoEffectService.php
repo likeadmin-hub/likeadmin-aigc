@@ -80,7 +80,13 @@ class VideoEffectService
         $row=AigcVideoConfig::where('tenant_id',$tenantId)->findOrEmpty();
         $config=$row->isEmpty()?[]:(array)$row['config_json'];
         // Defaults are local to the tenant; never inherit another tenant's validation.
-        return isset($config['video_effects']) ? self::normalize($config['video_effects']) : self::defaults();
+        return VideoEffectMediaService::apply(self::configuredCatalog($config), self::defaults());
+    }
+
+    public static function configuredCatalog(array $config): array
+    {
+        // An explicitly saved empty/disabled catalog remains a tenant decision.
+        return array_key_exists('video_effects', $config) ? self::normalize($config['video_effects']) : self::defaults();
     }
 
     public static function publicCatalog(array $rows): array
