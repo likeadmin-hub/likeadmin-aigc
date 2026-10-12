@@ -16,3 +16,7 @@
 - 前端 `tenant/tests/api-management-navigation.test.cjs`：两端主菜单及应用中心快捷入口兼容。
 
 本地运行环境从 develop 执行 `tests/open-platform/install-local.php` 同步模块注册和菜单。上述测试不触发供应商生成或实际计费。系统更新包发布按独立发布流程执行。
+
+若本地存在 `.composer-runtime/current.json`，Nginx 会继续加载已安装的固定版本，合入 develop 不等于切换 HTTP 运行代码。源码验收使用 `tests/open-platform/source-router.php` 的 loopback 预览，通过独立临时代理连接，验收结束删除代理和临时账号。不要为了预览修改当前版本指针。
+
+本次浏览器验收已验证两端 API 一级菜单、租户列表弹窗加载与保存入库、租户 API 设置、商城 API 选择关闭及恢复；原租户设置已恢复，临时验收账号及会话已清理。前端使用显式 `app/open_platform/*` 路由，权限仍依据对应控制器动作检查。
