@@ -112,20 +112,52 @@ final class OpenNativeMarketPricing
     {
         if ($failed) return 0.;
         if ($native['kind'] === 'video') return Videos::openPlatformSettlementQuantity($native['market_snapshot'], $result);
-        $images = null; $identity = null;
-        foreach (['images', 'data.images', 'data.result.images', 'result.images', 'output.images', 'data.output.images', 'data.result.output.images'] as $path) {
-            $value = OpenSchema::get($result, $path);
+        $slots = null; $identity = null;
+        foreach (['', 'data.', 'result.', 'output.', 'data.result.', 'data.output.', 'data.result.output.'] as $prefix) foreach (['images', 'image_urls', 'results'] as $field) {
+            $value = OpenSchema::get($result, $prefix . $field);
             if ($value === null) continue;
             if (!is_array($value) || !array_is_list($value)) return null;
-            $fingerprint=OpenPolicy::fingerprint(['images'=>$value]);
-            if($identity!==null&&$identity!==$fingerprint)return null;
-            $identity=$fingerprint;$images=$value;
-            foreach ($value as $item) {
-                if (is_array($item)) $item = $item['url'] ?? $item['image_url'] ?? $item['image_uri'] ?? $item['uri'] ?? $item['image'] ?? null;
-                if (!is_string($item) || !preg_match('#^(?:https?://[^\s]+|data:image/[a-z0-9.+-]+;base64,[a-z0-9+/=]+|/?(?:uploads|resource)/[^\s]+)$#iD',trim($item))) return null;
-            }
+            $candidate = self::imageSlots($value);
+            if ($candidate === null) return null;
+            // Compare normalized slots, not wrapper/metadata shapes. Equal
+            // aliases are one result list; duplicate URLs remain separate slots.
+            $fingerprint = OpenPolicy::fingerprint(['slots' => $candidate]);
+            if ($identity !== null && $identity !== $fingerprint) return null;
+            $identity = $fingerprint; $slots = $candidate;
         }
-        return $images ? (float)count($images) : null;
+        $successful = $slots === null ? 0 : count(array_filter($slots, 'is_string'));
+        return $successful > 0 ? (float)$successful : null;
+    }
+
+    /** Successful URL slots plus null markers for confirmed unavailable/non-image slots. */
+    private static function imageSlots(array $items): ?array
+    {
+        $slots = [];
+        foreach ($items as $item) {
+            if ($item instanceof \stdClass) $item = (array)$item;
+            if (is_array($item)) {
+                if (array_key_exists('type', $item)) {
+                    if (!is_string($item['type'])) return null;
+                    $type = strtolower(trim($item['type']));
+                    if (in_array($type, ['video', 'audio', 'text'], true)) { $slots[] = null; continue; }
+                    if (!in_array($type, ['image', 'image_url'], true)) return null;
+                }
+                if (array_key_exists('transfer_status', $item)) {
+                    if (!is_string($item['transfer_status'])) return null;
+                    $transfer = strtolower(trim($item['transfer_status']));
+                    if (in_array($transfer, ['failed', 'failure', 'error', 'hidden', 'cancelled', 'canceled'], true)) { $slots[] = null; continue; }
+                    // Pending/unknown transfer evidence must remain recoverable,
+                    // even if the provider supplied an original URL.
+                    if (!in_array($transfer, ['success', 'succeeded', 'completed'], true)) return null;
+                }
+                $url = null;
+                foreach (['url', 'image_url', 'image_uri', 'uri', 'image', 'src', 'origin_url', 'download_url'] as $key) if (isset($item[$key]) && is_string($item[$key]) && trim($item[$key]) !== '') { $url = $item[$key]; break; }
+                $item = $url;
+            }
+            if (!is_string($item) || !preg_match('#^(?:https?://[^\s]+|data:image/[a-z0-9.+-]+;base64,[a-z0-9+/=]+|/?(?:uploads|resource)/[^\s]+)$#iD', trim($item))) return null;
+            $slots[] = trim($item);
+        }
+        return $slots;
     }
 
     private static function object(mixed $value): array { return $value instanceof \stdClass ? (array)$value : (is_array($value) ? $value : []); }
