@@ -24,6 +24,8 @@ namespace {
         $media=\app\common\service\decorate\agent\DecorationAgentMediaService::class;
         try {$result['attachments']=$media::validateAttachments(7,[['file_id'=>1,'url'=>'https://evil.test/forged.png','uses'=>['asset','layout','style','generation']]]);}catch(\Throwable $e){$result['attachment_error']=$e->getMessage();}
         foreach([2,3] as $id){try{$media::validateAttachments(7,[['file_id'=>$id,'uses'=>['asset']]]);$result['rejected'][$id]=false;}catch(\Throwable $e){$result['rejected'][$id]=true;}}
+        $result['search_reference_only']=$media::search(7,'',['upload'],[['file_id'=>1,'uses'=>['layout','style','generation']]]);
+        $result['search_asset']=$media::search(7,'',['upload'],[['file_id'=>1,'uses'=>['asset']]]);
         $method=new \ReflectionMethod($media,'referenceRequest');$method->setAccessible(true);
         foreach(['none'=>['reference_file_ids'=>[]],'one'=>['reference_file_ids'=>[1]],'bad'=>['reference_file_ids'=>[2]]] as $key=>$refs){
             try{$result['requests'][$key]=$method->invoke(null,7,['attachments'=>[['file_id'=>1,'uses'=>['generation']]],'reference_images'=>['https://owned.test/expired-signature.png'],'provider_params'=>['input'=>['image'=>'https://evil.test']]]+$refs);}catch(\Throwable $e){$result['request_errors'][$key]=$e->getMessage();}
