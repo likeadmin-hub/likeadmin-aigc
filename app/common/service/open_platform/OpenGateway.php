@@ -92,6 +92,13 @@ final class OpenGateway
         try{OpenSchema::validate($body,$schema,'$',0,null,true);return true;}catch(OpenException){return false;}
     }
 
+    /** A shared supplier account must echo the locally owned task identity. */
+    public static function marketQueryAccepted(array $wire,string $taskId,array $operation): bool
+    {
+        $data=OpenStore::json($wire['body']);$actual=OpenSchema::get($data,'data.task_id');
+        return (is_string($actual)||is_int($actual))&&(string)$actual===$taskId&&self::marketAccepted($operation,$wire);
+    }
+
     /** A bound supplier channel is server routing, not an extra SDK argument. */
     private static function marketParameters(array $operation,array $params): array
     {
@@ -147,7 +154,7 @@ final class OpenGateway
             elseif($task!==''&&!$failed&&$op['role']==='submit'){$fields+=['upstream_task_id'=>$task,'status'=>'running','next_run_time'=>time()+30];\app\common\model\ai\AiConsumptionLog::where('consume_no',$row['request_id'])->update(['upstream_task_id'=>$task,'run_status'=>'running']);}
             else{$fields+=['status'=>$failed?'failed':'success'];if(!empty($op['billable'])){if($stream)$data=self::streamUsage($wire['body']);self::settleKnownResult($row,$data,$failed);}else $fields+=['active'=>0,'next_run_time'=>0];}
             $financeRow=$row;
-            if($op['history']&&!$failed&&(($op['response_adapter']??'')!==OpenMarketResponse::ADAPTER||OpenMarketResponse::bodySupported($wire['body']))){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);self::observeTask($owner,$data);$financeRow=$owner;}
+            if($op['history']&&!$failed){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);$financeRow=$owner;if(self::marketQueryAccepted($wire,$owner['upstream_task_id'],$op))self::observeTask($owner,$data);else $wire['acceptance_uncertain']=true;}
             if(($op['response_adapter']??'')===OpenMarketResponse::ADAPTER||!empty($wire['acceptance_uncertain'])){
                 $financeRow=OpenStore::table('request')->where('id',$financeRow['id'])->find();
                 $wire=self::marketWire($row,$financeRow,$wire,$fields);$data=OpenStore::json($wire['body']);
