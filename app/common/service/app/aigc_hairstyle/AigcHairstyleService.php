@@ -66,7 +66,7 @@ class AigcHairstyleService
             AigcHairstyleConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function estimate(int $tenantId, array $params): array

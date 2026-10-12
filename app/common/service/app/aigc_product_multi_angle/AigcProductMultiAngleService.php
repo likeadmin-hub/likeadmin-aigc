@@ -77,7 +77,7 @@ class AigcProductMultiAngleService
             AigcProductMultiAngleConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function priceDetail(int $tenantId): array
@@ -889,7 +889,7 @@ class AigcProductMultiAngleService
             AigcProductMultiAngleConfig::create($payload);
             return;
         }
-        $row->save($payload);
+        $row->force()->save($payload);
     }
 
     private static function defaults(): array
