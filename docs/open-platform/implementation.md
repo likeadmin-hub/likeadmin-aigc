@@ -1,6 +1,22 @@
 # 开放平台实施记录
 
-## 最新验收状态（2026-10-12）
+## 最新验收检查点（2026-10-12 12:25）
+
+P0–P7 仍未全量完成；本检查点只交付本地代码与已验证的商城能力，不代表全量协议、27 个工具或最终安装/升级/发布包完成。
+
+- 当前租户在售目录：**87 项产品、179 个有效 SKU、191 个路径/SKU 候选**。现有用户售价与租户成本已接入原计费服务；未新增钱包、SKU 单价或成本覆盖。自动编译为 53 个可成草稿候选，采用明确审核的参数/示例后为 54 个，137 个仍有契约、计量或归属适配阻断。草稿数不等于开放数。逐项状态、用户参考售价、阻断原因和真实发布回执见 [market-coverage-20261012.json](market-coverage-20261012.json)。
+- **5 项商城操作已真实验收、文档发布并在本地租户 1 灰度开通**：音乐风格优化 14 积分/次，作词 12 积分/次，Nano-Banana 2.1 单图 6 积分，GPT Image2 VIP 的 1K 单图 20 积分，以及默认音色文字转语音 50 积分/1000 UTF-8 字符。TTS 示例“你好”共 2 字符，实际 **0.10 积分**，没有按一千字向上取整。188 的 2K/4K 规格、其他候选和其他租户没有因此开通。
+- 两条图片操作通过真实异步提交、仅跟踪自己的 Worker 查询、结果获取、独立用户/租户流水和幂等重放：均为 1024×1024 PNG，分别 2,086,607 与 1,539,008 字节；图片已解码并目视检查。TTS 返回 16,717 字节 MP3、44,100 Hz 单声道、1.044813 秒，独立 ffprobe 与完整 ffmpeg 解码通过后才发布。重放原回执字节一致，未新增计费请求。
+- 授权账户 `xhadmin001` 总额度占用 **398.74 / 1000 积分**：已结算 **384.74**，原 MIDI 未决净额 **14**，新增待处理预算 **0**；活跃临时测试 Key **0**。没有重发、补扣、退款或改动该历史 MIDI 任务。
+- 后端 `57e77ccdd` 串行隔离回归 **72 项测试、223 个变更 PHP 文件语法全部通过**；日志 `/tmp/open-platform-market-regression-20261012-final-tts.log`，细节 `runtime/open-platform-acceptance/regression-20261011.json`，以实际 generated_at/commit 为准。覆盖响应经济字段、严格成功回执、查询任务归属、旧契约缺少业务结果、同步字符音频交付、typed JSON 示例、历史任务调试描述与真实进程恢复。该回归不提交付费请求。
+- 商城成功回执先检查声明 Schema 与可信业务结果再结算；任务查询必须回显本地已归属的上游 ID。字符同步接口补上绝对 HTTP(S) 音频地址与成功转存状态检查，不将无效 URL 或尚未交付音频当成成功扣款。原响应 JSON 类型、业务字段及 HTTP/SSE 结构保持；本站积分字段使用本站原消费记录金额。
+- PC `75d7c767` 完成密钥居中弹窗、数值控件主题、语义图标、请求/任务详情弹窗、账单分页、按商城类别与独立工具目录、真实趋势/分布/增长视图、准确文档导航和历史已归属任务调试。新增排序让可调用项出现在分页前部；卡片展示商城规格数量，详情价格标为商城在售参考价，不把首个 SKU 冒充当前开放 API 价格。当前 API 参数及售价以具体已发布契约和登录用户预估为准。报价组件展示后端提供的用户单价、计量单位与预占用量，保留原金额精度及零值；预占不等于最终结算，不把字符用量向上取整为一千字。
+- 前端 **60 项限定测试、目录/调试页和报价组件 Vue 编译与严格 UI 范围审计通过**；隔离 SPA 构建 `/private/tmp/open-platform-quote-details-final-output` 通过并仅切换本地 19876 预览。没有覆盖 server/public/pc、部署线上或推送远端。浏览器仍使用本站登录权限，完整 Key 不保存，浏览器估价不收费。
+- Token SKU 均已存在，阻断原因不是价格缺失：Qwen 当前实时源返回 `model_disabled`；其余工厂目录输入/上下文与输出限制无可靠来源，现有工具并发预算也为空。可复用直接供应商 JSON/SSE 中实际存在的 usage，不能把内部任务查询或旧 Chat 流补发的估算当成供应商计数。没有从价格、默认值或文字长度猜测 Token 上限，也没有解除这些接口的开放门禁。
+
+本轮真实证据：`local_text_market_fb026b534753.json`、`local_text_market_0d03edc78d23.json`、`local_text_market_media_ff68b6b8f659.json`、`local_text_market_media_870aa654aeb5.json`、`local_text_market_tts_39faef69f2e0.json` 与 `market-status-20261012.json`，位于 `runtime/open-platform-acceptance/`；不作为安装产品种子。下面保留历史阶段证据与当时计数。
+
+## 历史验收快照（2026-10-12 01:32）
 
 当前仍为开发与本地验收阶段，P0–P7 未全量完成，未制作最终签名发布包、未发布线上。
 
@@ -22,7 +38,7 @@
 - 音乐指南 v3 的三栏布局、示例、表格和页内目录已在浏览器检查；真实音乐播放及 WAV 下载已验证。声音克隆资源保持待审核，当前生成通道不承诺使用克隆声音。MIDI 尚未返回结果；歌词融合、人声提取被上游明确拒绝并退款，均未列为成功。MP4 尚未在当前运行服务真实验证。
 - 先前已验证代表场景仍包括商城及工具文本同步/流式、商品套图、智能剪辑、生图、换发型、风格化、商品图、局部重绘及 OpenAI Python SDK 2.36.0 聊天同步/流式。视频代表调用被上游明确拒绝并退款；没有把退款案例计作成功生成。三级后台写入、完整在线调试与全量协议验收仍待完成。
 
-最新矩阵：[coverage-current-20261012.json](coverage-current-20261012.json)。音乐证据见 `runtime/open-platform-acceptance/local_text_9598d6359932-content.json`、`local_text_f606ec218309-reconciled.json`、`local_text_82cbcaedeff7.json`、`local_text_fe01fc1601bc.json` 和 `local_text_3f0b0e331338.json`。试衣证据见 `local_text_df22e2c7d90c.json` 和 `aigc_fitting-content.json`。下面历史记录保留当时的计数与失败边界，不代表最新状态。
+工具矩阵历史快照：[coverage-current-20261012.json](coverage-current-20261012.json)，生成时间为 01:32，不代表本轮商城发布后的状态。音乐证据见 `runtime/open-platform-acceptance/local_text_9598d6359932-content.json`、`local_text_f606ec218309-reconciled.json`、`local_text_82cbcaedeff7.json`、`local_text_fe01fc1601bc.json` 和 `local_text_3f0b0e331338.json`。试衣证据见 `local_text_df22e2c7d90c.json` 和 `aigc_fitting-content.json`。下面历史记录保留当时的计数与失败边界，不代表最新状态。
 
 ## 实施基线
 商城原协议接口 + 27 个既有工具 + 用户控制台 + 租户/平台后台 + 三栏文档。
