@@ -147,6 +147,21 @@ class TenantPowerMarketService
         return $result;
     }
 
+    /** Documentation discovery is independent of whether a SKU is currently for sale. */
+    public static function documentationProducts(int $tenantId): array
+    {
+        $products = PowerMarketProduct::where('status', 1)->order('id', 'asc')->select()->toArray();
+        if (!$products) return [];
+        $skus = PowerMarketSku::whereIn('product_id', array_column($products, 'id'))->where('status', 1)->select()->toArray();
+        $skus = self::applyTenantPrices($tenantId, $skus);
+        $byProduct = [];
+        foreach ($skus as $sku) $byProduct[(int)$sku['product_id']][] = $sku;
+        self::applyProductDisplays($tenantId, $products);
+        foreach ($products as &$product) $product['skus'] = $byProduct[(int)$product['id']] ?? [];
+        unset($product);
+        return $products;
+    }
+
     public static function saveProductDisplay(int $tenantId, int $productId, array $params): void
     {
         $product = PowerMarketProduct::where(['id' => $productId, 'resource_type' => PowerMarketService::TYPE_MODEL, 'status' => 1])->findOrEmpty();

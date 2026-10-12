@@ -12,7 +12,7 @@ final class OpenDocumentationCatalog
         $published=OpenStore::table('contract')->where('status','published')->order('id','asc')->select()->toArray();
         $byProduct=[];$byTool=[];
         foreach($published as $row){if($row['kind']==='market')$byProduct[(int)$row['product_id']][]=$row;else $byTool[$row['method'].' '.$row['path']]=$row;}
-        $products=TenantPowerMarketService::catalogueProducts($tenantId);$modelCounts=[];
+        $products=TenantPowerMarketService::documentationProducts($tenantId);$modelCounts=[];
         foreach($products as $product)if($product['resource_type']==='model')$modelCounts[$product['upstream_model_code']]=($modelCounts[$product['upstream_model_code']]??0)+1;
         $entries=[];
         foreach($products as $product){
@@ -23,25 +23,28 @@ final class OpenDocumentationCatalog
             $group=$model?$category:(string)($meta['app_name']??$product['upstream_app_code']??'应用接口');
             $selected=in_array((string)$id,$local['models'],true)&&in_array((string)$id,$global['models'],true);
             $compiled=OpenMarketContractCompiler::compileProduct($product,[],[],($modelCounts[$product['upstream_model_code']??'']??0)>1);
-            $routes=[];foreach($compiled['candidates'] as $candidate){$route=$candidate['method'].' '.$candidate['path'];$routes[$route][]=$candidate;}
+            $referenceRoutes=[];foreach($compiled['documentation_routes']??[] as $definition)$referenceRoutes[$definition['method'].' '.$definition['path']]=$definition;
+            $routes=array_fill_keys(array_keys($referenceRoutes),[]);foreach($compiled['candidates'] as $candidate){$route=$candidate['method'].' '.$candidate['path'];$routes[$route][]=$candidate;}
             foreach($byProduct[$id]??[] as $row){$route=$row['method'].' '.$row['path'];if(!isset($routes[$route]))$routes[$route]=[];}
             if(!$routes)$routes['reference']=[];
             foreach($routes as $route=>$candidates){
                 $variants=[];
-                foreach($byProduct[$id]??[] as $row)if($row['method'].' '.$row['path']===$route){$operation=self::published($row);$liveSkuIds=array_map('intval',array_column($product['skus'],'id'));$skuIds=array_map('intval',$operation['x-sku-ids']);$saleReady=empty($operation['x-billable'])||($skuIds&&!array_diff($skuIds,$liveSkuIds));$operation['x-callable']=$selected&&$global['enabled']&&$local['enabled']&&$saleReady;$variants[]=['code'=>$row['code'],'version'=>(int)$row['version'],'model'=>$compiled['model_code'],'operation'=>$operation];}
+                foreach($byProduct[$id]??[] as $row)if($row['method'].' '.$row['path']===$route){$operation=self::published($row);$liveSkuIds=array_map('intval',array_column(array_filter($product['skus'],static fn($sku)=>(int)$sku['sale_status']===1),'id'));$skuIds=array_map('intval',$operation['x-sku-ids']);$saleReady=empty($operation['x-billable'])||($skuIds&&!array_diff($skuIds,$liveSkuIds));$operation['x-callable']=$selected&&$global['enabled']&&$local['enabled']&&$saleReady;$variants[]=['code'=>$row['code'],'version'=>(int)$row['version'],'model'=>$compiled['model_code'],'operation'=>$operation];}
                 $publishedSkus=[];foreach($variants as $variant)foreach($variant['operation']['x-sku-ids'] as $sku)$publishedSkus[$sku]=true;
                 foreach($candidates as $candidate){if(isset($publishedSkus[$candidate['sku_id']]))continue;
                     $operation=self::reference($candidate['code'],(string)$product['name'],$candidate['input'],$candidate['example'],$candidate['responses']??[]);
-                    $operation['x-billable']=true;$operation['method']=$candidate['method'];$operation['path']=$candidate['path'];$operation['x-published']=false;$operation['x-callable']=false;
+                    $operation=self::transport($operation,$candidate['method'],$candidate['path']);$operation['x-billable']=true;$operation['method']=$candidate['method'];$operation['path']=$candidate['path'];$operation['x-published']=false;$operation['x-callable']=false;
                     $variants[]=['code'=>$candidate['code'],'version'=>null,'model'=>$compiled['model_code'],'operation'=>$operation];
                 }
-                $first=$variants[0]['operation']??self::reference('documentation.market.'.$id,(string)$product['name'],$compiled['input'],[],[]);
+                $definition=$referenceRoutes[$route]??[];
+                $first=$variants[0]['operation']??self::reference('documentation.market.'.$id.'.'.hash('crc32b',$route),(string)$product['name'],$definition['input']??$compiled['input'],$definition['example']??[],$definition['responses']??[]);
                 [$method,$path]=array_pad(explode(' ',$route,2),2,'');if($route==='reference'){$method='';$path='';}
-                $first['method']=$method;$first['path']=$path;$first['key']='market:'.$id.':'.hash('crc32b',$route);
+                $first=self::transport($first,$method,$path);$first['method']=$method;$first['path']=$path;$first['key']='market:'.$id.':'.hash('crc32b',$route);
                 $first['summary']=(string)$product['name'];$first['description']=self::text((string)($product['description']??''));
+                $first['protocol_label']=['openai_chat'=>'Chat Completions','openai_responses'=>'Responses','anthropic_messages'=>'Messages','gemini_contents'=>'Gemini','model_task'=>'异步任务','application_api'=>'应用接口'][$definition['protocol']??'']??'';
                 $first['section']=$model?'模型 API':'应用 API';$first['category']=$category;$first['group']=self::text($group);$first['model']=$compiled['model_code'];
                 $first['x-catalog-entry']=true;$first['x-product-id']=$id;$first['x-api-selected']=$selected;
-                $first['x-contract-variants']=$variants;$first['x-prices']=array_map(static fn($sku)=>['sku_key'=>$sku['sku_key'],'price'=>(float)$sku['sale_points'],'unit'=>$sku['usage_unit'],'unit_size'=>(float)$sku['usage_unit_size']],$product['skus']);
+                $first['x-contract-variants']=$variants;$first['x-prices']=array_map(static fn($sku)=>['sku_key'=>$sku['sku_key'],'price'=>(float)$sku['sale_points'],'unit'=>$sku['usage_unit'],'unit_size'=>(float)$sku['usage_unit_size'],'sale_status'=>(int)$sku['sale_status']===1],$product['skus']);
                 $entries[]=self::sanitize($first);
             }
         }
@@ -55,6 +58,26 @@ final class OpenDocumentationCatalog
             $op['x-catalog-entry']=true;$entries[]=self::sanitize($op);
         }
         return $entries;
+    }
+
+    /** Documentation references use the same HTTP transport as published operations. */
+    private static function transport(array $operation,string $method,string $path): array
+    {
+        if($method==='GET'&&isset($operation['requestBody'])){
+            $content=reset($operation['requestBody']['content']);$input=$content['schema']??[];$example=(array)($content['example']??[]);
+            unset($operation['requestBody']);
+            foreach($input['properties']??[] as $name=>$field){
+                $required=in_array($name,$input['required']??[],true);
+                $parameter=['name'=>$name,'in'=>'query','required'=>$required,'schema'=>$field,'description'=>$field['description']??''];
+                $value=$example[$name]??$field['example']??$field['default']??null;
+                if($value===null&&$required)$value=match($field['type']??'string'){'integer','number'=>$field['minimum']??1,'boolean'=>false,default=>'<'.strtoupper($name).'>'};
+                if($value!==null)$parameter['example']=$value;
+                $operation['parameters'][]=$parameter;
+            }
+        }
+        preg_match_all('/\{([a-z_]+)\}/',$path,$captures);
+        foreach($captures[1] as $name)if(!array_filter($operation['parameters']??[],static fn($p)=>$p['name']===$name&&$p['in']==='path'))$operation['parameters'][]=['name'=>$name,'in'=>'path','required'=>true,'schema'=>['type'=>'string']];
+        return $operation;
     }
 
     private static function published(array $row): array

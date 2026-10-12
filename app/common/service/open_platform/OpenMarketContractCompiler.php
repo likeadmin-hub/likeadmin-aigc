@@ -169,7 +169,19 @@ final class OpenMarketContractCompiler
         foreach ($drafts as &$draft) $draft['config']['compiler'] = ['version' => self::VERSION, 'source_digest' => $sourceDigest, 'review_note' => $review['review_note'] ?? 'catalogue metadata and registered protocol structure only'] + ($draft['config']['compiler'] ?? []); unset($draft);
         $allIssues = $base; foreach ($candidates as $candidate) $allIssues = array_merge($allIssues, $candidate['blockers']);
         $category = $model ? ['category_code' => $product['model_type'] ?? '', 'category_name' => $product['model_type'] ?? ''] : PowerMarketService::appCategory($product);
-        return ['product_id' => (int)$product['id'], 'name' => (string)$product['name'], 'resource_type' => $product['resource_type'], 'model_type' => $product['model_type'] ?? '', 'model_code' => $product['upstream_model_code'] ?? '', 'channel_code' => $product['upstream_channel_code'] ?? '', 'app_code' => $app, 'api_code' => $api, 'category_code' => $category['category_code'], 'category_name' => $category['category_name'], 'source_digest' => $sourceDigest, 'schema_shape' => $normal['shape'], 'input' => OpenPolicy::publicData($input), 'declared_protocols' => $protocols, 'schema_sources' => $schemaSources, 'protocol_inputs' => array_map(static fn($definition) => ['input' => $definition['request_schema'], 'example' => $definition['request_example'], 'source' => $definition['trace']], $protocolInputs), 'call_type' => $callType, 'doc_present' => $doc !== '', 'source_limits' => ['max_tokens' => $meta['max_tokens'] ?? null, 'context_window' => $meta['context_window'] ?? null], 'auxiliary_apis' => $auxiliary, 'skus' => $skus, 'candidates' => $candidates, 'drafts' => $drafts, 'blockers' => self::unique($allIssues)];
+        $documentationRoutes=[];
+        foreach($paths as $route){
+            $docInput=$protocolInputs[$route['protocol']]['request_schema']??$input;
+            $docExample=$protocolInputs[$route['protocol']]['request_example']??$example;
+            if($model){
+                $docInput['properties']['model']=['type'=>'string','const'=>(string)$product['upstream_model_code']];
+                $docInput['required']=array_values(array_unique(array_merge($docInput['required']??[],['model'])));
+                $docExample['model']=(string)$product['upstream_model_code'];
+                if($requireChannel&&!empty($product['upstream_channel_code'])){$docInput['properties']['channel']=$input['properties']['channel'];$docInput['required'][]='channel';$docExample['channel']=(string)$product['upstream_channel_code'];}
+            }
+            $documentationRoutes[]=['method'=>$method,'path'=>$route['path'],'protocol'=>$route['protocol'],'input'=>OpenPolicy::publicData($docInput),'example'=>OpenPolicy::publicData($docExample),'responses'=>OpenPolicy::publicData($responses)];
+        }
+        return ['product_id' => (int)$product['id'], 'name' => (string)$product['name'], 'resource_type' => $product['resource_type'], 'model_type' => $product['model_type'] ?? '', 'model_code' => $product['upstream_model_code'] ?? '', 'channel_code' => $product['upstream_channel_code'] ?? '', 'app_code' => $app, 'api_code' => $api, 'category_code' => $category['category_code'], 'category_name' => $category['category_name'], 'source_digest' => $sourceDigest, 'schema_shape' => $normal['shape'], 'input' => OpenPolicy::publicData($input), 'declared_protocols' => $protocols, 'schema_sources' => $schemaSources, 'protocol_inputs' => array_map(static fn($definition) => ['input' => $definition['request_schema'], 'example' => $definition['request_example'], 'source' => $definition['trace']], $protocolInputs), 'call_type' => $callType, 'documentation_routes'=>$documentationRoutes, 'doc_present' => $doc !== '', 'source_limits' => ['max_tokens' => $meta['max_tokens'] ?? null, 'context_window' => $meta['context_window'] ?? null], 'auxiliary_apis' => $auxiliary, 'skus' => $skus, 'candidates' => $candidates, 'drafts' => $drafts, 'blockers' => self::unique($allIssues)];
     }
 
     public static function import(int $tenantId, array $reviews = [], array $productIds = []): array
