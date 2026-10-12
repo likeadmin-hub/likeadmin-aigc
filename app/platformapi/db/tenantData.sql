@@ -1191,3 +1191,8 @@ SELECT {tenantId},p.id,'A','数据源','',0,'decorate.data/sources','','','','',
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT {tenantId},p.id,'A','详情','',0,'ai_consumption/detail','','','','',0,0,0,'','core','core_ai_consumption_tenant_detail',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu_{tenantSn}` p WHERE p.perms='ai_consumption/lists' AND p.source<>'tenant' AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` n WHERE n.tenant_id=p.tenant_id AND n.perms='ai_consumption/detail');
+
+-- Built-in picture digital human; menus are synchronized by DefaultAppService.
+INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
+VALUES ({tenantId},'aigc_pic_lipsync','1.0.4','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+ON DUPLICATE KEY UPDATE `buy_status`='paid',`shelf_status`='on',`enable_status`='enabled',`expire_time`=0;
