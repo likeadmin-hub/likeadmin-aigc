@@ -25,19 +25,19 @@
   },
   {
     "permission_key": "open_platform_tenant_contracts",
-    "name": "接口契约",
+    "name": "接口管理",
     "api_path": "app.open_platform.management/contracts",
     "api_method": "GET"
   },
   {
     "permission_key": "open_platform_tenant_documents",
-    "name": "文档管理",
+    "name": "文档补充",
     "api_path": "app.open_platform.management/documents",
     "api_method": "GET"
   },
   {
     "permission_key": "open_platform_tenant_saveDocument",
-    "name": "文档管理操作",
+    "name": "文档补充操作",
     "api_path": "app.open_platform.management/saveDocument",
     "api_method": "POST"
   },

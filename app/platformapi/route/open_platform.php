@@ -20,3 +20,5 @@ Route::get('app/open_platform/marketPlan','app.open_platform.Management/marketPl
 Route::post('app/open_platform/importMarketContracts','app.open_platform.Management/importMarketContracts')->completeMatch();
 
 Route::post('app/open_platform/setMarketExposure','app.open_platform.Management/setMarketExposure')->completeMatch();
+
+Route::post('app/open_platform/setTenantAuthorization','app.open_platform.Management/setTenantAuthorization')->completeMatch();

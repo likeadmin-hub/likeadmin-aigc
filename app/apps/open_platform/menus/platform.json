@@ -37,6 +37,13 @@
             "name": "商城 API 开放设置",
             "perms": "app.open_platform.management/setMarketExposure",
             "is_show": 0
+          },
+          {
+            "source_menu_key": "open_platform_platform_setTenantAuthorization",
+            "type": "A",
+            "name": "租户 API 授权开关",
+            "perms": "app.open_platform.management/setTenantAuthorization",
+            "is_show": 0
           }
         ],
         "icon": "el-icon-Setting"
@@ -62,7 +69,7 @@
       {
         "source_menu_key": "open_platform_platform_contracts",
         "type": "C",
-        "name": "接口契约",
+        "name": "接口管理",
         "perms": "app.open_platform.management/contracts",
         "paths": "contracts",
         "component": "apps/open_platform/contracts",
@@ -70,7 +77,7 @@
           {
             "source_menu_key": "open_platform_platform_saveContract",
             "type": "A",
-            "name": "接口契约操作",
+            "name": "接口管理操作",
             "perms": "app.open_platform.management/saveContract",
             "is_show": 0
           },
@@ -108,7 +115,7 @@
       {
         "source_menu_key": "open_platform_platform_documents",
         "type": "C",
-        "name": "文档管理",
+        "name": "文档补充",
         "perms": "app.open_platform.management/documents",
         "paths": "documents",
         "component": "apps/open_platform/documents",
@@ -116,7 +123,7 @@
           {
             "source_menu_key": "open_platform_platform_saveDocument",
             "type": "A",
-            "name": "文档管理操作",
+            "name": "文档补充操作",
             "perms": "app.open_platform.management/saveDocument",
             "is_show": 0
           },

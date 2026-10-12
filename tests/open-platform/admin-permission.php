@@ -16,7 +16,7 @@ $caches=[];Db::startTrans();try{
   Db::name($prefix.'admin_role')->insert(['admin_id'=>$adminId,'role_id'=>$roleId]);Db::name($prefix.'system_role_menu')->insert(['role_id'=>$roleId,'menu_id'=>$menu['id']]);
   $cache=$scene==='platform'?new app\common\cache\AdminAuthCache($adminId):new app\common\cache\TenantAdminAuthCache($adminId);$caches[]=[$cache,($scene==='platform'?'admin_auth_':'tenant_auth_').'url_'.$adminId];
   $actor=['admin_id'=>$adminId,'root'=>0,'tenant_id'=>1];Permission::assert($scene.'_admin',$actor,'requests');
-  foreach(['setup','setMarketExposure','savePages','saveDocument','publishDocument','saveContract','publishContract','createVerification','resumeTracking','requestDetail','unregisteredAction'] as $action)denied(fn()=>Permission::assert($scene.'_admin',$actor,$action),$scene.' read role gained '.$action);
+  foreach(['setup','setTenantAuthorization','setMarketExposure','savePages','saveDocument','publishDocument','saveContract','publishContract','createVerification','resumeTracking','requestDetail','unregisteredAction'] as $action)denied(fn()=>Permission::assert($scene.'_admin',$actor,$action),$scene.' read role gained '.$action);
   $class='app\\'.$scene.'api\\controller\\app\\open_platform\\ManagementController';$controller=(new ReflectionClass($class))->newInstanceWithoutConstructor();
   foreach(['request'=>(new app\Request())->setAction('requests'),'adminInfo'=>$actor,'adminId'=>$adminId] as $name=>$value)(new ReflectionProperty($class,$name))->setValue($controller,$value);
   $run=new ReflectionMethod($class,'run');$called=0;$fn=function()use(&$called){++$called;return ['fixture'=>true];};
@@ -26,6 +26,7 @@ $caches=[];Db::startTrans();try{
   denied(fn()=>Permission::assert($scene.'_admin',['admin_id'=>0,'root'=>1],'requests'),'Missing actor authorized');
  }
  denied(fn()=>Permission::assert('user',['admin_id'=>1,'root'=>1],'requests'),'User scene authorized');
+ denied(fn()=>Permission::assert('tenant_admin',['admin_id'=>1,'root'=>1],'setTenantAuthorization'),'Tenant gained platform grant write');
  denied(fn()=>Permission::assert('tenant_admin',['admin_id'=>1,'root'=>1],'publishContract'),'Tenant gained platform contract publish');
  $grant=new ReflectionMethod(Permission::class,'granted');foreach(['app.open_platform.Management/savePages','app.openPlatform.management/savePages'] as $uri)check($grant->invoke(null,'savePages',[$uri]),'ThinkPHP URI normalization failed');
  foreach([[],['*'],['app.other.management/savePages'],['app.open_platform.management/pages']] as $uris)check(!$grant->invoke(null,'savePages',$uris),'Unrelated permission granted write');

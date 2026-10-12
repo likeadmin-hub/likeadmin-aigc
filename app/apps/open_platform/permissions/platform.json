@@ -25,13 +25,13 @@
   },
   {
     "permission_key": "open_platform_platform_contracts",
-    "name": "接口契约",
+    "name": "接口管理",
     "api_path": "app.open_platform.management/contracts",
     "api_method": "GET"
   },
   {
     "permission_key": "open_platform_platform_saveContract",
-    "name": "接口契约操作",
+    "name": "接口管理操作",
     "api_path": "app.open_platform.management/saveContract",
     "api_method": "POST"
   },
@@ -43,13 +43,13 @@
   },
   {
     "permission_key": "open_platform_platform_documents",
-    "name": "文档管理",
+    "name": "文档补充",
     "api_path": "app.open_platform.management/documents",
     "api_method": "GET"
   },
   {
     "permission_key": "open_platform_platform_saveDocument",
-    "name": "文档管理操作",
+    "name": "文档补充操作",
     "api_path": "app.open_platform.management/saveDocument",
     "api_method": "POST"
   },
@@ -111,6 +111,12 @@
     "permission_key": "open_platform_platform_setMarketExposure",
     "name": "商城 API 开放设置",
     "api_path": "app.open_platform.management/setMarketExposure",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "open_platform_platform_setTenantAuthorization",
+    "name": "租户 API 授权开关",
+    "api_path": "app.open_platform.management/setTenantAuthorization",
     "api_method": "POST"
   }
 ]
