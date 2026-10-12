@@ -80,3 +80,17 @@ docker exec -w /www/wwwroot/likeadmin_aigc_saas/server bt /www/server/php/82/bin
 本地仅租户 1 开通上述 12/20 产品；其他租户未新增开放权限。媒体和其他接口的草稿仍不等于可调用，必须继续补齐协议及逐项验收。
 
 f290b06b7 串行运行本地隔离回归：65 项测试与 210 个变更 PHP 文件语法均通过，日志 `/tmp/open-platform-market-regression-final-20261012.log`，详细记录 `runtime/open-platform-acceptance/regression-20261011.json`（文件名沿用，generated_at/commit 为当前证据）。此回归不包含付费上游调用；真实商城证据另存 `local_text_market_fb026b534753.json` 和 `local_text_market_0d03edc78d23.json`。
+
+## 已审核协议结构（注册表 v1 / 编译器 v2）
+
+`OpenMarketProtocolSchemas` 读取版本化 `market-protocol-schemas.v1.json`，不发起上游请求。注册表记录审核的上游源码版本、路径与文件摘要，采用时写入 `config.compiler.schema_sources` 和计划候选的来源记录。
+
+- 已注册图片/视频 `model_task` 缺成功响应且没有显式审核响应覆盖时，采用真实 TaskController 的 submit/query 响应结构。已有响应声明保持原样；通用路由结构不替代未知模型的业务请求字段。
+- 查询结构保留 `type/call_type/result/results/usage`，供应商业务扩展允许保留，经济字段仍经独立原始来源、Schema 和运行时 body 门禁。金额字段为 `number`，业务整数与 token 用量不改成金额。
+- 编译文档中的响应示例只使用公开占位资产和中性积分值，明确标记结构示例。示例不是费用报价、真实回执或发布验证。查询仍通过任务创建者的本地归属映射，不注册共享查询/资源免费接口。
+- 缺请求结构的 factory 文本模型按各自已声明协议提供请求文档：chat 的 `messages`、completions 的 `prompt`、responses 的 `input`、Anthropic 的 `messages/max_tokens`。示例数量不是额度上限，未公开 token 边界仍保留 `actual_usage_boundary_required`。
+- `grok_video.submit` / `nano_banana.submit` 的静态请求快照来自实际应用详情和审核过的迁移/驱动源代码；不会自动套用模型响应。Grok 商业单位覆盖与原规格不一致继续经 `OpenSkuConsistency` 阻断，保留现有售价。
+
+`UpstreamPricingService::queryAppDetail` 新增固定应用详情只读能力。只有以后明确执行目录同步时，缺请求结构的 API 才按精确 app/API 身份合并详情白名单字段，每个 app 复用一次详情。此补丁未执行同步、修改 SKU 单位或售价。
+
+`tests/open-platform/market-protocol-schemas.php` 只验证静态编译、neutral typed JSON 示例、原始来源金融门禁、协议分路输入及应用详情商业字段隔离；不 import、publish 或执行生成请求。
