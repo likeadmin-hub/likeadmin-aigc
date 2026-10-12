@@ -15,7 +15,7 @@ final class UserAppearanceService
 
     public static function defaults(): array
     {
-        return ['selected' => 'default', 'mode' => 'system', 'custom' => [], 'preset_backgrounds' => []];
+        return ['selected' => 'emerald-nebula', 'mode' => 'dark', 'custom' => [], 'preset_backgrounds' => []];
     }
 
     public static function normalize(array $input, callable $ownedImage): array

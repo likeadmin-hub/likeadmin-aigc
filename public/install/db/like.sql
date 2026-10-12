@@ -4945,7 +4945,6 @@ VALUES
 (9310,0,9307,'A','编辑','',0,'notice.pc_notice/edit','','','','',0,0,0,'system_default','core','core_tenant_pc_notice_edit',1,1782691200,1782691200),
 (9311,0,9307,'A','删除','',0,'notice.pc_notice/delete','','','','',0,0,0,'system_default','core','core_tenant_pc_notice_delete',1,1782691200,1782691200),
 (9312,0,9307,'A','状态','',0,'notice.pc_notice/status','','','','',0,0,0,'system_default','core','core_tenant_pc_notice_status',1,1782691200,1782691200),
-(9107,0,9104,'C','通道调价','',0,'app.aigc_image.channel/lists','channel-price','apps/aigc_image/channel-price','','',0,1,0,'aigc_image','app','aigc_image_channel_price',0,1778000000,1778000000),
 (9108,0,9104,'C','用量统计','',0,'app.aigc_image.admin/stat','stat','apps/aigc_image/stat','','',0,1,0,'aigc_image','app','aigc_image_stat',0,1778000000,1778000000);
 
 INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
@@ -6304,7 +6303,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_one_click_cleanup_config` (
   `default_channel` varchar(80) NOT NULL DEFAULT '',
   `default_quality` varchar(80) NOT NULL DEFAULT '',
   `default_ratio` varchar(80) NOT NULL DEFAULT '',
-  `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `unit_price` decimal(12,2) NULL DEFAULT NULL,
   `max_images` int unsigned NOT NULL DEFAULT 10,
   `prompt_template` text,
   `negative_prompt` text,
@@ -6474,7 +6473,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_product_multi_angle_config` (
   `default_channel` varchar(80) NOT NULL DEFAULT '',
   `default_quality` varchar(80) NOT NULL DEFAULT '',
   `default_ratio` varchar(80) NOT NULL DEFAULT '',
-  `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `unit_price` decimal(12,2) NULL DEFAULT NULL,
   `prompt_template` text,
   `negative_prompt` text,
   `config_json` text,
@@ -7084,7 +7083,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_product_suite_config` (
   `default_channel` varchar(80) NOT NULL DEFAULT '',
   `default_quality` varchar(80) NOT NULL DEFAULT '',
   `default_ratio` varchar(80) NOT NULL DEFAULT '',
-  `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `unit_price` decimal(12,2) NULL DEFAULT NULL,
   `prompt_template` text,
   `negative_prompt` text,
   `config_json` text,
@@ -7252,7 +7251,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_local_redraw_config` (
   `default_channel` varchar(80) NOT NULL DEFAULT '',
   `default_quality` varchar(80) NOT NULL DEFAULT '',
   `default_ratio` varchar(80) NOT NULL DEFAULT '',
-  `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `unit_price` decimal(12,2) NULL DEFAULT NULL,
   `prompt_template` text,
   `negative_prompt` text,
   `config_json` text,
@@ -9540,7 +9539,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_fashion_lookbook_config` (
   `default_channel` varchar(80) NOT NULL DEFAULT '',
   `default_quality` varchar(80) NOT NULL DEFAULT '',
   `default_ratio` varchar(80) NOT NULL DEFAULT '',
-  `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `unit_price` decimal(12,2) NULL DEFAULT NULL,
   `max_clothes_images` int unsigned NOT NULL DEFAULT 6,
   `prompt_template` text,
   `negative_prompt` text,
@@ -12239,3 +12238,12 @@ curl --request GET --dump-header - --output /dev/null "$OPEN_BASE_URL/api/v1/ass
 
 保留原始 `request_id`、任务 ID 和幂等键。超时、暂时查询失败、结果保存失败时继续跟踪原任务；同一幂等键与相同参数重放返回原受理响应，最终状态通过任务查询获取。当前音乐辅助操作不支持取消已经提交的上游处理。密钥撤销或本站关闭新增调用后，已受理任务仍由服务端跟踪和结算。
 ');
+
+-- Built-in picture digital human; preserve tenant content and historical orders.
+INSERT INTO `la_app` (`code`,`name`,`icon`,`description`,`category`,`cover`,`client_tags`,`is_builtin`,`sort`,`current_version`,`status`,`expire_policy`,`install_time`,`update_time`)
+VALUES ('aigc_pic_lipsync','图片数字人','resource/image/common/menu_generator.png','上传人物图片，使用音频或文案驱动生成数字人视频，支持快速、标准和 MAX 模式。提供应用开通、展示配置、素材管理、任务管理和用量统计。','aigc','','platform,tenant,pc,uniapp',1,890,'1.0.4','installed','allow',UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+ON DUPLICATE KEY UPDATE `is_builtin`=1,`status`='installed',`expire_policy`='allow',`update_time`=UNIX_TIMESTAMP();
+INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
+SELECT t.id,'aigc_pic_lipsync',a.current_version,'paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM (SELECT 0 AS id UNION SELECT id FROM la_tenant) t JOIN la_app a ON a.code='aigc_pic_lipsync'
+ON DUPLICATE KEY UPDATE `buy_status`='paid',`shelf_status`='on',`enable_status`='enabled',`expire_time`=0,`update_time`=UNIX_TIMESTAMP();
+UPDATE `la_app_plan` SET `status`=0 WHERE `app_code`='aigc_pic_lipsync';

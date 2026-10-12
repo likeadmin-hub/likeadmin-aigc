@@ -921,6 +921,9 @@ class MarketVideoRuntimeService
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
         $assets = self::assets($request);
         $schema = self::arrayValue($snapshot['params_schema'] ?? []);
+        if (Q4VideoContract::matches($snapshot)) {
+            return Q4VideoContract::payload($snapshot, array_replace($request, array_intersect_key($locked, array_flip(Q4VideoContract::OPTIONS))), $assets, self::resolution($locked) ?: self::value($request, ['quality','resolution']), self::duration($locked) ?: (int)($request['duration'] ?? 5), $idempotency, self::marketContext($snapshot, 'power_market_video'));
+        }
         $locked = array_merge(self::declaredVideoOptions($schema, $request), $locked);
         $requestedDuration = (int)($request['duration'] ?? $request['seconds'] ?? $request['video_duration'] ?? 0);
         $schemaDuration = (int)self::schemaDefaultValue($schema, 'duration', 0);
@@ -1592,12 +1595,14 @@ class MarketVideoRuntimeService
     {
         $product = $market['product']; $metadata = self::metadata($product); $assets = self::assets($request);
         $referenceAssets = AigcVideoReferenceAssetService::normalize($request);
+        if (Q4VideoContract::matches($product)) Q4VideoContract::validate($request, $assets);
         $generationMethod = self::canonicalGenerationMethod(
             $product,
             $metadata,
             strtolower(trim((string)($request['generation_method'] ?? $request['generationMethod'] ?? ''))),
             $assets
         );
+        if (Q4VideoContract::matches($product) && empty($request['generation_method']) && empty($request['generationMethod'])) $generationMethod = 'image_to_video';
         if ($generationMethod !== '' && !in_array($generationMethod, self::generationModes($product, $metadata), true)) {
             throw new Exception('selected video model does not support this generation method');
         }
@@ -1628,7 +1633,8 @@ class MarketVideoRuntimeService
                 count($assets['image']) !== 1 ||
                 $assets['video'] !== [] ||
                 $assets['audio'] !== [] ||
-                !in_array('first_frame_image', $roles, true)
+                (!in_array('first_frame_image', $roles, true) && !Q4VideoContract::matches($product))
+                || (Q4VideoContract::matches($product) && in_array('last_frame_image', $roles, true))
             ) {
                 throw new Exception('image-to-video generation requires exactly one first-frame image');
             }
@@ -2491,6 +2497,8 @@ class MarketVideoRuntimeService
      */
     private static function ratioOptionsForProduct(array $product, array $skus, array $metadata): array
     {
+        // Q4 derives the aspect ratio from its mandatory first frame.
+        if (Q4VideoContract::matches($product)) return ['adaptive'];
         $ratios = self::ratiosForSkus($skus, $metadata);
         if (self::hasSkuRatioContract($skus) || self::hasMetadataRatioContract($metadata)) {
             return $ratios;
@@ -3077,6 +3085,7 @@ class MarketVideoRuntimeService
     }
     private static function skuSupportsInputMode(string $skuMode, string $requestedMode, array $product, array $locked): bool
     {
+        if (Q4VideoContract::matches($product)) return $requestedMode === 'image_reference';
         if (self::isH3Product($product)) {
             return in_array($requestedMode, self::generationModes($product, self::metadata($product)), true);
         }
@@ -3179,7 +3188,7 @@ class MarketVideoRuntimeService
                 }
             }
         }
-        return MarketModelCapabilities::applyMetadata($product, $metadata);
+        return MarketModelCapabilities::applyMetadata($product, Q4VideoContract::metadata($product, $metadata));
     }
     private static function inheritReferenceModelMetadata(array $product, array $metadata): array
     {

@@ -598,17 +598,8 @@ class AigcDigitalHumanService
         }
         $text = mb_substr($text, 0, 80);
 
-        $config = self::config($tenantId);
-        $channels = $config['option_config']['channels'] ?? [];
-        $defaults = $config['option_config']['defaults'] ?? [];
-        $firstChannel = is_array($channels) && !empty($channels) ? $channels[0] : [];
-        $firstQuality = $firstChannel['qualities'][0] ?? [];
-        $firstRatio = $firstQuality['ratios'][0] ?? [];
-        $selection = AigcDigitalHumanChannelService::resolveSelection($tenantId, [
-            'channel' => $defaults['channel'] ?? ($firstChannel['value'] ?? 'master'),
-            'quality' => $defaults['quality'] ?? ($firstQuality['value'] ?? '1k'),
-            'ratio' => $defaults['ratio'] ?? ($firstRatio['value'] ?? '9:16'),
-        ]);
+        // Voice previews use the existing TTS configuration, independently of video SKU availability.
+        $selection = AigcDigitalHumanChannelService::resolveLegacySelection($tenantId, []);
         $request = new AigcDigitalHumanGenerateRequest(
             $text,
             '',
@@ -961,7 +952,7 @@ class AigcDigitalHumanService
                 'provider_stage' => $audioDriven ? 'lipsync_submitted' : 'created',
                 'tts_task_id' => '',
                 'tts_audio_uri' => $driverAudioUri,
-                'provider_payload_json' => [],
+                'provider_payload_json' => ['market_selection'=>$selection, 'market_estimate'=>$estimate],
                 'status' => 'running',
                 'progress' => $audioDriven ? 45 : 5,
                 'error' => '',
@@ -1258,6 +1249,11 @@ class AigcDigitalHumanService
     public static function retryTask(int $tenantId, int $taskId): array
     {
         $task = self::taskDetail($tenantId, $taskId);
+        if (!str_starts_with((string)$task['channel'], 'market_lipsync_app:')) {
+            foreach (DigitalHumanMarketService::channels($tenantId) as $channel) {
+                if ($channel['model'] === (string)$task['model']) { $task['channel'] = $channel['code']; break; }
+            }
+        }
         return self::generate($tenantId, (int)$task['user_id'], [
             'title' => $task['title'],
             'script_text' => $task['script_text'],
@@ -1281,6 +1277,8 @@ class AigcDigitalHumanService
         if ($task->isEmpty()) {
             throw new Exception('任务不存在');
         }
+        $marketId = (int)($task['provider_payload_json']['market_consumption_id'] ?? 0);
+        if ($marketId > 0 && (string)$task['status'] === 'running') \app\common\service\power\MarketLipsyncAppRuntimeService::cancel($marketId);
         $task->save(['delete_time' => time(), 'update_time' => time()]);
         AigcDigitalHumanResult::where(['tenant_id' => $tenantId, 'task_id' => $taskId])->update(['delete_time' => time()]);
     }
@@ -1590,12 +1588,12 @@ class AigcDigitalHumanService
             try {
                 $avatar = self::findUserAvatar((int)$task['tenant_id'], (int)$task['user_id'], (int)$task['avatar_id']);
                 $voice = (int)$task['voice_id'] > 0 ? self::findUserVoice((int)$task['tenant_id'], (int)$task['user_id'], (int)$task['voice_id']) : [];
-                $selection = AigcDigitalHumanChannelService::resolveSelection((int)$task['tenant_id'], [
+                $selection = $task['provider_payload_json']['market_selection'] ?? AigcDigitalHumanChannelService::resolveLegacySelection((int)$task['tenant_id'], [
                     'channel' => $task['channel'],
                     'quality' => $task['quality'],
                     'ratio' => $task['ratio'],
                 ]);
-                $estimate = AigcDigitalHumanChannelService::estimate((int)$task['tenant_id'], [
+                $estimate = $task['provider_payload_json']['market_estimate'] ?? AigcDigitalHumanChannelService::estimateLegacy((int)$task['tenant_id'], [
                     'channel' => $task['channel'],
                     'quality' => $task['quality'],
                     'ratio' => $task['ratio'],
@@ -1918,6 +1916,10 @@ class AigcDigitalHumanService
             }
             $stage = 'lipsync_submitted';
         }
+        if (!empty($task['provider_payload_json']['market_selection']) && in_array($stage, ['lipsync_submitted','market_lipsync'], true)) {
+            self::advanceMarketLipsync($task, $request, $selection, $estimate);
+            return;
+        }
         if ($stage === 'lipsync_submitted') {
             $lock = SubmitLockService::tryAcquire(self::providerSubmitLockAction($task, 'lipsync'), (int)$task['tenant_id'], (int)$task['user_id']);
             if (!$lock) {
@@ -1993,6 +1995,116 @@ class AigcDigitalHumanService
                 self::failTask($task, 'failed', '视频转存失败：' . self::friendlyStageMessage($e->getMessage()));
             }
         }
+    }
+
+    /** Worker reconciliation uses durable consumption/assets only, never the provider or wallets. */
+    public static function syncMarketConsumption(int $consumptionId, int $taskId): void
+    {
+        Db::transaction(function () use ($consumptionId, $taskId) {
+            $bill = \app\common\model\ai\AiConsumptionLog::findOrEmpty($consumptionId);
+            if ($bill->isEmpty()) throw new Exception('数字人市场消费记录不存在');
+            $binding = \app\common\model\ai\AiAppTask::findOrEmpty((int)$bill['app_task_id']);
+            $task = AigcDigitalHumanTask::where(['tenant_id'=>(int)$bill['tenant_id'], 'user_id'=>(int)$bill['user_id'], 'id'=>$taskId])->lock(true)->findOrEmpty();
+            $snapshot = (array)$bill['price_snapshot'];
+            if ($binding->isEmpty() || $task->isEmpty()
+                || (int)$binding['tenant_id'] !== (int)$bill['tenant_id'] || (int)$binding['user_id'] !== (int)$bill['user_id']
+                || (string)$binding['app_code'] !== self::APP_CODE || (string)$bill['app_code'] !== self::APP_CODE
+                || (string)$binding['business_table'] !== 'aigc_digital_human_task' || (int)$binding['business_id'] !== $taskId
+                || (int)($task['provider_payload_json']['market_consumption_id'] ?? 0) !== $consumptionId
+                || (string)$bill['provider'] !== 'power_market' || (string)$bill['protocol'] !== 'application_api'
+                || (string)($snapshot['app_code'] ?? '') !== 'lipsync') {
+                throw new Exception('数字人市场消费与业务任务绑定不一致');
+            }
+            if ((int)$task['delete_time'] > 0 || in_array((string)$task['status'], ['success','failed','canceled','cancelled'], true)) return;
+            $status = (string)$bill['run_status'];
+            if (in_array($status, ['failed','canceled','cancelled'], true) || (string)$bill['billing_status'] === 'refunded') {
+                if ((string)$bill['billing_status'] !== 'refunded') throw new Exception('数字人市场任务尚未完成退款');
+                $task->save(['status'=>in_array($status, ['canceled','cancelled'], true) ? 'canceled' : 'failed',
+                    'provider_stage'=>'lipsync_failed', 'progress'=>100, 'error'=>(string)$bill['error_message'],
+                    'finish_time'=>time(), 'update_time'=>time()]);
+                return;
+            }
+            if ($status !== 'success') return;
+            if ((string)$bill['billing_status'] !== 'settled') throw new Exception('数字人市场任务尚未完成结算');
+            $assets = \app\common\model\ai\AiTaskResultAsset::where([
+                'consumption_id'=>$consumptionId, 'app_task_id'=>(int)$bill['app_task_id'],
+                'tenant_id'=>(int)$bill['tenant_id'], 'user_id'=>(int)$bill['user_id'], 'asset_type'=>'video',
+            ])->order('id', 'asc')->select()->toArray();
+            if ($assets === []) throw new Exception('数字人市场结果尚未完成转存');
+            $videos = [];
+            foreach ($assets as $asset) {
+                if ((string)$asset['transfer_status'] !== 'stored' || trim((string)$asset['local_uri']) === ''
+                    || trim((string)$asset['storage_scope']) === '' || trim((string)$asset['storage_engine']) === '') {
+                    throw new Exception('数字人市场结果尚未完成转存');
+                }
+                $videos[] = array_merge((array)$asset['storage_meta'], [
+                    'uri'=>(string)$asset['local_uri'], 'storage_scope'=>(string)$asset['storage_scope'],
+                    'storage_engine'=>(string)$asset['storage_engine'], 'storage_domain'=>(string)$asset['storage_domain'],
+                    'duration'=>max(1, (int)$task['duration']), 'provider_task_id'=>(string)$bill['upstream_task_id'],
+                ]);
+            }
+            $saved = (array)$task['provider_payload_json'];
+            $selection = (array)($saved['market_selection'] ?? []);
+            if (empty($selection['channel']['code']) || empty($selection['spec']['quality']) || empty($selection['spec']['ratio'])) {
+                throw new Exception('数字人市场任务缺少受理规格快照');
+            }
+            $count = count($videos);
+            $estimate = array_merge((array)($saved['market_estimate'] ?? []), [
+                'duration'=>max(1, (int)$task['duration']), 'billable_quantity'=>(float)$bill['quantity'],
+                'platform_unit_cost'=>(float)($snapshot['platform_price'] ?? 0) / max(1, (float)($snapshot['usage_unit_size'] ?? 1)),
+                'tenant_unit_price'=>(float)($snapshot['tenant_price'] ?? 0) / max(1, (float)($snapshot['usage_unit_size'] ?? 1)),
+                'tenant_cost_points'=>(float)$bill['actual_tenant_cost'] / $count,
+                'user_charge_points'=>(float)$bill['actual_user_price'] / $count,
+                'market_settled'=>true, 'market_consume_no'=>(string)$bill['consume_no'],
+            ]);
+            // Deleted source assets must not prevent a paid result from being saved.
+            $avatar = AigcDigitalHumanAvatar::where(['tenant_id'=>(int)$bill['tenant_id'], 'id'=>(int)$task['avatar_id']])->findOrEmpty();
+            self::finishTaskWithVideos($task, ['id'=>(int)$task['avatar_id'], 'cover_uri'=>(string)($avatar['cover_uri'] ?? '')],
+                ['id'=>(int)$task['voice_id']], $selection, $estimate, $videos);
+        });
+    }
+
+    private static function advanceMarketLipsync(AigcDigitalHumanTask $task, AigcDigitalHumanGenerateRequest $request, array $selection, array $estimate): void
+    {
+        $runtime = \app\common\service\power\MarketLipsyncAppRuntimeService::class;
+        $lock = SubmitLockService::tryAcquire(self::providerSubmitLockAction($task, 'market_lipsync'), (int)$task['tenant_id'], (int)$task['user_id']);
+        if (!$lock) return;
+        try {
+            $task = AigcDigitalHumanTask::where(['tenant_id'=>(int)$task['tenant_id'],'id'=>(int)$task['id']])->findOrEmpty();
+            if ($task->isEmpty() || (string)$task['status'] !== 'running') return;
+            $saved = (array)$task['provider_payload_json'];
+            $consumptionId = (int)($saved['market_consumption_id'] ?? 0);
+            $payload = ['video_url'=>(string)($request->avatar['media_url'] ?? ''),
+                'audio_url'=>(string)($request->providerParams['audio_url'] ?? self::fileUrlForTenant((string)$task['tts_audio_uri'], (int)$task['tenant_id']))];
+            if (!$consumptionId) {
+                $seconds = self::detectAudioDurationFromUri((string)$task['tts_audio_uri'], (int)$task['tenant_id']);
+                if ($seconds <= 0) throw new Exception('无法确认驱动音频时长，请重新上传音频');
+                $reserve = $runtime::reserve((int)$task['tenant_id'],(int)$task['user_id'],'generate',(string)$task['id'],
+                    $selection['channel'],$payload,$seconds,self::APP_CODE,'aigc_digital_human_task');
+                $consumptionId = (int)$reserve['consumption_id'];
+                $runtime::linkBusinessTask((int)$reserve['app_task_id'],(int)$task['id']);
+                $task->save(['provider_stage'=>'market_lipsync','duration'=>$seconds,
+                    'provider_payload_json'=>self::mergeProviderPayload($task,['market_consumption_id'=>$consumptionId,'market_reservation'=>$reserve]),'update_time'=>time()]);
+            }
+            $consumption = \app\common\model\ai\AiConsumptionLog::findOrEmpty($consumptionId);
+            $result = (string)$consumption['run_status'] === 'reserved' ? $runtime::submit($consumptionId,$payload) : $runtime::refresh($consumptionId);
+            $task->save(['provider_task_id'=>(string)($result['provider_task_id'] ?? $task['provider_task_id']),'update_time'=>time()]);
+            if (in_array($result['status'] ?? '', ['failed','canceled','cancelled'],true)) {
+                self::failTask($task,'lipsync_failed',(string)($result['error'] ?? '视频合成失败')); return;
+            }
+            if (($result['status'] ?? '') !== 'success') return;
+            // Share the worker's durable handoff; a settled external URL is not yet a saved result.
+            \app\common\service\ai\AiTaskBusinessResultService::syncTerminalByConsumptionId($consumptionId);
+        } catch (\Throwable $error) {
+            // A settled market task must remain retryable if saving its business result failed.
+            $id = (int)($consumptionId ?? $task['provider_payload_json']['market_consumption_id'] ?? 0);
+            $settled = $id > 0 && \app\common\model\ai\AiConsumptionLog::where('id',$id)->value('billing_status') === 'settled';
+            if ($settled) $task->save(['error'=>'结果同步待重试：'.$error->getMessage(),'update_time'=>time()]);
+            else {
+                if ($id > 0) $runtime::fail($id, $error->getMessage());
+                self::failTask($task,'lipsync_failed',$error->getMessage());
+            }
+        } finally { SubmitLockService::release($lock); }
     }
 
     private static function claimTaskStage(AigcDigitalHumanTask $task, array $fromStages, string $toStage): ?AigcDigitalHumanTask
@@ -2146,6 +2258,8 @@ class AigcDigitalHumanService
 
     private static function failTask(AigcDigitalHumanTask $task, string $stage, string $message): void
     {
+        $marketId = (int)($task['provider_payload_json']['market_consumption_id'] ?? 0);
+        if ($marketId > 0) \app\common\service\power\MarketLipsyncAppRuntimeService::fail($marketId, $message);
         $refundError = self::refundTaskBillings($task, $message);
         $error = trim($message . ($refundError !== '' ? ' ' . $refundError : ''));
         $task->save([
@@ -2181,6 +2295,7 @@ class AigcDigitalHumanService
             'billing_status' => 'deducted',
         ])->select();
         foreach ($billings as $billing) {
+            if (!empty($billing['extra_json']['market_consumption_id'])) continue;
             Db::startTrans();
             try {
                 $locked = AigcDigitalHumanBilling::where([
@@ -3168,7 +3283,7 @@ class AigcDigitalHumanService
                 throw new Exception('任务不存在');
             }
             $billableDuration = self::resolveGenerateBillableDuration($task, (int)($videos[0]['duration'] ?? $estimate['duration'] ?? 0));
-            $estimate = self::applyBillableDuration($estimate, $billableDuration);
+            if (empty($estimate['market_settled'])) $estimate = self::applyBillableDuration($estimate, $billableDuration);
             $existing = self::taskResults($tenantId, $userId, (int)$task['id']);
             if (!empty($existing)) {
                 $task->save(['status' => 'success', 'provider_stage' => 'success', 'progress' => 100, 'finish_time' => $task['finish_time'] ?: time(), 'update_time' => time()]);
@@ -3198,8 +3313,8 @@ class AigcDigitalHumanService
                     'delete_time' => 0,
                     'create_time' => time(),
                 ]);
-                $sourceSn = self::APP_CODE . '-' . (string)$task['id'] . '-' . ((int)$index + 1);
-                PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points'], $sourceSn, '数字人合成消费', [
+                $sourceSn = $estimate['market_consume_no'] ?? (self::APP_CODE . '-' . (string)$task['id'] . '-' . ((int)$index + 1));
+                if (empty($estimate['market_settled'])) PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points'], $sourceSn, '数字人合成消费', [
                     'app_code' => self::APP_CODE,
                     'task_id' => (int)$task['id'],
                     'result_id' => (int)$row['id'],
@@ -3223,6 +3338,7 @@ class AigcDigitalHumanService
                     'tenant_point_sn' => $sourceSn,
                     'user_point_sn' => $sourceSn,
                     'extra_json' => [
+                        'market_consumption_id' => (int)($task['provider_payload_json']['market_consumption_id'] ?? 0),
                         'duration' => $billableDuration,
                         'unit' => $estimate['billing_unit'] ?? 'second',
                     ],
@@ -3235,6 +3351,7 @@ class AigcDigitalHumanService
             $task->save([
                 'status' => 'success',
                 'provider_stage' => 'success',
+                'error' => '',
                 'progress' => 100,
                 'duration' => (int)($rows[0]['duration'] ?? 0),
                 'tenant_cost_points' => number_format((float)$estimate['tenant_cost_points'] * count($rows), 2, '.', ''),
@@ -3246,7 +3363,9 @@ class AigcDigitalHumanService
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();
-            $task->save(['status' => 'failed', 'progress' => 100, 'error' => $e->getMessage(), 'finish_time' => time(), 'update_time' => time()]);
+            if (empty($estimate['market_settled'])) {
+                $task->save(['status' => 'failed', 'progress' => 100, 'error' => $e->getMessage(), 'finish_time' => time(), 'update_time' => time()]);
+            }
             throw $e;
         }
         return $rows;

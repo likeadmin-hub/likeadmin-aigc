@@ -12,6 +12,7 @@ use app\common\model\app\aigc_image\AigcImageTask;
 use app\common\model\file\TenantFile;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\app\AppSalePriceService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
@@ -74,7 +75,7 @@ class AigcBackgroundRemovalService
             AigcBackgroundRemovalConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function priceDetail(int $tenantId): array
@@ -324,7 +325,7 @@ class AigcBackgroundRemovalService
         return [
             'price_package' => $package,
             'source_image' => $sourceImage,
-            'unit_price' => round(max(0, (float)$package['unit_price']), 2),
+            'unit_price' => AppSalePriceService::normalize($package['unit_price'] ?? null),
             'image_payload' => array_merge($imagePayload, [
                 'channel' => (string)$resolved['channel']['code'],
                 'quality' => (string)$resolved['spec']['quality'],
@@ -340,7 +341,7 @@ class AigcBackgroundRemovalService
     private static function buildEstimate(array $prepared, array $imageEstimate): array
     {
         $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
-        $userUnitPrice = (float)$prepared['unit_price'];
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0));
         return array_merge($imageEstimate, [
             'quantity' => 1,
             'target_width' => $prepared['width'],
@@ -1008,7 +1009,7 @@ class AigcBackgroundRemovalService
                 'channel' => $channel,
                 'quality' => $quality,
                 'quality_label' => mb_substr(trim((string)($item['quality_label'] ?? '')), 0, 80),
-                'unit_price' => round(max(0, (float)($item['unit_price'] ?? $item['tenant_unit_price'] ?? 0)), 2),
+                'unit_price' => AppSalePriceService::fromRow($item),
                 'status' => (int)($item['status'] ?? $item['tenant_status'] ?? 1) ? 1 : 0,
                 'sort' => (int)($item['sort'] ?? (100 - $index)),
             ];
@@ -1034,7 +1035,7 @@ class AigcBackgroundRemovalService
                 'channel_name' => (string)($source['channel_name'] ?? $item['channel']),
                 'quality' => (string)$item['quality'],
                 'quality_label' => (string)($item['quality_label'] ?: ($source['quality_label'] ?? $item['quality'])),
-                'unit_price' => round((float)$item['unit_price'], 2),
+                'unit_price' => AppSalePriceService::normalize($item['unit_price'] ?? null),
                 'status' => (int)($item['status'] ?? 1),
                 'sort' => (int)($item['sort'] ?? 0),
                 'ratios' => $ratios,
@@ -1132,7 +1133,7 @@ class AigcBackgroundRemovalService
                 'channel' => (string)$source['channel'],
                 'quality' => (string)$source['quality'],
                 'quality_label' => (string)$source['quality_label'],
-                'unit_price' => round(max(0, (float)$source['default_unit_price']), 2),
+                'unit_price' => null,
                 'status' => 1,
                 'sort' => 100 - $index,
             ];
@@ -1195,7 +1196,7 @@ class AigcBackgroundRemovalService
             AigcBackgroundRemovalConfig::create($payload);
             return;
         }
-        $row->save($payload);
+        $row->force()->save($payload);
     }
 
     private static function taskImageIds(array $task): array

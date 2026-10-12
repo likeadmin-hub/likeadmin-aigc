@@ -20,9 +20,9 @@ final class VideoEffectTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         Effects::normalize($rows);
     }
-    public function testDefaultsAreNotPublicUntilEnabled(): void {
+    public function testDefaultsAreEnabledWithoutTenantSetup(): void {
         self::assertCount(90,Effects::defaults());
-        self::assertSame([],Effects::publicCatalog(Effects::defaults()));
+        self::assertCount(90,Effects::publicCatalog(Effects::defaults()));
         self::assertNotEmpty(Effects::publicCatalog($this->catalog())[0]['instruction']);
     }
     public function testServerInstructionAndOriginalPromptRemainSeparate(): void {
@@ -44,7 +44,7 @@ final class VideoEffectTest extends TestCase
         foreach ([['effect_id'=>'unknown'],['effect_id'=>'push_in','generation_method'=>'omni_reference']] as $params) {
             try{Effects::resolve($this->catalog(),$params,7);self::fail('Invalid effect accepted');}catch(InvalidArgumentException $e){self::assertNotEmpty($e->getMessage());}
         }
-        foreach ([Effects::defaults()] as $rows) {
+        foreach ([array_map(static function($row){$row['enabled']=false;return $row;},Effects::defaults())] as $rows) {
             try{Effects::resolve($rows,['effect_id'=>'push_in'],8);self::fail('Unsupported model accepted');}catch(InvalidArgumentException $e){self::assertNotEmpty($e->getMessage());}
         }
     }

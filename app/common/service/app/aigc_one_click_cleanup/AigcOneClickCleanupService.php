@@ -11,6 +11,7 @@ use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupResult;
 use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupTask;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\app\AppSalePriceService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
@@ -63,7 +64,7 @@ class AigcOneClickCleanupService
             'default_channel' => self::normalizeCode((string)($params['default_channel'] ?? $configJson['channel'] ?? $current['default_channel'] ?? '')),
             'default_quality' => trim((string)($params['default_quality'] ?? $configJson['quality'] ?? $current['default_quality'] ?? '')),
             'default_ratio' => trim((string)($params['default_ratio'] ?? $configJson['ratio'] ?? $current['default_ratio'] ?? '')),
-            'unit_price' => round(max(0, (float)($params['unit_price'] ?? $current['unit_price'] ?? 0)), 2),
+            'unit_price' => AppSalePriceService::normalize(array_key_exists('unit_price', $params) ? $params['unit_price'] : ($current['unit_price'] ?? null)),
             'max_images' => self::MAX_IMAGES,
             'prompt_template' => self::normalizeTemplate((string)($params['prompt_template'] ?? $current['prompt_template'])),
             'negative_prompt' => trim((string)($params['negative_prompt'] ?? $current['negative_prompt'])),
@@ -77,7 +78,7 @@ class AigcOneClickCleanupService
             AigcOneClickCleanupConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function priceDetail(int $tenantId): array
@@ -85,7 +86,7 @@ class AigcOneClickCleanupService
         $config = self::config($tenantId);
         return [
             'channels' => self::buildSpecOptions($config['option_config'] ?? []),
-            'unit_price' => round((float)($config['unit_price'] ?? 0), 2),
+            'unit_price' => AppSalePriceService::normalize($config['unit_price'] ?? null),
             'default_channel' => (string)($config['default_channel'] ?? ''),
             'default_quality' => (string)($config['default_quality'] ?? ''),
             'default_ratio' => (string)($config['default_ratio'] ?? ''),
@@ -100,7 +101,7 @@ class AigcOneClickCleanupService
             'default_channel' => $params['default_channel'] ?? $current['default_channel'],
             'default_quality' => $params['default_quality'] ?? $current['default_quality'],
             'default_ratio' => $params['default_ratio'] ?? $current['default_ratio'],
-            'unit_price' => $params['unit_price'] ?? $current['unit_price'],
+            'unit_price' => array_key_exists('unit_price', $params) ? $params['unit_price'] : $current['unit_price'],
             'prompt_template' => $current['prompt_template'],
             'negative_prompt' => $current['negative_prompt'],
             'config_json' => [
@@ -214,7 +215,7 @@ class AigcOneClickCleanupService
             $payload = array_merge($prepared['image_payload'], ['reference_images' => [$sourceImage]]);
             $result = AigcImageService::generateWithBillingOverride($tenantId, $userId, $payload, [
                 'tenant_cost_points' => $estimate['platform_unit_cost'],
-                'user_charge_points' => $prepared['unit_price'],
+                'user_charge_points' => $estimate['tenant_unit_price'],
             ]);
             $imageTaskId = (int)($result['task_id'] ?? 0);
             if ($imageTaskId > 0) {
@@ -406,7 +407,7 @@ class AigcOneClickCleanupService
             'style' => 'one_click_cleanup',
         ];
         $resolved = AigcImageChannelService::resolveSelection($tenantId, $imagePayload);
-        $unitPrice = round(max(0, (float)($config['unit_price'] ?? 0)), 2);
+        $unitPrice = AppSalePriceService::normalize($config['unit_price'] ?? null);
         return [
             'source_images' => $sourceImages,
             'option_codes' => array_values(array_column($options, 'code')),
@@ -428,7 +429,7 @@ class AigcOneClickCleanupService
     {
         $quantity = max(1, count($prepared['source_images']));
         $platformUnitCost = round((float)($singleEstimate['platform_unit_cost'] ?? 0), 2);
-        $userUnitPrice = round((float)$prepared['unit_price'], 2);
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($singleEstimate['tenant_unit_price'] ?? 0));
         return array_merge($singleEstimate, [
             'quantity' => $quantity,
             'image_count' => $quantity,
@@ -468,7 +469,7 @@ class AigcOneClickCleanupService
             'quality_label' => $prepared['quality_label'],
             'ratio' => (string)($firstImageTask['ratio'] ?? $prepared['image_payload']['ratio']),
             'quantity' => count($prepared['source_images']),
-            'unit_price' => $prepared['unit_price'],
+            'unit_price' => $estimate['tenant_unit_price'],
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
             'status' => 'running',
@@ -792,7 +793,7 @@ class AigcOneClickCleanupService
             'default_channel' => (string)($data['default_channel'] ?? ''),
             'default_quality' => (string)($data['default_quality'] ?? ''),
             'default_ratio' => (string)($data['default_ratio'] ?? ''),
-            'unit_price' => round(max(0, (float)($data['unit_price'] ?? 0)), 2),
+            'unit_price' => AppSalePriceService::normalize($data['unit_price'] ?? null),
             'max_images' => self::MAX_IMAGES,
             'prompt_template' => (string)($data['prompt_template'] ?? self::DEFAULT_PROMPT_TEMPLATE),
             'negative_prompt' => (string)($data['negative_prompt'] ?? self::DEFAULT_NEGATIVE_PROMPT),
@@ -804,12 +805,12 @@ class AigcOneClickCleanupService
             AigcOneClickCleanupConfig::create($payload);
             return;
         }
-        $row->save($payload);
+        $row->force()->save($payload);
     }
 
     private static function defaults(): array
     {
-        return ['status' => 1, 'default_channel' => '', 'default_quality' => '', 'default_ratio' => '', 'unit_price' => 0, 'max_images' => self::MAX_IMAGES, 'prompt_template' => self::DEFAULT_PROMPT_TEMPLATE, 'negative_prompt' => self::DEFAULT_NEGATIVE_PROMPT, 'config_json' => []];
+        return ['status' => 1, 'default_channel' => '', 'default_quality' => '', 'default_ratio' => '', 'unit_price' => null, 'max_images' => self::MAX_IMAGES, 'prompt_template' => self::DEFAULT_PROMPT_TEMPLATE, 'negative_prompt' => self::DEFAULT_NEGATIVE_PROMPT, 'config_json' => []];
     }
 
     private static function sanitizeConfig(array $data): array
@@ -818,7 +819,7 @@ class AigcOneClickCleanupService
         $data['default_channel'] = self::normalizeCode((string)($data['default_channel'] ?? ''));
         $data['default_quality'] = trim((string)($data['default_quality'] ?? ''));
         $data['default_ratio'] = trim((string)($data['default_ratio'] ?? ''));
-        $data['unit_price'] = round(max(0, (float)($data['unit_price'] ?? 0)), 2);
+        $data['unit_price'] = AppSalePriceService::normalize($data['unit_price'] ?? null);
         $data['max_images'] = self::MAX_IMAGES;
         $data['prompt_template'] = self::normalizeTemplate((string)($data['prompt_template'] ?? self::DEFAULT_PROMPT_TEMPLATE));
         $data['negative_prompt'] = trim((string)($data['negative_prompt'] ?? self::DEFAULT_NEGATIVE_PROMPT));

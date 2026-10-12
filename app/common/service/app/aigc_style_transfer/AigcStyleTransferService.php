@@ -11,6 +11,7 @@ use app\common\model\app\aigc_style_transfer\AigcStyleTransferStyleTemplate;
 use app\common\model\app\aigc_style_transfer\AigcStyleTransferTask;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\app\AppSalePriceService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
@@ -63,7 +64,7 @@ class AigcStyleTransferService
         [$data['config_json']['price_packages'], $priceChanged] = self::ensurePricePackages(
             $data['config_json']['price_packages'] ?? [],
             $optionConfig,
-            (float)($data['config_json']['unit_price'] ?? 8)
+            AppSalePriceService::normalize($data['config_json']['unit_price'] ?? null)
         );
         if ($priceChanged) {
             self::saveConfigSnapshot($tenantId, $data, $row);
@@ -100,7 +101,7 @@ class AigcStyleTransferService
             AigcStyleTransferConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function priceDetail(int $tenantId): array
@@ -602,7 +603,7 @@ class AigcStyleTransferService
             'width' => (int)$size['width'],
             'height' => (int)$size['height'],
             'user_prompt' => $userPrompt,
-            'unit_price' => round(max(0, (float)$package['unit_price']), 2),
+            'unit_price' => AppSalePriceService::normalize($package['unit_price'] ?? null),
             'image_payload' => [
                 'prompt' => $prompt,
                 'negative_prompt' => (string)($params['negative_prompt'] ?? $config['negative_prompt']),
@@ -619,7 +620,7 @@ class AigcStyleTransferService
     private static function buildEstimate(array $prepared, array $imageEstimate): array
     {
         $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
-        $userUnitPrice = (float)$prepared['unit_price'];
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0));
         return array_merge($imageEstimate, [
             'quantity' => 1,
             'target_width' => $prepared['width'],
@@ -862,7 +863,7 @@ class AigcStyleTransferService
             'channel' => trim((string)($value['channel'] ?? '')),
             'quality' => trim((string)($value['quality'] ?? '')),
             'ratio' => trim((string)($value['ratio'] ?? '')),
-            'unit_price' => max(0, round((float)($value['unit_price'] ?? 8), 2)),
+            'unit_price' => AppSalePriceService::normalize($value['unit_price'] ?? null),
             'price_packages' => self::normalizePricePackages($value['price_packages'] ?? []),
         ];
     }
@@ -892,7 +893,7 @@ class AigcStyleTransferService
                 'channel' => $channel,
                 'quality' => $quality,
                 'quality_label' => mb_substr(trim((string)($item['quality_label'] ?? '')), 0, 80),
-                'unit_price' => round(max(0, (float)($item['unit_price'] ?? $item['tenant_unit_price'] ?? 0)), 2),
+                'unit_price' => AppSalePriceService::fromRow($item),
                 'status' => (int)($item['status'] ?? $item['tenant_status'] ?? 1) ? 1 : 0,
                 'sort' => (int)($item['sort'] ?? (100 - $index)),
             ];
@@ -918,7 +919,7 @@ class AigcStyleTransferService
                 'channel_name' => (string)($source['channel_name'] ?? $item['channel']),
                 'quality' => (string)$item['quality'],
                 'quality_label' => (string)($item['quality_label'] ?: ($source['quality_label'] ?? $item['quality'])),
-                'unit_price' => round((float)$item['unit_price'], 2),
+                'unit_price' => AppSalePriceService::normalize($item['unit_price'] ?? null),
                 'status' => (int)($item['status'] ?? 1),
                 'sort' => (int)($item['sort'] ?? 0),
                 'ratios' => $ratios,
@@ -982,7 +983,7 @@ class AigcStyleTransferService
         throw new Exception('请选择可用生成质量');
     }
 
-    private static function ensurePricePackages(array $priceConfig, array $optionConfig, float $legacyUnitPrice): array
+    private static function ensurePricePackages(array $priceConfig, array $optionConfig, ?float $legacyUnitPrice): array
     {
         $normalized = self::normalizePricePackages($priceConfig);
         $sourceMap = self::packageSourceMap($optionConfig);
@@ -1010,7 +1011,7 @@ class AigcStyleTransferService
                 'channel' => (string)$source['channel'],
                 'quality' => (string)$source['quality'],
                 'quality_label' => (string)$source['quality_label'],
-                'unit_price' => round(max(0, $legacyUnitPrice > 0 ? $legacyUnitPrice : (float)$source['default_unit_price']), 2),
+                'unit_price' => AppSalePriceService::normalize($legacyUnitPrice),
                 'status' => 1,
                 'sort' => 100 - $index,
             ];
@@ -1070,7 +1071,7 @@ class AigcStyleTransferService
             AigcStyleTransferConfig::create($payload);
             return;
         }
-        $row->save($payload);
+        $row->force()->save($payload);
     }
 
     private static function resolvePackageRatio(array $package, string $ratio): string
@@ -1335,9 +1336,9 @@ class AigcStyleTransferService
         return FileService::getFileUrl($image);
     }
 
-    private static function unitPrice(array $configJson): float
+    private static function unitPrice(array $configJson): ?float
     {
-        return max(0, round((float)($configJson['unit_price'] ?? 8), 2));
+        return AppSalePriceService::normalize($configJson['unit_price'] ?? null);
     }
 
     private static function taskImageIds(array $task): array

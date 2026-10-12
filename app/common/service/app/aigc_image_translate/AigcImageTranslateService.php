@@ -9,6 +9,7 @@ use app\common\model\app\aigc_image_translate\AigcImageTranslateResult;
 use app\common\model\app\aigc_image_translate\AigcImageTranslateTask;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\app\AppSalePriceService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
@@ -86,7 +87,7 @@ class AigcImageTranslateService
             AigcImageTranslateConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function priceDetail(int $tenantId): array
@@ -364,7 +365,7 @@ class AigcImageTranslateService
             'target_language' => $targetLanguage,
             'target_language_label' => self::languageLabel($targetLanguage),
             'user_prompt' => $userPrompt,
-            'unit_price' => round(max(0, (float)$package['unit_price']), 2),
+            'unit_price' => AppSalePriceService::normalize($package['unit_price'] ?? null),
             'image_payload' => array_merge($imagePayload, [
                 'channel' => (string)$resolved['channel']['code'],
                 'quality' => (string)$resolved['spec']['quality'],
@@ -380,7 +381,7 @@ class AigcImageTranslateService
     private static function buildEstimate(array $prepared, array $imageEstimate): array
     {
         $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
-        $userUnitPrice = (float)$prepared['unit_price'];
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0));
         return array_merge($imageEstimate, [
             'quantity' => 1,
             'target_width' => $prepared['width'],
@@ -675,7 +676,7 @@ class AigcImageTranslateService
                         'channel' => $channel,
                         'quality' => $quality,
                         'quality_label' => mb_substr(trim((string)($item['quality_label'] ?? '')), 0, 80),
-                        'unit_price' => round(max(0, (float)($item['unit_price'] ?? $item['tenant_unit_price'] ?? 0)), 2),
+                        'unit_price' => AppSalePriceService::fromRow($item),
                         'status' => (int)($item['status'] ?? $item['tenant_status'] ?? 1) ? 1 : 0,
                         'sort' => (int)($item['sort'] ?? (100 - $index)),
                     ];
@@ -696,7 +697,7 @@ class AigcImageTranslateService
                     'channel' => $channel,
                     'quality' => $quality,
                     'ratio' => $ratio,
-                    'unit_price' => round(max(0, (float)($item['unit_price'] ?? $item['tenant_unit_price'] ?? 0)), 2),
+                    'unit_price' => AppSalePriceService::fromRow($item),
                     'status' => (int)($item['status'] ?? $item['tenant_status'] ?? 1) ? 1 : 0,
                 ];
             }
@@ -721,7 +722,7 @@ class AigcImageTranslateService
                     'channel' => $channel,
                     'quality' => $quality,
                     'ratio' => $ratio,
-                    'unit_price' => round(max(0, (float)($item['unit_price'] ?? $item['tenant_unit_price'] ?? 0)), 2),
+                    'unit_price' => AppSalePriceService::fromRow($item),
                     'status' => (int)($item['status'] ?? $item['tenant_status'] ?? 1) ? 1 : 0,
                 ];
             }
@@ -750,7 +751,7 @@ class AigcImageTranslateService
                 'channel_name' => (string)($source['channel_name'] ?? $item['channel']),
                 'quality' => (string)$item['quality'],
                 'quality_label' => (string)($item['quality_label'] ?: ($source['quality_label'] ?? $item['quality'])),
-                'unit_price' => round((float)$item['unit_price'], 2),
+                'unit_price' => AppSalePriceService::normalize($item['unit_price'] ?? null),
                 'status' => (int)($item['status'] ?? 1),
                 'sort' => (int)($item['sort'] ?? 0),
                 'ratios' => $ratios,
@@ -917,14 +918,14 @@ class AigcImageTranslateService
         }
         foreach (array_slice($sourceItems, 0, 2) as $index => $source) {
             $legacyRows = $legacyMap[self::qualityKey((string)$source['channel'], (string)$source['quality'])] ?? [];
-            $legacyPrice = $legacyRows ? max(array_map(static fn($row) => (float)($row['unit_price'] ?? 0), $legacyRows)) : (float)$source['default_unit_price'];
+            $legacyPrice = $legacyRows ? max(array_map(static fn($row) => (float)($row['unit_price'] ?? 0), $legacyRows)) : null;
             $packages[] = [
                 'code' => 'default_' . ($index + 1),
                 'name' => self::DEFAULT_PRICE_PACKAGE_NAMES[$index] ?? ('翻译质量' . ($index + 1)),
                 'channel' => (string)$source['channel'],
                 'quality' => (string)$source['quality'],
                 'quality_label' => (string)$source['quality_label'],
-                'unit_price' => round(max(0, $legacyPrice), 2),
+                'unit_price' => AppSalePriceService::normalize($legacyPrice),
                 'status' => 1,
                 'sort' => 100 - $index,
             ];
@@ -988,7 +989,7 @@ class AigcImageTranslateService
             AigcImageTranslateConfig::create($payload);
             return;
         }
-        $row->save($payload);
+        $row->force()->save($payload);
     }
 
     private static function renderPrompt(string $template, array $data): string
