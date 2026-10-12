@@ -714,7 +714,6 @@ VALUES
 (9310,{tenantId},9307,'A','编辑','',0,'notice.pc_notice/edit','','','','',0,0,0,'system_default','core','core_tenant_pc_notice_edit',1,1782691200,1782691200),
 (9311,{tenantId},9307,'A','删除','',0,'notice.pc_notice/delete','','','','',0,0,0,'system_default','core','core_tenant_pc_notice_delete',1,1782691200,1782691200),
 (9312,{tenantId},9307,'A','状态','',0,'notice.pc_notice/status','','','','',0,0,0,'system_default','core','core_tenant_pc_notice_status',1,1782691200,1782691200),
-(9103,{tenantId},9100,'C','通道调价','',0,'app.aigc_image.channel/lists','channel-price','apps/aigc_image/channel-price','','',0,1,0,'aigc_image','app','aigc_image_channel_price',0,1778000000,1778000000),
 (9104,{tenantId},9100,'C','用量统计','',0,'app.aigc_image.admin/stat','stat','apps/aigc_image/stat','','',0,1,0,'aigc_image','app','aigc_image_stat',0,1778000000,1778000000);
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)

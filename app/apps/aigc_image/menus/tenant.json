@@ -28,14 +28,6 @@
         "component": "apps/aigc_image/task"
       },
       {
-        "source_menu_key": "aigc_image_channel_price",
-        "type": "C",
-        "name": "通道调价",
-        "perms": "app.aigc_image.channel/lists",
-        "paths": "channel-price",
-        "component": "apps/aigc_image/channel-price"
-      },
-      {
         "source_menu_key": "aigc_image_stat",
         "type": "C",
         "name": "用量统计",
