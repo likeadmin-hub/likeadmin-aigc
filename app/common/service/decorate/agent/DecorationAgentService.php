@@ -236,11 +236,14 @@ final class DecorationAgentService
     }
     public static function retryImage(int $tenant,int $admin,array $p): array
     {
-        self::assertEnabled();return Db::transaction(function()use($tenant,$admin,$p){
+        self::assertEnabled();$hint=self::owned('image_slot',$tenant,$admin,(int)($p['slot_id']??0));return Db::transaction(function()use($tenant,$admin,$p,$hint){
+            // Same order as discard/hydrate/publish: candidate, run, then slot.
+            $candidate=self::q('candidate',$tenant,$admin)->where('id',$hint['candidate_id'])->lock(true)->find();if(!$candidate||$candidate['status']==='discarded')throw new RuntimeException('已舍弃的候选不能重新生成或重试图片');
+            $run=self::q('run',$tenant,$admin)->where('id',$hint['run_id'])->lock(true)->find();if(!$run)throw new RuntimeException('图片所属执行不存在');if($run['status']==='needs_review')throw new RuntimeException('本轮提交或费用仍待核实，不能追加图片调用');
             $slot=self::q('image_slot',$tenant,$admin)->where('id',(int)($p['slot_id']??0))->lock(true)->find();if(!$slot)throw new RuntimeException('图片位置不存在');
             $next=self::q('image_slot',$tenant,$admin)->where(['run_id'=>$slot['run_id'],'slot_key'=>$slot['slot_key'],'attempt'=>(int)$slot['attempt']+1])->lock(true)->find();if($next)return ['slot_id'=>$next['id']];
+            if(in_array($run['status'],['queued','running','waiting_images'],true))throw new RuntimeException('当前轮执行尚未结束，请等待完成后重试');
             if($slot['status']!=='failed'&&!($slot['status']==='success'&&($p['regenerate']??false)===true))throw new RuntimeException('只有确定失败的图片允许重试；成功图片需明确选择重新生成');if(self::q('image_slot',$tenant,$admin)->where('run_id',$slot['run_id'])->count()>=5)throw new RuntimeException('本轮图片次数已达上限，请新建一轮继续');
-            $candidate=self::owned('candidate',$tenant,$admin,(int)$slot['candidate_id']);if($candidate['status']==='discarded')throw new RuntimeException('已舍弃的候选不能重新生成或重试图片');
             $requestJson=$slot['request_json'];
             if($slot['status']==='success'){$payload=self::decode($candidate['payload_json']);$request=self::decode($requestJson);$nodes=DecorationAgentOperations::index($payload['data']);$node=$nodes[$request['widget_id']]??null;if(!$node)throw new RuntimeException('图片组件已删除，请新建一轮调整');$request['old_value']=DecorationAgentOperations::get($node['widget'],$request['field']);$requestJson=self::json($request);}
             $id=self::insert('image_slot',$tenant,$admin,['session_id'=>$slot['session_id'],'run_id'=>$slot['run_id'],'candidate_id'=>$slot['candidate_id'],'slot_key'=>$slot['slot_key'],'request_json'=>$requestJson,'result_json'=>'{}','attempt'=>(int)$slot['attempt']+1]);
@@ -294,12 +297,17 @@ final class DecorationAgentService
             catch(\Throwable $e){$key=self::json($op);$ctx['failures'][$key]=($ctx['failures'][$key]??0)+1;$ctx['observations'][]=['tool'=>$op['type'],'error'=>$e->getMessage()];if($ctx['failures'][$key]>1){self::saveContext($id,$ctx);self::finish($id,'failed',['error'=>'重复操作失败：'.$e->getMessage()]);return;}$decision['kind']='tools';}
             self::saveContext($id,$ctx);Db::name('decorate_agent_run')->where('id',$id)->update(['tool_calls'=>$count]);self::event($id,'tool',['message'=>'已处理装修操作','tool'=>$op['type']]);
         }
-        $r=Db::name('decorate_agent_run')->where('id',$id)->find();$cId=(int)$r['candidate_id'];
+        Db::transaction(function()use($tenant,$admin,$id,$s,$input,&$ctx,$decision,$imageRequests){
+        $snapshot=Db::name('decorate_agent_run')->where('id',$id)->find();$cId=(int)$snapshot['candidate_id'];
+        $existing=$cId?self::q('candidate',$tenant,$admin)->where('id',$cId)->lock(true)->find():null;
+        $r=Db::name('decorate_agent_run')->where('id',$id)->lock(true)->find();self::fence($id);
+        if((int)$r['cancel_requested']||($existing&&$existing['status']==='discarded')){self::finish($id,'canceled',['summary'=>'候选已停止或舍弃，后续操作未应用']);return;}
         if(!$cId){$cId=self::insert('candidate',$tenant,$admin,['session_id'=>$s['id'],'run_id'=>$id,'base_hash'=>self::hash($ctx['base']),'base_json'=>self::json($ctx['base']),'status'=>'building','payload_json'=>self::json($ctx['candidate']),'changes_json'=>self::json($ctx['changes'])]);Db::name('decorate_agent_run')->where('id',$id)->update(['candidate_id'=>$cId]);}
         else{self::q('candidate',$tenant,$admin)->where('id',$cId)->inc('revision')->update(['payload_json'=>self::json($ctx['candidate']),'changes_json'=>self::json($ctx['changes'])]);}
         foreach($imageRequests as $req){if(!in_array('generate',$input['sources'],true)){$ctx['observations'][]=['error'=>'未授权AI生图'];$decision['kind']='tools';continue;}if(self::q('image_slot',$tenant,$admin)->where('run_id',$id)->count()>=5){$ctx['observations'][]=['error'=>'已达到五张图片上限'];continue;}$key=(string)$req['widget_id'].':'.(string)$req['field'];if(self::q('image_slot',$tenant,$admin)->where(['run_id'=>$id,'slot_key'=>$key])->whereIn('status',['queued','running','submitting'])->count())continue;self::insert('image_slot',$tenant,$admin,['session_id'=>$s['id'],'run_id'=>$id,'candidate_id'=>$cId,'slot_key'=>$key,'request_json'=>self::json($req),'result_json'=>'{}']);}
         self::saveContext($id,$ctx);self::q('session',$tenant,$admin)->where('id',$s['id'])->update(['active_candidate_id'=>$cId,'facts'=>self::json($ctx['facts'])]);
         if($decision['kind']==='final'){$summary=count($ctx['changes']).'项装修调整已生成，请预览后应用。';$pending=self::q('image_slot',$tenant,$admin)->where('run_id',$id)->whereIn('status',['queued','running'])->count();self::q('candidate',$tenant,$admin)->where('id',$cId)->update(['status'=>$pending?'waiting_images':'ready']);self::finish($id,$pending?'waiting_images':'completed',['summary'=>$summary,'warnings'=>$decision['warnings']]);}
+        });
     }
     private static function explicitUrls(string $message,array $attachments): array
     {preg_match_all('~https?://[^\s<>"\x{3000}-\x{9fff}]+~u',$message,$m);return array_values(array_unique(array_merge($m[0],array_column(array_filter($attachments,fn($a)=>in_array('asset',$a['uses']??[],true)),'url'))));}
@@ -340,6 +348,7 @@ final class DecorationAgentService
                     $quote=DecorationAgentMediaService::quote($tenant,$input['image_model_selection'],1,$request);if(($quote['cost_known']??true)===false)throw new RuntimeException('该图片规格按实际用量计费，无法在本轮预算内预估，请选择按次规格');$cost=(float)($quote['tenant_cost_points']??$quote['tenant_cost']??0);
                     if(self::spent($r)+$cost>$input['budget_points'])throw new RuntimeException('图片费用超过本轮剩余预算');
                     $receipt=Db::transaction(function()use($tenant,$admin,$slot,$r,$input,$request){
+                        $candidate=self::q('candidate',$tenant,$admin)->where('id',$slot['candidate_id'])->lock(true)->find();if(!$candidate||$candidate['status']==='discarded')throw new RuntimeException('候选已舍弃，图片提交已停止');
                         self::fence((int)$r['id']);$locked=self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->lock(true)->find();if($locked['status']!=='queued')throw new RuntimeException('图片任务已被处理');
                         if(Db::name('decorate_agent_run')->where('id',$r['id'])->value('cancel_requested'))throw new RuntimeException('任务已停止');
                         $receipt=DecorationAgentMediaService::reserve($tenant,$admin,(int)$slot['id'],$input['image_model_selection'],$request);

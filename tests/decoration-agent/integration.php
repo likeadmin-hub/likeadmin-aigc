@@ -57,6 +57,7 @@ Db::startTrans();try{
  try{S::retryImage(1,1,['slot_id'=>$genSlot]);throw new RuntimeException('success retried without explicit regeneration');}catch(RuntimeException $e){assertAgent(str_contains($e->getMessage(),'明确'),'successful image requires explicit regeneration');}
  $regen=S::retryImage(1,1,['slot_id'=>$genSlot,'regenerate'=>true]);$genReplay=S::retryImage(1,1,['slot_id'=>$genSlot,'regenerate'=>true]);assertAgent($regen['slot_id']===$genReplay['slot_id'],'regeneration attempt idempotent');$next=Db::name('decorate_agent_image_slot')->where('id',$regen['slot_id'])->find();assertAgent((int)$next['attempt']===2&&S::decode($next['request_json'])['old_value']==='https://fixture.invalid/latest-image.png','regeneration captures current candidate image and new attempt');
  S::discard(1,1,(int)$regenCandidate);assertAgent((int)Db::name('decorate_agent_run')->where('id',$fakeRun)->value('cancel_requested')===1,'discard stops queued image attempts before additional charges');
+ try{S::retryImage(1,1,['slot_id'=>$genSlot,'regenerate'=>true]);throw new RuntimeException('discarded attempt reactivated');}catch(RuntimeException $e){assertAgent(str_contains($e->getMessage(),'舍弃'),'discarded run cannot be reactivated by retry replay');}
 }finally{Db::rollback();}
 assertAgent(json_encode(Db::name('decorate_page')->where('tenant_id',1)->where('id',1)->find())===$baselineJson,'existing page untouched');
 echo json_encode(['passed'=>$passed,'template_id'=>$template['id'],'session_id'=>$session['id'],'original_unchanged'=>true],JSON_UNESCAPED_UNICODE)."\n";
