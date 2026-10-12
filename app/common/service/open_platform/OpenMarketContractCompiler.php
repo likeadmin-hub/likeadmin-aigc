@@ -84,6 +84,7 @@ final class OpenMarketContractCompiler
         $hasTask = false; foreach ($responseSamples as $sample) if (OpenSchema::get($sample,'task_id')!==null || OpenSchema::get($sample,'data.task_id')!==null) $hasTask = true;
         if ($callType === 2 && !$hasTask && !isset($responses['200']['content']['application/json']['schema']['properties']['data']['properties']['task_id']) && !isset($responses['200']['content']['application/json']['schema']['properties']['task_id'])) $base[] = self::block('task_response_missing', '异步操作缺少任务 ID 响应声明');
         $taskRoot = isset($responses['200']['content']['application/json']['schema']['properties']['task_id']);
+        $nativeMedia = OpenNativeMarketPricing::supports($product);
         $skus = []; $candidates = []; $drafts = []; $signatures = [];
         foreach ($product['skus'] ?? [] as $sku) { $key = OpenPolicy::fingerprint(OpenStore::json($sku['locked_params'] ?? [])); $signatures[$key] = ($signatures[$key] ?? 0) + 1; }
         foreach ($product['skus'] ?? [] as $sku) {
@@ -91,17 +92,20 @@ final class OpenMarketContractCompiler
             $skus[] = ['sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => (float)$sku['usage_unit_size'], 'sale_points' => (float)$sku['sale_points'], 'sale_status' => (bool)$sku['sale_status'], 'locked_params' => OpenPolicy::publicData($locked)];
             foreach ($paths as $route) {
                 $issues = $base; $candidateInput = $input; $candidateExample = $example; $when = [];
-                if (($sku['usage_unit'] ?? '') !== 'per_call' || (float)($sku['usage_unit_size'] ?? 0) !== 1.) $issues[] = self::block('billing_adapter_required', '仅固定单调用计费可自动导入；实际用量需可信数量与上限');
+                if (\app\common\service\power\MarketUsageSettlementService::isActualUsageSku($sku)) $issues[] = self::block('actual_usage_boundary_required','Token SKU 已存在，透传执行仍需真实用量结算与可信受理额度');
+                elseif (!$nativeMedia && (($sku['usage_unit'] ?? '') !== 'per_call' || (float)($sku['usage_unit_size'] ?? 0) !== 1.)) $issues[] = self::block('billing_adapter_required', '当前业务尚未接入原生数量适配');
+                elseif ($nativeMedia && !in_array($sku['usage_unit']??'',['per_call','input_second','output_second','second','seconds','sec'],true)) $issues[] = self::block('billing_adapter_required','原生媒体单位尚未适配');
                 if (empty($sku['sale_status'])) $issues[] = self::block('sku_not_sellable', 'SKU 已下架');
                 if (($signatures[OpenPolicy::fingerprint($locked)] ?? 0) > 1) $issues[] = self::block('ambiguous_sku', '多个 SKU 锁定相同维度，需可靠选择器');
                 foreach ($locked as $field => $value) {
                     if (str_starts_with($field, '_')) { $issues[] = self::block('derived_sku_parameter', '内部计费维度需服务器派生', $field); continue; }
-                    if (!isset($candidateInput['properties'][$field])) { $issues[] = self::block('sku_parameter_missing', 'SKU 锁定参数未声明在请求结构中', $field); continue; }
-                    $candidateInput['properties'][$field]['const'] = $value; $candidateInput['required'] = array_values(array_unique(array_merge($candidateInput['required'] ?? [], [$field]))); $candidateExample[$field] = $value; $when[$field] = $value;
+                    $pathsForField=self::fieldPaths($candidateInput,$field);if(count($pathsForField)!==1){$issues[]=self::block('sku_parameter_missing','SKU 锁定参数未唯一声明在请求结构中',$field);continue;}
+                    $parameterPath=$pathsForField[0];self::lockField($candidateInput,$candidateExample,$parameterPath,$value);$when[$parameterPath]=$value;
                 }
                 if ($model && !empty($product['upstream_channel_code'])) $when['channel'] = (string)$product['upstream_channel_code'];
                 $code = 'market.p' . (int)$product['id'] . '.' . $route['protocol'] . '.s' . (int)$sku['id'];
                 $config = ['response_adapter' => OpenMarketResponse::ADAPTER, 'executor' => 'json', 'role' => 'submit', 'title' => (string)$product['name'], 'billable' => true, 'input' => $candidateInput, 'example' => $candidateExample, 'responses' => $responses, 'when' => $when, 'billing' => [['sku_id' => (int)$sku['id'], 'basis' => 'input', 'max_units' => 1]], 'billing_description' => '按当前租户有效商城 SKU 售价，单调用计费；任务查询不重复收费', 'query_path' => '/api/v1/tasks/{task_id}', 'task_id_path' => $taskRoot ? 'task_id' : 'data.task_id'];
+                if($nativeMedia){$config['native_pricing']=OpenNativeMarketPricing::ADAPTER;$config['success_statuses']=['success','completed','succeeded','partial_success','partial_failed'];$config['billing_description']='按原生媒体 SKU 及实际成功数量/用量结算，受理参数仅用于价格映射，原协议不改写';}
                 if ($model) $config['model'] = (string)$product['upstream_model_code'];
                 $draft = ['code' => $code, 'kind' => 'market', 'product_id' => (int)$product['id'], 'method' => $method, 'path' => $route['path'], 'config' => $config];
                 try { OpenContracts::validate($draft); } catch (\Throwable $error) { $issues[] = self::block('contract_validation_failed', $error instanceof OpenException ? $error->getMessage() : '契约结构无法验证'); }
@@ -139,6 +143,20 @@ final class OpenMarketContractCompiler
     }
 
     private static function tenant(int $tenantId): void { if ($tenantId <= 0) throw new OpenException('invalid_tenant', '请明确目标租户'); }
+    private static function fieldPaths(array $input,string $field): array
+    {
+        $paths=[];if(isset($input['properties'][$field]))$paths[]=$field;
+        foreach(['parameters','params'] as $parent)if(isset($input['properties'][$parent]['properties'][$field]))$paths[]=$parent.'.'.$field;
+        return $paths;
+    }
+    private static function lockField(array &$input,array &$example,string $path,mixed $value): void
+    {
+        $parts=explode('.',$path);$schema=&$input;$data=&$example;
+        foreach($parts as $i=>$part){$schema['required']=array_values(array_unique(array_merge($schema['required']??[],[$part])));
+            if($i===count($parts)-1){$schema['properties'][$part]['const']=$value;$data[$part]=$value;break;}
+            $schema=&$schema['properties'][$part];if(($data[$part]??null) instanceof \stdClass)$data[$part]=(array)$data[$part];if(!isset($data[$part]))$data[$part]=[];$data=&$data[$part];
+        }
+    }
     private static function review(array $review): void
     {
         if (!$review) return;

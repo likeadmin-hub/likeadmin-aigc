@@ -189,6 +189,7 @@ class MarketImageModelRuntimeService
     public static function openPlatformAdmissionQuote(int $tenantId, array $selection, int $quantity): array
     {
         $market = self::resolve($tenantId, $selection);
+        self::assertReferenceImagesAllowed($market, $selection);
         return ['market' => $market, 'quote' => self::quoteMarket($market, $quantity, [])];
     }
 

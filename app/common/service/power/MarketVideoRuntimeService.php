@@ -3287,6 +3287,17 @@ class MarketVideoRuntimeService
         }
         return $submitted;
     }
+    /** Pricing-only reuse for the raw protocol gateway, without changing its payload. */
+    public static function openPlatformSettlementQuantity(array $snapshot, array $response): ?float
+    {
+        $submitted = max(1, (float)($snapshot['quantity'] ?? 1));
+        $usage = self::usage($response, $submitted);
+        if (self::isTokenSnapshot($snapshot)) {
+            $usage['actual_quantity'] = MarketUsageSettlementService::tokenUsage($response);
+            if ($usage['actual_quantity'] <= 0) return null;
+        }
+        return self::settlementQuantity($snapshot, $submitted, $usage);
+    }
     private static function root(array $data): array { return self::arrayValue($data['data'] ?? $data); }
     private static function status(array $data): string { $root = self::root($data); return strtolower((string)($data['status'] ?? $data['state'] ?? $root['status'] ?? $root['state'] ?? $root['task_status'] ?? '')); }
     private static function taskId(array $data): string

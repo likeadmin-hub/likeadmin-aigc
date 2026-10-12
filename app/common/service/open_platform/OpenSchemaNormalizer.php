@@ -33,6 +33,7 @@ final class OpenSchemaNormalizer
             if ($types) $rule['type'] = count($types) === 1 ? $types[0] : array_values($types);
             if (isset($field['options']) && !isset($rule['enum'])) {
                 if (is_array($field['options']) && array_is_list($field['options']) && !array_filter($field['options'], 'is_array')) $rule['enum'] = $field['options'];
+                elseif (is_string($field['options']) && !preg_match('/^\s*[\[{]/',$field['options'])) $rule['description']=trim((string)($rule['description']??'')."\n".$field['options']);
                 else $blockers[] = self::issue('options_review_required', $fieldPath, '非结构化 options 需明确审核，不能猜测枚举');
             }
             if (isset($field['children'])) {
