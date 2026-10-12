@@ -4,12 +4,12 @@ final class OpenPages
 {
     public static function defaults(): array
     {
-        $items=['overview'=>['开发者概览','/user/developer/overview'],'keys'=>['API 密钥','/user/api-keys'],'catalog'=>['API 能力目录','/user/developer/catalog'],'playground'=>['在线调试','/user/developer/playground'],'requests'=>['调用记录','/user/developer/requests'],'tasks'=>['异步任务','/user/developer/tasks'],'usage'=>['用量与账单','/user/developer/usage'],'home'=>['API 平台首页','/official/open'],'docs'=>['API 文档','/docs']];
+        $items=['overview'=>['开发概览','/user/developer/overview'],'keys'=>['API密钥','/user/api-keys'],'catalog'=>['API目录','/user/developer/catalog'],'playground'=>['在线调试','/user/developer/playground'],'requests'=>['调用记录','/user/developer/requests'],'tasks'=>['异步任务','/user/developer/tasks'],'usage'=>['用量账单','/user/developer/usage'],'home'=>['API平台首页','/official/open'],'docs'=>['API文档','/docs']];
         $out=[];foreach($items as $id=>$item)$out[]=['id'=>$id,'name'=>$item[0],'path'=>$item[1],'icon'=>$id,'sort'=>count($out)*10,'visible'=>true,'description'=>'','help_url'=>''];return $out;
     }
     public static function configured(int $tenantId): array
     {
-        $overrides=array_replace(OpenStore::settings(0)['pages'],OpenStore::settings($tenantId)['pages']);$rows=[];foreach(self::defaults() as $default){$row=array_replace($default,$overrides[$default['id']]??[]);if(($row['icon']??'api')==='api')$row['icon']=$default['icon'];$row['id']=$default['id'];$row['path']=$default['path'];$rows[]=$row;}usort($rows,fn($a,$b)=>[$a['sort'],$a['id']]<=>[$b['sort'],$b['id']]);return $rows;
+        $overrides=array_replace(OpenStore::settings(0)['pages'],OpenStore::settings($tenantId)['pages']);$rows=[];foreach(self::defaults() as $default){$row=array_replace($default,$overrides[$default['id']]??[]);if(($row['icon']??'api')==='api')$row['icon']=$default['icon'];$legacy=['overview'=>'开发者概览','keys'=>'API 密钥','catalog'=>'API 能力目录','usage'=>'用量与账单','home'=>'API 平台首页','docs'=>'API 文档'];if(($row['name']??'')===($legacy[$default['id']]??null))$row['name']=$default['name'];$row['id']=$default['id'];$row['path']=$default['path'];$rows[]=$row;}usort($rows,fn($a,$b)=>[$a['sort'],$a['id']]<=>[$b['sort'],$b['id']]);return $rows;
     }
     public static function validate(array $pages): array
     {
