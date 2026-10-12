@@ -51,6 +51,12 @@ final class OpenMarketContractCompiler
         $input = $normal['schema']; $base = $normal['blockers'];
         $doc = (string)($meta['developer_doc_content'] ?? ''); $jsonExamples = self::documentExamples($doc);
         $model = $product['resource_type'] === 'model'; $app = (string)($product['upstream_app_code'] ?? ''); $api = (string)($product['upstream_api_code'] ?? '');
+        $characterApi=OpenCharacterInputPricing::productSupported($product);$characterConfiguration=[];
+        if($characterApi){try{$characterConfiguration=OpenCharacterInputPricing::configuration($product);}catch(OpenException $e){$base[]=self::block('character_defaults_review',$e->getMessage());}
+            if(($input['properties']['text']['type']??'')!=='string')$base[]=self::block('character_input_review','字符接口必须声明原协议 root text');
+            $input['required']=array_values(array_unique(array_merge($input['required']??[],['text'])));$input['properties']['text']['minLength']=1;$input['properties']['text']['example']='你好';$input['additionalProperties']=false;
+            if(isset($input['properties']['reference_id']))$input['properties']['reference_id']=['type'=>'string','const'=>'','description'=>'当前仅支持供应商默认音色；指定音色需资源归属适配'];
+        }
         $callType = (int)($meta['call_type'] ?? $raw['call_type'] ?? 0);
         $method = $model ? 'POST' : strtoupper((string)($meta['method'] ?? ''));
         $protocols = array_values(array_filter((array)($meta['protocols'] ?? []), 'is_string'));
@@ -65,7 +71,7 @@ final class OpenMarketContractCompiler
         if (!in_array($method, ['POST', 'PUT', 'DELETE'], true)) $base[] = self::block('resource_adapter_required', '读取/目录操作需独立资源权限适配，不按免费接口导入');
         if (!$model && ($app === 'seedance' && $api !== 'create' || in_array($api, self::RESOURCE_APIS, true))) $base[] = self::block('ownership_adapter_required', '生命周期或共享资源操作需本地归属适配');
         if (!in_array($callType, [1, 2], true)) $base[] = self::block('lifecycle_mode_review', '同步/异步混合或未知执行模式需审核');
-        foreach (array_keys($input['properties'] ?? []) as $field) if (preg_match('/(?:^|_)(?:audio_id|asset_id|file_id|group_id|persona_id|reference_id|task_id)(?:$|_)/i', $field)) $base[] = self::block('ownership_adapter_required', '输入资源 ID 需本地归属适配', $field);
+        foreach (array_keys($input['properties'] ?? []) as $field) if (preg_match('/(?:^|_)(?:audio_id|asset_id|file_id|group_id|persona_id|reference_id|task_id)(?:$|_)/i', $field)&&!($characterApi&&$field==='reference_id')) $base[] = self::block('ownership_adapter_required', '输入资源 ID 需本地归属适配', $field);
         if ($model) {
             $input['properties']['model'] = ['type' => 'string', 'const' => (string)$product['upstream_model_code']];
             $input['required'] = array_values(array_unique(array_merge($input['required'] ?? [], ['model'])));
@@ -89,11 +95,13 @@ final class OpenMarketContractCompiler
         foreach ($product['skus'] ?? [] as $sku) { $key = OpenPolicy::fingerprint(OpenStore::json($sku['locked_params'] ?? [])); $signatures[$key] = ($signatures[$key] ?? 0) + 1; }
         foreach ($product['skus'] ?? [] as $sku) {
             $locked = OpenStore::json($sku['locked_params'] ?? []);
+            $character=OpenCharacterInputPricing::supports($product,$sku);
             $skus[] = ['sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => (float)$sku['usage_unit_size'], 'sale_points' => (float)$sku['sale_points'], 'sale_status' => (bool)$sku['sale_status'], 'locked_params' => OpenPolicy::publicData($locked)];
             foreach ($paths as $route) {
                 $issues = $base; $candidateInput = $input; $candidateExample = $example; $when = []; $whenDefaults=[]; $parameterPaths=[];
+                try{OpenSkuConsistency::assert($sku);}catch(OpenException $e){$issues[]=self::block('pricing_spec_mismatch',$e->getMessage());}
                 if (\app\common\service\power\MarketUsageSettlementService::isActualUsageSku($sku)) $issues[] = self::block('actual_usage_boundary_required','Token SKU 已存在，透传执行仍需真实用量结算与可信受理额度');
-                elseif (!$nativeMedia && (($sku['usage_unit'] ?? '') !== 'per_call' || (float)($sku['usage_unit_size'] ?? 0) !== 1.)) $issues[] = self::block('billing_adapter_required', '当前业务尚未接入原生数量适配');
+                elseif (!$nativeMedia && !$character && (($sku['usage_unit'] ?? '') !== 'per_call' || (float)($sku['usage_unit_size'] ?? 0) !== 1.)) $issues[] = self::block('billing_adapter_required', '当前业务尚未接入原生数量适配');
                 elseif ($nativeMedia && !in_array($sku['usage_unit']??'',['per_call','input_second','output_second','second','seconds','sec'],true)) $issues[] = self::block('billing_adapter_required','原生媒体单位尚未适配');
                 if (empty($sku['sale_status'])) $issues[] = self::block('sku_not_sellable', 'SKU 已下架');
                 if (($signatures[OpenPolicy::fingerprint($locked)] ?? 0) > 1) $issues[] = self::block('ambiguous_sku', '多个 SKU 锁定相同维度，需可靠选择器');
@@ -106,6 +114,7 @@ final class OpenMarketContractCompiler
                 $code = 'market.p' . (int)$product['id'] . '.' . $route['protocol'] . '.s' . (int)$sku['id'];
                 $config = ['response_adapter' => OpenMarketResponse::ADAPTER, 'executor' => 'json', 'role' => 'submit', 'title' => (string)$product['name'], 'billable' => true, 'input' => $candidateInput, 'example' => $candidateExample, 'responses' => $responses, 'when' => $when, 'when_defaults'=>$whenDefaults, 'billing' => [['sku_id' => (int)$sku['id'], 'basis' => 'input', 'max_units' => 1,'parameter_paths'=>$parameterPaths]], 'billing_description' => '按当前租户有效商城 SKU 售价，单调用计费；任务查询不重复收费', 'query_path' => '/api/v1/tasks/{task_id}', 'task_id_path' => $taskRoot ? 'task_id' : 'data.task_id'];
                 if($nativeMedia){$config['native_pricing']=OpenNativeMarketPricing::ADAPTER;$config['success_statuses']=['success','completed','succeeded','partial_success','partial_failed'];$config['billing_description']='按原生媒体 SKU 及实际成功数量/用量结算，受理参数仅用于价格映射，原协议不改写';}
+                if($character){$config['native_pricing']=OpenCharacterInputPricing::ADAPTER;$config+=$characterConfiguration;$config['billing_description']='按实际输入 UTF-8 字符数量及已冻结商城 SKU 单位售价计费；当前只支持供应商默认音色，查询不重复扣款';}
                 if ($model){$config['model'] = (string)$product['upstream_model_code'];if(!empty($product['upstream_channel_code']))$config['routing_channel']=(string)$product['upstream_channel_code'];}
                 $draft = ['code' => $code, 'kind' => 'market', 'product_id' => (int)$product['id'], 'method' => $method, 'path' => $route['path'], 'config' => $config];
                 try { OpenContracts::validate($draft); } catch (\Throwable $error) { $issues[] = self::block('contract_validation_failed', $error instanceof OpenException ? $error->getMessage() : '契约结构无法验证'); }

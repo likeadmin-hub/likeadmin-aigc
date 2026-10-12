@@ -94,6 +94,7 @@ final class OpenGateway
     /** A bound supplier channel is server routing, not an extra SDK argument. */
     private static function marketParameters(array $operation,array $params): array
     {
+        if(empty($operation['history'])&&($operation['native_pricing']??'')===OpenCharacterInputPricing::ADAPTER)$params=OpenCharacterInputPricing::transportParameters($operation,$params);
         if(empty($operation['history'])&&isset($operation['model'])&&!empty($operation['routing_channel'])){
             if(isset($params['channel'])&&$params['channel']!==$operation['routing_channel'])throw new OpenException('invalid_sku','渠道与所选接口不一致');
             $params['channel']=$operation['routing_channel'];
