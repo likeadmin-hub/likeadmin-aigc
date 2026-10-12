@@ -598,17 +598,8 @@ class AigcDigitalHumanService
         }
         $text = mb_substr($text, 0, 80);
 
-        $config = self::config($tenantId);
-        $channels = $config['option_config']['channels'] ?? [];
-        $defaults = $config['option_config']['defaults'] ?? [];
-        $firstChannel = is_array($channels) && !empty($channels) ? $channels[0] : [];
-        $firstQuality = $firstChannel['qualities'][0] ?? [];
-        $firstRatio = $firstQuality['ratios'][0] ?? [];
-        $selection = AigcDigitalHumanChannelService::resolveSelection($tenantId, [
-            'channel' => $defaults['channel'] ?? ($firstChannel['value'] ?? 'master'),
-            'quality' => $defaults['quality'] ?? ($firstQuality['value'] ?? '1k'),
-            'ratio' => $defaults['ratio'] ?? ($firstRatio['value'] ?? '9:16'),
-        ]);
+        // Voice previews use the existing TTS configuration, independently of video SKU availability.
+        $selection = AigcDigitalHumanChannelService::resolveLegacySelection($tenantId, []);
         $request = new AigcDigitalHumanGenerateRequest(
             $text,
             '',
@@ -2044,10 +2035,13 @@ class AigcDigitalHumanService
             self::finishTaskWithVideos($task,$request->avatar,$request->voice,$selection,$estimate,$videos);
         } catch (\Throwable $error) {
             // A settled market task must remain retryable if saving its business result failed.
-            $id = (int)($task['provider_payload_json']['market_consumption_id'] ?? 0);
+            $id = (int)($consumptionId ?? $task['provider_payload_json']['market_consumption_id'] ?? 0);
             $settled = $id > 0 && \app\common\model\ai\AiConsumptionLog::where('id',$id)->value('billing_status') === 'settled';
             if ($settled) $task->save(['error'=>'结果同步待重试：'.$error->getMessage(),'update_time'=>time()]);
-            else self::failTask($task,'lipsync_failed',$error->getMessage());
+            else {
+                if ($id > 0) $runtime::fail($id, $error->getMessage());
+                self::failTask($task,'lipsync_failed',$error->getMessage());
+            }
         } finally { SubmitLockService::release($lock); }
     }
 
