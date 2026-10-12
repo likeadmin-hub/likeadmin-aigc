@@ -17,7 +17,7 @@ try {
     $rows=Effects::normalize($rows);
     Video::saveConfig($tenant,['config_json'=>['video_effects'=>$rows]]);
     $check(Effects::catalog($tenant)===$rows,'Config reload');
-    $check(Effects::publicCatalog(Effects::catalog($tenant+1))===[],'Tenant isolation');
+    $check(count(Effects::publicCatalog(Effects::catalog($tenant+1)))===90,'New tenant inherits enabled defaults, not another tenant configuration');
     Video::saveConfig($tenant,['config_json'=>[]]);
     $check(Effects::catalog($tenant)===$rows,'Legacy config save preserves effects');
     $payloadMethod=new ReflectionMethod(Runtime::class,'modelPayload');$payloadMethod->setAccessible(true);

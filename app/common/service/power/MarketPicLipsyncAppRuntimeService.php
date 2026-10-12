@@ -33,7 +33,7 @@ class MarketPicLipsyncAppRuntimeService
     {
         $products = PowerMarketProduct::where([
             'resource_type' => PowerMarketService::TYPE_APP_API,
-            'upstream_app_code' => self::UPSTREAM_APP_CODE,
+            'upstream_app_code' => static::UPSTREAM_APP_CODE,
             'upstream_api_code' => self::SUBMIT_API_CODE,
             'status' => 1,
         ])->order('id', 'asc')->select()->toArray();
@@ -54,11 +54,11 @@ class MarketPicLipsyncAppRuntimeService
                 if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) {
                     continue;
                 }
-                if (!in_array((string)(self::arrayValue($sku['locked_params'] ?? [])['quality'] ?? ''), ['fast', 'standard', 'max'], true)) continue;
+                if (!static::acceptsSku(self::arrayValue($sku['locked_params'] ?? []))) continue;
                 $tenantPrice = $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points'];
                 $options[] = [
-                    'id' => self::selectionId((int)$product['id'], (int)$sku['id']),
-                    'value' => self::selectionId((int)$product['id'], (int)$sku['id']),
+                    'id' => static::selectionId((int)$product['id'], (int)$sku['id']),
+                    'value' => static::selectionId((int)$product['id'], (int)$sku['id']),
                     'label' => (string)($sku['title'] ?: ($product['name'] ?? '图片数字人、AI翻唱 API')),
                     'name' => (string)($sku['title'] ?: ($product['name'] ?? '图片数字人、AI翻唱 API')),
                     'description' => (string)($product['description'] ?? ''),
@@ -71,7 +71,7 @@ class MarketPicLipsyncAppRuntimeService
                     'market_sku_id' => (int)$sku['id'],
                     'sku_id' => (int)$sku['id'],
                     'sku_key' => (string)$sku['sku_key'],
-                    'app_code' => self::UPSTREAM_APP_CODE,
+                    'app_code' => static::UPSTREAM_APP_CODE,
                     'api_code' => self::SUBMIT_API_CODE,
                     'quality' => (string)(self::arrayValue($sku['locked_params'] ?? [])['quality'] ?? ''),
                     'locked_params' => self::arrayValue($sku['locked_params'] ?? []),
@@ -92,6 +92,11 @@ class MarketPicLipsyncAppRuntimeService
             }
         }
         return $options;
+    }
+
+    protected static function requiresAdmissionGate(): bool
+    {
+        return true;
     }
 
     public static function quote(int $tenantId, array $selection, float $quantity = 0): array
@@ -126,7 +131,7 @@ class MarketPicLipsyncAppRuntimeService
         string $appCode = self::APP_CODE,
         string $businessTable = 'aigc_pic_lipsync_task'
     ): array {
-        if (MarketAppGateService::requiresGate($appCode)) {
+        if (static::requiresAdmissionGate() && MarketAppGateService::requiresGate($appCode)) {
             MarketAppGateService::requireMarket($tenantId, $userId, $appCode, (string)($request['idempotency_key'] ?? $businessTaskId));
         }
         $market = self::resolve($tenantId, $selection);
@@ -135,7 +140,7 @@ class MarketPicLipsyncAppRuntimeService
         $deferred = false;
         $tenantCost = $deferred ? 0 : self::cost((float)$market['sku']['sale_points'], $quantity, $market['sku']);
         $userPrice = $deferred ? 0 : self::cost((float)$market['tenant_price'], $quantity, $market['sku']);
-        $key = sha1($tenantId . '|' . $appCode . '|' . $action . '|' . $businessTaskId . '|pic_lipsync');
+        $key = sha1($tenantId . '|' . $appCode . '|' . $action . '|' . $businessTaskId . '|' . static::UPSTREAM_APP_CODE);
         $existing = self::existingReservation($tenantId, $key);
         if ($existing !== null) {
             return $existing;
@@ -442,14 +447,14 @@ class MarketPicLipsyncAppRuntimeService
         $productId = (int)($selection['market_product_id'] ?? 0);
         $skuId = (int)($selection['market_sku_id'] ?? $selection['sku_id'] ?? 0);
         $id = (string)($selection['id'] ?? $selection['value'] ?? '');
-        if (($productId <= 0 || $skuId <= 0) && preg_match('/^market_pic_lipsync_app:(\d+):(\d+)$/', $id, $matches)) {
+        if (($productId <= 0 || $skuId <= 0) && preg_match('/^market_' . preg_quote(static::UPSTREAM_APP_CODE, '/') . '_app:(\d+):(\d+)$/', $id, $matches)) {
             $productId = (int)$matches[1];
             $skuId = (int)$matches[2];
         }
         $product = PowerMarketProduct::where([
             'id' => $productId,
             'resource_type' => PowerMarketService::TYPE_APP_API,
-            'upstream_app_code' => self::UPSTREAM_APP_CODE,
+            'upstream_app_code' => static::UPSTREAM_APP_CODE,
             'upstream_api_code' => self::SUBMIT_API_CODE,
             'status' => 1,
         ])->findOrEmpty();
@@ -485,9 +490,9 @@ class MarketPicLipsyncAppRuntimeService
             'product_id' => (int)$product['id'],
             'sku_id' => (int)$sku['id'],
             'sku_key' => (string)$sku['sku_key'],
-            'app_code' => self::UPSTREAM_APP_CODE,
+            'app_code' => static::UPSTREAM_APP_CODE,
             'api_code' => self::SUBMIT_API_CODE,
-            'runtime_adapter' => 'pic_lipsync',
+            'runtime_adapter' => static::UPSTREAM_APP_CODE,
             'locked_params' => self::arrayValue($sku['locked_params'] ?? []),
             'params_schema' => self::arrayValue($metadata['params_schema'] ?? []),
             'query_api_code' => self::QUERY_API_CODE,
@@ -497,6 +502,11 @@ class MarketPicLipsyncAppRuntimeService
             'platform_price' => (float)$sku['sale_points'],
             'tenant_price' => (float)$market['tenant_price'],
         ];
+    }
+
+    protected static function acceptsSku(array $locked): bool
+    {
+        return in_array((string)($locked['quality'] ?? ''), ['fast', 'standard', 'max'], true);
     }
 
     public static function buildPayload(array $snapshot, array $request): array
@@ -526,7 +536,7 @@ class MarketPicLipsyncAppRuntimeService
 
     private static function payload(array $snapshot, array $request, string $key): array
     {
-        return self::buildPayload($snapshot, $request);
+        return static::buildPayload($snapshot, $request);
     }
 
     private static function items(array $data, int $tenantId, int $userId): array
@@ -568,7 +578,7 @@ class MarketPicLipsyncAppRuntimeService
 
     private static function endpoint(string $apiCode): string
     {
-        return self::origin() . '/api/v1/apps/' . rawurlencode(self::UPSTREAM_APP_CODE) . '/' . rawurlencode($apiCode);
+        return self::origin() . '/api/v1/apps/' . rawurlencode(static::UPSTREAM_APP_CODE) . '/' . rawurlencode($apiCode);
     }
 
     private static function origin(): string
@@ -820,7 +830,7 @@ class MarketPicLipsyncAppRuntimeService
 
     private static function selectionId(int $productId, int $skuId): string
     {
-        return 'market_pic_lipsync_app:' . $productId . ':' . $skuId;
+        return 'market_' . static::UPSTREAM_APP_CODE . '_app:' . $productId . ':' . $skuId;
     }
 
     private static function no(string $prefix): string

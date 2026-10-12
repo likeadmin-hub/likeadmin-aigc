@@ -33,18 +33,7 @@ class AigcDigitalHumanChannelService
 
     public static function userConfig(int $tenantId): array
     {
-        try {
-            $channels = self::effectiveChannels($tenantId, true);
-            $priceMap = array_column(AigcDigitalHumanPricingService::config($tenantId)['generate_models'] ?? [], null, 'code');
-        } catch (Throwable $e) {
-            $channels = [];
-            $priceMap = [];
-        }
-        foreach ($channels as &$channel) {
-            $price = $priceMap[$channel['code']] ?? [];
-            $channel['tenant_unit_price'] = $price['tenant_unit_price'] ?? null;
-            $channel['billing_unit'] = 'second';
-        }
+        $channels = DigitalHumanMarketService::channels($tenantId);
         $defaults = self::defaults($channels);
         return [
             'channels' => self::sanitizeChannels($channels, false),
@@ -56,7 +45,17 @@ class AigcDigitalHumanChannelService
 
     public static function estimate(int $tenantId, array $params): array
     {
-        $resolved = self::resolveSelection($tenantId, $params);
+        return DigitalHumanMarketService::estimate($tenantId, $params);
+    }
+
+    public static function resolveSelection(int $tenantId, array $params): array
+    {
+        return DigitalHumanMarketService::selection($tenantId, $params);
+    }
+
+    public static function estimateLegacy(int $tenantId, array $params): array
+    {
+        $resolved = self::resolveLegacySelection($tenantId, $params);
         $quantity = self::normalizeQuantity($params['quantity'] ?? 1);
         self::assertChannelQuantity($resolved['channel'], $quantity);
         $duration = max(1, (int)($params['duration'] ?? $params['audio_duration'] ?? $params['seconds'] ?? 1));
@@ -74,7 +73,7 @@ class AigcDigitalHumanChannelService
         ]);
     }
 
-    public static function resolveSelection(int $tenantId, array $params): array
+    public static function resolveLegacySelection(int $tenantId, array $params): array
     {
         $channels = self::effectiveChannels($tenantId, true);
         if (empty($channels)) {

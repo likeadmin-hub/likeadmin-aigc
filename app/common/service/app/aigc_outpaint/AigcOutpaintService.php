@@ -9,6 +9,7 @@ use app\common\model\app\aigc_outpaint\AigcOutpaintTask;
 use app\common\model\app\aigc_image\AigcImageTask;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\app\AppSalePriceService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
@@ -65,7 +66,7 @@ class AigcOutpaintService
             AigcOutpaintConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function priceDetail(int $tenantId): array
@@ -312,7 +313,7 @@ class AigcOutpaintService
         return [
             'price_package' => $package,
             'source_image' => $sourceImage,
-            'unit_price' => round(max(0, (float)$package['unit_price']), 2),
+            'unit_price' => AppSalePriceService::normalize($package['unit_price'] ?? null),
             'image_payload' => array_merge($imagePayload, [
                 'channel' => (string)$resolved['channel']['code'],
                 'quality' => (string)$resolved['spec']['quality'],
@@ -328,7 +329,7 @@ class AigcOutpaintService
     private static function buildEstimate(array $prepared, array $imageEstimate): array
     {
         $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
-        $userUnitPrice = (float)$prepared['unit_price'];
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0));
         return array_merge($imageEstimate, [
             'quantity' => 1,
             'target_width' => $prepared['width'],
@@ -617,7 +618,7 @@ class AigcOutpaintService
                 'ratio' => $ratio,
                 'ratio_label' => mb_substr(trim((string)($item['ratio_label'] ?? $ratio)), 0, 80),
                 'quality_label' => mb_substr(trim((string)($item['quality_label'] ?? '')), 0, 80),
-                'unit_price' => round(max(0, (float)($item['unit_price'] ?? $item['tenant_unit_price'] ?? 0)), 2),
+                'unit_price' => AppSalePriceService::fromRow($item),
                 'status' => (int)($item['status'] ?? $item['tenant_status'] ?? 1) ? 1 : 0,
                 'sort' => (int)($item['sort'] ?? (100 - $index)),
             ];
@@ -651,7 +652,7 @@ class AigcOutpaintService
                 'width' => (int)($source['width'] ?? 0),
                 'height' => (int)($source['height'] ?? 0),
                 'platform_unit_cost' => round((float)($source['platform_unit_cost'] ?? 0), 2),
-                'unit_price' => round((float)$item['unit_price'], 2),
+                'unit_price' => AppSalePriceService::normalize($item['unit_price'] ?? null),
                 'status' => $status,
                 'sort' => (int)($item['sort'] ?? 0),
             ];
@@ -752,7 +753,7 @@ class AigcOutpaintService
                 'ratio' => $ratio,
                 'ratio_label' => (string)$source['ratio_label'],
                 'quality_label' => (string)$source['quality_label'],
-                'unit_price' => round(max(0, (float)$source['platform_unit_cost']), 2),
+                'unit_price' => null,
                 'status' => 1,
                 'sort' => 100 - $index,
             ];
@@ -813,7 +814,7 @@ class AigcOutpaintService
             AigcOutpaintConfig::create($payload);
             return;
         }
-        $row->save($payload);
+        $row->force()->save($payload);
     }
 
     private static function taskImageIds(array $task): array

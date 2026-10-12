@@ -11,6 +11,7 @@ use app\common\model\app\aigc_image\AigcImageResult;
 use app\common\model\app\aigc_image\AigcImageTask;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\app\AppSalePriceService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
@@ -55,7 +56,7 @@ class AigcFashionLookbookService
             'default_channel' => self::normalizeCode((string)($params['default_channel'] ?? $configJson['channel'] ?? $current['default_channel'] ?? '')),
             'default_quality' => trim((string)($params['default_quality'] ?? $configJson['quality'] ?? $current['default_quality'] ?? '')),
             'default_ratio' => trim((string)($params['default_ratio'] ?? $configJson['ratio'] ?? $current['default_ratio'] ?? '')),
-            'unit_price' => round(max(0, (float)($params['unit_price'] ?? $current['unit_price'] ?? 0)), 2),
+            'unit_price' => AppSalePriceService::normalize(array_key_exists('unit_price', $params) ? $params['unit_price'] : ($current['unit_price'] ?? null)),
             'max_clothes_images' => self::normalizeMaxClothes($params['max_clothes_images'] ?? $current['max_clothes_images'] ?? self::MAX_CLOTHES_IMAGES),
             'prompt_template' => self::normalizeTemplate((string)($params['prompt_template'] ?? $current['prompt_template'])),
             'negative_prompt' => trim((string)($params['negative_prompt'] ?? $current['negative_prompt'])),
@@ -69,7 +70,7 @@ class AigcFashionLookbookService
             AigcFashionLookbookConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function priceDetail(int $tenantId): array
@@ -77,7 +78,7 @@ class AigcFashionLookbookService
         $config = self::config($tenantId);
         return [
             'channels' => self::buildSpecOptions($config['option_config'] ?? []),
-            'unit_price' => round((float)($config['unit_price'] ?? 0), 2),
+            'unit_price' => AppSalePriceService::normalize($config['unit_price'] ?? null),
             'default_channel' => (string)($config['default_channel'] ?? ''),
             'default_quality' => (string)($config['default_quality'] ?? ''),
             'default_ratio' => (string)($config['default_ratio'] ?? ''),
@@ -92,7 +93,7 @@ class AigcFashionLookbookService
             'default_channel' => $params['default_channel'] ?? $current['default_channel'],
             'default_quality' => $params['default_quality'] ?? $current['default_quality'],
             'default_ratio' => $params['default_ratio'] ?? $current['default_ratio'],
-            'unit_price' => $params['unit_price'] ?? $current['unit_price'],
+            'unit_price' => array_key_exists('unit_price', $params) ? $params['unit_price'] : $current['unit_price'],
             'max_clothes_images' => $current['max_clothes_images'],
             'prompt_template' => $current['prompt_template'],
             'negative_prompt' => $current['negative_prompt'],
@@ -205,7 +206,7 @@ class AigcFashionLookbookService
         if ($preset !== null) $prepared['model_snapshot'] = array_intersect_key($preset->toArray(), array_flip(['id', 'name', 'model_image', 'cover_image']));
         $prepared['model_image'] = $preset === null ? $materials['model_image'] : (string)$preset['model_image'];
         $prepared['image_payload']['reference_images'] = [$prepared['model_image'], $prepared['clothes_images'][0]];
-        $single = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
+        $single = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], AppSalePriceService::imageOverride($prepared['unit_price']));
         if (($single['settlement_mode'] ?? '') !== 'reserved') throw new Exception('服饰套图暂不支持实际用量图片 SKU');
         return ['prepared' => $prepared, 'estimate' => self::buildEstimate($prepared, $single)];
     }
@@ -251,9 +252,9 @@ class AigcFashionLookbookService
             try {
                 $payload = array_merge($prepared['image_payload'], ['reference_images' => [$prepared['model_image'], $clothesImage]]);
                 $result = $frozen !== null
-                    ? AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $payload, ['user_unit_price' => $prepared['unit_price']], self::APP_CODE, $handoff)
+                    ? AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $payload, AppSalePriceService::imageOverride($estimate['tenant_unit_price']), self::APP_CODE, $handoff)
                     : AigcImageService::generateWithBillingOverride($tenantId, $userId, $payload, [
-                        'tenant_cost_points' => $estimate['platform_unit_cost'], 'user_charge_points' => $prepared['unit_price'],
+                        'tenant_cost_points' => $estimate['platform_unit_cost'], 'user_charge_points' => $estimate['tenant_unit_price'],
                     ]);
                 $imageTaskId = (int)($result['task_id'] ?? 0);
                 if ($imageTaskId > 0) $imageTaskIds = array_values(array_unique(array_merge($imageTaskIds, [$imageTaskId])));
@@ -449,7 +450,7 @@ class AigcFashionLookbookService
             'model_image' => $modelImage,
             'model_snapshot' => self::findModelSnapshot($tenantId, $modelImage),
             'user_prompt' => $userPrompt,
-            'unit_price' => round(max(0, (float)($config['unit_price'] ?? 0)), 2),
+            'unit_price' => AppSalePriceService::normalize($config['unit_price'] ?? null),
             'image_payload' => array_merge($imagePayload, [
                 'channel' => (string)$resolved['channel']['code'],
                 'quality' => (string)$resolved['spec']['quality'],
@@ -467,7 +468,7 @@ class AigcFashionLookbookService
     {
         $quantity = max(1, count($prepared['clothes_images']));
         $tenantUnitCost = round((float)($imageEstimate['platform_unit_cost'] ?? 0), 2);
-        $userUnitPrice = round((float)$prepared['unit_price'], 2);
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0));
         return array_merge($imageEstimate, [
             'quantity' => $quantity,
             'clothes_count' => $quantity,
@@ -508,7 +509,7 @@ class AigcFashionLookbookService
             'quality_label' => $prepared['quality_label'],
             'ratio' => (string)($firstImageTask['ratio'] ?? $prepared['image_payload']['ratio']),
             'quantity' => count($prepared['clothes_images']),
-            'unit_price' => $prepared['unit_price'],
+            'unit_price' => $estimate['tenant_unit_price'],
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
             'status' => 'running',
@@ -763,7 +764,7 @@ class AigcFashionLookbookService
             'default_channel' => (string)($data['default_channel'] ?? ''),
             'default_quality' => (string)($data['default_quality'] ?? ''),
             'default_ratio' => (string)($data['default_ratio'] ?? ''),
-            'unit_price' => round(max(0, (float)($data['unit_price'] ?? 0)), 2),
+            'unit_price' => AppSalePriceService::normalize($data['unit_price'] ?? null),
             'max_clothes_images' => self::normalizeMaxClothes($data['max_clothes_images'] ?? self::MAX_CLOTHES_IMAGES),
             'prompt_template' => (string)($data['prompt_template'] ?? self::DEFAULT_PROMPT_TEMPLATE),
             'negative_prompt' => (string)($data['negative_prompt'] ?? self::DEFAULT_NEGATIVE_PROMPT),
@@ -775,7 +776,7 @@ class AigcFashionLookbookService
             AigcFashionLookbookConfig::create($payload);
             return;
         }
-        $row->save($payload);
+        $row->force()->save($payload);
     }
 
     private static function defaults(): array
@@ -785,7 +786,7 @@ class AigcFashionLookbookService
             'default_channel' => '',
             'default_quality' => '',
             'default_ratio' => '',
-            'unit_price' => 0,
+            'unit_price' => null,
             'max_clothes_images' => self::MAX_CLOTHES_IMAGES,
             'prompt_template' => self::DEFAULT_PROMPT_TEMPLATE,
             'negative_prompt' => self::DEFAULT_NEGATIVE_PROMPT,
@@ -799,7 +800,7 @@ class AigcFashionLookbookService
         $data['default_channel'] = self::normalizeCode((string)($data['default_channel'] ?? ''));
         $data['default_quality'] = trim((string)($data['default_quality'] ?? ''));
         $data['default_ratio'] = trim((string)($data['default_ratio'] ?? ''));
-        $data['unit_price'] = round(max(0, (float)($data['unit_price'] ?? 0)), 2);
+        $data['unit_price'] = AppSalePriceService::normalize($data['unit_price'] ?? null);
         $data['max_clothes_images'] = self::normalizeMaxClothes($data['max_clothes_images'] ?? self::MAX_CLOTHES_IMAGES);
         $data['prompt_template'] = self::normalizeTemplate((string)($data['prompt_template'] ?? self::DEFAULT_PROMPT_TEMPLATE));
         $data['negative_prompt'] = trim((string)($data['negative_prompt'] ?? self::DEFAULT_NEGATIVE_PROMPT));

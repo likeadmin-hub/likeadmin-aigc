@@ -11,6 +11,7 @@ use app\common\model\app\aigc_product_image\AigcProductImageSceneTemplate;
 use app\common\model\app\aigc_product_image\AigcProductImageTask;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\app\AppSalePriceService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
@@ -63,7 +64,7 @@ class AigcProductImageService
             AigcProductImageConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function categoryLists(int $tenantId, array $params = []): array
@@ -566,7 +567,7 @@ class AigcProductImageService
     private static function buildEstimate(array $prepared, array $imageEstimate): array
     {
         $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
-        $userUnitPrice = (float)$prepared['unit_price'];
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0));
         return array_merge($imageEstimate, [
             'quantity' => 1,
             'target_width' => $prepared['width'],
@@ -815,7 +816,7 @@ class AigcProductImageService
             'channel' => trim((string)($value['channel'] ?? '')),
             'quality' => trim((string)($value['quality'] ?? '')),
             'ratio' => trim((string)($value['ratio'] ?? '')),
-            'unit_price' => max(0, round((float)($value['unit_price'] ?? 8), 2)),
+            'unit_price' => AppSalePriceService::normalize($value['unit_price'] ?? null),
         ];
     }
 
@@ -1114,9 +1115,9 @@ class AigcProductImageService
         return FileService::getFileUrl($image);
     }
 
-    private static function unitPrice(array $configJson): float
+    private static function unitPrice(array $configJson): ?float
     {
-        return max(0, round((float)($configJson['unit_price'] ?? 8), 2));
+        return AppSalePriceService::normalize($configJson['unit_price'] ?? null);
     }
 
     private static function taskImageIds(array $task): array

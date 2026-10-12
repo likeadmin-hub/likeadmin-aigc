@@ -8,6 +8,7 @@ use app\common\model\app\aigc_image\AigcImageResult;
 use app\common\model\app\aigc_image\AigcImageTask;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\app\AppSalePriceService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
@@ -65,14 +66,14 @@ class AigcHairstyleService
             AigcHairstyleConfig::create($data);
             return;
         }
-        $row->save($data);
+        $row->force()->save($data);
     }
 
     public static function estimate(int $tenantId, array $params): array
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, false);
-        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
+        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], AppSalePriceService::imageOverride($prepared['unit_price']));
         return self::buildHairstyleEstimate($prepared, $imageEstimate);
     }
 
@@ -81,7 +82,7 @@ class AigcHairstyleService
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, true);
-        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
+        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], AppSalePriceService::imageOverride($prepared['unit_price']));
         return ['prepared' => $prepared, 'estimate' => self::buildHairstyleEstimate($prepared, $imageEstimate)];
     }
 
@@ -94,7 +95,7 @@ class AigcHairstyleService
         } else {
             self::assertAvailable($tenantId);
             $prepared = self::prepareGeneratePayload($tenantId, $params, true);
-            $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
+            $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], AppSalePriceService::imageOverride($prepared['unit_price']));
             $estimate = self::buildHairstyleEstimate($prepared, $imageEstimate);
         }
         PointService::assertCanConsumeAmounts(
@@ -104,7 +105,7 @@ class AigcHairstyleService
             (float)$estimate['user_charge_points']
         );
         return AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $prepared['image_payload'], [
-            'user_unit_price' => $prepared['unit_price'],
+            'user_unit_price' => $estimate['tenant_unit_price'],
         ] + ($frozen !== null ? [
             'user_charge_points' => (float)$estimate['user_charge_points'],
             'tenant_cost_points' => (float)$estimate['tenant_cost_points'],
@@ -520,21 +521,19 @@ class AigcHairstyleService
         ];
     }
 
-    private static function operationUnitPrice(array $configJson, string $operation): float
+    private static function operationUnitPrice(array $configJson, string $operation): ?float
     {
         $prices = is_array($configJson['operation_prices'] ?? null) ? $configJson['operation_prices'] : [];
-        $defaults = self::defaultOperationPrices();
-        return max(0, round((float)($prices[$operation] ?? $defaults[$operation] ?? 0), 2));
+        return AppSalePriceService::normalize($prices[$operation] ?? null);
     }
 
     private static function normalizeOperationPrices(mixed $prices): array
     {
         $prices = is_array($prices) ? $prices : [];
-        $defaults = self::defaultOperationPrices();
         return [
-            self::OPERATION_HAIR_STYLE => max(0, round((float)($prices[self::OPERATION_HAIR_STYLE] ?? $defaults[self::OPERATION_HAIR_STYLE]), 2)),
-            self::OPERATION_HAIR_COLOR => max(0, round((float)($prices[self::OPERATION_HAIR_COLOR] ?? $defaults[self::OPERATION_HAIR_COLOR]), 2)),
-            self::OPERATION_HAIR_STYLE_COLOR => max(0, round((float)($prices[self::OPERATION_HAIR_STYLE_COLOR] ?? $defaults[self::OPERATION_HAIR_STYLE_COLOR]), 2)),
+            self::OPERATION_HAIR_STYLE => AppSalePriceService::normalize($prices[self::OPERATION_HAIR_STYLE] ?? null),
+            self::OPERATION_HAIR_COLOR => AppSalePriceService::normalize($prices[self::OPERATION_HAIR_COLOR] ?? null),
+            self::OPERATION_HAIR_STYLE_COLOR => AppSalePriceService::normalize($prices[self::OPERATION_HAIR_STYLE_COLOR] ?? null),
         ];
     }
 
@@ -594,9 +593,9 @@ class AigcHairstyleService
     private static function defaultOperationPrices(): array
     {
         return [
-            self::OPERATION_HAIR_STYLE => 10,
-            self::OPERATION_HAIR_COLOR => 10,
-            self::OPERATION_HAIR_STYLE_COLOR => 12,
+            self::OPERATION_HAIR_STYLE => null,
+            self::OPERATION_HAIR_COLOR => null,
+            self::OPERATION_HAIR_STYLE_COLOR => null,
         ];
     }
 }
