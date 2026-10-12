@@ -86,6 +86,7 @@ final class OpenNativeMarketPricing
         if(OpenPolicy::fingerprint($materials)!==OpenPolicy::fingerprint($raw))throw new OpenException('local_material_mapping_required','原协议透传请使用素材 URL；本地 file_id 尚未接入资源映射');
         $sku = \app\common\model\power\PowerMarketSku::where(['id'=>$skuId,'product_id'=>(int)$product['id'],'status'=>1,'sale_status'=>1])->find();
         if (!$sku) throw new OpenException('invalid_sku', '所选商品规格不可用');
+        OpenSkuConsistency::assert($sku->toArray());
         $bound = self::bind($product, $raw, $skuId, $sku->toArray());
         try {
             $captured = $bound['kind'] === 'image'
