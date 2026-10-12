@@ -8,6 +8,7 @@ use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\app\aigc_watermark_removal\AigcWatermarkRemovalService;
 use app\common\service\app\aigc_pic_lipsync\AigcPicLipsyncService;
+use app\common\service\app\aigc_digital_human\AigcDigitalHumanService;
 use RuntimeException;
 use think\facade\Db;
 
@@ -72,6 +73,7 @@ class AiTaskBusinessResultService
             'aigc_canvas_run' => null,
             'aigc_music_task' => \app\common\service\power\MarketMusicOperationRuntimeService::syncNative($consumption, $businessId),
             'aigc_pic_lipsync_task' => AigcPicLipsyncService::syncConsumption($businessId, (int)$consumption['user_id']),
+            'aigc_digital_human_task' => AigcDigitalHumanService::syncMarketConsumption($consumptionId, $businessId),
             'aigc_watermark_removal_task' => AigcWatermarkRemovalService::syncConsumption($businessId, (int)$consumption['user_id']),
             default => self::assertOptionalBusinessAdapter($consumption, $businessTable),
         };
@@ -112,6 +114,7 @@ class AiTaskBusinessResultService
             'aigc_canvas_run',
             'aigc_watermark_removal_task',
             'aigc_pic_lipsync_task',
+            'aigc_digital_human_task',
             'aigc_music_task',
         ], true);
     }
