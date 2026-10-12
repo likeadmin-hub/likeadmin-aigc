@@ -163,8 +163,9 @@ class AigcDigitalHumanPricingService
         }
         $origin = self::config($tenantId);
         $pricing = [];
-        $pricing['generate_models'] = self::normalizeGenerateModelsPricing($params['generate_models'] ?? [], $origin['generate_models'] ?? [], $platform);
-        $pricing[self::TYPE_GENERATE] = $pricing['generate_models'][0] ?? ($origin[self::TYPE_GENERATE] ?? self::defaults()[self::TYPE_GENERATE]);
+        // Keep historical rates for unfinished legacy tasks; new tasks quote the market.
+        $pricing['generate_models'] = $origin['generate_models'] ?? [];
+        $pricing[self::TYPE_GENERATE] = $origin[self::TYPE_GENERATE] ?? self::defaults()[self::TYPE_GENERATE];
         foreach ([self::TYPE_AVATAR_CLONE, self::TYPE_VOICE_CLONE] as $type) {
             $input = $params[$type] ?? [];
             $platformCost = $platform
