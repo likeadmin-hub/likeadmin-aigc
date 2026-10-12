@@ -212,7 +212,9 @@ final class DecorationAgentService
     public static function rollback(int $tenant,int $admin,array $p): array
     {
         $key=(string)($p['idempotency_key']??('rollback:'.(int)($p['checkpoint_id']??0)));if(strlen($key)>100)throw new RuntimeException('恢复标识无效');
-        return Db::transaction(function()use($tenant,$admin,$p,$key){
+        $hint=self::owned('checkpoint',$tenant,$admin,(int)($p['checkpoint_id']??0));
+        return Db::transaction(function()use($tenant,$admin,$p,$key,$hint){
+            $candidate=self::q('candidate',$tenant,$admin)->where('id',$hint['candidate_id'])->lock(true)->find();if(!$candidate)throw new RuntimeException('检查点对应候选不存在');
             $c=self::q('checkpoint',$tenant,$admin)->where('id',(int)($p['checkpoint_id']??0))->lock(true)->find();if(!$c)throw new RuntimeException('检查点不存在');
             if(!in_array($c['kind'],['apply','create','image'],true))throw new RuntimeException('该检查点不能直接恢复，请通过候选重新应用');
             $s=self::owned('session',$tenant,$admin,(int)$c['session_id']);
