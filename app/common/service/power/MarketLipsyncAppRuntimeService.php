@@ -7,6 +7,12 @@ class MarketLipsyncAppRuntimeService extends MarketPicLipsyncAppRuntimeService
     public const APP_CODE = 'aigc_digital_human';
     public const UPSTREAM_APP_CODE = 'lipsync';
 
+    // New video lipsync tasks always use the market; rollout applies only to legacy adapters.
+    protected static function requiresAdmissionGate(): bool
+    {
+        return false;
+    }
+
     protected static function acceptsSku(array $locked): bool
     {
         return trim((string)($locked['model'] ?? '')) !== '';

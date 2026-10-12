@@ -94,6 +94,11 @@ class MarketPicLipsyncAppRuntimeService
         return $options;
     }
 
+    protected static function requiresAdmissionGate(): bool
+    {
+        return true;
+    }
+
     public static function quote(int $tenantId, array $selection, float $quantity = 0): array
     {
         $market = self::resolve($tenantId, $selection);
@@ -126,7 +131,7 @@ class MarketPicLipsyncAppRuntimeService
         string $appCode = self::APP_CODE,
         string $businessTable = 'aigc_pic_lipsync_task'
     ): array {
-        if (MarketAppGateService::requiresGate($appCode)) {
+        if (static::requiresAdmissionGate() && MarketAppGateService::requiresGate($appCode)) {
             MarketAppGateService::requireMarket($tenantId, $userId, $appCode, (string)($request['idempotency_key'] ?? $businessTaskId));
         }
         $market = self::resolve($tenantId, $selection);
