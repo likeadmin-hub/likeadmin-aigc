@@ -296,7 +296,10 @@ final class DecorationAgentService
             'catalog'=>empty($op['name'])?self::compactCatalog():DecorationAgentCatalog::definition((string)$op['name']),
             'data_sources'=>empty($op['key'])?$sources: ['key'=>$op['key'],'items'=>DecorateDataSourceService::resolve((string)$op['key'],array_intersect_key((array)($op['params']??[]),array_flip(['limit','sort','terminal'])),$tenant,['user_id'=>0,'terminal'=>'uniapp'])],'links'=>$links,
             'search_materials'=>DecorationAgentMediaService::search($tenant,(string)($op['query']??''),$input['sources'],$input['attachments'],min(12,(int)($op['limit']??12))),
-            'icons'=>[['name'=>'el-icon-Search','label'=>'搜索'],['name'=>'el-icon-Document','label'=>'资讯'],['name'=>'el-icon-Picture','label'=>'图片'],['name'=>'el-icon-Star','label'=>'收藏'],['name'=>'el-icon-Service','label'=>'客服']],
+            'icons'=>[
+                ['component'=>'button-group','field'=>'content.data.*.icon','mode_fields'=>['content.button_type'=>'icon'],'options'=>[['value'=>'⌕','label'=>'搜索'],['value'=>'▤','label'=>'资讯'],['value'=>'▧','label'=>'图片'],['value'=>'★','label'=>'收藏'],['value'=>'◉','label'=>'客服']]],
+                ['component'=>'floating-action','field'=>'content.data.*.icon','mode_fields'=>['content.data.*.icon_mode'=>'system'],'options'=>[['value'=>'auto','label'=>'跟随操作'],['value'=>'link','label'=>'跳转'],['value'=>'back_top','label'=>'回到顶部'],['value'=>'service','label'=>'客服'],['value'=>'phone','label'=>'电话'],['value'=>'home','label'=>'首页'],['value'=>'star','label'=>'收藏'],['value'=>'message','label'=>'消息'],['value'=>'none','label'=>'无图标']]],
+                ['component'=>'nav','field'=>'content.data.*.image','description'=>'使用素材图片；不支持桌面Element图标名称']],
             'validate'=>DecorationAgentOperations::apply($ctx['candidate'],[],['scope'=>$input['scope'],'selected_id'=>$input['selected_id'],'allowed_links'=>$links,'approved_urls'=>array_merge(self::explicitUrls($input['message'],$input['attachments']),$ctx['approved_material_urls']??[])]),
             default=>null};
     }
