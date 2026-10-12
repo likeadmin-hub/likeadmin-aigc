@@ -40,12 +40,18 @@ final class OpenManagement
         return OpenStore::settings($tenantId)+['platform_enabled'=>$global['enabled'],'platform_models'=>$global['models'],'platform_apps'=>$global['apps']];
     }
     /** Independent API exposure; never changes price, SKU shelf, or contract publication. */
-    public static function setMarketExposure(int $tenantId,array $productIds,bool $enabled,bool $platform): array
+    public static function setMarketExposure(int $tenantId,array $productIds,bool $enabled,bool $platform,array $appCodes=[]): array
     {
+        if($appCodes){
+            if(count($appCodes)>500)throw new OpenException('invalid_request','所选应用过多');
+            foreach($appCodes as $code)if(!is_string($code)||!preg_match('/^[a-z0-9_]{1,100}$/D',$code))throw new OpenException('invalid_request','应用编码无效');
+            // Cancellation includes historically selected children that are now off-shelf.
+            if(!$enabled)$productIds=array_merge($productIds,Db::name('power_market_product')->where('resource_type','app_api')->whereIn('upstream_app_code',array_unique($appCodes))->column('id'));
+        }
         $ids=array_values(array_unique(array_map('intval',$productIds)));
         if(!$ids||count($ids)>500||min($ids)<1)throw new OpenException('invalid_request','请选择有效商城能力');
         if(!$platform&&$tenantId<=0)throw new OpenException('permission_denied','租户范围无效',403);
-        $count=Db::name('power_market_product')->whereIn('id',$ids)->whereIn('resource_type',['model','application_api'])->count();
+        $count=Db::name('power_market_product')->whereIn('id',$ids)->whereIn('resource_type',['model','app_api'])->count();
         if($count!==count($ids))throw new OpenException('not_found','商城能力不存在',404);
         return Db::transaction(function()use($tenantId,$ids,$enabled,$platform){
             OpenStore::table('setting')->where('tenant_id',$tenantId)->lock(true)->find();
