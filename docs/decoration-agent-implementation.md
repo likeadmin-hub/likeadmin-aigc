@@ -5,7 +5,7 @@
 ## 执行记录
 
 - 前后端feature/ai-decoration-agent分别开发，保留已有AGENTS和依赖等未提交内容。
-- 先测试：决策解析RED类不存在->GREEN7检查；确定性编排111断言；前端状态8项；媒体22项99断言。
+- 先测试：决策解析RED类不存在->GREEN7检查；确定性编排113断言；前端状态8项；媒体22项99断言。
 - 新增6张共享tenant_id/admin_id记录表，迁移不修改任何历史装修数据。已有租户升级和新安装包含幂等CREATE；新租户使用共享表，不在租户初始化中重复DDL，避免隐式提交改变原初始化事务。
 - Ruling: SDK每次单决策Workflow，持久化worker管理有上限的多步循环；不依赖原生工具调用，也不改短剧桥接。
 - Ruling: 未能估价的实际用量图片SKU不能授权严格预算生图，需选择可估价规格。
@@ -56,6 +56,8 @@ API `/tenantapi/decorate.agent/{bootstrap,createSession,sessions,session,quote,s
 `php -r 'require "vendor/autoload.php"; (new think\App())->console->run();' -- decoration:agent-worker --once --tenant=1`。
 已验证输出processed=0；没有修改站点generation指针。正式交付包安装后使用常规worker脚本；发布前必须核验实际加载类路径及命令，不把本地源码通过当作已上线。
 
-最新验证：确定性111断言、决策7检查、媒体22测试99断言、前端状态8测试、数据库23断言（隔离测试模板，原页面未变）；租户/H5/mp-weixin构建通过，小程序输出264模板/101主题页宿主/7组件检查通过。前端全量151测试150通过，唯一失败为已在origin/develop复现的app-assets-dev-proxy静态资源404；未扩大本任务修改范围。类型检查受到原项目旧vue-tsc/TS配置及依赖问题限制，改动SFC提取脚本无新增错误。
+最新验证：确定性113断言、决策7检查、媒体22测试99断言、前端状态8测试、数据库24断言（隔离测试模板，原页面未变）；租户/H5/mp-weixin构建通过，小程序输出264模板/101主题页宿主/7组件检查通过。前端全量151测试150通过，唯一失败为已在origin/develop复现的app-assets-dev-proxy静态资源404；未扩大本任务修改范围。类型检查受到原项目旧vue-tsc/TS配置及依赖问题限制，改动SFC提取脚本无新增错误。
 
 检查点恢复仅接受apply/create/image，undo_create和rollback为审计记录；新建页撤销后的重做使用candidate.apply重新建页，禁止反向合并undo_create覆盖原页面。
+
+旧页面无ID组件在显式增删/移动/复制时只在候选中补齐稳定标识；选中范围仅处理对应子树。已验证移动后下一操作仍定位同一组件，普通字段调整不补写ID，原草稿不做批量迁移。

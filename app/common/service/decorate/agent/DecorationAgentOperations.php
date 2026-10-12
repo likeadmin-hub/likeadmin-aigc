@@ -25,6 +25,10 @@ class DecorationAgentOperations
         self::index($candidate['data']);
         foreach ($operations as $operation) {
             if (!is_array($operation)) self::fail('Operation must be an object');
+            if(in_array($operation['type']??$operation['op']??'', ['add_component','delete_component','copy_component','move_component'],true)){
+                $prefix=[];if(($scope['scope']??'')==='selected'){$nodes=self::index($candidate['data']);$selected=$nodes[(string)($scope['selected_id']??'')]??null;if(!$selected)self::fail('Selected component is missing');$prefix=$selected['path'];}
+                self::stabilizeLegacyIds($candidate['data'],[],$prefix);
+            }
             $before = self::index($candidate['data']);
             $engine->execute($candidate, $operation);
             $after = self::index($candidate['data']);
@@ -35,6 +39,12 @@ class DecorationAgentOperations
         return ['candidate' => $candidate, 'changes' => $engine->changes, 'image_requests' => $engine->images];
     }
 
+    /** Materialize IDs only inside a candidate receiving explicit structural edits. */
+    private static function stabilizeLegacyIds(array &$data,array $parentPath,array $prefix): void
+    {
+        foreach($data as $i=>&$widget){$path=array_merge($parentPath,[$i]);if(array_slice($path,0,count($prefix))===$prefix&&!isset($widget['id']))$widget['id']='legacy_'.preg_replace('/[^a-zA-Z0-9_-]/','_',$widget['name']).'_'.implode('_',$path);if(!empty($widget['children']))self::stabilizeLegacyIds($widget['children'],$path,$prefix);}
+        unset($widget);
+    }
     public static function index(array $data, array $parentPath = [], int $depth = 1, array &$seen = []): array
     {
         if ($depth > 4) self::fail('Maximum component nesting depth is 4');
