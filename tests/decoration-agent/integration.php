@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../../vendor/autoload.php';
 (new think\App())->initialize();
+set_exception_handler(function($e){fwrite(STDERR,$e->getMessage()."\n".$e->getTraceAsString());exit(1);});
 use think\facade\Db;
 use app\common\service\decorate\agent\DecorationAgentService as S;
 use app\common\service\decorate\agent\DecorationAgentCatalog as C;
@@ -19,12 +20,12 @@ $session=S::createSession(1,1,['template_id'=>$template['id'],'page_id'=>$page['
 assertAgent(strlen($session['current_hash'])===64,'session reads original hash');
 try{S::session(1,2,$session['id']);throw new RuntimeException('cross admin accepted');}catch(RuntimeException $e){assertAgent(str_contains($e->getMessage(),'无权'),'cross admin isolation');}
 try{S::session(2,1,$session['id']);throw new RuntimeException('cross tenant accepted');}catch(RuntimeException $e){assertAgent(str_contains($e->getMessage(),'无权'),'cross tenant isolation');}
-$candidate=O::apply($initial,[['type'=>'update_component','widget_id'=>'n','fields'=>['styles.color'=>'#123456']]],['scope'=>'page'])['candidate'];
+$candidate=O::apply($initial,[['type'=>'update_component','widget_id'=>'n','fields'=>['styles.margin_top'=>30]]],['scope'=>'page'])['candidate'];
 $insertCandidate=function($payload,$base,$run=0)use($session){return Db::name('decorate_agent_candidate')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'session_id'=>$session['id'],'run_id'=>$run,'status'=>'ready','revision'=>1,'base_hash'=>S::hash($base),'base_json'=>S::json($base),'payload_json'=>S::json($payload),'changes_json'=>'[]','create_time'=>time(),'update_time'=>time()]);};
 $cid=$insertCandidate($candidate,$initial);
 assertAgent(S::hash(S::payload(T::pageDetail(1,['template_id'=>$template['id'],'id'=>$page['id']])))===S::hash($initial),'candidate did not mutate draft');
 $applied=S::apply(1,1,['candidate_id'=>$cid,'idempotency_key'=>'acceptance:'.$cid]);
-assertAgent(S::payload($applied['page'])['data'][0]['styles']['color']==='#123456','apply changes draft');
+assertAgent(S::payload($applied['page'])['data'][0]['styles']['margin_top']===30,'apply changes draft');
 $replayed=S::apply(1,1,['candidate_id'=>$cid,'idempotency_key'=>'acceptance:'.$cid]);assertAgent($replayed['checkpoint_id']===$applied['checkpoint_id'],'apply idempotent');
 $rolled=S::rollback(1,1,['checkpoint_id'=>$applied['checkpoint_id'],'idempotency_key'=>'undo:'.$cid]);assertAgent(S::hash(S::payload($rolled['page']))===S::hash($initial),'rollback restores');
 $again=S::rollback(1,1,['checkpoint_id'=>$applied['checkpoint_id'],'idempotency_key'=>'undo:'.$cid]);assertAgent($again['checkpoint_id']===$rolled['checkpoint_id'],'rollback idempotent');
