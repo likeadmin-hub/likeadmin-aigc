@@ -13,6 +13,7 @@ function assertAgent($ok,$message){global $passed;$passed++;if(!$ok)throw new Ru
 config(['enabled'=>true],'decoration_agent');request()->tenantId=1;
 $baseline=Db::name('decorate_page')->where('tenant_id',1)->where('id',1)->find();
 $baselineJson=json_encode($baseline);
+$index=new ReflectionMethod(S::class,'componentIndex');$index->setAccessible(true);$legacy=$index->invoke(null,[['name'=>'news','content'=>[]]]);assertAgent($legacy[0]['id']==='legacy_news_0'&&$legacy[0]['path']===[0],'context exposes legacy component IDs without stored rewrites');
 $template=T::add(1,['name'=>'Agent isolated acceptance '.date('His'),'terminal'=>'mobile']);
 $pages=T::pageLists(1,(int)$template['id'],'mobile');$page=$pages[0];
 $widget=C::create('news','n');$initial=['data'=>[$widget],'meta'=>S::decode($page['draft_meta']),'name'=>'Agent测试','new_page'=>false];

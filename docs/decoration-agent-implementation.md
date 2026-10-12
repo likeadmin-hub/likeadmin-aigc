@@ -48,3 +48,12 @@ API `/tenantapi/decorate.agent/{bootstrap,createSession,sessions,session,quote,s
 恢复评测使用独立未启用模板，固定模型，不自动换模型：
 `DECORATION_EVAL_PAID=1 DECORATION_EVAL_TEMPLATE=<isolated-template-id> php tests/decoration-agent/real-evaluation.php <case-count> <start-index> <model-id>`。
 默认仅跑1例，累计预算警戒200积分；人工预览及生图供应商结果仍需另行验收。该脚本只生成候选，遇图片请求先取消自动后续，避免批量验收意外启动收费图片任务。费用授权环境变量是测试保护，不用于生产接口。
+
+
+## 本地源码运行与版本运行区别
+
+当前站点已启用immutable Composer generation，常规`php think`读取该已安装版本而非工作区新代码，因此开发验收用本地develop源码入口：
+`php -r 'require "vendor/autoload.php"; (new think\App())->console->run();' -- decoration:agent-worker --once --tenant=1`。
+已验证输出processed=0；没有修改站点generation指针。正式交付包安装后使用常规worker脚本；发布前必须核验实际加载类路径及命令，不把本地源码通过当作已上线。
+
+最新验证：确定性111断言、决策7检查、媒体22测试99断言、前端状态8测试、数据库19断言（隔离模板11，原页面未变）；租户/H5/mp-weixin构建通过，小程序输出264模板/101主题页宿主/7组件检查通过。前端全量151测试150通过，唯一失败为已在origin/develop复现的app-assets-dev-proxy静态资源404；未扩大本任务修改范围。类型检查受到原项目旧vue-tsc/TS配置及依赖问题限制，改动SFC提取脚本无新增错误。

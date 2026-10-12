@@ -13,8 +13,8 @@ final class AgentController extends BaseAdminController
         if($this->tenantId<=0||$this->adminId<=0)throw new \RuntimeException('租户后台身份无效');
         if((int)($this->adminInfo['root']??0)===1)return;
         $uris=array_map('strtolower',(array)(new TenantAdminAuthCache($this->adminId))->getAdminUri());
-        $required=$create?['decorate.page/add']:($write?['decorate.page/save']:['decorate.page/detail','decorate.template/detail','decorate.page/save']);
-        if(!array_intersect($required,$uris))throw new \RuntimeException('没有对应装修操作权限');
+        $required=$write?['decorate.page/save']:['decorate.page/detail','decorate.template/detail','decorate.page/save'];
+        if(!array_intersect($required,$uris)||($create&&!in_array('decorate.page/add',$uris,true)))throw new \RuntimeException('没有对应装修操作权限');
     }
     private function call(string $method,bool $write=false): mixed
     {
