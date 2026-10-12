@@ -6,8 +6,8 @@ use app\common\model\power\{PowerMarketProduct as Product,PowerMarketSku as Sku,
 function check($ok,$why){if(!$ok)throw new RuntimeException($why);}
 $db=config('database.connections.mysql');check($db['hostname']==='127.0.0.1'&&$db['database']==='z_cn','Local rollback only');
 Db::startTrans();try{
- $base=Product::where('status',1)->find()->toArray();unset($base['id']);
- $sku=Sku::where(['status'=>1,'sale_status'=>1])->find()->toArray();unset($sku['id']);
+ $base=Product::where('status',1)->find()->toArray();unset($base['id']);$base['create_time']=time();$base['update_time']=time();
+ $sku=Sku::where(['status'=>1,'sale_status'=>1])->find()->toArray();unset($sku['id']);$sku['create_time']=time();$sku['update_time']=time();
  $product=Product::create(array_replace($base,['name'=>'Console catalogue fixture','product_code'=>'opf_console_'.bin2hex(random_bytes(5)),'resource_type'=>'model','model_type'=>'audio','status'=>1,'source_payload'=>['api_key'=>'never_public_fixture']]));
  $native=Sku::create(array_replace($sku,['product_id'=>$product['id'],'sku_key'=>'opf_console_'.bin2hex(random_bytes(5)),'status'=>1,'sale_status'=>1,'sale_points'=>19,'source_payload'=>['credential'=>'never_public_fixture']]));
  $tenant=987654319;Price::create(['tenant_id'=>$tenant,'sku_id'=>$native['id'],'sale_points'=>29,'sale_status'=>1,'create_time'=>time(),'update_time'=>time()]);
