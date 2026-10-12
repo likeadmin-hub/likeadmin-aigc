@@ -8,7 +8,7 @@ final class OpenGateway
     {
         $type=$error instanceof OpenException?$error->errorType:($error instanceof \InvalidArgumentException?'invalid_request':'service_unavailable');$status=$error instanceof OpenException?$error->httpStatus:($error instanceof \InvalidArgumentException?400:503);$message=$error instanceof OpenException||$error instanceof \InvalidArgumentException?$error->getMessage():'开放平台暂不可用';
         $tool=$path==='/api/v1/tools'||str_starts_with($path,'/api/v1/tools/')||str_starts_with($path,'/api/v1/assets');
-        $payload=$tool?['request_id'=>$id,'error'=>['type'=>$type,'message'=>$message]]:(str_ends_with($path,'/messages')?['type'=>'error','error'=>['type'=>$type,'message'=>$message]]:(in_array($path,['/api/v1/chat/completions','/api/v1/responses'],true)?['error'=>['type'=>$type,'message'=>$message,'code'=>$type]]:['code'=>0,'msg'=>$message,'data'=>[]]));return json($payload,$status)->header(['X-Request-Id'=>$id]);
+        $payload=$tool?['request_id'=>$id,'error'=>['type'=>$type,'message'=>$message]]:(str_ends_with($path,'/messages')?['type'=>'error','error'=>['type'=>$type,'message'=>$message]]:(in_array($path,['/api/v1/chat/completions','/api/v1/completions','/api/v1/responses'],true)?['error'=>['type'=>$type,'message'=>$message,'code'=>$type]]:['code'=>0,'msg'=>$message,'data'=>[]]));return json($payload,$status)->header(['X-Request-Id'=>$id]);
     }
     public static function handle($request,string $path)
     {
@@ -27,12 +27,13 @@ final class OpenGateway
         if(($method==='GET'||str_contains($contentType,'multipart/form-data'))&&isset($op['input']))$originalParams=OpenSchema::query($originalParams,$op['input']);
         $admission=OpenAdmission::begin($key,$method,$path,$originalParams,$op,$budget,$idem,(array)$request->file());$row=$admission['row'];
         if($admission['replay'])return self::replayResponse($row,$path);
-        if(($op['executor']??'')==='sse'||($op['service']??'')==='streamText')return new OpenStreamResponse(function()use($request,$row,$op,$params,$budget,$path){try{self::execute($request,$row,$op,$params,$budget,true);}catch(\Throwable $e){if(!headers_sent()){http_response_code($e instanceof OpenException?$e->httpStatus:503);header('Content-Type: application/json');echo self::error($e,$path,$row['request_id'])->getContent();}}},['X-Request-Id'=>$row['request_id']]);
+        if(self::textProtocol($op,$path)!==''||($op['executor']??'')==='sse'||($op['service']??'')==='streamText')return new OpenStreamResponse(function()use($request,$row,$op,$params,$budget,$path){try{self::execute($request,$row,$op,$params,$budget,true);}catch(\Throwable $e){if(!headers_sent()){http_response_code($e instanceof OpenException?$e->httpStatus:503);header('Content-Type: application/json');echo self::error($e,$path,$row['request_id'])->getContent();}}},['X-Request-Id'=>$row['request_id']]);
         try{return self::execute($request,$row,$op,$params,$budget,false);}catch(\Throwable $e){return self::error($e,$path,$row['request_id']);}
     }
 
     private static function replayResponse(array $row,string $path)
     {
+        if((OpenStore::json($row['snapshot'])['text_transport_complete']??true)===false)return self::error(new OpenException('request_in_progress','原始连接中断，已有调用仍待核对，请勿重复提交',409),$path,$row['request_id']);
         if($row['response_blob']===''){
             // Recovery can conclusively close an interrupted receipt before an
             // HTTP response exists. Preserve that terminal outcome; a replay
@@ -47,7 +48,7 @@ final class OpenGateway
             $asset=OpenAssets::detail((int)$row['tenant_id'],(int)$row['user_id'],$match[1]);return redirect($asset['url'])->header(['X-Request-Id'=>$row['request_id']]);
         }
         $snapshot=OpenStore::json($row['snapshot']);$headers=isset($snapshot['response_headers_blob'])?OpenStore::json(OpenVault::open($snapshot['response_headers_blob'])):[];
-        return response(OpenVault::open($row['response_blob']),(int)$row['response_code'],$headers+['Content-Type'=>$row['response_type'],'X-Request-Id'=>$row['request_id']]);
+        return response(OpenVault::open($row['response_blob']),(int)$row['response_code'],self::responseHeaders($headers+['Content-Type'=>$row['response_type']],$row));
     }
 
     public static function recordWire(string $id,array $fields,array $headers): void
@@ -167,6 +168,7 @@ final class OpenGateway
     }
     private static function execute($request,array $row,array $op,array $params,array $budget,bool $stream)
     {
+        $textProtocol=self::textProtocol($op,$row['path']);
         $start=microtime(true);OpenCallContext::enter($row['request_id']);$dispatched=false;$connectionLost=false;
         try{
             // Claim before dispatch_started or native preparation. Rejected
@@ -189,7 +191,8 @@ final class OpenGateway
             if(empty($transportSource['base_url'])||empty($transportSource['api_key']))throw new OpenException('source_unavailable','上游渠道未配置',503);
             OpenMarketBilling::reserve($row,$budget);$snapshot=array_replace(OpenStore::json(OpenStore::table('request')->where('id',$row['id'])->value('snapshot')),$budget['snapshot']);$snapshot['source_blob']=OpenVault::seal(OpenStore::encode($transportSource));OpenAdmission::finish($row['request_id'],['snapshot'=>OpenStore::encode($snapshot)]);
             $headers=[];foreach(['accept','anthropic-version','anthropic-beta','openai-beta','idempotency-key'] as $name){$value=(string)$request->header($name,'');if($value!=='')$headers[$name]=$value;}
-            self::markDispatch($row['request_id']);$dispatched=true;$wire=(new OpenTransport())->send($transportSource,$row['method'],$row['path'],self::marketParameters($op,$params),(array)$request->file(),$stream?function($chunk,$status,$responseHeaders){if(!headers_sent()){http_response_code($status);foreach($responseHeaders as $name=>$value)header($name.': '.$value);}echo $chunk;@flush();}:null,$headers,(string)$request->header('content-type',''));
+            self::markDispatch($row['request_id']);$dispatched=true;$wire=(new OpenTransport())->send($transportSource,$row['method'],$row['path'],self::marketParameters($op,$params),(array)$request->file(),$stream?function($chunk,$status,$responseHeaders)use($row){if(!headers_sent()){http_response_code($status);foreach(self::responseHeaders($responseHeaders,$row) as $name=>$value)header($name.': '.$value);}echo $chunk;@flush();}:null,$headers,(string)$request->header('content-type',''),$textProtocol!=='');
+            if($textProtocol!=='')return self::finishTextWire($row,$op,$wire,$stream,$start,$textProtocol);
             $data=json_decode($wire['body'],true);$data=is_array($data)?$data:[];$taskValue=OpenSchema::get($data,$op['task_id_path']??'data.task_id');$task=is_string($taskValue)||is_int($taskValue)?(string)$taskValue:'';$failed=self::wireFailed($wire['status'],$data,$op);$fields=['response_blob'=>OpenVault::seal($wire['body']),'response_type'=>$wire['headers']['content-type']??'application/json','response_code'=>$wire['status'],'duration_ms'=>(int)((microtime(true)-$start)*1000)];
             $untrusted=!empty($op['billable'])&&$op['role']==='submit'&&($op['executor']??'')==='json'&&!$failed&&!self::marketAccepted($op,$wire);
             if($untrusted)$wire['acceptance_uncertain']=true;
@@ -211,6 +214,44 @@ final class OpenGateway
             OpenAdmission::finish($row['request_id'],$fields);if(!$unknown&&!($e instanceof OpenException)&&$op['kind']==='tool'&&!empty(OpenStore::json($latest['snapshot']??'')['provider_rejection_confirmed']))throw new OpenException('provider_rejected','上游已拒绝该请求，请检查工具当前模型资格',400);throw $e;}
         }catch(\Throwable $error){$connectionLost=OpenRecovery::connectionLost($error);throw $error;}finally{try{if(!$connectionLost)OpenImageBatchDispatch::release($row['request_id']);}finally{OpenCallContext::leave();}}
     }
+    /** Native LLM wire formats bypass app/media response projection. */
+    public static function textProtocol(array $operation,string $path): string
+    {
+        return ($operation['kind']??'')==='market'&&($operation['role']??'')==='submit'
+            ? OpenTextProtocol::protocol($path) : '';
+    }
+    public static function responseHeaders(array $headers,array $row): array
+    {
+        if(($row['kind']??'')==='market'&&OpenTextProtocol::protocol($row['path']??'')!==''){
+            // Keep the upstream request ID; expose our independent billing receipt separately.
+            $headers['X-Open-Request-Id']=$row['request_id'];
+            if(!isset(array_change_key_case($headers)['x-request-id']))$headers['X-Request-Id']=$row['request_id'];
+            return $headers;
+        }
+        return $headers+['X-Request-Id'=>$row['request_id']];
+    }
+    private static function finishTextWire(array $row,array $op,array $wire,bool $stream,float $start,string $protocol)
+    {
+        $observed=OpenTextProtocol::observe($wire,$protocol);
+        $transportComplete=$wire['complete']??true;
+        $uncertain=!$transportComplete||self::wireUncertain($wire['status'])||!$observed['complete']||($observed['failed']&&$observed['started']);
+        // Persist exactly what was delivered before settlement. Parsing and wallet operations
+        // never reserialize business output or append locally invented SSE events.
+        $snapshot=OpenStore::json(OpenStore::table('request')->where('id',$row['id'])->value('snapshot'));
+        $snapshot['text_protocol']=$protocol;$snapshot['text_transport_complete']=$transportComplete;
+        $snapshot['text_observation']=['complete'=>$observed['complete'],'failed'=>$observed['failed'],'started'=>$observed['started']];
+        OpenAdmission::finish($row['request_id'],['snapshot'=>OpenStore::encode($snapshot)]);
+        self::recordWire($row['request_id'],['response_blob'=>OpenVault::seal($wire['body']),'response_type'=>$wire['headers']['content-type']??'application/json','response_code'=>$wire['status'],'duration_ms'=>(int)((microtime(true)-$start)*1000)],$wire['headers']);
+        if(!empty($op['billable'])){
+            if($uncertain)self::deferMarketAcceptance($row);
+            else self::settleKnownResult($row,$observed['data'],$observed['failed']);
+        }else OpenAdmission::finish($row['request_id'],['status'=>$uncertain?'pending_confirmation':($observed['failed']?'failed':'success'),'billing_status'=>'none','active'=>$uncertain?1:0,'next_run_time'=>$uncertain?time()+60:0,'finish_time'=>$uncertain?0:time()]);
+        $latest=OpenStore::table('request')->where('id',$row['id'])->find();
+        if((int)$latest['active']===0)OpenWebhooks::enqueue($latest,$observed['data']);
+        if(!headers_sent()&&$stream){http_response_code($wire['status']);foreach(self::responseHeaders($wire['headers'],$row) as $name=>$value)header($name.': '.$value);}
+        return $stream?response(''):response($wire['body'],$wire['status'],self::responseHeaders($wire['headers'],$row));
+    }
+
     public static function failureBilling(array $latest,array $op,bool $unknown): string
     {
         if($unknown)return 'pending_confirmation';if(empty($op['billable']))return 'none';
