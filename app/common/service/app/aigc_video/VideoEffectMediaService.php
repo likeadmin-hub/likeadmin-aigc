@@ -32,9 +32,23 @@ final class VideoEffectMediaService
 
     public static function apply(array $rows, array $defaults): array
     {
-        return self::resolve($rows, $defaults, self::registry(), static function(array $file): string {
+        $rows = self::resolve($rows, $defaults, self::registry(), static function(array $file): string {
             return FileService::getFileUrlByStorage($file['uri'], 'platform', $file['storage_engine'], $file['storage_domain']);
         });
+        // Source-delivered fallback for installations without a local media registry.
+        // Match the original URL exactly so tenant edits and blank previews survive.
+        $managed = json_decode(file_get_contents(dirname(__DIR__, 4).'/apps/aigc_video/data/video_effect_media.json'), true, 512, JSON_THROW_ON_ERROR);
+        $sources = array_column($defaults, null, 'id');
+        foreach ($rows as &$row) {
+            foreach (['poster', 'video'] as $field) {
+                if (isset($managed[$row['id']][$field], $sources[$row['id']][$field])
+                    && ($row[$field] ?? '') === $sources[$row['id']][$field]) {
+                    $row[$field] = $managed[$row['id']][$field];
+                }
+            }
+        }
+        unset($row);
+        return $rows;
     }
 
     public static function resolve(array $rows, array $defaults, array $registry, callable $url): array
