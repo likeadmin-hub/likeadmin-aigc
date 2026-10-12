@@ -80,6 +80,7 @@ final class OpenGateway
     {
         if(!preg_match('#^application/(?:[a-z0-9._+-]+\+)?json(?:\s*;|$)#i',(string)($wire['headers']['content-type']??'')))return false;
         $body=json_decode($wire['body'],false,64);if(json_last_error()!==JSON_ERROR_NONE||!($body instanceof \stdClass)||!(array)$body)return false;$data=(array)$body;
+        if(($operation['response_adapter']??'')===OpenMarketResponse::ADAPTER&&!OpenMarketResponse::bodySupported($wire['body']))return false;
         if(isset($operation['success_path']))return OpenSchema::get($data,$operation['success_path'])===($operation['success_value']??1);
         if(in_array($data['code']??null,[1,'1'],true))return true;
         $task=OpenSchema::get($data,$operation['task_id_path']??'data.task_id');if((is_string($task)||is_int($task))&&(string)$task!=='')return true;
@@ -146,7 +147,7 @@ final class OpenGateway
             elseif($task!==''&&!$failed&&$op['role']==='submit'){$fields+=['upstream_task_id'=>$task,'status'=>'running','next_run_time'=>time()+30];\app\common\model\ai\AiConsumptionLog::where('consume_no',$row['request_id'])->update(['upstream_task_id'=>$task,'run_status'=>'running']);}
             else{$fields+=['status'=>$failed?'failed':'success'];if(!empty($op['billable'])){if($stream)$data=self::streamUsage($wire['body']);self::settleKnownResult($row,$data,$failed);}else $fields+=['active'=>0,'next_run_time'=>0];}
             $financeRow=$row;
-            if($op['history']&&!$failed){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);self::observeTask($owner,$data);$financeRow=$owner;}
+            if($op['history']&&!$failed&&(($op['response_adapter']??'')!==OpenMarketResponse::ADAPTER||OpenMarketResponse::bodySupported($wire['body']))){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);self::observeTask($owner,$data);$financeRow=$owner;}
             if(($op['response_adapter']??'')===OpenMarketResponse::ADAPTER||!empty($wire['acceptance_uncertain'])){
                 $financeRow=OpenStore::table('request')->where('id',$financeRow['id'])->find();
                 $wire=self::marketWire($row,$financeRow,$wire,$fields);$data=OpenStore::json($wire['body']);
