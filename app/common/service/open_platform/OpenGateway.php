@@ -62,17 +62,33 @@ final class OpenGateway
             $snapshot=OpenStore::json($owner['snapshot']);$snapshot['market_response_blob']=OpenVault::seal($wire['body']);$snapshot['market_response_status']=(int)$wire['status'];
             OpenAdmission::finish($row['request_id'],['snapshot'=>OpenStore::encode($snapshot)]);
             try{
+                if(!empty($wire['acceptance_uncertain']))throw new OpenException('upstream_uncertain','上游未返回可信受理协议，原请求保留等待确认',502);
                 if(!OpenMarketResponse::bodySupported($wire['body']))throw new OpenException('response_adapter_required','上游响应协议尚未适配，已保留原请求等待核对',502);
                 $wire['body']=OpenMarketResponse::project($wire['body'],OpenMarketResponse::amounts($financeRow));
             }catch(OpenException $error){
-                if($error->errorType!=='response_adapter_required')throw $error;
+                if(!in_array($error->errorType,['response_adapter_required','upstream_uncertain'],true))throw $error;
                 $wire['body']=self::error($error,$row['path'],$row['request_id'])->getContent();$wire['status']=502;$wire['headers']=['content-type'=>'application/json'];$wire['adapter_blocked']=true;
                 // This is a response-adaptation failure, not a failed upstream task.
-                $fields['error_code']='response_adapter_required';$fields['error_message']='上游响应协议尚未适配，原任务及计费状态保留';
+                $fields['error_code']=$error->errorType;$fields['error_message']='上游协议尚未确认，原任务及计费状态保留';
             }
             $fields['response_blob']=OpenVault::seal($wire['body']);$fields['response_code']=$wire['status'];$fields['response_type']=$wire['headers']['content-type']??'application/json';
             self::recordWire($row['request_id'],$fields,$wire['headers']);return $wire;
         });
+    }
+    /** A transport-level 200 is not proof that a paid JSON operation was accepted. */
+    private static function marketAccepted(array $operation,array $wire): bool
+    {
+        if(!preg_match('#^application/(?:[a-z0-9._+-]+\+)?json(?:\s*;|$)#i',(string)($wire['headers']['content-type']??'')))return false;
+        $body=json_decode($wire['body'],false,64);if(json_last_error()!==JSON_ERROR_NONE||!($body instanceof \stdClass)||!(array)$body)return false;$data=(array)$body;
+        if(isset($operation['success_path']))return OpenSchema::get($data,$operation['success_path'])===($operation['success_value']??1);
+        if(in_array($data['code']??null,[1,'1'],true))return true;
+        $task=OpenSchema::get($data,$operation['task_id_path']??'data.task_id');if((is_string($task)||is_int($task))&&(string)$task!=='')return true;
+        $schema=$operation['responses'][(string)$wire['status']]['content']['application/json']['schema']??[];
+        // Explicit response dictionaries can confirm synchronous operations;
+        // an unconstrained object or incidental envelope metadata cannot.
+        $required=(array)($schema['required']??[]);$declared=array_intersect_key($data,(array)($schema['properties']??[]));
+        if(!$required&&!array_diff(array_keys($declared),['code','msg','message','data']))return false;
+        try{OpenSchema::validate($body,$schema,'$',0,null,true);return true;}catch(OpenException){return false;}
     }
 
     private static function historicalMarket(array $key,string $method,string $path): ?array
@@ -112,13 +128,15 @@ final class OpenGateway
             OpenMarketBilling::reserve($row,$budget);$snapshot=array_replace(OpenStore::json(OpenStore::table('request')->where('id',$row['id'])->value('snapshot')),$budget['snapshot']);$snapshot['source_blob']=OpenVault::seal(OpenStore::encode($transportSource));OpenAdmission::finish($row['request_id'],['snapshot'=>OpenStore::encode($snapshot)]);
             $headers=[];foreach(['accept','anthropic-version','anthropic-beta','openai-beta','idempotency-key'] as $name){$value=(string)$request->header($name,'');if($value!=='')$headers[$name]=$value;}
             self::markDispatch($row['request_id']);$dispatched=true;$wire=(new OpenTransport())->send($transportSource,$row['method'],$row['path'],$params,(array)$request->file(),$stream?function($chunk,$status,$responseHeaders){if(!headers_sent()){http_response_code($status);foreach($responseHeaders as $name=>$value)header($name.': '.$value);}echo $chunk;@flush();}:null,$headers,(string)$request->header('content-type',''));
-            $data=json_decode($wire['body'],true);$data=is_array($data)?$data:[];$task=(string)(OpenSchema::get($data,$op['task_id_path']??'data.task_id')??'');$failed=self::wireFailed($wire['status'],$data,$op);$fields=['response_blob'=>OpenVault::seal($wire['body']),'response_type'=>$wire['headers']['content-type']??'application/json','response_code'=>$wire['status'],'duration_ms'=>(int)((microtime(true)-$start)*1000)];
-            if(!empty($op['billable'])&&$op['role']==='submit'&&self::wireUncertain($wire['status'])){self::deferMarketAcceptance($row,$task);$fields+=['status'=>$task!==''?'running':'pending_confirmation'];}
+            $data=json_decode($wire['body'],true);$data=is_array($data)?$data:[];$taskValue=OpenSchema::get($data,$op['task_id_path']??'data.task_id');$task=is_string($taskValue)||is_int($taskValue)?(string)$taskValue:'';$failed=self::wireFailed($wire['status'],$data,$op);$fields=['response_blob'=>OpenVault::seal($wire['body']),'response_type'=>$wire['headers']['content-type']??'application/json','response_code'=>$wire['status'],'duration_ms'=>(int)((microtime(true)-$start)*1000)];
+            $untrusted=!empty($op['billable'])&&$op['role']==='submit'&&($op['executor']??'')==='json'&&!$failed&&!self::marketAccepted($op,$wire);
+            if($untrusted)$wire['acceptance_uncertain']=true;
+            if(!empty($op['billable'])&&$op['role']==='submit'&&(self::wireUncertain($wire['status'])||$untrusted)){self::deferMarketAcceptance($row,$task);$fields+=['status'=>$task!==''?'running':'pending_confirmation'];}
             elseif($task!==''&&!$failed&&$op['role']==='submit'){$fields+=['upstream_task_id'=>$task,'status'=>'running','next_run_time'=>time()+30];\app\common\model\ai\AiConsumptionLog::where('consume_no',$row['request_id'])->update(['upstream_task_id'=>$task,'run_status'=>'running']);}
             else{$fields+=['status'=>$failed?'failed':'success'];if(!empty($op['billable'])){if($stream)$data=self::streamUsage($wire['body']);self::settleKnownResult($row,$data,$failed);}else $fields+=['active'=>0,'next_run_time'=>0];}
             $financeRow=$row;
             if($op['history']&&!$failed){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);self::observeTask($owner,$data);$financeRow=$owner;}
-            if(($op['response_adapter']??'')===OpenMarketResponse::ADAPTER){
+            if(($op['response_adapter']??'')===OpenMarketResponse::ADAPTER||!empty($wire['acceptance_uncertain'])){
                 $financeRow=OpenStore::table('request')->where('id',$financeRow['id'])->find();
                 $wire=self::marketWire($row,$financeRow,$wire,$fields);$data=OpenStore::json($wire['body']);
             }else self::recordWire($row['request_id'],$fields,$wire['headers']);

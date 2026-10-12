@@ -32,7 +32,13 @@ final class OpenMarketResponse
         if(self::opaque($path)||$depth>32||--$budget<0)return $schema;
         if(isset($schema['$ref'])){
             $node=$root;foreach(explode('/',substr($schema['$ref'],2)) as $part)$node=$node[str_replace(['~1','~0'],['/','~'],$part)];
-            unset($schema['$ref']);$schema=self::numericNode(array_replace($node,$schema),$root,$path,$depth+1,$budget);
+            unset($schema['$ref']);
+            // A ref and its siblings are conjunctive constraints. Normalize both
+            // at this use site before combining, so no supplier integer remains
+            // on a retail amount and no sibling erases business properties.
+            $combined=['allOf'=>[self::numericNode($node,$root,$path,$depth+1,$budget),self::numericNode($schema,$root,$path,$depth+1,$budget)]];
+            foreach(['$defs','definitions'] as $key)if(isset($schema[$key]))$combined[$key]=$schema[$key];
+            return $combined;
         }
         if(self::retailPath(rtrim($path,'.'))&&isset($schema['type'])){
             if($schema['type']==='integer')$schema['type']='number';
