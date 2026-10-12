@@ -26,7 +26,7 @@ final class OpenContracts
         if($kind==='market'&&str_contains($path,'{file_id}'))throw new OpenException('adapter_required','上游文件归属适配器尚未发布');
         if($kind==='market'&&$config['executor']!=='directory'&&$method==='GET'&&in_array($path,['/api/v1/tasks','/api/v1/models','/api/v1/apps'],true))throw new OpenException('adapter_required','列表接口必须使用本地权限目录适配器');
         foreach(['upstream_url','api_key','executor_class','credentials'] as $unsafe)if(isset($config[$unsafe]))throw new OpenException('invalid_contract','契约不能包含凭据或任意执行器');
-        return ['code'=>$code,'path'=>$path,'method'=>$method,'kind'=>$kind,'product_id'=>$product,'config'=>OpenStore::encode($config)];
+        return ['code'=>$code,'path'=>$path,'method'=>$method,'kind'=>$kind,'product_id'=>$product,'config'=>self::encodeConfig($config)];
     }
     public static function contentType(array $config): string
     {
@@ -40,15 +40,53 @@ final class OpenContracts
     }
     public static function decodeConfig(array|string $value): array
     {
-        if(is_array($value))return $value;$typed=json_decode($value);$config=OpenStore::json($value);
+        if(is_array($value))return $value;
+        $typed=json_decode($value);$config=self::legacyConfig($value);
+        return $typed instanceof \stdClass?self::restoreInstances($config,$typed):$config;
+    }
+    /** Keep published receipt fingerprints on their historical representation. */
+    public static function legacyConfig(array|string $value): array
+    {
+        if(is_array($value)){
+            $config=$value;
+            foreach(['responses','query_responses'] as $field)foreach((array)($config[$field]??[]) as $status=>$response)foreach((array)($response['content']??[]) as $type=>$media){
+                if(!is_array($media))continue;
+                if(array_key_exists('example',$media))$config[$field][$status]['content'][$type]['example']=json_decode(json_encode($media['example'],JSON_THROW_ON_ERROR),true);
+                foreach((array)($media['examples']??[]) as $name=>$example)if(is_array($example)&&array_key_exists('value',$example))$config[$field][$status]['content'][$type]['examples'][$name]['value']=json_decode(json_encode($example['value'],JSON_THROW_ON_ERROR),true);
+            }
+            return $config;
+        }
+        $typed=json_decode($value);$config=OpenStore::json($value);
         if(isset($typed->example)&&$typed->example instanceof \stdClass)$config['example']=(array)$typed->example;
         return $config;
+    }
+    /** Preserve whole JSON instances, including null/false/zero, without changing schema maps. */
+    private static function restoreInstances(array $config, \stdClass $typed): array
+    {
+        if(isset($typed->example)&&$typed->example instanceof \stdClass)$config['example']=(array)$typed->example;
+        foreach(['responses','query_responses'] as $field){
+            $responses=$typed->{$field}??null;if(!$responses instanceof \stdClass)continue;
+            foreach(get_object_vars($responses) as $status=>$response){
+                $content=$response instanceof \stdClass?($response->content??null):null;if(!$content instanceof \stdClass)continue;
+                foreach(get_object_vars($content) as $type=>$media){
+                    if(!$media instanceof \stdClass)continue;
+                    if(property_exists($media,'example'))$config[$field][$status]['content'][$type]['example']=$media->example;
+                    $examples=$media->examples??null;if(!$examples instanceof \stdClass)continue;
+                    foreach(get_object_vars($examples) as $name=>$example)if($example instanceof \stdClass&&property_exists($example,'value'))$config[$field][$status]['content'][$type]['examples'][$name]['value']=$example->value;
+                }
+            }
+        }
+        return $config;
+    }
+    public static function encodeConfig(array $config): string
+    {
+        return json_encode($config,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
     }
     /** Preserve reviewed JSON examples when the framework decodes the management body as arrays. */
     public static function requestInput($request): array
     {
         $input=$request->post();$raw=json_decode($request->getInput());
-        if(isset($raw->config->example)&&$raw->config->example instanceof \stdClass)$input['config']['example']=(array)$raw->config->example;
+        if(($raw->config??null) instanceof \stdClass)$input['config']=self::restoreInstances((array)($input['config']??[]),$raw->config);
         return $input;
     }
     public static function detail(int $id): array {$row=OpenStore::table('contract')->where('id',$id)->find();if(!$row)throw new OpenException('not_found','接口契约不存在',404);$row['config']=self::decodeConfig($row['config']);return $row;}
@@ -58,7 +96,7 @@ final class OpenContracts
             if($row['kind']==='market'&&$row['config']['executor']==='json'&&(str_starts_with($row['path'],'/api/v1/apps/')||str_starts_with($row['path'],'/api/v1/tasks'))&&(($row['config']['response_adapter']??'')!==OpenMarketResponse::ADAPTER||!OpenMarketResponse::schemaSupported($row['config']['responses'])))throw new OpenException('adapter_required','商城业务协议必须使用已验证的用户费用响应适配');
             $doc=OpenStore::table('document')->where(['tenant_id'=>0,'contract_code'=>$row['code'],'status'=>'published'])->find();if(!$doc)throw new OpenException('missing_document','请先发布对应接口文档');
             $row['config']['verification']=OpenVerification::assertReceipt($row);
-            OpenStore::table('contract')->where('id',$id)->update(['config'=>OpenStore::encode($row['config'])]);
+            OpenStore::table('contract')->where('id',$id)->update(['config'=>self::encodeConfig($row['config'])]);
             OpenStore::table('contract')->where(['code'=>$row['code'],'status'=>'published'])->update(['status'=>'archived','update_time'=>time()]);OpenStore::table('contract')->where('id',$id)->update(['status'=>'published','update_time'=>time()]);return self::detail($id);});
     }
     public static function tool(string $method,string $path): array

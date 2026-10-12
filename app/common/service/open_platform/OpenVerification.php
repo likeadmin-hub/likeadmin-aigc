@@ -5,7 +5,7 @@ final class OpenVerification
 {
     public static function digest(array $contract): string
     {
-        $config=OpenContracts::decodeConfig($contract['config']);unset($config['verification']);
+        $config=OpenContracts::legacyConfig($contract['config']);unset($config['verification']);
         return OpenPolicy::fingerprint(['kind'=>$contract['kind'],'method'=>$contract['method'],'path'=>$contract['path'],'product_id'=>(int)($contract['product_id']??0),'config'=>$config]);
     }
     public static function assertReceipt(array $contract): array
