@@ -91,6 +91,21 @@ final class OpenCharacterInputPricing
         return (float)$quantity;
     }
 
+    /** Synchronous source success must contain a delivered audio address, even on legacy schemas. */
+    public static function resultDelivered(array $data): bool
+    {
+        $result=OpenSchema::get($data,'data.result');
+        if($result instanceof \stdClass)$result=(array)$result;
+        if(!is_array($result))return false;
+        $url=$result['audio_url']??null;
+        if(!is_string($url)||$url===''||preg_match('/[\x00-\x20\x7f]/',$url)||filter_var($url,FILTER_VALIDATE_URL)===false)return false;
+        $parts=parse_url($url);
+        if(!is_array($parts)||!in_array(strtolower($parts['scheme']??''),['http','https'],true)||($parts['host']??'')===''||isset($parts['user'])||isset($parts['pass']))return false;
+        // TaskTransferService's successful display marker is exactly "success".
+        // FishAudioDriver's normal synchronous result has no transfer_status.
+        return !array_key_exists('transfer_status',$result)||$result['transfer_status']==='success';
+    }
+
     private static function assertDefaultVoice(array $value): void
     {
         foreach ($value as $name => $item) {

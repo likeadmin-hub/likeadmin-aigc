@@ -82,6 +82,11 @@ final class OpenGateway
         $body=json_decode($wire['body'],false,64);if(json_last_error()!==JSON_ERROR_NONE||!($body instanceof \stdClass)||!(array)$body)return false;$data=(array)$body;
         if(($operation['response_adapter']??'')===OpenMarketResponse::ADAPTER&&!OpenMarketResponse::bodySupported($wire['body']))return false;
         if(!self::marketSchemaAccepted($operation,$wire,$body))return false;
+        if(($operation['native_pricing']??'')===OpenCharacterInputPricing::ADAPTER&&!empty($operation['billable'])&&($operation['role']??'')==='submit'){
+            $id=OpenSchema::get($data,$operation['task_id_path']??'data.task_id');
+            // A known async task can be queried; only sync results need delivered audio now.
+            if(!((is_string($id)||is_int($id))&&(string)$id!=='')&&!OpenCharacterInputPricing::resultDelivered($data))return false;
+        }
         if(($operation['response_adapter']??'')===OpenMarketResponse::ADAPTER&&!empty($operation['billable'])&&($operation['role']??'')==='submit'&&in_array($data['code']??null,[1,'1'],true)){
             $id=OpenSchema::get($data,$operation['task_id_path']??'data.task_id');
             if(!((is_string($id)||is_int($id))&&(string)$id!=='')&&!self::marketHasResult($data))return false;
