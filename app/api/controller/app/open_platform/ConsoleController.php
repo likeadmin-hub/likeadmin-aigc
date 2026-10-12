@@ -18,6 +18,7 @@ class ConsoleController extends BaseApiController
     public function catalog(){return $this->run(fn()=>\app\common\service\open_platform\OpenCatalog::forConsole((int)$this->request->tenantId,$this->userId));}
     public function requests(){return $this->run(fn()=>OpenManagement::requests((int)$this->request->tenantId,$this->userId,$this->request->get()));}
     public function requestDetail(){return $this->run(fn()=>OpenManagement::detail((int)$this->request->tenantId,$this->userId,(string)$this->request->get('request_id')));}
+    public function debugTask(){if(!$this->request->isGet())return $this->fail('仅支持 GET 请求');return $this->run(function(){foreach(['path','product_id','scope','upstream_task_id','executor','method'] as $field)if(array_key_exists($field,$this->request->get()))throw new \app\common\service\open_platform\OpenException('invalid_request','历史查询只接受原请求标识');return \app\common\service\open_platform\OpenHistoryDebug::descriptor((int)$this->request->tenantId,$this->userId,(string)$this->request->get('request_id'));});}
     public function tasks(){return $this->run(fn()=>OpenManagement::requests((int)$this->request->tenantId,$this->userId,$this->request->get()+['tasks'=>true]));}
     public function usage(){return $this->run(fn()=>OpenManagement::usage((int)$this->request->tenantId,$this->userId,$this->request->get(),true));}
     public function callbacks(){return $this->run(fn()=>OpenManagement::callbacks((int)$this->request->tenantId,$this->userId,(string)$this->request->get('request_id')));}

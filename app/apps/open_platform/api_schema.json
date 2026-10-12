@@ -284,6 +284,14 @@
       "need_role_permission": 0
     },
     {
+      "api_path": "app.open_platform.console/debugTask",
+      "api_method": "GET",
+      "permission_key": "open_platform:console:debugTask",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.open_platform.console/tasks",
       "api_method": "GET",
       "permission_key": "open_platform:console:tasks",
