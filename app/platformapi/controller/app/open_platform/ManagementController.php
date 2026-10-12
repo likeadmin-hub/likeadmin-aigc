@@ -25,5 +25,18 @@ class ManagementController extends BaseAdminController
     public function createVerification(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>\app\common\service\open_platform\OpenContractPreview::issue((int)$this->request->post('id'),(int)$this->request->post('key_id'),(string)$this->request->post('path','')));}
     public function publishContract(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenContracts::publish((int)$this->request->post('id')));}
     public function inventory(){return $this->run(fn()=>['tools'=>array_map(fn($code,$tool)=>['code'=>$code,'name'=>$tool['name']],array_keys(\app\common\service\open_platform\OpenToolRegistry::all()),array_values(\app\common\service\open_platform\OpenToolRegistry::all())),'models'=>\think\facade\Db::name('power_market_product')->field('id,name,resource_type')->where('status',1)->order('id','asc')->limit(5000)->select()->toArray()]);}
+    public function marketPlan()
+    {
+        return $this->run(fn()=>\app\common\service\open_platform\OpenMarketContractCompiler::plan(
+            (int)$this->request->get('tenant_id',0),[],(array)$this->request->get('product_ids',[])
+        ));
+    }
+    public function importMarketContracts()
+    {
+        if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');
+        return $this->run(fn()=>\app\common\service\open_platform\OpenMarketContractCompiler::import(
+            (int)$this->request->post('tenant_id',0),(array)$this->request->post('reviews',[]),(array)$this->request->post('product_ids',[])
+        ));
+    }
 
 }

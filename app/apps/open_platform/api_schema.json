@@ -413,6 +413,24 @@
       "scene": "tenant_admin",
       "need_login": 1,
       "need_role_permission": 1
+    },
+    {
+      "permission_key": "open_platform_platform_marketPlan",
+      "name": "商城契约编译计划",
+      "api_path": "app.open_platform.management/marketPlan",
+      "api_method": "GET",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "permission_key": "open_platform_platform_importMarketContracts",
+      "name": "导入商城契约草稿",
+      "api_path": "app.open_platform.management/importMarketContracts",
+      "api_method": "POST",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
     }
   ]
 }

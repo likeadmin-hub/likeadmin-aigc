@@ -16,3 +16,5 @@ Route::post('app/open_platform/publishDocument','app.open_platform.Management/pu
 Route::post('app/open_platform/saveContract','app.open_platform.Management/saveContract')->completeMatch();
 Route::post('app/open_platform/createVerification','app.open_platform.Management/createVerification')->completeMatch();
 Route::post('app/open_platform/publishContract','app.open_platform.Management/publishContract')->completeMatch();
+Route::get('app/open_platform/marketPlan','app.open_platform.Management/marketPlan')->completeMatch();
+Route::post('app/open_platform/importMarketContracts','app.open_platform.Management/importMarketContracts')->completeMatch();

@@ -78,6 +78,20 @@
             "name": "草稿验收",
             "perms": "app.open_platform.management/createVerification",
             "is_show": 0
+          },
+          {
+            "source_menu_key": "open_platform_platform_marketPlan",
+            "type": "A",
+            "name": "商城契约编译计划",
+            "perms": "app.open_platform.management/marketPlan",
+            "is_show": 0
+          },
+          {
+            "source_menu_key": "open_platform_platform_importMarketContracts",
+            "type": "A",
+            "name": "导入商城契约草稿",
+            "perms": "app.open_platform.management/importMarketContracts",
+            "is_show": 0
           }
         ]
       },
