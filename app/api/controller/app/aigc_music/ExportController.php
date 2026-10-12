@@ -7,6 +7,18 @@ use app\common\service\app\aigc_music\AigcMusicService;
 
 class ExportController extends BaseApiController
 {
+    public function download()
+    {
+        try {
+            $file=\app\common\service\app\aigc_music\AigcMusicExportDownload::read((int)$this->request->tenantId,$this->userId,(int)$this->request->get('export_id',0));
+            return response($file['body'],200,['Content-Type'=>$file['mime'],'Content-Disposition'=>'attachment; filename="'.$file['name'].'"','Cache-Control'=>'private, no-store','X-Content-Type-Options'=>'nosniff']);
+        } catch (\app\common\service\open_platform\OpenException $e) {
+            return json(['code'=>0,'msg'=>$e->getMessage(),'data'=>null],$e->httpStatus);
+        } catch (\Exception $e) {
+            return json(['code'=>0,'msg'=>'导出文件暂不可读取，请稍后重试','data'=>null],503);
+        }
+    }
+
     public function wav()
     {
         return $this->handle('wav');

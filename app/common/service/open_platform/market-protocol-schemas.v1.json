@@ -1,0 +1,1170 @@
+{
+  "version": 1,
+  "reviewed_upstream_revision": "7cdc34947",
+  "reviewed_at": "2026-10-12",
+  "definitions": {
+    "model_task": {
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "channel": {
+            "type": "string"
+          },
+          "callback_url": {
+            "type": "string"
+          },
+          "smart_route": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "input": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "model"
+        ]
+      },
+      "submit_responses": {
+        "200": {
+          "description": "任务响应；结构示例中的积分为中性值，不是费用报价或调用回执。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "integer",
+                    "const": 1
+                  },
+                  "msg": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "task_id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "pending",
+                          "processing",
+                          "completed",
+                          "failed",
+                          "cancelled",
+                          "unknown"
+                        ]
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "channel": {
+                        "type": "string"
+                      },
+                      "app": {
+                        "type": "string"
+                      },
+                      "api": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string"
+                      },
+                      "call_type": {
+                        "type": "string",
+                        "enum": [
+                          "sync",
+                          "async"
+                        ]
+                      },
+                      "created_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "completed_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "response_time_ms": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Database integer may serialize as a decimal string; not a money field."
+                      },
+                      "frozen_points": {
+                        "type": "number"
+                      },
+                      "actual_points": {
+                        "type": "number"
+                      },
+                      "result": {
+                        "type": [
+                          "object",
+                          "array"
+                        ],
+                        "properties": {
+                          "results": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "url": {
+                                  "type": "string"
+                                },
+                                "image_url": {
+                                  "type": "string"
+                                },
+                                "video_url": {
+                                  "type": "string"
+                                },
+                                "audio_url": {
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "type": "string"
+                                },
+                                "transfer_status": {
+                                  "type": "string"
+                                },
+                                "duration": {
+                                  "type": "number"
+                                }
+                              },
+                              "additionalProperties": true
+                            }
+                          },
+                          "images": {
+                            "type": "array"
+                          },
+                          "video_url": {
+                            "type": "string"
+                          },
+                          "duration": {
+                            "type": "number"
+                          },
+                          "outputs": {
+                            "type": "array"
+                          },
+                          "choices": {
+                            "type": "array"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "results": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "url": {
+                              "type": "string"
+                            },
+                            "image_url": {
+                              "type": "string"
+                            },
+                            "video_url": {
+                              "type": "string"
+                            },
+                            "audio_url": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            },
+                            "transfer_status": {
+                              "type": "string"
+                            },
+                            "duration": {
+                              "type": "number"
+                            }
+                          },
+                          "additionalProperties": true
+                        }
+                      },
+                      "usage": {
+                        "type": "object",
+                        "properties": {
+                          "input_tokens": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "output_tokens": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "total_tokens": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "response_time_ms": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "width": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "height": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "image_count": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "points_cost": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "error": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true,
+                        "required": [
+                          "code",
+                          "message"
+                        ]
+                      },
+                      "storage": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": true
+                      },
+                      "storage_error": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": true
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "task_id",
+                      "status"
+                    ]
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "code",
+                  "msg",
+                  "data"
+                ]
+              },
+              "examples": {
+                "model_async_submit": {
+                  "summary": "结构示例（未执行，积分非报价）",
+                  "value": {
+                    "code": 1,
+                    "msg": "success",
+                    "data": {
+                      "task_id": "task_source_fixture",
+                      "status": "processing",
+                      "model": "gpt-image-2",
+                      "channel": "OpenaiM",
+                      "frozen_points": 0,
+                      "created_at": "2026-10-12T00:00:00Z"
+                    }
+                  }
+                },
+                "model_sync_completion": {
+                  "summary": "结构示例（未执行，积分非报价）",
+                  "value": {
+                    "code": 1,
+                    "msg": "success",
+                    "data": {
+                      "task_id": "task_source_fixture",
+                      "status": "completed",
+                      "model": "gpt-image-2",
+                      "channel": "OpenaiM",
+                      "frozen_points": 0,
+                      "actual_points": 0,
+                      "created_at": "2026-10-12T00:00:00Z",
+                      "result": {
+                        "results": [
+                          {
+                            "url": "https://example.com/result.png",
+                            "type": "image"
+                          }
+                        ],
+                        "vendor_metadata": {}
+                      },
+                      "usage": {
+                        "width": 1024,
+                        "height": 1024,
+                        "image_count": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "query_responses": {
+        "200": {
+          "description": "任务响应；结构示例中的积分为中性值，不是费用报价或调用回执。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "integer",
+                    "const": 1
+                  },
+                  "msg": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "task_id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "pending",
+                          "processing",
+                          "completed",
+                          "failed",
+                          "cancelled",
+                          "unknown"
+                        ]
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "channel": {
+                        "type": "string"
+                      },
+                      "app": {
+                        "type": "string"
+                      },
+                      "api": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string"
+                      },
+                      "call_type": {
+                        "type": "string",
+                        "enum": [
+                          "sync",
+                          "async"
+                        ]
+                      },
+                      "created_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "completed_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "response_time_ms": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Database integer may serialize as a decimal string; not a money field."
+                      },
+                      "frozen_points": {
+                        "type": "number"
+                      },
+                      "actual_points": {
+                        "type": "number"
+                      },
+                      "result": {
+                        "type": [
+                          "object",
+                          "array"
+                        ],
+                        "properties": {
+                          "results": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "url": {
+                                  "type": "string"
+                                },
+                                "image_url": {
+                                  "type": "string"
+                                },
+                                "video_url": {
+                                  "type": "string"
+                                },
+                                "audio_url": {
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "type": "string"
+                                },
+                                "transfer_status": {
+                                  "type": "string"
+                                },
+                                "duration": {
+                                  "type": "number"
+                                }
+                              },
+                              "additionalProperties": true
+                            }
+                          },
+                          "images": {
+                            "type": "array"
+                          },
+                          "video_url": {
+                            "type": "string"
+                          },
+                          "duration": {
+                            "type": "number"
+                          },
+                          "outputs": {
+                            "type": "array"
+                          },
+                          "choices": {
+                            "type": "array"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "results": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "url": {
+                              "type": "string"
+                            },
+                            "image_url": {
+                              "type": "string"
+                            },
+                            "video_url": {
+                              "type": "string"
+                            },
+                            "audio_url": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            },
+                            "transfer_status": {
+                              "type": "string"
+                            },
+                            "duration": {
+                              "type": "number"
+                            }
+                          },
+                          "additionalProperties": true
+                        }
+                      },
+                      "usage": {
+                        "type": "object",
+                        "properties": {
+                          "input_tokens": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "output_tokens": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "total_tokens": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "response_time_ms": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "width": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "height": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "image_count": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
+                            "description": "Database integer may serialize as a decimal string; not a money field."
+                          },
+                          "points_cost": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "error": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true,
+                        "required": [
+                          "code",
+                          "message"
+                        ]
+                      },
+                      "storage": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": true
+                      },
+                      "storage_error": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": true
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "task_id",
+                      "model",
+                      "type",
+                      "call_type",
+                      "status",
+                      "created_at"
+                    ]
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "code",
+                  "msg",
+                  "data"
+                ]
+              },
+              "examples": {
+                "query_image_completion": {
+                  "summary": "结构示例（未执行，积分非报价）",
+                  "value": {
+                    "code": 1,
+                    "msg": "success",
+                    "data": {
+                      "task_id": "task_source_fixture",
+                      "model": "gpt-image-2",
+                      "type": "image",
+                      "call_type": "sync",
+                      "status": "completed",
+                      "created_at": null,
+                      "completed_at": null,
+                      "response_time_ms": 800,
+                      "result": {
+                        "results": [
+                          {
+                            "url": "https://example.com/result.png",
+                            "type": "image"
+                          }
+                        ],
+                        "opaque_business": {
+                          "object": {},
+                          "list": []
+                        }
+                      },
+                      "usage": {
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                        "total_tokens": 0,
+                        "points_cost": 0
+                      }
+                    }
+                  }
+                },
+                "query_image_top_level_results": {
+                  "summary": "结构示例（未执行，积分非报价）",
+                  "value": {
+                    "code": 1,
+                    "msg": "success",
+                    "data": {
+                      "task_id": "task_source_fixture",
+                      "model": "qwen-image-3.0",
+                      "type": "image",
+                      "call_type": "async",
+                      "status": "completed",
+                      "created_at": "2026-10-12T00:00:00Z",
+                      "results": [
+                        {
+                          "url": "https://example.com/result.png",
+                          "type": "image"
+                        }
+                      ],
+                      "usage": {
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                        "total_tokens": 0,
+                        "points_cost": 0
+                      }
+                    }
+                  }
+                },
+                "query_transfer_failure_empty_array": {
+                  "summary": "结构示例（未执行，积分非报价）",
+                  "value": {
+                    "code": 1,
+                    "msg": "success",
+                    "data": {
+                      "task_id": "task_source_fixture",
+                      "model": "gpt-image-2",
+                      "type": "image",
+                      "call_type": "async",
+                      "status": "failed",
+                      "created_at": null,
+                      "result": [],
+                      "error": {
+                        "code": "transfer_failed",
+                        "message": "Transfer failed"
+                      }
+                    }
+                  }
+                },
+                "query_video_vendor_fields": {
+                  "summary": "结构示例（未执行，积分非报价）",
+                  "value": {
+                    "code": 1,
+                    "msg": "success",
+                    "data": {
+                      "task_id": "task_source_fixture",
+                      "model": "veo3.1-fast",
+                      "type": "video",
+                      "call_type": "async",
+                      "status": "completed",
+                      "created_at": null,
+                      "result": {
+                        "video_url": "https://example.com/result.mp4",
+                        "duration": 8,
+                        "outputs": [
+                          "https://example.com/result.mp4"
+                        ],
+                        "vendor_metadata": {}
+                      },
+                      "usage": {
+                        "input_tokens": "0",
+                        "output_tokens": "0",
+                        "total_tokens": "0",
+                        "points_cost": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "sources": [
+        "route/app.php:63-66",
+        "app/api/controller/v1/BaseAiController.php:26-36",
+        "app/api/controller/v1/TaskController.php:453-460",
+        "app/api/controller/v1/TaskController.php:845-860",
+        "app/api/controller/v1/TaskController.php:988-1057",
+        "app/api/controller/v1/TaskController.php:1251-1279",
+        "app/common/service/ai/TaskTransferService.php:645-700"
+      ]
+    },
+    "openai_chat": {
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": [
+                    "string",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string"
+                      },
+                      "text": {
+                        "type": "string"
+                      },
+                      "image_url": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                }
+              },
+              "additionalProperties": true,
+              "required": [
+                "role",
+                "content"
+              ]
+            }
+          },
+          "stream": {
+            "type": "boolean"
+          },
+          "max_tokens": {
+            "type": "integer"
+          },
+          "temperature": {
+            "type": "number"
+          },
+          "tools": {
+            "type": "array"
+          },
+          "response_format": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "model",
+          "messages"
+        ]
+      },
+      "request_example": {
+        "model": "MODEL",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Hello"
+          }
+        ],
+        "stream": false
+      },
+      "sources": [
+        "app/api/controller/v1/CompatibleController.php:28-37",
+        "app/common/service/ai_model_factory/FactoryUpstreamClient.php:236-242",
+        "route/app.php:56-59",
+        "app/common/service/ai_model_factory/FactoryRouterService.php:612-638"
+      ]
+    },
+    "openai_completions": {
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": [
+              "string",
+              "array"
+            ]
+          },
+          "stream": {
+            "type": "boolean"
+          },
+          "max_tokens": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "model",
+          "prompt"
+        ]
+      },
+      "request_example": {
+        "model": "MODEL",
+        "prompt": "Hello",
+        "stream": false
+      },
+      "sources": [
+        "app/api/controller/v1/CompatibleController.php:28-37",
+        "app/common/service/ai_model_factory/FactoryUpstreamClient.php:236-242",
+        "route/app.php:56-59",
+        "app/common/service/ai_model_factory/FactoryRouterService.php:612-638"
+      ]
+    },
+    "openai_responses": {
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "input": {
+            "type": [
+              "string",
+              "array"
+            ]
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "stream": {
+            "type": "boolean"
+          },
+          "max_output_tokens": {
+            "type": "integer"
+          },
+          "tools": {
+            "type": "array"
+          },
+          "text": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "store": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "model",
+          "input"
+        ]
+      },
+      "request_example": {
+        "model": "MODEL",
+        "input": "Hello",
+        "store": false,
+        "stream": false
+      },
+      "sources": [
+        "app/api/controller/v1/CompatibleController.php:28-37",
+        "app/common/service/ai_model_factory/FactoryUpstreamClient.php:236-242",
+        "route/app.php:56-59",
+        "app/common/service/ai_model_factory/FactoryRouterService.php:612-638"
+      ]
+    },
+    "anthropic_messages": {
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": [
+                    "string",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string"
+                      },
+                      "text": {
+                        "type": "string"
+                      },
+                      "image_url": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                }
+              },
+              "additionalProperties": true,
+              "required": [
+                "role",
+                "content"
+              ]
+            }
+          },
+          "system": {
+            "type": [
+              "string",
+              "array"
+            ]
+          },
+          "stream": {
+            "type": "boolean"
+          },
+          "max_tokens": {
+            "type": "integer"
+          },
+          "tools": {
+            "type": "array"
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "model",
+          "messages",
+          "max_tokens"
+        ]
+      },
+      "request_example": {
+        "model": "MODEL",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Hello"
+          }
+        ],
+        "max_tokens": 16,
+        "stream": false
+      },
+      "sources": [
+        "app/api/controller/v1/CompatibleController.php:28-37",
+        "app/common/service/ai_model_factory/FactoryUpstreamClient.php:236-242",
+        "route/app.php:56-59",
+        "app/common/service/ai_model_factory/FactoryRouterService.php:612-638"
+      ]
+    },
+    "app.grok_video.submit": {
+      "request_schema": {
+        "type": "object",
+        "required": [
+          "model"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "default": "grok-imagine-video-1.5-fast",
+            "options": "grok-imagine-video-1.5-fast / grok-imagine-video-1.5",
+            "description": "视频模型规格。"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "视频内容描述。快速生成在未提供 image_urls 时必填。"
+          },
+          "duration": {
+            "type": "integer",
+            "default": 8,
+            "options": "1-30",
+            "description": "视频时长（秒）。快速生成支持 1-30，标准生成支持 1-15。"
+          },
+          "image_urls": {
+            "type": "array",
+            "example": [
+              "https://example.com/main.jpg",
+              "https://example.com/style.jpg"
+            ],
+            "description": "输入图片地址列表。第一张作为主图，其余图片作为参考图；标准生成模型至少需要一张。"
+          },
+          "resolution": {
+            "type": "string",
+            "default": "480p",
+            "options": "480p / 720p / 1080p",
+            "description": "输出分辨率，影响价格。"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "options": "1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3",
+            "description": "视频宽高比。"
+          },
+          "callback_url": {
+            "type": "string",
+            "description": "任务完成或失败时由平台主动通知的 HTTPS 地址。"
+          }
+        }
+      },
+      "request_example": {
+        "model": "grok-imagine-video-1.5-fast",
+        "prompt": "A cinematic city street at sunset, smooth camera movement.",
+        "duration": 8,
+        "resolution": "480p"
+      },
+      "default_params": {
+        "model": "grok-imagine-video-1.5-fast",
+        "duration": 8,
+        "resolution": "480p"
+      },
+      "method": "POST",
+      "call_type": 2,
+      "sources": [
+        "app/api/controller/v1/AppController.php:73-112",
+        "app/common/command/GrokVideoAppMigrate.php:102-117",
+        "app/common/service/ai/app/GrokVideoAppDriver.php:89-125"
+      ],
+      "snapshot_route": "GET /api/v1/apps/grok_video"
+    },
+    "app.nano_banana.submit": {
+      "request_schema": {
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "default": "nano-banana",
+            "example": "nano-banana",
+            "options": "nano-banana / nano-banana-2 / nano-banana-2-lite / nano-banana-pro / nano-banana:official / nano-banana-2-lite:official / nano-banana-2:official / nano-banana-pro:official",
+            "description": "模型规格。普通模型适合常规生成，官方模型适合更高一致性和高清档位。"
+          },
+          "action": {
+            "type": "string",
+            "default": "generate",
+            "example": "generate",
+            "options": "generate / edit",
+            "description": "任务类型。generate 为文生图，edit 为基于参考图编辑。"
+          },
+          "prompt": {
+            "type": "string",
+            "example": "A clean product photo of a yellow banana-shaped speaker on a white table.",
+            "description": "图片内容、风格、主体和细节描述。"
+          },
+          "image_urls": {
+            "type": "array",
+            "example": [
+              "https://example.com/reference.png"
+            ],
+            "description": "参考图片 URL 列表。action=edit 时必填。"
+          },
+          "resolution": {
+            "type": "string",
+            "default": "1K",
+            "example": "1K",
+            "options": "1K / 2K / 4K",
+            "description": "输出分辨率。官方高清模型按 1K、2K、4K 分档计费。"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "example": "1:1",
+            "options": "auto / 1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3 / 5:4 / 4:5 / 21:9",
+            "description": "图片宽高比。"
+          },
+          "callback_url": {
+            "type": "string",
+            "example": "https://example.com/api/ai/callback",
+            "description": "任务完成或失败时由平台主动通知的 HTTPS 地址。"
+          }
+        }
+      },
+      "request_example": {
+        "action": "generate",
+        "model": "nano-banana",
+        "prompt": "A clean product photo of a yellow banana-shaped speaker on a white table.",
+        "resolution": "1K",
+        "aspect_ratio": "1:1"
+      },
+      "default_params": {
+        "model": "nano-banana",
+        "action": "generate",
+        "resolution": "1K"
+      },
+      "method": "POST",
+      "call_type": 2,
+      "sources": [
+        "app/api/controller/v1/AppController.php:73-112",
+        "app/common/command/NanoBananaAppMigrate.php:493-544",
+        "app/common/service/ai/app/NanoBananaAppDriver.php:46-86"
+      ],
+      "snapshot_route": "GET /api/v1/apps/nano_banana"
+    }
+  }
+}

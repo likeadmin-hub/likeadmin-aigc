@@ -1,0 +1,88 @@
+<?php
+namespace app\common\service\open_platform;
+use app\common\service\app\AppAccessService;
+use app\common\service\app\aigc_llm\AigcLlmService;
+final class OpenToolAdapter
+{
+    public static function authorize(int $tenantId,int $userId,string $app): void
+    {
+        OpenToolRegistry::get($app);$global=OpenStore::settings(0);$config=OpenStore::requireEnabled($tenantId);
+        if(!in_array($app,$config['apps'],true)||!in_array($app,$global['apps'],true))throw new OpenException('permission_denied','该工具未开放',403);
+        $denied=AppAccessService::assertTenantCanUse($tenantId,$app,$userId,true,false);if($denied)throw new OpenException('permission_denied',(string)($denied->getData()['msg']??'工具不可用'),403);
+    }
+    public static function call($request,array $operation,array $params,?callable $onEvent=null): array
+    {
+        $params=json_decode(OpenStore::encode($params),true,64,JSON_THROW_ON_ERROR);$app=$operation['app_code'];$params=OpenMaterials::nativeInputs($app,$params);OpenToolRegistry::assertExecutable($operation);if(empty($operation['history']))self::authorize((int)$request->tenantId,(int)$request->userId,$app);OpenPolicy::validateInput($params);OpenSafeHttp::checkInputs($params);
+        OpenToolResourceOwnership::check((int)$request->tenantId,(int)$request->userId,$operation,$params);
+        if(isset($operation['params']['task_id']))$params['id']=!empty($operation['internal'])?$operation['params']['task_id']:OpenToolTasks::decode($app,(string)$operation['params']['task_id']);
+        if(isset($params['id'])&&($operation['controller']??'')==='Task'&&!isset($operation['params']['task_id'])&&empty($operation['internal']))$params['id']=OpenToolTasks::decode($app,(string)$params['id']);
+        if(isset($params['task_id'])&&empty($operation['internal']))$params['task_id']=OpenToolTasks::decode($app,(string)$params['task_id']);
+        if(isset($params['task_id'])&&is_string($params['task_id'])&&str_starts_with($params['task_id'],'ot_'))$params['task_id']=OpenToolTasks::decode($app,$params['task_id']);
+        if(isset($params['id'])&&is_string($params['id'])&&str_starts_with($params['id'],'ot_'))$params['id']=OpenToolTasks::decode($app,$params['id']);
+        $original=app()->request;$scoped=OpenToolRequest::from($request,$params,$operation);app()->instance('request',$scoped);
+        try{
+        if(isset($operation['music_operation']))return match($operation['music_operation']) {
+            'upload_audio'=>\app\common\service\app\aigc_music\AigcMusicService::uploadUpstreamAudio((int)$request->tenantId,(int)$request->userId,$params),
+            'persona'=>\app\common\service\app\aigc_music\AigcMusicService::createUpstreamPersona((int)$request->tenantId,(int)$request->userId,$params),
+            'voice_clone'=>\app\common\service\app\aigc_music\AigcMusicService::createVoiceClone((int)$request->tenantId,(int)$request->userId,$params),
+            'lyrics'=>\app\common\service\app\aigc_music\AigcMusicService::lyrics((int)$request->tenantId,(int)$request->userId,$params),
+            'mashup_lyrics'=>\app\common\service\app\aigc_music\AigcMusicService::mashupLyrics((int)$request->tenantId,(int)$request->userId,$params),
+            'style'=>\app\common\service\app\aigc_music\AigcMusicService::optimizeStyle((int)$request->tenantId,(int)$request->userId,$params),
+            'timing','wav','midi','mp4','vox'=>\app\common\service\app\aigc_music\AigcMusicService::exportResult((int)$request->tenantId,(int)$request->userId,(int)($params['result_id']??0),$operation['music_operation'],$params),
+            default=>throw new OpenException('not_found','音乐操作未注册',404),
+        };
+        if(($operation['service']??'')==='readTextTasks')return OpenTextLifecycle::tasks((int)$request->tenantId,(int)$request->userId,$operation['route'],$params);
+        if(isset($operation['service'])){$params['_disable_transient_retry']=true;$params['_disable_model_fallback']=true;
+            $emit=$onEvent?static function(string $event,array $data)use($onEvent){$onEvent(['type'=>$event,'data'=>$data]);}:null;
+            return $operation['service']==='streamText'?AigcLlmService::streamText((int)$request->tenantId,(int)$request->userId,$params,$emit):AigcLlmService::generateText((int)$request->tenantId,(int)$request->userId,$params);}
+        // Invoke these shared business services directly: page controllers wrap
+        // exceptions as normal JSON and erase connection/lease failure identity.
+        if(in_array($app,array_merge(['aigc_image'],OpenImagePricing::COMPOSITES,OpenImageBatchDispatch::APPS),true)&&in_array($operation['route']??'',['POST tasks','GET tasks/{task_id}'],true)){
+            $suffix=substr($app,5);$class='app\\common\\service\\app\\'.$app.'\\Aigc'.implode('',array_map('ucfirst',explode('_',$suffix))).'Service';
+            try{return $operation['route']==='POST tasks'?$class::generate((int)$request->tenantId,(int)$request->userId,$params):$class::taskDetail((int)$request->tenantId,(int)$params['id'],(int)$request->userId);}
+            catch(\Throwable $error){OpenCallContext::rethrowLostAuthority($error);if($error instanceof OpenException||$error instanceof \PDOException||$error instanceof \think\db\exception\DbException)throw $error;throw new OpenException('tool_error',$error->getMessage());}
+        }
+        // This fixed registry reuses the existing user controller's validation and shared service.
+        // No caller-controlled class/action is ever invoked.
+        $class='app\\api\\controller\\app\\'.$app.'\\'.$operation['controller'].'Controller';
+        $controller=app()->make($class,[],true);$response=$controller->{$operation['action']}();
+        if(!$response instanceof \think\Response)throw new OpenException('invalid_response','工具响应无效',502);
+        $payload=$response->getData();if(!is_array($payload)||(int)($payload['code']??0)!==1)throw new OpenException('tool_error',(string)($payload['msg']??'工具执行失败'));
+        return ($operation['route']??'')==='GET capabilities'?OpenToolRegistry::capabilities($app,(array)($payload['data']??[])):(array)($payload['data']??[]);
+        }finally{app()->instance('request',$original);}
+    }
+    public static function estimateBudget(array $quote): ?array
+    {
+        $user=$quote['user_charge_points']??$quote['display_points']??$quote['total_points']??null;
+        $tenant=$quote['tenant_cost_points']??$quote['cost_points']??null;if($user===null||$tenant===null)return null;
+        foreach([$user,$tenant] as $amount)if(!is_numeric($amount)||!is_finite((float)$amount)||(float)$amount<0||(float)$amount>999999999999.99)throw new OpenException('pricing_unavailable','工具估价未提供可靠的费用边界',503);
+        // A zero/zero estimate may be an incomplete duration/resource probe.
+        // It cannot become unrestricted paid execution; require an explicit bound.
+        if((float)$user===0.&&(float)$tenant===0.)return null;
+        return ['user'=>(float)$user,'tenant'=>(float)$tenant,'snapshot'=>['quote'=>$quote,'billing_owner'=>'tool']];
+    }
+    public static function budget($request,array $operation,array $params): array
+    {
+        if(isset($operation['music_operation']))return \app\common\service\power\MarketMusicOperationRuntimeService::budget((int)$request->tenantId,(int)$request->userId,$operation['music_operation'],$params);
+        if(empty($operation['billable']))return ['user'=>0,'tenant'=>0,'snapshot'=>[]];
+        if($operation['app_code']==='aigc_image'&&$operation['route']==='POST tasks')return OpenImagePricing::budget($request,$params);
+        if(in_array($operation['app_code'],OpenImagePricing::COMPOSITES,true)&&$operation['route']==='POST tasks')return OpenImagePricing::compositeBudget($request,$operation['app_code'],$params);
+        if($operation['app_code']==='aigc_music'&&$operation['route']==='POST tasks')return OpenToolPricing::musicBudget($request,$params);
+        if($operation['app_code']==='aigc_video'&&$operation['route']==='POST tasks')return OpenVideoPricing::budget($request,$params);
+        if($operation['app_code']==='aigc_product_multi_angle'&&$operation['route']==='POST tasks')return OpenImagePricing::multiAngleBudget($request,$params);
+        if($operation['app_code']==='aigc_fashion_lookbook'&&$operation['route']==='POST tasks')return OpenImagePricing::fashionBudget($request,$params);
+        if($operation['app_code']==='aigc_fitting'&&$operation['route']==='POST tasks')return OpenImagePricing::fittingBudget($request,$params);
+        $nativeModel=null;if($operation['app_code']==='aigc_llm'&&isset($operation['service'])){
+            try{$nativeModel=\app\common\service\power\MarketTextModelRuntimeService::resolveModel((int)$request->tenantId,$params['model_code']??$params['model']??'',!empty($params['reference_images'])||!empty($params['image_urls']));}
+            catch(\Exception){throw new OpenException('model_unavailable','所选文本模型未上架或已不可用',403);}
+        }
+        $tool=OpenToolRegistry::get($operation['app_code']);$estimate=$tool['operations']['POST estimate']??null;
+        if($estimate && $operation['route']==='POST tasks'){
+            $quote=self::call($request,$estimate+['app_code'=>$operation['app_code'],'params'=>[]],$params);
+            $budget=self::estimateBudget($quote);if($budget!==null)return $budget;
+        }
+        $rules=OpenStore::settings(0)['tool_budgets'][$operation['app_code']][$operation['route']]??null;
+        if(!$rules||!isset($rules['user'],$rules['tenant'])||(float)$rules['user']<=0||(float)$rules['tenant']<=0)throw new OpenException('pricing_unavailable','该操作尚未配置可靠的计费额度边界',503);
+        return ['user'=>(float)$rules['user'],'tenant'=>(float)$rules['tenant'],'snapshot'=>['billing_owner'=>'tool','budget_rule'=>$rules]+($nativeModel?['native_text_model'=>$nativeModel]:[])];
+    }
+}

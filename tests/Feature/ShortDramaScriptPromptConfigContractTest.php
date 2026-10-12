@@ -282,7 +282,7 @@ class ShortDramaScriptPromptConfigContractTest extends TestCase
     public function testAdminBundleLoadsSavesAndResetsPromptConfiguration(): void
     {
         $root = dirname(__DIR__, 2);
-        $bundle = (string)\Tests\Support\CompiledAssets::read('admin', 'prompt', 'js');
+        $bundle = (string)\Tests\Support\CompiledAssets::vitePage('admin', 'apps/aigc_short_drama/prompt');
         $basicConfigBundle = (string)\Tests\Support\CompiledAssets::vitePage('admin', 'apps/aigc_short_drama/config');
         $service = (string)file_get_contents(
             $root . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php'

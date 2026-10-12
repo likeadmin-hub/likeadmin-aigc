@@ -2,6 +2,8 @@
 
 namespace app\tenantapi\controller\app\aigc_image;
 
+use app\common\service\app\PromptEnhanceModelService;
+use app\common\service\app\aigc_image\ImagePromptEnhanceService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\tenantapi\controller\BaseAdminController;
 
@@ -9,7 +11,10 @@ class ConfigController extends BaseAdminController
 {
     public function detail()
     {
-        return $this->success('获取成功', AigcImageService::config($this->tenantId));
+        $data = AigcImageService::config($this->tenantId);
+        $data['prompt_enhance_default_prompt'] = ImagePromptEnhanceService::instructions();
+        $data['prompt_enhance_model_options'] = PromptEnhanceModelService::options($this->tenantId);
+        return $this->success('获取成功', $data);
     }
 
     public function setup()

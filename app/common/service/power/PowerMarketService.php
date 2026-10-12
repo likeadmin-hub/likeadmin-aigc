@@ -491,6 +491,7 @@ class PowerMarketService
      */
     private static function appApiMetadata(array $app, array $api): array
     {
+        $api = self::mergeAppDetailRequestMetadata($app, $api);
         $api = self::mergeDeveloperDocAppApiDetail($app, $api);
         $appCapabilities = self::arrayValue($app['capabilities'] ?? []);
         $apiCapabilities = self::arrayValue($api['capabilities'] ?? []);
@@ -508,6 +509,7 @@ class PowerMarketService
             'call_type' => (int)($api['call_type'] ?? 0),
             'method' => strtoupper(trim((string)($api['method'] ?? ''))),
             'params_schema' => self::arrayValue($api['params_schema'] ?? []),
+            'request_schema_source' => (string)($api['request_schema_source'] ?? ''),
             'default_params' => self::arrayValue($api['default_params'] ?? []),
             'pricing_v2' => self::compactPricingV2(self::arrayValue($api['pricing_v2'] ?? [])),
             'api_doc' => trim((string)($api['api_doc'] ?? '')),
@@ -541,6 +543,36 @@ class PowerMarketService
             }
         }
         return $metadata;
+    }
+
+    private static function mergeAppDetailRequestMetadata(array $app, array $api): array
+    {
+        if (self::metadataValuePresent($api['params_schema'] ?? null)) return $api;
+        $appCode = trim((string)($app['code'] ?? ''));
+        if ($appCode === '') return $api;
+        static $details = [];
+        if (!array_key_exists($appCode, $details)) {
+            try { $details[$appCode] = UpstreamPricingService::queryAppDetail($appCode); }
+            catch (\Throwable) { $details[$appCode] = []; }
+        }
+        $detail = $details[$appCode];
+        if (($detail['app']['code'] ?? '') !== $appCode) return $api;
+        return self::mergeAppApiRequestFields($api, (array)($detail['apis'] ?? []));
+    }
+
+    /** Exact API identity and a request-only allowlist keep commercial overrides untouched. */
+    private static function mergeAppApiRequestFields(array $api, array $rows): array
+    {
+        foreach ($rows as $row) {
+            if (!is_array($row) || ($row['code'] ?? '') !== ($api['code'] ?? '') || empty($api['code'])) continue;
+            if (!empty($api['id']) && !empty($row['id']) && (int)$api['id'] !== (int)$row['id']) continue;
+            foreach (['params_schema', 'default_params', 'api_doc', 'endpoint_path', 'method', 'call_type'] as $field) {
+                if (!self::metadataValuePresent($api[$field] ?? null) && self::metadataValuePresent($row[$field] ?? null)) $api[$field] = $row[$field];
+            }
+            if (self::metadataValuePresent($row['params_schema'] ?? null)) $api['request_schema_source'] = 'app_detail';
+            break;
+        }
+        return $api;
     }
 
     private static function metadataValuePresent($value): bool

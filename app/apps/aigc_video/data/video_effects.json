@@ -1,0 +1,1698 @@
+[
+  {
+    "id": "push_in",
+    "name": "镜头推进",
+    "description": "镜头沿轴线平稳接近坐姿人物，从环境中景收紧到面部。",
+    "instruction": "Begin with a medium environmental view of the main subject. Physically dolly forward on the optical axis at a measured speed, progressively emphasizing its expression or important details. Keep a fixed focal length so the background recedes naturally with parallax. Ease to a stable close view without entering the subject. Preserve identity, proportions and the scene; no cuts, digital stretching or unrequested transformation. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/push_in.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/push_in.mp4"
+  },
+  {
+    "id": "pull_out",
+    "name": "镜头拉远",
+    "description": "从人物近景缓缓后退，露出更多室内环境。",
+    "instruction": "Start in a close or medium view of the main subject. Physically dolly backward along the optical axis at a smooth, measured speed, widening the composition and revealing the surrounding space. Keep a fixed focal length so foreground and background separate with natural parallax. Keep the subject centered and its identity stable; finish in a composed wider shot without cutting. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/pull_out.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/pull_out.mp4"
+  },
+  {
+    "id": "truck_right",
+    "name": "镜头横移",
+    "description": "侧向跟随人物行走，前后景产生横向视差。",
+    "instruction": "Track laterally to camera-right, parallel to the subject's movement, matching its speed when it is walking. Maintain approximately the same camera height, distance and subject size. Let close foreground features travel across the frame faster than distant scenery to establish genuine parallax. Keep the horizon level and motion smooth; avoid a pan-only imitation, orbit, zoom or sliding feet. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/truck_right.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/truck_right.mp4"
+  },
+  {
+    "id": "pan_right",
+    "name": "向右摇镜",
+    "description": "固定机位向右摇摄，主体移向画面左侧，街景持续展开。",
+    "instruction": "Begin on the main subject. Rotate the camera smoothly to the right on a fixed tripod head, revealing the environment on the right as the subject drifts toward the left edge. Maintain camera position, focal length and a level horizon; do not translate or orbit. Let background activity continue naturally. Ease into the pan and settle on the revealed view. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/pan_right.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/pan_right.mp4"
+  },
+  {
+    "id": "truck_left",
+    "name": "向左横移",
+    "description": "低机位横向跟拍滑行主体，背景产生水平视差。",
+    "instruction": "Track laterally to camera-left, parallel to the subject's path, matching its travel speed if it is moving. Preserve a side-on view and near-constant subject size. Foreground elements should pass faster than the distant background, creating clear lateral parallax. Keep the horizon level and the camera height constant; avoid pivoting around the subject, zooming or sliding the subject unnaturally. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/truck_left.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/truck_left.mp4"
+  },
+  {
+    "id": "aerial_drone_shot",
+    "name": "无人机航拍",
+    "description": "沿海公路上方跟随车辆，保持俯拍和地景层次。",
+    "instruction": "Use a stabilized aerial tracking shot from above and behind the main subject. Fly forward following its path at a consistent altitude, with a gentle downward camera angle. Reveal layered terrain and the route ahead while maintaining a readable subject silhouette. Smoothly follow bends rather than cutting corners; avoid sudden altitude jumps, spinning horizons and changes to the subject's structure. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/Aerial_drone_shot.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/aerial_drone_shot.mp4"
+  },
+  {
+    "id": "ground_level_tracking_shot",
+    "name": "地面视角",
+    "description": "贴近地面观察行人穿过镜头，前景步伐与地面视差明显。",
+    "instruction": "Place the camera just above the ground with a wide lens and a slight upward angle. Glide slowly along the surface as the subject moves through the foreground; emphasize feet, contact shadows and texture rushing past at ground level. Keep full-body motion anatomically coherent and the environment tall in the background. Do not rise to eye level or clip through the ground. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/ground_level_tracking_shot.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/ground_level_tracking_shot.mp4"
+  },
+  {
+    "id": "dolly_zoom_out",
+    "name": "希区柯克拉远",
+    "description": "人物尺寸基本稳定，后方山体的透视与大小发生变化。",
+    "instruction": "Execute a reverse dolly zoom: physically retreat from the subject while increasing focal length at the matching rate, maintaining nearly constant subject size and position. The background should grow and compress behind the subject, creating an unmistakable perspective shift. Keep the face stable and sharply focused. This is coordinated camera travel plus optical zoom, not stretching the background or scaling the whole image. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/dolly_zoom_out.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/dolly_zoom_out.mp4"
+  },
+  {
+    "id": "fix_and_pose",
+    "name": "定格摆姿",
+    "description": "轻微整理衣物后摆姿，镜头从自拍近景展开至全身。",
+    "instruction": "Create a relaxed fashion self-portrait. Begin near the subject's face, then gently extend the framing to show the outfit. The subject makes one small adjustment to clothing or accessories, shifts weight onto one leg and holds a confident final pose with natural eye contact and a subtle smile. Keep gestures modest, fingers coherent and wardrobe unchanged throughout the shot. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "UGC"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/fix_and_pose.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/fix_and_pose.mp4"
+  },
+  {
+    "id": "treking",
+    "name": "徒步旅行",
+    "description": "雪山徒步分为靠近、侧向登坡、登顶展臂三个段落。",
+    "instruction": "Build a short trekking sequence with three readable beats: a medium shot of the same traveler walking toward camera, a wider side view climbing a slope with deliberate foot placement, and a final scenic view reaching a vantage point and opening the arms. Keep terrain, outfit and daylight continuous across motivated cuts. Compress the beats to the chosen duration without frantic editing or teleporting between steps. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "UGC"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/treking.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/treking.mp4"
+  },
+  {
+    "id": "fizzy_drink_ad",
+    "name": "汽水广告",
+    "description": "罐装产品从薄雾中悬起并缓慢转动，镜头靠近展示水珠。",
+    "instruction": "Film a premium beverage hero reveal. Establish the user's product upright against a moody studio background with condensation beads and cool vapor near its base. Lift it subtly, rotate it a small amount to expose dimensional highlights, and push closer to the label. Use strong rim light and controlled reflections. Preserve the supplied packaging, proportions and lettering; do not invent brands or replace label text. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Commercial"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/fizzy_drink_ad.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/fizzy_drink_ad.mp4"
+  },
+  {
+    "id": "arc_left1",
+    "name": "向左环绕",
+    "description": "围绕林中人物做短弧线移动，树木前后层次改变。",
+    "instruction": "Move on a short, smooth arc to camera-left around the subject, keeping the lens aimed at the subject and its size approximately constant. Reveal a modest new three-quarter angle rather than a full revolution. Nearby objects should shift more than distant scenery. Maintain a level horizon, stable height and continuous lighting. The camera moves around the subject; the subject must not spin in place. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/arc_left1.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/arc_left1.mp4"
+  },
+  {
+    "id": "dutch_angle",
+    "name": "倾斜镜头",
+    "description": "在缓慢靠近中逐渐倾斜水平线，人物仍居中。",
+    "instruction": "Begin with a level medium composition, then introduce a restrained camera roll into a Dutch angle while slowly moving closer. Keep the subject near the center and let vertical background lines become progressively diagonal. Finish with a deliberate tilted composition, not a full spin. Preserve the room geometry and subject anatomy; the apparent tilt must come from camera roll, not bending the world. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/dutch_angle.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/dutch_angle.mp4"
+  },
+  {
+    "id": "werewolf",
+    "name": "狼人变身",
+    "description": "人物俯身后体格膨胀，毛发与狼形面部形成，最终站立。",
+    "instruction": "Create a cinematic, non-graphic werewolf transformation. The subject lowers the head and braces, shoulders and torso expand, dark fur spreads, and the face gradually develops a wolf muzzle and ears. Finish with a powerful upright werewolf stance and a clear silhouette. Keep limb count and joint continuity coherent through the change. Use dramatic lighting and weight shifts, with no gore, detached body parts or abrupt replacement cut. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Viral"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/werewolf.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/werewolf.mp4"
+  },
+  {
+    "id": "atomic_blast1",
+    "name": "原子爆炸",
+    "description": "人物身后闪光、火球与尘云展开，人物转头并背向镜头走去。",
+    "instruction": "Stage a fictional distant blast behind the foreground subject: a brief bright flash, an expanding orange fireball, then a towering dust-and-smoke plume. Let the light briefly wash over the subject and the shock of wind move hair and clothing. The intact subject reacts by turning toward the background, then away from camera. Keep foreground motion continuous and the explosion spatially behind it; show no injuries. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Viral"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/atomic_blast1.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/atomic_blast1.mp4"
+  },
+  {
+    "id": "caught_in_action",
+    "name": "动作抓拍",
+    "description": "人物行走时遇到制服人员，发生近距离、无血腥的动作冲突。",
+    "instruction": "Create a staged cinematic confrontation. Start with the main subject walking naturally, then have a second performer enter from the side and intercept. Choreograph a brief block, sidestep and controlled grappling exchange with clearly readable body positions. Use a responsive medium handheld shot and consistent screen direction. Preserve both identities, realistic contact and complete limbs; avoid blood, repeated strikes, merged bodies or chaotic jump cuts. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Action Movement"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/caught_in_action.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/caught_in_action.mp4"
+  },
+  {
+    "id": "exploded",
+    "name": "炸裂效果",
+    "description": "车辆轮胎和外壳沿结构轴线分离悬浮，再回到原位。",
+    "instruction": "Create a clean mechanical exploded-view animation of the supplied product. Hold a stable three-quarter camera angle. Separate major assembled components outward along their real assembly axes, suspending them in an orderly, evenly spaced arrangement. Briefly hold to show how the parts fit, then reverse the paths to reassemble the identical product. Preserve geometry and material finishes; no fire, shattered debris, random duplication or violent explosion. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Viral"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/exploded.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/exploded.mp4"
+  },
+  {
+    "id": "handheld_run",
+    "name": "手持跟跑",
+    "description": "人物从站立到慢跑，镜头保持侧向跟随和轻微手持起伏。",
+    "instruction": "Start with the subject standing or walking, then accelerate naturally into a jog. Track alongside at roughly waist-to-chest height with subtle operator footfall and restrained handheld vibration. Keep the torso readable and legs making believable alternating contact with the ground. Maintain wardrobe and direction of travel. Avoid floating feet, exaggerated camera shake, rubbery limbs or abrupt speed changes. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Action Movement"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/handheld_run.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/handheld_run.mp4"
+  },
+  {
+    "id": "outfit_check",
+    "name": "穿搭展示",
+    "description": "全身造型展示后切到裤装和鞋履细节，再回到整体。",
+    "instruction": "Create a concise outfit-check sequence: establish the full outfit, move or cut to a close detail of fabric, lower garments and footwear, then return to a confident full-body pose. Keep the same wearer, clothing, accessories and location across every shot. Use natural weight shifts and editorial framing rather than a clothing transformation. If duration is short, use one detail insert instead of many cuts. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "UGC"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/outfit_check.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/outfit_check.mp4"
+  },
+  {
+    "id": "timelapse",
+    "name": "延时摄影",
+    "description": "人物几乎静止，周围行人与车辆加速穿行。",
+    "instruction": "Lock the camera and keep the main subject almost still at normal visual sharpness. Accelerate only the surrounding activity into a time-lapse flow: pedestrians, traffic and environmental motion streak past with natural directional blur. Maintain a stable location and exposure progression. Keep the subject anchored with no duplicated faces, drifting position or sudden wardrobe changes; do not turn this into a day-to-night transition unless requested. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/timelapse.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/timelapse.mp4"
+  },
+  {
+    "id": "flame_on",
+    "name": "烈焰燃起",
+    "description": "火焰沿人物身体逐渐上升，最终形成包裹身体的发光轮廓。",
+    "instruction": "Begin with the referenced subject intact and recognizable. Stylized orange-gold flames ignite near the lower silhouette and climb around the torso, arms and head, developing into a luminous fire aura. Let sparks rise and warm light interact with skin and the surroundings. Keep the face identifiable inside the effect. This is a fantasy energy transformation, with no burns, wounds, melting anatomy or destruction of the setting. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Viral"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/flame_on.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/flame_on.mp4"
+  },
+  {
+    "id": "pan_left",
+    "name": "向左摇镜",
+    "description": "固定位置向左摇摄，骑行主体与草原横向移动。",
+    "instruction": "Pan the camera smoothly to the left from a fixed position, keeping focal length and height constant. Let the original subject move toward the right side of the composition as new scenery is revealed on the left; if following a moving subject, use a measured tracking pan. Keep the horizon level and environmental geometry stable. No sideways dolly, orbit, zoom or sudden acceleration. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/pan_left.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/pan_left.mp4"
+  },
+  {
+    "id": "zoom_out",
+    "name": "变焦拉远",
+    "description": "固定视点扩大取景，从人物附近显露完整店面。",
+    "instruction": "Keep the camera position fixed and perform a smooth optical zoom out by reducing focal length. The subject becomes smaller as more of the surroundings enters the frame, while the viewpoint and spatial relationships remain consistent. Begin with a readable medium framing and finish in a balanced wide shot. Avoid dolly parallax, changing the subject's physical size or warping straight architectural lines. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/zoom_out.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/zoom_out.mp4"
+  },
+  {
+    "id": "padestal_up",
+    "name": "镜头上升",
+    "description": "镜头垂直上升，人物在画面中逐渐下降，背景保持水平。",
+    "instruction": "Raise the entire camera vertically in a smooth pedestal move while holding its viewing direction and focal length steady. Let the subject drift lower in the composition as more of the upper environment becomes visible. Maintain a level horizon and coherent vertical parallax. Do not simulate the move by tilting the lens, shrinking the subject or lifting the subject itself. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/padestal_up.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/padestal_up.mp4"
+  },
+  {
+    "id": "pov",
+    "name": "第一人称视角",
+    "description": "自行车车把与手位于前景，镜头沿林间道路向前行进。",
+    "instruction": "Use an immersive first-person view moving forward through the described route. Include only naturally visible foreground context appropriate to the activity, such as hands or handlebars, and keep that context consistent. Combine readable forward motion with small body-linked bobs and turns that follow the path. Preserve depth and obstacle clearance; no third-person cutaways, disembodied limbs or flight through solid objects. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/POV.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/POV.mp4"
+  },
+  {
+    "id": "orbit_right",
+    "name": "向右环绕",
+    "description": "围绕坐姿主体向右运动，主体保持居中，背景持续改变角度。",
+    "instruction": "Orbit smoothly to camera-right around the stationary subject at a constant radius, keeping the lens aimed at it. Move from a frontal view toward a distinct three-quarter side view, with clear background parallax and consistent subject scale. Use a level horizon and constant height. The subject may breathe or glance naturally but must not rotate to fake the camera movement. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/orbit_right.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/orbit_right.mp4"
+  },
+  {
+    "id": "dolly_zoom_in",
+    "name": "希区柯克推进",
+    "description": "推进同时扩大视角，人物尺寸稳定，背景相对后退。",
+    "instruction": "Execute a forward dolly zoom: move physically toward the subject while widening the lens at a coordinated rate, holding the subject at nearly constant screen size. The background should appear to recede and spread apart as perspective opens up. Keep focus on the subject and preserve facial geometry. Avoid a simple zoom, digital stretching, independent background sliding or an abrupt jump in viewpoint. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/dolly_zoom_in.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/dolly_zoom_in.mp4"
+  },
+  {
+    "id": "northern_lightning",
+    "name": "极光",
+    "description": "静态夜景上方逐渐出现绿色与紫色极光帘幕。",
+    "instruction": "Hold a stable night composition with the main subject or landscape readable in the foreground. Introduce faint aurora bands high in the sky, then let green and violet curtains ripple, brighten and stretch slowly overhead. Add a subtle matching light tint to the environment without changing its geometry. Keep stars and the horizon stable; avoid lightning bolts, daytime exposure or flickering neon pasted over the subject. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "UGC"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/northern_lightning.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/northern_lightning.mp4"
+  },
+  {
+    "id": "levitation",
+    "name": "悬浮",
+    "description": "人物脚离地、身体向后弓起，衣物与四周雾气有上升感。",
+    "instruction": "Start with the subject grounded. Slowly lift the feet off the surface, let the torso recline slightly and the arms hang or open naturally, ending in a controlled suspended pose. Hair and loose fabric respond to a gentle upward force, while a soft shadow remains below. Track the lift subtly to keep the entire body in frame. No visible wires, extra limbs, violent contortions or uncontrolled spinning. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Action Movement"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/levitation.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/levitation.mp4"
+  },
+  {
+    "id": "product_splash",
+    "name": "产品粉尘飞溅",
+    "description": "产品保持完整，镜头拉远，底部扬起一圈粉尘。",
+    "instruction": "Present the supplied product upright in a clean studio composition. Gradually pull back while a ring of fine powder bursts outward from the surface around its base, rising into graceful curls before settling. Light the particles from the side or rear so they remain distinct from the product. Keep the product sharp, fixed in shape and readable; no liquid splash, obscured label, shattered packaging or floating replacement product. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Commercial"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/product_splash.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/product_splash.mp4"
+  },
+  {
+    "id": "crane_up1",
+    "name": "摇臂上升",
+    "description": "镜头以大幅度摇臂升高，主体下降并显露更广阔环境。",
+    "instruction": "Use a broad crane-up movement that lifts the camera above the initial viewpoint and slightly away from the subject. Maintain a composed horizon and allow the landscape to unfold beneath the rising perspective. Tilt only enough to retain a clear relationship between subject and setting. Ease in and out with cinematic weight; avoid a simple optical zoom, abrupt aerial cut or arbitrary scene expansion. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/crane_up1.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/crane_up1.mp4"
+  },
+  {
+    "id": "through_object_out",
+    "name": "穿越物体拉远",
+    "description": "从人物附近后退，穿过既有门洞，最终让门洞成为前景框架。",
+    "instruction": "Begin close to the subject, then dolly backward through an open doorway, arch or other plausible opening into the adjacent space. Let the opening's edges enter the foreground and frame the subject as distance increases. Preserve connected spatial geometry and continuous lighting through the move. Pass only through open space, never through a solid wall; avoid teleportation or inventing a doorway across the subject. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/through_object_out.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/through_object_out.mp4"
+  },
+  {
+    "id": "column_wipe",
+    "name": "立柱转场",
+    "description": "横移经过立柱形成遮挡，遮挡后显露尾帧的新人物和环境。",
+    "instruction": "Use the supplied first frame as the opening and the last frame as the destination. Track laterally past a close vertical column or wall edge; let this foreground occluder sweep across and fully hide the changing region. Transition to the destination behind the occlusion, continuing the same camera direction and speed as it clears. Settle into the last-frame composition. No exposed face morph, dissolve or additional cut. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "First/Last Frame"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "start_end"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/column_wipe.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/column_wipe.mp4"
+  },
+  {
+    "id": "boiling_point",
+    "name": "沸腾时刻",
+    "description": "人物鼻孔喷出白色蒸汽，蒸汽逐渐扩散覆盖脸部。",
+    "instruction": "Frame the subject in a steady close portrait. Build a restrained annoyed expression, then release two symmetrical jets of stylized white steam from the nostrils. The steam curls outward and grows into a soft cloud that partially obscures the face near the end. Preserve recognizable facial proportions, believable breathing rhythm and the original setting. Use a playful visual effect, not fire, skin damage or boiling liquid. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Viral"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/boiling_point.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/boiling_point.mp4"
+  },
+  {
+    "id": "cloth_rain",
+    "name": "布料雨",
+    "description": "衣物从上方飘落，镜头拉远，脚边逐渐堆积布料。",
+    "instruction": "Keep the subject centered as garments begin falling from above in varied orientations. Simulate soft cloth flutter, folds and gravity; some pieces pass in front of the lens while others fall behind the subject and accumulate naturally on the ground. Gently widen the framing to reveal the growing pile. Preserve the subject's original outfit and face; avoid fabric merging with the body or repeated identical falling loops. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Viral"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/cloth_rain.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/cloth_rain.mp4"
+  },
+  {
+    "id": "explosion",
+    "name": "爆炸",
+    "description": "人物保持平静，身后火球扩张并上卷为浓烟。",
+    "instruction": "Hold the foreground subject in a calm, readable medium shot while a cinematic explosion erupts at a safe fictional distance behind it. An orange fireball expands outward and upward, followed by rolling dark smoke and a few distant sparks. Warm light briefly catches the subject's edges. Keep the subject intact, the camera controlled and the blast behind it; no gore, impacts on the face or full-frame whiteout lasting the entire shot. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Viral"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/explosion.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/explosion.mp4"
+  },
+  {
+    "id": "happy_mode",
+    "name": "欢乐模式",
+    "description": "表情从平静逐渐变成自然微笑和露齿笑。",
+    "instruction": "Create an intimate expression change from neutral to genuine happiness. Relax the brow, lift the cheeks, let a small closed-mouth smile grow into a warm natural grin, and add subtle eye crinkles and a slight head tilt. Hold the final joyful expression. Keep the camera and lighting stable and preserve identity, teeth and hand anatomy; avoid an exaggerated frozen smile or sudden face replacement. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "UGC"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/happy_mode.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/happy_mode.mp4"
+  },
+  {
+    "id": "rapid_zoom_in1",
+    "name": "快速推进",
+    "description": "远景停顿后快速冲向人物面部，结尾稳定近景。",
+    "instruction": "Establish a wide shot briefly, then execute one rapid axial push or crash zoom toward the chosen subject. Use a short burst of directional motion blur during acceleration, land precisely on a close framing and stabilize for the final beat. Preserve the subject's identity and the location's spatial continuity. No repeated pumping, overshooting through the subject, scene cut or fisheye deformation. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/rapid_zoom_in1.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/rapid_zoom_in1.mp4"
+  },
+  {
+    "id": "trainrush",
+    "name": "列车疾驰",
+    "description": "人物近景保持稳定，背后高速横向光带掠过，头发被风吹动。",
+    "instruction": "Lock a close portrait on the main subject while a fast train-like band of illuminated windows sweeps horizontally through the background. Keep the face sharply anchored as streaking lights and soft carriage shapes convey speed behind it. A brief gust lifts loose hair and fabric, then settles. Preserve the foreground scene and proportions; do not place the subject on the tracks or replace the shot with an unrelated train view. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Viral"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/trainrush.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/trainrush.mp4"
+  },
+  {
+    "id": "tilt_up",
+    "name": "向上俯仰",
+    "description": "街道平视逐渐向上抬镜，建筑顶部和天空进入画面。",
+    "instruction": "Keep the camera planted at the same position and tilt its optical axis smoothly upward. Begin on the lower subject or street-level scene and reveal higher architecture, tree canopy or sky according to the setting. Let vertical lines change naturally with perspective, retaining believable geometry. Do not raise the camera physically, zoom, rotate the horizon or replace the environment. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/tilt_up.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/tilt_up.mp4"
+  },
+  {
+    "id": "zoom_in",
+    "name": "变焦推进",
+    "description": "固定视点平稳收紧取景，人物逐步由全景变为中近景。",
+    "instruction": "Hold the camera position fixed and slowly increase focal length to zoom in on the main subject. Tighten from the starting composition into a medium or close view without changing the viewpoint. Keep focus and exposure steady, with a gentle ease at the end. Preserve identity and background alignment; no dolly movement, new camera angle, digital warping or physical growth of the subject. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/zoom_in.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/zoom_in.mp4"
+  },
+  {
+    "id": "padestal_down",
+    "name": "镜头下降",
+    "description": "摄像机垂直降低，前景家具和地面占比逐步改变。",
+    "instruction": "Lower the entire camera vertically in a controlled pedestal-down move while maintaining its viewing direction and focal length. Reveal lower foreground details and the subject's relationship to the surface with natural vertical parallax. Keep the horizon level and the subject's body fixed in space. Do not replace the move with a downward tilt, a zoom or sinking the subject through furniture. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/padestal_down.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/padestal_down.mp4"
+  },
+  {
+    "id": "fpv_drone_shot",
+    "name": "穿越机航拍",
+    "description": "贴近车辆尾部高速追随弯道，机位随道路倾斜并恢复。",
+    "instruction": "Create a low, fast FPV-style chase shot following the main moving subject from behind. Follow the route closely with smooth banking into curves, small altitude changes and convincing foreground speed. Keep the subject readable despite controlled peripheral motion blur. Respect obstacle clearance and continuous geography; no impossible wall penetration, abrupt teleportation, detached wheels or excessive rolling that loses the action. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/FPV_drone_shot.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/FPV_drone_shot.mp4"
+  },
+  {
+    "id": "bullet_time",
+    "name": "子弹时间",
+    "description": "人物动作接近冻结，镜头仍围绕场景移动。",
+    "instruction": "At the peak of the described action, slow the subjects and nearby particles to an almost frozen moment while the camera continues a smooth lateral orbit. Reveal a new angle with clear parallax around the held pose, then let movement resume gently at the end if time allows. Preserve balance, limb positions and spatial relationships. Do not spin the subject, duplicate bodies or freeze the camera with the action. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/bullet_time.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/bullet_time.mp4"
+  },
+  {
+    "id": "tilted_reality",
+    "name": "倾斜现实",
+    "description": "围绕主体快速退远并倾斜穿过树林，再回到主体附近。",
+    "instruction": "Create a surreal but spatially continuous camera move: pull rapidly away from the subject, bank and roll through the nearby environment, then curve back toward a readable view of the same subject. Use a wide lens, controlled motion blur and foreground depth to connect the movement. Keep environmental objects physically stable; the world feels tilted because of camera motion, not melting geometry or random scene cuts. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/tilted_reality.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/tilted_reality.mp4"
+  },
+  {
+    "id": "police_escape",
+    "name": "逃离追捕",
+    "description": "正面后退跟拍骑行主体，后方警车持续追随并闪灯。",
+    "instruction": "Stage a fictional pursuit with the main subject moving forward and a police-style vehicle following at a consistent visible distance. Track backward in front of the subject at matching speed, keeping the face and forward travel readable. Flashing lights should reflect naturally on the road and clothing. Maintain route continuity and safe separation within the scene; no collision, tactical instructions or sudden vehicle duplication. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Action Movement"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/police_escape.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/police_escape.mp4"
+  },
+  {
+    "id": "alien_invasion",
+    "name": "外星入侵",
+    "description": "车辆在外星飞行物追逐中前进，光束击中周围地面形成爆光。",
+    "instruction": "Create a cinematic science-fiction pursuit. Keep the main subject moving through the established environment while unfamiliar flying craft sweep across the sky. Glowing energy streaks strike the ground nearby, producing brief sparks, dust and light without obscuring the main action for long. Track dynamically at a low angle and preserve consistent travel direction. Keep vehicle and body geometry stable; no gore or unrelated location jumps. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Action Movement"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/alien_invasion.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/alien_invasion.mp4"
+  },
+  {
+    "id": "red_carpet",
+    "name": "红毯亮相",
+    "description": "人物进入红毯场景，周围摄影者与闪光灯出现，最后沿红毯离去。",
+    "instruction": "Create a brief red-carpet arrival sequence featuring the same subject and outfit. Begin with a poised medium view, reveal a red carpet with photographers at the sides, let the subject acknowledge the cameras, then walk confidently away along the carpet. Use a few motivated editorial angles and short camera flashes. Preserve identity and garment details; avoid changing faces, extra limbs or adding readable celebrity branding. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "UGC"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/red-carpet.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/red-carpet.mp4"
+  },
+  {
+    "id": "crane_down1",
+    "name": "摇臂下降",
+    "description": "高位观察岛屿，机位逐步下降接近水面。",
+    "instruction": "Start from an elevated view and lower the camera on a broad crane-like path toward the foreground surface, subtly advancing toward the subject. Reveal stronger foreground depth as height decreases and keep the subject and horizon composed. Ease to a steady lower vantage point. Preserve environmental scale and continuous geography; no optical-only zoom, sudden cut to ground level or movement of the landscape itself. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/crane_down1.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/crane_down1.mp4"
+  },
+  {
+    "id": "magic_johnson",
+    "name": "魔法流动",
+    "description": "白色光流绕身上升，在覆盖人物时切换造型与环境。",
+    "instruction": "Begin from the supplied first frame. A narrow white luminous ribbon spirals upward around the subject, widening into a translucent energy cocoon that temporarily conceals the changing silhouette. Transform to the supplied last-frame subject, outfit and setting inside that light. Let the ribbon unravel upward and fade, leaving the final image clean and stable. Maintain a continuous camera axis; no unmasked face melting or leftover duplicate bodies. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "UGC"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "start_end"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/magic_johnson.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/magic_johnson.mp4"
+  },
+  {
+    "id": "smog_transition",
+    "name": "烟雾转场",
+    "description": "白烟从人物周围扩散遮挡，再消散露出尾帧造型。",
+    "instruction": "Use the first and last images as exact composition anchors. Release dense white smoke around the first subject, expanding until it obscures the region being replaced. Introduce the destination scene only behind the thick smoke, then let the cloud thin and drift away to reveal the last-frame subject clearly. Preserve perspective and a steady camera. Avoid a simple crossfade, exposed facial morphing or smoke remaining opaque at the end. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "First/Last Frame"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "start_end"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/smog_transition.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/smog_transition.mp4"
+  },
+  {
+    "id": "bts",
+    "name": "幕后花絮",
+    "description": "镜头后退，原先看似实景的画面显露为有灯具和工作人员的拍摄现场。",
+    "instruction": "Start with a polished cinematic view of the supplied scene. Pull the camera backward to reveal that it is a practical film set: light stands, a softbox, crew members and camera equipment enter around the edges without blocking the central performer. Keep the original scene intact as the larger studio context appears. Maintain believable scale and sightlines; no abrupt location replacement or equipment growing through the subject. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/bts.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/bts.mp4"
+  },
+  {
+    "id": "crying",
+    "name": "哭泣",
+    "description": "面部从平静逐渐出现湿润眼眶、皱眉和哭泣表情。",
+    "instruction": "Hold an intimate portrait as the subject gradually becomes tearful. Build moist eyes and a slight brow contraction, then a trembling lower lip and restrained tears rolling down the cheeks. Add small natural breaths and a modest head movement, ending on an emotional but recognizable face. Preserve facial anatomy and lighting; avoid huge cartoon tears, distorted mouths or replacing the person. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "UGC"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/crying.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/crying.mp4"
+  },
+  {
+    "id": "flip",
+    "name": "翻转",
+    "description": "人物下蹲蓄力后后空翻，镜头拉开让完整腾空和落地可见。",
+    "instruction": "Show one controlled athletic backflip in a clear full-body shot. The subject bends the knees, swings the arms, pushes off the ground, tucks through one backward rotation, opens and lands on both feet with a small balancing bend. Widen the framing enough to retain the whole trajectory. Keep gravity, limb count and floor contact coherent; no repeated rotations, floating finish or midair body morph. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Action Movement"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/flip.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/flip.mp4"
+  },
+  {
+    "id": "jib_down",
+    "name": "小摇臂下降",
+    "description": "短程摇臂下降，车头前景比例与人物视角改变。",
+    "instruction": "Make a short, controlled jib-down move from slightly above the subject toward a lower near-eye-level view. Let the camera travel on a gentle arc while compensating its tilt to keep the subject framed. Emphasize modest vertical parallax in nearby objects, not a sweeping aerial descent. Preserve subject scale, straight edges and continuous lighting; avoid simply tilting or digitally zooming. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/jib_down.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/jib_down.mp4"
+  },
+  {
+    "id": "rapid_zoom_out1",
+    "name": "快速拉远",
+    "description": "从车辆与人物近处快速拉到极远景，显露大面积草原与道路。",
+    "instruction": "Begin near the subject and briefly establish its details. Perform a single fast pullback or crash zoom out to a much wider environmental view, using a short interval of radial motion blur. Decelerate into a stable final composition that shows where the subject sits in the landscape. Keep its location and environment connected; no dissolving into a different place, repeated zoom pulses or warped terrain. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/rapid_zoom_out1.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/rapid_zoom_out1.mp4"
+  },
+  {
+    "id": "wireframe",
+    "name": "线框效果",
+    "description": "绿色网格从肩颈向脸部上扫，保持原有人物轮廓。",
+    "instruction": "Hold a stable frontal view while a luminous green wireframe scan rises from the lower body or shoulders toward the face. Let a fine polygon mesh conform precisely to the existing surface, progressively replacing or overlaying its shading while preserving the silhouette and expression. Finish with a coherent readable mesh. No floating grid planes, changed identity, excessive flicker or invented interface text. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/wireframe.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/wireframe.mp4"
+  },
+  {
+    "id": "tilt_down",
+    "name": "向下俯仰",
+    "description": "从建筑顶部与天空向下俯仰，逐渐显露街道和经过的车辆。",
+    "instruction": "Anchor the camera in place and tilt smoothly downward from the upper environment to the main subject or ground-level action. Reveal each layer of the setting in continuous perspective and finish with a deliberate lower composition. Hold focal length and camera height constant. Avoid a physical descent, diagonal roll, zoom or bending architecture to fake the tilt. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/tilt_down.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/tilt_down.mp4"
+  },
+  {
+    "id": "elevator_door",
+    "name": "电梯门转场",
+    "description": "镜头从电梯内后退，门扇由两侧合拢，最终完全关闭。",
+    "instruction": "Begin facing the subject inside an elevator or a similarly framed interior. Pull back just outside the doorway while keeping the subject centered. Two rigid door panels slide smoothly inward from opposite sides, progressively occluding the subject and meeting at the center for a clean closed-door ending. Preserve panel alignment and reflections. Do not crush, distort or pass doors through the subject. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/elevator_door.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/elevator_door.mp4"
+  },
+  {
+    "id": "orbit_left",
+    "name": "向左环绕",
+    "description": "围绕坐姿人物从正面移动至侧面，背景云层产生视差。",
+    "instruction": "Orbit to camera-left around the stationary subject at a consistent radius and height. Keep the lens directed toward it as the view progresses from frontal to a distinct side angle. Background features should shift with real parallax while the subject remains similar in size. Maintain a level horizon and natural posture; no subject rotation in place, zoom breathing or jump cuts. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/orbit_left.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/orbit_left.mp4"
+  },
+  {
+    "id": "micro_zoom_in",
+    "name": "微距推进",
+    "description": "从面部推进到眼睛极近特写，最后重新退回脸部。",
+    "instruction": "Start with a face or product-detail portrait, then smoothly move into an extreme macro close-up of one meaningful feature specified by the user, such as an eye or surface detail. Resolve fine texture and maintain precise focus with shallow depth of field. Briefly hold the detail, then ease back toward the initial framing. Do not pass inside the body or invent impossible microscopic anatomy. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/Micro_Zoom_in.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/Micro_Zoom_in.mp4"
+  },
+  {
+    "id": "roll_right",
+    "name": "向右旋转",
+    "description": "镜头绕光轴向右旋转，人物和室内保持刚性结构。",
+    "instruction": "Roll the camera gradually to the right around its optical axis while keeping the main subject near the image center. Let the horizon and architectural lines rotate together as a rigid scene, ending on a pronounced but controlled diagonal angle. Maintain focal length, distance and a steady rotation rate. Do not orbit around the subject, twist its body or bend individual objects. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/roll_right.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/roll_right.mp4"
+  },
+  {
+    "id": "whip_pan",
+    "name": "快速甩镜",
+    "description": "先停留在一位人物，再快速横甩镜头到另一位人物并稳定。",
+    "instruction": "Hold briefly on the opening subject, then perform one rapid horizontal whip pan toward a second point of interest in the same scene. Use a brief band of strong directional motion blur to connect the two framings, then decelerate and lock focus on the revealed subject. Maintain geography and screen direction. If a last frame is supplied, land on that composition; avoid multiple oscillations or an exposed dissolve. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/whip_pan.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/whip_pan.mp4"
+  },
+  {
+    "id": "motorcycle_ride",
+    "name": "摩托骑行",
+    "description": "主体戴上头盔后跨上摩托，向镜头驶来并转向。",
+    "instruction": "Create a playful riding sequence with the referenced subject: put on a helmet with coherent hand motion, reveal the subject seated on a motorcycle, then ride forward and lean gently through a small turn. Keep the same outfit and identity, consistent wheel rotation and grounded tire contact. Use a controlled widening camera move or one motivated cut. Avoid limbs merging with handlebars or changing the vehicle mid-shot. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "UGC"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/motorcycle-ride.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/motorcycle-ride.mp4"
+  },
+  {
+    "id": "escape_run",
+    "name": "奔跑逃离",
+    "description": "主体在森林中快速奔跑并越过障碍，追逐光束在后方出现。",
+    "instruction": "Direct a cinematic escape run through the described environment. The subject accelerates, clears one plausible obstacle and continues forward as background pursuit or light effects remain behind. Track from a low three-quarter side angle with energetic but readable movement, using a motivated cut only when necessary. Preserve body mechanics, contact with the ground and consistent travel direction; no teleporting, collisions through solid obstacles or excessive motion blur. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Action Movement"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/escape_run.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/escape_run.mp4"
+  },
+  {
+    "id": "focus_shift",
+    "name": "焦点转移",
+    "description": "焦点从近处红色物体转移到后方人物，伴随轻微横移。",
+    "instruction": "Compose distinct foreground and background subjects at different depths. Begin with the near object sharply focused and the distant main subject soft. Perform one deliberate rack focus to the distant subject while the near object becomes smoothly blurred; a very small lateral camera move may reveal the subject. Keep exposure and framing controlled. No replacement of objects, artificial blur mask edges or repeated hunting between focus planes. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/focus_shift.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/focus_shift.mp4"
+  },
+  {
+    "id": "fire_transition",
+    "name": "火焰转场",
+    "description": "火焰从人物轮廓燃起，覆盖变换区域后露出尾帧人物与新场景。",
+    "instruction": "Anchor the opening to the supplied first image and the ending to the supplied last image. Orange flames ignite along the first subject's silhouette and rise around the torso and head. At the peak, use the bright flame envelope and heat shimmer to conceal the change of subject, outfit and surroundings, then let the fire recede to reveal the destination pose. Match framing and motion through the transition; no burned skin, exposed face melting, extra bodies or generic full-screen fire wipe. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "First/Last Frame"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "start_end"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/fire_transition.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/fire_transition.mp4"
+  },
+  {
+    "id": "logo_transition",
+    "name": "标志转场",
+    "description": "平面标志周围出现蓝色电光与粒子，随后显露三维产品。",
+    "instruction": "Start on the supplied logo image, preserving its exact silhouette and typography. Blue-white energy traces its contours and gathers into bright particles; within that glow, build and reveal the product shown in the last image. Settle the product into a clean hero composition as residual sparks fade. Keep the visual center and palette connected across the transition. Do not invent brand names, scramble lettering or leave logo fragments on the product. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "First/Last Frame"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "start_end"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/logo_transition.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/logo_transition.mp4"
+  },
+  {
+    "id": "car_mount",
+    "name": "车载镜头",
+    "description": "机位固定于车内前方，驾驶者动作和车外景物变化形成运动感。",
+    "instruction": "Use a camera rigidly mounted near the dashboard facing the driver. Keep the cabin and face consistently framed while the road environment passes through the windows. Add restrained vehicle vibration, natural steering gestures and changing light across the interior. Preserve hands on the wheel, reflections and window geometry. Do not float the camera outside the car, rotate the cabin or show unrelated cutaways. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Viral"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/car_mount.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/car_mount.mp4"
+  },
+  {
+    "id": "double_exposure",
+    "name": "双重曝光",
+    "description": "人物轮廓逐步成为承载森林与蓝天的剪影。",
+    "instruction": "Begin with the referenced portrait. Gradually convert the subject into a clean silhouette filled with a second exposure of landscape imagery described by the user, with gentle internal motion such as trees or clouds. Keep the outline recognizable and place it against a quiet background. Blend the two exposures smoothly with controlled contrast. Avoid a second face, broken silhouette edges or simply overlaying a rectangle over the portrait. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "UGC"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/double_exposure.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/double_exposure.mp4"
+  },
+  {
+    "id": "glitch",
+    "name": "故障效果",
+    "description": "人物轮廓出现短暂色边与错位，随后回到清晰画面。",
+    "instruction": "Preserve the portrait composition while introducing brief, restrained digital glitches: small horizontal displacement bands, RGB edge separation and a faint temporal echo around the silhouette. Alternate short disruptions with clear stable frames, ending with the original image cleanly resolved. Keep the subject recognizable throughout. Avoid full-screen static, severe facial deformation, rapid strobing or permanently splitting the person into duplicates. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "UGC"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/glitch.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/glitch.mp4"
+  },
+  {
+    "id": "jib_up",
+    "name": "小摇臂上升",
+    "description": "短程摇臂抬升，人物与摩托在画面下方，空间逐渐展开。",
+    "instruction": "Move the camera upward on a short jib arc, gently widening the visual space above and around the subject. Keep a smooth, weighted motion and compensate the lens angle to retain the subject in the composition. Let nearby objects reveal modest vertical parallax. Finish at a slightly higher vantage point without a cut; avoid a huge aerial ascent, subject shrinking independently or a pure upward tilt. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/jib_up.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/jib_up.mp4"
+  },
+  {
+    "id": "selfie_pose",
+    "name": "自拍姿势",
+    "description": "人物整理头顶小道具，轻微歪头微笑，保持自拍近景。",
+    "instruction": "Create a casual, close selfie performance. The subject makes a small adjustment to an existing accessory or prop if present, then lowers the hands, tilts the head slightly and smiles toward the camera. Preserve the original prop and face without introducing unrelated items. Use gentle handheld intimacy and natural blinking; keep fingers coherent, avoid forced lip-sync and end on a relaxed photo-ready pose. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Viral"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/selfie_posepng.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/selfie_pose.mp4"
+  },
+  {
+    "id": "skeleton",
+    "name": "透视效果",
+    "description": "蓝色透视层逐渐覆盖人像，显露与姿势匹配的骨骼。",
+    "instruction": "Start with the intact referenced subject and transition into a stylized blue X-ray visualization. Let a luminous scan reveal an anatomically aligned skeleton beneath a translucent outer silhouette, matching the exact head angle and body pose. Keep the camera stable and finish with a clean educational-style radiographic look. No gore, exposed flesh, extra bones or claims of a real medical diagnosis. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Commercial/Ads"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/skeleton.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/skeleton.mp4"
+  },
+  {
+    "id": "low_angle",
+    "name": "低角度仰拍",
+    "description": "地面仰视周围人物，广角强化人物和建筑高度。",
+    "instruction": "Place the camera low near the ground and aim upward at the main subject. Use a moderately wide lens to emphasize height, foreground presence and the rising lines of the environment. Allow natural small movements while keeping the low viewpoint stable. Preserve believable perspective and limb proportions; avoid an extreme fisheye face, invented people, a rising camera or a sudden switch to eye level. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/low_angle.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/low_angle.mp4"
+  },
+  {
+    "id": "high_angle",
+    "name": "高角度俯拍",
+    "description": "上方俯拍人物，保留人物动作和地面的空间关系。",
+    "instruction": "Position the camera above the main subject and look down at a deliberate high angle. Keep the surrounding ground and contact shadows visible so the subject's scale and posture remain clear. Follow only slightly if the subject moves, maintaining the same overhead relationship. Preserve anatomy and location continuity; no unsupported floating viewpoint changes, subject flattening or random aerial pullback. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/High_head_angle.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/high_angle.mp4"
+  },
+  {
+    "id": "over_the_shoulder",
+    "name": "过肩镜头",
+    "description": "前景肩膀遮住部分画面，后方对话人物保持清晰。",
+    "instruction": "Compose an over-the-shoulder shot with a softly out-of-focus shoulder and partial head in the near foreground, and the main subject clearly focused beyond. Maintain an established conversational eyeline and stable screen direction, with subtle natural gestures. Use a gentle push only if it improves emphasis. Keep the foreground person consistent; no duplicated faces, shoulder clipping or reversing sides mid-shot. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/over_the_shoulder.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/over_the_shoulder.mp4"
+  },
+  {
+    "id": "action_run",
+    "name": "动作奔跑",
+    "description": "人物穿过市场快速奔跑，周围物件和火花强化动作节奏。",
+    "instruction": "Create a compact action-running sequence. Establish the subject, accelerate into a forward sprint, then have the subject dodge one obstacle while background sparks, dust or falling light debris add urgency. Track low and close enough to read the face, with one motivated angle change if needed. Preserve travel direction, outfit and athletic body mechanics. Avoid unexplained teleportation, injuries, repeated explosions or cuts too fast to follow. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Action Movement"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/action_run.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/action_run.mp4"
+  },
+  {
+    "id": "outfit_switch",
+    "name": "换装",
+    "description": "同一人物和位置保持连续，衣服在几个节奏点切换。",
+    "instruction": "Keep the same subject, pose family and location consistent while changing the outfit at two or three clear rhythmic beats. Use a small hand gesture, weight shift or turn to motivate each clean wardrobe swap. Respect any desired garments described by the user; preserve face, body proportions and scene lighting. Hold the final look clearly. No nudity, melting fabric, extra limbs or changes to the person's identity. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "UGC"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/outfit_switch.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/outfit_switch.mp4"
+  },
+  {
+    "id": "day_to_night_timelapse",
+    "name": "昼夜延时",
+    "description": "天空由暖色日落进入深蓝夜色，车辆灯光与地面反射逐渐增强。",
+    "instruction": "Maintain the same scene composition while compressing a sunset-to-night lighting change. Warm daylight shifts through orange and violet twilight into deep blue night; practical lights turn on gradually and their reflections strengthen naturally. Keep buildings, terrain and subject geometry fixed, with continuous environmental motion where appropriate. Avoid sudden exposure flicker, weather jumps, location changes or turning the subject into a different object. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/day_to_night_timelapse.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/day_to_night_timelapse.mp4"
+  },
+  {
+    "id": "arc_right1",
+    "name": "向右环绕",
+    "description": "围绕公交站人物做短幅右弧线运动，前景站台透视改变。",
+    "instruction": "Travel along a restrained arc to camera-right around the main subject, keeping it framed while revealing a modest new angle. Let nearby structures shift against the distant background with believable parallax, maintaining consistent distance and camera height. Finish before completing a full orbit. Preserve the subject's posture and environment; no rolling horizon, physical subject rotation or abrupt lens change. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/arc_right1.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/arc_right1.mp4"
+  },
+  {
+    "id": "360",
+    "name": "360度旋转",
+    "description": "摄像机绕人物完整一圈，人物正面、侧面、背面依次出现并回到正面。",
+    "instruction": "Perform one continuous 360-degree camera orbit around the stationary main subject. Keep a constant radius, height and subject size, smoothly revealing front, side, back and the opposite side before returning to the opening viewpoint. Use coherent background parallax throughout and ease the final alignment. The subject stays planted rather than spinning; preserve identity, clothing and surroundings from every angle without cuts. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "text_to_video",
+      "image_to_video",
+      "image_reference",
+      "start_end"
+    ],
+    "require_image": false,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/360.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/360.mp4"
+  },
+  {
+    "id": "raven_transition",
+    "name": "渡鸦",
+    "description": "烟雾与黑色鸟群从主体周围飞起，遮挡后露出尾帧。",
+    "instruction": "Anchor the shot to the first and last reference images. White smoke blooms around the opening subject as a flock of dark ravens rises and sweeps across the foreground. Use the dense overlap of wings and smoke to hide the change to the destination scene. Let the birds fly out and smoke disperse, leaving the final pose clean. Keep wing motion and occlusion coherent; no exposed face morph or birds fused to the body. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "First/Last Frame"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "start_end"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/raven_transition.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/raven_transition.mp4"
+  },
+  {
+    "id": "angry_mode",
+    "name": "愤怒模式",
+    "description": "人物由皱眉逐渐到张嘴怒喊，面部照明转暖红色。",
+    "instruction": "Build an expressive anger performance in a controlled portrait: brows draw inward, jaw tightens, breathing intensifies and the mouth opens into a brief shout. Gradually introduce warm red accent lighting without changing facial identity. Keep muscles and teeth anatomically believable and allow a short hold at the emotional peak. Avoid cartoon deformation, facial swelling, violence or uncontrolled flashing light. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "UGC"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/angry_mode.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/angry_mode.mp4"
+  },
+  {
+    "id": "car_rush",
+    "name": "汽车疾驰",
+    "description": "车辆在沙尘中疾驰并横向漂移，车身轮廓始终可辨。",
+    "instruction": "Track a vehicle accelerating through a dusty route in a cinematic low three-quarter view. Let the tires throw a grounded plume of dust that trails behind, then show one controlled turn or drift with coherent wheel angle and suspension response. Keep the vehicle readable through partial dust occlusion and preserve its exact design. No floating wheels, shapeshifting body panels or unrelated location cuts. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/car_rush.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/car_rush.mp4"
+  },
+  {
+    "id": "drunk_master",
+    "name": "醉拳",
+    "description": "人物用摇晃步法、抬膝、转身和摆臂做连续醉拳动作。",
+    "instruction": "Choreograph a stylized drunken-boxing performance in a readable full-body shot. Combine an off-balance sway, a controlled recovery step, one raised-knee turn and flowing defensive arm gestures, ending in a balanced stance. The movement should look deliberately skillful rather than like a fall. Preserve realistic joints, planted foot contact and the same outfit; no extra limbs, fast-cut concealment or impacts on another person. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Action Movement"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/drunk_master.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/drunk_master.mp4"
+  },
+  {
+    "id": "group_photo",
+    "name": "集体合影",
+    "description": "镜头从单人近景拉开，朋友从两侧与后方加入合影。",
+    "instruction": "Begin with a close portrait of the main subject. Slowly widen the view as a small group of friends enters naturally from the sides or behind, arranges around the subject and leans into a shared photo pose. Let expressions become warm and spontaneous, then hold a clear group composition. Keep the original subject identifiable; newcomers must enter spatially rather than duplicate from the main face. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Viral"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/group_photo.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/group_photo.mp4"
+  },
+  {
+    "id": "money_rain",
+    "name": "金钱雨",
+    "description": "纸钞逐渐从上方飘落，主体维持姿态并自然反应。",
+    "instruction": "Keep the main subject centered while a sparse shower of fictional banknote-like paper begins above, then grows into a celebratory rain. Vary each piece's rotation, depth and flutter under gravity, with some passing in front and others behind. Let the subject react subtly while remaining recognizable. Use generic unreadable note designs; avoid rigid identical loops, paper fused to the body or covering the face for the entire shot. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Viral"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/money_rain.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/money_rain.mp4"
+  },
+  {
+    "id": "shadow",
+    "name": "暗影",
+    "description": "黑色烟状阴影从人物下半身上升，最终只剩暗色人形轮廓。",
+    "instruction": "Hold the original scene steady while a dark, smoke-like shadow climbs from the lower silhouette over the subject. Gradually absorb color and surface detail into a coherent black figure with soft vapor edges, retaining the person's outline and pose. Let wisps drift off while the background remains intact. This is a stylized visual transformation, not injury; avoid melting limbs, duplicate silhouettes or darkening the entire frame uniformly. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Viral"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/shadow.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/shadow.mp4"
+  },
+  {
+    "id": "timelapse_glam",
+    "name": "魅力延时",
+    "description": "化妆与整理头发的手快速进出，最后呈现完成后的妆发。",
+    "instruction": "Create a beauty preparation time-lapse in a stable portrait. Hands with appropriate brushes or styling tools enter briefly and move at accelerated speed around hair and makeup areas, then withdraw to reveal the finished look. Keep the same face, skin tone and head position continuous, with clean tool contact and consistent lighting. Avoid extra fingers, tools intersecting the eyes, identity changes or unrealistically replacing the entire face. Apply the movement or effect to the user-supplied subjects and setting, not the people, brands or objects in a demonstration. Adapt the timing to the requested clip length with a clear opening, development and resolved ending.",
+    "categories": [
+      "Camera Control"
+    ],
+    "enabled": false,
+    "product_ids": [],
+    "methods": [
+      "image_to_video",
+      "image_reference"
+    ],
+    "require_image": true,
+    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/timelapse_glam.webp",
+    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/timelapse_glam.mp4"
+  }
+]

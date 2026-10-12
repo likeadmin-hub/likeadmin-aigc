@@ -27,6 +27,11 @@ class AigcMusicChannelService
     public static function estimate(int $tenantId, array $params): array
     {
         $selection = self::resolveSelection($tenantId, $params);
+        return self::estimateSelection($selection,$params);
+    }
+
+    public static function estimateSelection(array $selection,array $params): array
+    {
         $duration = AigcMusicService::normalizeDuration($params['duration'] ?? $selection['spec']['unit_seconds']);
         $unitSeconds = max(1, (int)$selection['spec']['unit_seconds']);
         $quantity = max(1, (int)ceil($duration / $unitSeconds));

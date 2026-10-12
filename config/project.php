@@ -1,7 +1,7 @@
 <?php
 return [
     // 系统版本号
-    'version' => '1.0.391',
+    'version' => '1.0.392',
     'project_name' => 'Likeadmin-SaaS版',
 
     // 官网
@@ -110,7 +110,7 @@ return [
 
     // 文件上传限制 (图片)
     'file_image' => [
-        'jpg', 'png', 'gif', 'jpeg', 'webp', 'ico'
+        'jpg', 'png', 'gif', 'jpeg', 'webp', 'ico', 'svg'
     ],
 
     // 文件上传限制 (视频)

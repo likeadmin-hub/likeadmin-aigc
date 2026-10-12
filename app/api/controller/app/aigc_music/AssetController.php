@@ -7,6 +7,15 @@ use app\common\service\app\aigc_music\AigcMusicAssetService;
 
 class AssetController extends BaseApiController
 {
+    public function upload_upstream()
+    {
+        try {
+            return $this->success('已受理',\app\common\service\app\aigc_music\AigcMusicService::uploadUpstreamAudio((int)$this->request->tenantId,$this->userId,$this->request->post()));
+        } catch (\Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function uploadAudio()
     {
         try {

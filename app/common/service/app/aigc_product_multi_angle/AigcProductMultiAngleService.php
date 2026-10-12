@@ -35,7 +35,7 @@ class AigcProductMultiAngleService
         'forty-five' => ['name' => '45度角', 'description' => '生成商品45度展示图', 'prompt' => '将商品调整为45度斜侧视角，兼顾正面和侧面信息，形成自然立体的电商展示图。', 'sort' => 50],
     ];
 
-    public static function config(int $tenantId): array
+    public static function config(int $tenantId, bool $readOnly = false): array
     {
         $row = AigcProductMultiAngleConfig::where('tenant_id', $tenantId)->findOrEmpty();
         $data = $row->isEmpty() ? self::defaults() : array_merge(self::defaults(), $row->toArray());
@@ -44,9 +44,9 @@ class AigcProductMultiAngleService
         $data = AigcImageChannelService::alignConfigDefaults($data, $optionConfig);
         $data['option_config'] = $optionConfig;
         $data['spec_options'] = self::buildSpecOptions($optionConfig);
-        $data['views'] = self::viewLists($tenantId, true);
-        $data['dependencies'] = self::dependencies($tenantId);
-        if ($row->isEmpty()) {
+        $data['views'] = self::viewLists($tenantId, true, !$readOnly);
+        $data['dependencies'] = self::dependencies($tenantId, $readOnly);
+        if ($row->isEmpty() && !$readOnly) {
             self::saveConfigSnapshot($tenantId, $data, $row);
         }
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
@@ -110,9 +110,9 @@ class AigcProductMultiAngleService
         ]);
     }
 
-    public static function viewLists(int $tenantId, bool $onlyEnabled = false): array
+    public static function viewLists(int $tenantId, bool $onlyEnabled = false, bool $initialize = true): array
     {
-        self::ensureDefaultViews($tenantId);
+        if ($initialize) self::ensureDefaultViews($tenantId);
         $query = AigcProductMultiAngleView::where('tenant_id', $tenantId)->where('delete_time', 0)->order('sort', 'desc')->order('id', 'asc');
         if ($onlyEnabled) {
             $query->where('status', 1);
@@ -200,33 +200,76 @@ class AigcProductMultiAngleService
         return self::buildEstimate($prepared, $singleEstimate);
     }
 
+    /** Validate and quote without lazy configuration/view writes or material upload. */
+    public static function openPlatformAdmission(int $tenantId, int $userId, array $params): array
+    {
+        self::assertAvailable($tenantId, true);
+        $prepared = self::prepareGeneratePayload($tenantId, $params, true, true);
+        $material = \app\common\service\open_platform\OpenMaterials::resolve($tenantId, $userId, ['source_image' => $prepared['source_image']]);
+        $prepared['source_image'] = $material['source_image'];
+        $prepared['image_payload']['reference_images'] = [$prepared['source_image']];
+        $single = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
+        if (($single['settlement_mode'] ?? '') !== 'reserved') throw new Exception('商品多角度暂不支持实际用量图片 SKU');
+        return ['prepared' => $prepared, 'estimate' => self::buildEstimate($prepared, $single)];
+    }
+
+    private static function materializeOpenRecipe(int $tenantId, int $userId, array $prepared): array
+    {
+        $source = $prepared['source_image'];
+        if (str_starts_with($source, 'data:image/')) {
+            $stored = \app\common\service\app\aigc_image\AigcImageAssetService::persistGeneratedImage($source, $tenantId, $userId);
+            $prepared['source_image'] = (string)$stored['uri'];
+        }
+        $prepared['image_payload']['reference_images'] = [$prepared['source_image']];
+        return $prepared;
+    }
+
     public static function generate(int $tenantId, int $userId, array $params): array
     {
-        self::assertAvailable($tenantId);
-        $prepared = self::prepareGeneratePayload($tenantId, $params, true);
-        $singleEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
-        $estimate = self::buildEstimate($prepared, $singleEstimate);
+        self::assertAvailable($tenantId, \app\common\service\open_platform\OpenCallContext::active());
+        $frozen = \app\common\service\open_platform\OpenImagePricing::prepared($tenantId, $userId, self::APP_CODE);
+        if ($frozen !== null) {
+            \app\common\service\open_platform\OpenImageBatchDispatch::start($tenantId, $userId, (int)$frozen['estimate']['quantity']);
+            $frozen = \app\common\service\open_platform\OpenImagePricing::materializePrepared($tenantId, $userId, self::APP_CODE,
+                static fn(array $recipe) => self::materializeOpenRecipe($tenantId, $userId, $recipe));
+            $prepared = $frozen['prepared']; $estimate = $frozen['estimate'];
+        } else {
+            $prepared = self::prepareGeneratePayload($tenantId, $params, true);
+            $singleEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
+            $estimate = self::buildEstimate($prepared, $singleEstimate);
+        }
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
         $batchNo = 'multi_angle_' . date('YmdHis') . '_' . substr(md5($tenantId . '_' . $userId . '_' . microtime(true)), 0, 8);
         $imageTaskIds = [];
+        $task = null;
+        $handoff = \app\common\service\open_platform\OpenImageHandoff::callback($tenantId, $userId, self::APP_CODE,
+            static function(AigcImageTask $child) use ($tenantId, $userId, $batchNo, $prepared, $estimate, &$imageTaskIds, &$task) {
+                $imageTaskIds = array_values(array_unique(array_merge($imageTaskIds, [(int)$child['id']])));
+                if ($task === null) $task = self::createBatchTask($tenantId, $userId, $batchNo, $imageTaskIds, $prepared, $estimate);
+                else $task->save(['image_task_ids' => $imageTaskIds, 'update_time' => time()]);
+                return $task;
+            }, true);
         foreach ($prepared['views'] as $view) {
+            if ($frozen !== null) \app\common\service\open_platform\OpenImageBatchDispatch::heartbeat($tenantId, $userId);
             $payload = array_merge($prepared['image_payload'], [
                 'prompt' => self::buildPrompt($prepared['config'], $view, $prepared['user_prompt']),
                 'reference_images' => [$prepared['source_image']],
             ]);
-            $result = AigcImageService::generateWithBillingOverride($tenantId, $userId, $payload, [
-                'tenant_cost_points' => $estimate['platform_unit_cost'],
-                'user_charge_points' => $prepared['unit_price'],
-            ]);
+            $result = $frozen !== null
+                ? AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $payload, ['user_unit_price' => $prepared['unit_price']], self::APP_CODE, $handoff)
+                : AigcImageService::generateWithBillingOverride($tenantId, $userId, $payload, [
+                    'tenant_cost_points' => $estimate['platform_unit_cost'], 'user_charge_points' => $prepared['unit_price'],
+                ]);
             $imageTaskId = (int)($result['task_id'] ?? 0);
             if ($imageTaskId > 0) {
-                $imageTaskIds[] = $imageTaskId;
+                $imageTaskIds = array_values(array_unique(array_merge($imageTaskIds, [$imageTaskId])));
             }
         }
         if (!$imageTaskIds) {
             throw new Exception('商品多角度任务创建失败');
         }
-        $task = self::createBatchTask($tenantId, $userId, $batchNo, $imageTaskIds, $prepared, $estimate);
+        if ($frozen !== null) \app\common\service\open_platform\OpenImageBatchDispatch::complete($tenantId, $userId);
+        $task ??= self::createBatchTask($tenantId, $userId, $batchNo, $imageTaskIds, $prepared, $estimate);
         self::syncTaskFromImageTask($task);
         return [
             'task_id' => (int)$task['id'],
@@ -342,13 +385,13 @@ class AigcProductMultiAngleService
         $row->save(['delete_time' => time(), 'update_time' => time()]);
     }
 
-    public static function dependencies(int $tenantId = 0): array
+    public static function dependencies(int $tenantId = 0, bool $readOnly = false): array
     {
         $installed = App::where(['code' => self::IMAGE_APP_CODE, 'status' => AppRegistryService::STATUS_INSTALLED])->count() > 0;
-        $tenantEnabled = $tenantId <= 0 ? true : AppAccessService::tenantCanUse($tenantId, self::IMAGE_APP_CODE);
+        $tenantEnabled = $tenantId <= 0 ? true : AppAccessService::tenantCanUse($tenantId, self::IMAGE_APP_CODE, !$readOnly);
         $channels = [];
         try {
-            $channels = AigcImageService::config($tenantId)['option_config']['channels'] ?? [];
+            $channels = $readOnly ? (AigcImageChannelService::userConfig($tenantId)['channels'] ?? []) : (AigcImageService::config($tenantId)['option_config']['channels'] ?? []);
         } catch (Exception) {
             $channels = [];
         }
@@ -365,23 +408,23 @@ class AigcProductMultiAngleService
         return ['items' => [$item], 'ready' => (bool)$item['ready']];
     }
 
-    private static function assertAvailable(int $tenantId): void
+    private static function assertAvailable(int $tenantId, bool $readOnly = false): void
     {
-        if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE) !== null) {
+        if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE, 0, true, !$readOnly) !== null) {
             throw new Exception('商品多角度应用未开通或未上架');
         }
-        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE) !== null) {
+        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE, 0, true, !$readOnly) !== null) {
             throw new Exception('AIGC生图应用未开通或未上架');
         }
-        $config = self::config($tenantId);
+        $config = self::config($tenantId, $readOnly);
         if ((int)($config['status'] ?? 1) !== 1) {
             throw new Exception('商品多角度应用已停用');
         }
     }
 
-    private static function prepareGeneratePayload(int $tenantId, array $params, bool $requireImage): array
+    private static function prepareGeneratePayload(int $tenantId, array $params, bool $requireImage, bool $readOnly = false): array
     {
-        $config = self::config($tenantId);
+        $config = self::config($tenantId, $readOnly);
         $images = self::normalizeImages($params['source_image'] ?? $params['image'] ?? '');
         if ($requireImage && !$images) {
             throw new Exception('请上传主体图');
@@ -394,7 +437,7 @@ class AigcProductMultiAngleService
         if (!$viewCodes) {
             throw new Exception('请选择视角选项');
         }
-        $views = self::resolveViews($tenantId, $viewCodes);
+        $views = self::resolveViews($tenantId, $viewCodes, $readOnly);
         $channel = (string)($config['default_channel'] ?: ($config['config_json']['channel'] ?? ''));
         $quality = (string)($config['default_quality'] ?: ($config['config_json']['quality'] ?? ''));
         $ratio = (string)($config['default_ratio'] ?: ($config['config_json']['ratio'] ?? ''));
@@ -499,10 +542,12 @@ class AigcProductMultiAngleService
         foreach ($imageTaskIds as $imageTaskId) {
             try {
                 AigcImageService::taskDetail($tenantId, $imageTaskId, $userId);
-            } catch (\Throwable) {
+            } catch (\Throwable $error) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($error);
             }
         }
-        $imageTasks = AigcImageTask::where('tenant_id', $tenantId)->whereIn('id', $imageTaskIds)->where('delete_time', 0)->select()->toArray();
+        \app\common\service\open_platform\OpenCallContext::assertCurrentLease();
+        $imageTasks = AigcImageTask::where(['tenant_id' => $tenantId, 'user_id' => $userId])->whereIn('id', $imageTaskIds)->where('delete_time', 0)->select()->toArray();
         if (!$imageTasks) {
             return;
         }
@@ -512,7 +557,14 @@ class AigcProductMultiAngleService
         $failedCount = count(array_filter($statuses, static fn($status) => in_array($status, ['failed', 'canceled'], true)));
         $resultCount = (int)($syncSummary['result_count'] ?? 0);
         $missingResultCount = (int)($syncSummary['missing_result_count'] ?? 0);
-        if ($resultCount >= count($imageTaskIds) && $successCount === count($imageTaskIds)) {
+        $open = \app\common\service\open_platform\OpenToolPricing::forTask(self::APP_CODE, $tenantId, $userId, (int)$task['id']) !== null;
+        $missing = max(0, (int)$task['quantity'] - count($imageTaskIds));
+        $interrupted = $open && \app\common\service\open_platform\OpenImageBatchDispatch::interrupted($tenantId, $userId, (int)$task['id'], self::APP_CODE);
+        if ($open && (($missing > 0 && !$interrupted) || $successCount + $failedCount < count($imageTaskIds))) {
+            $task->status = 'running';
+        } elseif ($open && $missing > 0 && $interrupted) {
+            $task->status = $resultCount > 0 ? 'partial_failed' : 'failed';
+        } elseif ($resultCount >= count($imageTaskIds) && $successCount === count($imageTaskIds)) {
             $task->status = 'success';
         } elseif ($resultCount > 0 && $successCount + $failedCount === count($imageTaskIds)) {
             $task->status = 'partial_failed';
@@ -527,6 +579,7 @@ class AigcProductMultiAngleService
         if ($missingResultCount > 0 && in_array((string)$task->status, ['failed', 'partial_failed'], true)) {
             $errors[] = '生成任务未返回可用作品，请重新生成';
         }
+        if ($open && $missing > 0 && $interrupted) $errors[] = '批次中断，部分视角未提交生成';
         $finishTimes = array_filter(array_map(static fn($row) => (int)($row['finish_time'] ?? 0), $imageTasks));
         $task->error = implode('；', array_unique($errors));
         $task->finish_time = in_array((string)$task->status, ['success', 'failed', 'canceled', 'partial_failed'], true) ? max($finishTimes ?: [time()]) : 0;
@@ -711,9 +764,9 @@ class AigcProductMultiAngleService
         return $row;
     }
 
-    private static function resolveViews(int $tenantId, array $codes): array
+    private static function resolveViews(int $tenantId, array $codes, bool $readOnly = false): array
     {
-        self::ensureDefaultViews($tenantId);
+        if (!$readOnly) self::ensureDefaultViews($tenantId);
         $rows = AigcProductMultiAngleView::where('tenant_id', $tenantId)->where('delete_time', 0)->where('status', 1)->whereIn('code', $codes)->select()->toArray();
         $map = [];
         foreach ($rows as $row) {
@@ -724,6 +777,12 @@ class AigcProductMultiAngleService
                 'description' => (string)($row['description'] ?? ''),
                 'prompt' => (string)($row['prompt'] ?? ''),
             ];
+        }
+        if ($readOnly) {
+            $existing = AigcProductMultiAngleView::where('tenant_id', $tenantId)->where('delete_time', 0)->column('code');
+            foreach (self::DEFAULT_VIEWS as $code => $view) {
+                if (!in_array($code, $existing, true)) $map[$code] = ['id' => 0, 'code' => $code] + $view;
+            }
         }
         $resolved = [];
         foreach ($codes as $code) {

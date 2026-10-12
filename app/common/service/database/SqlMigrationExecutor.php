@@ -23,6 +23,11 @@ class SqlMigrationExecutor
             return;
         }
         foreach (self::split($content) as $sql) {
+            if (preg_match('/^\s*ALTER\s+TABLE\s+`?la_aigc_video_config`?\s+MODIFY\s+(?:COLUMN\s+)?`?config_json`?\s+MEDIUMTEXT\s*$/iD', $sql)) {
+                if (!class_exists(RuntimeVideoConfigCapacity::class)) require_once __DIR__.'/RuntimeVideoConfigCapacity.php';
+                RuntimeVideoConfigCapacity::apply($prefix, $connection);
+                continue;
+            }
             $statement = self::applyPrefix($sql, $prefix, $prefixStyle) . ';';
             try {
                 if ($connection) {

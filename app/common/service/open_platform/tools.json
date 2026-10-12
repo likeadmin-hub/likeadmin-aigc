@@ -1,0 +1,3804 @@
+{
+  "aigc_action_transfer": {
+    "app_code": "aigc_action_transfer",
+    "name": "动作迁移",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作迁移 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作迁移 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作迁移 Generate/index"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作迁移 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作迁移 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作迁移 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作迁移 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_action_transfer\\AigcActionTransferTask"
+  },
+  "aigc_background_removal": {
+    "app_code": "aigc_background_removal",
+    "name": "图片去背景",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片去背景 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片去背景 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片去背景 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片去背景 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片去背景 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片去背景 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片去背景 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片去背景 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_background_removal\\AigcBackgroundRemovalTask"
+  },
+  "aigc_digital_human": {
+    "app_code": "aigc_digital_human",
+    "name": "数字人视频",
+    "operations": {
+      "GET avatar/lists": {
+        "controller": "Avatar",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Avatar/lists"
+      },
+      "POST avatar/save": {
+        "controller": "Avatar",
+        "action": "save",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Avatar/save"
+      },
+      "GET case/lists": {
+        "controller": "Case",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Case/lists"
+      },
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Generate/estimate"
+      },
+      "POST generate/assistScript": {
+        "controller": "Generate",
+        "action": "assistScript",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Generate/assistScript"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Task/detail"
+      },
+      "GET voice/lists": {
+        "controller": "Voice",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Voice/lists"
+      },
+      "POST voice/save": {
+        "controller": "Voice",
+        "action": "save",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Voice/save"
+      },
+      "POST voice/preview": {
+        "controller": "Voice",
+        "action": "preview",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Voice/preview"
+      },
+      "POST voice/trim": {
+        "controller": "Voice",
+        "action": "trim",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "数字人视频 Voice/trim"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_digital_human\\AigcDigitalHumanTask"
+  },
+  "aigc_fashion_lookbook": {
+    "app_code": "aigc_fashion_lookbook",
+    "name": "服饰套图",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "服饰套图 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "properties": {
+            "clothes_images": {
+              "description": "服饰素材，按每张服饰生成一张结果；支持数组或逗号分隔字符串。最多 6 张，租户配置可以进一步收紧。数组中可使用完整图片 Data URI。重复素材会由业务服务去重。",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "items": {
+                    "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "image": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": [
+                              "uri"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "image"
+                            ]
+                          }
+                        ],
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            },
+            "clothes": {
+              "description": "服饰素材，按每张服饰生成一张结果；支持数组或逗号分隔字符串。最多 6 张，租户配置可以进一步收紧。数组中可使用完整图片 Data URI。重复素材会由业务服务去重。",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "items": {
+                    "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "image": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": [
+                              "uri"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "image"
+                            ]
+                          }
+                        ],
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            },
+            "source_images": {
+              "description": "服饰素材，按每张服饰生成一张结果；支持数组或逗号分隔字符串。最多 6 张，租户配置可以进一步收紧。数组中可使用完整图片 Data URI。重复素材会由业务服务去重。",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "items": {
+                    "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "image": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": [
+                              "uri"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "image"
+                            ]
+                          }
+                        ],
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            },
+            "model_image": {
+              "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "url": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "image": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "uri"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "url"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "image"
+                      ]
+                    }
+                  ],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "model": {
+              "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "url": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "image": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "uri"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "url"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "image"
+                      ]
+                    }
+                  ],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "model_preset_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "从本工具 GET model/lists 选择当前租户启用的模特预设。选择预设时优先使用预设图片；不能仅凭预设图片地址访问他人的私有素材。"
+            },
+            "ratio": {
+              "type": "string",
+              "description": "从能力查询选择宽高比，缺省使用本工具租户默认值。"
+            },
+            "prompt": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "附加创作要求。"
+            },
+            "user_prompt": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "prompt 的原生别名；同时传入时以 prompt 为准。"
+            },
+            "negative_prompt": {
+              "type": "string",
+              "description": "负向提示词，缺省沿用租户工具配置。"
+            }
+          },
+          "additionalProperties": true
+        },
+        "description": "服饰套图费用预估，不提交生成。报价仍需通过提交前的素材、模型与 SKU 检查。"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "clothes_images": {
+              "description": "服饰素材，按每张服饰生成一张结果；支持数组或逗号分隔字符串。最多 6 张，租户配置可以进一步收紧。数组中可使用完整图片 Data URI。重复素材会由业务服务去重。",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "items": {
+                    "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "image": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": [
+                              "uri"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "image"
+                            ]
+                          }
+                        ],
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            },
+            "clothes": {
+              "description": "服饰素材，按每张服饰生成一张结果；支持数组或逗号分隔字符串。最多 6 张，租户配置可以进一步收紧。数组中可使用完整图片 Data URI。重复素材会由业务服务去重。",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "items": {
+                    "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "image": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": [
+                              "uri"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "image"
+                            ]
+                          }
+                        ],
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            },
+            "source_images": {
+              "description": "服饰素材，按每张服饰生成一张结果；支持数组或逗号分隔字符串。最多 6 张，租户配置可以进一步收紧。数组中可使用完整图片 Data URI。重复素材会由业务服务去重。",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "items": {
+                    "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "image": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": [
+                              "uri"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "image"
+                            ]
+                          }
+                        ],
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            },
+            "model_image": {
+              "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "url": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "image": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "uri"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "url"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "image"
+                      ]
+                    }
+                  ],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "model": {
+              "description": "当前用户上传所得 file_id、当前用户素材 URI 或可访问的外部 HTTPS 图片。对象支持 uri、url、image 三种字段。",
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "url": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "image": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "uri"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "url"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "image"
+                      ]
+                    }
+                  ],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "model_preset_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "从本工具 GET model/lists 选择当前租户启用的模特预设。选择预设时优先使用预设图片；不能仅凭预设图片地址访问他人的私有素材。"
+            },
+            "ratio": {
+              "type": "string",
+              "description": "从能力查询选择宽高比，缺省使用本工具租户默认值。"
+            },
+            "prompt": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "附加创作要求。"
+            },
+            "user_prompt": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "prompt 的原生别名；同时传入时以 prompt 为准。"
+            },
+            "negative_prompt": {
+              "type": "string",
+              "description": "负向提示词，缺省沿用租户工具配置。"
+            }
+          },
+          "additionalProperties": true,
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "clothes_images"
+                  ]
+                },
+                {
+                  "required": [
+                    "clothes"
+                  ]
+                },
+                {
+                  "required": [
+                    "source_images"
+                  ]
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "model_image"
+                  ]
+                },
+                {
+                  "required": [
+                    "model"
+                  ]
+                },
+                {
+                  "required": [
+                    "model_preset_id"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "description": "为模特分别生成每张服饰的套图，返回本工具任务 ID。沿用租户工具的默认渠道和清晰度、用户售价及会员资格；客户端不能覆盖成本或强制选择渠道。查询任务与结果不收取生成费用。子任务可能部分成功，最终费用以实际原生消费为准。"
+      },
+      "GET model/lists": {
+        "controller": "Model",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "服饰套图 Model/lists"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "服饰套图 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "服饰套图 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "服饰套图 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "服饰套图 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "服饰套图 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_fashion_lookbook\\AigcFashionLookbookTask"
+  },
+  "aigc_fitting": {
+    "app_code": "aigc_fitting",
+    "name": "AI试衣",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI试衣 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI试衣 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI试衣 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI试衣 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI试衣 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI试衣 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI试衣 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI试衣 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_fitting\\AigcFittingTask"
+  },
+  "aigc_hairstyle": {
+    "app_code": "aigc_hairstyle",
+    "name": "AI换发型",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI换发型 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI换发型 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI换发型 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI换发型 Result/lists"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI换发型 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI换发型 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI换发型 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_image\\AigcImageTask"
+  },
+  "aigc_image": {
+    "app_code": "aigc_image",
+    "name": "AIGC生图",
+    "operations": {
+      "GET case/lists": {
+        "controller": "Case",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC生图 Case/lists"
+      },
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC生图 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC生图 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC生图 Generate/index"
+      },
+      "POST prompt/enhance": {
+        "controller": "Prompt",
+        "action": "enhance",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC生图 Prompt/enhance"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC生图 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC生图 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC生图 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC生图 Task/detail"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_image\\AigcImageTask"
+  },
+  "aigc_image_translate": {
+    "app_code": "aigc_image_translate",
+    "name": "图片翻译",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片翻译 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片翻译 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片翻译 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片翻译 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片翻译 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片翻译 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片翻译 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片翻译 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_image_translate\\AigcImageTranslateTask"
+  },
+  "aigc_llm": {
+    "app_code": "aigc_llm",
+    "name": "AIGC对话",
+    "operations": {
+      "POST chat/stop": {
+        "controller": "Chat",
+        "action": "stop",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC对话 Chat/stop"
+      },
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC对话 Config/detail"
+      },
+      "GET message/lists": {
+        "controller": "Message",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC对话 Message/lists"
+      },
+      "GET session/lists": {
+        "controller": "Session",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC对话 Session/lists"
+      },
+      "POST session/create": {
+        "controller": "Session",
+        "action": "create",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC对话 Session/create"
+      },
+      "GET session/detail": {
+        "controller": "Session",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC对话 Session/detail"
+      },
+      "POST session/rename": {
+        "controller": "Session",
+        "action": "rename",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC对话 Session/rename"
+      },
+      "POST session/delete": {
+        "controller": "Session",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC对话 Session/delete"
+      },
+      "POST tasks": {
+        "service": "generateText",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "prompt": {
+              "type": "string"
+            },
+            "model_code": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "文本生成"
+      },
+      "POST stream": {
+        "service": "streamText",
+        "billable": true,
+        "input": {
+          "type": "object"
+        },
+        "description": "流式文本生成"
+      },
+      "GET tasks": {
+        "service": "readTextTasks",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "properties": {
+            "page_no": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "page_size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        },
+        "description": "文本任务列表"
+      },
+      "GET tasks/{task_id}": {
+        "service": "readTextTasks",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "properties": {
+            "page_no": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "page_size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        },
+        "description": "文本任务结果"
+      },
+      "GET results": {
+        "service": "readTextTasks",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "properties": {
+            "page_no": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "page_size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        },
+        "description": "文本结果列表"
+      }
+    }
+  },
+  "aigc_local_redraw": {
+    "app_code": "aigc_local_redraw",
+    "name": "局部重绘",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "局部重绘 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "局部重绘 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "局部重绘 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "局部重绘 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "局部重绘 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "局部重绘 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "局部重绘 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "局部重绘 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_local_redraw\\AigcLocalRedrawTask"
+  },
+  "aigc_model_wear": {
+    "app_code": "aigc_model_wear",
+    "name": "模特穿戴",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "模特穿戴 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "模特穿戴 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "模特穿戴 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "模特穿戴 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "模特穿戴 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "模特穿戴 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "模特穿戴 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "模特穿戴 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_model_wear\\AigcModelWearTask"
+  },
+  "aigc_music": {
+    "app_code": "aigc_music",
+    "name": "AI音乐生成",
+    "operations": {
+      "POST asset/uploadAudio": {
+        "controller": "Asset",
+        "action": "uploadAudio",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI音乐生成 Asset/uploadAudio"
+      },
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI音乐生成 Config/detail"
+      },
+      "POST export/wav": {
+        "controller": "Export",
+        "action": "wav",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "result_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "当前用户音乐作品 ID"
+            }
+          },
+          "required": [
+            "result_id"
+          ],
+          "additionalProperties": false
+        },
+        "description": "当前用户音乐作品的真实wav导出；异步操作返回任务 ID，查询取得终态结果",
+        "music_operation": "wav"
+      },
+      "POST export/mp4": {
+        "controller": "Export",
+        "action": "mp4",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "result_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "当前用户音乐作品 ID"
+            }
+          },
+          "required": [
+            "result_id"
+          ],
+          "additionalProperties": false
+        },
+        "description": "当前用户音乐作品的真实mp4导出；异步操作返回任务 ID，查询取得终态结果",
+        "music_operation": "mp4"
+      },
+      "POST export/midi": {
+        "controller": "Export",
+        "action": "midi",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "result_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "当前用户音乐作品 ID"
+            }
+          },
+          "required": [
+            "result_id"
+          ],
+          "additionalProperties": false
+        },
+        "description": "当前用户音乐作品的真实midi导出；异步操作返回任务 ID，查询取得终态结果",
+        "music_operation": "midi"
+      },
+      "POST export/timing": {
+        "controller": "Export",
+        "action": "timing",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "properties": {
+            "result_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "当前用户的音乐作品 ID"
+            }
+          },
+          "required": [
+            "result_id"
+          ],
+          "additionalProperties": false
+        },
+        "description": "查询当前用户音乐作品的真实歌词时间轴，使用独立免费 SKU",
+        "music_operation": "timing"
+      },
+      "POST export/vox": {
+        "controller": "Export",
+        "action": "vox",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "result_id": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "当前用户音乐作品 ID"
+            },
+            "vocal_start": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 86400
+            },
+            "vocal_end": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 86400
+            }
+          },
+          "required": [
+            "result_id"
+          ],
+          "additionalProperties": false
+        },
+        "description": "当前用户音乐作品的真实vox导出；异步操作返回任务 ID，查询取得终态结果",
+        "music_operation": "vox"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI音乐生成 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI音乐生成 Generate/index"
+      },
+      "POST lyrics/index": {
+        "controller": "Lyrics",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20000,
+              "description": "歌词主题或风格描述"
+            }
+          },
+          "required": [
+            "prompt"
+          ],
+          "additionalProperties": false
+        },
+        "description": "按当前商城售价生成真实歌词，返回任务和结果",
+        "music_operation": "lyrics"
+      },
+      "POST mashuplyrics/index": {
+        "controller": "MashupLyrics",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "lyrics_a": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20000,
+              "description": "第一段歌词"
+            },
+            "lyrics_b": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20000,
+              "description": "第二段歌词"
+            }
+          },
+          "required": [
+            "lyrics_a",
+            "lyrics_b"
+          ],
+          "additionalProperties": false
+        },
+        "description": "将两段歌词融合为真实歌词，按独立商城 SKU 计费",
+        "music_operation": "mashup_lyrics"
+      },
+      "POST persona/create": {
+        "controller": "Persona",
+        "action": "create",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "reference_asset_id": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "lyrics_style": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "prompt_json": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "authorization_confirmed": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            },
+            "authorization_text": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": true
+        },
+        "description": "创建本地音乐人设资料，不执行生成；关联音频必须属于当前用户"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI音乐生成 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI音乐生成 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI音乐生成 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI音乐生成 Task/detail"
+      },
+      "POST voiceclone/create": {
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "reference_asset_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 5000
+            },
+            "authorization_confirmed": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            },
+            "authorization_text": {
+              "type": "string",
+              "maxLength": 5000
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          "required": [
+            "reference_asset_id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "description": "使用本人音频素材创建真实声音风格，按独立商城 SKU 计费；授权及审核状态保留。",
+        "music_operation": "voice_clone"
+      },
+      "POST style/index": {
+        "music_operation": "style",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20000,
+              "description": "歌词主题或风格描述"
+            }
+          },
+          "required": [
+            "prompt"
+          ],
+          "additionalProperties": false
+        },
+        "description": "优化音乐风格描述，按独立商城 SKU 计费"
+      },
+      "POST persona/upstream": {
+        "music_operation": "persona",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "result_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 5000
+            },
+            "vocal_start": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 86400
+            },
+            "vocal_end": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 86400
+            }
+          },
+          "required": [
+            "result_id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "description": "基于本人音乐作品创建上游歌手风格，按独立商城 SKU 计费，返回本地与上游风格标识。"
+      },
+      "POST asset/upload_upstream": {
+        "music_operation": "upload_audio",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "properties": {
+            "reference_asset_id": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "reference_asset_id"
+          ],
+          "additionalProperties": false
+        },
+        "description": "将本人已上传的音频素材登记到真实上游，按独立商城 SKU 计费，返回参考音频标识。"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_music\\AigcMusicTask",
+    "limitations": {
+      "exact_duration": false,
+      "duration_description": "duration 沿用用户端计费选择，不保证生成音频时长；实际时长以结果音频为准。",
+      "converted_exports": false,
+      "voice_clone": false,
+      "generated_lyrics": true
+    }
+  },
+  "aigc_music_cover": {
+    "app_code": "aigc_music_cover",
+    "name": "音乐翻唱",
+    "operations": {
+      "POST asset/uploadAudio": {
+        "controller": "Asset",
+        "action": "uploadAudio",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "音乐翻唱 Asset/uploadAudio"
+      },
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "音乐翻唱 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "音乐翻唱 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "音乐翻唱 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "音乐翻唱 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "音乐翻唱 Result/delete"
+      },
+      "POST search/index": {
+        "controller": "Search",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "音乐翻唱 Search/index"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "音乐翻唱 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "音乐翻唱 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "音乐翻唱 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_music_cover\\AigcMusicCoverTask"
+  },
+  "aigc_one_click_cleanup": {
+    "app_code": "aigc_one_click_cleanup",
+    "name": "一键消除",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "一键消除 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "一键消除 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "一键消除 Generate/index"
+      },
+      "GET option/lists": {
+        "controller": "Option",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "一键消除 Option/lists"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "一键消除 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "一键消除 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "一键消除 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "一键消除 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "一键消除 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_one_click_cleanup\\AigcOneClickCleanupTask"
+  },
+  "aigc_outpaint": {
+    "app_code": "aigc_outpaint",
+    "name": "无缝扩图",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "无缝扩图 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "无缝扩图 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "无缝扩图 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "无缝扩图 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "无缝扩图 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "无缝扩图 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "无缝扩图 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "无缝扩图 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_outpaint\\AigcOutpaintTask"
+  },
+  "aigc_person_replacement": {
+    "app_code": "aigc_person_replacement",
+    "name": "动作替换",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作替换 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作替换 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作替换 Generate/index"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作替换 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作替换 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作替换 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "动作替换 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_person_replacement\\AigcPersonReplacementTask"
+  },
+  "aigc_photo_restore": {
+    "app_code": "aigc_photo_restore",
+    "name": "老照片修复",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "老照片修复 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "老照片修复 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "老照片修复 Generate/index"
+      },
+      "GET restoretype/lists": {
+        "controller": "RestoreType",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "老照片修复 RestoreType/lists"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "老照片修复 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "老照片修复 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "老照片修复 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "老照片修复 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "老照片修复 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_photo_restore\\AigcPhotoRestoreTask"
+  },
+  "aigc_pic_lipsync": {
+    "app_code": "aigc_pic_lipsync",
+    "name": "图片数字人",
+    "operations": {
+      "GET asset/images": {
+        "controller": "Asset",
+        "action": "images",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Asset/images"
+      },
+      "POST asset/save_image": {
+        "controller": "Asset",
+        "action": "save_image",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Asset/save_image"
+      },
+      "POST asset/delete_image": {
+        "controller": "Asset",
+        "action": "delete_image",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Asset/delete_image"
+      },
+      "GET asset/audios": {
+        "controller": "Asset",
+        "action": "audios",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Asset/audios"
+      },
+      "POST asset/upload_image": {
+        "controller": "Asset",
+        "action": "upload_image",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Asset/upload_image"
+      },
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Task/delete"
+      },
+      "GET voice/lists": {
+        "controller": "Voice",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Voice/lists"
+      },
+      "POST voice/save": {
+        "controller": "Voice",
+        "action": "save",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Voice/save"
+      },
+      "POST voice/delete": {
+        "controller": "Voice",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Voice/delete"
+      },
+      "POST voice/preview": {
+        "controller": "Voice",
+        "action": "preview",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Voice/preview"
+      },
+      "POST voice/trim": {
+        "controller": "Voice",
+        "action": "trim",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片数字人 Voice/trim"
+      },
+      "POST asset/upload_audio": {
+        "controller": "Asset",
+        "action": "upload_audio",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "上传图片数字人音频素材"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_pic_lipsync\\AigcPicLipsyncTask"
+  },
+  "aigc_product_image": {
+    "app_code": "aigc_product_image",
+    "name": "AI商品图",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品图 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品图 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品图 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品图 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品图 Result/delete"
+      },
+      "GET scenecategory/lists": {
+        "controller": "SceneCategory",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品图 SceneCategory/lists"
+      },
+      "GET scenetemplate/lists": {
+        "controller": "SceneTemplate",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品图 SceneTemplate/lists"
+      },
+      "GET scenetemplate/detail": {
+        "controller": "SceneTemplate",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品图 SceneTemplate/detail"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品图 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品图 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品图 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_product_image\\AigcProductImageTask"
+  },
+  "aigc_product_multi_angle": {
+    "app_code": "aigc_product_multi_angle",
+    "name": "商品多角度",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "商品多角度 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "商品多角度 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "商品多角度 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "商品多角度 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "商品多角度 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "商品多角度 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "商品多角度 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "商品多角度 Task/delete"
+      },
+      "GET view/lists": {
+        "controller": "View",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "商品多角度 View/lists"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_product_multi_angle\\AigcProductMultiAngleTask"
+  },
+  "aigc_product_promo_video": {
+    "app_code": "aigc_product_promo_video",
+    "name": "产品宣传视频",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "产品宣传视频 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "产品宣传视频 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "产品宣传视频 Generate/index"
+      },
+      "POST prompt/write": {
+        "controller": "Prompt",
+        "action": "write",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "产品宣传视频 Prompt/write"
+      },
+      "POST prompt/optimize": {
+        "controller": "Prompt",
+        "action": "optimize",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "产品宣传视频 Prompt/optimize"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "产品宣传视频 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "产品宣传视频 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "产品宣传视频 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "产品宣传视频 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "产品宣传视频 Task/delete"
+      },
+      "GET type/lists": {
+        "controller": "Type",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "产品宣传视频 Type/lists"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_product_promo_video\\AigcProductPromoVideoTask"
+  },
+  "aigc_product_suite": {
+    "app_code": "aigc_product_suite",
+    "name": "AI商品套图",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品套图 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品套图 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品套图 Generate/index"
+      },
+      "GET module/lists": {
+        "controller": "Module",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品套图 Module/lists"
+      },
+      "POST prompt/optimize": {
+        "controller": "Prompt",
+        "action": "optimize",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品套图 Prompt/optimize"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品套图 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品套图 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品套图 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品套图 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI商品套图 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_product_suite\\AigcProductSuiteTask"
+  },
+  "aigc_style_transfer": {
+    "app_code": "aigc_style_transfer",
+    "name": "图片风格化",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片风格化 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片风格化 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片风格化 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片风格化 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片风格化 Result/delete"
+      },
+      "GET stylecategory/lists": {
+        "controller": "StyleCategory",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片风格化 StyleCategory/lists"
+      },
+      "GET styletemplate/lists": {
+        "controller": "StyleTemplate",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片风格化 StyleTemplate/lists"
+      },
+      "GET styletemplate/detail": {
+        "controller": "StyleTemplate",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片风格化 StyleTemplate/detail"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片风格化 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片风格化 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "图片风格化 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_style_transfer\\AigcStyleTransferTask"
+  },
+  "aigc_video": {
+    "app_code": "aigc_video",
+    "name": "AIGC视频",
+    "operations": {
+      "GET case/lists": {
+        "controller": "Case",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC视频 Case/lists"
+      },
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC视频 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC视频 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC视频 Generate/index"
+      },
+      "POST prompt/enhance": {
+        "controller": "Prompt",
+        "action": "enhance",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC视频 Prompt/enhance"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC视频 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC视频 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC视频 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC视频 Task/detail"
+      },
+      "POST task/refresh": {
+        "controller": "Task",
+        "action": "refresh",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AIGC视频 Task/refresh"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_video\\AigcVideoTask"
+  },
+  "aigc_watermark_removal": {
+    "app_code": "aigc_watermark_removal",
+    "name": "短视频去水印",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "短视频去水印 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "短视频去水印 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "短视频去水印 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "短视频去水印 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "短视频去水印 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "短视频去水印 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "短视频去水印 Task/detail"
+      },
+      "POST task/delete": {
+        "controller": "Task",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "短视频去水印 Task/delete"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\aigc_watermark_removal\\AigcWatermarkRemovalTask"
+  },
+  "image_human": {
+    "app_code": "image_human",
+    "name": "全驱数字人",
+    "operations": {
+      "GET avatar/lists": {
+        "controller": "Avatar",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Avatar/lists"
+      },
+      "POST avatar/save": {
+        "controller": "Avatar",
+        "action": "save",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Avatar/save"
+      },
+      "POST avatar/delete": {
+        "controller": "Avatar",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Avatar/delete"
+      },
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "submit",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Generate/submit"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Task/detail"
+      },
+      "GET voice/lists": {
+        "controller": "Voice",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Voice/lists"
+      },
+      "POST voice/save": {
+        "controller": "Voice",
+        "action": "save",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Voice/save"
+      },
+      "POST voice/delete": {
+        "controller": "Voice",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Voice/delete"
+      },
+      "POST voice/preview": {
+        "controller": "Voice",
+        "action": "preview",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "全驱数字人 Voice/preview"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\image_human\\ImageHumanTask"
+  },
+  "smart_clip": {
+    "app_code": "smart_clip",
+    "name": "AI视频剪辑",
+    "operations": {
+      "GET capabilities": {
+        "controller": "Config",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI视频剪辑 Config/detail"
+      },
+      "POST estimate": {
+        "controller": "Generate",
+        "action": "estimate",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI视频剪辑 Generate/estimate"
+      },
+      "POST tasks": {
+        "controller": "Generate",
+        "action": "index",
+        "billable": true,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI视频剪辑 Generate/index"
+      },
+      "GET results": {
+        "controller": "Result",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI视频剪辑 Result/lists"
+      },
+      "POST result/delete": {
+        "controller": "Result",
+        "action": "delete",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI视频剪辑 Result/delete"
+      },
+      "GET tasks": {
+        "controller": "Task",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI视频剪辑 Task/lists"
+      },
+      "GET tasks/{task_id}": {
+        "controller": "Task",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI视频剪辑 Task/detail"
+      },
+      "GET template/lists": {
+        "controller": "Template",
+        "action": "lists",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI视频剪辑 Template/lists"
+      },
+      "GET template/detail": {
+        "controller": "Template",
+        "action": "detail",
+        "billable": false,
+        "input": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "description": "AI视频剪辑 Template/detail"
+      }
+    },
+    "task_model": "app\\common\\model\\app\\smart_clip\\SmartClipTask"
+  }
+}

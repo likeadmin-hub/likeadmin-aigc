@@ -34,6 +34,11 @@ class MarketTextModelRuntimeService
         'price_source',
     ];
 
+    public static function textOptions(int $tenantId): array
+    {
+        return self::options($tenantId, false);
+    }
+
     public static function modelGroups(int $tenantId): array
     {
         return [
@@ -104,9 +109,9 @@ class MarketTextModelRuntimeService
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
         $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? []);
         $requiresVision = $referenceImages !== [] || !empty($params['requires_vision']);
-        $model = !empty($params['_disable_model_fallback'])
+        $model = \app\common\service\open_platform\OpenCallContext::textModel() ?? (!empty($params['_disable_model_fallback'])
             ? self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)
-            : self::resolveRoutedModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision);
+            : self::resolveRoutedModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision));
         if ($tenantAdminConsumption) {
             // Persist zero retail price so delayed usage settlement has the same payer.
             $model['input']['tenant_price'] = 0;
@@ -146,6 +151,9 @@ class MarketTextModelRuntimeService
             ]);
         }
 
+        $openTextCall = \app\common\service\open_platform\OpenCallContext::id() !== '';
+        $result = null;
+        $usage = [];
         $started = microtime(true);
         $requestTimeout = self::resolveRequestTimeout($params);
         try {
@@ -155,12 +163,17 @@ class MarketTextModelRuntimeService
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
+                    if ($openTextCall) {
+                        $usage = self::normalizeUsage((array)($result['usage'] ?? []));
+                        \app\common\service\open_platform\OpenTextLifecycle::recordResult($context, $result, $usage);
+                    }
                     if (!empty($params['_require_final_content']) && ($result['content_source'] ?? 'content') !== 'content') {
                         throw new Exception('文本模型未返回最终正文，请检查模型输出配置后重试');
                     }
                     if ($resultValidator!==null) $resultValidator($result);
                     break;
                 } catch (\Throwable $initialError) {
+                    if ($openTextCall) throw $initialError;
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
                     if ($retry === null) {
                         $retry = self::compatibleTransportOptions($initialError->getMessage(), $transportOptions);
@@ -197,18 +210,29 @@ class MarketTextModelRuntimeService
                 $usage['prompt_tokens'] = (int)$usage['total_tokens'];
             }
             $actual = self::quote($model, (int)$usage['prompt_tokens'], (int)$usage['completion_tokens']);
-            self::settle($context, $actual, $usage, $result, (int)round((microtime(true) - $started) * 1000));
+            try {
+                self::settle($context, $actual, $usage, $result, (int)round((microtime(true) - $started) * 1000));
+            } catch (\Throwable $settlementError) {
+                if (!$openTextCall) throw $settlementError;
+                \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $settlementError);
+            }
+            $billingStatus = (string)AiConsumptionLog::where('id', (int)$context['consumption']['id'])->value('billing_status');
             return $result + [
                 'effective_max_tokens' => $maxTokens,
                 'model_code' => $model['model_code'],
+                'model_name' => $model['name'],
                 'channel_code' => $model['channel_code'],
                 'provider' => 'power_market',
                 'app_task_id' => (int)$context['appTask']['id'],
                 'consumption_id' => (int)$context['consumption']['id'],
-                'billing' => ['billing_status' => (self::canSettleUsage($model, $usage) ? 'settled' : 'pending_usage')] + $actual,
+                'billing' => ['billing_status' => $billingStatus] + $actual,
                 'usage' => $usage,
             ];
         } catch (\Throwable $e) {
+            if ($openTextCall && !\app\common\service\open_platform\OpenTextLifecycle::rejectionConfirmed()) {
+                \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
+                throw $e;
+            }
             self::fail($context, $e->getMessage(), 'provider_error');
             $fallback = self::fallbackModel($tenantId, $model, $requiresVision, (array)($params['_market_model_fallback_ids'] ?? []));
             if (empty($params['_disable_model_fallback']) && $fallback !== null && self::isExplicitModelUnavailable($e->getMessage())) {
@@ -1119,6 +1143,7 @@ class MarketTextModelRuntimeService
             throw new Exception(self::networkError($error));
         }
         if ($status >= 400) {
+            \app\common\service\open_platform\OpenCallContext::providerFailure($status,$body,!empty($state['content'])||!empty($state['reasoning'])||!empty($state['tool_calls']));
             if (UpstreamErrorMessageService::isClaudeClientRestricted($body)) {
                 $response = trim(preg_replace('/\s+/u', ' ', strip_tags($body)) ?? $body);
                 Log::write('Market text model rejected by Claude client policy: http=' . $status . ' response=' . mb_substr($response, 0, 1500, 'UTF-8'));
@@ -1127,6 +1152,7 @@ class MarketTextModelRuntimeService
                 UpstreamErrorMessageService::allowsModelFallback($body), $state ?? []);
         }
         if ($state['error'] !== '') {
+            \app\common\service\open_platform\OpenCallContext::providerFailure($status,$body,!empty($state['content'])||!empty($state['reasoning'])||!empty($state['tool_calls']));
             throw self::providerException($state['error'], !empty($state['model_fallback_allowed']), $state);
         }
         // Some OpenAI-compatible reasoning models emit their only textual output
@@ -1626,7 +1652,9 @@ class MarketTextModelRuntimeService
     }
     private static function sourceBaseUrl(string $baseUrl): string { $parts = parse_url(trim($baseUrl)); if (!is_array($parts) || empty($parts['host'])) return rtrim($baseUrl, '/'); return (string)($parts['scheme'] ?? 'https') . '://' . $parts['host'] . (isset($parts['port']) ? ':' . (int)$parts['port'] : ''); }
     private static function arrayValue($value): array { if (is_array($value)) return $value; $decoded = is_string($value) ? json_decode($value, true) : []; return is_array($decoded) ? $decoded : []; }
-    private static function points($value): float { return round(max(0, (float)$value), 6); }
+    // Wallets and their independent ledgers use two decimals. Keep SKU unit
+    // prices intact and round only the combined final charge, exactly once.
+    private static function points($value): float { return round(max(0, (float)$value), 2); }
     private static function no(string $prefix): string { return $prefix . date('YmdHis') . strtoupper(substr(bin2hex(random_bytes(6)), 0, 10)); }
     private static function extra(AiAppTask $task, AiConsumptionLog $consumption, string $stage): array { return ['app_code' => (string)$task['app_code'], 'task_id' => (int)$task['id'], 'app_task_no' => (string)$task['task_no'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => (string)$consumption['consume_no'], 'billing_stage' => $stage]; }
     private static function event(int $id, string $type, string $status, array $payload, int $elapsed = 0): void { AiConsumptionEvent::create(['consumption_id' => $id, 'event_type' => $type, 'event_status' => $status, 'attempt_no' => 1, 'payload_summary' => $payload, 'payload_ciphertext' => '', 'http_status' => 0, 'elapsed_ms' => $elapsed, 'create_time' => time()]); }

@@ -140,14 +140,17 @@ class SmartClipService
         ]);
 
         $request = self::buildRequest($task, $selection, $payload);
+        $openId=\app\common\service\open_platform\OpenCallContext::id();
+        if ($openId !== '') $task->save(['provider_payload'=>['_open_platform_request_id'=>$openId],'update_time'=>time()]);
         $result = self::providerFor((string)$selection['channel']['provider'])->generate($request);
         $task->provider_task_id = $result->providerTaskId;
-        $task->provider_payload = ['submit' => $result->raw];
+        $task->provider_payload = ['submit' => $result->raw] + (\app\common\service\open_platform\OpenCallContext::id() !== '' ? ['_open_platform_request_id' => \app\common\service\open_platform\OpenCallContext::id()] : []);
         $task->update_time = time();
         if (!$result->success) {
-            $task->status = 'failed';
-            $task->error = $result->error;
-            $task->finish_time = time();
+            $unknown=$openId!==''&&!\app\common\service\open_platform\OpenTextLifecycle::rejectionConfirmed();
+            $task->status = $unknown?'pending_confirmation':'failed';
+            $task->error = $unknown?'上游受理状态待确认':$result->error;
+            $task->finish_time = $unknown?0:time();
         }
         $task->save();
 
@@ -159,7 +162,7 @@ class SmartClipService
         return [
             'task_id' => (int)$task['id'],
             'provider_task_id' => $result->providerTaskId,
-            'status' => !empty($results) ? 'success' : ($result->success ? 'running' : 'failed'),
+            'status' => !empty($results) ? 'success' : (string)$task->status,
             'app' => self::APP_CODE,
             'api' => $payload['api'],
             'error' => $result->error,
@@ -588,6 +591,7 @@ class SmartClipService
                     'app_code' => self::APP_CODE,
                     'task_id' => (int)$task['id'],
                     'result_id' => (int)$row['id'],
+                    '_open_platform_request_id' => (string)(((array)$task['provider_payload'])['_open_platform_request_id'] ?? ''),
                     'clip_type' => $task['clip_type'],
                     'duration' => (int)$task['duration'],
                 ]);

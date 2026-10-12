@@ -105,6 +105,7 @@ class PointService
         try {
             TenantPointService::consume($tenantId, $points, $sourceSn, $remark, $extra);
             UserPointService::consume($userId, $points, $sourceSn, $remark, $extra);
+            \app\common\service\open_platform\OpenCallContext::observePoints($tenantId, $userId, $points, $points, $sourceSn, $extra, false);
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();
@@ -122,6 +123,7 @@ class PointService
     ): void {
         TenantPointService::consume($tenantId, $points, $sourceSn, $remark, $extra);
         UserPointService::consume($userId, $points, $sourceSn, $remark, $extra);
+        \app\common\service\open_platform\OpenCallContext::observePoints($tenantId, $userId, $points, $points, $sourceSn, $extra, false);
     }
 
     public static function consumeBusinessAmountsInCurrentTransaction(
@@ -143,6 +145,9 @@ class PointService
                 'billing_side' => 'user_charge',
             ]));
         }
+        \app\common\service\open_platform\OpenCallContext::observePoints(
+            $tenantId, $userId, $tenantPoints, $userPoints, $sourceSn, $extra, false
+        );
     }
 
     public static function refundBusinessAmountsInCurrentTransaction(
@@ -164,5 +169,8 @@ class PointService
                 'billing_side' => 'user_charge',
             ]));
         }
+        \app\common\service\open_platform\OpenCallContext::observePoints(
+            $tenantId, $userId, $tenantPoints, $userPoints, $sourceSn, $extra, true
+        );
     }
 }

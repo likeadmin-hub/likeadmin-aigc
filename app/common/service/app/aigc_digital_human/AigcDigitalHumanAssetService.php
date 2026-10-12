@@ -77,6 +77,11 @@ class AigcDigitalHumanAssetService
 
     private static function downloadRemoteContent(string $url, string $kind): array
     {
+        if (\app\common\service\open_platform\OpenCallContext::active()) {
+            $wire=\app\common\service\open_platform\OpenSafeHttp::get($url,self::maxRemoteBytes($kind),25);
+            $headers=[];foreach($wire['headers'] as $name=>$value)$headers[]=$name.': '.$value;
+            return [$wire['body'],$headers];
+        }
         $maxBytes = self::maxRemoteBytes($kind);
         $context = stream_context_create([
             'http' => [

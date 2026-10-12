@@ -136,6 +136,7 @@ verifyIncrementalManifest(updateManifest, normalized)
 verifyIncrementalComposerRuntime(updateManifest, normalized)
 verifyIncrementalSqlSafety(absoluteTarget, stat.isDirectory(), updateManifest, normalized)
 verifyCumulativeUpgradeSql(updateManifest, normalized)
+verifyMigrationSources(absoluteTarget,stat.isDirectory(),updateManifest,normalized)
 verifyPlatformEntrypoints(absoluteTarget, stat.isDirectory(), normalized, updateManifest)
 const signatureFiles = normalizeSignature(signature)
 verifySubmitLockDependency(absoluteTarget, stat.isDirectory(), normalized)
@@ -417,6 +418,40 @@ function assertIncrementalSqlContentSafe(entry, content) {
     if (/\b(?:drop|truncate)\s+(?:table|database)\b/i.test(executableSql)) {
         fail(`incremental package contains destructive SQL: ${entry}`)
     }
+}
+
+// Official staging signs this source map alongside update.json. It is evidence,
+// not authority to skip SQL; candidate runtime derives ownership from real bytes.
+function verifyMigrationSources(targetPath,isDirectory,manifest,entries){
+    if(!entries.has('release-change-manifest.json'))return
+    const coverage=readPackageJson(targetPath,isDirectory,'release-change-manifest.json')
+    if(!Array.isArray(coverage.migrations))return // legacy source manifests
+    const declared=new Set((manifest.sql_order||[]).map(normalizeEntry)),seen=new Set()
+    for(const migration of coverage.migrations){
+        const sql=normalizeEntry(migration.package_path||'')
+        if(!declared.has(sql)||seen.has(sql)||!Array.isArray(migration.source_paths)||!migration.source_paths.length)fail('Invalid migration source coverage: '+sql)
+        seen.add(sql)
+        const body=readPackageText(targetPath,isDirectory,sql),hash=createHash('sha256').update(body).digest('hex')
+        if(hash!==migration.sha256)fail('Migration source digest differs: '+sql)
+        const appSources=[]
+        for(const raw of migration.source_paths){
+            const source=normalizeEntry(raw),packaged='files/'+source
+            if(!/^(?:(?:public\/)?upgrade\/[^/]+\.sql|app\/apps\/[a-z0-9_]+\/migrations\/[^/]+\.sql)$/.test(source)||!entries.has(packaged)||readPackageText(targetPath,isDirectory,packaged)!==body)fail('Migration source bytes missing/differ: '+source)
+            if(source.startsWith('app/apps/'))appSources.push(source)
+        }
+        if(migration.execution_owner==='app/runtime'){
+            if(appSources.length!==1||appSources[0].split('/')[2]!==migration.app_code)fail('Ambiguous app migration source: '+sql)
+            const appManifest='files/app/apps/'+migration.app_code+'/manifest.json'
+            if(!entries.has(appManifest))fail('App migration metadata missing: '+sql)
+            const metadata=readPackageJson(targetPath,isDirectory,appManifest)
+            if(metadata.code!==migration.app_code||!metadata.is_builtin)fail('App migration is not owned by packaged builtin metadata: '+sql)
+            if(!entries.has('files/app/common/service/update/SystemPackageUpdateService.php'))fail('App migration runtime deferral service missing')
+        }else if(migration.execution_owner!=='system'||appSources.length)fail('Migration execution owner differs: '+sql)
+        if(/ALTER\s+TABLE\s+`?la_aigc_video_config`?\s+MODIFY\s+(?:COLUMN\s+)?`?config_json`?\s+MEDIUMTEXT\s*;/i.test(body)){
+            for(const required of ['RuntimeVideoConfigCapacity.php','RuntimeMigrationPlan.php','SqlMigrationExecutor.php'])if(!entries.has('files/app/common/service/database/'+required))fail('Guarded capacity runtime file missing: '+required)
+        }
+    }
+    if(seen.size!==declared.size)fail('SQL order is missing exact source coverage')
 }
 
 function verifyCumulativeUpgradeSql(manifest, entries) {

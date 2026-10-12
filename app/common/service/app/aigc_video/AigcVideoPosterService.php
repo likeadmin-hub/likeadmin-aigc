@@ -122,6 +122,11 @@ class AigcVideoPosterService
             $extension = 'mp4';
         }
         $target = $workDir . 'source.' . $extension;
+        if (\app\common\service\open_platform\OpenCallContext::active()) {
+            $bytes=\app\common\service\open_platform\OpenSafeHttp::get($url,268435456,90)['body'];
+            if($bytes===''||file_put_contents($target,$bytes)!==strlen($bytes))throw new Exception('视频首帧临时文件创建失败');
+            return $target;
+        }
         $context = stream_context_create([
             'http' => ['timeout' => 90, 'follow_location' => 1, 'ignore_errors' => true, 'header' => "User-Agent: LikeAdminAigcPoster/1.0\r\n"],
             'https' => ['timeout' => 90, 'follow_location' => 1, 'ignore_errors' => true, 'header' => "User-Agent: LikeAdminAigcPoster/1.0\r\n"],

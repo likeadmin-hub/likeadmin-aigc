@@ -1,0 +1,290 @@
+<?php
+namespace app\common\service\power;
+
+use app\common\model\ai\AiAppTask;
+use app\common\model\ai\AiConsumptionLog;
+use app\common\model\app\aigc_music\AigcMusicTask;
+use app\common\model\app\aigc_music\AigcMusicBilling;
+use app\common\model\power\PowerMarketProduct;
+use app\common\service\app\AppAccessService;
+use app\common\service\ai\AiTaskJobService;
+use app\common\service\point\PointService;
+use app\common\service\update\UpdateSourceClient;
+use app\common\service\open_platform\{OpenStore,OpenVault,OpenException,OpenCallContext,OpenRecovery,OpenTransport,OpenGateway};
+use think\facade\Db;
+
+/** Shared real music text operations. Fixed upstream routes and immutable native receipts. */
+final class MarketMusicOperationRuntimeService
+{
+    public const ROUTES=['lyrics'=>'lyrics/index','mashup_lyrics'=>'mashuplyrics/index','style'=>'style/index','timing'=>'export/timing','wav'=>'export/wav','midi'=>'export/midi','mp4'=>'export/mp4','vox'=>'export/vox','voice_clone'=>'voiceclone/create','upload_audio'=>'asset/upload_upstream','persona'=>'persona/upstream'];
+    private const ASYNC=['wav','midi','vox'];
+
+    public static function input(string $api,array $params,int $tenant=0,int $user=0): array
+    {
+        if(!isset(self::ROUTES[$api]))throw new OpenException('capability_unavailable','音乐操作尚未接入',404);
+        if($api==='mp4')\app\common\service\app\aigc_music\MusicExportDecoder::assertAvailable();
+        if(in_array($api,['voice_clone','upload_audio'],true)){
+            $id=$params['reference_asset_id']??$params['asset_id']??0;
+            if(!is_int($id)&&!(is_string($id)&&preg_match('/^[1-9][0-9]*$/D',$id)))throw new OpenException('invalid_request','请选择有效的授权音频素材');
+            $asset=\app\common\model\app\aigc_music\AigcMusicAsset::where(['id'=>(int)$id,'tenant_id'=>$tenant,'user_id'=>$user,'status'=>1,'delete_time'=>0])->findOrEmpty();
+            if($tenant<1||$user<1||$asset->isEmpty())throw new OpenException('not_found','音频素材不存在或不属于当前用户',404);
+            $name=$params['name']??'';$description=$params['description']??'';
+            if($api==='voice_clone'&&(!is_string($name)||trim($name)===''||mb_strlen($name)>100||!is_string($description)||mb_strlen($description)>5000))throw new OpenException('invalid_request','声音名称或说明无效');
+            foreach(['authorization_text'=>5000,'source'=>200] as $field=>$limit)if(isset($params[$field])&&(!is_string($params[$field])||mb_strlen($params[$field])>$limit))throw new OpenException('invalid_request','授权说明无效');
+            if(isset($params['authorization_confirmed'])&&!in_array($params['authorization_confirmed'],[0,1,'0','1'],true))throw new OpenException('invalid_request','授权状态无效');
+            $file=\app\common\model\file\TenantFile::where(['tenant_id'=>$tenant,'source_id'=>$user,'source'=>\app\common\enum\FileEnum::SOURCE_USER,'uri'=>(string)$asset['uri']])->findOrEmpty();
+            if($file->isEmpty())throw new OpenException('not_found','克隆音频缺少本人上传文件记录',404);
+            // Asset registration accepts display metadata. Only an owned upload's
+            // immutable storage metadata can select a bucket or sign a private URL.
+            $url=\app\common\service\FileService::getFileUrlByStorage((string)$file['uri'],(string)$file['storage_scope'],(string)$file['storage_engine'],(string)$file['storage_domain']);
+            \app\common\service\open_platform\OpenSafeHttp::resolve($url,false);
+            return $api==='upload_audio'?['audio_url'=>$url]:['audio_url'=>$url,'name'=>trim($name),'description'=>trim($description)];
+        }
+        if($api==='persona'){
+            $id=$params['result_id']??0;
+            if(!is_int($id)&&!(is_string($id)&&preg_match('/^[1-9][0-9]*$/D',$id)))throw new OpenException('invalid_request','请选择有效的音乐作品');
+            $row=\app\common\model\app\aigc_music\AigcMusicResult::where(['id'=>(int)$id,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->findOrEmpty();
+            if($tenant<1||$user<1||$row->isEmpty())throw new OpenException('not_found','音乐作品不存在或不属于当前用户',404);
+            $raw=OpenStore::json($row['result_json']);$audio=$raw['audio_id']??$raw['id']??'';
+            if(!is_string($audio)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$audio))throw new OpenException('resource_unavailable','音乐作品缺少可信上游音频 ID',409);
+            $name=$params['name']??'';$description=$params['description']??'';
+            if(!is_string($name)||trim($name)===''||mb_strlen($name)>100||!is_string($description)||mb_strlen($description)>5000)throw new OpenException('invalid_request','歌手风格名称或说明无效');
+            $payload=['audio_id'=>$audio,'name'=>trim($name),'description'=>trim($description)];
+            foreach(['vocal_start','vocal_end'] as $field)if(isset($params[$field])){if(!is_numeric($params[$field])||!is_finite((float)$params[$field])||(float)$params[$field]<0||(float)$params[$field]>86400)throw new OpenException('invalid_request','人声片段时间无效');$payload[$field]=(float)$params[$field];}
+            if(isset($payload['vocal_start'],$payload['vocal_end'])&&$payload['vocal_end']<=$payload['vocal_start'])throw new OpenException('invalid_request','人声结束时间必须晚于开始时间');
+            return $payload;
+        }
+        if(in_array($api,['timing','wav','midi','mp4','vox'],true)){
+            $id=$params['result_id']??$params['id']??0;if(!is_int($id)&&!(is_string($id)&&preg_match('/^[1-9][0-9]*$/D',$id)))throw new OpenException('invalid_request','请选择有效的音乐作品');
+            $result=\app\common\model\app\aigc_music\AigcMusicResult::where(['id'=>(int)$id,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->findOrEmpty();
+            if($result->isEmpty()||$tenant<1||$user<1)throw new OpenException('not_found','音乐作品不存在或不属于当前用户',404);
+            $raw=OpenStore::json($result['result_json']);$audio=$raw['audio_id']??$raw['id']??'';
+            if(!is_string($audio)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$audio))throw new OpenException('resource_unavailable','音乐作品缺少可信上游音频 ID',409);
+            $payload=['audio_id'=>$audio];
+            if($api==='vox')foreach(['vocal_start','vocal_end'] as $field)if(isset($params[$field])){if(!is_numeric($params[$field])||!is_finite((float)$params[$field])||(float)$params[$field]<0||(float)$params[$field]>86400)throw new OpenException('invalid_request','人声片段时间无效');$payload[$field]=(float)$params[$field];}
+            if(isset($payload['vocal_start'],$payload['vocal_end'])&&$payload['vocal_end']<=$payload['vocal_start'])throw new OpenException('invalid_request','人声结束时间必须晚于开始时间');
+            return $payload;
+        }
+        $fields=$api==='mashup_lyrics'?['lyrics_a','lyrics_b']:['prompt'];$payload=[];
+        foreach($fields as $field){$aliases=['prompt'=>'theme','lyrics_a'=>'source_lyrics','lyrics_b'=>'target_lyrics'];$value=$params[$field]??$params[$aliases[$field]]??'';if(!is_string($value))throw new OpenException('invalid_request',$field.' 必须是文本');$text=trim($value);if($text===''||mb_strlen($text)>20000)throw new OpenException('invalid_request','请提供有效的 '.$field);$payload[$field]=$text;}
+        return $payload;
+    }
+    public static function quote(int $tenant,int $user,string $api,array $params): array
+    {
+        self::input($api,$params,$tenant,$user);$denied=AppAccessService::assertTenantCanUse($tenant,'aigc_music',$user,true);if($denied)throw new OpenException('permission_denied','音乐应用未开通或用户资格不足',403);
+        $id=(int)PowerMarketProduct::where(['resource_type'=>'app_api','upstream_app_code'=>'music_generation','upstream_api_code'=>$api,'status'=>1])->order('id','desc')->value('id');
+        $product=TenantPowerMarketService::detail($tenant,$id);$candidates=[];
+        foreach($product['skus']??[] as $sku)if(!empty($sku['sale_status'])&&$sku['usage_unit']==='per_call'&&(float)$sku['usage_unit_size']===1.&&OpenStore::json($sku['locked_params'])===[])$candidates[]=$sku;
+        if(count($candidates)!==1)throw new OpenException('pricing_unavailable','音乐操作缺少唯一的可售按次 SKU',503);
+        $sku=$candidates[0];if($api==='timing'&&((float)$sku['platform_sale_points']!==0.||(float)$sku['sale_points']!==0.))throw new OpenException('pricing_unavailable','时间轴查询尚未配置为免费操作',503);$cost=round((float)$sku['platform_sale_points'],2);$price=round((float)$sku['sale_points'],2);
+        if(!is_finite($cost)||!is_finite($price)||$cost<0||$price<0)throw new OpenException('pricing_unavailable','音乐价格无效',503);
+        if($api==='timing'&&($cost!==0.||$price!==0.))throw new OpenException('pricing_unavailable','时间轴查询尚未配置为免费操作',503);
+        return ['market_product_id'=>$id,'market_sku_id'=>(int)$sku['id'],'sku_key'=>$sku['sku_key'],'api_code'=>$api,'billing_unit'=>'per_call','quantity'=>1,'tenant_cost_points'=>$cost,'user_charge_points'=>$price,'platform_unit_cost'=>$cost,'tenant_unit_price'=>$price,'price_source'=>'power_market_sku'];
+    }
+    public static function budget(int $tenant,int $user,string $api,array $params): array
+    {
+        $quote=self::quote($tenant,$user,$api,$params);$selection=self::buildSelection($tenant,$user,$api,$params,$quote);
+        return ['user'=>$quote['user_charge_points'],'tenant'=>$quote['tenant_cost_points'],'snapshot'=>['quote'=>$quote,'billing_owner'=>'tool','native_music_operation_blob'=>OpenVault::seal(OpenStore::encode($selection))]];
+    }
+    public static function selection(int $tenant,int $user,string $api,array $params): array
+    {
+        $payload=self::input($api,$params,$tenant,$user);$rid=OpenCallContext::id();
+        if($rid==='')return self::buildSelection($tenant,$user,$api,$params,self::quote($tenant,$user,$api,$params));
+        $row=OpenStore::owner('request',$tenant,$user)->where(['request_id'=>$rid,'kind'=>'tool','app_code'=>'aigc_music','method'=>'POST','path'=>'/api/v1/tools/aigc_music/'.self::ROUTES[$api]])->find();
+        if(!$row)throw new OpenException('task_context_invalid','音乐操作归属不一致',409);OpenCallContext::assertLease($row);
+        $blob=OpenStore::json($row['snapshot'])['native_music_operation_blob']??'';if($blob==='')throw new OpenException('pricing_snapshot_invalid','音乐操作缺少受理快照',409);$selection=OpenStore::json(OpenVault::open($blob));
+        $expected=$selection['payload']??null;$current=$payload;
+        if(in_array($api,['voice_clone','upload_audio'],true)){
+            // Private storage URLs may be re-signed between estimate and execution.
+            // Identity and text must match; dispatch keeps the accepted URL snapshot.
+            unset($expected['audio_url'],$current['audio_url']);
+            if((int)($selection['reference_asset_id']??0)!==(int)($params['reference_asset_id']??$params['asset_id']??0))throw new OpenException('pricing_snapshot_conflict','音频素材与受理快照不一致',409);
+        }
+        if((int)($selection['tenant_id']??0)!==$tenant||(int)($selection['user_id']??0)!==$user||($selection['api_code']??'')!==$api||$expected!==$current)throw new OpenException('pricing_snapshot_conflict','音乐操作参数与受理快照不一致',409);
+        return $selection;
+    }
+    private static function buildSelection(int $tenant,int $user,string $api,array $params,array $quote): array
+    {
+        return ['tenant_id'=>$tenant,'user_id'=>$user,'api_code'=>$api,'payload'=>self::input($api,$params,$tenant,$user),'quote'=>$quote,'result_id'=>(int)($params['result_id']??$params['id']??0),'reference_asset_id'=>(int)($params['reference_asset_id']??$params['asset_id']??0),'authorization'=>['authorization_confirmed'=>(int)($params['authorization_confirmed']??0),'authorization_text'=>mb_substr((string)($params['authorization_text']??''),0,5000),'source'=>mb_substr((string)($params['source']??''),0,200)]];
+    }
+    public static function execute(int $tenant,int $user,string $api,array $params): array
+    {
+        $selection=self::selection($tenant,$user,$api,$params);$cid=self::reserve($tenant,$user,$api,$selection['payload'],$selection);
+        $c=AiConsumptionLog::findOrEmpty($cid);$snapshot=OpenStore::json($c['price_snapshot']);
+        self::markDispatched($cid);
+        try{
+            $wire=(new OpenTransport())->send(OpenStore::json(OpenVault::open($snapshot['music_source_blob'])),'POST','/api/v1/apps/music_generation/'.$api,$selection['payload']);
+            self::capture($cid,$wire);self::refresh($cid);
+        }catch(\Throwable $e){
+            if(OpenRecovery::connectionLost($e))throw $e;$latest=AiConsumptionLog::findOrEmpty($cid);$state=OpenStore::json($latest['price_snapshot']);
+            if($e instanceof OpenException&&in_array($e->errorType,['query_unavailable','result_storage_failed','asset_fetch_failed','invalid_url'],true)&&($latest['upstream_task_id']!==''||self::terminalReceipt($state))){
+                Db::transaction(static function()use($cid,$e){$c=AiConsumptionLog::lock(true)->findOrEmpty($cid);if(in_array($c['billing_status'],['settled','refunded'],true))return;self::assertOrigin($c->toArray());$message='音乐结果查询或保存暂未完成，将继续跟踪原任务';$c->save(['run_status'=>'music_running','error_code'=>$e->errorType,'error_message'=>$message,'update_time'=>time()]);AigcMusicTask::where('consumption_id',$cid)->update(['status'=>'running','error_code'=>$e->errorType,'error'=>$message,'update_time'=>time()]);});
+            }else{if(!in_array($latest['billing_status'],['settled','refunded'],true))self::uncertain($cid);throw $e;}
+        }
+        $native=AigcMusicTask::where('consumption_id',$cid)->findOrEmpty();return self::taskData($native->toArray());
+    }
+    private static function reserve(int $tenant,int $user,string $api,array $payload,array $selection): int
+    {
+        $source=UpdateSourceClient::getSource();$source=['base_url'=>$source['active_base_url'],'api_key'=>$source['active_api_key'],'ssl_verify'=>UpdateSourceClient::sslVerify($source)];if(empty($source['base_url'])||empty($source['api_key']))throw new OpenException('source_unavailable','音乐上游未配置',503);
+        return Db::transaction(static function()use($tenant,$user,$api,$payload,$selection,$source){
+            $quote=$selection['quote'];$now=time();$sn='MO'.date('YmdHis').strtoupper(bin2hex(random_bytes(8)));$rid=OpenCallContext::id();
+            if($rid!==''){$row=OpenStore::owner('request',$tenant,$user)->where('request_id',$rid)->lock(true)->find();if(!$row||!$row['active']||$row['tool_task_id']!=='')throw new OpenException('task_context_invalid','音乐请求已经受理或关闭',409);OpenCallContext::assertLease($row);}
+            $native=AigcMusicTask::create(['tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_music','action'=>$api,'title'=>'','prompt'=>$payload['prompt']??'','lyrics'=>'','provider'=>'market_music_operation','model'=>'music_generation','channel'=>'music_generation:'.$api,'quality'=>'per_call','ratio'=>'','quantity'=>1,'tenant_cost_points'=>$quote['tenant_cost_points'],'user_charge_points'=>$quote['user_charge_points'],'market_product_id'=>$quote['market_product_id'],'market_sku_id'=>$quote['market_sku_id'],'status'=>'running','billing_status'=>'reserved','idempotency_key'=>$rid?:$sn,'delete_time'=>0]+OpenStore::timestamp());
+            $task=AiAppTask::create(['task_no'=>$sn,'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_music','action_code'=>$api,'business_table'=>'aigc_music_task','business_id'=>$native['id'],'status'=>'submitting','progress'=>0,'request_summary'=>['api_code'=>$api],'result_summary'=>[],'estimated_tenant_cost'=>$quote['tenant_cost_points'],'estimated_user_price'=>$quote['user_charge_points'],'idempotency_key'=>$rid?:$sn]+OpenStore::timestamp());
+            $snapshot=$quote+['app_code'=>'music_generation','runtime_adapter'=>'music_operation','music_source_blob'=>OpenVault::seal(OpenStore::encode($source)),'music_result_id'=>(int)($selection['result_id']??0),'music_selection_blob'=>OpenVault::seal(OpenStore::encode($selection))];
+            $c=AiConsumptionLog::create(['consume_no'=>$sn,'app_task_id'=>$task['id'],'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_music','action_code'=>$api,'resource_type'=>'app_api','product_id'=>$quote['market_product_id'],'sku_id'=>$quote['market_sku_id'],'protocol'=>'application_api','provider'=>'power_market','quantity'=>1,'usage_unit'=>'per_call','price_snapshot'=>$snapshot,'usage_snapshot'=>[],'request_summary'=>['api_code'=>$api],'response_summary'=>[],'run_status'=>'music_reserved','billing_status'=>'reserved','reserved_tenant_cost'=>$quote['tenant_cost_points'],'reserved_user_price'=>$quote['user_charge_points'],'tenant_point_sn'=>$sn.'-reserve','user_point_sn'=>$sn.'-reserve']+OpenStore::timestamp());
+            PointService::reserveBusinessAmountsInCurrentTransaction($tenant,$user,$quote['tenant_cost_points'],$quote['user_charge_points'],$sn.'-reserve','音乐操作预占',['app_code'=>'aigc_music','consumption_id'=>$c['id']]);
+            $native->save(['app_task_id'=>$task['id'],'consumption_id'=>$c['id']]);
+            // Reserve and recovery job commit together. A queue error rolls back the wallet.
+            AiTaskJobService::enqueueMusicOperation((int)$c['id']);
+            return (int)$c['id'];
+        });
+    }
+    private static function markDispatched(int $cid): void
+    {
+        Db::transaction(static function()use($cid){$c=AiConsumptionLog::lock(true)->findOrEmpty($cid);if($c['run_status']!=='music_reserved'||$c['billing_status']!=='reserved')throw new OpenException('request_in_progress','音乐操作已开始或已关闭',409);self::assertOrigin($c->toArray());$snapshot=OpenStore::json($c['price_snapshot']);if(!empty($snapshot['music_dispatched']))throw new OpenException('request_in_progress','音乐操作已提交',409);$snapshot['music_dispatched']=true;$c->save(['price_snapshot'=>$snapshot,'run_status'=>'music_submitting','update_time'=>time()]);});
+    }
+    private static function capture(int $cid,array $wire): void
+    {
+        Db::transaction(static function()use($cid,$wire){$c=AiConsumptionLog::lock(true)->findOrEmpty($cid);if(in_array($c['billing_status'],['settled','refunded'],true))return;self::assertOrigin($c->toArray());$snapshot=OpenStore::json($c['price_snapshot']);$body=OpenStore::json($wire['body']);$snapshot['music_receipt_blob']=OpenVault::seal(OpenStore::encode(['http_status'=>$wire['status'],'body'=>$body]));$requestId=$wire['headers']['x-request-id']??$wire['headers']['request-id']??$body['request_id']??'';if(!is_string($requestId)||!preg_match('/^[A-Za-z0-9_.:-]{1,200}$/D',$requestId))$requestId='';
+            $taskId=$body['data']['task_id']??$body['data']['result']['task_id']??'';if(!is_string($taskId)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$taskId))$taskId='';
+            if($taskId!==''&&in_array($snapshot['api_code'],self::ASYNC,true)){
+                if($c['upstream_task_id']!==''&&$c['upstream_task_id']!==$taskId)throw new OpenException('receipt_identity_mismatch','音乐导出任务 ID 不一致',409);
+                $c->upstream_task_id=$taskId;AigcMusicTask::where(['consumption_id'=>$cid,'tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id']])->update(['provider_task_id'=>$taskId,'update_time'=>time()]);
+            }
+            $c->save(['price_snapshot'=>$snapshot,'run_status'=>'music_running','upstream_request_id'=>$requestId?:$c['upstream_request_id'],'update_time'=>time()]);});
+    }
+    public static function refresh(int $cid): array
+    {
+        $c=AiConsumptionLog::findOrEmpty($cid);if($c->isEmpty())throw new OpenException('not_found','音乐消耗记录不存在',404);$snapshot=OpenStore::json($c['price_snapshot']);if(($snapshot['runtime_adapter']??'')!=='music_operation')throw new OpenException('task_context_invalid','音乐运行时不一致',409);
+        if(in_array($c['billing_status'],['settled','refunded'],true))return ['status'=>$c['run_status']];
+        if(in_array($snapshot['api_code'],self::ASYNC,true)&&$c['upstream_task_id']!==''&&!self::terminalReceipt($snapshot)){
+            $source=OpenStore::json(OpenVault::open($snapshot['music_source_blob']));$wire=(new OpenTransport())->send($source,'GET','/api/v1/tasks/'.rawurlencode((string)$c['upstream_task_id']),[]);
+            if(OpenGateway::wireFailed($wire['status'],OpenStore::json($wire['body']),[]))throw new OpenException('query_unavailable','音乐导出查询暂不可用，继续跟踪原任务',502);
+            self::capture($cid,$wire);$c->refresh();$snapshot=OpenStore::json($c['price_snapshot']);
+        }
+        $blob=$snapshot['music_receipt_blob']??'';
+        if($blob==='')return Db::transaction(static function()use($cid){
+            $c=AiConsumptionLog::lock(true)->findOrEmpty($cid);$snapshot=OpenStore::json($c['price_snapshot']);
+            if(in_array($c['billing_status'],['settled','refunded'],true))return ['status'=>$c['run_status']];
+            if(!empty($snapshot['music_receipt_blob']))return self::refresh($cid);
+            // The lock also fences markDispatched: a stopped pre-submit call can be refunded
+            // after a short grace period, while a live executor cannot send after this refund.
+            if($c['run_status']==='music_reserved'&&empty($snapshot['music_dispatched'])&&(int)$c['create_time']<=time()-30){self::complete($cid,[],true);return ['status'=>'failed'];}
+            return ['status'=>$c['run_status']==='music_reserved'?'running':'pending_confirmation'];
+        });
+        $wire=OpenStore::json(OpenVault::open($blob));$body=$wire['body']??$wire;$http=(int)($wire['http_status']??200);
+        $failed=OpenGateway::wireFailed($http,$body,[]);$message=(string)($body['msg']??$body['message']??'');$ambiguous=OpenGateway::wireUncertain($http)||(bool)preg_match('/timeout|timed out|connection|curl|超时|连接|网络|内部异常/iu',$message);
+        if($ambiguous){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+        if($failed){self::complete($cid,[],true);return ['status'=>'failed'];}
+        $result=(array)($body['data']['result']??[]);$data=$result['data']??[];if(is_array($data)&&array_is_list($data))$data=$data[0]??[];
+        $status=self::resultStatus($body);
+        if(in_array($status,['failed','canceled','cancelled'],true)){self::complete($cid,[],true);return ['status'=>'failed'];}
+        if($snapshot['api_code']==='voice_clone'){
+            // Current synchronous driver returns a private persona ID for voice
+            // cloning; older receipts use voice_id. Both remain owned resources.
+            $voiceId=$result['voice_id']??$data['voice_id']??$result['persona_id']??$data['persona_id']??'';
+            if(!in_array($status,['completed','complete','success','succeeded'],true)||!is_string($voiceId)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$voiceId)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+            self::complete($cid,['provider_voice_id'=>$voiceId],false);return ['status'=>'success'];
+        }
+        if(in_array($snapshot['api_code'],['persona','upload_audio'],true)){
+            $field=$snapshot['api_code']==='persona'?'persona_id':'audio_id';$id=$result[$field]??$data[$field]??'';
+            if(!in_array($status,['completed','complete','success','succeeded'],true)||!is_string($id)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$id)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+            self::complete($cid,[$snapshot['api_code']==='persona'?'provider_persona_id':'reference_audio_id'=>$id],false);return ['status'=>'success'];
+        }
+        if(in_array($snapshot['api_code'],self::ASYNC,true)&&$c['upstream_task_id']!==''&&!in_array($status,['completed','complete','success','succeeded'],true))return ['status'=>'running'];
+        if(in_array($snapshot['api_code'],['wav','midi','mp4','vox'],true)){
+            if(!in_array($status,['completed','complete','success','succeeded'],true)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+            if($snapshot['api_code']==='vox'){
+                $id=$result['audio_id']??$data['audio_id']??$data['id']??'';
+                if(!is_string($id)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$id)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+                $public=['vox_audio_id'=>$id];self::complete($cid,$public,false);return ['status'=>'success']+$public;
+            }
+            $url=$result['file_url']??$result['video_url']??$data['file_url']??$data['video_url']??'';
+            if(!is_string($url)||!preg_match('#^https?://#i',$url)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+            $public=self::storeExport($cid,$url);self::complete($cid,$public,false);return ['status'=>'success']+$public;
+        }
+        if($snapshot['api_code']==='timing'){
+            $valid=is_array($data)&&!array_is_list($data)&&count(array_intersect(['aligned_words','segments','waveform_data'],array_keys($data)))>0;
+            foreach(['aligned_words','segments','waveform_data'] as $field)if(isset($data[$field])&&!is_array($data[$field]))$valid=false;
+            if(!$valid||!in_array($status,['completed','complete','success','succeeded'],true)){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+            $public=['timing'=>array_intersect_key($data,array_flip(['aligned_words','segments','waveform_data']))];self::complete($cid,$public,false);return ['status'=>'success']+$public;
+        }
+        $field=$snapshot['api_code']==='style'?'upsampled_tags':'text';$text=is_array($data)?($data[$field]??''):'';
+        if(!in_array($status,['completed','complete','success','succeeded'],true)||!is_string($text)||trim($text)===''){self::uncertain($cid);return ['status'=>'pending_confirmation'];}
+        $public=[$field==='text'?'lyrics':'style'=>$text,'title'=>(string)($data['title']??$result['title']??'')];self::complete($cid,$public,false);return ['status'=>'success']+$public;
+    }
+    private static function terminalReceipt(array $snapshot): bool
+    {
+        if(empty($snapshot['music_receipt_blob']))return false;
+        $wire=OpenStore::json(OpenVault::open($snapshot['music_receipt_blob']));$body=$wire['body']??$wire;
+        return in_array(self::resultStatus($body),['completed','complete','success','succeeded','failed','canceled','cancelled'],true);
+    }
+    private static function resultStatus(array $body): string
+    {
+        $result=$body['data']['result']??[];$outer=$body['data']['status']??'';$inner=$result['status']??'';
+        foreach([$inner,$outer] as $status)if(in_array($status,['failed','canceled','cancelled'],true))return $status;
+        if(($result['success']??null)===false)return 'failed';
+        // The task query envelope carries status outside the driver result.
+        // A conflicting explicit nonterminal inner state keeps the task pending.
+        if(is_string($inner)&&$inner!=='')return $inner;
+        if(is_string($outer)&&$outer!=='')return $outer;
+        // Synchronous driver receipts can omit status while explicitly reporting
+        // success. Required operation-specific output is still checked before settlement.
+        return ($result['success']??null)===true?'completed':'';
+    }
+    private static function storeExport(int $cid,string $url): array
+    {
+        return Db::transaction(static function()use($cid,$url){
+            $c=AiConsumptionLog::lock(true)->findOrEmpty($cid);self::assertOrigin($c->toArray());$snapshot=OpenStore::json($c['price_snapshot']);
+            if(!empty($snapshot['music_export_blob']))return OpenStore::json(OpenVault::open($snapshot['music_export_blob']));
+            if(in_array($c['billing_status'],['settled','refunded'],true))throw new OpenException('task_closed','音乐任务已经关闭',409);
+            $stored=\app\common\service\app\aigc_music\AigcMusicExportStorageService::persist((int)$c['tenant_id'],(int)$c['user_id'],$snapshot['api_code'],$url);
+            $export=\app\common\model\app\aigc_music\AigcMusicExport::create(['tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id'],'result_id'=>$snapshot['music_result_id'],'export_type'=>$snapshot['api_code'],'file_uri'=>$stored['file_uri'],'storage_scope'=>$stored['storage_scope'],'storage_engine'=>$stored['storage_engine'],'storage_domain'=>$stored['storage_domain'],'status'=>'success','error'=>'','result_json'=>['sha256'=>$stored['sha256'],'mime_type'=>$stored['mime_type'],'file_size'=>$stored['file_size']],'create_time'=>time()]);
+            $file=\app\common\service\open_platform\OpenAssets::registerResult((int)$c['tenant_id'],(int)$c['user_id'],'aigc_music',$stored);
+            $public=['export_id'=>(int)$export['id'],'file_id'=>$file,'file_url'=>$stored['file_url'],'results'=>[$stored+['file_id'=>$file]]];
+            $snapshot['music_export_blob']=OpenVault::seal(OpenStore::encode($public));$c->save(['price_snapshot'=>$snapshot,'update_time'=>time()]);return $public;
+        });
+    }
+    private static function uncertain(int $cid): void
+    {
+        Db::transaction(static function()use($cid){$c=AiConsumptionLog::lock(true)->findOrEmpty($cid);if(in_array($c['billing_status'],['settled','refunded'],true))return;self::assertOrigin($c->toArray());$snapshot=OpenStore::json($c['price_snapshot']);$known=!empty($snapshot['music_receipt_blob']);$c->save(['run_status'=>$known?'music_running':'pending_confirmation','billing_status'=>'reserved','error_code'=>'pending_confirmation','update_time'=>time()]);AigcMusicTask::where('consumption_id',$cid)->update(['status'=>'pending_confirmation','billing_status'=>'reserved','error_code'=>'pending_confirmation','update_time'=>time()]);});
+    }
+    private static function complete(int $cid,array $result,bool $failed): void
+    {
+        Db::transaction(static function()use($cid,$result,$failed){
+            $c=AiConsumptionLog::lock(true)->findOrEmpty($cid);if(in_array($c['billing_status'],['settled','refunded'],true))return;self::assertOrigin($c->toArray());$snapshot=OpenStore::json($c['price_snapshot']);$user=$failed?0:(float)$snapshot['user_charge_points'];$tenant=$failed?0:(float)$snapshot['tenant_cost_points'];$sn=(string)$c['consume_no'];$now=time();
+            PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'],(int)$c['user_id'],(float)$c['reserved_tenant_cost'],(float)$c['reserved_user_price'],$tenant,$user,$sn,'音乐操作结算',['app_code'=>'aigc_music','consumption_id'=>$cid]);
+            $state=$failed?'failed':'success';$billing=$failed?'refunded':'settled';$native=AigcMusicTask::where(['consumption_id'=>$cid,'tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id']])->lock(true)->findOrEmpty();if($native->isEmpty())throw new OpenException('task_context_invalid','音乐业务任务关联缺失',409);
+            if(!$failed&&$snapshot['api_code']==='voice_clone'){
+                $selection=OpenStore::json(OpenVault::open($snapshot['music_selection_blob']));$auth=$selection['authorization'];
+                $clone=\app\common\model\app\aigc_music\AigcMusicVoiceClone::create(['tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id'],'name'=>$selection['payload']['name'],'reference_asset_id'=>$selection['reference_asset_id'],'provider_voice_id'=>$result['provider_voice_id'],'auth_status'=>$auth['authorization_confirmed']===1?'confirmed':'pending','audit_status'=>'pending','auth_json'=>$auth+['created_at'=>$now],'provider_payload'=>['source'=>'market_music_operation','consumption_id'=>$cid],'status'=>'success','delete_time'=>0]+OpenStore::timestamp());
+                \app\common\model\app\aigc_music\AigcMusicSafetyAudit::create(['tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id'],'target_type'=>'voice_clone','target_id'=>$clone['id'],'action'=>'voice_clone_create','decision'=>'pending','summary'=>$selection['payload']['name'],'audit_json'=>['app_code'=>'aigc_music'],'create_time'=>$now]);
+                $result+=['voice_clone_id'=>(int)$clone['id'],'auth_status'=>$clone['auth_status'],'audit_status'=>'pending'];
+            }
+            if(!$failed&&$snapshot['api_code']==='persona'){
+                $selection=OpenStore::json(OpenVault::open($snapshot['music_selection_blob']));
+                $persona=\app\common\model\app\aigc_music\AigcMusicPersona::create(['tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id'],'name'=>$selection['payload']['name'],'description'=>$selection['payload']['description'],'reference_asset_id'=>0,'lyrics_style'=>'','prompt_json'=>['provider_persona_id'=>$result['provider_persona_id'],'source_result_id'=>$selection['result_id'],'consumption_id'=>$cid],'auth_status'=>'pending','audit_status'=>'pending','audit_json'=>['source'=>'market_music_operation'],'status'=>1,'delete_time'=>0]+OpenStore::timestamp());
+                $result['persona_id']=(int)$persona['id'];
+            }
+            $error=$failed?'音乐操作未完成，预占积分已退回':'';
+            $native->save(['status'=>$state,'billing_status'=>$billing,'progress'=>100,'lyrics'=>$result['lyrics']??'','title'=>$result['title']??'','result_json'=>$result,'error'=>$error,'error_code'=>$failed?'upstream_failed':'','finish_time'=>$now,'update_time'=>$now]);
+            AigcMusicBilling::create(['tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id'],'task_id'=>$native['id'],'channel'=>'music_generation:'.$snapshot['api_code'],'quality'=>'per_call','quantity'=>1,'platform_unit_cost'=>$snapshot['tenant_cost_points'],'tenant_unit_price'=>$snapshot['user_charge_points'],'tenant_cost_points'=>$tenant,'user_charge_points'=>$user,'billing_status'=>$billing,'tenant_point_sn'=>$sn.'-reserve','user_point_sn'=>$sn.'-reserve','refund_time'=>$failed?$now:0]+OpenStore::timestamp());
+            $c->save(['run_status'=>$state,'billing_status'=>$billing,'actual_tenant_cost'=>$tenant,'actual_user_price'=>$user,'quantity'=>$failed?0:1,'usage_snapshot'=>['calls'=>$failed?0:1],'response_summary'=>['has_result'=>!$failed],'error_code'=>$failed?'upstream_failed':'','error_message'=>$error,'finish_time'=>$now,'update_time'=>$now]);AiAppTask::where('id',$c['app_task_id'])->update(['status'=>$state,'progress'=>100,'actual_tenant_cost'=>$tenant,'actual_user_price'=>$user,'result_summary'=>['has_result'=>!$failed,'error'=>$error],'finish_time'=>$now,'update_time'=>$now]);
+        });
+    }
+    private static function assertOrigin(array $c): void
+    {
+        $rid=OpenStore::json($c['price_snapshot']??[])['_open_platform_request_id']??'';if($rid==='')return;
+        $row=OpenStore::owner('request',(int)$c['tenant_id'],(int)$c['user_id'])->where('request_id',$rid)->lock(true)->find();if(!$row)throw new OpenException('task_context_invalid','音乐请求归属缺失',409);OpenCallContext::assertLease($row);
+    }
+    public static function syncNative(array $consumption,int $taskId): void
+    {
+        $native=AigcMusicTask::where(['id'=>$taskId,'tenant_id'=>$consumption['tenant_id'],'user_id'=>$consumption['user_id'],'consumption_id'=>$consumption['id'],'provider'=>'market_music_operation'])->findOrEmpty();
+        if($native->isEmpty())throw new OpenException('task_context_invalid','音乐业务任务归属不一致',409);
+        self::refresh((int)$consumption['id']);
+    }
+    public static function taskData(array $task): array {return ['task_id'=>$task['id'],'status'=>$task['status'],'billing_status'=>$task['billing_status']]+(!empty($task['error_code'])?['error'=>['code'=>$task['error_code'],'message'=>$task['error']?:'音乐操作受理状态待确认']]:[])+OpenStore::json($task['result_json']??[]);}
+    public static function cancel(int $cid): void {throw new OpenException('cancel_unavailable','音乐操作不支持取消已提交请求',409);}
+    public static function fail(int $cid,string $message,string $code='failed'): void {throw new OpenException('pending_confirmation','音乐操作需要核实受理结果后处理',409);}
+}

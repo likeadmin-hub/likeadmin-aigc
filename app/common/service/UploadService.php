@@ -81,6 +81,7 @@ class UploadService
             ];
             if (!AdminTerminalEnum::isPlatform()) {
                 $fileData['tenant_id'] = self::tenantUploadTenantId();
+                $fileData['upload_origin'] = 'local';
             }
             $file = (AdminTerminalEnum::isPlatform() ? new File() : new TenantFile())->create($fileData);
 
@@ -155,6 +156,7 @@ class UploadService
             ];
             if (!AdminTerminalEnum::isPlatform()) {
                 $fileData['tenant_id'] = self::tenantUploadTenantId();
+                $fileData['upload_origin'] = 'local';
             }
             $file = (AdminTerminalEnum::isPlatform() ? new File() : new TenantFile())->create($fileData);
 
@@ -229,6 +231,7 @@ class UploadService
             ];
             if (!AdminTerminalEnum::isPlatform()) {
                 $fileData['tenant_id'] = self::tenantUploadTenantId();
+                $fileData['upload_origin'] = 'local';
             }
             $file = (AdminTerminalEnum::isPlatform() ? new File() : new TenantFile())->create($fileData);
 

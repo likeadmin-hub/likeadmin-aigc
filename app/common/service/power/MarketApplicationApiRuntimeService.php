@@ -71,6 +71,7 @@ class MarketApplicationApiRuntimeService
 
     public static function adapterForSelection(array $selection): string
     {
+        if (($selection['runtime_adapter'] ?? '') === 'music_operation' && ($selection['upstream_app_code'] ?? $selection['app_code'] ?? '') === 'music_generation') return MarketMusicOperationRuntimeService::class;
         $value = (string)($selection['upstream_app_code'] ?? $selection['app_code'] ?? $selection['application_code'] ?? '');
         if ($value === 'nano_banana' || MarketNanoBananaAppRuntimeService::isSelection($selection)) {
             return MarketNanoBananaAppRuntimeService::class;

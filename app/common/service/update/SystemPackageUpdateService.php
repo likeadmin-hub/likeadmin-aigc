@@ -504,11 +504,12 @@ class SystemPackageUpdateService
     {
         if (PHP_SAPI !== 'cli' || empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])) throw new RuntimeException('自举迁移必须在隔离进程执行');
         $manifest=$this->readUpdateManifest($extractPath);
+        $appSqlOwners=$this->runtimeAppSqlOwners($extractPath,$manifest);
         \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
         Db::startTrans();
-        try { $this->applySqlGroup($extractPath,$manifest,'data'); Db::commit(); }
+        try { $this->applySqlGroup($extractPath,$manifest,'data',$appSqlOwners); Db::commit(); }
         catch (Throwable $e) { Db::rollback(); throw $e; }
-        $this->applySqlGroup($extractPath,$manifest,'structure');
+        $this->applySqlGroup($extractPath,$manifest,'structure',$appSqlOwners);
         return $this->prepareRuntimeApps($extractPath,(string)$manifest['version']);
     }
 
@@ -1178,7 +1179,44 @@ class SystemPackageUpdateService
         }
     }
 
-    private function applySqlGroup(string $extractPath, array $manifest, string $group): bool
+    /** Exact signed source identity routes app SQL to its existing two-phase journal. */
+    private function runtimeAppSqlOwners(string $extractPath, array $manifest): array
+    {
+        $candidates=[];
+        $builtin=$this->packagedBuiltinAppCodes($extractPath);
+        // Scan all migration directories first. Missing/non-builtin metadata must
+        // never turn an app SQL mirror into a top-level metadata write.
+        foreach (glob(rtrim($extractPath,'/').'/files/app/apps/*',GLOB_ONLYDIR) ?: [] as $directory) {
+            $code=basename($directory);
+            foreach (glob($directory.'/migrations/*.sql') ?: [] as $file) {
+                $key=basename($file);
+                $candidates[$key][]=['app_code'=>$code,'migration_key'=>$key,'file'=>$file,'sha256'=>hash_file('sha256',$file)];
+            }
+        }
+        $owners=[];
+        foreach ((array)($manifest['sql_order'] ?? []) as $raw) {
+            $relative=$this->normalizePackagePath((string)$raw);
+            if (!isset($candidates[basename($relative)])) continue;
+            if (count($candidates[basename($relative)]) !== 1) throw new RuntimeException('系统包应用迁移归属不唯一: '.$relative);
+            $owner=$candidates[basename($relative)][0];
+            if (!in_array($owner['app_code'],$builtin,true)) throw new RuntimeException('系统包应用迁移缺少内置应用清单: '.$relative);
+            $packagedManifest=rtrim($extractPath,'/').'/files/app/apps/'.$owner['app_code'].'/manifest.json';
+            $candidateManifest=base_path().'apps/'.$owner['app_code'].'/manifest.json';
+            if (!is_file($candidateManifest) || !hash_equals(hash_file('sha256',$packagedManifest),hash_file('sha256',$candidateManifest))) throw new RuntimeException('系统包应用清单与实际运行时字节不一致: '.$relative);
+            $path=rtrim($extractPath,'/').'/'.$relative;
+            $candidate=base_path().'apps/'.$owner['app_code'].'/migrations/'.$owner['migration_key'];
+            if (!is_file($path) || !is_file($candidate) || !hash_equals($owner['sha256'],hash_file('sha256',$path))
+                || !hash_equals($owner['sha256'],hash_file('sha256',$candidate))) throw new RuntimeException('系统包应用迁移与实际运行时字节不一致: '.$relative);
+            // Fail before any top-level SQL if a declared new app migration cannot
+            // be classified; AppRegistry retains the true running/prepared journal.
+            \app\common\service\database\RuntimeMigrationPlan::build((string)file_get_contents($path));
+            unset($owner['file']);
+            $owners[$relative]=$owner;
+        }
+        return $owners;
+    }
+
+    private function applySqlGroup(string $extractPath, array $manifest, string $group, array $appSqlOwners = []): bool
     {
         if (($manifest['package_mode'] ?? '') !== 'incremental' || !is_array($manifest['sql_order'] ?? null)) {
             return UpgradeLogic::upgradeSql(rtrim($extractPath, '/') . '/sql/' . $group . '/');
@@ -1200,6 +1238,12 @@ class SystemPackageUpdateService
                 throw new RuntimeException('增量系统包 SQL 文件不存在: ' . $relative);
             }
             $content = (string)file_get_contents($path);
+            if (isset($appSqlOwners[$relative])) {
+                if (!hash_equals($appSqlOwners[$relative]['sha256'],hash('sha256',$content))) throw new RuntimeException('应用迁移归属校验后内容改变: '.$relative);
+                // AppRegistry prepares DDL and executes metadata DML only in the
+                // final transaction. Never execute the same app SQL here first.
+                continue;
+            }
             if (trim($content) === '' || SqlMigrationExecutor::split($content) === []) {
                 continue;
             }

@@ -20,7 +20,7 @@ class ShortDramaPlanningWorker extends Command
     {
         @set_time_limit(0);
         $stopping = false;
-        if (function_exists('pcntl_async_signals')) {
+        if (function_exists('pcntl_async_signals') && function_exists('pcntl_signal')) {
             pcntl_async_signals(true);
             $stop = static function () use (&$stopping) { $stopping = true; };
             pcntl_signal(SIGTERM, $stop);

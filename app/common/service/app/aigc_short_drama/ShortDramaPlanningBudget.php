@@ -17,6 +17,16 @@ final class ShortDramaPlanningBudget
                     $messages = $projected;
                     return $budget;
                 } catch (RuntimeException $error) { if ($error->getCode() !== 413) throw $error; }
+                // The built-in full-script template embeds this same JSON in
+                // prose. Only recover inputs which still fail preflight, so
+                // already-submittable paid units retain their exact signatures.
+                $embedded = self::projectEmbeddedContext($messages, $projected);
+                if ($embedded['content'] === $projected['content']) continue;
+                try {
+                    $budget = self::stage($embedded['system_prompt'] . $embedded['content'], $model, $stage, $desired);
+                    $messages = $embedded;
+                    return $budget;
+                } catch (RuntimeException $error) { if ($error->getCode() !== 413) throw $error; }
             }
             throw $error;
         }
@@ -35,6 +45,21 @@ final class ShortDramaPlanningBudget
             return $budget;
         }
     }
+
+    private static function projectEmbeddedContext(array $original, array $projected): array
+    {
+        // _stage_content is supplied only by the server's built-in assembler;
+        // custom templates deliberately carry null. Never scan arbitrary user
+        // prose for JSON or replace a matching fragment in several locations.
+        $context = $original['_stage_content'] ?? null;
+        $replacement = $projected['_stage_content'] ?? null;
+        if (!is_string($context) || !str_starts_with($context, '{')
+            || !is_string($replacement) || $context === $replacement
+            || substr_count($projected['content'], $context) !== 1) return $projected;
+        $projected['content'] = str_replace($context, $replacement, $projected['content']);
+        return $projected;
+    }
+
     public static function calculate(string $input, array $model, int $remaining, bool $publicFields = false): array
     {
         $capacity = self::capacity($input, $model);

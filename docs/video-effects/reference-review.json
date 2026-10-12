@@ -1,0 +1,902 @@
+[
+  {
+    "id": "pan_right",
+    "reference_name": "Pan Right",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/pan_right.mp4",
+    "reference_duration": 5.88,
+    "observation": "固定机位向右摇摄，主体移向画面左侧，街景持续展开。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "pull_out",
+    "reference_name": "Pull Out",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/pull_out.mp4",
+    "reference_duration": 5.04,
+    "observation": "从人物近景缓缓后退，露出更多室内环境。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "truck_left",
+    "reference_name": "Truck Left",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/truck_left.mp4",
+    "reference_duration": 5.04,
+    "observation": "低机位横向跟拍滑行主体，背景产生水平视差。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "aerial_drone_shot",
+    "reference_name": "Aerial Drone Shot",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/aerial_drone_shot.mp4",
+    "reference_duration": 5.04,
+    "observation": "沿海公路上方跟随车辆，保持俯拍和地景层次。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "ground_level_tracking_shot",
+    "reference_name": "Ground Level",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/ground_level_tracking_shot.mp4",
+    "reference_duration": 5.88,
+    "observation": "贴近地面观察行人穿过镜头，前景步伐与地面视差明显。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "dolly_zoom_out",
+    "reference_name": "Dolly Zoom Out",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/dolly_zoom_out.mp4",
+    "reference_duration": 3.78,
+    "observation": "人物尺寸基本稳定，后方山体的透视与大小发生变化。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "fix_and_pose",
+    "reference_name": "Fix & Pose",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/fix_and_pose.mp4",
+    "reference_duration": 5.04,
+    "observation": "轻微整理衣物后摆姿，镜头从自拍近景展开至全身。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "treking",
+    "reference_name": "treking",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/treking.mp4",
+    "reference_duration": 12.04,
+    "observation": "雪山徒步分为靠近、侧向登坡、登顶展臂三个段落。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "fizzy_drink_ad",
+    "reference_name": "Fizzy Drink ad",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/fizzy_drink_ad.mp4",
+    "reference_duration": 5.04,
+    "observation": "罐装产品从薄雾中悬起并缓慢转动，镜头靠近展示水珠。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "arc_left1",
+    "reference_name": "Arc Left",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/arc_left1.mp4",
+    "reference_duration": 5.88,
+    "observation": "围绕林中人物做短弧线移动，树木前后层次改变。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "dutch_angle",
+    "reference_name": "Dutch Angle",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/dutch_angle.mp4",
+    "reference_duration": 5.88,
+    "observation": "在缓慢靠近中逐渐倾斜水平线，人物仍居中。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "werewolf",
+    "reference_name": "Werewolf",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/werewolf.mp4",
+    "reference_duration": 5.08,
+    "observation": "人物俯身后体格膨胀，毛发与狼形面部形成，最终站立。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "atomic_blast1",
+    "reference_name": "Atomic blast",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/atomic_blast1.mp4",
+    "reference_duration": 5.88,
+    "observation": "人物身后闪光、火球与尘云展开，人物转头并背向镜头走去。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "caught_in_action",
+    "reference_name": "Caught in action",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/caught_in_action.mp4",
+    "reference_duration": 5.88,
+    "observation": "人物行走时遇到制服人员，发生近距离、无血腥的动作冲突。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "exploded",
+    "reference_name": "Exploded",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/exploded.mp4",
+    "reference_duration": 5.88,
+    "observation": "车辆轮胎和外壳沿结构轴线分离悬浮，再回到原位。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "handheld_run",
+    "reference_name": "Handheld run",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/handheld_run.mp4",
+    "reference_duration": 5.88,
+    "observation": "人物从站立到慢跑，镜头保持侧向跟随和轻微手持起伏。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "outfit_check",
+    "reference_name": "Outfit check",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/outfit_check.mp4",
+    "reference_duration": 8.04,
+    "observation": "全身造型展示后切到裤装和鞋履细节，再回到整体。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "timelapse",
+    "reference_name": "Timelapse",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/timelapse.mp4",
+    "reference_duration": 5.88,
+    "observation": "人物几乎静止，周围行人与车辆加速穿行。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "flame_on",
+    "reference_name": "Flame on",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/flame_on.mp4",
+    "reference_duration": 5.88,
+    "observation": "火焰沿人物身体逐渐上升，最终形成包裹身体的发光轮廓。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "pan_left",
+    "reference_name": "Pan Left",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/pan_left.mp4",
+    "reference_duration": 5.88,
+    "observation": "固定位置向左摇摄，骑行主体与草原横向移动。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "zoom_out",
+    "reference_name": "Zoom Out",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/zoom_out.mp4",
+    "reference_duration": 5.04,
+    "observation": "固定视点扩大取景，从人物附近显露完整店面。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "padestal_up",
+    "reference_name": "Pedestal Up",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/padestal_up.mp4",
+    "reference_duration": 5.04,
+    "observation": "镜头垂直上升，人物在画面中逐渐下降，背景保持水平。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "pov",
+    "reference_name": "POV",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/POV.mp4",
+    "reference_duration": 5.04,
+    "observation": "自行车车把与手位于前景，镜头沿林间道路向前行进。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "orbit_right",
+    "reference_name": "Orbit Right",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/orbit_right.mp4",
+    "reference_duration": 5.04,
+    "observation": "围绕坐姿主体向右运动，主体保持居中，背景持续改变角度。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "dolly_zoom_in",
+    "reference_name": "Dolly Zoom In",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/dolly_zoom_in.mp4",
+    "reference_duration": 4.03,
+    "observation": "推进同时扩大视角，人物尺寸稳定，背景相对后退。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "northern_lightning",
+    "reference_name": "Northern Lights",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/northern_lightning.mp4",
+    "reference_duration": 5.88,
+    "observation": "静态夜景上方逐渐出现绿色与紫色极光帘幕。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "levitation",
+    "reference_name": "levitation",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/levitation.mp4",
+    "reference_duration": 5.04,
+    "observation": "人物脚离地、身体向后弓起，衣物与四周雾气有上升感。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "product_splash",
+    "reference_name": "Product Dust Splash",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/product_splash.mp4",
+    "reference_duration": 5.88,
+    "observation": "产品保持完整，镜头拉远，底部扬起一圈粉尘。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "crane_up1",
+    "reference_name": "Crane Up",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/crane_up1.mp4",
+    "reference_duration": 5.88,
+    "observation": "镜头以大幅度摇臂升高，主体下降并显露更广阔环境。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "through_object_out",
+    "reference_name": "Through Object Out",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/through_object_out.mp4",
+    "reference_duration": 5.88,
+    "observation": "从人物附近后退，穿过既有门洞，最终让门洞成为前景框架。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "column_wipe",
+    "reference_name": "Column Wipe",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/column_wipe.mp4",
+    "reference_duration": 5.08,
+    "observation": "横移经过立柱形成遮挡，遮挡后显露尾帧的新人物和环境。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "boiling_point",
+    "reference_name": "Boiling point",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/boiling_point.mp4",
+    "reference_duration": 5.88,
+    "observation": "人物鼻孔喷出白色蒸汽，蒸汽逐渐扩散覆盖脸部。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "cloth_rain",
+    "reference_name": "Cloth rain",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/cloth_rain.mp4",
+    "reference_duration": 3.33,
+    "observation": "衣物从上方飘落，镜头拉远，脚边逐渐堆积布料。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "explosion",
+    "reference_name": "Explosion",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/explosion.mp4",
+    "reference_duration": 5.88,
+    "observation": "人物保持平静，身后火球扩张并上卷为浓烟。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "happy_mode",
+    "reference_name": "Happy mode",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/happy_mode.mp4",
+    "reference_duration": 5.88,
+    "observation": "表情从平静逐渐变成自然微笑和露齿笑。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "rapid_zoom_in1",
+    "reference_name": "Rapid zoom in",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/rapid_zoom_in1.mp4",
+    "reference_duration": 5.88,
+    "observation": "远景停顿后快速冲向人物面部，结尾稳定近景。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "trainrush",
+    "reference_name": "Train rush",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/trainrush.mp4",
+    "reference_duration": 5.88,
+    "observation": "人物近景保持稳定，背后高速横向光带掠过，头发被风吹动。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "tilt_up",
+    "reference_name": "Tilt Up",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/tilt_up.mp4",
+    "reference_duration": 5.88,
+    "observation": "街道平视逐渐向上抬镜，建筑顶部和天空进入画面。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "zoom_in",
+    "reference_name": "Zoom In",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/zoom_in.mp4",
+    "reference_duration": 5.88,
+    "observation": "固定视点平稳收紧取景，人物逐步由全景变为中近景。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "padestal_down",
+    "reference_name": "Pedestal Down",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/padestal_down.mp4",
+    "reference_duration": 5.04,
+    "observation": "摄像机垂直降低，前景家具和地面占比逐步改变。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "fpv_drone_shot",
+    "reference_name": "FPV Drone",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/FPV_drone_shot.mp4",
+    "reference_duration": 5.04,
+    "observation": "贴近车辆尾部高速追随弯道，机位随道路倾斜并恢复。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "bullet_time",
+    "reference_name": "Bullet Time",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/bullet_time.mp4",
+    "reference_duration": 5.04,
+    "observation": "人物动作接近冻结，镜头仍围绕场景移动。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "tilted_reality",
+    "reference_name": "tilted reality",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/tilted_reality.mp4",
+    "reference_duration": 5.92,
+    "observation": "围绕主体快速退远并倾斜穿过树林，再回到主体附近。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "police_escape",
+    "reference_name": "Police escape",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/police_escape.mp4",
+    "reference_duration": 5.04,
+    "observation": "正面后退跟拍骑行主体，后方警车持续追随并闪灯。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "alien_invasion",
+    "reference_name": "alien_invasion",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/alien_invasion.mp4",
+    "reference_duration": 5.04,
+    "observation": "车辆在外星飞行物追逐中前进，光束击中周围地面形成爆光。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "red_carpet",
+    "reference_name": "Red carpet",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/red-carpet.mp4",
+    "reference_duration": 5.04,
+    "observation": "人物进入红毯场景，周围摄影者与闪光灯出现，最后沿红毯离去。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "crane_down1",
+    "reference_name": "Crane Down",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/crane_down1.mp4",
+    "reference_duration": 5.88,
+    "observation": "高位观察岛屿，机位逐步下降接近水面。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "magic_johnson",
+    "reference_name": "magic flow",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/magic_johnson.mp4",
+    "reference_duration": 5.08,
+    "observation": "白色光流绕身上升，在覆盖人物时切换造型与环境。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "smog_transition",
+    "reference_name": "Smog Transition",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/smog_transition.mp4",
+    "reference_duration": 5.08,
+    "observation": "白烟从人物周围扩散遮挡，再消散露出尾帧造型。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "bts",
+    "reference_name": "BTS",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/bts.mp4",
+    "reference_duration": 5.88,
+    "observation": "镜头后退，原先看似实景的画面显露为有灯具和工作人员的拍摄现场。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "crying",
+    "reference_name": "Crying",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/crying.mp4",
+    "reference_duration": 5.88,
+    "observation": "面部从平静逐渐出现湿润眼眶、皱眉和哭泣表情。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "flip",
+    "reference_name": "Flip",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/flip.mp4",
+    "reference_duration": 5.88,
+    "observation": "人物下蹲蓄力后后空翻，镜头拉开让完整腾空和落地可见。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "jib_down",
+    "reference_name": "Jib down",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/jib_down.mp4",
+    "reference_duration": 5.88,
+    "observation": "短程摇臂下降，车头前景比例与人物视角改变。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "rapid_zoom_out1",
+    "reference_name": "Rapid zoom out",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/rapid_zoom_out1.mp4",
+    "reference_duration": 5.88,
+    "observation": "从车辆与人物近处快速拉到极远景，显露大面积草原与道路。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "wireframe",
+    "reference_name": "Wireframe",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/wireframe.mp4",
+    "reference_duration": 5.88,
+    "observation": "绿色网格从肩颈向脸部上扫，保持原有人物轮廓。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "tilt_down",
+    "reference_name": "Tilt Down",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/tilt_down.mp4",
+    "reference_duration": 5.88,
+    "observation": "从建筑顶部与天空向下俯仰，逐渐显露街道和经过的车辆。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "elevator_door",
+    "reference_name": "Elevator Door",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/elevator_door.mp4",
+    "reference_duration": 5.04,
+    "observation": "镜头从电梯内后退，门扇由两侧合拢，最终完全关闭。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "orbit_left",
+    "reference_name": "Orbit Left",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/orbit_left.mp4",
+    "reference_duration": 5.04,
+    "observation": "围绕坐姿人物从正面移动至侧面，背景云层产生视差。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "micro_zoom_in",
+    "reference_name": "Micro Zoom",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/Micro_Zoom_in.mp4",
+    "reference_duration": 5.04,
+    "observation": "从面部推进到眼睛极近特写，最后重新退回脸部。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "roll_right",
+    "reference_name": "Roll Right",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/roll_right.mp4",
+    "reference_duration": 5.88,
+    "observation": "镜头绕光轴向右旋转，人物和室内保持刚性结构。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "whip_pan",
+    "reference_name": "whip pan",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/whip_pan.mp4",
+    "reference_duration": 5.08,
+    "observation": "先停留在一位人物，再快速横甩镜头到另一位人物并稳定。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "motorcycle_ride",
+    "reference_name": "MotorCycle Ride",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/motorcycle-ride.mp4",
+    "reference_duration": 5.04,
+    "observation": "主体戴上头盔后跨上摩托，向镜头驶来并转向。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "escape_run",
+    "reference_name": "Escape Run",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/escape_run.mp4",
+    "reference_duration": 5.04,
+    "observation": "主体在森林中快速奔跑并越过障碍，追逐光束在后方出现。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "focus_shift",
+    "reference_name": "Focus Shift",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/focus_shift.mp4",
+    "reference_duration": 5.88,
+    "observation": "焦点从近处红色物体转移到后方人物，伴随轻微横移。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "fire_transition",
+    "reference_name": "Fire Transition",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/fire_transition.mp4",
+    "reference_duration": 5.08,
+    "observation": "火焰从人物轮廓燃起，覆盖变换区域后露出尾帧人物与新场景。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "logo_transition",
+    "reference_name": "Logo Transition",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/logo_transition.mp4",
+    "reference_duration": 5.08,
+    "observation": "平面标志周围出现蓝色电光与粒子，随后显露三维产品。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "car_mount",
+    "reference_name": "Car mount",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/car_mount.mp4",
+    "reference_duration": 5.88,
+    "observation": "机位固定于车内前方，驾驶者动作和车外景物变化形成运动感。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "double_exposure",
+    "reference_name": "Double exposure",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/double_exposure.mp4",
+    "reference_duration": 5.88,
+    "observation": "人物轮廓逐步成为承载森林与蓝天的剪影。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "glitch",
+    "reference_name": "Glitch",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/glitch.mp4",
+    "reference_duration": 5.88,
+    "observation": "人物轮廓出现短暂色边与错位，随后回到清晰画面。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "jib_up",
+    "reference_name": "Jib up",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/jib_up.mp4",
+    "reference_duration": 5.88,
+    "observation": "短程摇臂抬升，人物与摩托在画面下方，空间逐渐展开。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "selfie_pose",
+    "reference_name": "Selfie pose",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/selfie_pose.mp4",
+    "reference_duration": 5.88,
+    "observation": "人物整理头顶小道具，轻微歪头微笑，保持自拍近景。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "skeleton",
+    "reference_name": "X-ray",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/skeleton.mp4",
+    "reference_duration": 5.88,
+    "observation": "蓝色透视层逐渐覆盖人像，显露与姿势匹配的骨骼。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "push_in",
+    "reference_name": "Push In",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/push_in.mp4",
+    "reference_duration": 5.88,
+    "observation": "镜头沿轴线平稳接近坐姿人物，从环境中景收紧到面部。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "low_angle",
+    "reference_name": "Low Angle",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/low_angle.mp4",
+    "reference_duration": 5.04,
+    "observation": "地面仰视周围人物，广角强化人物和建筑高度。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "high_angle",
+    "reference_name": "High Angle",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/high_angle.mp4",
+    "reference_duration": 5.04,
+    "observation": "上方俯拍人物，保留人物动作和地面的空间关系。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "over_the_shoulder",
+    "reference_name": "Over The Shoulder",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/over_the_shoulder.mp4",
+    "reference_duration": 5.04,
+    "observation": "前景肩膀遮住部分画面，后方对话人物保持清晰。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "truck_right",
+    "reference_name": "Truck Right",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/truck_right.mp4",
+    "reference_duration": 5.04,
+    "observation": "侧向跟随人物行走，前后景产生横向视差。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "action_run",
+    "reference_name": "Action Run",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/action_run.mp4",
+    "reference_duration": 5.04,
+    "observation": "人物穿过市场快速奔跑，周围物件和火花强化动作节奏。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "outfit_switch",
+    "reference_name": "Outfit Switch",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/outfit_switch.mp4",
+    "reference_duration": 5.04,
+    "observation": "同一人物和位置保持连续，衣服在几个节奏点切换。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "day_to_night_timelapse",
+    "reference_name": "Day to night Timelapse",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/day_to_night_timelapse.mp4",
+    "reference_duration": 5.88,
+    "observation": "天空由暖色日落进入深蓝夜色，车辆灯光与地面反射逐渐增强。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "arc_right1",
+    "reference_name": "Arc Right",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/arc_right1.mp4",
+    "reference_duration": 5.88,
+    "observation": "围绕公交站人物做短幅右弧线运动，前景站台透视改变。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "360",
+    "reference_name": "360 Rotation",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/360.mp4",
+    "reference_duration": 5.88,
+    "observation": "摄像机绕人物完整一圈，人物正面、侧面、背面依次出现并回到正面。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "raven_transition",
+    "reference_name": "Raven",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/raven_transition.mp4",
+    "reference_duration": 5.08,
+    "observation": "烟雾与黑色鸟群从主体周围飞起，遮挡后露出尾帧。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "angry_mode",
+    "reference_name": "Angry mode",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/angry_mode.mp4",
+    "reference_duration": 5.88,
+    "observation": "人物由皱眉逐渐到张嘴怒喊，面部照明转暖红色。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "car_rush",
+    "reference_name": "Car rush",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/car_rush.mp4",
+    "reference_duration": 5.88,
+    "observation": "车辆在沙尘中疾驰并横向漂移，车身轮廓始终可辨。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "drunk_master",
+    "reference_name": "Drunk master",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/drunk_master.mp4",
+    "reference_duration": 5.88,
+    "observation": "人物用摇晃步法、抬膝、转身和摆臂做连续醉拳动作。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "group_photo",
+    "reference_name": "Group photo",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/group_photo.mp4",
+    "reference_duration": 5.88,
+    "observation": "镜头从单人近景拉开，朋友从两侧与后方加入合影。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "money_rain",
+    "reference_name": "Money rain",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/money_rain.mp4",
+    "reference_duration": 5.88,
+    "observation": "纸钞逐渐从上方飘落，主体维持姿态并自然反应。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "shadow",
+    "reference_name": "Shadow",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/shadow.mp4",
+    "reference_duration": 5.88,
+    "observation": "黑色烟状阴影从人物下半身上升，最终只剩暗色人形轮廓。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  },
+  {
+    "id": "timelapse_glam",
+    "reference_name": "Timelapse glam",
+    "reference_video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/timelapse_glam.mp4",
+    "reference_duration": 5.88,
+    "observation": "化妆与整理头发的手快速进出，最后呈现完成后的妆发。",
+    "review_method": "10 chronological frames across full duration; trainrush/glitch/fire_transition additionally inspected at 6 fps",
+    "instruction_basis": "Original authored direction based on observed reference motion; not extracted provider prompt",
+    "generation_validation": "Not submitted; user will test without automated paid calls"
+  }
+]
