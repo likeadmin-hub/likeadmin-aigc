@@ -15,6 +15,7 @@ function fixture() {
     write('config/project.php', "<?php return ['version'=>'1.0.391'];")
     write('app/example.php','<?php echo "old";')
     write('app/removed.php','<?php')
+    write('app/common/service/SubmitLockService.php','<?php // baseline submit-lock dependency')
     write('composer.json','{}');write('composer.lock','{"packages":[]}')
     write('vendor/autoload.php','<?php');write('vendor/composer/autoload_real.php','<?php')
     write('vendor/composer/installed.php','<?php return [];')
@@ -56,6 +57,20 @@ test('dependency changes cannot silently ship without standalone runtime', () =>
         assert.notEqual(result.status,0)
         assert.match(result.stderr,/Composer runtime changes require --composer-runtime/)
     } finally { fs.rmSync(f.dir,{recursive:true,force:true}) }
+})
+test('changed app submitters include their unchanged submit-lock dependency', () => {
+    const f=fixture(),out=path.join(f.dir,'submit-lock-stage')
+    try {
+        f.write('app/common/service/app/FixtureService.php','<?php SubmitLockService::tryAcquire($key);')
+        execFileSync('git',['add','app/common/service/app/FixtureService.php'],{cwd:f.repo})
+        execFileSync('git',['commit','-m','new submitter'],{cwd:f.repo,stdio:'pipe'})
+        const result=spawnSync(process.execPath,[script.pathname,'--repo',f.repo,'--base-ref',f.base,'--base-version','1.0.391','--version','1.0.392','--out-dir',out,'--composer-runtime'],{encoding:'utf8'})
+        assert.equal(result.status,0,result.stderr)
+        const relative='app/common/service/SubmitLockService.php'
+        assert.equal(fs.readFileSync(path.join(out,'files',relative),'utf8'),fs.readFileSync(path.join(f.repo,relative),'utf8'))
+        const coverage=JSON.parse(fs.readFileSync(path.join(out,'release-change-manifest.json')))
+        assert.ok(coverage.paths.some(row=>row.path===relative&&row.delivery==='required-runtime-dependency'))
+    } finally {fs.rmSync(f.dir,{recursive:true,force:true})}
 })
 
 const bridgeWorkers=['AiTaskWorker','CanvasSubAgentWorker','ShortDramaEpisodeWorker','ShortDramaPlanningWorker','ShortDramaCanvasAgentWorker','Crontab']

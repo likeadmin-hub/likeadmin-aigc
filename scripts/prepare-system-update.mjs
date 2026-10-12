@@ -125,6 +125,14 @@ try {
         }
     }
     if(!bridge){
+        // Keep the official archive dependency guard satisfied even when this
+        // shared service is byte-identical to the predecessor release.
+        const submitLock='app/common/service/SubmitLockService.php'
+        if(changed.some(p=>p.startsWith('app/common/service/app/')&&p.endsWith('.php')&&!deleted.has(p)&&/SubmitLockService::tryAcquire\s*\(/.test(fs.readFileSync(path.join(repo,p),'utf8')))
+            && !coverage.some(row=>row.path===submitLock)){
+            copy(submitLock,'files/'+submitLock)
+            coverage.push({path:submitLock,delivery:'required-runtime-dependency'})
+        }
         // A changed API schema/migration needs its app manifest in the package
         // so the existing builtin registry actually synchronizes that metadata.
         const appCodes=[...new Set(changed.map(p=>p.match(/^app\/apps\/([^/]+)\//)?.[1]).filter(Boolean))]
