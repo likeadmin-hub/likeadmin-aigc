@@ -9,6 +9,7 @@ use app\common\model\app\aigc_local_redraw\AigcLocalRedrawResult;
 use app\common\model\app\aigc_local_redraw\AigcLocalRedrawTask;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\app\AppSalePriceService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\app\aigc_image\AigcImageChannelService;
@@ -69,7 +70,7 @@ class AigcLocalRedrawService
             'default_channel' => $configJson['channel'],
             'default_quality' => $configJson['quality'],
             'default_ratio' => $configJson['ratio'],
-            'unit_price' => round(max(0, (float)($params['unit_price'] ?? $current['unit_price'] ?? 0)), 2),
+            'unit_price' => AppSalePriceService::normalize(array_key_exists('unit_price', $params) ? $params['unit_price'] : ($current['unit_price'] ?? null)),
             'prompt_template' => self::normalizeTemplate((string)($params['prompt_template'] ?? $current['prompt_template'])),
             'negative_prompt' => self::normalizeNegativePrompt((string)($params['negative_prompt'] ?? $current['negative_prompt'])),
             'config_json' => $configJson,
@@ -351,7 +352,7 @@ class AigcLocalRedrawService
             'source_image' => $sourceImage,
             'mask_image' => $maskImage,
             'user_prompt' => $userPrompt,
-            'unit_price' => round(max(0, (float)($config['unit_price'] ?? 0)), 2),
+            'unit_price' => AppSalePriceService::normalize($config['unit_price'] ?? null),
             'image_payload' => array_merge($imagePayload, [
                 'channel' => (string)$resolved['channel']['code'],
                 'quality' => (string)$resolved['spec']['quality'],
@@ -376,7 +377,7 @@ class AigcLocalRedrawService
     private static function buildEstimate(array $prepared, array $imageEstimate): array
     {
         $platformUnitCost = round((float)($imageEstimate['platform_unit_cost'] ?? 0), 2);
-        $userUnitPrice = round((float)$prepared['unit_price'], 2);
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0));
         return array_merge($imageEstimate, [
             'quantity' => 1,
             'target_width' => $prepared['width'],
@@ -416,7 +417,7 @@ class AigcLocalRedrawService
             'quality_label' => $prepared['quality_label'],
             'ratio' => (string)$imageTask['ratio'],
             'quantity' => 1,
-            'unit_price' => $prepared['unit_price'],
+            'unit_price' => $estimate['tenant_unit_price'],
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
             'status' => (string)($imageTask['status'] ?: 'running'),
@@ -601,7 +602,7 @@ class AigcLocalRedrawService
             'default_channel' => '',
             'default_quality' => '',
             'default_ratio' => '',
-            'unit_price' => 0,
+            'unit_price' => null,
             'prompt_template' => self::DEFAULT_PROMPT_TEMPLATE,
             'negative_prompt' => self::DEFAULT_NEGATIVE_PROMPT,
             'config_json' => [],
@@ -614,7 +615,7 @@ class AigcLocalRedrawService
         $data['default_channel'] = self::normalizeCode((string)($data['default_channel'] ?? ''));
         $data['default_quality'] = trim((string)($data['default_quality'] ?? ''));
         $data['default_ratio'] = trim((string)($data['default_ratio'] ?? ''));
-        $data['unit_price'] = round(max(0, (float)($data['unit_price'] ?? 0)), 2);
+        $data['unit_price'] = AppSalePriceService::normalize($data['unit_price'] ?? null);
         $data['prompt_template'] = self::normalizeTemplate((string)($data['prompt_template'] ?? self::DEFAULT_PROMPT_TEMPLATE));
         $data['negative_prompt'] = self::normalizeNegativePrompt((string)($data['negative_prompt'] ?? self::DEFAULT_NEGATIVE_PROMPT));
         $data['config_json'] = is_array($data['config_json'] ?? null) ? self::normalizeConfigJson($data['config_json']) : [];
@@ -749,7 +750,7 @@ class AigcLocalRedrawService
             'default_channel' => (string)($data['default_channel'] ?? ''),
             'default_quality' => (string)($data['default_quality'] ?? ''),
             'default_ratio' => (string)($data['default_ratio'] ?? ''),
-            'unit_price' => round(max(0, (float)($data['unit_price'] ?? 0)), 2),
+            'unit_price' => AppSalePriceService::normalize($data['unit_price'] ?? null),
             'prompt_template' => (string)($data['prompt_template'] ?? self::DEFAULT_PROMPT_TEMPLATE),
             'negative_prompt' => self::normalizeNegativePrompt((string)($data['negative_prompt'] ?? self::DEFAULT_NEGATIVE_PROMPT)),
             'config_json' => self::normalizeConfigJson($data['config_json'] ?? []),
