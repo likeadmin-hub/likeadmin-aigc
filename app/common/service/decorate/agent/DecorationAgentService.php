@@ -235,9 +235,11 @@ final class DecorationAgentService
         self::assertEnabled();return Db::transaction(function()use($tenant,$admin,$p){
             $slot=self::q('image_slot',$tenant,$admin)->where('id',(int)($p['slot_id']??0))->lock(true)->find();if(!$slot)throw new RuntimeException('图片位置不存在');
             $next=self::q('image_slot',$tenant,$admin)->where(['run_id'=>$slot['run_id'],'slot_key'=>$slot['slot_key'],'attempt'=>(int)$slot['attempt']+1])->lock(true)->find();if($next)return ['slot_id'=>$next['id']];
-            if($slot['status']!=='failed')throw new RuntimeException('只有确定失败的图片允许重试');if(self::q('image_slot',$tenant,$admin)->where('run_id',$slot['run_id'])->count()>=5)throw new RuntimeException('本轮图片次数已达上限，请新建一轮继续');
-            $id=self::insert('image_slot',$tenant,$admin,['session_id'=>$slot['session_id'],'run_id'=>$slot['run_id'],'candidate_id'=>$slot['candidate_id'],'slot_key'=>$slot['slot_key'],'request_json'=>$slot['request_json'],'result_json'=>'{}','attempt'=>(int)$slot['attempt']+1]);
-            self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->update(['status'=>'retried']);self::q('run',$tenant,$admin)->where('id',$slot['run_id'])->update(['status'=>'waiting_images','cancel_requested'=>0,'next_run_time'=>time()]);return ['slot_id'=>$id];
+            if($slot['status']!=='failed'&&!($slot['status']==='success'&&($p['regenerate']??false)===true))throw new RuntimeException('只有确定失败的图片允许重试；成功图片需明确选择重新生成');if(self::q('image_slot',$tenant,$admin)->where('run_id',$slot['run_id'])->count()>=5)throw new RuntimeException('本轮图片次数已达上限，请新建一轮继续');
+            $requestJson=$slot['request_json'];
+            if($slot['status']==='success'){$candidate=self::owned('candidate',$tenant,$admin,(int)$slot['candidate_id']);if($candidate['status']==='discarded')throw new RuntimeException('已舍弃的候选不能重新生成图片');$payload=self::decode($candidate['payload_json']);$request=self::decode($requestJson);$nodes=DecorationAgentOperations::index($payload['data']);$node=$nodes[$request['widget_id']]??null;if(!$node)throw new RuntimeException('图片组件已删除，请新建一轮调整');$request['old_value']=DecorationAgentOperations::get($node['widget'],$request['field']);$requestJson=self::json($request);}
+            $id=self::insert('image_slot',$tenant,$admin,['session_id'=>$slot['session_id'],'run_id'=>$slot['run_id'],'candidate_id'=>$slot['candidate_id'],'slot_key'=>$slot['slot_key'],'request_json'=>$requestJson,'result_json'=>'{}','attempt'=>(int)$slot['attempt']+1]);
+            self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->update(['status'=>$slot['status']==='success'?'regenerated':'retried']);self::q('run',$tenant,$admin)->where('id',$slot['run_id'])->update(['status'=>'waiting_images','cancel_requested'=>0,'next_run_time'=>time()]);return ['slot_id'=>$id];
         });
     }
     public static function replaceImage(int $tenant,int $admin,array $p): array
