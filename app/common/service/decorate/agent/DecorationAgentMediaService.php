@@ -59,6 +59,7 @@ final class DecorationAgentMediaService
         $candidates = [];
         if (in_array('upload', $allowedSources, true)) {
             foreach (self::validateAttachments($tenantId, $attachments) as $attachment) {
+                if (!in_array('asset', $attachment['uses'], true)) continue;
                 $candidates[] = $attachment + ['id' => 'file:' . $attachment['file_id'], 'source' => 'upload', 'title' => '上传参考图'];
             }
         }

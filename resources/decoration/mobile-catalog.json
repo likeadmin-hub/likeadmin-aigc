@@ -22233,5 +22233,308 @@
     }
   ],
   "version": "mobile-agent-v1",
-  "hash": "6329ea7a49f91f10ad55e373ae3370719168a06a57724939ec65c93fbd831dd1"
+  "page_meta": {
+    "name": "page-meta",
+    "schema_version": 1,
+    "defaults": {
+      "title": "页面配置",
+      "name": "page-meta",
+      "content": {
+        "title_type": "1",
+        "title": "",
+        "title_img": "",
+        "show_nav": 1,
+        "show_back": 0,
+        "title_align": "center",
+        "nav_bg_color": "#ffffff",
+        "bg_type": "0",
+        "bg_color": "",
+        "bg_image": "",
+        "bg_image_repeat": "no-repeat",
+        "bg_image_size": "cover",
+        "bg_image_position": "center top",
+        "bg_video": "",
+        "gradient_direction": "180deg",
+        "gradient_colors": [
+          "#f8f8f8",
+          "#ffffff"
+        ],
+        "text_color": "2"
+      },
+      "styles": {}
+    },
+    "content_fields": {
+      "title_type": {
+        "key": "title_type",
+        "label": "title_type",
+        "type": "string",
+        "value_type": "string",
+        "default": "1",
+        "options": [
+          {
+            "label": "1",
+            "value": "1"
+          },
+          {
+            "label": "2",
+            "value": "2"
+          }
+        ]
+      },
+      "title": {
+        "key": "title",
+        "label": "title",
+        "type": "string",
+        "value_type": "string",
+        "default": "",
+        "max_length": 8
+      },
+      "title_img": {
+        "key": "title_img",
+        "label": "title_img",
+        "type": "image",
+        "value_type": "string",
+        "default": ""
+      },
+      "show_nav": {
+        "key": "show_nav",
+        "label": "show_nav",
+        "type": "number",
+        "value_type": "number",
+        "default": 1,
+        "min": 0,
+        "max": 1
+      },
+      "show_back": {
+        "key": "show_back",
+        "label": "show_back",
+        "type": "number",
+        "value_type": "number",
+        "default": 0,
+        "min": 0,
+        "max": 1
+      },
+      "title_align": {
+        "key": "title_align",
+        "label": "title_align",
+        "type": "string",
+        "value_type": "string",
+        "default": "center",
+        "options": [
+          {
+            "label": "center",
+            "value": "center"
+          },
+          {
+            "label": "left",
+            "value": "left"
+          }
+        ]
+      },
+      "nav_bg_color": {
+        "key": "nav_bg_color",
+        "label": "nav_bg_color",
+        "type": "color",
+        "value_type": "string",
+        "default": "#ffffff"
+      },
+      "bg_type": {
+        "key": "bg_type",
+        "label": "bg_type",
+        "type": "string",
+        "value_type": "string",
+        "default": "0",
+        "options": [
+          {
+            "label": "0",
+            "value": "0"
+          },
+          {
+            "label": "1",
+            "value": "1"
+          },
+          {
+            "label": "2",
+            "value": "2"
+          },
+          {
+            "label": "3",
+            "value": "3"
+          },
+          {
+            "label": "4",
+            "value": "4"
+          }
+        ]
+      },
+      "bg_color": {
+        "key": "bg_color",
+        "label": "bg_color",
+        "type": "color",
+        "value_type": "string",
+        "default": ""
+      },
+      "bg_image": {
+        "key": "bg_image",
+        "label": "bg_image",
+        "type": "image",
+        "value_type": "string",
+        "default": ""
+      },
+      "bg_image_repeat": {
+        "key": "bg_image_repeat",
+        "label": "bg_image_repeat",
+        "type": "string",
+        "value_type": "string",
+        "default": "no-repeat",
+        "options": [
+          {
+            "label": "no-repeat",
+            "value": "no-repeat"
+          },
+          {
+            "label": "repeat",
+            "value": "repeat"
+          },
+          {
+            "label": "repeat-x",
+            "value": "repeat-x"
+          },
+          {
+            "label": "repeat-y",
+            "value": "repeat-y"
+          }
+        ]
+      },
+      "bg_image_size": {
+        "key": "bg_image_size",
+        "label": "bg_image_size",
+        "type": "string",
+        "value_type": "string",
+        "default": "cover",
+        "options": [
+          {
+            "label": "cover",
+            "value": "cover"
+          },
+          {
+            "label": "contain",
+            "value": "contain"
+          },
+          {
+            "label": "stretch",
+            "value": "stretch"
+          },
+          {
+            "label": "auto",
+            "value": "auto"
+          }
+        ]
+      },
+      "bg_image_position": {
+        "key": "bg_image_position",
+        "label": "bg_image_position",
+        "type": "string",
+        "value_type": "string",
+        "default": "center top",
+        "options": [
+          {
+            "label": "center top",
+            "value": "center top"
+          },
+          {
+            "label": "center center",
+            "value": "center center"
+          },
+          {
+            "label": "center bottom",
+            "value": "center bottom"
+          },
+          {
+            "label": "left top",
+            "value": "left top"
+          },
+          {
+            "label": "right top",
+            "value": "right top"
+          }
+        ]
+      },
+      "bg_video": {
+        "key": "bg_video",
+        "label": "bg_video",
+        "type": "video",
+        "value_type": "string",
+        "default": ""
+      },
+      "gradient_direction": {
+        "key": "gradient_direction",
+        "label": "gradient_direction",
+        "type": "string",
+        "value_type": "string",
+        "default": "180deg",
+        "options": [
+          {
+            "label": "180deg",
+            "value": "180deg"
+          },
+          {
+            "label": "0deg",
+            "value": "0deg"
+          },
+          {
+            "label": "90deg",
+            "value": "90deg"
+          },
+          {
+            "label": "270deg",
+            "value": "270deg"
+          },
+          {
+            "label": "135deg",
+            "value": "135deg"
+          },
+          {
+            "label": "225deg",
+            "value": "225deg"
+          }
+        ]
+      },
+      "gradient_colors": {
+        "key": "gradient_colors",
+        "label": "gradient_colors",
+        "type": "array",
+        "value_type": "array",
+        "default": [
+          "#f8f8f8",
+          "#ffffff"
+        ],
+        "min_items": 2,
+        "max_items": 5,
+        "item_type": "color"
+      },
+      "text_color": {
+        "key": "text_color",
+        "label": "text_color",
+        "type": "color",
+        "value_type": "string",
+        "default": "2",
+        "options": [
+          {
+            "label": "1",
+            "value": "1"
+          },
+          {
+            "label": "2",
+            "value": "2"
+          }
+        ]
+      }
+    },
+    "style_fields": {},
+    "compatibility": {
+      "unknown_fields": "preserve"
+    }
+  },
+  "hash": "dfc5151f37376df8f81589f31f5060ef15721e641b9998b0d2113c83a82b7d77"
 }

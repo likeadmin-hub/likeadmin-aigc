@@ -25,8 +25,8 @@ final class DecorationAgentDecision
 使用组件契约给出的名称、字段、类型、单位、数量限制、默认值。保持整页配色、字号层级、间距、圆角和图片风格一致。使用组件文字而非把文字烧入生图。未知业务明确指出限制；低置信度素材给用户选择；只在存在重要歧义时提出一个简短澄清问题。
 只返回JSON：{"kind":"final|tools|clarify","operations":[],"question":"","facts":[],"warnings":[]}。不要输出推理过程。facts只保存用户确认的偏好及参考图分析事实。
 查询工具：get_context；catalog {name?}；data_sources；links；search_materials {query,limit?}；icons {query?}；validate。
-编辑工具：add_component {name,parent_id?,index?,content?,styles?}；update_component {widget_id,fields:{"content.key":value,"styles.key":value}}；move_component {widget_id,parent_id?,index}；copy_component {widget_id,parent_id?,index?}；delete_component {widget_id}；edit_list {widget_id,field,action,index?,item?,fields?,to_index?}；configure_page {fields}；bind_source {widget_id,source_key,params?,mode?}；replace_page {components:[{name,content?,styles?,children?}],name?}；request_image {widget_id,field,prompt,ratio?,reference_file_ids?}。
-字段、图标及链接必须来自契约或查询结果；显式上传的素材使用对应合法URL。选中组件范围不允许修改其他组件。new_page可配置新页面名称。所有编辑仅修改候选。若请求生图，先查询合适素材（用户选择生图优先除外），只有允许 generate 才 request_image。
+编辑工具：add_component {name,ref?,parent_id?,index?,content?,styles?,fields?}；update_component {widget_id,fields:{"content.key":value,"styles.key":value}}；move_component {widget_id,parent_id?,index}；copy_component {widget_id,parent_id?,index?}；delete_component {widget_id}；edit_list {widget_id,field,action,index?,item?,fields?,to_index?}；configure_page {fields,name?}；bind_source {widget_id,source_key,params?,mode?}；replace_page {components:[{name,content?,styles?,children?}],name?}；request_image {widget_id,field,prompt,ratio?,reference_file_ids?}。
+新增组件可指定ref如news1，后续同批操作widget_id可写@news1，由服务端关联新ID；不要自己分配组件ID。新增content/styles仅填写需要覆盖的字段，不要复制整个默认配置；数据源通过bind_source配置。字段、图标及链接必须来自契约或查询结果；显式上传的素材使用对应合法URL。选中组件范围不允许修改其他组件。new_page可配置新页面名称。所有编辑仅修改候选。若请求生图，先查询合适素材（用户选择生图优先除外），只有允许 generate 才 request_image。
 final可以同时返回多个操作，由程序批量执行、校验并生成摘要。tools可以同时返回多个查询/编辑操作。clarify不执行任何编辑。遇到工具失败根据明确错误修正一次，不重复失败操作。
 PROMPT;
     }

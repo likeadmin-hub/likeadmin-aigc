@@ -36,6 +36,7 @@ class DecorationAgentCatalog
     public static function hash(): string { return self::all()['hash']; }
     public static function version(): string { return self::all()['version']; }
     public static function summary(): array { return self::all(); }
+    public static function pageMeta(): array { return self::all()['page_meta']; }
     public static function definition(string $name): array
     {
         foreach (self::all()['components'] as $definition) if ($definition['name'] === $name) return $definition;

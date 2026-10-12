@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "catalog_version": "mobile-agent-v1",
-  "catalog_hash": "6329ea7a49f91f10ad55e373ae3370719168a06a57724939ec65c93fbd831dd1",
+  "catalog_hash": "dfc5151f37376df8f81589f31f5060ef15721e641b9998b0d2113c83a82b7d77",
   "cases": [
     {
       "id": "title-selected",
@@ -89,13 +89,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -168,13 +184,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -243,13 +275,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -306,13 +354,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -369,13 +433,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -432,13 +512,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -510,13 +606,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -578,13 +690,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -688,13 +816,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -798,13 +942,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -911,13 +1071,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1022,13 +1198,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1093,13 +1285,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1115,7 +1323,7 @@
         {
           "kind": "equals",
           "path": "candidate.meta.0.content.bg_type",
-          "value": 0
+          "value": "1"
         }
       ]
     },
@@ -1169,13 +1377,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1248,13 +1472,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1324,13 +1564,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1446,13 +1702,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1521,13 +1793,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1593,13 +1881,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1667,13 +1971,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1738,13 +2058,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1806,13 +2142,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1921,13 +2273,29 @@
         ],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1956,13 +2324,29 @@
         "data": [],
         "meta": [
           {
+            "title": "页面配置",
             "name": "page-meta",
-            "title": "页面设置",
             "content": {
-              "title_type": 1,
+              "title_type": "1",
               "title": "首页",
-              "bg_type": 0,
-              "bg_color": ""
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
             },
             "styles": {}
           }
@@ -1984,6 +2368,141 @@
           "kind": "component_count",
           "name": "button-group",
           "value": 1
+        }
+      ]
+    },
+    {
+      "id": "page-gradient",
+      "task": "页面背景改为从左上到右下的白色到淡紫色渐变，保留组件。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          },
+          {
+            "name": "banner",
+            "title": "首页轮播图",
+            "content": {
+              "enabled": 1,
+              "style": 1,
+              "bg_style": 0,
+              "autoplay": 1,
+              "interval": 3,
+              "show_indicator": 1,
+              "image_height": 340,
+              "data": [
+                {
+                  "is_show": "1",
+                  "image": "",
+                  "bg": "",
+                  "name": "",
+                  "link": {}
+                }
+              ],
+              "fallback_data": []
+            },
+            "styles": {
+              "background": "transparent",
+              "background_color": "transparent",
+              "padding_top": 0,
+              "padding_bottom": 0,
+              "padding_horizontal": 0,
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w1"
+          }
+        ],
+        "meta": [
+          {
+            "title": "页面配置",
+            "name": "page-meta",
+            "content": {
+              "title_type": "1",
+              "title": "首页",
+              "title_img": "",
+              "show_nav": 1,
+              "show_back": 0,
+              "title_align": "center",
+              "nav_bg_color": "#ffffff",
+              "bg_type": "0",
+              "bg_color": "",
+              "bg_image": "",
+              "bg_image_repeat": "no-repeat",
+              "bg_image_size": "cover",
+              "bg_image_position": "center top",
+              "bg_video": "",
+              "gradient_direction": "180deg",
+              "gradient_colors": [
+                "#f8f8f8",
+                "#ffffff"
+              ],
+              "text_color": "2"
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.meta.0.content.bg_type",
+          "value": "4"
+        },
+        {
+          "kind": "equals",
+          "path": "candidate.meta.0.content.gradient_direction",
+          "value": "135deg"
+        },
+        {
+          "kind": "equals",
+          "path": "candidate.meta.0.content.gradient_colors",
+          "value": [
+            "#ffffff",
+            "#eee8ff"
+          ]
         }
       ]
     }
