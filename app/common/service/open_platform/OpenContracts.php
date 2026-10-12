@@ -11,6 +11,7 @@ final class OpenContracts
         if(($kind==='market'&&!preg_match('#^/api/v1/(?:models(?:/detail)?|chat/completions|completions|responses|messages|tasks(?:/\{task_id\}(?:/cancel)?)?|apps(?:/[a-z0-9_-]+(?:/[a-z0-9_-]+)?)?|files(?:/\{file_id\})?|upload|user/(?:balance|usage))$#D',$path))||!in_array($method,['GET','POST','DELETE','PUT'],true)||!preg_match('/^[a-z0-9_.-]{1,160}$/D',$code))throw new OpenException('invalid_contract','接口方法、路径或编码不在可注册范围');
         if($kind==='market'&&($config['executor']??'')==='tool')throw new OpenException('invalid_contract','商城接口不可使用工具执行器');
         if(isset($config['native_pricing'])&&($kind!=='market'||$config['native_pricing']!==OpenNativeMarketPricing::ADAPTER||($config['executor']??'')!=='json'||empty($config['billable'])||($config['role']??'')!=='submit'))throw new OpenException('invalid_contract','原生媒体价格适配未注册或生命周期不匹配');
+        if(isset($config['routing_channel'])&&($kind!=='market'||empty($config['model'])||!is_string($config['routing_channel'])||!preg_match('/^[A-Za-z0-9_.-]{1,100}$/D',$config['routing_channel'])))throw new OpenException('invalid_contract','服务端渠道路由无效');
         if(isset($config['response_adapter'])&&($kind!=='market'||$config['response_adapter']!==OpenMarketResponse::ADAPTER||($config['executor']??'')!=='json'))throw new OpenException('invalid_contract','响应适配器未注册或不支持该协议');
         if(!in_array($config['executor']??'',['json','sse','multipart','binary','tool','directory'],true))throw new OpenException('invalid_contract','执行器未注册');
         if(($config['executor']??'')==='directory'&&($kind!=='market'||!OpenDirectory::supports($method,$path)||!empty($config['billable'])||($config['role']??'')!=='resource'||(int)($input['product_id']??0)!==0))throw new OpenException('invalid_contract','目录执行器只支持固定的免费读取接口');
@@ -65,8 +66,8 @@ final class OpenContracts
     }
     public static function selected(array $config,array $params): bool
     {
-        if(isset($config['model'])&&($params['model']??'')!==$config['model'])return false;
-        foreach($config['when']??[] as $name=>$value){$actual=OpenSchema::get($params,$name)??($name==='stream'?false:null);if($actual!==$value)return false;}
+        if(isset($config['model'])&&($params['model']??'')!==$config['model'])return false;if(isset($config['routing_channel'],$params['channel'])&&$params['channel']!==$config['routing_channel'])return false;
+        foreach($config['when']??[] as $name=>$value){$actual=OpenSchema::get($params,$name)??($config['when_defaults'][$name]??($name==='stream'?false:null));if($actual!==$value)return false;}
         return true;
     }
     public static function match(string $method,string $path,array $params): array

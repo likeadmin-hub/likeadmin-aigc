@@ -91,6 +91,16 @@ final class OpenGateway
         try{OpenSchema::validate($body,$schema,'$',0,null,true);return true;}catch(OpenException){return false;}
     }
 
+    /** A bound supplier channel is server routing, not an extra SDK argument. */
+    private static function marketParameters(array $operation,array $params): array
+    {
+        if(empty($operation['history'])&&isset($operation['model'])&&!empty($operation['routing_channel'])){
+            if(isset($params['channel'])&&$params['channel']!==$operation['routing_channel'])throw new OpenException('invalid_sku','渠道与所选接口不一致');
+            $params['channel']=$operation['routing_channel'];
+        }
+        return $params;
+    }
+
     private static function historicalMarket(array $key,string $method,string $path): ?array
     {
         if($method!=='GET'||!preg_match('#^/api/v1/tasks/([^/]+)$#D',$path,$m))return null;
@@ -127,7 +137,7 @@ final class OpenGateway
             if(empty($transportSource['base_url'])||empty($transportSource['api_key']))throw new OpenException('source_unavailable','上游渠道未配置',503);
             OpenMarketBilling::reserve($row,$budget);$snapshot=array_replace(OpenStore::json(OpenStore::table('request')->where('id',$row['id'])->value('snapshot')),$budget['snapshot']);$snapshot['source_blob']=OpenVault::seal(OpenStore::encode($transportSource));OpenAdmission::finish($row['request_id'],['snapshot'=>OpenStore::encode($snapshot)]);
             $headers=[];foreach(['accept','anthropic-version','anthropic-beta','openai-beta','idempotency-key'] as $name){$value=(string)$request->header($name,'');if($value!=='')$headers[$name]=$value;}
-            self::markDispatch($row['request_id']);$dispatched=true;$wire=(new OpenTransport())->send($transportSource,$row['method'],$row['path'],$params,(array)$request->file(),$stream?function($chunk,$status,$responseHeaders){if(!headers_sent()){http_response_code($status);foreach($responseHeaders as $name=>$value)header($name.': '.$value);}echo $chunk;@flush();}:null,$headers,(string)$request->header('content-type',''));
+            self::markDispatch($row['request_id']);$dispatched=true;$wire=(new OpenTransport())->send($transportSource,$row['method'],$row['path'],self::marketParameters($op,$params),(array)$request->file(),$stream?function($chunk,$status,$responseHeaders){if(!headers_sent()){http_response_code($status);foreach($responseHeaders as $name=>$value)header($name.': '.$value);}echo $chunk;@flush();}:null,$headers,(string)$request->header('content-type',''));
             $data=json_decode($wire['body'],true);$data=is_array($data)?$data:[];$taskValue=OpenSchema::get($data,$op['task_id_path']??'data.task_id');$task=is_string($taskValue)||is_int($taskValue)?(string)$taskValue:'';$failed=self::wireFailed($wire['status'],$data,$op);$fields=['response_blob'=>OpenVault::seal($wire['body']),'response_type'=>$wire['headers']['content-type']??'application/json','response_code'=>$wire['status'],'duration_ms'=>(int)((microtime(true)-$start)*1000)];
             $untrusted=!empty($op['billable'])&&$op['role']==='submit'&&($op['executor']??'')==='json'&&!$failed&&!self::marketAccepted($op,$wire);
             if($untrusted)$wire['acceptance_uncertain']=true;

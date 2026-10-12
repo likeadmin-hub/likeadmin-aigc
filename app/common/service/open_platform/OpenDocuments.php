@@ -19,6 +19,14 @@ final class OpenDocuments
         $q=OpenStore::table('document')->whereIn('tenant_id',[0,$tenantId])->where('status','published');if($search!=='')$q->where('title|content','like','%'.mb_substr($search,0,100).'%');$rows=$q->order('tenant_id','asc')->order('sort','asc')->select()->toArray();$allowed=array_column(OpenManagement::contractsForTenant($tenantId),'code');$items=[];foreach($rows as $row){if($row['contract_code']!==''&&!in_array($row['contract_code'],$allowed,true))continue;$items[$row['slug']]=$row;}return array_values($items);
     }
 
+    /** Internal receipt guidance is not part of the public protocol description. */
+    public static function publicResponses(array $config): array
+    {
+        $responses=(array)($config['responses']??[]);
+        if(!empty($config['compiler']))foreach($responses as $status=>&$response)$response['description']='HTTP '.$status.' response';
+        unset($response);return $responses;
+    }
+
     public static function openapi(int $tenantId): array
     {
         $paths=[];$config=OpenStore::settings($tenantId);$global=OpenStore::settings(0);
@@ -27,7 +35,7 @@ final class OpenDocuments
             if($row['kind']==='tool'&&!OpenToolRegistry::supported($row['method'],$row['path']))continue;
             if($row['kind']==='tool'&&(!in_array($app,$config['apps'],true)||!in_array($app,$global['apps'],true)))continue;
             if($row['kind']==='market'&&(int)$row['product_id']>0&&(!in_array((string)$row['product_id'],$config['models'],true)||!in_array((string)$row['product_id'],$global['models'],true)))continue;
-            $input=$c['input'];$method=strtolower($row['method']);$op=['operationId'=>$row['code'],'summary'=>$c['title']??$row['code'],'description'=>$c['description']??'','tags'=>[$row['kind']==='tool'?OpenToolRegistry::get($app)['name']:'商城 API'],'security'=>[['apiKey'=>[]]],'responses'=>$c['responses'],'x-contract-version'=>(int)$row['version'],'x-billable'=>(bool)$c['billable'],'x-billing-description'=>$c['billing_description']??''];
+            $input=$c['input'];$method=strtolower($row['method']);$op=['operationId'=>$row['code'],'summary'=>$c['title']??$row['code'],'description'=>$c['description']??'','tags'=>[$row['kind']==='tool'?OpenToolRegistry::get($app)['name']:'商城 API'],'security'=>[['apiKey'=>[]]],'responses'=>self::publicResponses($c),'x-contract-version'=>(int)$row['version'],'x-billable'=>(bool)$c['billable'],'x-billing-description'=>$c['billing_description']??''];
             if($row['kind']==='tool'&&!empty(OpenToolRegistry::get($app)['limitations']))$op['x-capability-limitations']=OpenToolRegistry::get($app)['limitations'];
             preg_match_all('/\{([a-z_]+)\}/',$row['path'],$captures);
             foreach($captures[1] as $name)$op['parameters'][]=['name'=>$name,'in'=>'path','required'=>true,'schema'=>['type'=>'string'],'description'=>$name==='task_id'?'此用户在对应能力中创建的任务 ID':'资源 ID'];

@@ -24,7 +24,7 @@ final class OpenMarketContractCompiler
 
     public static function plan(int $tenantId, array $reviews = [], array $productIds = []): array
     {
-        self::tenant($tenantId); $products = TenantPowerMarketService::catalogueProducts($tenantId);
+        self::tenant($tenantId); $products = TenantPowerMarketService::catalogueProducts($tenantId);$modelCounts=[];foreach($products as $product)if($product['resource_type']==='model')$modelCounts[$product['upstream_model_code']]=($modelCounts[$product['upstream_model_code']]??0)+1;
         if ($productIds) $products = array_values(array_filter($products, static fn($p) => in_array((int)$p['id'], array_map('intval', $productIds), true)));
         $auxiliary = [];
         foreach (Db::name('power_market_product')->where(['resource_type' => 'app_api', 'status' => 1])->field('id,upstream_app_code,upstream_api_code,source_payload')->select()->toArray() as $row) {
@@ -33,7 +33,7 @@ final class OpenMarketContractCompiler
         }
         $rows = []; $counts = ['products' => count($products), 'skus' => 0, 'candidates' => 0, 'drafts' => 0, 'blocked_candidates' => 0, 'products_with_drafts' => 0, 'blocked_products' => 0]; $groups = []; $blockers = [];
         foreach ($products as $product) {
-            $row = self::compileProduct($product, $auxiliary[$product['upstream_app_code'] ?? ''] ?? [], $reviews[(string)$product['id']] ?? []); $rows[] = $row;
+            $row = self::compileProduct($product, $auxiliary[$product['upstream_app_code'] ?? ''] ?? [], $reviews[(string)$product['id']] ?? [], ($modelCounts[$product['upstream_model_code']??'']??0)>1); $rows[] = $row;
             $counts['skus'] += count($row['skus']); $counts['candidates'] += count($row['candidates']); $counts['drafts'] += count($row['drafts']);
             $counts[$row['drafts'] ? 'products_with_drafts' : 'blocked_products']++;
             $group = $row['resource_type'] . ':' . ($row['model_type'] ?: $row['app_code']); $groups[$group] = ($groups[$group] ?? 0) + 1;
@@ -42,7 +42,7 @@ final class OpenMarketContractCompiler
         return ['compiler_version' => self::VERSION, 'tenant_id' => $tenantId, 'generated_at' => date(DATE_ATOM), 'counts' => $counts, 'groups' => $groups, 'blocker_counts' => $blockers, 'products' => $rows, 'publication' => 'drafts_only', 'execution_performed' => false];
     }
 
-    public static function compileProduct(array $product, array $auxiliary = [], array $review = []): array
+    public static function compileProduct(array $product, array $auxiliary = [], array $review = [], bool $requireChannel = false): array
     {
         self::review($review);
         $snapshot = OpenStore::json($product['source_payload'] ?? []); $meta = (array)($snapshot['market_metadata'] ?? []);
@@ -69,7 +69,7 @@ final class OpenMarketContractCompiler
         if ($model) {
             $input['properties']['model'] = ['type' => 'string', 'const' => (string)$product['upstream_model_code']];
             $input['required'] = array_values(array_unique(array_merge($input['required'] ?? [], ['model'])));
-            if (!empty($product['upstream_channel_code'])) { $input['properties']['channel'] = ['type' => 'string', 'const' => (string)$product['upstream_channel_code']]; $input['required'][] = 'channel'; }
+            if (!empty($product['upstream_channel_code'])) { $input['properties']['channel'] = ['type' => 'string', 'const' => (string)$product['upstream_channel_code']]; if($requireChannel)$input['required'][] = 'channel'; }
         }
         $example = $review['example'] ?? self::requestExample($input, (array)($meta['default_params'] ?? []), $jsonExamples);
         $responseSamples = array_values(array_filter($jsonExamples, static fn($sample) => isset($sample['code']) && $sample['code'] === 1 || isset($sample['choices']) || isset($sample['task_id'])));
@@ -91,7 +91,7 @@ final class OpenMarketContractCompiler
             $locked = OpenStore::json($sku['locked_params'] ?? []);
             $skus[] = ['sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => (float)$sku['usage_unit_size'], 'sale_points' => (float)$sku['sale_points'], 'sale_status' => (bool)$sku['sale_status'], 'locked_params' => OpenPolicy::publicData($locked)];
             foreach ($paths as $route) {
-                $issues = $base; $candidateInput = $input; $candidateExample = $example; $when = [];
+                $issues = $base; $candidateInput = $input; $candidateExample = $example; $when = []; $whenDefaults=[]; $parameterPaths=[];
                 if (\app\common\service\power\MarketUsageSettlementService::isActualUsageSku($sku)) $issues[] = self::block('actual_usage_boundary_required','Token SKU 已存在，透传执行仍需真实用量结算与可信受理额度');
                 elseif (!$nativeMedia && (($sku['usage_unit'] ?? '') !== 'per_call' || (float)($sku['usage_unit_size'] ?? 0) !== 1.)) $issues[] = self::block('billing_adapter_required', '当前业务尚未接入原生数量适配');
                 elseif ($nativeMedia && !in_array($sku['usage_unit']??'',['per_call','input_second','output_second','second','seconds','sec'],true)) $issues[] = self::block('billing_adapter_required','原生媒体单位尚未适配');
@@ -100,13 +100,13 @@ final class OpenMarketContractCompiler
                 foreach ($locked as $field => $value) {
                     if (str_starts_with($field, '_')) { $issues[] = self::block('derived_sku_parameter', '内部计费维度需服务器派生', $field); continue; }
                     $pathsForField=self::fieldPaths($candidateInput,$field);if(count($pathsForField)!==1){$issues[]=self::block('sku_parameter_missing','SKU 锁定参数未唯一声明在请求结构中',$field);continue;}
-                    $parameterPath=$pathsForField[0];self::lockField($candidateInput,$candidateExample,$parameterPath,$value);$when[$parameterPath]=$value;
+                    $parameterPath=$pathsForField[0];$parameterPaths[$field]=$parameterPath;self::lockField($candidateInput,$candidateExample,$parameterPath,$value,$whenDefaults);$when[$parameterPath]=$value;
                 }
-                if ($model && !empty($product['upstream_channel_code'])) $when['channel'] = (string)$product['upstream_channel_code'];
+                if ($model && $requireChannel && !empty($product['upstream_channel_code'])) $when['channel'] = (string)$product['upstream_channel_code'];
                 $code = 'market.p' . (int)$product['id'] . '.' . $route['protocol'] . '.s' . (int)$sku['id'];
-                $config = ['response_adapter' => OpenMarketResponse::ADAPTER, 'executor' => 'json', 'role' => 'submit', 'title' => (string)$product['name'], 'billable' => true, 'input' => $candidateInput, 'example' => $candidateExample, 'responses' => $responses, 'when' => $when, 'billing' => [['sku_id' => (int)$sku['id'], 'basis' => 'input', 'max_units' => 1]], 'billing_description' => '按当前租户有效商城 SKU 售价，单调用计费；任务查询不重复收费', 'query_path' => '/api/v1/tasks/{task_id}', 'task_id_path' => $taskRoot ? 'task_id' : 'data.task_id'];
+                $config = ['response_adapter' => OpenMarketResponse::ADAPTER, 'executor' => 'json', 'role' => 'submit', 'title' => (string)$product['name'], 'billable' => true, 'input' => $candidateInput, 'example' => $candidateExample, 'responses' => $responses, 'when' => $when, 'when_defaults'=>$whenDefaults, 'billing' => [['sku_id' => (int)$sku['id'], 'basis' => 'input', 'max_units' => 1,'parameter_paths'=>$parameterPaths]], 'billing_description' => '按当前租户有效商城 SKU 售价，单调用计费；任务查询不重复收费', 'query_path' => '/api/v1/tasks/{task_id}', 'task_id_path' => $taskRoot ? 'task_id' : 'data.task_id'];
                 if($nativeMedia){$config['native_pricing']=OpenNativeMarketPricing::ADAPTER;$config['success_statuses']=['success','completed','succeeded','partial_success','partial_failed'];$config['billing_description']='按原生媒体 SKU 及实际成功数量/用量结算，受理参数仅用于价格映射，原协议不改写';}
-                if ($model) $config['model'] = (string)$product['upstream_model_code'];
+                if ($model){$config['model'] = (string)$product['upstream_model_code'];if(!empty($product['upstream_channel_code']))$config['routing_channel']=(string)$product['upstream_channel_code'];}
                 $draft = ['code' => $code, 'kind' => 'market', 'product_id' => (int)$product['id'], 'method' => $method, 'path' => $route['path'], 'config' => $config];
                 try { OpenContracts::validate($draft); } catch (\Throwable $error) { $issues[] = self::block('contract_validation_failed', $error instanceof OpenException ? $error->getMessage() : '契约结构无法验证'); }
                 $issues = self::unique($issues);
@@ -149,10 +149,10 @@ final class OpenMarketContractCompiler
         foreach(['parameters','params'] as $parent)if(isset($input['properties'][$parent]['properties'][$field]))$paths[]=$parent.'.'.$field;
         return $paths;
     }
-    private static function lockField(array &$input,array &$example,string $path,mixed $value): void
+    private static function lockField(array &$input,array &$example,string $path,mixed $value,array &$whenDefaults): void
     {
-        $parts=explode('.',$path);$schema=&$input;$data=&$example;
-        foreach($parts as $i=>$part){$schema['required']=array_values(array_unique(array_merge($schema['required']??[],[$part])));
+        $parts=explode('.',$path);$lookup=$input;foreach($parts as $part)$lookup=$lookup['properties'][$part];$hasDefault=array_key_exists('default',$lookup)&&$lookup['default']===$value;if($hasDefault)$whenDefaults[$path]=$value;$schema=&$input;$data=&$example;
+        foreach($parts as $i=>$part){if(!$hasDefault)$schema['required']=array_values(array_unique(array_merge($schema['required']??[],[$part])));
             if($i===count($parts)-1){$schema['properties'][$part]['const']=$value;$data[$part]=$value;break;}
             $schema=&$schema['properties'][$part];if(($data[$part]??null) instanceof \stdClass)$data[$part]=(array)$data[$part];if(!isset($data[$part]))$data[$part]=[];$data=&$data[$part];
         }
@@ -196,7 +196,7 @@ final class OpenMarketContractCompiler
     private static function responses(array $samples): array
     {
         if (!$samples) return [];
-        return ['200' => ['description' => '上游文档声明的成功响应，须由真实网关回执验收', 'content' => ['application/json' => ['schema' => self::responseShape((object)$samples[0])]]]];
+        return ['200' => ['description' => '成功响应', 'content' => ['application/json' => ['schema' => self::responseShape((object)$samples[0])]]]];
     }
     private static function responseShape(mixed $value, int $depth = 0,string $path=''): array
     {
@@ -211,8 +211,8 @@ final class OpenMarketContractCompiler
     }
     private static function document(array $product, array $draft): string
     {
-        $c = $draft['config']; $encode = static fn($value) => json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        return '# ' . $product['name'] . "\n\n此接口为待验收草稿；文档草稿不代表可调用或已发布。\n\n" . $draft['method'] . ' `' . $draft['path'] . "`\n\n按当前租户有效商城 SKU 售价结算，不使用上游账户价格。查询原任务不重复收费。\n\n参数结构：\n\n```json\n" . $encode($c['input']) . "\n```\n\n请求示例：\n\n```json\n" . $encode((object)$c['example']) . "\n```\n\n响应声明：\n\n```json\n" . $encode($c['responses']) . "\n```\n\n来源摘要：`" . $product['source_digest'] . "`。必须关联与本契约及示例一致、成功完成结算的真实网关回执后方可发布。\n";
+        $c=$draft['config'];$encode=static fn($v)=>json_encode($v,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+        return '# '.$product['name']."\n\n".$draft['method'].' `'.$draft['path']."`\n\n## 接入与鉴权\n\n使用本站 API Key，将上游地址替换为本站地址，保留此接口的参数结构。请求头使用 `Authorization: Bearer <API_KEY>` 和 `Content-Type: application/json`。完整密钥仅在创建时显示，请在服务端安全保管。\n\n## 请求参数\n\n字段类型、必填项、嵌套字段及约束见参数表。\n\n```json\n".$encode((object)$c['example'])."\n```\n\n## 价格与结算\n\n按本站当前有效商城 SKU 售价计费，在线调试提供当前费用预估。受理时保存价格快照，响应中的积分金额为本站预占或实际结算金额。结果尚未确认或缺少可信用量时，费用保留待处理。\n\n".$c['billing_description']."\n\n## 调用示例\n\ncURL、Python 与 JavaScript 示例见右侧代码面板。替换接入地址和自己的 API Key 后即可调用；不要在浏览器公开完整密钥。\n\n## 响应与任务\n\n保留上游业务字段及 HTTP 状态。响应头 `X-Request-Id` 可用于查询调用记录。异步接口返回 `data.task_id` 后，通过 `GET /api/v1/tasks/{task_id}` 查询状态和结果；仅允许任务创建者访问，轮换密钥后仍可查询。\n\n## 幂等与错误处理\n\n计费提交支持 `Idempotency-Key`。同一用户、接口和键的相同请求返回原回执，不重复扣款；参数不同则返回 409。提交超时或受理状态未知时，先查看调用记录，保持原幂等键，避免另建操作重复提交。\n\n鉴权失败返回 401，未开通或权限不足返回 403，余额或额度不足返回 402，限流返回 429。遇到 5xx，请保留请求 ID，并确认已有任务状态。\n";
     }
     private static function block(string $code, string $message, string $field = ''): array { return compact('code', 'field', 'message'); }
     private static function unique(array $issues): array { $out = []; foreach ($issues as $issue) $out[OpenStore::encode($issue)] = $issue; return array_values($out); }
