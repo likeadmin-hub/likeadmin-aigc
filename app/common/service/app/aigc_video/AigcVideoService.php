@@ -67,7 +67,7 @@ class AigcVideoService
         if(is_array($params['params']??null))unset($params['params']['effect_snapshot']);
         $originalPrompt=trim((string)($params['prompt']??''));
         $params=ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
-        $prompt=trim((string)($params['prompt']??''));if($prompt==='')throw new Exception('请输入提示词');
+        $prompt=trim((string)($params['prompt']??''));
         self::checkSensitiveWords($tenantId,$prompt);
         $params['reference_assets']=AigcVideoReferenceAssetService::normalize($params);
         $params['reference_images']=AigcVideoReferenceAssetService::images($params['reference_assets']);
@@ -76,6 +76,7 @@ class AigcVideoService
         $params['duration']=(int)$normalized['duration'];$selection=array_replace($selection,$normalized);
         $resolved=$selection+$params;$resolved['resource_type']=$runtime===MarketVideoAppRuntimeService::class?'app_api':'model';
         $captured=\app\common\service\power\MarketVideoRuntimeService::openPlatformAdmissionQuote($tenantId,$resolved);
+        if ($prompt === '' && !\app\common\service\power\Q4VideoContract::matches((array)$captured['quote']['market_snapshot'])) throw new Exception('请输入提示词');
         $effect=VideoEffectService::resolve(VideoEffectService::catalog($tenantId),$params,(int)$captured['quote']['market_product_id']);
         if($effect){
             $params=VideoEffectService::compile($params,$effect);
@@ -160,9 +161,6 @@ class AigcVideoService
             $originalPrompt = trim((string)($params['prompt'] ?? ''));
             $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
             $prompt = trim((string)($params['prompt'] ?? ''));
-            if ($prompt === '') {
-                throw new Exception('请输入提示词');
-            }
             self::checkSensitiveWords($tenantId, $prompt);
             $referenceAssets = AigcVideoReferenceAssetService::normalize($params);
             $params['reference_assets'] = $referenceAssets;
@@ -173,6 +171,7 @@ class AigcVideoService
             $params['duration'] = (int)$normalizedDuration['duration'];
             $selection = array_replace($selection, $normalizedDuration);
             $quote = self::applyMarketBillingOverride(self::marketQuote($tenantId, $selection + $params), $billingOverride);
+            if ($prompt === '' && !\app\common\service\power\Q4VideoContract::matches((array)$quote['market_snapshot'])) throw new Exception('请输入提示词');
             $effect = VideoEffectService::resolve(VideoEffectService::catalog($tenantId), $params, (int)$quote['market_product_id']);
             if ($effect) {
                 $params = VideoEffectService::compile($params, $effect);
@@ -181,6 +180,7 @@ class AigcVideoService
                 $selection['effect_snapshot'] = VideoEffectService::snapshot($effect, $originalPrompt);
             }
         }
+        if (\app\common\service\power\Q4VideoContract::matches((array)$quote['market_snapshot'])) $selection['q4_options'] = \app\common\service\power\Q4VideoContract::options($params);
         $duplicate = self::findRecentMarketDuplicateTask($tenantId, $userId, $prompt, $selection, $params);
         if ($duplicate !== null) {
             return self::marketDuplicateResponse($duplicate, $tenantId, $userId);
@@ -376,6 +376,7 @@ class AigcVideoService
             ->order('id', 'desc')->limit(3)->select();
         $signature = self::referenceAssetSignature((array)$params['reference_assets'], (array)$params['reference_images']);
         foreach ($rows as $row) {
+            if (($row['model_json']['q4_options'] ?? []) !== ($selection['q4_options'] ?? [])) continue;
             if (($row['model_json']['effect_snapshot']['version'] ?? '') !== ($selection['effect_snapshot']['version'] ?? '')) continue;
             if (in_array((string)$row['status'], ['failed', 'canceled'], true)) {
                 continue;
@@ -735,6 +736,7 @@ class AigcVideoService
             throw new Exception('任务不存在');
         }
         return self::generate($tenantId, (int)$task['user_id'], [
+            ...array_intersect_key((array)($task['model_json']['q4_options'] ?? []), array_flip(\app\common\service\power\Q4VideoContract::OPTIONS)),
             'prompt' => $task['prompt'],
             'effect_id' => (string)($task['model_json']['effect_snapshot']['id'] ?? ''),
             ...(!empty($task['model_json']['effect_snapshot']['instruction']) ? ['effect_prompt'=>$task['model_json']['effect_snapshot']['instruction']] : []),
