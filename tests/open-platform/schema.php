@@ -1,6 +1,7 @@
 <?php
 require dirname(__DIR__,2).'/vendor/autoload.php';
 use app\common\service\open_platform\OpenSchema as S;
+use app\common\service\open_platform\OpenSchemaNormalizer as N;
 use app\common\service\open_platform\OpenException;
 function reject($value,$schema){try{S::validate($value,$schema);}catch(OpenException){return;}throw new RuntimeException('Invalid schema value accepted');}
 $shape=['type'=>'object','$defs'=>['media'=>['type'=>'object','required'=>['url'],'properties'=>['url'=>['type'=>'string','pattern'=>'^https://']]]],'required'=>['media'],'properties'=>['media'=>['$ref'=>'#/$defs/media'],'size'=>['type'=>['integer','null'],'minimum'=>1],'mode'=>['oneOf'=>[['type'=>'string','enum'=>['fast']],['type'=>'integer','minimum'=>1]]]],'additionalProperties'=>false];
@@ -29,4 +30,21 @@ reject(['clothes_images'=>array_fill(0,7,'a'),'model_image'=>'b'],$native);
 reject(['clothes_images'=>['a'],'model_preset_id'=>0],$native);
 reject(['clothes_images'=>['a'],'model_image'=>['unexpected'=>'b']],$native);
 S::validate([],$fashion['POST estimate']['input']);
+$fieldEnum=N::normalize(['quality'=>['type'=>'string','enum'=>'["low","medium","high"]','required'=>true]]);
+if($fieldEnum['blockers']||$fieldEnum['schema']['properties']['quality']['enum']!==['low','medium','high'])throw new RuntimeException('Encoded field-map enum was not normalized');
+S::validateRequest(['quality'=>'medium'],$fieldEnum['schema'],true);reject(['quality'=>'unknown'],$fieldEnum['schema']);
+$jsonEnum=N::normalize(['type'=>'object','properties'=>['value'=>['enum'=>'["1",1,false,null,1.25]']]]);
+if($jsonEnum['blockers']||$jsonEnum['schema']['properties']['value']['enum']!==['1',1,false,null,1.25])throw new RuntimeException('JSON Schema enum scalar types changed');
+foreach(['1',1,false,null,1.25] as $value)S::validateRequest(['value'=>$value],$jsonEnum['schema'],true);
+reject(['value'=>true],$jsonEnum['schema']);
+$nestedEnum=N::normalize(['type'=>'object','$defs'=>['mode'=>['type'=>'string','enum'=>'["fast"]']],'properties'=>['mode'=>['$ref'=>'#/$defs/mode'],'items'=>['type'=>'array','items'=>['allOf'=>[['type'=>'integer','enum'=>'[1,2]']]]]],'patternProperties'=>['^flag_'=>['anyOf'=>[['type'=>'boolean','enum'=>'[false]']]]]]);
+if($nestedEnum['blockers']||$nestedEnum['schema']['$defs']['mode']['enum']!==['fast']||$nestedEnum['schema']['properties']['items']['items']['allOf'][0]['enum']!==[1,2])throw new RuntimeException('Nested enum transformations were discarded');
+S::validateRequest(['mode'=>'fast','items'=>[1,2],'flag_one'=>false],$nestedEnum['schema'],true);reject(['mode'=>'slow'],$nestedEnum['schema']);
+foreach(['medium / high','["medium",]','{"0":"medium"}','null','[]',['medium'=>'high']] as $invalidEnum)foreach([['field'=>['type'=>'string','enum'=>$invalidEnum]],['type'=>'object','properties'=>['field'=>['type'=>'string','enum'=>$invalidEnum]]]] as $source){
+    $normalized=N::normalize($source);
+    if(!in_array('enum_review_required',array_column($normalized['blockers'],'code'),true)||$normalized['schema']['properties']['field']['enum']!==[])throw new RuntimeException('Invalid enum must block with a safe rejecting schema');
+    reject(['field'=>'medium'],$normalized['schema']);
+}
+$explicitNullEnum=N::normalize(['field'=>['type'=>'string','enum'=>null,'options'=>['medium']]]);
+if(!in_array('enum_review_required',array_column($explicitNullEnum['blockers'],'code'),true)||$explicitNullEnum['schema']['properties']['field']['enum']!==[])throw new RuntimeException('Options must not replace an explicitly invalid enum');
 echo "PASS nested refs, nullable unions, exclusive schema branches, typed query inputs and native fashion aliases/preset/list bounds\n";

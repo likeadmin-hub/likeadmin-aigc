@@ -31,7 +31,7 @@ final class OpenSchemaNormalizer
             $rule = [];
             foreach (['description', 'enum', 'const', 'default', 'example', 'examples', 'format', 'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf', 'minLength', 'maxLength', 'pattern', 'minItems', 'maxItems', 'uniqueItems', 'nullable', 'additionalProperties', 'minProperties', 'maxProperties', 'oneOf', 'anyOf', 'allOf', 'not', '$ref'] as $key) if (array_key_exists($key, $field)) $rule[$key] = $field[$key];
             if ($types) $rule['type'] = count($types) === 1 ? $types[0] : array_values($types);
-            if (isset($field['options']) && !isset($rule['enum'])) {
+            if (isset($field['options']) && !array_key_exists('enum', $rule)) {
                 if (is_array($field['options']) && array_is_list($field['options']) && !array_filter($field['options'], 'is_array')) $rule['enum'] = $field['options'];
                 elseif (is_string($field['options']) && !preg_match('/^\s*[\[{]/',$field['options'])) $rule['description']=trim((string)($rule['description']??'')."\n".$field['options']);
                 else $blockers[] = self::issue('options_review_required', $fieldPath, '非结构化 options 需明确审核，不能猜测枚举');
@@ -66,18 +66,32 @@ final class OpenSchemaNormalizer
         return $value;
     }
 
-    private static function inspect(array $schema, string $path, array &$blockers, int $depth): void
+    private static function inspect(array &$schema, string $path, array &$blockers, int $depth): void
     {
         if ($depth > 32) { $blockers[] = self::issue('schema_depth', $path, '结构嵌套超限'); return; }
+        if (array_key_exists('enum', $schema)) {
+            $enum = $schema['enum'];
+            if (is_string($enum)) {
+                try { $enum = json_decode($enum, false, 32, JSON_THROW_ON_ERROR); }
+                catch (\JsonException) { $enum = null; }
+            }
+            if (!is_array($enum) || !array_is_list($enum) || $enum === []) {
+                $blockers[] = self::issue('enum_review_required', $path . '.enum', 'enum 必须为非空列表或严格 JSON 编码列表');
+                // Keep the blocked schema rejecting values rather than passing
+                // a string to runtime in_array() or silently dropping a constraint.
+                $schema['enum'] = [];
+            } else $schema['enum'] = $enum;
+        }
         if (isset($schema['type']) && array_diff((array)$schema['type'], self::TYPES)) $blockers[] = self::issue('unknown_schema_type', $path, '不支持的 Schema 类型');
         if (isset($schema['$ref']) && !str_starts_with((string)$schema['$ref'], '#/')) $blockers[] = self::issue('external_schema_reference', $path, '不支持外部 Schema 引用');
         foreach ($schema['properties'] ?? [] as $name => $rule) {
             if (self::sensitiveName((string)$name)) $blockers[] = self::issue('private_schema_field', $path . '.' . $name, '输入结构含平台内部或凭据字段');
-            if (is_array($rule)) self::inspect($rule, $path . '.' . $name, $blockers, $depth + 1);
+            if (is_array($rule)) self::inspect($schema['properties'][$name], $path . '.' . $name, $blockers, $depth + 1);
             else $blockers[] = self::issue('invalid_schema_field', $path . '.' . $name, '字段结构无效');
         }
+        foreach (['$defs', 'definitions', 'patternProperties'] as $key) foreach ($schema[$key] ?? [] as $name => $rule) if (is_array($rule)) self::inspect($schema[$key][$name], $path . '.' . $key . '.' . $name, $blockers, $depth + 1);
         foreach (['items', 'additionalProperties', 'not'] as $key) if (isset($schema[$key]) && is_array($schema[$key])) self::inspect($schema[$key], $path . '.' . $key, $blockers, $depth + 1);
-        foreach (['oneOf', 'anyOf', 'allOf'] as $key) foreach ($schema[$key] ?? [] as $i => $rule) if (is_array($rule)) self::inspect($rule, $path . '.' . $key . '.' . $i, $blockers, $depth + 1);
+        foreach (['oneOf', 'anyOf', 'allOf'] as $key) foreach ($schema[$key] ?? [] as $i => $rule) if (is_array($rule)) self::inspect($schema[$key][$i], $path . '.' . $key . '.' . $i, $blockers, $depth + 1);
     }
 
     public static function sensitiveName(string $name): bool
