@@ -166,8 +166,8 @@ final class OpenManagement
         if(!empty($filters['path']))$q->whereLike('path','%'.mb_substr((string)$filters['path'],0,255).'%');
         if(!empty($filters['task_id']))$q->where(function($sub)use($filters){$sub->where('tool_task_id',(string)$filters['task_id'])->whereOr('upstream_task_id',(string)$filters['task_id']);});
         if(!empty($filters['start']))$q->where('create_time','>=',(int)$filters['start']);if(!empty($filters['end']))$q->where('create_time','<=',(int)$filters['end']);
-        if(!empty($filters['tasks']))$q->where('method','POST')->whereNotLike('path','%/cancel')->where(function($q){$q->where('tool_task_id','<>','')->whereOr('upstream_task_id','<>','');});
-        if(!empty($filters['exceptions']))$q->whereIn('billing_status',['pending_confirmation','pending_usage','settlement_failed']);
+        if(filter_var($filters['tasks']??false,FILTER_VALIDATE_BOOLEAN))$q->where('method','POST')->whereNotLike('path','%/cancel')->where(function($q){$q->where('tool_task_id','<>','')->whereOr('upstream_task_id','<>','');});
+        if(filter_var($filters['exceptions']??false,FILTER_VALIDATE_BOOLEAN))$q->whereIn('billing_status',['pending_confirmation','pending_usage','settlement_failed']);
         $count=(clone $q)->count();$rows=$q->withoutField('response_blob,snapshot,idempotency_hash,payload_hash,lease_token')->order('id','desc')->page(max(1,(int)($filters['page_no']??1)),min(100,max(1,(int)($filters['page_size']??20))))->select()->toArray();
         if($userId!==null)foreach($rows as &$row){unset($row['budget_tenant'],$row['actual_tenant']);$row['consumption_ids']=OpenStore::json($row['consumption_ids']);}
         if($userId===null)foreach($rows as &$adminRow){$adminRow['platform_scope']=$platform;if(!$platform)unset($adminRow['upstream_task_id']);$adminRow['error_message']=$adminRow['error_code']!==''?'错误详情请结合关联记录核对。':'';}unset($adminRow);
