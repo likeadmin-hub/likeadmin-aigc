@@ -30,9 +30,9 @@ final class ShortDramaScriptGeneration
         $callLimit = $auditReserve ? 46 : 48;
         $outputLimit = $auditReserve ? 183808 : 192000;
         $call = static function (string $key, array $input, int $desired = 8192, ?callable $validate = null) use (&$receipts, &$calls, &$reservedOutput, &$model, &$rejected, $provider, $callLimit, $outputLimit, $boundedMemory): array {
-            unset($input['_stage_content']);
             if (++$calls > $callLimit) throw new RuntimeException('本集已达到自动处理上限，已保留完成内容，请缩小生成范围', 429);
             $budget = ShortDramaPlanningBudget::fitMessages($input, $model, 'script', $desired, $boundedMemory);
+            unset($input['_stage_content']);
             $reservedOutput += $budget['max_tokens'];
             if ($reservedOutput > $outputLimit) throw new RuntimeException('本集自动生成预算已达上限，已完成内容保留，请缩小范围后继续', 429);
             ShortDramaPlanningUnit::supersede($rejected); $rejected = [];
