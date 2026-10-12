@@ -86,7 +86,7 @@ class UserLogic extends BaseLogic
      * @author 段誉
      * @date 2022/9/20 19:45
      */
-    public static function info(int $userId)
+    public static function info(int $userId, int $tenantId = 0)
     {
         $user = User::where(['id' => $userId])
             ->field('id,sn,sex,account,password,nickname,real_name,avatar,mobile,create_time,user_money')
@@ -95,6 +95,8 @@ class UserLogic extends BaseLogic
         $user['has_auth'] = self::hasWechatAuth($userId);
         foreach (self::wechatBindingStatus($userId) as $key => $value) $user[$key] = $value;
         foreach ((new \app\api\service\PcWechatService())->bindingStatus($userId) as $key => $value) $user[$key] = $value;
+        foreach (MembershipService::status($tenantId, $userId) as $key => $value) $user[$key] = $value;
+        $user['distribution_enabled'] = DistributionService::isEnabled($tenantId) ? 1 : 0;
         $user['version'] = config('project.version');
         $user->hidden(['password']);
         return $user->toArray();

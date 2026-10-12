@@ -4,7 +4,7 @@ namespace think;
 
 // 命令行入口文件
 // 加载基础文件
-require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/runtime-loader.php';
 
 // 应用初始化
-(new App())->console->run();
+(new \AigcRuntimeApp(__DIR__))->console->run();

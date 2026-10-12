@@ -23,7 +23,7 @@ class AigcVideoTaskModelDisplayContractTest extends TestCase
     {
         $root = dirname(__DIR__, 2);
         $service = (string)file_get_contents($root . '/app/common/service/app/aigc_video/AigcVideoService.php');
-        $bundle = (string)file_get_contents($root . '/public/admin/assets/task-Dg4_gLl-.js');
+        $bundle = (string)\Tests\Support\CompiledAssets::vitePage('admin', 'apps/aigc_video/task');
 
         self::assertStringContainsString('self::appendTaskModelDisplay($row);', $service);
         self::assertStringContainsString('self::appendTaskModelDisplay($data);', $service);

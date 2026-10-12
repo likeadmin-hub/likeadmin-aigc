@@ -33,15 +33,17 @@ class MembershipProfileContractTest extends TestCase
         $service = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/membership/MembershipService.php');
         $userLogic = file_get_contents(dirname(__DIR__, 2) . '/app/api/logic/UserLogic.php');
         $userController = file_get_contents(dirname(__DIR__, 2) . '/app/api/controller/UserController.php');
-        $sidebar = file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/ai-sidebar.50b22e69.js');
+        $sidebar = \Tests\Support\CompiledAssets::containing('pc', 'ai-user-membership');
 
         $this->assertStringContainsString("'is_member'", $service);
         foreach (['member_status_text', 'membership_plan', 'member_cycle_text', 'member_expire_time_text'] as $field) {
             $this->assertStringContainsString("'{$field}'", $service);
             $this->assertStringContainsString($field, $sidebar);
         }
-        $this->assertStringContainsString('MembershipService::status($tenantId, $userId)', $userLogic);
-        $this->assertStringContainsString('UserLogic::info($this->userId,', $userController);
+        $this->assertStringContainsString("MembershipService::status((int)(\$userInfo['tenant_id'] ?? 0), (int)\$userInfo['user_id'])", $userLogic);
+        $this->assertStringContainsString('UserLogic::center($this->userInfo)', $userController);
+        $this->assertStringContainsString("UserLogic::info(\$this->userId, (int)(\$this->userInfo['tenant_id'] ?? 0))", $userController);
+        $this->assertStringContainsString('getUserCenter()', \Tests\Support\CompiledAssets::source('pc/stores/user.ts'));
         $this->assertStringContainsString('ai-user-membership', $sidebar);
     }
 

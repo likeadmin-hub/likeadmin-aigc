@@ -10964,7 +10964,8 @@ class AigcShortDramaService
         if (!function_exists('exec')) {
             return '';
         }
-        $runtimeBinary = dirname(__DIR__, 5) . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . 'ffmpeg' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . (DIRECTORY_SEPARATOR === '\\' ? 'ffmpeg.exe' : 'ffmpeg');
+        $siteRoot = $GLOBALS['AIGC_RUNTIME_SITE_ROOT'] ?? (function_exists('root_path') ? root_path() : dirname(__DIR__, 5));
+        $runtimeBinary = rtrim($siteRoot, '\\/') . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . 'ffmpeg' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . (DIRECTORY_SEPARATOR === '\\' ? 'ffmpeg.exe' : 'ffmpeg');
         $candidates = array_merge([
             (string)env('ffmpeg_binary', ''),
             (string)env('ffmpeg.binary', ''),

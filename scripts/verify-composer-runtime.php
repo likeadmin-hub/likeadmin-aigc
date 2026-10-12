@@ -7,8 +7,24 @@ declare(strict_types=1);
  * load the application bootstrap, so it can diagnose a broken vendor runtime.
  */
 $root = is_dir(__DIR__ . '/vendor') ? __DIR__ : dirname(__DIR__);
-$autoload = $root . '/vendor/autoload.php';
-$autoloadReal = $root . '/vendor/composer/autoload_real.php';
+$vendor = $root . '/vendor';
+$generation = 'canonical';
+$pointerFile = $root . '/.composer-runtime/current.json';
+if (!in_array('--canonical', $argv ?? [], true) && is_file($pointerFile)) {
+    $pointer = json_decode((string)file_get_contents($pointerFile), true);
+    $generation = (string)($pointer['generation'] ?? '');
+    if (($pointer['schema'] ?? null) !== 1 || !preg_match('/^(?:baseline|release)-[a-f0-9]{24,64}$/', $generation)) {
+        fwrite(STDERR, "Composer runtime pointer is invalid.\n"); exit(1);
+    }
+    $directory = $root . '/.composer-runtime/generations/' . $generation;
+    $metadata = json_decode((string)@file_get_contents($directory . '/generation.json'), true);
+    if (is_link($directory) || !is_array($metadata) || ($metadata['schema'] ?? null) !== 1) {
+        fwrite(STDERR, "Composer runtime generation is invalid.\n"); exit(1);
+    }
+    if (($metadata['vendor'] ?? '') !== 'site') $vendor = $directory . '/vendor';
+}
+$autoload = $vendor . '/autoload.php';
+$autoloadReal = $vendor . '/composer/autoload_real.php';
 
 foreach ([$autoload, $autoloadReal] as $path) {
     if (!is_file($path) || !is_readable($path)) {
@@ -29,4 +45,4 @@ if (empty($autoloadMatch[1]) || empty($autoloadRealMatch[1]) || $autoloadMatch[1
 }
 
 require $autoload;
-echo "Composer autoload runtime is valid.\n";
+echo "Composer autoload runtime is valid ({$generation}).\n";

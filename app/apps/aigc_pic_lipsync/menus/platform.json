@@ -5,29 +5,131 @@
     "source": "app",
     "type": "M",
     "name": "图片数字人",
-    "icon": "el-icon-Microphone",
+    "icon": "el-icon-User",
     "sort": 82,
     "perms": "",
     "paths": "aigc-pic-lipsync",
     "component": "",
     "children": [
       {
-        "source_menu_key": "aigc_pic_lipsync_config_platform",
+        "source_menu_key": "aigc_pic_lipsync_config",
         "type": "C",
         "name": "基础配置",
-        "sort": 40,
+        "sort": 90,
         "perms": "app.aigc_pic_lipsync.config/detail",
         "paths": "config",
-        "component": "apps/aigc_pic_lipsync/config"
+        "component": "apps/aigc_pic_lipsync/config",
+        "children": [
+          {
+            "source_menu_key": "aigc_pic_lipsync_config_setup",
+            "type": "A",
+            "name": "保存配置",
+            "perms": "app.aigc_pic_lipsync.config/setup",
+            "sort": 0
+          }
+        ]
       },
       {
-        "source_menu_key": "aigc_pic_lipsync_task_platform",
+        "source_menu_key": "aigc_pic_lipsync_task",
         "type": "C",
         "name": "任务记录",
-        "sort": 10,
+        "sort": 85,
         "perms": "app.aigc_pic_lipsync.task/lists",
         "paths": "task",
-        "component": "apps/aigc_pic_lipsync/task"
+        "component": "apps/aigc_pic_lipsync/task",
+        "children": [
+          {
+            "source_menu_key": "aigc_pic_lipsync_task_detail",
+            "type": "A",
+            "name": "查看详情",
+            "perms": "app.aigc_pic_lipsync.task/detail",
+            "sort": 0
+          },
+          {
+            "source_menu_key": "aigc_pic_lipsync_task_retry",
+            "type": "A",
+            "name": "重试",
+            "perms": "app.aigc_pic_lipsync.task/retry",
+            "sort": 0
+          },
+          {
+            "source_menu_key": "aigc_pic_lipsync_task_delete",
+            "type": "A",
+            "name": "删除",
+            "perms": "app.aigc_pic_lipsync.task/delete",
+            "sort": 0
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_pic_lipsync_stat",
+        "type": "C",
+        "name": "应用统计",
+        "sort": 80,
+        "perms": "app.aigc_pic_lipsync.admin/stat",
+        "paths": "stat",
+        "component": "apps/aigc_pic_lipsync/stat",
+        "children": []
+      },
+      {
+        "source_menu_key": "aigc_pic_lipsync_tenant-usage",
+        "type": "C",
+        "name": "租户用量",
+        "sort": 75,
+        "perms": "app.aigc_pic_lipsync.admin/tenants",
+        "paths": "tenant-usage",
+        "component": "apps/aigc_pic_lipsync/tenant-usage",
+        "children": []
+      },
+      {
+        "source_menu_key": "aigc_pic_lipsync_public-avatar",
+        "type": "C",
+        "name": "公共形象",
+        "sort": 70,
+        "perms": "app.aigc_pic_lipsync.public_avatar/lists",
+        "paths": "public-avatar",
+        "component": "apps/aigc_pic_lipsync/public-avatar",
+        "children": [
+          {
+            "source_menu_key": "aigc_pic_lipsync_public_avatar_save",
+            "type": "A",
+            "name": "保存",
+            "perms": "app.aigc_pic_lipsync.public_avatar/save",
+            "sort": 0
+          },
+          {
+            "source_menu_key": "aigc_pic_lipsync_public_avatar_delete",
+            "type": "A",
+            "name": "删除",
+            "perms": "app.aigc_pic_lipsync.public_avatar/delete",
+            "sort": 0
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_pic_lipsync_public-voice",
+        "type": "C",
+        "name": "公共音色",
+        "sort": 65,
+        "perms": "app.aigc_pic_lipsync.public_voice/lists",
+        "paths": "public-voice",
+        "component": "apps/aigc_pic_lipsync/public-voice",
+        "children": [
+          {
+            "source_menu_key": "aigc_pic_lipsync_public_voice_save",
+            "type": "A",
+            "name": "保存",
+            "perms": "app.aigc_pic_lipsync.public_voice/save",
+            "sort": 0
+          },
+          {
+            "source_menu_key": "aigc_pic_lipsync_public_voice_delete",
+            "type": "A",
+            "name": "删除",
+            "perms": "app.aigc_pic_lipsync.public_voice/delete",
+            "sort": 0
+          }
+        ]
       }
     ]
   }

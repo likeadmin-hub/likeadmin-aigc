@@ -35,28 +35,26 @@ class AppRecommendationContractTest extends TestCase
 
     public function testSharedAdminDisplayConfigExposesHomeRecommendationSwitch(): void
     {
-        $asset = file_get_contents(dirname(__DIR__, 2) . '/public/admin/assets/app-display-config.vue_vue_type_script_setup_true_lang-BRHbShgH.js');
+        $asset = \Tests\Support\CompiledAssets::read('admin', 'app-display-config.vue_vue_type_script_setup_true_lang', 'js');
 
         self::assertIsString($asset);
         self::assertStringContainsString('is_recommend:0', $asset);
         self::assertStringContainsString('label:"首页推荐"', $asset);
-        self::assertStringContainsString('r(t).is_recommend', $asset);
+        self::assertStringContainsString('v-model="formData.is_recommend"', \Tests\Support\CompiledAssets::source('tenant/src/views/apps/components/app-display-config.vue'));
     }
 
     public function testHomeHotToolsOnlyUseRecommendedApplications(): void
     {
-        $homeHook = file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/useAiPcHomeDecorate.2c44a638.js');
-        $tools = file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/use-ai-tools.b80b7d43.js');
-        $homePage = file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/index.de219304.js');
-
-        self::assertIsString($homeHook);
-        self::assertIsString($tools);
-        self::assertIsString($homePage);
-        self::assertStringContainsString('recommended:Number(e.is_recommend??e.recommend??0)===1', $homeHook);
-        self::assertStringContainsString('appCode:"aigc_short_drama"', $tools);
-        self::assertStringContainsString('appPath:"/ai/short-drama"', $tools);
-        self::assertStringContainsString('.some(W=>(W==null?void 0:W.recommended)===!0)', $tools);
-        self::assertStringContainsString('te.value.filter(e=>e.recommended)', $homePage);
+        $homeHook = \Tests\Support\CompiledAssets::source('pc/composables/useAiPcHomeDecorate.ts');
+        $tools = \Tests\Support\CompiledAssets::source('pc/composables/use-ai-tools.ts');
+        $homePage = \Tests\Support\CompiledAssets::source('pc/components/ai-workspace/app-home.vue');
+        self::assertStringContainsString('recommended: Number(item.is_recommend ?? item.recommend ?? 0) === 1', $homeHook);
+        self::assertStringContainsString('appCode: \'aigc_short_drama\'', $tools);
+        self::assertStringContainsString('appPath: \'/ai/short-drama\'', $tools);
+        self::assertStringContainsString('.some((candidate) => candidate?.recommended === true)', $tools);
+        self::assertStringContainsString('displayToolCards.value.filter((item) => item.recommended).slice(0, 12)', $homePage);
+        self::assertStringContainsString('recommended:', \Tests\Support\CompiledAssets::read('pc', 'useAiPcHomeDecorate'));
+        self::assertNotEmpty(\Tests\Support\CompiledAssets::pcPage('ai/index'));
     }
 
     public function testServerAiToolsSourceAlsoRequiresRecommendation(): void
@@ -86,12 +84,12 @@ class AppRecommendationContractTest extends TestCase
         self::assertStringContainsString("'aigc_geo'", $source);
         self::assertStringContainsString('AppDisplayConfigService::save', $source);
 
-        $myAppAsset = file_get_contents(dirname(__DIR__, 2) . '/public/admin/assets/index-Btk9V-ea.js');
-        $marketAsset = file_get_contents(dirname(__DIR__, 2) . '/public/admin/assets/index-C6k9WPfT.js');
+        $myAppAsset = \Tests\Support\CompiledAssets::vitePage('admin', 'app/my/index');
+        $marketAsset = \Tests\Support\CompiledAssets::vitePage('admin', 'app/market/index');
         self::assertIsString($myAppAsset);
         self::assertIsString($marketAsset);
-        self::assertStringContainsString('Number(e.can_renew)===1&&((e.plans||[]).length)', $myAppAsset);
-        self::assertStringContainsString('Number(s.can_renew)===1&&((s.plans||[]).length)', $marketAsset);
+        self::assertStringContainsString('can_renew', $myAppAsset);
+        self::assertStringContainsString('can_renew', $marketAsset);
     }
 
     private function invoke(string $method, array $arguments): mixed

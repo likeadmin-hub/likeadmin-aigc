@@ -69,7 +69,7 @@ class AppPackageUpdateService
     {
         $package = $this->getPackage($packageId);
         $extractor = new PackageExtractService();
-        $preflight = $extractor->preflight((string)$package['local_path'], root_path() . 'app/apps', (int)$package['package_size']);
+        $preflight = $extractor->preflight((string)$package['local_path'], base_path() . 'apps', (int)$package['package_size']);
         if (!$preflight['passed']) {
             return $this->savePreflight($package, $preflight);
         }
@@ -160,58 +160,8 @@ class AppPackageUpdateService
             $manifest = $this->readManifest($extractPath);
             AppRegistryService::assertCoreCompatible($manifest);
             $appCode = (string)$manifest['code'];
-            AppRegistryService::installPublicAssets($manifest, $extractPath);
-            $target = root_path() . 'app/apps/' . $appCode;
-            // Keep the compiled frontend bridge in the installed app directory. The
-            // registry installs declared public assets again after this copy.
-            $this->copyDirectory($extractPath, $target);
-            $this->runSqlMigrations($target . '/migrations', $appCode, (string)$manifest['version']);
-            $installed = App::where('code', $appCode)->findOrEmpty();
-            $tenantStates = TenantApp::where('app_code', $appCode)->select()->toArray();
-            $result = AppRegistryService::installFromLocal($appCode);
-            foreach ($tenantStates as $row) {
-                if (DefaultAppService::isDefaultApp($appCode)) {
-                    continue;
-                }
-                TenantApp::where(['tenant_id' => $row['tenant_id'], 'app_code' => $appCode])->update([
-                    'buy_status' => $row['buy_status'],
-                    'enable_status' => $row['enable_status'],
-                    'shelf_status' => $row['shelf_status'],
-                    'expire_time' => $row['expire_time'],
-                    'update_time' => time(),
-                ]);
-            }
-            if (!$installed->isEmpty()) {
-                if (DefaultAppService::isDefaultApp($appCode)) {
-                    App::where('code', $appCode)->update([
-                        'is_builtin' => 1,
-                        'expire_policy' => 'allow',
-                        'status' => AppRegistryService::STATUS_INSTALLED,
-                        'update_time' => time(),
-                    ]);
-                } else {
-                    $previousStatus = (string)($installed['status'] ?? '');
-                    App::where('code', $appCode)->update([
-                        'status' => $previousStatus !== AppRegistryService::STATUS_REMOVED && $previousStatus !== ''
-                            ? $previousStatus
-                            : AppRegistryService::STATUS_INSTALLED,
-                        'update_time' => time(),
-                    ]);
-                }
-            }
-            if (DefaultAppService::isDefaultApp($appCode)) {
-                DefaultAppService::syncAllTenants($appCode);
-            }
-            AppVersion::where(['app_code' => $appCode, 'version' => $manifest['version']])->update([
-                'package_path' => $package['local_path'],
-            ]);
-            $package->save([
-                'status' => 'applied',
-                'error' => '',
-                'update_time' => time(),
-            ]);
-            $this->finishTask($task, 'success', $result);
-            return $result;
+            if(is_file(root_path().'.composer-runtime/current.json'))return $this->applyRuntimePackage($package,$task,$extractPath,$manifest);
+            return $this->installVerifiedApp($package,$task,$extractPath,$manifest,false);
         } catch (Throwable $e) {
             $package->save([
                 'status' => 'apply_failed',
@@ -223,6 +173,113 @@ class AppPackageUpdateService
         } finally {
             $this->releaseLock($lock);
         }
+    }
+
+    private function installVerifiedApp(UpdatePackage $package, UpdateTask $task, string $extractPath, array $manifest, bool $runtime): array
+    {
+        $appCode = (string)$manifest['code'];
+        AppRegistryService::installPublicAssets($manifest, $extractPath);
+        $target = base_path() . 'apps/' . $appCode;
+        if (!$runtime) {
+            $this->copyDirectory($extractPath, $target);
+            $this->runSqlMigrations($target . '/migrations', $appCode, (string)$manifest['version']);
+        }
+        $installed = App::where('code', $appCode)->findOrEmpty();
+        $tenantStates = TenantApp::where('app_code', $appCode)->select()->toArray();
+        $result = AppRegistryService::installFromLocal($appCode);
+        foreach ($tenantStates as $row) {
+            if (DefaultAppService::isDefaultApp($appCode)) continue;
+            TenantApp::where(['tenant_id' => $row['tenant_id'], 'app_code' => $appCode])->update([
+                'buy_status' => $row['buy_status'],
+                'enable_status' => $row['enable_status'],
+                'shelf_status' => $row['shelf_status'],
+                'expire_time' => $row['expire_time'],
+                'update_time' => time(),
+            ]);
+        }
+        if (!$installed->isEmpty()) {
+            if (DefaultAppService::isDefaultApp($appCode)) {
+                App::where('code', $appCode)->update([
+                    'is_builtin' => 1, 'expire_policy' => 'allow',
+                    'status' => AppRegistryService::STATUS_INSTALLED, 'update_time' => time(),
+                ]);
+            } else {
+                $previousStatus = (string)($installed['status'] ?? '');
+                App::where('code', $appCode)->update([
+                    'status' => $previousStatus !== AppRegistryService::STATUS_REMOVED && $previousStatus !== ''
+                        ? $previousStatus : AppRegistryService::STATUS_INSTALLED,
+                    'update_time' => time(),
+                ]);
+            }
+        }
+        if (DefaultAppService::isDefaultApp($appCode)) DefaultAppService::syncAllTenants($appCode);
+        AppVersion::where(['app_code' => $appCode, 'version' => $manifest['version']])->update(['package_path' => $package['local_path']]);
+        $package->save(['status' => 'applied', 'error' => '', 'update_time' => time()]);
+        $this->finishTask($task, 'success', $result);
+        return $result;
+    }
+
+    private function applyRuntimePackage(UpdatePackage $package, UpdateTask $task, string $extractPath, array $manifest): array
+    {
+        // Reauthorize from the original archive. A stale preflight workspace is not a signed source.
+        if(!hash_equals((string)$package['sha256'],(string)hash_file('sha256',(string)$package['local_path'])))throw new RuntimeException('应用更新包已改变');
+        $extractor=new PackageExtractService();$fresh=$extractor->extract((string)$package['local_path'],(string)$package['format']);
+        if(($fresh['extract_status']??'')!=='success')throw new RuntimeException('应用更新包解压失败');
+        $extractPath=$fresh['path'];$extractor->verifySignatureManifest($extractPath);
+        $verified=$this->readManifest($extractPath);
+        if($verified!==$manifest)throw new RuntimeException('应用包预检内容与签名档案不同');
+        $stage=runtime_path().'update_workspace/app-generation-'.bin2hex(random_bytes(8));
+        $code=(string)$manifest['code'];$this->copyDirectory($extractPath,$stage.'/files/app/apps/'.$code);
+        $version=UpdateSourceClient::currentCoreVersion();
+        $next=['version'=>$version,'package_mode'=>'incremental','base_version'=>$version,'full_replace_dirs'=>[],'delete_files'=>[]];
+        $hashes=[];
+        foreach(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($stage,\FilesystemIterator::SKIP_DOTS)) as $file)$hashes[substr($file->getPathname(),strlen($stage)+1)]=hash_file('sha256',$file->getPathname());
+        $operationPath=runtime_path().'update_workspace/app-operation-'.(int)$package['id'].'.json';
+        $operation=is_file($operationPath)?json_decode((string)file_get_contents($operationPath),true):null;
+        if(!is_array($operation)){
+            $operation=['package_id'=>(int)$package['id'],'first_task_id'=>(int)$task['id'],'archive_sha256'=>(string)$package['sha256'],'base_pointer'=>json_decode((string)file_get_contents(root_path().'.composer-runtime/current.json'),true)];
+            if(file_put_contents($operationPath,json_encode($operation,JSON_THROW_ON_ERROR),LOCK_EX)===false)throw new RuntimeException('无法记录应用更新操作');
+        }
+        if(($operation['archive_sha256']??'')!==$package['sha256'])throw new RuntimeException('应用更新操作绑定已改变');
+        $signature=['sha256'=>$hashes,'runtime_app_operation'=>$operation];
+        file_put_contents($stage.'/signature.json',json_encode($signature,JSON_THROW_ON_ERROR));
+        $binding=['kind'=>'app','package_id'=>(int)$package['id'],'task_id'=>(int)$task['id'],'context'=>array_intersect_key($_SERVER,array_flip(['HTTP_HOST','SERVER_NAME','SERVER_ADDR','SERVER_PORT','HTTPS']))];
+        $encoded=json_encode($binding,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+        $manager=new ComposerRuntimeUpdateService(rtrim(root_path(),'/'));
+        $result=$manager->apply($stage,$next,[
+            'immutable_code'=>true,'bootstrap_context'=>$binding,
+            'sql'=>fn(string $generation)=>$manager->bootstrapChild(['--app-runtime-prepare',$generation,$extractPath,$encoded]),
+            'files'=>fn()=>null,'finalize'=>fn()=>[],'marker'=>fn()=>null,
+            'complete'=>fn(string $generation)=>$manager->bootstrapChild(['--app-runtime-complete',$generation,$extractPath,$encoded])['completion'],
+        ]);
+        return $result['completion'];
+    }
+
+    public function prepareRuntimeAppPackage(string $extractPath, array $binding): array
+    {
+        if(PHP_SAPI!=='cli'||empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE']))throw new RuntimeException('应用运行时只能由隔离更新进程准备');
+        \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
+        $manifest=$this->readManifest($extractPath);$code=(string)$manifest['code'];
+        AppRegistryService::prepareRuntimeMigrations($code,(string)$manifest['version']);
+        \app\common\service\billing\PackageProvisionService::prepareRuntimeSchema();
+        return ['prepared'=>true];
+    }
+
+    public function completeRuntimeAppPackage(string $extractPath, array $binding): array
+    {
+        if(PHP_SAPI!=='cli'||empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE']))throw new RuntimeException('应用运行时只能由隔离更新进程完成');
+        $package=$this->getPackage((int)$binding['package_id']);
+        $task=UpdateTask::where(['id'=>(int)$binding['task_id'],'package_id'=>(int)$package['id'],'status'=>'running'])->findOrEmpty();
+        if($task->isEmpty())throw new RuntimeException('应用运行时任务绑定无效');
+        \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
+        $manifest=$this->readManifest($extractPath);Db::startTrans();
+        try {
+            $result=$this->installVerifiedApp($package,$task,$extractPath,$manifest,true);
+            $result['composer_runtime']=['generation'=>$GLOBALS['AIGC_RUNTIME_GENERATION']];
+            $this->finishTask($task,'success',$result);
+            if(!Db::connect()->getPdo()->inTransaction())throw new RuntimeException('应用元数据事务被隐式提交');
+            Db::commit();return $result;
+        }catch(Throwable $e){Db::rollback();throw $e;}
     }
 
     private function downloadWithFallback(array $data): array

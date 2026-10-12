@@ -55,11 +55,26 @@ LikeAdmin AIGC SaaS 不是一套普通后台，而是一套可部署、可更新
 ## 运行环境
 
 - Linux / 宝塔 / Docker 均可部署，推荐 Nginx + PHP-FPM。
-- PHP >= 8.0，需启用 `curl`、`zip`、`fileinfo`、`openssl`、`mbstring`、`pdo_mysql`、`iconv` 等扩展。
+- PHP 8.2，为当前部署与验收基线，也是 Composer 声明的最低版本。网站、任务守护进程和计划任务均须切换至 PHP 8.2。
+- 网站 PHP-FPM、任务 Worker、定时任务和 Composer CLI 均须使用匹配的 PHP 8.2 环境。共享宝塔服务器通过本项目的绝对 PHP 路径指定版本，保留其他项目使用的全局 PHP 配置。
+- 需启用 `curl`、`zip`、`fileinfo`、`openssl`、`mbstring`、`pdo_mysql`、`iconv`、`gd`、`bcmath`、`dom`、`xml`、`xmlreader`、`xmlwriter` 等依赖扩展；使用 Redis 缓存时还需 `redis`。CLI Worker 应支持 `pcntl` 信号处理，以便停止时等待当前处理流程。
 - MySQL >= 5.7 或 MariaDB >= 10.3，字符集建议 `utf8mb4`。
-- Composer 2.x。
+- Composer 2.x（源码安装使用）；完整安装包已包含配套依赖，在线升级会自动部署依赖，无需在客户服务器运行 Composer。
+- 在线依赖升级需要网站允许 `proc_open`，并能启动本项目的 PHP 8.2 CLI。更新器会检查 CLI 扩展、写入权限与配套依赖，验证通过后再切换运行代码。
 - Web 目录指向 `server/public`。
 - 需要在线更新和解压更新包时，服务器需支持 `ZipArchive`，或安装 `unzip` / `7z` / `tar` 命令之一。
+
+### 短剧 Agent 运行依赖
+
+短剧画布 Agent 使用锁文件指定的 `neuron-core/neuron-ai` 4.1.9 PHP SDK，无需安装 Deep Agents、Python 解释器或 Python requirements。平台原有模型路由、内容审核、计费和任务状态流程继续由现有业务服务负责。
+
+代码、`composer.lock` 和匹配的 `vendor` 必须一起部署，不能通过 `--ignore-platform-reqs` 在 PHP 8.0 上启动。新接收的对话使用 `neuron_v1`；历史 `deepagents_v1` 快照由 PHP 兼容桥接处理，队列未排空时不能移除该兼容代码或依赖。
+
+启用短剧画布前，先完成应用安装和对应升级迁移，确认 `aigc_short_drama_canvas_page`、`aigc_short_drama_canvas_production` 两张表存在；缺少时依次应用 `upgrade_20261009_canvas_pages.sql`、`upgrade_20261009_canvas_production.sql`。自定义表前缀需同步调整 SQL。
+
+已安装 1.0.390 的站点可直接在线升级至完整 1.0.391。升级前先切换本项目网站至 PHP 8.2，停用对应任务守护和计划任务的自动拉起，等待在途任务完成并停止旧进程；升级成功后，用 PHP 8.2 重新启动本项目任务进程。更新器自动交付锁定的依赖，其他站点与全局 PHP 配置保持原样。详细步骤见 [1.0.391 更新说明](docs/releases/1.0.391.md)。
+
+运行时与兼容说明见 [Neuron 运行时文档](docs/short-drama-neuron-runtime.md)；当前本地网站、守护入口和迁移状态见 [PHP 8.2 本地运行记录](docs/php82-local-runtime.md)。
 
 
 
@@ -97,6 +112,14 @@ server/
 ```bash
 cd /www/wwwroot/likeadmin_aigc_saas/server
 composer install --no-dev --optimize-autoloader
+composer check-platform-reqs --no-dev
+```
+
+上述命令要求 Composer 的 CLI PHP 已为 8.2。共享宝塔的全局 `php` 仍为旧版本时，使用本项目的 PHP 8.2 执行 Composer PHAR（将 `/path/to/composer.phar` 替换为实际路径），不要为了本项目修改其他项目依赖的全局 PHP：
+
+```bash
+/www/server/php/82/bin/php /path/to/composer.phar install --no-dev --optimize-autoloader
+/www/server/php/82/bin/php /path/to/composer.phar check-platform-reqs --no-dev
 ```
 
 1. 配置目录权限：
@@ -142,6 +165,14 @@ mysql --default-character-set=utf8mb4 -uroot -p likeadmin_aigc_saas < public/ins
 ```bash
 mysql --default-character-set=utf8mb4 -uroot -p likeadmin_aigc_saas < public/upgrade/20261001_install_schema_parity.sql
 ```
+
+若结果守护进程启动时报短剧画布任务表不存在（例如 `aigc_short_drama_canvas_poster_job`），先备份数据库，再补齐短剧任务结构。无需重装、删除任务或重放全部历史升级脚本：
+
+```bash
+mysql --default-character-set=utf8mb4 -uroot -p likeadmin_aigc_saas < public/upgrade/20261011_short_drama_worker_schema.sql
+```
+
+该修复可重复执行，保留现有任务、租约、租户配置和应用状态；旧站点先执行前面的基础结构修复，再执行此短剧修复，完成后重启本项目对应守护进程。自定义表前缀需同时替换脚本中的反引号表名和单引号元数据表名里的 `la_`。全新安装的 `like.sql` 已包含这些结构，新租户共用带 `tenant_id` 的应用表，无需重复创建。
 
 该脚本补齐表结构和核心操作权限，不会开通应用或覆盖租户自定义菜单。应用专属升级仍应先通过应用中心安装对应应用，再按目标版本发布说明执行依赖它的 SQL；自定义数据库表前缀需先替换脚本中的 `la_`。
 
@@ -378,7 +409,7 @@ docker compose --env-file .env.docker up -d --force-recreate
 | `initialize`    | 首次数据库初始化，成功后退出            |
 
 
-PHP 镜像已经包含项目依赖的扩展、Composer 生产依赖和 FFmpeg。`runtime`、`public/uploads`、`public/storage`、`public/qrcode`、MySQL 和 Redis 数据均使用具名卷持久化。
+PHP 镜像基于 PHP 8.2，已经包含项目依赖的扩展、Composer 生产依赖和 FFmpeg。`runtime`、`public/uploads`、`public/storage`、`public/qrcode`、MySQL 和 Redis 数据均使用具名卷持久化。
 
 镜像构建时会准备应用静态资源和后台、PC 的脚本入口，PHP 与 Nginx 使用同一份资源。Compose 设置 `LIKEADMIN_IMMUTABLE_ASSETS=1`：应用中心安装已有应用时复用镜像内资源；若缺少资源或脚本入口，会提示更新代码并重建镜像。新增应用包、应用前端升级和系统更新都需要重建镜像，不能在只读容器中动态替换代码。宝塔等可写部署仍按应用包更新资源。
 
@@ -441,8 +472,9 @@ docker compose --env-file .env.docker ps -a
 
 ### 宝塔部署提示
 
-- PHP 版本选择 8.0 或更高，并启用项目所需扩展。
+- 本站 PHP 版本选择 8.2，并启用项目所需扩展；对应 Worker 和计划任务也要使用 `/www/server/php/82/bin/php`，仅切换网站版本不会改变 CLI 进程。
 - Web 根目录必须指向 `server/public`，不能暴露服务端根目录。
+- 平台和租户后台使用 history 路由；已有宝塔站点需单独加载 `public/nginx.htaccess` 中对应的 server 级回退规则，前端更新不会自动修改站点配置。租户后台刷新 404 的处理与验证见 [部署说明](docs/admin-refresh-routing.md)。
 - 生产环境保持 `APP_DEBUG = false`。
 - 使用后台在线更新时，PHP 进程必须能够写入 `server`、`runtime`、`upgrade` 和前端构建目录。
 
@@ -455,7 +487,7 @@ docker compose --env-file .env.docker ps -a
 首次启用前，请先完成当前系统版本的升级 SQL，再配置 Worker。Worker 命令为：
 
 ```bash
-php think ai:task-worker --worker=result --sleep=1 --lease=90 --batch=20
+/www/server/php/82/bin/php think ai:task-worker --worker=result --sleep=1 --lease=90 --batch=20
 ```
 
 生产环境建议使用项目自带启动脚本，而不是直接在宝塔中填写上述 PHP 命令：
@@ -464,11 +496,13 @@ php think ai:task-worker --worker=result --sleep=1 --lease=90 --batch=20
 /www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh
 ```
 
-脚本每次启动都会停止同一项目遗留的 Worker，再以当前 PHP 进程统一启动结果、短剧分集、规划、短剧画布 Agent 和画布子 Agent 队列，避免重复领取任务。宝塔中只配置这一条守护命令，不要为任一子 Worker 再建额外守护项。默认 PHP 路径为 `/www/server/php/80/bin/php`；若服务器使用其他 PHP 版本，请在宝塔守护命令前设置 `PHP_BIN`，例如：
+脚本每次启动都会停止同一项目遗留的 Worker，再统一启动结果、短剧分集、规划、短剧画布 Agent 和画布子 Agent 队列。宝塔中只配置这一条守护命令，不要为任一子 Worker 再建额外守护项。默认 PHP 路径为 `/www/server/php/82/bin/php`；安装路径不同时，通过 `PHP_BIN` 指向已通过平台检查的 PHP 8.2，例如：
 
 ```bash
-PHP_BIN=/www/server/php/81/bin/php /www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh
+PHP_BIN=/www/server/php/82/bin/php /bin/sh /www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh
 ```
+
+上述入口会启用五类队列。已有运行实例升级时，应先核对原 Worker 的应用过滤参数、运行中任务与租约，保留原领取范围，避免意外处理历史待执行任务。当前本地实例已使用独立 Supervisor 和 `scripts/start-project-supervisor.sh`，应按 [本地运行记录](docs/php82-local-runtime.md) 管理，不能同时启动另一套五队列入口。
 
 
 
@@ -526,10 +560,19 @@ kill -TERM "$(cat runtime/ai_task_worker.pid)"
 结果 Worker 是常驻进程；`ai:usage_reconcile` 仅用于账务和历史任务的补偿扫描，建议保留宝塔计划任务每 5 分钟执行一次：
 
 ```bash
-*/5 * * * * /www/server/php/80/bin/php /www/wwwroot/likeadmin_aigc_saas/server/think ai:usage_reconcile >> /www/wwwroot/likeadmin_aigc_saas/server/runtime/log/ai_usage_reconcile.log 2>&1
+*/5 * * * * /www/server/php/82/bin/php /www/wwwroot/likeadmin_aigc_saas/server/think ai:usage_reconcile >> /www/wwwroot/likeadmin_aigc_saas/server/runtime/log/ai_usage_reconcile.log 2>&1
 ```
 
 不要用该计划任务替代常驻结果 Worker。
+
+系统定时任务的 `think crontab` 同样须使用 PHP 8.2。需要常驻循环时可由守护进程启动 `scripts/start-project-cron.sh`，默认使用本项目的 PHP 8.2，每轮完成后等待 60 秒。已有系统 cron 或 Docker scheduler 时，保留一个调度入口，避免重复运行。
+
+## 开发测试要求
+
+- 自动化 PHPUnit 测试使用 PHP 8.2 和包含测试依赖的开发环境。涉及数据库、缓存或任务写入时，优先使用独立的 MySQL/Redis 副本；不得把测试连接指向生产库或共享业务缓存。
+- 使用现有本地服务的短剧验收脚本，须遵循 [短剧 Agent 验收说明](app/apps/aigc_short_drama/tests/agent/README.md)，显式启用受限夹具并验证清理，不得重启或故障注入业务 Worker。
+- 默认使用受控 Provider；真实模型调用、素材、计费及取消退款验收需明确授权范围。模拟通过不代表真实 Provider 端到端通过。
+- 失败、跳过和未执行项必须如实记录，并与相同环境的替换前基线逐项比较；没有新增失败不代表全量通过。当前切换的已验证范围及剩余失败见运行记录，不得写成全部功能已验收。
 
 ## 更新与发布
 
@@ -546,16 +589,16 @@ kill -TERM "$(cat runtime/ai_task_worker.pid)"
 
 ```bash
 # 清理缓存
-php think clear
+/www/server/php/82/bin/php think clear
 
 # 发现服务
-php think service:discover
+/www/server/php/82/bin/php think service:discover
 
 # 重新发布扩展资源
-php think vendor:publish
+/www/server/php/82/bin/php think vendor:publish
 
 # 检查 PHP 语法
-php -l app/common/service/update/SystemPackageUpdateService.php
+/www/server/php/82/bin/php -l app/common/service/update/SystemPackageUpdateService.php
 ```
 
 

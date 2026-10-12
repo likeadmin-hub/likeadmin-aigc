@@ -43,6 +43,17 @@ class GeoAppContractTest extends TestCase
     {
         $base = $this->root . '/app/apps/aigc_geo';
         $signature = json_decode((string)file_get_contents($base . '/signature.json'), true, 512, JSON_THROW_ON_ERROR);
+
+        $payload = [];
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($base, \FilesystemIterator::SKIP_DOTS)) as $file) {
+            if (!$file->isFile()) continue;
+            $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($file->getPathname(), strlen($base) + 1));
+            if ($relative !== 'signature.json' && !preg_match('~(^|/)\.~', $relative)) $payload[] = $relative;
+        }
+        $indexed = array_keys($signature['sha256']);
+        sort($payload);
+        sort($indexed);
+        self::assertSame($payload, $indexed, 'Every installable payload file must be covered by the signature');
         foreach ($signature['sha256'] as $relative => $hash) {
             self::assertFileExists($base . '/' . $relative);
             self::assertSame($hash, hash_file('sha256', $base . '/' . $relative), $relative);

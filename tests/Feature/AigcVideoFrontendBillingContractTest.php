@@ -43,7 +43,9 @@ class AigcVideoFrontendBillingContractTest extends TestCase
 
     public function testUniappEstimateUsesSelectedSkuSecondBillingContract(): void
     {
-        $source = $this->sourceFile('/uniapp/src/apps/aigc_video/pages/index/index.vue');
+        $wrapper = $this->sourceFile('/uniapp/src/apps/aigc_video/pages/index/index.vue');
+        self::assertStringContainsString("import PageContent from './index-content.vue'", $wrapper);
+        $source = $this->sourceFile('/uniapp/src/apps/aigc_video/pages/index/index-content.vue');
 
         self::assertStringContainsString('const declaredSpecUnit', $source);
         self::assertStringContainsString('? [declaredSpecUnit]', $source);

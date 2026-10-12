@@ -25,10 +25,10 @@ class TenantPowerConsumeLogPresentationContractTest extends TestCase
 
     public function testAdminBundleShowsAContinuousPagedSequenceColumn(): void
     {
-        $bundle = (string)file_get_contents(dirname(__DIR__, 2) . '/public/admin/assets/consume_logs-CJUqGNzb.js');
+        $bundle = (string)\Tests\Support\CompiledAssets::read('admin', 'consume_logs', 'js');
 
         self::assertStringContainsString('label:"序号",type:"index"', $bundle);
-        self::assertStringContainsString('(Number(t(b).page)-1)*Number(t(b).size)+e+1', $bundle);
+        self::assertStringContainsString('(Number(pager.page) - 1) * Number(pager.size) + index + 1', \Tests\Support\CompiledAssets::source('tenant/src/views/power_mall/consume_logs.vue'));
     }
 
     private function formatTime($value): string

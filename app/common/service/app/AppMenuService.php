@@ -11,7 +11,7 @@ class AppMenuService
 {
     public static function syncPlatformMenus(string $appCode): void
     {
-        $path = root_path() . 'app/apps/' . $appCode . '/menus/platform.json';
+        $path = base_path() . 'apps/' . $appCode . '/menus/platform.json';
         if (!is_file($path)) {
             return;
         }
@@ -27,7 +27,7 @@ class AppMenuService
 
     public static function syncTenantMenus(int $tenantId, string $appCode): void
     {
-        $path = root_path() . 'app/apps/' . $appCode . '/menus/tenant.json';
+        $path = base_path() . 'apps/' . $appCode . '/menus/tenant.json';
         if (!is_file($path)) {
             return;
         }

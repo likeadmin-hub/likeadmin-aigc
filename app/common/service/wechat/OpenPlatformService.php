@@ -172,6 +172,7 @@ class OpenPlatformService
 
     public static function authUrl(?int $tenantId = null, ?string $authorizerType = null): array
     {
+        if ($authorizerType !== 'official') (new \app\common\service\license\MiniprogramAccessService())->assertEnabled();
         $status = self::configStatus();
         if (!$status['configured']) {
             throw new \RuntimeException('请先完善开放平台配置：缺少 ' . implode('、', $status['missing']));
@@ -209,6 +210,7 @@ class OpenPlatformService
     public static function authorizationLaunchPage(string $state): string
     {
         $auth = self::authState($state);
+        if (($auth['authorizer_type'] ?? '') !== 'official') (new \app\common\service\license\MiniprogramAccessService())->assertEnabled();
         $config = self::rawConfig();
         self::requireConfig($config, ['app_id']);
         $callback = self::callbackUrls($config)['authorization'];
@@ -1624,6 +1626,9 @@ class OpenPlatformService
         if ($tenantId !== null) {
             $query->where('tenant_id', $tenantId);
         }
+        if (!(new \app\common\service\license\MiniprogramAccessService())->enabled()) {
+            $query->where('authorizer_type', 'official');
+        }
         return $query->order('id desc')->select()->toArray();
     }
 
@@ -2493,6 +2498,7 @@ class OpenPlatformService
 
     public static function bindAuthorizer(int $tenantId, string $appid, string $type, array $profile = []): array
     {
+        if ($type === 'miniprogram') (new \app\common\service\license\MiniprogramAccessService())->assertEnabled();
         if ($appid === '' || !in_array($type, ['official', 'miniprogram'], true)) throw new \InvalidArgumentException('授权账号参数错误'); $existing = WechatAuthorizer::withoutGlobalScope()->where('authorizer_appid', $appid)->findOrEmpty(); if (!$existing->isEmpty() && (int)$existing['tenant_id'] !== $tenantId) throw new \RuntimeException('该账号已绑定其他租户');
         $active = WechatAuthorizer::withoutGlobalScope()->where(['tenant_id' => $tenantId, 'authorizer_type' => $type, 'authorization_status' => 1])->select(); foreach ($active as $item) if ((int)$item['id'] !== (int)($existing['id'] ?? 0)) $item->save(['authorization_status' => 0, 'unbind_time' => time(), 'update_time' => time()]);
         $payload = ['tenant_id' => $tenantId, 'authorizer_appid' => $appid, 'authorizer_type' => $type, 'authorization_status' => 1, 'last_sync_time' => time(), 'update_time' => time()];

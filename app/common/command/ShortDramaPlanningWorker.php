@@ -28,6 +28,10 @@ class ShortDramaPlanningWorker extends Command
         }
         do {
             \app\common\service\app\aigc_short_drama\ShortDramaWorkerMemory::release();
+                if (function_exists('aigc_runtime_generation_changed') && \aigc_runtime_generation_changed()) {
+                    $output->writeln('Runtime generation changed; worker drained and stopped.');
+                    break;
+                }
             try {
             $query = Db::name('aigc_short_drama_script_task')->where('delete_time', 0)->whereIn('status', ['pending', 'queued', 'running'])
                 ->whereRaw("JSON_VALID(request_json) AND COALESCE(JSON_EXTRACT(request_json, '$.episode_id'), 0) = 0")

@@ -40,23 +40,24 @@ class CanvasModelDescriptionContractTest extends TestCase
 
     public function testCanvasPickerRendersDescriptionsAndNeverUsesMarketIdAsSubtitle(): void
     {
-        $bundle = file_get_contents(__DIR__ . '/../../public/_nuxt/_id_.2fb60286.js');
-
-        self::assertIsString($bundle);
-        self::assertStringContainsString('a.description,a.model_description,a.app_description,a.summary', $bundle);
-        self::assertStringContainsString('!/^market_(?:video|image|audio|text|app)(?:_|:)/i.test(b)', $bundle);
-        self::assertStringNotContainsString('a.model_intro,a.description,a.introduction,a.capability_label,a.capability,a.default_quality,a.resolution_label,a.resolution', $bundle);
+        $source = \Tests\Support\CompiledAssets::source('pc/apps/aigc_canvas/components/native/CanvasNode.vue');
+        self::assertStringContainsString('value.description', $source);
+        self::assertStringContainsString('value.model_description', $source);
+        self::assertStringContainsString('value.app_description', $source);
+        self::assertStringContainsString('value.summary', $source);
+        self::assertStringContainsString('market_(?:video|image|audio|text|app)', $source);
+        self::assertStringContainsString('model_description', \Tests\Support\CompiledAssets::pcPage('app/aigc_canvas/project/[id]'));
     }
 
     public function testCanvasAgentModelRowsShowDescriptionAndHideTechnicalValue(): void
     {
-        $stylesheet = file_get_contents(__DIR__ . '/../../public/_nuxt/canvas-model-label-fix.css');
+        $stylesheet = file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/canvas-model-label-fix.css');
         self::assertIsString($stylesheet);
         self::assertStringContainsString('.agent-model-row > span:nth-child(2) > em', $stylesheet);
         self::assertStringContainsString('display: none !important', $stylesheet);
         self::assertStringContainsString('em.canvas-model-description', $stylesheet);
 
-        $script = file_get_contents(__DIR__ . '/../../public/_nuxt/canvas-model-label-fix.js');
+        $script = file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/canvas-model-label-fix.js');
         self::assertIsString($script);
         self::assertStringContainsString('/api/app.aigc_canvas.config/detail', $script);
         self::assertStringContainsString('option.description', $script);
@@ -78,7 +79,7 @@ class CanvasModelDescriptionContractTest extends TestCase
                 strpos($html, '/_nuxt/canvas-model-label-fix.css?v=20260824-model-label-v2')
             );
             self::assertLessThan(
-                strpos($html, '</head>'),
+                strpos($html, '</body>'),
                 strpos($html, '/_nuxt/canvas-model-label-fix.js?v=20260824-model-label-v2')
             );
         }

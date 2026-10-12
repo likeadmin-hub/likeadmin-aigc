@@ -57,7 +57,7 @@ class ShortDramaSameSceneCutsTest extends TestCase
         self::assertStringContainsString($camera, $prompt);
         $sound = new ReflectionMethod(AigcShortDramaService::class, 'readableShotSoundText');
         $sound->setAccessible(true);
-        self::assertStringContainsString('角色依次说话', $sound->invoke(null, $shot));
+        self::assertStringContainsString('甲说：“钥匙找到了吗？”；乙说：“在这里。”', $sound->invoke(null, $shot));
         self::assertStringNotContainsString('甲开口说：“甲', $sound->invoke(null, $shot));
     }
 }

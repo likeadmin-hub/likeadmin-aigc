@@ -90,343 +90,343 @@ COMMIT;
 -- Records of la_tenant_system_menu_{tenantSn}
 -- ----------------------------
 BEGIN;
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (4, {tenantId}, 0, 'M', '权限管理', 'el-icon-Lock', 300, '', 'permission', '', '', '', 0, 1, 0, 1656664556, 1710472802);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (5, {tenantId}, 0, 'C', '工作台', 'el-icon-Monitor', 1000, 'workbench/index', 'workbench', 'workbench/index', '', '', 0,
         1, 0, 1656664793, 1664354981);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (6, {tenantId}, 4, 'C', '菜单', 'el-icon-Operation', 100, 'auth.menu/lists', 'menu', 'permission/menu/index', '', '', 1,
         1, 0, 1656664960, 1710472994);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (7, {tenantId}, 4, 'C', '管理员', 'local-icon-shouyiren', 80, 'auth.admin/lists', 'admin', 'permission/admin/index', '',
         '', 0, 1, 0, 1656901567, 1710473013);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (8, {tenantId}, 4, 'C', '角色', 'el-icon-Female', 90, 'auth.role/lists', 'role', 'permission/role/index', '', '', 0, 1, 0,
         1656901660, 1710473000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (12, {tenantId}, 8, 'A', '新增', '', 1, 'auth.role/add', '', '', '', '', 0, 1, 0, 1657001790, 1663750625);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (14, {tenantId}, 8, 'A', '编辑', '', 1, 'auth.role/edit', '', '', '', '', 0, 1, 0, 1657001924, 1663750631);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (15, {tenantId}, 8, 'A', '删除', '', 1, 'auth.role/delete', '', '', '', '', 0, 1, 0, 1657001982, 1663750637);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (16, {tenantId}, 6, 'A', '新增', '', 1, 'auth.menu/add', '', '', '', '', 0, 1, 0, 1657072523, 1663750565);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (17, {tenantId}, 6, 'A', '编辑', '', 1, 'auth.menu/edit', '', '', '', '', 0, 1, 0, 1657073955, 1663750570);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (18, {tenantId}, 6, 'A', '删除', '', 1, 'auth.menu/delete', '', '', '', '', 0, 1, 0, 1657073987, 1663750578);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (19, {tenantId}, 7, 'A', '新增', '', 1, 'auth.admin/add', '', '', '', '', 0, 1, 0, 1657074035, 1663750596);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (20, {tenantId}, 7, 'A', '编辑', '', 1, 'auth.admin/edit', '', '', '', '', 0, 1, 0, 1657074071, 1663750603);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (21, {tenantId}, 7, 'A', '删除', '', 1, 'auth.admin/delete', '', '', '', '', 0, 1, 0, 1657074108, 1663750609);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (25, {tenantId}, 0, 'M', '组织管理', 'el-icon-OfficeBuilding', 400, '', 'organization', '', '', '', 0, 1, 0, 1657099914,
         1710472797);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (26, {tenantId}, 25, 'C', '部门管理', 'el-icon-Coordinate', 100, 'dept.dept/lists', 'department',
         'organization/department/index', '', '', 1, 1, 0, 1657099989, 1710472962);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (27, {tenantId}, 25, 'C', '岗位管理', 'el-icon-PriceTag', 90, 'dept.jobs/lists', 'post', 'organization/post/index', '',
         '', 0, 1, 0, 1657100044, 1710472967);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (28, {tenantId}, 0, 'M', '系统设置', 'el-icon-Setting', 200, '', 'setting', '', '', '', 0, 1, 0, 1657100164, 1710472807);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (29, {tenantId}, 28, 'M', '网站设置', 'el-icon-Basketball', 100, '', 'website', '', '', '', 0, 1, 0, 1657100230,
         1710473049);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (30, {tenantId}, 29, 'C', '网站信息', '', 1, 'setting.web.web_setting/getWebsite', 'information',
         'setting/website/information', '', '', 0, 1, 0, 1657100306, 1657164412);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (31, {tenantId}, 29, 'C', '网站备案', '', 1, 'setting.web.web_setting/getCopyright', 'filing', 'setting/website/filing',
         '', '', 0, 1, 0, 1657100434, 1657164723);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (32, {tenantId}, 29, 'C', '政策协议', '', 1, 'setting.web.web_setting/getAgreement', 'protocol',
         'setting/website/protocol', '', '', 0, 1, 0, 1657100571, 1657164770);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (35, {tenantId}, 28, 'M', '系统维护', 'el-icon-SetUp', 50, '', 'system', '', '', '', 0, 1, 0, 1657161569, 1710473122);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (37, {tenantId}, 35, 'C', '系统缓存', '', 80, '', 'cache', 'setting/system/cache', '', '', 0, 1, 0, 1657161896,
         1710473258);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (45, {tenantId}, 26, 'A', '新增', '', 1, 'dept.dept/add', '', '', '', '', 0, 1, 0, 1657163548, 1663750492);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (46, {tenantId}, 26, 'A', '编辑', '', 1, 'dept.dept/edit', '', '', '', '', 0, 1, 0, 1657163599, 1663750498);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (47, {tenantId}, 26, 'A', '删除', '', 1, 'dept.dept/delete', '', '', '', '', 0, 1, 0, 1657163687, 1663750504);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (48, {tenantId}, 27, 'A', '新增', '', 1, 'dept.jobs/add', '', '', '', '', 0, 1, 0, 1657163778, 1663750524);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (49, {tenantId}, 27, 'A', '编辑', '', 1, 'dept.jobs/edit', '', '', '', '', 0, 1, 0, 1657163800, 1663750530);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (50, {tenantId}, 27, 'A', '删除', '', 1, 'dept.jobs/delete', '', '', '', '', 0, 1, 0, 1657163820, 1663750535);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (51, {tenantId}, 30, 'A', '保存', '', 1, 'setting.web.web_setting/setWebsite', '', '', '', '', 0, 1, 0, 1657164469,
         1663750649);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (52, {tenantId}, 31, 'A', '保存', '', 1, 'setting.web.web_setting/setCopyright', '', '', '', '', 0, 1, 0, 1657164692,
         1663750657);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (53, {tenantId}, 32, 'A', '保存', '', 1, 'setting.web.web_setting/setAgreement', '', '', '', '', 0, 1, 0, 1657164824,
         1663750665);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (54, {tenantId}, 28, 'C', '存储设置', 'el-icon-FolderOpened', 70, 'setting.storage/lists', 'storage',
         'setting/storage/index', '', '', 0, 1, 0, 1657165303, 1663750673);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (55, {tenantId}, 54, 'A', '设置', '', 1, 'setting.storage/setup', '', '', '', '', 0, 1, 0, 1657165303,
         1663750673);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (56, {tenantId}, 54, 'A', '切换', '', 1, 'setting.storage/change', '', '', '', '', 0, 1, 0, 1657165303,
         1663750673);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (57, {tenantId}, 54, 'A', '详情', '', 1, 'setting.storage/detail', '', '', '', '', 0, 1, 0, 1657165303,
         1663750673);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (61, {tenantId}, 37, 'A', '清除系统缓存', '', 1, 'setting.system.cache/clear', '', '', '', '', 0, 1, 0, 1657173837,
         1657173939);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (63, {tenantId}, 158, 'M', '素材管理', 'el-icon-Picture', 0, '', 'material', '', '', '', 0, 1, 0, 1657507133, 1710472243);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (64, {tenantId}, 63, 'C', '素材中心', 'el-icon-PictureRounded', 0, '', 'index', 'material/index', '', '', 0, 1, 0,
         1657507296, 1664355653);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (66, {tenantId}, 26, 'A', '详情', '', 0, 'dept.dept/detail', '', '', '', '', 0, 1, 0, 1663725459, 1663750516);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (67, {tenantId}, 27, 'A', '详情', '', 0, 'dept.jobs/detail', '', '', '', '', 0, 1, 0, 1663725514, 1663750559);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (68, {tenantId}, 6, 'A', '详情', '', 0, 'auth.menu/detail', '', '', '', '', 0, 1, 0, 1663725564, 1663750584);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (69, {tenantId}, 7, 'A', '详情', '', 0, 'auth.admin/detail', '', '', '', '', 0, 1, 0, 1663725623, 1663750615);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (70, {tenantId}, 158, 'M', '文章资讯', 'el-icon-ChatLineSquare', 90, '', 'article', '', '', '', 0, 1, 0, 1663749965,
         1710471867);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (71, {tenantId}, 70, 'C', '文章管理', 'el-icon-ChatDotSquare', 0, 'article.article/lists', 'lists', 'article/lists/index',
         '', '', 0, 1, 0, 1663750101, 1664354615);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (72, {tenantId}, 70, 'C', '文章添加/编辑', '', 0, 'article.article/add:edit', 'lists/edit', 'article/lists/edit',
         '/article/lists', '', 0, 0, 0, 1663750153, 1664356275);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (73, {tenantId}, 70, 'C', '文章栏目', 'el-icon-CollectionTag', 0, 'article.articleCate/lists', 'column',
         'article/column/index', '', '', 1, 1, 0, 1663750287, 1664354678);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (74, {tenantId}, 71, 'A', '新增', '', 0, 'article.article/add', '', '', '', '', 0, 1, 0, 1663750335, 1663750335);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (75, {tenantId}, 71, 'A', '详情', '', 0, 'article.article/detail', '', '', '', '', 0, 1, 0, 1663750354, 1663750383);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (76, {tenantId}, 71, 'A', '删除', '', 0, 'article.article/delete', '', '', '', '', 0, 1, 0, 1663750413, 1663750413);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (77, {tenantId}, 71, 'A', '修改状态', '', 0, 'article.article/updateStatus', '', '', '', '', 0, 1, 0, 1663750442,
         1663750442);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (78, {tenantId}, 73, 'A', '添加', '', 0, 'article.articleCate/add', '', '', '', '', 0, 1, 0, 1663750483, 1663750483);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (79, {tenantId}, 73, 'A', '删除', '', 0, 'article.articleCate/delete', '', '', '', '', 0, 1, 0, 1663750895, 1663750895);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (80, {tenantId}, 73, 'A', '详情', '', 0, 'article.articleCate/detail', '', '', '', '', 0, 1, 0, 1663750913, 1663750913);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (81, {tenantId}, 73, 'A', '修改状态', '', 0, 'article.articleCate/updateStatus', '', '', '', '', 0, 1, 0, 1663750936,
         1663750936);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (82, {tenantId}, 0, 'M', '渠道设置', 'el-icon-Message', 500, '', 'channel', '', '', '', 0, 1, 0, 1663754084, 1710472649);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (83, {tenantId}, 82, 'C', 'h5设置', 'el-icon-Cellphone', 100, 'channel.web_page_setting/getConfig', 'h5', 'channel/h5',
         '', '', 0, 1, 0, 1663754158, 1710472929);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (84, {tenantId}, 83, 'A', '保存', '', 0, 'channel.web_page_setting/setConfig', '', '', '', '', 0, 1, 0, 1663754259,
         1663754259);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (85, {tenantId}, 82, 'M', '微信公众号', 'local-icon-dingdan', 80, '', 'wx_oa', '', '', '', 0, 1, 0, 1663755470,
         1710472946);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (86, {tenantId}, 85, 'C', '公众号配置', '', 0, 'channel.official_account_setting/getConfig', 'config',
         'channel/wx_oa/config', '', '', 0, 1, 0, 1663755663, 1664355450);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (87, {tenantId}, 85, 'C', '菜单管理', '', 0, 'channel.official_account_menu/detail', 'menu', 'channel/wx_oa/menu', '', '',
         0, 1, 0, 1663755767, 1664355456);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (88, {tenantId}, 86, 'A', '保存', '', 0, 'channel.official_account_setting/setConfig', '', '', '', '', 0, 1, 0,
         1663755799, 1663755799);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (89, {tenantId}, 86, 'A', '保存并发布', '', 0, 'channel.official_account_menu/save', '', '', '', '', 0, 1, 0, 1663756490,
         1663756490);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (90, {tenantId}, 85, 'C', '关注回复', '', 0, 'channel.official_account_reply/lists', 'follow',
         'channel/wx_oa/reply/follow_reply', '', '', 0, 1, 0, 1663818358, 1663818366);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (91, {tenantId}, 85, 'C', '关键字回复', '', 0, '', 'keyword', 'channel/wx_oa/reply/keyword_reply', '', '', 0, 1, 0,
         1663818445, 1663818445);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (93, {tenantId}, 85, 'C', '默认回复', '', 0, '', 'default', 'channel/wx_oa/reply/default_reply', '', '', 0, 1, 0,
         1663818580, 1663818580);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (94, {tenantId}, 82, 'C', '微信小程序', 'local-icon-weixin', 90, 'channel.mnp_settings/getConfig', 'weapp',
         'channel/weapp', '', '', 0, 1, 0, 1663831396, 1710472941);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (95, {tenantId}, 94, 'A', '保存', '', 0, 'channel.mnp_settings/setConfig', '', '', '', '', 0, 1, 0, 1663831436,
         1663831436);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (96, {tenantId}, 0, 'M', '装修管理', 'el-icon-Brush', 600, '', 'decoration', '', '', '', 0, 1, 0, 1663834825, 1710472099);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (97, {tenantId}, 175, 'C', '页面装修', 'el-icon-CopyDocument', 100, 'decorate.page/detail', 'pages',
         'decoration/pages/index', '', '', 0, 1, 0, 1663834879, 1710929256);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (98, {tenantId}, 97, 'A', '保存', '', 0, 'decorate.page/save', '', '', '', '', 0, 1, 0, 1663834956, 1663834956);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (99, {tenantId}, 175, 'C', '底部导航', 'el-icon-Position', 90, 'decorate.tabbar/detail', 'tabbar', 'decoration/tabbar',
         '', '', 0, 1, 0, 1663835004, 1710929262);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (100, {tenantId}, 99, 'A', '保存', '', 0, 'decorate.tabbar/save', '', '', '', '', 0, 1, 0, 1663835018, 1663835018);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (101, {tenantId}, 158, 'M', '消息管理', 'el-icon-ChatDotRound', 80, '', 'message', '', '', '', 0, 1, 0, 1663838602,
         1710471874);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (102, {tenantId}, 101, 'C', '通知设置', '', 0, 'notice.notice/settingLists', 'notice', 'message/notice/index', '', '', 0,
         1, 0, 1663839195, 1663839195);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (103, {tenantId}, 102, 'A', '详情', '', 0, 'notice.notice/detail', '', '', '', '', 0, 1, 0, 1663839537, 1663839537);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (104, {tenantId}, 101, 'C', '通知设置编辑', '', 0, 'notice.notice/set', 'notice/edit', 'message/notice/edit',
         '/message/notice', '', 0, 0, 0, 1663839873, 1663898477);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (105, {tenantId}, 71, 'A', '编辑', '', 0, 'article.article/edit', '', '', '', '', 0, 1, 0, 1663840043, 1663840053);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (107, {tenantId}, 101, 'C', '短信设置', '', 0, 'notice.sms_config/getConfig', 'short_letter',
         'message/short_letter/index', '', '', 0, 1, 0, 1663898591, 1664355708);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (108, {tenantId}, 107, 'A', '设置', '', 0, 'notice.sms_config/setConfig', '', '', '', '', 0, 1, 0, 1663898644,
         1663898644);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (109, {tenantId}, 107, 'A', '详情', '', 0, 'notice.sms_config/detail', '', '', '', '', 0, 1, 0, 1663898661, 1663898661);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (110, {tenantId}, 28, 'C', '热门搜索', 'el-icon-Search', 60, 'setting.hot_search/getConfig', 'search',
         'setting/search/index', '', '', 0, 1, 0, 1663901821, 1710473109);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (111, {tenantId}, 110, 'A', '保存', '', 0, 'setting.hot_search/setConfig', '', '', '', '', 0, 1, 0, 1663901856,
         1663901856);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (112, {tenantId}, 28, 'M', '用户设置', 'local-icon-keziyuyue', 90, '', 'user', '', '', '', 0, 1, 0, 1663903302,
         1710473056);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (113, {tenantId}, 112, 'C', '用户设置', '', 0, 'setting.user.user/getConfig', 'setup', 'setting/user/setup', '', '', 0, 1,
         0, 1663903506, 1663903506);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (114, {tenantId}, 113, 'A', '保存', '', 0, 'setting.user.user/setConfig', '', '', '', '', 0, 1, 0, 1663903522,
         1663903522);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (115, {tenantId}, 112, 'C', '登录注册', '', 0, 'setting.user.user/getRegisterConfig', 'login_register',
         'setting/user/login_register', '', '', 0, 1, 0, 1663903832, 1663903832);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (116, {tenantId}, 115, 'A', '保存', '', 0, 'setting.user.user/setRegisterConfig', '', '', '', '', 0, 1, 0, 1663903852,
         1663903852);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (117, {tenantId}, 0, 'M', '用户管理', 'el-icon-User', 900, '', 'consumer', '', '', '', 0, 1, 0, 1663904351, 1710472074);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (118, {tenantId}, 117, 'C', '用户列表', 'local-icon-user_guanli', 100, 'user.user/lists', 'lists', 'consumer/lists/index',
         '', '', 0, 1, 0, 1663904392, 1710471845);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (119, {tenantId}, 117, 'C', '用户详情', '', 90, 'user.user/detail', 'lists/detail', 'consumer/lists/detail',
         '/consumer/lists', '', 0, 0, 0, 1663904470, 1710471851);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (120, {tenantId}, 119, 'A', '编辑', '', 0, 'user.user/edit', '', '', '', '', 0, 1, 0, 1663904499, 1663904499);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (9016, {tenantId}, 117, 'C', '应用任务', 'el-icon-List', 90, 'ai_task/lists', 'task', 'consumer/task/index',
         '', '', 0, 1, 0, 1727700000, 1727700000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (9017, {tenantId}, 9016, 'A', '详情', '', 1, 'ai_task/detail', '', '', '', '', 0, 1, 0, 1727700000,
         1727700000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (9018, {tenantId}, 9016, 'A', '查询', '', 2, 'ai_task/query', '', '', '', '', 0, 1, 0, 1727700000,
         1727700000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (140, {tenantId}, 82, 'C', '微信配置', 'local-icon-notice_buyer', 70, 'channel.open_setting/getConfig',
         'open_setting', 'channel/open_setting', '', '', 0, 1, 0, 1666085713, 1710472951);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (141, {tenantId}, 140, 'A', '保存', '', 0, 'channel.open_setting/setConfig', '', '', '', '', 0, 1, 0, 1666085751,
         1666085776);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (142, {tenantId}, 176, 'C', 'PC端装修', 'el-icon-Monitor', 8, '', 'pc', 'decoration/pc', '', '', 0, 0, 0, 1668423284,
         1710901602);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (148, {tenantId}, 0, 'M', '模板示例', 'el-icon-SetUp', 100, '', 'template', '', '', '', 0, 1, 0, 1670206819, 1710472811);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (149, {tenantId}, 148, 'M', '组件示例', 'el-icon-Coin', 0, '', 'component', '', '', '', 0, 1, 0, 1670207182, 1670207244);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (150, {tenantId}, 149, 'C', '富文本', '', 90, '', 'rich_text', 'template/component/rich_text', '', '', 0, 1, 0,
         1670207751, 1710473315);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (151, {tenantId}, 149, 'C', '上传文件', '', 80, '', 'upload', 'template/component/upload', '', '', 0, 1, 0, 1670208925,
         1710473322);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (152, {tenantId}, 149, 'C', '图标', '', 100, '', 'icon', 'template/component/icon', '', '', 0, 1, 0, 1670230069,
         1710473306);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (153, {tenantId}, 149, 'C', '文件选择器', '', 60, '', 'file', 'template/component/file', '', '', 0, 1, 0, 1670232129,
         1710473341);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (154, {tenantId}, 149, 'C', '链接选择器', '', 50, '', 'link', 'template/component/link', '', '', 0, 1, 0, 1670292636,
         1710473346);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (155, {tenantId}, 149, 'C', '超出自动打点', '', 40, '', 'overflow', 'template/component/overflow', '', '', 0, 1, 0,
         1670292883, 1710473351);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (156, {tenantId}, 149, 'C', '悬浮input', '', 70, '', 'popover_input', 'template/component/popover_input', '', '', 0, 1, 0,
         1670293336, 1710473329);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (157, {tenantId}, 119, 'A', '算力调整', '', 0, 'user.user/adjustMoney', '', '', '', '', 0, 1, 0, 1677143088, 1677143088);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (158, {tenantId}, 0, 'M', '应用管理', 'el-icon-Postcard', 800, '', 'app', '', '', '', 0, 1, 0, 1677143430, 1710472079);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (159, {tenantId}, 179, 'C', '用户充值', 'local-icon-fukuan', 80, 'recharge.recharge/getConfig', 'recharge',
         'app/recharge/index', '', '', 0, 1, 0, 1677144284, 1710471860);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (160, {tenantId}, 159, 'A', '保存', '', 0, 'recharge.recharge/setConfig', '', '', '', '', 0, 1, 0, 1677145012,
         1677145012);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (161, {tenantId}, 28, 'M', '支付设置', 'local-icon-set_pay', 80, '', 'pay', '', '', '', 0, 1, 0, 1677148075, 1710473061);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (162, {tenantId}, 161, 'C', '支付方式', '', 0, 'setting.pay.pay_way/getPayWay', 'method', 'setting/pay/method/index', '',
         '', 0, 1, 0, 1677148207, 1677148207);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (163, {tenantId}, 161, 'C', '支付配置', '', 0, 'setting.pay.pay_config/lists', 'config', 'setting/pay/config/index', '',
         '', 0, 1, 0, 1677148260, 1677148374);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (164, {tenantId}, 162, 'A', '设置支付方式', '', 0, 'setting.pay.pay_way/setPayWay', '', '', '', '', 0, 1, 0, 1677219624,
         1677219624);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (165, {tenantId}, 163, 'A', '配置', '', 0, 'setting.pay.pay_config/setConfig', '', '', '', '', 0, 1, 0, 1677219655,
         1677219655);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (166, {tenantId}, 0, 'M', '财务管理', 'local-icon-user_gaikuang', 700, '', 'finance', '', '', '', 0, 1, 0, 1677552269,
         1710472085);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (167, {tenantId}, 166, 'C', '充值记录', 'el-icon-Wallet', 90, 'recharge.recharge/lists', 'recharge_record',
         'finance/recharge_record', '', '', 0, 1, 0, 1677552757, 1710472902);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (168, {tenantId}, 166, 'C', '算力明细', 'local-icon-qianbao', 100, 'finance.account_log/lists', 'balance_details',
         'finance/balance_details', '', '', 0, 1, 0, 1677552976, 1710472894);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (169, {tenantId}, 167, 'A', '退款', '', 0, 'recharge.recharge/refund', '', '', '', '', 0, 1, 0, 1677809715, 1677809715);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (170, {tenantId}, 166, 'C', '退款记录', 'local-icon-heshoujilu', 0, 'finance.refund/record', 'refund_record',
         'finance/refund_record', '', '', 0, 1, 0, 1677811271, 1677811271);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (171, {tenantId}, 170, 'A', '重新退款', '', 0, 'recharge.recharge/refundAgain', '', '', '', '', 0, 1, 0, 1677811295,
         1677811295);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (172, {tenantId}, 170, 'A', '退款日志', '', 0, 'finance.refund/log', '', '', '', '', 0, 1, 0, 1677811361, 1677811361);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (173, {tenantId}, 175, 'C', '系统风格', 'el-icon-Brush', 80, '', 'style', 'decoration/style/style', '', '', 0, 1, 0,
         1681635044, 1710929278);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (175, {tenantId}, 96, 'M', '移动端', '', 100, '', 'mobile', '', '', '', 0, 1, 0, 1710901543, 1710929294);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (176, {tenantId}, 96, 'M', 'PC端', '', 90, '', 'pc', '', '', '', 0, 1, 0, 1710901592, 1710929299);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (177, {tenantId},29, 'C', '站点统计', '', 0, 'setting.web.web_setting/getSiteStatistics', 'statistics', 'setting/website/statistics', '', '', 0, 1, 0, 1726841481, 1726843434);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (178, {tenantId},177, 'A', '保存', '', 0, 'setting.web.web_setting/saveSiteStatistics', '', '', '', '', 1, 1, 0, 1726841507, 1726841507);
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES (193, {tenantId},29, 'C', '网站轮播', '', 2, 'setting.web.web_banner/lists', 'banner', 'setting/website/banner', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner', 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
@@ -435,36 +435,36 @@ VALUES
 (194, {tenantId},193, 'A', '保存', '', 0, 'setting.web.web_banner/save', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_save', 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
 (195, {tenantId},193, 'A', '删除', '', 0, 'setting.web.web_banner/delete', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_delete', 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
 (196, {tenantId},193, 'A', '状态', '', 0, 'setting.web.web_banner/status', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_status', 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (179, {tenantId}, 166, 'M', '套餐管理', 'el-icon-Tickets', 110, '', 'package', '', '', '', 0, 1, 0, 1778000000, 1778000000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (180, {tenantId}, 188, 'A', '新增', '', 0, 'finance.membership_plan/add', '', '', '', '', 0, 1, 0, 1778000000, 1778000000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (181, {tenantId}, 188, 'A', '编辑', '', 0, 'finance.membership_plan/edit', '', '', '', '', 0, 1, 0, 1778000000, 1778000000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (182, {tenantId}, 188, 'A', '删除', '', 0, 'finance.membership_plan/delete', '', '', '', '', 0, 1, 0, 1778000000, 1778000000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (183, {tenantId}, 188, 'A', '详情', '', 0, 'finance.membership_plan/detail', '', '', '', '', 0, 1, 0, 1778000000, 1778000000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (184, {tenantId}, 188, 'A', '可关联应用', '', 0, 'finance.membership_plan/apps', '', '', '', '', 0, 1, 0, 1778000000, 1778000000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (185, {tenantId}, 166, 'C', '订单管理', 'el-icon-Document', 105, 'finance.membership_order/lists', 'membership_order',
         'finance/membership_order', '', '', 0, 1, 0, 1778000000, 1778000000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (186, {tenantId}, 185, 'A', '详情', '', 0, 'finance.membership_order/detail', '', '', '', '', 0, 1, 0, 1778000000, 1778000000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (187, {tenantId}, 179, 'C', '算力套餐', 'el-icon-Coin', 100, 'finance.recharge_package/lists', 'recharge_package',
         'finance/recharge_package', '', '', 0, 1, 0, 1778000000, 1778000000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (188, {tenantId}, 179, 'C', '会员套餐', 'el-icon-Medal', 90, 'finance.membership_plan/lists', 'membership_plan',
         'finance/membership_plan', '', '', 0, 1, 0, 1778000000, 1778000000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (189, {tenantId}, 187, 'A', '新增', '', 0, 'finance.recharge_package/add', '', '', '', '', 0, 1, 0, 1778000000, 1778000000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (190, {tenantId}, 187, 'A', '编辑', '', 0, 'finance.recharge_package/edit', '', '', '', '', 0, 1, 0, 1778000000, 1778000000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (191, {tenantId}, 187, 'A', '删除', '', 0, 'finance.recharge_package/delete', '', '', '', '', 0, 1, 0, 1778000000, 1778000000);
-INSERT INTO `la_tenant_system_menu_{tenantSn}`
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (192, {tenantId}, 187, 'A', '详情', '', 0, 'finance.recharge_package/detail', '', '', '', '', 0, 1, 0, 1778000000, 1778000000);
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
@@ -806,16 +806,16 @@ VALUES
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
 
-(9189,{tenantId},0,'M','AI商品套图','el-icon-Picture',85,'','aigc-product-suite','','','',0,1,0,'aigc_product_suite','app','aigc_product_suite',0,1778000000,1778000000),
-(9190,{tenantId},9189,'C','基础配置','',40,'app.aigc_product_suite.config/detail','config','apps/aigc_product_suite/config','','',0,1,0,'aigc_product_suite','app','aigc_product_suite_config',0,1778000000,1778000000),
-(9191,{tenantId},9189,'C','模块配置','',35,'app.aigc_product_suite.module/lists','module','apps/aigc_product_suite/module','','',0,1,0,'aigc_product_suite','app','aigc_product_suite_module',0,1778000000,1778000000),
-(9192,{tenantId},9189,'C','价格配置','',30,'app.aigc_product_suite.price/detail','price','apps/aigc_product_suite/price','','',0,1,0,'aigc_product_suite','app','aigc_product_suite_price',0,1778000000,1778000000),
-(9193,{tenantId},9189,'C','任务记录','',10,'app.aigc_product_suite.task/lists','task','apps/aigc_product_suite/task','','',0,1,0,'aigc_product_suite','app','aigc_product_suite_task',0,1778000000,1778000000),
-(9197,{tenantId},0,'M','商品多角度','el-icon-Picture',84,'','aigc-product-multi-angle','','','',0,1,0,'aigc_product_multi_angle','app','aigc_product_multi_angle',0,1778000000,1778000000),
-(9198,{tenantId},9197,'C','基础配置','',40,'app.aigc_product_multi_angle.config/detail','config','apps/aigc_product_multi_angle/config','','',0,1,0,'aigc_product_multi_angle','app','aigc_product_multi_angle_config',0,1778000000,1778000000),
-(9199,{tenantId},9197,'C','视角选项','',35,'app.aigc_product_multi_angle.view/lists','view','apps/aigc_product_multi_angle/view','','',0,1,0,'aigc_product_multi_angle','app','aigc_product_multi_angle_view',0,1778000000,1778000000),
-(9200,{tenantId},9197,'C','价格配置','',30,'app.aigc_product_multi_angle.price/detail','price','apps/aigc_product_multi_angle/price','','',0,1,0,'aigc_product_multi_angle','app','aigc_product_multi_angle_price',0,1778000000,1778000000),
-(9201,{tenantId},9197,'C','任务记录','',10,'app.aigc_product_multi_angle.task/lists','task','apps/aigc_product_multi_angle/task','','',0,1,0,'aigc_product_multi_angle','app','aigc_product_multi_angle_task',0,1778000000,1778000000);
+(50000,{tenantId},0,'M','AI商品套图','el-icon-Picture',85,'','aigc-product-suite','','','',0,1,0,'aigc_product_suite','app','aigc_product_suite',0,1778000000,1778000000),
+(50001,{tenantId},50000,'C','基础配置','',40,'app.aigc_product_suite.config/detail','config','apps/aigc_product_suite/config','','',0,1,0,'aigc_product_suite','app','aigc_product_suite_config',0,1778000000,1778000000),
+(50002,{tenantId},50000,'C','模块配置','',35,'app.aigc_product_suite.module/lists','module','apps/aigc_product_suite/module','','',0,1,0,'aigc_product_suite','app','aigc_product_suite_module',0,1778000000,1778000000),
+(50003,{tenantId},50000,'C','价格配置','',30,'app.aigc_product_suite.price/detail','price','apps/aigc_product_suite/price','','',0,1,0,'aigc_product_suite','app','aigc_product_suite_price',0,1778000000,1778000000),
+(50004,{tenantId},50000,'C','任务记录','',10,'app.aigc_product_suite.task/lists','task','apps/aigc_product_suite/task','','',0,1,0,'aigc_product_suite','app','aigc_product_suite_task',0,1778000000,1778000000),
+(50005,{tenantId},0,'M','商品多角度','el-icon-Picture',84,'','aigc-product-multi-angle','','','',0,1,0,'aigc_product_multi_angle','app','aigc_product_multi_angle',0,1778000000,1778000000),
+(50006,{tenantId},50005,'C','基础配置','',40,'app.aigc_product_multi_angle.config/detail','config','apps/aigc_product_multi_angle/config','','',0,1,0,'aigc_product_multi_angle','app','aigc_product_multi_angle_config',0,1778000000,1778000000),
+(50007,{tenantId},50005,'C','视角选项','',35,'app.aigc_product_multi_angle.view/lists','view','apps/aigc_product_multi_angle/view','','',0,1,0,'aigc_product_multi_angle','app','aigc_product_multi_angle_view',0,1778000000,1778000000),
+(50008,{tenantId},50005,'C','价格配置','',30,'app.aigc_product_multi_angle.price/detail','price','apps/aigc_product_multi_angle/price','','',0,1,0,'aigc_product_multi_angle','app','aigc_product_multi_angle_price',0,1778000000,1778000000),
+(50009,{tenantId},50005,'C','任务记录','',10,'app.aigc_product_multi_angle.task/lists','task','apps/aigc_product_multi_angle/task','','',0,1,0,'aigc_product_multi_angle','app','aigc_product_multi_angle_task',0,1778000000,1778000000);
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
@@ -845,9 +845,9 @@ VALUES
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
-(9211,{tenantId},0,'M','局部重绘','el-icon-Picture',81,'','aigc-local-redraw','','','',0,1,0,'aigc_local_redraw','app','aigc_local_redraw',0,1778000000,1778000000),
-(9212,{tenantId},9211,'C','基础配置','',40,'app.aigc_local_redraw.config/detail','config','apps/aigc_local_redraw/config','','',0,1,0,'aigc_local_redraw','app','aigc_local_redraw_config',0,1778000000,1778000000),
-(9213,{tenantId},9211,'C','任务记录','',10,'app.aigc_local_redraw.task/lists','task','apps/aigc_local_redraw/task','','',0,1,0,'aigc_local_redraw','app','aigc_local_redraw_task',0,1778000000,1778000000);
+(50100,{tenantId},0,'M','局部重绘','el-icon-Picture',81,'','aigc-local-redraw','','','',0,1,0,'aigc_local_redraw','app','aigc_local_redraw',0,1778000000,1778000000),
+(50101,{tenantId},50100,'C','基础配置','',40,'app.aigc_local_redraw.config/detail','config','apps/aigc_local_redraw/config','','',0,1,0,'aigc_local_redraw','app','aigc_local_redraw_config',0,1778000000,1778000000),
+(50102,{tenantId},50100,'C','任务记录','',10,'app.aigc_local_redraw.task/lists','task','apps/aigc_local_redraw/task','','',0,1,0,'aigc_local_redraw','app','aigc_local_redraw_task',0,1778000000,1778000000);
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
@@ -964,13 +964,6 @@ VALUES (5, {tenantId}, 5, '系统风格',
         '', 1710410915, 1710990415);
 COMMIT;
 
-ALTER TABLE `la_tenant_file_{tenantSn}` ADD COLUMN `storage_scope` varchar(20) NOT NULL DEFAULT 'platform' COMMENT '存储作用域';
-ALTER TABLE `la_tenant_file_{tenantSn}` ADD COLUMN `storage_engine` varchar(30) NOT NULL DEFAULT 'local' COMMENT '存储引擎';
-ALTER TABLE `la_tenant_file_{tenantSn}` ADD COLUMN `storage_domain` varchar(255) NOT NULL DEFAULT '' COMMENT '存储域名';
-ALTER TABLE `la_tenant_system_menu_{tenantSn}` ADD COLUMN `app_code` varchar(64) NOT NULL DEFAULT '' COMMENT '应用标识';
-ALTER TABLE `la_tenant_system_menu_{tenantSn}` ADD COLUMN `source` varchar(20) NOT NULL DEFAULT 'core' COMMENT '菜单来源';
-ALTER TABLE `la_tenant_system_menu_{tenantSn}` ADD COLUMN `source_menu_key` varchar(120) NOT NULL DEFAULT '' COMMENT '来源菜单key';
-ALTER TABLE `la_tenant_system_menu_{tenantSn}` ADD COLUMN `is_core` tinyint NOT NULL DEFAULT 1 COMMENT '是否核心菜单';
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT {tenantId}, `id`, 'A', '修改密码', '', 1, 'user.user/resetPassword', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_consumer_reset_password', 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
@@ -1115,10 +1108,11 @@ WHERE `tenant_id`={tenantId} AND (`source_menu_key`='core_tenant_channel_manage'
   AND @tenant_channel_overview_id IS NULL
 ORDER BY `id` LIMIT 1;
 SET @tenant_channel_overview_id := (SELECT `id` FROM `la_tenant_system_menu_{tenantSn}` WHERE `tenant_id`={tenantId} AND `source_menu_key`='core_tenant_channel_overview' ORDER BY `id` DESC LIMIT 1);
-UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=(SELECT `id` FROM `la_tenant_system_menu_{tenantSn}` WHERE `tenant_id`={tenantId} AND (`source_menu_key`='core_tenant_channel_manage' OR (`name`='渠道设置' AND `pid`=0)) ORDER BY `id` LIMIT 1), `type`='C', `name`='渠道总览', `paths`='overview', `component`='channel/index', `is_show`=1, `is_disable`=0, `update_time`=UNIX_TIMESTAMP()
+SET @tenant_channel_parent_id := (SELECT `id` FROM `la_tenant_system_menu_{tenantSn}` WHERE `tenant_id`={tenantId} AND (`source_menu_key`='core_tenant_channel_manage' OR (`name`='渠道设置' AND `pid`=0)) ORDER BY `id` LIMIT 1);
+UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=@tenant_channel_parent_id, `type`='C', `name`='渠道总览', `paths`='overview', `component`='channel/index', `is_show`=1, `is_disable`=0, `update_time`=UNIX_TIMESTAMP()
 WHERE `tenant_id`={tenantId} AND `source_menu_key`='core_tenant_channel_overview';
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `is_show`=0, `is_disable`=1, `update_time`=UNIX_TIMESTAMP()
-WHERE `tenant_id`={tenantId} AND `pid`=(SELECT `id` FROM `la_tenant_system_menu_{tenantSn}` WHERE `tenant_id`={tenantId} AND (`source_menu_key`='core_tenant_channel_manage' OR (`name`='渠道设置' AND `pid`=0)) ORDER BY `id` LIMIT 1) AND `id`<>COALESCE(@tenant_channel_overview_id,0);
+WHERE `tenant_id`={tenantId} AND `pid`=@tenant_channel_parent_id AND `id`<>COALESCE(@tenant_channel_overview_id,0);
 
 -- 渠道卡片的隐藏入口页：侧栏仅展示渠道总览。
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `selected`='channel/overview', `update_time`=UNIX_TIMESTAMP()
@@ -1132,7 +1126,7 @@ WHERE `tenant_id`={tenantId} AND `source_menu_key` LIKE 'core_tenant_open_platfo
 
 -- 公众号历史管理页使用独立隐藏路由，避免依赖已隐藏的多级父菜单。
 UPDATE `la_tenant_system_menu_{tenantSn}`
-SET `pid`=(SELECT `id` FROM `la_tenant_system_menu_{tenantSn}` WHERE `tenant_id`={tenantId} AND (`source_menu_key`='core_tenant_channel_manage' OR (`name`='渠道设置' AND `pid`=0)) ORDER BY `id` LIMIT 1),
+SET `pid`=@tenant_channel_parent_id,
     `paths`=CASE `component`
       WHEN 'channel/wx_oa/config' THEN 'wx_oa/config'
       WHEN 'channel/wx_oa/menu' THEN 'wx_oa/menu'
@@ -1160,9 +1154,9 @@ FROM `la_tenant_system_menu_{tenantSn}` parent
 WHERE parent.`tenant_id`={tenantId} AND parent.`type`='C' AND parent.`paths`='lists' AND parent.`component`='consumer/lists/index'
   AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` existing_menu WHERE existing_menu.`tenant_id`=parent.`tenant_id` AND (existing_menu.`source_menu_key`='core_tenant_consumer_membership_plans' OR existing_menu.`perms`='user.user/membershipPlans'));
 
-INSERT IGNORE INTO `la_tenant_system_role_menu` (`role_id`,`menu_id`)
+INSERT IGNORE INTO `la_tenant_system_role_menu_{tenantSn}` (`role_id`,`menu_id`)
 SELECT role.`id`, menu.`id`
-FROM `la_tenant_system_role` role
+FROM `la_tenant_system_role_{tenantSn}` role
 JOIN `la_tenant_system_menu_{tenantSn}` menu ON menu.`tenant_id`=role.`tenant_id`
 WHERE role.`tenant_id`={tenantId}
   AND menu.`source_menu_key` IN ('core_tenant_consumer_set_membership','core_tenant_consumer_membership_plans')

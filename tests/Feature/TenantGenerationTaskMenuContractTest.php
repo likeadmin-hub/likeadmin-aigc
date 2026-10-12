@@ -12,8 +12,8 @@ class TenantGenerationTaskMenuContractTest extends TestCase
         $logic = (string)file_get_contents($root . '/app/tenantapi/logic/auth/MenuLogic.php');
 
         self::assertStringContainsString('self::ensureTaskLogMenu($tenantId);', $logic);
-        self::assertStringContainsString("'aigc_image_task' => ['name' => '生图列表', 'paths' => 'image', 'sort' => 90]", $logic);
-        self::assertStringContainsString("'aigc_video_task' => ['name' => '视频列表', 'paths' => 'video', 'sort' => 80]", $logic);
+        self::assertStringContainsString("'aigc_image_task' => ['name' => '生图列表', 'icon' => 'el-icon-Picture', 'paths' => 'image', 'sort' => 90]", $logic);
+        self::assertStringContainsString("'aigc_video_task' => ['name' => '视频列表', 'icon' => 'el-icon-VideoCamera', 'paths' => 'video', 'sort' => 80]", $logic);
         self::assertStringContainsString('self::grantParentMenuToChildRoles($roleMenuTable, $taskMenuId, $taskLogId);', $logic);
         self::assertStringNotContainsString('self::grantChildMenuToParentRoles($roleMenuTable, $taskLogId, $menuId);', $logic);
     }
@@ -36,10 +36,10 @@ class TenantGenerationTaskMenuContractTest extends TestCase
         $tenantSeed = (string)file_get_contents($root . '/app/platformapi/db/tenantData.sql');
         $installSeed = (string)file_get_contents($root . '/public/install/db/like.sql');
 
-        self::assertStringContainsString("@core_tenant_task_log_id,'C','生图列表','',90", $tenantSeed);
-        self::assertStringContainsString("@core_tenant_task_log_id,'C','视频列表','',80", $tenantSeed);
-        self::assertStringContainsString("`name`='生图列表',`sort`=90,`paths`='image'", $installSeed);
-        self::assertStringContainsString("`name`='视频列表',`sort`=80,`paths`='video'", $installSeed);
+        self::assertStringContainsString("@core_tenant_task_log_id,'C','生图列表','el-icon-Picture',90", $tenantSeed);
+        self::assertStringContainsString("@core_tenant_task_log_id,'C','视频列表','el-icon-VideoCamera',80", $tenantSeed);
+        self::assertStringContainsString("`name`='生图列表',`icon`='el-icon-Picture',`sort`=90,`paths`='image'", $installSeed);
+        self::assertStringContainsString("`name`='视频列表',`icon`='el-icon-VideoCamera',`sort`=80,`paths`='video'", $installSeed);
     }
 
     public function testUpgradeIsMirroredAndPreservesExistingTaskPermissions(): void

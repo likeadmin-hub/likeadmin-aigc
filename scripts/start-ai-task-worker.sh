@@ -8,7 +8,7 @@ PID_FILE="$SERVER_DIR/runtime/ai_task_worker.pid"
 LOG_DIR="$SERVER_DIR/runtime/log"
 LOG_FILE="$LOG_DIR/ai_task_worker.log"
 START_LOG="$LOG_DIR/ai_task_worker_start.log"
-PHP_BIN=${PHP_BIN:-/www/server/php/80/bin/php}
+PHP_BIN=${PHP_BIN:-/www/server/php/82/bin/php}
 # Match the exact project Think command. PHP may be invoked as either `php`
 # or an absolute Baota PHP path, so the executable itself must not be part of
 # the process match.

@@ -1,7 +1,7 @@
 <?php
 /** Explicit migration; no DDL during normal API requests. */
-require dirname(__DIR__) . '/vendor/autoload.php';
-(new \think\App())->initialize();
+require dirname(__DIR__) . '/runtime-loader.php';
+(new \AigcRuntimeApp(dirname(__DIR__)))->initialize();
 $db = \think\facade\Db::connect();
 $prefix = $db->getConfig('prefix');
 if (!preg_match('/^[a-zA-Z0-9_]+$/D', $prefix)) throw new \RuntimeException('Invalid database prefix');

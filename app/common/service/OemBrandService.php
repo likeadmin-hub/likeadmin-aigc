@@ -7,7 +7,7 @@ class OemBrandService
     public const SCHEMA_VERSION = 1;
     public static function read(?string $root = null): array
     {
-        $root = $root ?? dirname(__DIR__, 3);
+        $root = $root ?? ($GLOBALS['AIGC_RUNTIME_SITE_ROOT'] ?? (function_exists('root_path') ? root_path() : dirname(__DIR__, 3)));
         $file = $root . '/oem/brand.json';
         if (!is_file($file)) return [];
         $data = json_decode((string)file_get_contents($file), true);

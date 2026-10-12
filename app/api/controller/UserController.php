@@ -53,7 +53,7 @@ class UserController extends BaseApiController
      */
     public function info()
     {
-        $result = UserLogic::info($this->userId);
+        $result = UserLogic::info($this->userId, (int)($this->userInfo['tenant_id'] ?? 0));
         return $this->data($result);
     }
 

@@ -65,7 +65,7 @@ class TenantCreatService
         $content = str_replace("{tenantSn}", $tenantSn, $content);
 
         // 分割SQL语句
-        $tables = explode(";\n", $content);
+        $tables = \app\common\service\database\SqlMigrationExecutor::split($content);
 
         // 初始化安装时间戳
         $installTime = microtime(true) * 10000;
@@ -147,7 +147,7 @@ class TenantCreatService
         $content = str_replace("{tenantId}", $tenantId, $content);
 
         // 分割SQL语句
-        $tables = explode(";\n", $content);
+        $tables = \app\common\service\database\SqlMigrationExecutor::split($content);
 
         // 初始化安装时间戳
         $installTime = microtime(true) * 10000;

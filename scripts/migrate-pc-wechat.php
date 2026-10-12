@@ -1,7 +1,7 @@
 <?php
 /** Usage: php scripts/migrate-pc-wechat.php [--apply]. Defaults to a read-only preflight. */
-require dirname(__DIR__) . '/vendor/autoload.php';
-(new \think\App())->initialize();
+require dirname(__DIR__) . '/runtime-loader.php';
+(new \AigcRuntimeApp(dirname(__DIR__)))->initialize();
 $db = \think\facade\Db::connect();
 $dry = !in_array('--apply', $argv, true);
 echo json_encode(['database' => $db->getConfig('database'), 'host' => $db->getConfig('hostname'), 'dry_run' => $dry], JSON_UNESCAPED_UNICODE) . PHP_EOL;

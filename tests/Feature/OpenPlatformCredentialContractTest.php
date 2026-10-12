@@ -140,7 +140,8 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("'wxa/get_auditstatus', ['auditid' => (int)\$auditNo]", $service);
         self::assertStringContainsString('请先提交审核', $service);
         self::assertStringContainsString('downloadExperienceQrcode', $service);
-        self::assertStringContainsString("\$query->where('upload_mode', 'template');", $service);
+        self::assertStringContainsString("\$query->where(['upload_mode' => 'template', 'authorizer_id' => (int)\$authorized['id']]);", $service);
+        self::assertStringContainsString("if (\$authorized->isEmpty()) \$query->where('upload_mode', 'key');", $service);
     }
 
     public function testAuditSubmissionRecoversAnAcceptedWeChatAuditBeforeRetrying(): void

@@ -122,9 +122,10 @@ class FittingMarketContractTest extends TestCase
 
     public function testFittingFrontendNormalizesModelImageUrls(): void
     {
-        $source = (string)file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/_id_.57b448ac.js');
-
-        self::assertStringContainsString('return t.map(j=>hv(String(j||"").trim())).filter', $source);
+        $source = \Tests\Support\CompiledAssets::source('pc/apps/aigc_fitting/FittingCreator.vue');
+        self::assertStringContainsString('model_image_urls', $source);
+        self::assertStringContainsString('normalizeFileUrl', $source);
+        self::assertStringContainsString('model_image_urls', \Tests\Support\CompiledAssets::pcPage('ai/tools/[id]'));
     }
 
     private function options(): array

@@ -2,7 +2,6 @@
 
 use app\platformapi\lists\tenant\TenantPowerConsumeLists;
 use PHPUnit\Framework\TestCase;
-use ReflectionMethod;
 
 class PlatformTenantPowerConsumeContractTest extends TestCase
 {
@@ -25,7 +24,7 @@ class PlatformTenantPowerConsumeContractTest extends TestCase
         $rootUpgrade = $this->read('upgrade/20260820_platform_tenant_power_consume.sql');
         $upgrade = $this->read('public/upgrade/20260820_platform_tenant_power_consume.sql');
         $install = $this->read('public/install/db/like.sql');
-        $router = $this->read('public/platform/assets/index-DH0WGi9f.js');
+        $router = file_get_contents(\Tests\Support\CompiledAssets::root() . '/public/' . \Tests\Support\CompiledAssets::entry('platform'));
 
         $this->assertStringContainsString('new TenantPowerConsumeLists()', $controller);
         $this->assertStringContainsString('tenant.power_consume/lists', $upgrade);
@@ -33,12 +32,12 @@ class PlatformTenantPowerConsumeContractTest extends TestCase
         $this->assertStringContainsString('tenant/power_consume/index', $upgrade);
         $this->assertStringContainsString('core_tenant_power_consume_platform', $install);
         $this->assertStringContainsString('/src/views/tenant/power_consume/index.vue', $router);
-        $this->assertStringContainsString('tenant-power-consume-D1b8mQ2r.js', $router);
+        $this->assertNotEmpty(\Tests\Support\CompiledAssets::vitePage('platform', 'tenant/power_consume/index'));
     }
 
     public function testPageMakesTenantCostAndConsumerChargeDistinct(): void
     {
-        $source = $this->read('public/platform/assets/tenant-power-consume-D1b8mQ2r.js');
+        $source = \Tests\Support\CompiledAssets::vitePage('platform', 'tenant/power_consume/index');
 
         $this->assertStringContainsString('/tenant.power_consume/lists', $source);
         $this->assertStringContainsString('租户成本', $source);
@@ -49,11 +48,11 @@ class PlatformTenantPowerConsumeContractTest extends TestCase
 
     public function testPageShowsAContinuousPagedSequenceColumn(): void
     {
-        $source = $this->read('public/platform/assets/tenant-power-consume-D1b8mQ2r.js');
+        $source = \Tests\Support\CompiledAssets::vitePage('platform', 'tenant/power_consume/index');
 
-        $this->assertStringContainsString('label: "序号"', $source);
-        $this->assertStringContainsString('type: "index"', $source);
-        $this->assertStringContainsString('(Number(pager.page) - 1) * Number(pager.size) + index + 1', $source);
+        $this->assertStringContainsString('label:"序号"', $source);
+        $this->assertStringContainsString('type:"index"', $source);
+        $this->assertStringContainsString('(Number(pager.page) - 1) * Number(pager.size) + index + 1', \Tests\Support\CompiledAssets::source('platform/src/views/tenant/power_consume/index.vue'));
     }
 
     public function testPlatformConsumeTimeSupportsOrmDateStringsAndTimestamps(): void

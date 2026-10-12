@@ -34,20 +34,23 @@ class ShortDramaPlanNormalizationContractTest extends TestCase
         self::assertNotEmpty($result['storyboard']);
     }
 
-    public function testCompleteStoryWithoutSceneArrayGetsStableFallbackSceneAndShots(): void
+    public function testProviderShotsWithoutSceneArrayGetStableFallbackScene(): void
     {
         $result = $this->invoke('normalizeGeneratedPlanResult', [
             'title' => '无场景数组测试',
             'story_outline' => '程序员在深夜修复系统故障，最终找回失联的同伴。',
             'script_lines' => ['程序员在深夜修复系统故障，最终找回失联的同伴。'],
             'subjects' => [['name' => '程序员']],
-            'storyboard' => [],
+            'storyboard' => [['shot_id' => '1', 'visual_description' => '程序员在深夜敲击键盘修复故障。']],
         ], '无场景数组测试', [], '无场景数组测试');
 
         self::assertCount(1, $result['locations']);
         self::assertSame('故事主场景', $result['locations'][0]['name']);
         self::assertNotEmpty($result['storyboard']);
-        self::assertSame($result['locations'][0]['id'], $result['storyboard'][0]['scene_ref_id']);
+        // The review pass repairs references without inventing missing shots.
+        $reviewed = $this->invoke('codeRepairPlanResult', $result)[0];
+        self::assertSame($result['locations'][0]['id'], $reviewed['storyboard'][0]['scene_ref_id']);
+        self::assertSame($result['storyboard'][0]['visual_description'], $reviewed['storyboard'][0]['visual_description']);
     }
 
     public function testTruncatedProviderPayloadRecoversAliasArrays(): void
@@ -72,11 +75,21 @@ JSON
             'story_outline' => '一个人决定在暴雨中回到旧屋。',
             'script_lines' => ['一个人决定在暴雨中回到旧屋。'],
             'locations' => [['name' => '旧屋', 'description' => '暴雨中的旧屋。']],
-            'storyboard' => [],
+            'storyboard' => [['shot_id' => '1', 'visual_description' => '林岚冒着暴雨推开旧屋门。']],
         ], '主体回退测试', ['subject_mentions' => ['林岚']], '主体回退测试');
 
         self::assertSame('林岚', $result['subjects'][0]['name']);
         self::assertNotEmpty($result['storyboard']);
+    }
+
+    public function testMissingProviderShotsCannotBeReplacedWithGenericCoverage(): void
+    {
+        $this->expectExceptionMessage('AI 剧本策划结果不完整，请重试');
+        $this->invoke('normalizeGeneratedPlanResult', [
+            'title' => '缺少正文', 'story_outline' => '程序员修复故障。',
+            'script_lines' => ['程序员修复故障。'],
+            'subjects' => [['name' => '程序员']], 'storyboard' => [],
+        ], '程序员修复故障。', [], '缺少正文');
     }
 
     public function testIncompleteErrorMessageIsActionable(): void

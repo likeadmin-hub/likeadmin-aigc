@@ -67,7 +67,7 @@ class TenantLogic extends BaseLogic
             'access_mode'         => TenantUrlService::ACCESS_ALIAS,
             'disable'             => $params['disable'] ?? 0,
             'notes'               => $params['notes'] ?? '',
-            'tactics'             => 0,
+            'tactics'             => (int)($params['tactics'] ?? 0) === 1 ? 1 : 0,
             'allow_custom_storage' => $params['allow_custom_storage'] ?? 0,
             'allow_local_storage'  => $params['allow_local_storage'] ?? 1,
             'contract_package_id'  => (int)$contract['package_id'],

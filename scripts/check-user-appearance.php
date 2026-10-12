@@ -1,7 +1,7 @@
 <?php
 /** Integration regression: transaction-only fixtures, never modifies an existing account. */
-require dirname(__DIR__) . '/vendor/autoload.php';
-(new \think\App())->initialize();
+require dirname(__DIR__) . '/runtime-loader.php';
+(new \AigcRuntimeApp(dirname(__DIR__)))->initialize();
 use app\common\service\UserAppearanceService as Appearance;
 use think\facade\Db;
 $check = static function ($ok, $message) { if (!$ok) throw new RuntimeException($message); };

@@ -121,7 +121,7 @@ class DefaultAppService
 
     private static function syncTenantMenusToTable(int $tenantId, string $appCode, string $table): void
     {
-        $path = root_path() . 'app/apps/' . $appCode . '/menus/tenant.json';
+        $path = base_path() . 'apps/' . $appCode . '/menus/tenant.json';
         if (!is_file($path)) {
             return;
         }
