@@ -1,0 +1,488 @@
+{
+  "source": "https://pixlr.com/video-generator/",
+  "category": "Ads",
+  "captured_at": "2026-10-12",
+  "prompt_origin": "Original Chinese scene directions; not copied Pixlr prompts",
+  "items": [
+    {
+      "id": "pixlr_ads_6aa21e5dd9e414d3f8751144",
+      "name": "麦片草莓旋风",
+      "description": "麦片盒打开，谷物与草莓依次腾起，牛奶绕主体形成柔和螺旋，最后回落到清晰的产品陈列构图。",
+      "prompt": "麦片盒打开，谷物与草莓依次腾起，牛奶绕主体形成柔和螺旋，最后回落到清晰的产品陈列构图。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6aa21e5dd9e414d3f8751144/2bm0op4g.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a8bb8037a78b2872f50ae32",
+      "name": "晨间润唇膏日常",
+      "description": "人物在晨光中拿起润唇膏，打开并轻轻涂抹，然后放入随身包；镜头由梳妆台移向自然的面部近景。",
+      "prompt": "人物在晨光中拿起润唇膏，打开并轻轻涂抹，然后放入随身包；镜头由梳妆台移向自然的面部近景。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a8bb8037a78b2872f50ae32/yi5zr9sw.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a8bb3e97a78b2872f500aa6",
+      "name": "墨镜室内外转场",
+      "description": "人物抬手戴上墨镜，利用手臂经过画面的遮挡切换到户外，动作方向和人物姿态连续，最后回头展示镜框。",
+      "prompt": "人物抬手戴上墨镜，利用手臂经过画面的遮挡切换到户外，动作方向和人物姿态连续，最后回头展示镜框。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a8bb3e97a78b2872f500aa6/p03mwmoz.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a7dc6111ad3d2139b8f54b1",
+      "name": "运动鞋动感展示",
+      "description": "围绕参考运动鞋展示鞋面纹理与鞋底结构，鞋子轻盈旋转，结合短促推进镜头，最终落在干净背景中央。",
+      "prompt": "围绕参考运动鞋展示鞋面纹理与鞋底结构，鞋子轻盈旋转，结合短促推进镜头，最终落在干净背景中央。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a7dc6111ad3d2139b8f54b1/kq3nv1cj.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a263b340a9d1ee73f63baa9",
+      "name": "校园电吉他演奏",
+      "description": "年轻乐手自然拨弦演奏电吉他，镜头由手指细节平滑移动到人物上半身，保留校园生活感与轻快节奏。",
+      "prompt": "年轻乐手自然拨弦演奏电吉他，镜头由手指细节平滑移动到人物上半身，保留校园生活感与轻快节奏。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a263b340a9d1ee73f63baa9/l1nn290g.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a262ba8bab9f8d6a76ad74b",
+      "name": "韩风千禧汽水",
+      "description": "汽水罐伴随气泡升起，人物轻快转身展示饮品；采用千禧年代韩系广告色调，产品近景与活力姿态交替。",
+      "prompt": "汽水罐伴随气泡升起，人物轻快转身展示饮品；采用千禧年代韩系广告色调，产品近景与活力姿态交替。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a262ba8bab9f8d6a76ad74b/qzi01x50.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a26198abab9f8d6a767e533",
+      "name": "可爱千禧汽水",
+      "description": "明亮糖果色背景中汽水缓缓旋转，周围气泡和可爱图形弹跳，冷凝水细节清晰，结尾定格产品主视觉。",
+      "prompt": "明亮糖果色背景中汽水缓缓旋转，周围气泡和可爱图形弹跳，冷凝水细节清晰，结尾定格产品主视觉。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a26198abab9f8d6a767e533/f954r91e.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a2638e5bf5bf8d19c475b98",
+      "name": "时装快速剪辑",
+      "description": "人物依次转身、迈步、摆出自然姿态，通过节奏明确的近景与全身镜头展示服装，保持脸部与衣料细节稳定。",
+      "prompt": "人物依次转身、迈步、摆出自然姿态，通过节奏明确的近景与全身镜头展示服装，保持脸部与衣料细节稳定。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a2638e5bf5bf8d19c475b98/dp6cjv95.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a2620dfbf5bf8d19c43a84e",
+      "name": "极简晨间家居",
+      "description": "晨光穿过窗帘，镜头缓慢滑过整洁家居，人物从容整理桌面和享用早餐，呈现安静舒适的生活节奏。",
+      "prompt": "晨光穿过窗帘，镜头缓慢滑过整洁家居，人物从容整理桌面和享用早餐，呈现安静舒适的生活节奏。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a2620dfbf5bf8d19c43a84e/ntfqjl3s.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a21340443c3dc1fdaee2c2b",
+      "name": "无线耳机精品展示",
+      "description": "耳机从充电盒轻轻升起，缓慢旋转展示曲面、耳塞与接口，柔和轮廓光勾勒材质，结尾回归成套陈列。",
+      "prompt": "耳机从充电盒轻轻升起，缓慢旋转展示曲面、耳塞与接口，柔和轮廓光勾勒材质，结尾回归成套陈列。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a21340443c3dc1fdaee2c2b/0b5tki9s.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a2120dac2e24d49f0e09a79",
+      "name": "晨曦婚礼",
+      "description": "新人在金色晨光下相互靠近并轻轻牵手，衣裙随微风自然摆动，镜头缓慢环绕，保留温暖真实的表情。",
+      "prompt": "新人在金色晨光下相互靠近并轻轻牵手，衣裙随微风自然摆动，镜头缓慢环绕，保留温暖真实的表情。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a2120dac2e24d49f0e09a79/kbbeb8j6.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a20d10f4046ed9d18128536",
+      "name": "炸鸡慢落摆盘",
+      "description": "金黄炸鸡块依次慢动作落到餐盘，少量酥皮碎屑自然弹起，镜头贴近香脆表面，结尾展示完整摆盘。",
+      "prompt": "金黄炸鸡块依次慢动作落到餐盘，少量酥皮碎屑自然弹起，镜头贴近香脆表面，结尾展示完整摆盘。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a20d10f4046ed9d18128536/qg392z00.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a1935ec5e2939a32994659d",
+      "name": "行走换装",
+      "description": "模特沿固定方向行走，利用跨步和身体遮挡完成几次服装切换，人物身份及背景稳定，突出不同穿搭轮廓。",
+      "prompt": "模特沿固定方向行走，利用跨步和身体遮挡完成几次服装切换，人物身份及背景稳定，突出不同穿搭轮廓。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a1935ec5e2939a32994659d/w7910qc3.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a17f3dee2914971d222b4a2",
+      "name": "复活节兔子舞",
+      "description": "可爱兔子在彩蛋与春日装饰间轻快舞动，耳朵和身体动作柔软协调，镜头平稳跟随，结尾聚拢成欢乐构图。",
+      "prompt": "可爱兔子在彩蛋与春日装饰间轻快舞动，耳朵和身体动作柔软协调，镜头平稳跟随，结尾聚拢成欢乐构图。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a17f3dee2914971d222b4a2/73kwsngq.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a17efcd672f741b05b40ad1",
+      "name": "斋月暖光客厅",
+      "description": "柔和灯光照亮布置精致的客厅，镜头缓慢推进桌面与灯饰，布帘轻轻摆动，营造温暖团聚的节日氛围。",
+      "prompt": "柔和灯光照亮布置精致的客厅，镜头缓慢推进桌面与灯饰，布帘轻轻摆动，营造温暖团聚的节日氛围。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a17efcd672f741b05b40ad1/jjfwyikv.mp4"
+    },
+    {
+      "id": "pixlr_ads_6aa21d85e4d2728f240937d6",
+      "name": "奶茶旋转变场",
+      "description": "手持奶茶轻轻抛起，杯体缓慢旋转，茶液和珍珠围绕杯身形成弧线，背景过渡到简洁摄影棚并落定产品主视觉。",
+      "prompt": "手持奶茶轻轻抛起，杯体缓慢旋转，茶液和珍珠围绕杯身形成弧线，背景过渡到简洁摄影棚并落定产品主视觉。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6aa21d85e4d2728f240937d6/1fwrdcau.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a8bb7ac3c825912456f3f54",
+      "name": "黑巧克力开盒",
+      "description": "包装沿折线自然展开，镜头推进巧克力表面，巧克力缓慢断开呈现厚实断面与光泽，最后停留在精致产品构图。",
+      "prompt": "包装沿折线自然展开，镜头推进巧克力表面，巧克力缓慢断开呈现厚实断面与光泽，最后停留在精致产品构图。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a8bb7ac3c825912456f3f54/uhpvku8o.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a8bb35fe75c7d98de0f828d",
+      "name": "街头美食试吃",
+      "description": "人物拿起街头小吃自然品尝，镜头从食物特写过渡到轻松微笑，背景保持街头生活氛围，动作流畅真实。",
+      "prompt": "人物拿起街头小吃自然品尝，镜头从食物特写过渡到轻松微笑，背景保持街头生活氛围，动作流畅真实。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a8bb35fe75c7d98de0f828d/ahqjrewf.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a59d93de893c48590672b41",
+      "name": "悬浮外套成衣展示",
+      "description": "外套悬浮并轻轻舒展衣袖，随后自然贴合模特身体，镜头后退展示完整穿搭，保持面料、纽扣和轮廓一致。",
+      "prompt": "外套悬浮并轻轻舒展衣袖，随后自然贴合模特身体，镜头后退展示完整穿搭，保持面料、纽扣和轮廓一致。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a59d93de893c48590672b41/0zcdsnxq.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a263afdbf5bf8d19c47bfec",
+      "name": "乡村厨房披萨",
+      "description": "乡村厨房内依次展现揉面、撒料与披萨出炉，温暖光线突出食材纹理，动作富有节奏但衔接自然。",
+      "prompt": "乡村厨房内依次展现揉面、撒料与披萨出炉，温暖光线突出食材纹理，动作富有节奏但衔接自然。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a263afdbf5bf8d19c47bfec/kyh5nfqr.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a262b0caa875407ed94551d",
+      "name": "墨镜珠宝户外大片",
+      "description": "人物在户外自信转身，抬手调整墨镜，镜头切入珠宝反光细节，再回到半身时尚姿态，保持配饰造型准确。",
+      "prompt": "人物在户外自信转身，抬手调整墨镜，镜头切入珠宝反光细节，再回到半身时尚姿态，保持配饰造型准确。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a262b0caa875407ed94551d/9ozrrxtf.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a20bae5b0074287ae959805",
+      "name": "自拍产品推荐",
+      "description": "人物以自然自拍角度展示手中产品，轻微调整角度让包装清晰可见，表情亲切，镜头保留真实手持的微小运动。",
+      "prompt": "人物以自然自拍角度展示手中产品，轻微调整角度让包装清晰可见，表情亲切，镜头保留真实手持的微小运动。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a20bae5b0074287ae959805/fxk054dd.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a263856aa875407ed965a00",
+      "name": "城市运动穿行",
+      "description": "运动青年穿行城市街道，镜头随人物向前移动，背景车辆与行人保持合理速度，突出服装运动感和清晰主体。",
+      "prompt": "运动青年穿行城市街道，镜头随人物向前移动，背景车辆与行人保持合理速度，突出服装运动感和清晰主体。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a263856aa875407ed965a00/oqo9szor.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a2620bfe227a56319cd12b2",
+      "name": "东京街头生活",
+      "description": "以街头人物、店铺与路口为线索进行短镜头叙事，人物自然行走和停留，色彩清爽，保留城市生活细节。",
+      "prompt": "以街头人物、店铺与路口为线索进行短镜头叙事，人物自然行走和停留，色彩清爽，保留城市生活细节。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a2620bfe227a56319cd12b2/mgr41g5v.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a212c96c74ea2f4da84ef8e",
+      "name": "鳗鱼茶泡饭",
+      "description": "镜头靠近茶泡饭，热汤沿碗边缓慢倒入，鳗鱼与米饭保持完整，薄薄蒸汽升起，最后呈现诱人的食物特写。",
+      "prompt": "镜头靠近茶泡饭，热汤沿碗边缓慢倒入，鳗鱼与米饭保持完整，薄薄蒸汽升起，最后呈现诱人的食物特写。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a212c96c74ea2f4da84ef8e/2w7urp6i.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a211e11c4f16e37af738ca1",
+      "name": "柴火披萨出炉",
+      "description": "披萨从柴火炉缓慢取出，炉火轻轻跳动，镜头跟随烤盘来到桌面，展现蓬松饼边和融化芝士。",
+      "prompt": "披萨从柴火炉缓慢取出，炉火轻轻跳动，镜头跟随烤盘来到桌面，展现蓬松饼边和融化芝士。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a211e11c4f16e37af738ca1/pli3k82i.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a20b4c27da6f72b9718770a",
+      "name": "健身形体展示",
+      "description": "健身人物平稳切换正面与侧面展示姿势，呼吸和肌肉变化自然，固定光线呈现清晰轮廓，避免肢体变形。",
+      "prompt": "健身人物平稳切换正面与侧面展示姿势，呼吸和肌肉变化自然，固定光线呈现清晰轮廓，避免肢体变形。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a20b4c27da6f72b9718770a/o8k7iigi.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a17f8d087a688f89639b11d",
+      "name": "香水礼盒开箱",
+      "description": "礼盒缓缓打开，香水瓶被轻轻提起并旋转，玻璃折射与金属细节清晰，结尾回到优雅的瓶身正面构图。",
+      "prompt": "礼盒缓缓打开，香水瓶被轻轻提起并旋转，玻璃折射与金属细节清晰，结尾回到优雅的瓶身正面构图。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a17f8d087a688f89639b11d/evwugabp.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a17f2dd87a688f89638750c",
+      "name": "宁静室内水疗",
+      "description": "镜头缓慢扫过水面、毛巾和绿植，蒸汽轻柔流动，暖光与水波自然变化，营造安静放松的水疗空间。",
+      "prompt": "镜头缓慢扫过水面、毛巾和绿植，蒸汽轻柔流动，暖光与水波自然变化，营造安静放松的水疗空间。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a17f2dd87a688f89638750c/0q33xaqi.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a17ea99802fe2c5e59d40cb",
+      "name": "鲨鱼水豚庆生",
+      "description": "友善卡通鲨鱼和水豚围绕生日蛋糕挥手庆祝，气球轻轻摇晃，角色动作活泼协调，保持画风和角色外形一致。",
+      "prompt": "友善卡通鲨鱼和水豚围绕生日蛋糕挥手庆祝，气球轻轻摇晃，角色动作活泼协调，保持画风和角色外形一致。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a17ea99802fe2c5e59d40cb/hs44sr5t.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a8bb9fde75c7d98de109864",
+      "name": "曲奇牛奶下午茶",
+      "description": "人物在温暖家中拿起巧克力曲奇，轻轻掰开后配牛奶品尝，镜头突出曲奇纹理和轻松满足的表情。",
+      "prompt": "人物在温暖家中拿起巧克力曲奇，轻轻掰开后配牛奶品尝，镜头突出曲奇纹理和轻松满足的表情。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a8bb9fde75c7d98de109864/30a69b47.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a8bb771c5c60c787067f673",
+      "name": "海盐薯片广告",
+      "description": "薯片从包装中轻盈跃出，海盐颗粒在近景中缓缓落下，镜头展示薄脆边缘和金黄色泽，结尾聚焦包装与薯片。",
+      "prompt": "薯片从包装中轻盈跃出，海盐颗粒在近景中缓缓落下，镜头展示薄脆边缘和金黄色泽，结尾聚焦包装与薯片。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a8bb771c5c60c787067f673/a1xcmn16.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a8bb174e5cd92ab9c1fabe4",
+      "name": "快餐袋变儿童房",
+      "description": "纸袋按折线展开，彩色家具和装饰由小到大逐步组装，环境转换成童趣卧室，最后稳定展示完整空间。",
+      "prompt": "纸袋按折线展开，彩色家具和装饰由小到大逐步组装，环境转换成童趣卧室，最后稳定展示完整空间。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a8bb174e5cd92ab9c1fabe4/4ceb3jsb.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a59a0e7dc1bb23e77a6361d",
+      "name": "博物馆薯片趣评",
+      "description": "讲解员在博物馆般的环境中认真端详薯片，做出夸张但自然的惊喜表情，镜头交替展示食物与人物反应。",
+      "prompt": "讲解员在博物馆般的环境中认真端详薯片，做出夸张但自然的惊喜表情，镜头交替展示食物与人物反应。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a59a0e7dc1bb23e77a6361d/lsatise5.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a263a6ee227a56319d1175e",
+      "name": "夕阳炸鸡试吃",
+      "description": "夕阳暖光中人物拿起炸鸡轻咬，镜头展示酥脆外皮与自然表情，背景柔和虚化，食物始终保持清晰。",
+      "prompt": "夕阳暖光中人物拿起炸鸡轻咬，镜头展示酥脆外皮与自然表情，背景柔和虚化，食物始终保持清晰。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a263a6ee227a56319d1175e/xuxk3xzr.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a262a2aaa875407ed943094",
+      "name": "复古小熊曲奇",
+      "description": "复古日系布景中小熊吉祥物展示巧克力曲奇，动作俏皮，搭配温暖胶片色调，产品包装在结尾清晰呈现。",
+      "prompt": "复古日系布景中小熊吉祥物展示巧克力曲奇，动作俏皮，搭配温暖胶片色调，产品包装在结尾清晰呈现。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a262a2aaa875407ed943094/cv8iz7ri.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a1fba3b489ae74723d7fccc",
+      "name": "巨型甜甜圈时装",
+      "description": "模特轻轻举起巨型甜甜圈并转身摆姿，镜头平滑移动展示服装与甜点色彩，保持人物比例和甜甜圈形状稳定。",
+      "prompt": "模特轻轻举起巨型甜甜圈并转身摆姿，镜头平滑移动展示服装与甜点色彩，保持人物比例和甜甜圈形状稳定。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a1fba3b489ae74723d7fccc/gs7ec020.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a262b313743079ae858d27b",
+      "name": "家庭枕头大战",
+      "description": "一家人在柔软床上轻松玩耍，枕头与被褥自然摆动，镜头捕捉笑容和温馨互动，动作安全柔和。",
+      "prompt": "一家人在柔软床上轻松玩耍，枕头与被褥自然摆动，镜头捕捉笑容和温馨互动，动作安全柔和。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a262b313743079ae858d27b/z8mgm3w7.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a262068bab9f8d6a7690799",
+      "name": "日出城市训练",
+      "description": "运动者在城市晨光中跑步、拉伸和训练，镜头低角度跟拍，节奏有力，人物呼吸和衣物运动自然。",
+      "prompt": "运动者在城市晨光中跑步、拉伸和训练，镜头低角度跟拍，节奏有力，人物呼吸和衣物运动自然。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a262068bab9f8d6a7690799/znvx94sz.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a212a36717028a064f87b41",
+      "name": "自信街头男装",
+      "description": "人物沿街道自信行走，停下转身展示穿搭，镜头从步伐上移到面部，保持自然比例与稳定背景。",
+      "prompt": "人物沿街道自信行走，停下转身展示穿搭，镜头从步伐上移到面部，保持自然比例与稳定背景。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a212a36717028a064f87b41/j0g1p7kf.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a211a447eb995e4b691fe2e",
+      "name": "高层汉堡展示",
+      "description": "汉堡食材逐层呈现并轻轻叠合，酱汁沿边缘自然流动，镜头绕主体移动，结尾突出完整汉堡的层次与质感。",
+      "prompt": "汉堡食材逐层呈现并轻轻叠合，酱汁沿边缘自然流动，镜头绕主体移动，结尾突出完整汉堡的层次与质感。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a211a447eb995e4b691fe2e/n0z6ck5u.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a1940c4c6c85675742a22fd",
+      "name": "三文鱼寿司",
+      "description": "镜头近距离扫过三文鱼刺身与寿司，筷子轻轻夹起一块，食材纹理和湿润光泽清晰，背景干净宁静。",
+      "prompt": "镜头近距离扫过三文鱼刺身与寿司，筷子轻轻夹起一块，食材纹理和湿润光泽清晰，背景干净宁静。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a1940c4c6c85675742a22fd/ln4eq15f.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a17f815672f741b05b5d3b5",
+      "name": "复古卷发动画",
+      "description": "复古动画人物随节奏摇摆，卷发与服装动作协调，背景几何图形缓慢变化，保持鲜明平面色彩和统一线条。",
+      "prompt": "复古动画人物随节奏摇摆，卷发与服装动作协调，背景几何图形缓慢变化，保持鲜明平面色彩和统一线条。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a17f815672f741b05b5d3b5/bd87yj80.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a17f18687a688f896383628",
+      "name": "花园小狗",
+      "description": "小狗在花园中好奇嗅闻并轻快走动，镜头低角度跟随，阳光穿过叶片，毛发与花草自然摆动。",
+      "prompt": "小狗在花园中好奇嗅闻并轻快走动，镜头低角度跟随，阳光穿过叶片，毛发与花草自然摆动。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a17f18687a688f896383628/og9c81ff.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a17ea0ee9e3ac7d97881a31",
+      "name": "快乐奔跑小狗",
+      "description": "小狗朝前奔跑并轻盈跳跃，落地动作合理，镜头跟随保持主体清晰，突出毛发、耳朵与尾巴的自然运动。",
+      "prompt": "小狗朝前奔跑并轻盈跳跃，落地动作合理，镜头跟随保持主体清晰，突出毛发、耳朵与尾巴的自然运动。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a17ea0ee9e3ac7d97881a31/ksgvz1dq.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a8bb8dcec7ad652afe3062d",
+      "name": "青提茉莉奶茶",
+      "description": "青提、茉莉花与茶饮以缓慢旋转的构图展示，茶液轻柔流动，柔和光线突出清爽质感，结尾聚焦杯身。",
+      "prompt": "青提、茉莉花与茶饮以缓慢旋转的构图展示，茶液轻柔流动，柔和光线突出清爽质感，结尾聚焦杯身。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a8bb8dcec7ad652afe3062d/sozeccsp.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a8bb453c5c60c7870677b1b",
+      "name": "手机遮挡出行转场",
+      "description": "人物将手机朝镜头移近，手机遮满画面时切换至户外行走，保持人物动作方向连续，结尾展现自然出行姿态。",
+      "prompt": "人物将手机朝镜头移近，手机遮满画面时切换至户外行走，保持人物动作方向连续，结尾展现自然出行姿态。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a8bb453c5c60c7870677b1b/d1j1ho9p.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a7dcaf77cb79d5b531454cd",
+      "name": "保温杯精品广告",
+      "description": "保温杯缓慢旋转展示杯盖与杯身细节，镜头由全景进入材质近景，再回到清晰主视觉，保持产品轮廓准确。",
+      "prompt": "保温杯缓慢旋转展示杯盖与杯身细节，镜头由全景进入材质近景，再回到清晰主视觉，保持产品轮廓准确。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a7dcaf77cb79d5b531454cd/d8g68qht.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a263bbcbf5bf8d19c47e01f",
+      "name": "霓虹街装拼贴",
+      "description": "街装人物随节奏转身和行走，画面通过短促拼贴与轻微故障转场展示穿搭，面部和服装主体保持可辨识。",
+      "prompt": "街装人物随节奏转身和行走，画面通过短促拼贴与轻微故障转场展示穿搭，面部和服装主体保持可辨识。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a263bbcbf5bf8d19c47e01f/6nf7mvbj.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a26351de227a56319d0414c",
+      "name": "花海红发舞者",
+      "description": "红发人物在花海中轻盈转圈，发丝与裙摆随动作自然扬起，镜头柔和跟随，呈现明亮愉快的氛围。",
+      "prompt": "红发人物在花海中轻盈转圈，发丝与裙摆随动作自然扬起，镜头柔和跟随，呈现明亮愉快的氛围。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a26351de227a56319d0414c/lw9rs2cr.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a261d6eb9a6b720086eaa64",
+      "name": "八十年代麦片广告",
+      "description": "复古电视广告风格中麦片与牛奶活泼跃动，色彩明快，产品展示与欢乐动作交替，结尾留下清晰包装画面。",
+      "prompt": "复古电视广告风格中麦片与牛奶活泼跃动，色彩明快，产品展示与欢乐动作交替，结尾留下清晰包装画面。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a261d6eb9a6b720086eaa64/gcc9pwk6.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a2639686a15aa46b3ebb15c",
+      "name": "办公室可可奇境",
+      "description": "人物品尝巧克力后，办公空间逐步转化为可可色幻想场景，桌面物品沿原位置变形，镜头推进突出惊喜反应。",
+      "prompt": "人物品尝巧克力后，办公空间逐步转化为可可色幻想场景，桌面物品沿原位置变形，镜头推进突出惊喜反应。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a2639686a15aa46b3ebb15c/qkb21uyu.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a262a95bf5bf8d19c452f0d",
+      "name": "餐厅翻阅菜单",
+      "description": "人物在餐厅缓慢打开菜单并仔细浏览，手指翻页自然，镜头从桌面移动至面部，环境灯光温暖。",
+      "prompt": "人物在餐厅缓慢打开菜单并仔细浏览，手指翻页自然，镜头从桌面移动至面部，环境灯光温暖。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a262a95bf5bf8d19c452f0d/b12ar0yl.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a261cbcbf5bf8d19c42ffc2",
+      "name": "意式暖光面食",
+      "description": "意大利面在温暖餐桌上被轻轻卷起，酱汁与蒸汽真实自然，镜头突出食材和餐具细节，营造舒适用餐氛围。",
+      "prompt": "意大利面在温暖餐桌上被轻轻卷起，酱汁与蒸汽真实自然，镜头突出食材和餐具细节，营造舒适用餐氛围。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a261cbcbf5bf8d19c42ffc2/8qnax9qg.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a21246d4a688f0e8d25b349",
+      "name": "闺蜜自然交谈",
+      "description": "两位年轻女性面对面轻松交谈，轮流点头、微笑和做手势，镜头轻柔切换人物反应，保持空间与视线关系一致。",
+      "prompt": "两位年轻女性面对面轻松交谈，轮流点头、微笑和做手势，镜头轻柔切换人物反应，保持空间与视线关系一致。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a21246d4a688f0e8d25b349/a2a9cmh3.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a21147a4046ed9d181d4ba1",
+      "name": "女性创始人表达",
+      "description": "自信女性面对镜头自然表达，配合克制的手势和轻微点头，镜头稳定，保持面部、手部与服装一致。",
+      "prompt": "自信女性面对镜头自然表达，配合克制的手势和轻微点头，镜头稳定，保持面部、手部与服装一致。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a21147a4046ed9d181d4ba1/wv67y8lw.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a1936ee9dd23d4a316b587a",
+      "name": "气球蛋糕奇想",
+      "description": "蛋糕周围气球缓缓膨起并漂浮，丝带自然摆动，镜头轻柔环绕展示庆生布景，主体蛋糕保持稳定完整。",
+      "prompt": "蛋糕周围气球缓缓膨起并漂浮，丝带自然摆动，镜头轻柔环绕展示庆生布景，主体蛋糕保持稳定完整。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a1936ee9dd23d4a316b587a/mjyddgv7.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a17f78287a688f896396f43",
+      "name": "都市时尚短片",
+      "description": "人物在现代建筑间行走并转身展示穿搭，交替使用全身与面料近景，镜头运动简洁，呈现高级都市质感。",
+      "prompt": "人物在现代建筑间行走并转身展示穿搭，交替使用全身与面料近景，镜头运动简洁，呈现高级都市质感。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a17f78287a688f896396f43/t9d4xf99.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a17f0b28de05a8fde4a360c",
+      "name": "圣诞客厅猫咪",
+      "description": "猫咪在圣诞树与礼盒旁轻轻走动，停下观察闪烁灯饰，镜头低角度缓慢推进，保留温暖居家氛围。",
+      "prompt": "猫咪在圣诞树与礼盒旁轻轻走动，停下观察闪烁灯饰，镜头低角度缓慢推进，保留温暖居家氛围。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a17f0b28de05a8fde4a360c/psvpo3nl.mp4"
+    },
+    {
+      "id": "pixlr_ads_6a17e9188de05a8fde48a561",
+      "name": "粉色悬浮彩妆",
+      "description": "粉色空间中口红、粉饼与化妆刷轻柔悬浮，缓慢旋转展现材质，珠光装饰随之漂移，结尾组成干净的彩妆陈列。",
+      "prompt": "粉色空间中口红、粉饼与化妆刷轻柔悬浮，缓慢旋转展现材质，珠光装饰随之漂移，结尾组成干净的彩妆陈列。",
+      "instruction": "以参考图为起始构图，保持主体身份、产品轮廓、包装和主色稳定。运动衔接自然，避免手部畸变、物体穿插及新增无关文字。",
+      "source_video": "https://img-cdn.pixlr.com/templates/6a17e9188de05a8fde48a561/vyhdro4s.mp4"
+    }
+  ]
+}
