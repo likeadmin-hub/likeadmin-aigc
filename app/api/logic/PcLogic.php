@@ -175,7 +175,6 @@ class PcLogic extends BaseLogic
             'shop_name' => ConfigService::get('website', 'shop_name'),
             'shop_logo' => FileService::getFileUrl(ConfigService::get('website', 'shop_logo')),
             'pc_logo' => FileService::getFileUrl(ConfigService::get('website', 'pc_logo')),
-            'pc_default_font' => \app\common\service\PcDefaultFontService::read(),
             'pc_title' => ConfigService::get('website', 'pc_title'),
             'pc_ico' => FileService::getFileUrl(ConfigService::get('website', 'pc_ico')),
             'pc_desc' => ConfigService::get('website', 'pc_desc'),

@@ -62,7 +62,6 @@ class WebSettingLogic extends BaseLogic
             'shop_logo' => FileService::getFileUrl(ConfigService::get('website', 'shop_logo')),
 
             'pc_logo' => FileService::getFileUrl(ConfigService::get('website', 'pc_logo')),
-            'pc_default_font' => \app\common\service\PcDefaultFontService::read(),
             'pc_title' => ConfigService::get('website', 'pc_title', ''),
             'pc_ico' => FileService::getFileUrl(ConfigService::get('website', 'pc_ico')),
             'pc_desc' => ConfigService::get('website', 'pc_desc', ''),
@@ -96,7 +95,6 @@ class WebSettingLogic extends BaseLogic
      */
     public static function setWebsiteInfo(array $params)
     {
-        \app\common\service\PcDefaultFontService::validate($params);
         $h5favicon = FileService::setFileUrl($params['h5_favicon']);
         $favicon = FileService::setFileUrl($params['web_favicon']);
         $logo = FileService::setFileUrl($params['web_logo']);
@@ -129,7 +127,6 @@ class WebSettingLogic extends BaseLogic
         ConfigService::set('tenant', 'login_image', $login);
 
         ConfigService::set('website', 'pc_logo', $pcLogo);
-        \app\common\service\PcDefaultFontService::save($params);
         ConfigService::set('website', 'pc_title', $params['pc_title']);
         ConfigService::set('website', 'pc_ico', $pcIco);
         ConfigService::set('website', 'pc_desc', $params['pc_desc'] ?? '');
