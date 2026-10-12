@@ -155,7 +155,7 @@ class DecorationAgentOperations
     {
         if (!preg_match('/^(content|styles)\.([a-zA-Z0-9_-]+)(?:\.(.*))?$/D', $path, $match)) self::fail('Invalid field path: ' . $path);
         $section = $match[1]; $key = $match[2]; $rest = $match[3] ?? '';
-        $schema = $definition[$section . '_fields'][$key] ?? null;
+        $schema = $definition[($section==='styles'?'style':'content') . '_fields'][$key] ?? null;
         if (!$schema) self::fail('Unapproved component field: ' . $path);
         if ($rest === '') {
             if (in_array($key, ['source_key','source_params','data_mode','field_map'], true)) self::fail('Use bind_source for source configuration');

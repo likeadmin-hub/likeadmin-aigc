@@ -78,5 +78,6 @@ require_once __DIR__.'/evaluate-result.php';
 $fixtures=json_decode(file_get_contents(__DIR__.'/evaluation-fixtures.json'),true,512,JSON_THROW_ON_ERROR);check(count($fixtures['cases'])>=20,'real-model fixtures');
 $fixture=$fixtures['cases'][0];$evaluated=O::apply($fixture['initial'],[['type'=>'update_component','widget_id'=>'w0','fields'=>['content.title'=>'开始创作']]],$fixture['scope']);check(evaluateDecorationAgentFixture($fixture,$evaluated)['passed'],'evaluation assertions real engine');
 $evaluated['candidate']['data'][1]['content']['image_height']=500;check(!evaluateDecorationAgentFixture($fixture,$evaluated)['passed'],'evaluation detects collateral edit');
+$stylePage=page(['news']);$styleResult=O::apply($stylePage,[['type'=>'update_component','widget_id'=>'w0','fields'=>['styles.margin_top'=>30,'styles.color'=>'#123456']]],['scope'=>'page']);check($styleResult['candidate']['data'][0]['styles']['margin_top']===30,'declared style spacing accepted');check($styleResult['candidate']['data'][0]['styles']['color']==='#123456','declared style color accepted');
 echo "PASS $n deterministic decoration assertions\n";
 
