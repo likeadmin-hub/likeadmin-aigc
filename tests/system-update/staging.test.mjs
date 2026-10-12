@@ -16,6 +16,7 @@ function fixture() {
     write('app/example.php','<?php echo "old";')
     write('app/removed.php','<?php')
     write('app/common/service/SubmitLockService.php','<?php // baseline submit-lock dependency')
+    write('app/common/service/update/SystemPackageUpdateService.php','<?php // baseline app migration deferral')
     write('composer.json','{}');write('composer.lock','{"packages":[]}')
     write('vendor/autoload.php','<?php');write('vendor/composer/autoload_real.php','<?php')
     write('vendor/composer/installed.php','<?php return [];')
@@ -74,6 +75,21 @@ test('changed app submitters include their unchanged submit-lock dependency', ()
 })
 
 const bridgeWorkers=['AiTaskWorker','CanvasSubAgentWorker','ShortDramaEpisodeWorker','ShortDramaPlanningWorker','ShortDramaCanvasAgentWorker','Crontab']
+test('new app migration ships unchanged runtime deferral dependency with exact owner',()=>{
+    const f=fixture(),out=path.join(f.dir,'app-migration-stage')
+    try {
+        f.write('app/apps/fixture/migrations/new.sql','CREATE TABLE IF NOT EXISTS la_fixture_new(id int);')
+        execFileSync('git',['add','app/apps/fixture/migrations/new.sql'],{cwd:f.repo})
+        execFileSync('git',['commit','-m','new app migration'],{cwd:f.repo,stdio:'pipe'})
+        const result=spawnSync(process.execPath,[script.pathname,'--repo',f.repo,'--base-ref',f.base,'--base-version','1.0.391','--version','1.0.392','--out-dir',out,'--composer-runtime'],{encoding:'utf8'})
+        assert.equal(result.status,0,result.stderr)
+        const relative='app/common/service/update/SystemPackageUpdateService.php'
+        assert.equal(fs.readFileSync(path.join(out,'files',relative),'utf8'),fs.readFileSync(path.join(f.repo,relative),'utf8'))
+        const coverage=JSON.parse(fs.readFileSync(path.join(out,'release-change-manifest.json')))
+        assert.ok(coverage.paths.some(row=>row.path===relative&&row.delivery==='required-runtime-dependency'))
+        assert.equal(coverage.migrations.find(row=>row.package_path.endsWith('/new.sql')).execution_owner,'app/runtime')
+    } finally {fs.rmSync(f.dir,{recursive:true,force:true})}
+})
 function bridgeFixture(changeBase=source=>source) {
     const f=fixture()
     f.git=(...args)=>execFileSync('git',args,{cwd:f.repo,encoding:'utf8',stdio:'pipe'})

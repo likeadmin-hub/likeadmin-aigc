@@ -125,6 +125,14 @@ try {
         }
     }
     if(!bridge){
+        // App-owned SQL is deferred by this service. The archive guard needs
+        // its exact current bytes even when it did not change since the base.
+        const appUpdater='app/common/service/update/SystemPackageUpdateService.php'
+        if([...sqlSources.values()].some(sources=>sources.some(p=>/^app\/apps\/[^/]+\/migrations\//.test(p)))
+            && !coverage.some(row=>row.path===appUpdater)){
+            copy(appUpdater,'files/'+appUpdater)
+            coverage.push({path:appUpdater,delivery:'required-runtime-dependency'})
+        }
         // Keep the official archive dependency guard satisfied even when this
         // shared service is byte-identical to the predecessor release.
         const submitLock='app/common/service/SubmitLockService.php'
