@@ -60,8 +60,21 @@ if($phase==='prepare'){
  release392Check(UpdateSourceClient::currentCoreVersion()==='1.0.392'&&config('project.version')==='1.0.392','Old station is not392');
  release392Check(hash_file('sha256',(new ReflectionClass(SystemPackageUpdateService::class))->getFileName())==='58541a437ab39ce556011c8f375a23aef0a4f168229e694693478a45c4a92ef3','Old service is not genuine392');
  // These are real old-file executions on a fresh392 database, not manufactured journal rows.
+ // Pic's old manifest forbids a new392 install; its explicit old compatibility version
+ // models an existing390 purchase carried into392, without changing core/updater bytes.
  $oldApps=array_unique(array_merge(app\common\service\app\AppAccessService::DEFAULT_APP_CODES,array_merge(['image_human','aigc_pic_lipsync'],$priceApps)));$installed=[];
- foreach($oldApps as $code){if(!is_file(AppRegistryService::manifestPath($code)))continue;AppRegistryService::installFromLocal($code,'1.0.392');$installed[]=$code;}
+ foreach($oldApps as $code){
+  if(!is_file(AppRegistryService::manifestPath($code)))continue;
+  $oldManifest=AppRegistryService::installFromLocal($code,$code==='aigc_pic_lipsync'?'1.0.390':'1.0.392');$installed[]=$code;
+  // Its historical app package shipped core runtime assets. The subsequent392
+  // system release already superseded these bytes: restore the genuine392 Git
+  // files so this setup cannot accidentally downgrade the real old updater.
+  if($code==='aigc_pic_lipsync')foreach($oldManifest['public_assets']??[] as $asset){
+   $target=$asset['target']??'';
+   if(str_starts_with($target,'app/')){release392Check(is_file('/baseline/'.$target),'Historical runtime target missing from392');release392Copy('/baseline/'.$target,$site.'/'.$target);}
+  }
+ }
+ release392Check(hash_file('sha256',$site.'/app/common/service/app/AppRegistryService.php')===hash_file('sha256','/baseline/app/common/service/app/AppRegistryService.php'),'Fixture app setup downgraded392 registry');
  foreach($appMigrations as $row)release392Check(Db::name('app_migration')->where(['app_code'=>$row['app_code'],'migration_key'=>basename($row['package_path'])])->count()===0,'A new migration was pre-registered');
  release392Check(Db::query("SELECT DATA_TYPE AS data_type FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='la_aigc_video_config' AND COLUMN_NAME='config_json'")[0]['data_type']==='mediumtext','Genuine392 video schema differs');
  release392Check((int)Db::query("SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND (TABLE_NAME LIKE 'la_open_platform_%' OR TABLE_NAME IN ('la_user_asset_labels','la_user_asset_state'))")[0]['n']===11,'Genuine392 feature schema differs');

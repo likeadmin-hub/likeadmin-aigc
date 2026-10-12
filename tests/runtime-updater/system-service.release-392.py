@@ -142,10 +142,15 @@ def main():
             run('docker', 'exec', '-i', name, 'mysql', '-h127.0.0.1', '-uroot', 'mysql', data="SET GLOBAL log_output='TABLE'; SET GLOBAL general_log=ON;", quiet=True)
             phase('apply')
             run('docker', 'exec', '-i', name, 'mysql', '-h127.0.0.1', '-uroot', 'mysql', data='SET GLOBAL general_log=OFF;', quiet=True)
-            audit = run('docker', 'exec', '-i', name, 'mysql', '-h127.0.0.1', '-uroot', '--batch', '--raw', '--skip-column-names', 'mysql', data="SELECT JSON_OBJECT('thread',thread_id,'sql',argument) FROM general_log WHERE command_type IN ('Query','Execute') ORDER BY event_time;", quiet=True)
+            audit = run('docker', 'exec', '-i', name, 'mysql', '-h127.0.0.1', '-uroot', '--batch', '--raw', '--skip-column-names', 'mysql', data="SELECT JSON_OBJECT('thread',thread_id,'sql',CAST(argument AS CHAR CHARACTER SET utf8mb4)) FROM general_log WHERE command_type IN ('Query','Execute') ORDER BY event_time;", quiet=True)
+            report['sql_audit_records'] = len(audit.splitlines())
+            report['picture_sql_audit'] = []
             transactions, pic_transactions = {}, []
             for line in audit.splitlines():
                 event = json.loads(line); thread, sql = event['thread'], event['sql'].strip(); upper = sql.upper()
+                if upper.rstrip(';') in ('START TRANSACTION', 'BEGIN', 'COMMIT', 'ROLLBACK') or 'la_app_plan' in sql:
+                    report['picture_sql_audit'].append(event)
+                upper = upper.rstrip(';')
                 if upper in ('START TRANSACTION', 'BEGIN'):
                     transactions[thread] = []
                 elif upper in ('COMMIT', 'ROLLBACK'):
