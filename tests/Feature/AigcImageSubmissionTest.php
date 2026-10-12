@@ -11,6 +11,8 @@ class AigcImageSubmissionTest extends TestCase
 {
     public function testKeysRemainCompatibleAndAppScoped(): void
     {
+        // Page submission keys now inspect the trusted request context.
+        (new \think\App())->initialize();
         self::assertSame('', Submission::key([], 'aigc_image'));
         $params = ['batch_key' => 'mobile-image-1791700000000-1'];
         self::assertSame(Submission::key($params, 'aigc_image'), Submission::key($params, 'aigc_image'));
