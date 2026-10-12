@@ -51,5 +51,11 @@ $slotId=Db::name('decorate_agent_image_slot')->insertGetId(['tenant_id'=>1,'admi
 $hydrate=new ReflectionMethod(S::class,'hydrate');$hydrate->setAccessible(true);$hydrate->invoke(null,$slot,'https://fixture.invalid/generated-image.png');
 $imageUndo=S::rollback(1,1,['checkpoint_id'=>$imageApplied['checkpoint_id'],'idempotency_key'=>'image_undo:'.$imageId]);assertAgent(S::hash(S::payload($imageUndo['page']))===S::hash($imageBase),'whole AI apply rollback includes later image completion');
 $hydrate->invoke(null,$slot,'https://fixture.invalid/late-image.png');assertAgent(S::hash(S::payload(T::pageDetail(1,['template_id'=>$template['id'],'id'=>$imageUndo['page']['id']])))===S::hash($imageBase),'late image cannot resurrect undone apply');
+// Explicit image regeneration creates a new attempt, never repeats an uncertain submission.
+Db::startTrans();try{
+ $regenCandidate=$insertCandidate($imageCandidate,$imageBase);$genSlot=Db::name('decorate_agent_image_slot')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'session_id'=>$session['id'],'run_id'=>0,'candidate_id'=>$regenCandidate,'slot_key'=>$banner['id'].':content.data.0.image','status'=>'success','request_json'=>S::json($imageRequest),'result_json'=>'{}','attempt'=>1,'create_time'=>time(),'update_time'=>time()]);
+ try{S::retryImage(1,1,['slot_id'=>$genSlot]);throw new RuntimeException('success retried without explicit regeneration');}catch(RuntimeException $e){assertAgent(str_contains($e->getMessage(),'明确'),'successful image requires explicit regeneration');}
+ $regen=S::retryImage(1,1,['slot_id'=>$genSlot,'regenerate'=>true]);$genReplay=S::retryImage(1,1,['slot_id'=>$genSlot,'regenerate'=>true]);assertAgent($regen['slot_id']===$genReplay['slot_id'],'regeneration attempt idempotent');$next=Db::name('decorate_agent_image_slot')->where('id',$regen['slot_id'])->find();assertAgent((int)$next['attempt']===2&&S::decode($next['request_json'])['old_value']===O::get($banner,'content.data.0.image'),'regeneration captures current candidate image and new attempt');
+}finally{Db::rollback();}
 assertAgent(json_encode(Db::name('decorate_page')->where('tenant_id',1)->where('id',1)->find())===$baselineJson,'existing page untouched');
 echo json_encode(['passed'=>$passed,'template_id'=>$template['id'],'session_id'=>$session['id'],'original_unchanged'=>true],JSON_UNESCAPED_UNICODE)."\n";

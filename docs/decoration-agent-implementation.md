@@ -56,10 +56,12 @@ API `/tenantapi/decorate.agent/{bootstrap,createSession,sessions,session,quote,s
 `php -r 'require "vendor/autoload.php"; (new think\App())->console->run();' -- decoration:agent-worker --once --tenant=1`。
 已验证输出processed=0；没有修改站点generation指针。正式交付包安装后使用常规worker脚本；发布前必须核验实际加载类路径及命令，不把本地源码通过当作已上线。
 
-最新验证：确定性113断言、决策7检查、媒体22测试99断言、前端状态8测试、数据库25断言（隔离测试模板，原页面未变）；租户/H5/mp-weixin构建通过，小程序输出264模板/101主题页宿主/7组件检查通过。前端全量151测试150通过，唯一失败为已在origin/develop复现的app-assets-dev-proxy静态资源404；未扩大本任务修改范围。类型检查受到原项目旧vue-tsc/TS配置及依赖问题限制，改动SFC提取脚本无新增错误。
+最新验证：确定性113断言、决策7检查、媒体22测试99断言、前端状态8测试、数据库28断言（隔离测试模板，原页面未变）；租户/H5/mp-weixin构建通过，小程序输出264模板/101主题页宿主/7组件检查通过。前端全量151测试150通过，唯一失败为已在origin/develop复现的app-assets-dev-proxy静态资源404；未扩大本任务修改范围。类型检查受到原项目旧vue-tsc/TS配置及依赖问题限制，改动SFC提取脚本无新增错误。
 
 检查点恢复仅接受apply/create/image，undo_create和rollback为审计记录；新建页撤销后的重做使用candidate.apply重新建页，禁止反向合并undo_create覆盖原页面。
 
 旧页面无ID组件在显式增删/移动/复制时只在候选中补齐稳定标识；选中范围仅处理对应子树。已验证移动后下一操作仍定位同一组件，普通字段调整不补写ID，原草稿不做批量迁移。
 
 冲突返回具体组件中文名称及修改类别，并在Agent失败响应data.message保留提示，兼容现有请求封装reject(data)，避免仅在短暂toast中显示失败原因。旧候选遇到后续保存/发布内容变化时应重新生成，不绕过冲突保护。
+
+成功图片的重新生成使用retryImage(regenerate=true)显式新尝试，沿用本轮冻结模型和剩余预算、计入5张尝试上限，捕获当前候选图片值后才允许晚到回填；失败重试和待核实提交仍保持原限制。
