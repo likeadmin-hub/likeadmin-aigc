@@ -15,12 +15,12 @@ final class UserAppearanceService
 
     public static function defaults(): array
     {
-        return ['selected' => 'default', 'mode' => 'system', 'custom' => []];
+        return ['selected' => 'default', 'mode' => 'system', 'custom' => [], 'preset_backgrounds' => []];
     }
 
     public static function normalize(array $input, callable $ownedImage): array
     {
-        if (array_diff(array_keys($input), ['selected', 'mode', 'custom'])) throw new InvalidArgumentException('皮肤配置包含不支持的字段');
+        if (array_diff(array_keys($input), ['selected', 'mode', 'custom', 'preset_backgrounds'])) throw new InvalidArgumentException('皮肤配置包含不支持的字段');
         $mode = $input['mode'] ?? 'system';
         if (!in_array($mode, ['light', 'dark', 'system'], true)) throw new InvalidArgumentException('主题模式无效');
         $custom = $input['custom'] ?? [];
@@ -41,9 +41,23 @@ final class UserAppearanceService
             // URLs are always resolved from owned storage records, never trusted from the client.
             $skins[$id] = ['id' => $id, 'name' => trim($name), 'mode' => $skin['mode'], 'primary' => strtolower($skin['primary']), 'secondary' => strtolower($skin['secondary']), 'background_id' => $fileId];
         }
+        $backgrounds = $input['preset_backgrounds'] ?? [];
+        if (!is_array($backgrounds) || count($backgrounds) > count(self::PRESETS) - 1) throw new InvalidArgumentException('预设背景配置无效');
+        $presetBackgrounds = [];
+        foreach ($backgrounds as $background) {
+            if (!is_array($background) || array_diff(array_keys($background), ['preset_id', 'name', 'background_id', 'background_url'])) throw new InvalidArgumentException('预设背景字段无效');
+            $id = $background['preset_id'] ?? '';
+            if (!is_string($id) || $id === 'default' || !in_array($id, self::PRESETS, true) || isset($presetBackgrounds[$id])) throw new InvalidArgumentException('预设皮肤标识无效');
+            $name = $background['name'] ?? '';
+            if (!is_string($name) || (array_key_exists('name', $background) && (trim($name) === '' || mb_strlen($name) > 40))) throw new InvalidArgumentException('皮肤名称须为1至40个字符');
+            $fileId = filter_var($background['background_id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+            if ($fileId === false || ($fileId > 0 && !$ownedImage($fileId)) || ($fileId === 0 && trim($name) === '')) throw new InvalidArgumentException('背景图片不存在或不属于当前账号');
+            $presetBackgrounds[$id] = ['preset_id' => $id, 'background_id' => $fileId];
+            if (trim($name) !== '') $presetBackgrounds[$id]['name'] = trim($name);
+        }
         $selected = $input['selected'] ?? 'default';
         if (!is_string($selected) || (!in_array($selected, self::PRESETS, true) && !isset($skins[$selected]))) throw new InvalidArgumentException('请选择有效的皮肤');
-        return ['selected' => $selected, 'mode' => $mode, 'custom' => array_values($skins)];
+        return ['selected' => $selected, 'mode' => $mode, 'custom' => array_values($skins), 'preset_backgrounds' => array_values($presetBackgrounds)];
     }
 
     public static function read(int $tenant, int $user): array
@@ -58,11 +72,16 @@ final class UserAppearanceService
         self::identity($tenant, $user);
         if ($revision < 0) throw new InvalidArgumentException('配置版本无效');
         $prefs = self::normalize($input, fn($id) => self::image($tenant, $user, $id));
-        Db::transaction(function () use ($tenant, $user, $revision, $prefs) {
+        Db::transaction(function () use ($tenant, $user, $revision, &$prefs, $input) {
             $scope = ['tenant_id' => $tenant, 'user_id' => $user];
             // Unique identity plus CAS prevents two devices overwriting another edit.
             $row = Db::name(self::TABLE)->where($scope)->lock(true)->find();
             if ((int)($row['revision'] ?? 0) !== $revision) throw new RuntimeException('皮肤已在其他设备更新，请重新加载后再保存');
+            // Older clients have no background field: preserve existing overrides.
+            if (!array_key_exists('preset_backgrounds', $input) && $row) {
+                $stored = json_decode($row['preferences_json'], true);
+                $prefs['preset_backgrounds'] = $stored['preset_backgrounds'] ?? [];
+            }
             $data = ['preferences_json' => json_encode($prefs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), 'revision' => $revision + 1, 'update_time' => time()];
             if ($row) {
                 if (Db::name(self::TABLE)->where($scope)->where('revision', $revision)->update($data) !== 1) throw new RuntimeException('皮肤配置已更新，请重试');
@@ -88,11 +107,27 @@ final class UserAppearanceService
 
     private static function present(int $tenant, int $user, array $prefs, int $revision): array
     {
+        $prefs += self::defaults();
         foreach ($prefs['custom'] as &$skin) {
             $file = !empty($skin['background_id']) ? self::image($tenant, $user, (int)$skin['background_id']) : null;
             $skin['background_url'] = $file ? FileService::getFileUrlByStorage($file['uri'], $file['storage_scope'] ?? '', $file['storage_engine'] ?? '', $file['storage_domain'] ?? '') : '';
             if (!$file) $skin['background_id'] = 0;
         }
+        unset($skin);
+        $backgrounds = [];
+        foreach ($prefs['preset_backgrounds'] as $background) {
+            $file = self::image($tenant, $user, (int)($background['background_id'] ?? 0));
+            if (!$file) {
+                if (empty($background['name'])) continue;
+                $background['background_id'] = 0;
+                $background['background_url'] = '';
+                $backgrounds[] = $background;
+                continue; // Keep the name while falling back to the bundled image.
+            }
+            $background['background_url'] = FileService::getFileUrlByStorage($file['uri'], $file['storage_scope'] ?? '', $file['storage_engine'] ?? '', $file['storage_domain'] ?? '');
+            $backgrounds[] = $background;
+        }
+        $prefs['preset_backgrounds'] = $backgrounds;
         return ['preferences' => $prefs, 'revision' => $revision];
     }
 }

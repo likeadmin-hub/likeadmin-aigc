@@ -1478,6 +1478,7 @@ CREATE TABLE `la_tenant_file`
 (
     `id`          int(10) UNSIGNED                                              NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `tenant_id`   int(11)                                                       NOT NULL COMMENT '租户ID',
+    `upload_origin` varchar(20) NOT NULL DEFAULT '' COMMENT 'local=用户本地上传，空=历史或自动保存',
     `cid`         int(10) UNSIGNED                                              NOT NULL DEFAULT 0 COMMENT '类目ID',
     `source_id`   int(11) UNSIGNED                                              NOT NULL DEFAULT 0 COMMENT '上传者id',
     `source`      tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '来源类型[0-后台,1-用户]',
@@ -3913,7 +3914,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_config` (
   `provider_mode` varchar(30) NOT NULL DEFAULT 'platform',
   `provider` varchar(50) NOT NULL DEFAULT 'mock',
   `model` varchar(100) NOT NULL DEFAULT 'mock-video',
-  `config_json` text,
+  `config_json` mediumtext,
   `status` tinyint NOT NULL DEFAULT 1,
   `create_time` int unsigned NOT NULL DEFAULT 0,
   `update_time` int unsigned NOT NULL DEFAULT 0,
@@ -10912,6 +10913,31 @@ CREATE TABLE IF NOT EXISTS `la_system_package_grant` (
   `update_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`package_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='System package site authorization';
+-- Shared account asset library metadata; no source result or physical file is removed.
+-- Global tenant_id-scoped table, like user_appearance; no per-tenant seed rows are required.
+CREATE TABLE IF NOT EXISTS `la_user_asset_state` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `asset_ref` varchar(100) NOT NULL,
+  `favorite` tinyint unsigned DEFAULT NULL,
+  `label` varchar(20) NOT NULL DEFAULT '',
+  `trashed_at` int unsigned NOT NULL DEFAULT 0,
+  `hidden_at` int unsigned NOT NULL DEFAULT 0,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_owner_asset` (`tenant_id`,`user_id`,`asset_ref`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Account asset library state';
+
+-- User-defined asset labels. Defaults are supplied lazily for existing accounts.
+CREATE TABLE IF NOT EXISTS `la_user_asset_labels` (
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `labels` text NOT NULL,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`tenant_id`,`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Account asset label catalog';
 
 -- Short-drama worker schema parity (20261011).
 -- Fresh-install and existing-site short-drama worker schema parity.

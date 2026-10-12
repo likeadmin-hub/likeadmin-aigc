@@ -34,6 +34,11 @@ class MarketTextModelRuntimeService
         'price_source',
     ];
 
+    public static function textOptions(int $tenantId): array
+    {
+        return self::options($tenantId, false);
+    }
+
     public static function modelGroups(int $tenantId): array
     {
         return [
@@ -215,6 +220,7 @@ class MarketTextModelRuntimeService
             return $result + [
                 'effective_max_tokens' => $maxTokens,
                 'model_code' => $model['model_code'],
+                'model_name' => $model['name'],
                 'channel_code' => $model['channel_code'],
                 'provider' => 'power_market',
                 'app_task_id' => (int)$context['appTask']['id'],

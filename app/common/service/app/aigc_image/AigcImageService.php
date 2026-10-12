@@ -2,6 +2,7 @@
 
 namespace app\common\service\app\aigc_image;
 
+use app\common\service\app\PromptEnhanceModelService;
 use app\common\model\app\aigc_image\AigcImageConfig;
 use app\common\model\app\aigc_image\AigcImageBilling;
 use app\common\model\app\aigc_image\AigcImageQuota;
@@ -38,10 +39,12 @@ class AigcImageService
                 'model' => 'power_market_image',
                 'status' => 1,
                 'config_json' => [],
+                'prompt_enhance_model' => PromptEnhanceModelService::describe($tenantId, []),
                 'option_config' => AigcImageChannelService::userConfig($tenantId),
             ]);
         }
         $data = $config->toArray();
+        $data['prompt_enhance_model'] = PromptEnhanceModelService::describe($tenantId, (array)($data['config_json'] ?? []));
         $data['provider_mode'] = 'market';
         $data['provider'] = 'power_market';
         $data['model'] = 'power_market_image';
@@ -113,6 +116,9 @@ class AigcImageService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
+        if (isset($params['config_json']) && is_array($params['config_json'])) {
+            $params['config_json'] = PromptEnhanceModelService::validateConfig($tenantId, $params['config_json']);
+        }
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $row = AigcImageConfig::where('tenant_id', $tenantId)->findOrEmpty();
         $current = $row->isEmpty() ? [] : $row->toArray();
@@ -146,6 +152,11 @@ class AigcImageService
     /** Submit a business app image task through a market model SKU only. */
     public static function generateMarketModelWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride, string $appCode, ?callable $onTaskCreated = null): array
     {
+        $submissionKey = AigcImageSubmission::key($params, $appCode);
+        if ($existing = AigcImageSubmission::find($tenantId, $userId, $submissionKey)) {
+            return self::buildDuplicateGenerateResponse($existing, $tenantId, $userId);
+        }
+        $batchMetadata = AigcImageCreationBatch::takeFromRequest($params);
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
         if ($prompt === '') {
@@ -157,10 +168,10 @@ class AigcImageService
         $estimate = self::estimateMarketModel($tenantId, $params, $billingOverride);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
-        $task = AigcImageTask::create([
+        $claim = AigcImageSubmission::claim([
             'app_task_id' => 0, 'tenant_id' => $tenantId, 'user_id' => $userId,
             'prompt' => $prompt, 'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
-            'reference_images' => $referenceImages, 'provider_params_json' => [],
+            'reference_images' => $referenceImages, 'provider_params_json' => $batchMetadata,
             'style' => (string)($params['style'] ?? 'general'),
             'channel' => (string)($params['model_id'] ?? $params['channel'] ?? ''),
             'quality' => (string)($params['quality'] ?? ''), 'ratio' => (string)($params['ratio'] ?? ''),
@@ -168,7 +179,11 @@ class AigcImageService
             'user_charge_points' => (float)$estimate['user_charge_points'], 'provider' => 'power_market',
             'model' => (string)($params['model_id'] ?? ''), 'status' => 'running', 'error' => '',
             'delete_time' => 0, 'create_time' => time(), 'update_time' => time(),
-        ]);
+        ], $submissionKey);
+        $task = $claim['task'];
+        if (!$claim['created']) {
+            return self::buildDuplicateGenerateResponse($task, $tenantId, $userId);
+        }
         if ($onTaskCreated) $onTaskCreated($task);
         try {
             $request = array_merge($params, ['quantity' => $quantity, 'reference_images' => $referenceImages]);
@@ -366,6 +381,11 @@ class AigcImageService
     /** Submit Nano Banana through its application-API runtime and market SKU. */
     private static function generateNanoBanana(int $tenantId, int $userId, array $params, array $selection, array $referenceImages, ?callable $onTaskCreated = null, array $billingOverride = []): array
     {
+        $submissionKey = AigcImageSubmission::key($params, self::APP_CODE);
+        if ($existing = AigcImageSubmission::find($tenantId, $userId, $submissionKey)) {
+            return self::buildDuplicateGenerateResponse($existing, $tenantId, $userId);
+        }
+        $batchMetadata = AigcImageCreationBatch::takeFromRequest($params);
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
         AigcImageChannelService::assertChannelQuantity($selection['channel'], $quantity);
         $spec = (array)$selection['spec'];
@@ -383,14 +403,14 @@ class AigcImageService
             'variant' => (string)($request['variant'] ?? ''),
             'market_sku_id' => (int)($quote['market_sku_id'] ?? 0),
         ];
-        $task = AigcImageTask::create([
+        $claim = AigcImageSubmission::claim([
             'app_task_id' => 0,
             'tenant_id' => $tenantId,
             'user_id' => $userId,
             'prompt' => (string)$params['prompt'],
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
             'reference_images' => $referenceImages,
-            'provider_params_json' => $providerParams,
+            'provider_params_json' => array_merge($providerParams, $batchMetadata),
             'style' => (string)($params['style'] ?? 'general'),
             'channel' => (string)$selection['channel']['code'],
             'quality' => (string)($spec['quality'] ?? ''),
@@ -405,7 +425,11 @@ class AigcImageService
             'delete_time' => 0,
             'create_time' => time(),
             'update_time' => time(),
-        ]);
+        ], $submissionKey);
+        $task = $claim['task'];
+        if (!$claim['created']) {
+            return self::buildDuplicateGenerateResponse($task, $tenantId, $userId);
+        }
 
         if ($onTaskCreated) $onTaskCreated($task);
         try {
@@ -887,6 +911,7 @@ class AigcImageService
 
     private static function appendTaskModelDisplay(array &$task): void
     {
+        $task['creation_batch'] = AigcImageCreationBatch::fromTask($task);
         $task['model_name'] = AiTaskRecordService::modelDisplayName($task, self::APP_CODE);
         $task['channel_name'] = $task['model_name'];
     }
@@ -1215,7 +1240,7 @@ class AigcImageService
             (int)$task['quantity'],
             (array)($task['reference_images'] ?: []),
             $selection['spec'],
-            array_merge($selection['spec']['provider_params_json'] ?? [], is_array($task['provider_params_json'] ?? null) ? $task['provider_params_json'] : []),
+            AigcImageCreationBatch::providerParams(array_merge($selection['spec']['provider_params_json'] ?? [], is_array($task['provider_params_json'] ?? null) ? $task['provider_params_json'] : [])),
             array_merge($selection['channel']['config_json'] ?? [], [
                 'model' => $selection['channel']['model'],
                 'tenant_id' => (int)$task['tenant_id'],

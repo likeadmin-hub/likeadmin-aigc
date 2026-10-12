@@ -51,6 +51,15 @@ final class MarketModelCapabilities
         try { return self::validate((array)($record['values']??[])); } catch (InvalidArgumentException) { return []; }
     }
 
+    /** Preserve JSON types: the application's default trim filter converts booleans and integers to strings. */
+    public static function fromRequest(\think\Request $request): ?array
+    {
+        $values = $request->post('capability_overrides', null, null);
+        if ($values === null) return null;
+        if (!is_array($values)) throw new InvalidArgumentException('模型能力校正必须为对象');
+        return self::validate($values);
+    }
+
     public static function validate(array $values): array
     {
         $fields=self::fields();$result=[];

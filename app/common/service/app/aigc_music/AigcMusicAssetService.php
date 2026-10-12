@@ -57,6 +57,7 @@ class AigcMusicAssetService
         $fileSize = is_file($publicPath) ? (int)filesize($publicPath) : 0;
         TenantFile::create([
             'tenant_id' => $tenantId,
+            'upload_origin' => 'local',
             'cid' => 0,
             'type' => FileEnum::FILE_TYPE,
             'name' => basename($uri),

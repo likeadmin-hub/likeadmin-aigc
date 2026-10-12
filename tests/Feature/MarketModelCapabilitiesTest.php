@@ -10,6 +10,20 @@ use PHPUnit\Framework\TestCase;
 
 class MarketModelCapabilitiesTest extends TestCase
 {
+    public function testCapabilityRequestPreservesJsonTypesDespiteDefaultTrimFilter(): void
+    {
+        $values = ['supports_reference_images'=>true, 'supports_search'=>false,
+            'max_reference_images'=>14, 'input_modalities'=>['text','image']];
+        $request = (new \app\Request())->withPost(['capability_overrides'=>$values]);
+        self::assertSame($values, C::fromRequest($request));
+        self::assertNull(C::fromRequest((new \app\Request())->withPost([])));
+        self::assertSame([], C::fromRequest((new \app\Request())->withPost(['capability_overrides'=>[]])));
+    }
+    public function testCapabilityRequestRejectsStringBooleansRatherThanCoercingThem(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        C::fromRequest((new \app\Request())->withPost(['capability_overrides'=>['supports_reference_images'=>'false']]));
+    }
     private function product(array $meta=[],array $overrides=[]): array
     {
         $p=['resource_type'=>'model','source_code'=>'test','upstream_resource_key'=>'model:test:channel','upstream_model_code'=>'test','upstream_channel_code'=>'channel','source_payload'=>['market_metadata'=>$meta]];

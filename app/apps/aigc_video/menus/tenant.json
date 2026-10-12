@@ -17,7 +17,17 @@
         "name": "基础配置",
         "perms": "app.aigc_video.config/detail",
         "paths": "config",
-        "component": "apps/aigc_video/config"
+        "component": "apps/aigc_video/config",
+        "sort": 30
+      },
+      {
+        "source_menu_key": "aigc_video_effects",
+        "type": "C",
+        "name": "效果配置",
+        "sort": 29,
+        "perms": "app.aigc_video.config/detail",
+        "paths": "effects",
+        "component": "apps/aigc_video/effects"
       },
       {
         "source_menu_key": "aigc_video_task",

@@ -3,6 +3,7 @@
 namespace app\common\service\storage\engine;
 
 use app\common\service\storage\UploadExtension;
+use app\common\service\storage\SvgSanitizer;
 use think\Request;
 use think\Exception;
 
@@ -59,11 +60,16 @@ abstract class Server
             throw new Exception('不允许上传' . $extension . '后缀文件');
         }
 
+        // Shared by image/file endpoints and every storage driver. Never persist the original SVG.
+        if ($extension === 'svg') {
+            SvgSanitizer::sanitizeFile($this->file->getRealPath());
+        }
+
         // 文件信息
         $this->fileInfo = [
             'ext'      => $extension,
             'size'     => $this->file->getSize(),
-            'mime'     => $this->file->getMime(),
+            'mime'     => $extension === 'svg' ? 'image/svg+xml' : $this->file->getMime(),
             'name'     => $originalName,
             'realPath' => $this->file->getRealPath(),
         ];
