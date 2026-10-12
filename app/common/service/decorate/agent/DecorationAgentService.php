@@ -204,6 +204,7 @@ final class DecorationAgentService
         $key=(string)($p['idempotency_key']??('rollback:'.(int)($p['checkpoint_id']??0)));if(strlen($key)>100)throw new RuntimeException('恢复标识无效');
         return Db::transaction(function()use($tenant,$admin,$p,$key){
             $c=self::q('checkpoint',$tenant,$admin)->where('id',(int)($p['checkpoint_id']??0))->lock(true)->find();if(!$c)throw new RuntimeException('检查点不存在');
+            if(!in_array($c['kind'],['apply','create','image'],true))throw new RuntimeException('该检查点不能直接恢复，请通过候选重新应用');
             $s=self::owned('session',$tenant,$admin,(int)$c['session_id']);
             $old=self::q('checkpoint',$tenant,$admin)->where('idempotency_key',$key)->lock(true)->find();
             if($old){$page=self::page($tenant,(int)$s['template_id'],(int)$old['page_id']);return ['page'=>self::resolvedPage($tenant,$page),'checkpoint_id'=>$old['id'],'current_hash'=>self::hash(self::payload($page)),'deleted'=>$old['kind']==='undo_create','deleted_page_id'=>$old['kind']==='undo_create'?$c['page_id']:0];}
