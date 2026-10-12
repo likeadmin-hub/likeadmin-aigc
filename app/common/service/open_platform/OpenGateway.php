@@ -81,6 +81,7 @@ final class OpenGateway
         if(!preg_match('#^application/(?:[a-z0-9._+-]+\+)?json(?:\s*;|$)#i',(string)($wire['headers']['content-type']??'')))return false;
         $body=json_decode($wire['body'],false,64);if(json_last_error()!==JSON_ERROR_NONE||!($body instanceof \stdClass)||!(array)$body)return false;$data=(array)$body;
         if(($operation['response_adapter']??'')===OpenMarketResponse::ADAPTER&&!OpenMarketResponse::bodySupported($wire['body']))return false;
+        if(!self::marketSchemaAccepted($operation,$wire,$body))return false;
         if(isset($operation['success_path']))return OpenSchema::get($data,$operation['success_path'])===($operation['success_value']??1);
         if(in_array($data['code']??null,[1,'1'],true))return true;
         $task=OpenSchema::get($data,$operation['task_id_path']??'data.task_id');if((is_string($task)||is_int($task))&&(string)$task!=='')return true;
@@ -89,14 +90,41 @@ final class OpenGateway
         // an unconstrained object or incidental envelope metadata cannot.
         $required=(array)($schema['required']??[]);$declared=array_intersect_key($data,(array)($schema['properties']??[]));
         if(!$required&&!array_diff(array_keys($declared),['code','msg','message','data']))return false;
-        try{OpenSchema::validate($body,$schema,'$',0,null,true);return true;}catch(OpenException){return false;}
+        return true; // The declared schema was validated before the envelope shortcuts.
     }
 
     /** A shared supplier account must echo the locally owned task identity. */
     public static function marketQueryAccepted(array $wire,string $taskId,array $operation): bool
     {
         $data=OpenStore::json($wire['body']);$actual=OpenSchema::get($data,'data.task_id');
-        return (is_string($actual)||is_int($actual))&&(string)$actual===$taskId&&self::marketAccepted($operation,$wire);
+        $query=$operation;unset($query['responses']);if(!empty($operation['query_responses']))$query['responses']=$operation['query_responses'];
+        return (is_string($actual)||is_int($actual))&&(string)$actual===$taskId&&self::marketAccepted($query,$wire);
+    }
+    /** Failed queries cannot publish another task's business data. Plain errors have no task result. */
+    public static function marketQueryFailureSafe(array $wire,string $taskId,array $operation): bool
+    {
+        if(!preg_match('#^application/(?:[a-z0-9._+-]+\\+)?json(?:\\s*;|$)#i',(string)($wire['headers']['content-type']??'')))return false;
+        $body=json_decode($wire['body'],false,64);if(json_last_error()!==JSON_ERROR_NONE||!($body instanceof \stdClass)||!(array)$body)return false;
+        if(($operation['response_adapter']??'')===OpenMarketResponse::ADAPTER&&!OpenMarketResponse::bodySupported($wire['body']))return false;
+        $actual=OpenSchema::get((array)$body,'data.task_id');
+        if($actual!==null){if(!(is_string($actual)||is_int($actual))||(string)$actual!==$taskId)return false;$query=$operation;unset($query['responses']);if(!empty($operation['query_responses']))$query['responses']=$operation['query_responses'];return self::marketSchemaAccepted($query,$wire,$body);}
+        if(array_diff(array_keys((array)$body),['code','msg','message','error','data']))return false;
+        $data=$body->data??null;return $data===null||$data instanceof \stdClass&&!(array)$data||is_array($data)&&$data===[];
+    }
+    private static function marketSchemaAccepted(array $operation,array $wire,\stdClass $body): bool
+    {
+        if(empty($operation['responses']))return true;
+        $responses=$operation['responses'];
+        if(($operation['response_adapter']??'')===OpenMarketResponse::ADAPTER){if(!OpenMarketResponse::schemaSupported($responses))return false;$responses=OpenMarketResponse::retailSchemas($responses);}
+        $response=$responses[(string)$wire['status']]??null;if(!$response)return false;
+        $schema=$response['content']['application/json']['schema']??null;if($schema===null)return true;if(!is_array($schema))return false;
+        try{OpenSchema::validate($body,$schema,'$',0,null,true);return true;}catch(OpenException){}
+        if(($operation['response_adapter']??'')!==OpenMarketResponse::ADAPTER)return false;
+        // Decimal DB columns may serialize as numeric strings. Only registered
+        // monetary nodes are coerced in this validation copy; the wire stays typed.
+        $copy=json_decode(OpenStore::encode($body));
+        $coerce=static function($value,string $path='')use(&$coerce){if(OpenMarketResponse::retailPath($path)&&is_string($value)&&is_numeric($value)&&is_finite((float)$value))return (float)$value;if($value instanceof \stdClass)foreach($value as $key=>$child)$value->$key=$coerce($child,$path===''?(string)$key:$path.'.'.$key);elseif(is_array($value))foreach($value as $key=>$child)$value[$key]=$coerce($child,$path.'.[]');return $value;};
+        try{OpenSchema::validate($coerce($copy),$schema,'$',0,null,true);return true;}catch(OpenException){return false;}
     }
 
     /** A bound supplier channel is server routing, not an extra SDK argument. */
@@ -154,7 +182,7 @@ final class OpenGateway
             elseif($task!==''&&!$failed&&$op['role']==='submit'){$fields+=['upstream_task_id'=>$task,'status'=>'running','next_run_time'=>time()+30];\app\common\model\ai\AiConsumptionLog::where('consume_no',$row['request_id'])->update(['upstream_task_id'=>$task,'run_status'=>'running']);}
             else{$fields+=['status'=>$failed?'failed':'success'];if(!empty($op['billable'])){if($stream)$data=self::streamUsage($wire['body']);self::settleKnownResult($row,$data,$failed);}else $fields+=['active'=>0,'next_run_time'=>0];}
             $financeRow=$row;
-            if($op['history']&&!$failed){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);$financeRow=$owner;if(self::marketQueryAccepted($wire,$owner['upstream_task_id'],$op))self::observeTask($owner,$data);else $wire['acceptance_uncertain']=true;}
+            if($op['history']){$owner=self::ownedTask(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id']],$op);$financeRow=$owner;if($failed){if(!self::marketQueryFailureSafe($wire,$owner['upstream_task_id'],$op))$wire['acceptance_uncertain']=true;}elseif(self::marketQueryAccepted($wire,$owner['upstream_task_id'],$op))self::observeTask($owner,$data);else $wire['acceptance_uncertain']=true;}
             if(($op['response_adapter']??'')===OpenMarketResponse::ADAPTER||!empty($wire['acceptance_uncertain'])){
                 $financeRow=OpenStore::table('request')->where('id',$financeRow['id'])->find();
                 $wire=self::marketWire($row,$financeRow,$wire,$fields);$data=OpenStore::json($wire['body']);
