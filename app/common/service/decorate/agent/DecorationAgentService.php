@@ -97,7 +97,7 @@ final class DecorationAgentService
         $s=self::owned('session',$tenant,$admin,$id);$s['preferences']=self::decode($s['preferences']);$s['facts']=self::decode($s['facts']);
         $s['messages']=array_map(function($m){$m['attachments']=self::decode($m['attachments']);return $m;},self::q('message',$tenant,$admin)->where('session_id',$id)->order('id')->select()->toArray());
         $s['candidates']=self::q('candidate',$tenant,$admin)->where('session_id',$id)->field('id,run_id,revision,status,applied_page_id,create_time')->order('id','desc')->limit(50)->select()->toArray();
-        $s['checkpoints']=self::q('checkpoint',$tenant,$admin)->where('session_id',$id)->field('id,page_id,kind,create_time,after_hash')->order('id','desc')->limit(50)->select()->toArray();
+        $s['checkpoints']=self::q('checkpoint',$tenant,$admin)->where('session_id',$id)->field('id,page_id,candidate_id,kind,create_time,after_hash')->order('id','desc')->limit(50)->select()->toArray();
         $s['current_hash']=self::hash(self::payload(self::page($tenant,(int)$s['template_id'],(int)$s['page_id'])));
         $s['last_run']=self::q('run',$tenant,$admin)->where('session_id',$id)->field('id,status,candidate_id')->order('id','desc')->find();$s['latest_run']=$s['last_run']?self::run($tenant,$admin,(int)$s['last_run']['id']):null;return $s;
     }
