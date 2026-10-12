@@ -7,7 +7,7 @@ function checkProtocol(bool $ok, string $why): void { if (!$ok) throw new Runtim
 $product = ['id'=>990001,'name'=>'Protocol fixture','resource_type'=>'model','model_type'=>'image','upstream_model_code'=>'fixture-image','upstream_channel_code'=>'fixture-channel','source_payload'=>['market_metadata'=>['call_type'=>2,'params_schema'=>['type'=>'object','properties'=>['prompt'=>['type'=>'string','example'=>'A paper boat on a quiet river.'],'type'=>['type'=>'string'],'content'=>['type'=>'array','items'=>['type'=>'object','properties'=>['type'=>['type'=>'string']]]]],'required'=>['prompt']]]],'skus'=>[['id'=>990002,'sku_key'=>'fixture','usage_unit'=>'per_call','usage_unit_size'=>1,'sale_points'=>1.23,'sale_status'=>1,'locked_params'=>[]]]];
 $row=C::compileProduct($product);checkProtocol(count($row['drafts'])===1,'Registered model_task must compile without a prose JSON response sample');
 $config=$row['drafts'][0]['config'];checkProtocol($config['input']['properties']['type']['type']==='string'&&$config['input']['properties']['content']['items']['properties']['type']['type']==='string','Business type fields were lost');
-checkProtocol($config['compiler']['version']===2&&$config['compiler']['schema_sources']['response']['registry_version']===1&&!isset($config['verification']),'Registered structure must have versioned sources and no fake verification');
+checkProtocol($config['compiler']['version']===3&&$config['compiler']['schema_sources']['response']['registry_version']===1&&!isset($config['verification']),'Registered structure must have versioned sources and no fake verification');
 checkProtocol(isset($config['query_responses']['200']['content']['application/json']['schema']['properties']['data']['properties']['type']),'Query type schema missing');
 foreach(['responses','query_responses'] as $field){
     checkProtocol(R::schemaSupported($config[$field]),'Registered financial schema is unsupported');
@@ -31,6 +31,17 @@ foreach($textRow['candidates'] as $candidate){checkProtocol(in_array('actual_usa
     $field=match($candidate['protocol']){'openai_completions'=>'prompt','openai_responses'=>'input',default=>'messages'};
     checkProtocol(in_array($field,$input['required'],true)&&!isset($input['properties']['max_tokens']['maximum'])&&!isset($input['properties']['max_output_tokens']['maximum']),'Protocol-specific required input or unknown quota changed');
 }
+foreach($textRow['documentation_routes'] as $route){
+    checkProtocol(isset($route['responses']['200']['content']['application/json']['schema'],$route['responses']['200']['content']['text/event-stream']),'Native JSON/SSE documentation missing');
+}
+// A catalogue's generic Chat schema must not replace Responses/Claude protocol shapes.
+$genericText=$text;$genericText['source_payload']['market_metadata']['params_schema']=['type'=>'object','required'=>['messages'],'properties'=>['messages'=>['type'=>'array']]];
+$genericRow=C::compileProduct($genericText);$responsesRoute=array_values(array_filter($genericRow['documentation_routes'],fn($r)=>$r['protocol']==='openai_responses'))[0];
+checkProtocol(in_array('input',$responsesRoute['input']['required'],true)&&!in_array('messages',$responsesRoute['input']['required'],true),'Generic Chat schema broke Responses input');
+// Valid fixed-call text fixtures still use native wire formats and no synthetic task route.
+$fixedText=$text;$fixedText['skus'][0]['usage_unit']='per_call';$fixedText['skus'][0]['usage_unit_size']=1;
+$fixedRow=C::compileProduct($fixedText);checkProtocol(count($fixedRow['drafts'])===4,'Native fixed-call text protocols failed to compile');
+foreach($fixedRow['drafts'] as $draft)checkProtocol(!isset($draft['config']['response_adapter'],$draft['config']['query_path'])&&isset($draft['config']['responses']['200']['content']['text/event-stream']),'Text contract acquired an app response adapter');
 foreach(['grok_video','nano_banana'] as $app){$appProduct=$product;$appProduct['resource_type']='app_api';$appProduct['model_type']='';$appProduct['upstream_model_code']='';$appProduct['upstream_channel_code']='';$appProduct['upstream_app_code']=$app;$appProduct['upstream_api_code']='submit';$appProduct['source_payload']['market_metadata']=[];
     $appRow=C::compileProduct($appProduct);checkProtocol($appRow['schema_sources']['input']['definition']==='app.'.$app.'.submit'&&!in_array('schema_missing',array_column($appRow['blockers'],'code'),true),'Primary app request schema not supplied');
     checkProtocol(in_array('response_schema_missing',array_column($appRow['blockers'],'code'),true)&&!$appRow['drafts'],'App acquired an unreviewed generic model response');
