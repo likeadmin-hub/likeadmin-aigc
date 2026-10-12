@@ -57,6 +57,8 @@ class AigcImageService
         $estimate = AigcImageChannelService::estimate($tenantId, $params);
         $selection = AigcImageChannelService::resolveSelection($tenantId, $params);
         $spec = (array)$selection['spec'];
+        $references=array_filter(array_map('strval',(array)($params['reference_images']??[])),static fn($value)=>trim($value)!=='');
+        if(count($references)>(int)$selection['channel']['max_reference_images'])throw new Exception('参考图数量超出限制');
         if ((string)($selection['channel']['provider'] ?? '') === 'power_market_model') {
             return self::estimateMarketModel($tenantId, array_merge($params, [
                 'model_id' => (string)$selection['channel']['code'],
@@ -142,13 +144,13 @@ class AigcImageService
         return self::generateInternal($tenantId, $userId, $params);
     }
 
-    public static function generateWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride): array
+    public static function generateWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride, ?callable $onTaskCreated = null): array
     {
-        return self::generateInternal($tenantId, $userId, $params, $billingOverride);
+        return self::generateInternal($tenantId, $userId, $params, $billingOverride, $onTaskCreated);
     }
 
     /** Submit a business app image task through a market model SKU only. */
-    public static function generateMarketModelWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride, string $appCode): array
+    public static function generateMarketModelWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride, string $appCode, ?callable $onTaskCreated = null): array
     {
         $submissionKey = AigcImageSubmission::key($params, $appCode);
         if ($existing = AigcImageSubmission::find($tenantId, $userId, $submissionKey)) {
@@ -182,6 +184,7 @@ class AigcImageService
         if (!$claim['created']) {
             return self::buildDuplicateGenerateResponse($task, $tenantId, $userId);
         }
+        if ($onTaskCreated) $onTaskCreated($task);
         try {
             $request = array_merge($params, ['quantity' => $quantity, 'reference_images' => $referenceImages]);
             $reserve = MarketImageModelRuntimeService::reserve(
@@ -195,19 +198,21 @@ class AigcImageService
             self::syncMarketTaskResult($tenantId, (int)$task['id'], $userId);
             return ['task_id' => (int)$task['id'], 'results' => self::existingResultRows($tenantId, $userId, (int)$task['id']), 'status' => (string)($result['status'] ?? 'running')];
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             $task->save(['status' => 'failed', 'error' => $e->getMessage(), 'finish_time' => time(), 'update_time' => time()]);
             throw $e;
         }
     }
 
-    private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = []): array
+    private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = [], ?callable $onTaskCreated = null): array
     {
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
         if ($prompt === '') {
             throw new Exception('请输入提示词');
         }
-        $selection = AigcImageChannelService::resolveSelection($tenantId, $params);
+        $frozen = \app\common\service\open_platform\OpenImagePricing::selection($tenantId, $userId);
+        $selection = $frozen['selection'] ?? AigcImageChannelService::resolveSelection($tenantId, $params);
         if (!empty($params['market_sku_id']) || !empty($params['sku_id'])) {
             $selection['market_sku_id'] = (int)($params['market_sku_id'] ?? $params['sku_id']);
         }
@@ -219,7 +224,7 @@ class AigcImageService
         }
         self::checkSensitiveWords($tenantId, $prompt);
         if ((string)($selection['channel']['provider'] ?? '') === 'power_market_app_api') {
-            return self::generateNanoBanana($tenantId, $userId, $params, $selection, $referenceImages);
+            return self::generateNanoBanana($tenantId, $userId, $params, $selection, $referenceImages, $onTaskCreated, $billingOverride);
         }
         if ((string)($selection['channel']['provider'] ?? '') === 'power_market_model') {
             return self::generateMarketModelWithBillingOverride(
@@ -235,7 +240,8 @@ class AigcImageService
                     'reference_images' => $referenceImages,
                 ]),
                 $billingOverride,
-                self::APP_CODE
+                self::APP_CODE,
+                $onTaskCreated
             );
         }
         throw new Exception('图片生成必须选择算力市场模型或应用 API');
@@ -305,6 +311,7 @@ class AigcImageService
             AiUsageService::attachImageTask((int)$usage['app_task']['id'], (int)$task['id']);
             Db::commit();
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             Db::rollback();
             throw $e;
         }
@@ -335,6 +342,7 @@ class AigcImageService
                 $channelConfig
             ));
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             $task->status = 'failed';
             $task->error = '生图提交失败';
             $task->finish_time = time();
@@ -371,7 +379,7 @@ class AigcImageService
     }
 
     /** Submit Nano Banana through its application-API runtime and market SKU. */
-    private static function generateNanoBanana(int $tenantId, int $userId, array $params, array $selection, array $referenceImages): array
+    private static function generateNanoBanana(int $tenantId, int $userId, array $params, array $selection, array $referenceImages, ?callable $onTaskCreated = null, array $billingOverride = []): array
     {
         $submissionKey = AigcImageSubmission::key($params, self::APP_CODE);
         if ($existing = AigcImageSubmission::find($tenantId, $userId, $submissionKey)) {
@@ -390,7 +398,7 @@ class AigcImageService
             'quantity' => $quantity,
             'reference_images' => $referenceImages,
         ]);
-        $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, $request, $quantity);
+        $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, $request, $quantity, $billingOverride);
         $providerParams = [
             'variant' => (string)($request['variant'] ?? ''),
             'market_sku_id' => (int)($quote['market_sku_id'] ?? 0),
@@ -423,6 +431,7 @@ class AigcImageService
             return self::buildDuplicateGenerateResponse($task, $tenantId, $userId);
         }
 
+        if ($onTaskCreated) $onTaskCreated($task);
         try {
             $reserve = MarketNanoBananaAppRuntimeService::reserve(
                 $tenantId,
@@ -433,7 +442,8 @@ class AigcImageService
                 $request,
                 $quantity,
                 self::APP_CODE,
-                'aigc_image_task'
+                'aigc_image_task',
+                $billingOverride
             );
             $task->save(['app_task_id' => (int)$reserve['app_task_id'], 'update_time' => time()]);
             MarketNanoBananaAppRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$task['id']);
@@ -448,6 +458,7 @@ class AigcImageService
                 'status' => (string)($result['status'] ?? 'running'),
             ];
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             $task->save([
                 'status' => 'failed',
                 'error' => $e->getMessage(),
@@ -665,6 +676,10 @@ class AigcImageService
             'provider' => 'power_market',
         ])->findOrEmpty();
         if ($consumption->isEmpty()) return;
+        if ((string)$consumption['run_status'] === 'pending_confirmation') {
+            $task->save(['status'=>'pending_confirmation','error'=>'上游受理状态待确认','finish_time'=>0,'update_time'=>time()]);
+            return;
+        }
         if (in_array((string)$consumption['run_status'], ['failed', 'canceled', 'cancelled'], true)
             || (string)$consumption['billing_status'] === 'refunded') {
             $task->save([
@@ -1059,6 +1074,7 @@ class AigcImageService
                 ];
                 self::finishTaskWithImages($task, $selection, $estimate, $result->images);
             } catch (\Throwable $e) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
                 if (!$swallowErrors) {
                     throw $e;
                 }
@@ -1148,7 +1164,8 @@ class AigcImageService
     {
         try {
             self::refreshRunningTasks($tenantId, $userId, $taskId, true);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             // Listing/detail pages must remain readable even if async task polling fails.
         }
     }
@@ -1162,7 +1179,8 @@ class AigcImageService
             $task->update_time = time();
             $task->save();
             AiUsageService::failImageTask((int)$task['id'], $message, 'refresh_failed');
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             // Never let failure-state persistence break read-only task list APIs.
         }
     }
@@ -1556,6 +1574,7 @@ class AigcImageService
             $task->save();
             Db::commit();
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             Db::rollback();
             $task->status = 'failed';
             $task->error = $e->getMessage();

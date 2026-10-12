@@ -401,6 +401,8 @@ class AiToolDownloadService
             return false;
         }
 
+        if (\app\common\service\open_platform\OpenCallContext::active()) return \app\common\service\open_platform\OpenSafeHttp::get($url,268435456,30)['body'];
+
         if (function_exists('curl_init')) {
             $ch = curl_init($url);
             curl_setopt_array($ch, [

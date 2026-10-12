@@ -65,7 +65,10 @@ final class SvgUploadTest extends TestCase
         ];
     }
 
-    /** @runInSeparateProcess */
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
     public function testUploadDriverStoresSanitizedBytesWithSvgMetadata(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'svg-upload-');

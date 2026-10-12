@@ -105,8 +105,10 @@ class AigcMusicService
             self::assertAsset($tenantId, $payload['reference_asset_id'], $userId);
         }
         self::recordSafetyAudit($tenantId, $userId, 'task', 0, 'prompt_review', 'passed', $payload['prompt'] . ' ' . $payload['lyrics']);
-        $selection = AigcMusicChannelService::resolveSelection($tenantId, $params);
-        $estimate = AigcMusicChannelService::estimate($tenantId, $params);
+        $frozen=\app\common\service\open_platform\OpenToolPricing::forRequest(self::APP_CODE,$tenantId,$userId);
+        $selection = $frozen['selection']??AigcMusicChannelService::resolveSelection($tenantId, $params);
+        $selection['resource_bindings']??=self::referenceBindings($tenantId,$userId,$params);
+        $estimate = $frozen['quote']??AigcMusicChannelService::estimateSelection($selection,$params);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
         $duplicate = self::findRecentDuplicateTask($tenantId, $userId, $payload);
@@ -185,7 +187,7 @@ class AigcMusicService
             throw new Exception('请输入歌词主题');
         }
         self::recordSafetyAudit($tenantId, $userId, 'lyrics', 0, 'prompt_review', 'passed', $prompt);
-        return self::providerFor('mock')->lyrics($params);
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'lyrics',['prompt'=>$prompt]);
     }
 
     public static function mashupLyrics(int $tenantId, int $userId, array $params): array
@@ -196,7 +198,14 @@ class AigcMusicService
             throw new Exception('请提供两段歌词');
         }
         self::recordSafetyAudit($tenantId, $userId, 'lyrics', 0, 'mashup_review', 'passed', $a . ' ' . $b);
-        return self::providerFor('mock')->mashupLyrics($params);
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'mashup_lyrics',['lyrics_a'=>$a,'lyrics_b'=>$b]);
+    }
+
+    public static function optimizeStyle(int $tenantId, int $userId, array $params): array
+    {
+        $payload=\app\common\service\power\MarketMusicOperationRuntimeService::input('style',$params);
+        self::recordSafetyAudit($tenantId,$userId,'lyrics',0,'style_review','passed',$payload['prompt']);
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'style',$payload);
     }
 
     public static function createPersona(int $tenantId, int $userId, array $params): array
@@ -227,30 +236,17 @@ class AigcMusicService
 
     public static function createVoiceClone(int $tenantId, int $userId, array $params): array
     {
-        $name = trim((string)($params['name'] ?? ''));
-        $assetId = (int)($params['reference_asset_id'] ?? $params['asset_id'] ?? 0);
-        if ($name === '' || $assetId <= 0) {
-            throw new Exception('请输入声音名称并选择授权音频');
-        }
-        $asset = self::assertAsset($tenantId, $assetId, $userId);
-        $clone = self::providerFor('mock')->cloneVoice($params + ['asset' => $asset]);
-        $row = AigcMusicVoiceClone::create([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'name' => $name,
-            'reference_asset_id' => $assetId,
-            'provider_voice_id' => (string)($clone['provider_voice_id'] ?? ''),
-            'auth_status' => (int)($params['authorization_confirmed'] ?? 0) === 1 ? 'confirmed' : 'pending',
-            'audit_status' => 'pending',
-            'auth_json' => self::authorizationPayload($params),
-            'provider_payload' => $clone['raw'] ?? [],
-            'status' => (string)($clone['status'] ?? 'pending'),
-            'create_time' => time(),
-            'update_time' => time(),
-            'delete_time' => 0,
-        ]);
-        self::recordSafetyAudit($tenantId, $userId, 'voice_clone', (int)$row['id'], 'voice_clone_create', 'pending', $name);
-        return $row->toArray();
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'voice_clone',$params);
+    }
+
+    public static function uploadUpstreamAudio(int $tenantId,int $userId,array $params): array
+    {
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'upload_audio',$params);
+    }
+
+    public static function createUpstreamPersona(int $tenantId,int $userId,array $params): array
+    {
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,'persona',$params);
     }
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
@@ -283,6 +279,13 @@ class AigcMusicService
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
+        $operation = AigcMusicTask::where(['tenant_id'=>$tenantId,'id'=>$taskId,'provider'=>'market_music_operation','delete_time'=>0])->when($userId>0,static fn($query)=>$query->where('user_id',$userId))->findOrEmpty();
+        if (!$operation->isEmpty()) {
+            \app\common\service\power\MarketMusicOperationRuntimeService::refresh((int)$operation['consumption_id']);
+            $operation->refresh();
+            return \app\common\service\power\MarketMusicOperationRuntimeService::taskData($operation->toArray()) + ['id'=>$operation['id'],'results'=>[]];
+        }
+        if($userId>0)\app\common\service\open_platform\OpenMusicReceipt::restore($tenantId,$userId,$taskId);
         self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcMusicTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
         if ($userId > 0) {
@@ -406,24 +409,7 @@ class AigcMusicService
         if ($result->isEmpty()) {
             throw new Exception('作品不存在');
         }
-        $payload = self::providerFor('mock')->export($result->toArray(), $type, $params);
-        $row = AigcMusicExport::create([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'result_id' => $resultId,
-            'export_type' => $type,
-            'file_uri' => (string)($payload['file_uri'] ?? ''),
-            'storage_scope' => (string)$result['storage_scope'],
-            'storage_engine' => (string)$result['storage_engine'],
-            'storage_domain' => (string)$result['storage_domain'],
-            'status' => (string)($payload['status'] ?? 'success'),
-            'error' => (string)($payload['error'] ?? ''),
-            'result_json' => $payload['raw'] ?? [],
-            'create_time' => time(),
-        ]);
-        $data = $row->toArray();
-        $data['file_url'] = FileService::getFileUrlByStorage($data['file_uri'], $data['storage_scope'], $data['storage_engine'], $data['storage_domain']);
-        return $data;
+        return \app\common\service\power\MarketMusicOperationRuntimeService::execute($tenantId,$userId,$type,['result_id'=>$resultId]+$params);
     }
 
     public static function assetLists(int $tenantId, array $params = [], int $userId = 0): array
@@ -606,9 +592,11 @@ class AigcMusicService
 
     private static function buildRequest(AigcMusicTask $task, array $selection, array $payload): AigcMusicGenerateRequest
     {
+        $payload=array_replace($payload,$selection['resource_bindings']??self::referenceBindings((int)$task['tenant_id'],(int)$task['user_id'],$payload));
         $channelConfig = array_merge($selection['channel']['config_json'] ?? [], [
             'tenant_id' => (int)$task['tenant_id'],
             'user_id' => (int)$task['user_id'],
+            '_native_task_id' => (int)$task['id'],
         ]);
         return new AigcMusicGenerateRequest(
             $payload['title'],
@@ -624,6 +612,34 @@ class AigcMusicService
             $selection['spec']['provider_params_json'] ?? [],
             $channelConfig
         );
+    }
+
+    public static function referenceBindings(int $tenant,int $user,array $params): array
+    {
+        foreach(['persona_id','voice_clone_id'] as $field)if(isset($params[$field])&&(!is_int($params[$field])&&!(is_string($params[$field])&&preg_match('/^[0-9]+$/D',$params[$field]))||(int)$params[$field]<0))throw new \app\common\service\open_platform\OpenException('invalid_request','音乐资源 ID 无效');
+        if((int)($params['voice_clone_id']??0)>0)throw new \app\common\service\open_platform\OpenException('capability_unavailable','当前生成通道尚未支持声音克隆资源',503);
+        $bindings=['provider_persona_id'=>''];$id=(int)($params['persona_id']??0);
+        if($id>0){
+            $persona=AigcMusicPersona::where(['id'=>$id,'tenant_id'=>$tenant,'user_id'=>$user,'status'=>1,'delete_time'=>0])->findOrEmpty();
+            if($persona->isEmpty())throw new \app\common\service\open_platform\OpenException('not_found','歌手风格不存在或不属于当前用户',404);
+            $provider=$persona['prompt_json']['provider_persona_id']??'';
+            if(!is_string($provider)||!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$provider))throw new \app\common\service\open_platform\OpenException('resource_unavailable','该本地音乐人设尚未关联上游歌手风格',409);
+            // Local profiles accept custom prompt JSON. That JSON is not proof
+            // of ownership of a supplier resource; the completed native task is.
+            $origin=AigcMusicTask::where(['tenant_id'=>$tenant,'user_id'=>$user,'provider'=>'market_music_operation','action'=>'persona','status'=>'success','billing_status'=>'settled','consumption_id'=>(int)($persona['prompt_json']['consumption_id']??0),'delete_time'=>0])->findOrEmpty();
+            $record=$origin->isEmpty()?[]:(array)$origin['result_json'];
+            if((int)($record['persona_id']??0)!==$id||($record['provider_persona_id']??'')!==$provider)throw new \app\common\service\open_platform\OpenException('resource_unavailable','歌手风格缺少本人成功创建的来源记录',409);
+            $bindings['provider_persona_id']=$provider;
+        }
+        $audio=$params['audio_id']??'';
+        if(!is_string($audio)||($audio!==''&&!preg_match('/^[A-Za-z0-9_-]{1,200}$/D',$audio)))throw new \app\common\service\open_platform\OpenException('invalid_request','参考音频标识无效');
+        if($audio!==''){
+            $owned=AigcMusicResult::where(['tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->whereRaw("(JSON_UNQUOTE(JSON_EXTRACT(result_json, '$.audio_id')) = ? OR JSON_UNQUOTE(JSON_EXTRACT(result_json, '$.id')) = ?)",[$audio,$audio])->find();
+            $uploaded=AigcMusicTask::where(['tenant_id'=>$tenant,'user_id'=>$user,'provider'=>'market_music_operation','action'=>'upload_audio','status'=>'success','delete_time'=>0])->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(result_json, '$.reference_audio_id')) = ?",[$audio])->find();
+            if(!$owned&&!$uploaded)throw new \app\common\service\open_platform\OpenException('not_found','参考音频不存在或不属于当前用户',404);
+            $bindings['audio_id']=$audio;
+        }
+        return $bindings;
     }
 
     private static function boolValue(mixed $value): bool
@@ -705,6 +721,8 @@ class AigcMusicService
                 Db::commit();
                 return $existing;
             }
+            $frozen=\app\common\service\open_platform\OpenToolPricing::forTask(self::APP_CODE,$tenantId,$userId,(int)$task['id']);
+            if($frozen)$selection=$frozen['selection'];
             $storage = StorageConfigService::getEffectiveConfig($tenantId);
             $domain = StorageConfigService::getEffectiveDomain($tenantId);
             $rows = [];
@@ -745,6 +763,7 @@ class AigcMusicService
                     'task_id' => (int)$task['id'],
                     'result_id' => (int)$row['id'],
                     'duration' => (int)$task['duration'],
+                    '_open_platform_request_id'=>$frozen['request_id']??'',
                 ]);
                 AigcMusicBilling::create([
                     'tenant_id' => $tenantId,
@@ -795,11 +814,16 @@ class AigcMusicService
         }
         $tasks = $query->limit(10)->select();
         foreach ($tasks as $task) {
-            if (!self::isAsyncProvider((string)$task['provider'])) {
-                continue;
-            }
             try {
-                $selection = AigcMusicChannelService::resolveSelection($tenantId, [
+                if ($task['provider'] === 'market_music_operation') {
+                    \app\common\service\power\MarketMusicOperationRuntimeService::refresh((int)$task['consumption_id']);
+                    continue;
+                }
+                if (!self::isAsyncProvider((string)$task['provider'])) {
+                    continue;
+                }
+                $frozen=\app\common\service\open_platform\OpenToolPricing::forTask(self::APP_CODE,$tenantId,(int)$task['user_id'],(int)$task['id']);
+                $selection = $frozen['selection']??AigcMusicChannelService::resolveSelection($tenantId, [
                     'channel' => $task['channel'],
                     'quality' => $task['quality'],
                 ]);
@@ -825,6 +849,7 @@ class AigcMusicService
                 }
                 self::finishTaskWithItems($task, $selection, $result->items);
             } catch (\Throwable $e) {
+                if(\app\common\service\open_platform\OpenCallContext::active()&&\app\common\service\open_platform\OpenRecovery::connectionLost($e))throw $e;
                 if (!$swallowErrors) {
                     throw $e;
                 }
@@ -836,7 +861,8 @@ class AigcMusicService
     {
         try {
             self::refreshRunningTasks($tenantId, $userId, $taskId, true);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            if(\app\common\service\open_platform\OpenCallContext::active()&&\app\common\service\open_platform\OpenRecovery::connectionLost($e))throw $e;
             // Read APIs must remain available while provider polling is temporarily unavailable.
         }
     }
@@ -886,7 +912,7 @@ class AigcMusicService
     private static function attachTaskResults(int $tenantId, array $tasks, int $userId = 0): array
     {
         foreach ($tasks as &$task) {
-            $task['results'] = self::existingResultRows($tenantId, $userId, (int)$task['id']);
+            $task = self::attachTaskResult($task, $tenantId, $userId);
         }
         return $tasks;
     }
@@ -894,9 +920,19 @@ class AigcMusicService
     private static function attachPlatformTaskResults(array $tasks): array
     {
         foreach ($tasks as &$task) {
-            $task['results'] = self::existingResultRows((int)$task['tenant_id'], 0, (int)$task['id']);
+            $task = self::attachTaskResult($task, (int)$task['tenant_id'], 0);
         }
         return $tasks;
+    }
+
+    private static function attachTaskResult(array $task, int $tenantId, int $userId): array
+    {
+        if ($task['provider'] === 'market_music_operation') {
+            // Auxiliary operations produce text, references or exports, not song rows.
+            return array_replace($task, \app\common\service\power\MarketMusicOperationRuntimeService::taskData($task)) + ['results' => []];
+        }
+        $task['results'] = self::existingResultRows($tenantId, $userId, (int)$task['id']);
+        return $task;
     }
 
     private static function formatResultRow(array $row): array

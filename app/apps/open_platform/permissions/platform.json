@@ -1,0 +1,110 @@
+[
+  {
+    "permission_key": "open_platform_platform_config",
+    "name": "开放设置",
+    "api_path": "app.open_platform.management/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_platform_setup",
+    "name": "开放设置操作",
+    "api_path": "app.open_platform.management/setup",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "open_platform_platform_pages",
+    "name": "页面管理",
+    "api_path": "app.open_platform.management/pages",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_platform_savePages",
+    "name": "页面管理操作",
+    "api_path": "app.open_platform.management/savePages",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "open_platform_platform_contracts",
+    "name": "接口契约",
+    "api_path": "app.open_platform.management/contracts",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_platform_saveContract",
+    "name": "接口契约操作",
+    "api_path": "app.open_platform.management/saveContract",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "open_platform_platform_publishContract",
+    "name": "发布",
+    "api_path": "app.open_platform.management/publishContract",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "open_platform_platform_documents",
+    "name": "文档管理",
+    "api_path": "app.open_platform.management/documents",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_platform_saveDocument",
+    "name": "文档管理操作",
+    "api_path": "app.open_platform.management/saveDocument",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "open_platform_platform_publishDocument",
+    "name": "发布",
+    "api_path": "app.open_platform.management/publishDocument",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "open_platform_platform_requests",
+    "name": "调用与异常",
+    "api_path": "app.open_platform.management/requests",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_platform_recoveryPreview",
+    "name": "调用与异常操作",
+    "api_path": "app.open_platform.management/recoveryPreview",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_platform_inventory",
+    "name": "能力清单",
+    "api_path": "app.open_platform.management/inventory",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_platform_requestDetail",
+    "name": "调用详情",
+    "api_path": "app.open_platform.management/requestDetail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_platform_createVerification",
+    "name": "草稿验收",
+    "api_path": "app.open_platform.management/createVerification",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "open_platform_platform_resumeTracking",
+    "name": "确认恢复原任务跟踪",
+    "api_path": "app.open_platform.management/resumeTracking",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "open_platform_platform_marketPlan",
+    "name": "商城契约编译计划",
+    "api_path": "app.open_platform.management/marketPlan",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "open_platform_platform_importMarketContracts",
+    "name": "导入商城契约草稿",
+    "api_path": "app.open_platform.management/importMarketContracts",
+    "api_method": "POST"
+  }
+]

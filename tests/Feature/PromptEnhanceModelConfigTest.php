@@ -41,7 +41,9 @@ class PromptEnhanceModelConfigTest extends TestCase
     {
         if (getenv('AIGC_ENHANCE_CONFIG_DB_TESTS') !== '1') self::markTestSkipped('Local transactional fixtures only');
         (new \think\App())->initialize();
-        self::assertSame('x_cn', Db::connect()->getConfig('database'));
+        $expectedDatabase = getenv('AIGC_TEST_DATABASE') ?: 'x_cn';
+        self::assertContains($expectedDatabase, ['x_cn', 'z_cn']);
+        self::assertSame($expectedDatabase, Db::connect()->getConfig('database'));
         self::assertContains(Db::connect()->getConfig('hostname'), ['127.0.0.1', 'localhost']);
         Db::startTrans();
         try {

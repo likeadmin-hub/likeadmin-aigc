@@ -11050,3 +11050,1192 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_production` (
   UNIQUE KEY `uk_stage` (`tenant_id`,`user_id`,`canvas_id`,`thread_id`,`stage_key`),
   KEY `idx_project` (`tenant_id`,`user_id`,`project_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短剧画布内部制作任务';
+
+-- Open platform additive tables; existing tenants remain disabled.
+CREATE TABLE IF NOT EXISTS `la_open_platform_key` (
+`id` bigint unsigned NOT NULL AUTO_INCREMENT,
+`create_time` bigint NOT NULL DEFAULT 0, `update_time` bigint NOT NULL DEFAULT 0,
+`tenant_id` bigint unsigned NOT NULL, `user_id` bigint unsigned NOT NULL,
+`name` varchar(100) NOT NULL, `key_hash` char(64) NOT NULL, `prefix` varchar(24) NOT NULL,
+`status` tinyint NOT NULL DEFAULT 1, `expires_at` bigint NOT NULL DEFAULT 0,
+`scopes` text NOT NULL, `ip_allowlist` text NOT NULL, `rpm` int NOT NULL DEFAULT 0,
+`concurrency` int NOT NULL DEFAULT 0, `daily_limit` decimal(18,2) NOT NULL DEFAULT 0,
+`monthly_limit` decimal(18,2) NOT NULL DEFAULT 0, `last_used_at` bigint NOT NULL DEFAULT 0,
+UNIQUE KEY `key_hash` (`key_hash`), KEY `owner` (`tenant_id`,`user_id`,`status`),
+PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_open_platform_setting` (
+`id` bigint unsigned NOT NULL AUTO_INCREMENT,
+`create_time` bigint NOT NULL DEFAULT 0, `update_time` bigint NOT NULL DEFAULT 0,
+`tenant_id` bigint unsigned NOT NULL, `enabled` tinyint NOT NULL DEFAULT 0,
+`config` mediumtext NOT NULL, UNIQUE KEY `tenant` (`tenant_id`),
+PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_open_platform_contract` (
+`id` bigint unsigned NOT NULL AUTO_INCREMENT,
+`create_time` bigint NOT NULL DEFAULT 0, `update_time` bigint NOT NULL DEFAULT 0,
+`code` varchar(160) NOT NULL, `method` varchar(10) NOT NULL,
+`path` varchar(255) NOT NULL, `version` int NOT NULL DEFAULT 1,
+`status` varchar(20) NOT NULL DEFAULT 'draft', `kind` varchar(20) NOT NULL DEFAULT 'market',
+`product_id` bigint NOT NULL DEFAULT 0, `config` mediumtext NOT NULL,
+UNIQUE KEY `code_version` (`code`,`version`), KEY `published` (`status`,`kind`),
+PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_open_platform_request` (
+`id` bigint unsigned NOT NULL AUTO_INCREMENT,
+`create_time` bigint NOT NULL DEFAULT 0, `update_time` bigint NOT NULL DEFAULT 0,
+`request_id` varchar(64) NOT NULL, `tenant_id` bigint unsigned NOT NULL,
+`user_id` bigint unsigned NOT NULL, `key_id` bigint unsigned NOT NULL,
+`method` varchar(10) NOT NULL, `path` varchar(255) NOT NULL, `app_code` varchar(100) NOT NULL DEFAULT '',
+`kind` varchar(20) NOT NULL, `contract_id` bigint NOT NULL DEFAULT 0,
+`idempotency_hash` char(64) NULL, `payload_hash` char(64) NOT NULL,
+`status` varchar(30) NOT NULL DEFAULT 'accepted', `billing_status` varchar(30) NOT NULL DEFAULT 'none',
+`budget_user` decimal(18,2) NOT NULL DEFAULT 0, `budget_tenant` decimal(18,2) NOT NULL DEFAULT 0,
+`actual_user` decimal(18,2) NOT NULL DEFAULT 0, `actual_tenant` decimal(18,2) NOT NULL DEFAULT 0,
+`rate_slot` bigint NOT NULL DEFAULT 0, `active` tinyint NOT NULL DEFAULT 1,
+`upstream_task_id` varchar(255) NOT NULL DEFAULT '', `tool_task_id` varchar(100) NOT NULL DEFAULT '',
+`consumption_ids` text NOT NULL, `snapshot` mediumtext NOT NULL,
+`response_blob` mediumtext NOT NULL, `response_type` varchar(150) NOT NULL DEFAULT 'application/json',
+`response_code` int NOT NULL DEFAULT 0, `error_code` varchar(80) NOT NULL DEFAULT '',
+`error_message` varchar(500) NOT NULL DEFAULT '', `duration_ms` int NOT NULL DEFAULT 0,
+`next_run_time` bigint NOT NULL DEFAULT 0, `lease_token` varchar(64) NOT NULL DEFAULT '',
+`lease_expire` bigint NOT NULL DEFAULT 0, `finish_time` bigint NOT NULL DEFAULT 0,
+UNIQUE KEY `request_id` (`request_id`), UNIQUE KEY `idempotency` (`tenant_id`,`user_id`,`idempotency_hash`),
+KEY `owner_time` (`tenant_id`,`user_id`,`create_time`), KEY `key_rate` (`key_id`,`rate_slot`),
+KEY `recovery` (`next_run_time`,`active`), KEY `upstream` (`tenant_id`,`user_id`,`upstream_task_id`),
+PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_open_platform_file` (
+`id` bigint unsigned NOT NULL AUTO_INCREMENT,
+`create_time` bigint NOT NULL DEFAULT 0, `update_time` bigint NOT NULL DEFAULT 0,
+`tenant_id` bigint unsigned NOT NULL, `user_id` bigint unsigned NOT NULL,
+`file_id` varchar(64) NOT NULL, `uri` varchar(1024) NOT NULL, `name` varchar(255) NOT NULL,
+`mime` varchar(150) NOT NULL DEFAULT '', `size` bigint NOT NULL DEFAULT 0,
+`storage_scope` varchar(40) NOT NULL DEFAULT '', `storage_engine` varchar(40) NOT NULL DEFAULT '',
+`storage_domain` varchar(255) NOT NULL DEFAULT '', UNIQUE KEY `file_id` (`file_id`),
+KEY `owner` (`tenant_id`,`user_id`),
+PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_open_platform_webhook` (
+`id` bigint unsigned NOT NULL AUTO_INCREMENT,
+`create_time` bigint NOT NULL DEFAULT 0, `update_time` bigint NOT NULL DEFAULT 0,
+`tenant_id` bigint unsigned NOT NULL, `user_id` bigint unsigned NOT NULL,
+`request_id` varchar(64) NOT NULL, `event_id` varchar(64) NOT NULL,
+`url` varchar(1024) NOT NULL, `secret_blob` text NOT NULL, `payload_blob` mediumtext NOT NULL,
+`status` varchar(20) NOT NULL DEFAULT 'pending', `attempts` int NOT NULL DEFAULT 0,
+`next_run_time` bigint NOT NULL DEFAULT 0, `lease_token` varchar(64) NOT NULL DEFAULT '',
+`lease_expire` bigint NOT NULL DEFAULT 0, `http_code` int NOT NULL DEFAULT 0,
+`last_error` varchar(500) NOT NULL DEFAULT '', UNIQUE KEY `event_id` (`event_id`),
+KEY `due` (`status`,`next_run_time`), KEY `owner` (`tenant_id`,`user_id`),
+PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_open_platform_document` (
+`id` bigint unsigned NOT NULL AUTO_INCREMENT,
+`create_time` bigint NOT NULL DEFAULT 0, `update_time` bigint NOT NULL DEFAULT 0,
+`tenant_id` bigint unsigned NOT NULL DEFAULT 0, `slug` varchar(180) NOT NULL,
+`version` int NOT NULL DEFAULT 1, `title` varchar(255) NOT NULL, `category` varchar(100) NOT NULL,
+`status` varchar(20) NOT NULL DEFAULT 'draft', `content` mediumtext NOT NULL,
+`contract_code` varchar(160) NOT NULL DEFAULT '', `sort` int NOT NULL DEFAULT 0,
+UNIQUE KEY `version` (`tenant_id`,`slug`,`version`), KEY `published` (`tenant_id`,`status`,`sort`),
+PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Delivery history is append-only; no legacy large table changes.
+CREATE TABLE IF NOT EXISTS `la_open_platform_webhook_delivery` (
+`id` bigint unsigned NOT NULL AUTO_INCREMENT,
+`webhook_id` bigint unsigned NOT NULL, `event_id` varchar(64) NOT NULL,
+`attempt` int NOT NULL, `http_code` int NOT NULL DEFAULT 0,
+`error_message` varchar(500) NOT NULL DEFAULT '', `create_time` bigint NOT NULL DEFAULT 0,
+PRIMARY KEY (`id`), KEY `delivery_history` (`webhook_id`,`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Durable admission counts include idempotent replay and rejected business parameters.
+CREATE TABLE IF NOT EXISTS `la_open_platform_rate` (
+`id` bigint unsigned NOT NULL AUTO_INCREMENT,
+`tenant_id` bigint unsigned NOT NULL, `key_id` bigint unsigned NOT NULL DEFAULT 0,
+`slot` bigint NOT NULL, `calls` int unsigned NOT NULL DEFAULT 0,
+PRIMARY KEY (`id`), UNIQUE KEY `tenant_key_slot` (`tenant_id`,`key_id`,`slot`),
+KEY `expired_slot` (`slot`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Default guides are global and immutable; existing tenant or platform content is never overwritten.
+INSERT IGNORE INTO `la_open_platform_document` (`tenant_id`,`slug`,`version`,`title`,`category`,`status`,`content`,`contract_code`,`sort`,`create_time`,`update_time`) VALUES
+(0,'open-platform-quickstart',1,'快速开始','开发指南','published','# 快速开始
+
+开放调用使用当前站点账户的会员资格与积分。站点管理员需先开通开放调用，并发布对应接口。可调用范围以控制台的能力目录为准。
+
+## 创建 API Key
+
+在 [API 密钥](/user/api-keys) 创建密钥，配置权限、有效期、请求限制和消费上限。完整密钥只展示一次，复制后保存在服务端环境变量。密钥不得放入公开仓库、网页前端代码或日志。
+
+## 接入地址
+
+Base URL 为当前站点的地址，业务入口为 `/api/v1`。商城接口保留已发布上游协议的路径、参数和响应；更换 Base URL 和 API Key 后即可接入该协议。只有能力目录明确标注兼容的接口才能使用对应上游 SDK。
+
+```bash
+export OPEN_BASE_URL="https://your-site.example"
+export OPEN_API_KEY="your-api-key"
+curl "$OPEN_BASE_URL/api/v1/tools" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+```
+
+## 选择并调用能力
+
+在 [能力目录](/user/developer/catalog) 选择可用且已发布的接口。查看模型、模板、输入素材、参数限制和价格，再使用对应 API 参考页的请求示例。工具的能力查询和估价是独立操作，收费情况以各操作声明为准。
+
+[在线调试](/user/developer/playground) 使用你的密钥、会员资格和积分；生成请求会真实扣款。密钥只在当前页面内存中使用。
+
+## 追踪结果和账单
+
+每次开放调用返回 `X-Request-Id`。工具 JSON 响应同时包含 `request_id`。在 [调用记录](/user/developer/requests) 使用该 ID 排查请求，在 [异步任务](/user/developer/tasks) 查看任务结果，在 [用量与账单](/user/developer/usage) 核对实际费用。
+','',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'open-platform-auth-limits',1,'鉴权、权限和限额','开发指南','published','# 鉴权、权限和限额
+
+## 请求鉴权
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+密钥固定绑定创建者和本站租户。请求不能指定其他用户、租户、执行器、上游地址、渠道密钥或价格。
+
+实际权限取平台开放范围、租户开通、应用安装与上架、用户会员资格和密钥范围的交集。密钥不建立独立钱包。多个密钥共用当前账户积分和账户并发保障。
+
+## 密钥管理
+
+支持命名、编辑权限、有效期、IP 白名单、消费上限、禁用、撤销和轮换。撤销后的密钥不能再鉴权。轮换后使用新密钥仍可访问本人历史任务，但新密钥必须具有相应能力权限。
+
+权限范围留空表示继承当前可用权限；填写工具编码限制到对应工具，填写商城产品 ID 限制到对应产品，`market` 表示继承可用商城权限。IP 白名单支持单个 IPv4、IPv6 和 CIDR 网段。
+
+## 请求限制
+
+请求频率按租户和密钥统计；查询、错误请求及幂等重放也计入请求频率。密钥限制只能在租户和平台限制内生效。计费调用另外受账户及租户并发、余额、每日和每月消费限额限制。
+
+缓存服务异常不会取消限额保护。遇到限流时等待后再查询或重放原请求，不要使用新幂等键重复提交。
+
+## 错误与排查
+
+| 状态码 | 含义 | 处理方式 |
+| --- | --- | --- |
+| 400 | 参数或业务提交被拒绝 | 检查当前接口文档及模型资格 |
+| 401 | 密钥无效、过期、禁用或撤销 | 检查密钥状态 |
+| 402 | 积分、消费额度或结算边界不足 | 查看余额、限额及调用记录 |
+| 403 | 租户、应用、会员或权限不可用 | 联系本站管理员或检查权限 |
+| 404 | 接口、任务或素材不可访问 | 确认能力路径与资源归属 |
+| 409 | 幂等冲突或原请求仍处理中 | 查询原请求，勿另建键重发 |
+| 429 | 频率或并发限制 | 等待后重试原请求 |
+| 502 / 503 | 上游或平台暂不可用 | 先核对受理状态及请求 ID |
+
+商城鉴权和限额错误遵循对应已发布协议的错误结构；工具错误返回 `request_id` 和 `error`。
+','',10,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'open-platform-tasks-billing',1,'任务、幂等和计费','开发指南','published','# 任务、幂等和计费
+
+## 幂等提交
+
+计费提交建议携带 `Idempotency-Key`，长度不超过 200 个字符。作用域为同一租户、用户、方法与接口路径。相同键和相同参数返回原结果；参数或上传内容改变时返回冲突。
+
+提交超时或断流不代表上游未受理。查询原请求或使用原幂等键重放，不能自动更换幂等键重发。上游不支持幂等且受理状态未知的请求不会自动重新提交。
+
+## 工具任务
+
+异步提交返回工具任务 ID。查询、列表、取消和结果接口属于该工具的命名空间。工具任务 ID 不能用于其他工具。商城保留上游业务任务 ID。
+
+执行状态与结算状态分别记录。`pending_confirmation` 表示受理状态待确认；`pending_usage` 表示缺少可信用量；`settlement_failed` 表示结果已确认但结算需要核对。上述状态不能作为重新生成或退款依据。
+
+组合工具保留父子任务。部分模块失败或未提交时，已受理任务继续跟踪，成功结果与相应费用保留，不会自动重新提交整个组合。
+
+## 价格与结算
+
+外部调用沿用用户端有效售价、会员优惠和已实现抵扣规则。费用预估按当前用户和参数计算，实际账单按受理时价格快照及可信用量结算。租户成本不出现在用户估价或账单中。
+
+预占积分尚未确定为最终费用。按实际成功数量、时长或 Token 用量结算后，差额按对应业务规则处理。缺少可信 usage 时不使用本地估算结算。查询、列表、取消和素材操作逐项声明是否收费。
+
+## 历史访问与恢复
+
+租户关闭新增调用或密钥被撤销不终止已受理任务的后台跟踪、结果转存和结算。历史查询须使用当前有效且有权限的密钥。Worker 恢复不依赖用户打开页面或主动查询。
+
+退款、补偿及异常结算以积分流水和消费记录为依据。历史未结算请求不会自动补扣。
+','',20,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'open-platform-assets-webhooks',1,'素材和客户回调','开发指南','published','# 素材和客户回调
+
+## 上传素材
+
+上传使用当前密钥，接口为 `POST /api/v1/assets`，请求类型为 `multipart/form-data`。字段 `file` 是二进制文件，`type` 为 `image`、`video`、`audio` 或 `file`。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/assets" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -F "type=image" -F "file=@product.png"
+```
+
+响应返回 `file_id`、URL、名称、类型和大小。使用 `GET /api/v1/assets/{file_id}` 查看素材，使用 `GET /api/v1/assets/{file_id}/download` 获取下载地址。工具素材字段可以使用本人上传返回的 `file_id` 或 URL，具体数量与格式以接口契约为准。
+
+素材上传沿用本站存储引擎、目录、域名及大小限制。不能访问其他账户或租户的私有素材。外部素材地址必须满足公网访问与目标地址校验。
+
+## 订阅客户通知
+
+提交时通过请求头设置通知，不要在原协议请求体中加入回调字段：
+
+```http
+X-Open-Callback-URL: https://your-service.example/hooks/ai
+X-Open-Callback-Secret: YOUR_RANDOM_SECRET_AT_LEAST_32_CHARACTERS
+```
+
+回调 URL 使用公网 HTTPS，签名密钥长度为 32 至 256 个字符。本站需已启用客户回调功能。任务本地状态确认后才发送通知。
+
+通知 JSON 包含 `event_id`、`request_id`、`type` 和 `data`；终态事件类型为 `task.completed`。接收端应依据任务和计费状态判断成功或失败。
+
+## 验证签名
+
+请求头包含 `X-Open-Event-Id`、`X-Open-Timestamp` 和 `X-Open-Signature`。签名是 `HMAC-SHA256(secret, timestamp + "." + 原始请求体)` 的十六进制小写字符串。必须使用未经重新序列化的请求体计算，并使用恒定时间比较。
+
+```python
+import hashlib, hmac, time
+
+def verify_webhook(headers, raw_body, secret):
+    timestamp = headers[''X-Open-Timestamp'']
+    if abs(time.time() - int(timestamp)) > 300:
+        return False
+    expected = hmac.new(secret.encode(), timestamp.encode() + b''.'' + raw_body,
+                        hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, headers[''X-Open-Signature''])
+```
+
+## 去重与重试
+
+接收端验证签名后按 `event_id` 幂等处理，快速返回 2xx。投递失败后依次间隔 1 分钟、5 分钟、15 分钟、1 小时、6 小时、24 小时重试。耗尽后进入失败列表，可在控制台查看投递记录并手动重放。重放沿用原事件 ID。
+','',30,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+
+-- Add independent guides without overwriting existing platform or tenant documents.
+INSERT IGNORE INTO `la_open_platform_document` (`tenant_id`,`slug`,`version`,`title`,`category`,`status`,`content`,`contract_code`,`sort`,`create_time`,`update_time`) VALUES
+(0,'open-platform-model-sdk',1,'模型与 SDK 接入','开发指南','published','# 模型与 SDK 接入
+
+先在本站能力目录确认接口已发布、模型可调用，并查看该接口支持的协议。商城协议接口保持已发布上游的方法、路径、参数、状态码、响应字段和流式事件。工具接口使用独立的工具任务协议。
+
+## OpenAI 兼容接口
+
+对明确标注 OpenAI 兼容的聊天接口，将 SDK 的 `base_url` 设置为本站地址加 `/api/v1`，使用本站 API Key。模型编码从当前接口文档或能力目录获取。
+
+```python
+import os
+from openai import OpenAI
+
+client = OpenAI(
+    api_key=os.environ["OPEN_API_KEY"],
+    base_url=os.environ["OPEN_BASE_URL"].rstrip("/") + "/api/v1",
+    max_retries=0,
+)
+response = client.chat.completions.create(
+    model=os.environ["OPEN_MODEL"],
+    messages=[{"role": "user", "content": "Reply OK."}],
+    max_tokens=16,
+)
+print(response.choices[0].message.content)
+print(response.usage)
+```
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.OPEN_API_KEY,
+  baseURL: process.env.OPEN_BASE_URL.replace(/\\/$/, "") + "/api/v1",
+  maxRetries: 0,
+});
+const response = await client.chat.completions.create({
+  model: process.env.OPEN_MODEL,
+  messages: [{ role: "user", content: "Reply OK." }],
+  max_tokens: 16,
+});
+console.log(response.choices[0].message.content);
+```
+
+## 流式输出
+
+只有文档声明支持流式及用量事件的接口才可使用下面的参数。流结束后核对最终用量和账单；断流不表示上游未执行。
+
+```python
+stream = client.chat.completions.create(
+    model=os.environ["OPEN_MODEL"],
+    messages=[{"role": "user", "content": "Reply OK."}],
+    max_tokens=16,
+    stream=True,
+    stream_options={"include_usage": True},
+)
+for event in stream:
+    for choice in event.choices:
+        print(choice.delta.content or "", end="", flush=True)
+    if event.usage is not None:
+        print("\\nUsage:", event.usage)
+```
+
+## 超时与幂等
+
+SDK 自动重试可能重新发送计费请求，建议关闭自动重试。需要重试时，为同一请求固定 `Idempotency-Key`，使用相同参数重放；参数改变则创建新的业务请求。使用 Python SDK 时可传入 `extra_headers={"Idempotency-Key": "your-stable-request-key"}`。
+
+接入本地预览时，系统代理可能代理环回地址。确认请求确实到达本地服务，避免把代理错误当作模型失败。公网接入使用正常的 HTTPS 站点地址。
+
+## 其他协议
+
+Responses、Messages、文件上传和异步任务按照各自已发布文档接入。不要把工具 `POST /tools/{app_code}/tasks` 当作 OpenAI 聊天接口，也不要假定所有商城模型都支持相同 SDK。兼容范围、版本头和可用参数以接口参考页为准。
+','',30,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'open-platform-image-tools',1,'图片工具接入','开发指南','published','# 图片工具接入
+
+图片工具复用用户端的业务服务、会员资格、素材和价格。实际可调用范围由本站开放配置、应用资格、已发布接口和密钥权限共同决定。
+
+## 选择工具和选项
+
+先读取能力目录以及该工具已发布的能力、模型、模板和价格套餐接口。模板、套餐和模型 ID 属于当前站点，不能复制其他站点的 ID。参考图数量、规格和数量限制由所选通道决定。
+
+| 工具编码 | 主要业务输入 |
+| --- | --- |
+| `aigc_product_image` | `product_image`；模板模式使用 `template_id`，自定义模式使用 `scene_mode=custom` 和 `custom_scene_image` |
+| `aigc_style_transfer` | `source_image`、`template_id`，按能力选择 `price_package` |
+| `aigc_background_removal` | `source_image`，按能力选择价格套餐 |
+| `aigc_outpaint` | `source_image`，选择包含目标尺寸与比例的价格套餐 |
+| `aigc_image_translate` | `source_image`、`source_language`、`target_language`，选择价格套餐 |
+| `aigc_local_redraw` | `source_image`、`mask_image`、`prompt`，选择通道及规格 |
+| `aigc_photo_restore` | `source_image`、`restore_type`，选择修复类型和价格套餐 |
+| `aigc_model_wear` | `model_image`、`wear_image`，选择价格套餐 |
+
+此表说明业务输入；必填项、可用参数、套餐编码、默认值及限制以本站已发布 API 参考页为准。接口未发布或通道不接受参考图时，不能提交生成。
+
+## 上传素材
+
+使用 `POST /api/v1/assets` 上传素材，保存返回的 `file_id`。接口文档允许的图片字段可引用本人上传或本人已生成结果的 `file_id`，也可使用符合文档要求的公网素材地址。
+
+私人素材按当前租户和用户校验，字段别名也不能访问其他用户的上传。公共模板通过已发布的模板操作选择；不要把后台模板的存储路径当作自己的上传素材使用。
+
+## 估价和提交
+
+先按生成参数调用该工具已发布的 `POST /api/v1/tools/{app_code}/estimate`，确认当前售价，再提交 `POST /api/v1/tools/{app_code}/tasks`。生成请求沿用当前用户积分账户。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_local_redraw/tasks" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-image-request-key" \\
+  --data @local-redraw-input.json
+```
+
+`local-redraw-input.json` 使用当前能力目录中的通道和规格，以及本人素材：
+
+```json
+{
+  "source_image": "YOUR_OWN_IMAGE_FILE_ID",
+  "mask_image": "YOUR_OWN_MASK_FILE_ID",
+  "prompt": "将蒙版区域的衣服改为蓝色，保留人物面部和背景",
+  "channel": "YOUR_AVAILABLE_CHANNEL",
+  "quality": "YOUR_AVAILABLE_QUALITY",
+  "ratio": "YOUR_AVAILABLE_RATIO"
+}
+```
+
+局部重绘也支持 PNG、JPEG、WebP、GIF 的 Base64 Data URI 蒙版，解码后大小不超过 20 MiB。服务端在受理前验证格式和素材归属，受理后保存蒙版并关联业务任务。权限、额度和并发拒绝不会提前上传蒙版。
+
+## 查询与复用结果
+
+保存响应中的 `request_id` 与 `data.task_id`。通过对应工具的 `GET /api/v1/tools/{app_code}/tasks/{task_id}` 查询结果，按返回的图片地址获取保存结果；有 `file_id` 的结果可用于下一次工具调用。工具任务 ID 不可跨工具使用。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_local_redraw/tasks/$OPEN_TASK_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+```
+
+执行状态和结算状态分别记录。预占、实际成功数量及失败处理遵循工具既有规则，最终费用在调用记录和账单中核对。估价之后修改站点配置不会改变这八个工具已受理请求保存的价格、通道与业务参数。
+
+取消操作只有在当前工具明确发布支持时才可调用。遇到提交超时、缺少用量或存储失败，先查询原请求，不要自动更换幂等键重新生成。
+','',40,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+
+-- Seed music integration guide without overwriting platform or tenant edits.
+INSERT IGNORE INTO `la_open_platform_document` (`tenant_id`,`slug`,`version`,`title`,`category`,`status`,`content`,`contract_code`,`sort`,`create_time`,`update_time`) VALUES
+(0,'open-platform-music-tools',1,'音乐工具接入','开发指南','published','# 音乐工具接入
+
+音乐工具的生成、辅助处理和导出使用当前用户积分账户与本站售价。先确认能力目录中接口已发布、本站应用已开通、密钥权限允许调用；目录中未开放的能力不能通过修改路径调用。
+
+## 文本辅助操作
+
+| 能力 | 已注册路径 | 输入 | 成功结果 |
+| --- | --- | --- | --- |
+| 作词 | `POST /api/v1/tools/aigc_music/lyrics/index` | `prompt` | `lyrics`、可选 `title` |
+| 歌词融合 | `POST /api/v1/tools/aigc_music/mashuplyrics/index` | `lyrics_a`、`lyrics_b` | `lyrics`、可选 `title` |
+| 风格增强 | `POST /api/v1/tools/aigc_music/style/index` | `prompt` | `style` |
+
+路径注册不代表本站已经开放。调用前查看该接口的发布状态、价格和具体参数限制。辅助操作按各自价格计费，不沿用整首音乐生成的价格。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/lyrics/index" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-lyrics-request-key" \\
+  --data ''{"prompt":"Write four short English lines about sunrise."}''
+```
+
+同步完成时返回 `request_id`，以及 `data.task_id`、`data.status=success`、`data.billing_status=settled` 和实际业务结果。暂未完成时保留任务 ID，通过任务查询获取结果，不要自动再次创建。
+
+## 音乐作品和归属
+
+通过已发布的 `GET /api/v1/tools/aigc_music/results` 获取自己的音乐作品列表。后续处理使用该作品的本地数字 `id` 作为 `result_id`。作品 ID、任务 ID 和上传素材的 `file_id` 是不同资源，不可混用，也不可复制其他用户或站点的资源 ID。
+
+生成音乐使用 `POST /api/v1/tools/aigc_music/tasks`，按对应 API 参考页选择模型、通道、歌词、参考素材和规格。声音档案的本地管理不等同于真实声音克隆；实际可调用能力以已发布接口为准。
+
+## 时间轴查询
+
+`POST /api/v1/tools/aigc_music/export/timing` 输入本人 `result_id`，返回 `timing` 中可用的对齐词、分段和波形数据。该操作须配置为免费查询；纯器乐或上游缺少歌词时，对齐结果可能为空。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/export/timing" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-timing-request-key" \\
+  --data @music-result-input.json
+```
+
+`music-result-input.json` 使用本人作品 ID：
+
+```json
+{"result_id": 123}
+```
+
+## 导出与人声提取
+
+WAV、MIDI、MP4 和人声提取分别注册在 `POST /api/v1/tools/aigc_music/export/{type}`，输入本人 `result_id`。人声提取可按接口参考页指定 `vocal_start`、`vocal_end`，结束时间必须晚于开始时间。
+
+WAV、MIDI 和人声提取为异步处理；MP4 按当前接口契约处理同步结果，但保存或校验未完成时仍保留本地任务。异步受理成功不代表导出或结算已经完成。价格按对应操作在受理时固定，失败、查询异常及存储失败在任务和账单中分别展示。
+
+完成的文件导出返回 `export_id`、`file_id`、`file_url` 和结果存储信息。服务端验证并保存文件后才结算，损坏文件不会作为成功结果计费。MP4 服务须具备可用的视频校验能力，未配置时不能提交。
+
+人声提取成功返回 `vox_audio_id`，这是已处理的人声引用；它不承诺提供音频下载文件，也不等同于声音克隆。
+
+## 查询、下载与异常处理
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/tasks/$OPEN_TASK_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl -I "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID/download" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+```
+
+任务和素材查询只允许访问本人资源，查询不重复收取生成或导出费用。下载入口验证归属后重定向到保存的文件地址，临时或私有存储地址按其有效期访问。
+
+保留原始 `request_id`、任务 ID 和幂等键。超时、暂时查询失败、结果保存失败时继续跟踪原任务；同一幂等键与相同参数重放返回原受理响应，最终状态通过任务查询获取。当前音乐辅助操作不支持取消已经提交的上游处理。密钥撤销或本站关闭新增调用后，已受理任务仍由服务端跟踪和结算。
+','',50,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+
+-- Publish corrected built-in guide only when the previous version is the exact seed.
+-- Tenant documents and custom platform versions remain unchanged.
+INSERT IGNORE INTO `la_open_platform_document` (`tenant_id`,`slug`,`version`,`title`,`category`,`status`,`content`,`contract_code`,`sort`,`create_time`,`update_time`)
+SELECT 0,'open-platform-music-tools',2,'音乐工具接入','开发指南','published','# 音乐工具接入
+
+音乐工具的生成、辅助处理和导出使用当前用户积分账户与本站售价。先确认能力目录中接口已发布、本站应用已开通、密钥权限允许调用；目录中未开放的能力不能通过修改路径调用。
+
+## 文本辅助操作
+
+| 能力 | 已注册路径 | 输入 | 成功结果 |
+| --- | --- | --- | --- |
+| 作词 | `POST /api/v1/tools/aigc_music/lyrics/index` | `prompt` | `lyrics`、可选 `title` |
+| 歌词融合 | `POST /api/v1/tools/aigc_music/mashuplyrics/index` | `lyrics_a`、`lyrics_b` | `lyrics`、可选 `title` |
+| 风格增强 | `POST /api/v1/tools/aigc_music/style/index` | `prompt` | `style` |
+
+路径注册不代表本站已经开放。调用前查看该接口的发布状态、价格和具体参数限制。辅助操作按各自价格计费，不沿用整首音乐生成的价格。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/lyrics/index" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-lyrics-request-key" \\
+  --data ''{"prompt":"Write four short English lines about sunrise."}''
+```
+
+同步完成时返回 `request_id`，以及 `data.task_id`、`data.status=success`、`data.billing_status=settled` 和实际业务结果。暂未完成时保留任务 ID，通过任务查询获取结果，不要自动再次创建。
+
+## 音乐作品和归属
+
+通过已发布的 `GET /api/v1/tools/aigc_music/results` 获取自己的音乐作品列表。后续处理使用该作品的本地数字 `id` 作为 `result_id`。作品 ID、任务 ID 和上传素材的 `file_id` 是不同资源，不可混用，也不可复制其他用户或站点的资源 ID。
+
+生成音乐使用 `POST /api/v1/tools/aigc_music/tasks`，按对应 API 参考页选择模型、通道、歌词、参考素材和规格。声音档案的本地管理不等同于真实声音克隆；实际可调用能力以已发布接口为准。
+
+## 时间轴查询
+
+`POST /api/v1/tools/aigc_music/export/timing` 输入本人 `result_id`，返回 `timing` 中可用的对齐词、分段和波形数据。该操作须配置为免费查询；纯器乐或上游缺少歌词时，对齐结果可能为空。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/export/timing" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-timing-request-key" \\
+  --data @music-result-input.json
+```
+
+`music-result-input.json` 使用本人作品 ID：
+
+```json
+{"result_id": 123}
+```
+
+## 导出与人声提取
+
+WAV、MIDI、MP4 和人声提取分别注册在 `POST /api/v1/tools/aigc_music/export/{type}`，输入本人 `result_id`。人声提取可按接口参考页指定 `vocal_start`、`vocal_end`，结束时间必须晚于开始时间。
+
+WAV、MIDI 和人声提取为异步处理；MP4 按当前接口契约处理同步结果，但保存或校验未完成时仍保留本地任务。异步受理成功不代表导出或结算已经完成。价格按对应操作在受理时固定，失败、查询异常及存储失败在任务和账单中分别展示。
+
+完成的文件导出返回 `export_id`、`file_id`、`file_url` 和结果存储信息。服务端验证并保存文件后才结算，损坏文件不会作为成功结果计费。MP4 服务须具备可用的视频校验能力，未配置时不能提交。
+
+人声提取成功返回 `vox_audio_id`，这是已处理的人声引用；它不承诺提供音频下载文件，也不等同于声音克隆。
+
+## 查询、下载与异常处理
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/tasks/$OPEN_TASK_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl --request GET --dump-header - --output /dev/null "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID/download" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+```
+
+任务和素材查询只允许访问本人资源，查询不重复收取生成或导出费用。下载入口验证归属后重定向到保存的文件地址，临时或私有存储地址按其有效期访问。
+
+保留原始 `request_id`、任务 ID 和幂等键。超时、暂时查询失败、结果保存失败时继续跟踪原任务；同一幂等键与相同参数重放返回原受理响应，最终状态通过任务查询获取。当前音乐辅助操作不支持取消已经提交的上游处理。密钥撤销或本站关闭新增调用后，已受理任务仍由服务端跟踪和结算。
+','',50,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_open_platform_document` original
+WHERE original.tenant_id=0 AND original.slug='open-platform-music-tools' AND original.version=1 AND original.status='published' AND BINARY original.content=BINARY '# 音乐工具接入
+
+音乐工具的生成、辅助处理和导出使用当前用户积分账户与本站售价。先确认能力目录中接口已发布、本站应用已开通、密钥权限允许调用；目录中未开放的能力不能通过修改路径调用。
+
+## 文本辅助操作
+
+| 能力 | 已注册路径 | 输入 | 成功结果 |
+| --- | --- | --- | --- |
+| 作词 | `POST /api/v1/tools/aigc_music/lyrics/index` | `prompt` | `lyrics`、可选 `title` |
+| 歌词融合 | `POST /api/v1/tools/aigc_music/mashuplyrics/index` | `lyrics_a`、`lyrics_b` | `lyrics`、可选 `title` |
+| 风格增强 | `POST /api/v1/tools/aigc_music/style/index` | `prompt` | `style` |
+
+路径注册不代表本站已经开放。调用前查看该接口的发布状态、价格和具体参数限制。辅助操作按各自价格计费，不沿用整首音乐生成的价格。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/lyrics/index" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-lyrics-request-key" \\
+  --data ''{"prompt":"Write four short English lines about sunrise."}''
+```
+
+同步完成时返回 `request_id`，以及 `data.task_id`、`data.status=success`、`data.billing_status=settled` 和实际业务结果。暂未完成时保留任务 ID，通过任务查询获取结果，不要自动再次创建。
+
+## 音乐作品和归属
+
+通过已发布的 `GET /api/v1/tools/aigc_music/results` 获取自己的音乐作品列表。后续处理使用该作品的本地数字 `id` 作为 `result_id`。作品 ID、任务 ID 和上传素材的 `file_id` 是不同资源，不可混用，也不可复制其他用户或站点的资源 ID。
+
+生成音乐使用 `POST /api/v1/tools/aigc_music/tasks`，按对应 API 参考页选择模型、通道、歌词、参考素材和规格。声音档案的本地管理不等同于真实声音克隆；实际可调用能力以已发布接口为准。
+
+## 时间轴查询
+
+`POST /api/v1/tools/aigc_music/export/timing` 输入本人 `result_id`，返回 `timing` 中可用的对齐词、分段和波形数据。该操作须配置为免费查询；纯器乐或上游缺少歌词时，对齐结果可能为空。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/export/timing" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-timing-request-key" \\
+  --data @music-result-input.json
+```
+
+`music-result-input.json` 使用本人作品 ID：
+
+```json
+{"result_id": 123}
+```
+
+## 导出与人声提取
+
+WAV、MIDI、MP4 和人声提取分别注册在 `POST /api/v1/tools/aigc_music/export/{type}`，输入本人 `result_id`。人声提取可按接口参考页指定 `vocal_start`、`vocal_end`，结束时间必须晚于开始时间。
+
+WAV、MIDI 和人声提取为异步处理；MP4 按当前接口契约处理同步结果，但保存或校验未完成时仍保留本地任务。异步受理成功不代表导出或结算已经完成。价格按对应操作在受理时固定，失败、查询异常及存储失败在任务和账单中分别展示。
+
+完成的文件导出返回 `export_id`、`file_id`、`file_url` 和结果存储信息。服务端验证并保存文件后才结算，损坏文件不会作为成功结果计费。MP4 服务须具备可用的视频校验能力，未配置时不能提交。
+
+人声提取成功返回 `vox_audio_id`，这是已处理的人声引用；它不承诺提供音频下载文件，也不等同于声音克隆。
+
+## 查询、下载与异常处理
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/tasks/$OPEN_TASK_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl -I "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID/download" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+```
+
+任务和素材查询只允许访问本人资源，查询不重复收取生成或导出费用。下载入口验证归属后重定向到保存的文件地址，临时或私有存储地址按其有效期访问。
+
+保留原始 `request_id`、任务 ID 和幂等键。超时、暂时查询失败、结果保存失败时继续跟踪原任务；同一幂等键与相同参数重放返回原受理响应，最终状态通过任务查询获取。当前音乐辅助操作不支持取消已经提交的上游处理。密钥撤销或本站关闭新增调用后，已受理任务仍由服务端跟踪和结算。
+'
+AND NOT EXISTS (SELECT 1 FROM (SELECT tenant_id,slug,version FROM `la_open_platform_document`) existing WHERE existing.tenant_id=0 AND existing.slug='open-platform-music-tools' AND existing.version>1);
+UPDATE `la_open_platform_document` original
+SET original.status='archived',original.update_time=UNIX_TIMESTAMP()
+WHERE original.tenant_id=0 AND original.slug='open-platform-music-tools' AND original.version=1 AND original.status='published' AND BINARY original.content=BINARY '# 音乐工具接入
+
+音乐工具的生成、辅助处理和导出使用当前用户积分账户与本站售价。先确认能力目录中接口已发布、本站应用已开通、密钥权限允许调用；目录中未开放的能力不能通过修改路径调用。
+
+## 文本辅助操作
+
+| 能力 | 已注册路径 | 输入 | 成功结果 |
+| --- | --- | --- | --- |
+| 作词 | `POST /api/v1/tools/aigc_music/lyrics/index` | `prompt` | `lyrics`、可选 `title` |
+| 歌词融合 | `POST /api/v1/tools/aigc_music/mashuplyrics/index` | `lyrics_a`、`lyrics_b` | `lyrics`、可选 `title` |
+| 风格增强 | `POST /api/v1/tools/aigc_music/style/index` | `prompt` | `style` |
+
+路径注册不代表本站已经开放。调用前查看该接口的发布状态、价格和具体参数限制。辅助操作按各自价格计费，不沿用整首音乐生成的价格。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/lyrics/index" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-lyrics-request-key" \\
+  --data ''{"prompt":"Write four short English lines about sunrise."}''
+```
+
+同步完成时返回 `request_id`，以及 `data.task_id`、`data.status=success`、`data.billing_status=settled` 和实际业务结果。暂未完成时保留任务 ID，通过任务查询获取结果，不要自动再次创建。
+
+## 音乐作品和归属
+
+通过已发布的 `GET /api/v1/tools/aigc_music/results` 获取自己的音乐作品列表。后续处理使用该作品的本地数字 `id` 作为 `result_id`。作品 ID、任务 ID 和上传素材的 `file_id` 是不同资源，不可混用，也不可复制其他用户或站点的资源 ID。
+
+生成音乐使用 `POST /api/v1/tools/aigc_music/tasks`，按对应 API 参考页选择模型、通道、歌词、参考素材和规格。声音档案的本地管理不等同于真实声音克隆；实际可调用能力以已发布接口为准。
+
+## 时间轴查询
+
+`POST /api/v1/tools/aigc_music/export/timing` 输入本人 `result_id`，返回 `timing` 中可用的对齐词、分段和波形数据。该操作须配置为免费查询；纯器乐或上游缺少歌词时，对齐结果可能为空。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/export/timing" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-timing-request-key" \\
+  --data @music-result-input.json
+```
+
+`music-result-input.json` 使用本人作品 ID：
+
+```json
+{"result_id": 123}
+```
+
+## 导出与人声提取
+
+WAV、MIDI、MP4 和人声提取分别注册在 `POST /api/v1/tools/aigc_music/export/{type}`，输入本人 `result_id`。人声提取可按接口参考页指定 `vocal_start`、`vocal_end`，结束时间必须晚于开始时间。
+
+WAV、MIDI 和人声提取为异步处理；MP4 按当前接口契约处理同步结果，但保存或校验未完成时仍保留本地任务。异步受理成功不代表导出或结算已经完成。价格按对应操作在受理时固定，失败、查询异常及存储失败在任务和账单中分别展示。
+
+完成的文件导出返回 `export_id`、`file_id`、`file_url` 和结果存储信息。服务端验证并保存文件后才结算，损坏文件不会作为成功结果计费。MP4 服务须具备可用的视频校验能力，未配置时不能提交。
+
+人声提取成功返回 `vox_audio_id`，这是已处理的人声引用；它不承诺提供音频下载文件，也不等同于声音克隆。
+
+## 查询、下载与异常处理
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/tasks/$OPEN_TASK_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl -I "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID/download" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+```
+
+任务和素材查询只允许访问本人资源，查询不重复收取生成或导出费用。下载入口验证归属后重定向到保存的文件地址，临时或私有存储地址按其有效期访问。
+
+保留原始 `request_id`、任务 ID 和幂等键。超时、暂时查询失败、结果保存失败时继续跟踪原任务；同一幂等键与相同参数重放返回原受理响应，最终状态通过任务查询获取。当前音乐辅助操作不支持取消已经提交的上游处理。密钥撤销或本站关闭新增调用后，已受理任务仍由服务端跟踪和结算。
+'
+AND EXISTS (SELECT 1 FROM (SELECT tenant_id,slug,version,status,content FROM `la_open_platform_document` LIMIT 18446744073709551615) replacement WHERE replacement.tenant_id=0 AND replacement.slug=original.slug AND replacement.version=2 AND replacement.status='published' AND BINARY replacement.content=BINARY '# 音乐工具接入
+
+音乐工具的生成、辅助处理和导出使用当前用户积分账户与本站售价。先确认能力目录中接口已发布、本站应用已开通、密钥权限允许调用；目录中未开放的能力不能通过修改路径调用。
+
+## 文本辅助操作
+
+| 能力 | 已注册路径 | 输入 | 成功结果 |
+| --- | --- | --- | --- |
+| 作词 | `POST /api/v1/tools/aigc_music/lyrics/index` | `prompt` | `lyrics`、可选 `title` |
+| 歌词融合 | `POST /api/v1/tools/aigc_music/mashuplyrics/index` | `lyrics_a`、`lyrics_b` | `lyrics`、可选 `title` |
+| 风格增强 | `POST /api/v1/tools/aigc_music/style/index` | `prompt` | `style` |
+
+路径注册不代表本站已经开放。调用前查看该接口的发布状态、价格和具体参数限制。辅助操作按各自价格计费，不沿用整首音乐生成的价格。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/lyrics/index" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-lyrics-request-key" \\
+  --data ''{"prompt":"Write four short English lines about sunrise."}''
+```
+
+同步完成时返回 `request_id`，以及 `data.task_id`、`data.status=success`、`data.billing_status=settled` 和实际业务结果。暂未完成时保留任务 ID，通过任务查询获取结果，不要自动再次创建。
+
+## 音乐作品和归属
+
+通过已发布的 `GET /api/v1/tools/aigc_music/results` 获取自己的音乐作品列表。后续处理使用该作品的本地数字 `id` 作为 `result_id`。作品 ID、任务 ID 和上传素材的 `file_id` 是不同资源，不可混用，也不可复制其他用户或站点的资源 ID。
+
+生成音乐使用 `POST /api/v1/tools/aigc_music/tasks`，按对应 API 参考页选择模型、通道、歌词、参考素材和规格。声音档案的本地管理不等同于真实声音克隆；实际可调用能力以已发布接口为准。
+
+## 时间轴查询
+
+`POST /api/v1/tools/aigc_music/export/timing` 输入本人 `result_id`，返回 `timing` 中可用的对齐词、分段和波形数据。该操作须配置为免费查询；纯器乐或上游缺少歌词时，对齐结果可能为空。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/export/timing" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-timing-request-key" \\
+  --data @music-result-input.json
+```
+
+`music-result-input.json` 使用本人作品 ID：
+
+```json
+{"result_id": 123}
+```
+
+## 导出与人声提取
+
+WAV、MIDI、MP4 和人声提取分别注册在 `POST /api/v1/tools/aigc_music/export/{type}`，输入本人 `result_id`。人声提取可按接口参考页指定 `vocal_start`、`vocal_end`，结束时间必须晚于开始时间。
+
+WAV、MIDI 和人声提取为异步处理；MP4 按当前接口契约处理同步结果，但保存或校验未完成时仍保留本地任务。异步受理成功不代表导出或结算已经完成。价格按对应操作在受理时固定，失败、查询异常及存储失败在任务和账单中分别展示。
+
+完成的文件导出返回 `export_id`、`file_id`、`file_url` 和结果存储信息。服务端验证并保存文件后才结算，损坏文件不会作为成功结果计费。MP4 服务须具备可用的视频校验能力，未配置时不能提交。
+
+人声提取成功返回 `vox_audio_id`，这是已处理的人声引用；它不承诺提供音频下载文件，也不等同于声音克隆。
+
+## 查询、下载与异常处理
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/tasks/$OPEN_TASK_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl --request GET --dump-header - --output /dev/null "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID/download" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+```
+
+任务和素材查询只允许访问本人资源，查询不重复收取生成或导出费用。下载入口验证归属后重定向到保存的文件地址，临时或私有存储地址按其有效期访问。
+
+保留原始 `request_id`、任务 ID 和幂等键。超时、暂时查询失败、结果保存失败时继续跟踪原任务；同一幂等键与相同参数重放返回原受理响应，最终状态通过任务查询获取。当前音乐辅助操作不支持取消已经提交的上游处理。密钥撤销或本站关闭新增调用后，已受理任务仍由服务端跟踪和结算。
+');
+
+-- Update only the exact platform seed; preserve edited and tenant-owned documents.
+INSERT IGNORE INTO `la_open_platform_document` (`tenant_id`,`slug`,`version`,`title`,`category`,`status`,`content`,`contract_code`,`sort`,`create_time`,`update_time`)
+SELECT 0,'open-platform-music-tools',3,'音乐工具接入','开发指南','published','# 音乐工具接入
+
+音乐工具的生成、辅助处理和导出使用当前用户积分账户与本站售价。先确认能力目录中接口已发布、本站应用已开通、密钥权限允许调用；目录中未开放的能力不能通过修改路径调用。
+
+## 文本辅助操作
+
+| 能力 | 已注册路径 | 输入 | 成功结果 |
+| --- | --- | --- | --- |
+| 作词 | `POST /api/v1/tools/aigc_music/lyrics/index` | `prompt` | `lyrics`、可选 `title` |
+| 歌词融合 | `POST /api/v1/tools/aigc_music/mashuplyrics/index` | `lyrics_a`、`lyrics_b` | `lyrics`、可选 `title` |
+| 风格增强 | `POST /api/v1/tools/aigc_music/style/index` | `prompt` | `style` |
+
+路径注册不代表本站已经开放。调用前查看该接口的发布状态、价格和具体参数限制。辅助操作按各自价格计费，不沿用整首音乐生成的价格。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/lyrics/index" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-lyrics-request-key" \\
+  --data ''{"prompt":"Write four short English lines about sunrise."}''
+```
+
+同步完成时返回 `request_id`，以及 `data.task_id`、`data.status=success`、`data.billing_status=settled` 和实际业务结果。暂未完成时保留任务 ID，通过任务查询获取结果，不要自动再次创建。
+
+## 音乐作品和归属
+
+通过已发布的 `GET /api/v1/tools/aigc_music/results` 获取自己的音乐作品列表。后续处理使用该作品的本地数字 `id` 作为 `result_id`。作品 ID、任务 ID 和上传素材的 `file_id` 是不同资源，不可混用，也不可复制其他用户或站点的资源 ID。
+
+生成音乐使用 `POST /api/v1/tools/aigc_music/tasks`，按对应 API 参考页选择模型、通道、歌词、参考素材和规格。声音档案的本地管理不等同于真实声音克隆；实际可调用能力以已发布接口为准。
+
+## 参考音频登记
+
+先通过已发布的 `POST /api/v1/tools/aigc_music/asset/uploadAudio` 上传本人音频，使用返回的本地素材数字 `id` 作为 `reference_asset_id`。本地上传与上游登记是两次独立操作：上传不收取生成费用，上游登记按独立商城价格计费。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/asset/upload_upstream" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-reference-audio-key" \\
+  --data @music-reference-input.json
+```
+
+`music-reference-input.json` 使用本人已上传的素材 ID：
+
+```json
+{"reference_asset_id": 123}
+```
+
+完成后返回 `reference_audio_id`。后续音乐生成可使用该标识作为 `audio_id`；服务端检查它是否来自本人生成作品或本人上游登记任务。不能直接提交其他用户的上游标识、地址或存储配置。
+
+## 创建歌手风格
+
+`POST /api/v1/tools/aigc_music/persona/upstream` 基于本人已生成作品创建真实上游歌手风格，必填 `result_id`、`name`，可选 `description`、`vocal_start`、`vocal_end`。结束时间必须晚于开始时间；费用按该操作受理时的独立售价固定。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/persona/upstream" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-singer-style-key" \\
+  --data @music-persona-input.json
+```
+
+```json
+{"result_id": 123, "name": "My singer style", "description": "A style from my own song"}
+```
+
+将以上内容保存为 `music-persona-input.json`，作品 ID 使用自己的真实记录。成功后返回本地数字 `persona_id` 和 `provider_persona_id`。后续 `POST /api/v1/tools/aigc_music/tasks` 使用本地 `persona_id`；服务端解析本人风格对应的上游标识，在受理时保存该绑定。创建本地资料的 `persona/create` 仍是免费资料管理，本地资料须关联真实上游风格后才能用于对应生成通道。
+
+## 声音克隆
+
+`POST /api/v1/tools/aigc_music/voiceclone/create` 使用本人音频素材，必填 `reference_asset_id`、`name`。可选 `description`、`authorization_confirmed`、`authorization_text` 和 `source`，按独立商城售价计费。素材必须有本人上传记录，仅登记地址不能获得私有文件访问权限。
+
+```json
+{"reference_asset_id": 123, "name": "My authorized voice", "authorization_confirmed": 1, "authorization_text": "I am authorized to use this recording", "source": "My recording"}
+```
+
+使用对应 API 参考页的请求地址和鉴权方式提交。成功返回 `voice_clone_id`、`provider_voice_id`、授权状态和审核状态。提交授权声明不等于审核通过；该资源创建能力也不代表当前音乐生成通道支持使用克隆声音，生成支持范围以能力说明为准。
+
+## 时间轴查询
+
+`POST /api/v1/tools/aigc_music/export/timing` 输入本人 `result_id`，返回 `timing` 中可用的对齐词、分段和波形数据。该操作须配置为免费查询；纯器乐或上游缺少歌词时，对齐结果可能为空。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/export/timing" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-timing-request-key" \\
+  --data @music-result-input.json
+```
+
+`music-result-input.json` 使用本人作品 ID：
+
+```json
+{"result_id": 123}
+```
+
+## 导出与人声提取
+
+WAV、MIDI、MP4 和人声提取分别注册在 `POST /api/v1/tools/aigc_music/export/{type}`，输入本人 `result_id`。人声提取可按接口参考页指定 `vocal_start`、`vocal_end`，结束时间必须晚于开始时间。
+
+WAV、MIDI 和人声提取为异步处理；MP4 按当前接口契约处理同步结果，但保存或校验未完成时仍保留本地任务。异步受理成功不代表导出或结算已经完成。价格按对应操作在受理时固定，失败、查询异常及存储失败在任务和账单中分别展示。
+
+完成的文件导出返回 `export_id`、`file_id`、`file_url` 和结果存储信息。服务端验证并保存文件后才结算，损坏文件不会作为成功结果计费。MP4 服务须具备可用的视频校验能力，未配置时不能提交。
+
+人声提取成功返回 `vox_audio_id`，这是已处理的人声引用；它不承诺提供音频下载文件，也不等同于声音克隆。
+
+## 查询、下载与异常处理
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/tasks/$OPEN_TASK_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl --request GET --dump-header - --output /dev/null "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID/download" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+```
+
+任务和素材查询只允许访问本人资源，查询不重复收取生成或导出费用。下载入口验证归属后重定向到保存的文件地址，临时或私有存储地址按其有效期访问。
+
+保留原始 `request_id`、任务 ID 和幂等键。超时、暂时查询失败、结果保存失败时继续跟踪原任务；同一幂等键与相同参数重放返回原受理响应，最终状态通过任务查询获取。当前音乐辅助操作不支持取消已经提交的上游处理。密钥撤销或本站关闭新增调用后，已受理任务仍由服务端跟踪和结算。
+','',70,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_open_platform_document` original WHERE original.tenant_id=0 AND original.slug='open-platform-music-tools' AND original.version=2 AND original.status='published' AND BINARY original.content=BINARY '# 音乐工具接入
+
+音乐工具的生成、辅助处理和导出使用当前用户积分账户与本站售价。先确认能力目录中接口已发布、本站应用已开通、密钥权限允许调用；目录中未开放的能力不能通过修改路径调用。
+
+## 文本辅助操作
+
+| 能力 | 已注册路径 | 输入 | 成功结果 |
+| --- | --- | --- | --- |
+| 作词 | `POST /api/v1/tools/aigc_music/lyrics/index` | `prompt` | `lyrics`、可选 `title` |
+| 歌词融合 | `POST /api/v1/tools/aigc_music/mashuplyrics/index` | `lyrics_a`、`lyrics_b` | `lyrics`、可选 `title` |
+| 风格增强 | `POST /api/v1/tools/aigc_music/style/index` | `prompt` | `style` |
+
+路径注册不代表本站已经开放。调用前查看该接口的发布状态、价格和具体参数限制。辅助操作按各自价格计费，不沿用整首音乐生成的价格。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/lyrics/index" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-lyrics-request-key" \\
+  --data ''{"prompt":"Write four short English lines about sunrise."}''
+```
+
+同步完成时返回 `request_id`，以及 `data.task_id`、`data.status=success`、`data.billing_status=settled` 和实际业务结果。暂未完成时保留任务 ID，通过任务查询获取结果，不要自动再次创建。
+
+## 音乐作品和归属
+
+通过已发布的 `GET /api/v1/tools/aigc_music/results` 获取自己的音乐作品列表。后续处理使用该作品的本地数字 `id` 作为 `result_id`。作品 ID、任务 ID 和上传素材的 `file_id` 是不同资源，不可混用，也不可复制其他用户或站点的资源 ID。
+
+生成音乐使用 `POST /api/v1/tools/aigc_music/tasks`，按对应 API 参考页选择模型、通道、歌词、参考素材和规格。声音档案的本地管理不等同于真实声音克隆；实际可调用能力以已发布接口为准。
+
+## 时间轴查询
+
+`POST /api/v1/tools/aigc_music/export/timing` 输入本人 `result_id`，返回 `timing` 中可用的对齐词、分段和波形数据。该操作须配置为免费查询；纯器乐或上游缺少歌词时，对齐结果可能为空。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/export/timing" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-timing-request-key" \\
+  --data @music-result-input.json
+```
+
+`music-result-input.json` 使用本人作品 ID：
+
+```json
+{"result_id": 123}
+```
+
+## 导出与人声提取
+
+WAV、MIDI、MP4 和人声提取分别注册在 `POST /api/v1/tools/aigc_music/export/{type}`，输入本人 `result_id`。人声提取可按接口参考页指定 `vocal_start`、`vocal_end`，结束时间必须晚于开始时间。
+
+WAV、MIDI 和人声提取为异步处理；MP4 按当前接口契约处理同步结果，但保存或校验未完成时仍保留本地任务。异步受理成功不代表导出或结算已经完成。价格按对应操作在受理时固定，失败、查询异常及存储失败在任务和账单中分别展示。
+
+完成的文件导出返回 `export_id`、`file_id`、`file_url` 和结果存储信息。服务端验证并保存文件后才结算，损坏文件不会作为成功结果计费。MP4 服务须具备可用的视频校验能力，未配置时不能提交。
+
+人声提取成功返回 `vox_audio_id`，这是已处理的人声引用；它不承诺提供音频下载文件，也不等同于声音克隆。
+
+## 查询、下载与异常处理
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/tasks/$OPEN_TASK_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl --request GET --dump-header - --output /dev/null "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID/download" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+```
+
+任务和素材查询只允许访问本人资源，查询不重复收取生成或导出费用。下载入口验证归属后重定向到保存的文件地址，临时或私有存储地址按其有效期访问。
+
+保留原始 `request_id`、任务 ID 和幂等键。超时、暂时查询失败、结果保存失败时继续跟踪原任务；同一幂等键与相同参数重放返回原受理响应，最终状态通过任务查询获取。当前音乐辅助操作不支持取消已经提交的上游处理。密钥撤销或本站关闭新增调用后，已受理任务仍由服务端跟踪和结算。
+'
+AND NOT EXISTS (SELECT 1 FROM (SELECT tenant_id,slug,version FROM `la_open_platform_document`) existing WHERE existing.tenant_id=0 AND existing.slug='open-platform-music-tools' AND existing.version>2);
+UPDATE `la_open_platform_document` original
+SET original.status='archived',original.update_time=UNIX_TIMESTAMP()
+WHERE original.tenant_id=0 AND original.slug='open-platform-music-tools' AND original.version=2 AND original.status='published' AND BINARY original.content=BINARY '# 音乐工具接入
+
+音乐工具的生成、辅助处理和导出使用当前用户积分账户与本站售价。先确认能力目录中接口已发布、本站应用已开通、密钥权限允许调用；目录中未开放的能力不能通过修改路径调用。
+
+## 文本辅助操作
+
+| 能力 | 已注册路径 | 输入 | 成功结果 |
+| --- | --- | --- | --- |
+| 作词 | `POST /api/v1/tools/aigc_music/lyrics/index` | `prompt` | `lyrics`、可选 `title` |
+| 歌词融合 | `POST /api/v1/tools/aigc_music/mashuplyrics/index` | `lyrics_a`、`lyrics_b` | `lyrics`、可选 `title` |
+| 风格增强 | `POST /api/v1/tools/aigc_music/style/index` | `prompt` | `style` |
+
+路径注册不代表本站已经开放。调用前查看该接口的发布状态、价格和具体参数限制。辅助操作按各自价格计费，不沿用整首音乐生成的价格。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/lyrics/index" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-lyrics-request-key" \\
+  --data ''{"prompt":"Write four short English lines about sunrise."}''
+```
+
+同步完成时返回 `request_id`，以及 `data.task_id`、`data.status=success`、`data.billing_status=settled` 和实际业务结果。暂未完成时保留任务 ID，通过任务查询获取结果，不要自动再次创建。
+
+## 音乐作品和归属
+
+通过已发布的 `GET /api/v1/tools/aigc_music/results` 获取自己的音乐作品列表。后续处理使用该作品的本地数字 `id` 作为 `result_id`。作品 ID、任务 ID 和上传素材的 `file_id` 是不同资源，不可混用，也不可复制其他用户或站点的资源 ID。
+
+生成音乐使用 `POST /api/v1/tools/aigc_music/tasks`，按对应 API 参考页选择模型、通道、歌词、参考素材和规格。声音档案的本地管理不等同于真实声音克隆；实际可调用能力以已发布接口为准。
+
+## 时间轴查询
+
+`POST /api/v1/tools/aigc_music/export/timing` 输入本人 `result_id`，返回 `timing` 中可用的对齐词、分段和波形数据。该操作须配置为免费查询；纯器乐或上游缺少歌词时，对齐结果可能为空。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/export/timing" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-timing-request-key" \\
+  --data @music-result-input.json
+```
+
+`music-result-input.json` 使用本人作品 ID：
+
+```json
+{"result_id": 123}
+```
+
+## 导出与人声提取
+
+WAV、MIDI、MP4 和人声提取分别注册在 `POST /api/v1/tools/aigc_music/export/{type}`，输入本人 `result_id`。人声提取可按接口参考页指定 `vocal_start`、`vocal_end`，结束时间必须晚于开始时间。
+
+WAV、MIDI 和人声提取为异步处理；MP4 按当前接口契约处理同步结果，但保存或校验未完成时仍保留本地任务。异步受理成功不代表导出或结算已经完成。价格按对应操作在受理时固定，失败、查询异常及存储失败在任务和账单中分别展示。
+
+完成的文件导出返回 `export_id`、`file_id`、`file_url` 和结果存储信息。服务端验证并保存文件后才结算，损坏文件不会作为成功结果计费。MP4 服务须具备可用的视频校验能力，未配置时不能提交。
+
+人声提取成功返回 `vox_audio_id`，这是已处理的人声引用；它不承诺提供音频下载文件，也不等同于声音克隆。
+
+## 查询、下载与异常处理
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/tasks/$OPEN_TASK_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl --request GET --dump-header - --output /dev/null "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID/download" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+```
+
+任务和素材查询只允许访问本人资源，查询不重复收取生成或导出费用。下载入口验证归属后重定向到保存的文件地址，临时或私有存储地址按其有效期访问。
+
+保留原始 `request_id`、任务 ID 和幂等键。超时、暂时查询失败、结果保存失败时继续跟踪原任务；同一幂等键与相同参数重放返回原受理响应，最终状态通过任务查询获取。当前音乐辅助操作不支持取消已经提交的上游处理。密钥撤销或本站关闭新增调用后，已受理任务仍由服务端跟踪和结算。
+'
+AND EXISTS (SELECT 1 FROM (SELECT tenant_id,slug,version,status,content FROM `la_open_platform_document` LIMIT 18446744073709551615) replacement WHERE replacement.tenant_id=0 AND replacement.slug=original.slug AND replacement.version=3 AND replacement.status='published' AND BINARY replacement.content=BINARY '# 音乐工具接入
+
+音乐工具的生成、辅助处理和导出使用当前用户积分账户与本站售价。先确认能力目录中接口已发布、本站应用已开通、密钥权限允许调用；目录中未开放的能力不能通过修改路径调用。
+
+## 文本辅助操作
+
+| 能力 | 已注册路径 | 输入 | 成功结果 |
+| --- | --- | --- | --- |
+| 作词 | `POST /api/v1/tools/aigc_music/lyrics/index` | `prompt` | `lyrics`、可选 `title` |
+| 歌词融合 | `POST /api/v1/tools/aigc_music/mashuplyrics/index` | `lyrics_a`、`lyrics_b` | `lyrics`、可选 `title` |
+| 风格增强 | `POST /api/v1/tools/aigc_music/style/index` | `prompt` | `style` |
+
+路径注册不代表本站已经开放。调用前查看该接口的发布状态、价格和具体参数限制。辅助操作按各自价格计费，不沿用整首音乐生成的价格。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/lyrics/index" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-lyrics-request-key" \\
+  --data ''{"prompt":"Write four short English lines about sunrise."}''
+```
+
+同步完成时返回 `request_id`，以及 `data.task_id`、`data.status=success`、`data.billing_status=settled` 和实际业务结果。暂未完成时保留任务 ID，通过任务查询获取结果，不要自动再次创建。
+
+## 音乐作品和归属
+
+通过已发布的 `GET /api/v1/tools/aigc_music/results` 获取自己的音乐作品列表。后续处理使用该作品的本地数字 `id` 作为 `result_id`。作品 ID、任务 ID 和上传素材的 `file_id` 是不同资源，不可混用，也不可复制其他用户或站点的资源 ID。
+
+生成音乐使用 `POST /api/v1/tools/aigc_music/tasks`，按对应 API 参考页选择模型、通道、歌词、参考素材和规格。声音档案的本地管理不等同于真实声音克隆；实际可调用能力以已发布接口为准。
+
+## 参考音频登记
+
+先通过已发布的 `POST /api/v1/tools/aigc_music/asset/uploadAudio` 上传本人音频，使用返回的本地素材数字 `id` 作为 `reference_asset_id`。本地上传与上游登记是两次独立操作：上传不收取生成费用，上游登记按独立商城价格计费。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/asset/upload_upstream" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-reference-audio-key" \\
+  --data @music-reference-input.json
+```
+
+`music-reference-input.json` 使用本人已上传的素材 ID：
+
+```json
+{"reference_asset_id": 123}
+```
+
+完成后返回 `reference_audio_id`。后续音乐生成可使用该标识作为 `audio_id`；服务端检查它是否来自本人生成作品或本人上游登记任务。不能直接提交其他用户的上游标识、地址或存储配置。
+
+## 创建歌手风格
+
+`POST /api/v1/tools/aigc_music/persona/upstream` 基于本人已生成作品创建真实上游歌手风格，必填 `result_id`、`name`，可选 `description`、`vocal_start`、`vocal_end`。结束时间必须晚于开始时间；费用按该操作受理时的独立售价固定。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/persona/upstream" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-singer-style-key" \\
+  --data @music-persona-input.json
+```
+
+```json
+{"result_id": 123, "name": "My singer style", "description": "A style from my own song"}
+```
+
+将以上内容保存为 `music-persona-input.json`，作品 ID 使用自己的真实记录。成功后返回本地数字 `persona_id` 和 `provider_persona_id`。后续 `POST /api/v1/tools/aigc_music/tasks` 使用本地 `persona_id`；服务端解析本人风格对应的上游标识，在受理时保存该绑定。创建本地资料的 `persona/create` 仍是免费资料管理，本地资料须关联真实上游风格后才能用于对应生成通道。
+
+## 声音克隆
+
+`POST /api/v1/tools/aigc_music/voiceclone/create` 使用本人音频素材，必填 `reference_asset_id`、`name`。可选 `description`、`authorization_confirmed`、`authorization_text` 和 `source`，按独立商城售价计费。素材必须有本人上传记录，仅登记地址不能获得私有文件访问权限。
+
+```json
+{"reference_asset_id": 123, "name": "My authorized voice", "authorization_confirmed": 1, "authorization_text": "I am authorized to use this recording", "source": "My recording"}
+```
+
+使用对应 API 参考页的请求地址和鉴权方式提交。成功返回 `voice_clone_id`、`provider_voice_id`、授权状态和审核状态。提交授权声明不等于审核通过；该资源创建能力也不代表当前音乐生成通道支持使用克隆声音，生成支持范围以能力说明为准。
+
+## 时间轴查询
+
+`POST /api/v1/tools/aigc_music/export/timing` 输入本人 `result_id`，返回 `timing` 中可用的对齐词、分段和波形数据。该操作须配置为免费查询；纯器乐或上游缺少歌词时，对齐结果可能为空。
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/export/timing" \\
+  -H "Authorization: Bearer $OPEN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: your-stable-timing-request-key" \\
+  --data @music-result-input.json
+```
+
+`music-result-input.json` 使用本人作品 ID：
+
+```json
+{"result_id": 123}
+```
+
+## 导出与人声提取
+
+WAV、MIDI、MP4 和人声提取分别注册在 `POST /api/v1/tools/aigc_music/export/{type}`，输入本人 `result_id`。人声提取可按接口参考页指定 `vocal_start`、`vocal_end`，结束时间必须晚于开始时间。
+
+WAV、MIDI 和人声提取为异步处理；MP4 按当前接口契约处理同步结果，但保存或校验未完成时仍保留本地任务。异步受理成功不代表导出或结算已经完成。价格按对应操作在受理时固定，失败、查询异常及存储失败在任务和账单中分别展示。
+
+完成的文件导出返回 `export_id`、`file_id`、`file_url` 和结果存储信息。服务端验证并保存文件后才结算，损坏文件不会作为成功结果计费。MP4 服务须具备可用的视频校验能力，未配置时不能提交。
+
+人声提取成功返回 `vox_audio_id`，这是已处理的人声引用；它不承诺提供音频下载文件，也不等同于声音克隆。
+
+## 查询、下载与异常处理
+
+```bash
+curl "$OPEN_BASE_URL/api/v1/tools/aigc_music/tasks/$OPEN_TASK_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+
+curl --request GET --dump-header - --output /dev/null "$OPEN_BASE_URL/api/v1/assets/$OPEN_FILE_ID/download" \\
+  -H "Authorization: Bearer $OPEN_API_KEY"
+```
+
+任务和素材查询只允许访问本人资源，查询不重复收取生成或导出费用。下载入口验证归属后重定向到保存的文件地址，临时或私有存储地址按其有效期访问。
+
+保留原始 `request_id`、任务 ID 和幂等键。超时、暂时查询失败、结果保存失败时继续跟踪原任务；同一幂等键与相同参数重放返回原受理响应，最终状态通过任务查询获取。当前音乐辅助操作不支持取消已经提交的上游处理。密钥撤销或本站关闭新增调用后，已受理任务仍由服务端跟踪和结算。
+');

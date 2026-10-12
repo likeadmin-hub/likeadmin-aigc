@@ -201,6 +201,15 @@ class MarketVideoRuntimeService
         return self::quoteMarket($market, $quantity);
     }
 
+    /** Internal admission capture; never returned by public estimate endpoints. */
+    public static function openPlatformAdmissionQuote(int $tenantId,array $selection): array
+    {
+        $market=self::resolve($tenantId,$selection);
+        self::assertAssets($market,$selection);self::assertTextToVideoRatio($market,$selection);
+        if(self::isDeferredUsageSku($market['sku']))throw new \app\common\service\open_platform\OpenException('pricing_unavailable','当前视频规格缺少可信的实际用量额度边界',503);
+        return ['market'=>$market,'quote'=>self::quoteMarket($market,self::quantity($market,$selection))];
+    }
+
     /**
      * Returns the supplier capabilities that are safe to expose to business
      * callers. These values describe implemented request adapters, not merely
@@ -456,9 +465,11 @@ class MarketVideoRuntimeService
             // A caller may still hold the original storyboard beat length.
             $request['duration'] = (int)$reservedRequest['duration'];
         }
+        \app\common\service\open_platform\OpenSubmission::start($consumptionId);
         try {
             $response = self::submitRequest($snapshot, $request, (string)$context['consumption']['consume_no'], $consumptionId);
             $taskId = self::taskId($response);
+            \app\common\service\open_platform\OpenSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
             $videos = self::videos(
                 $response,
                 (int)$context['consumption']['tenant_id'],
@@ -482,6 +493,7 @@ class MarketVideoRuntimeService
             else AiTaskJobService::enqueueQueryResult($consumptionId);
             return ['status' => $videos === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'videos' => $videos];
         } catch (\Throwable $e) {
+            if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('视频任务提交失败');
         }
@@ -492,11 +504,18 @@ class MarketVideoRuntimeService
         $context = self::context($consumptionId, false);
         if ($context === null) throw new Exception('市场视频消耗记录不存在');
         $c = $context['consumption'];
+        if (\app\common\service\open_platform\OpenSubmission::pending($c->toArray())) return self::response($c->toArray());
         if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) {
             self::clearTerminalRefreshDiagnostics((int)$c['id']);
             return self::response($c->toArray());
         }
         $taskId = trim((string)$c['upstream_task_id']);
+        if ($taskId === '' && ($receipt=\app\common\service\open_platform\OpenSubmission::receipt($c->toArray()))!==null) {
+            try{
+                $videos=self::videos($receipt,(int)$c['tenant_id'],(int)$c['user_id'],self::requiresDurableResultStorage((string)$context['app_task']['app_code']));
+                if($videos!==[]){self::settle($consumptionId,$videos,self::requestId($receipt),'',$receipt);return ['status'=>'success','provider_task_id'=>'','videos'=>$videos];}
+            }catch(\Throwable $e){self::recordRefreshError($consumptionId,'',$e);}
+        }
         if ($taskId === '') {
             self::recordRefreshError($consumptionId, '', new Exception('视频任务尚未返回上游任务号'));
             return self::response($c->toArray());
@@ -629,6 +648,8 @@ class MarketVideoRuntimeService
 
     private static function resolve(int $tenantId, array $selection): array
     {
+        $frozen=\app\common\service\open_platform\OpenVideoPricing::market($tenantId,$selection);
+        if($frozen!==null){self::assertSkuMatchesSelection($frozen,$selection);return $frozen;}
         $skuId = self::intSelection($selection, ['market_sku_id', 'sku_id']);
         $resourceType = self::resourceType($selection);
         if ($skuId > 0) {
@@ -3266,6 +3287,31 @@ class MarketVideoRuntimeService
         }
         return $submitted;
     }
+    /** Pricing-only reuse for the raw protocol gateway, without changing its payload. */
+    public static function openPlatformSettlementQuantity(array $snapshot, array $response): ?float
+    {
+        $unit = strtolower((string)($snapshot['usage_unit'] ?? ''));
+        if ($unit === 'per_call') return 1.;
+        if (self::isTokenSnapshot($snapshot)) {
+            $tokens = MarketUsageSettlementService::tokenUsage($response);
+            return $tokens > 0 ? $tokens : null;
+        }
+        if (!in_array($unit, ['input_second','output_second','second','seconds','sec'], true)) return null;
+        $root = self::root($response);
+        $result = self::arrayValue($root['result'] ?? $root['Result'] ?? []);
+        $usage = self::arrayValue($root['usage'] ?? $response['usage'] ?? $result['usage'] ?? $result['Usage'] ?? []);
+        $specific = $unit === 'input_second' ? ['input_seconds','input_duration'] : ['output_seconds','output_duration'];
+        if (in_array($unit, ['second','seconds','sec'], true)) $specific = ['output_seconds','output_duration'];
+        foreach (array_merge($specific, ['duration','seconds']) as $field) {
+            foreach ([$usage, $result, $root, $response] as $source) {
+                $value = $source[$field] ?? null;
+                if (is_numeric($value) && is_finite((float)$value) && (float)$value > 0) return (float)$value;
+            }
+        }
+        // Only input seconds are known from the accepted input; output requires a receipt.
+        $submitted = (float)($snapshot['quantity'] ?? 0);
+        return $unit === 'input_second' && $submitted > 0 ? $submitted : null;
+    }
     private static function root(array $data): array { return self::arrayValue($data['data'] ?? $data); }
     private static function status(array $data): string { $root = self::root($data); return strtolower((string)($data['status'] ?? $data['state'] ?? $root['status'] ?? $root['state'] ?? $root['task_status'] ?? '')); }
     private static function taskId(array $data): string
@@ -3459,7 +3505,7 @@ class MarketVideoRuntimeService
     }
     private static function origin(): string { $source = UpdateSourceClient::getSource(); $parts = parse_url(trim((string)($source['active_base_url'] ?? $source['base_url'] ?? ''))); if (empty($parts['host'])) throw new Exception('视频 API 暂不可用'); return (string)($parts['scheme'] ?? 'https') . '://' . $parts['host'] . (isset($parts['port']) ? ':' . (int)$parts['port'] : ''); }
     private static function endpoint(string $app, string $api): string { return self::origin() . '/api/v1/apps/' . rawurlencode($app) . '/' . rawurlencode($api); }
-    private static function request(string $method, string $url, array $payload = [], bool $allowApplicationError = false): array { $source = UpdateSourceClient::getSource(); $key = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '')); if ($key === '') throw new Exception('视频 API 暂不可用'); $ch = curl_init(); curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $key, 'Accept: application/json', 'Content-Type: application/json'], CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source), CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0]); if ($method === 'POST') { curl_setopt($ch, CURLOPT_POST, true); curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); } $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch); if ($errno) throw new Exception($error ?: '视频 API 网络请求失败'); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('视频 API 响应格式错误'); $hasApplicationError = isset($data['error']) || (isset($data['code']) && is_numeric($data['code']) && (int)$data['code'] !== 1); if (($http >= 400 || $hasApplicationError) && !$allowApplicationError) throw new Exception(self::error($data)); return $data; }
+    private static function request(string $method, string $url, array $payload = [], bool $allowApplicationError = false): array { $source = UpdateSourceClient::getSource(); $key = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '')); if ($key === '') throw new Exception('视频 API 暂不可用'); $ch = curl_init(); curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $key, 'Accept: application/json', 'Content-Type: application/json'], CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source), CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0]); if ($method === 'POST') { curl_setopt($ch, CURLOPT_POST, true); curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); } $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch); if ($errno) throw new Exception($error ?: '视频 API 网络请求失败'); $data = json_decode((string)$body, true); if ($method === 'POST' && is_array($data)) \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== ''); if (!is_array($data)) throw new Exception('视频 API 响应格式错误'); $hasApplicationError = isset($data['error']) || (isset($data['code']) && is_numeric($data['code']) && (int)$data['code'] !== 1); if (($http >= 400 || $hasApplicationError) && !$allowApplicationError) throw new Exception(self::error($data)); return $data; }
     private static function recordRefreshError(int $consumptionId, string $taskId, \Throwable $e): void
     {
         $message = mb_substr($e->getMessage() ?: '视频任务查询失败', 0, 1000);

@@ -11,14 +11,14 @@
         "description": "",
         "enabled": 1,
         "sort": 100,
-        "link": "/user/api-keys"
+        "link": "/user/developer/overview"
       },
       {
         "title": "API 调试",
         "description": "",
         "enabled": 1,
         "sort": 99,
-        "link": "/official/open#api-playground"
+        "link": "/user/developer/playground"
       },
       {
         "title": "会员套餐",
@@ -32,7 +32,7 @@
         "description": "",
         "enabled": 1,
         "sort": 97,
-        "link": "/official/open#api-documentation"
+        "link": "/docs"
       },
       {
         "title": "联系我们",
@@ -56,7 +56,7 @@
         "enabled": 1,
         "sort": 100,
         "icon": "image",
-        "link": "/official/open#api-playground"
+        "link": "/user/developer/catalog"
       },
       {
         "title": "视频创作 API",
@@ -64,7 +64,7 @@
         "enabled": 1,
         "sort": 99,
         "icon": "video",
-        "link": "/official/open#api-playground"
+        "link": "/user/developer/catalog"
       },
       {
         "title": "音频与音乐 API",
@@ -72,7 +72,7 @@
         "enabled": 1,
         "sort": 98,
         "icon": "audio",
-        "link": "/official/open#api-playground"
+        "link": "/user/developer/catalog"
       },
       {
         "title": "数字人视频 API",
@@ -80,7 +80,7 @@
         "enabled": 1,
         "sort": 97,
         "icon": "avatar",
-        "link": "/official/open#api-playground"
+        "link": "/user/developer/catalog"
       },
       {
         "title": "图像处理 API",
@@ -88,7 +88,7 @@
         "enabled": 1,
         "sort": 96,
         "icon": "edit",
-        "link": "/official/open#api-playground"
+        "link": "/user/developer/catalog"
       },
       {
         "title": "电商创意 API",
@@ -96,7 +96,7 @@
         "enabled": 1,
         "sort": 95,
         "icon": "grid",
-        "link": "/official/open#api-playground"
+        "link": "/user/developer/catalog"
       }
     ],
     "button_text": "进入密钥管理",
@@ -115,7 +115,7 @@
     "cards": [
       {
         "title": "在设置中心管理 API 密钥",
-        "description": "登录账号，在设置中心进入 API 密钥页面。开通会员后，按平台开放进度完成接入准备。",
+        "description": "登录账号，在设置中心创建 API 密钥，选择已开放能力并设置权限和限额。",
         "enabled": 1,
         "sort": 100,
         "preset": "key",
@@ -126,18 +126,18 @@
       },
       {
         "title": "先了解接口，再接入应用",
-        "description": "阅读接口文档，了解输入参数与任务流程。当前页面提供静态请求示意，正式调试以已开放接口为准。",
+        "description": "阅读接口文档，了解参数、价格和任务流程，再到在线调试验证已开放接口。",
         "enabled": 1,
         "sort": 99,
         "preset": "test",
         "media": "",
         "media_type": "image",
         "button_text": "查看 API 文档",
-        "link": "/official/open#api-documentation"
+        "link": "/docs"
       },
       {
         "title": "一个账户，管理会员与用量",
-        "description": "在会员中心查看当前套餐与算力明细。API 调用以会员资格为前提，调用费用以正式计费规则为准。",
+        "description": "API 沿用当前账户的积分、会员资格和优惠，实际调用按用户端价格计费。",
         "enabled": 1,
         "sort": 98,
         "preset": "usage",
@@ -228,7 +228,7 @@
     "enabled": 1,
     "sort": 100,
     "title": "选择适合你的创作起点",
-    "description": "API 调用需先开通会员。套餐价格和权益同步当前平台配置。",
+    "description": "API 沿用现有会员规则，无需单独开通 API 会员。套餐价格和权益同步本站配置。",
     "cards": [],
     "eyebrow": "会员套餐"
   },
@@ -249,13 +249,13 @@
     "cards": [
       {
         "title": "使用 API 需要开通会员吗？",
-        "description": "需要。API 调用以开通会员为前提，免费账号不包含 API 调用资格。具体接口权限以平台配置和正式文档为准。",
+        "description": "不需要单独开通 API 会员。各能力沿用用户端已有会员资格，并检查租户开通、应用权限和 Key 范围。",
         "enabled": 1,
         "sort": 100
       },
       {
         "title": "在哪里管理 API 密钥？",
-        "description": "密钥管理位于设置中心的“API 密钥”页面。当前提供接入说明与会员入口，密钥创建及管理功能待后续接通。",
+        "description": "在设置中心的“API 密钥”页面创建、禁用、撤销或轮换密钥，并管理权限、有效期和白名单。完整密钥仅展示一次。",
         "enabled": 1,
         "sort": 99
       },
@@ -267,7 +267,7 @@
       },
       {
         "title": "会员费用包含所有 API 调用费用吗？",
-        "description": "会员是使用 API 的前提，不代表无限调用。具体调用费用、额度及扣费规则以平台后续公布的 API 计费说明为准。",
+        "description": "会员权益与用户端一致。调用按当前用户价格结算，使用同一积分余额；查询等辅助操作是否收费以接口文档为准。",
         "enabled": 1,
         "sort": 97
       },
@@ -279,7 +279,7 @@
       },
       {
         "title": "在哪里查看 API 文档？",
-        "description": "平台配置了可用文档地址后，本页会显示文档入口。尚未开放时，可以先了解页面中的接入流程，等待正式文档上线。",
+        "description": "从顶部“API 文档”进入文档中心，查看开发指南、已发布接口、价格和更新日志。租户已配置外部文档时沿用该入口。",
         "enabled": 1,
         "sort": 95
       },
@@ -347,7 +347,7 @@
         "enabled": 1,
         "sort": 96,
         "eyebrow": "开发者",
-        "link": "/official/open#api-documentation"
+        "link": "/docs"
       },
       {
         "title": "常见问题",

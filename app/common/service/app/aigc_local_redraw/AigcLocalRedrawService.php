@@ -92,21 +92,56 @@ class AigcLocalRedrawService
         return self::buildEstimate($prepared, $imageEstimate);
     }
 
-    public static function generate(int $tenantId, int $userId, array $params): array
+    /** Shared validated submission parameters for an accepted external call. */
+    public static function openPlatformAdmission(int $tenantId, int $userId, array $params): array
     {
         self::assertAvailable($tenantId);
-        if (isset($params['mask_image']) && str_starts_with((string)$params['mask_image'], 'data:image/')) {
-            $stored = AigcImageAssetService::persistGeneratedImage((string)$params['mask_image'], $tenantId, $userId);
-            $params['mask_image'] = (string)($stored['uri'] ?? '');
+        $mask = trim((string)($params['mask_image'] ?? $params['mask_url'] ?? ''));
+        if (str_starts_with($mask, 'data:')) {
+            if (strlen($mask) > 27962000 || !preg_match('#^data:image/(png|jpeg|webp|gif);base64,(.+)$#D', $mask, $parts)
+                || ($binary = base64_decode($parts[2], true)) === false || $binary === ''
+                || strlen($binary) > 20971520 || @getimagesizefromstring($binary) === false) {
+                throw new \app\common\service\open_platform\OpenException('invalid_material', '蒙版 Data URI 格式或大小无效');
+            }
         }
         $prepared = self::prepareGeneratePayload($tenantId, $params, true);
         $imageEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
         $estimate = self::buildEstimate($prepared, $imageEstimate);
+        return ['prepared' => $prepared, 'estimate' => $estimate];
+    }
+
+    public static function generate(int $tenantId, int $userId, array $params): array
+    {
+        self::assertAvailable($tenantId);
+        $frozen = \app\common\service\open_platform\OpenImagePricing::prepared($tenantId, $userId, self::APP_CODE);
+        if ($frozen !== null) {
+            $frozen = \app\common\service\open_platform\OpenImagePricing::materializePrepared($tenantId, $userId, self::APP_CODE,
+                static function (array $prepared) use ($tenantId, $userId): array {
+                    if (str_starts_with((string)$prepared['mask_image'], 'data:image/')) {
+                        $stored = AigcImageAssetService::persistGeneratedImage($prepared['mask_image'], $tenantId, $userId);
+                        $prepared['mask_image'] = (string)$stored['uri'];
+                        $prepared['image_payload']['mask_url'] = (string)$stored['uri'];
+                    }
+                    return $prepared;
+                });
+            $prepared = $frozen['prepared'];
+            $estimate = $frozen['estimate'];
+        } else {
+            if (isset($params['mask_image']) && str_starts_with((string)$params['mask_image'], 'data:image/')) {
+                $stored = AigcImageAssetService::persistGeneratedImage((string)$params['mask_image'], $tenantId, $userId);
+                $params['mask_image'] = (string)($stored['uri'] ?? '');
+            }
+            $prepared = self::prepareGeneratePayload($tenantId, $params, true);
+            $imageEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
+            $estimate = self::buildEstimate($prepared, $imageEstimate);
+        }
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
+        $handoff = \app\common\service\open_platform\OpenImageHandoff::callback($tenantId, $userId, self::APP_CODE,
+            static fn(AigcImageTask $image) => self::upsertTaskFromImageTask($tenantId, $userId, (int)$image['id'], $prepared, $estimate));
         $imageResult = AigcImageService::generateWithBillingOverride($tenantId, $userId, $prepared['image_payload'], [
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
-        ]);
+        ], $handoff);
         $imageTaskId = (int)($imageResult['task_id'] ?? 0);
         if ($imageTaskId <= 0) {
             throw new Exception('局部重绘任务创建失败');
@@ -358,7 +393,7 @@ class AigcLocalRedrawService
 
     private static function upsertTaskFromImageTask(int $tenantId, int $userId, int $imageTaskId, array $prepared, array $estimate): AigcLocalRedrawTask
     {
-        $imageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $imageTaskId])->findOrEmpty();
+        $imageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $imageTaskId])->findOrEmpty();
         if ($imageTask->isEmpty()) {
             throw new Exception('生图任务不存在');
         }

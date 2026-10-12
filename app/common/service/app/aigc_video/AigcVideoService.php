@@ -60,6 +60,32 @@ class AigcVideoService
         return $quote;
     }
 
+    /** Prepare precisely the same video input before gateway admission. */
+    public static function openPlatformAdmission(int $tenantId,array $params): array
+    {
+        unset($params['effect_snapshot']);
+        if(is_array($params['params']??null))unset($params['params']['effect_snapshot']);
+        $originalPrompt=trim((string)($params['prompt']??''));
+        $params=ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
+        $prompt=trim((string)($params['prompt']??''));if($prompt==='')throw new Exception('请输入提示词');
+        self::checkSensitiveWords($tenantId,$prompt);
+        $params['reference_assets']=AigcVideoReferenceAssetService::normalize($params);
+        $params['reference_images']=AigcVideoReferenceAssetService::images($params['reference_assets']);
+        $selection=self::marketSelection($params);$runtime=self::marketRuntime($selection);
+        $normalized=$runtime::normalizeDurationSelection($tenantId,$selection,(int)($params['duration']??0));
+        $params['duration']=(int)$normalized['duration'];$selection=array_replace($selection,$normalized);
+        $resolved=$selection+$params;$resolved['resource_type']=$runtime===MarketVideoAppRuntimeService::class?'app_api':'model';
+        $captured=\app\common\service\power\MarketVideoRuntimeService::openPlatformAdmissionQuote($tenantId,$resolved);
+        $effect=VideoEffectService::resolve(VideoEffectService::catalog($tenantId),$params,(int)$captured['quote']['market_product_id']);
+        if($effect){
+            $params=VideoEffectService::compile($params,$effect);
+            self::checkSensitiveWords($tenantId,$params['prompt']);
+            $resolved['prompt']=$params['prompt'];
+            $resolved['effect_snapshot']=VideoEffectService::snapshot($effect,$originalPrompt);
+        }
+        return $captured+['selection'=>$resolved,'params'=>$params];
+    }
+
     /** Resolve the duration the chosen SKU would actually submit, without quoting or charging. */
     public static function effectiveMarketDuration(int $tenantId, array $params): int
     {
@@ -120,30 +146,40 @@ class AigcVideoService
 
     private static function generateMarketInternal(int $tenantId, int $userId, array $params, array $billingOverride = [], string $marketAppCode = self::APP_CODE): array
     {
-        unset($params['effect_snapshot']);
-        if (is_array($params['params'] ?? null)) unset($params['params']['effect_snapshot']);
-        $originalPrompt = trim((string)($params['prompt'] ?? ''));
-        $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
-        $prompt = trim((string)($params['prompt'] ?? ''));
-        if ($prompt === '') {
-            throw new Exception('请输入提示词');
-        }
-        self::checkSensitiveWords($tenantId, $prompt);
-        $referenceAssets = AigcVideoReferenceAssetService::normalize($params);
-        $params['reference_assets'] = $referenceAssets;
-        $params['reference_images'] = AigcVideoReferenceAssetService::images($referenceAssets);
-        $selection = self::marketSelection($params);
-        $runtime = self::marketRuntime($selection);
-        $normalizedDuration = $runtime::normalizeDurationSelection($tenantId, $selection, (int)($params['duration'] ?? 0));
-        $params['duration'] = (int)$normalizedDuration['duration'];
-        $selection = array_replace($selection, $normalizedDuration);
-        $quote = self::applyMarketBillingOverride(self::marketQuote($tenantId, $selection + $params), $billingOverride);
-        $effect = VideoEffectService::resolve(VideoEffectService::catalog($tenantId), $params, (int)$quote['market_product_id']);
-        if ($effect) {
-            $params = VideoEffectService::compile($params, $effect);
-            self::checkSensitiveWords($tenantId, $params['prompt']);
-            $prompt = $originalPrompt;
-            $selection['effect_snapshot'] = VideoEffectService::snapshot($effect, $originalPrompt);
+        $frozen=$marketAppCode===self::APP_CODE?\app\common\service\open_platform\OpenVideoPricing::forRequest($tenantId,$userId):null;
+        if($frozen!==null){
+            if($billingOverride!==[])throw new \app\common\service\open_platform\OpenException('pricing_snapshot_conflict','开放视频请求不允许覆盖受理价格',409);
+            // Already compiled at admission: no current effect catalogue lookup,
+            // mention expansion or duration renegotiation can change this recipe.
+            $params=$frozen['params'];$selection=$frozen['selection'];$referenceAssets=$params['reference_assets'];
+            $prompt=trim((string)($selection['effect_snapshot']['user_prompt']??$params['prompt']));
+            $runtime=self::marketRuntime($selection);$quote=$frozen['quote'];
+        }else{
+            unset($params['effect_snapshot']);
+            if (is_array($params['params'] ?? null)) unset($params['params']['effect_snapshot']);
+            $originalPrompt = trim((string)($params['prompt'] ?? ''));
+            $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
+            $prompt = trim((string)($params['prompt'] ?? ''));
+            if ($prompt === '') {
+                throw new Exception('请输入提示词');
+            }
+            self::checkSensitiveWords($tenantId, $prompt);
+            $referenceAssets = AigcVideoReferenceAssetService::normalize($params);
+            $params['reference_assets'] = $referenceAssets;
+            $params['reference_images'] = AigcVideoReferenceAssetService::images($referenceAssets);
+            $selection = self::marketSelection($params);
+            $runtime = self::marketRuntime($selection);
+            $normalizedDuration = $runtime::normalizeDurationSelection($tenantId, $selection, (int)($params['duration'] ?? 0));
+            $params['duration'] = (int)$normalizedDuration['duration'];
+            $selection = array_replace($selection, $normalizedDuration);
+            $quote = self::applyMarketBillingOverride(self::marketQuote($tenantId, $selection + $params), $billingOverride);
+            $effect = VideoEffectService::resolve(VideoEffectService::catalog($tenantId), $params, (int)$quote['market_product_id']);
+            if ($effect) {
+                $params = VideoEffectService::compile($params, $effect);
+                self::checkSensitiveWords($tenantId, $params['prompt']);
+                $prompt = $originalPrompt;
+                $selection['effect_snapshot'] = VideoEffectService::snapshot($effect, $originalPrompt);
+            }
         }
         $duplicate = self::findRecentMarketDuplicateTask($tenantId, $userId, $prompt, $selection, $params);
         if ($duplicate !== null) {

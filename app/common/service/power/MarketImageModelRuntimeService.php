@@ -180,7 +180,21 @@ class MarketImageModelRuntimeService
     /** @return array<string, mixed> */
     public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = []): array
     {
+        \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
         $market = self::resolve($tenantId, $selection);
+        return self::quoteMarket($market, $quantity, $billingOverride);
+    }
+
+    /** Server-side admission only; never included in public estimate responses. */
+    public static function openPlatformAdmissionQuote(int $tenantId, array $selection, int $quantity): array
+    {
+        $market = self::resolve($tenantId, $selection);
+        self::assertReferenceImagesAllowed($market, $selection);
+        return ['market' => $market, 'quote' => self::quoteMarket($market, $quantity, [])];
+    }
+
+    private static function quoteMarket(array $market, int $quantity, array $billingOverride): array
+    {
         $quantity = max(1, $quantity);
         self::assertImageQuantity($market, $quantity);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
@@ -233,7 +247,7 @@ class MarketImageModelRuntimeService
             $appTask = AiAppTask::create([
                 'task_no' => self::no('AT'), 'tenant_id' => $tenantId, 'user_id' => $userId,
                 'app_code' => $appCode, 'action_code' => $action,
-                'business_table' => $businessTable, 'business_id' => 0, 'parent_task_id' => 0,
+                'business_table' => $businessTable, 'business_id' => (int)$businessTaskId, 'parent_task_id' => 0,
                 'status' => 'running', 'progress' => 10,
                 'request_summary' => self::requestSummary($request), 'result_summary' => [],
                 'estimated_tenant_cost' => $tenantCost, 'estimated_user_price' => $userPrice,
@@ -249,7 +263,7 @@ class MarketImageModelRuntimeService
                 'model_code' => (string)$market['product']['upstream_model_code'], 'api_code' => (string)$market['product']['upstream_channel_code'],
                 'protocol' => 'image_generate', 'provider' => 'power_market', 'upstream_request_id' => '', 'upstream_task_id' => '',
                 'quantity' => $deferredUsage ? 0 : $quantity, 'usage_unit' => (string)$market['sku']['usage_unit'], 'usage_snapshot' => ['settlement_basis' => $deferredUsage ? 'awaiting_actual_usage' : 'submit_snapshot'],
-                'price_snapshot' => self::snapshotWithBillingOverride($market, $billingOverride), 'request_summary' => self::requestSummary($request), 'response_summary' => [],
+                'price_snapshot' => self::snapshotWithBillingOverride($market, $billingOverride, $quantity), 'request_summary' => self::requestSummary($request), 'response_summary' => [],
                 'run_status' => 'reserved', 'billing_status' => $deferredUsage ? 'pending_usage' : 'reserved',
                 'reserved_tenant_cost' => $tenantCost, 'reserved_user_price' => $userPrice,
                 'actual_tenant_cost' => 0, 'actual_user_price' => 0,
@@ -281,6 +295,7 @@ class MarketImageModelRuntimeService
         $requestId = '';
         $images = [];
         $upstreamAccepted = false;
+        \app\common\service\open_platform\OpenSubmission::start($consumptionId);
         try {
             $submission = self::submitWithTransientRetry($consumptionId, self::origin() . self::SUBMIT_PATH, $payload);
             $response = $submission['response'];
@@ -310,10 +325,12 @@ class MarketImageModelRuntimeService
             }
             return ['status' => $images === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => $images];
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             if ($upstreamAccepted) {
                 self::recordAcceptedSubmissionFailure($consumptionId, $taskId, $requestId, $e);
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => []];
             }
+            if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('图片模型提交失败');
         }
@@ -335,6 +352,7 @@ class MarketImageModelRuntimeService
             try {
                 return ['response' => self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
             } catch (MarketImageProviderRequestException $e) {
+                if (\app\common\service\open_platform\OpenCallContext::id() !== '') throw $e;
                 if (!$e->isRetryable() || $attempt >= self::SUBMIT_MAX_ATTEMPTS) {
                     throw $e;
                 }
@@ -365,7 +383,8 @@ class MarketImageModelRuntimeService
                 'delay_ms' => $delayMs,
                 'provider_http_status' => (int)$e->getCode(),
             ]);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             // Audit failures must not turn a safe supplier retry into a user failure.
         }
     }
@@ -384,6 +403,7 @@ class MarketImageModelRuntimeService
             throw new Exception('图片模型当前请求较多，请稍后重试');
         }
         $cooldownKey = 'aigc:' . $lane;
+        $connectionLost = false;
         try {
             try {
                 $nextAt = (float)Cache::get($cooldownKey, 0);
@@ -391,19 +411,26 @@ class MarketImageModelRuntimeService
                 if ($waitMs > 0) {
                     usleep($waitMs * 1000);
                 }
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
                 // The advisory lock still serializes submits when cache is unavailable.
             }
             return self::request('POST', $url, $payload);
+        } catch (\Throwable $error) {
+            $connectionLost = \app\common\service\open_platform\OpenRecovery::connectionLost($error);
+            throw $error;
         } finally {
             try {
                 Cache::set($cooldownKey, microtime(true) + (self::SUBMIT_LANE_INTERVAL_MS / 1000), 5);
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
                 // A transient cache outage must not break a paid task submit.
             }
             try {
-                Db::query('SELECT RELEASE_LOCK(?)', [$lane]);
+                // A dead connection owns no reusable lane. Retire without another SQL call.
+                if (!$connectionLost) Db::query('SELECT RELEASE_LOCK(?)', [$lane]);
             } catch (\Throwable $e) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
                 Log::warning('Market image submit lane release failed: ' . $e->getMessage());
             }
         }
@@ -522,6 +549,7 @@ class MarketImageModelRuntimeService
             self::event($consumptionId, 'poll', 'running', ['upstream_task_id' => $taskId, 'upstream_status' => $status]);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             self::recordRefreshError($consumptionId, $taskId, $e);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
         }
@@ -603,6 +631,8 @@ class MarketImageModelRuntimeService
             && abs((float)$billingOverride['tenant_unit_cost'] - (float)$quote['tenant_unit_points']) > 0.000001) {
             throw new Exception('应用不能覆盖算力市场平台成本');
         }
+        if (array_key_exists('tenant_cost_points', $billingOverride) && abs((float)$billingOverride['tenant_cost_points'] - (float)$quote['tenant_cost_points']) > 0.000001) throw new Exception('应用不能覆盖算力市场平台成本');
+        if (array_key_exists('user_charge_points', $billingOverride)) $billingOverride['user_unit_price'] = (float)$billingOverride['user_charge_points'] / max(1, (int)$quote['quantity']);
         if (array_key_exists('user_unit_price', $billingOverride)) {
             $unit = self::points((float)$billingOverride['user_unit_price']);
             $quote['user_unit_points'] = $unit;
@@ -611,9 +641,10 @@ class MarketImageModelRuntimeService
         return $quote;
     }
 
-    private static function snapshotWithBillingOverride(array $market, array $billingOverride): array
+    private static function snapshotWithBillingOverride(array $market, array $billingOverride, int $quantity = 1): array
     {
         $snapshot = self::snapshot($market);
+        if (array_key_exists('user_charge_points', $billingOverride)) $billingOverride['user_unit_price'] = (float)$billingOverride['user_charge_points'] / max(1, $quantity);
         if (array_key_exists('user_unit_price', $billingOverride)) {
             $snapshot['fixed_user_unit_price'] = self::points((float)$billingOverride['user_unit_price']);
             $snapshot['app_sale_price_override'] = true;
@@ -652,6 +683,8 @@ class MarketImageModelRuntimeService
     /** @return array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float} */
     private static function resolve(int $tenantId, array $selection): array
     {
+        $frozen = \app\common\service\open_platform\OpenImagePricing::market($tenantId, $selection, 'model');
+        if ($frozen !== null) return $frozen;
         $skuId = self::skuId($selection);
         if ($skuId > 0) {
             $sku = PowerMarketSku::where(['id' => $skuId, 'status' => 1, 'sale_status' => 1])->findOrEmpty();
@@ -1294,6 +1327,7 @@ class MarketImageModelRuntimeService
         // may have accepted the request after the connection was interrupted.
         if ($errno) throw new Exception($error ?: '图片模型网络请求失败'); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('图片模型响应格式错误');
         if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) {
+            if ($method === 'POST') \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== '');
             throw new MarketImageProviderRequestException(self::error($data), self::isExplicitTransientProviderResponse($http, $data), $http);
         }
         return is_array($data['data'] ?? null) ? $data['data'] : $data;
@@ -1328,7 +1362,8 @@ class MarketImageModelRuntimeService
                 'upstream_task_id' => $taskId,
                 'error' => mb_substr($message, 0, 300),
             ]);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             // Diagnostics must not interrupt the next provider retry.
         }
     }
@@ -1585,6 +1620,7 @@ class MarketImageModelRuntimeService
             }
             AiTaskJobService::enqueueQueryResult($consumptionId);
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             AiTaskLifecycleEventService::record($consumptionId, 'job_enqueue_failed', 'pending', [
                 'job_type' => $processResult ? AiTaskJobService::TYPE_PROCESS_RESULT : AiTaskJobService::TYPE_QUERY_RESULT,
                 'reason' => mb_substr($e->getMessage(), 0, 300),
@@ -1613,6 +1649,7 @@ class MarketImageModelRuntimeService
             ]);
             self::enqueueResultJob($consumptionId);
         } catch (\Throwable $recoveryError) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($recoveryError);
             Log::warning('Market image accepted submission recovery failed: consumption=' . $consumptionId . ' error=' . $recoveryError->getMessage());
         }
     }

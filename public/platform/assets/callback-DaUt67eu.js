@@ -1,1 +1,0 @@
-import{a as o}from"./vendor-vue-router-fzcX8tXw.js";import{h as r}from"./vendor-_vue_runtime-core-sGZ5s0k_.js";import"./vendor-_vue_reactivity-BtM3-0yK.js";import"./vendor-_vue_shared-Bz0pM6bZ.js";const s=r({__name:"callback",setup(e){return o().replace("/channel/open_platform/config"),()=>{}}});export{s as default};

@@ -71,6 +71,14 @@ class UpstreamPricingService
         return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
     }
 
+    /** Read published API request metadata; never executes an application. */
+    public static function queryAppDetail(string $appCode): array
+    {
+        $appCode = trim($appCode);
+        if (!preg_match('/^[a-z0-9_-]+$/D', $appCode)) throw new Exception('应用编码无效');
+        return self::request('GET', '/api/v1/apps/' . $appCode);
+    }
+
     public static function queryDeveloperDocDetail(string $slug): array
     {
         $slug = trim($slug);

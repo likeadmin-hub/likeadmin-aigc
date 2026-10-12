@@ -2397,6 +2397,11 @@ class AigcDigitalHumanService
 
     private static function detectRemoteAudioDuration(string $url): int
     {
+        if (\app\common\service\open_platform\OpenCallContext::active()) {
+            $data=\app\common\service\open_platform\OpenSafeHttp::get($url,self::REMOTE_AUDIO_PROBE_BYTES,8,['Range: bytes=0-'.(self::REMOTE_AUDIO_PROBE_BYTES-1)])['body'];
+            $duration=self::detectAudioDurationByFfprobeData($data);
+            return $duration>0?$duration:self::detectAudioDurationFromBinary($data);
+        }
         $context = stream_context_create([
             'http' => [
                 'timeout' => 8,

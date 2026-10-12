@@ -11,6 +11,8 @@ class AigcImageSubmissionTest extends TestCase
 {
     public function testKeysRemainCompatibleAndAppScoped(): void
     {
+        // Page submission keys now inspect the trusted request context.
+        (new \think\App())->initialize();
         self::assertSame('', Submission::key([], 'aigc_image'));
         $params = ['batch_key' => 'mobile-image-1791700000000-1'];
         self::assertSame(Submission::key($params, 'aigc_image'), Submission::key($params, 'aigc_image'));
@@ -22,7 +24,9 @@ class AigcImageSubmissionTest extends TestCase
     {
         if (getenv('AIGC_IMAGE_SUBMISSION_DB_TESTS') !== '1') self::markTestSkipped('Local transactional fixtures only');
         (new \think\App())->initialize();
-        self::assertSame('x_cn', Db::connect()->getConfig('database'));
+        $database = getenv('AIGC_TEST_DATABASE') ?: 'x_cn';
+        self::assertContains($database, ['x_cn', 'z_cn'], 'Only explicitly named local fixture databases are allowed');
+        self::assertSame($database, Db::connect()->getConfig('database'));
         self::assertContains(Db::connect()->getConfig('hostname'), ['127.0.0.1', 'localhost']);
         Db::startTrans();
         try {

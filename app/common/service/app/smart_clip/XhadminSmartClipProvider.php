@@ -364,10 +364,12 @@ class XhadminSmartClipProvider implements SmartClipProviderInterface
             throw new Exception('接口响应格式错误');
         }
         if ($httpCode >= 400) {
+            if (strtoupper($method)==='POST') \app\common\service\open_platform\OpenCallContext::providerFailure($httpCode,(string)$body,$this->extractTaskId($this->responseData($data))!=='');
             throw new XhadminSmartClipProviderException((string)($data['message'] ?? $data['msg'] ?? '接口请求失败'), $data);
         }
         $code = $data['code'] ?? ($data['result']['code'] ?? 1);
         if (!in_array((string)$code, ['1', 'success', 'Succeed', 'ok', '200'], true)) {
+            if (strtoupper($method)==='POST') \app\common\service\open_platform\OpenCallContext::providerFailure($httpCode,(string)$body,$this->extractTaskId($this->responseData($data))!=='');
             throw new XhadminSmartClipProviderException((string)($data['message'] ?? $data['msg'] ?? $data['result']['message'] ?? $data['result']['msg'] ?? '接口业务失败'), $data);
         }
         return $data;

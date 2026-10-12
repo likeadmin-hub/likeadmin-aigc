@@ -6,5 +6,5 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 UPDATE `la_tenant_file` SET `upload_origin`='local' WHERE `upload_origin`='' AND `uri` REGEXP '^/?uploads/(images|video|file|appearance|feedback)/[0-9]{8}/';
 -- Music and digital-human audio share a directory with generated audio: require upload evidence.
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='la_aigc_music_asset')>0,
- 'UPDATE `la_tenant_file` f INNER JOIN `la_aigc_music_asset` a ON a.tenant_id=f.tenant_id AND a.user_id=f.source_id AND a.uri=f.uri SET f.upload_origin=''local'' WHERE f.upload_origin='''' AND f.source=1 AND a.source_action=''upload_audio''', 'SELECT 1');
+ 'UPDATE `la_tenant_file` f INNER JOIN `la_aigc_music_asset` a ON a.tenant_id=f.tenant_id AND a.user_id=f.source_id AND CAST(a.uri AS BINARY)=CAST(f.uri AS BINARY) SET f.upload_origin=''local'' WHERE f.upload_origin='''' AND f.source=1 AND a.source_action=''upload_audio''', 'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

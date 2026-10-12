@@ -7,6 +7,15 @@ use app\common\service\app\aigc_music\AigcMusicService;
 
 class PersonaController extends BaseApiController
 {
+    public function upstream()
+    {
+        try {
+            return $this->success('已受理',AigcMusicService::createUpstreamPersona((int)$this->request->tenantId,$this->userId,$this->request->post()));
+        } catch (\Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function create()
     {
         try {

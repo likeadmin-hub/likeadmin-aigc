@@ -1,0 +1,12 @@
+<?php
+require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
+use think\facade\Db;use app\common\service\open_platform\OpenStore as S;use app\common\service\open_platform\OpenToolRegistry as R;use app\common\service\open_platform\OpenToolAdapter as A;use app\common\service\open_platform\OpenPolicy as P;
+$c=config('database.connections.mysql');if(PHP_SAPI!=='cli'||$c['hostname']!=='127.0.0.1'||$c['database']!=='z_cn')throw new RuntimeException('Local DB only');
+$user=Db::name('user')->where(['id'=>1,'account'=>'xhadmin001','tenant_id'=>1])->find();if(!$user)throw new RuntimeException('Authorized test identity missing');
+request()->tenantId=1;request()->userId=1;request()->userInfo=['user_id'=>1,'tenant_id'=>1,'terminal'=>4];request()->source=app\common\enum\AdminTerminalEnum::USER;
+$results=[];$wallet=(float)$user['user_money'];Db::startTrans();try{
+foreach([0,1] as $t){$config=S::settings($t);unset($config['enabled']);$config['apps']=array_keys(R::all());$values=['enabled'=>1,'config'=>S::encode($config),'update_time'=>time()];$row=S::table('setting')->where('tenant_id',$t)->find();if($row)S::table('setting')->where('id',$row['id'])->update($values);else S::table('setting')->insert($values+['tenant_id'=>$t,'create_time'=>time()]);}
+foreach(R::all() as $app=>$tool){$entry=['app_code'=>$app,'name'=>$tool['name']];try{A::authorize(1,1,$app);$op=$tool['operations']['GET capabilities']??null;if(!$op)throw new RuntimeException('No capabilities binding');$data=A::call(request(),$op+['app_code'=>$app,'route'=>'GET capabilities','params'=>[]],[]);$entry+=['eligible'=>true,'capabilities'=>P::publicData($data)];}catch(Throwable $e){$entry+=['eligible'=>false,'error'=>$e->getMessage()];}$results[]=$entry;echo S::encode(['app_code'=>$app,'eligible'=>$entry['eligible'],'error'=>$entry['error']??'','capability_fields'=>array_keys($entry['capabilities']??[])]),"\n";}
+if((float)Db::name('user')->where('id',1)->value('user_money')!==$wallet)throw new RuntimeException('Capabilities unexpectedly changed wallet');
+$dir=dirname(__DIR__,2).'/runtime/open-platform-acceptance';if(!is_dir($dir))mkdir($dir,0700,true);file_put_contents($dir.'/tool-preflight.json',S::encode(['tenant_id'=>1,'user_id'=>1,'generated_at'=>date(DATE_ATOM),'tools'=>$results,'wallet_unchanged'=>true,'writes'=>'rolled_back']));echo "PASS 27 local capability probes recorded; user wallet unchanged; fixture writes rolled back\n";
+}finally{Db::rollback();}

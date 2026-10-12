@@ -315,17 +315,35 @@ class AigcStyleTransferService
         return self::buildEstimate($prepared, $imageEstimate);
     }
 
-    public static function generate(int $tenantId, int $userId, array $params): array
+    /** Shared validated submission parameters for an accepted external call. */
+    public static function openPlatformAdmission(int $tenantId, int $userId, array $params): array
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, true);
         $imageEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
         $estimate = self::buildEstimate($prepared, $imageEstimate);
+        return ['prepared' => $prepared, 'estimate' => $estimate];
+    }
+
+    public static function generate(int $tenantId, int $userId, array $params): array
+    {
+        self::assertAvailable($tenantId);
+        $frozen = \app\common\service\open_platform\OpenImagePricing::prepared($tenantId, $userId, self::APP_CODE);
+        if ($frozen !== null) {
+            $prepared = $frozen['prepared'];
+            $estimate = $frozen['estimate'];
+        } else {
+            $prepared = self::prepareGeneratePayload($tenantId, $params, true);
+            $imageEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
+            $estimate = self::buildEstimate($prepared, $imageEstimate);
+        }
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
+        $handoff = \app\common\service\open_platform\OpenImageHandoff::callback($tenantId, $userId, self::APP_CODE,
+            static fn(AigcImageTask $image) => self::upsertTaskFromImageTask($tenantId, $userId, (int)$image['id'], $prepared, $estimate));
         $imageResult = AigcImageService::generateWithBillingOverride($tenantId, $userId, $prepared['image_payload'], [
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
-        ]);
+        ], $handoff);
         $imageTaskId = (int)($imageResult['task_id'] ?? 0);
         if ($imageTaskId <= 0) {
             throw new Exception('风格化任务创建失败');
@@ -620,7 +638,7 @@ class AigcStyleTransferService
 
     private static function upsertTaskFromImageTask(int $tenantId, int $userId, int $imageTaskId, array $prepared, array $estimate): AigcStyleTransferTask
     {
-        $imageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $imageTaskId])->findOrEmpty();
+        $imageTask = AigcImageTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $imageTaskId])->findOrEmpty();
         if ($imageTask->isEmpty()) {
             throw new Exception('生图任务不存在');
         }
