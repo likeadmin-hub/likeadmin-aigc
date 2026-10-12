@@ -8,7 +8,7 @@ use app\common\service\ai\MarketAppGateService;
 
 function check($ok, string $message): void { if (!$ok) throw new RuntimeException($message); }
 $db = config('database.connections.mysql');
-check(PHP_SAPI === 'cli' && $db['hostname'] === '127.0.0.1' && $db['database'] === 'z_cn', 'Local database only');
+check(PHP_SAPI === 'cli' && $db['hostname'] === '127.0.0.1' && in_array($db['database'], ['z_cn', 'x_cn'], true), 'Local database only');
 $wallets = fn() => [Db::name('user')->where(['tenant_id'=>1,'id'=>1])->value('user_money'), Db::name('tenant')->where('id',1)->value('point_balance')];
 $before = $wallets();
 request()->tenantId = 1;
