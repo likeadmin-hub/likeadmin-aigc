@@ -132,7 +132,7 @@ final class OpenManagement
         $owner=OpenStore::owner('request',$tenantId,$userId);
         $current=(clone $owner)->where('create_time','>=',$start->getTimestamp())->where('create_time','<',$end->getTimestamp());
         $prior=(clone $owner)->where('create_time','>=',$previousStart->getTimestamp())->where('create_time','<',$start->getTimestamp());
-        $success="status IN ('success','completed','partial_success')";$failed="status='failed'";
+        $success="status IN ('success','completed','partial_success')";$failed="status IN ('failed','partial_failed')";
         $fields="COUNT(*) AS calls,COALESCE(SUM(actual_user),0) AS charged,SUM(CASE WHEN $success THEN 1 ELSE 0 END) AS success,SUM(CASE WHEN $failed THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN active=1 THEN 1 ELSE 0 END) AS pending,AVG(CASE WHEN ($success OR $failed) AND duration_ms>0 THEN duration_ms ELSE NULL END) AS average_latency_ms";
         $normalize=static function(array $row): array {
             $success=(int)($row['success']??0);$failed=(int)($row['failed']??0);
