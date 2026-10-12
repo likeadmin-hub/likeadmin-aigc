@@ -1,0 +1,1991 @@
+{
+  "schema_version": 1,
+  "catalog_version": "mobile-agent-v1",
+  "catalog_hash": "6329ea7a49f91f10ad55e373ae3370719168a06a57724939ec65c93fbd831dd1",
+  "cases": [
+    {
+      "id": "title-selected",
+      "task": "只把选中的标题栏文字改为“开始创作”，其它组件保持原样。",
+      "scope": {
+        "scope": "selected",
+        "selected_id": "w0"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          },
+          {
+            "name": "banner",
+            "title": "首页轮播图",
+            "content": {
+              "enabled": 1,
+              "style": 1,
+              "bg_style": 0,
+              "autoplay": 1,
+              "interval": 3,
+              "show_indicator": 1,
+              "image_height": 340,
+              "data": [
+                {
+                  "is_show": "1",
+                  "image": "",
+                  "bg": "",
+                  "name": "",
+                  "link": {}
+                }
+              ],
+              "fallback_data": []
+            },
+            "styles": {
+              "background": "transparent",
+              "background_color": "transparent",
+              "padding_top": 0,
+              "padding_bottom": 0,
+              "padding_horizontal": 0,
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w1"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.content.title",
+          "value": "开始创作"
+        },
+        {
+          "kind": "unchanged_widget",
+          "widget_id": "w1"
+        }
+      ]
+    },
+    {
+      "id": "banner-height",
+      "task": "把轮播图图片高度设为400rpx。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "banner",
+            "title": "首页轮播图",
+            "content": {
+              "enabled": 1,
+              "style": 1,
+              "bg_style": 0,
+              "autoplay": 1,
+              "interval": 3,
+              "show_indicator": 1,
+              "image_height": 340,
+              "data": [
+                {
+                  "is_show": "1",
+                  "image": "",
+                  "bg": "",
+                  "name": "",
+                  "link": {}
+                }
+              ],
+              "fallback_data": []
+            },
+            "styles": {
+              "background": "transparent",
+              "background_color": "transparent",
+              "padding_top": 0,
+              "padding_bottom": 0,
+              "padding_horizontal": 0,
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.content.image_height",
+          "value": 400
+        }
+      ]
+    },
+    {
+      "id": "banner-interval",
+      "task": "把轮播切换间隔设为5秒。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "banner",
+            "title": "首页轮播图",
+            "content": {
+              "enabled": 1,
+              "style": 1,
+              "bg_style": 0,
+              "autoplay": 1,
+              "interval": 3,
+              "show_indicator": 1,
+              "image_height": 340,
+              "data": [
+                {
+                  "is_show": "1",
+                  "image": "",
+                  "bg": "",
+                  "name": "",
+                  "link": {}
+                }
+              ],
+              "fallback_data": []
+            },
+            "styles": {
+              "background": "transparent",
+              "background_color": "transparent",
+              "padding_top": 0,
+              "padding_bottom": 0,
+              "padding_horizontal": 0,
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.content.interval",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "id": "opacity",
+      "task": "把标题栏背景透明度设为80%。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.styles.opacity",
+          "value": 80
+        }
+      ]
+    },
+    {
+      "id": "padding",
+      "task": "把标题栏左右内边距设为32rpx。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.styles.padding_horizontal",
+          "value": 32
+        }
+      ]
+    },
+    {
+      "id": "radius",
+      "task": "把标题栏四个圆角都设为20rpx。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.styles.radius_top",
+          "value": 20
+        },
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.styles.radius_right",
+          "value": 20
+        },
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.styles.radius_bottom",
+          "value": 20
+        },
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.styles.radius_left",
+          "value": 20
+        }
+      ]
+    },
+    {
+      "id": "add-spacer",
+      "task": "在标题栏后增加一个空白占位组件。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "component_count",
+          "name": "spacer",
+          "value": 1
+        },
+        {
+          "kind": "component_count",
+          "name": "title-bar",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "add-buttons",
+      "task": "保留标题栏，并在末尾增加按钮组组件。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "component_count",
+          "name": "button-group",
+          "value": 1
+        },
+        {
+          "kind": "unchanged_widget",
+          "widget_id": "w0"
+        }
+      ]
+    },
+    {
+      "id": "delete-banner",
+      "task": "删除轮播图，保留标题栏。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          },
+          {
+            "name": "banner",
+            "title": "首页轮播图",
+            "content": {
+              "enabled": 1,
+              "style": 1,
+              "bg_style": 0,
+              "autoplay": 1,
+              "interval": 3,
+              "show_indicator": 1,
+              "image_height": 340,
+              "data": [
+                {
+                  "is_show": "1",
+                  "image": "",
+                  "bg": "",
+                  "name": "",
+                  "link": {}
+                }
+              ],
+              "fallback_data": []
+            },
+            "styles": {
+              "background": "transparent",
+              "background_color": "transparent",
+              "padding_top": 0,
+              "padding_bottom": 0,
+              "padding_horizontal": 0,
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w1"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "component_count",
+          "name": "banner",
+          "value": 0
+        },
+        {
+          "kind": "unchanged_widget",
+          "widget_id": "w0"
+        }
+      ]
+    },
+    {
+      "id": "copy-banner",
+      "task": "复制当前轮播图形成两个轮播图，标题栏不变。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          },
+          {
+            "name": "banner",
+            "title": "首页轮播图",
+            "content": {
+              "enabled": 1,
+              "style": 1,
+              "bg_style": 0,
+              "autoplay": 1,
+              "interval": 3,
+              "show_indicator": 1,
+              "image_height": 340,
+              "data": [
+                {
+                  "is_show": "1",
+                  "image": "",
+                  "bg": "",
+                  "name": "",
+                  "link": {}
+                }
+              ],
+              "fallback_data": []
+            },
+            "styles": {
+              "background": "transparent",
+              "background_color": "transparent",
+              "padding_top": 0,
+              "padding_bottom": 0,
+              "padding_horizontal": 0,
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w1"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "component_count",
+          "name": "banner",
+          "value": 2
+        },
+        {
+          "kind": "unchanged_widget",
+          "widget_id": "w0"
+        },
+        {
+          "kind": "unique_ids"
+        }
+      ]
+    },
+    {
+      "id": "move-banner",
+      "task": "把轮播图移动到标题栏前面。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          },
+          {
+            "name": "banner",
+            "title": "首页轮播图",
+            "content": {
+              "enabled": 1,
+              "style": 1,
+              "bg_style": 0,
+              "autoplay": 1,
+              "interval": 3,
+              "show_indicator": 1,
+              "image_height": 340,
+              "data": [
+                {
+                  "is_show": "1",
+                  "image": "",
+                  "bg": "",
+                  "name": "",
+                  "link": {}
+                }
+              ],
+              "fallback_data": []
+            },
+            "styles": {
+              "background": "transparent",
+              "background_color": "transparent",
+              "padding_top": 0,
+              "padding_bottom": 0,
+              "padding_horizontal": 0,
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w1"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.id",
+          "value": "w1"
+        },
+        {
+          "kind": "equals",
+          "path": "candidate.data.1.id",
+          "value": "w0"
+        }
+      ]
+    },
+    {
+      "id": "page-title",
+      "task": "页面导航标题改为“灵感广场”，保留所有组件。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          },
+          {
+            "name": "banner",
+            "title": "首页轮播图",
+            "content": {
+              "enabled": 1,
+              "style": 1,
+              "bg_style": 0,
+              "autoplay": 1,
+              "interval": 3,
+              "show_indicator": 1,
+              "image_height": 340,
+              "data": [
+                {
+                  "is_show": "1",
+                  "image": "",
+                  "bg": "",
+                  "name": "",
+                  "link": {}
+                }
+              ],
+              "fallback_data": []
+            },
+            "styles": {
+              "background": "transparent",
+              "background_color": "transparent",
+              "padding_top": 0,
+              "padding_bottom": 0,
+              "padding_horizontal": 0,
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w1"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.meta.0.content.title",
+          "value": "灵感广场"
+        },
+        {
+          "kind": "unchanged_widget",
+          "widget_id": "w0"
+        },
+        {
+          "kind": "unchanged_widget",
+          "widget_id": "w1"
+        }
+      ]
+    },
+    {
+      "id": "page-background",
+      "task": "页面底色改为#f6f8ff，使用颜色背景。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.meta.0.content.bg_color",
+          "value": "#f6f8ff"
+        },
+        {
+          "kind": "equals",
+          "path": "candidate.meta.0.content.bg_type",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "article-source",
+      "task": "让资讯组件使用文章数据源，最多显示6条最新文章。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "news",
+            "title": "资讯",
+            "content": {
+              "enabled": 1,
+              "title": "最新资讯",
+              "limit": 10,
+              "show_image": 1,
+              "show_desc": 1,
+              "show_time": 1,
+              "show_click": 1,
+              "source_key": "article",
+              "source_params": {},
+              "data": [],
+              "fallback_data": []
+            },
+            "styles": {
+              "background": "#f8f8f8",
+              "title_color": "#101010",
+              "text_color": "#333333",
+              "background_color": "#f8f8f8",
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.content.source_key",
+          "value": "article"
+        },
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.content.source_params.limit",
+          "value": 6
+        },
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.content.source_params.sort",
+          "value": "new"
+        }
+      ]
+    },
+    {
+      "id": "case-source",
+      "task": "案例流改用视频案例数据源，最多展示8个。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "case-feed",
+            "title": "案例瀑布流",
+            "content": {
+              "enabled": 1,
+              "data_mode": "hybrid",
+              "data": [],
+              "source_key": "image_cases",
+              "source_params": {
+                "limit": 12
+              },
+              "field_map": {},
+              "fallback_data": [],
+              "title": "精选案例"
+            },
+            "styles": {
+              "background": "#f7f8fa",
+              "padding": 24,
+              "background_color": "#f7f8fa",
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.content.source_key",
+          "value": "video_cases"
+        },
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.content.source_params.limit",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "id": "manual-mode",
+      "task": "把资讯切回手工内容模式，保留现有备用数据。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "news",
+            "title": "资讯",
+            "content": {
+              "enabled": 1,
+              "title": "最新资讯",
+              "limit": 10,
+              "show_image": 1,
+              "show_desc": 1,
+              "show_time": 1,
+              "show_click": 1,
+              "source_key": "article",
+              "source_params": {},
+              "data": [],
+              "fallback_data": []
+            },
+            "styles": {
+              "background": "#f8f8f8",
+              "title_color": "#101010",
+              "text_color": "#333333",
+              "background_color": "#f8f8f8",
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.content.data_mode",
+          "value": "manual"
+        }
+      ]
+    },
+    {
+      "id": "button-title",
+      "task": "把按钮组第一个按钮改名为“立即创作”。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "button-group",
+            "title": "按钮组",
+            "content": {
+              "enabled": 1,
+              "data_mode": "manual",
+              "data": [
+                {
+                  "id": "button_1",
+                  "image": "",
+                  "icon": "●",
+                  "title": "按钮文字",
+                  "tag_enabled": 1,
+                  "tag": "热门",
+                  "tag_background": "#f83287",
+                  "tag_color": "#ffffff",
+                  "is_show": "1",
+                  "link": {}
+                },
+                {
+                  "id": "button_2",
+                  "image": "",
+                  "icon": "●",
+                  "title": "按钮文字",
+                  "tag_enabled": 0,
+                  "tag": "",
+                  "tag_background": "#f83287",
+                  "tag_color": "#ffffff",
+                  "is_show": "1",
+                  "link": {}
+                },
+                {
+                  "id": "button_3",
+                  "image": "",
+                  "icon": "●",
+                  "title": "按钮文字",
+                  "tag_enabled": 0,
+                  "tag": "",
+                  "tag_background": "#f83287",
+                  "tag_color": "#ffffff",
+                  "is_show": "1",
+                  "link": {}
+                },
+                {
+                  "id": "button_4",
+                  "image": "",
+                  "icon": "●",
+                  "title": "按钮文字",
+                  "tag_enabled": 0,
+                  "tag": "",
+                  "tag_background": "#f83287",
+                  "tag_color": "#ffffff",
+                  "is_show": "1",
+                  "link": {}
+                }
+              ],
+              "source_key": "",
+              "source_params": {},
+              "field_map": {},
+              "fallback_data": [],
+              "button_style": "image_text",
+              "button_shape": "rounded",
+              "button_type": "image",
+              "display_style": "fixed",
+              "font_size": 14,
+              "font_weight": 0,
+              "icon_size": 43,
+              "columns": 4
+            },
+            "styles": {
+              "background": "transparent",
+              "background_color": "transparent",
+              "color": "#333333",
+              "item_gap": 8,
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "padding_horizontal": 24,
+              "border_color": "",
+              "appearance": "default",
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.content.data.0.title",
+          "value": "立即创作"
+        }
+      ]
+    },
+    {
+      "id": "banner-image-request",
+      "task": "为第一张轮播图申请生成蓝色科技光线图片，比例16:9，先保留原图等待结果。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "banner",
+            "title": "首页轮播图",
+            "content": {
+              "enabled": 1,
+              "style": 1,
+              "bg_style": 0,
+              "autoplay": 1,
+              "interval": 3,
+              "show_indicator": 1,
+              "image_height": 340,
+              "data": [
+                {
+                  "is_show": "1",
+                  "image": "",
+                  "bg": "",
+                  "name": "",
+                  "link": {}
+                }
+              ],
+              "fallback_data": []
+            },
+            "styles": {
+              "background": "transparent",
+              "background_color": "transparent",
+              "padding_top": 0,
+              "padding_bottom": 0,
+              "padding_horizontal": 0,
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "image_request_count",
+          "value": 1
+        },
+        {
+          "kind": "image_request_slot",
+          "widget_id": "w0",
+          "field": "content.data.0.image",
+          "ratio": "16:9"
+        },
+        {
+          "kind": "unchanged_widget",
+          "widget_id": "w0"
+        }
+      ]
+    },
+    {
+      "id": "background-image-request",
+      "task": "为标题栏组件背景申请一张淡紫色渐变背景图片，比例4:3。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "image_request_slot",
+          "widget_id": "w0",
+          "field": "styles.background_image",
+          "ratio": "4:3"
+        }
+      ]
+    },
+    {
+      "id": "hotspot-image-request",
+      "task": "为图片热区的主图生成极简白色家居横幅，比例16:9。",
+      "scope": {
+        "scope": "page"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "image-hotspot",
+            "title": "图片热区",
+            "content": {
+              "enabled": 1,
+              "mode": "standard",
+              "image": "",
+              "height": 200,
+              "fit": "cover",
+              "areas": [
+                {
+                  "name": "热区",
+                  "left": 0,
+                  "top": 0,
+                  "width": 50,
+                  "height": 50,
+                  "link": {}
+                }
+              ]
+            },
+            "styles": {
+              "background": "transparent",
+              "background_color": "transparent",
+              "padding_top": 0,
+              "padding_bottom": 0,
+              "padding_horizontal": 0,
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "image_request_slot",
+          "widget_id": "w0",
+          "field": "content.image",
+          "ratio": "16:9"
+        }
+      ]
+    },
+    {
+      "id": "allowed-link",
+      "task": "把标题栏链接设为已有链接目录里的创作页面。",
+      "scope": {
+        "scope": "page",
+        "allowed_links": [
+          {
+            "name": "创作页面",
+            "path": "/pages/create/create",
+            "query": {}
+          }
+        ]
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.content.link.path",
+          "value": "/pages/create/create"
+        }
+      ]
+    },
+    {
+      "id": "unknown-extensions",
+      "task": "把选中标题栏改成“欢迎回来”，保留供应商扩展信息。",
+      "scope": {
+        "scope": "selected",
+        "selected_id": "w0"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {},
+              "vendor_extension": {
+                "revision": 9,
+                "opaque": "keep"
+              }
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.content.title",
+          "value": "欢迎回来"
+        },
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.content.vendor_extension",
+          "value": {
+            "revision": 9,
+            "opaque": "keep"
+          }
+        }
+      ]
+    },
+    {
+      "id": "selected-boundary",
+      "task": "当前选中标题栏。请保持轮播图不变，只把标题栏背景改成#ffffff。",
+      "scope": {
+        "scope": "selected",
+        "selected_id": "w0"
+      },
+      "initial": {
+        "data": [
+          {
+            "name": "title-bar",
+            "title": "标题栏",
+            "content": {
+              "enabled": 1,
+              "title": "标题",
+              "sub_title": "",
+              "align": "left",
+              "link": {}
+            },
+            "styles": {
+              "background": "rgba(255, 255, 255, 0.88)",
+              "color": "#101010",
+              "padding_top": 24,
+              "padding_bottom": 24,
+              "background_color": "rgba(255, 255, 255, 0.88)",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "padding_horizontal": 24,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w0"
+          },
+          {
+            "name": "banner",
+            "title": "首页轮播图",
+            "content": {
+              "enabled": 1,
+              "style": 1,
+              "bg_style": 0,
+              "autoplay": 1,
+              "interval": 3,
+              "show_indicator": 1,
+              "image_height": 340,
+              "data": [
+                {
+                  "is_show": "1",
+                  "image": "",
+                  "bg": "",
+                  "name": "",
+                  "link": {}
+                }
+              ],
+              "fallback_data": []
+            },
+            "styles": {
+              "background": "transparent",
+              "background_color": "transparent",
+              "padding_top": 0,
+              "padding_bottom": 0,
+              "padding_horizontal": 0,
+              "color": "#333333",
+              "border_color": "",
+              "appearance": "default",
+              "item_gap": 0,
+              "margin_horizontal": 24,
+              "margin_top": 20,
+              "margin_bottom": 0,
+              "radius_top": 16,
+              "radius_right": 16,
+              "radius_bottom": 16,
+              "radius_left": 16,
+              "opacity": 100
+            },
+            "id": "w1"
+          }
+        ],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.data.0.styles.background_color",
+          "value": "#ffffff"
+        },
+        {
+          "kind": "unchanged_widget",
+          "widget_id": "w1"
+        }
+      ]
+    },
+    {
+      "id": "new-page",
+      "task": "创建一个名为“创作起点”的新页，放标题栏和按钮组，不需要图片生成。",
+      "scope": {
+        "scope": "new_page"
+      },
+      "initial": {
+        "data": [],
+        "meta": [
+          {
+            "name": "page-meta",
+            "title": "页面设置",
+            "content": {
+              "title_type": 1,
+              "title": "首页",
+              "bg_type": 0,
+              "bg_color": ""
+            },
+            "styles": {}
+          }
+        ],
+        "name": "首页"
+      },
+      "expected": [
+        {
+          "kind": "equals",
+          "path": "candidate.name",
+          "value": "创作起点"
+        },
+        {
+          "kind": "component_count",
+          "name": "title-bar",
+          "value": 1
+        },
+        {
+          "kind": "component_count",
+          "name": "button-group",
+          "value": 1
+        }
+      ]
+    }
+  ]
+}
