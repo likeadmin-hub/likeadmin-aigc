@@ -29,7 +29,7 @@ class AgentController extends BaseApiController
         $ids=AgentStore::owner('run',$t,$u)->where('session_id',(int)$this->request->get('session_id',0))->order('id','desc')->limit(30)->column('id');
         return array_map(fn($id)=>AgentExecutionService::detail($t,$u,(int)$id),$ids);
     });}
-    public function artifacts(){return $this->handle(fn($t,$u)=>AgentArtifactService::lists($t,$u,(int)$this->request->get('session_id',0)));}
+    public function artifacts(){return $this->handle(fn($t,$u)=>AgentArtifactService::lists($t,$u,(int)$this->request->get('session_id',0),(int)$this->request->get('before_id',0),$this->request->get('scope','')==='all',(string)$this->request->get('kind','')));}
     public function favorite(){return $this->handle(function($t,$u){AgentArtifactService::favorite($t,$u,(int)$this->request->post('id',0),(bool)\app\common\service\WorkspaceAssetService::normalizeFavorite($this->request->post('favorite',null,null)));return [];});}
     public function upload(){return $this->handle(function($t,$u){
         $file=$this->request->file('file');if(!$file||$file->getSize()>50*1024*1024)throw new \InvalidArgumentException('请选择50MB以内的素材');
