@@ -42,8 +42,7 @@ final class WorkspaceAssetService
         }
         $patch = [];
         if (array_key_exists('favorite', $params)) {
-            if (!in_array($params['favorite'], [0, 1], true)) throw new InvalidArgumentException('收藏状态无效');
-            $patch['favorite'] = $params['favorite'];
+            $patch['favorite'] = self::normalizeFavorite($params['favorite']);
         }
         if (array_key_exists('label', $params)) {
             if (!is_string($params['label']) || (!in_array($params['label'], self::LABELS, true) && !preg_match('/^l_[0-9a-f]{16}$/D', $params['label']))) throw new InvalidArgumentException('资产标签无效');
@@ -53,6 +52,13 @@ final class WorkspaceAssetService
         if (!in_array($action, ['', 'trash', 'restore', 'remove'], true)) throw new InvalidArgumentException('资产操作无效');
         if (!$patch && !$action) throw new InvalidArgumentException('请选择资产操作');
         return [array_values(array_unique($refs)), $patch, $action];
+    }
+
+    /** Request trim filters and form encoding turn numeric flags into strings. */
+    public static function normalizeFavorite(mixed $value): int
+    {
+        if (!in_array($value, [0, 1, '0', '1', false, true], true)) throw new InvalidArgumentException('收藏状态无效');
+        return (int)$value;
     }
 
     public static function read(int $tenant, int $user): array
