@@ -182,6 +182,11 @@ class XhadminAigcMusicProvider implements AigcMusicProviderInterface
         if ($isCustom) {
             $payload['custom'] = true;
             $payload['lyric'] = $request->lyrics;
+            // Custom instrumental requests still need their description: there
+            // are no lyrics for the upstream to use as generation input.
+            if (trim($request->lyrics) === '') {
+                $payload['prompt'] = $request->prompt;
+            }
             $payload['style'] = $style;
             $payload['title'] = $request->title;
         } else {
