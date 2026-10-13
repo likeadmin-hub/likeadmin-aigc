@@ -839,6 +839,7 @@ class MarketTextModelRuntimeService
             return null;
         }
         $parameterHints = [
+            'stream_options' => ['stream_options', 'include_usage'],
             'enable_thinking' => ['enable_thinking', 'thinking'],
             'response_format' => ['response_format', 'json_object', 'json schema'],
             'tools' => ['tools', 'tool_calls', 'function calling', 'function_call'],
