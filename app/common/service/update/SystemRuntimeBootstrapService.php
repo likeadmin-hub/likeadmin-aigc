@@ -92,7 +92,7 @@ class SystemRuntimeBootstrapService
 
     public function copySharedFiles(string $extract, array $manifest): void
     {
-        ProjectUpdateProcessGate::assertDrained(root_path());
+        ProjectUpdateProcessGate::assertUpdateAllowed(root_path(),ProjectUpdateProcessGate::inspectUpdate(root_path(),$extract,$manifest));
         foreach((array)($manifest['full_replace_dirs']??[]) as $directory){
             if(!in_array($directory,['public/admin','public/platform','public/pc','public/_nuxt','public/media','public/mobile','public/mp-weixin','public/static'],true))throw new RuntimeException('自举覆盖目录无效');
             $this->remove(root_path().$directory);

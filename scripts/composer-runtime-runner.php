@@ -55,7 +55,7 @@ try {
         require (is_file(($argv[2]??'').'/runtime-loader.php') ? $argv[2].'/runtime-loader.php' : $siteRoot.'/runtime-loader.php');
         $app=new AigcRuntimeApp($siteRoot);$app->initialize();
         $service=new \app\common\service\update\SystemPackageUpdateService();
-        if($mode==='--bootstrap-prepare')$result=['passed'=>true,'prepared'=>$service->prepareBootstrapSql($argv[3])];
+        if($mode==='--bootstrap-prepare')$result=['passed'=>true,'prepared'=>$service->prepareBootstrapSql($argv[3],$binding)];
         elseif($mode==='--bootstrap-complete')$result=['passed'=>true,'completion'=>$service->completeBootstrap($argv[3],$binding)];
         else {
             $package=\app\common\model\update\UpdatePackage::find((int)$binding['package_id']);
