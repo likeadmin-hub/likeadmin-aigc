@@ -1,10 +1,10 @@
 {
   "code": "aigc_llm",
   "name": "AIGC对话",
-  "version": "1.1.9",
+  "version": "1.2.0",
   "require_core": ">=1.0.0",
-  "description": "AIGC large model conversation application with multi-session, multi-turn context and SSE streaming.",
-  "changelog": "1. AIGC对话统一使用模型API市场的可用文本模型。\n2. 移除对话通道和模型配置。\n3. 简化基础配置中的模型服务设置。",
+  "description": "支持自然对话、创作方案、图片视频生成和文档导出的通用创作助手。",
+  "changelog": "1. 首页新增通用创作助手，支持问答、方案、图片、视频和文档创作。\n2. 支持模型偏好、创作费用确认和预算内自动执行。\n3. 支持会话作品查看、下载、收藏及继续创作。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
