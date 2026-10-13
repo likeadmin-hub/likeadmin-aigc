@@ -79,6 +79,14 @@ class MarketTextModelRuntimeService
         return $options[0];
     }
 
+    /** Homepage tools currently use the OpenAI Chat tool-message contract. No protocol fallback. */
+    public static function resolveAgentModel(int $tenantId, string $selection, bool $requiresVision = false): array
+    {
+        $model=self::resolveModel($tenantId,$selection,$requiresVision);
+        if(self::protocolForModel($model)!=='openai_chat')throw new \InvalidArgumentException('当前 Agent 尚未接入此模型的工具协议，请选择兼容对话工具调用的模型');
+        return $model;
+    }
+
     /**
      * Resolve the effective server-side model without executing a provider
      * request.  Callers use this for preflight so an attachment can silently

@@ -26,7 +26,7 @@ final class AgentExecutionService
         if(count($attachments)>8)throw new \InvalidArgumentException('最多引用8个素材');
         $assets=[];foreach($attachments as $id)$assets[]=OpenAssets::detail($tenant,$user,$id);
         $vision=count(array_filter($assets,static fn($asset)=>str_starts_with($asset['mime']??'','image/')))>0;
-        MarketTextModelRuntimeService::resolveModel($tenant,$preferences['models']['text'],$vision);
+        try{MarketTextModelRuntimeService::resolveAgentModel($tenant,$preferences['models']['text'],$vision);}catch(\Exception $e){throw new \InvalidArgumentException($e->getMessage());}
         $sessionId=(int)($params['session_id']??0);
         $hash=hash('sha256',AgentStore::encode([$sessionId,$content,$attachments]));
         $existing=AgentStore::owner('run',$tenant,$user)->where('request_id',$requestId)->find();
