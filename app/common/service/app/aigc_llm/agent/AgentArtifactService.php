@@ -5,6 +5,8 @@ namespace app\common\service\app\aigc_llm\agent;
 use app\common\service\open_platform\{OpenAssets,OpenStore};
 use app\common\service\storage\{Driver,StorageConfigService};
 use app\common\service\FileService;
+use app\common\service\WorkspaceAssetService;
+use think\facade\Db;
 use app\common\model\file\TenantFile;
 use app\common\enum\FileEnum;
 
@@ -17,6 +19,13 @@ final class AgentArtifactService
         return array_map(static function($row)use($tenant,$user){
             $data=AgentStore::json($row['data']);
             $asset=OpenAssets::detail($tenant,$user,$data['file_id']);
+            $ref=self::libraryReference($row);
+            if($ref){
+                $state=Db::name('user_asset_state')->where(['tenant_id'=>$tenant,'user_id'=>$user,'asset_ref'=>$ref])->find();
+                // Import only a legacy positive favorite; an explicit shared zero always wins.
+                if(!$state && (int)$row['favorite']===1)$state=WorkspaceAssetService::update($tenant,$user,['refs'=>[$ref],'favorite'=>1])['states'][0];
+                $row['favorite']=(int)($state['favorite']??0);
+            }
             return array_intersect_key($row,array_flip(['id','run_id','step_id','title','kind','favorite','create_time']))+$asset+['content'=>$data['content']??''];
         },$rows);
     }
@@ -24,7 +33,29 @@ final class AgentArtifactService
     {
         $row=AgentStore::owner('artifact',$tenant,$user)->where('id',$id)->find();
         if(!$row)throw new \InvalidArgumentException('作品不存在');
-        AgentStore::owner('artifact',$tenant,$user)->where('id',$id)->update(['favorite'=>(int)$favorite]);
+        Db::transaction(function()use($tenant,$user,$id,$favorite,$row){
+            $ref=self::libraryReference($row);
+            if($ref)WorkspaceAssetService::update($tenant,$user,['refs'=>[$ref],'favorite'=>(int)$favorite]);
+            AgentStore::owner('artifact',$tenant,$user)->where('id',$id)->update(['favorite'=>(int)$favorite]);
+        });
+    }
+    /** Resolve the original owned generation record, including artifacts saved before library linking. */
+    private static function libraryReference(array $artifact): ?string
+    {
+        if(!(int)$artifact['step_id'])return null; // Standalone documents keep their session favorite.
+        $tenant=(int)$artifact['tenant_id'];$user=(int)$artifact['user_id'];
+        $step=AgentStore::owner('step',$tenant,$user)->where(['id'=>$artifact['step_id'],'run_id'=>$artifact['run_id']])->find();
+        $sources=['aigc_image'=>['image','image_uri'],'aigc_video'=>['video','video_uri']];
+        if(!$step||!isset($sources[$step['tool_code']])||!(int)$step['task_id'])return null;
+        $data=AgentStore::json($artifact['data']);
+        $file=OpenStore::owner('file',$tenant,$user)->where('file_id',$data['file_id']??'')->find();
+        if(!$file)return null;
+        [$source,$uriField]=$sources[$step['tool_code']];
+        $scope=['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$step['task_id'],'delete_time'=>0,$uriField=>$file['uri']];
+        foreach(['storage_scope','storage_engine','storage_domain'] as $field)$scope[$field]=$file[$field]??'';
+        if(!Db::name($step['tool_code'].'_task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$step['task_id'],'delete_time'=>0])->find())return null;
+        $id=Db::name($step['tool_code'].'_result')->where($scope)->value('id');
+        return $id ? $source.':result:'.$id : null;
     }
     private static function save(array $run,int $step,string $title,string $kind,string $file,array $storage,array $extra=[]): void
     {
