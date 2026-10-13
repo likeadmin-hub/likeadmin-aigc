@@ -41,3 +41,5 @@ Before importing into an existing installation, apply `app/apps/aigc_video/migra
 4. 保存前校验配置没有并发变化，出现变化时保留已上传素材并中止配置保存。每次执行后检查回读；未调用生成接口、不扣算力。来源素材的使用及分发授权由部署方核实，来源记录不等于授权证明。
 
 媒体文件、运行配置备份、存储地址不提交源码。其他环境须执行同一素材准备/导入过程；不会随源码推送同步本地租户配置。
+
+素材准备和导入均读取当前激活的运行版本；已有安装不会回退到旧站点app目录。升级尚未完成时素材准备会阻止执行。导入前可用PHP 8.2运行 php scripts/import-pixlr-ad-templates.php --check-runtime，仅核对运行目录、模板数量及服务类来源，不上传文件、不修改配置或调用模型。

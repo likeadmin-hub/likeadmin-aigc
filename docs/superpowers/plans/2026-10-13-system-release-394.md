@@ -35,3 +35,5 @@
 - [ ] Commit outputs; publish verified archive, read back private record, synchronize develop/master to Gitee and server GitHub.
 
 Ruling: Move the Ads JSON from docs into the application runtime resource directory and adjust both importer/preparer paths. The official system stager excludes docs, so the source-only placement would break post-upgrade imports. JSON bytes and 60 preset identities remain unchanged; no import or model call is executed.
+
+Ruling: The independent reviewer found canonical CLI paths bypassed immutable generation selection. PHP now uses runtime-loader/AigcRuntimeApp and pinned generation data; Python validates/pins current.json, rejects pending updates/traversal/missing data and never falls back. Eight regression checks plus a genuine 393 canonical-tree / 394 selected-generation probe validate this without importing data or calling models. Rebuild the not-yet-published artifact and retain the superseded artifact separately.
