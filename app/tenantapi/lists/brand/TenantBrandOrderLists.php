@@ -12,7 +12,7 @@ class TenantBrandOrderLists extends BaseAdminDataLists implements ListsSearchInt
     public function setSearch(): array
     {
         return [
-            '=' => ['order_sn', 'package_id', 'pay_status', 'open_status'],
+            '=' => ['order_sn', 'package_id', 'pay_status', 'open_status', 'workflow_state', 'tenant_review', 'refund_status'],
         ];
     }
 

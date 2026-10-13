@@ -36,8 +36,20 @@ class QuotaController extends BaseAdminController
                 (int)$this->request->post('quantity', 1)
             );
             return $this->success('创建成功', $result, 1, 1);
-        } catch (Exception $e) {
-            return $this->fail($e->getMessage());
+        } catch (\Throwable $e) {
+            \think\facade\Log::error('OEM quota: '.$e->getMessage());
+            return $this->fail(\app\common\service\brand\BrandOrderPolicy::error($e));
+        }
+    }
+
+    public function purchaseForOrder()
+    {
+        try {
+            $result=\app\common\service\brand\BrandWorkflowService::createQuota((int)$this->adminInfo['tenant_id'],$this->adminId,UserTerminalEnum::PC,0,1,(int)$this->request->post('order_id',0));
+            return $this->success('采购订单已创建',$result,1,1);
+        } catch (\Throwable $e) {
+            \think\facade\Log::error('OEM linked procurement: '.$e->getMessage());
+            return $this->fail(\app\common\service\brand\BrandOrderPolicy::error($e));
         }
     }
 

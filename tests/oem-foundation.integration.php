@@ -19,6 +19,10 @@ Db::name('app')->insert(['code'=>'oem_test_app','name'=>'Fixture app','status'=>
 $planId=Db::name('app_plan')->insertGetId(['app_code'=>'oem_test_app','name'=>'Fixture plan','duration_months'=>12,'status'=>1]);
 TenantPackageService::savePackage(['id'=>$package['id'],'name'=>'基础版','duration_days'=>365,'status'=>1,
     'quota_price'=>'19.99','sale_price'=>'29.99','app_plans'=>[['app_code'=>'oem_test_app','app_plan_id'=>$planId]]]);
+try {
+    \app\common\service\brand\TenantBrandService::createQuotaOrder((int)$denied,9,4,(int)$package['id'],1);
+    throw new LogicException('Unqualified tenant used the legacy procurement entry');
+} catch (RuntimeException $e) {}
 $snapshot=Catalog::snapshot((int)$package['id']);
 ensure($snapshot['duration_days'] === 365 && $snapshot['quota_price']==='19.99', 'snapshot money and duration');
 ensure($snapshot['app_plans'][0]['duration_months'] === 12, 'app duration snapshot');

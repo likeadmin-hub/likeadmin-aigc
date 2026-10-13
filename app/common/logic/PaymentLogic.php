@@ -122,7 +122,10 @@ class PaymentLogic extends BaseLogic
             ];
 
         } catch (\Exception $e) {
-            self::setError($e->getMessage());
+            if (in_array($params['from']??'',[TenantBrandService::FROM_ORDER,TenantBrandService::FROM_QUOTA],true)) {
+                Log::error('OEM payment: '.$e->getMessage());
+                self::setError(\app\common\service\brand\BrandOrderPolicy::error($e));
+            } else self::setError($e->getMessage());
             return false;
         }
     }
@@ -272,7 +275,7 @@ class PaymentLogic extends BaseLogic
                         $order = TenantBrandQuotaOrder::where(['tenant_id' => (int)$params['tenant_id'], 'id' => $params['order_id']])->findOrEmpty();
                     }
                     if ($order->isEmpty()) {
-                        throw new \Exception('额度订单不存在');
+                        throw new \app\common\service\brand\BrandUserException('额度订单不存在');
                     }
                     if ((int)$order['flow_version']===2) {
                         \app\common\service\brand\BrandPaymentService::reconcile($params['from'],(int)$order['id']);
@@ -301,7 +304,7 @@ class PaymentLogic extends BaseLogic
                     }
                     $order = TenantBrandOrder::where($where)->findOrEmpty();
                     if ($order->isEmpty()) {
-                        throw new \Exception('贴牌订单不存在');
+                        throw new \app\common\service\brand\BrandUserException('贴牌订单不存在');
                     }
                     if ((int)$order['flow_version']===2) {
                         \app\common\service\brand\BrandPaymentService::reconcile($params['from'],(int)$order['id']);
@@ -334,7 +337,10 @@ class PaymentLogic extends BaseLogic
                 'order' => $orderInfo
             ];
         } catch (\Exception $e) {
-            self::setError($e->getMessage());
+            if (in_array($params['from']??'',[TenantBrandService::FROM_ORDER,TenantBrandService::FROM_QUOTA],true)) {
+                Log::error('OEM payment: '.$e->getMessage());
+                self::setError(\app\common\service\brand\BrandOrderPolicy::error($e));
+            } else self::setError($e->getMessage());
             return false;
         }
     }
@@ -377,10 +383,10 @@ class PaymentLogic extends BaseLogic
                 case TenantBrandService::FROM_QUOTA:
                     $order = TenantBrandQuotaOrder::findOrEmpty($params['order_id']);
                     if ($order->isEmpty()) {
-                        throw new \Exception('额度订单不存在');
+                        throw new \app\common\service\brand\BrandUserException('额度订单不存在');
                     }
                     if ((int)($params['tenant_id'] ?? 0) > 0 && (int)$order['tenant_id'] !== (int)$params['tenant_id']) {
-                        throw new \Exception('额度订单不存在');
+                        throw new \app\common\service\brand\BrandUserException('额度订单不存在');
                     }
                     $order['sn'] = $order['order_sn'];
                     break;
@@ -394,21 +400,24 @@ class PaymentLogic extends BaseLogic
                     }
                     $order = TenantBrandOrder::where($where)->findOrEmpty();
                     if ($order->isEmpty()) {
-                        throw new \Exception('贴牌订单不存在');
+                        throw new \app\common\service\brand\BrandUserException('贴牌订单不存在');
                     }
                     if ((int)$order['pay_status'] !== PayEnum::ISPAID && (((int)$order['flow_version']===1 && (int)$order['reserve_status'] !== TenantBrandService::RESERVE_ACTIVE) || (int)$order['reserve_expire_time'] <= time() || (int)($order['closed_time']??0)>0)) {
-                        throw new \Exception('贴牌订单已过期，请重新创建订单');
+                        throw new \app\common\service\brand\BrandUserException('贴牌订单已过期，请重新创建订单');
                     }
                     $order['sn'] = $order['order_sn'];
                     break;
             }
 
             if ($order['pay_status'] == PayEnum::ISPAID) {
-                throw new \Exception('订单已支付');
+                throw new \app\common\service\brand\BrandUserException('订单已支付');
             }
             return $order;
         } catch (\Exception $e) {
-            self::$error = $e->getMessage();
+            if (in_array($params['from']??'',[TenantBrandService::FROM_ORDER,TenantBrandService::FROM_QUOTA],true)) {
+                Log::error('OEM payment: '.$e->getMessage());
+                self::setError(\app\common\service\brand\BrandOrderPolicy::error($e));
+            } else self::setError($e->getMessage());
             return false;
         }
     }
@@ -432,7 +441,7 @@ class PaymentLogic extends BaseLogic
                 return \app\common\service\brand\BrandPaymentService::prepay($from,$order instanceof \think\Model?$order->toArray():$order,(int)$payWay,(string)$redirectUrl);
             } catch (\Throwable $e) {
                 Log::error('OEM prepay: '.$e->getMessage());
-                self::setError($e instanceof \RuntimeException || $e instanceof \InvalidArgumentException?$e->getMessage():'支付暂时不可用，请稍后重试或联系服务商');
+                self::setError(\app\common\service\brand\BrandOrderPolicy::error($e));
                 return false;
             }
         }
