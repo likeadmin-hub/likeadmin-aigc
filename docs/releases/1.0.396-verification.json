@@ -1,0 +1,44 @@
+{
+  "version": "1.0.396",
+  "base_version": "1.0.395",
+  "signature_files": 3627,
+  "bad": [],
+  "uncovered": [],
+  "frontend_path_or_api_leaks": [],
+  "excluded_source_and_markers": [
+    "docs/releases/1.0.396.md",
+    "public/upgrade/version.json",
+    "upgrade/version.json"
+  ],
+  "full_replace_dirs": [
+    "public/_nuxt",
+    "public/admin",
+    "public/media",
+    "public/mobile",
+    "public/mp-weixin",
+    "public/pc",
+    "public/platform"
+  ],
+  "sql_order": [],
+  "tests": 771,
+  "package_bytes": 111646530,
+  "zip_sha256": "b16152d5de183b246a1a64c7a5ab353974ae0d8644209991409506c07884273b",
+  "source_feature": "9a4a57f1",
+  "server_build_commit": "488b13240c7711b29cade93a1f7aaa40ce6749aa",
+  "frontend_source_commit": "6c4d424d97e62674fc3418a56e5570b976e9bb3e",
+  "upgrade_chain_preflight": {
+    "passed": true,
+    "customer_contract": "AigcOpenApiService::systemPackage",
+    "chain": [
+      "1.0.395",
+      "1.0.396"
+    ],
+    "signed_download_preparation": true,
+    "wrong_predecessor_rejected": true,
+    "package_sha256": "b16152d5de183b246a1a64c7a5ab353974ae0d8644209991409506c07884273b",
+    "transaction_rolled_back": true,
+    "scope": "local contract; not customer installation"
+  },
+  "tar_sha256": "8fa7701dc499cbcfcecaa7d4ac6ccc7594abc803f82fdfccafe2ca10d4da36ac",
+  "customer_installation": "not performed"
+}
