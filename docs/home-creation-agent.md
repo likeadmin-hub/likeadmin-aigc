@@ -37,7 +37,7 @@
 3. 在 server 目录运行 PHP 8.2：`php think home-agent:worker`，用现有进程管理器守护。`--once` 仅处理一条，适合检查。图片/视频原任务 Worker 仍需运行。
 4. 部署 PC 源码构建结果时遵循项目发布流程。本次只提交源代码，未发布版本包、未推送编译产物。
 
-本地已安装新增表并验证 `home-agent:worker --once` 可运行；没有擅自新建常驻守护进程。启用前须配置常驻 Worker，否则新请求停留在排队状态。
+本地已安装新增表、验证 `home-agent:worker --once`，并在现有 baota 容器启动临时 Worker（日志 `runtime/home-agent-worker.log`）。正式环境仍须配置进程管理器守护；本次没有改动系统守护配置。
 
 ## 验证记录
 
@@ -45,7 +45,7 @@
 - `HomeAgentContractsTest.php`：预算输入、Schema 禁止身份覆盖、工具闭环、DOCX XML 与转义。
 - `HomeAgentDatabaseTest.php`：本地事务回滚，提交幂等、不同内容冲突、租户/用户隔离、过期/重复确认、停止、报价指纹及快照隔离；余额不变。
 - `HomeAgentWorkerTest.php`：真实执行 Worker 配模拟创作服务；已提交任务恢复、停止后继续查询、未知提交不重复执行。
-- 前端 conversation / composer / run 测试；PC Nuxt 构建。浏览器验证了登录后工作区、创作偏好和模型目录。
+- 前端 conversation / composer / run 共 17 项测试通过；PC Nuxt 完整构建通过。构建使用 `/private/tmp/home-agent-verify-nuxt` 独立缓存，避免与运行中的开发服务争用 `.nuxt`。浏览器验证了登录后工作区、创作偏好和模型目录。
 - 未调用真实付费供应商。某些本地视频模型缺少有效 SKU，估价会拒绝而不会回退。开放平台旧价格集成测试只允许另一套 `z_cn` 固定夹具，在当前 `x_cn` 环境被保护条件阻止；未绕过该保护。
 
 ## 回滚与后续验收
