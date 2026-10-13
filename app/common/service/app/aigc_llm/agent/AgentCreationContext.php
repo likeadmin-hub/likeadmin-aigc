@@ -5,6 +5,19 @@ namespace app\common\service\app\aigc_llm\agent;
 /** Small, authoritative context; never expose the whole marketplace to the planner. */
 final class AgentCreationContext
 {
+    /** Failed/deleted replies can leave adjacent user turns in persisted history. */
+    public static function dialogue(array $rows): array
+    {
+        $out=[];
+        foreach($rows as $row){
+            $role=$row['role'];
+            if(!in_array($role,['user','assistant'],true)||(!$out&&$role!=='user'))continue;
+            $last=array_key_last($out);
+            if($last!==null&&$out[$last]['role']===$role)$out[$last]['content'].="\n\n".$row['content'];
+            else $out[]=['role'=>$role,'content'=>$row['content']];
+        }
+        return $out;
+    }
     public static function selectedModel(array $options,string $selection): array
     {
         foreach ($selection===''?[]:($options['channels']??$options['models']??[]) as $model) {

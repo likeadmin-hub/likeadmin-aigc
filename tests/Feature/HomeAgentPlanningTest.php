@@ -38,4 +38,15 @@ $provider->chat(new UserMessage('hello'));check($count===1,'Ordinary chat retrie
 $old=(new UserMessage('Use this image'))->addContent(new ImageContent('https://example.com/owned.png',SourceType::URL));
 $rows=MarketNeuronProvider::messages([$old,new UserMessage('Now rotate slowly')]);
 check($rows[0]['content'][1]['image_url']['url']==='https://example.com/owned.png'&&$rows[1]['content']==='Now rotate slowly','History image missing or assigned to wrong message');
+$history=Context::dialogue([
+ ['role'=>'assistant','content'=>'truncated orphan'],
+ ['role'=>'user','content'=>'15秒电视机视频'],['role'=>'assistant','content'=>'请上传参考图'],
+ ['role'=>'user','content'=>'这是参考图 of_owned'],['role'=>'user','content'=>'写可爱画风提示词'],
+]);
+check(count($history)===3&&str_contains($history[2]['content'],'of_owned')&&str_contains($history[2]['content'],'可爱画风'),'Failed reply normalization lost current input or reference');
+$provider=new MarketNeuronProvider('chosen',static fn()=>['content'=>'保持电视机角色，写15秒可爱风视频提示词。']);
+$state=(new Agent())->setThreadId('failed-turn-continuation')->setAiProvider($provider)->chat(array_map(static fn($r)=>$r['role']==='user'?new UserMessage($r['content']):new \NeuronAI\Chat\Messages\AssistantMessage($r['content']),$history));
+check(str_contains($state->getMessage()->getContent(),'电视机'),'Real Neuron history rejected continuation after missing reply');
+$called=false;$tool=new AgentFunctionTool('validate','Validate',['type'=>'object','required'=>['tool_code'],'properties'=>['tool_code'=>['type'=>'string']],'additionalProperties'=>false],function()use(&$called){$called=true;return [];});
+$tool([]);check(!$called,'Malformed model tool arguments reached handler');
 echo "Home Agent planning passed: selected model, bounded repair, real Neuron tools, chat and historical images; no provider calls\n";
