@@ -6,6 +6,7 @@ use app\common\service\open_platform\{OpenAssets,OpenStore};
 use app\common\service\storage\{Driver,StorageConfigService};
 use app\common\service\FileService;
 use app\common\service\WorkspaceAssetService;
+use app\common\service\ai\AiTaskRecordService;
 use think\facade\Db;
 use app\common\model\file\TenantFile;
 use app\common\enum\FileEnum;
@@ -26,8 +27,39 @@ final class AgentArtifactService
                 if(!$state && (int)$row['favorite']===1)$state=WorkspaceAssetService::update($tenant,$user,['refs'=>[$ref],'favorite'=>1])['states'][0];
                 $row['favorite']=(int)($state['favorite']??0);
             }
-            return array_intersect_key($row,array_flip(['id','run_id','step_id','title','kind','favorite','create_time']))+$asset+['content'=>$data['content']??''];
+            return array_intersect_key($row,array_flip(['id','run_id','step_id','title','kind','favorite','create_time']))+$asset+['content'=>$data['content']??'','generation'=>self::generationMetadata($row)];
         },$rows);
+    }
+    /** Read the submitted native task, never the proposal, artifact title or current preferences. */
+    private static function generationMetadata(array $artifact): ?array
+    {
+        $tenant=(int)$artifact['tenant_id'];$user=(int)$artifact['user_id'];
+        $step=AgentStore::owner('step',$tenant,$user)->where(['id'=>$artifact['step_id'],'run_id'=>$artifact['run_id']])->find();
+        if(!$step||!in_array($step['tool_code'],['aigc_image','aigc_video'],true)||!(int)$step['task_id'])return null;
+        $task=Db::name($step['tool_code'].'_task')->where(['id'=>$step['task_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find();
+        if(!$task)return null;
+        // Whitelist public creation settings; model snapshots can contain provider credentials.
+        $meta=array_intersect_key($task,array_flip(['prompt','negative_prompt','quality','ratio','duration','quantity','style']));
+        $meta['model_name']=AiTaskRecordService::modelDisplayName($task,$step['tool_code']);
+        $snapshot=AgentStore::json($task['model_json']??[]);
+        $meta['effect_name']=(string)($snapshot['effect_snapshot']['name']??'');
+        $meta['options']=array_intersect_key((array)($snapshot['q4_options']??[]),array_flip(['audio','is_rec','watermark','seed']));
+        $meta['references']=[];
+        $references=AgentStore::json($task['reference_assets']??[]);
+        foreach(AgentStore::json($task['reference_images']??[]) as $url)if(is_string($url))$references[]=['url'=>$url,'type'=>'image'];
+        foreach($references as $reference){
+            if(!is_array($reference))continue;
+            $url=trim((string)($reference['url']??$reference['uri']??''));
+            if($url==='')continue;
+            if(!preg_match('~^https?://~i',$url)){
+                if(preg_match('~^[a-z][a-z0-9+.-]*:~i',$url))continue;
+                $url=FileService::getFileUrl($url);
+            }
+            if(in_array($url,array_column($meta['references'],'url'),true))continue;
+            $type=$reference['type']??'image';
+            if(in_array($type,['image','video','audio'],true))$meta['references'][]=['url'=>$url,'type'=>$type];
+        }
+        return $meta;
     }
     public static function favorite(int $tenant,int $user,int $id,bool $favorite): void
     {
