@@ -18,6 +18,7 @@ PLANNING_MATCH="$SERVER_DIR/think short-drama:planning-worker"
 SHORT_DRAMA_AGENT_MATCH="$SERVER_DIR/think short-drama:canvas-agent-worker"
 CANVAS_SUBAGENT_MATCH="$SERVER_DIR/think canvas:subagent-worker"
 DECORATION_AGENT_MATCH="$SERVER_DIR/think decoration:agent-worker"
+OEM_BRAND_MATCH="$SERVER_DIR/think brand:worker"
 
 mkdir -p "$LOG_DIR"
 
@@ -43,7 +44,7 @@ stop_pid() {
     kill -0 "$target" 2>/dev/null || return 0
     command=$(ps -p "$target" -o command= 2>/dev/null || true)
     case "$command" in
-        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*|*"$SHORT_DRAMA_AGENT_MATCH"*|*"$CANVAS_SUBAGENT_MATCH"*|*"$DECORATION_AGENT_MATCH"*)
+        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*|*"$SHORT_DRAMA_AGENT_MATCH"*|*"$CANVAS_SUBAGENT_MATCH"*|*"$DECORATION_AGENT_MATCH"*|*"$OEM_BRAND_MATCH"*)
             kill -TERM "$target" 2>/dev/null || true
             i=0
             while kill -0 "$target" 2>/dev/null && [ "$i" -lt 20 ]; do sleep 1; i=$((i + 1)); done
@@ -61,7 +62,7 @@ ps -axo pid=,command= | while IFS= read -r line; do
     pid=$(printf '%s\n' "$line" | awk '{print $1}')
     command=${line#"$pid"}
     case "$command" in
-        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*|*"$SHORT_DRAMA_AGENT_MATCH"*|*"$CANVAS_SUBAGENT_MATCH"*|*"$DECORATION_AGENT_MATCH"*) stop_pid "$pid" ;;
+        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*|*"$SHORT_DRAMA_AGENT_MATCH"*|*"$CANVAS_SUBAGENT_MATCH"*|*"$DECORATION_AGENT_MATCH"*|*"$OEM_BRAND_MATCH"*) stop_pid "$pid" ;;
     esac
 done
 
@@ -96,6 +97,8 @@ pids="$pids $!"
 "$PHP_BIN" "$SERVER_DIR/think" canvas:subagent-worker --worker=subagent --sleep=1 --lease=180 >> "$LOG_FILE" 2>&1 &
 pids="$pids $!"
 "$PHP_BIN" "$SERVER_DIR/think" decoration:agent-worker --sleep=2 >> "$LOG_FILE" 2>&1 &
+pids="$pids $!"
+"$PHP_BIN" "$SERVER_DIR/think" brand:worker --sleep=3 >> "$LOG_FILE" 2>&1 &
 pids="$pids $!"
 log_startup "started workers: $pids"
 # POSIX sh (including dash and older Bash in sh mode) has no wait -n.

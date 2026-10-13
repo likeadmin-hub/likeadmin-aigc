@@ -5,6 +5,7 @@
 return [
     // 指令定义
     'commands' => [
+        'brand:worker' => 'app\\common\\command\\BrandWorker',
         'decoration:agent-worker' => 'app\\common\\command\\DecorationAgentWorker',
         'open-platform:worker' => 'app\\common\\command\\OpenPlatformWorker',
         'short-drama:episode-worker' => 'app\common\command\ShortDramaEpisodeWorker',
