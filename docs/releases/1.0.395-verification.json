@@ -92,5 +92,16 @@
         "Zend OPcache"
       ]
     }
+  },
+  "publish": {
+    "id": 369,
+    "version": "1.0.395",
+    "status": 1,
+    "beta_enabled": 0,
+    "sha256": "4e12159c873dac0e08c9858fc67391688a771ef023d34197b0f1fb1d6229820f",
+    "package_size": 123589396,
+    "update_time": "2026-10-13 11:40:37",
+    "base_version": "1.0.394",
+    "target_version": "1.0.395"
   }
 }
