@@ -19,7 +19,7 @@ final class AgentExecutionService
         if($content===''||mb_strlen($content)>10000)throw new \InvalidArgumentException('请输入1至10000字的请求');
         if(!preg_match('/^[a-zA-Z0-9_-]{16,96}$/D',$requestId))throw new \InvalidArgumentException('请求标识无效');
         foreach(AigcLlmSensitiveWord::where(['tenant_id'=>$tenant,'status'=>1])->column('word') as $word)if($word!==''&&mb_stripos($content,$word)!==false)throw new \InvalidArgumentException('内容包含不允许的词语，请调整后重试');
-        $preferences=AgentStore::preferences($tenant,$user);
+        $preferences=isset($params['preferences'])?AgentStore::validatePreferences((array)$params['preferences']):AgentStore::preferences($tenant,$user);
         if(empty($preferences['models']['text']))throw new \InvalidArgumentException('请先选择对话模型');
         
         $attachments=array_values(array_unique(array_map('strval',(array)($params['attachments']??[]))));
@@ -128,7 +128,7 @@ final class AgentExecutionService
         $request->withServer($original->server());$request->tenantId=(int)$run['tenant_id'];$request->userId=(int)$run['user_id'];$request->userInfo=['user_id'=>(int)$run['user_id'],'tenant_id'=>(int)$run['tenant_id']];
         app()->instance('request',$request);
         try{
-            AgentStore::access((int)$run['tenant_id'],(int)$run['user_id']);
+            if($run['phase']==='chat')AgentStore::access((int)$run['tenant_id'],(int)$run['user_id']);
             if((int)$run['cancel_requested']&&$run['phase']==='chat'){self::finish($run,'canceled');return 1;}
             if($run['phase']==='chat')self::chat($run);else self::executeSteps($run);
         }catch(\Throwable $e){
@@ -206,42 +206,53 @@ final class AgentExecutionService
     }
     private static function executeSteps(array $run): void
     {
-        $steps=AgentStore::table('step')->where('run_id',$run['id'])->order('id')->select()->toArray();$waiting=false;$failed=false;$success=false;
+        $steps=AgentStore::table('step')->where('run_id',$run['id'])->order('id')->select()->toArray();$waiting=false;$failed=false;$success=false;$review=false;
         foreach($steps as $step){
-            if(in_array($step['status'],['success','failed','canceled'],true)){$success=$success||$step['status']==='success';$failed=$failed||$step['status']==='failed';continue;}
+            if(in_array($step['status'],['success','failed','canceled','needs_review'],true)){$success=$success||$step['status']==='success';$failed=$failed||$step['status']==='failed';$review=$review||$step['status']==='needs_review';continue;}
             $current=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
             if((int)$current['cancel_requested']&&$step['status']==='proposed'){AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'canceled','update_time'=>time()]);continue;}
             $prepared=AgentStore::json($step['prepared']);
             if($step['status']==='proposed'){
                 self::checkpoint($run);
-                $fresh=AgentCapabilityCatalog::prepare($run,$step['tool_code'],$prepared['params']);
+                try{$fresh=AgentCapabilityCatalog::prepare($run,$step['tool_code'],$prepared['params']);}
+                catch(\Exception $e){AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'failed','error'=>'当前模型、权限或报价不可用，请调整后重试','update_time'=>time()]);$failed=true;continue;}
                 if(AgentToolContext::priceFingerprint($fresh['quote'])!==AgentToolContext::priceFingerprint($prepared['quote'])||$fresh['capability']['version']!==$prepared['capability']['version']){
                     AgentStore::table('step')->where('id',$step['id'])->update(['prepared'=>AgentStore::encode($fresh),'update_time'=>time()]);
                     $all=AgentStore::table('step')->where('run_id',$run['id'])->order('id')->column('prepared');
                     AgentStore::update($run,['status'=>'awaiting_confirmation','phase'=>'chat','approval_hash'=>hash('sha256',AgentStore::encode($all)),'lease_token'=>'','lease_until'=>0]);
+                    self::finishMessage($run,'done');
                     AgentStore::event($run,'plan.changed',['reason'=>'模型契约或报价变化，请重新确认剩余步骤']);return;
                 }
                 AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'submitting','update_time'=>time()]);
                 AgentStore::event($run,'tool.started',['step_id'=>$step['id'],'title'=>$step['title']]);
-                $result=AgentCapabilityCatalog::submit($fresh);
+                try{$result=AgentCapabilityCatalog::submit($fresh);}
+                catch(\Throwable $e){
+                    Log::error('Home Agent step '.$step['id'].' submit: '.get_class($e));
+                    AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'needs_review','error'=>'提交结果待核对，请勿重复提交','update_time'=>time()]);$review=true;continue;
+                }
                 $taskId=(int)($result['task_id']??0);
                 AgentStore::table('step')->where('id',$step['id'])->update(['task_id'=>$taskId,'result'=>AgentStore::encode($result),'status'=>'running','update_time'=>time()]);
                 $step['task_id']=$taskId;
             }else{
                 if(!(int)$step['task_id'])throw new \RuntimeException('任务提交结果待核对');
-                $result=AgentCapabilityCatalog::query($run,$step['tool_code'],(int)$step['task_id']);
+                try{$result=AgentCapabilityCatalog::query($run,$step['tool_code'],(int)$step['task_id']);}
+                catch(\Exception $e){
+                    $expired=time()-(int)$run['create_time']>86400;
+                    AgentStore::table('step')->where('id',$step['id'])->update(['status'=>$expired?'needs_review':'running','error'=>$expired?'任务状态无法确认，请人工核对':'查询暂不可用，正在恢复','update_time'=>time()]);
+                    $review=$review||$expired;$waiting=$waiting||!$expired;continue;
+                }
             }
             $status=(string)($result['status']??(!empty($result['results'])?'success':'running'));
             $done=in_array($status,['success','completed','succeeded','partial_success'],true);$error=in_array($status,['failed','error','canceled','cancelled'],true);
             $state=$done?'success':($error?'failed':'running');
+            if($done){try{AgentArtifactService::collect($run,$step,$result);}catch(\Throwable $e){$waiting=true;continue;}}
             AgentStore::table('step')->where('id',$step['id'])->update(['status'=>$state,'result'=>AgentStore::encode($result),'error'=>$error?'生成未完成，请检查该任务后重试':'','update_time'=>time()]);
-            if($done)AgentArtifactService::collect($run,$step,$result);
             AgentStore::event($run,'task.updated',['step_id'=>$step['id'],'status'=>$state]);
             $waiting=$waiting||!($done||$error);$failed=$failed||$error;$success=$success||$done;
         }
         if($waiting){AgentStore::update($run,['status'=>'waiting_tasks','next_run_time'=>time()+5,'lease_token'=>'','lease_until'=>0]);return;}
         $current=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
-        self::finish($run,(int)$current['cancel_requested']?'canceled':($failed?($success?'partial_success':'failed'):'success'));
+        self::finish($run,$review?'needs_review':((int)$current['cancel_requested']?'canceled':($failed?($success?'partial_success':'failed'):'success')),$review?'部分提交结果待核对；已知任务结果已保留':'');
     }
     private static function checkpoint(array $run): void
     {

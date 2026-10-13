@@ -913,6 +913,10 @@ class AppRegistryService
             AigcLlmSession::where('id', '>', 0)->delete();
             AigcLlmMessage::where('id', '>', 0)->delete();
             AigcLlmUsage::where('id', '>', 0)->delete();
+            foreach (['event','artifact','step','run','preference'] as $suffix) {
+                $table=config('database.connections.mysql.prefix').'aigc_llm_agent_'.$suffix;
+                if (Db::query('SHOW TABLES LIKE ?', [$table])) Db::name('aigc_llm_agent_'.$suffix)->where('id','>',0)->delete();
+            }
         }
         if ($appCode === 'aigc_canvas') {
             AigcCanvasProject::where('id', '>', 0)->delete();
