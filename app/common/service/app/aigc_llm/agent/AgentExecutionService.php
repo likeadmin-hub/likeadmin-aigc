@@ -217,6 +217,9 @@ final class AgentExecutionService
                 throw $e;
             }
             // Preserve every visible tool-loop response, including the final unthrottled delta.
+            // The shared transport may substitute reasoning when a tool turn has
+            // no final text. Strip that fallback before persisting any snapshot.
+            $result=MarketNeuronProvider::visibleResult($result);
             $body=(string)($result['content']??'');
             if($text!==''&&str_starts_with($text,$body))$body=$text;
             elseif($text!==''&&!str_starts_with($body,$text))$body=AgentReplyService::append($text,$body);
