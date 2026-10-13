@@ -35,6 +35,11 @@ try {
     oemCheck($order['workflow_state']==='delivered' && (int)$order['reserve_status']===2,'final delivery consumes once');
     oemCheck((int)Db::name('tenant')->where('id',$child)->value('disable')===0,'verified delivery activates tenant');
     oemCheck((int)$order['service_expire_time']===(int)$order['delivered_time']+365*86400,'contract starts at delivery using sold snapshot');
+    $oldSource=request()->source; $oldTenant=request()->tenantId;
+    try {
+        request()->source=\app\common\enum\AdminTerminalEnum::USER; request()->tenantId=$child;
+        oemCheck(\app\common\service\OfficialSiteService::public()['basic']['name']===$f['params']['tenant_name'],'delivered PC official site uses the customer brand');
+    } finally { request()->source=$oldSource; request()->tenantId=$oldTenant; }
     oemCheck(Db::name('tenant_admin')->where(['tenant_id'=>$child,'root'=>1])->count()===1,'one administrator');
     oemCheck(Db::name('tenant_contract_record')->where('source_order_sn',$order['order_sn'])->count()===1,'one contract record');
     $grant=Db::name('tenant_app_order')->where(['tenant_id'=>$child,'source_sn'=>$order['order_sn'],'app_code'=>$f['app']])->find();

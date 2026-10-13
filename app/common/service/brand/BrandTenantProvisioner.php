@@ -121,6 +121,16 @@ class BrandTenantProvisioner
             Db::name('tenant_file')->insert(['tenant_id'=>$target,'type'=>10,'name'=>'品牌Logo','uri'=>$logo['uri'],'storage_scope'=>$logo['storage_scope'],
                 'storage_engine'=>$logo['storage_engine'],'storage_domain'=>$logo['storage_domain'],'source'=>0,'source_id'=>0,'create_time'=>time()]);
         }
+        // The PC official site has its own tenant-owned content record; setting website basics alone
+        // would leave its header showing the template brand.
+        $oldSource=request()->source; $oldTenant=request()->tenantId;
+        try {
+            request()->source=\app\common\enum\AdminTerminalEnum::USER; request()->tenantId=$target;
+            $site=\app\common\service\OfficialSiteService::get();
+            $site['basic']['name']=$brand['name']; $site['basic']['title']=$brand['name'];
+            $site['basic']['logo']=$logo['uri']??''; $site['basic']['favicon']=$logo['uri']??'';
+            \app\common\service\OfficialSiteService::save($site);
+        } finally { request()->source=$oldSource; request()->tenantId=$oldTenant; }
         return ['tenant_id'=>$target,'logo_uri'=>$logo['uri']??''];
     }
 
