@@ -37,7 +37,7 @@ final class BrandMaintenanceService
             catch(\Throwable $e) { Log::error('OEM maintenance refund '.$id.': '.$e->getMessage()); }
         }
         // Both unpaid and paid intents are queried: a second transaction can arrive after the first payment.
-        $intents=Db::name('tenant_brand_payment_intent')->where('last_query_time','<=',time()-60)->where('create_time','>=',time()-7*86400)->order('last_query_time,id')->limit(2)->select()->toArray();
+        $intents=Db::name('tenant_brand_payment_intent')->where('last_query_time','<=',time()-60)->order('last_query_time,id')->limit(2)->select()->toArray();
         foreach($intents as $intent) {
             if(microtime(true)-$started>=35 || self::changed()) break;
             BrandPaymentService::reconcile($intent['order_from'],(int)$intent['order_id'],1); $result['payment_checked']++;
