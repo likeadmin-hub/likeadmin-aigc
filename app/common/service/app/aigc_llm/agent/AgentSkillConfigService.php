@@ -19,7 +19,7 @@ final class AgentSkillConfigService
         'plan'=>['name'=>'创作方案','category'=>'文本','description'=>'把创意整理成清晰、可执行的创作方案。','prompt'=>'帮我制定一份创作方案，请先了解目标、受众和交付形式，再给出内容结构与执行步骤。','materials'=>'描述你的目标、受众和预期交付内容。']
     ];
     private const APPS = ['aigc_llm'=>'文本','aigc_image'=>'图片','aigc_fitting'=>'图片','aigc_video'=>'视频','aigc_music'=>'音频'];
-    private const EDITABLE = ['name','description','prompt','materials','enabled','sort','images','videos'];
+    private const EDITABLE = ['name','description','prompt','materials','enabled','sort','images','videos','preview_type','video_poster'];
 
     private static function stored(int $tenant): array
     {
@@ -57,6 +57,9 @@ final class AgentSkillConfigService
             $item['image_urls'] = array_map(static fn($uri)=>FileService::getFileUrl($uri), $item['images']);
             $item['video_urls'] = array_map(static fn($uri)=>FileService::getFileUrl($uri), $item['videos']);
             $item['cover_url'] = $display['cover_url'];
+            $item['preview_type'] = $value['preview_type'] ?? ($item['videos'] ? 'video' : 'image');
+            $item['video_poster'] = $value['video_poster'] ?? ($item['images'][0] ?? $display['cover_uri'] ?? '');
+            $item['video_poster_url'] = $item['video_poster'] ? FileService::getFileUrl($item['video_poster']) : $display['cover_url'];
             $items[] = $item;
         }
         return $items;
@@ -106,14 +109,31 @@ final class AgentSkillConfigService
                 $result[$id][$field] = trim($row[$field]);
             }
             if (array_key_exists('enabled',$row)) {
-                if (!in_array($row['enabled'],[0,1],true)) throw new \InvalidArgumentException('技能状态无效');
-                $result[$id]['enabled'] = $row['enabled'];
+                if (!in_array($row['enabled'],[0,1,'0','1'],true)) throw new \InvalidArgumentException('技能状态无效');
+                $result[$id]['enabled'] = (int)$row['enabled'];
             }
             if (array_key_exists('sort',$row)) {
-                if (!is_int($row['sort']) || abs($row['sort'])>9999) throw new \InvalidArgumentException('技能排序无效');
-                $result[$id]['sort'] = $row['sort'];
+                if ((!is_int($row['sort']) && !(is_string($row['sort']) && preg_match('/^-?[0-9]{1,4}$/D', $row['sort']))) || abs((int)$row['sort'])>9999) throw new \InvalidArgumentException('技能排序无效');
+                $result[$id]['sort'] = (int)$row['sort'];
             }
             foreach (['images'=>5,'videos'=>3] as $field=>$limit) if (array_key_exists($field,$row)) $result[$id][$field] = Display::normalizeSkillMedia($row[$field],$limit);
+            if (array_key_exists('preview_type',$row)) {
+                if (!in_array($row['preview_type'],['image','video'],true)) throw new \InvalidArgumentException('请选择图片或视频展示类型');
+                $result[$id]['preview_type'] = $row['preview_type'];
+            }
+            if (array_key_exists('video_poster',$row)) {
+                if (!is_string($row['video_poster'])) throw new \InvalidArgumentException('视频占位图格式不正确');
+                $result[$id]['video_poster'] = Display::normalizeSkillMedia([$row['video_poster']],1)[0] ?? '';
+            }
+            if (isset($row['preview_type'])) {
+                if ($row['preview_type'] === 'video') {
+                    if (!$result[$id]['videos'] || empty($result[$id]['video_poster'])) throw new \InvalidArgumentException('请选择展示视频和视频加载占位图');
+                    $result[$id]['images'] = [];
+                } else {
+                    $result[$id]['videos'] = [];
+                    $result[$id]['video_poster'] = '';
+                }
+            }
             if ($id === $newId && (!$result[$id]['name'] || !$result[$id]['prompt'] || !isset($result[$id]['app_code']))) throw new \InvalidArgumentException('请填写技能名称、关联应用和回填提示词');
         }
         return $result;

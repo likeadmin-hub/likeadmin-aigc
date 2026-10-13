@@ -14,7 +14,11 @@ class ConfigController extends BaseAdminController
 
     public function setup()
     {
-        AigcLlmService::saveConfig($this->tenantId, $this->request->post());
+        try {
+            AigcLlmService::saveConfig($this->tenantId, $this->request->post());
+        } catch (\InvalidArgumentException $e) {
+            return $this->fail($e->getMessage());
+        }
         return $this->success('保存成功', [], 1, 1);
     }
 }

@@ -21,6 +21,11 @@ Db::startTrans();try{
  check(count(Skills::forTools($t,['aigc_fitting']))===4,'Unauthorized tool settings exposed');
  foreach([[['id'=>'unknown']],[['id'=>'fitting','tool'=>'aigc_video']],[['id'=>'fitting','images'=>['javascript:alert(1)']]],[['id'=>'fitting','prompt'=>'']],[['id'=>'image'],['id'=>'image']]] as $bad){try{Llm::saveConfig($t,['skill_configs'=>$bad]);throw new LogicException('Invalid skill accepted');}catch(InvalidArgumentException){}}
  check(array_column(Skills::detail($t),null,'id')['fitting']['name']==='试穿效果','Invalid save changed settings');
+ $payload=(new \app\Request())->withPost(['skill_configs'=>[['id'=>'fitting','enabled'=>1,'sort'=>12,'preview_type'=>'video','videos'=>['https://example.test/clip.mp4'],'video_poster'=>'https://example.test/loading.jpg','images'=>['https://example.test/unused.jpg']]]])->post();
+ check($payload['skill_configs'][0]['sort']==='12','Request filter reproduction missing');Llm::saveConfig($t,$payload);
+ $preview=array_column(Skills::detail($t),null,'id')['fitting'];check($preview['sort']===12&&$preview['enabled']===1&&$preview['preview_type']==='video'&&$preview['images']===[]&&$preview['video_poster_url']==='https://example.test/loading.jpg','Filtered save/video poster failed');
+ Llm::saveConfig($t,['skill_configs'=>[['id'=>'fitting','preview_type'=>'image','images'=>['https://example.test/photo.jpg']]]]);$preview=array_column(Skills::detail($t),null,'id')['fitting'];check($preview['videos']===[]&&$preview['video_poster']==='','Image/video exclusion failed');
+ foreach([[['id'=>'fitting','preview_type'=>'video','videos'=>[]]],[['id'=>'fitting','video_poster'=>'javascript:alert(1)']],[['id'=>'fitting','sort'=>'1.2']],[['id'=>'fitting','enabled'=>'yes']]] as $bad){try{Llm::saveConfig($t,['skill_configs'=>$bad]);throw new LogicException('Invalid media/numeric accepted');}catch(InvalidArgumentException){}}
  Llm::saveConfig($t,['skill_create'=>['name'=>'商品试穿','app_code'=>'aigc_fitting','prompt'=>'请生成试穿图','images'=>[]]]);
  $custom=array_values(array_filter(Skills::detail($t),fn($skill)=>!$skill['builtin']));check(count($custom)===1&&$custom[0]['tool']==='aigc_fitting','Custom create failed');$id=$custom[0]['id'];
  check(!in_array($id,array_column(Skills::forTools($t,[]),'id'),true),'Custom skill bypasses tool authorization');
