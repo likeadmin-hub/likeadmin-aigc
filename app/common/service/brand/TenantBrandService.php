@@ -306,6 +306,7 @@ class TenantBrandService
         if ($order->isEmpty() || (int)$order['pay_status'] !== PayEnum::ISPAID) {
             throw new RuntimeException('仅已支付订单可重试开通');
         }
+        if ((int)$order['flow_version']===2) { BrandPlatformService::retry((int)$order['id'],0); return; }
         self::provisionBrandOrder($orderSn);
     }
 

@@ -38,7 +38,7 @@ final class BrandWorkflowService
             $brand=self::brand($params,$prior,$tenantId,$userId);
             $account=trim((string)($params['account']??$prior['admin_account']??''));
             $password=(string)($params['password']??'');
-            if (!$target && (!preg_match('/^[A-Za-z0-9_@.\-]{3,64}$/D',$account) || strlen($password)<8 || strlen($password)>128)) throw new RuntimeException('管理员账号需为3至64位，密码需为8至128位');
+            if (!$target && (!preg_match('/^[A-Za-z0-9_@.\-]{3,32}$/D',$account) || strlen($password)<8 || strlen($password)>128)) throw new RuntimeException('管理员账号需为3至32位，密码需为8至128位');
             $sn=generate_sn(TenantBrandOrder::class,'order_sn');
             $now=time();
             $data=['tenant_id'=>$tenantId,'user_id'=>$userId,'order_sn'=>$sn,'order_terminal'=>$terminal,'package_id'=>$packageId,'package_name'=>$snapshot['name'],'quantity'=>1,
@@ -150,7 +150,7 @@ final class BrandWorkflowService
                 'tenant_review'=>'pending','workflow_state'=>'tenant_review','update_time'=>time()];
             if (!empty($params['account']) || !empty($params['password'])) {
                 $account=trim((string)($params['account']??$order['admin_account'])); $password=(string)($params['password']??'');
-                if ($order['order_kind']!=='new' || !preg_match('/^[A-Za-z0-9_@.\-]{3,64}$/D',$account) || strlen($password)<8 || strlen($password)>128) throw new RuntimeException('请填写有效管理员账号及8至128位密码');
+                if ($order['order_kind']!=='new' || !preg_match('/^[A-Za-z0-9_@.\-]{3,32}$/D',$account) || strlen($password)<8 || strlen($password)>128) throw new RuntimeException('请填写有效管理员账号及8至128位密码');
                 $changes['admin_account']=$account; $changes['admin_password_hash']=TenantAdminLogic::createPassword($password);
             }
             Db::name('tenant_brand_order')->where('id',$id)->update($changes);

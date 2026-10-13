@@ -17,6 +17,7 @@ try {
     oemReject(fn()=>Flow::owned($f['seller'],$f['user']+1,$id),'cross-user order accepted');
     oemReject(fn()=>Flow::owned($f['seller']+1,$f['user'],$id),'cross-seller order accepted');
     oemReject(fn()=>Brand::createBrandOrder($f['seller'],$f['user'],5,array_replace($f['params'],['target_tenant_id'=>1])),'unowned renewal accepted');
+    oemReject(fn()=>Brand::createBrandOrder($f['seller'],$f['user'],4,array_replace($f['params'],['account'=>str_repeat('a',33)])),'account too long for tenant login schema accepted before payment');
     $paySn='oem-test-payment-'.$id;
     $context=json_encode(['scope'=>'tenant','tenant_id'=>$f['seller'],'merchant_id'=>'merchant-A','app_id'=>'app-A']);
     Db::name('tenant_brand_payment_intent')->insert(['order_from'=>Brand::FROM_ORDER,'order_id'=>$id,'tenant_id'=>$f['seller'],'pay_sn'=>$paySn,'channel'=>2,'merchant_id'=>'merchant-A','amount_cents'=>3101,'context'=>$context,'expires_at'=>time()+1800]);
