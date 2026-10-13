@@ -29,7 +29,7 @@ final class HomeAgentProviderTest
             protected function properties(): array {return [new ToolProperty('name',PropertyType::STRING,'Name',true)];}
             public function __invoke(string $name): string {return 'found:'.$name;}
         };
-        $agent=(new Agent())->setAiProvider($provider)->setTools([$tool]);
+        $agent=(new Agent())->setThreadId('home-agent-contract')->setAiProvider($provider)->setTools([$tool]);
         $state=$agent->chat(new UserMessage('Find dress'));
         self::same('找到 dress',$state->getMessage()->getContent());
         self::same(2,count($requests));

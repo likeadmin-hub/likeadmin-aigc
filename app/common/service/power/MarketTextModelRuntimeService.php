@@ -173,7 +173,7 @@ class MarketTextModelRuntimeService
                     if ($resultValidator!==null) $resultValidator($result);
                     break;
                 } catch (\Throwable $initialError) {
-                    if ($openTextCall) throw $initialError;
+                    if ($openTextCall || !empty($params['_agent_tool_history'])) throw $initialError;
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
                     if ($retry === null) {
                         $retry = self::compatibleTransportOptions($initialError->getMessage(), $transportOptions);

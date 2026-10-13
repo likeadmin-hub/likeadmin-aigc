@@ -134,6 +134,7 @@ final class OpenImagePricing
     }
     public static function selection(int $tenant,int $user): ?array
     {
+        $agent=\app\common\service\app\aigc_llm\agent\AgentToolContext::image($tenant,$user);if($agent!==null)return $agent;
         $id=OpenCallContext::id();if($id==='')return null;
         $row=OpenStore::owner('request',$tenant,$user)->where(['request_id'=>$id,'kind'=>'tool','method'=>'POST'])->find();if(!$row||!in_array($row['app_code'],array_merge(['aigc_image'],self::COMPOSITES,self::MULTI_IMAGE),true))return null;
         return OpenToolPricing::forRequest($row['app_code'],$tenant,$user);
