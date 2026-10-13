@@ -1,0 +1,75 @@
+{
+  "base_ref": "origin/develop",
+  "source_commit": "17ed51a04d477b31949284a9df2f61ac52d9ce59",
+  "base_version": "1.0.396",
+  "target_version": "1.0.397",
+  "bridge": false,
+  "paths": [
+    {
+      "path": "app/common/command/Crontab.php",
+      "delivery": "files/app/common/command/Crontab.php"
+    },
+    {
+      "path": "app/common/service/update/ComposerRuntimeUpdateService.php",
+      "delivery": "files/app/common/service/update/ComposerRuntimeUpdateService.php"
+    },
+    {
+      "path": "app/common/service/update/RuntimeRetentionService.php",
+      "delivery": "files/app/common/service/update/RuntimeRetentionService.php"
+    },
+    {
+      "path": "config/project.php",
+      "delivery": "files/config/project.php"
+    },
+    {
+      "path": "docs/releases/1.0.397.md",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-13-runtime-safe-retention.md",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "public/upgrade/version.json",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "runtime-loader.php",
+      "delivery": "files/runtime-loader.php"
+    },
+    {
+      "path": "runtime-retention.php",
+      "delivery": "files/runtime-retention.php"
+    },
+    {
+      "path": "scripts/composer-runtime-runner.php",
+      "delivery": "files/scripts/composer-runtime-runner.php"
+    },
+    {
+      "path": "scripts/prepare-system-update.mjs",
+      "delivery": "files/scripts/prepare-system-update.mjs"
+    },
+    {
+      "path": "scripts/runtime-cleanup.php",
+      "delivery": "files/scripts/runtime-cleanup.php"
+    },
+    {
+      "path": "tests/runtime-updater/retention-integration.php",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "tests/runtime-updater/retention.php",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "tests/system-update/staging.test.mjs",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "upgrade/version.json",
+      "delivery": "source-only-or-protected"
+    }
+  ],
+  "migrations": [],
+  "uncovered": []
+}
