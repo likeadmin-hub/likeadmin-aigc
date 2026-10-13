@@ -78,6 +78,11 @@ class LikeAdminAllowMiddleware
         // resolution, otherwise the configured platform host is rendered as a
         // tenant-domain 404 before the relay route can run.
         $normalizedPath = trim($request->pathinfo(), '/');
+        // OEM money callbacks remain receivable when the seller closes new applications.
+        // These two endpoints verify the original merchant signature before recording money.
+        if (preg_match('#^api/brand\.payment/(notifyWechat|notifyAli)$#iD',$normalizedPath)) {
+            return $next($request);
+        }
         if ($normalizedPath === 'wechat/open-platform/callback'
             || $normalizedPath === 'wechat/open-platform/authorize'
             || preg_match('#^wechat/open-platform/[A-Za-z0-9_-]+/callback$#', $normalizedPath)) {

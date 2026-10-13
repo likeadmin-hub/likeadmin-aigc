@@ -1,0 +1,43 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/Support/OemDisposable.php';
+require __DIR__.'/Support/OemFixtures.php';
+use think\facade\Db;
+use app\common\service\brand\BrandChannelGateway;
+use app\common\service\brand\TenantBrandService as Brand;
+use app\common\service\brand\BrandPaymentService as Payment;
+oemCheck(class_exists(BrandChannelGateway::class),'Explicit payment merchant adapter is missing');
+Db::startTrans();
+try {
+    $f=oemFixture();
+    Db::name('tenant_pay_config')->insert(['tenant_id'=>$f['seller'],'name'=>'Wechat fixture','pay_way'=>2,'config'=>json_encode(['mch_id'=>'seller-mch','pay_sign_key'=>'fixture-only'])]);
+    Db::name('tenant_config')->insert(['tenant_id'=>$f['seller'],'type'=>'oa_setting','name'=>'app_id','value'=>'seller-app']);
+    $gate=new BrandChannelGateway();
+    $context=$gate->context(Brand::FROM_ORDER,['tenant_id'=>$f['seller'],'order_terminal'=>5],2);
+    oemCheck($context['merchant_id']==='seller-mch' && $context['app_id']==='seller-app' && $context['scope']==='tenant','customer money uses seller merchant');
+    oemCheck(!isset($context['secret_key']) && !str_contains(json_encode($context),'fixture-only'),'snapshot contains no merchant secrets');
+    $configId=Db::name('tenant_pay_config')->where(['tenant_id'=>$f['seller'],'pay_way'=>2])->value('id');
+    Db::name('tenant_pay_way')->insert(['tenant_id'=>$f['seller'],'scene'=>4,'pay_config_id'=>$configId,'status'=>1,'is_default'=>1]);
+    $ways=$gate->ways(Brand::FROM_ORDER,['tenant_id'=>$f['seller']],4);
+    oemCheck(count($ways)===1 && (int)$ways[0]['pay_way']===2,'seller payment ways do not fall back to platform');
+    Db::name('tenant_pay_way')->where('tenant_id',$f['seller'])->update(['status'=>0]);
+    oemCheck($gate->ways(Brand::FROM_ORDER,['tenant_id'=>$f['seller']],4)===[],'disabled seller ways cannot be bypassed');
+    Db::name('pay_config')->where('pay_way',2)->update(['config'=>json_encode(['mch_id'=>'platform-mch','app_id'=>'platform-app'])]);
+    $platform=$gate->context(Brand::FROM_QUOTA,['tenant_id'=>$f['seller'],'order_terminal'=>5],2);
+    oemCheck($platform['merchant_id']==='platform-mch' && $platform['app_id']==='platform-app' && $platform['scope']==='platform','procurement uses platform merchant');
+    $intent=['pay_sn'=>'OEM-GATEWAY-1','channel'=>2,'amount_cents'=>3101,'context'=>json_encode($context)];
+    $receipt=$gate->wechatReceipt(['out_trade_no'=>'OEM-GATEWAY-1','mchid'=>'seller-mch','appid'=>'seller-app','transaction_id'=>'wechat-tx','trade_state'=>'SUCCESS','amount'=>['total'=>3101,'currency'=>'CNY']],$intent);
+    oemCheck($receipt['amount_cents']===3101 && $receipt['merchant_id']==='seller-mch','wechat exact receipt');
+    oemReject(fn()=>$gate->wechatReceipt(['out_trade_no'=>'other','mchid'=>'seller-mch','appid'=>'seller-app','transaction_id'=>'wechat-tx','trade_state'=>'SUCCESS','amount'=>['total'=>3101,'currency'=>'CNY']],$intent),'wrong gateway order accepted');
+    Db::name('tenant_pay_config')->where(['tenant_id'=>$f['seller'],'pay_way'=>2])->update(['config'=>json_encode(['mch_id'=>'changed-merchant'])]);
+    oemReject(fn()=>$gate->assertOriginal($context),'changed merchant used to refund old transaction');
+    $ali=new BrandChannelGateway();
+    $key=openssl_pkey_new(['private_key_bits'=>2048]);
+    openssl_pkey_export($key,$private);
+    $public=openssl_pkey_get_details($key)['key'];
+    $clean=static fn($pem)=>preg_replace('/-----[^-]+-----|\s+/','',$pem);
+    Db::name('tenant_pay_config')->insert(['tenant_id'=>$f['seller'],'name'=>'Ali fixture','pay_way'=>3,'config'=>json_encode(['mode'=>'normal_mode','app_id'=>'fake','private_key'=>$clean($private),'ali_public_key'=>$clean($public)])]);
+    $unsigned=['app_id'=>'fake','trade_status'=>'TRADE_SUCCESS','out_trade_no'=>'fake','trade_no'=>'fake','total_amount'=>'31.01','sign'=>'forged','sign_type'=>'RSA2'];
+    oemReject(fn()=>$ali->verifyAli($unsigned,['pay_sn'=>'fake','channel'=>3,'context'=>json_encode(['scope'=>'tenant','tenant_id'=>$f['seller'],'channel'=>3,'merchant_id'=>'fake','app_id'=>'fake','seller_id'=>'','terminal'=>5])]),'forged Alipay signature accepted');
+    echo "PASS real gateway merchant selection, receipt order check, secret exclusion and merchant change guard\n";
+} finally { Db::rollback(); }

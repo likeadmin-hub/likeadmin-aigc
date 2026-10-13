@@ -10,7 +10,9 @@ final class BrandCatalogService
 {
     public static function flowEnabled(int $tenantId): bool
     {
-        return (int)Tenant::withoutGlobalScope()->where('id', $tenantId)->value('oem_flow_enabled', 0) === 1;
+        // 0 = legacy, 1 = V2 accepting applications, 2 = V2 entry paused.
+        // A paused V2 seller must never fall back to legacy automatic provisioning.
+        return (int)Tenant::withoutGlobalScope()->where('id', $tenantId)->value('oem_flow_enabled', 0) >= 1;
     }
 
     /** Entry gate only. Processing paid orders must never depend on this flag. */

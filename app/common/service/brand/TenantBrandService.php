@@ -46,6 +46,10 @@ class TenantBrandService
 
     public static function packageRows(int $tenantId, bool $onlyShelf = false): array
     {
+        $v2=BrandCatalogService::flowEnabled($tenantId);
+        if ($v2 && $onlyShelf) {
+            try { BrandCatalogService::assertSeller($tenantId); } catch (RuntimeException $e) { return []; }
+        }
         $packages = TenantPackage::where('status', TenantPackageService::STATUS_ENABLED)
             ->order(['sort' => 'desc', 'id' => 'desc'])
             ->select()
@@ -66,7 +70,15 @@ class TenantBrandService
             $remaining = max(0, (int)($bucket['remaining_quota'] ?? 0) - (int)($bucket['reserved_quota'] ?? 0));
             $salePrice = (float)($price['sale_price'] ?? $package['sale_price'] ?? 0);
             $status = (int)($price['status'] ?? 0);
-            if ($onlyShelf && ($status !== self::STATUS_ENABLED || $remaining <= 0)) {
+            if ($onlyShelf && ($status !== self::STATUS_ENABLED || (!$v2 && $remaining <= 0))) {
+                continue;
+            }
+            if ($v2) {
+                try { $snapshot=BrandCatalogService::snapshot($packageId); } catch (RuntimeException $e) { continue; }
+                if ($onlyShelf) { $rows[]=BrandCatalogService::publicPackage($snapshot,(string)($price['sale_price']??'0')); continue; }
+            } elseif ($onlyShelf) {
+                $rows[]=['id'=>$packageId,'name'=>$package['name'],'duration_days'=>(int)$package['duration_days'],
+                    'duration_desc'=>$package['duration_days'].'天','description'=>$package['description'],'tenant_sale_price'=>self::formatAmount($salePrice)];
                 continue;
             }
             $rows[] = array_merge(TenantPackageService::formatPackage($package), [
@@ -84,6 +96,8 @@ class TenantBrandService
 
     public static function savePrice(int $tenantId, array $params): void
     {
+        $v2=BrandCatalogService::flowEnabled($tenantId);
+        if ($v2) BrandCatalogService::assertSeller($tenantId);
         $packageId = (int)($params['package_id'] ?? 0);
         $status = (int)($params['status'] ?? 0) ? self::STATUS_ENABLED : self::STATUS_DISABLED;
         $salePrice = (float)($params['sale_price'] ?? 0);
@@ -97,14 +111,18 @@ class TenantBrandService
         if ($package->isEmpty()) {
             throw new RuntimeException('平台套餐不存在或已停用');
         }
-        if ($status === self::STATUS_ENABLED && self::remainingQuota($tenantId, $packageId) <= 0) {
+        if ($v2 && $status===self::STATUS_ENABLED) {
+            BrandCatalogService::snapshot($packageId);
+            if (BrandOrderPolicy::cents((string)($params['sale_price']??'0'))<=0) throw new RuntimeException('请先配置有效销售价');
+        }
+        if (!$v2 && $status === self::STATUS_ENABLED && self::remainingQuota($tenantId, $packageId) <= 0) {
             throw new RuntimeException('当前套餐额度不足，不能上架');
         }
         $row = TenantBrandPackagePrice::where(['tenant_id' => $tenantId, 'package_id' => $packageId])->findOrEmpty();
         $data = [
             'tenant_id' => $tenantId,
             'package_id' => $packageId,
-            'sale_price' => self::formatAmount($salePrice),
+            'sale_price' => $v2 ? BrandOrderPolicy::amount(BrandOrderPolicy::cents((string)$params['sale_price'])) : self::formatAmount($salePrice),
             'status' => $status,
             'update_time' => time(),
         ];
@@ -118,6 +136,7 @@ class TenantBrandService
 
     public static function createQuotaOrder(int $tenantId, int $adminId, int $terminal, int $packageId, int $quantity): array
     {
+        if (BrandCatalogService::flowEnabled($tenantId)) return BrandWorkflowService::createQuota($tenantId,$adminId,$terminal,$packageId,$quantity);
         $quantity = max(1, $quantity);
         $package = TenantPackage::where(['id' => $packageId, 'status' => TenantPackageService::STATUS_ENABLED])->findOrEmpty();
         if ($package->isEmpty()) {
@@ -152,6 +171,9 @@ class TenantBrandService
 
     public static function handleQuotaPaid(string $orderSn, array $extra = []): void
     {
+        if ((int)TenantBrandQuotaOrder::where('order_sn',$orderSn)->value('flow_version',1)===2) {
+            BrandPaymentService::recordVerified((array)($extra['receipt']??[])); return;
+        }
         Db::transaction(function () use ($orderSn, $extra) {
             $order = TenantBrandQuotaOrder::where('order_sn', $orderSn)->lock(true)->findOrEmpty();
             if ($order->isEmpty()) {
@@ -176,6 +198,7 @@ class TenantBrandService
 
     public static function createBrandOrder(int $tenantId, int $userId, int $terminal, array $params): array
     {
+        if (BrandCatalogService::flowEnabled($tenantId)) return BrandWorkflowService::create($tenantId,$userId,$terminal,$params);
         $packageId = (int)($params['package_id'] ?? 0);
         if ($packageId <= 0) {
             throw new RuntimeException('请选择套餐');
@@ -246,6 +269,9 @@ class TenantBrandService
 
     public static function handleBrandOrderPaid(string $orderSn, array $extra = []): void
     {
+        if ((int)TenantBrandOrder::where('order_sn',$orderSn)->value('flow_version',1)===2) {
+            BrandPaymentService::recordVerified((array)($extra['receipt']??[])); return;
+        }
         $now = time();
         Db::transaction(function () use ($orderSn, $extra, $now) {
             $order = TenantBrandOrder::where('order_sn', $orderSn)->lock(true)->findOrEmpty();
@@ -279,9 +305,9 @@ class TenantBrandService
 
     public static function expirePendingOrders(): int
     {
-        $expired = 0;
+        $expired = BrandWorkflowService::expire();
         $rows = TenantBrandOrder::where('pay_status', PayEnum::UNPAID)
-            ->where('reserve_status', self::RESERVE_ACTIVE)
+            ->where('flow_version', 1)->where('reserve_status', self::RESERVE_ACTIVE)
             ->where('reserve_expire_time', '<=', time())
             ->column('order_sn');
         foreach ($rows as $orderSn) {
@@ -306,8 +332,9 @@ class TenantBrandService
         return $row;
     }
 
-    public static function formatBrandOrder(array $row): array
+    public static function formatBrandOrder(array $row, string $role = 'tenant'): array
     {
+        if ((int)($row['flow_version']??1)===2) return BrandOrderPolicy::present($row,$role);
         unset($row['admin_password_hash']);
         $row['order_amount'] = self::formatAmount((float)($row['order_amount'] ?? 0));
         $row['unit_price'] = self::formatAmount((float)($row['unit_price'] ?? 0));
