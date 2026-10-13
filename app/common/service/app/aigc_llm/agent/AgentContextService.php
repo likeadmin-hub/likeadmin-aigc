@@ -34,7 +34,7 @@ final class AgentContextService
     {
         self::assertSession($run);
         return Db::transaction(static function()use($run){
-            AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'delete_time'=>0])->lock(true)->find();
+            if(!AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'delete_time'=>0])->lock(true)->find())throw new \InvalidArgumentException('会话不存在');
             $row=self::owned('context',$run)->find();
             if(!$row){
                 self::owned('context',$run)->insert(['tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'session_id'=>$run['session_id'],'summary'=>'{}','focus'=>'{}','through_message_id'=>0,'focus_run_id'=>0,'create_time'=>time(),'update_time'=>time()]);
@@ -121,9 +121,9 @@ final class AgentContextService
                 if($remaining--<=0)break;
                 $prepared=AgentStore::json($step['prepared']);$params=array_intersect_key($prepared['params']??[],array_flip(['prompt','negative_prompt','duration','resolution','ratio','quality','quantity','model_id']));
                 foreach($params as &$value)if(is_string($value))$value=self::excerpt($value,280);unset($value);
-                $items[]=['step_id'=>(int)$step['id'],'title'=>$step['title'],'tool'=>$step['tool_code'],'status'=>$step['status'],'task_id'=>(int)$step['task_id'],'parameters'=>$params,'reference_file_ids'=>$prepared['inputs']['reference_images']??[],'estimated_points'=>$prepared['quote']['user']??null];
+                $items[]=['step_id'=>(int)$step['id'],'title'=>$step['title'],'tool'=>$step['tool_code'],'status'=>$step['status'],'error'=>self::excerpt((string)($step['error']??''),200),'task_id'=>(int)$step['task_id'],'parameters'=>$params,'reference_file_ids'=>$prepared['inputs']['reference_images']??[],'estimated_points'=>$prepared['quote']['user']??null];
             }
-            $out[]=['run_id'=>(int)$row['id'],'request'=>self::excerpt((string)$row['content'],220),'status'=>$row['status'],'phase'=>$row['phase'],'cancel_requested'=>(bool)$row['cancel_requested'],'steps'=>$items];
+            $out[]=['run_id'=>(int)$row['id'],'request'=>self::excerpt((string)$row['content'],220),'status'=>$row['status'],'error'=>self::excerpt((string)($row['error']??''),200),'phase'=>$row['phase'],'cancel_requested'=>(bool)$row['cancel_requested'],'steps'=>$items];
         }
         return $out;
     }
