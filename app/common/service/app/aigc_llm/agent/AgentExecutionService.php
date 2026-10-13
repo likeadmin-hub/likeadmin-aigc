@@ -208,13 +208,13 @@ final class AgentExecutionService
     {
         $steps=AgentStore::table('step')->where('run_id',$run['id'])->order('id')->select()->toArray();$waiting=false;$failed=false;$success=false;$review=false;
         foreach($steps as $step){
-            if(in_array($step['status'],['success','failed','canceled','needs_review'],true)){$success=$success||$step['status']==='success';$failed=$failed||$step['status']==='failed';$review=$review||$step['status']==='needs_review';continue;}
+            if(in_array($step['status'],['success','failed','canceled','needs_review'],true)){$success=$success||$step['status']==='success';$failed=$failed||$step['status']==='failed'||(AgentStore::json($step['result'])['status']??'')==='partial_success';$review=$review||$step['status']==='needs_review';continue;}
             $current=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
             if((int)$current['cancel_requested']&&$step['status']==='proposed'){AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'canceled','update_time'=>time()]);continue;}
             $prepared=AgentStore::json($step['prepared']);
             if($step['status']==='proposed'){
                 self::checkpoint($run);
-                try{$fresh=AgentCapabilityCatalog::prepare($run,$step['tool_code'],$prepared['params']);}
+                try{$fresh=AgentCapabilityCatalog::prepare($run,$step['tool_code'],$prepared['inputs']??[]);}
                 catch(\Exception $e){AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'failed','error'=>'当前模型、权限或报价不可用，请调整后重试','update_time'=>time()]);$failed=true;continue;}
                 if(AgentToolContext::priceFingerprint($fresh['quote'])!==AgentToolContext::priceFingerprint($prepared['quote'])||$fresh['capability']['version']!==$prepared['capability']['version']){
                     AgentStore::table('step')->where('id',$step['id'])->update(['prepared'=>AgentStore::encode($fresh),'update_time'=>time()]);
@@ -231,6 +231,7 @@ final class AgentExecutionService
                     AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'needs_review','error'=>'提交结果待核对，请勿重复提交','update_time'=>time()]);$review=true;continue;
                 }
                 $taskId=(int)($result['task_id']??0);
+                if($taskId<1){AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'needs_review','error'=>'未收到有效任务标识，请勿重复提交','update_time'=>time()]);$review=true;continue;}
                 AgentStore::table('step')->where('id',$step['id'])->update(['task_id'=>$taskId,'result'=>AgentStore::encode($result),'status'=>'running','update_time'=>time()]);
                 $step['task_id']=$taskId;
             }else{
@@ -248,7 +249,7 @@ final class AgentExecutionService
             if($done){try{AgentArtifactService::collect($run,$step,$result);}catch(\Throwable $e){$waiting=true;continue;}}
             AgentStore::table('step')->where('id',$step['id'])->update(['status'=>$state,'result'=>AgentStore::encode($result),'error'=>$error?'生成未完成，请检查该任务后重试':'','update_time'=>time()]);
             AgentStore::event($run,'task.updated',['step_id'=>$step['id'],'status'=>$state]);
-            $waiting=$waiting||!($done||$error);$failed=$failed||$error;$success=$success||$done;
+            $waiting=$waiting||!($done||$error);$failed=$failed||$error||$status==='partial_success';$success=$success||$done;
         }
         if($waiting){AgentStore::update($run,['status'=>'waiting_tasks','next_run_time'=>time()+5,'lease_token'=>'','lease_until'=>0]);return;}
         $current=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);

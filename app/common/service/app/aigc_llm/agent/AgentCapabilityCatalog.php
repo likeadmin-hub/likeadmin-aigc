@@ -13,7 +13,7 @@ final class AgentCapabilityCatalog
     private const SERVICES=['aigc_image'=>AigcImageService::class,'aigc_video'=>AigcVideoService::class];
     public static function schema(string $code): array
     {
-        $properties=['prompt'=>['type'=>'string','minLength'=>1,'maxLength'=>10000],'negative_prompt'=>['type'=>'string','maxLength'=>4000],'ratio'=>['type'=>'string'],'reference_images'=>['type'=>'array','maxItems'=>8,'items'=>['type'=>'string'],'description'=>'用户素材的 file_id；禁止构造或猜测地址']];
+        $properties=['prompt'=>['type'=>'string','minLength'=>1,'maxLength'=>10000],'negative_prompt'=>['type'=>'string','maxLength'=>4000],'ratio'=>['type'=>'string'],'reference_images'=>['type'=>'array','maxItems'=>8,'items'=>['type'=>'string','pattern'=>'^of_[a-f0-9]{32}$'],'description'=>'用户素材的 file_id；禁止构造或猜测地址']];
         if($code==='aigc_image')$properties+=['quantity'=>['type'=>'integer','minimum'=>1,'maximum'=>4],'quality'=>['type'=>'string']];
         else $properties+=['duration'=>['type'=>'integer','minimum'=>1,'maximum'=>60],'resolution'=>['type'=>'string']];
         return ['type'=>'object','properties'=>$properties,'required'=>['prompt'],'additionalProperties'=>false];
@@ -45,7 +45,7 @@ final class AgentCapabilityCatalog
         // Only fields declared by this native adapter are accepted from the model.
         unset($params['model_id'],$params['channel']);
         OpenSchema::validateRequest($params,self::schema($code),true);
-        OpenPolicy::validateInput($params);
+        OpenPolicy::validateInput($params);$inputs=$params;
         $params=OpenMaterials::resolve($tenant,$user,$params);OpenSafeHttp::checkInputs($params);
         $type=$code==='aigc_image'?'image':'video';$model=(string)(AgentStore::json($run['preferences'])['models'][$type]??'');
         if($model==='')throw new \InvalidArgumentException('请先在模型偏好中选择'.$type.'模型');
@@ -56,7 +56,7 @@ final class AgentCapabilityCatalog
             if(!$quote)throw new \InvalidArgumentException('当前视频模型无法提供可靠估价');
             $quote['snapshot']['native_video_blob']=OpenVault::seal(OpenStore::encode(['tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>$code]+$capture));
         }
-        return ['capability'=>['code'=>$code,'name'=>$type==='image'?'生成图片':'生成视频','version'=>'home-1'],'params'=>$params,'quote'=>$quote];
+        return ['capability'=>['code'=>$code,'name'=>$type==='image'?'生成图片':'生成视频','version'=>'home-1'],'inputs'=>$inputs,'params'=>$params,'quote'=>$quote];
     }
     public static function submit(array $prepared): array
     {
