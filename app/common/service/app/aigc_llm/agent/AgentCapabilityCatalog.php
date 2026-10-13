@@ -35,7 +35,9 @@ final class AgentCapabilityCatalog
     }
     public static function models(int $tenant): array
     {
-        return ['text'=>AigcLlmService::config($tenant)['option_config']??[],'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>AigcVideoService::config($tenant)['option_config']??[]];
+        $text=AigcLlmService::config($tenant)['option_config']??[];
+        $text['models']=array_values(array_filter($text['models']??[],static function($model)use($tenant){try{\app\common\service\power\MarketTextModelRuntimeService::resolveAgentModel($tenant,(string)$model['code']);return true;}catch(\Exception){return false;}}));
+        return ['text'=>$text,'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>AigcVideoService::config($tenant)['option_config']??[]];
     }
     public static function prepare(array $run,string $code,array $params): array
     {
