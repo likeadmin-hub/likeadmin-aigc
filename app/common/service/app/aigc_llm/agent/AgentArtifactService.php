@@ -35,11 +35,18 @@ final class AgentArtifactService
     {
         $tenant=(int)$artifact['tenant_id'];$user=(int)$artifact['user_id'];
         $step=AgentStore::owner('step',$tenant,$user)->where(['id'=>$artifact['step_id'],'run_id'=>$artifact['run_id']])->find();
-        if(!$step||!in_array($step['tool_code'],['aigc_image','aigc_video'],true)||!(int)$step['task_id'])return null;
+        if(!$step||!in_array($step['tool_code'],['aigc_image','aigc_video','aigc_music','aigc_fitting'],true)||!(int)$step['task_id'])return null;
         $task=Db::name($step['tool_code'].'_task')->where(['id'=>$step['task_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find();
         if(!$task)return null;
+        if($step['tool_code']==='aigc_fitting'){
+            $reference=self::libraryReference($artifact);
+            if(!$reference)return null;
+            $taskId=Db::name('aigc_image_result')->where(['id'=>(int)substr($reference,13),'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->value('task_id');
+            $task=Db::name('aigc_image_task')->where(['id'=>$taskId,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find();
+            if(!$task)return null;
+        }
         // Whitelist public creation settings; model snapshots can contain provider credentials.
-        $meta=array_intersect_key($task,array_flip(['prompt','negative_prompt','quality','ratio','duration','quantity','style']));
+        $meta=array_intersect_key($task,array_flip(['prompt','negative_prompt','quality','ratio','duration','quantity','style','lyrics','genre','mood','instruments','language']));
         $meta['model_name']=AiTaskRecordService::modelDisplayName($task,$step['tool_code']);
         $snapshot=AgentStore::json($task['model_json']??[]);
         $meta['effect_name']=(string)($snapshot['effect_snapshot']['name']??'');
@@ -77,7 +84,7 @@ final class AgentArtifactService
         if(!(int)$artifact['step_id'])return null; // Standalone documents keep their session favorite.
         $tenant=(int)$artifact['tenant_id'];$user=(int)$artifact['user_id'];
         $step=AgentStore::owner('step',$tenant,$user)->where(['id'=>$artifact['step_id'],'run_id'=>$artifact['run_id']])->find();
-        $sources=['aigc_image'=>['image','image_uri'],'aigc_video'=>['video','video_uri']];
+        $sources=['aigc_image'=>['image','image_uri'],'aigc_video'=>['video','video_uri'],'aigc_music'=>['music','audio_uri'],'aigc_fitting'=>['image','image_uri']];
         if(!$step||!isset($sources[$step['tool_code']])||!(int)$step['task_id'])return null;
         $data=AgentStore::json($artifact['data']);
         $file=OpenStore::owner('file',$tenant,$user)->where('file_id',$data['file_id']??'')->find();
@@ -85,8 +92,14 @@ final class AgentArtifactService
         [$source,$uriField]=$sources[$step['tool_code']];
         $scope=['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$step['task_id'],'delete_time'=>0,$uriField=>$file['uri']];
         foreach(['storage_scope','storage_engine','storage_domain'] as $field)$scope[$field]=$file[$field]??'';
-        if(!Db::name($step['tool_code'].'_task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$step['task_id'],'delete_time'=>0])->find())return null;
-        $id=Db::name($step['tool_code'].'_result')->where($scope)->value('id');
+        $task=Db::name($step['tool_code'].'_task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$step['task_id'],'delete_time'=>0])->find();
+        if(!$task)return null;
+        if($step['tool_code']==='aigc_fitting'){
+            unset($scope['task_id']);
+            $ids=array_filter(array_map('intval',array_merge(AgentStore::json($task['image_task_ids']??[]),[$task['image_task_id']??0])));
+            if(!$ids)return null;
+            $id=Db::name('aigc_image_result')->where($scope)->whereIn('task_id',$ids)->value('id');
+        }else $id=Db::name($step['tool_code'].'_result')->where($scope)->value('id');
         return $id ? $source.':result:'.$id : null;
     }
     private static function save(array $run,int $step,string $title,string $kind,string $file,array $storage,array $extra=[]): void

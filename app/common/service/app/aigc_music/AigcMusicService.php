@@ -105,13 +105,14 @@ class AigcMusicService
             self::assertAsset($tenantId, $payload['reference_asset_id'], $userId);
         }
         self::recordSafetyAudit($tenantId, $userId, 'task', 0, 'prompt_review', 'passed', $payload['prompt'] . ' ' . $payload['lyrics']);
-        $frozen=\app\common\service\open_platform\OpenToolPricing::forRequest(self::APP_CODE,$tenantId,$userId);
+        $agent=\app\common\service\app\aigc_llm\agent\AgentToolContext::music($tenantId,$userId);
+        $frozen=$agent??\app\common\service\open_platform\OpenToolPricing::forRequest(self::APP_CODE,$tenantId,$userId);
         $selection = $frozen['selection']??AigcMusicChannelService::resolveSelection($tenantId, $params);
         $selection['resource_bindings']??=self::referenceBindings($tenantId,$userId,$params);
         $estimate = $frozen['quote']??AigcMusicChannelService::estimateSelection($selection,$params);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
-        $duplicate = self::findRecentDuplicateTask($tenantId, $userId, $payload);
+        $duplicate = $agent ? null : self::findRecentDuplicateTask($tenantId, $userId, $payload);
         if ($duplicate) {
             return self::duplicateResponse($duplicate, $tenantId, $userId);
         }
@@ -141,6 +142,7 @@ class AigcMusicService
             'provider' => $selection['channel']['provider'],
             'model' => $selection['channel']['model'],
             'idempotency_key' => self::idempotencyKey($payload),
+            'provider_payload' => $agent ? ['home_agent_step_id'=>\app\common\service\app\aigc_llm\agent\AgentToolContext::musicStepId()] : [],
             'billing_status' => 'prechecked',
             'safety_status' => 'passed',
             'status' => 'running',
@@ -151,10 +153,11 @@ class AigcMusicService
             'update_time' => time(),
         ]);
 
+        \app\common\service\app\aigc_llm\agent\AgentToolContext::bindMusicTask($tenantId,$userId,(int)$task['id']);
         $request = self::buildRequest($task, $selection, $payload);
         $result = self::providerFor((string)$selection['channel']['provider'])->generate($request);
         $task->provider_task_id = $result->providerTaskId;
-        $task->provider_payload = ['submit' => $result->raw];
+        $task->provider_payload = array_merge((array)$task['provider_payload'],['submit' => $result->raw]);
         $task->update_time = time();
         if (!$result->success) {
             $task->status = 'failed';
@@ -721,7 +724,7 @@ class AigcMusicService
                 Db::commit();
                 return $existing;
             }
-            $frozen=\app\common\service\open_platform\OpenToolPricing::forTask(self::APP_CODE,$tenantId,$userId,(int)$task['id']);
+            $frozen=\app\common\service\app\aigc_llm\agent\AgentToolContext::music($tenantId,$userId,(int)$task['id'],(int)($task['provider_payload']['home_agent_step_id']??0))??\app\common\service\open_platform\OpenToolPricing::forTask(self::APP_CODE,$tenantId,$userId,(int)$task['id']);
             if($frozen)$selection=$frozen['selection'];
             $storage = StorageConfigService::getEffectiveConfig($tenantId);
             $domain = StorageConfigService::getEffectiveDomain($tenantId);
@@ -822,7 +825,7 @@ class AigcMusicService
                 if (!self::isAsyncProvider((string)$task['provider'])) {
                     continue;
                 }
-                $frozen=\app\common\service\open_platform\OpenToolPricing::forTask(self::APP_CODE,$tenantId,(int)$task['user_id'],(int)$task['id']);
+                $frozen=\app\common\service\app\aigc_llm\agent\AgentToolContext::music($tenantId,(int)$task['user_id'],(int)$task['id'],(int)($task['provider_payload']['home_agent_step_id']??0))??\app\common\service\open_platform\OpenToolPricing::forTask(self::APP_CODE,$tenantId,(int)$task['user_id'],(int)$task['id']);
                 $selection = $frozen['selection']??AigcMusicChannelService::resolveSelection($tenantId, [
                     'channel' => $task['channel'],
                     'quality' => $task['quality'],

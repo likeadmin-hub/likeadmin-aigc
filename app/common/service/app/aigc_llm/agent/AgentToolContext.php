@@ -24,8 +24,36 @@ final class AgentToolContext
     }
     public static function image(int $tenant,int $user): ?array
     {
-        $value=self::snapshot($tenant,$user,'aigc_image','native_selection_blob');
+        $app=self::$prepared['capability']['code']??'';
+        if(!in_array($app,['aigc_image','aigc_fitting'],true))return null;
+        $value=self::snapshot($tenant,$user,$app,'native_selection_blob');
         return $value?['selection'=>$value['selection'],'quote'=>self::$prepared['quote']['snapshot']['quote'],'request_id'=>'']:null;
+    }
+    public static function music(int $tenant,int $user,int $task=0,int $stepId=0): ?array
+    {
+        $prepared=self::$prepared;
+        if($task>0){
+            if($stepId<1)return null;
+            $step=AgentStore::owner('step',$tenant,$user)->where(['id'=>$stepId,'tool_code'=>'aigc_music','task_id'=>$task])->order('id')->find();
+            if(!$step)throw new \RuntimeException('音乐任务价格记录不存在，请人工核对');
+            $prepared=AgentStore::json($step['prepared']);
+        }
+        if(($prepared['capability']['code']??'')!=='aigc_music')return null;
+        $value=OpenStore::json(OpenVault::open($prepared['quote']['snapshot']['native_selection_blob']??''));
+        if((int)($value['tenant_id']??0)!==$tenant||(int)($value['user_id']??0)!==$user||($value['app_code']??'')!=='aigc_music')throw new \RuntimeException('音乐价格归属不匹配');
+        return ['selection'=>$value['selection'],'quote'=>$prepared['quote']['snapshot']['quote'],'request_id'=>''];
+    }
+    public static function musicStepId(): int
+    {
+        return (self::$prepared['capability']['code']??'')==='aigc_music'?(int)(self::$prepared['step_id']??0):0;
+    }
+    /** Bind before supplier I/O, so polling and restart always find the approved price. */
+    public static function bindMusicTask(int $tenant,int $user,int $task): void
+    {
+        if((self::$prepared['capability']['code']??'')!=='aigc_music')return;
+        self::music($tenant,$user);
+        $changed=AgentStore::owner('step',$tenant,$user)->where(['id'=>self::$prepared['step_id']??0,'run_id'=>self::$prepared['run_id']??0,'status'=>'submitting','task_id'=>0])->update(['task_id'=>$task,'update_time'=>time()]);
+        if(!$changed)throw new \RuntimeException('音乐任务绑定失败，请核对执行状态');
     }
     public static function priceFingerprint(array $quote): string
     {

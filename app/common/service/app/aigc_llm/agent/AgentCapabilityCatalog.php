@@ -5,14 +5,17 @@ use app\common\service\app\AppAccessService;
 use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_video\AigcVideoService;
-use app\common\service\open_platform\{OpenSchema,OpenMaterials,OpenPolicy,OpenSafeHttp,OpenImagePricing,OpenToolAdapter,OpenToolRequest,OpenVault,OpenStore};
+use app\common\service\open_platform\{OpenToolPricing,OpenSchema,OpenMaterials,OpenPolicy,OpenSafeHttp,OpenImagePricing,OpenToolAdapter,OpenToolRequest,OpenVault,OpenStore};
 
 /** Reviewed native adapters. Public API publication and API keys are separate from logged-in users. */
 final class AgentCapabilityCatalog
 {
-    private const SERVICES=['aigc_image'=>AigcImageService::class,'aigc_video'=>AigcVideoService::class];
+    private const SERVICES=['aigc_image'=>AigcImageService::class,'aigc_video'=>AigcVideoService::class,'aigc_music'=>\app\common\service\app\aigc_music\AigcMusicService::class,'aigc_fitting'=>\app\common\service\app\aigc_fitting\AigcFittingService::class];
+    public const TYPES=['aigc_image'=>'image','aigc_video'=>'video','aigc_music'=>'music','aigc_fitting'=>'image'];
+    private const NAMES=['aigc_image'=>'图片创作','aigc_video'=>'视频创作','aigc_music'=>'音乐创作','aigc_fitting'=>'AI试衣'];
     public static function schema(string $code): array
     {
+        if(in_array($code,['aigc_music','aigc_fitting'],true))return AgentExtendedTools::schema($code);
         $properties=['prompt'=>['type'=>'string','minLength'=>1,'maxLength'=>10000],'negative_prompt'=>['type'=>'string','maxLength'=>4000],'ratio'=>['type'=>'string'],'reference_images'=>['type'=>'array','maxItems'=>8,'items'=>['type'=>'string','pattern'=>'^of_[a-f0-9]{32}$'],'description'=>'用户素材的 file_id；禁止构造或猜测地址']];
         if($code==='aigc_image')$properties+=['quantity'=>['type'=>'integer','minimum'=>1,'maximum'=>4],'quality'=>['type'=>'string']];
         else $properties+=['duration'=>['type'=>'integer','minimum'=>1,'maximum'=>60],'resolution'=>['type'=>'string']];
@@ -29,7 +32,7 @@ final class AgentCapabilityCatalog
         $out=[];
         foreach(self::SERVICES as $code=>$service){
             try{self::authorize($tenant,$user,$code);}catch(\InvalidArgumentException){continue;}
-            $out[$code]=['code'=>$code,'name'=>$code==='aigc_image'?'图片创作':'视频创作','description'=>$code==='aigc_image'?'文字或参考图生成图片':'文字或参考图生成视频','schema'=>self::schema($code),'version'=>'home-1','model_options'=>$service::config($tenant)['option_config']??[]];
+            $out[$code]=['code'=>$code,'name'=>self::NAMES[$code],'description'=>match($code){'aigc_image'=>'文字或参考图生成图片','aigc_video'=>'文字或参考图生成视频','aigc_music'=>'生成歌曲或纯音乐，不是朗读配音 TTS','aigc_fitting'=>'用户上传服装图和模特图生成试衣图片'},'schema'=>self::schema($code),'version'=>'home-1','model_options'=>$service::config($tenant)['option_config']??[]];
         }
         return $out;
     }
@@ -37,16 +40,16 @@ final class AgentCapabilityCatalog
     {
         $text=AigcLlmService::config($tenant)['option_config']??[];
         $text['models']=array_values(array_filter($text['models']??[],static function($model)use($tenant){try{\app\common\service\power\MarketTextModelRuntimeService::resolveAgentModel($tenant,(string)$model['code']);return true;}catch(\Exception){return false;}}));
-        return ['text'=>$text,'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>AigcVideoService::config($tenant)['option_config']??[]];
+        return ['text'=>$text,'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>AigcVideoService::config($tenant)['option_config']??[],'music'=>self::SERVICES['aigc_music']::config($tenant)['option_config']??[]];
     }
     public static function describe(array $run,string $code): array
     {
         self::authorize((int)$run['tenant_id'],(int)$run['user_id'],$code);
-        $type=$code==='aigc_image'?'image':'video';
+        $type=self::TYPES[$code];
         $selection=(string)(AgentStore::json($run['preferences'])['models'][$type]??'');
         return ['code'=>$code,'schema'=>self::schema($code),'selected_model'=>AgentCreationContext::selectedModel(
             self::SERVICES[$code]::config((int)$run['tenant_id'])['option_config']??[],$selection),
-            'instruction'=>'只能使用 selected_model；不自行替换。费用只能引用 plan_creation 成功返回的估价。素材传 reference_images 的 file_id。参数不兼容时解释具体原因，不能声称方案已经保存。'];
+            'instruction'=>'只能使用 selected_model；不自行替换。费用只能引用 plan_creation 成功返回的估价。素材字段仅传用户 file_id；试衣分别传 garment_images 服装图、model_images 模特图，不能猜测角色。音乐只支持歌曲或纯音乐，不支持配音/TTS。参数不兼容时解释具体原因，不能声称方案已经保存。'];
     }
     public static function prepare(array $run,string $code,array $params): array
     {
@@ -56,16 +59,24 @@ final class AgentCapabilityCatalog
         OpenSchema::validateRequest($params,self::schema($code),true);
         OpenPolicy::validateInput($params);$inputs=$params;
         $params=OpenMaterials::resolve($tenant,$user,$params);OpenSafeHttp::checkInputs($params);
-        $type=$code==='aigc_image'?'image':'video';$model=(string)(AgentStore::json($run['preferences'])['models'][$type]??'');
+        $type=self::TYPES[$code];$model=(string)(AgentStore::json($run['preferences'])['models'][$type]??'');
         if($model==='')throw new \InvalidArgumentException('请先在模型偏好中选择'.$type.'模型');
         $params['model_id']=$model;$params['channel']=$model;
-        if($code==='aigc_image')$quote=OpenImagePricing::applicationBudget($tenant,$user,$params);
+        if($code==='aigc_music')$quote=OpenToolPricing::applicationMusicBudget($tenant,$user,$params);
+        elseif($code==='aigc_fitting'){
+            $params['mode']='custom';$quote=OpenImagePricing::applicationFittingBudget($tenant,$user,$params);
+            $recipe=OpenStore::json(OpenVault::open($quote['snapshot']['native_prepared_blob']))['prepared']['image_payload'];
+            if((string)$recipe['model_id']!==$model)throw new \InvalidArgumentException('所选图片模型不支持试衣，请在模型偏好中选择支持的模型');
+            foreach(['quality','ratio'] as $field)if(!empty($params[$field])&&(string)$params[$field]!== (string)$recipe[$field])throw new \InvalidArgumentException('所选试衣模型不支持此规格，请调整画质或比例');
+            $params=array_replace($params,array_intersect_key($recipe,array_flip(['quality','ratio','quantity'])));
+        }
+        elseif($code==='aigc_image')$quote=OpenImagePricing::applicationBudget($tenant,$user,$params);
         else{
             $capture=AigcVideoService::openPlatformAdmission($tenant,$params);$quote=OpenToolAdapter::estimateBudget($capture['quote']);
             if(!$quote)throw new \InvalidArgumentException('当前视频模型无法提供可靠估价');
             $quote['snapshot']['native_video_blob']=OpenVault::seal(OpenStore::encode(['tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>$code]+$capture));
         }
-        return ['capability'=>['code'=>$code,'name'=>$type==='image'?'生成图片':'生成视频','version'=>'home-1'],'inputs'=>$inputs,'params'=>$params,'quote'=>$quote];
+        return ['run_id'=>(int)$run['id'],'capability'=>['code'=>$code,'name'=>self::NAMES[$code],'version'=>'home-1'],'inputs'=>$inputs,'params'=>$params,'quote'=>$quote];
     }
     public static function submit(array $prepared): array
     {

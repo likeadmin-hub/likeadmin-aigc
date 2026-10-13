@@ -7,6 +7,13 @@ final class OpenToolPricing
     public static function musicBudget($request,array $params): array
     {
         OpenToolAdapter::authorize((int)$request->tenantId,(int)$request->userId,'aigc_music');
+        return self::applicationMusicBudget((int)$request->tenantId,(int)$request->userId,$params);
+    }
+    public static function applicationMusicBudget(int $tenant,int $user,array $params): array
+    {
+        $request=(object)['tenantId'=>$tenant,'userId'=>$user];
+        $denied=\app\common\service\app\AppAccessService::assertTenantCanUse($tenant,'aigc_music',$user,true,false);
+        if($denied)throw new OpenException('permission_denied','音乐工具不可用',403);
         $selection=AigcMusicChannelService::resolveSelection((int)$request->tenantId,$params);
         $selection['resource_bindings']=\app\common\service\app\aigc_music\AigcMusicService::referenceBindings((int)$request->tenantId,(int)$request->userId,$params);
         if(!in_array(strtolower(trim($selection['channel']['provider'])),['xhadmin','xhadmin_aigc_music','music_generation'],true))throw new OpenException('capability_unavailable','当前音乐通道尚未接入真实生成能力',503);
