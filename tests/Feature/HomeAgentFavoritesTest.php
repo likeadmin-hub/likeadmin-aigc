@@ -1,6 +1,7 @@
 <?php
 // Local, rollback-only fixtures. No provider calls or physical files are created.
 require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
+set_exception_handler(static function(Throwable $e){fwrite(STDERR,$e->getMessage().PHP_EOL);exit(1);});
 use think\facade\Db;
 use app\common\service\WorkspaceAssetService as Library;
 use app\common\service\app\aigc_llm\agent\{AgentArtifactService as Artifacts,AgentStore as S};
@@ -20,7 +21,7 @@ Db::startTrans();try{
   $app='aigc_'.$kind;$uri='uploads/favorite-fixture-'.$kind;$storage=['storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>''];
   $task=Db::name($app.'_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','create_time'=>time()]);
   $result=Db::name($app.'_result')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$task,$kind.'_uri'=>$uri,'create_time'=>time()]+$storage);
-  $step=S::table('step')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'run_id'=>$run,'step_key'=>hash('sha256',$kind),'title'=>'fixture','tool_code'=>$app,'task_id'=>$task,'status'=>'success','prepared'=>'{}','result'=>'{}','create_time'=>time()]);
+  $step=S::table('step')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'run_id'=>$run,'step_key'=>hash('sha256',$kind),'title'=>'fixture','tool_code'=>$app,'task_id'=>$task,'status'=>'success','prepared'=>'{}','result'=>'{}','create_time'=>time(),'update_time'=>time()]);
   $file='of_'.bin2hex(random_bytes(16));OpenStore::table('file')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'file_id'=>$file,'uri'=>$uri,'name'=>'fixture','mime'=>'','size'=>0]+$storage+OpenStore::timestamp());
   $artifact=S::table('artifact')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'session_id'=>$session,'run_id'=>$run,'step_id'=>$step,'identity_hash'=>hash('sha256',$file),'title'=>'fixture','kind'=>$kind,'data'=>S::encode(['file_id'=>$file]),'favorite'=>1,'create_time'=>time()]+$storage);
   $ref=$kind.':result:'.$result;
