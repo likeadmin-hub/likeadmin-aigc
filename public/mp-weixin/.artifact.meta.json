@@ -1,7 +1,7 @@
 {
-  "version": "1.0.393",
-  "source_sha": "a93bcac4952252c2c7608cc2c9200a6f2ba26d5a",
-  "built_at": "2026-10-12T15:46:26.895Z",
+  "version": "1.0.394",
+  "source_sha": "9d465a989d06c5562ab3978bdfc9f2306aaf8bf0",
+  "built_at": "2026-10-13T02:20:24.447Z",
   "file_count": 1184,
   "files": {
     "api/account.js": "71fb4799e085c4e4712fb9e98671b6ba3cac1c7606b5e194d88235cb8aec8299",
@@ -614,7 +614,7 @@
     "apps/smart_clip/pages/tasks/tasks.wxml": "9f441e5e5367e20a754e51ad9860593dd1f3ab3f991995fd22ce6f1777550427",
     "apps/smart_clip/pages/tasks/tasks.wxss": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "common/assets.js": "cd85b1ac21e456200ded8732197679a76fc0d50c4c75b778ecbe069a51399a3a",
-    "common/vendor.js": "ba50671d19ff0c8adc7f44b4f68136b5be79ebfc5176e68e3e3f3c55965cee2d",
+    "common/vendor.js": "db48fd0254ffa210de7bba3e3ee837c86eb8a64b887cc33dcd8b6c69f8dc0b7d",
     "components/avatar-upload/avatar-upload.js": "a0cfb2bd12cc54beb79b0181ebd31295d6f55a578762fb2c6db37cc4d27f0401",
     "components/avatar-upload/avatar-upload.json": "24895392c2dabcba888a181dc9715f2b7ec4a72d2a929e888c8f83bb2ca01011",
     "components/avatar-upload/avatar-upload.wxml": "d59443c7681deae0382639f8f8d42782144d6da8c5690afe7c2bd0d768280fd9",
@@ -623,10 +623,10 @@
     "components/decoration-tab-page/decoration-tab-page.json": "355f38a0ae3e659be45cac49cb09e4708cb0146533aa34f82252db2a3a97f016",
     "components/decoration-tab-page/decoration-tab-page.wxml": "48992b02d6d946079505d16c54fa4af19b670ed5132140663413b4a4aac717b8",
     "components/decoration-tab-page/decoration-tab-page.wxss": "1f20d3e58c2ffeef4486a231e8dd677db8e64bd067449ffcbfc5832f43c9c526",
-    "components/diy/diy-node.js": "74810624005a77161f3441e920a299578d2cb7b4657cdea4bc00222148a71861",
+    "components/diy/diy-node.js": "57aa7e386e1fe65a45d9c4a1122cd981237b68a03cdd838b9ae08e0dd54ade89",
     "components/diy/diy-node.json": "0d7ed9a9ad82cc6073bb9d5ba4c0c9124f423dbf3d2beef7e66de89d95b0f2ca",
-    "components/diy/diy-node.wxml": "b07485c97381e34f9c0e985d159ba7d1deb67a54c18e7b107e7045d382719575",
-    "components/diy/diy-node.wxss": "e75dd1a65aa2bb05394987c346f4cb475da6e8f2eb03b70ad970100f259cb26f",
+    "components/diy/diy-node.wxml": "69a53aac1ffd16788ad6a361ec30a2b5e15749da713832e36b3ebdc9b6c563ef",
+    "components/diy/diy-node.wxss": "d2df7bd04492779853de5df6641b6cac67632dafabb244c81aeb57897715c87f",
     "components/diy/diy-page-loading.js": "a2e82c135b5de479d9565a8dc05a8fa5e98cf2e048fd14cc0a38af1643f4f0d3",
     "components/diy/diy-page-loading.json": "6e72dadc3680e796aee6cd518838aed27738a42c14bf6b1e9a9067044115c815",
     "components/diy/diy-page-loading.wxml": "3309966486aa20ba44b71cd1b58f4f34dd7861fb095b6ae1252f1eff856cc424",
@@ -635,10 +635,10 @@
     "components/diy/diy-page-nav.json": "6e72dadc3680e796aee6cd518838aed27738a42c14bf6b1e9a9067044115c815",
     "components/diy/diy-page-nav.wxml": "e1989bc0778aa30c04a2b6f4c3f17426066123a9ae1ab788b8a36c1d4d02e7b0",
     "components/diy/diy-page-nav.wxss": "cd2866400747501e723929c76471f364e502b7864e69b75d888f1c06e7236454",
-    "components/diy/diy-render.js": "de7b3b77af5f7af99d53d636a52ddf4f1ec899e757dcebfc9cd747b8f50f82d9",
+    "components/diy/diy-render.js": "6d613be985b5d100b93b2bce1309d576f76ee117f8952aaebc8ae35339a25300",
     "components/diy/diy-render.json": "45ce81ae481b013b327d2a0b3c6cb4ec101a18ccdd8d3b41da0652bf49b2c017",
-    "components/diy/diy-render.wxml": "57f4f6acf611453f17b14ca32a2c0821821607679fbc03be28ceabe8d627cf25",
-    "components/diy/diy-render.wxss": "a709b25b645f8d3622b78184edacd3282fed66365e76dee7680b2a8ee42cf290",
+    "components/diy/diy-render.wxml": "38a14bf953f552d6ab8e319c895d0ab88803c93039614367ab4ba54512d64ea2",
+    "components/diy/diy-render.wxss": "29db206f0078c4a443db63e21f532b0a6f75c7e1cb710741bfbe65989e676c6d",
     "components/l-swiper/l-swiper.js": "e46185551ac43f138708ccea6dd49f943e62d7542b805d693eb7ba33867d6700",
     "components/l-swiper/l-swiper.json": "9f82464b2ed6756f3b1630e202170d48633858c80e4a59ad536ea8c0e9656f66",
     "components/l-swiper/l-swiper.wxml": "cc011691f003cc49ed6c8866c12b17d5793c2cd06311c509f8ca154ba732e9cb",
@@ -708,7 +708,7 @@
     "components/widgets/user-info/user-info.json": "f48a786a59e2b39ed424c2b378f4881be631582df208772815c410801cba8fbc",
     "components/widgets/user-info/user-info.wxml": "0fd7306498117ffc0075e2b2f6b2422e0bb233171ef7f353d32760bb2f5ef784",
     "components/widgets/user-info/user-info.wxss": "652d860e816ceae151150f6cbec5707a1eb2fecf40eaf464ecd87195fd8dc38c",
-    "config/index.js": "06f56ff02b4e2a43310e6e5c394dbdaedcac6b22ea5ba3c63b3d006cb0b9e61a",
+    "config/index.js": "9a7163de52f47f80a659a336ab2783f17c4674cc694d27496e3db6fc78fea2d7",
     "config/runtime.js": "fa348b5aff62be595c429df3ada28701e78849ec7130b7c52918e5834a70f741",
     "custom-tab-bar/index.js": "fd09549a903d6b46f08a7cb99fcc5b1a03aca0d28437773a5044c32d11a3acd4",
     "custom-tab-bar/index.json": "6bcc2e9e536384851fcfbdd823aee8ae4331243636adc4a656a64a44d9cf9318",
@@ -1189,5 +1189,5 @@
     "utils/theme.js": "e4c4fbd666eca3132796c5edb24bd7ac949517879d0ae9b5de8d60a83ae6264f",
     "utils/util.js": "7f7d1ddf281aeb65cc3835415b00ff018095362195dc43040b8e99ae93814ace"
   },
-  "sha256": "528077f89735829978ce13a4fdbc5297af7c13e6fea45ceee4146ff5785538a6"
+  "sha256": "6553c38e149f749d440d407801d35187d0a2a170052e5ee0eda64fce62154733"
 }
