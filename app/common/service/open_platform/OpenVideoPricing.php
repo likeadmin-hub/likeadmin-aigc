@@ -15,6 +15,7 @@ final class OpenVideoPricing
     }
     public static function forRequest(int $tenant,int $user): ?array
     {
+        $agent=\app\common\service\app\aigc_llm\agent\AgentToolContext::snapshot($tenant,$user,'aigc_video','native_video_blob');if($agent!==null)return $agent;
         $id=OpenCallContext::id();if($id==='')return null;
         $row=OpenStore::owner('request',$tenant,$user)->where(['request_id'=>$id,'app_code'=>'aigc_video','kind'=>'tool','method'=>'POST','path'=>'/api/v1/tools/aigc_video/tasks'])->find();
         if(!$row)return null;

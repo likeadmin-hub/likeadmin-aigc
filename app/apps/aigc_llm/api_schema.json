@@ -152,6 +152,94 @@
       "scene": "platform_admin",
       "need_login": 1,
       "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_llm.agent/config",
+      "api_method": "GET",
+      "permission_key": "aigc_llm:agent:config:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_llm:agent:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/events",
+      "api_method": "GET",
+      "permission_key": "aigc_llm:agent:events:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/runs",
+      "api_method": "GET",
+      "permission_key": "aigc_llm:agent:runs:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/artifacts",
+      "api_method": "GET",
+      "permission_key": "aigc_llm:agent:artifacts:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/preferences",
+      "api_method": "POST",
+      "permission_key": "aigc_llm:agent:preferences:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/submit",
+      "api_method": "POST",
+      "permission_key": "aigc_llm:agent:submit:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/confirm",
+      "api_method": "POST",
+      "permission_key": "aigc_llm:agent:confirm:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/stop",
+      "api_method": "POST",
+      "permission_key": "aigc_llm:agent:stop:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/favorite",
+      "api_method": "POST",
+      "permission_key": "aigc_llm:agent:favorite:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/upload",
+      "api_method": "POST",
+      "permission_key": "aigc_llm:agent:upload:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
     }
   ]
 }

@@ -5,6 +5,7 @@
 return [
     // 指令定义
     'commands' => [
+        'home-agent:worker' => 'app\\common\\command\\HomeAgentWorker',
         'open-platform:worker' => 'app\\common\\command\\OpenPlatformWorker',
         'short-drama:episode-worker' => 'app\common\command\ShortDramaEpisodeWorker',
         'short-drama:planning-worker' => 'app\common\command\ShortDramaPlanningWorker',
