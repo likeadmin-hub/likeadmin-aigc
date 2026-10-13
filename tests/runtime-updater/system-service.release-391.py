@@ -9,6 +9,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import pathlib
 import shutil
 import stat
@@ -145,7 +146,21 @@ def main():
             phase('prepare')
             if args.recover_from:
                 phase('fail-original'); phase('authorize-recovery')
-            phase('apply'); first = phase('observe'); second = phase('observe')
+            run('docker', 'exec', '-i', name, 'mysql', '-h127.0.0.1', '-uroot', 'mysql', data="SET GLOBAL log_output='TABLE'; SET GLOBAL general_log=ON;", quiet=True)
+            phase('apply')
+            run('docker', 'exec', '-i', name, 'mysql', '-h127.0.0.1', '-uroot', 'mysql', data='SET GLOBAL general_log=OFF;', quiet=True)
+            audit=run('docker','exec','-i',name,'mysql','-h127.0.0.1','-uroot','--batch','--raw','--skip-column-names','mysql',data="SELECT JSON_OBJECT('sql',CAST(argument AS CHAR CHARACTER SET utf8mb4)) FROM general_log WHERE command_type IN ('Query','Execute') ORDER BY event_time;",quiet=True)
+            statements=[json.loads(line)['sql'].strip() for line in audit.splitlines()]
+            # Historic dynamic app migrations must never be replayed. Fresh system provenance has two reviewed PREPAREs.
+            dynamic=[sql for sql in statements if re.match(r'^(SET\s+@|PREPARE\s+stmt)',sql,re.I)]
+            require(not dynamic if args.recover_from else len(dynamic)<=4,'Historical dynamic SQL was replayed')
+            if args.recover_from:
+                repeated=[sql for sql in statements if re.match(r'^(CREATE|ALTER|UPDATE)',sql,re.I) and re.search(r'la_user_asset_(labels|state)|la_tenant_file',sql,re.I)]
+                require(not repeated,'Completed system392 SQL was repeated: '+repr(repeated[:3]))
+                report['already_completed_system_sql_executions']=len(repeated)
+            report['sql_audit_records']=len(statements)
+            report['historical_dynamic_sql_executions']=max(0,len(dynamic)-(0 if args.recover_from else 4))
+            first = phase('observe'); second = phase('observe')
             require(first['migration_rows_sha256'] == second['migration_rows_sha256'] and first['document_rows_sha256'] == second['document_rows_sha256'], 'Repeated fresh observation replayed migration/document writes')
             report['stage'] = 'independent-site-entry'
             output = run('docker', 'exec', php, 'php', '/fixture/site/think', 'list', '--raw', quiet=True)

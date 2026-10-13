@@ -106,6 +106,9 @@ final class System392RecoveryService
             foreach ($columns as $name=>$type) {
                 $column=$byName[$name]??[];$actual=preg_replace('/\b(bigint|int|tinyint)\(\d+\)/','$1',strtolower((string)($column['Type']??'')));
                 if ($actual!==$type || ($column['Null']??'')!==($name==='favorite'?'YES':'NO')) throw new RuntimeException('392已执行字段不完整: '.$table.'.'.$name);
+                $default=in_array($name,['update_time','trashed_at','hidden_at','create_time'],true)?'0':(in_array($name,['label','upload_origin'],true)?'':null);
+                $extra=$table==='user_asset_state' && $name==='id'?'auto_increment':'';
+                if (($column['Default']??null)!==$default || strtolower((string)($column['Extra']??''))!==$extra) throw new RuntimeException('392已执行字段默认值或自增属性不完整: '.$table.'.'.$name);
             }
             if ($table==='tenant_file' && ($byName['upload_origin']['Default']??null)!=='') throw new RuntimeException('上传来源默认值不符合原迁移');
             if ($table!=='tenant_file') {

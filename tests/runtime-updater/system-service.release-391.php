@@ -123,8 +123,15 @@ if($phase==='authorize-recovery'){
  // A missing previously completed table must never be accepted as resumable.
  Db::execute('RENAME TABLE la_user_asset_labels TO la_fixture_hidden_labels');
  try{$class::authorize($id,$state['original_digest'],false);throw new LogicException('Partial SQL state was accepted');}catch(RuntimeException $e){}finally{Db::execute('RENAME TABLE la_fixture_hidden_labels TO la_user_asset_labels');}
+ Db::execute('ALTER TABLE la_user_asset_state MODIFY id bigint unsigned NOT NULL');
+ try{$class::authorize($id,$state['original_digest'],false);throw new LogicException('Missing auto increment was accepted');}catch(RuntimeException $e){}finally{Db::execute('ALTER TABLE la_user_asset_state MODIFY id bigint unsigned NOT NULL AUTO_INCREMENT');}
+ Db::execute('ALTER TABLE la_user_asset_state MODIFY favorite tinyint unsigned NULL DEFAULT 0');
+ try{$class::authorize($id,$state['original_digest'],false);throw new LogicException('Changed default was accepted');}catch(RuntimeException $e){}finally{Db::execute('ALTER TABLE la_user_asset_state MODIFY favorite tinyint unsigned NULL DEFAULT NULL');}
+ $originalTask=Db::name('update_task')->where('package_id',(int)$state['broken_package_id'])->where('action','apply')->find();$error=$originalTask['error'];
+ Db::name('update_task')->where('id',$originalTask['id'])->update(['error'=>'Unknown database interruption']);
+ try{$class::authorize($id,$state['original_digest'],false);throw new LogicException('Unknown original error was accepted');}catch(RuntimeException $e){}finally{Db::name('update_task')->where('id',$originalTask['id'])->update(['error'=>$error]);}
  $class::authorize($id,$state['original_digest'],true);
- release391Result(['phase'=>$phase,'system_sql_verified'=>3,'partial_schema_rejected'=>true]);exit;
+ release391Result(['phase'=>$phase,'system_sql_verified'=>3,'partial_schema_rejected'=>true,'missing_autoincrement_rejected'=>true,'changed_default_rejected'=>true,'unknown_error_rejected'=>true]);exit;
 }
 if($phase==='inspect'){
  $package=Db::name('update_package')->where('id',$id)->find();$tasks=Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply'])->field('id,status,error')->select()->toArray();
