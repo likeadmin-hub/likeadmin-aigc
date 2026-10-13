@@ -23,6 +23,9 @@ Db::startTrans();try{
  $detail=Agent::detail($tenant,$user,(int)$run);
  check($detail['user_message_id']===(int)$message['id'],'Wrong user message association');
  check($detail['attachments'][0]['name']==='fixture.png' && $detail['attachments'][0]['url']!==$snapshot[0]['url'],'Attachment not resolved from owned file');
+ $context=Agent::conversationAttachments(S::run($tenant,$user,(int)$run));
+ check($context[(int)$message['id']][0]['file_id']===$file,'Planner lost owned historical attachment');
+ check(Agent::conversationAttachments(array_replace(S::run($tenant,$user,(int)$run),['user_id'=>$user+1]))===[],'Planner leaked another user history');
  // A newer run list can omit this message; full chat history must still include its attachment.
  for($i=0;$i<31;$i++)S::table('run')->insert($baseRun+['request_id'=>'newer-'.bin2hex(random_bytes(8))]);
  $rows=Chat::messageLists($tenant,$user,(int)$session['id']);
@@ -34,5 +37,6 @@ Db::startTrans();try{
  }
  OpenStore::table('file')->where('file_id',$file)->delete();
  check(Agent::detail($tenant,$user,(int)$run)['attachments'][0]['url']==='','Deleted attachment exposes stale URL');
+ check(Agent::conversationAttachments(S::run($tenant,$user,(int)$run))===[],'Planner retained deleted image');
  echo "Home Agent message attachments passed: send response, history, current URLs, missing files and ownership; rolled back\n";
 }finally{Db::rollback();}
