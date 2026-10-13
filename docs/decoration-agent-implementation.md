@@ -17,7 +17,7 @@
 本地明确核对数据库后：
 `php -r 'require "vendor/autoload.php"; (new think\App())->initialize(); app\common\service\database\SqlMigrationExecutor::execute(file_get_contents("upgrade/20261013_decoration_agent.sql"), config("database.connections.mysql.prefix"));'`
 
-`.env`中`[DECORATION_AGENT] ENABLED=true`；`php think decoration:agent-worker`。默认关闭，服务不可用不影响普通装修。宝塔守护进程使用`scripts/start-decoration-agent-worker.sh`及正确PHP8.2路径。 worker只处理独立记录，异常数据库连接退出供进程管理器重启。
+AI 装修默认可用，不读取环境启用开关（包括历史 ENABLED=false）。模型、依赖或数据库未就绪时显示具体原因，普通装修继续可用。宝塔统一使用 `scripts/start-ai-task-worker.sh`，与原五类队列一起托管 `decoration:agent-worker --sleep=2`；不另建装修守护项。`scripts/start-decoration-agent-worker.sh`仅保留给手工诊断，不与统一入口同时运行。worker只处理独立记录，异常数据库连接退出供进程管理器重启。
 
 ## 协议与恢复
 

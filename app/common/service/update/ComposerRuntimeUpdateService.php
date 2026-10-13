@@ -219,6 +219,9 @@ class ComposerRuntimeUpdateService
             $this->atomicJson($this->store . '/active.json', ['digest'=>$digest]);
             try {
                 if ($journal['sql_state'] !== 'done') {
+                    // A proven pre-SQL refusal must leave sql_state pending so
+                    // stopping a newly started worker permits a safe retry.
+                    if(isset($callbacks['before_sql']))($callbacks['before_sql'])();
                     $journal['sql_state']='running'; $this->atomicJson($journalPath,$journal);
                     ($callbacks['sql'])($generation);
                     $journal['sql_state']='done'; $this->atomicJson($journalPath,$journal);

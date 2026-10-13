@@ -50,7 +50,14 @@ final class DecorationAgentService
     public static function json(mixed $value): string {return json_encode($value,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);}
     public static function decode(mixed $value): array {return is_array($value)?$value:(json_decode((string)$value,true)?:[]);}
     public static function hash(array $page): string {return hash('sha256',self::json($page));}
-    public static function enabled(): bool {return filter_var(config('decoration_agent.enabled',false),FILTER_VALIDATE_BOOLEAN);}
+    /** Missing additive schema is an idle prerequisite, not a group crash. */
+    public static function workerReady(): bool
+    {
+        $prefix=(string)config('database.connections.mysql.prefix','');
+        $tables=array_map(fn($name)=>$prefix.'decorate_agent_'.$name,['session','message','run','candidate','image_slot','checkpoint']);
+        $rows=Db::query('SELECT TABLE_NAME AS table_name FROM information_schema.tables WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (?,?,?,?,?,?)',$tables);
+        return count($rows)===count($tables);
+    }
     private static function q(string $table,int $tenant,int $admin){return Db::name('decorate_agent_'.$table)->where(['tenant_id'=>$tenant,'admin_id'=>$admin]);}
     private static function owned(string $table,int $tenant,int $admin,int $id): array
     {
@@ -59,7 +66,6 @@ final class DecorationAgentService
         if(!$row)throw new RuntimeException('装修记录不存在或无权访问');
         return $row;
     }
-    public static function assertEnabled(): void {if(!self::enabled())throw new RuntimeException('AI智能装修暂未启用');}
     private static function insert(string $table,int $tenant,int $admin,array $data): int
     {return (int)Db::name('decorate_agent_'.$table)->insertGetId($data+['tenant_id'=>$tenant,'admin_id'=>$admin,'create_time'=>time(),'update_time'=>time()]);}
     public static function payload(array $page): array
@@ -75,8 +81,7 @@ final class DecorationAgentService
     public static function bootstrap(int $tenant,int $admin,array $p=[]): array
     {
         $catalog=new DecorationAgentCatalog();
-        $data=['enabled'=>self::enabled(),'catalog_hash'=>$catalog->hash(),'catalog_version'=>$catalog->version(),'text_models'=>[],'image_models'=>[],'limits'=>['model_calls'=>6,'tools'=>20,'images'=>5,'attachments'=>5,'attachment_bytes'=>10485760],'sources'=>['tenant','content','upload','generate']];
-        if(!$data['enabled'])return $data;
+        $data=['enabled'=>true,'catalog_hash'=>$catalog->hash(),'catalog_version'=>$catalog->version(),'text_models'=>[],'image_models'=>[],'limits'=>['model_calls'=>6,'tools'=>20,'images'=>5,'attachments'=>5,'attachment_bytes'=>10485760],'sources'=>['tenant','content','upload','generate']];
         if(!class_exists(Workflow::class)){$data['enabled']=false;$data['reason']='装修Agent运行依赖尚未安装';return $data;}
         try{foreach(['session','message','run','candidate','image_slot','checkpoint'] as $table)self::q($table,$tenant,$admin)->limit(1)->select();}catch(\Throwable $e){$data['enabled']=false;$data['reason']='装修Agent数据尚未初始化';return $data;}
         $data['text_models']=MarketTextModelRuntimeService::textOptions($tenant);
@@ -86,7 +91,7 @@ final class DecorationAgentService
     }
     public static function createSession(int $tenant,int $admin,array $p): array
     {
-        self::assertEnabled();$page=self::page($tenant,(int)($p['template_id']??0),(int)($p['page_id']??0));
+        $page=self::page($tenant,(int)($p['template_id']??0),(int)($p['page_id']??0));
         $id=self::insert('session',$tenant,$admin,['template_id'=>$page['template_id'],'page_id'=>$page['id'],'scope'=>'page','selected_id'=>'','preferences'=>self::json([]),'facts'=>'[]']);
         return self::session($tenant,$admin,$id);
     }
@@ -124,7 +129,7 @@ final class DecorationAgentService
     }
     public static function quote(int $tenant,int $admin,array $p): array
     {
-        self::assertEnabled();$copy=$p;$copy['budget_points']=max(1,(float)($p['budget_points']??1));$input=self::input($tenant,$admin,$copy);
+        $copy=$p;$copy['budget_points']=max(1,(float)($p['budget_points']??1));$input=self::input($tenant,$admin,$copy);
         $s=!empty($p['session_id'])?self::owned('session',$tenant,$admin,(int)$p['session_id']):['template_id'=>(int)($p['template_id']??0),'page_id'=>(int)($p['page_id']??0)];$page=self::payload(self::page($tenant,(int)$s['template_id'],(int)$s['page_id']));
         $model=MarketTextModelRuntimeService::resolveModel($tenant,$input['model_selection'],$input['requires_vision']);
         $estimate=self::textEstimate($model,self::json($page).$input['message'].DecorationAgentDecision::prompt().self::json(self::compactCatalog()));
@@ -133,7 +138,7 @@ final class DecorationAgentService
     }
     public static function start(int $tenant,int $admin,array $p): array
     {
-        self::assertEnabled();$key=trim((string)($p['idempotency_key']??''));if($key===''||strlen($key)>100)throw new RuntimeException('提交标识无效');
+        $key=trim((string)($p['idempotency_key']??''));if($key===''||strlen($key)>100)throw new RuntimeException('提交标识无效');
         $old=self::q('run',$tenant,$admin)->where('idempotency_key',$key)->find();if($old)return self::run($tenant,$admin,(int)$old['id']);
         $input=self::input($tenant,$admin,$p);
         return Db::transaction(function()use($tenant,$admin,$p,$key,$input){
@@ -238,7 +243,7 @@ final class DecorationAgentService
     }
     public static function retryImage(int $tenant,int $admin,array $p): array
     {
-        self::assertEnabled();$hint=self::owned('image_slot',$tenant,$admin,(int)($p['slot_id']??0));return Db::transaction(function()use($tenant,$admin,$p,$hint){
+        $hint=self::owned('image_slot',$tenant,$admin,(int)($p['slot_id']??0));return Db::transaction(function()use($tenant,$admin,$p,$hint){
             // Same order as discard/hydrate/publish: candidate, run, then slot.
             $candidate=self::q('candidate',$tenant,$admin)->where('id',$hint['candidate_id'])->lock(true)->find();if(!$candidate||$candidate['status']==='discarded')throw new RuntimeException('已舍弃的候选不能重新生成或重试图片');
             $run=self::q('run',$tenant,$admin)->where('id',$hint['run_id'])->lock(true)->find();if(!$run)throw new RuntimeException('图片所属执行不存在');if($run['status']==='needs_review')throw new RuntimeException('本轮提交或费用仍待核实，不能追加图片调用');
@@ -258,7 +263,6 @@ final class DecorationAgentService
     }
     public static function tick(int $tenant=0): int
     {
-        if(!self::enabled())return 0;
         $q=Db::name('decorate_agent_run')->whereIn('status',['queued','running','waiting_images'])->where('next_run_time','<=',time())->where('lease_expire_time','<',time());if($tenant>0)$q->where('tenant_id',$tenant);
         $ids=$q->order('id')->limit(10)->column('id');$count=0;
         foreach($ids as $id){$token=bin2hex(random_bytes(16));$claimed=Db::name('decorate_agent_run')->where('id',$id)->where('lease_expire_time','<',time())->whereIn('status',['queued','running','waiting_images'])->update(['lease_token'=>$token,'lease_expire_time'=>time()+600]);if(!$claimed)continue;

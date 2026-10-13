@@ -480,9 +480,19 @@ docker compose --env-file .env.docker ps -a
 
 
 
+## 系统更新与 AI 装修
+
+AI 智能装修默认可用，无需添加环境开关；历史 `[DECORATION_AGENT] ENABLED=false` 配置不再影响入口。需要有效模型、已安装依赖和装修数据表，生成候选后仍需用户主动应用到草稿。装修队列由下面的统一 Worker 脚本托管，不另建宝塔守护项。
+
+系统包预检比较已签名包与当前运行时的实际文件摘要，返回 `process_impact.requires_stop` 和具体原因。纯前端资源、后台 HTTP 控制器、版本号变化以及未变化的重复文件不要求停止 Worker；任务代码、共享业务代码、可被任务工具调用的公共 API、依赖、启动脚本、删除任务文件或数据库迁移有变化时，应用前要求排空并停止本站 Worker/cron，更新后恢复。未知内容保守处理；首次从旧版本安装运行时隔离机制仍必须停机。
+
+判定由服务端在应用时重新执行，不接受浏览器传入的“不需停机”标志；有影响的更新在 SQL 执行前、文件复制前和版本激活前检查。纯前端更新保留旧进程的冻结代码，版本激活后它完成已领取任务，再由原守护机制重启。不要为升级重复启动第二套队列。
+
+无需停机路径不运行无关的应用迁移、套餐字段补齐或全租户默认配置同步，只提交更新任务、版本标记和已核验文件。SQL 执行前若重新检查发现任务进程仍在运行，日志保留未执行状态，停止后可安全重试；真正结果未知的 SQL 继续禁止自动重放。装修数据表缺失时，仅装修 worker 等待并每 30 秒复查，真实数据库连接故障仍退出交给守护恢复。
+
 ## AI 任务结果 Worker 守护
 
-图片、视频、音频等异步生成任务由后台结果 Worker 查询上游状态、保存结果、按租户配置转存资源，并完成结算或退款。短剧分集、规划、短剧画布 Agent 对话和画布子 Agent 任务也由同一启动入口托管。用户提交任务后会立即返回本地任务号，前端只读取本地任务状态；不要将结果查询依赖于用户停留在页面上。
+图片、视频、音频等异步生成任务由后台结果 Worker 查询上游状态、保存结果、按租户配置转存资源，并完成结算或退款。短剧分集、规划、短剧画布 Agent 对话、画布子 Agent 和 AI 装修任务也由同一启动入口托管。用户提交任务后会立即返回本地任务号，前端只读取本地任务状态；不要将结果查询依赖于用户停留在页面上。
 
 首次启用前，请先完成当前系统版本的升级 SQL，再配置 Worker。Worker 命令为：
 
@@ -496,13 +506,13 @@ docker compose --env-file .env.docker ps -a
 /www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh
 ```
 
-脚本每次启动都会停止同一项目遗留的 Worker，再统一启动结果、短剧分集、规划、短剧画布 Agent 和画布子 Agent 队列。宝塔中只配置这一条守护命令，不要为任一子 Worker 再建额外守护项。默认 PHP 路径为 `/www/server/php/82/bin/php`；安装路径不同时，通过 `PHP_BIN` 指向已通过平台检查的 PHP 8.2，例如：
+脚本每次启动都会停止同一项目遗留的 Worker，再统一启动结果、短剧分集、规划、短剧画布 Agent、画布子 Agent 和装修 Agent 队列。宝塔中只配置这一条守护命令，不要为任一子 Worker 再建额外守护项。默认 PHP 路径为 `/www/server/php/82/bin/php`；安装路径不同时，通过 `PHP_BIN` 指向已通过平台检查的 PHP 8.2，例如：
 
 ```bash
 PHP_BIN=/www/server/php/82/bin/php /bin/sh /www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh
 ```
 
-上述入口会启用五类队列。已有运行实例升级时，应先核对原 Worker 的应用过滤参数、运行中任务与租约，保留原领取范围，避免意外处理历史待执行任务。当前本地实例已使用独立 Supervisor 和 `scripts/start-project-supervisor.sh`，应按 [本地运行记录](docs/php82-local-runtime.md) 管理，不能同时启动另一套五队列入口。
+上述入口会启用六类队列。已有运行实例升级时，应先核对原 Worker 的应用过滤参数、运行中任务与租约，保留原领取范围，避免意外处理历史待执行任务。当前本地实例已使用独立 Supervisor 和 `scripts/start-project-supervisor.sh`，应按 [本地运行记录](docs/php82-local-runtime.md) 管理，不能同时启动另一套统一队列入口。
 
 
 
