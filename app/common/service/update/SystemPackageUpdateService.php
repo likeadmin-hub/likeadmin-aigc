@@ -506,6 +506,9 @@ class SystemPackageUpdateService
         $manifest=$this->readUpdateManifest($extractPath);
         $appSqlOwners=$this->runtimeAppSqlOwners($extractPath,$manifest);
         \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
+        if (System392RecoveryService::shouldSkipCompletedSystemSql($extractPath)) {
+            return $this->prepareRuntimeApps($extractPath,(string)$manifest['version']);
+        }
         Db::startTrans();
         try { $this->applySqlGroup($extractPath,$manifest,'data',$appSqlOwners); Db::commit(); }
         catch (Throwable $e) { Db::rollback(); throw $e; }

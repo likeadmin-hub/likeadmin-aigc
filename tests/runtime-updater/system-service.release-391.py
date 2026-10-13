@@ -68,9 +68,12 @@ def main():
     p.add_argument('--package', '--archive', dest='archive', type=pathlib.Path, required=True, help='Actual verified final system_1.0.392.zip (fresh v2 output)')
     p.add_argument('--baseline-archive', type=pathlib.Path, required=True, help='Previously published final system_1.0.391.zip')
     p.add_argument('--production', type=pathlib.Path, required=True, help='Verified production Composer391 directory')
+    p.add_argument('--recover-from', type=pathlib.Path, help='Reproduce the original failure before applying the repaired archive')
+    p.add_argument('--no-history', action='store_true', help='Fresh391 without eager app installation or migration journal')
     p.add_argument('--php-image', default=os.environ.get('INSTALL_PARITY_PHP_IMAGE', 'likeadmin-install-worker-test:local'))
     p.add_argument('--report', type=pathlib.Path, default=pathlib.Path('/tmp/release-391-to-392-fixture.json'))
     args = p.parse_args()
+    if args.recover_from: args.no_history = True
     archive, oldzip, production = args.archive.resolve(), args.baseline_archive.resolve(), args.production.resolve()
     report = {'passed': False, 'baseline_commit': GENUINE391, 'stage': 'source-validation', 'observations': []}
     name = 'aigc-391-392-' + uuid.uuid4().hex[:10]
@@ -109,7 +112,8 @@ def main():
             with zipfile.ZipFile(oldzip) as z:
                 for relative in ['app/common/service/update/SystemPackageUpdateService.php', 'app/common/service/update/ComposerRuntimeUpdateService.php', 'runtime-loader.php', 'scripts/composer-runtime-runner.php']:
                     require(z.read('bootstrap-payload/files/' + relative) == (baseline / relative).read_bytes(), 'Released391 and Git bytes disagree: ' + relative)
-                (baseline / 'config/runtime_migration_baseline.php').write_bytes(z.read('bootstrap-payload/files/config/runtime_migration_baseline.php'))
+                if not args.no_history:
+                    (baseline / 'config/runtime_migration_baseline.php').write_bytes(z.read('bootstrap-payload/files/config/runtime_migration_baseline.php'))
             for file in ['composer.json', 'composer.lock']:
                 require((baseline / file).read_bytes() == (production / file).read_bytes(), 'Production391 dependency manifest differs')
             if (baseline / 'vendor').exists():
@@ -130,7 +134,7 @@ def main():
             report['stage'] = 'genuine391-schema'
             run('docker', 'exec', '-i', name, 'mysql', '-h127.0.0.1', '-uroot', '--default-character-set=utf8mb4', db, data=(baseline / 'public/install/db/like.sql').read_text(), quiet=True)
             run('docker', 'volume', 'create', volume, quiet=True); resources.append(('volume', volume))
-            run('docker', 'run', '-d', '--name', php, '--network', network, '--hostname', 'system-release-fixture', '-v', str(ROOT) + ':/repo:ro', '-v', str(baseline) + ':/baseline:ro', '-v', str(archive) + ':/release392.zip:ro', '-v', volume + ':/fixture', '-w', '/repo', '-e', 'SYSTEM_SERVICE_DISPOSABLE=1', '-e', 'PHP_DATABASE_DATABASE=' + db, '-e', 'PHP_CACHE_DRIVER=file', args.php_image, 'sleep', 'infinity', quiet=True); resources.append(('container', php))
+            run('docker', 'run', '-d', '--name', php, '--network', network, '--hostname', 'system-release-fixture', '-v', str(ROOT) + ':/repo:ro', '-v', str(baseline) + ':/baseline:ro', '-v', str(archive) + ':/release392.zip:ro', *(['-v', str(args.recover_from.resolve()) + ':/broken392.zip:ro'] if args.recover_from else []), '-v', volume + ':/fixture', '-w', '/repo', '-e', 'SYSTEM_SERVICE_DISPOSABLE=1', '-e', 'RELEASE391_NO_HISTORY=' + ('1' if args.no_history else '0'), '-e', 'PHP_DATABASE_DATABASE=' + db, '-e', 'PHP_CACHE_DRIVER=file', args.php_image, 'sleep', 'infinity', quiet=True); resources.append(('container', php))
             def phase(mode):
                 report['stage'] = mode
                 output = run('docker', 'exec', php, 'php', 'tests/runtime-updater/system-service.release-391.php', mode)
@@ -138,7 +142,10 @@ def main():
                 require(len(records) == 1 and records[0].get('passed'), 'No verified phase result: ' + mode)
                 report['observations'].append(records[0])
                 return records[0]
-            phase('prepare'); phase('apply'); first = phase('observe'); second = phase('observe')
+            phase('prepare')
+            if args.recover_from:
+                phase('fail-original'); phase('authorize-recovery')
+            phase('apply'); first = phase('observe'); second = phase('observe')
             require(first['migration_rows_sha256'] == second['migration_rows_sha256'] and first['document_rows_sha256'] == second['document_rows_sha256'], 'Repeated fresh observation replayed migration/document writes')
             report['stage'] = 'independent-site-entry'
             output = run('docker', 'exec', php, 'php', '/fixture/site/think', 'list', '--raw', quiet=True)
