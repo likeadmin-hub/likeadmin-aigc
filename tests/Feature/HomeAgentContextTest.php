@@ -63,6 +63,19 @@ Db::startTrans();try{
  foreach([['tenant_id'=>$tenant+1],['user_id'=>$user+1]] as $different){$bad=array_replace($next,$different);denied(fn()=>C::build($bad));denied(fn()=>C::readAsset($bad,$doc));denied(fn()=>C::searchHistory($bad));}
  $other=AigcLlmSession::create(['tenant_id'=>$tenant,'user_id'=>$user,'title'=>'other','model_code'=>'fixture','status'=>'idle','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
  $otherRun=array_replace($next,['session_id'=>$other['id']]);denied(fn()=>C::readAsset($otherRun,$doc));denied(fn()=>C::readMessage($otherRun,$ids[0]));
+ // A fresh window under the SAME tenant/user must not inherit any old context.
+ $fresh=array_replace($otherRun,['attachments'=>'[]','content'=>'一个全新的问题']);
+ unset($fresh['id']);$fresh['request_id']='fresh-'.bin2hex(random_bytes(10));
+ $fresh['id']=S::table('run')->insertGetId($fresh);
+ $blank=C::build($fresh);
+ check($blank['recent']===[]&&$blank['summary']['requests']===[]&&$blank['summary']['older_message_count']===0,'New session inherited message history or summary');
+ check($blank['focus_assets']===[]&&$blank['focus']['file_ids']===[]&&$blank['artifacts']===[]&&count($blank['tasks'])===1&&$blank['tasks'][0]['run_id']===$fresh['id']&&$blank['tasks'][0]['steps']===[],'New session inherited focus, works or tasks');
+ check(C::searchHistory($fresh)['items']===[]&&C::findArtifacts($fresh)['items']===[],'Context tools escaped the fresh session');
+ // Explicit attachment imports that file only, never its original conversation.
+ $fresh['attachments']=S::encode([['file_id'=>$file]]);
+ S::table('run')->where('id',$fresh['id'])->update(['attachments'=>$fresh['attachments']]);
+ $explicit=C::build($fresh);
+ check($explicit['focus']['file_ids']===[$file]&&$explicit['recent']===[]&&$explicit['summary']['requests']===[]&&count($explicit['tasks'])===1&&$explicit['artifacts']===[],'Explicit material imported unrelated context');
  AigcLlmMessage::where('id',$ids[0])->update(['delete_time'=>$now]);
  check(!in_array($ids[0],array_column(C::build($next)['summary']['requests'],'message_id'),true),'Deleted source survives summary');
  C::focus($next,$file);OpenStore::table('file')->where('file_id',$file)->delete();
