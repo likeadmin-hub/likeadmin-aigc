@@ -195,7 +195,11 @@ class AigcFittingService
     {
         self::assertAvailable($tenantId);
         $frozen = \app\common\service\open_platform\OpenImagePricing::prepared($tenantId, $userId, self::APP_CODE);
-        if ($frozen !== null) {
+        $agent=\app\common\service\app\aigc_llm\agent\AgentToolContext::snapshot($tenantId,$userId,self::APP_CODE,'native_prepared_blob');
+        if($agent!==null){
+            $prepared=self::materializeOpenRecipe($tenantId,$userId,$agent['prepared']);
+            $estimate=$agent['estimate'];
+        } elseif ($frozen !== null) {
             \app\common\service\open_platform\OpenImageBatchDispatch::start($tenantId, $userId, (int)$frozen['estimate']['quantity']);
             $frozen = \app\common\service\open_platform\OpenImagePricing::materializePrepared($tenantId, $userId, self::APP_CODE,
                 static fn(array $recipe) => self::materializeOpenRecipe($tenantId, $userId, $recipe));

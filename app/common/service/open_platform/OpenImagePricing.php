@@ -10,9 +10,14 @@ final class OpenImagePricing
     private const MULTI_IMAGE=['aigc_fitting','aigc_product_multi_angle','aigc_fashion_lookbook'];
     public static function fittingBudget($request,array $params): array
     {
+        OpenToolAdapter::authorize((int)$request->tenantId,(int)$request->userId,'aigc_fitting');
+        return self::applicationFittingBudget((int)$request->tenantId,(int)$request->userId,$params);
+    }
+    public static function applicationFittingBudget(int $tenant,int $user,array $params): array
+    {
+        $denied=\app\common\service\app\AppAccessService::assertTenantCanUse($tenant,'aigc_fitting',$user,true,false);
+        if($denied)throw new OpenException('permission_denied','试衣工具不可用',403);
         $params=json_decode(OpenStore::encode($params),true,64,JSON_THROW_ON_ERROR);
-        $tenant=(int)$request->tenantId;$user=(int)$request->userId;
-        OpenToolAdapter::authorize($tenant,$user,'aigc_fitting');
         // Preset model images are validated by the native service. All other
         // input, including custom model images and aliases, needs ownership first.
         $config=\app\common\service\app\aigc_fitting\AigcFittingService::config($tenant);
