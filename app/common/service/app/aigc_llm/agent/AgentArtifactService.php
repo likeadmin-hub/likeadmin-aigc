@@ -63,6 +63,7 @@ final class AgentArtifactService
         if(AgentStore::owner('artifact',(int)$run['tenant_id'],(int)$run['user_id'])->where('identity_hash',$identity)->find())return;
         AgentStore::table('artifact')->insert(['tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'session_id'=>$run['session_id'],'run_id'=>$run['id'],'step_id'=>$step,'identity_hash'=>$identity,'title'=>mb_substr($title,0,200),'kind'=>$kind,'data'=>AgentStore::encode(['file_id'=>$file]+$extra),'storage_scope'=>$storage['storage_scope'],'storage_engine'=>$storage['storage_engine'],'storage_domain'=>$storage['storage_domain']??'','favorite'=>0,'create_time'=>time()]);
         AgentStore::event($run,'artifact.created',['file_id'=>$file,'kind'=>$kind]);
+        AgentContextService::created($run,$file);
     }
     public static function collect(array $run,array $step,array $result): void
     {

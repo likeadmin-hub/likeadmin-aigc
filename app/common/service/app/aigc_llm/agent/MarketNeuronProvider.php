@@ -43,6 +43,7 @@ final class MarketNeuronProvider implements AIProviderInterface
             'tools'=>$schemas, 'tool_choice'=>'auto', '_agent_tool_history'=>true,
             '_disable_model_fallback'=>true, '_disable_transient_retry'=>true,
         ];
+        $request['messages']=self::fitContext($request['messages'],$request['system_prompt'],$schemas);
         $result = ($this->transport)($request);
         if (empty($result['tool_calls']) && $this->validateReply !== null) {
             $correction=($this->validateReply)((string)($result['content']??''));
@@ -51,6 +52,7 @@ final class MarketNeuronProvider implements AIProviderInterface
                 ++$this->calls;
                 $request['system_prompt'].="\n".$correction;
                 $request['tool_choice']='required';
+                $request['messages']=self::fitContext($request['messages'],$request['system_prompt'],$schemas);
                 $result=($this->transport)($request);
             }
             if (empty($result['tool_calls']) && ($this->validateReply)((string)($result['content']??''))) {
@@ -103,5 +105,26 @@ final class MarketNeuronProvider implements AIProviderInterface
             $out[]=$row;
         }
         return $out;
+    }
+    /** Approximate the complete input, including instructions/tools; drop only complete old turns. */
+    public static function fitContext(array $messages,string $instructions,array $tools,int $budget=24000): array
+    {
+        $estimate=static function($value):int{
+            $text=is_string($value)?$value:AgentStore::encode($value);
+            $nonAscii=preg_match_all('/[^\x00-\x7F]/u',$text);
+            return (int)ceil((mb_strlen($text)-$nonAscii)/4)+$nonAscii*2;
+        };
+        $base=$estimate($instructions)+$estimate($tools);
+        $size=static function(array $rows)use($estimate,$base):int{
+            $total=$base;
+            foreach($rows as $row){$total+=$estimate($row)+12;foreach(is_array($row['content']??null)?$row['content']:[] as $block)if(($block['type']??'')==='image_url')$total+=1024;}
+            return $total;
+        };
+        while($size($messages)>$budget){
+            $users=[];foreach($messages as $i=>$row)if($row['role']==='user')$users[]=$i;
+            if(count($users)<2)throw new \InvalidArgumentException('本轮内容较长，请分段处理文档或减少同时引用的素材后继续');
+            $messages=array_slice($messages,$users[1]);
+        }
+        return $messages;
     }
 }
