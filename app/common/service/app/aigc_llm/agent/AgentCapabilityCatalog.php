@@ -39,6 +39,15 @@ final class AgentCapabilityCatalog
         $text['models']=array_values(array_filter($text['models']??[],static function($model)use($tenant){try{\app\common\service\power\MarketTextModelRuntimeService::resolveAgentModel($tenant,(string)$model['code']);return true;}catch(\Exception){return false;}}));
         return ['text'=>$text,'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>AigcVideoService::config($tenant)['option_config']??[]];
     }
+    public static function describe(array $run,string $code): array
+    {
+        self::authorize((int)$run['tenant_id'],(int)$run['user_id'],$code);
+        $type=$code==='aigc_image'?'image':'video';
+        $selection=(string)(AgentStore::json($run['preferences'])['models'][$type]??'');
+        return ['code'=>$code,'schema'=>self::schema($code),'selected_model'=>AgentCreationContext::selectedModel(
+            self::SERVICES[$code]::config((int)$run['tenant_id'])['option_config']??[],$selection),
+            'instruction'=>'只能使用 selected_model；不自行替换。费用只能引用 plan_creation 成功返回的估价。素材传 reference_images 的 file_id。参数不兼容时解释具体原因，不能声称方案已经保存。'];
+    }
     public static function prepare(array $run,string $code,array $params): array
     {
         $tenant=(int)$run['tenant_id'];$user=(int)$run['user_id'];self::authorize($tenant,$user,$code);

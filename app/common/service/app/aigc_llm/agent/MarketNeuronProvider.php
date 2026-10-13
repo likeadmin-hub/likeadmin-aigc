@@ -9,6 +9,7 @@ use NeuronAI\HttpClient\HttpClientInterface;
 use NeuronAI\Chat\Messages\{Message, SystemMessage, AssistantMessage, ToolCallMessage, ToolResultMessage, Usage};
 use NeuronAI\Chat\Messages\Stream\Chunks\TextChunk;
 use NeuronAI\Tools\ToolCall;
+use NeuronAI\Chat\Messages\ContentBlocks\ImageContent;
 
 /** Keeps Neuron decisions on the application's metered model transport. */
 final class MarketNeuronProvider implements AIProviderInterface
@@ -16,8 +17,9 @@ final class MarketNeuronProvider implements AIProviderInterface
     private string $instructions = '';
     private array $tools = [];
     private int $calls = 0;
+    private bool $repairAttempted = false;
 
-    public function __construct(private string $model, private \Closure $transport) {}
+    public function __construct(private string $model, private \Closure $transport, private ?\Closure $validateReply = null) {}
     public function getModel(): string { return $this->model; }
     public function systemPrompt(SystemMessage|string|null $prompt): AIProviderInterface
     {
@@ -35,12 +37,27 @@ final class MarketNeuronProvider implements AIProviderInterface
         $schemas = array_map(static fn($tool) => [
             'type'=>'function', 'function'=>['name'=>$tool->getName(), 'description'=>$tool->getDescription(), 'parameters'=>$tool->getInputSchema()],
         ], $this->tools);
-        $result = ($this->transport)([
+        $request = [
             'content'=>'继续完成当前用户请求', 'model_selection'=>$this->model,
             'messages'=>self::messages($messages), 'system_prompt'=>$this->instructions,
             'tools'=>$schemas, 'tool_choice'=>'auto', '_agent_tool_history'=>true,
             '_disable_model_fallback'=>true, '_disable_transient_retry'=>true,
-        ]);
+        ];
+        $result = ($this->transport)($request);
+        if (empty($result['tool_calls']) && $this->validateReply !== null) {
+            $correction=($this->validateReply)((string)($result['content']??''));
+            if ($correction && !$this->repairAttempted && $this->calls < 8) {
+                $this->repairAttempted=true;
+                ++$this->calls;
+                $request['system_prompt'].="\n".$correction;
+                $request['tool_choice']='required';
+                $result=($this->transport)($request);
+            }
+            if (empty($result['tool_calls']) && ($this->validateReply)((string)($result['content']??''))) {
+                // Do not leave a fictional plan in the conversation when repair fails.
+                $result['content']='本次尚未创建可执行的生成方案，没有提交生成任务。请重试；方案校验通过后会按所选运行模式继续。';
+            }
+        }
         $calls=[];
         foreach ((array)($result['tool_calls']??[]) as $call) {
             $arguments=$call['function']['arguments']??'{}';
@@ -75,6 +92,11 @@ final class MarketNeuronProvider implements AIProviderInterface
                 continue;
             }
             $row=['role'=>$message->getRole(),'content'=>$message->getContent()??''];
+            $images=array_filter($message->getContentBlocks(),static fn($block)=>$block instanceof ImageContent);
+            if($images && $row['role']==='user') {
+                $row['content']=[['type'=>'text','text'=>$row['content']]];
+                foreach($images as $image)$row['content'][]=['type'=>'image_url','image_url'=>['url'=>$image->content]];
+            }
             if ($message instanceof ToolCallMessage) $row['tool_calls']=array_map(static fn(ToolCall $call)=>[
                 'id'=>$call->getCallId(),'type'=>'function','function'=>['name'=>$call->getName(),'arguments'=>json_encode((object)$call->getInputs(),JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)],
             ],$message->getToolCalls());
