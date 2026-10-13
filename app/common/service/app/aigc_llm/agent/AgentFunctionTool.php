@@ -18,7 +18,8 @@ final class AgentFunctionTool extends Tool
     public function __invoke(array|\stdClass $payload): ToolOutput
     {
         try{
-            \app\common\service\open_platform\OpenSchema::validateRequest((array)$payload,$this->schema,true);
+            // Neuron already decoded JSON objects to associative PHP arrays.
+            \app\common\service\open_platform\OpenSchema::validateRequest((array)$payload,$this->schema,false);
             return ToolOutput::text(AgentStore::encode(($this->handler)((array)$payload)));
         }
         catch(\InvalidArgumentException|\app\common\service\open_platform\OpenException $e){return ToolOutput::error($e->getMessage());}
