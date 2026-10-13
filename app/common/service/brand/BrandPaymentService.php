@@ -67,6 +67,12 @@ final class BrandPaymentService
             || !preg_match('/^[A-Za-z0-9_\-.]{1,128}$/D',(string)($receipt['transaction_id']??''))) throw new RuntimeException('支付结果校验未通过，请联系服务商核对');
         Db::transaction(function()use($intent,$receipt) {
             $table=self::table((string)$intent['order_from']);
+            // Linked purchases use the same customer -> procurement -> bucket lock order as createQuota.
+            $linked=null;
+            if ($intent['order_from']===TenantBrandService::FROM_QUOTA) {
+                $link=(int)Db::name($table)->where(['id'=>$intent['order_id'],'tenant_id'=>$intent['tenant_id'],'flow_version'=>2])->value('brand_order_id');
+                if ($link>0) $linked=Db::name('tenant_brand_order')->where(['id'=>$link,'tenant_id'=>$intent['tenant_id'],'flow_version'=>2])->lock(true)->find();
+            }
             $order=Db::name($table)->where(['id'=>$intent['order_id'],'tenant_id'=>$intent['tenant_id'],'flow_version'=>2])->whereNull('delete_time')->lock(true)->find();
             if (!$order || BrandOrderPolicy::cents((string)$order['order_amount'])!==(int)$intent['amount_cents']) throw new RuntimeException('支付金额或订单归属需要核对');
             $existing=Db::name('tenant_brand_payment')->where(['channel'=>$intent['channel'],'merchant_id'=>$intent['merchant_id'],'transaction_id'=>$receipt['transaction_id']])->find();
@@ -90,10 +96,6 @@ final class BrandPaymentService
             ]);
             if ($duplicate || $closed) self::queueRefund($paymentId,$intent,$duplicate?'重复付款退还多付交易':'已关闭订单原路退款');
             if (!$duplicate) {
-                $linked=null;
-                if (!$closed && $intent['order_from']===TenantBrandService::FROM_QUOTA && (int)($order['brand_order_id']??0)>0) {
-                    $linked=Db::name('tenant_brand_order')->where(['id'=>$order['brand_order_id'],'tenant_id'=>$order['tenant_id'],'flow_version'=>2])->lock(true)->find();
-                }
                 $changes=['pay_status'=>1,'pay_way'=>$intent['channel'],'transaction_id'=>$receipt['transaction_id'],'pay_time'=>$paidTime,'update_time'=>time()];
                 if ($intent['order_from']===TenantBrandService::FROM_ORDER) {
                     $changes['workflow_state']=$closed?'refunding':'tenant_review';

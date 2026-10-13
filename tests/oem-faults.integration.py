@@ -15,5 +15,6 @@ try:
         '-e','PHP_CACHE_DRIVER=file','-e','PHP_ENV_NAME=oem-disposable','likeadmin-install-worker-test:local','php']
     print(run(*args,'tests/oem-recovery.integration.php'))
     print(run(*args,'tests/oem-worker.integration.php'))
+    print(run(*args,'tests/oem-concurrency.integration.php'))
 finally:
     subprocess.run(['docker','exec','likeadmin-oem-db','mysql','-uroot','-e','DROP DATABASE IF EXISTS '+database],capture_output=True)
