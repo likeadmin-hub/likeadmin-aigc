@@ -33,5 +33,7 @@ if (preg_match('#^/t/(\d+)/admin(?:/(.*))?$#D',$oemRequestPath,$oemMatch)) {
 if (preg_match('#^/(admin|platform)(?:/.*)?$#D',$oemRequestPath,$oemMatch)) {
     header('Content-Type: text/html; charset=utf-8'); readfile($public.'/'.$oemMatch[1].'/index.html'); exit;
 }
+// FPM executes the real public entry with public as its working directory.
+chdir($public);
 if(!defined('ROOT_PATH')) define('ROOT_PATH',$public);
 $http=$app->http; $response=$http->run(); $response->send(); $http->end($response);
