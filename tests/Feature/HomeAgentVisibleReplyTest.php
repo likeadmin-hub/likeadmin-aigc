@@ -15,7 +15,7 @@ check($visible===['请上传参考图。']&&$state['content']==='请上传参考
 $executed=0;$calls=0;$requests=[];
 $provider=new P('fixture',function($request)use(&$calls,&$requests){
  $requests[]=$request;
- return ++$calls===1?['content'=>'Internal analysis','content_source'=>'reasoning','tool_calls'=>[['id'=>'lookup-1','function'=>['name'=>'lookup','arguments'=>'{}']]],'usage'=>['prompt_tokens'=>12,'completion_tokens'=>8]]:['content'=>'请上传参考图。','content_source'=>'content'];
+ return ++$calls===1?['content'=>'Internal analysis','content_source'=>'reasoning','tool_calls'=>[['id'=>'lookup-1','function'=>['name'=>'lookup','arguments'=>'{"payload":{}}']]],'usage'=>['prompt_tokens'=>12,'completion_tokens'=>8]]:['content'=>'请上传参考图。','content_source'=>'content'];
 });
 $tool=new AgentFunctionTool('lookup','Read task state',['type'=>'object','properties'=>[]],function()use(&$executed){$executed++;return ['available'=>true];});
 $reply=(new Agent())->setThreadId('visible-reply-fixture')->setAiProvider($provider)->setTools([$tool])->chat(new UserMessage('创作视频'));
