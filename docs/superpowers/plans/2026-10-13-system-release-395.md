@@ -10,3 +10,5 @@ User-authorized scope: publish exact 1.0.394 to 1.0.395 system update including 
 - [ ] Synchronize requested public branches without force; verify all remote heads.
 
 Constraints: no new SQL, no model calls, no live tenant modification or customer upgrade, no vendor edits, no unrelated worktree files, no changes to release manifest/signature/runtime protocols. Preserve previous 1.0.394 archives. AI decoration defaults on; model-effect acceptance remains pending. This patch requires stopping processes for installation because it changes worker and updater code; subsequent packages use actual-content impact checks.
+
+Release review found the bootstrap loader preferred an old canonical manager on sites originally installed at 394. The loader now chooses the selected/explicit candidate generation manager; the genuine390 pending-bootstrap fallback and ordinary no-pointer canonical path remain supported. A fresh child with genuine394 canonical manager and395 selected manager must run the latter and reject before SQL (SQL_CALLS=0). Superseded unpublished archives are retained under before-manager-pin-fix, and the final package must include the revised shared loader.
