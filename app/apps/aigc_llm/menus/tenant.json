@@ -17,7 +17,19 @@
         "name": "基础配置",
         "perms": "app.aigc_llm.config/detail",
         "paths": "config",
-        "component": "apps/aigc_llm/config"
+        "component": "apps/aigc_llm/config",
+        "sort": 50
+      },
+      {
+        "source_menu_key": "aigc_llm_skill_config",
+        "app_code": "aigc_llm",
+        "source": "app",
+        "type": "C",
+        "name": "技能配置",
+        "sort": 40,
+        "perms": "app.aigc_llm.config/detail",
+        "paths": "skill-config",
+        "component": "apps/aigc_llm/skill-config"
       },
       {
         "source_menu_key": "aigc_llm_session",
