@@ -10,5 +10,5 @@ try:
  with (site/'public/install/db/like.sql').open('rb') as f:run(['docker','exec','-i','likeadmin-oem-db','mysql','-uroot',db],stdin=f,stdout=subprocess.DEVNULL)
  env=['-e','OEM_DISPOSABLE=1','-e','PHP_DATABASE_HOSTNAME=oem-mysql','-e','PHP_DATABASE_DATABASE='+db,'-e','PHP_DATABASE_USERNAME=root','-e','PHP_DATABASE_PASSWORD=','-e','PHP_CACHE_DRIVER=file']
  for phase in ['apply','observe']:
-  run(['docker','run','--rm','--network','likeadmin-oem-dev','-v',str(site)+':/site','-v',str(root)+':/repo:ro','-v',str(pathlib.Path(info['base'])/'artifacts/system_1.0.398.zip')+':/oem.zip:ro','-w','/site',*env,'likeadmin-install-worker-test:local','php','/repo/tests/oem-upgrade.integration.php',phase])
+  run(['docker','run','--rm','--network','likeadmin-oem-dev','-v',str(site)+':/site','-v',str(root)+':/repo:ro','-v',str(pathlib.Path(info.get('artifact_dir',str(pathlib.Path(info['base'])/'artifacts')))/'system_1.0.398.zip')+':/oem.zip:ro','-w','/site',*env,'likeadmin-install-worker-test:local','php','/repo/tests/oem-upgrade.integration.php',phase])
 finally:run(['docker','exec','likeadmin-oem-db','mysql','-uroot','-e','DROP DATABASE '+db])
