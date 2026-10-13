@@ -7,6 +7,7 @@ import uuid
 
 root = pathlib.Path(__file__).resolve().parents[1]
 name = 'oem-schema-' + uuid.uuid4().hex[:10]
+network=name+'-network'
 
 def run(*args, data=None):
     p = subprocess.run(args, input=data, text=True, capture_output=True)
@@ -17,8 +18,12 @@ def run(*args, data=None):
 def sql(db, query):
     return run('docker', 'exec', '-i', name, 'mysql', '-uroot', '-N', '--default-character-set=utf8mb4', db, data=query)
 
+def migrate(database, content):
+    run('docker','run','--rm','-i','--network',network,'-v',str(root)+':/repo:ro','--tmpfs','/repo/runtime','-w','/repo','-e','OEM_DISPOSABLE=1','-e','PHP_DATABASE_HOSTNAME=oem-mysql','-e','PHP_DATABASE_DATABASE='+database,'-e','PHP_DATABASE_PREFIX=qa_' if database=='oem_custom' else 'PHP_DATABASE_PREFIX=la_','-e','PHP_DATABASE_USERNAME=root','-e','PHP_DATABASE_PASSWORD=','-e','PHP_CACHE_DRIVER=file','likeadmin-install-worker-test:local','php','tests/oem-schema-migrate.php',data=content)
+
 try:
-    run('docker', 'run', '-d', '--name', name, '-e', 'MYSQL_ALLOW_EMPTY_PASSWORD=yes', 'mysql:8.0')
+    run('docker','network','create',network)
+    run('docker', 'run', '-d', '--name', name, '--network',network,'--network-alias','oem-mysql', '-e', 'MYSQL_ALLOW_EMPTY_PASSWORD=yes', 'mysql:8.0')
     for _ in range(60):
         # The image's temporary initialization server accepts socket pings, then exits.
         # TCP becomes ready only after the final MySQL instance has started.
@@ -46,13 +51,13 @@ try:
     sql('oem_custom', install.replace('`la_', '`qa_').replace("'la_", "'qa_"))
     for db, prefix in [('oem_fresh', 'la_'), ('oem_legacy', 'la_'), ('oem_custom', 'qa_')]:
         seed = migration.replace('`la_', '`' + prefix).replace("'la_", "'" + prefix)
-        sql(db, seed)
-        sql(db, seed)
+        migrate(db, seed)
+        migrate(db, seed)
         assert sql(db,f"SELECT COUNT(*) FROM {prefix}system_menu WHERE perms='brand.order/refunds';")=='1'
         defaults = sql(db, f"SELECT name,duration_days,status,prices_configured FROM {prefix}tenant_package WHERE package_code IS NOT NULL ORDER BY package_code;")
         assert defaults == '基础版\t365\t0\t0\n企业版\t365\t0\t0\n专业版\t365\t0\t0', defaults
         sql(db, f"UPDATE {prefix}tenant_package SET sale_price=299.99,quota_price=199.99 WHERE package_code='oem_basic';")
-        sql(db, seed)
+        migrate(db, seed)
         assert sql(db, f"SELECT sale_price,quota_price FROM {prefix}tenant_package WHERE package_code='oem_basic';") == '299.99\t199.99'
         for table in ['tenant_brand_event', 'tenant_brand_payment', 'tenant_brand_payment_intent', 'tenant_brand_refund', 'tenant_brand_job', 'tenant_brand_domain']:
             assert sql(db, f"SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='{prefix}{table}';") == '1', table
@@ -67,3 +72,5 @@ try:
     assert sql('oem_legacy', "SELECT duration_days,sale_price,quota_price FROM la_tenant_package WHERE name='Existing';") == '77\t123.45\t88.88'
 finally:
     subprocess.run(['docker', 'rm', '-f', name], capture_output=True)
+
+    subprocess.run(['docker','network','rm',network],capture_output=True)
