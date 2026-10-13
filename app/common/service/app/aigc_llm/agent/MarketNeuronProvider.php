@@ -44,7 +44,7 @@ final class MarketNeuronProvider implements AIProviderInterface
             '_disable_model_fallback'=>true, '_disable_transient_retry'=>true,
         ];
         $request['messages']=self::fitContext($request['messages'],$request['system_prompt'],$schemas);
-        $result = ($this->transport)($request);
+        $result = self::visibleResult(($this->transport)($request));
         if (empty($result['tool_calls']) && $this->validateReply !== null) {
             $correction=($this->validateReply)((string)($result['content']??''));
             if ($correction && !$this->repairAttempted && $this->calls < 8) {
@@ -53,7 +53,7 @@ final class MarketNeuronProvider implements AIProviderInterface
                 $request['system_prompt'].="\n".$correction;
                 $request['tool_choice']='required';
                 $request['messages']=self::fitContext($request['messages'],$request['system_prompt'],$schemas);
-                $result=($this->transport)($request);
+                $result=self::visibleResult(($this->transport)($request));
             }
             if (empty($result['tool_calls']) && ($this->validateReply)((string)($result['content']??''))) {
                 // Do not leave a fictional plan in the conversation when repair fails.
@@ -73,6 +73,17 @@ final class MarketNeuronProvider implements AIProviderInterface
         $usage=(array)($result['usage']??[]);
         $message->setUsage(new Usage((int)($usage['prompt_tokens']??0),(int)($usage['completion_tokens']??0)));
         return new ProviderResponse($message, metadata:['billing'=>$result['billing']??[]]);
+    }
+    /** Reasoning-only tool turns are valid, but reasoning is never reply text. */
+    public static function visibleResult(array $result): array
+    {
+        if (($result['content_source'] ?? 'content') === 'reasoning') {
+            $result['content'] = '';
+            if (empty($result['tool_calls'])) {
+                throw new \RuntimeException('模型未返回正式回复，请稍后重试');
+            }
+        }
+        return $result;
     }
     public function stream(Message ...$messages): Generator
     {
