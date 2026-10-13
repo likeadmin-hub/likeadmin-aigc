@@ -104,7 +104,7 @@ class UpdateCustomerMessage
         foreach (['latest', 'current_version_log'] as $key) {
             if (isset($result[$key]) && is_array($result[$key])) $result[$key] = self::version($result[$key]);
         }
-        return $result;
+        return self::version($result);
     }
 
     private static function version(array $version): array
