@@ -189,7 +189,8 @@ final class AgentExecutionService
         AgentStore::event($run,'context.prepared',['recent_messages'=>count($context['recent']),'summary_requests'=>count($context['summary']['requests']??[]),'focused_assets'=>count($context['focus_assets'])]);
         $vision=true;try{MarketTextModelRuntimeService::resolveAgentModel((int)$run['tenant_id'],(string)$preferences['models']['text'],true);}catch(\Exception){$vision=false;}
         $loadedImages=[];
-        if($vision)foreach(AgentSequenceService::state($run)['active']??null ? AgentSequenceService::outputs($run) : $context['focus_assets'] as $asset)if(str_starts_with($asset['mime']??'','image/'))$loadedImages[$asset['file_id']]=$asset['url'];
+        $visualAssets=!empty(AgentSequenceService::state($run)['active'])?AgentSequenceService::outputs($run):$context['focus_assets'];
+        if($vision)foreach($visualAssets as $asset)if(str_starts_with($asset['mime']??'','image/'))$loadedImages[$asset['file_id']]=$asset['url'];
         $loadedImages=array_slice($loadedImages,0,8,true);
         $provider=new MarketNeuronProvider((string)$preferences['models']['text'],function(array $params)use($run,$prefix,&$usage,&$loadedImages){
             self::checkpoint($run);
