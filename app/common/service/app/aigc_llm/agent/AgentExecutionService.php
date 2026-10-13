@@ -59,6 +59,7 @@ final class AgentExecutionService
         $out['estimated_points']=array_sum(array_column($out['steps'],'estimated_points'));
         $out['pending_points']=array_sum(array_column(array_filter($out['steps'],static fn($s)=>$s['status']==='proposed'),'estimated_points'));
         $out['sequence']=AgentSequenceService::view($run);
+        $out['stages']=AgentReplyService::view($run,$steps);
         $preferences=AgentStore::json($run['preferences']);
         $out['mode']=$preferences['mode']??'ask';
         $out['confirmation_reason']=$run['status']==='awaiting_confirmation'&&$out['mode']==='auto'
@@ -184,7 +185,7 @@ final class AgentExecutionService
         AgentStore::event($run,'run.started',[]);
         $preferences=AgentStore::json($run['preferences']);
         $usage=AgentStore::json(AigcLlmMessage::where('id',$run['message_id'])->where('tenant_id',$run['tenant_id'])->value('token_usage_json'))['calls']??[];
-        $prefix=AgentSequenceService::prefix($run);$floor=(int)(AgentSequenceService::state($run)['step_floor']??0);
+        $stageText=AgentReplyService::begin($run);$floor=(int)(AgentSequenceService::state($run)['step_floor']??0);
         $context=AgentContextService::build($run);
         AgentStore::event($run,'context.prepared',['recent_messages'=>count($context['recent']),'summary_requests'=>count($context['summary']['requests']??[]),'focused_assets'=>count($context['focus_assets'])]);
         $vision=true;try{MarketTextModelRuntimeService::resolveAgentModel((int)$run['tenant_id'],(string)$preferences['models']['text'],true);}catch(\Exception){$vision=false;}
@@ -192,9 +193,8 @@ final class AgentExecutionService
         $visualAssets=!empty(AgentSequenceService::state($run)['active'])?AgentSequenceService::outputs($run):$context['focus_assets'];
         if($vision)foreach($visualAssets as $asset)if(str_starts_with($asset['mime']??'','image/'))$loadedImages[$asset['file_id']]=$asset['url'];
         $loadedImages=array_slice($loadedImages,0,8,true);
-        $provider=new MarketNeuronProvider((string)$preferences['models']['text'],function(array $params)use($run,$prefix,&$usage,&$loadedImages){
+        $provider=new MarketNeuronProvider((string)$preferences['models']['text'],function(array $params)use($run,&$stageText,&$usage,&$loadedImages){
             self::checkpoint($run);
-            AgentStore::event($run,'message.reset',[]);
             // Selected or explicitly read images are attached with an identity label. Unrelated old images stay metadata-only.
             for($i=count($params['messages'])-1;$i>=0;$i--)if($params['messages'][$i]['role']==='user'){
                 if($loadedImages){
@@ -206,13 +206,17 @@ final class AgentExecutionService
             }
             foreach($params['messages'] as $message)foreach(is_array($message['content'])?$message['content']:[] as $block)if(($block['type']??'')==='image_url')$params['requires_vision']=true;
             $text='';$last=0.;
-            $result=MarketTextModelRuntimeService::generate((int)$run['tenant_id'],(int)$run['user_id'],$params+['app_code'=>'aigc_llm','source_app_code'=>'aigc_llm','business_table'=>'aigc_llm_agent_run','business_id'=>$run['id'],'action_code'=>'agent_chat'],function(string $event,array $data)use($run,$prefix,&$text,&$last){
+            $result=MarketTextModelRuntimeService::generate((int)$run['tenant_id'],(int)$run['user_id'],$params+['app_code'=>'aigc_llm','source_app_code'=>'aigc_llm','business_table'=>'aigc_llm_agent_run','business_id'=>$run['id'],'action_code'=>'agent_chat'],function(string $event,array $data)use($run,&$stageText,&$text,&$last){
                 if($event!=='delta')return;
                 $text.=(string)($data['delta']??'');
                 if(microtime(true)-$last<0.15)return;$last=microtime(true);
-                AgentStore::update($run,['reply'=>$prefix.$text]);
-                AgentStore::event($run,'message.snapshot',['content'=>$prefix.$text]);
+                AgentReplyService::publish($run,AgentReplyService::append($stageText,$text));
             });
+            // Preserve every visible tool-loop response, including the final unthrottled delta.
+            $body=(string)($result['content']??'');
+            if($text!==''&&!str_starts_with($body,$text))$body=AgentReplyService::append($text,$body);
+            $stageText=AgentReplyService::append($stageText,$body);
+            AgentReplyService::publish($run,$stageText);
             $usage[]=['consumption_id'=>$result['consumption_id']??0,'billing'=>$result['billing']??[],'usage'=>$result['usage']??[]];
             AgentStore::event($run,'model.completed',['tool_names'=>array_values(array_map(static fn($call)=>(string)($call['function']['name']??''),(array)($result['tool_calls']??[])))]);
             AigcLlmMessage::where('id',$run['message_id'])->where('tenant_id',$run['tenant_id'])->update(['token_usage_json'=>AgentStore::encode(['calls'=>$usage])]);
@@ -292,8 +296,9 @@ final class AgentExecutionService
         $agent=(new Agent())->setThreadId('home:'.$run['tenant_id'].':'.$run['user_id'].':'.$run['id'])->setAiProvider($provider)->setInstructions($instructions)->setTools($tools)->setContextWindow(16000);
         $state=$agent->chat($messages);
         self::checkpoint($run);
-        $reply=$prefix.(string)($state->getMessage()?->getContent()??'');AgentStore::update($run,['reply'=>$reply]);
-        AigcLlmMessage::where(['tenant_id'=>$run['tenant_id'],'id'=>$run['message_id']])->update(['content'=>$reply]);
+        $final=(string)($state->getMessage()?->getContent()??'');
+        if($final!==''&&!str_ends_with($stageText,$final))$stageText=AgentReplyService::append($stageText,$final);
+        AgentReplyService::publish($run,$stageText,true);
         $steps=AgentStore::table('step')->where('run_id',$run['id'])->order('id')->select()->toArray();
         $pending=array_values(array_filter($steps,static fn($s)=>$s['status']==='proposed'&&(int)$s['id']>$floor));
         if(!$pending){
@@ -305,8 +310,8 @@ final class AgentExecutionService
         $automatic=!AgentStore::requiresConfirmation($preferences,$total);
         // Execution facts come from saved steps, not a model's prose or old conversation.
         $names=array_values(array_unique(array_map(static fn($step)=>(string)($selected[$step['tool_code']]['name']??'所选模型'),$pending)));
-        $reply=$prefix.'已按你选择的'.implode('、',$names).'准备好生成方案。'.($automatic?'接下来将自动执行。':'请在下方方案卡片确认后执行。');
-        AgentStore::update($run,['reply'=>$reply,'approval_hash'=>$hash,'status'=>$automatic?'queued':'awaiting_confirmation','phase'=>$automatic?'tools':'chat','lease_token'=>'','lease_until'=>0]);
+        if(trim($stageText)==='')AgentReplyService::publish($run,'已按你选择的'.implode('、',$names).'准备好生成方案。'.($automatic?'接下来将自动执行。':'请在下方方案卡片确认后执行。'),true);
+        AgentStore::update($run,['approval_hash'=>$hash,'status'=>$automatic?'queued':'awaiting_confirmation','phase'=>$automatic?'tools':'chat','lease_token'=>'','lease_until'=>0]);
         self::finishMessage($run,'done');
         if($automatic)AigcLlmSession::where('id',$run['session_id'])->update(['status'=>'streaming']);
         AgentStore::event($run,'plan.ready',['estimated_points'=>$total,'automatic'=>$automatic]);

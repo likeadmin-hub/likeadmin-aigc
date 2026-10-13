@@ -84,7 +84,7 @@ final class AgentSequenceService
             }
             $state['active']=array_shift($state['pending']);$state['state']='continuing';
             $stageReply=trim(substr((string)$current['reply'],strlen(self::prefix($current))));
-            if($stageReply!=='')$state['replies'][]=mb_substr($stageReply,0,12000);
+            if($stageReply!=='')$state['replies'][]=$stageReply;
             $state['step_floor']=max(array_merge([(int)$state['step_floor']],array_map('intval',array_column($steps,'id'))));
             $state['artifact_floor']=max(array_merge([(int)$state['artifact_floor']],array_map('intval',array_column($artifacts,'id'))));
             $preferences['_sequence']=$state;

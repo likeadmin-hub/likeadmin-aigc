@@ -20,7 +20,7 @@ namespace app\common\service\app\aigc_llm\agent {
 }
 namespace app\common\service\power {
  final class MarketTextModelRuntimeService {
-  public static array $calls=[]; public static bool $missing=false;
+  public static array $calls=[]; public static bool $missing=false; public static array $streamViews=[];
   public static array $followups=[['tool_code'=>'aigc_video','title'=>'将生成图制作成视频','instruction'=>'使用上一步生成的图片制作5秒视频']];
   public static function resolveAgentModel(int $t,string $m,bool $vision=false):array{return [];}
   public static function resolveModel(int $t,$m,bool $vision=false):array{throw new \InvalidArgumentException('offline');}
@@ -31,13 +31,15 @@ namespace app\common\service\power {
    $key=$run['id'].':'.($active['tool_code']??'first');$n=count(self::$calls[$key]??[]);self::$calls[$key][]=$params;
    if($active&&self::$missing)return ['content'=>'请补充视频时长。'];
    $call=static fn($name,$payload)=>['id'=>$name.'-'.$n,'function'=>['name'=>$name,'arguments'=>json_encode(['payload'=>$payload])]];
+   $visible=$n===0?($active?'下一阶段分析：使用刚生成的结果。':'第一阶段分析：先生成产品图。'):'方案说明：保持主体一致。';
+   if($event){$event('delta',['delta'=>$visible]);self::$streamViews[]=\app\common\service\app\aigc_llm\agent\AgentExecutionService::detail($t,$u,(int)$run['id']);}
    if($n===0){
-    if(!$active)return ['tool_calls'=>[$call('plan_creation_followups',['stages'=>self::$followups]),$call('plan_creation',['tool_code'=>'aigc_image','title'=>'生成产品图','parameters'=>['prompt'=>'产品图']])]];
+    if(!$active)return ['content'=>$visible,'tool_calls'=>[$call('plan_creation_followups',['stages'=>self::$followups]),$call('plan_creation',['tool_code'=>'aigc_image','title'=>'生成产品图','parameters'=>['prompt'=>'产品图']])]];
     $files=$Q::outputs($run);$file=$files[0]['file_id'];
     if(!str_contains(json_encode($params['messages']),$file))throw new \RuntimeException('Generated image not attached to resumed model');
-    return ['tool_calls'=>[$call('plan_creation',['tool_code'=>$active['tool_code'],'title'=>$active['title'],'parameters'=>['prompt'=>$active['instruction'],'reference_images'=>[$file]]+($active['tool_code']==='aigc_video'?['duration'=>5]:[])])]];
+    return ['content'=>$visible,'tool_calls'=>[$call('plan_creation',['tool_code'=>$active['tool_code'],'title'=>$active['title'],'parameters'=>['prompt'=>$active['instruction'],'reference_images'=>[$file]]+($active['tool_code']==='aigc_video'?['duration'=>5]:[])])]];
    }
-   return ['content'=>'已保存的生成方案'];
+   return ['content'=>$visible];
   }
  }
 }
@@ -71,8 +73,11 @@ namespace {
    $start=count(Fake::$submits);$id=$fixture($mode,$budget);$view=$work($id);$hash=$view['approval_hash'];
    check($view['sequence']['pending']===['将生成图制作成视频'],'No durable upcoming step');
    check(count(Fake::$submits)===$start,'Planning submitted paid work');
+   check(str_contains($view['reply'],'第一阶段分析')&&str_contains($view['reply'],'方案说明'),'Tool-loop prose replaced');
+   check(count($view['stages'])===1&&!$view['stages'][0]['streaming'],'Completed SSE not marked complete');
    if($mode==='ask'){$view=E::confirm(1,1,$id,$hash);E::confirm(1,1,$id,$hash);}
    $work($id);$view=$work($id);check($view['status']==='queued'&&$view['phase']==='chat','Success did not queue continuation');
+   check(count($view['stages'])===2&&$view['stages'][1]['streaming']&&$view['stages'][0]['step_ids']===array_map('intval',array_column($view['steps'],'id')),'Queued continuation moved old output into new stage');
    $oldRun=S::run(1,1,$id);rejects(fn()=>Q::advance($oldRun));
    $view=$work($id);check($view['estimated_points']==110&&$view['pending_points']==80,'Cumulative/current quote confused');
    rejects(fn()=>E::confirm(1,1,$id,$hash));
@@ -81,12 +86,17 @@ namespace {
    $work($id);$view=$work($id);
    check($view['status']==='success'&&$view['sequence']['state']==='completed','Sequence incomplete');
    check(count(Fake::$submits)===$start+2,'Repeat paid submit');
+   check(count($view['stages'])===2,'Stage boundaries lost');
+   check(str_contains($view['stages'][0]['reply'],'第一阶段分析')&&!str_contains($view['stages'][0]['reply'],'下一阶段分析')&&str_contains($view['stages'][1]['reply'],'下一阶段分析'),'Stage prose mixed');
+   foreach($view['stages'] as $i=>$stage){check(!$stage['streaming']&&$stage['step_ids']===[(int)$view['steps'][$i]['id']]&&count($stage['artifact_ids'])===1,'Wrong stage ownership');}
+   check(E::detail(1,1,$id)['stages']===$view['stages'],'Refresh changes timeline');
    $second=Fake::$submits[$start+1];check($second['params']['model_id']==='video-preferred','Model preference not preserved');
    check(count(Q::outputs(S::run(1,1,$id)))===2,'Intermediate outputs lost');
    check(count(S::json(AigcLlmMessage::where('id',$view['message_id'])->value('token_usage_json'))['calls'])===4,'Text usage overwritten across phases');
    check(count($second['inputs']['reference_images'])===1,'No result binding');
    rejects(fn()=>E::detail(2,1,$id));rejects(fn()=>E::detail(1,2,$id));
   }
+  foreach(TextFake::$streamViews as $stream){check(end($stream['stages'])['streaming'],'Copy exposed during SSE');}
   $original=TextFake::$followups;
   TextFake::$followups=[['tool_code'=>'aigc_image','title'=>'换风格','instruction'=>'使用刚生成的产品图换成水彩风格'],...$original];
   $id=$fixture();$start=count(Fake::$submits);
