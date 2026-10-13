@@ -34,7 +34,7 @@ class OrderController extends BaseApiController
         if ($order->isEmpty()) {
             return $this->fail('贴牌订单不存在');
         }
-        return $this->success('获取成功', TenantBrandService::formatBrandOrder($order->toArray()));
+        return $this->success('获取成功', TenantBrandService::formatBrandOrder($order->toArray(), 'user'));
     }
 
     public function cancel()
@@ -46,6 +46,10 @@ class OrderController extends BaseApiController
                 'id' => (int)$this->request->post('order_id', 0),
             ])->findOrEmpty();
             if ($order->isEmpty()) return $this->fail('贴牌订单不存在');
+            if ((int)$order['flow_version']===2) {
+                \app\common\service\brand\BrandWorkflowService::cancel((int)$this->request->tenantId,$this->userId,(int)$order['id']);
+                return $this->success('订单已取消',[],1,1);
+            }
             if ((int)$order['pay_status'] !== 0) return $this->fail('已支付订单不能取消');
             // Reuse expiry semantics: set immediate expiry and release atomically.
             $order->save(['reserve_expire_time' => time(), 'update_time' => time()]);
