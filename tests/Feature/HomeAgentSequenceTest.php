@@ -20,7 +20,7 @@ namespace app\common\service\app\aigc_llm\agent {
 }
 namespace app\common\service\power {
  final class MarketTextModelRuntimeService {
-  public static array $calls=[]; public static bool $missing=false; public static array $streamViews=[];
+  public static array $calls=[]; public static bool $missing=false; public static array $streamViews=[]; public static bool $interrupt=false;
   public static array $followups=[['tool_code'=>'aigc_video','title'=>'将生成图制作成视频','instruction'=>'使用上一步生成的图片制作5秒视频']];
   public static function resolveAgentModel(int $t,string $m,bool $vision=false):array{return [];}
   public static function resolveModel(int $t,$m,bool $vision=false):array{throw new \InvalidArgumentException('offline');}
@@ -33,6 +33,7 @@ namespace app\common\service\power {
    $call=static fn($name,$payload)=>['id'=>$name.'-'.$n,'function'=>['name'=>$name,'arguments'=>json_encode(['payload'=>$payload])]];
    $visible=$n===0?($active?'下一阶段分析：使用刚生成的结果。':'第一阶段分析：先生成产品图。'):'方案说明：保持主体一致。';
    if($event){$event('delta',['delta'=>$visible]);self::$streamViews[]=\app\common\service\app\aigc_llm\agent\AgentExecutionService::detail($t,$u,(int)$run['id']);}
+   if(self::$interrupt){$event('delta',['delta'=>'未节流保存的末尾。']);throw new \RuntimeException('fixture stream interrupted');}
    if($n===0){
     if(!$active)return ['content'=>$visible,'tool_calls'=>[$call('plan_creation_followups',['stages'=>self::$followups]),$call('plan_creation',['tool_code'=>'aigc_image','title'=>'生成产品图','parameters'=>['prompt'=>'产品图']])]];
     $files=$Q::outputs($run);$file=$files[0]['file_id'];
@@ -87,6 +88,7 @@ namespace {
    check($view['status']==='success'&&$view['sequence']['state']==='completed','Sequence incomplete');
    check(count(Fake::$submits)===$start+2,'Repeat paid submit');
    check(count($view['stages'])===2,'Stage boundaries lost');
+   check(substr_count($view['reply'],'第一阶段分析')===1&&substr_count($view['reply'],'下一阶段分析')===1&&substr_count($view['reply'],'方案说明')===2,'Stream and final response duplicated');
    check(str_contains($view['stages'][0]['reply'],'第一阶段分析')&&!str_contains($view['stages'][0]['reply'],'下一阶段分析')&&str_contains($view['stages'][1]['reply'],'下一阶段分析'),'Stage prose mixed');
    foreach($view['stages'] as $i=>$stage){check(!$stage['streaming']&&$stage['step_ids']===[(int)$view['steps'][$i]['id']]&&count($stage['artifact_ids'])===1,'Wrong stage ownership');}
    check(E::detail(1,1,$id)['stages']===$view['stages'],'Refresh changes timeline');
@@ -97,6 +99,10 @@ namespace {
    rejects(fn()=>E::detail(2,1,$id));rejects(fn()=>E::detail(1,2,$id));
   }
   foreach(TextFake::$streamViews as $stream){check(end($stream['stages'])['streaming'],'Copy exposed during SSE');}
+  $interrupted=$fixture();TextFake::$interrupt=true;
+  try{$work($interrupted);throw new \LogicException('Expected stream interruption');}catch(\RuntimeException $e){check($e->getMessage()==='fixture stream interrupted','Unexpected interruption');}
+  TextFake::$interrupt=false;S::table('run')->where('id',$interrupted)->update(['status'=>'failed','lease_token'=>'']);
+  $interruptedView=E::detail(1,1,$interrupted);check(str_ends_with($interruptedView['reply'],'未节流保存的末尾。')&&!$interruptedView['stages'][0]['streaming'],'Interrupted stream lost its last delta');
   $original=TextFake::$followups;
   TextFake::$followups=[['tool_code'=>'aigc_image','title'=>'换风格','instruction'=>'使用刚生成的产品图换成水彩风格'],...$original];
   $id=$fixture();$start=count(Fake::$submits);
