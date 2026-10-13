@@ -1997,6 +1997,73 @@ class AigcDigitalHumanService
         }
     }
 
+    /** Worker reconciliation uses durable consumption/assets only, never the provider or wallets. */
+    public static function syncMarketConsumption(int $consumptionId, int $taskId): void
+    {
+        Db::transaction(function () use ($consumptionId, $taskId) {
+            $bill = \app\common\model\ai\AiConsumptionLog::findOrEmpty($consumptionId);
+            if ($bill->isEmpty()) throw new Exception('数字人市场消费记录不存在');
+            $binding = \app\common\model\ai\AiAppTask::findOrEmpty((int)$bill['app_task_id']);
+            $task = AigcDigitalHumanTask::where(['tenant_id'=>(int)$bill['tenant_id'], 'user_id'=>(int)$bill['user_id'], 'id'=>$taskId])->lock(true)->findOrEmpty();
+            $snapshot = (array)$bill['price_snapshot'];
+            if ($binding->isEmpty() || $task->isEmpty()
+                || (int)$binding['tenant_id'] !== (int)$bill['tenant_id'] || (int)$binding['user_id'] !== (int)$bill['user_id']
+                || (string)$binding['app_code'] !== self::APP_CODE || (string)$bill['app_code'] !== self::APP_CODE
+                || (string)$binding['business_table'] !== 'aigc_digital_human_task' || (int)$binding['business_id'] !== $taskId
+                || (int)($task['provider_payload_json']['market_consumption_id'] ?? 0) !== $consumptionId
+                || (string)$bill['provider'] !== 'power_market' || (string)$bill['protocol'] !== 'application_api'
+                || (string)($snapshot['app_code'] ?? '') !== 'lipsync') {
+                throw new Exception('数字人市场消费与业务任务绑定不一致');
+            }
+            if ((int)$task['delete_time'] > 0 || in_array((string)$task['status'], ['success','failed','canceled','cancelled'], true)) return;
+            $status = (string)$bill['run_status'];
+            if (in_array($status, ['failed','canceled','cancelled'], true) || (string)$bill['billing_status'] === 'refunded') {
+                if ((string)$bill['billing_status'] !== 'refunded') throw new Exception('数字人市场任务尚未完成退款');
+                $task->save(['status'=>in_array($status, ['canceled','cancelled'], true) ? 'canceled' : 'failed',
+                    'provider_stage'=>'lipsync_failed', 'progress'=>100, 'error'=>(string)$bill['error_message'],
+                    'finish_time'=>time(), 'update_time'=>time()]);
+                return;
+            }
+            if ($status !== 'success') return;
+            if ((string)$bill['billing_status'] !== 'settled') throw new Exception('数字人市场任务尚未完成结算');
+            $assets = \app\common\model\ai\AiTaskResultAsset::where([
+                'consumption_id'=>$consumptionId, 'app_task_id'=>(int)$bill['app_task_id'],
+                'tenant_id'=>(int)$bill['tenant_id'], 'user_id'=>(int)$bill['user_id'], 'asset_type'=>'video',
+            ])->order('id', 'asc')->select()->toArray();
+            if ($assets === []) throw new Exception('数字人市场结果尚未完成转存');
+            $videos = [];
+            foreach ($assets as $asset) {
+                if ((string)$asset['transfer_status'] !== 'stored' || trim((string)$asset['local_uri']) === ''
+                    || trim((string)$asset['storage_scope']) === '' || trim((string)$asset['storage_engine']) === '') {
+                    throw new Exception('数字人市场结果尚未完成转存');
+                }
+                $videos[] = array_merge((array)$asset['storage_meta'], [
+                    'uri'=>(string)$asset['local_uri'], 'storage_scope'=>(string)$asset['storage_scope'],
+                    'storage_engine'=>(string)$asset['storage_engine'], 'storage_domain'=>(string)$asset['storage_domain'],
+                    'duration'=>max(1, (int)$task['duration']), 'provider_task_id'=>(string)$bill['upstream_task_id'],
+                ]);
+            }
+            $saved = (array)$task['provider_payload_json'];
+            $selection = (array)($saved['market_selection'] ?? []);
+            if (empty($selection['channel']['code']) || empty($selection['spec']['quality']) || empty($selection['spec']['ratio'])) {
+                throw new Exception('数字人市场任务缺少受理规格快照');
+            }
+            $count = count($videos);
+            $estimate = array_merge((array)($saved['market_estimate'] ?? []), [
+                'duration'=>max(1, (int)$task['duration']), 'billable_quantity'=>(float)$bill['quantity'],
+                'platform_unit_cost'=>(float)($snapshot['platform_price'] ?? 0) / max(1, (float)($snapshot['usage_unit_size'] ?? 1)),
+                'tenant_unit_price'=>(float)($snapshot['tenant_price'] ?? 0) / max(1, (float)($snapshot['usage_unit_size'] ?? 1)),
+                'tenant_cost_points'=>(float)$bill['actual_tenant_cost'] / $count,
+                'user_charge_points'=>(float)$bill['actual_user_price'] / $count,
+                'market_settled'=>true, 'market_consume_no'=>(string)$bill['consume_no'],
+            ]);
+            // Deleted source assets must not prevent a paid result from being saved.
+            $avatar = AigcDigitalHumanAvatar::where(['tenant_id'=>(int)$bill['tenant_id'], 'id'=>(int)$task['avatar_id']])->findOrEmpty();
+            self::finishTaskWithVideos($task, ['id'=>(int)$task['avatar_id'], 'cover_uri'=>(string)($avatar['cover_uri'] ?? '')],
+                ['id'=>(int)$task['voice_id']], $selection, $estimate, $videos);
+        });
+    }
+
     private static function advanceMarketLipsync(AigcDigitalHumanTask $task, AigcDigitalHumanGenerateRequest $request, array $selection, array $estimate): void
     {
         $runtime = \app\common\service\power\MarketLipsyncAppRuntimeService::class;
@@ -2026,13 +2093,8 @@ class AigcDigitalHumanService
                 self::failTask($task,'lipsync_failed',(string)($result['error'] ?? '视频合成失败')); return;
             }
             if (($result['status'] ?? '') !== 'success') return;
-            $bill = \app\common\model\ai\AiConsumptionLog::findOrEmpty($consumptionId);
-            if ((string)$bill['billing_status'] !== 'settled') throw new Exception('市场任务尚未完成结算');
-            $estimate = array_merge($estimate,['duration'=>(int)$task['duration'],'billable_quantity'=>(float)$bill['quantity'],
-                'tenant_cost_points'=>(float)$bill['actual_tenant_cost'],'user_charge_points'=>(float)$bill['actual_user_price'],
-                'market_settled'=>true,'market_consume_no'=>(string)$bill['consume_no']]);
-            $videos = array_map(static fn($video)=>array_merge($video,['uri'=>$video['video_uri'],'duration'=>(int)$task['duration']]),$result['videos'] ?? []);
-            self::finishTaskWithVideos($task,$request->avatar,$request->voice,$selection,$estimate,$videos);
+            // Share the worker's durable handoff; a settled external URL is not yet a saved result.
+            \app\common\service\ai\AiTaskBusinessResultService::syncTerminalByConsumptionId($consumptionId);
         } catch (\Throwable $error) {
             // A settled market task must remain retryable if saving its business result failed.
             $id = (int)($consumptionId ?? $task['provider_payload_json']['market_consumption_id'] ?? 0);
@@ -3289,6 +3351,7 @@ class AigcDigitalHumanService
             $task->save([
                 'status' => 'success',
                 'provider_stage' => 'success',
+                'error' => '',
                 'progress' => 100,
                 'duration' => (int)($rows[0]['duration'] ?? 0),
                 'tenant_cost_points' => number_format((float)$estimate['tenant_cost_points'] * count($rows), 2, '.', ''),
@@ -3300,7 +3363,9 @@ class AigcDigitalHumanService
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();
-            $task->save(['status' => 'failed', 'progress' => 100, 'error' => $e->getMessage(), 'finish_time' => time(), 'update_time' => time()]);
+            if (empty($estimate['market_settled'])) {
+                $task->save(['status' => 'failed', 'progress' => 100, 'error' => $e->getMessage(), 'finish_time' => time(), 'update_time' => time()]);
+            }
             throw $e;
         }
         return $rows;

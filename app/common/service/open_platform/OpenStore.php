@@ -10,7 +10,16 @@ final class OpenStore
     public static function settings(int $tenantId): array
     {
         $row = self::table('setting')->where('tenant_id', $tenantId)->find();
-        return ['enabled'=>(bool)($row['enabled'] ?? ($tenantId===0 ? 1 : 0))] + array_replace_recursive(self::defaults(), self::json($row['config'] ?? []));
+        $config=array_replace_recursive(self::defaults(),self::json($row['config']??[]));
+        if($tenantId>0){
+            // Existing per-tenant settings are the initial grant ceiling, not global defaults.
+            $config['grant_limits']=$config['grant_limits']??array_intersect_key($config,array_flip(['rpm','concurrency','user_concurrency','tenant_concurrency']));
+            $config['grant_features']=$config['grant_features']??$config['features'];
+            $config['grant_apps']=$config['grant_apps']??$config['apps'];
+        }
+        $authorized=(bool)($row['enabled']??($tenantId===0?1:0));
+        $tenantEnabled=(bool)($config['tenant_enabled']??true);
+        return ['enabled'=>$authorized&&($tenantId===0||$tenantEnabled),'authorized'=>$authorized,'tenant_enabled'=>$tenantEnabled]+$config;
     }
     public static function limits(int $tenantId): array
     {

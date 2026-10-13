@@ -8,7 +8,9 @@ class PicLipsyncPackageContractTest extends TestCase
     {
         $manifest=json_decode(file_get_contents($this->root().'manifest.json'),true);
         self::assertLessThan(65535,strlen(json_encode($manifest)));
-        self::assertSame(0,$manifest['is_builtin']);
+        self::assertSame(1,$manifest['is_builtin']);
+        self::assertTrue(\app\common\service\app\DefaultAppService::isDefaultApp('aigc_pic_lipsync'));
+        self::assertSame([],$manifest['public_assets']);
         self::assertSame('/ai/avatar?tab=pic_lipsync',array_values(array_filter($manifest['frontend_entries'],fn($e)=>$e['terminal']==='pc'))[0]['path']);
         foreach($manifest['public_assets'] as $asset) {
             self::assertFileExists($this->root().$asset['source']);

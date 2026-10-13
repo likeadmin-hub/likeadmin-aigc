@@ -9,21 +9,23 @@ use app\common\service\open_platform\OpenDocuments;
 class ManagementController extends BaseAdminController
 {
     private function run(callable $fn){try{\app\common\service\open_platform\OpenAdminPermission::assert('platform_admin',$this->adminInfo,(string)$this->request->action());return $this->success('操作成功',$fn());}catch(\Throwable $e){return $this->fail($e instanceof \app\common\service\open_platform\OpenException?$e->getMessage():'开放平台操作失败，请查看服务日志');}}
-    public function detail(){return $this->run(fn()=>OpenStore::settings((int)$this->request->param('tenant_id',0)));}
+    public function detail(){return $this->run(fn()=>OpenManagement::adminSettings((int)$this->request->param('tenant_id',0)));}
+    public function setTenantAuthorization(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenManagement::setTenantAuthorization((int)$this->request->post('tenant_id'),OpenManagement::authorizationInput($this->request->post('enabled'))));}
     public function setup(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenManagement::saveSettings((int)$this->request->param('tenant_id',0),$this->request->post(),true));}
     public function pages(){return $this->run(fn()=>OpenPages::configured((int)$this->request->param('tenant_id',0)));}
     public function savePages(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenManagement::savePages((int)$this->request->param('tenant_id',0),(array)$this->request->post('pages',[])));}
-    public function contracts(){return $this->run(fn()=>OpenStore::table('contract')->order('id','desc')->limit(1000)->select()->toArray());}
-    public function documents(){return $this->run(fn()=>OpenStore::table('document')->where('tenant_id',(int)$this->request->param('tenant_id',0))->order('id','desc')->limit(1000)->select()->toArray());}
+    public function contracts(){return $this->run(fn()=>OpenManagement::adminContracts(0,true,$this->request->get()));}
+    public function documents(){return $this->run(fn()=>OpenManagement::adminDocuments((int)$this->request->param('tenant_id',0),$this->request->get()));}
     public function saveDocument(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenDocuments::save((int)$this->request->param('tenant_id',0),$this->request->post()));}
     public function publishDocument(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenDocuments::publish((int)$this->request->param('tenant_id',0),(int)$this->request->post('id')));}
-    public function requests(){return $this->run(fn()=>OpenManagement::requests((int)$this->request->get('tenant_id',-1),null,$this->request->get()));}
-    public function requestDetail(){return $this->run(fn()=>OpenManagement::detail((int)$this->request->get('tenant_id',-1),null,(string)$this->request->get('request_id')));}
+    public function requests(){return $this->run(fn()=>OpenManagement::requests((int)$this->request->get('tenant_id',-1),null,$this->request->get(),true));}
+    public function requestDetail(){return $this->run(fn()=>OpenManagement::adminRequestDetail((int)$this->request->get('tenant_id',-1),(string)$this->request->get('request_id'),true));}
     public function recoveryPreview(){return $this->run(fn()=>OpenManagement::recoveryPreview((int)$this->request->get('tenant_id',-1),(string)$this->request->param('request_id')));}
     public function resumeTracking(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(function(){\app\common\service\open_platform\OpenAdminRecoveryPermission::assert('platform_admin',$this->adminInfo);return \app\common\service\open_platform\OpenRecoveryAction::resume((int)$this->request->post('tenant_id',-1),(string)$this->request->post('request_id'),(string)$this->request->post('preview_token'),'platform_admin',$this->adminId);});}
     public function saveContract(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenContracts::save(OpenContracts::requestInput($this->request)));}
     public function createVerification(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>\app\common\service\open_platform\OpenContractPreview::issue((int)$this->request->post('id'),(int)$this->request->post('key_id'),(string)$this->request->post('path','')));}
     public function publishContract(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenContracts::publish((int)$this->request->post('id')));}
+    public function setMarketExposure(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenManagement::setMarketExposure(0,(array)$this->request->post('product_ids',[]),(bool)$this->request->post('enabled',false),true,(array)$this->request->post('app_codes',[])));}
     public function inventory(){return $this->run(fn()=>['tools'=>array_map(fn($code,$tool)=>['code'=>$code,'name'=>$tool['name']],array_keys(\app\common\service\open_platform\OpenToolRegistry::all()),array_values(\app\common\service\open_platform\OpenToolRegistry::all())),'models'=>\think\facade\Db::name('power_market_product')->field('id,name,resource_type')->where('status',1)->order('id','asc')->limit(5000)->select()->toArray()]);}
     public function marketPlan()
     {

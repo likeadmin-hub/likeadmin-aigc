@@ -9,7 +9,7 @@ class CustomerServiceLabelContractTest extends TestCase
     public function testCustomerServiceButtonUsesTheOnlineSupportLabel(): void
     {
         $component = \Tests\Support\CompiledAssets::source('pc/components/ai-workspace/help-float.vue');
-        $locales = \Tests\Support\CompiledAssets::source('pc/locales/ui-text.json');
+        $locales = \Tests\Support\CompiledAssets::source('pc/data/pc-ui-messages.json');
         self::assertStringContainsString('tt(\'联系在线客服\')', $component);
         self::assertStringContainsString(':disabled="!customerService.enterprise_wechat_url"', $component);
         self::assertStringContainsString('@click="openEnterpriseWechat"', $component);

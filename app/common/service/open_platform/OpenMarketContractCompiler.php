@@ -7,7 +7,7 @@ use think\facade\Db;
 /** Readable full catalogue plan; imports reviewed metadata as drafts, never executes or publishes. */
 final class OpenMarketContractCompiler
 {
-    private const VERSION = 2;
+    private const VERSION = 3;
     private const PROTOCOL_PATHS = ['openai_chat' => '/api/v1/chat/completions', 'openai_completions' => '/api/v1/completions', 'openai_responses' => '/api/v1/responses', 'anthropic_messages' => '/api/v1/messages'];
     // Exact audited operations. New catalogue paths require an explicit code review.
     private const APPS = [
@@ -75,7 +75,7 @@ final class OpenMarketContractCompiler
         elseif (!$model && isset(self::APPS[$app]) && in_array($api, self::APPS[$app], true)) $paths[] = ['protocol' => 'application_api', 'path' => '/api/v1/apps/' . $app . '/' . $api, 'source' => 'reviewed_app_catalogue'];
         if (!$paths) { $base[] = self::block('protocol_route_missing', '没有已审核的协议路由'); $paths[] = ['protocol' => '', 'path' => '', 'source' => 'missing']; }
         $protocolInputs = [];
-        if ($model && ($product['model_type'] ?? '') === 'text' && !$requestSource && !array_key_exists('input', $review)) {
+        if ($model && ($product['model_type'] ?? '') === 'text' && !array_key_exists('input', $review)) {
             foreach ($paths as $route) if ($definition = OpenMarketProtocolSchemas::definition($route['protocol'])) {
                 $protocolInputs[$route['protocol']] = $definition;
             }
@@ -83,7 +83,7 @@ final class OpenMarketContractCompiler
         }
         if (!in_array($method, ['POST', 'PUT', 'DELETE'], true)) $base[] = self::block('resource_adapter_required', '读取/目录操作需独立资源权限适配，不按免费接口导入');
         if (!$model && ($app === 'seedance' && $api !== 'create' || in_array($api, self::RESOURCE_APIS, true))) $base[] = self::block('ownership_adapter_required', '生命周期或共享资源操作需本地归属适配');
-        if (!in_array($callType, [1, 2], true)) $base[] = self::block('lifecycle_mode_review', '同步/异步混合或未知执行模式需审核');
+        if (!$protocolInputs && !in_array($callType, [1, 2], true)) $base[] = self::block('lifecycle_mode_review', '同步/异步混合或未知执行模式需审核');
         foreach (array_keys($input['properties'] ?? []) as $field) if (preg_match('/(?:^|_)(?:audio_id|asset_id|file_id|group_id|persona_id|reference_id|task_id)(?:$|_)/i', $field)&&!($characterApi&&$field==='reference_id')) $base[] = self::block('ownership_adapter_required', '输入资源 ID 需本地归属适配', $field);
         if ($model) {
             $input['properties']['model'] = ['type' => 'string', 'const' => (string)$product['upstream_model_code']];
@@ -99,7 +99,7 @@ final class OpenMarketContractCompiler
             $responses = OpenMarketResponse::retailSchemas($responseDefinition['submit_responses']);
             $schemaSources['response'] = $responseDefinition['trace'];
         }
-        if (!$responses) $base[] = self::block('response_schema_missing', '缺少明确成功响应或已审核响应结构');
+        if (!$responses && !$protocolInputs) $base[] = self::block('response_schema_missing', '缺少明确成功响应或已审核响应结构');
         // A reviewed omission cannot erase evidence in the original source envelope.
         $sourceSupported = true;
         foreach ($jsonExamples as $sample) if (isset($sample['code']) || isset($sample['choices']) || isset($sample['task_id']) || isset($sample['error'])) {
@@ -111,9 +111,9 @@ final class OpenMarketContractCompiler
                 if (!OpenMarketResponse::bodySupported(OpenStore::encode($registryExample['value']))) $sourceSupported = false;
             }
         }
-        if (!$sourceSupported || !OpenMarketResponse::schemaSupported($responses)) $base[] = self::block('response_projection_required', '上游原始响应或审核结构含尚未适配的协议字段');
+        if (!$protocolInputs && (!$sourceSupported || !OpenMarketResponse::schemaSupported($responses))) $base[] = self::block('response_projection_required', '上游原始响应或审核结构含尚未适配的协议字段');
         $hasTask = false; foreach ($responseSamples as $sample) if (OpenSchema::get($sample,'task_id')!==null || OpenSchema::get($sample,'data.task_id')!==null) $hasTask = true;
-        if ($callType === 2 && !$hasTask && !isset($responses['200']['content']['application/json']['schema']['properties']['data']['properties']['task_id']) && !isset($responses['200']['content']['application/json']['schema']['properties']['task_id'])) $base[] = self::block('task_response_missing', '异步操作缺少任务 ID 响应声明');
+        if (!$protocolInputs && $callType === 2 && !$hasTask && !isset($responses['200']['content']['application/json']['schema']['properties']['data']['properties']['task_id']) && !isset($responses['200']['content']['application/json']['schema']['properties']['task_id'])) $base[] = self::block('task_response_missing', '异步操作缺少任务 ID 响应声明');
         $taskRoot = isset($responses['200']['content']['application/json']['schema']['properties']['task_id']);
         $nativeMedia = OpenNativeMarketPricing::supports($product);
         $skus = []; $candidates = []; $drafts = []; $signatures = [];
@@ -125,6 +125,9 @@ final class OpenMarketContractCompiler
             foreach ($paths as $route) {
                 $issues = $base; $candidateInput = $input; $candidateExample = $example; $when = []; $whenDefaults=[]; $parameterPaths=[];
                 $candidateSources = $schemaSources;
+                $textDefinition = $model && ($product['model_type'] ?? '') === 'text' ? OpenMarketProtocolSchemas::definition($route['protocol']) : null;
+                $candidateResponses = $textDefinition ? ($review['responses'] ?? $textDefinition['submit_responses']) : $responses;
+                if(!$candidateResponses)$issues[]=self::block('response_schema_missing','缺少已审核的原生响应结构');
                 if (isset($protocolInputs[$route['protocol']])) {
                     $definition = $protocolInputs[$route['protocol']];
                     $candidateInput = $definition['request_schema'];
@@ -151,7 +154,12 @@ final class OpenMarketContractCompiler
                 }
                 if ($model && $requireChannel && !empty($product['upstream_channel_code'])) $when['channel'] = (string)$product['upstream_channel_code'];
                 $code = 'market.p' . (int)$product['id'] . '.' . $route['protocol'] . '.s' . (int)$sku['id'];
-                $config = ['response_adapter' => OpenMarketResponse::ADAPTER, 'executor' => 'json', 'role' => 'submit', 'title' => (string)$product['name'], 'billable' => true, 'input' => $candidateInput, 'example' => $candidateExample, 'responses' => $responses, 'when' => $when, 'when_defaults'=>$whenDefaults, 'billing' => [['sku_id' => (int)$sku['id'], 'basis' => 'input', 'max_units' => 1,'parameter_paths'=>$parameterPaths]], 'billing_description' => '按当前租户有效商城 SKU 售价，单调用计费；任务查询不重复收费', 'query_path' => '/api/v1/tasks/{task_id}', 'task_id_path' => $taskRoot ? 'task_id' : 'data.task_id'];
+                $config = ['response_adapter' => OpenMarketResponse::ADAPTER, 'executor' => 'json', 'role' => 'submit', 'title' => (string)$product['name'], 'billable' => true, 'input' => $candidateInput, 'example' => $candidateExample, 'responses' => $candidateResponses, 'when' => $when, 'when_defaults'=>$whenDefaults, 'billing' => [['sku_id' => (int)$sku['id'], 'basis' => 'input', 'max_units' => 1,'parameter_paths'=>$parameterPaths]], 'billing_description' => '按当前租户有效商城 SKU 售价，单调用计费；任务查询不重复收费', 'query_path' => '/api/v1/tasks/{task_id}', 'task_id_path' => $taskRoot ? 'task_id' : 'data.task_id'];
+                if($textDefinition){
+                    unset($config['response_adapter'],$config['query_path'],$config['task_id_path']);
+                    $config['billing_description']=\app\common\service\power\MarketUsageSettlementService::isActualUsageSku($sku)?'按照原生协议返回的真实 Token 用量和受理时的 SKU 价格快照结算；JSON 与 SSE 内容原样返回，用量缺失时保留待核对':'按照受理时的 SKU 价格快照计费；JSON 与 SSE 内容原样返回，不添加费用字段';
+                    $config['description']='stream=true 请求 SSE，stream=false 或省略时按上游非流式约定执行。以实际响应 Content-Type 为准，事件、工具调用、推理内容及错误格式保持原样。X-Open-Request-Id 用于本站调用记录。';
+                }
                 if($nativeMedia){$config['native_pricing']=OpenNativeMarketPricing::ADAPTER;$config['success_statuses']=['success','completed','succeeded','partial_success','partial_failed'];$config['billing_description']='按原生媒体 SKU 及实际成功数量/用量结算，受理参数仅用于价格映射，原协议不改写';}
                 if($character){$config['native_pricing']=OpenCharacterInputPricing::ADAPTER;$config+=$characterConfiguration;$config['billing_description']='按实际输入 UTF-8 字符数量及已冻结商城 SKU 单位售价计费；当前只支持供应商默认音色，查询不重复扣款';}
                 if ($candidateSources) $config['compiler'] = ['schema_sources' => $candidateSources];
@@ -160,7 +168,7 @@ final class OpenMarketContractCompiler
                 $draft = ['code' => $code, 'kind' => 'market', 'product_id' => (int)$product['id'], 'method' => $method, 'path' => $route['path'], 'config' => $config];
                 try { OpenContracts::validate($draft); } catch (\Throwable $error) { $issues[] = self::block('contract_validation_failed', $error instanceof OpenException ? $error->getMessage() : '契约结构无法验证'); }
                 $issues = self::unique($issues);
-                $candidates[] = ['code' => $code, 'sku_id' => (int)$sku['id'], 'method' => $method, 'path' => $route['path'], 'protocol' => $route['protocol'], 'route_source' => $route['source'], 'input' => OpenPolicy::publicData($candidateInput), 'example' => OpenPolicy::publicData($candidateExample), 'schema_sources' => $candidateSources, 'draftable' => !$issues, 'blockers' => $issues];
+                $candidates[] = ['code' => $code, 'sku_id' => (int)$sku['id'], 'method' => $method, 'path' => $route['path'], 'protocol' => $route['protocol'], 'route_source' => $route['source'], 'input' => OpenPolicy::publicData($candidateInput), 'example' => OpenPolicy::publicData($candidateExample), 'schema_sources' => $candidateSources, 'responses' => OpenPolicy::publicData($candidateResponses), 'draftable' => !$issues, 'blockers' => $issues];
                 if (!$issues) $drafts[] = $draft;
             }
         }
@@ -169,7 +177,21 @@ final class OpenMarketContractCompiler
         foreach ($drafts as &$draft) $draft['config']['compiler'] = ['version' => self::VERSION, 'source_digest' => $sourceDigest, 'review_note' => $review['review_note'] ?? 'catalogue metadata and registered protocol structure only'] + ($draft['config']['compiler'] ?? []); unset($draft);
         $allIssues = $base; foreach ($candidates as $candidate) $allIssues = array_merge($allIssues, $candidate['blockers']);
         $category = $model ? ['category_code' => $product['model_type'] ?? '', 'category_name' => $product['model_type'] ?? ''] : PowerMarketService::appCategory($product);
-        return ['product_id' => (int)$product['id'], 'name' => (string)$product['name'], 'resource_type' => $product['resource_type'], 'model_type' => $product['model_type'] ?? '', 'model_code' => $product['upstream_model_code'] ?? '', 'channel_code' => $product['upstream_channel_code'] ?? '', 'app_code' => $app, 'api_code' => $api, 'category_code' => $category['category_code'], 'category_name' => $category['category_name'], 'source_digest' => $sourceDigest, 'schema_shape' => $normal['shape'], 'input' => OpenPolicy::publicData($input), 'declared_protocols' => $protocols, 'schema_sources' => $schemaSources, 'protocol_inputs' => array_map(static fn($definition) => ['input' => $definition['request_schema'], 'example' => $definition['request_example'], 'source' => $definition['trace']], $protocolInputs), 'call_type' => $callType, 'doc_present' => $doc !== '', 'source_limits' => ['max_tokens' => $meta['max_tokens'] ?? null, 'context_window' => $meta['context_window'] ?? null], 'auxiliary_apis' => $auxiliary, 'skus' => $skus, 'candidates' => $candidates, 'drafts' => $drafts, 'blockers' => self::unique($allIssues)];
+        $documentationRoutes=[];
+        foreach($paths as $route){
+            $docInput=$protocolInputs[$route['protocol']]['request_schema']??$input;
+            $docExample=$protocolInputs[$route['protocol']]['request_example']??$example;
+            if($model){
+                $docInput['properties']['model']=['type'=>'string','const'=>(string)$product['upstream_model_code']];
+                $docInput['required']=array_values(array_unique(array_merge($docInput['required']??[],['model'])));
+                $docExample['model']=(string)$product['upstream_model_code'];
+                if($requireChannel&&!empty($product['upstream_channel_code'])){$docInput['properties']['channel']=$input['properties']['channel'];$docInput['required'][]='channel';$docExample['channel']=(string)$product['upstream_channel_code'];}
+            }
+            $docDefinition=$model&&($product['model_type']??'')==='text'?OpenMarketProtocolSchemas::definition($route['protocol']):null;
+            $docResponses=$docDefinition?($review['responses']??$docDefinition['submit_responses']):$responses;
+            $documentationRoutes[]=['method'=>$method,'path'=>$route['path'],'protocol'=>$route['protocol'],'input'=>OpenPolicy::publicData($docInput),'example'=>OpenPolicy::publicData($docExample),'responses'=>OpenPolicy::publicData($docResponses)];
+        }
+        return ['product_id' => (int)$product['id'], 'name' => (string)$product['name'], 'resource_type' => $product['resource_type'], 'model_type' => $product['model_type'] ?? '', 'model_code' => $product['upstream_model_code'] ?? '', 'channel_code' => $product['upstream_channel_code'] ?? '', 'app_code' => $app, 'api_code' => $api, 'category_code' => $category['category_code'], 'category_name' => $category['category_name'], 'source_digest' => $sourceDigest, 'schema_shape' => $normal['shape'], 'input' => OpenPolicy::publicData($input), 'declared_protocols' => $protocols, 'schema_sources' => $schemaSources, 'protocol_inputs' => array_map(static fn($definition) => ['input' => $definition['request_schema'], 'example' => $definition['request_example'], 'source' => $definition['trace']], $protocolInputs), 'call_type' => $callType, 'documentation_routes'=>$documentationRoutes, 'doc_present' => $doc !== '', 'source_limits' => ['max_tokens' => $meta['max_tokens'] ?? null, 'context_window' => $meta['context_window'] ?? null], 'auxiliary_apis' => $auxiliary, 'skus' => $skus, 'candidates' => $candidates, 'drafts' => $drafts, 'blockers' => self::unique($allIssues)];
     }
 
     public static function import(int $tenantId, array $reviews = [], array $productIds = []): array
@@ -261,15 +283,18 @@ final class OpenMarketContractCompiler
     }
     private static function document(array $product, array $draft): string
     {
+        $text=OpenTextProtocol::protocol($draft['path'])!=='';
         $c=$draft['config'];$encode=static fn($v)=>json_encode($v,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
         $responseExamples = '';
         foreach (['responses' => '提交响应结构示例', 'query_responses' => '任务查询结构示例'] as $field => $title) {
             $examples = $c[$field]['200']['content']['application/json']['examples'] ?? [];
             if (!$examples) continue;
-            $responseExamples .= "\n## " . $title . "\n\n以下为协议结构示例，积分为中性占位值，不是报价或真实调用回执。\n";
+            $responseExamples .= "\n## " . $title . "\n\n".($text?'以下为原生协议结构示例，不是真实调用回执。':'以下为协议结构示例，积分为中性占位值，不是报价或真实调用回执。')."\n";
             foreach ($examples as $example) $responseExamples .= "\n```json\n" . $encode($example['value']) . "\n```\n";
         }
-        return '# '.$product['name']."\n\n".$draft['method'].' `'.$draft['path']."`\n\n## 接入与鉴权\n\n使用本站 API Key，将上游地址替换为本站地址，保留此接口的参数结构。请求头使用 `Authorization: Bearer <API_KEY>` 和 `Content-Type: application/json`。完整密钥仅在创建时显示，请在服务端安全保管。\n\n## 请求参数\n\n字段类型、必填项、嵌套字段及约束见参数表。\n\n```json\n".$encode((object)$c['example'])."\n```\n\n## 价格与结算\n\n按本站当前有效商城 SKU 售价计费，在线调试提供当前费用预估。受理时保存价格快照，响应中的积分金额为本站预占或实际结算金额。结果尚未确认或缺少可信用量时，费用保留待处理。\n\n".$c['billing_description']."\n\n## 调用示例\n\ncURL、Python 与 JavaScript 示例见右侧代码面板。替换接入地址和自己的 API Key 后即可调用；不要在浏览器公开完整密钥。\n\n## 响应与任务\n\n保留上游业务字段及 HTTP 状态。响应头 `X-Request-Id` 可用于查询调用记录。异步接口返回 `data.task_id` 后，通过 `GET /api/v1/tasks/{task_id}` 查询状态和结果；仅允许任务创建者访问，轮换密钥后仍可查询。\n".$responseExamples."\n## 幂等与错误处理\n\n计费提交支持 `Idempotency-Key`。同一用户、接口和键的相同请求返回原回执，不重复扣款；参数不同则返回 409。提交超时或受理状态未知时，先查看调用记录，保持原幂等键，避免另建操作重复提交。\n\n鉴权失败返回 401，未开通或权限不足返回 403，余额或额度不足返回 402，限流返回 429。遇到 5xx，请保留请求 ID，并确认已有任务状态。\n";
+        $pricing=$text?'受理时保存 SKU 价格快照，按上游返回的真实 Token 用量独立结算；JSON 或 SSE 响应不注入本站费用字段。缺少可信用量时保留待核对，可在调用记录和账单查看费用。':'受理时保存价格快照，响应中的积分金额为本站预占或实际结算金额。结果尚未确认或缺少可信用量时，费用保留待处理。';
+        $lifecycle=$text?'stream=true 请求 SSE，stream=false 或省略时使用上游非流式约定。以实际 Content-Type 为准；事件名、工具调用、推理内容和错误格式原样返回。Chat 流式请求建议设置 stream_options.include_usage=true。响应头 X-Open-Request-Id 用于本站调用记录，上游 request-id 保留。':'响应头 `X-Request-Id` 可用于查询调用记录。异步接口返回 `data.task_id` 后，通过 `GET /api/v1/tasks/{task_id}` 查询状态和结果；仅允许任务创建者访问，轮换密钥后仍可查询。';
+        return '# '.$product['name']."\n\n".$draft['method'].' `'.$draft['path']."`\n\n## 接入与鉴权\n\n使用本站 API Key，将上游地址替换为本站地址，保留此接口的参数结构。请求头使用 `Authorization: Bearer <API_KEY>` 和 `Content-Type: application/json`。完整密钥仅在创建时显示，请在服务端安全保管。\n\n## 请求参数\n\n字段类型、必填项、嵌套字段及约束见参数表。\n\n```json\n".$encode((object)$c['example'])."\n```\n\n## 价格与结算\n\n按本站当前有效商城 SKU 售价计费，在线调试提供当前费用预估。".$pricing."\n\n".$c['billing_description']."\n\n## 调用示例\n\ncURL、Python 与 JavaScript 示例见右侧代码面板。替换接入地址和自己的 API Key 后即可调用；不要在浏览器公开完整密钥。\n\n## 响应与任务\n\n保留上游业务字段及 HTTP 状态。".$lifecycle."\n".$responseExamples."\n## 幂等与错误处理\n\n计费提交支持 `Idempotency-Key`。同一用户、接口和键的相同请求返回原回执，不重复扣款；参数不同则返回 409。提交超时或受理状态未知时，先查看调用记录，保持原幂等键，避免另建操作重复提交。\n\n鉴权失败返回 401，未开通或权限不足返回 403，余额或额度不足返回 402，限流返回 429。遇到 5xx，请保留请求 ID，并确认已有任务状态。\n";
     }
     private static function block(string $code, string $message, string $field = ''): array { return compact('code', 'field', 'message'); }
     private static function unique(array $issues): array { $out = []; foreach ($issues as $issue) $out[OpenStore::encode($issue)] = $issue; return array_values($out); }

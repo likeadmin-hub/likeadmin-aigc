@@ -768,7 +768,8 @@
                 "content": {
                   "type": [
                     "string",
-                    "array"
+                    "array",
+                    "null"
                   ],
                   "items": {
                     "type": "object",
@@ -791,12 +792,41 @@
                     },
                     "additionalProperties": true
                   }
+                },
+                "tool_calls": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string"
+                      },
+                      "function": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "arguments": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                },
+                "tool_call_id": {
+                  "type": "string"
                 }
               },
               "additionalProperties": true,
               "required": [
-                "role",
-                "content"
+                "role"
               ]
             }
           },
@@ -816,6 +846,21 @@
             "type": "object",
             "properties": {},
             "additionalProperties": true
+          },
+          "max_completion_tokens": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "最大生成 Token 数，包含模型的推理 Token；额度由当前模型与已发布契约决定。"
+          },
+          "stream_options": {
+            "type": "object",
+            "properties": {
+              "include_usage": {
+                "type": "boolean",
+                "description": "请求在流结束前返回累计用量帧。"
+              }
+            },
+            "additionalProperties": true
           }
         },
         "additionalProperties": true,
@@ -832,14 +877,199 @@
             "content": "Hello"
           }
         ],
-        "stream": false
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        }
       },
       "sources": [
         "app/api/controller/v1/CompatibleController.php:28-37",
         "app/common/service/ai_model_factory/FactoryUpstreamClient.php:236-242",
         "route/app.php:56-59",
         "app/common/service/ai_model_factory/FactoryRouterService.php:612-638"
-      ]
+      ],
+      "description": "stream=true 时返回原生 Chat Completions SSE；建议传 stream_options.include_usage=true，以接收最后的用量帧。choices 为空的用量帧可能晚于 finish_reason，流以 [DONE] 结束。用量缺失或中断时保持待核对，不按零用量处理。",
+      "submit_responses": {
+        "200": {
+          "description": "原生协议响应；以下为未执行的结构示例，Token 数值仅用于说明字段，不是调用回执或费用报价。stream=true 时返回原生 Chat Completions SSE；建议传 stream_options.include_usage=true，以接收最后的用量帧。choices 为空的用量帧可能晚于 finish_reason，流以 [DONE] 结束。用量缺失或中断时保持待核对，不按零用量处理。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "object": {
+                    "type": "string",
+                    "const": "chat.completion"
+                  },
+                  "created": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "choices": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "index": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "message": {
+                          "type": "object",
+                          "properties": {
+                            "role": {
+                              "type": "string"
+                            },
+                            "content": {
+                              "type": [
+                                "string",
+                                "array",
+                                "null"
+                              ]
+                            },
+                            "tool_calls": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "type": {
+                                    "type": "string"
+                                  },
+                                  "function": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "arguments": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "additionalProperties": true
+                                  }
+                                },
+                                "additionalProperties": true
+                              }
+                            },
+                            "refusal": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "additionalProperties": true
+                        },
+                        "finish_reason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "usage": {
+                    "type": "object",
+                    "properties": {
+                      "prompt_tokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "completion_tokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "total_tokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "prompt_tokens_details": {
+                        "type": "object",
+                        "properties": {
+                          "cached_tokens": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "completion_tokens_details": {
+                        "type": "object",
+                        "properties": {
+                          "reasoning_tokens": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "id",
+                  "object",
+                  "choices"
+                ]
+              },
+              "examples": {
+                "native_json": {
+                  "summary": "原生 JSON 结构示例（stream=false）",
+                  "value": {
+                    "id": "chatcmpl_example",
+                    "object": "chat.completion",
+                    "created": 1791763200,
+                    "model": "MODEL",
+                    "choices": [
+                      {
+                        "index": 0,
+                        "message": {
+                          "role": "assistant",
+                          "content": "Hello!"
+                        },
+                        "finish_reason": "stop"
+                      }
+                    ],
+                    "usage": {
+                      "prompt_tokens": 12,
+                      "completion_tokens": 3,
+                      "total_tokens": 15,
+                      "prompt_tokens_details": {
+                        "cached_tokens": 4
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "text/event-stream": {
+              "schema": {
+                "type": "string",
+                "description": "stream=true 时返回原生 Chat Completions SSE；建议传 stream_options.include_usage=true，以接收最后的用量帧。choices 为空的用量帧可能晚于 finish_reason，流以 [DONE] 结束。用量缺失或中断时保持待核对，不按零用量处理。"
+              },
+              "examples": {
+                "native_sse": {
+                  "summary": "原生 SSE 结构示例（stream=true）",
+                  "value": "data: {\"id\":\"chatcmpl_example\",\"object\":\"chat.completion.chunk\",\"model\":\"MODEL\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Hello!\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl_example\",\"object\":\"chat.completion.chunk\",\"model\":\"MODEL\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: {\"id\":\"chatcmpl_example\",\"object\":\"chat.completion.chunk\",\"model\":\"MODEL\",\"choices\":[],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":3,\"total_tokens\":15,\"prompt_tokens_details\":{\"cached_tokens\":4}}}\n\ndata: [DONE]\n\n"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "openai_completions": {
       "request_schema": {
@@ -877,7 +1107,144 @@
         "app/common/service/ai_model_factory/FactoryUpstreamClient.php:236-242",
         "route/app.php:56-59",
         "app/common/service/ai_model_factory/FactoryRouterService.php:612-638"
-      ]
+      ],
+      "description": "返回原生 Completions JSON 或 SSE，SSE 以 [DONE] 结束。旧版接口不保证流式用量，示例默认 stream=false；流式响应缺少真实用量时保持待核对。",
+      "submit_responses": {
+        "200": {
+          "description": "原生协议响应；以下为未执行的结构示例，Token 数值仅用于说明字段，不是调用回执或费用报价。返回原生 Completions JSON 或 SSE，SSE 以 [DONE] 结束。旧版接口不保证流式用量，示例默认 stream=false；流式响应缺少真实用量时保持待核对。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "object": {
+                    "type": "string",
+                    "const": "text_completion"
+                  },
+                  "created": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "choices": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "index": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "text": {
+                          "type": "string"
+                        },
+                        "finish_reason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "logprobs": {
+                          "type": [
+                            "object",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "usage": {
+                    "type": "object",
+                    "properties": {
+                      "prompt_tokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "completion_tokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "total_tokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "prompt_tokens_details": {
+                        "type": "object",
+                        "properties": {
+                          "cached_tokens": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "completion_tokens_details": {
+                        "type": "object",
+                        "properties": {
+                          "reasoning_tokens": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "id",
+                  "object",
+                  "choices"
+                ]
+              },
+              "examples": {
+                "native_json": {
+                  "summary": "原生 JSON 结构示例（stream=false）",
+                  "value": {
+                    "id": "cmpl_example",
+                    "object": "text_completion",
+                    "created": 1791763200,
+                    "model": "MODEL",
+                    "choices": [
+                      {
+                        "index": 0,
+                        "text": "Hello!",
+                        "finish_reason": "stop",
+                        "logprobs": null
+                      }
+                    ],
+                    "usage": {
+                      "prompt_tokens": 12,
+                      "completion_tokens": 3,
+                      "total_tokens": 15
+                    }
+                  }
+                }
+              }
+            },
+            "text/event-stream": {
+              "schema": {
+                "type": "string",
+                "description": "返回原生 Completions JSON 或 SSE，SSE 以 [DONE] 结束。旧版接口不保证流式用量，示例默认 stream=false；流式响应缺少真实用量时保持待核对。"
+              },
+              "examples": {
+                "native_sse": {
+                  "summary": "原生 SSE 结构示例（stream=true）",
+                  "value": "data: {\"id\":\"cmpl_example\",\"object\":\"text_completion\",\"model\":\"MODEL\",\"choices\":[{\"index\":0,\"text\":\"Hello!\",\"finish_reason\":null}]}\n\ndata: {\"id\":\"cmpl_example\",\"object\":\"text_completion\",\"model\":\"MODEL\",\"choices\":[{\"index\":0,\"text\":\"\",\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "openai_responses": {
       "request_schema": {
@@ -923,14 +1290,219 @@
         "model": "MODEL",
         "input": "Hello",
         "store": false,
-        "stream": false
+        "stream": true
       },
       "sources": [
         "app/api/controller/v1/CompatibleController.php:28-37",
         "app/common/service/ai_model_factory/FactoryUpstreamClient.php:236-242",
         "route/app.php:56-59",
         "app/common/service/ai_model_factory/FactoryRouterService.php:612-638"
-      ]
+      ],
+      "description": "stream=true 时返回原生 Responses 事件，包含 response.output_text.delta 等增量；response.completed、response.incomplete、response.failed 表示终态。终态 response.usage 用于用量核对，incomplete 不等同于零消耗。示例 store=false，不包含后续资源查询流程。",
+      "submit_responses": {
+        "200": {
+          "description": "原生协议响应；以下为未执行的结构示例，Token 数值仅用于说明字段，不是调用回执或费用报价。stream=true 时返回原生 Responses 事件，包含 response.output_text.delta 等增量；response.completed、response.incomplete、response.failed 表示终态。终态 response.usage 用于用量核对，incomplete 不等同于零消耗。示例 store=false，不包含后续资源查询流程。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "object": {
+                    "type": "string",
+                    "const": "response"
+                  },
+                  "created_at": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "queued",
+                      "in_progress",
+                      "completed",
+                      "incomplete",
+                      "failed",
+                      "cancelled"
+                    ]
+                  },
+                  "output": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "content": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string"
+                              },
+                              "text": {
+                                "type": "string"
+                              },
+                              "annotations": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": true
+                                }
+                              }
+                            },
+                            "additionalProperties": true
+                          }
+                        },
+                        "call_id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "arguments": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "usage": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "input_tokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "output_tokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "total_tokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "input_tokens_details": {
+                        "type": "object",
+                        "properties": {
+                          "cached_tokens": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "output_tokens_details": {
+                        "type": "object",
+                        "properties": {
+                          "reasoning_tokens": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  "error": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "incomplete_details": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "id",
+                  "object",
+                  "status",
+                  "output"
+                ]
+              },
+              "examples": {
+                "native_json": {
+                  "summary": "原生 JSON 结构示例（stream=false）",
+                  "value": {
+                    "id": "resp_example",
+                    "object": "response",
+                    "created_at": 1791763200,
+                    "model": "MODEL",
+                    "status": "completed",
+                    "output": [
+                      {
+                        "id": "msg_example",
+                        "type": "message",
+                        "role": "assistant",
+                        "status": "completed",
+                        "content": [
+                          {
+                            "type": "output_text",
+                            "text": "Hello!",
+                            "annotations": []
+                          }
+                        ]
+                      }
+                    ],
+                    "usage": {
+                      "input_tokens": 12,
+                      "output_tokens": 3,
+                      "total_tokens": 15,
+                      "input_tokens_details": {
+                        "cached_tokens": 4
+                      },
+                      "output_tokens_details": {
+                        "reasoning_tokens": 0
+                      }
+                    },
+                    "error": null,
+                    "incomplete_details": null
+                  }
+                }
+              }
+            },
+            "text/event-stream": {
+              "schema": {
+                "type": "string",
+                "description": "stream=true 时返回原生 Responses 事件，包含 response.output_text.delta 等增量；response.completed、response.incomplete、response.failed 表示终态。终态 response.usage 用于用量核对，incomplete 不等同于零消耗。示例 store=false，不包含后续资源查询流程。"
+              },
+              "examples": {
+                "native_sse": {
+                  "summary": "原生 SSE 结构示例（stream=true）",
+                  "value": "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"response_id\":\"resp_example\",\"item_id\":\"msg_example\",\"output_index\":0,\"content_index\":0,\"delta\":\"Hello!\"}\n\nevent: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_example\",\"object\":\"response\",\"created_at\":1791763200,\"model\":\"MODEL\",\"status\":\"completed\",\"output\":[{\"id\":\"msg_example\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"Hello!\",\"annotations\":[]}]}],\"usage\":{\"input_tokens\":12,\"output_tokens\":3,\"total_tokens\":15,\"input_tokens_details\":{\"cached_tokens\":4},\"output_tokens_details\":{\"reasoning_tokens\":0}},\"error\":null,\"incomplete_details\":null}}\n\n"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "anthropic_messages": {
       "request_schema": {
@@ -1015,14 +1587,154 @@
           }
         ],
         "max_tokens": 16,
-        "stream": false
+        "stream": true
       },
       "sources": [
         "app/api/controller/v1/CompatibleController.php:28-37",
         "app/common/service/ai_model_factory/FactoryUpstreamClient.php:236-242",
         "route/app.php:56-59",
         "app/common/service/ai_model_factory/FactoryRouterService.php:612-638"
-      ]
+      ],
+      "description": "stream=true 时返回原生 Messages 事件，message_start 含输入用量，message_delta 的输出计数为累计值，不累加各帧，message_stop 结束。缓存读取和创建用量与未缓存 input_tokens 分别保留。流中 error 不代表此前生成没有消耗。",
+      "submit_responses": {
+        "200": {
+          "description": "原生协议响应；以下为未执行的结构示例，Token 数值仅用于说明字段，不是调用回执或费用报价。stream=true 时返回原生 Messages 事件，message_start 含输入用量，message_delta 的输出计数为累计值，不累加各帧，message_stop 结束。缓存读取和创建用量与未缓存 input_tokens 分别保留。流中 error 不代表此前生成没有消耗。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "message"
+                  },
+                  "role": {
+                    "type": "string",
+                    "const": "assistant"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "input": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": true
+                        },
+                        "thinking": {
+                          "type": "string"
+                        },
+                        "signature": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "stop_reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "stop_sequence": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "usage": {
+                    "type": "object",
+                    "properties": {
+                      "input_tokens": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "本次未缓存输入 Token；缓存读取和写入分别计数。"
+                      },
+                      "output_tokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "cache_creation_input_tokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "cache_read_input_tokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "id",
+                  "type",
+                  "role",
+                  "content"
+                ]
+              },
+              "examples": {
+                "native_json": {
+                  "summary": "原生 JSON 结构示例（stream=false）",
+                  "value": {
+                    "id": "msg_example",
+                    "type": "message",
+                    "role": "assistant",
+                    "model": "MODEL",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "Hello!"
+                      }
+                    ],
+                    "stop_reason": "end_turn",
+                    "stop_sequence": null,
+                    "usage": {
+                      "input_tokens": 12,
+                      "output_tokens": 3,
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 4
+                    }
+                  }
+                }
+              }
+            },
+            "text/event-stream": {
+              "schema": {
+                "type": "string",
+                "description": "stream=true 时返回原生 Messages 事件，message_start 含输入用量，message_delta 的输出计数为累计值，不累加各帧，message_stop 结束。缓存读取和创建用量与未缓存 input_tokens 分别保留。流中 error 不代表此前生成没有消耗。"
+              },
+              "examples": {
+                "native_sse": {
+                  "summary": "原生 SSE 结构示例（stream=true）",
+                  "value": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_example\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"MODEL\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":12,\"output_tokens\":0,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":4}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hello!\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":3}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "app.grok_video.submit": {
       "request_schema": {

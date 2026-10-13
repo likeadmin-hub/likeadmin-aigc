@@ -34,13 +34,15 @@ final class OpenDocuments
     public static function openapi(int $tenantId): array
     {
         $paths=[];$config=OpenStore::settings($tenantId);$global=OpenStore::settings(0);$introductions=[];
+        $catalogue=OpenDocumentationCatalog::build($tenantId);$availability=[];
+        foreach($catalogue as $entry){$availability[$entry['operationId']]=$entry['x-callable']??false;foreach($entry['x-contract-variants']??[] as $variant)$availability[$variant['code']]=$variant['operation']['x-callable']??false;}
         foreach(self::publicLists($tenantId) as $document)if($document['contract_code']!=='')$introductions[$document['contract_code']]=OpenPublicDocumentation::introduction($document['content']);
         foreach(OpenStore::table('contract')->where('status','published')->order('id','asc')->select()->toArray() as $row){
             $c=OpenContracts::decodeConfig($row['config']);$app=$c['app_code']??'';
             if($row['kind']==='tool'&&!OpenToolRegistry::supported($row['method'],$row['path']))continue;
             if($row['kind']==='tool'&&(!in_array($app,$config['apps'],true)||!in_array($app,$global['apps'],true)))continue;
             if($row['kind']==='market'&&(int)$row['product_id']>0&&(!in_array((string)$row['product_id'],$config['models'],true)||!in_array((string)$row['product_id'],$global['models'],true)))continue;
-            $input=$c['input'];$method=strtolower($row['method']);$op=['operationId'=>$row['code'],'summary'=>$c['title']??$row['code'],'description'=>$c['description']??'','tags'=>[$row['kind']==='tool'?OpenToolRegistry::get($app)['name']:'商城 API'],'security'=>[['apiKey'=>[]]],'responses'=>self::publicResponses($c),'x-contract-version'=>(int)$row['version'],'x-billable'=>(bool)$c['billable'],'x-billing-description'=>$c['billing_description']??''];
+            $input=$c['input'];$method=strtolower($row['method']);$op=['operationId'=>$row['code'],'summary'=>$c['title']??$row['code'],'description'=>$c['description']??'','tags'=>[$row['kind']==='tool'?OpenToolRegistry::get($app)['name']:'商城 API'],'security'=>[['apiKey'=>[]]],'responses'=>self::publicResponses($c),'x-published'=>true,'x-callable'=>($row['kind']==='market'&&(int)$row['product_id']===0?$global['enabled']&&$config['enabled']:($availability[$row['code']]??false)),'x-contract-version'=>(int)$row['version'],'x-billable'=>(bool)$c['billable'],'x-billing-description'=>$c['billing_description']??''];
             if(trim($op['description'])==='')$op['description']=$introductions[$row['code']]??'';
             if($row['kind']==='tool'&&!empty(OpenToolRegistry::get($app)['limitations']))$op['x-capability-limitations']=OpenToolRegistry::get($app)['limitations'];
             preg_match_all('/\{([a-z_]+)\}/',$row['path'],$captures);
@@ -57,6 +59,6 @@ final class OpenDocuments
             if(isset($paths[$row['path']][$method])){$existing=&$paths[$row['path']][$method];$existing['x-contract-variants'][]=$variant;foreach($op['requestBody']['content']??[] as $type=>$content){if(!isset($existing['requestBody']['content'][$type])){$existing['requestBody']['content'][$type]=$content;continue;}$old=$existing['requestBody']['content'][$type]['schema'];$existing['requestBody']['content'][$type]['schema']=['anyOf'=>array_merge($old['anyOf']??[$old],[$content['schema']])];$existing['requestBody']['content'][$type]['examples'][$row['code']]=['value'=>(object)$c['example']];}$existing['responses']=array_replace($existing['responses'],$op['responses']);unset($existing);continue;}
             $op['x-contract-variants']=[$variant];$paths[$row['path']][$method]=$op;
         }
-        return ['openapi'=>'3.0.3','info'=>['title'=>'LikeAdmin 开放平台','version'=>'1.0.0'],'paths'=>(object)$paths,'components'=>['securitySchemes'=>['apiKey'=>['type'=>'http','scheme'=>'bearer']]]];
+        return ['openapi'=>'3.0.3','info'=>['title'=>'LikeAdmin 开放平台','version'=>'1.0.0'],'paths'=>(object)$paths,'x-documentation-catalog'=>$catalogue,'components'=>['securitySchemes'=>['apiKey'=>['type'=>'http','scheme'=>'bearer']]]];
     }
 }
