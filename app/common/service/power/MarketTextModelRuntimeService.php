@@ -107,7 +107,7 @@ class MarketTextModelRuntimeService
         $resultValidator=$params['_result_validator']??null;
         if ($resultValidator!==null && !is_callable($resultValidator)) throw new Exception('文本结果校验器无效');
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
-        $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? []);
+        $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? [], !empty($params['_agent_tool_history']));
         $requiresVision = $referenceImages !== [] || !empty($params['requires_vision']);
         $model = \app\common\service\open_platform\OpenCallContext::textModel() ?? (!empty($params['_disable_model_fallback'])
             ? self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)
@@ -724,7 +724,7 @@ class MarketTextModelRuntimeService
     }
 
     /** @return array<int, array{role:string, content:mixed}> */
-    private static function normalizeMessages(string $content, array $referenceImages, $value): array
+    private static function normalizeMessages(string $content, array $referenceImages, $value, bool $agentTools = false): array
     {
         $messages = [];
         foreach (is_array($value) ? $value : [] as $item) {
@@ -732,6 +732,14 @@ class MarketTextModelRuntimeService
                 continue;
             }
             $role = strtolower(trim((string)($item['role'] ?? 'user')));
+            if ($agentTools && $role === 'tool' && !empty($item['tool_call_id']) && is_string($item['content'] ?? null)) {
+                $messages[] = ['role' => 'tool', 'tool_call_id' => (string)$item['tool_call_id'], 'content' => $item['content']];
+                continue;
+            }
+            if ($agentTools && $role === 'assistant' && !empty($item['tool_calls']) && is_array($item['tool_calls'])) {
+                $messages[] = ['role' => 'assistant', 'content' => (string)($item['content'] ?? ''), 'tool_calls' => $item['tool_calls']];
+                continue;
+            }
             if (!in_array($role, ['user', 'assistant'], true)) {
                 continue;
             }
