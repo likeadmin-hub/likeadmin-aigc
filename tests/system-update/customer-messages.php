@@ -47,6 +47,8 @@ namespace {
         ['文件校验失败: app/common/service/update/RuntimeRetentionService.php', '重新下载'],
         ['SQLSTATE[HY000]: General error: 2006 MySQL server has gone away', '数据库连接'],
         ['ComposerRuntimeUpdateService: candidate probe failed /www/wwwroot/opc/runtime-loader.php', '联系技术支持'],
+        ['更新源响应格式错误：<html>gateway failed</html>', '更新服务配置'],
+        ['更新失败：fopen(): Permission denied', '联系技术支持'],
     ];
     foreach($cases as [$diagnostic,$action]) {
         $result=$failure->invoke($controller,new \RuntimeException($diagnostic))->data;

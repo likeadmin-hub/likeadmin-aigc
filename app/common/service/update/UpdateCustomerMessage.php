@@ -25,6 +25,8 @@ class UpdateCustomerMessage
         ];
         if (isset($protocolMessages[$errorCode])) return $protocolMessages[$errorCode];
         $rules = [
+            '/更新源响应格式错误/' => '更新服务返回的信息异常，请联系管理员检查更新服务配置后重试。',
+            '/cURL error|更新源.*(?:连接失败|暂时不可用)/' => '暂时无法连接更新服务，请检查服务器网络后重试。',
             '/目录不可写|无法(?:创建|写入|替换|复制|备份).*?(?:目录|文件)/' => '更新目录无法写入，请联系服务器管理员检查站点目录的写入权限后重试。',
             '/open_basedir/' => '服务器限制了更新目录的访问，请联系服务器管理员检查目录访问权限后重试。',
             '/磁盘.*空间不足/' => '服务器剩余空间不足，请清理磁盘或扩容后重试，至少保留更新包大小三倍的可用空间。',
@@ -39,7 +41,7 @@ class UpdateCustomerMessage
         // Keep useful, already readable instructions, without appended protocol identifiers.
         $message = trim((string)preg_replace('/\s*\([A-Z][A-Z0-9_]+\)\s*$/', '', $message));
         if (!preg_match('/[\x{4e00}-\x{9fff}]/u', $message)
-            || preg_match('#(?:[a-zA-Z0-9_.-]+/)+|\\\\|\.(?:php|sh|mjs|json|sql)\b|Supervisor|\bcron\b|SQLSTATE|Composer|[A-Za-z]+(?:Service|Exception|Controller)\b|[A-Z][A-Z0-9]+_[A-Z0-9_]+#', $message)) {
+            || preg_match('#(?:[a-zA-Z0-9_.-]+/)+|\\\\|\.(?:php|sh|mjs|json|sql)\b|Supervisor|\bcron\b|SQLSTATE|Composer|[A-Za-z]+(?:Service|Exception|Controller)\b|[A-Z][A-Z0-9]+_[A-Z0-9_]+|[a-zA-Z_][a-zA-Z0-9_]*\(|<[^>]+>#', $message)) {
             return '更新未能完成，请联系技术支持并提供更新日志，以便检查后重新更新。';
         }
         return $message;
