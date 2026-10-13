@@ -28,12 +28,14 @@
 
 ## Tasks
 
-- [ ] Freeze scope, bump versions and commit release notes independently; checkpoint merge local develop.
-- [ ] Build PC, tenant, platform, H5 and mp-weixin with repository scripts; verify entries/artifact.
-- [ ] Run focused decoration/video regressions and source runtime probes; retain baseline-test limitations.
-- [ ] Stage against genuine 1.0.393; package with automatic bump, validate signatures/SQL/forbidden paths/updater preflight.
-- [ ] Commit outputs; publish verified archive, read back private record, synchronize develop/master to Gitee and server GitHub.
+- [x] Freeze scope, bump versions and commit release notes independently; checkpoint merge local develop.
+- [x] Build PC, tenant, platform, H5 and mp-weixin with repository scripts; verify entries/artifact.
+- [x] Run focused decoration/video regressions and source runtime probes; retain baseline-test limitations.
+- [x] Stage against genuine 1.0.393; package with automatic bump, validate signatures/SQL/forbidden paths/updater preflight.
+- [x] Commit outputs; publish verified archive, read back private record, synchronize develop/master to Gitee and server GitHub.
 
 Ruling: Move the Ads JSON from docs into the application runtime resource directory and adjust both importer/preparer paths. The official system stager excludes docs, so the source-only placement would break post-upgrade imports. JSON bytes and 60 preset identities remain unchanged; no import or model call is executed.
 
 Ruling: The independent reviewer found canonical CLI paths bypassed immutable generation selection. PHP now uses runtime-loader/AigcRuntimeApp and pinned generation data; Python validates/pins current.json, rejects pending updates/traversal/missing data and never falls back. Eight regression checks plus a genuine 393 canonical-tree / 394 selected-generation probe validate this without importing data or calling models. Rebuild the not-yet-published artifact and retain the superseded artifact separately.
+
+Private publication verified: record 368, exact 393 to 394, SHA256 ec376e561e1f3bc3d04703e2aff3a56eb5e94885ce75a5f27ac2cea2351c92ad. Remote branch synchronization is the remaining final delivery step; record final heads outside the archive after push.
