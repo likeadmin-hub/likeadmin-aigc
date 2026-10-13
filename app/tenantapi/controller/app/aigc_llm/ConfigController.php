@@ -9,7 +9,7 @@ class ConfigController extends BaseAdminController
 {
     public function detail()
     {
-        return $this->success('获取成功', AigcLlmService::config($this->tenantId));
+        return $this->success('获取成功', AigcLlmService::config($this->tenantId)+['skill_configs'=>\app\common\service\app\aigc_llm\agent\AgentSkillConfigService::detail($this->tenantId)]);
     }
 
     public function setup()
