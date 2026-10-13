@@ -120,3 +120,11 @@ Agent 作品列表接口支持 `scope=all`，按当前租户及用户查询全�
 展示类型 `preview_type` 为 image/video 二选一；video 模式配套 `video_poster`，公开预览使用 `video_poster_url` 作为加载占位图。切换展示类型保存时清除另一类展示素材。保存校验兼容请求 trim 过滤后的整数字符串，参数错误返回业务提示。
 
 首页技能收藏按租户和用户存储在 Agent preferences.skill_favorites，preferences 接口使用 favorite_skill{id,favorite} 单项更新，不覆盖模型偏好与预算；正常偏好保存保留收藏。收藏不授予工具权限。
+
+## Lightweight multi-step creation
+
+The homepage uses a reviewed allowlist (image, video, music, fitting); studio applications are excluded. `plan_creation_followups` records at most three dependent followup stages in server-owned run preferences._sequence. After collecting owned outputs, the worker atomically advances to chat to prepare the next stage, using actual file IDs. Existing maximum of eight paid steps remains. No new table, migration or API route is needed. Text creation stays inside the model turn; DOCX uses create_document.
+
+Ask mode confirms every newly priced stage; future stages with missing source outputs are explicitly unpriced. Auto mode checks cumulative estimates across the entire run, including already executed steps. Budget overflow or changed pricing requires confirmation. Earlier approval hashes cannot authorize a new stage. Model preferences stay fixed to the submitted run. Intermediate artifacts, replies and text usage records survive continuation. Failure, cancellation, partial results and missing outputs prevent automatic advancement. Missing information pauses the sequence for a new user message.
+
+Run detail adds optional pending_points (currently proposed costs) and sequence (public active/pending/completed titles and state); estimated_points keeps its cumulative meaning. Text model costs remain separate. Old runs without sequence metadata retain their behavior. Offline tests exercise real Neuron and transactional persistence with mocked provider/pricing adapters; live paid multi-step provider acceptance is separate.

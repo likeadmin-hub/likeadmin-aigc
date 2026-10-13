@@ -15,15 +15,21 @@ final class AgentCapabilityCatalog
     private const NAMES=['aigc_image'=>'图片创作','aigc_video'=>'视频创作','aigc_music'=>'音乐创作','aigc_fitting'=>'AI试衣'];
     public static function schema(string $code): array
     {
+        self::assertSupported($code);
         if(in_array($code,['aigc_music','aigc_fitting'],true))return AgentExtendedTools::schema($code);
         $properties=['prompt'=>['type'=>'string','minLength'=>1,'maxLength'=>10000],'negative_prompt'=>['type'=>'string','maxLength'=>4000],'ratio'=>['type'=>'string'],'reference_images'=>['type'=>'array','maxItems'=>8,'items'=>['type'=>'string','pattern'=>'^of_[a-f0-9]{32}$'],'description'=>'用户素材的 file_id；禁止构造或猜测地址']];
         if($code==='aigc_image')$properties+=['quantity'=>['type'=>'integer','minimum'=>1,'maximum'=>4],'quality'=>['type'=>'string']];
         else $properties+=['duration'=>['type'=>'integer','minimum'=>1,'maximum'=>60],'resolution'=>['type'=>'string']];
         return ['type'=>'object','properties'=>$properties,'required'=>['prompt'],'additionalProperties'=>false];
     }
+    public static function assertSupported(string $code): void
+    {
+        // Deliberate homepage allowlist: never import the studio or public API tool catalogue wholesale.
+        if(!isset(self::SERVICES[$code]))throw new \InvalidArgumentException('首页 Agent 不支持此工具；工作室应用不在可调用范围内');
+    }
     private static function authorize(int $tenant,int $user,string $code): void
     {
-        if(!isset(self::SERVICES[$code]))throw new \InvalidArgumentException('此创作工具尚未接入');
+        self::assertSupported($code);
         $denied=AppAccessService::assertTenantCanUse($tenant,$code,$user,true,false);
         if($denied||(int)(self::SERVICES[$code]::config($tenant)['status']??0)!==1)throw new \InvalidArgumentException('当前账号不可使用此工具');
     }
