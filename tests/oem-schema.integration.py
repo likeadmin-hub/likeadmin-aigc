@@ -43,6 +43,9 @@ try:
     maintenance = (root / 'upgrade/20261014_oem_maintenance.sql').read_text()
     assert maintenance == (root / 'public/upgrade/20261014_oem_maintenance.sql').read_text()
     migration += '\n' + maintenance
+    reconcile=(root/'upgrade/20261014_oem_payment_reconcile.sql').read_text()
+    assert reconcile==(root/'public/upgrade/20261014_oem_payment_reconcile.sql').read_text()
+    migration+='\n'+reconcile
     recovery=(root/'upgrade/20261014_oem_refund_recovery.sql').read_text()
     assert recovery==(root/'public/upgrade/20261014_oem_refund_recovery.sql').read_text()
     migration+='\n'+recovery
