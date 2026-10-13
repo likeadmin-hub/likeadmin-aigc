@@ -38,6 +38,10 @@ final class AgentStore
             if(!empty($run['lease_token'])&&$current['lease_token']!==$run['lease_token'])throw new \RuntimeException('执行租约已变更');
         }
     }
+    public static function requiresConfirmation(array $preferences,float $total): bool
+    {
+        return ($preferences['mode']??'ask')!=='auto'||$total>(float)($preferences['budget']??0);
+    }
     public static function preferences(int $tenant,int $user,?array $input=null): array
     {
         $row=self::owner('preference',$tenant,$user)->find();

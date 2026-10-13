@@ -9,6 +9,9 @@ foreach([['mode'=>'auto','budget'=>0],['mode'=>'auto','budget'=>-1],['mode'=>'un
 $p=AgentStore::validatePreferences(['mode'=>'auto','budget'=>12.34,'models'=>['text'=>'market:1','image'=>'channel:2']]);check($p['models']['image']==='channel:2','preference identity');
 foreach(['aigc_image','aigc_video'] as $code){OpenSchema::validateRequest(['prompt'=>'创作测试'],AgentCapabilityCatalog::schema($code),true);try{OpenSchema::validateRequest(['prompt'=>'test','tenant_id'=>99],AgentCapabilityCatalog::schema($code),true);throw new RuntimeException('Owner override accepted');}catch(\app\common\service\open_platform\OpenException){}}
 check(AgentToolContext::image(1,2)===null,'no implicit native price override');
+check(AgentStore::requiresConfirmation(['mode'=>'ask','budget'=>100],20),'consultation always confirms');
+check(!AgentStore::requiresConfirmation(['mode'=>'auto','budget'=>20],20),'auto executes within budget');
+check(AgentStore::requiresConfirmation(['mode'=>'auto','budget'=>20],21),'auto still respects budget');
 $called=0;
 $tool=new AgentFunctionTool('make_plan','Prepare a plan',['type'=>'object','properties'=>['prompt'=>['type'=>'string']],'required'=>['prompt']],function($payload)use(&$called){$called++;check($payload['prompt']==='poster','payload passed');return ['planned'=>true,'requires_confirmation'=>true];});
 $provider=new MarketNeuronProvider('chosen',function($params)use(&$called){if(!$called)return ['tool_calls'=>[['id'=>'t1','function'=>['name'=>'make_plan','arguments'=>'{"payload":{"prompt":"poster"}}']]]];check(str_contains($params['messages'][2]['content'],'requires_confirmation'),'tool output retained');return ['content'=>'请确认方案'];});
