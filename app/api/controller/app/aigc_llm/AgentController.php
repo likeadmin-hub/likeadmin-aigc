@@ -14,7 +14,11 @@ class AgentController extends BaseApiController
         }catch(\InvalidArgumentException|OpenException $e){return $this->fail($e->getMessage());}
         catch(\Throwable $e){\think\facade\Log::error('Home Agent API: '.get_class($e));return $this->fail('Agent 暂不可用，请检查服务部署后重试');}
     }
-    public function config(){return $this->handle(fn($t,$u)=>['preferences'=>AgentStore::preferences($t,$u),'models'=>AgentCapabilityCatalog::models($t),'tools'=>array_values(AgentCapabilityCatalog::all($t,$u))]);}
+    public function config(){return $this->handle(function($t,$u){
+        $tools=AgentCapabilityCatalog::all($t,$u);$displays=[];
+        foreach(array_unique(array_merge(['aigc_llm'],array_keys($tools))) as $code)$displays[$code]=\app\common\service\app\AppDisplayConfigService::skillPreview($t,$code);
+        return ['preferences'=>AgentStore::preferences($t,$u),'models'=>AgentCapabilityCatalog::models($t),'tools'=>array_values($tools),'skill_displays'=>$displays];
+    });
     public function preferences(){return $this->handle(fn($t,$u)=>AgentStore::preferences($t,$u,$this->request->post()));}
     public function submit(){return $this->handle(fn($t,$u)=>AgentExecutionService::submit($t,$u,$this->request->post()));}
     public function detail(){return $this->handle(fn($t,$u)=>AgentExecutionService::detail($t,$u,(int)$this->request->get('run_id',0)));}
