@@ -16,7 +16,12 @@ namespace app\common\service\update {
         public function preflight(int $id): array { if($id!==42)throw new \RuntimeException('wrong package'); return self::$result; }
         public function overview(): array { return self::$result; }
     }
+    class AppPackageUpdateService {
+        public function apply(int $id): array { if($id!==42)throw new \RuntimeException('wrong package'); throw new \RuntimeException('应用包 app_code 与预期不一致'); }
+        public function preflight(int $id,string $code): array { return SystemPackageUpdateService::$result; }
+    }
 }
+namespace app\platformapi\logic\upgrade { class UpgradeLogic { public static function upgrade($params): bool { return false; } public static function getError(): string { return '目录不可写: /www/wwwroot/opc/runtime'; } } }
 namespace {
     $root=dirname(__DIR__,2);
     require $root.'/app/common/service/update/UpdateProtocolException.php';
@@ -24,6 +29,7 @@ namespace {
         if(str_starts_with($class,'app\\')) { $file=$root.'/'.str_replace('\\','/',$class).'.php'; if(is_file($file))require $file; }
     });
     require $root.'/app/platformapi/controller/upgrade/UpgradeController.php';
+    require $root.'/app/platformapi/controller/AppController.php';
     function check(bool $condition,string $message): void { if(!$condition)throw new \RuntimeException($message); }
     $controller=new \app\platformapi\controller\upgrade\UpgradeController();
     $failure=new \ReflectionMethod($controller,'updateFailure');
@@ -49,6 +55,14 @@ namespace {
         ['ComposerRuntimeUpdateService: candidate probe failed /www/wwwroot/opc/runtime-loader.php', '联系技术支持'],
         ['更新源响应格式错误：<html>gateway failed</html>', '更新服务配置'],
         ['更新失败：fopen(): Permission denied', '联系技术支持'],
+        ['请先安装 Composer 更新器桥接版本 1.0.391', '先将系统升级到 1.0.391'],
+        ['Composer 自动升级要求 PHP >= 8.2.0', '8.2.0'],
+        ['当前 PHP 缺少运行时扩展: pcntl', '服务器管理员'],
+        ['上次 SQL 执行中断，结果未知；为避免重复计费或任务变更，禁止自动重放，请先核对数据库', '请勿重复更新'],
+        ['写入失败: app/config.php; 文件回滚失败，恢复日志已保留: Permission denied', '确认恢复正常'],
+        ['系统运行时自举缺少执行任务', '联系技术支持'],
+        ['更新源未返回当前版本可用的下一步升级包，请先同步桥接包或连续步进包', '逐个版本'],
+        ['已有 Composer 运行时升级正在执行', '稍后'],
     ];
     foreach($cases as [$diagnostic,$action]) {
         $result=$failure->invoke($controller,new \RuntimeException($diagnostic))->data;
@@ -73,5 +87,17 @@ namespace {
     \app\common\service\update\SystemPackageUpdateService::$result=['current_version'=>'1.0.396','error'=>'更新源连接失败，请稍后重试 (LICENSE_NETWORK_UNAVAILABLE)','error_code'=>'LICENSE_NETWORK_UNAVAILABLE'];
     $result=$controller->overview()->data['data'];
     check($result['current_version']==='1.0.396' && $result['error_code']==='LICENSE_NETWORK_UNAVAILABLE' && !str_contains($result['error'],'LICENSE_'), 'overview must not bypass customer error formatting');
+    $controller->request=new class { public function post($key=null,$default=null) { return $key===null?['id'=>42]:$default; } };
+    $result=$controller->upgrade()->data;
+    check(str_contains($result['msg'],'写入权限') && !str_contains($result['msg'],'/www/'), 'legacy update entry must not bypass presentation');
+    $app=new \app\platformapi\controller\AppController();
+    $app->request=new class { public function post($key,$default=null) { return $key==='package_id'?42:$default; } };
+    $result=$app->applyPackage()->data;
+    check(str_contains($result['msg'],'所选应用不匹配') && !str_contains($result['msg'],'app_code'), 'app update failure must not bypass presentation');
+    \app\common\service\update\SystemPackageUpdateService::$result=$rawResult;
+    $result=$app->preflightPackage()->data['data'];
+    check($result['passed']===false && !str_contains($result['errors'][0],'/www/'), 'app preflight must not bypass presentation');
+    $result=\app\common\service\update\UpdateCustomerMessage::present(['versions'=>[['deny_message'=>'本站授权证书不可用 (LICENSE_MACHINE_FORBIDDEN)','deny_reason'=>'LICENSE_MACHINE_FORBIDDEN','can_download'=>false]]]);
+    check(!str_contains($result['versions'][0]['deny_message'],'LICENSE_') && $result['versions'][0]['can_download']===false, 'version list must preserve eligibility without protocol codes in the explanation');
     echo "customer update messages: HTTP errors, preflight and overview passed\n";
 }
