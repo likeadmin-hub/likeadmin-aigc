@@ -95,7 +95,7 @@ class AppController extends BaseAdminController
     {
         try {
             $appCode = (string)$this->request->get('app_code', '');
-            return $this->success('获取成功', (new AppPackageUpdateService())->cloudDetail($appCode));
+            return $this->success('获取成功', UpdateCustomerMessage::present((new AppPackageUpdateService())->cloudDetail($appCode)));
         } catch (Exception $e) {
             return $this->packageFailure($e);
         }

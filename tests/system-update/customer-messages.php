@@ -17,6 +17,7 @@ namespace app\common\service\update {
         public function overview(): array { return self::$result; }
     }
     class AppPackageUpdateService {
+        public function cloudDetail(string $code): array { return SystemPackageUpdateService::$result; }
         public function apply(int $id): array { if($id!==42)throw new \RuntimeException('wrong package'); throw new \RuntimeException('应用包 app_code 与预期不一致'); }
         public function preflight(int $id,string $code): array { return SystemPackageUpdateService::$result; }
     }
@@ -99,5 +100,9 @@ namespace {
     check($result['passed']===false && !str_contains($result['errors'][0],'/www/'), 'app preflight must not bypass presentation');
     $result=\app\common\service\update\UpdateCustomerMessage::present(['versions'=>[['deny_message'=>'本站授权证书不可用 (LICENSE_MACHINE_FORBIDDEN)','deny_reason'=>'LICENSE_MACHINE_FORBIDDEN','can_download'=>false]]]);
     check(!str_contains($result['versions'][0]['deny_message'],'LICENSE_') && $result['versions'][0]['can_download']===false, 'version list must preserve eligibility without protocol codes in the explanation');
+    \app\common\service\update\SystemPackageUpdateService::$result=['can_download'=>false,'deny_reason'=>'LICENSE_MACHINE_FORBIDDEN','deny_message'=>'本站授权证书不可用 (LICENSE_MACHINE_FORBIDDEN)'];
+    $app->request=new class { public function get($key,$default=null) { return 'fixture_app'; } };
+    $result=$app->cloudDetail()->data['data'];
+    check($result['can_download']===false && !str_contains($result['deny_message'],'LICENSE_'), 'app version detail must not expose raw eligibility codes');
     echo "customer update messages: HTTP errors, preflight and overview passed\n";
 }
