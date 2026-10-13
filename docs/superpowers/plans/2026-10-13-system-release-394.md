@@ -33,3 +33,5 @@
 - [ ] Run focused decoration/video regressions and source runtime probes; retain baseline-test limitations.
 - [ ] Stage against genuine 1.0.393; package with automatic bump, validate signatures/SQL/forbidden paths/updater preflight.
 - [ ] Commit outputs; publish verified archive, read back private record, synchronize develop/master to Gitee and server GitHub.
+
+Ruling: Move the Ads JSON from docs into the application runtime resource directory and adjust both importer/preparer paths. The official system stager excludes docs, so the source-only placement would break post-upgrade imports. JSON bytes and 60 preset identities remain unchanged; no import or model call is executed.
