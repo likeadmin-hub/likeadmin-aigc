@@ -42,7 +42,7 @@ namespace {
   check(str_contains($body,'09:10 产品介绍'),'Persisted document never reached the model');
   check(str_contains($second['system_prompt'],'真实任务记录')&&str_contains($second['system_prompt'],'长对话摘记'),'Context sections not injected');
   check($second['model_selection']==='chosen-model'&&$second['_disable_model_fallback'],'Model preference changed');
-  check(C::build($run)['focus']['file_ids']===[Fake::$file],'Selected document not persisted');
+  check(C::build(S::run($t,$u,(int)$id))['focus']['file_ids']===[Fake::$file],'Selected document not persisted');
   $view=E::detail($t,$u,(int)$id);check($view['status']==='success'&&$view['steps']===[],'Read tools submitted or approved generation');
   check(S::table('event')->where('run_id',$id)->where('event_type','context.prepared')->count()===1,'Context diagnostics missing');
   echo "Home Agent context chat passed: actual Neuron execution, document read, persistent focus and unchanged model; transport mocked, rolled back\n";
