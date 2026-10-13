@@ -29,7 +29,7 @@ try {
         $services = include $GLOBALS['AIGC_RUNTIME_VENDOR'] . '/services.php';
         if (!is_array($services)) throw new RuntimeException('运行时服务发现清单无效');
         foreach ($services as $class) if (!is_string($class) || !class_exists($class)) throw new RuntimeException('运行时服务无法自动加载');
-        echo json_encode(['passed'=>true,'services'=>$services], JSON_UNESCAPED_SLASHES);
+        echo json_encode(['passed'=>true,'services'=>$services,'retention_lease'=>isset($GLOBALS['AIGC_RUNTIME_LEASE']) && $GLOBALS['AIGC_RUNTIME_LEASE']->holds(basename($generation))], JSON_UNESCAPED_SLASHES);
     } elseif ($mode === '--finalize') {
         $GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'] = $argv[2] ?? '';
         $context = json_decode($argv[5] ?? '{}', true, 512, JSON_THROW_ON_ERROR);
