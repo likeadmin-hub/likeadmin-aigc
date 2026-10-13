@@ -15,7 +15,7 @@ use app\common\service\FileService;
 $options=getopt('', ['tenant:','product:','media-dir:','apply']);
 $tenant=(int)($options['tenant']??0);$product=(int)($options['product']??0);$dir=realpath($options['media-dir']??'');
 if($tenant<=0 || $product<=0 || !$dir)throw new RuntimeException('Require tenant, product and media directory');
-$source=json_decode(file_get_contents(dirname(__DIR__).'/docs/video-effects/pixlr-ads.json'),true,512,JSON_THROW_ON_ERROR)['items'];
+$source=json_decode(file_get_contents(dirname(__DIR__).'/app/apps/aigc_video/data/pixlr-ads.json'),true,512,JSON_THROW_ON_ERROR)['items'];
 $media=array_column(json_decode(file_get_contents($dir.'/media.json'),true,512,JSON_THROW_ON_ERROR),null,'id');
 $config=Video::config($tenant);$existing=Effects::catalog($tenant);$existingIds=array_column($existing,'id');
 $model=null;foreach($config['option_config']['channels']??[] as $candidate)if((int)$candidate['market_product_id']===$product)$model=$candidate;

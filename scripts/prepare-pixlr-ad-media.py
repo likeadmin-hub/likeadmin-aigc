@@ -10,7 +10,7 @@ def main():
     ap.add_argument('--ffmpeg', default='ffmpeg')
     ap.add_argument('--ffprobe', default='ffprobe')
     args = ap.parse_args()
-    rows = json.loads((pathlib.Path(__file__).resolve().parents[1] / 'docs/video-effects/pixlr-ads.json').read_text())['items']
+    rows = json.loads((pathlib.Path(__file__).resolve().parents[1] / 'app/apps/aigc_video/data/pixlr-ads.json').read_text())['items']
     folder = pathlib.Path(args.media_dir); folder.mkdir(parents=True, exist_ok=True, mode=0o700)
     def prepare(row):
         url = row['source_video']
