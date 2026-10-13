@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Validate signed candidate bytes, three-end assets, migration parity and excluded fixtures."""
-import hashlib,json,pathlib,re,sys,zipfile
+import hashlib,json,pathlib,re,sys,zipfile,subprocess
 info=json.loads(pathlib.Path(sys.argv[1]).read_text());directory=pathlib.Path(info['artifact_dir']);package=directory/'system_1.0.398.zip';metadata=json.loads((directory/'system_1.0.398.metadata.json').read_text())
 def digest(path):
  h=hashlib.sha256()
@@ -24,6 +24,10 @@ with zipfile.ZipFile(package) as z:
   for resource in re.findall(r'(?:src|href)=["\']([^"\']+\.(?:js|css))(?:\?[^"\']*)?["\']',html):
    if resource.startswith(('http:','https:','data:')):continue
    target='files/public/'+resource.lstrip('/') if resource.startswith('/') else 'files/public/'+app+'/'+resource
-   assert target in files,(app,resource)
- pcs={n[len('files/public/pc/_nuxt/'):]:sig[n] for n in sig if n.startswith('files/public/pc/_nuxt/')};roots={n[len('files/public/_nuxt/'):]:sig[n] for n in sig if n.startswith('files/public/_nuxt/')};assert pcs and pcs==roots,'PC and root Nuxt outputs differ'
-print(json.dumps({'result':'PASS','sha256':metadata['sha256'],'files_verified':len(sig),'full_replace_dirs':manifest['full_replace_dirs'],'sql_order':manifest['sql_order'],'no_test_gateway_or_protected_data':True},indent=2))
+   if target not in files:
+    # Incremental packages retain unchanged root resources outside full-replace directories.
+    relative=target.removeprefix('files/');assert not any(relative==d or relative.startswith(d+'/') for d in manifest['full_replace_dirs']),(app,resource)
+    previous=subprocess.check_output(['git','-C',info['server'],'show','364c5c42:'+relative])
+    assert previous==(pathlib.Path(info['server'])/relative).read_bytes(),('retained root asset changed',resource)
+ pcs={n[len('files/public/pc/_nuxt/'):]:sig[n] for n in sig if n.startswith('files/public/pc/_nuxt/')};roots={n[len('files/public/_nuxt/'):]:sig[n] for n in sig if n.startswith('files/public/_nuxt/')};assert roots and all(roots.get(n)==v for n,v in pcs.items()),'PC Nuxt mirrors differ from canonical root outputs'
+print(json.dumps({'canonical_nuxt':'public/_nuxt (PC static builder omits duplicate /pc/_nuxt)', 'result':'PASS','sha256':metadata['sha256'],'files_verified':len(sig),'full_replace_dirs':manifest['full_replace_dirs'],'sql_order':manifest['sql_order'],'no_test_gateway_or_protected_data':True},indent=2))
