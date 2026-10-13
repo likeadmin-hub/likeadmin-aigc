@@ -21,5 +21,14 @@ Db::startTrans();try{
  check(count(Skills::forTools($t,['aigc_fitting']))===4,'Unauthorized tool settings exposed');
  foreach([[['id'=>'unknown']],[['id'=>'fitting','tool'=>'aigc_video']],[['id'=>'fitting','images'=>['javascript:alert(1)']]],[['id'=>'fitting','prompt'=>'']],[['id'=>'image'],['id'=>'image']]] as $bad){try{Llm::saveConfig($t,['skill_configs'=>$bad]);throw new LogicException('Invalid skill accepted');}catch(InvalidArgumentException){}}
  check(array_column(Skills::detail($t),null,'id')['fitting']['name']==='试穿效果','Invalid save changed settings');
+ Llm::saveConfig($t,['skill_create'=>['name'=>'商品试穿','app_code'=>'aigc_fitting','prompt'=>'请生成试穿图','images'=>[]]]);
+ $custom=array_values(array_filter(Skills::detail($t),fn($skill)=>!$skill['builtin']));check(count($custom)===1&&$custom[0]['tool']==='aigc_fitting','Custom create failed');$id=$custom[0]['id'];
+ check(!in_array($id,array_column(Skills::forTools($t,[]),'id'),true),'Custom skill bypasses tool authorization');
+ try{Llm::saveConfig($t+1,['skill_configs'=>[['id'=>$id,'enabled'=>0]]]);throw new LogicException('Cross tenant update accepted');}catch(InvalidArgumentException){}
+ Llm::saveConfig($t,['skill_configs'=>[['id'=>$id,'enabled'=>0]]]);check(array_column(Skills::detail($t),null,'id')[$id]['enabled']===0,'Toggle failed');
+ Llm::saveConfig($t,['skill_configs'=>[['id'=>$id,'name'=>'改名','app_code'=>'aigc_llm']]]);$edited=array_column(Skills::detail($t),null,'id')[$id];check($edited['name']==='改名'&&!isset($edited['tool'])&&$edited['enabled']===0,'Edit replaced unrelated fields or retained old tool');
+ Llm::saveConfig($t,['skill_delete_id'=>$id]);check(!in_array($id,array_column(Skills::detail($t),'id'),true),'Custom delete failed');
+ Llm::saveConfig($t,['skill_delete_id'=>'image']);Llm::saveConfig($t,['skill_configs'=>[['id'=>'plan','sort'=>20]]]);Llm::saveConfig($t,['config_json'=>['system_prompt'=>'after delete']]);check(!in_array('image',array_column(Skills::detail($t),'id'),true),'Deleted built-in resurrected after another save');
+ foreach([['skill_create'=>['name'=>'不允许','prompt'=>'test','app_code'=>'unknown']],['skill_create'=>['name'=>'','prompt'=>'test','app_code'=>'aigc_llm']],['skill_configs'=>[['id'=>'image','enabled'=>1]]],['skill_delete_id'=>'unknown'],['skill_create'=>[],'skill_delete_id'=>'plan']] as $bad){try{Llm::saveConfig($t,$bad);throw new LogicException('Invalid CRUD accepted');}catch(InvalidArgumentException){}}
  echo "Central Agent skills passed: seven defaults, legacy media, independent text skills, base preservation, ownership and immutable tools; rolled back\n";
 }finally{Db::rollback();}
