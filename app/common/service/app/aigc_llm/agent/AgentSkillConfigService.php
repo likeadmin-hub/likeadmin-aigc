@@ -18,47 +18,109 @@ final class AgentSkillConfigService
         'script'=>['name'=>'剧本创作','category'=>'文本','description'=>'构思故事、人物、对白和分镜脚本。','prompt'=>'帮我创作剧本，请先确认题材、目标受众、时长和风格，再整理故事梗概、人物设定及分镜内容。','materials'=>'说明题材和创作目标；已有故事或人物设定可直接补充。'],
         'plan'=>['name'=>'创作方案','category'=>'文本','description'=>'把创意整理成清晰、可执行的创作方案。','prompt'=>'帮我制定一份创作方案，请先了解目标、受众和交付形式，再给出内容结构与执行步骤。','materials'=>'描述你的目标、受众和预期交付内容。']
     ];
+    private const APPS = ['aigc_llm'=>'文本','aigc_image'=>'图片','aigc_fitting'=>'图片','aigc_video'=>'视频','aigc_music'=>'音频'];
+    private const EDITABLE = ['name','description','prompt','materials','enabled','sort','images','videos'];
+
+    private static function stored(int $tenant): array
+    {
+        $config = AigcLlmConfig::where('tenant_id', $tenant)->findOrEmpty();
+        return $config->isEmpty() ? [] : (array)($config->config_json['agent_skills'] ?? []);
+    }
+
     public static function detail(int $tenant): array
     {
-        $config=AigcLlmConfig::where('tenant_id',$tenant)->findOrEmpty();
-        $saved=$config->isEmpty()?[]:((array)($config->config_json['agent_skills']??[]));
-        $items=[];$displays=[];
-        foreach(self::DEFAULTS as $id=>$default){
-            $app=$default['tool']??'aigc_llm';$display=$displays[$app]??=Display::detail($tenant,$app);
-            $value=$saved[$id]??[];
-            $item=['id'=>$id,'app_code'=>$app,'enabled'=>1,'sort'=>0]+$default;
-            if(isset($default['tool'])){$item['name']=$display['title']?:$default['name'];$item['description']=$display['description']?:$default['description'];}
-            foreach(['name','description','prompt','materials','enabled','sort'] as $field)if(array_key_exists($field,$value))$item[$field]=$value[$field];
-            $item['images']=$value['images']??$display['skill_preview_images'];
-            $item['videos']=$value['videos']??$display['skill_preview_videos'];
-            $item['image_urls']=array_map(static fn($uri)=>FileService::getFileUrl($uri),$item['images']);
-            $item['video_urls']=array_map(static fn($uri)=>FileService::getFileUrl($uri),$item['videos']);
-            $item['cover_url']=$display['cover_url'];
-            $items[]=$item;
+        $saved = self::stored($tenant);
+        $defaults = self::DEFAULTS;
+        foreach ($saved as $id => $value) {
+            if (!isset($defaults[$id]) && str_starts_with($id, 'custom_') && isset(self::APPS[$value['app_code'] ?? ''])) {
+                $app = $value['app_code'];
+                $defaults[$id] = ['name'=>'','description'=>'','prompt'=>'','materials'=>'','category'=>self::APPS[$app]];
+                if ($app !== 'aigc_llm') $defaults[$id]['tool'] = $app;
+            }
+        }
+        $items = []; $displays = [];
+        foreach ($defaults as $id => $default) {
+            $value = $saved[$id] ?? [];
+            if (!empty($value['deleted'])) continue;
+            $app = $default['tool'] ?? 'aigc_llm';
+            $display = $displays[$app] ??= Display::detail($tenant, $app);
+            $item = ['id'=>$id,'app_code'=>$app,'builtin'=>isset(self::DEFAULTS[$id]),'enabled'=>1,'sort'=>0] + $default;
+            if (isset(self::DEFAULTS[$id]['tool'])) {
+                $item['name'] = $display['title'] ?: $default['name'];
+                $item['description'] = $display['description'] ?: $default['description'];
+            }
+            foreach (['name','description','prompt','materials','enabled','sort'] as $field) {
+                if (array_key_exists($field, $value)) $item[$field] = $value[$field];
+            }
+            $item['images'] = $value['images'] ?? (isset(self::DEFAULTS[$id]) ? $display['skill_preview_images'] : []);
+            $item['videos'] = $value['videos'] ?? (isset(self::DEFAULTS[$id]) ? $display['skill_preview_videos'] : []);
+            $item['image_urls'] = array_map(static fn($uri)=>FileService::getFileUrl($uri), $item['images']);
+            $item['video_urls'] = array_map(static fn($uri)=>FileService::getFileUrl($uri), $item['videos']);
+            $item['cover_url'] = $display['cover_url'];
+            $items[] = $item;
         }
         return $items;
     }
-    public static function normalize(int $tenant,mixed $rows): array
+
+    public static function apply(int $tenant, array $params): ?array
     {
-        if(!is_array($rows)||count($rows)>count(self::DEFAULTS))throw new \InvalidArgumentException('技能配置格式不正确');
-        $result=[];foreach(self::detail($tenant) as $item)$result[$item['id']]=array_intersect_key($item,array_flip(['name','description','prompt','materials','enabled','sort','images','videos']));
-        $seen=[];
-        foreach($rows as $row){
-            if(!is_array($row)||!is_string($row['id']??null)||!isset(self::DEFAULTS[$row['id']])||isset($seen[$row['id']]))throw new \InvalidArgumentException('技能不存在或重复');
-            $id=$row['id'];$seen[$id]=true;
-            if(array_diff(array_keys($row),['id','name','description','prompt','materials','enabled','sort','images','videos']))throw new \InvalidArgumentException('不支持修改此技能设置');
-            foreach(['name'=>80,'description'=>500,'prompt'=>4000,'materials'=>1000] as $field=>$limit)if(array_key_exists($field,$row)){
-                if(!is_string($row[$field])||mb_strlen($row[$field])>$limit||in_array($field,['name','prompt'],true)&&trim($row[$field])==='')throw new \InvalidArgumentException('技能名称、提示词或说明格式不正确');
-                $result[$id][$field]=trim($row[$field]);
+        $commands = array_intersect(['skill_configs','skill_create','skill_delete_id'], array_keys($params));
+        if (!$commands) return null;
+        if (count($commands) !== 1) throw new \InvalidArgumentException('请一次提交一个技能操作');
+        if (array_key_exists('skill_configs', $params)) return self::normalize($tenant, $params['skill_configs']);
+        if (array_key_exists('skill_create', $params)) {
+            if (!is_array($params['skill_create']) || array_key_exists('id', $params['skill_create'])) throw new \InvalidArgumentException('新增技能格式不正确');
+            if (count(self::detail($tenant)) >= 100) throw new \InvalidArgumentException('最多添加 100 个技能');
+            $id = 'custom_' . bin2hex(random_bytes(12));
+            return self::normalize($tenant, [['id'=>$id] + $params['skill_create']], $id);
+        }
+        $id = $params['skill_delete_id'];
+        if (!is_string($id) || !in_array($id, array_column(self::detail($tenant),'id'), true)) throw new \InvalidArgumentException('技能不存在');
+        $result = self::stored($tenant);
+        if (isset(self::DEFAULTS[$id])) $result[$id] = ['deleted'=>true];
+        else unset($result[$id]);
+        return $result;
+    }
+
+    public static function normalize(int $tenant, mixed $rows, string $newId = ''): array
+    {
+        if (!is_array($rows) || count($rows)>100) throw new \InvalidArgumentException('技能配置格式不正确');
+        $result = self::stored($tenant);
+        $current = array_column(self::detail($tenant), null, 'id');
+        foreach ($current as $id=>$item) $result[$id] = array_intersect_key($item, array_flip(array_merge(self::EDITABLE,['app_code'])));
+        $seen = [];
+        foreach ($rows as $row) {
+            $id = is_array($row) ? ($row['id'] ?? null) : null;
+            if (!is_string($id) || (!isset($current[$id]) && $id !== $newId) || isset($seen[$id])) throw new \InvalidArgumentException('技能不存在或重复');
+            $seen[$id] = true;
+            if (array_diff(array_keys($row), array_merge(['id','app_code'],self::EDITABLE))) throw new \InvalidArgumentException('不支持修改此技能设置');
+            if ($id === $newId) $result[$id] = ['name'=>'','description'=>'','prompt'=>'','materials'=>'','enabled'=>1,'sort'=>0,'images'=>[],'videos'=>[]];
+            if (array_key_exists('app_code',$row)) {
+                if (!is_string($row['app_code']) || !isset(self::APPS[$row['app_code']])) throw new \InvalidArgumentException('请选择已接入的应用');
+                if (isset(self::DEFAULTS[$id]) && $row['app_code'] !== $current[$id]['app_code']) throw new \InvalidArgumentException('内置技能关联应用不可修改');
+                $result[$id]['app_code'] = $row['app_code'];
             }
-            if(array_key_exists('enabled',$row)){if(!in_array($row['enabled'],[0,1],true))throw new \InvalidArgumentException('技能状态无效');$result[$id]['enabled']=$row['enabled'];}
-            if(array_key_exists('sort',$row)){if(!is_int($row['sort'])||abs($row['sort'])>9999)throw new \InvalidArgumentException('技能排序无效');$result[$id]['sort']=$row['sort'];}
-            foreach(['images'=>5,'videos'=>3] as $field=>$limit)if(array_key_exists($field,$row))$result[$id][$field]=Display::normalizeSkillMedia($row[$field],$limit);
+            foreach (['name'=>80,'description'=>500,'prompt'=>4000,'materials'=>1000] as $field=>$limit) {
+                if (!array_key_exists($field,$row)) continue;
+                if (!is_string($row[$field]) || mb_strlen($row[$field])>$limit || (in_array($field,['name','prompt'],true) && trim($row[$field])==='')) throw new \InvalidArgumentException('技能名称、提示词或说明格式不正确');
+                $result[$id][$field] = trim($row[$field]);
+            }
+            if (array_key_exists('enabled',$row)) {
+                if (!in_array($row['enabled'],[0,1],true)) throw new \InvalidArgumentException('技能状态无效');
+                $result[$id]['enabled'] = $row['enabled'];
+            }
+            if (array_key_exists('sort',$row)) {
+                if (!is_int($row['sort']) || abs($row['sort'])>9999) throw new \InvalidArgumentException('技能排序无效');
+                $result[$id]['sort'] = $row['sort'];
+            }
+            foreach (['images'=>5,'videos'=>3] as $field=>$limit) if (array_key_exists($field,$row)) $result[$id][$field] = Display::normalizeSkillMedia($row[$field],$limit);
+            if ($id === $newId && (!$result[$id]['name'] || !$result[$id]['prompt'] || !isset($result[$id]['app_code']))) throw new \InvalidArgumentException('请填写技能名称、关联应用和回填提示词');
         }
         return $result;
     }
-    public static function forTools(int $tenant,array $tools): array
+
+    public static function forTools(int $tenant, array $tools): array
     {
-        return array_values(array_filter(self::detail($tenant),static fn($skill)=>!isset($skill['tool'])||in_array($skill['tool'],$tools,true)));
+        return array_values(array_filter(self::detail($tenant), static fn($skill)=>!isset($skill['tool']) || in_array($skill['tool'],$tools,true)));
     }
 }
