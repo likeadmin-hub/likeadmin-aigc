@@ -12,6 +12,7 @@ $selected=Context::selectedModel(['channels'=>[
 ]],'chosen');
 check($selected['name']==='Chosen model'&&!isset($selected['skus']),'Wrong or excessive model context');
 check(Context::selectedModel(['channels'=>[]],'missing')['available']===false,'Unavailable selection silently replaced');
+check(Context::selectedModel(['channels'=>[['id'=>'first','name'=>'First']]],'')['available']===false,'Empty preference selected the first model');
 foreach(['已为你规划好生成方案，回复「确认」后开始。','已保存的生成方案','暂时无法实际提交生成队列'] as $reply)check(Context::unsupportedPlanClaim($reply),'Missed false plan claim');
 check(!Context::unsupportedPlanClaim('请提供视频时长。'),'Clarification mistaken for a plan');
 $requests=[];$planned=false;

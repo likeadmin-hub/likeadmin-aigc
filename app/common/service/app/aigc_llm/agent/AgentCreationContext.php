@@ -7,7 +7,7 @@ final class AgentCreationContext
 {
     public static function selectedModel(array $options,string $selection): array
     {
-        foreach (($options['channels']??$options['models']??[]) as $model) {
+        foreach ($selection===''?[]:($options['channels']??$options['models']??[]) as $model) {
             if (!in_array($selection,array_map('strval',[$model['id']??'', $model['value']??'', $model['code']??'']),true)) continue;
             return ['selection'=>$selection]+array_intersect_key($model,array_flip([
                 'name','description','duration_options','resolution_options','ratio_options',
