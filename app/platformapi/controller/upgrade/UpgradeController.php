@@ -17,6 +17,7 @@ use app\common\service\update\PackageExtractService;
 use app\common\service\update\SystemPackageUpdateService;
 use app\common\service\update\UpdateLicenseService;
 use app\common\service\update\UpdateSourceClient;
+use app\common\service\update\UpdateCustomerMessage;
 use app\platformapi\controller\BaseAdminController;
 use app\platformapi\lists\upgrade\UpgradeLists;
 use app\platformapi\logic\upgrade\UpgradeLogic;
@@ -32,13 +33,14 @@ class UpgradeController extends BaseAdminController
     private function updateFailure(\Throwable $error): Json
     {
         $code = $error instanceof \app\common\service\update\UpdateProtocolException ? $error->errorCode : 'SYSTEM_UPDATE_FAILED';
-        return $this->fail($error->getMessage(), ['error_code' => $code]);
+        \think\facade\Log::error('[系统更新][' . $code . '] ' . $error->getMessage());
+        return $this->fail(UpdateCustomerMessage::format($error->getMessage(), $code), ['error_code' => $code]);
     }
 
     public function overview(): Json
     {
         try {
-            return $this->success('获取成功', (new SystemPackageUpdateService())->overview());
+            return $this->success('获取成功', UpdateCustomerMessage::present((new SystemPackageUpdateService())->overview()));
         } catch (\Exception $e) {
             return $this->updateFailure($e);
         }
@@ -108,7 +110,7 @@ class UpgradeController extends BaseAdminController
     public function preflightPackage(): Json
     {
         try {
-            return $this->success('预检完成', (new SystemPackageUpdateService())->preflight((int)$this->request->post('package_id', 0)));
+            return $this->success('预检完成', UpdateCustomerMessage::present((new SystemPackageUpdateService())->preflight((int)$this->request->post('package_id', 0))));
         } catch (\Exception $e) {
             return $this->updateFailure($e);
         }
