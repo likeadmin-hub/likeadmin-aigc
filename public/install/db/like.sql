@@ -12340,4 +12340,3 @@ CREATE TABLE IF NOT EXISTS `la_aigc_llm_agent_artifact` (
   KEY `session_owner` (`tenant_id`,`user_id`,`session_id`,`id`),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-

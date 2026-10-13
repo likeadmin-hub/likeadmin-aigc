@@ -21,7 +21,7 @@ final class AgentExecutionService
         foreach(AigcLlmSensitiveWord::where(['tenant_id'=>$tenant,'status'=>1])->column('word') as $word)if($word!==''&&mb_stripos($content,$word)!==false)throw new \InvalidArgumentException('内容包含不允许的词语，请调整后重试');
         $preferences=isset($params['preferences'])?AgentStore::validatePreferences((array)$params['preferences']):AgentStore::preferences($tenant,$user);
         if(empty($preferences['models']['text']))throw new \InvalidArgumentException('请先选择对话模型');
-        
+
         $attachments=array_values(array_unique(array_map('strval',(array)($params['attachments']??[]))));
         if(count($attachments)>8)throw new \InvalidArgumentException('最多引用8个素材');
         $assets=[];foreach($attachments as $id)$assets[]=OpenAssets::detail($tenant,$user,$id);

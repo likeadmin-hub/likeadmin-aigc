@@ -8,7 +8,7 @@ use NeuronAI\Agent\Agent;
 use NeuronAI\Chat\Messages\UserMessage;
 use NeuronAI\Tools\{Tool, ToolProperty, PropertyType};
 
-final class HomeAgentProviderTest 
+final class HomeAgentProviderTest
 {
     private static function same($expected, $actual): void
     {
