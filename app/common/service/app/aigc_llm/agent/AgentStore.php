@@ -47,7 +47,20 @@ final class AgentStore
         $row=self::owner('preference',$tenant,$user)->find();
         $value=$row?self::json($row['preferences']):['mode'=>'ask','budget'=>0,'models'=>[]];
         if($input!==null){
-            $value=self::validatePreferences($input);
+            $favorites = array_values(array_filter((array)($value['skill_favorites'] ?? []), 'is_string'));
+            if (array_key_exists('favorite_skill', $input)) {
+                $change = $input['favorite_skill'];
+                if (!is_array($change) || !is_string($change['id'] ?? null) || !in_array($change['favorite'] ?? null, [0,1,'0','1'], true)) throw new \InvalidArgumentException('技能收藏参数无效');
+                $id = $change['id'];
+                if ((int)$change['favorite'] === 1) {
+                    $available = AgentSkillConfigService::forTools($tenant, array_keys(AgentCapabilityCatalog::all($tenant,$user)));
+                    if (!array_filter($available, static fn($skill)=>$skill['id']===$id && $skill['enabled'])) throw new \InvalidArgumentException('此技能暂不可收藏');
+                    $favorites[] = $id;
+                } else $favorites = array_values(array_diff($favorites, [$id]));
+                $favorites = array_values(array_unique($favorites));
+                if (count($favorites)>100) throw new \InvalidArgumentException('收藏技能数量已达上限');
+            } else $value=self::validatePreferences($input);
+            $value['skill_favorites'] = $favorites;
             $values=['preferences'=>self::encode($value),'update_time'=>time()];
             if($row)self::owner('preference',$tenant,$user)->update($values);
             else self::table('preference')->insert($values+['tenant_id'=>$tenant,'user_id'=>$user,'create_time'=>time()]);
