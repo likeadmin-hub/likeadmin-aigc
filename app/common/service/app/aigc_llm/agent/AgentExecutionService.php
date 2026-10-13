@@ -53,6 +53,8 @@ final class AgentExecutionService
         $run=AgentStore::run($tenant,$user,$id);
         $steps=AgentStore::owner('step',$tenant,$user)->where('run_id',$id)->order('id')->select()->toArray();
         $out=array_intersect_key($run,array_flip(['id','session_id','message_id','status','phase','reply','error','approval_hash','cancel_requested','create_time','update_time']));
+        $out['user_message_id']=(int)AigcLlmMessage::where(['tenant_id'=>$tenant,'user_id'=>$user,'session_id'=>$run['session_id'],'id'=>$run['message_id'],'delete_time'=>0])->value('parent_user_message_id');
+        $out['attachments']=self::displayAttachments($tenant,$user,AgentStore::json($run['attachments']));
         $out['steps']=array_map(static function($step){$prepared=AgentStore::json($step['prepared']);return ['id'=>$step['id'],'title'=>$step['title'],'tool_code'=>$step['tool_code'],'status'=>$step['status'],'task_id'=>$step['task_id'],'error'=>$step['error'],'params'=>OpenPolicy::publicData($prepared['params']??[]),'estimated_points'=>$prepared['quote']['user']??0];},$steps);
         $out['estimated_points']=array_sum(array_column($out['steps'],'estimated_points'));
         $preferences=AgentStore::json($run['preferences']);
@@ -60,6 +62,17 @@ final class AgentExecutionService
         $out['confirmation_reason']=$run['status']==='awaiting_confirmation'&&$out['mode']==='auto'
             ? (AgentStore::requiresConfirmation($preferences,(float)$out['estimated_points'])?'budget_exceeded':'plan_changed') : '';
         return $out;
+    }
+    public static function displayAttachments(int $tenant,int $user,array $assets): array
+    {
+        return array_map(static function($asset)use($tenant,$user){
+            try{return OpenAssets::detail($tenant,$user,(string)($asset['file_id']??''));}
+            catch(OpenException $e){
+                if($e->errorType!=='not_found')throw $e;
+                // Preserve the attachment's place without exposing a stale or unowned URL.
+                return ['file_id'=>(string)($asset['file_id']??''),'name'=>(string)($asset['name']??'素材'),'mime'=>(string)($asset['mime']??''),'url'=>''];
+            }
+        },$assets);
     }
     public static function events(int $tenant,int $user,int $id,int $after): array
     {

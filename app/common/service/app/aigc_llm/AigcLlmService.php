@@ -141,11 +141,22 @@ class AigcLlmService
     public static function messageLists(int $tenantId, int $userId, int $sessionId): array
     {
         self::findUserSession($tenantId, $userId, $sessionId);
-        return AigcLlmMessage::where([
+        $rows = AigcLlmMessage::where([
             'tenant_id' => $tenantId,
             'session_id' => $sessionId,
             'delete_time' => 0,
         ])->order(['seq' => 'asc', 'id' => 'asc'])->select()->toArray();
+        // Message history is not limited to the latest 30 execution records.
+        $parents=[];
+        foreach($rows as $row)if($row['role']==='assistant' && (int)$row['parent_user_message_id']>0)$parents[$row['id']]=(int)$row['parent_user_message_id'];
+        $attachments=[];
+        if($parents){
+            $runs=\app\common\service\app\aigc_llm\agent\AgentStore::owner('run',$tenantId,$userId)->where('session_id',$sessionId)->whereIn('message_id',array_keys($parents))->field('message_id,attachments')->select()->toArray();
+            foreach($runs as $run)$attachments[$parents[$run['message_id']]]=\app\common\service\app\aigc_llm\agent\AgentExecutionService::displayAttachments($tenantId,$userId,\app\common\service\app\aigc_llm\agent\AgentStore::json($run['attachments']));
+        }
+        foreach($rows as &$row)if($row['role']==='user')$row['attachments']=$attachments[$row['id']]??[];
+        unset($row);
+        return $rows;
     }
 
     public static function adminSessionLists(int $tenantId, array $params = []): array
