@@ -35,5 +35,12 @@ Db::startTrans();try{
  Llm::saveConfig($t,['skill_delete_id'=>$id]);check(!in_array($id,array_column(Skills::detail($t),'id'),true),'Custom delete failed');
  Llm::saveConfig($t,['skill_delete_id'=>'image']);Llm::saveConfig($t,['skill_configs'=>[['id'=>'plan','sort'=>20]]]);Llm::saveConfig($t,['config_json'=>['system_prompt'=>'after delete']]);check(!in_array('image',array_column(Skills::detail($t),'id'),true),'Deleted built-in resurrected after another save');
  foreach([['skill_create'=>['name'=>'不允许','prompt'=>'test','app_code'=>'unknown']],['skill_create'=>['name'=>'','prompt'=>'test','app_code'=>'aigc_llm']],['skill_configs'=>[['id'=>'image','enabled'=>1]]],['skill_delete_id'=>'unknown'],['skill_create'=>[],'skill_delete_id'=>'plan']] as $bad){try{Llm::saveConfig($t,$bad);throw new LogicException('Invalid CRUD accepted');}catch(InvalidArgumentException){}}
+ $store=\app\common\service\app\aigc_llm\agent\AgentStore::class;
+ $prefs=$store::preferences($t,1999999906,['favorite_skill'=>['id'=>'plan','favorite'=>'1']]);check($prefs['skill_favorites']===['plan'],'Favorite not saved');
+ $prefs=$store::preferences($t,1999999906,['mode'=>'auto','budget'=>10,'models'=>['image'=>'chosen']]);check($prefs['skill_favorites']===['plan'],'Preference save erased favorites');
+ $prefs=$store::preferences($t,1999999906,['favorite_skill'=>['id'=>'plan','favorite'=>'1']]);check($prefs['mode']==='auto'&&$prefs['models']['image']==='chosen'&&count($prefs['skill_favorites'])===1,'Favorite changed preferences or duplicated');
+ check(empty($store::preferences($t,1999999907)['skill_favorites'])&&empty($store::preferences($t+1,1999999906)['skill_favorites']),'Favorite ownership leak');
+ try{$store::preferences($t,1999999906,['favorite_skill'=>['id'=>'missing','favorite'=>'1']]);throw new LogicException('Unknown skill favorited');}catch(InvalidArgumentException){}
+ check($store::preferences($t,1999999906,['favorite_skill'=>['id'=>'plan','favorite'=>'0']])['skill_favorites']===[],'Unfavorite failed');
  echo "Central Agent skills passed: seven defaults, legacy media, independent text skills, base preservation, ownership and immutable tools; rolled back\n";
 }finally{Db::rollback();}
