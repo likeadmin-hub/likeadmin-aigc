@@ -129,6 +129,23 @@ final class BrandRefundService
             BrandWorkflowService::event($order,'platform',$actor,'retry_refund',$order['workflow_state'],'使用原退款单号重新核对：'.$note);
         });
     }
+    public static function retryTransaction(int $refundId,int $actor,string $note): void
+    {
+        $candidate=Db::name('tenant_brand_refund')->where('id',$refundId)->find();
+        if (!$candidate) throw new BrandUserException('退款记录不存在');
+        Db::transaction(function()use($candidate,$actor,$note) {
+            $note=self::note($note);
+            $order=Db::name(BrandPaymentService::table($candidate['order_from']))->where(['id'=>$candidate['order_id'],'tenant_id'=>$candidate['tenant_id'],'flow_version'=>2])->lock(true)->find();
+            $refund=Db::name('tenant_brand_refund')->where('id',$candidate['id'])->lock(true)->find();
+            if (!$order || !$refund || $refund['status']!=='failed' || (int)$refund['lease_until']>time()) throw new BrandUserException('当前退款无需重试，请刷新核对结果');
+            Db::name('tenant_brand_refund')->where('id',$refund['id'])->update(['status'=>'unknown','next_check_time'=>0,'last_error'=>'','update_time'=>time()]);
+            if ($candidate['order_from']===TenantBrandService::FROM_ORDER) {
+                if ($order['workflow_state']==='refund_failed') Db::name('tenant_brand_order')->where('id',$order['id'])->update(['workflow_state'=>'refunding','update_time'=>time()]);
+                BrandWorkflowService::event($order,'platform',$actor,'retry_refund',$order['workflow_state'],'使用原退款单号重新核对：'.$note);
+            }
+            Log::info('OEM transaction refund retry: platform_admin='.$actor.' refund_id='.$refund['id'].' note='.$note);
+        });
+    }
     private static function note(string $note): string {
         $note=trim($note); if($note==='' || mb_strlen($note)>500) throw new BrandUserException('请填写退款处理说明，最多500字'); return $note;
     }

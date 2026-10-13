@@ -139,7 +139,7 @@ class ProjectUpdateProcessGate
         $root=realpath($siteRoot);
         if($root===false || PHP_OS_FAMILY!=='Linux' || !is_readable('/proc/mounts'))throw new RuntimeException('无法核验本项目任务进程；需可读取 Linux /proc，平滑停止本项目 Supervisor 和 cron 后重试');
         if(preg_match('/(?:^|,)hidepid=(?:1|2|4)(?:,|\s)/m',(string)file_get_contents('/proc/mounts')))throw new RuntimeException('/proc 隐藏进程，无法核验本项目任务进程停机');
-        $commands=['ai:task-worker','brand:worker','canvas:subagent-worker','short-drama:episode-worker','short-drama:planning-worker','short-drama:canvas-agent-worker','decoration:agent-worker','crontab'];
+        $commands=['ai:task-worker','brand:worker','brand:maintain','canvas:subagent-worker','short-drama:episode-worker','short-drama:planning-worker','short-drama:canvas-agent-worker','decoration:agent-worker','crontab'];
         $scripts=['start-ai-task-worker.sh','start-brand-worker.sh','start-short-drama-episode-worker.sh','start-short-drama-planning-worker.sh','start-decoration-agent-worker.sh','start-project-supervisor.sh','start-project-cron.sh'];
         $entries=glob('/proc/[0-9]*',GLOB_ONLYDIR);
         if($entries===false)throw new RuntimeException('无法枚举 Linux /proc 项目进程');

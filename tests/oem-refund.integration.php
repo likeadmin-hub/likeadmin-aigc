@@ -77,5 +77,22 @@ try {
     $gateway->results[$r4['refund_sn']]=refundResult($r4,$duplicate);
     Db::name('tenant_brand_refund')->where('id',$r4['id'])->update(['next_check_time'=>0]); Refund::process((int)$r4['id']);
     oemCheck(Flow::owned($f['seller'],$f['user'],$id4)['workflow_state']==='tenant_review' && (int)Flow::owned($f['seller'],$f['user'],$id4)['reserve_status']===1,'duplicate refund never cancels primary application');
+    $q=Flow::createQuota($f['seller'],9,4,$f['package'],1);oemPaid($f,$q['order_id'],Brand::FROM_QUOTA);
+    $qp=Db::name('tenant_brand_payment')->where(['order_id'=>$q['order_id'],'order_from'=>Brand::FROM_QUOTA])->find();$qi=Db::name('tenant_brand_payment_intent')->where('id',$qp['intent_id'])->find();
+    \app\common\service\brand\BrandPaymentService::recordVerified(['pay_sn'=>$qi['pay_sn'],'channel'=>2,'merchant_id'=>$qi['merchant_id'],'app_id'=>'fixture-app','transaction_id'=>'extra-quota-'.$q['order_id'],'amount_cents'=>1999,'currency'=>'CNY','status'=>'success']);
+    $qr=Db::name('tenant_brand_refund')->where(['order_id'=>$q['order_id'],'order_from'=>Brand::FROM_QUOTA])->find();$payment=Db::name('tenant_brand_payment')->where('id',$qr['payment_id'])->find();
+    Refund::process((int)$qr['id']);$gateway->results[$qr['refund_sn']]=refundResult($qr,$payment,'failed');Db::name('tenant_brand_refund')->where('id',$qr['id'])->update(['next_check_time'=>0]);Refund::process((int)$qr['id']);
+    oemCheck(Db::name('tenant_brand_refund')->where('id',$qr['id'])->value('status')==='failed','quota failed refund persists');
+    $bucketBefore=Db::name('tenant_brand_quota_bucket')->where('tenant_id',$f['seller'])->find();$submissions=count($gateway->submitted);
+    Refund::retryTransaction((int)$qr['id'],1,'平台已核对原商户');$gateway->results[$qr['refund_sn']]=refundResult($qr,$payment);Refund::process((int)$qr['id']);
+    oemCheck(count($gateway->submitted)===$submissions && end($gateway->queries)===$qr['refund_sn'],'procurement retry queries the fixed original refund before submission');
+    oemCheck(Db::name('tenant_brand_refund')->where('id',$qr['id'])->value('status')==='success','procurement excess refund can recover');
+    oemCheck(Db::name('tenant_brand_quota_bucket')->where('tenant_id',$f['seller'])->find()===$bucketBefore,'procurement refund never adds or reverses normal quota');
+    $late=Flow::createQuota($f['seller'],9,4,$f['package'],1);Db::name('tenant_brand_quota_order')->where('id',$late['order_id'])->update(['closed_time'=>time()]);
+    oemPaid($f,$late['order_id'],Brand::FROM_QUOTA);$lr=Db::name('tenant_brand_refund')->where(['order_id'=>$late['order_id'],'order_from'=>Brand::FROM_QUOTA])->find();$lp=Db::name('tenant_brand_payment')->where('id',$lr['payment_id'])->find();
+    Refund::process((int)$lr['id']);$gateway->results[$lr['refund_sn']]=refundResult($lr,$lp,'failed');Db::name('tenant_brand_refund')->where('id',$lr['id'])->update(['next_check_time'=>0]);Refund::process((int)$lr['id']);
+    Refund::retryTransaction((int)$lr['id'],1,'迟到付款，核对原交易');$gateway->results[$lr['refund_sn']]=refundResult($lr,$lp);Refund::process((int)$lr['id']);
+    oemCheck(Db::name('tenant_brand_refund')->where('id',$lr['id'])->value('status')==='success','late procurement refund recovers');oemCheck(Db::name('tenant_brand_quota_bucket')->where('tenant_id',$f['seller'])->find()===$bucketBefore,'closed procurement never adds quota');
+    oemCheck(Brand::formatQuotaOrder(Db::name('tenant_brand_quota_order')->where('id',$late['order_id'])->find())['pay_status_desc']==='已原路退款','late procurement cannot display quota received');
     echo "PASS real refund review, channel confirmation, unknown-result query and worker fencing\n";
 } finally { Db::rollback(); }
