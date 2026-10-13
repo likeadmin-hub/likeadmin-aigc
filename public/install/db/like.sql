@@ -12478,3 +12478,14 @@ INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sor
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT p.tenant_id,p.id,'A','采购详情','',0,'brand.quota/detail','','','','',0,0,0,'','core','core_oem_tenant_brand_quota_detail',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.source_menu_key='core_tenant_brand_quota' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=p.tenant_id AND e.source_menu_key='core_oem_tenant_brand_quota_detail');
 
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT p.tenant_id,p.id,'A','按单采购','',0,'brand.quota/purchaseForOrder','','','','',0,0,0,'','core','core_oem_tenant_brand_quota_purchaseForOrder',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.source_menu_key='core_tenant_brand_quota' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=p.tenant_id AND e.source_menu_key='core_oem_tenant_brand_quota_purchaseForOrder');
+
+-- Runs after 20261013_oem_self_service_v2.sql. Repeat execution preserves explicit qualification changes.
+SET @oem_sql := IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='la_tenant_brand_event' AND COLUMN_NAME='payload')=0,'ALTER TABLE `la_tenant_brand_event` ADD COLUMN `payload` longtext','SELECT 1'); PREPARE oem_stmt FROM @oem_sql; EXECUTE oem_stmt; DEALLOCATE PREPARE oem_stmt;
+
+SET @oem_qualified_once := (SELECT COUNT(*) FROM `la_config` WHERE `type`='oem_migration' AND `name`='legacy_qualification_v1');
+UPDATE `la_tenant` t SET t.`oem_sales_enabled`=1
+WHERE @oem_qualified_once=0 AND t.`oem_flow_enabled`=0 AND (
+  EXISTS(SELECT 1 FROM `la_tenant_brand_package_price` p WHERE p.`tenant_id`=t.`id`)
+  OR EXISTS(SELECT 1 FROM `la_tenant_brand_quota_order` q WHERE q.`tenant_id`=t.`id` AND q.`pay_status`=1)
+);
+INSERT INTO `la_config` (`type`,`name`,`value`) SELECT 'oem_migration','legacy_qualification_v1','done' WHERE @oem_qualified_once=0;

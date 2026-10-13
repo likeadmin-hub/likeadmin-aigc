@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\brand;
-use RuntimeException;
+use app\common\service\brand\BrandUserException as RuntimeException;
 use think\facade\Db;
 
 /** Caller holds an order lock and transaction; lock order is order -> bucket. */

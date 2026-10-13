@@ -4,7 +4,7 @@ namespace app\common\service\brand;
 use Alipay\EasySDK\Kernel\Config;
 use Alipay\EasySDK\Kernel\Factory;
 use EasyWeChat\Pay\Application;
-use RuntimeException;
+use app\common\service\brand\BrandUserException as RuntimeException;
 use think\facade\Db;
 
 /** Merchant credentials are resolved explicitly, never from request/worker tenant context. */
@@ -153,11 +153,7 @@ class BrandChannelGateway implements BrandPaymentGateway
 
     private function tenantTable(string $base,int $tenant): string
     {
-        $row=Db::name('tenant')->where('id',$tenant)->whereNull('delete_time')->find();
-        if (!$row) throw new RuntimeException('原收款租户不存在，请联系平台核对');
-        if ((int)$row['tactics']!==1) return $base;
-        if (!preg_match('/^[A-Za-z0-9_]+$/D',(string)$row['sn'])) throw new RuntimeException('租户数据配置异常');
-        return $base.'_'.$row['sn'];
+        return BrandCatalogService::tenantTable($base,$tenant);
     }
 
     private function certificate(string $pem): string

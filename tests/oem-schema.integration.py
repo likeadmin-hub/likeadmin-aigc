@@ -30,6 +30,9 @@ try:
     assert codes == '1', 'OEM stable package codes are missing from a fresh installation'
     migration = (root / 'upgrade/20261013_oem_self_service_v2.sql').read_text()
     assert migration == (root / 'public/upgrade/20261013_oem_self_service_v2.sql').read_text()
+    operations = (root / 'upgrade/20261013_oem_self_service_v2_operations.sql').read_text()
+    assert operations == (root / 'public/upgrade/20261013_oem_self_service_v2_operations.sql').read_text()
+    migration += '\n' + operations
     sql('oem_legacy', install.split('-- OEM_V2:')[0])
     sql('oem_legacy', "INSERT INTO la_tenant_package(name,duration_days,sale_price,quota_price) VALUES('Existing',77,123.45,88.88);")
     sql('oem_custom', install.replace('`la_', '`qa_').replace("'la_", "'qa_"))

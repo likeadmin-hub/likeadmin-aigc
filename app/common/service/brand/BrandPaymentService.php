@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\brand;
-use RuntimeException;
+use app\common\service\brand\BrandUserException as RuntimeException;
 use think\facade\Db;
 
 /** Only signed gateway notifications or authenticated server queries call recordVerified. */
@@ -90,12 +90,19 @@ final class BrandPaymentService
             ]);
             if ($duplicate || $closed) self::queueRefund($paymentId,$intent,$duplicate?'重复付款退还多付交易':'已关闭订单原路退款');
             if (!$duplicate) {
+                $linked=null;
+                if (!$closed && $intent['order_from']===TenantBrandService::FROM_QUOTA && (int)($order['brand_order_id']??0)>0) {
+                    $linked=Db::name('tenant_brand_order')->where(['id'=>$order['brand_order_id'],'tenant_id'=>$order['tenant_id'],'flow_version'=>2])->lock(true)->find();
+                }
                 $changes=['pay_status'=>1,'pay_way'=>$intent['channel'],'transaction_id'=>$receipt['transaction_id'],'pay_time'=>$paidTime,'update_time'=>time()];
                 if ($intent['order_from']===TenantBrandService::FROM_ORDER) {
                     $changes['workflow_state']=$closed?'refunding':'tenant_review';
                     if ($closed) $changes['refund_status']=2;
                     BrandWorkflowService::event($order,'system',0,'payment',$changes['workflow_state'],'付款已核验');
-                } elseif (!$closed) BrandQuotaService::increase($order);
+                } elseif (!$closed) {
+                    BrandQuotaService::increase($order);
+                    if ($linked) BrandWorkflowService::reserveLinked($linked);
+                }
                 Db::name($table)->where('id',$order['id'])->update($changes);
             }
         });

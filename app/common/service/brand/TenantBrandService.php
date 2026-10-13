@@ -25,7 +25,7 @@ use app\platformapi\logic\tenant\TenantSystemMenuLogic;
 use app\tenantapi\logic\article\ArticleLogic;
 use app\tenantapi\logic\decorate\DecorateDataLogic;
 use app\tenantapi\logic\notice\NoticeLogic;
-use RuntimeException;
+use app\common\service\brand\BrandUserException as RuntimeException;
 use think\facade\Db;
 
 class TenantBrandService
@@ -47,6 +47,9 @@ class TenantBrandService
     public static function packageRows(int $tenantId, bool $onlyShelf = false): array
     {
         $v2=BrandCatalogService::flowEnabled($tenantId);
+        if (!$v2 && $onlyShelf) {
+            try { BrandCatalogService::assertLegacySeller($tenantId); } catch (RuntimeException $e) { return []; }
+        }
         if ($v2 && $onlyShelf) {
             try { BrandCatalogService::assertSeller($tenantId); } catch (RuntimeException $e) { return []; }
         }
@@ -98,6 +101,7 @@ class TenantBrandService
     {
         $v2=BrandCatalogService::flowEnabled($tenantId);
         if ($v2) BrandCatalogService::assertSeller($tenantId);
+        else BrandCatalogService::assertLegacySeller($tenantId);
         $packageId = (int)($params['package_id'] ?? 0);
         $status = (int)($params['status'] ?? 0) ? self::STATUS_ENABLED : self::STATUS_DISABLED;
         $salePrice = (float)($params['sale_price'] ?? 0);
@@ -137,6 +141,7 @@ class TenantBrandService
     public static function createQuotaOrder(int $tenantId, int $adminId, int $terminal, int $packageId, int $quantity): array
     {
         if (BrandCatalogService::flowEnabled($tenantId)) return BrandWorkflowService::createQuota($tenantId,$adminId,$terminal,$packageId,$quantity);
+        BrandCatalogService::assertLegacySeller($tenantId);
         $quantity = max(1, $quantity);
         $package = TenantPackage::where(['id' => $packageId, 'status' => TenantPackageService::STATUS_ENABLED])->findOrEmpty();
         if ($package->isEmpty()) {
@@ -199,6 +204,7 @@ class TenantBrandService
     public static function createBrandOrder(int $tenantId, int $userId, int $terminal, array $params): array
     {
         if (BrandCatalogService::flowEnabled($tenantId)) return BrandWorkflowService::create($tenantId,$userId,$terminal,$params);
+        BrandCatalogService::assertLegacySeller($tenantId);
         $packageId = (int)($params['package_id'] ?? 0);
         if ($packageId <= 0) {
             throw new RuntimeException('请选择套餐');
@@ -336,6 +342,8 @@ class TenantBrandService
     {
         if ((int)($row['flow_version']??1)===2) return BrandOrderPolicy::present($row,$role);
         unset($row['admin_password_hash']);
+        if ($role==='user') unset($row['transaction_id'],$row['pay_sn'],$row['tenant_id'],$row['user_id'],$row['package_snapshot']);
+        if ($role==='user' && !empty($row['open_error'])) $row['open_error']='开通暂未完成，请联系服务商处理。';
         $row['order_amount'] = self::formatAmount((float)($row['order_amount'] ?? 0));
         $row['unit_price'] = self::formatAmount((float)($row['unit_price'] ?? 0));
         $row['pay_status_desc'] = PayEnum::getPayStatusDesc($row['pay_status'] ?? 0);

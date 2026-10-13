@@ -7,6 +7,11 @@ use InvalidArgumentException;
 /** Pure policy shared by authenticated workflow and presentation boundaries. */
 final class BrandOrderPolicy
 {
+    public static function error(\Throwable $error): string
+    {
+        return $error instanceof BrandUserException || $error instanceof InvalidArgumentException
+            ? $error->getMessage() : '操作暂未完成，请稍后重试或联系服务商核对订单。';
+    }
     public static function cents(string|int $amount): int
     {
         $value = (string)$amount;
@@ -63,6 +68,7 @@ final class BrandOrderPolicy
         unset($order['admin_password_hash'], $order['open_error']);
         $snapshot = json_decode((string)($order['package_snapshot'] ?? ''), true) ?: [];
         $brand = json_decode((string)($order['brand_snapshot'] ?? ''), true) ?: [];
+        unset($brand['logo_asset']);
         $order['order_status'] = self::state($order);
         $order['next_actions'] = self::actions($order, $role);
         $order['brand'] = $brand;

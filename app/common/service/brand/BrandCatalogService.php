@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace app\common\service\brand;
 
 use app\common\model\tenant\Tenant;
-use RuntimeException;
+use app\common\service\brand\BrandUserException as RuntimeException;
 use think\facade\Db;
 
 final class BrandCatalogService
@@ -22,6 +22,21 @@ final class BrandCatalogService
         if ($tenant->isEmpty() || (int)$tenant['disable'] !== 0 || (int)$tenant['oem_sales_enabled'] !== 1 || (int)$tenant['oem_flow_enabled'] !== 1) {
             throw new RuntimeException('该服务商暂未开放贴牌申请，请联系服务商');
         }
+    }
+
+    public static function assertLegacySeller(int $tenantId): void
+    {
+        $tenant=Tenant::withoutGlobalScope()->where('id',$tenantId)->findOrEmpty();
+        if ($tenant->isEmpty() || (int)$tenant['disable']!==0 || (int)$tenant['oem_sales_enabled']!==1) throw new RuntimeException('该租户尚未获得贴牌销售资格，请联系平台');
+    }
+
+    public static function tenantTable(string $base,int $tenantId): string
+    {
+        $row=Db::name('tenant')->where('id',$tenantId)->whereNull('delete_time')->find();
+        if (!$row) throw new RuntimeException('租户资料不存在，请联系平台核对');
+        if ((int)$row['tactics']!==1) return $base;
+        if (!preg_match('/^[A-Za-z0-9_]+$/D',(string)$row['sn'])) throw new RuntimeException('租户数据配置异常');
+        return $base.'_'.$row['sn'];
     }
 
     public static function snapshot(int $packageId): array
