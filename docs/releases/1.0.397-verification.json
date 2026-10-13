@@ -1,0 +1,75 @@
+{
+  "version": "1.0.397",
+  "base_version": "1.0.396",
+  "signature_files": 3635,
+  "bad": [],
+  "uncovered": [],
+  "forbidden": [],
+  "frontend_path_or_api_leaks": [],
+  "frontend_outputs_match_published_396": true,
+  "full_replace_dirs": [
+    "public/_nuxt",
+    "public/admin",
+    "public/media",
+    "public/mobile",
+    "public/mp-weixin",
+    "public/pc",
+    "public/platform"
+  ],
+  "sql_order": [],
+  "source_feature": "ccb6684f0",
+  "server_source_commit": "17ed51a04d477b31949284a9df2f61ac52d9ce59",
+  "metadata": {
+    "package_id": "system_1.0.397",
+    "type": "system",
+    "app_code": "",
+    "version": "1.0.397",
+    "format": "zip",
+    "fallback_format": "tar.gz",
+    "filename": "system_1.0.397.zip",
+    "fallback_filename": "system_1.0.397.tar.gz",
+    "sha256": "ee375f85d52490f341cba93b99473c01b2f76c53f274c4e0a2df762fa0578422",
+    "fallback_sha256": "9ddf8356b6a06a5934b31c5395c2e46ab8fd41eb379c5dc17dd51c523d89602c",
+    "size": 111671189,
+    "fallback_size": 109848579
+  },
+  "customer_installation": "not performed",
+  "upgrade_chain_preflight": {
+    "passed": true,
+    "customer_contract": "AigcOpenApiService::systemPackage",
+    "chain": [
+      "1.0.396",
+      "1.0.397"
+    ],
+    "signed_download_preparation": true,
+    "wrong_predecessor_rejected": true,
+    "package_sha256": "ee375f85d52490f341cba93b99473c01b2f76c53f274c4e0a2df762fa0578422",
+    "transaction_rolled_back": true,
+    "scope": "local contract; not customer installation"
+  },
+  "checks": {
+    "retention_real_child_and_retry": "passed",
+    "retention_failure_and_reader_gates": "passed",
+    "runtime_regression_scripts": 13,
+    "staging_tests": 9,
+    "composer_packaging_tests": 11,
+    "bootstrap_packaging_tests": 3,
+    "official_package_verifier": "passed",
+    "php_lint": "passed (8 changed PHP files)",
+    "fallback_archive_signatures": "passed (3635 files)",
+    "site_owned_resources": "passed (real canonical/pinned loader and unchanged OEM/FFmpeg)"
+  },
+  "online": {
+    "id": 371,
+    "version": "1.0.397",
+    "status": 1,
+    "beta_enabled": 1,
+    "sha256": "ee375f85d52490f341cba93b99473c01b2f76c53f274c4e0a2df762fa0578422",
+    "package_size": 111671189,
+    "update_time": "2026-10-13 21:03:06",
+    "first_published_at": 1791896586,
+    "base_version": "1.0.396",
+    "target_version": "1.0.397",
+    "formal_opening": "owner_manual"
+  }
+}
