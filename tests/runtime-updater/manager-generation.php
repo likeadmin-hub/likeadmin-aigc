@@ -21,3 +21,21 @@ put($package.'/fixture-manifest.json',json_encode($manifest));
 $pipes=[];$process=proc_open([PHP_BINARY,$script,$site,$package,$generation],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
 fclose($pipes[0]);$output=stream_get_contents($pipes[1]).stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);
 check(proc_close($process)===0,$output);echo $output;
+
+// Genuine390 has no canonical or baseline manager during the first bridge.
+// With a live writer lease, new readers must use the candidate recovery manager
+// but continue pinning application code to the previous legacy generation.
+$legacy=$workspace.'/legacy-site';fixture($legacy,'legacy');
+put($legacy.'/runtime-loader.php',file_get_contents($root.'/runtime-loader.php'));
+$previous=(new app\common\service\update\ComposerRuntimeUpdateService($legacy,PHP_BINARY))->ensureBaseline();
+$candidate=$legacy.'/.composer-runtime/generations/release-'.str_repeat('a',64);
+put($candidate.'/app/common/service/update/ComposerRuntimeUpdateService.php',file_get_contents($serviceFile));
+$digest=str_repeat('b',64);$pointer=json_decode(file_get_contents($legacy.'/.composer-runtime/current.json'),true);
+put($legacy.'/.composer-runtime/active.json',json_encode(['digest'=>$digest]));
+put($legacy.'/.composer-runtime/journals/'.$digest.'.json',json_encode(['previous_pointer'=>$pointer,'generation'=>basename($candidate),'status'=>'copying']));
+$lock=fopen($legacy.'/.composer-runtime/update.lock','c');flock($lock,LOCK_EX);
+$script=$workspace.'/observe-legacy.php';
+put($script,'<?php require $argv[1]."/runtime-loader.php"; $source=(new ReflectionClass(app\\common\\service\\update\\ComposerRuntimeUpdateService::class))->getFileName();if(!str_starts_with($source,$argv[2]."/")||$GLOBALS["AIGC_RUNTIME_GENERATION"]!==$argv[3])throw new RuntimeException("legacy pending bridge lost candidate manager or previous app pin");echo "PASS genuine390 pending bridge manager + previous app pin\\n";');
+$pipes=[];$process=proc_open([PHP_BINARY,$script,$legacy,$candidate,$previous],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
+fclose($pipes[0]);$output=stream_get_contents($pipes[1]).stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);$exit=proc_close($process);
+flock($lock,LOCK_UN);fclose($lock);check($exit===0,$output);echo $output;
