@@ -26,5 +26,12 @@ if(str_starts_with($oemRequestPath,'/__gateway/')) {
 if($oemRequestPath==='/__fixture/meta') {
     header('Content-Type: application/json'); echo file_get_contents($root.'/runtime/oem-fixture.json'); exit;
 }
+// Match the deployed Nginx SPA fallback. API requests still use the full kernel and authentication.
+if (preg_match('#^/t/(\d+)/admin(?:/(.*))?$#D',$oemRequestPath,$oemMatch)) {
+    header('Location: /admin/'.($oemMatch[2]??'').'?'.http_build_query(array_merge($_GET,['tenant_id'=>(int)$oemMatch[1]]))); exit;
+}
+if (preg_match('#^/(admin|platform)(?:/.*)?$#D',$oemRequestPath,$oemMatch)) {
+    header('Content-Type: text/html; charset=utf-8'); readfile($public.'/'.$oemMatch[1].'/index.html'); exit;
+}
 if(!defined('ROOT_PATH')) define('ROOT_PATH',$public);
 $http=$app->http; $response=$http->run(); $response->send(); $http->end($response);
