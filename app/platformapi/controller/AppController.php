@@ -10,11 +10,19 @@ use app\common\service\update\AppPackageUpdateService;
 use app\common\service\update\PackageExtractService;
 use app\common\service\update\UpdateSourceClient;
 use app\common\service\update\UpdateLicenseService;
+use app\common\service\update\UpdateCustomerMessage;
 use Exception;
 use think\response\Json;
 
 class AppController extends BaseAdminController
 {
+    private function packageFailure(\Throwable $error): Json
+    {
+        $code = $error instanceof \app\common\service\update\UpdateProtocolException ? $error->errorCode : 'APP_UPDATE_FAILED';
+        \think\facade\Log::error('[应用更新][' . $code . '] ' . $error->getMessage());
+        return $this->fail(UpdateCustomerMessage::format($error->getMessage(), $code), ['error_code' => $code]);
+    }
+
     public function lists()
     {
         $lists = App::order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
@@ -77,9 +85,9 @@ class AppController extends BaseAdminController
     {
         try {
             $params = $this->request->get();
-            return $this->success('获取成功', (new AppPackageUpdateService())->cloudLists($params));
+            return $this->success('获取成功', UpdateCustomerMessage::present((new AppPackageUpdateService())->cloudLists($params)));
         } catch (Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->packageFailure($e);
         }
     }
 
@@ -87,9 +95,9 @@ class AppController extends BaseAdminController
     {
         try {
             $appCode = (string)$this->request->get('app_code', '');
-            return $this->success('获取成功', (new AppPackageUpdateService())->cloudDetail($appCode));
+            return $this->success('获取成功', UpdateCustomerMessage::present((new AppPackageUpdateService())->cloudDetail($appCode)));
         } catch (Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->packageFailure($e);
         }
     }
 
@@ -101,7 +109,7 @@ class AppController extends BaseAdminController
             $action = (string)$this->request->post('action', 'install');
             return $this->success('下载成功', (new AppPackageUpdateService())->downloadCloudPackage($appCode, $targetVersion, $action), 1, 1);
         } catch (Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->packageFailure($e);
         }
     }
 
@@ -123,7 +131,7 @@ class AppController extends BaseAdminController
             $file->move($dir, $saveName);
             return $this->success('上传成功', (new AppPackageUpdateService())->saveUploadedPackage($path, $format), 1, 1);
         } catch (Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->packageFailure($e);
         }
     }
 
@@ -132,9 +140,9 @@ class AppController extends BaseAdminController
         try {
             $packageId = (int)$this->request->post('package_id', 0);
             $appCode = (string)$this->request->post('app_code', '');
-            return $this->success('预检完成', (new AppPackageUpdateService())->preflight($packageId, $appCode));
+            return $this->success('预检完成', UpdateCustomerMessage::present((new AppPackageUpdateService())->preflight($packageId, $appCode)));
         } catch (Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->packageFailure($e);
         }
     }
 
@@ -144,7 +152,7 @@ class AppController extends BaseAdminController
             $packageId = (int)$this->request->post('package_id', 0);
             return $this->success('应用更新成功', (new AppPackageUpdateService())->apply($packageId), 1, 1);
         } catch (Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->packageFailure($e);
         }
     }
 
@@ -156,7 +164,7 @@ class AppController extends BaseAdminController
                 'environment' => PackageExtractService::environment(root_path() . 'app/apps'),
             ]);
         } catch (Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->packageFailure($e);
         }
     }
 
@@ -165,7 +173,7 @@ class AppController extends BaseAdminController
         try {
             return $this->success('保存成功', UpdateSourceClient::saveSource($this->request->post()), 1, 1);
         } catch (Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->packageFailure($e);
         }
     }
 
@@ -176,7 +184,7 @@ class AppController extends BaseAdminController
             $manifest = AppRegistryService::installFromLocal($appCode);
             return $this->success('安装成功', $manifest, 1, 1);
         } catch (Exception $e) {
-            return $this->fail($e->getMessage());
+            return $this->packageFailure($e);
         }
     }
 
