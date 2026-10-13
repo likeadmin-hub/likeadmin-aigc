@@ -38,6 +38,12 @@ class Crontab extends Command
     protected function execute(Input $input, Output $output)
     {
         if (function_exists('aigc_runtime_generation_changed') && \aigc_runtime_generation_changed()) return 0;
+        // Retry deferred maintenance asynchronously; scheduled business work
+        // never waits for old tasks or scans a dependency tree.
+        if (isset($GLOBALS['AIGC_RUNTIME_SITE_ROOT'])) {
+            try { (new \app\common\service\update\ComposerRuntimeUpdateService($GLOBALS['AIGC_RUNTIME_SITE_ROOT']))->scheduleRuntimeCleanup(); }
+            catch (\Throwable $e) { /* Optional maintenance cannot prevent scheduled work. */ }
+        }
         $lists = CrontabModel::where('status', CrontabEnum::START)->select()->toArray();
         if (empty($lists)) {
             return false;

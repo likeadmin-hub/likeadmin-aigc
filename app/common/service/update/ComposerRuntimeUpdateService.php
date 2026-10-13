@@ -155,8 +155,11 @@ class ComposerRuntimeUpdateService
         if(!empty($callbacks['immutable_code']))$manifest['immutable_code']=true;
         $lock = $this->lock();
         $this->heldLock=$lock;
+        $committed=false;
         try {
             $this->recoverLocked();
+            $retention=null;
+            try { $retention=$this->retention(); $retention?->prepare(); } catch(Throwable $e) { /* Cleanup stays disabled until leases are available. */ }
             $this->preflight($extract, $manifest);
             $digest = hash_file('sha256', $extract . '/signature.json');
             // Every attempt gets a new immutable path. Even a briefly activated
@@ -165,7 +168,12 @@ class ComposerRuntimeUpdateService
             $journalPath = $this->store . '/journals/' . $digest . '.json';
             $prior = is_file($journalPath) ? $this->readJson($journalPath) : [];
             if (($prior['sql_state'] ?? '') === 'running') throw new RuntimeException('上次 SQL 执行中断，结果未知；为避免重复计费或任务变更，禁止自动重放，请先核对数据库');
-            if (($prior['status'] ?? '') === 'committed') return ['generation'=>$this->generationFromPointer(['schema'=>1,'generation'=>$prior['generation']]), 'completion'=>$prior['completion'] ?? [], 'recovered'=>true];
+            if (($prior['status'] ?? '') === 'committed') {
+                // Historical journal receipts survive code pruning. An old
+                // archive must never replay SQL or reactivate a pruned version.
+                $pointer=$this->readJson($this->store.'/current.json');$committed=true;
+                return ['generation'=>$this->generationFromPointer($pointer),'completion'=>$prior['completion']??[],'recovered'=>true,'superseded'=>($pointer['generation']??'')!==($prior['generation']??'')];
+            }
             $generation = $this->store . '/generations/' . $id;
             $stage = $generation . '.stage-' . bin2hex(random_bytes(6));
             $this->directory($stage);
@@ -198,6 +206,7 @@ class ComposerRuntimeUpdateService
                 if ($content === null || file_put_contents($stage . '/config/project.php', $content) === false) throw new RuntimeException('无法写入运行时项目版本');
             }
             $this->atomicJson($stage . '/generation.json', ['schema'=>1,'vendor'=>'generation','version'=>(string)$manifest['version']]);
+            if ($retention) try { $retention->prepare($id); } catch(Throwable $e) { /* Readers retain the selection gate if a lease is missing. */ }
             if (file_exists($generation)) throw new RuntimeException('不可覆盖已存在的 Composer 运行时版本');
             if (!rename($stage, $generation)) throw new RuntimeException('无法发布完整 Composer 运行时暂存目录');
             // Validate application roots and service discovery in the complete candidate
@@ -235,6 +244,7 @@ class ComposerRuntimeUpdateService
                 $completion = isset($callbacks['complete']) ? ($callbacks['complete'])($generation, $finalize) : [];
                 $journal['status']='committed'; $journal['completion']=$completion; $this->atomicJson($journalPath,$journal);
                 unlink($this->store . '/active.json');
+                $committed=true;
                 return ['generation'=>$generation,'finalize'=>$finalize,'completion'=>$completion];
             } catch (Throwable $failure) {
                 // Close only our lease, then reacquire. A live inherited candidate
@@ -242,12 +252,12 @@ class ComposerRuntimeUpdateService
                 $this->heldLock=null;$this->unlock($lock);$lock=null;
                 $lock=$this->lock();$this->heldLock=$lock;
                 $confirmed=$this->confirmBootstrapCommit($journal);
-                if($confirmed!==null){$journal['status']='committed';$journal['completion']=$confirmed;$this->atomicJson($journalPath,$journal);unlink($this->store.'/active.json');return ['generation'=>$generation,'completion'=>$confirmed,'recovered'=>true];}
+                if($confirmed!==null){$journal['status']='committed';$journal['completion']=$confirmed;$this->atomicJson($journalPath,$journal);unlink($this->store.'/active.json');$committed=true;return ['generation'=>$generation,'completion'=>$confirmed,'recovered'=>true];}
                 try { $this->restore($journal); $journal['status']='rolled_back'; $this->atomicJson($journalPath,$journal); unlink($this->store . '/active.json'); }
                 catch (Throwable $restoreFailure) { throw new RuntimeException($failure->getMessage() . '; 文件回滚失败，恢复日志已保留: ' . $restoreFailure->getMessage(), 0, $failure); }
                 throw $failure;
             }
-        } finally { $this->heldLock=null; $this->unlock($lock); }
+        } finally { $this->heldLock=null; $this->unlock($lock); if($committed)$this->scheduleRuntimeCleanup(true); }
     }
 
     public function recover(): void
@@ -462,6 +472,38 @@ class ComposerRuntimeUpdateService
     }
 
     public function bootstrapChild(array $arguments): array { return $this->runChild($arguments); }
+
+    private function retention(): ?RuntimeRetentionService
+    {
+        $file=__DIR__.'/RuntimeRetentionService.php';
+        if(!is_file($file) || !is_file($this->root.'/runtime-retention.php'))return null;
+        require_once $file;
+        return new RuntimeRetentionService($this->root);
+    }
+
+    public function scheduleRuntimeCleanup(bool $force=false): void
+    {
+        try { $this->retention()?->dispatch($this->php,$force); } catch(Throwable $e) { /* Best effort after commit. */ }
+    }
+
+    public function collectRuntimeGarbage(): array
+    {
+        $service=$this->retention();
+        if(!$service)return ['status'=>'deferred','reason'=>'retention_protocol_unavailable'];
+        return $service->collect(function(string $generation,$writer,array $journal):array {
+            $this->heldLock=$writer;
+            try {
+                $result=$this->runChild(['--candidate-probe',$generation]);
+                if(($result['retention_lease']??false)!==true)throw new RuntimeException('retention_reader_protocol_unavailable');
+                $binding=$journal['bootstrap_context']??[];
+                if (in_array($binding['kind']??'',['system','app'],true)) {
+                    $commit=$this->runChild([$binding['kind']==='app'?'--app-runtime-recover':'--bootstrap-recover',$generation,'-',json_encode($binding,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)]);
+                    if (($commit['committed']??false)!==true) throw new RuntimeException('runtime_commit_health_unconfirmed');
+                }
+                return $result;
+            } finally { $this->heldLock=null; }
+        });
+    }
 
     private function runChild(array $arguments): array
     {
