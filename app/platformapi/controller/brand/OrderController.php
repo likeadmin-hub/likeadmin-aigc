@@ -18,11 +18,25 @@ class OrderController extends BaseAdminController
     {
         try {
             $id=(int)$this->request->post('order_id',0); $action=(string)$this->request->post('action',''); $note=(string)$this->request->post('note','');
-            if ($action==='retry') \app\common\service\brand\BrandRefundService::retry($id,$this->adminId,$note);
+            if ($action==='retry' && (int)$this->request->post('refund_id',0)>0) \app\common\service\brand\BrandRefundService::retryTransaction((int)$this->request->post('refund_id'),$this->adminId,$note);
+            elseif ($action==='retry') \app\common\service\brand\BrandRefundService::retry($id,$this->adminId,$note);
             else \app\common\service\brand\BrandRefundService::review('platform',0,$this->adminId,$id,$action,$note);
             return $this->success('退款处理已记录，请等待原渠道核对',[],1,1);
         } catch (\Throwable $e) { Log::error('OEM platform refund: '.$e->getMessage()); return $this->fail(BrandOrderPolicy::error($e)); }
     }
+    public function refunds()
+    {
+        $page=max(1,(int)$this->request->get('page_no',1)); $size=min(100,max(1,(int)$this->request->get('page_size',20)));
+        $status=(string)$this->request->get('status','failed');
+        if (!in_array($status,['failed','unknown','processing','queued','success'],true)) return $this->fail('请选择有效退款状态');
+        $query=Db::name('tenant_brand_refund')->alias('r')->leftJoin('tenant t','t.id=r.tenant_id')->where('r.status',$status);
+        $count=(clone $query)->count();
+        $rows=$query->field('r.id AS refund_id,r.refund_sn,r.order_id,r.order_from,r.amount_cents,r.status,r.reason,r.create_time,r.confirmed_time,t.name AS tenant_name')->order('r.id','desc')->page($page,$size)->select()->toArray();
+        foreach ($rows as &$row) { $row['amount']=BrandOrderPolicy::amount((int)$row['amount_cents']);unset($row['amount_cents']); }
+        unset($row);
+        return $this->success('获取成功',['lists'=>$rows,'count'=>$count]);
+    }
+
     public function lists()
     {
         return $this->dataLists(new OemOrderLists());

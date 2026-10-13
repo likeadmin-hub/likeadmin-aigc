@@ -18,8 +18,10 @@ class PaymentController extends BaseApiController
     {
         try {
             $intent=$this->intent(2);
-            $gateway=new BrandChannelGateway();
-            $server=$gateway->wechat(json_decode($intent['context'],true,512,JSON_THROW_ON_ERROR))->getServer();
+            $gateway=app()->make(BrandChannelGateway::class);
+            $application=$gateway->wechat(json_decode($intent['context'],true,512,JSON_THROW_ON_ERROR));
+            $gateway->verifyWechatNotification($application);
+            $server=$application->getServer();
             $server->handlePaid(function(Message $message)use($gateway,$intent) {
                 if ($message['trade_state']==='SUCCESS') BrandPaymentService::recordVerified($gateway->wechatReceipt($message->toArray(),$intent));
                 return true;

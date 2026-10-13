@@ -335,6 +335,14 @@ class TenantBrandService
         $row['order_amount'] = self::formatAmount((float)($row['order_amount'] ?? 0));
         $row['unit_price'] = self::formatAmount((float)($row['unit_price'] ?? 0));
         $row['pay_status_desc'] = PayEnum::getPayStatusDesc($row['pay_status'] ?? 0);
+        if ((int)($row['flow_version']??1)===2) {
+            $refunds=Db::name('tenant_brand_refund')->where(['order_from'=>self::FROM_QUOTA,'order_id'=>$row['id'],'tenant_id'=>$row['tenant_id']])->field('refund_sn,status,amount_cents,reason')->select()->toArray();
+            foreach ($refunds as &$refund) { $refund['amount']=BrandOrderPolicy::amount((int)$refund['amount_cents']);unset($refund['amount_cents']); }unset($refund);
+            $row['refunds']=$refunds;$statuses=array_column($refunds,'status');
+            $row['funds_advice']=in_array('failed',$statuses,true)?'退款异常，请联系平台核对':(array_intersect($statuses,['queued','processing','unknown'])?'退款处理中，请等待原渠道确认':($refunds?'原路退款已确认':'暂无退款事项'));
+            if ((int)($row['closed_time']??0)>0 && (int)($row['pay_status']??0)===1) $row['pay_status_desc']=$refunds && !array_diff($statuses,['success'])?'已原路退款':'已付款，待原路退款';
+        }
+
         $row['pay_way_desc'] = PayEnum::getPayDesc($row['pay_way'] ?? 0);
         return $row;
     }

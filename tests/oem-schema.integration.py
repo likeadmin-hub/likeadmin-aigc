@@ -38,6 +38,9 @@ try:
     maintenance = (root / 'upgrade/20261014_oem_maintenance.sql').read_text()
     assert maintenance == (root / 'public/upgrade/20261014_oem_maintenance.sql').read_text()
     migration += '\n' + maintenance
+    recovery=(root/'upgrade/20261014_oem_refund_recovery.sql').read_text()
+    assert recovery==(root/'public/upgrade/20261014_oem_refund_recovery.sql').read_text()
+    migration+='\n'+recovery
     sql('oem_legacy', install.split('-- OEM_V2:')[0])
     sql('oem_legacy', "INSERT INTO la_tenant_package(name,duration_days,sale_price,quota_price) VALUES('Existing',77,123.45,88.88);")
     sql('oem_custom', install.replace('`la_', '`qa_').replace("'la_", "'qa_"))
@@ -45,6 +48,7 @@ try:
         seed = migration.replace('`la_', '`' + prefix).replace("'la_", "'" + prefix)
         sql(db, seed)
         sql(db, seed)
+        assert sql(db,f"SELECT COUNT(*) FROM {prefix}system_menu WHERE perms='brand.order/refunds';")=='1'
         defaults = sql(db, f"SELECT name,duration_days,status,prices_configured FROM {prefix}tenant_package WHERE package_code IS NOT NULL ORDER BY package_code;")
         assert defaults == '基础版\t365\t0\t0\n企业版\t365\t0\t0\n专业版\t365\t0\t0', defaults
         sql(db, f"UPDATE {prefix}tenant_package SET sale_price=299.99,quota_price=199.99 WHERE package_code='oem_basic';")

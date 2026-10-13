@@ -12493,3 +12493,8 @@ INSERT INTO `la_config` (`type`,`name`,`value`) SELECT 'oem_migration','legacy_q
 INSERT INTO `la_dev_crontab` (`name`,`type`,`system`,`remark`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`create_time`,`update_time`,`delete_time`)
 SELECT '贴牌订单核对与提醒',1,1,'付款退款核对、未付款超时关闭、付款24小时后每日人工跟进提醒','brand:maintain','',1,'* * * * *','',0,'0','0',UNIX_TIMESTAMP(),UNIX_TIMESTAMP(),NULL
 WHERE NOT EXISTS (SELECT 1 FROM `la_dev_crontab` WHERE `command`='brand:maintain' AND (`delete_time` IS NULL OR `delete_time`=0));
+
+-- OEM transaction refund recovery permission, additive and idempotent.
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT p.id,'A','退款交易核对','',0,'brand.order/refunds','','','','',0,0,0,'','core','core_oem_platform_refunds',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_system_menu` p WHERE p.source_menu_key='core_oem_platform_order' AND NOT EXISTS(SELECT 1 FROM `la_system_menu` e WHERE e.source_menu_key='core_oem_platform_refunds');

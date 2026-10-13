@@ -172,6 +172,47 @@ class BrandChannelGateway implements BrandPaymentGateway, BrandRefundGateway
         return $this->aliReceipt($data,$intent);
     }
 
+    /** Validate the original signed bytes before the SDK decrypts a payment notification. */
+    public function verifyWechatNotification(Application $application): void
+    {
+        $request=$application->getRequest();
+        foreach (['Wechatpay-Signature','Wechatpay-Timestamp','Wechatpay-Nonce','Wechatpay-Serial'] as $header) {
+            if ($request->getHeaderLine($header)==='') throw new RuntimeException('微信付款通知缺少验签凭据');
+        }
+        $timestamp=$request->getHeaderLine('Wechatpay-Timestamp');
+        if (!ctype_digit($timestamp) || abs(time()-(int)$timestamp)>300) throw new RuntimeException('微信付款通知时间校验未通过');
+        $original=$application->getMerchant();
+        $merchant=new \EasyWeChat\Pay\Merchant($original->getMerchantId(),$original->getPrivateKey(),$original->getCertificate(),$original->getSecretKey(),$original->getV2SecretKey(),$this->platformCertificates($application));
+        (new \EasyWeChat\Pay\Validator($merchant))->validate($request);
+    }
+
+    /** Trust only certificates downloaded from the fixed official HTTPS API, never seller uploads. */
+    protected function platformCertificates(Application $application): array
+    {
+        $merchant=$application->getMerchant();
+        $key='oem-wx-platform-cert:'.hash('sha256',$merchant->getMerchantId().'|'.$merchant->getSecretKey());
+        $serial=$application->getRequest()->getHeaderLine('Wechatpay-Serial');
+        $certs=\think\facade\Cache::get($key,[]);
+        foreach ($certs as $number=>$pem) { $parsed=openssl_x509_parse($pem); if (!$parsed || ($parsed['validTo_time_t']??0)<=time() || ($parsed['validFrom_time_t']??PHP_INT_MAX)>time()) unset($certs[$number]); }
+        if (!isset($certs[$serial])) {
+            $data=$application->getClient()->get('v3/certificates')->toArray(false);
+            $certs=[];
+            foreach ($data['data']??[] as $entry) {
+                $encrypted=$entry['encrypt_certificate']??[];
+                if (($encrypted['algorithm']??'')!=='AEAD_AES_256_GCM') continue;
+                $pem=\EasyWeChat\Kernel\Support\AesGcm::decrypt((string)$encrypted['ciphertext'],$merchant->getSecretKey(),(string)$encrypted['nonce'],(string)$encrypted['associated_data']);
+                $certificate=openssl_x509_parse($pem);
+                if (!$certificate || ($certificate['validFrom_time_t']??PHP_INT_MAX)>time() || ($certificate['validTo_time_t']??0)<=time()) continue;
+                $number=strtoupper((string)$certificate['serialNumberHex']);
+                if (!hash_equals($number,strtoupper((string)($entry['serial_no']??'')))) continue;
+                $certs[$number]=$pem;
+            }
+            if (!$certs) throw new RuntimeException('微信平台验签证书暂不可用，请稍后核对付款');
+            \think\facade\Cache::set($key,$certs,21600);
+        }
+        return $certs;
+    }
+
     public function wechat(array $context,string $notify=''): Application
     {
         $config=$this->assertOriginal($context);
