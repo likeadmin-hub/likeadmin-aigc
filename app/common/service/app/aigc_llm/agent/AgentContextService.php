@@ -19,11 +19,20 @@ final class AgentContextService
     }
     private static function owned(string $table,array $run)
     {
-        return AgentStore::owner($table,(int)$run['tenant_id'],(int)$run['user_id'])->where('session_id',$run['session_id']);
+        $query=AgentStore::owner($table,(int)$run['tenant_id'],(int)$run['user_id'])->where('session_id',$run['session_id']);
+        $ids=AgentTopicService::runIds($run);
+        if($ids!==null&&in_array($table,['run','artifact'],true))$query->whereIn($table==='run'?'id':'run_id',$ids);
+        return $query;
     }
     private static function messages(array $run)
     {
-        return AigcLlmMessage::where(['tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'session_id'=>$run['session_id'],'delete_time'=>0,'status'=>'done'])->where('id','<',$run['message_id']);
+        $query=AigcLlmMessage::where(['tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'session_id'=>$run['session_id'],'delete_time'=>0,'status'=>'done'])->where('id','<',$run['message_id']);
+        if(AgentTopicService::state($run)){
+            $answers=self::owned('run',$run)->column('message_id');
+            $parents=AigcLlmMessage::where(['tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'session_id'=>$run['session_id'],'delete_time'=>0])->whereIn('id',$answers)->column('parent_user_message_id');
+            $query->whereIn('id',array_merge($answers,$parents));
+        }
+        return $query;
     }
     private static function excerpt(string $text,int $limit=320): string
     {
@@ -47,6 +56,7 @@ final class AgentContextService
     public static function build(array $run): array
     {
         $memory=self::ensure($run);
+        $topic=(bool)AgentTopicService::state($run);
         $recent=[];$chars=0;
         foreach(self::messages($run)->order('id','desc')->limit(self::RECENT_MESSAGES)->select()->toArray() as $item){
             $size=mb_strlen((string)$item['content']);
@@ -55,7 +65,10 @@ final class AgentContextService
         }
         $recent=array_reverse($recent);
         $boundary=(int)($recent[0]['id']??$run['message_id']);
-        $summary=AgentStore::json($memory['summary']);
+        // Topic summaries are rebuilt from their source messages; a session-wide
+        // cached summary must never revive a different subject.
+        if($topic)$memory['through_message_id']=0;
+        $summary=$topic?[]:AgentStore::json($memory['summary']);
         if($boundary>(int)$memory['through_message_id']+1){
             // Initial backfill is bounded. Keep the first request plus the latest old requests.
             $older=self::messages($run)->where('role','user')->where('id','<',$boundary)->where('id','>',$memory['through_message_id'])->order('id','desc')->limit(80)->select()->toArray();
@@ -65,7 +78,7 @@ final class AgentContextService
             $ids=array_values(array_unique(array_merge($ids,array_column($older,'id'))));sort($ids,SORT_NUMERIC);
             if(count($ids)>13)$ids=array_merge(array_slice($ids,0,1),array_slice($ids,-12));
             $summary=['format'=>'source_excerpts','requests'=>self::summaryRequests($run,$ids),'instruction'=>'历史用户需求摘记，按时间顺序排列，最新更正优先。摘记可能省略细节；需要时通过消息索引读取原文，不代表已执行或已确认。'];
-            self::owned('context',$run)->where('through_message_id','<',$boundary-1)->update(['summary'=>AgentStore::encode($summary),'through_message_id'=>$boundary-1,'update_time'=>time()]);
+            if(!$topic)self::owned('context',$run)->where('through_message_id','<',$boundary-1)->update(['summary'=>AgentStore::encode($summary),'through_message_id'=>$boundary-1,'update_time'=>time()]);
         }
         // Re-read source text so edits or deletions cannot leave stale private content in memory.
         $summary['requests']=self::summaryRequests($run,array_column($summary['requests']??[],'message_id'));
@@ -75,6 +88,12 @@ final class AgentContextService
         if($currentAssets){
             $focus=['file_ids'=>array_column($currentAssets,'file_id'),'source'=>'current_attachments','goal'=>self::excerpt((string)$run['content'],600)];
             self::storeFocus($run,$focus);
+        }elseif($topic){
+            $focus=[];
+            foreach(self::owned('run',$run)->order('id','desc')->select()->toArray() as $row){
+                $settings=AgentStore::json($row['preferences']);
+                if(array_key_exists('_topic_focus',$settings)){$focus=(array)$settings['_topic_focus'];break;}
+            }
         }else $focus=(int)$memory['focus_run_id']<=(int)$run['id']?AgentStore::json($memory['focus']):[];
         $valid=[];
         foreach(array_slice($focus['file_ids']??[],0,8) as $file){try{$valid[]=self::asset($run,(string)$file)['asset'];}catch(\InvalidArgumentException|\app\common\service\open_platform\OpenException){}}
@@ -93,6 +112,12 @@ final class AgentContextService
     private static function storeFocus(array $run,array $focus): void
     {
         self::ensure($run);
+        if(AgentTopicService::state($run)){
+            $current=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
+            $preferences=AgentStore::json($current['preferences']);$preferences['_topic_focus']=$focus;
+            AgentStore::update($run,['preferences'=>AgentStore::encode($preferences)]);
+            return;
+        }
         self::owned('context',$run)->where('focus_run_id','<=',$run['id'])->update(['focus'=>AgentStore::encode($focus),'focus_run_id'=>$run['id'],'update_time'=>time()]);
     }
     public static function focus(array $run,string $file,string $goal=''): array
@@ -106,6 +131,10 @@ final class AgentContextService
     public static function created(array $run,string $file): void
     {
         $memory=self::ensure($run);$previous=AgentStore::json($memory['focus']);
+        if(AgentTopicService::state($run)){
+            $current=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
+            $previous=(array)(AgentStore::json($current['preferences'])['_topic_focus']??[]);$memory['focus_run_id']=$run['id'];
+        }
         $files=(int)$memory['focus_run_id']===(int)$run['id']&&($previous['source']??'')==='generated_artifact'?($previous['file_ids']??[]):[];
         $files[]= $file;
         self::storeFocus($run,['file_ids'=>array_slice(array_values(array_unique($files)),-8),'source'=>'generated_artifact','goal'=>self::excerpt((string)$run['content'],600)]);
