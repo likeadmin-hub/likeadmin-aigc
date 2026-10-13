@@ -1,66 +1,72 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\app\aigc_llm\agent;
-
-use app\common\service\open_platform\{OpenCatalog,OpenContracts,OpenToolRegistry,OpenToolAdapter,OpenSchema,OpenMaterials,OpenToolTasks,OpenPolicy};
+use app\common\service\app\AppAccessService;
 use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_video\AigcVideoService;
+use app\common\service\open_platform\{OpenSchema,OpenMaterials,OpenPolicy,OpenSafeHttp,OpenImagePricing,OpenToolAdapter,OpenToolRequest,OpenVault,OpenStore};
 
-/** An allow-listed view of published creation contracts, never an arbitrary API caller. */
+/** Reviewed native adapters. Public API publication and API keys are separate from logged-in users. */
 final class AgentCapabilityCatalog
 {
+    private const SERVICES=['aigc_image'=>AigcImageService::class,'aigc_video'=>AigcVideoService::class];
+    public static function schema(string $code): array
+    {
+        $properties=['prompt'=>['type'=>'string','minLength'=>1,'maxLength'=>10000],'negative_prompt'=>['type'=>'string','maxLength'=>4000],'ratio'=>['type'=>'string'],'reference_images'=>['type'=>'array','maxItems'=>8,'items'=>['type'=>'string'],'description'=>'用户素材的 file_id；禁止构造或猜测地址']];
+        if($code==='aigc_image')$properties+=['quantity'=>['type'=>'integer','minimum'=>1,'maximum'=>4],'quality'=>['type'=>'string']];
+        else $properties+=['duration'=>['type'=>'integer','minimum'=>1,'maximum'=>60],'resolution'=>['type'=>'string']];
+        return ['type'=>'object','properties'=>$properties,'required'=>['prompt'],'additionalProperties'=>false];
+    }
+    private static function authorize(int $tenant,int $user,string $code): void
+    {
+        if(!isset(self::SERVICES[$code]))throw new \InvalidArgumentException('此创作工具尚未接入');
+        $denied=AppAccessService::assertTenantCanUse($tenant,$code,$user,true,false);
+        if($denied||(int)(self::SERVICES[$code]::config($tenant)['status']??0)!==1)throw new \InvalidArgumentException('当前账号不可使用此工具');
+    }
     public static function all(int $tenant,int $user): array
     {
         $out=[];
-        foreach(OpenCatalog::forUser($tenant,$user) as $app){
-            if(!in_array($app['code'],['aigc_image','aigc_video'],true))continue;
-            if($app['kind']!=='tool'||empty($app['available'])||in_array($app['code'],['aigc_canvas','aigc_short_drama','aigc_llm'],true))continue;
-            foreach($app['operations'] as $op){
-                if($op['method']!=='POST'||!str_ends_with($op['path'],'/tasks')||empty($op['published'])||empty($op['execution_ready']))continue;
-                if(empty($op['schema']['properties']))continue;
-                $out[$app['code']]=['code'=>$app['code'],'name'=>$app['name'],'description'=>$op['description'],'schema'=>$op['schema'],'example'=>$op['example'],'version'=>$op['version'],'path'=>$op['path'],'limitations'=>$app['limitations']??[]];
-            }
+        foreach(self::SERVICES as $code=>$service){
+            try{self::authorize($tenant,$user,$code);}catch(\InvalidArgumentException){continue;}
+            $out[$code]=['code'=>$code,'name'=>$code==='aigc_image'?'图片创作':'视频创作','description'=>$code==='aigc_image'?'文字或参考图生成图片':'文字或参考图生成视频','schema'=>self::schema($code),'version'=>'home-1','model_options'=>$service::config($tenant)['option_config']??[]];
         }
         return $out;
     }
     public static function models(int $tenant): array
     {
-        return [
-            'text'=>AigcLlmService::config($tenant)['option_config']??[],
-            'image'=>AigcImageService::config($tenant)['option_config']??[],
-            'video'=>AigcVideoService::config($tenant)['option_config']??[],
-        ];
+        return ['text'=>AigcLlmService::config($tenant)['option_config']??[],'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>AigcVideoService::config($tenant)['option_config']??[]];
     }
     public static function prepare(array $run,string $code,array $params): array
     {
-        $cap=self::all((int)$run['tenant_id'],(int)$run['user_id'])[$code]??null;
-        if(!$cap)throw new \InvalidArgumentException('此创作工具暂不可用或参数契约未完善');
-        foreach(['tenant_id','user_id','api_key','billing_override','price_snapshot','callback_url','webhook_url'] as $key)if(array_key_exists($key,$params))throw new \InvalidArgumentException('工具包含不允许的参数');
-        $preferences=AgentStore::json($run['preferences']);
-        $type=$code==='aigc_video'?'video':($code==='aigc_music'?'music':'image');
-        $model=(string)($preferences['models'][$type]??'');
-        // Specialized apps keep their own configured model; generic creators must honor the selected model.
-        if(in_array($code,['aigc_image','aigc_video'],true)){
-            if($model==='')throw new \InvalidArgumentException('请先在模型偏好中选择'.$type.'模型');
-            unset($params['model'],$params['model_code'],$params['market_product_id'],$params['market_sku_id']);
-            $params['model_id']=$model;$params['channel']=$model;
+        $tenant=(int)$run['tenant_id'];$user=(int)$run['user_id'];self::authorize($tenant,$user,$code);
+        // Only fields declared by this native adapter are accepted from the model.
+        unset($params['model_id'],$params['channel']);
+        OpenSchema::validateRequest($params,self::schema($code),true);
+        OpenPolicy::validateInput($params);
+        $params=OpenMaterials::resolve($tenant,$user,$params);OpenSafeHttp::checkInputs($params);
+        $type=$code==='aigc_image'?'image':'video';$model=(string)(AgentStore::json($run['preferences'])['models'][$type]??'');
+        if($model==='')throw new \InvalidArgumentException('请先在模型偏好中选择'.$type.'模型');
+        $params['model_id']=$model;$params['channel']=$model;
+        if($code==='aigc_image')$quote=OpenImagePricing::applicationBudget($tenant,$user,$params);
+        else{
+            $capture=AigcVideoService::openPlatformAdmission($tenant,$params);$quote=OpenToolAdapter::estimateBudget($capture['quote']);
+            if(!$quote)throw new \InvalidArgumentException('当前视频模型无法提供可靠估价');
+            $quote['snapshot']['native_video_blob']=OpenVault::seal(OpenStore::encode(['tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>$code]+$capture));
         }
-        $op=OpenContracts::tool('POST',$cap['path']);
-        OpenSchema::validateRequest($params,$op['input'],true);
-        $params=OpenMaterials::resolve((int)$run['tenant_id'],(int)$run['user_id'],OpenMaterials::nativeInputs($code,$params));
-        $quote=OpenToolAdapter::budget(request(),$op,$params);
-        return ['capability'=>$cap,'operation'=>$op,'params'=>$params,'quote'=>$quote];
+        return ['capability'=>['code'=>$code,'name'=>$type==='image'?'生成图片':'生成视频','version'=>'home-1'],'params'=>$params,'quote'=>$quote];
     }
     public static function submit(array $prepared): array
     {
-        $op=$prepared['operation'];
-        return AgentToolContext::within($prepared,static fn()=>OpenToolAdapter::call(request(),$op,$prepared['params']));
+        $request=request();$code=$prepared['capability']['code'];self::authorize((int)$request->tenantId,(int)$request->userId,$code);
+        $scoped=OpenToolRequest::from($request,$prepared['params'],['app_code'=>$code,'route'=>'POST tasks']);
+        app()->instance('request',$scoped);
+        try{return AgentToolContext::within($prepared,static fn()=>self::SERVICES[$code]::generate((int)$request->tenantId,(int)$request->userId,$prepared['params']));}
+        finally{app()->instance('request',$request);}
     }
     public static function query(array $run,string $code,int $taskId): array
     {
-        $tool=OpenToolRegistry::get($code);$op=$tool['operations']['GET tasks/{task_id}']??null;
-        if(!$op)throw new \InvalidArgumentException('工具暂不支持任务查询');
-        return OpenToolAdapter::call(request(),$op+['app_code'=>$code,'route'=>'GET tasks/{task_id}','params'=>['task_id'=>$taskId],'internal'=>true,'history'=>true],[]);
+        if(!isset(self::SERVICES[$code]))throw new \InvalidArgumentException('未知任务类型');
+        return self::SERVICES[$code]::taskDetail((int)$run['tenant_id'],$taskId,(int)$run['user_id']);
     }
 }

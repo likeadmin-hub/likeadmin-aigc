@@ -21,10 +21,12 @@ final class AgentExecutionService
         foreach(AigcLlmSensitiveWord::where(['tenant_id'=>$tenant,'status'=>1])->column('word') as $word)if($word!==''&&mb_stripos($content,$word)!==false)throw new \InvalidArgumentException('内容包含不允许的词语，请调整后重试');
         $preferences=AgentStore::preferences($tenant,$user);
         if(empty($preferences['models']['text']))throw new \InvalidArgumentException('请先选择对话模型');
-        MarketTextModelRuntimeService::resolveModel($tenant,$preferences['models']['text']);
+        
         $attachments=array_values(array_unique(array_map('strval',(array)($params['attachments']??[]))));
         if(count($attachments)>8)throw new \InvalidArgumentException('最多引用8个素材');
         $assets=[];foreach($attachments as $id)$assets[]=OpenAssets::detail($tenant,$user,$id);
+        $vision=count(array_filter($assets,static fn($asset)=>str_starts_with($asset['mime']??'','image/')))>0;
+        MarketTextModelRuntimeService::resolveModel($tenant,$preferences['models']['text'],$vision);
         $sessionId=(int)($params['session_id']??0);
         $hash=hash('sha256',AgentStore::encode([$sessionId,$content,$attachments]));
         $existing=AgentStore::owner('run',$tenant,$user)->where('request_id',$requestId)->find();
@@ -70,16 +72,22 @@ final class AgentExecutionService
             if($run['phase']==='tools'&&in_array($run['status'],['queued','running','waiting_tasks','success','partial_success'],true))return;
             if($run['status']!=='awaiting_confirmation')throw new \InvalidArgumentException('此方案不能执行');
             AgentStore::update($run,['phase'=>'tools','status'=>'queued','lease_token'=>'','lease_until'=>0,'next_run_time'=>0]);
+            AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$tenant,'user_id'=>$user])->update(['status'=>'streaming']);
         });
         return self::detail($tenant,$user,$id);
     }
     public static function stop(int $tenant,int $user,int $id): array
     {
-        $run=AgentStore::run($tenant,$user,$id);
-        if(!in_array($run['status'],AgentStore::TERMINAL,true)){
+        Db::transaction(function()use($tenant,$user,$id){
+            $run=AgentStore::owner('run',$tenant,$user)->where('id',$id)->lock(true)->find();
+            if(!$run)throw new \InvalidArgumentException('执行记录不存在');
+            if(in_array($run['status'],AgentStore::TERMINAL,true))return;
             AgentStore::owner('run',$tenant,$user)->where('id',$id)->update(['cancel_requested'=>1,'update_time'=>time()]);
-            if(in_array($run['status'],['queued','awaiting_confirmation'],true))self::finish($run,'canceled');
-        }
+            // Queued tool recovery can already own submitted tasks. Keep polling those tasks.
+            $submitted=AgentStore::table('step')->where('run_id',$id)->where('task_id','>',0)->count();
+            if(in_array($run['status'],['queued','awaiting_confirmation'],true)&&!$submitted)self::finish($run,'canceled');
+            elseif($run['status']==='awaiting_confirmation')AgentStore::update($run,['status'=>'waiting_tasks','phase'=>'tools','next_run_time'=>0]);
+        });
         return self::detail($tenant,$user,$id);
     }
     public static function propose(array $run,array $input): array
@@ -100,7 +108,13 @@ final class AgentExecutionService
     {
         // A lost worker cannot safely replay a paid provider submission.
         foreach(AgentStore::table('run')->where('status','running')->where('lease_until','<',time())->limit(10)->select()->toArray() as $stale){
-            self::finish($stale,'needs_review','执行连接中断，已保留结果；请核对任务后再继续');
+            Db::transaction(function()use($stale){
+                $current=AgentStore::table('run')->where('id',$stale['id'])->lock(true)->find();
+                if(!$current||$current['status']!=='running'||(int)$current['lease_until']>=time())return;
+                $unknown=AgentStore::table('step')->where('run_id',$current['id'])->where('status','submitting')->count();
+                if($current['phase']==='tools'&&!$unknown)AgentStore::update($current,['status'=>'waiting_tasks','lease_token'=>'','lease_until'=>0,'next_run_time'=>0]);
+                else self::finish($current,'needs_review','执行连接中断，已保留结果；请核对任务后再继续');
+            });
         }
         $run=Db::transaction(function(){
             $row=AgentStore::table('run')->whereIn('status',['queued','waiting_tasks'])->where('next_run_time','<=',time())->order('id')->lock(true)->find();
@@ -115,7 +129,7 @@ final class AgentExecutionService
         app()->instance('request',$request);
         try{
             AgentStore::access((int)$run['tenant_id'],(int)$run['user_id']);
-            if((int)$run['cancel_requested']&&$run['status']!=='waiting_tasks'){self::finish($run,'canceled');return 1;}
+            if((int)$run['cancel_requested']&&$run['phase']==='chat'){self::finish($run,'canceled');return 1;}
             if($run['phase']==='chat')self::chat($run);else self::executeSteps($run);
         }catch(\Throwable $e){
             Log::error('Home Agent run '.$run['id'].' failed: '.get_class($e));
@@ -170,7 +184,7 @@ final class AgentExecutionService
         $instructions.="\n模型偏好：".AgentStore::encode($preferences['models']??[]);
         $instructions.="\n本次素材（需视觉理解时只能依据实际读取到的信息，不能根据文件名猜测内容）：".AgentStore::encode(AgentStore::json($run['attachments']));
         $artifacts=AgentArtifactService::lists((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['session_id']);
-        $instructions.="\n当前会话作品：".AgentStore::encode(array_slice($artifacts,0,12));
+        $instructions.="\n当前会话作品：".AgentStore::encode(array_map(static fn($a)=>array_intersect_key($a,array_flip(['file_id','title','kind'])),array_slice($artifacts,0,12)));
         $messages=[];$chars=0;
         $history=AigcLlmMessage::where(['tenant_id'=>$run['tenant_id'],'session_id'=>$run['session_id'],'delete_time'=>0])->where('id','<',$run['message_id'])->where('status','done')->order('id','desc')->limit(40)->select()->toArray();
         foreach($history as $item){$text=(string)$item['content'];if($chars+mb_strlen($text)>24000)break;$chars+=mb_strlen($text);array_unshift($messages,$item['role']==='user'?new UserMessage($text):new AssistantMessage($text));}
@@ -187,6 +201,7 @@ final class AgentExecutionService
         $automatic=$preferences['mode']==='auto'&&$total<=(float)$preferences['budget'];
         AgentStore::update($run,['approval_hash'=>$hash,'status'=>$automatic?'queued':'awaiting_confirmation','phase'=>$automatic?'tools':'chat','lease_token'=>'','lease_until'=>0]);
         self::finishMessage($run,'done');
+        if($automatic)AigcLlmSession::where('id',$run['session_id'])->update(['status'=>'streaming']);
         AgentStore::event($run,'plan.ready',['estimated_points'=>$total,'automatic'=>$automatic]);
     }
     private static function executeSteps(array $run): void
@@ -232,6 +247,7 @@ final class AgentExecutionService
     {
         $current=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
         if($current['lease_token']!==$run['lease_token'])throw new \RuntimeException('执行租约失效');
+        if(!AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'delete_time'=>0])->find())throw new \InvalidArgumentException('会话已删除');
         if((int)$current['cancel_requested'])throw new \InvalidArgumentException('已停止后续执行');
         AgentStore::update($run,['lease_until'=>time()+1500]);
     }

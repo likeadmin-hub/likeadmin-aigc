@@ -68,6 +68,13 @@ final class OpenImagePricing
         OpenToolAdapter::authorize($tenant,$user,'aigc_image');
         return self::capture($tenant,$user,$params,'aigc_image');
     }
+    /** Same native pricing for logged-in application users, independent of API-key publication. */
+    public static function applicationBudget(int $tenant,int $user,array $params): array
+    {
+        $denied=\app\common\service\app\AppAccessService::assertTenantCanUse($tenant,'aigc_image',$user,true,false);
+        if($tenant<1||$user<1||$denied)throw new OpenException('permission_denied','图片工具不可用',403);
+        return self::capture($tenant,$user,$params,'aigc_image');
+    }
     private static function capture(int $tenant,int $user,array $params,string $app): array
     {
         if(empty($params['channel'])&&!empty($params['model_id']))$params['channel']=$params['model_id'];
