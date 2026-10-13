@@ -30,8 +30,8 @@ final class AgentTopicService
     public static function resolve(array $run,callable $classify): array
     {
         if(self::state($run))return $run; // Frozen across polling, retries and sequence phases.
-        $candidates=[];
-        foreach(self::rows($run) as $row){
+        $candidates=[];$history=self::rows($run);
+        foreach($history as $row){
             if((int)$row['id']===(int)$run['id'])continue;
             $state=self::state($row);$root=(int)($state['root_run_id']??$row['id']);
             if(!isset($candidates[$root])&&count($candidates)>=12)continue;
@@ -39,6 +39,7 @@ final class AgentTopicService
             $candidates[$root]??=['topic_id'=>$root,'requests'=>[]];
             $candidates[$root]['requests'][]=mb_substr((string)$row['content'],0,500);
         }
+        foreach($history as $row)if(isset($candidates[(int)$row['id']]))$candidates[(int)$row['id']]['initial_request']=mb_substr((string)$row['content'],0,500);
         $decision=['action'=>'new','topic_id'=>0];
         // An explicit reset is authoritative, including when followed by a new request.
         $reset=(bool)preg_match('/^(?:请)?(?:重新开始|换个话题|换一个话题|新话题|从头开始|start over|new topic)(?:[，,。.!！:：\s]|$)/iu',trim($run['content']));
