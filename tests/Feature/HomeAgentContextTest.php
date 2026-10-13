@@ -66,7 +66,7 @@ Db::startTrans();try{
  // A fresh window under the SAME tenant/user must not inherit any old context.
  $fresh=array_replace($otherRun,['attachments'=>'[]','content'=>'一个全新的问题']);
  unset($fresh['id']);$fresh['request_id']='fresh-'.bin2hex(random_bytes(10));
- $fresh['id']=S::table('run')->insertGetId($fresh);
+ $fresh['id']=(int)S::table('run')->insertGetId($fresh);
  $blank=C::build($fresh);
  check($blank['recent']===[]&&$blank['summary']['requests']===[]&&$blank['summary']['older_message_count']===0,'New session inherited message history or summary');
  check($blank['focus_assets']===[]&&$blank['focus']['file_ids']===[]&&$blank['artifacts']===[]&&count($blank['tasks'])===1&&$blank['tasks'][0]['run_id']===$fresh['id']&&$blank['tasks'][0]['steps']===[],'New session inherited focus, works or tasks');
