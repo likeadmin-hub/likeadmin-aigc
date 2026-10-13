@@ -12,6 +12,7 @@ check(AgentToolContext::image(1,2)===null,'no implicit native price override');
 check(AgentStore::requiresConfirmation(['mode'=>'ask','budget'=>100],20),'consultation always confirms');
 check(!AgentStore::requiresConfirmation(['mode'=>'auto','budget'=>20],20),'auto executes within budget');
 check(AgentStore::requiresConfirmation(['mode'=>'auto','budget'=>20],21),'auto still respects budget');
+foreach(['aigc_short_drama','aigc_canvas','aigc_geo','unknown'] as $code){try{AgentCapabilityCatalog::schema($code);throw new RuntimeException('Studio/unknown tool accepted');}catch(InvalidArgumentException){}}
 $called=0;
 $tool=new AgentFunctionTool('make_plan','Prepare a plan',['type'=>'object','properties'=>['prompt'=>['type'=>'string']],'required'=>['prompt']],function($payload)use(&$called){$called++;check($payload['prompt']==='poster','payload passed');return ['planned'=>true,'requires_confirmation'=>true];});
 $provider=new MarketNeuronProvider('chosen',function($params)use(&$called){if(!$called)return ['tool_calls'=>[['id'=>'t1','function'=>['name'=>'make_plan','arguments'=>'{"payload":{"prompt":"poster"}}']]]];check(str_contains($params['messages'][2]['content'],'requires_confirmation'),'tool output retained');return ['content'=>'请确认方案'];});
