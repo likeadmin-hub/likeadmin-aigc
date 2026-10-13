@@ -206,15 +206,20 @@ final class AgentExecutionService
             }
             foreach($params['messages'] as $message)foreach(is_array($message['content'])?$message['content']:[] as $block)if(($block['type']??'')==='image_url')$params['requires_vision']=true;
             $text='';$last=0.;
-            $result=MarketTextModelRuntimeService::generate((int)$run['tenant_id'],(int)$run['user_id'],$params+['app_code'=>'aigc_llm','source_app_code'=>'aigc_llm','business_table'=>'aigc_llm_agent_run','business_id'=>$run['id'],'action_code'=>'agent_chat'],function(string $event,array $data)use($run,&$stageText,&$text,&$last){
+            try{$result=MarketTextModelRuntimeService::generate((int)$run['tenant_id'],(int)$run['user_id'],$params+['app_code'=>'aigc_llm','source_app_code'=>'aigc_llm','business_table'=>'aigc_llm_agent_run','business_id'=>$run['id'],'action_code'=>'agent_chat'],function(string $event,array $data)use($run,&$stageText,&$text,&$last){
                 if($event!=='delta')return;
                 $text.=(string)($data['delta']??'');
                 if(microtime(true)-$last<0.15)return;$last=microtime(true);
                 AgentReplyService::publish($run,AgentReplyService::append($stageText,$text));
             });
+            }catch(\Throwable $e){
+                AgentReplyService::publish($run,AgentReplyService::append($stageText,$text));
+                throw $e;
+            }
             // Preserve every visible tool-loop response, including the final unthrottled delta.
             $body=(string)($result['content']??'');
-            if($text!==''&&!str_starts_with($body,$text))$body=AgentReplyService::append($text,$body);
+            if($text!==''&&str_starts_with($text,$body))$body=$text;
+            elseif($text!==''&&!str_starts_with($body,$text))$body=AgentReplyService::append($text,$body);
             $stageText=AgentReplyService::append($stageText,$body);
             AgentReplyService::publish($run,$stageText);
             $usage[]=['consumption_id'=>$result['consumption_id']??0,'billing'=>$result['billing']??[],'usage'=>$result['usage']??[]];
