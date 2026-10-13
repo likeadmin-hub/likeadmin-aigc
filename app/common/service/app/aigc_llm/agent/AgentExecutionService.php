@@ -55,7 +55,7 @@ final class AgentExecutionService
         $out=array_intersect_key($run,array_flip(['id','session_id','message_id','status','phase','reply','error','approval_hash','cancel_requested','create_time','update_time']));
         $out['user_message_id']=(int)AigcLlmMessage::where(['tenant_id'=>$tenant,'user_id'=>$user,'session_id'=>$run['session_id'],'id'=>$run['message_id'],'delete_time'=>0])->value('parent_user_message_id');
         $out['attachments']=self::displayAttachments($tenant,$user,AgentStore::json($run['attachments']));
-        $out['steps']=array_map(static function($step){$prepared=AgentStore::json($step['prepared']);return ['id'=>$step['id'],'title'=>$step['title'],'tool_code'=>$step['tool_code'],'status'=>$step['status'],'task_id'=>$step['task_id'],'error'=>$step['error'],'params'=>OpenPolicy::publicData($prepared['params']??[]),'estimated_points'=>$prepared['quote']['user']??0];},$steps);
+        $out['steps']=array_map(static function($step){$prepared=AgentStore::json($step['prepared']);return ['id'=>$step['id'],'title'=>$step['title'],'tool_code'=>$step['tool_code'],'status'=>$step['status'],'task_id'=>$step['task_id'],'error'=>$step['error'],'params'=>OpenPolicy::publicData($prepared['params']??[]),'constraints'=>$prepared['constraints']??AgentExtendedTools::constraints($step['tool_code']),'estimated_points'=>$prepared['quote']['user']??0];},$steps);
         $out['estimated_points']=array_sum(array_column($out['steps'],'estimated_points'));
         $out['pending_points']=array_sum(array_column(array_filter($out['steps'],static fn($s)=>$s['status']==='proposed'),'estimated_points'));
         $out['sequence']=AgentSequenceService::view($run);
@@ -142,7 +142,10 @@ final class AgentExecutionService
         $prepared=AgentStore::owner('step',(int)$run['tenant_id'],(int)$run['user_id'])->where('run_id',$run['id'])->column('prepared');
         $total=array_sum(array_map(static fn($value)=>(float)(AgentStore::json($value)['quote']['user']??0),$prepared));
         $confirmation=AgentStore::requiresConfirmation(AgentStore::json($run['preferences']),$total);
+        $current=AgentStore::owner('step',(int)$run['tenant_id'],(int)$run['user_id'])->where('run_id',$run['id'])->where('id',$id)->find();
+        $constraints=AgentStore::json($current['prepared'])['constraints']??AgentExtendedTools::constraints($current['tool_code']);
         return ['planned'=>true,'step_id'=>$id,'estimated_points'=>$total,'requires_confirmation'=>$confirmation,
+            'constraints'=>$constraints,
             'instruction'=>$confirmation?'方案已保存。用一句自然语言说明创作内容，用户将通过界面按钮确认；不要要求用户输入确认文字。':'方案已保存，回复结束后系统将自动执行。简短说明准备生成的内容，不要再次询问或要求确认，也不能声称已生成成功。'];
     }
     public static function tick(): int

@@ -22,9 +22,12 @@ namespace {
   $models=C::models(1);S::preferences(1,1,['mode'=>'ask','models'=>['text'=>$models['text']['models'][0]['code'],'music'=>'music_generation']]);
   $view=E::submit(1,1,['request_id'=>'music_test_'.bin2hex(random_bytes(12)),'content'=>'offline music fixture']);$run=S::run(1,1,(int)$view['id']);
   $prepared=C::prepare($run,'aigc_music',['prompt'=>'offline music fixture','instrumental'=>true,'duration'=>30]);
+  check(C::describe($run,'aigc_music')['constraints']['duration_control']==='provider','Planner missing music duration limitation');
+  check($prepared['constraints']['duration_control']==='provider','Plan snapshot missing duration limitation');
   S::table('step')->insert(['tenant_id'=>1,'user_id'=>1,'run_id'=>$run['id'],'step_key'=>hash('sha256',(string)$run['id']),'title'=>'Music fixture','tool_code'=>'aigc_music','prepared'=>S::encode($prepared),'result'=>'','create_time'=>time(),'update_time'=>time()]);
   S::table('run')->where('id',$run['id'])->update(['phase'=>'tools','status'=>'queued']);
   E::tick();$view=E::detail(1,1,(int)$run['id']);check($view['status']==='waiting_tasks'&&Fake::$submits===1,'Music submission failed');
+  check(str_contains($view['steps'][0]['constraints']['duration_note'],'无法保证精确秒数'),'Plan UI API missing duration limitation');
   $task=(int)$view['steps'][0]['task_id'];check($task>0,'No native task mapping');
   S::table('run')->where('id',$run['id'])->update(['next_run_time'=>0]);E::tick();
   check(E::detail(1,1,(int)$run['id'])['status']==='waiting_tasks'&&Fake::$submits===1&&$balance()===$before,'Transient query failed the run or charged user');
