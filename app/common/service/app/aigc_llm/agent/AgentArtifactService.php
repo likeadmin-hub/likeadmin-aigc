@@ -17,7 +17,7 @@ final class AgentArtifactService
         return array_map(static function($row)use($tenant,$user){
             $data=AgentStore::json($row['data']);
             $asset=OpenAssets::detail($tenant,$user,$data['file_id']);
-            return array_intersect_key($row,array_flip(['id','run_id','title','kind','favorite','create_time']))+$asset+['content'=>$data['content']??''];
+            return array_intersect_key($row,array_flip(['id','run_id','step_id','title','kind','favorite','create_time']))+$asset+['content'=>$data['content']??''];
         },$rows);
     }
     public static function favorite(int $tenant,int $user,int $id,bool $favorite): void
