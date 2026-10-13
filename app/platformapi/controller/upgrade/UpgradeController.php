@@ -87,7 +87,7 @@ class UpgradeController extends BaseAdminController
     public function cloudVersions(): Json
     {
         try {
-            return $this->success('获取成功', (new SystemPackageUpdateService())->versions($this->request->get()));
+            return $this->success('获取成功', UpdateCustomerMessage::present((new SystemPackageUpdateService())->versions($this->request->get())));
         } catch (\Exception $e) {
             return $this->updateFailure($e);
         }
@@ -268,7 +268,7 @@ class UpgradeController extends BaseAdminController
         if (true === UpgradeLogic::upgrade($params)) {
             return $this->success('更新成功', [], 1, 1);
         }
-        return $this->fail('更新失败:'. UpgradeLogic::getError());
+        return $this->updateFailure(new \RuntimeException(UpgradeLogic::getError()));
     }
 
     /**
@@ -282,7 +282,7 @@ class UpgradeController extends BaseAdminController
         $params = (new downloadPkgValidate())->post()->goCheck();
         $result = UpgradeLogic::getPkgLine($params);
         if (false === $result) {
-            return $this->fail(UpgradeLogic::getError());
+            return $this->updateFailure(new \RuntimeException(UpgradeLogic::getError()));
         }
         return $this->success('', $result);
     }
