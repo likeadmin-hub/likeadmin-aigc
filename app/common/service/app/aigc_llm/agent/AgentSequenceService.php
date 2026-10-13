@@ -14,6 +14,7 @@ final class AgentSequenceService
     }
     public static function configure(array $run,array $items): array
     {
+        AgentTopicService::assertResolved($run);
         if(!array_is_list($items)||count($items)<1||count($items)>3)throw new \InvalidArgumentException('最多安排3个依赖前一步结果的后续步骤');
         $available=AgentCapabilityCatalog::all((int)$run['tenant_id'],(int)$run['user_id']);$stages=[];
         foreach($items as $item){
