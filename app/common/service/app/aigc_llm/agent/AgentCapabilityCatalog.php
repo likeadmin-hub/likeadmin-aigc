@@ -53,9 +53,9 @@ final class AgentCapabilityCatalog
         self::authorize((int)$run['tenant_id'],(int)$run['user_id'],$code);
         $type=self::TYPES[$code];
         $selection=(string)(AgentStore::json($run['preferences'])['models'][$type]??'');
-        return ['code'=>$code,'schema'=>self::schema($code),'selected_model'=>AgentCreationContext::selectedModel(
+        return ['code'=>$code,'schema'=>self::schema($code),'constraints'=>AgentExtendedTools::constraints($code),'selected_model'=>AgentCreationContext::selectedModel(
             self::SERVICES[$code]::config((int)$run['tenant_id'])['option_config']??[],$selection),
-            'instruction'=>'只能使用 selected_model；不自行替换。费用只能引用 plan_creation 成功返回的估价。素材字段仅传用户 file_id；试衣分别传 garment_images 服装图、model_images 模特图，不能猜测角色。音乐只支持歌曲或纯音乐，不支持配音/TTS。参数不兼容时解释具体原因，不能声称方案已经保存。'];
+            'instruction'=>'只能使用 selected_model；不自行替换。费用只能引用 plan_creation 成功返回的估价。素材字段仅传用户 file_id；试衣分别传 garment_images 服装图、model_images 模特图，不能猜测角色。音乐只支持歌曲或纯音乐，不支持配音/TTS；必须向用户说明 constraints 中的能力限制，不能承诺精确时长，也不能把计费规格说成输出时长保证。参数不兼容时解释具体原因，不能声称方案已经保存。'];
     }
     public static function prepare(array $run,string $code,array $params): array
     {
@@ -82,7 +82,7 @@ final class AgentCapabilityCatalog
             if(!$quote)throw new \InvalidArgumentException('当前视频模型无法提供可靠估价');
             $quote['snapshot']['native_video_blob']=OpenVault::seal(OpenStore::encode(['tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>$code]+$capture));
         }
-        return ['run_id'=>(int)$run['id'],'capability'=>['code'=>$code,'name'=>self::NAMES[$code],'version'=>'home-1'],'inputs'=>$inputs,'params'=>$params,'quote'=>$quote];
+        return ['run_id'=>(int)$run['id'],'capability'=>['code'=>$code,'name'=>self::NAMES[$code],'version'=>'home-1'],'inputs'=>$inputs,'params'=>$params,'quote'=>$quote,'constraints'=>AgentExtendedTools::constraints($code)];
     }
     public static function submit(array $prepared): array
     {
