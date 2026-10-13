@@ -46,7 +46,7 @@ final class AgentExecutionService
             $session->save(['status'=>'streaming','last_message_at'=>time(),'update_time'=>time(),'model_code'=>$preferences['models']['text'],'message_count'=>(int)$session['message_count']+2]);
             return AgentStore::table('run')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'session_id'=>$session['id'],'message_id'=>$answer['id'],'request_id'=>$requestId,'payload_hash'=>$hash,'content'=>$content,'preferences'=>AgentStore::encode($preferences),'attachments'=>AgentStore::encode($assets),'status'=>'queued','phase'=>'chat','reply'=>'','create_time'=>time(),'update_time'=>time()]);
         });}catch(\Throwable $e){$existing=AgentStore::owner('run',$tenant,$user)->where('request_id',$requestId)->find();if(!$existing||$existing['payload_hash']!==$hash)throw $e;$id=(int)$existing['id'];}
-        return self::detail($tenant,$user,$id);
+        return self::detail($tenant,$user,(int)$id);
     }
     public static function detail(int $tenant,int $user,int $id): array
     {
@@ -74,7 +74,7 @@ final class AgentExecutionService
             AgentStore::update($run,['phase'=>'tools','status'=>'queued','lease_token'=>'','lease_until'=>0,'next_run_time'=>0]);
             AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$tenant,'user_id'=>$user])->update(['status'=>'streaming']);
         });
-        return self::detail($tenant,$user,$id);
+        return self::detail($tenant,$user,(int)$id);
     }
     public static function stop(int $tenant,int $user,int $id): array
     {
@@ -88,7 +88,7 @@ final class AgentExecutionService
             if(in_array($run['status'],['queued','awaiting_confirmation'],true)&&!$submitted)self::finish($run,'canceled');
             elseif($run['status']==='awaiting_confirmation')AgentStore::update($run,['status'=>'waiting_tasks','phase'=>'tools','next_run_time'=>0]);
         });
-        return self::detail($tenant,$user,$id);
+        return self::detail($tenant,$user,(int)$id);
     }
     public static function propose(array $run,array $input): array
     {
