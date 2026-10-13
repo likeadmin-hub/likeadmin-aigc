@@ -51,5 +51,30 @@ Db::startTrans();try{
  $explicit=T::resolve($make('分析这张上传的图',[['file_id'=>$file]]),fn()=>['action'=>'new']);
  $context=C::build($explicit);check($context['focus']['file_ids']===[$file]&&count($context['tasks'])===1,'Explicit attachment imported original task');
  check(S::table('step')->where('run_id',$first['id'])->value('status')==='running','Topic switch changed old task status');
+ // Implicit continuations need the pending question, not just the user requests.
+ $video=T::resolve($make('重新开始，帮我生成一个15s的视频'),fn()=>['action'=>'new']);
+ S::update($video,['reply'=>'可以，请上传首帧参考图，我会帮你写视频提示词。']);
+ $continue=function($text,$files=[],$expectedReply='')use($make,$video){
+  return T::resolve($make($text,$files),function($topics)use($video,$expectedReply){
+   check($topics[0]['is_latest']===true&&$topics[0]['topic_id']===$video['id'],'Latest dialogue cue not associated with its root');
+   check(count(array_filter($topics,fn($t)=>$t['is_latest']))===1,'Multiple latest topics');
+   check(str_contains($topics[0]['last_reply'],$expectedReply),'Missing last visible response for implicit continuation');
+   return ['action'=>'continue','topic_id'=>(int)$video['id']];
+  });
+ };
+ $help=$continue('但是我不会写提示词',[],'首帧参考图');
+ S::update($help,['reply'=>'我会帮你写。请先上传参考图。']);
+ $reference=$continue('这是参考图',[['file_id'=>$file]],'请先上传参考图');
+ C::build($reference); // Persist uploaded reference as this topic's focus.
+ S::update($reference,['reply'=>'这是黄色电视机角色，可以保持主体，为15秒视频补充动作。']);
+ $style=$continue('你给我写一个可爱画风的提示词吧',[],'黄色电视机角色');
+ $context=C::build($style);$body=S::encode($context);
+ check(count(T::runIds($style))===4&&str_contains($body,'15s')&&$context['focus']['file_ids']===[$file],'Implicit continuation lost original goal/reference');
+ check(!str_contains($body,'会议通知')&&!str_contains($body,'音乐任务'),'Continuation imported another topic');
+ S::update($style,['reply'=>str_repeat('长',1800).'请确认镜头和时长']);
+ T::resolve($make('另做一张小猫海报'),function($topics){
+  check(mb_strlen($topics[0]['last_reply'])<=1203&&str_ends_with($topics[0]['last_reply'],'请确认镜头和时长'),'Reply cue is not bounded or lost final question');
+  return ['action'=>'new'];
+ });
  echo "Home Agent topics passed: new, resume, chains, reset, ambiguity, scoped retrieval, late completion, explicit references and idempotent routing; rolled back\n";
 }finally{Db::rollback();}
