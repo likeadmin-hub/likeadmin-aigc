@@ -1,6 +1,7 @@
 <?php
 // Real local persistence, mocked topic decisions, no generation or charges; rolled back.
 require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
+set_exception_handler(static function(Throwable $e){fwrite(STDERR,$e->getMessage().PHP_EOL.$e->getTraceAsString().PHP_EOL);exit(1);});
 use think\facade\Db;
 use app\common\service\app\aigc_llm\agent\{AgentStore as S,AgentTopicService as T,AgentContextService as C};
 use app\common\model\app\aigc_llm\{AigcLlmSession,AigcLlmMessage};
@@ -22,7 +23,7 @@ Db::startTrans();try{
  $file='of_'.bin2hex(random_bytes(16));
  OpenStore::table('file')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'file_id'=>$file,'uri'=>'uploads/topic-fixture.png','name'=>'音乐素材.png','mime'=>'image/png','size'=>1,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']+OpenStore::timestamp());
  S::table('artifact')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'session_id'=>$session['id'],'run_id'=>$first['id'],'step_id'=>0,'identity_hash'=>hash('sha256',$file),'title'=>'钢琴配图','kind'=>'image','data'=>S::encode(['file_id'=>$file]),'create_time'=>$now]);
- S::table('step')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'run_id'=>$first['id'],'step_key'=>hash('sha256',$file),'title'=>'音乐任务','tool_code'=>'aigc_music','prepared'=>S::encode(['params'=>['prompt'=>'钢琴'],'quote'=>['user'=>65]]),'status'=>'running','task_id'=>123,'create_time'=>$now,'update_time'=>$now]);
+ S::table('step')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'run_id'=>$first['id'],'step_key'=>hash('sha256',$file),'title'=>'音乐任务','tool_code'=>'aigc_music','prepared'=>S::encode(['params'=>['prompt'=>'钢琴'],'quote'=>['user'=>65]]),'result'=>'','status'=>'running','task_id'=>123,'create_time'=>$now,'update_time'=>$now]);
  C::created($first,$file);
  $new=T::resolve($make('帮我写会议通知'),function($candidates)use($file){
   $json=S::encode($candidates);check(!str_contains($json,$file)&&!str_contains($json,'历史助手')&&!str_contains($json,'65'),'Router received media, assistant text or task state');
