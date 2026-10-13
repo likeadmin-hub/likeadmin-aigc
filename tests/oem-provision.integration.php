@@ -46,6 +46,9 @@ try {
     oemCheck(Db::name('tenant')->where('source_tenant_id',$f['seller'])->count()===1,'one target tenant');
     Db::name('tenant_package')->where('id',$f['package'])->update(['status'=>1,'duration_days'=>365]);
     Db::name('app_plan')->where('id',$f['plan'])->update(['status'=>1,'duration_months'=>12]);
+    Db::name('tenant')->where('id',$child)->update(['disable'=>1]);
+    oemReject(fn()=>Brand::createBrandOrder($f['seller'],$f['user'],4,['package_id'=>$f['package'],'target_tenant_id'=>$child]),'renewal bypasses a manual suspension before expiry');
+    Db::name('tenant')->where('id',$child)->update(['disable'=>0]);
     $renew=Brand::createBrandOrder($f['seller'],$f['user'],4,['package_id'=>$f['package'],'target_tenant_id'=>$child]);
     oemPaid($f,$renew['order_id']); Flow::review($f['seller'],9,$renew['order_id'],'approve',''); Flow::submit($f['seller'],9,$renew['order_id']); Platform::confirm($renew['order_id'],1);
     $renewJob=Provision::claim('fixture-renew');

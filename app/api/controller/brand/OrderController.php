@@ -13,6 +13,13 @@ use Exception;
 
 class OrderController extends BaseApiController
 {
+    public function requestRefund()
+    {
+        try {
+            \app\common\service\brand\BrandRefundService::request((int)$this->request->tenantId,$this->userId,(int)$this->request->post('order_id',0),(string)$this->request->post('note',''));
+            return $this->success('退款申请已提交，请等待审核',[],1,1);
+        } catch (\Throwable $e) { Log::error('OEM refund request: '.$e->getMessage()); return $this->fail(BrandOrderPolicy::error($e)); }
+    }
     public function lists()
     {
         $page=max(1,(int)$this->request->get('page_no',1)); $size=min(50,max(1,(int)$this->request->get('page_size',20)));

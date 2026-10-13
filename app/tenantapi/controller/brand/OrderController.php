@@ -11,6 +11,18 @@ use think\facade\Log;
 
 class OrderController extends BaseAdminController
 {
+    public function refundReview()
+    {
+        try {
+            \app\common\service\brand\BrandRefundService::review('tenant',(int)$this->adminInfo['tenant_id'],$this->adminId,(int)$this->request->post('order_id',0),(string)$this->request->post('action',''),(string)$this->request->post('note',''));
+            return $this->success('退款审核已完成',[],1,1);
+        } catch (\Throwable $e) { Log::error('OEM seller refund review: '.$e->getMessage()); return $this->fail(BrandOrderPolicy::error($e)); }
+    }
+    public function statistics()
+    {
+        try { return $this->success('获取成功',\app\common\service\brand\BrandMaintenanceService::statistics((int)$this->adminInfo['tenant_id'])); }
+        catch (\Throwable $e) { Log::error('OEM statistics: '.$e->getMessage()); return $this->fail(BrandOrderPolicy::error($e)); }
+    }
     public function lists()
     {
         return $this->dataLists(new TenantBrandOrderLists());

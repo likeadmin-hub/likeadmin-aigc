@@ -83,6 +83,8 @@ class LikeAdminAllowMiddleware
         if (preg_match('#^api/brand\.payment/(notifyWechat|notifyAli)$#iD',$normalizedPath)) {
             return $next($request);
         }
+        // Proof has no user data or mutations; it matches the requested host and a random challenge.
+        if ($normalizedPath === 'api/brand.domain/probe') return $next($request);
         if ($normalizedPath === 'wechat/open-platform/callback'
             || $normalizedPath === 'wechat/open-platform/authorize'
             || preg_match('#^wechat/open-platform/[A-Za-z0-9_-]+/callback$#', $normalizedPath)) {

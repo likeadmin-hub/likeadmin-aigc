@@ -8,7 +8,7 @@ use app\common\service\brand\BrandUserException as RuntimeException;
 use think\facade\Db;
 
 /** Merchant credentials are resolved explicitly, never from request/worker tenant context. */
-class BrandChannelGateway implements BrandPaymentGateway
+class BrandChannelGateway implements BrandPaymentGateway, BrandRefundGateway
 {
     public function ways(string $from,array $order,int $terminal): array
     {
@@ -83,6 +83,65 @@ class BrandChannelGateway implements BrandPaymentGateway
         return $this->aliReceipt(['out_trade_no'=>$response->outTradeNo??'','trade_no'=>$response->tradeNo??'',
             'total_amount'=>$response->totalAmount??'','trade_status'=>$response->tradeStatus,'app_id'=>$response->appId??$context['app_id'],
             'seller_id'=>$response->sellerId??'','gmt_payment'=>$response->sendPayDate??''],$intent);
+    }
+
+    public function refund(array $payment,array $refund): array
+    {
+        $context=json_decode($payment['context'],true,512,JSON_THROW_ON_ERROR);
+        if ((int)$payment['channel']===2) {
+            $result=$this->wechat($context)->getClient()->postJson('v3/refund/domestic/refunds',[
+                'transaction_id'=>$payment['transaction_id'],'out_refund_no'=>$refund['refund_sn'],'reason'=>mb_substr($refund['reason'],0,80),
+                'amount'=>['refund'=>(int)$refund['amount_cents'],'total'=>(int)$payment['amount_cents'],'currency'=>$payment['currency']]
+            ])->toArray(false);
+            if (!empty($result['code'])) throw new RuntimeException('退款申请需要平台核对后重试');
+        } else {
+            $this->alipay($context);
+            $intent=Db::name('tenant_brand_payment_intent')->where('id',$payment['intent_id'])->find();
+            $result=Factory::payment()->common()->optional('trade_no',$payment['transaction_id'])->optional('out_request_no',$refund['refund_sn'])
+                ->optional('refund_reason',$refund['reason'])->refund($intent['pay_sn'],BrandOrderPolicy::amount((int)$refund['amount_cents']));
+            if ((string)($result->code??'')!=='10000') throw new RuntimeException('退款申请需要平台核对后重试');
+        }
+        return ['status'=>'pending'];
+    }
+
+    public function queryRefund(array $payment,array $refund): ?array
+    {
+        $context=json_decode($payment['context'],true,512,JSON_THROW_ON_ERROR);
+        if ((int)$payment['channel']===2) {
+            $response=$this->wechat($context)->getClient()->get('v3/refund/domestic/refunds/'.rawurlencode($refund['refund_sn']));
+            $data=$response->toArray(false);
+            if (($data['code']??'')==='RESOURCE_NOT_EXISTS') return null;
+            if (!empty($data['code'])) throw new \RuntimeException('Wechat refund query unavailable');
+            return $this->wechatRefundReceipt($data,$payment,$refund);
+        }
+        $this->alipay($context);
+        $intent=Db::name('tenant_brand_payment_intent')->where('id',$payment['intent_id'])->find();
+        $response=Factory::payment()->common()->optional('trade_no',$payment['transaction_id'])->queryRefund($intent['pay_sn'],$refund['refund_sn']);
+        if (($response->subCode??'')==='ACQ.TRADE_NOT_EXIST') throw new RuntimeException('原付款交易未查到，请由平台核对收款账户');
+        if ((string)($response->code??'')!=='10000') throw new \RuntimeException('Alipay refund query unavailable');
+        $data=$response->toMap();
+        // A successful query may have no refund record; only definitive zero/empty result permits same-number retry.
+        if (empty($data['out_request_no']) && empty($data['refund_amount']) && empty($data['refund_status'])) return null;
+        if (($data['refund_status']??'')==='' && isset($data['refund_amount']) && BrandOrderPolicy::cents((string)$data['refund_amount'])===0
+            && hash_equals($refund['refund_sn'],(string)($data['out_request_no']??'')) && hash_equals($payment['transaction_id'],(string)($data['trade_no']??''))) return null;
+        return $this->aliRefundReceipt($data,$payment,$refund);
+    }
+
+    public function wechatRefundReceipt(array $data,array $payment,array $refund): array
+    {
+        if (!hash_equals($refund['refund_sn'],(string)($data['out_refund_no']??'')) || !hash_equals($payment['transaction_id'],(string)($data['transaction_id']??''))
+            || (int)($data['amount']['total']??-1)!==(int)$payment['amount_cents'] || !is_int($data['amount']['refund']??null)) throw new RuntimeException('微信退款凭据与原交易不一致，请由平台核对');
+        return ['refund_sn'=>$data['out_refund_no'],'transaction_id'=>$data['transaction_id'],'merchant_id'=>$payment['merchant_id'],
+            'amount_cents'=>$data['amount']['refund'],'currency'=>$data['amount']['currency']??'','channel_refund_id'=>$data['refund_id']??'',
+            'status'=>match($data['status']??'') {'SUCCESS'=>'success','PROCESSING'=>'pending','CLOSED','ABNORMAL'=>'failed',default=>'unknown'}];
+    }
+
+    public function aliRefundReceipt(array $data,array $payment,array $refund): array
+    {
+        if (!hash_equals($refund['refund_sn'],(string)($data['out_request_no']??'')) || !hash_equals($payment['transaction_id'],(string)($data['trade_no']??''))) throw new RuntimeException('支付宝退款凭据与原交易不一致，请由平台核对');
+        return ['refund_sn'=>$data['out_request_no'],'transaction_id'=>$data['trade_no'],'merchant_id'=>$payment['merchant_id'],
+            'amount_cents'=>BrandOrderPolicy::cents((string)($data['refund_amount']??'')),'currency'=>'CNY','channel_refund_id'=>$data['refund_settlement_id']??'',
+            'status'=>($data['refund_status']??'')==='REFUND_SUCCESS'?'success':'unknown'];
     }
 
     public function wechatReceipt(array $response,array $intent): array

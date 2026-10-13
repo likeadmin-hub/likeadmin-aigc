@@ -38,10 +38,10 @@ final class BrandPaymentService
         return $result;
     }
 
-    public static function reconcile(string $from,int $orderId): void
+    public static function reconcile(string $from,int $orderId,int $limit=20): void
     {
         self::table($from);
-        $intents=Db::name('tenant_brand_payment_intent')->where(['order_from'=>$from,'order_id'=>$orderId])->order('id')->limit(20)->select()->toArray();
+        $intents=Db::name('tenant_brand_payment_intent')->where(['order_from'=>$from,'order_id'=>$orderId])->order('last_query_time,id')->limit(max(1,min(20,$limit)))->select()->toArray();
         foreach ($intents as $intent) {
             // Gateway timeout is five seconds; this atomic claim prevents concurrent status calls.
             $claimed=Db::name('tenant_brand_payment_intent')->where('id',$intent['id'])->where('last_query_time','<=',time()-10)->update(['last_query_time'=>time()]);

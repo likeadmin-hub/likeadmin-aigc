@@ -34,6 +34,7 @@ final class BrandWorkflowService
                 $prior=Db::name('tenant_brand_order')->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'child_tenant_id'=>$target,'open_status'=>1,'pay_status'=>1])->whereNull('delete_time')->order('id','desc')->find();
                 $child=Db::name('tenant')->where(['id'=>$target,'source_tenant_id'=>$tenantId])->whereNull('delete_time')->find();
                 if (!$prior || !$child) throw new RuntimeException('只能为您已开通的贴牌租户续费');
+                if ((int)$child['disable']===1 && ((int)$child['contract_expire_time']===0 || (int)$child['contract_expire_time']>time())) throw new RuntimeException('该贴牌租户已暂停服务，请先联系平台核对，再办理续费');
             }
             $brand=self::brand($params,$prior,$tenantId,$userId);
             $account=trim((string)($params['account']??$prior['admin_account']??''));
@@ -106,7 +107,13 @@ final class BrandWorkflowService
         foreach ($refunds as &$refund) { $refund['amount']=BrandOrderPolicy::amount((int)$refund['amount_cents']); unset($refund['amount_cents']); }
         unset($refund);
         $row['refunds']=$refunds;
-        $row['domain']=Db::name('tenant_brand_domain')->where('order_id',$order['id'])->field('domain,challenge,status,verified_time,last_check_time')->find();
+        $domain=Db::name('tenant_brand_domain')->where('order_id',$order['id'])->field('domain,challenge,status,verified_time,last_check_time')->find();
+        $row['domain']=$domain?BrandDomainService::present($domain):null;
+        if ($order['workflow_state']==='refund_review') {
+            $row['refund_review_scope']=BrandRefundService::reviewContext((int)$order['id'])['scope']??'tenant';
+            if (($role==='tenant' && $row['refund_review_scope']!=='tenant') || ($role==='platform' && $row['refund_review_scope']!=='platform')) $row['next_actions']=[];
+        }
+        if ($role==='platform' && Db::name('tenant_brand_refund')->where(['order_from'=>TenantBrandService::FROM_ORDER,'order_id'=>$order['id'],'status'=>'failed'])->count()) $row['next_actions']=array_values(array_unique(array_merge($row['next_actions'],['retry_refund'])));
         $job=Db::name('tenant_brand_job')->where('order_id',$order['id'])->field('status,steps,attempts,finished_time')->find();
         if ($job) $job['steps']=json_decode((string)$job['steps'],true)?:[];
         $row['job']=$job;
@@ -191,11 +198,11 @@ final class BrandWorkflowService
         });
     }
 
-    public static function refundLocked(array $order,string $reason): void
+    public static function refundLocked(array $order,string $reason,bool $platformReconciled=false): void
     {
         if ((int)$order['open_status']===1 || $order['workflow_state']==='delivered') throw new RuntimeException('已交付订单请联系平台处理');
         $job=Db::name('tenant_brand_job')->where('order_id',$order['id'])->lock(true)->find();
-        if ($job && ($job['status']==='running' || (int)$job['lease_until']>time() || (int)$order['child_tenant_id']>0)) throw new RuntimeException('开通执行结果需要由平台先核对，再处理退款');
+        if ($job && ($job['status']==='running' || (int)$job['lease_until']>time() || ((int)$order['child_tenant_id']>0 && !$platformReconciled))) throw new RuntimeException('开通执行结果需要由平台先核对，再处理退款');
         if ($job) Db::name('tenant_brand_job')->where('id',$job['id'])->update(['status'=>'stopped','lease_token'=>'','lease_until'=>0,'update_time'=>time()]);
         $payments=Db::name('tenant_brand_payment')->where(['order_from'=>TenantBrandService::FROM_ORDER,'order_id'=>$order['id']])->select()->toArray();
         if (!$payments) throw new RuntimeException('原付款记录需要核对，请联系平台');
@@ -249,7 +256,8 @@ final class BrandWorkflowService
         if ($name==='' || mb_strlen($name)>32) throw new RuntimeException('品牌名称应为1至32个字');
         if ($contact==='' || mb_strlen($contact)>80) throw new RuntimeException('请填写有效联系方式');
         if ($logo!=='' && (!preg_match('~^(uploads|oem-assets)/[a-zA-Z0-9/_\-.]+\.(png|jpe?g|webp)$~iD',$logo) || str_contains($logo,'..'))) throw new RuntimeException('请上传持久保存的品牌Logo');
-        $domain=TenantUrlService::normalizeHost((string)($params['domain_alias']??$old['domain']??''));
+        $domain=trim((string)($params['domain_alias']??$old['domain']??''));
+        if ($domain!=='') $domain=BrandDomainService::normalize($domain);
         $data=['name'=>$name,'contact'=>$contact,'logo'=>$logo,'domain'=>$domain];
         if ($logo!=='') {
             if (!array_key_exists('logo',$params) && !empty($old['logo_asset'])) $data=array_merge($data,array_intersect_key($old,array_flip(['logo_id','logo_url','logo_asset'])));

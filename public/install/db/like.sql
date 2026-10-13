@@ -12489,3 +12489,7 @@ WHERE @oem_qualified_once=0 AND t.`oem_flow_enabled`=0 AND (
   OR EXISTS(SELECT 1 FROM `la_tenant_brand_quota_order` q WHERE q.`tenant_id`=t.`id` AND q.`pay_status`=1)
 );
 INSERT INTO `la_config` (`type`,`name`,`value`) SELECT 'oem_migration','legacy_qualification_v1','done' WHERE @oem_qualified_once=0;
+-- OEM maintenance is lightweight and never provisions tenants in the scheduler.
+INSERT INTO `la_dev_crontab` (`name`,`type`,`system`,`remark`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`create_time`,`update_time`,`delete_time`)
+SELECT '贴牌订单核对与提醒',1,1,'付款退款核对、未付款超时关闭、付款24小时后每日人工跟进提醒','brand:maintain','',1,'* * * * *','',0,'0','0',UNIX_TIMESTAMP(),UNIX_TIMESTAMP(),NULL
+WHERE NOT EXISTS (SELECT 1 FROM `la_dev_crontab` WHERE `command`='brand:maintain' AND (`delete_time` IS NULL OR `delete_time`=0));

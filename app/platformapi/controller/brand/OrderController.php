@@ -14,6 +14,15 @@ use think\facade\Log;
 
 class OrderController extends BaseAdminController
 {
+    public function resolveRefund()
+    {
+        try {
+            $id=(int)$this->request->post('order_id',0); $action=(string)$this->request->post('action',''); $note=(string)$this->request->post('note','');
+            if ($action==='retry') \app\common\service\brand\BrandRefundService::retry($id,$this->adminId,$note);
+            else \app\common\service\brand\BrandRefundService::review('platform',0,$this->adminId,$id,$action,$note);
+            return $this->success('退款处理已记录，请等待原渠道核对',[],1,1);
+        } catch (\Throwable $e) { Log::error('OEM platform refund: '.$e->getMessage()); return $this->fail(BrandOrderPolicy::error($e)); }
+    }
     public function lists()
     {
         return $this->dataLists(new OemOrderLists());

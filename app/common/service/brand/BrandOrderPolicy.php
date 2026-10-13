@@ -48,7 +48,7 @@ final class BrandOrderPolicy
         $state = $order['workflow_state'] ?? '';
         if ($role === 'user') return match ($state) {
             'awaiting_payment'=>['pay','cancel'], 'tenant_info','platform_info'=>['supplement','request_refund'],
-            'tenant_review','awaiting_quota','ready_submit','platform_review','open_failed'=>['request_refund'],
+            'tenant_review','awaiting_quota','ready_submit','platform_review','opening','open_failed'=>['request_refund'],
             'delivered'=>['renew','domain'], default=>[],
         };
         if ($role === 'tenant') return match ($state) {
@@ -85,7 +85,7 @@ final class BrandOrderPolicy
         };
         if ((int)($order['child_tenant_id'] ?? 0) > 0 && ($order['workflow_state'] ?? '') === 'delivered') {
             $order['login_path'] = '/t/' . (int)$order['child_tenant_id'] . '/admin/login';
-            $order['account_settings_path'] = '/t/' . (int)$order['child_tenant_id'] . '/admin/setting/user';
+            $order['account_settings_path'] = '/t/' . (int)$order['child_tenant_id'] . '/admin/user/setting';
         }
         if ($role === 'user') {
             $allowed = ['id','order_sn','order_kind','package_id','package_name','unit_price','order_amount','pay_status',

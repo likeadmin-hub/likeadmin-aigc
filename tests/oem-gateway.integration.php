@@ -39,5 +39,14 @@ try {
     Db::name('tenant_pay_config')->insert(['tenant_id'=>$f['seller'],'name'=>'Ali fixture','pay_way'=>3,'config'=>json_encode(['mode'=>'normal_mode','app_id'=>'fake','private_key'=>$clean($private),'ali_public_key'=>$clean($public)])]);
     $unsigned=['app_id'=>'fake','trade_status'=>'TRADE_SUCCESS','out_trade_no'=>'fake','trade_no'=>'fake','total_amount'=>'31.01','sign'=>'forged','sign_type'=>'RSA2'];
     oemReject(fn()=>$ali->verifyAli($unsigned,['pay_sn'=>'fake','channel'=>3,'context'=>json_encode(['scope'=>'tenant','tenant_id'=>$f['seller'],'channel'=>3,'merchant_id'=>'fake','app_id'=>'fake','seller_id'=>'','terminal'=>5])]),'forged Alipay signature accepted');
+    $paid=['transaction_id'=>'original-transaction','merchant_id'=>'original-merchant','amount_cents'=>3101]; $refund=['refund_sn'=>'fixed-refund'];
+    $wx=['out_refund_no'=>'fixed-refund','transaction_id'=>'original-transaction','amount'=>['total'=>3101,'refund'=>3101,'currency'=>'CNY'],'status'=>'PROCESSING'];
+    oemCheck($gate->wechatRefundReceipt($wx,$paid,$refund)['status']==='pending','Wechat accepted refund remains pending');
+    oemReject(fn()=>$gate->wechatRefundReceipt(array_replace($wx,['transaction_id'=>'different']),$paid,$refund),'wrong original trade refunded');
+    oemReject(fn()=>$gate->wechatRefundReceipt(array_replace($wx,['amount'=>['total'=>1,'refund'=>3101,'currency'=>'CNY']]),$paid,$refund),'wrong original amount refunded');
+    $ar=['out_request_no'=>'fixed-refund','trade_no'=>'original-transaction','refund_amount'=>'31.01'];
+    oemCheck($gate->aliRefundReceipt($ar,$paid,$refund)['status']==='unknown','Alipay successful query without refund status is not confirmed');
+    oemCheck($gate->aliRefundReceipt($ar+['refund_status'=>'REFUND_SUCCESS'],$paid,$refund)['status']==='success','Alipay refund requires successful status');
+    oemReject(fn()=>$gate->aliRefundReceipt(array_replace($ar,['out_request_no'=>'changed']),$paid,$refund),'refund request number mismatch accepted');
     echo "PASS real gateway merchant selection, receipt order check, secret exclusion and merchant change guard\n";
 } finally { Db::rollback(); }

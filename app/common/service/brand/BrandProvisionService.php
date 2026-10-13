@@ -90,6 +90,7 @@ final class BrandProvisionService
                 return !$done;
             });
         } catch (BrandLeaseLostException $e) {
+            self::acknowledgeStop($job);
             return false;
         } catch (\Throwable $e) {
             Log::error('OEM provision order '.$job['order_id'].': '.$e->getMessage());
@@ -123,6 +124,17 @@ final class BrandProvisionService
             if (!$current || !hash_equals((string)$current['lease_token'],(string)$job['lease_token']) || $current['status']!=='running') return;
             Db::name('tenant_brand_job')->where('id',$job['id'])->update(['status'=>'failed','lease_token'=>'','lease_until'=>0,'last_error'=>mb_substr($error->getMessage(),0,500),'update_time'=>time()]);
             Db::name('tenant_brand_order')->where('id',$order['id'])->update(['workflow_state'=>'open_failed','open_status'=>2,'open_error'=>'开通暂未完成，平台正在核对。','update_time'=>time()]);
+        });
+    }
+
+    private static function acknowledgeStop(array $job): void
+    {
+        Db::transaction(function()use($job) {
+            BrandPlatformService::order((int)$job['order_id'],true);
+            $current=Db::name('tenant_brand_job')->where('id',$job['id'])->lock(true)->find();
+            if ($current && $current['status']==='stopping' && hash_equals((string)$current['lease_token'],(string)$job['lease_token'])) {
+                Db::name('tenant_brand_job')->where('id',$job['id'])->update(['status'=>'stopped','lease_token'=>'','lease_until'=>0,'update_time'=>time()]);
+            }
         });
     }
 }
