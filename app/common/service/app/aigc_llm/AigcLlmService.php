@@ -42,6 +42,7 @@ class AigcLlmService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
+        $skills = array_key_exists('skill_configs',$params) ? \app\common\service\app\aigc_llm\agent\AgentSkillConfigService::normalize($tenantId,$params['skill_configs']) : null;
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::config($tenantId);
         $configJson = array_merge((array)($current['config_json'] ?? []), self::normalizeJson($params['config_json'] ?? []));
@@ -49,6 +50,7 @@ class AigcLlmService
             'tenant_id' => $tenantId,
             'status' => (int)($params['status'] ?? $current['status'] ?? 1),
             'config_json' => [
+                'agent_skills' => $skills ?? (array)($current['config_json']['agent_skills'] ?? []),
                 'system_prompt' => trim((string)($configJson['system_prompt'] ?? '')),
                 'max_context_messages' => max(2, (int)($configJson['max_context_messages'] ?? 12)),
                 'auto_title_chars' => max(8, (int)($configJson['auto_title_chars'] ?? 18)),

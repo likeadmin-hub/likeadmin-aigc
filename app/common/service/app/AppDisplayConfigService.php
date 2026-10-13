@@ -403,7 +403,7 @@ class AppDisplayConfigService
         return $extra;
     }
 
-    private static function normalizeSkillMedia(mixed $items,int $limit): array
+    public static function normalizeSkillMedia(mixed $items,int $limit): array
     {
         if(!is_array($items)||count($items)>$limit)throw new \InvalidArgumentException('技能展示素材数量不正确');
         $out=[];
