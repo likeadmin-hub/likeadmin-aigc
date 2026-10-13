@@ -77,8 +77,7 @@ class XhadminAigcMusicProvider implements AigcMusicProviderInterface
             return $this->buildResultFromTask($task, $taskId, $request, $config);
         } catch (\Throwable $e) {
             // A failed query or transfer does not prove the accepted generation failed.
-            if(\app\common\service\open_platform\OpenCallContext::active())throw $e;
-            return new AigcMusicGenerateResult(false, [], $this->friendlyError($e->getMessage()), $taskId);
+            throw $e;
         }
     }
 
@@ -130,7 +129,7 @@ class XhadminAigcMusicProvider implements AigcMusicProviderInterface
         return new AigcMusicGenerateResult(true, $results, '', $taskId, ['submit' => $submit, 'query' => $task]);
     }
 
-    private function resolveConfig(AigcMusicGenerateRequest $request): array
+    protected function resolveConfig(AigcMusicGenerateRequest $request): array
     {
         $config = array_merge($request->channelConfig, $request->providerParams['channel_config'] ?? []);
         $source = UpdateSourceClient::getSource();
@@ -300,7 +299,7 @@ class XhadminAigcMusicProvider implements AigcMusicProviderInterface
         return $status === '' || in_array($status, ['pending', 'running', 'processing', 'queued', 'created', 'submitted', 'timeout'], true);
     }
 
-    private function request(string $method, string $url, string $apiKey, array $payload = [], int $timeout = 30, bool $sslVerify = false, int $connectTimeout = self::DEFAULT_CONNECT_TIMEOUT): array
+    protected function request(string $method, string $url, string $apiKey, array $payload = [], int $timeout = 30, bool $sslVerify = false, int $connectTimeout = self::DEFAULT_CONNECT_TIMEOUT): array
     {
         $ch = curl_init();
         curl_setopt_array($ch, [

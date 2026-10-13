@@ -3,9 +3,9 @@ namespace { require dirname(__DIR__,2).'/vendor/autoload.php'; }
 // Stub the transport only. Exercise the actual native service, task, Agent worker and billing.
 namespace app\common\service\app\aigc_music {
  class XhadminAigcMusicProvider extends MockAigcMusicProvider {
-  public static int $submits=0,$queries=0;
+  public static int $submits=0,$queries=0;public static bool $queryUnavailable=true;
   public function generate(AigcMusicGenerateRequest $request): AigcMusicGenerateResult {self::$submits++;return new AigcMusicGenerateResult(true,[], '', 'agent-music-fixture');}
-  public function fetchResult(string $id,AigcMusicGenerateRequest $request): AigcMusicGenerateResult {self::$queries++;return new AigcMusicGenerateResult(true,[['title'=>'Music fixture','audio_uri'=>'uploads/agent-music-fixture.mp3','mime_type'=>'audio/mpeg','duration'=>30,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']], '',$id);}
+  public function fetchResult(string $id,AigcMusicGenerateRequest $request): AigcMusicGenerateResult {self::$queries++;if(self::$queryUnavailable)throw new \RuntimeException('temporary query unavailable');return new AigcMusicGenerateResult(true,[['title'=>'Music fixture','audio_uri'=>'uploads/agent-music-fixture.mp3','mime_type'=>'audio/mpeg','duration'=>30,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']], '',$id);}
  }
 }
 namespace {
@@ -27,6 +27,8 @@ namespace {
   E::tick();$view=E::detail(1,1,(int)$run['id']);check($view['status']==='waiting_tasks'&&Fake::$submits===1,'Music submission failed');
   $task=(int)$view['steps'][0]['task_id'];check($task>0,'No native task mapping');
   S::table('run')->where('id',$run['id'])->update(['next_run_time'=>0]);E::tick();
+  check(E::detail(1,1,(int)$run['id'])['status']==='waiting_tasks'&&Fake::$submits===1&&$balance()===$before,'Transient query failed the run or charged user');
+  Fake::$queryUnavailable=false;S::table('run')->where('id',$run['id'])->update(['next_run_time'=>0]);E::tick();
   $view=E::detail(1,1,(int)$run['id']);check($view['status']==='success','Music completion failed');
   $items=A::lists(1,1,(int)$run['session_id']);check(count($items)===1&&$items[0]['kind']==='audio'&&$items[0]['generation']['prompt']==='offline music fixture','Audio artifact or submitted prompt missing');
   check(abs($before-$balance()-(float)$prepared['quote']['user'])<0.001,'Music price not settled exactly once');$settled=$balance();
