@@ -1,0 +1,44 @@
+{
+  "version": "1.0.394",
+  "base_version": "1.0.393",
+  "signature_files": 8235,
+  "bad": [],
+  "zip_sha256": "ec376e561e1f3bc3d04703e2aff3a56eb5e94885ce75a5f27ac2cea2351c92ad",
+  "tar_sha256": "92ec4e2331e24551c396365dc07ae64b03d93798a0705cf406b50aa817521c38",
+  "mp_files": 1184,
+  "scripts_latest": true,
+  "credentials_absent": true,
+  "php_tests": 40,
+  "php_assertions": 331,
+  "deterministic_assertions": 113,
+  "decision_checks": 7,
+  "decoration_frontend_tests": 34,
+  "catalog_definitions": 46,
+  "staging_tests": 8,
+  "ads_runtime_tests": 8,
+  "genuine_393_generation_probe": true,
+  "php_syntax_files": 25,
+  "builds": [
+    "pc",
+    "tenant",
+    "platform",
+    "h5",
+    "mp-weixin"
+  ],
+  "model_acceptance": "pending; Agent disabled by default",
+  "publish": {
+    "id": 368,
+    "version": "1.0.394",
+    "status": 1,
+    "sha256": "ec376e561e1f3bc3d04703e2aff3a56eb5e94885ce75a5f27ac2cea2351c92ad",
+    "package_size": 123787903,
+    "update_time": "2026-10-13 10:36:39",
+    "base_version": "1.0.393",
+    "target_version": "1.0.394"
+  },
+  "known_risks": [
+    "Ads import concurrent compare/save window; no import executed",
+    "Existing full frontend suite dev-proxy fixture failure; focused changed-scope tests pass"
+  ],
+  "review": "independent CLI blocking finding fixed; latest archive scripts match source"
+}
