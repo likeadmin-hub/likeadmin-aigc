@@ -176,7 +176,8 @@ final class AgentExecutionService
             if((int)$run['cancel_requested']&&$run['phase']==='chat'){self::finish($run,'canceled');return 1;}
             if($run['phase']==='chat')self::chat($run);else self::executeSteps($run);
         }catch(\Throwable $e){
-            Log::error('Home Agent run '.$run['id'].' failed: '.get_class($e));
+            // Keep diagnostic location without logging prompts or provider secrets.
+            Log::error('Home Agent run '.$run['id'].' failed: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
             $latest=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
             if($latest['lease_token']!==$run['lease_token'])return 1;
             $unknown=AgentStore::table('step')->where('run_id',$run['id'])->where('status','submitting')->count()>0;
@@ -302,6 +303,7 @@ final class AgentExecutionService
         $instructions.="\n话题规则：本轮历史、任务、素材和检索范围已经限定到当前话题。独立问题只回答当前问题，不主动报告无关旧任务；继续原任务时沿用这里提供的相关资料，但不能重复提交已经执行的步骤。其他话题的后台任务继续在原位置更新，不需要在当前回答中说明。";
         if((AgentTopicService::state($run)['decision']??'')==='clarify')$instructions.="\n本轮指代无法唯一定位，尚未加载旧话题。请用简短自然语言询问用户要修改/继续哪个任务或作品，或请用户从右侧主动引用素材。不得猜测，不得创建方案或生成作品。";
         $instructions.="\n长对话摘记：".AgentStore::encode($context['summary']);
+        $instructions.="\n接续任务不等于授权本轮生成：当前用户只要求写提示词、改文案、解释或给建议时，保留相关主体、参考图和规格，直接完成文字请求；不要擅自创建生成方案或说已保存方案。只有本轮要求生成、提交、准备生成方案，或明确继续先前已授权的生成步骤时，才调用 plan_creation。";
         $instructions.="\n当前操作对象：".AgentStore::encode($context['focus']);
         $instructions.="\n真实任务记录（status=success 且 steps 为空只表示对话结束，不表示生成过作品）：".AgentStore::encode($context['tasks']);
         $instructions.="\n会话作品目录：".AgentStore::encode($context['artifacts']);
