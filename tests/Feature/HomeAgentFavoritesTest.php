@@ -25,7 +25,7 @@ Db::startTrans();try{
   $file='of_'.bin2hex(random_bytes(16));OpenStore::table('file')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'file_id'=>$file,'uri'=>$uri,'name'=>'fixture','mime'=>'','size'=>0]+$storage+OpenStore::timestamp());
   $artifact=S::table('artifact')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'session_id'=>$session,'run_id'=>$run,'step_id'=>$step,'identity_hash'=>hash('sha256',$file),'title'=>'fixture','kind'=>$kind,'data'=>S::encode(['file_id'=>$file]),'favorite'=>1,'create_time'=>time()]+$storage);
   $ref=$kind.':result:'.$result;
-  $get=static function()use($tenant,$user,$session,$artifact){foreach(Artifacts::lists($tenant,$user,$session) as $row)if((int)$row['id']===$artifact)return $row;throw new RuntimeException('Missing artifact');};
+  $get=static function()use($tenant,$user,$session,$artifact){foreach(Artifacts::lists($tenant,$user,$session) as $row)if((int)$row['id']===(int)$artifact)return $row;throw new RuntimeException('Missing artifact');};
   check($get()['favorite']===1,'Legacy positive favorite lost');
   check((int)Db::name('user_asset_state')->where(['tenant_id'=>$tenant,'user_id'=>$user,'asset_ref'=>$ref])->value('favorite')===1,'Legacy favorite not imported');
   Library::update($tenant,$user,['refs'=>[$ref],'favorite'=>'0']);check($get()['favorite']===0,'Asset-page unfavorite not reflected in Agent');
