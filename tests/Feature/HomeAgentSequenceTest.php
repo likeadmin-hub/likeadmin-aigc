@@ -21,6 +21,7 @@ namespace app\common\service\app\aigc_llm\agent {
 namespace app\common\service\power {
  final class MarketTextModelRuntimeService {
   public static array $calls=[]; public static bool $missing=false;
+  public static array $followups=[['tool_code'=>'aigc_video','title'=>'将生成图制作成视频','instruction'=>'使用上一步生成的图片制作5秒视频']];
   public static function resolveAgentModel(int $t,string $m,bool $vision=false):array{return [];}
   public static function resolveModel(int $t,$m,bool $vision=false):array{throw new \InvalidArgumentException('offline');}
   public static function modelGroups(int $t):array{return [];}
@@ -31,10 +32,10 @@ namespace app\common\service\power {
    if($active&&self::$missing)return ['content'=>'请补充视频时长。'];
    $call=static fn($name,$payload)=>['id'=>$name.'-'.$n,'function'=>['name'=>$name,'arguments'=>json_encode(['payload'=>$payload])]];
    if($n===0){
-    if(!$active)return ['tool_calls'=>[$call('plan_creation_followups',['stages'=>[['tool_code'=>'aigc_video','title'=>'将生成图制作成视频','instruction'=>'使用上一步生成的图片制作5秒视频']]]),$call('plan_creation',['tool_code'=>'aigc_image','title'=>'生成产品图','parameters'=>['prompt'=>'产品图']])]];
+    if(!$active)return ['tool_calls'=>[$call('plan_creation_followups',['stages'=>self::$followups]),$call('plan_creation',['tool_code'=>'aigc_image','title'=>'生成产品图','parameters'=>['prompt'=>'产品图']])]];
     $files=$Q::outputs($run);$file=$files[0]['file_id'];
     if(!str_contains(json_encode($params['messages']),$file))throw new \RuntimeException('Generated image not attached to resumed model');
-    return ['tool_calls'=>[$call('plan_creation',['tool_code'=>'aigc_video','title'=>'生成展示视频','parameters'=>['prompt'=>'展示产品','duration'=>5,'reference_images'=>[$file]]])]];
+    return ['tool_calls'=>[$call('plan_creation',['tool_code'=>$active['tool_code'],'title'=>$active['title'],'parameters'=>['prompt'=>$active['instruction'],'reference_images'=>[$file]]+($active['tool_code']==='aigc_video'?['duration'=>5]:[])])]];
    }
    return ['content'=>'已保存的生成方案'];
   }
@@ -86,7 +87,14 @@ namespace {
    check(count($second['inputs']['reference_images'])===1,'No result binding');
    rejects(fn()=>E::detail(2,1,$id));rejects(fn()=>E::detail(1,2,$id));
   }
-  foreach(['failed','empty','stop'] as $outcome){
+  $original=TextFake::$followups;
+  TextFake::$followups=[['tool_code'=>'aigc_image','title'=>'换风格','instruction'=>'使用刚生成的产品图换成水彩风格'],...$original];
+  $id=$fixture();$start=count(Fake::$submits);
+  for($phase=0;$phase<3;$phase++){$work($id);$work($id);$view=$work($id);}
+  check($view['status']==='success'&&count(Fake::$submits)===$start+3&&$view['estimated_points']==140,'Three-stage sequence failed');
+  check(count(Q::outputs(S::run(1,1,$id)))===3&&count($view['sequence']['completed'])===2,'Three-stage outputs lost');
+  TextFake::$followups=$original;
+  foreach(['failed','empty','stop','partial_success'] as $outcome){
    $id=$fixture();$start=count(Fake::$submits);$work($id);$work($id);
    if($outcome==='stop')E::stop(1,1,$id);else Fake::$outcome=$outcome;
    $view=$work($id);check(!in_array($view['status'],['queued','waiting_tasks'],true),'Failure/empty/cancel advanced');check(count(Fake::$submits)===$start+1,'Failure/cancel submitted downstream');
