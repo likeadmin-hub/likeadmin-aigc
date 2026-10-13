@@ -4,7 +4,7 @@ require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize(
 use think\facade\Db;
 use app\common\service\app\aigc_llm\agent\{AgentStore as S,AgentExecutionService as E,AgentCapabilityCatalog as C,AgentToolContext as P};
 function verify($ok,$message){if(!$ok)throw new RuntimeException($message);}
-$db=config('database.connections.mysql');verify(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&$db['database']==='z_cn','Local rollback test only');
+$db=config('database.connections.mysql');verify(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local rollback test only');
 $request=request();$request->tenantId=1;$request->userId=1;$request->userInfo=['user_id'=>1,'tenant_id'=>1];
 $balances=fn()=>[Db::name('user')->where(['tenant_id'=>1,'id'=>1])->value('user_money'),Db::name('tenant')->where('id',1)->value('point_balance')];$before=$balances();
 Db::startTrans();try{
