@@ -4,6 +4,7 @@ namespace app\common\service\power {
  final class MarketTextModelRuntimeService {
   public static array $requests=[];public static string $file='';
   public static function resolveAgentModel(int $tenant,string $model,bool $vision=false):array{return [];}
+  public static function resolveModel(int $tenant,$model,bool $vision=false):array{throw new \InvalidArgumentException('No enhancement model in offline fixture');}
   public static function modelGroups(int $tenant):array{return [];}
   public static function generate(int $tenant,int $user,array $params,?callable $onEvent=null):array{
    self::$requests[]=$params;
