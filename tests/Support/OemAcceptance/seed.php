@@ -16,7 +16,7 @@ Db::transaction(function()use(&$fixtures,$hash) {
             'brand_snapshot'=>json_encode(['name'=>'OEM测试服务商'.($i+1),'contact'=>'13300000000'])];
         $service=new BrandTenantProvisioner(); $service->step('initialize_admin',$pseudo); $service->step('initialize_services',$pseudo); $service->step('initialize_brand',$pseudo);
         $account='oemcustomer'.($i+1);
-        $user=Db::name('user')->insertGetId(['tenant_id'=>$f['seller'],'sn'=>random_int(100000,999999),'account'=>$account,'password'=>$hash,'nickname'=>'OEM测试客户','channel'=>4,'create_time'=>time()]);
+        $user=Db::name('user')->insertGetId(['tenant_id'=>$f['seller'],'sn'=>random_int(100000,999999),'account'=>$account,'mobile'=>'1330000010'.($i+1),'password'=>$hash,'nickname'=>'OEM测试客户','channel'=>4,'create_time'=>time()]);
         $f['user']=$user;
         $f['customer_account']=$account;
         Db::name('app_plan')->where('id',$f['plan'])->update(['app_code'=>'aigc_llm','name'=>'年度应用权益']);
