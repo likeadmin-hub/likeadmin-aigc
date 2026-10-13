@@ -27,6 +27,7 @@ foreach (['admin_password_hash','package_snapshot','open_error','transaction_id'
 check($public['next_actions'], ['request_refund'], 'public actions');
 check(Policy::renewBase(200, 100), 200, 'renew valid service');
 check(Policy::renewBase(50, 100), 100, 'renew expired service');
+check(Policy::present(array_replace($base,['child_tenant_id'=>77,'workflow_state'=>'delivered']),'user')['account_settings_path'], '/t/77/admin/user/setting', 'delivered account settings uses existing tenant route');
 check(Policy::error(new PDOException('SQLSTATE database secret')), '操作暂未完成，请稍后重试或联系服务商核对订单。', 'internal exception is private');
 check(Policy::error(new \app\common\service\brand\BrandUserException('请先采购开通额度')), '请先采购开通额度', 'actionable business error retained');
 echo "PASS OEM money, workflow, privacy, renewal policy\n";

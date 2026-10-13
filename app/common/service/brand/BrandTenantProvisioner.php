@@ -129,6 +129,7 @@ class BrandTenantProvisioner
         $target=(int)$order['child_tenant_id'];
         $tenant=Db::name('tenant')->where('id',$target)->whereNull('delete_time')->find();
         if (!$tenant || !Db::name('tenant_admin')->where(['tenant_id'=>$target,'root'=>1,'disable'=>0])->whereNull('delete_time')->count()) throw new BrandUserException('租户或管理员尚未完整初始化');
+        if ($order['order_kind']==='renew' && ((int)$tenant['source_tenant_id']!==(int)$order['tenant_id'] || ((int)$tenant['disable']===1 && ((int)$tenant['contract_expire_time']===0 || (int)$tenant['contract_expire_time']>time())))) throw new BrandUserException('续费租户归属或暂停状态需要平台核对');
         if ($order['order_kind']==='new') {
             $admin=Db::name('tenant_admin')->where(['tenant_id'=>$target,'root'=>1])->whereNull('delete_time')->find();
             if (!$admin || !hash_equals((string)$order['admin_account'],(string)$admin['account']) || !hash_equals((string)$order['admin_password_hash'],(string)$admin['password'])) throw new BrandUserException('管理员账号设置与申请资料不一致，请平台核对');

@@ -20,7 +20,9 @@ def sql(db, query):
 try:
     run('docker', 'run', '-d', '--name', name, '-e', 'MYSQL_ALLOW_EMPTY_PASSWORD=yes', 'mysql:8.0')
     for _ in range(60):
-        if subprocess.run(['docker', 'exec', name, 'mysqladmin', 'ping', '--silent'], capture_output=True).returncode == 0:
+        # The image's temporary initialization server accepts socket pings, then exits.
+        # TCP becomes ready only after the final MySQL instance has started.
+        if subprocess.run(['docker', 'exec', name, 'mysqladmin', '-h127.0.0.1', 'ping', '--silent'], capture_output=True).returncode == 0:
             break
         time.sleep(1)
     run('docker', 'exec', name, 'mysql', '-uroot', '-e', 'CREATE DATABASE oem_fresh; CREATE DATABASE oem_legacy; CREATE DATABASE oem_custom;')
@@ -33,6 +35,9 @@ try:
     operations = (root / 'upgrade/20261013_oem_self_service_v2_operations.sql').read_text()
     assert operations == (root / 'public/upgrade/20261013_oem_self_service_v2_operations.sql').read_text()
     migration += '\n' + operations
+    maintenance = (root / 'upgrade/20261014_oem_maintenance.sql').read_text()
+    assert maintenance == (root / 'public/upgrade/20261014_oem_maintenance.sql').read_text()
+    migration += '\n' + maintenance
     sql('oem_legacy', install.split('-- OEM_V2:')[0])
     sql('oem_legacy', "INSERT INTO la_tenant_package(name,duration_days,sale_price,quota_price) VALUES('Existing',77,123.45,88.88);")
     sql('oem_custom', install.replace('`la_', '`qa_').replace("'la_", "'qa_"))
@@ -49,6 +54,7 @@ try:
             assert sql(db, f"SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='{prefix}{table}';") == '1', table
         assert sql(db, f"SELECT COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='{prefix}tenant_brand_order' AND COLUMN_NAME='flow_version';") == '1'
         assert sql(db, f"SELECT COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='{prefix}tenant' AND COLUMN_NAME='oem_sales_enabled';") == '0'
+        assert sql(db, f"SELECT COUNT(*) FROM {prefix}dev_crontab WHERE command='brand:maintain' AND status=1;") == '1', 'OEM maintenance scheduled once'
         for perm in ['brand.order/lists','brand.order/confirm','brand.order/saveSeller','brand.order/resolveRefund']:
             assert sql(db, f"SELECT COUNT(*) FROM {prefix}system_menu WHERE perms='{perm}';") == '1', 'platform permission ' + perm
         for perm in ['brand.order/detail','brand.order/review','brand.order/submit','brand.order/refundReview','brand.quota/detail','brand.quota/purchaseForOrder']:
