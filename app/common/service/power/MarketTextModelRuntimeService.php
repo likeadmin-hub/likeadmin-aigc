@@ -1027,6 +1027,12 @@ class MarketTextModelRuntimeService
             }
             $result[$key] = $key === 'tools' && is_array($value) ? array_values($value) : $value;
         }
+        // OpenAI Chat streams omit token usage unless it is explicitly requested.
+        // Keep it in generation params so unsupported-option compatibility handling
+        // can remove it before a safe retry; other protocols supply usage natively.
+        if (self::protocolForModel($model) === 'openai_chat') {
+            $result['stream_options'] = (array)($result['stream_options'] ?? []) + ['include_usage' => true];
+        }
         return $result;
     }
 
@@ -1304,7 +1310,7 @@ class MarketTextModelRuntimeService
             return;
         }
         if (!empty($event['usage']) && is_array($event['usage'])) {
-            $state['usage'] = $event['usage'];
+            $state['usage'] = array_replace_recursive((array)($state['usage'] ?? []), $event['usage']);
         }
         if (!empty($event['tool_calls']) && is_array($event['tool_calls'])) {
             $state['tool_calls'] = self::mergeToolCalls((array)$state['tool_calls'], $event['tool_calls']);

@@ -95,6 +95,7 @@ class MarketTextModelPayloadContractTest extends TestCase
 
         self::assertSame([
             'enable_thinking' => false,
+            'stream_options' => ['include_usage' => true],
         ], $generationParams->invoke(null, [
             'model_code' => 'DeepSeek-V4-Pro',
             'default_params' => [],
