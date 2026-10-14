@@ -57,6 +57,11 @@ try {
  acceptanceCheck($report['passed']&&$report['checks'][5]['source']==='server_contract'&&str_contains($report['checks'][5]['detail'],'未实测'),'six visual checks + actual server contract produces bounded pass');
  acceptanceCheck(Db::name('decorate_agent_run')->where('id',$runId)->find()===$beforeRows,'record does not persist itself or mutate billing');
  acceptanceCheck(!A::record($candidate,$run,$acceptance,true)['passed'],'reported pass with actual writes cannot pass');
+ $repairDiagnosis=$acceptance;$repairDiagnosis['passed']=false;$repairDiagnosis['summary']='本轮诊断输入旧截图；修复效果待重新截图验证';foreach($repairDiagnosis['checks'] as &$check){$check['passed']=false;$check['detail']='输入原图target/actual区域存在差异，修复尚未验证';$check['evidence']=['具体输入区域对照'];}unset($check);
+ $repairReport=A::record($candidate,$run,$repairDiagnosis,true);
+ acceptanceCheck(!$repairReport['passed']&&$repairReport['status']==='needs_review'&&count($repairReport['checks'])===6,'repair-round false six-category diagnosis cannot produce a pass');
+ acceptanceCheck(array_column($repairReport['checks'],'detail')===array_column($repairDiagnosis['checks'],'detail')&&array_column($repairReport['checks'],'evidence')===array_column($repairDiagnosis['checks'],'evidence')&&$repairReport['summary']===$repairDiagnosis['summary'],'repair record preserves input-image diagnosis and evidence despite write invalidation');
+
  $bad=$acceptance;$bad['operations']=[['type'=>'request_image']];acceptanceCheck(!A::record($candidate,$run,$bad,false)['passed'],'fake pass plus image operation refused');
  $bad=$acceptance;array_pop($bad['checks']);acceptanceCheck(!A::record($candidate,$run,$bad,false)['passed'],'missing category cannot pass');
  $bad=$acceptance;$bad['checks'][1]=$bad['checks'][0];acceptanceCheck(!A::record($candidate,$run,$bad,false)['passed'],'duplicate category cannot pass');
