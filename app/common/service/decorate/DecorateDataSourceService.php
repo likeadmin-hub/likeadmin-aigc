@@ -130,13 +130,13 @@ class DecorateDataSourceService
     {
         $content = (array)($widget['content'] ?? []);
         $source = (array)($content['source'] ?? []);
-        $key = (string)($content['source_key'] ?? $source['key'] ?? '');
+        $key = (string)(array_key_exists('source_key', $content) ? $content['source_key'] : ($source['key'] ?? ''));
         if ($key === '') {
             return [];
         }
         return [
             'key' => $key,
-            'params' => (array)($content['source_params'] ?? $source['params'] ?? []),
+            'params' => (array)(array_key_exists('source_params', $content) ? $content['source_params'] : (array_key_exists('source_key', $content) ? [] : ($source['params'] ?? []))),
         ];
     }
 
@@ -201,7 +201,15 @@ class DecorateDataSourceService
             'account-quota' => 'account_summary',
             'asset-entries' => 'user_assets',
         ];
-        if (($content['source_key'] ?? '') === '' && isset($sourceDefaults[$name])) {
+        // Promote a saved legacy binding before applying defaults. A canonical
+        // empty key is an explicit clear and must not fetch a stale/default source.
+        if (!array_key_exists('source_key', $content) && !empty($content['source']['key'])) {
+            $content['source_key'] = (string)$content['source']['key'];
+            if (!array_key_exists('source_params', $content)) {
+                $content['source_params'] = (array)($content['source']['params'] ?? []);
+            }
+        }
+        if (!array_key_exists('source_key', $content) && isset($sourceDefaults[$name])) {
             $content['source_key'] = $sourceDefaults[$name];
             if (!array_key_exists('data_mode', $content)) {
                 $content['data_mode'] = 'hybrid';

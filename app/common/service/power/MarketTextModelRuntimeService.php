@@ -177,7 +177,7 @@ class MarketTextModelRuntimeService
         try {
             self::event((int)$context['consumption']['id'], 'submit', 'running', ['model_code' => $model['model_code']]);
             $compatibilityAttempts = 0;
-            $transportOptions = ['include_market_context' => true, 'include_channel' => true];
+            $transportOptions = self::initialTransportOptions($model,$params,$tenantAdminConsumption);
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
@@ -660,6 +660,22 @@ class MarketTextModelRuntimeService
         if ($messages === []) {
             throw new Exception('请输入文本内容');
         }
+        $payload=self::transportPayload($protocol,$model,$messages,$system,$maxTokens,$generationParams,$transportOptions);
+        return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout);
+    }
+
+    private static function initialTransportOptions(array $model,array $params,bool $tenantAdminConsumption): array
+    {
+        $decorationResponses=$tenantAdminConsumption
+            && ($params['action_code']??'')==='decoration_agent_text'
+            && !empty($params['_decoration_native_responses_transport'])
+            && self::protocolForModel($model)==='openai_responses';
+        return ['include_market_context'=>!$decorationResponses,'include_channel'=>true];
+    }
+
+    /** Routing stays on model/channel; local SKU snapshots never depend on the wire body. */
+    private static function transportPayload(string $protocol,array $model,array $messages,string $system,int $maxTokens,array $generationParams,array $transportOptions): array
+    {
         $payload = self::requestPayload($protocol, $model, $messages, $system, $maxTokens, $generationParams);
         if (($transportOptions['include_market_context'] ?? true) === true) {
             $payload = array_merge(self::marketContext($model), $payload);
@@ -671,7 +687,7 @@ class MarketTextModelRuntimeService
         // Do this last so neither a model default nor an application override
         // can disable SSE for a market text request.
         $payload['stream'] = true;
-        return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout);
+        return $payload;
     }
 
     /** Build the provider-specific request body without leaking protocol details to business apps. */
@@ -1175,7 +1191,7 @@ class MarketTextModelRuntimeService
                 }
                 return 0;
             },
-            CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk) use (&$buffer, &$body, &$receivedEvent, &$receivedSseEvent, &$state, $onEvent): int {
+            CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk) use (&$buffer, &$body, &$receivedEvent, &$receivedSseEvent, &$state, $onEvent, $key): int {
                 $body .= $chunk;
                 $buffer .= str_replace("\r\n", "\n", $chunk);
                 while (($pos = strpos($buffer, "\n\n")) !== false) {
@@ -1185,7 +1201,7 @@ class MarketTextModelRuntimeService
                     if ($event !== null) {
                         $receivedEvent = true;
                         $receivedSseEvent = true;
-                        self::applyStreamEvent($event, $state, $onEvent);
+                        self::applyStreamEvent($event, $state, $onEvent, $key);
                     }
                 }
                 return strlen($chunk);
@@ -1198,7 +1214,7 @@ class MarketTextModelRuntimeService
             if ($event !== null) {
                 $receivedEvent = true;
                 $receivedSseEvent = true;
-                self::applyStreamEvent($event, $state, $onEvent);
+                self::applyStreamEvent($event, $state, $onEvent, $key);
             }
         }
         if (!$receivedEvent) {
@@ -1206,7 +1222,7 @@ class MarketTextModelRuntimeService
             // A successful buffered JSON response violates the streaming
             // contract. Only decode it to retain a provider error message.
             if (($event['type'] ?? '') === 'error') {
-                self::applyStreamEvent($event, $state, $onEvent);
+                self::applyStreamEvent($event, $state, $onEvent, $key);
             }
         }
 
@@ -1245,7 +1261,7 @@ class MarketTextModelRuntimeService
         // of treating a completed provider request as an empty result.
         $contentSource = 'content';
         if (trim((string)$state['content']) === '' && trim((string)$state['reasoning']) !== '') {
-            $contentSource = 'reasoning';
+            $contentSource = 'reasoning';$state['content_source']='reasoning';
             $state['content'] = $state['reasoning'];
         }
         if (!$receivedEvent || (trim((string)$state['content']) === '' && empty($state['tool_calls']))) {
@@ -1356,10 +1372,10 @@ class MarketTextModelRuntimeService
     }
 
     /** @param array<string, mixed> $state */
-    private static function applyStreamEvent(array $event, array &$state, callable $onEvent): void
+    private static function applyStreamEvent(array $event, array &$state, callable $onEvent, string $requestKey = ''): void
     {
         if (($event['type'] ?? '') === 'responses_event') {
-            ResponsesMessagesAdapter::apply($event['payload'], $state, $onEvent);
+            ResponsesMessagesAdapter::apply($event['payload'], $state, $onEvent, $requestKey);
             return;
         }
         if (!empty($event['anthropic'])) $state['anthropic'] = true;
@@ -1610,11 +1626,15 @@ class MarketTextModelRuntimeService
             || (int)($state['delta_count'] ?? 0) > 0;
         $partial = (!empty($state['anthropic']) || !empty($state['responses'])) && !empty($state['request_id']) ? [
             'content' => (string)($state['content'] ?? ''),
+            'content_source' => (string)($state['content_source']??'content'),
             'provider_request_id' => (string)$state['request_id'],
             'usage' => (array)($state['usage'] ?? []),
             // Never hand partial calls to Neuron or a delayed continuation.
             'tool_calls' => [],
-            'protocol_diagnostic' => ['code' => (string)($state['native_error_code'] ?? 'native_stream_error'), 'last_event' => substr((string)($state['native_event_type'] ?? ''), 0, 80), 'provider_code' => (string)($state['native_provider_code'] ?? '')],
+            'protocol_diagnostic' => ['code' => (string)($state['native_error_code'] ?? 'native_stream_error'), 'last_event' => substr((string)($state['native_event_type'] ?? ''), 0, 80), 'provider_code' => (string)($state['native_provider_code'] ?? ''),
+                'provider_type'=>(string)($state['native_provider_type']??''),'provider_message'=>(string)($state['native_provider_message']??''),'response_status'=>(string)($state['native_response_status']??''),
+                'output_present'=>(bool)($state['native_output_present']??false),'output_items'=>(int)($state['native_output_item_count']??0),'visible_chars'=>mb_strlen((string)($state['content']??'')),'reasoning_chars'=>mb_strlen((string)($state['reasoning']??'')),
+                'delta_count'=>(int)($state['delta_count']??0),'reasoning_delta_count'=>(int)($state['native_reasoning_delta_count']??0),'function_delta_count'=>(int)($state['native_function_delta_count']??0)],
         ] : null;
         return new MarketTextModelProviderException($message, $fallbackAllowed && !$hasOutput && $partial === null, $partial);
     }

@@ -1,0 +1,441 @@
+{
+  "origin": "Real run36/run37 first creation sequences plus subsequent binds; recorded user-info ID remapped to its existing ref for deterministic replay",
+  "cases": [
+    {
+      "case": "inspiration-learning",
+      "operations": [
+        {
+          "type": "add_component",
+          "ref": "intro",
+          "name": "rich-text",
+          "content": {
+            "enabled": 1,
+            "data_mode": "manual",
+            "text": "从灵感开始，学习 AI 创作。浏览真实案例与教程，找到适合你的创作方式。"
+          },
+          "styles": {
+            "background_color": "#FFFDF8",
+            "color": "#355548",
+            "padding_top": 40,
+            "padding_bottom": 24,
+            "padding_horizontal": 32,
+            "margin_horizontal": 0,
+            "margin_top": 0,
+            "radius_top": 0,
+            "radius_right": 0,
+            "radius_bottom": 0,
+            "radius_left": 0
+          }
+        },
+        {
+          "type": "add_component",
+          "ref": "search",
+          "name": "search",
+          "content": {
+            "enabled": 1,
+            "placeholder": "搜索教程、案例或创作灵感",
+            "show_hotword": 0,
+            "show_button": 1,
+            "height": 40
+          },
+          "styles": {
+            "background_color": "#FFFDF8",
+            "input_background": "#F1F7F0",
+            "text_color": "#6E8578",
+            "margin_horizontal": 24,
+            "margin_top": 8,
+            "radius_top": 16,
+            "radius_right": 16,
+            "radius_bottom": 16,
+            "radius_left": 16
+          }
+        },
+        {
+          "type": "add_component",
+          "ref": "categories",
+          "name": "tabs",
+          "content": {
+            "enabled": 1,
+            "data_mode": "manual",
+            "data": [
+              {
+                "title": "全部",
+                "link": []
+              },
+              {
+                "title": "图片创作",
+                "link": []
+              },
+              {
+                "title": "视频创作",
+                "link": []
+              },
+              {
+                "title": "数字人",
+                "link": []
+              }
+            ],
+            "active": 0
+          },
+          "styles": {
+            "background_color": "#FFFDF8",
+            "color": "#355548",
+            "padding_top": 20,
+            "padding_bottom": 12,
+            "padding_horizontal": 24,
+            "margin_horizontal": 0,
+            "margin_top": 0,
+            "radius_top": 0,
+            "radius_right": 0,
+            "radius_bottom": 0,
+            "radius_left": 0
+          }
+        },
+        {
+          "type": "add_component",
+          "ref": "tutorials",
+          "name": "tutorial-carousel",
+          "content": {
+            "enabled": 1,
+            "data_mode": "hybrid",
+            "data": [],
+            "fallback_data": [
+              {
+                "title": "暂无教程内容",
+                "sub_title": "当前还没有可展示的教程，请稍后再来看看",
+                "tag": "教程",
+                "image": "",
+                "link": []
+              }
+            ],
+            "source_key": "article",
+            "source_params": {
+              "limit": 6
+            },
+            "card_width": 300,
+            "show_tag": 1,
+            "show_sub_title": 1
+          },
+          "styles": {
+            "background_color": "#F6FBF5",
+            "color": "#355548",
+            "padding_top": 24,
+            "padding_bottom": 24,
+            "padding_horizontal": 24,
+            "margin_horizontal": 0,
+            "margin_top": 0,
+            "radius_top": 0,
+            "radius_right": 0,
+            "radius_bottom": 0,
+            "radius_left": 0
+          }
+        },
+        {
+          "type": "add_component",
+          "ref": "cases",
+          "name": "case-feed",
+          "content": {
+            "enabled": 1,
+            "data_mode": "hybrid",
+            "data": [],
+            "fallback_data": [
+              {
+                "title": "暂无案例内容",
+                "description": "当前还没有可展示的真实案例，请稍后再来看看",
+                "tag": "案例",
+                "image": "",
+                "link": []
+              }
+            ],
+            "source_key": "image_cases",
+            "source_params": {
+              "limit": 8
+            },
+            "title": "真实案例"
+          },
+          "styles": {
+            "background_color": "#FFFDF8",
+            "color": "#355548",
+            "padding_top": 28,
+            "padding_bottom": 28,
+            "padding_horizontal": 24,
+            "margin_horizontal": 0,
+            "margin_top": 0,
+            "radius_top": 0,
+            "radius_right": 0,
+            "radius_bottom": 0,
+            "radius_left": 0
+          }
+        },
+        {
+          "type": "add_component",
+          "ref": "creation",
+          "name": "creation-entry-grid",
+          "content": {
+            "enabled": 1,
+            "data_mode": "hybrid",
+            "data": [],
+            "fallback_data": [
+              {
+                "title": "暂无创作工具",
+                "description": "当前还没有可用的创作入口，请稍后再来看看",
+                "tag": "开始创作",
+                "image": "",
+                "link": []
+              }
+            ],
+            "source_key": "ai_tools",
+            "source_params": {
+              "limit": 8
+            },
+            "title": "开始创作"
+          },
+          "styles": {
+            "background_color": "#EAF5EA",
+            "color": "#355548",
+            "padding_top": 28,
+            "padding_bottom": 32,
+            "padding_horizontal": 24,
+            "margin_horizontal": 0,
+            "margin_top": 0,
+            "radius_top": 0,
+            "radius_right": 0,
+            "radius_bottom": 0,
+            "radius_left": 0
+          }
+        },
+        {
+          "type": "bind_source",
+          "widget_id": "@tutorials",
+          "source_key": "article",
+          "params": {
+            "limit": 6,
+            "sort": "new"
+          },
+          "mode": "hybrid"
+        },
+        {
+          "type": "bind_source",
+          "widget_id": "@cases",
+          "source_key": "image_cases",
+          "params": {
+            "limit": 8
+          },
+          "mode": "hybrid"
+        },
+        {
+          "type": "bind_source",
+          "widget_id": "@creation",
+          "source_key": "ai_tools",
+          "params": {
+            "limit": 8
+          },
+          "mode": "hybrid"
+        }
+      ]
+    },
+    {
+      "case": "member-center",
+      "operations": [
+        {
+          "type": "add_component",
+          "ref": "user_info",
+          "name": "user-info",
+          "content": {
+            "enabled": 1
+          },
+          "styles": {
+            "background": "#F0EBFF",
+            "background_color": "#F0EBFF",
+            "background_gradient": "",
+            "color": "#332A4A",
+            "padding_top": 32,
+            "padding_bottom": 32,
+            "padding_horizontal": 32,
+            "margin_horizontal": 24,
+            "margin_top": 16,
+            "radius_top": 20,
+            "radius_right": 20,
+            "radius_bottom": 20,
+            "radius_left": 20
+          }
+        },
+        {
+          "type": "bind_source",
+          "widget_id": "@user_info",
+          "source_key": "user_profile",
+          "mode": "source"
+        },
+        {
+          "type": "add_component",
+          "ref": "account_quota",
+          "name": "account-quota",
+          "content": {
+            "enabled": 1,
+            "data_mode": "source",
+            "source_key": "account_summary",
+            "source_params": [],
+            "data": [],
+            "fallback_data": []
+          },
+          "styles": {
+            "background": "#FFFFFF",
+            "background_color": "#FFFFFF",
+            "color": "#332A4A",
+            "padding_top": 24,
+            "padding_bottom": 24,
+            "padding_horizontal": 24,
+            "margin_horizontal": 24,
+            "margin_top": 16,
+            "radius_top": 16,
+            "radius_right": 16,
+            "radius_bottom": 16,
+            "radius_left": 16
+          }
+        },
+        {
+          "type": "bind_source",
+          "widget_id": "@account_quota",
+          "source_key": "account_summary",
+          "mode": "source"
+        },
+        {
+          "type": "add_component",
+          "ref": "asset_entries",
+          "name": "asset-entries",
+          "content": {
+            "enabled": 1,
+            "data_mode": "source",
+            "source_key": "user_assets",
+            "source_params": {
+              "limit": 8
+            },
+            "data": [],
+            "fallback_data": []
+          },
+          "styles": {
+            "background": "#FFFFFF",
+            "background_color": "#FFFFFF",
+            "color": "#332A4A",
+            "padding_top": 24,
+            "padding_bottom": 24,
+            "padding_horizontal": 24,
+            "margin_horizontal": 24,
+            "margin_top": 16,
+            "radius_top": 16,
+            "radius_right": 16,
+            "radius_bottom": 16,
+            "radius_left": 16
+          }
+        },
+        {
+          "type": "bind_source",
+          "widget_id": "@asset_entries",
+          "source_key": "user_assets",
+          "params": {
+            "limit": 8
+          },
+          "mode": "source"
+        },
+        {
+          "type": "add_component",
+          "ref": "membership_card",
+          "name": "membership-card",
+          "content": {
+            "enabled": 1,
+            "data_mode": "source",
+            "source_key": "membership_summary",
+            "source_params": [],
+            "data": [],
+            "field_map": [],
+            "fallback_data": [],
+            "link": {
+              "path": "/packages/pages/membership/membership"
+            }
+          },
+          "styles": {
+            "background": "#EEE8FF",
+            "background_color": "#EEE8FF",
+            "color": "#332A4A",
+            "padding_top": 24,
+            "padding_bottom": 24,
+            "padding_horizontal": 24,
+            "margin_horizontal": 24,
+            "margin_top": 16,
+            "radius_top": 16,
+            "radius_right": 16,
+            "radius_bottom": 16,
+            "radius_left": 16
+          }
+        },
+        {
+          "type": "bind_source",
+          "widget_id": "@membership_card",
+          "source_key": "membership_summary",
+          "mode": "source"
+        },
+        {
+          "type": "add_component",
+          "ref": "service_grid",
+          "name": "service-grid",
+          "content": {
+            "enabled": 1,
+            "data_mode": "manual",
+            "data": [
+              {
+                "title": "AI创作",
+                "sub_title": "进入创作首页",
+                "link": {
+                  "path": "/apps/aigc_image/pages/index/index",
+                  "query": []
+                }
+              },
+              {
+                "title": "任务记录",
+                "sub_title": "查看进行中的任务",
+                "link": {
+                  "path": "/apps/aigc_image/pages/tasks/tasks",
+                  "query": []
+                }
+              },
+              {
+                "title": "作品列表",
+                "sub_title": "查看已完成作品",
+                "link": {
+                  "path": "/apps/aigc_image/pages/results/results",
+                  "query": []
+                }
+              },
+              {
+                "title": "客服帮助",
+                "sub_title": "获取使用支持",
+                "link": {
+                  "path": "/pages/customer_service/customer_service",
+                  "query": []
+                }
+              }
+            ],
+            "source_key": "",
+            "source_params": [],
+            "field_map": [],
+            "fallback_data": []
+          },
+          "styles": {
+            "background": "#FFFFFF",
+            "background_color": "#FFFFFF",
+            "color": "#332A4A",
+            "padding_top": 24,
+            "padding_bottom": 24,
+            "padding_horizontal": 24,
+            "margin_horizontal": 24,
+            "margin_top": 16,
+            "radius_top": 16,
+            "radius_right": 16,
+            "radius_bottom": 16,
+            "radius_left": 16
+          }
+        }
+      ]
+    }
+  ]
+}
