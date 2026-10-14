@@ -43,6 +43,8 @@ Db::startTrans();try{
  Db::name('aigc_short_drama_subject')->where('id',$id)->update(['tenant_id'=>2]);rejected(fn()=>Subjects::resolve(1,1,$id));
  Db::name('aigc_short_drama_subject')->where('id',$id)->update(['tenant_id'=>1,'user_id'=>2,'source'=>'user']);rejected(fn()=>Subjects::resolve(1,1,$id));
  Db::name('aigc_short_drama_subject')->where('id',$id)->update(['user_id'=>1,'status'=>0]);rejected(fn()=>Subjects::resolve(1,1,$id));
+ Db::name('tenant_app')->where(['tenant_id'=>1,'app_code'=>'aigc_short_drama'])->update(['shelf_status'=>'off']);
+ rejected(fn()=>Subjects::lists(1,1,['scope'=>'public']));rejected(fn()=>Subjects::resolve(1,1,$id));
  check(Db::name('user')->where('id',1)->value('user_money')===$before,'Validation changed wallet');
  echo "Agent composer passed: backend text routing, unavailable/replay safety, generation preference boundaries, native image quote, confirmation and subject tenant/user/status isolation; rolled back\n";
 }finally{Db::rollback();}
