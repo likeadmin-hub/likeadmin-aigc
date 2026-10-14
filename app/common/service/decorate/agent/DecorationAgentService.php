@@ -362,9 +362,17 @@ final class DecorationAgentService
             catch(\Throwable $e){$key=self::json($op);$ctx['failures'][$key]=($ctx['failures'][$key]??0)+1;$ctx['observations'][]=['tool'=>$op['type'],'error'=>$e->getMessage()];if($ctx['failures'][$key]>1){self::saveContext($id,$ctx);self::finish($id,'failed',['error'=>'重复操作失败：'.$e->getMessage()]);return;}$decision['kind']='tools';}
             self::saveContext($id,$ctx);Db::name('decorate_agent_run')->where('id',$id)->update(['tool_calls'=>$count]);self::event($id,'tool',['message'=>'已处理装修操作','tool'=>$op['type']]);
         }
+        self::persistDecision($tenant,$admin,$id,$s,$input,$ctx,$decision,$imageRequests);
+    }
+
+    private static function persistDecision(int $tenant,int $admin,int $id,array $s,array $input,array &$ctx,array $decision,array $imageRequests): void
+    {
         if($decision['kind']==='tools'&&!$ctx['changes']&&!$imageRequests){self::saveContext($id,$ctx);return;}
-        // A conversational turn should preserve the current active candidate without creating a new one.
-        if($decision['kind']==='final'&&!$ctx['changes']&&!$imageRequests){self::saveContext($id,$ctx);self::finish($id,'completed',['reply'=>$decision['reply'],'question'=>$decision['question'],'warnings'=>$decision['warnings']]);return;}
+        // Earlier tool turns may already have created an image-only candidate for this run.
+        $runCandidate=(int)self::q('run',$tenant,$admin)->where('id',$id)->value('candidate_id');
+        $hasCandidate=$runCandidate>0&&self::q('candidate',$tenant,$admin)->where(['id'=>$runCandidate,'run_id'=>$id])->count()>0;
+        // A conversational turn preserves the previous active candidate without creating another.
+        if($decision['kind']==='final'&&!$ctx['changes']&&!$imageRequests&&!$hasCandidate){self::saveContext($id,$ctx);self::finish($id,'completed',['reply'=>$decision['reply'],'question'=>$decision['question'],'warnings'=>$decision['warnings']]);return;}
         Db::transaction(function()use($tenant,$admin,$id,$s,$input,&$ctx,$decision,$imageRequests){
         $snapshot=Db::name('decorate_agent_run')->where('id',$id)->find();$cId=(int)$snapshot['candidate_id'];
         $existing=$cId?self::q('candidate',$tenant,$admin)->where('id',$cId)->lock(true)->find():null;
@@ -372,11 +380,32 @@ final class DecorationAgentService
         if((int)$r['cancel_requested']||($existing&&$existing['status']==='discarded')){self::finish($id,'canceled',['summary'=>'候选已停止或舍弃，后续操作未应用']);return;}
         if(!$cId){$cId=self::insert('candidate',$tenant,$admin,['session_id'=>$s['id'],'run_id'=>$id,'base_hash'=>self::hash($ctx['base']),'base_json'=>self::json($ctx['base']),'status'=>'building','payload_json'=>self::json($ctx['candidate']),'changes_json'=>self::json($ctx['changes'])]);Db::name('decorate_agent_run')->where('id',$id)->update(['candidate_id'=>$cId]);}
         else{self::q('candidate',$tenant,$admin)->where('id',$cId)->inc('revision')->update(['payload_json'=>self::json($ctx['candidate']),'changes_json'=>self::json($ctx['changes'])]);}
-        foreach($imageRequests as $req){if(!in_array('generate',$input['sources'],true)){$ctx['observations'][]=['error'=>'未授权AI生图'];$decision['kind']='tools';continue;}if(self::q('image_slot',$tenant,$admin)->where('run_id',$id)->count()>=5){$ctx['observations'][]=['error'=>'已达到五张图片上限'];continue;}$key=(string)$req['widget_id'].':'.(string)$req['field'];if(self::q('image_slot',$tenant,$admin)->where(['run_id'=>$id,'slot_key'=>$key])->whereIn('status',['queued','running','submitting'])->count())continue;self::insert('image_slot',$tenant,$admin,['session_id'=>$s['id'],'run_id'=>$id,'candidate_id'=>$cId,'slot_key'=>$key,'request_json'=>self::json($req),'result_json'=>'{}']);}
+        foreach ($imageRequests as $req) {
+            if (!in_array('generate',$input['sources'],true)) {$ctx['observations'][]=['error'=>'未授权AI生图'];$decision['kind']='tools';continue;}
+            $key=(string)$req['widget_id'].':'.(string)$req['field'];
+            $pendingSlot=self::q('image_slot',$tenant,$admin)->where(['run_id'=>$id,'candidate_id'=>$cId,'slot_key'=>$key])
+                ->whereIn('status',['queued','running','submitting'])->find();
+            if ($pendingSlot) {
+                self::acknowledgeImage($ctx,(int)$pendingSlot['id'],$req,(string)$pendingSlot['status'],true);
+                continue;
+            }
+            if (self::q('image_slot',$tenant,$admin)->where('run_id',$id)->count()>=5) {$ctx['observations'][]=['error'=>'已达到五张图片上限'];continue;}
+            $slotId=self::insert('image_slot',$tenant,$admin,['session_id'=>$s['id'],'run_id'=>$id,'candidate_id'=>$cId,'slot_key'=>$key,'request_json'=>self::json($req),'result_json'=>'{}']);
+            self::acknowledgeImage($ctx,$slotId,$req,'queued',false);
+        }
         self::saveContext($id,$ctx);self::q('session',$tenant,$admin)->where('id',$s['id'])->update(['active_candidate_id'=>$cId,'facts'=>self::json($ctx['facts'])]);
-        if($decision['kind']==='final'){$summary=count($ctx['changes']).'项装修调整已生成，请预览后应用。';$pending=self::q('image_slot',$tenant,$admin)->where('run_id',$id)->whereIn('status',['queued','running'])->count();self::q('candidate',$tenant,$admin)->where('id',$cId)->update(['status'=>$pending?'waiting_images':'ready']);self::finish($id,$pending?'waiting_images':'completed',['reply'=>$decision['reply'],'question'=>$decision['question'],'summary'=>$summary,'warnings'=>$decision['warnings']]);}
+        if($decision['kind']==='final'){$summary=count($ctx['changes']).'项装修调整已生成，请预览后应用。';$pending=self::q('image_slot',$tenant,$admin)->where(['run_id'=>$id,'candidate_id'=>$cId])->whereIn('status',['queued','running','submitting'])->count();self::q('candidate',$tenant,$admin)->where('id',$cId)->update(['status'=>$pending?'waiting_images':'ready']);self::finish($id,$pending?'waiting_images':'completed',['reply'=>$decision['reply'],'question'=>$decision['question'],'summary'=>$summary,'warnings'=>$decision['warnings']]);}
         });
     }
+
+    private static function acknowledgeImage(array &$ctx,int $slotId,array $request,string $status,bool $reused): void
+    {
+        $ctx['observations'][]=['tool'=>'request_image','result'=>[
+            'slot_id'=>$slotId,'widget_id'=>(string)$request['widget_id'],'field'=>(string)$request['field'],
+            'status'=>$status,'reused'=>$reused,'message'=>'该图片位置已有任务，后续无需重复请求；结束编排后将等待图片完成。',
+        ]];
+    }
+
     private static function duplicateSourceBinding(array $ctx,array $op,array $input): bool
     {
         if(($op['type']??'')!=='bind_source')return false;
