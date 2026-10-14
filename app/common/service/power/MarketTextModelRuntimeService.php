@@ -221,7 +221,11 @@ class MarketTextModelRuntimeService
             try {
                 self::settle($context, $actual, $usage, $result, (int)round((microtime(true) - $started) * 1000));
             } catch (\Throwable $settlementError) {
-                if (!$openTextCall) throw $settlementError;
+                if (!$openTextCall) {
+                    try{self::deferSettlement($context,$result,$usage,$settlementError);}
+                    catch(\Throwable $persistError){Log::error('Text settlement evidence write failed for consumption '.$context['consumption']['id'].': '.get_class($persistError));}
+                    throw new TextSettlementPending((int)$context['consumption']['id'],$result,$usage,$settlementError);
+                }
                 \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $settlementError);
             }
             $billingStatus = (string)AiConsumptionLog::where('id', (int)$context['consumption']['id'])->value('billing_status');
@@ -237,6 +241,7 @@ class MarketTextModelRuntimeService
                 'usage' => $usage,
             ];
         } catch (\Throwable $e) {
+            if($e instanceof TextSettlementPending)throw $e;
             if ($openTextCall && !\app\common\service\open_platform\OpenTextLifecycle::rejectionConfirmed()) {
                 \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
                 throw $e;
@@ -321,6 +326,7 @@ class MarketTextModelRuntimeService
             if ($task->isEmpty()) {
                 return;
             }
+            if(in_array((string)$task['status'],['success','failed','canceled','cancelled'],true))return;
             $logs = AiConsumptionLog::where('app_task_id', $appTaskId)->lock(true)->select();
             foreach ($logs as $consumption) {
                 if ((string)$consumption['billing_status'] !== 'reserved') {
@@ -578,6 +584,7 @@ class MarketTextModelRuntimeService
     {
         Db::transaction(function () use ($context, $actual, $usage, $result, $elapsed) {
             $c = AiConsumptionLog::lock(true)->findOrEmpty((int)$context['consumption']['id']); if ($c->isEmpty() || $c['billing_status'] === 'settled') return;
+            if(!in_array((string)$c['billing_status'],['pending_usage','reserved'],true))throw new Exception('该记录已终结或待人工核对，不能自动重新扣费');
             $task = AiAppTask::lock(true)->findOrEmpty((int)$c['app_task_id']); $now = time();
             $hasActualUsage = self::canSettleUsageFromSnapshot(self::arrayValue($c['price_snapshot'] ?? []), $usage);
             if ($hasActualUsage) {
@@ -590,10 +597,26 @@ class MarketTextModelRuntimeService
         });
     }
 
+    /** Preserve trusted usage and the submit-time price snapshot for an explicit audit decision. */
+    private static function deferSettlement(array $context,array $result,array $usage,\Throwable $error): void
+    {
+        Db::transaction(function()use($context,$result,$usage,$error){
+            $c=AiConsumptionLog::lock(true)->findOrEmpty((int)$context['consumption']['id']);
+            if($c->isEmpty()||!in_array((string)$c['billing_status'],['pending_usage','reserved'],true))return;
+            $now=time();
+            $c->save(['run_status'=>'success','billing_status'=>'settlement_failed','usage_snapshot'=>$usage+['settlement_basis'=>'awaiting_settlement'],
+                'upstream_request_id'=>(string)($result['provider_request_id']??$c['upstream_request_id']),
+                'response_summary'=>['output_length'=>mb_strlen((string)($result['content']??''),'UTF-8')],
+                'error_code'=>'settlement_failed','error_message'=>'结果已确认，费用结算待核对','finish_time'=>$now,'update_time'=>$now]);
+            AiAppTask::where('id',$c['app_task_id'])->update(['status'=>'success','progress'=>100,'finish_time'=>$now,'update_time'=>$now]);
+            self::event((int)$c['id'],'settlement_deferred','failed',['reason'=>'wallet_settlement_failed','error_type'=>get_class($error)]);
+        });
+    }
+
     private static function fail(array $context, string $message, string $code): void
     {
         Db::transaction(function () use ($context, $message, $code) {
-            $c = AiConsumptionLog::lock(true)->findOrEmpty((int)$context['consumption']['id']); if ($c->isEmpty() || in_array((string)$c['billing_status'], ['settled', 'refunded'], true)) return;
+            $c = AiConsumptionLog::lock(true)->findOrEmpty((int)$context['consumption']['id']); if ($c->isEmpty() || !in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return;
             $task = AiAppTask::lock(true)->findOrEmpty((int)$c['app_task_id']);
             PointService::releaseReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], (string)$c['consume_no'] . '-release', self::billingRemark((string)$c['app_code'], 'failed'), self::extra($task, $c, 'refunded'));
             $now = time(); $c->save(['run_status' => 'failed', 'billing_status' => 'refunded', 'error_code' => $code, 'error_message' => mb_substr($message, 0, 1000), 'finish_time' => $now, 'update_time' => $now]);
