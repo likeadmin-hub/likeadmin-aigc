@@ -81,6 +81,18 @@ namespace {
         try{T::submit($p);throw new \LogicException('Insufficient balance accepted');}catch(\RuntimeException $e){check(str_contains($e->getMessage(),'不足'),'Unexpected shortage error');}
         check(F::$calls===0&&AiConsumptionLog::count()===$before,'Shortage submitted or created a reservation');
     });
+    fixture(function()use($prefs){
+        [$run,$p]=prepared($prefs);$before=AiConsumptionLog::count();
+        Db::name('aigc_llm_config')->where('tenant_id',1)->update(['status'=>0]);
+        try{T::submit($p);throw new \LogicException('Revoked Agent permission accepted');}catch(\InvalidArgumentException){}
+        check(F::$calls===0&&AiConsumptionLog::count()===$before,'Revocation submitted or reserved');
+    });
+    fixture(function()use($prefs){
+        [$run,$p]=prepared($prefs);$first=T::submit($p);$paid=balance();
+        Db::name('aigc_llm_config')->where('tenant_id',1)->update(['status'=>0]);
+        $again=T::submit($p);
+        check($again['task_id']===$first['task_id']&&F::$calls===1&&balance()===$paid,'Revocation blocked safe existing-task recovery or resubmitted');
+    });
     $async=array_values(array_filter($models['models'],fn($m)=>$m['execution_mode']==='async'));
     check(count($async)>0,'An enabled asynchronous speech SKU is required');$asyncPrefs=$prefs;$asyncPrefs['models']['voice']=$async[0]['code'];
     function pollNow(int $cid):void{$summary=S::json(AiConsumptionLog::find($cid)['response_summary']);$summary['poll_after']=0;AiConsumptionLog::where('id',$cid)->update(['response_summary'=>S::encode($summary)]);}
