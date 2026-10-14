@@ -3,6 +3,7 @@ namespace app\common\service\power {
  final class MarketTextModelRuntimeService {
   public static array $calls=[];public static $after=null;public static bool $fail=false;
   public static function resolveAgentModel(int $t,string $model,bool $vision=false):array{return [];}
+  public static function modelGroups(int $tenant):array{return [];}
   public static function generate(int $t,int $u,array $params):array{
    self::$calls[]=$params;if(self::$fail)throw new \RuntimeException('uncertain response');
    if(self::$after)(self::$after)();
