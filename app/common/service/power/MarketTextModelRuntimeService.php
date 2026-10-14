@@ -83,7 +83,7 @@ class MarketTextModelRuntimeService
     public static function resolveAgentModel(int $tenantId, string $selection, bool $requiresVision = false): array
     {
         $model=self::resolveModel($tenantId,$selection,$requiresVision);
-        if(!in_array(self::protocolForModel($model), ['openai_chat', 'anthropic_messages'], true))throw new \InvalidArgumentException('当前 Agent 尚未接入此模型的工具协议，请选择兼容对话工具调用的模型');
+        if(!in_array(self::protocolForModel($model), ['openai_chat', 'anthropic_messages', 'openai_responses'], true))throw new \InvalidArgumentException('当前 Agent 尚未接入此模型的工具协议，请选择兼容对话工具调用的模型');
         return $model;
     }
 
@@ -133,6 +133,11 @@ class MarketTextModelRuntimeService
         if (!empty($params['_agent_tool_history']) && self::protocolForModel($model) === 'anthropic_messages') {
             $generationParams['thinking'] = ['type' => 'disabled'];
         }
+        if (!empty($params['_agent_tool_history']) && self::protocolForModel($model) === 'openai_responses') {
+            $generationParams['store'] = false;
+            $generationParams['include'] = ['reasoning.encrypted_content'];
+            unset($generationParams['previous_response_id'], $generationParams['conversation']);
+        }
         // Agent runtimes may supply OpenAI-compatible function schemas. These
         // are capability metadata, not provider credentials, and must reach
         // the selected market text channel unchanged.
@@ -176,6 +181,7 @@ class MarketTextModelRuntimeService
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
+                    if (empty($params['_agent_tool_history'])) unset($result['_responses_output']);
                     if ($openTextCall) {
                         $usage = self::normalizeUsage((array)($result['usage'] ?? []));
                         \app\common\service\open_platform\OpenTextLifecycle::recordResult($context, $result, $usage);
@@ -671,7 +677,7 @@ class MarketTextModelRuntimeService
             return array_merge([
                 'model' => $model['model_code'],
                 'instructions' => $system,
-                'input' => $messages,
+                'input' => ResponsesMessagesAdapter::input($messages),
                 'max_output_tokens' => $maxTokens,
             ], self::protocolGenerationParams($protocol, $generationParams));
         }
@@ -696,6 +702,7 @@ class MarketTextModelRuntimeService
     /** Remove or translate options which are not valid for the selected protocol. */
     private static function protocolGenerationParams(string $protocol, array $generationParams): array
     {
+        if ($protocol === 'openai_responses') return ResponsesMessagesAdapter::params($generationParams);
         if ($protocol !== 'anthropic_messages') {
             if ($protocol !== 'openai_chat') {
                 unset($generationParams['stream_options']);
@@ -785,7 +792,9 @@ class MarketTextModelRuntimeService
                 continue;
             }
             if ($agentTools && $role === 'assistant' && !empty($item['tool_calls']) && is_array($item['tool_calls'])) {
-                $messages[] = ['role' => 'assistant', 'content' => (string)($item['content'] ?? ''), 'tool_calls' => $item['tool_calls']];
+                $row = ['role' => 'assistant', 'content' => (string)($item['content'] ?? ''), 'tool_calls' => $item['tool_calls']];
+                if (is_array($item['_responses_output'] ?? null)) $row['_responses_output'] = $item['_responses_output'];
+                $messages[] = $row;
                 continue;
             }
             if (!in_array($role, ['user', 'assistant'], true)) {
@@ -1220,6 +1229,7 @@ class MarketTextModelRuntimeService
         }
         try {
             AnthropicMessagesAdapter::assertComplete($state);
+            ResponsesMessagesAdapter::assertComplete($state);
         } catch (\RuntimeException $error) {
             // An incomplete tool response must not fall back to a different model.
             throw self::providerException($error->getMessage(), false, $state);
@@ -1244,6 +1254,7 @@ class MarketTextModelRuntimeService
             'stream_mode' => $receivedSseEvent ? 'sse' : 'buffered_response',
             'stream_delta_count' => (int)$state['delta_count'],
             'finish_reason' => (string)($state['finish_reason'] ?? ''),
+            '_responses_output' => (array)($state['responses_output'] ?? []),
         ];
     }
 
@@ -1340,6 +1351,10 @@ class MarketTextModelRuntimeService
     /** @param array<string, mixed> $state */
     private static function applyStreamEvent(array $event, array &$state, callable $onEvent): void
     {
+        if (($event['type'] ?? '') === 'responses_event') {
+            ResponsesMessagesAdapter::apply($event['payload'], $state, $onEvent);
+            return;
+        }
         if (!empty($event['anthropic'])) $state['anthropic'] = true;
         if (!empty($event['anthropic_complete'])) $state['anthropic_complete'] = true;
         if (isset($event['tool_block_stop'])) {
@@ -1402,6 +1417,7 @@ class MarketTextModelRuntimeService
             return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败', 'model_fallback_allowed' => UpstreamErrorMessageService::allowsModelFallback($json)];
         }
         $eventType = strtolower((string)($json['type'] ?? $json['event'] ?? $eventName));
+        if (str_starts_with($eventType, 'response.')) return ['type' => 'responses_event', 'payload' => ['type' => $eventType] + $json];
         if (in_array($eventType, ['error', 'failed', 'fail', 'response.failed', 'response.incomplete'], true)) {
             return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败', 'model_fallback_allowed' => UpstreamErrorMessageService::allowsModelFallback($json)];
         }
@@ -1585,7 +1601,7 @@ class MarketTextModelRuntimeService
     {
         $hasOutput = !empty($state['content']) || !empty($state['reasoning']) || !empty($state['tool_calls'])
             || (int)($state['delta_count'] ?? 0) > 0;
-        $partial = !empty($state['anthropic']) && !empty($state['request_id']) ? [
+        $partial = (!empty($state['anthropic']) || !empty($state['responses'])) && !empty($state['request_id']) ? [
             'content' => (string)($state['content'] ?? ''),
             'provider_request_id' => (string)$state['request_id'],
             'usage' => (array)($state['usage'] ?? []),
