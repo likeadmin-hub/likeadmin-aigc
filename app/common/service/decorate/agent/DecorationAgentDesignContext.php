@@ -104,7 +104,7 @@ final class DecorationAgentDesignContext
             'floating-action'=>['supported'=>'position/offset_right/offset_bottom/button_size/button_gap/button_shape；row type/link/icon_mode/icon_image/show_text/phone','layout'=>'图片square；type支持链接/回顶/客服/电话；固定层','limitations'=>'采用独立auto/type符号系统，不等同14类入口glyph；contact依赖端能力；不是普通文档流','unsupported_fields'=>['content.field_map']],
             'popup-promo'=>['supported'=>'image/title/desc/link','layout'=>'当前是文档流内推广卡背景cover','limitations'=>'trigger/delay/closeable未消费；**没有弹窗生命周期**，不可承诺首次/延迟/关闭行为','unsupported_fields'=>['content.trigger','content.delay','content.closeable','content.field_map']],
             'section'=>['supported'=>'children、外壳样式','layout'=>'正常流容器','limitations'=>'列表/source不自动创建children','unsupported_fields'=>['content.field_map']],
-            'grid'=>['supported'=>'columns/gap、children；直接子组件可选styles.grid_column','layout'=>'1–12列；子组件grid_column为0–12整数，正值按最近父栅格列数限制占列，显式0整行；缺省先兼容旧span，无旧值才整行','limitations'=>'占列只影响最近父栅格直接子项，不传播到后代；只能写声明的styles.grid_column，不能凭空写layout对象；source不会生成children','unsupported_fields'=>['content.field_map']],
+            'grid'=>['supported'=>'columns/gap、children；直接子组件可选styles.grid_column','layout'=>'1–12列；子组件grid_column为0–12整数，正值按最近父栅格列数限制占列，显式0整行；缺省先兼容旧span，无旧值才整行。columns=3本身不会自动把三个子项排为一行，三列等宽应逐直接子项写styles.grid_column=1','limitations'=>'占列只影响最近父栅格直接子项，不传播到后代；只能写声明的styles.grid_column，不能凭空写layout对象；source不会生成children','unsupported_fields'=>['content.field_map']],
             'stack'=>['supported'=>'min_height、children','layout'=>'百分比/叠层布局，共享/公共child布局辅助','limitations'=>'默认布局需显式合法child定位配置；data/source非children；位置字段写入边界需单独导出','unsupported_fields'=>['content.field_map']],
             'horizontal-scroll'=>['supported'=>'gap、children、可选item_width','layout'=>'单行横滑组件容器；item_width为0–1500rpx，正值只指定最近横滑容器直接子组件卡宽，不传播到嵌套后代','limitations'=>'item_width=0或未配置保留78%旧卡宽与样式级联；source rows不会转换为子组件；image_width只改变媒体卡内图宽，不能代替本字段','unsupported_fields'=>['content.field_map']],
             'masonry'=>['supported'=>'columns/gap、children','layout'=>'2–4 CSS columns的容器','limitations'=>'这是子组件瀑布流；不是case-feed的图片列表列数开关','unsupported_fields'=>['content.field_map']],
@@ -125,6 +125,7 @@ final class DecorationAgentDesignContext
             'asset-entries'=>['supported'=>'user_assets rows，固定4列；整行空态','layout'=>'方形缩略图/标题/description','limitations'=>'无入口columns/font设置；无素材库操作按钮/状态机；游客空源保留合法空态','unsupported_fields'=>['content.field_map']],
             'service-grid'=>['supported'=>'columns/font_size/icon_size/show_title/show_sub_title/image_fit；row image/icon/title/description/link','layout'=>'与creation-entry相同；合法服务链接','limitations'=>'新内卡/文字样式被两端消费；content无title默认，公共仍保留历史常用服务标题','unsupported_fields'=>['content.field_map']],
         ];
+        if($name==='media-card')$notes[$name]['image_composition']='非list图片槽宽为内容区域100%，image_width不在此布局消费；contain遇到槽宽高比与图片不同会露出图片槽默认浅色底，不透明外壳background_color不会把内底改成同色。透明媒体组件通过真实surface token使内底alpha为0，可放在深色card里，图像居中留白不露白底；用已有图高/padding/margin控制可见图形并用独立title-bar align=center作为可编辑标签。不要编造image_background/align/crop字段。';
         return ['audit'=>'2026-10-15 source control paths; browser coverage is separate','support'=>'partial']+($notes[$name]??[]);
     }
 
