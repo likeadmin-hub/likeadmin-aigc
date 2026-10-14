@@ -153,7 +153,7 @@ final class WorkspaceAssetService
     {
         self::identity($tenant, $user);
         Db::transaction(function() use ($tenant, $user) {
-            $rows = Db::name(self::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user])->where('trashed_at','>',0)->select()->toArray();
+            $rows = Db::name(self::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user])->where('trashed_at','>',0)->order('id')->lock(true)->select()->toArray();
             foreach ($rows as $row) self::syncDeletion($tenant, $user, $row['asset_ref'], (int)$row['trashed_at']);
         });
     }

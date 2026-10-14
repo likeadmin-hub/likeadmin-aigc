@@ -93,7 +93,8 @@ final class AgentArtifactService
         $row=AgentStore::owner('artifact',$tenant,$user)->where('id',$id)->find();
         if(!$row)throw new \InvalidArgumentException('作品不存在');
         Db::transaction(function()use($tenant,$user,$id,$favorite,$row){
-            $ref=self::libraryReference($row);
+            $ref=self::libraryReference($row,true);
+            if($ref && !WorkspaceAssetService::isVisible($tenant,$user,$ref))throw new \InvalidArgumentException('作品已删除');
             if($ref)WorkspaceAssetService::update($tenant,$user,['refs'=>[$ref],'favorite'=>(int)$favorite]);
             AgentStore::owner('artifact',$tenant,$user)->where('id',$id)->update(['favorite'=>(int)$favorite]);
         });
