@@ -247,6 +247,16 @@ class MarketTextModelRuntimeService
             ];
         } catch (\Throwable $e) {
             if($e instanceof TextSettlementPending)throw $e;
+            if ($e instanceof MarketTextModelProviderException && $e->partialResult !== null) {
+                $result = $e->partialResult;
+                $usage = self::normalizeUsage((array)$result['usage']) + ['usage_complete' => false];
+                if ($openTextCall) {
+                    \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
+                    throw $e;
+                }
+                self::deferSettlement($context, $result, $usage, $e, true);
+                throw new TextSettlementPending((int)$context['consumption']['id'], $result, $usage, $e, '模型回复未完整结束，已保留收到的内容；费用待核对，未执行本轮工具，请勿重复提交');
+            }
             if ($openTextCall && !\app\common\service\open_platform\OpenTextLifecycle::rejectionConfirmed()) {
                 \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
                 throw $e;
@@ -603,18 +613,18 @@ class MarketTextModelRuntimeService
     }
 
     /** Preserve trusted usage and the submit-time price snapshot for an explicit audit decision. */
-    private static function deferSettlement(array $context,array $result,array $usage,\Throwable $error): void
+    private static function deferSettlement(array $context,array $result,array $usage,\Throwable $error,bool $incomplete=false): void
     {
-        Db::transaction(function()use($context,$result,$usage,$error){
+        Db::transaction(function()use($context,$result,$usage,$error,$incomplete){
             $c=AiConsumptionLog::lock(true)->findOrEmpty((int)$context['consumption']['id']);
             if($c->isEmpty()||!in_array((string)$c['billing_status'],['pending_usage','reserved'],true))return;
             $now=time();
-            $c->save(['run_status'=>'success','billing_status'=>'settlement_failed','usage_snapshot'=>$usage+['settlement_basis'=>'awaiting_settlement'],
+            $c->save(['run_status'=>$incomplete?'failed':'success','billing_status'=>'settlement_failed','usage_snapshot'=>$usage+['settlement_basis'=>$incomplete?'awaiting_provider_receipt':'awaiting_settlement'],
                 'upstream_request_id'=>(string)($result['provider_request_id']??$c['upstream_request_id']),
                 'response_summary'=>['output_length'=>mb_strlen((string)($result['content']??''),'UTF-8')],
-                'error_code'=>'settlement_failed','error_message'=>'结果已确认，费用结算待核对','finish_time'=>$now,'update_time'=>$now]);
-            AiAppTask::where('id',$c['app_task_id'])->update(['status'=>'success','progress'=>100,'finish_time'=>$now,'update_time'=>$now]);
-            self::event((int)$c['id'],'settlement_deferred','failed',['reason'=>'wallet_settlement_failed','error_type'=>get_class($error)]);
+                'error_code'=>$incomplete?'provider_stream_incomplete':'settlement_failed','error_message'=>$incomplete?'回复未完整结束，费用待核对':'结果已确认，费用结算待核对','finish_time'=>$now,'update_time'=>$now]);
+            AiAppTask::where('id',$c['app_task_id'])->update(['status'=>$incomplete?'failed':'success','progress'=>100,'finish_time'=>$now,'update_time'=>$now]);
+            self::event((int)$c['id'],'settlement_deferred','failed',['reason'=>$incomplete?'provider_stream_incomplete':'wallet_settlement_failed','error_type'=>get_class($error)]);
         });
     }
 
@@ -1192,7 +1202,7 @@ class MarketTextModelRuntimeService
         curl_close($ch);
 
         if ($errno) {
-            throw new Exception(self::networkError($error));
+            throw self::providerException(self::networkError($error), false, $state);
         }
         if ($status >= 400) {
             \app\common\service\open_platform\OpenCallContext::providerFailure($status,$body,!empty($state['content'])||!empty($state['reasoning'])||!empty($state['tool_calls']));
@@ -1574,7 +1584,14 @@ class MarketTextModelRuntimeService
     {
         $hasOutput = !empty($state['content']) || !empty($state['reasoning']) || !empty($state['tool_calls'])
             || (int)($state['delta_count'] ?? 0) > 0;
-        return new MarketTextModelProviderException($message, $fallbackAllowed && !$hasOutput);
+        $partial = !empty($state['anthropic']) && !empty($state['request_id']) ? [
+            'content' => (string)($state['content'] ?? ''),
+            'provider_request_id' => (string)$state['request_id'],
+            'usage' => (array)($state['usage'] ?? []),
+            // Never hand partial calls to Neuron or a delayed continuation.
+            'tool_calls' => [],
+        ] : null;
+        return new MarketTextModelProviderException($message, $fallbackAllowed && !$hasOutput && $partial === null, $partial);
     }
 
     private static function providerError($payload): string
