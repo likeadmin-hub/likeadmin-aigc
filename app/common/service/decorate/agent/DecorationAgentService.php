@@ -597,11 +597,16 @@ final class DecorationAgentService
     {
         // Publish the terminal state, event and conversation message as one visible checkpoint.
         Db::transaction(function()use($id,$status,$result): void {
-            $r=Db::name('decorate_agent_run')->where('id',$id)->find();if(!$r)return;self::fence($id);
+            $r=Db::name('decorate_agent_run')->where('id',$id)->lock(true)->find();if(!$r)return;self::fence($id);
             $previous=self::decode($r['result_json']);if($status==='completed'&& !isset($result['reply']) && isset($previous['reply']))$result+=array_intersect_key($previous,array_flip(['reply','question']));
             Db::name('decorate_agent_run')->where('id',$id)->update(['status'=>$status,'result_json'=>self::json($result),'spent_points'=>self::spent($r),'next_run_time'=>time()+($status==='waiting_images'?3:0),'update_time'=>time()]);
             self::event($id,$status,$result);
-            if(in_array($status,['completed','awaiting_input','awaiting_design_confirmation','failed','limited','budget_exceeded','needs_review','canceled'],true))self::insert('message',(int)$r['tenant_id'],(int)$r['admin_id'],['session_id'=>$r['session_id'],'run_id'=>$id,'role'=>'assistant','content'=>DecorationAgentDecision::message($result)?:((string)($result['summary']??$result['error']??'执行已结束')),'attachments'=>'[]']);
+            if(in_array($status,['completed','awaiting_input','awaiting_design_confirmation','failed','limited','budget_exceeded','needs_review','canceled'],true)){
+                $content=DecorationAgentDecision::message($result)?:((string)($result['summary']??$result['error']??'执行已结束'));
+                // Retry completion may reuse the same reply. The locked run serializes exact-message checks.
+                $exists=self::q('message',(int)$r['tenant_id'],(int)$r['admin_id'])->where(['session_id'=>$r['session_id'],'run_id'=>$id,'role'=>'assistant'])->whereRaw('BINARY content = ?',[$content])->find();
+                if(!$exists)self::insert('message',(int)$r['tenant_id'],(int)$r['admin_id'],['session_id'=>$r['session_id'],'run_id'=>$id,'role'=>'assistant','content'=>$content,'attachments'=>'[]']);
+            }
         });
     }
     private static function processImages(array $r,array $input): void
