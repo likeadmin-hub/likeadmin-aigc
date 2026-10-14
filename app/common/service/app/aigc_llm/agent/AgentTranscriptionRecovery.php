@@ -27,10 +27,13 @@ final class AgentTranscriptionRecovery
         $log=$q->find();if(!$log)throw new \InvalidArgumentException('转写消费记录不存在或无权访问');
         return $log->toArray();
     }
-    public static function record(int $id,array $wire): void
+    public static function record(int $id,array $wire,?array $context=null): void
     {
-        $log=self::owned($id);$data=json_decode($wire['body'],true);
-        $receipt=['http_status'=>(int)$wire['http_status'],'provider_receipt'=>is_array($data)?$data:$wire['body'],
+        $log=$context??self::owned($id);
+        if((int)$log['id']!==$id||$log['app_code']!=='aigc_llm'||$log['action_code']!=='agent_transcribe')throw new \InvalidArgumentException('回执上下文不匹配');
+        $data=json_decode($wire['body'],true);
+        $receipt=['http_status'=>(int)$wire['http_status'],'provider_receipt'=>is_array($data)?$data:(mb_check_encoding($wire['body'],'UTF-8')?$wire['body']:null),
+            'body_base64'=>mb_check_encoding($wire['body'],'UTF-8')?'':base64_encode($wire['body']),
             'complete'=>(bool)$wire['complete'],'transport_errno'=>(int)($wire['transport_errno']??0),
             'headers'=>$wire['headers']??[],'elapsed_ms'=>(int)($wire['elapsed_ms']??0),'received_at'=>time()];
         // Atomic, private journal survives a database outage between response and settlement.
@@ -66,11 +69,15 @@ final class AgentTranscriptionRecovery
             'language'=>(string)($data['data']['language']??$data['data']['result']['language']??''),
             'duration'=>(float)($data['data']['duration']??$data['data']['result']['duration']??0)]];
     }
+    private static function timestamp($value): int
+    {
+        return is_numeric($value)?(int)$value:(int)strtotime((string)$value);
+    }
     public static function reconcile(int $id,int $tenant=0): array
     {
         $log=self::owned($id,$tenant);
         // Do not interfere with an in-flight 180 second synchronous submission.
-        if($log['billing_status']==='reserved'&&$log['run_status']==='running'&&(int)$log['create_time']>time()-240)return ['resolved'=>false,'reason'=>'转写请求仍在处理中'];
+        if($log['billing_status']==='reserved'&&$log['run_status']==='running'&&self::timestamp($log['create_time'])>time()-240)return ['resolved'=>false,'reason'=>'转写请求仍在处理中'];
         if($log['billing_status']==='reserved'){
             $path=self::path($log);
             if(is_file($path)){
@@ -148,7 +155,7 @@ final class AgentTranscriptionRecovery
         $receipt=$evidence['receipt']??[];
         if(!is_array($receipt)||($receipt['complete']??null)!==true||self::classify($receipt,AgentStore::json($log['request_summary']))===null)throw new \InvalidArgumentException('凭据缺少完整明确的成功或拒绝回执');
         if($log['billing_status']!=='reserved')throw new \InvalidArgumentException('任务已经结算或退款，不允许覆盖');
-        if($log['run_status']==='running'&&(int)$log['create_time']>time()-240)throw new \InvalidArgumentException('任务仍在处理中');
+        if($log['run_status']==='running'&&self::timestamp($log['create_time'])>time()-240)throw new \InvalidArgumentException('任务仍在处理中');
         $preview=['task_id'=>(int)$task['id'],'decision'=>self::classify($receipt,AgentStore::json($log['request_summary']))['success']?'settle':'refund','points'=>(float)$log['reserved_user_price'],'apply'=>$apply];
         if(!$apply)return $preview;
         Db::transaction(function()use($id,$log,$receipt,$operator,$reason){
