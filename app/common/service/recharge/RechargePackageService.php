@@ -72,6 +72,8 @@ class RechargePackageService
             throw new RuntimeException('套餐售价不能小于0');
         }
 
+        $market = \app\common\service\promotion\PackagePromotionPolicy::cents($params['market_amount'] ?? '0');
+        if ($market > 0 && $market < \app\common\service\promotion\PackagePromotionPolicy::cents($params['amount'] ?? '0')) throw new RuntimeException('划线原价不能低于常规售价');
         $data = [
             'tenant_id' => $tenantId,
             'name' => $name,
@@ -92,6 +94,7 @@ class RechargePackageService
                     throw new RuntimeException('算力套餐不存在');
                 }
                 $package->save($data);
+                \app\common\service\promotion\PackagePromotionService::validateConfiguredPrice($tenantId, 'recharge', $id);
                 return $package;
             }
             $data['create_time'] = time();

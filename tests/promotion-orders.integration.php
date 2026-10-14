@@ -1,0 +1,47 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/Support/OemDisposable.php';require __DIR__.'/Support/OemFixtures.php';
+use think\facade\Db;
+use app\common\service\promotion\PackagePromotionService as Promo;
+use app\common\service\promotion\PackagePricingService as Price;
+use app\common\service\recharge\RechargePackageService as Recharge;
+use app\common\service\membership\MembershipService as Member;
+use app\api\logic\RechargeLogic;
+use app\common\logic\PayNotifyLogic;
+Db::startTrans();try {
+ $t=Db::name('tenant')->insertGetId(['sn'=>'promotion'.random_int(10000,99999),'name'=>'Promotion test','create_time'=>time()]);
+ request()->tenantId=$t;request()->source=app\common\enum\AdminTerminalEnum::PLATFORM;
+ $u=Db::name('user')->insertGetId(['tenant_id'=>$t,'sn'=>random_int(100000,999999),'account'=>'promotion-test','create_time'=>time()-10]);
+ $pkg=Recharge::save($t,['name'=>'Discount points','points'=>'100','amount'=>'19.00']);
+ $p=Promo::save($t,'recharge',(int)$pkg->id,['enabled'=>1,'rule_new'=>1,'rule_all'=>1,'hours'=>48,'discount_prices'=>['package'=>'9.90']]);
+ $q=Price::quote($t,$u,'recharge',(int)$pkg->id,'package');oemCheck($q['payable_price']==='9.90'&&count($q['matched_rules'])===2,'server OR quote');
+ $params=['tenant_id'=>$t,'user_id'=>$u,'terminal'=>4,'package_id'=>$pkg->id,'quote_hash'=>$q['quote_hash']];
+ $o=RechargeLogic::recharge($params);oemCheck(is_array($o),'real existing recharge creates discounted order');
+ $row=Db::name('recharge_order')->where('id',$o['order_id'])->find();oemCheck($row['order_amount']==='9.90'&&$row['recharge_points']==='100.00','sale discount does not reduce rights');
+ oemCheck(RechargeLogic::recharge($params)===false,'repeat checkout cannot reserve another discount');
+ Db::name('recharge_package')->where('id',$pkg->id)->update(['amount'=>'29.00','points'=>'999.00']);
+ $s=Price::snapshot($t,'recharge',(int)$o['order_id']);oemCheck((int)$s['payable_cents']===990&&json_decode($s['rights'],true)['recharge_points']==='100.00','immutable price and points');
+ oemCheck(PayNotifyLogic::handle('recharge',$row['sn'],['transaction_id'=>'mock-promo-paid'])===true,'trusted paid path consumes coupon and grants');
+ oemCheck(PayNotifyLogic::handle('recharge',$row['sn'],['transaction_id'=>'mock-promo-paid'])===true,'repeated paid path idempotent');
+ oemCheck(Db::name('user')->where('id',$u)->value('user_money')==='100.00','credit exactly once');
+ oemCheck(Price::quote($t,$u,'recharge',(int)$pkg->id,'package')['reason']==='used','lifetime once-only across activity restart');
+ Promo::save($t,'recharge',(int)$pkg->id,['enabled'=>1,'rule_new'=>1,'rule_all'=>1,'hours'=>48,'discount_prices'=>['package'=>'9.90'],'restart'=>1]);
+ oemCheck(!Price::quote($t,$u,'recharge',(int)$pkg->id,'package')['is_discount'],'restart does not reset consumption');
+ $m=Member::savePlan($t,['name'=>'Discount member','monthly_price'=>'19.00','duration_months'=>1,'features'=>['original feature'],'bonus_points'=>'5.00','app_codes'=>[]]);
+ Promo::save($t,'membership',(int)$m->id,['enabled'=>1,'rule_new'=>1,'rule_all'=>0,'hours'=>48,'discount_prices'=>['package'=>'9.90']]);
+ $mq=Price::quote($t,$u,'membership',(int)$m->id,'yearly');$mo=Member::createOrder($t,$u,4,(int)$m->id,'yearly',$mq['quote_hash']);
+ Db::name('membership_plan')->where('id',$m->id)->update(['features'=>'["changed feature"]','monthly_bonus_points'=>'99.00']);
+ $mr=Db::name('membership_order')->where('id',$mo['order_id'])->find();oemCheck($mr['order_amount']==='9.90','member quote actual cycle');
+ oemCheck(PayNotifyLogic::handle('membership',$mr['order_sn'],['transaction_id'=>'mock-member'])===true,'member paid');
+ oemCheck(json_decode(Db::name('user_membership')->where(['tenant_id'=>$t,'user_id'=>$u])->value('features'),true)===['original feature'],'sold member feature snapshot');
+ oemCheck(Db::name('user')->where('id',$u)->value('user_money')==='105.00','member gift snapshot');
+ $p2=Recharge::save($t,['name'=>'Cancel discount','points'=>'10','amount'=>'2.00']);Promo::save($t,'recharge',(int)$p2->id,['enabled'=>1,'rule_new'=>1,'rule_all'=>0,'hours'=>48,'discount_prices'=>['package'=>'1.00']]);
+ $qo=RechargeLogic::recharge(['tenant_id'=>$t,'user_id'=>$u,'terminal'=>4,'package_id'=>$p2->id]);Price::closeConfirmed($t,$u,'recharge',$qo['order_id'],'never_started');
+ oemCheck(Price::quote($t,$u,'recharge',(int)$p2->id,'package')['is_discount'],'no-payment confirmed cancellation releases once');
+ $before=Price::quote($t,$u,'recharge',(int)$p2->id,'package');Promo::save($t,'recharge',(int)$p2->id,['enabled'=>1,'rule_new'=>1,'rule_all'=>0,'hours'=>48,'discount_prices'=>['package'=>'1.10']]);
+ oemCheck(RechargeLogic::recharge(['tenant_id'=>$t,'user_id'=>$u,'terminal'=>4,'package_id'=>$p2->id,'quote_hash'=>$before['quote_hash']])===false,'price change demands new confirmation');
+ oemReject(fn()=>Price::quote($t+1,$u,'recharge',(int)$p2->id,'package'),'foreign tenant quote');
+ oemReject(fn()=>Recharge::save($t,['id'=>$pkg->id,'name'=>'Bad repricing','points'=>'100','amount'=>'5.00']),'regular price cannot undercut configured promotion');
+ oemReject(fn()=>Recharge::save($t,['name'=>'Bad strike price','points'=>'100','amount'=>'19.00','market_amount'=>'10.00']),'strike price cannot be below sale price');
+ echo "PASS actual recharge/member discount orders, shared claim, snapshots, paid idempotency and cancellation\n";
+}finally{Db::rollback();}

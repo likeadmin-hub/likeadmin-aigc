@@ -122,6 +122,11 @@ class MembershipService
             throw new RuntimeException('套餐价格不能小于0');
         }
 
+        foreach (['monthly', 'yearly'] as $priceCycle) {
+            $regular = $priceCycle === 'monthly' ? $monthlyPrice : $yearlyPrice;
+            $market = \app\common\service\promotion\PackagePromotionPolicy::cents($params[$priceCycle . '_market_price'] ?? $params['market_price'] ?? '0');
+            if ($market > 0 && $market < \app\common\service\promotion\PackagePromotionPolicy::cents($regular)) throw new RuntimeException('划线原价不能低于常规售价');
+        }
         $data = [
             'tenant_id' => $tenantId,
             'name' => $name,
@@ -154,6 +159,7 @@ class MembershipService
                 $data['create_time'] = time();
                 $plan = MembershipPlan::create($data);
             }
+            \app\common\service\promotion\PackagePromotionService::validateConfiguredPrice($tenantId, 'membership', (int)$plan['id']);
             self::syncPlanApps($tenantId, (int)$plan['id'], $appCodes);
             return $plan;
         });
@@ -190,56 +196,11 @@ class MembershipService
         }));
     }
 
-    public static function createOrder(int $tenantId, int $userId, int $terminal, int $planId, string $cycle): array
+    public static function createOrder(int $tenantId, int $userId, int $terminal, int $planId, string $cycle, string $quoteHash = ''): array
     {
-        if ($cycle === '') {
-            $cycle = self::CYCLE_PACKAGE;
-        }
-        if (!in_array($cycle, [self::CYCLE_PACKAGE, self::CYCLE_MONTHLY, self::CYCLE_YEARLY], true)) {
-            throw new RuntimeException('购买周期不正确');
-        }
-        $plan = MembershipPlan::where(['tenant_id' => $tenantId, 'id' => $planId, 'status' => self::STATUS_ENABLED])->findOrEmpty();
-        if ($plan->isEmpty()) {
-            throw new RuntimeException('会员套餐不存在或已下架');
-        }
-        $durationMonths = (int)($plan['duration_months'] ?? 0);
-        if ($durationMonths > 0) {
-            $cycle = self::CYCLE_PACKAGE;
-            $amount = (float)$plan['monthly_price'];
-            $bonus = (float)$plan['monthly_bonus_points'];
-        } else {
-            $amount = (float)($cycle === self::CYCLE_YEARLY ? $plan['yearly_price'] : $plan['monthly_price']);
-            $bonus = (float)($cycle === self::CYCLE_YEARLY ? $plan['yearly_bonus_points'] : $plan['monthly_bonus_points']);
-            $durationMonths = $cycle === self::CYCLE_YEARLY ? 12 : 1;
-        }
-        $current = self::currentMembership($tenantId, $userId);
-        $beforeExpireTime = (int)($current['expire_time'] ?? 0);
-        $afterExpireTime = self::calcExpire($beforeExpireTime, $durationMonths);
-        $orderSn = generate_sn(MembershipOrder::class, 'order_sn');
-
-        $order = MembershipOrder::create([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'order_sn' => $orderSn,
-            'order_terminal' => $terminal,
-            'plan_id' => (int)$plan['id'],
-            'plan_name' => (string)$plan['name'],
-            'cycle' => $cycle,
-            'duration_months' => $durationMonths,
-            'order_amount' => self::formatAmount($amount),
-            'bonus_points' => self::formatAmount($bonus),
-            'before_expire_time' => $beforeExpireTime,
-            'after_expire_time' => $afterExpireTime,
-            'pay_status' => PayEnum::UNPAID,
-            'create_time' => time(),
-            'update_time' => time(),
-        ]);
-
-        return [
-            'order_id' => (int)$order['id'],
-            'order_sn' => $orderSn,
-            'from' => 'membership',
-        ];
+        return \app\common\service\promotion\PackagePricingService::create(
+            $tenantId, $userId, $terminal, 'membership', $planId, $cycle, $quoteHash
+        );
     }
 
     public static function handlePaid(string $orderSn, array $extra = []): void
@@ -252,14 +213,19 @@ class MembershipService
             if ((int)$order['pay_status'] === PayEnum::ISPAID) {
                 return;
             }
-            $plan = MembershipPlan::where(['tenant_id' => (int)$order['tenant_id'], 'id' => (int)$order['plan_id']])->findOrEmpty();
-            if ($plan->isEmpty()) {
-                throw new RuntimeException('会员套餐不存在');
+            $snapshot = \app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'], 'membership', (int)$order['id']);
+            if ($snapshot) {
+                $rights = json_decode($snapshot['rights'], true, 512, JSON_THROW_ON_ERROR);
+                $appCodes = $rights['app_codes'];
+                $features = $rights['features'];
+                \app\common\service\promotion\PackagePricingService::consume((int)$order['tenant_id'], 'membership', (int)$order['id']);
+            } else {
+                // Historical orders retain their original delivery contract.
+                $plan = MembershipPlan::where(['tenant_id' => (int)$order['tenant_id'], 'id' => (int)$order['plan_id']])->findOrEmpty();
+                if ($plan->isEmpty()) throw new RuntimeException('会员套餐不存在');
+                $features = (array)($plan['features'] ?? []);
+                $appCodes = MembershipPlanApp::where(['tenant_id' => (int)$order['tenant_id'], 'plan_id' => (int)$order['plan_id']])->column('app_code');
             }
-            $appCodes = MembershipPlanApp::where([
-                'tenant_id' => (int)$order['tenant_id'],
-                'plan_id' => (int)$order['plan_id'],
-            ])->column('app_code');
             $current = UserMembership::where([
                 'tenant_id' => (int)$order['tenant_id'],
                 'user_id' => (int)$order['user_id'],
@@ -273,7 +239,7 @@ class MembershipService
                 'plan_id' => (int)$order['plan_id'],
                 'plan_name' => (string)$order['plan_name'],
                 'app_codes' => array_values($appCodes),
-                'features' => (array)($plan['features'] ?? []),
+                'features' => $features,
                 'start_time' => time(),
                 'expire_time' => $afterExpireTime,
                 'status' => self::STATUS_ENABLED,
