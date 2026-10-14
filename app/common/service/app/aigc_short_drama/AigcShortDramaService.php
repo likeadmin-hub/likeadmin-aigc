@@ -1510,7 +1510,7 @@ class AigcShortDramaService
     {
         $row=AigcShortDramaSubject::where(['id'=>$id,'status'=>1,'delete_time'=>0])->findOrEmpty();
         if($row->isEmpty())throw new \InvalidArgumentException('主体不存在或已停用');
-        $data=$row->toArray();
+        $data=$row->getData();
         $owned=$data['source']==='user'&&(int)$data['tenant_id']===$tenantId&&(int)$data['user_id']===$userId;
         $public=$data['source']==='public'&&(int)$data['user_id']===0&&in_array((int)$data['tenant_id'],[0,$tenantId],true)&&!in_array($data['name'],self::LEGACY_PUBLIC_SUBJECT_NAMES,true);
         if(!$owned&&!$public)throw new \InvalidArgumentException('主体不存在或无权引用');
