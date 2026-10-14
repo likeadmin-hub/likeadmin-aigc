@@ -38,6 +38,21 @@ final class DecorationAgentDecision
         return (new DecorationAgentReplyStream())->append(self::finalContent($result));
     }
 
+    public static function failureDetails(\Throwable $error): array
+    {
+        $result=$error instanceof \app\common\service\power\TextSettlementPending ? $error->result
+            : ($error instanceof \app\common\service\power\MarketTextModelProviderException ? $error->partialResult : null);
+        $diagnostic=is_array($result)?($result['protocol_diagnostic']??[]):[];
+        $category=(string)(($diagnostic['provider_type']??'')?:($diagnostic['provider_code']??''));
+        $message=(string)($diagnostic['provider_message']??'');
+        // This describes the request error to the UI; it does not settle/refund it.
+        if($category==='invalid_request_error' && preg_match('/(?:unsupported|unknown|invalid) parameter/i',$message))return [
+            'error_code'=>'provider_parameter_rejected',
+            'error'=>'当前模型不支持此次请求中的参数，本轮未完成。请核对模型配置和本轮费用后再继续。',
+        ];
+        return [];
+    }
+
     public static function safeReply(mixed $reply): string
     {
         if (!is_string($reply)) return '';
