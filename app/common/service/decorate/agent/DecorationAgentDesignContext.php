@@ -187,6 +187,7 @@ final class DecorationAgentDesignContext
             'assets'=>'只能用本轮material_summary/search_materials/icons明确给出的URL或用户明确上传素材；named icon值只来自当前组件lists.fields.icon.options，不写桌面图标名。',
             'identities'=>'组件id及所有列表行id均由服务端管理。add_component操作最外层可用ref别名，不传id；新增/整表替换的rows不含id，不复制默认值或数据源行id。修改已有列表用edit_list按index与fields，不更新id。',
             'references'=>'ref仅支持add_component操作最外层直接创建的组件，不支持replace_page.components或children里的ref。replace_page后在下一轮读取component_index真实ID再bind_source/update/request_image；需要同批引用可改用多个add_component最外层ref。',
+            'image_tasks'=>'request_image返回slot_id、widget_id、field、status；queued/running/submitting表示该位置已有任务，不要重复请求。编排结束可final operations=[]，服务端会等待本轮图片完成；排队不是生成完成。',
             'page_theme'=>'页面背景与导航背景各自按page_meta_contract配置，区块背景不能替代页面背景；完整主题需同时核对页面、导航及各组件实际前景/背景。',
         ];
     }

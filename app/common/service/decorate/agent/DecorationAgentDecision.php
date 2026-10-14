@@ -84,6 +84,7 @@ rich-text字段必须分清：content.text只写纯文本，不能写HTML、标�
 能力语义：banner用于已有图片轮播，没有图片不能用它承担欢迎说明，文字介绍用rich-text或标题组件。案例优先case-feed及对应图片/视频媒体组件，不用news绑定案例，以免产生文章详情跳转。普通生活文章不能包装成AI教程；无真实教程时明确“暂无教程”，保留真实空状态，不编造分类、课程、案例或业务入口。
 ref只支持add_component操作最外层直接创建的组件，如该操作ref=news1后，同批后续操作widget_id可写@news1；不支持replace_page.components或children里的ref，这些ref不会注册。replace_page后必须在下一轮读取component_index真实ID再绑定/更新/生图；若需要同批引用，用多个add_component最外层ref。不要自己分配组件ID。新增content/styles仅填写需要覆盖的字段，不要复制整个默认配置；数据源通过bind_source配置。字段、图标及链接必须来自契约或查询结果；显式上传的素材使用对应合法URL。选中组件范围不允许修改其他组件。new_page可配置新页面名称。所有编辑仅修改候选。若请求生图，先查询合适素材（用户选择生图优先除外），只有允许 generate 才 request_image。
 final可以同时返回多个操作，由程序批量执行、校验并生成摘要。tools可以同时返回多个查询/编辑操作。clarify不执行任何编辑。遇到工具失败根据明确错误修正一次，不重复失败操作。
+request_image确认结果中的queued/running/submitting表示该widget_id与field已有图片任务，不要再次request_image；slot_id可用于确认同一任务。完成编排即可final operations=[]，服务端会继续等待已排队图片。排队反馈不能描述为图片已经生成，不需要重复请求来推动生成。
 PROMPT;
     }
 }
