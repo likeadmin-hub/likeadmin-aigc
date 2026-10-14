@@ -1,0 +1,17 @@
+License presentation states and safe links: passed
+✔ tests/license-presentation.test.cjs (155.040625ms)
+✔ platform transaction recovery retains a failed form and retries the canonical refund ID (38.627125ms)
+✔ platform confirmation requires a server-approved action and keeps failures reviewable (60.44275ms)
+Independent update service and per-version presentation states: passed
+✔ tests/update-rights.test.cjs (151.942625ms)
+Upgrade transport messages preserve pending updates and unrelated requests: passed
+Real request interceptors keep Chinese failure messages and original retry context: passed
+✔ tests/update-transport.test.cjs (220.844083ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 232.179958

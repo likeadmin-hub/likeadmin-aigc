@@ -1,0 +1,8 @@
+FAIL later_refund: known payment later channel refund queues recovery
+FAIL refund_before_grant: refunding payment cannot finish stale delivery
+FAIL payer_identity: a second valid WeChat identity must not re-sign the original attempt
+FAIL monotonic_refund: notification returning after worker completion preserves both terminal latches
+FAIL generation_request: old refund requester must retire
+FAIL generation_event: old refund notification must retire
+FAIL generation_status: status must not swallow generation retirement
+FAIL generation_notify: old notice cannot write a failure after generation change
