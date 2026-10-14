@@ -8,6 +8,9 @@ namespace app\common\service\app\aigc_llm\agent {
  function curl_errno($ch){return SttWireFixture::$complete?0:28;}
  function curl_close($ch){}
 }
+namespace app\common\service\ai {
+ final class AiMarketTaskRuntimeService {public static function refresh(int $id):void{throw new \RuntimeException('STT must not enter the generic provider runtime');}}
+}
 namespace {
 require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
 set_exception_handler(static function(\Throwable $e){fwrite(STDERR,$e->getMessage()."\n".$e->getTraceAsString()."\n");exit(1);});
@@ -54,7 +57,9 @@ Db::startTrans();try{
  check(!R::reconcile($cid2,1)['resolved']&&balance()===$unknownBalance,'Unknown receipt refunded/settled');
  R::reconcile($cid2,1);check(Db::name('ai_consumption_event')->where(['consumption_id'=>$cid2,'event_type'=>'stt.review_required'])->count()===1,'Review alerts duplicated');
  $again=$reserve->invoke(null,1,1,$r2['prepared']);check(!$again['fresh']&&balance()===$unknownBalance,'Unknown call resubmitted');
+ check((new \ReflectionMethod(\app\common\service\ai\AiTaskJobService::class,'queryResult'))->invoke(null,$cid2)===true,'Queued STT used generic provider runtime');
  $decision=(new \ReflectionMethod(Operations::class,'decision'))->invoke(null,['app_code'=>'aigc_llm','action_code'=>'agent_transcribe'],Operations::ACTION_QUERY);check($decision['allowed'],'Admin receipt recovery wrongly requires upstream task ID');
+ $ordinary=(new \ReflectionMethod(Operations::class,'decision'))->invoke(null,['app_code'=>'aigc_image','action_code'=>'create','run_status'=>'running','billing_status'=>'reserved','upstream_task_id'=>'image-fixture'],Operations::ACTION_QUERY);check($ordinary['allowed'],'Image query behavior regressed');
  $taskNo=Db::name('ai_app_task')->where('id',$r2['task_id'])->value('task_no');
  $evidence=['tenant_id'=>1,'task_no'=>$taskNo,'receipt'=>['complete'=>true,'http_status'=>400,'provider_receipt'=>['code'=>0,'msg'=>'explicit rejection']]];
  rejects(fn()=>R::importEvidence($cid2,1,array_replace($evidence,['task_no'=>'wrong']),'fixture','ticket-test',true));
