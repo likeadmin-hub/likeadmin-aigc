@@ -27,7 +27,7 @@ final class HomeAgentWorker extends Command
             $health->beat('idle');
             if($input->getOption('once')){$output->writeln('Processed '.$count.' home Agent run(s)');break;}
             if(!$count&&$running)usleep(1000000);
-        }while($running);}catch(\Throwable $e){\think\facade\Log::error('Home Agent worker: '.get_class($e));$output->writeln('Agent worker stopped; inspect protected diagnostics.');return 1;}finally{if($health)$health->close();}
+        }while($running);}catch(\Throwable $e){$info=$e instanceof \think\db\exception\PDOException?($e->getData()['PDO Error Info']??[]):[];\think\facade\Log::error('Home Agent worker: '.get_class($e).' state='.(string)($info['SQLSTATE']??'').' code='.(int)($info['Driver Error Code']??0));$output->writeln('Agent worker stopped; inspect protected diagnostics.');return 1;}finally{if($health)$health->close();}
         return 0;
     }
 }
