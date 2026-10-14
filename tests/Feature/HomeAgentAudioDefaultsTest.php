@@ -1,6 +1,7 @@
 <?php
 // Local rollback-only routing/quote checks. No generation or wallet mutation.
 require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
+require dirname(__DIR__).'/Support/HomeAgentFixture.php';
 use think\facade\Db;
 use app\common\service\app\aigc_llm\agent\{AgentStore as S,AgentExecutionService as E,AgentCapabilityCatalog as C,AgentSpeechTool as T};
 use app\common\service\app\aigc_music\AigcMusicService;
@@ -9,7 +10,7 @@ $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']
 request()->tenantId=1;request()->userId=1;request()->userInfo=['tenant_id'=>1,'user_id'=>1];
 $before=Db::name('user')->where('id',1)->value('user_money');
 Db::startTrans();try{
- $prefs=S::preferences(1,1);$prefs['mode']='ask';$prefs['models']['music']='retired-music';$prefs['models']['voice']='speech_sku:0';
+ $prefs=HomeAgentFixture::preferences();$prefs['mode']='ask';$prefs['models']['music']='retired-music';$prefs['models']['voice']='speech_sku:0';
  $params=['content'=>'音频默认路由离线验收','request_id'=>'audio-default-'.bin2hex(random_bytes(12)),'preferences'=>$prefs+['_audio_defaults'=>['music'=>'injected']]];
  $view=E::submit(1,1,$params);$run=S::run(1,1,$view['id']);$stored=S::json($run['preferences']);$defaults=$stored['_audio_defaults'];
  check(!isset($stored['models']['music'],$stored['models']['voice']),'Hidden preference survived new submission');

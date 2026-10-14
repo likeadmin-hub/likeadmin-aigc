@@ -10,6 +10,7 @@ namespace app\common\service\app\aigc_image {
 }
 namespace {
  require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
+ require dirname(__DIR__).'/Support/HomeAgentFixture.php';
  use think\facade\Db;
  use app\common\service\app\aigc_llm\agent\{AgentStore as S,AgentExecutionService as E,AgentCapabilityCatalog as C};
  use app\common\service\app\aigc_image\AigcImageService as Fake;
@@ -18,7 +19,7 @@ namespace {
  verify(S::table('run')->whereIn('status',['queued','running','waiting_tasks'])->count()===0,'Do not run fixtures alongside user jobs');
  $request=request();$request->tenantId=1;$request->userId=1;$request->userInfo=['user_id'=>1,'tenant_id'=>1];
  Db::startTrans();try{
-  $models=C::models(1);S::preferences(1,1,['mode'=>'ask','models'=>['text'=>$models['text']['models'][0]['code'],'image'=>'market_image_model:234']]);
+  S::preferences(1,1,HomeAgentFixture::preferences());
   $fixture=static function(){
    $view=E::submit(1,1,['request_id'=>'worker_test_'.bin2hex(random_bytes(12)),'content'=>'离线 Worker 验收']);$run=S::run(1,1,(int)$view['id']);$prepared=C::prepare($run,'aigc_image',['prompt'=>'offline worker fixture']);
    S::table('step')->insert(['tenant_id'=>1,'user_id'=>1,'run_id'=>$run['id'],'step_key'=>hash('sha256',(string)$run['id']),'title'=>'fixture','tool_code'=>'aigc_image','prepared'=>S::encode($prepared),'result'=>'','create_time'=>time(),'update_time'=>time()]);
