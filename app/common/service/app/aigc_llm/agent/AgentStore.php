@@ -40,12 +40,16 @@ final class AgentStore
     }
     public static function requiresConfirmation(array $preferences,float $total): bool
     {
-        return ($preferences['mode']??'ask')!=='auto'||$total>(float)($preferences['budget']??0);
+        // Only historical run snapshots retain a budget; new preferences omit it.
+        // Never expand the authorization of a previously submitted paid task.
+        return ($preferences['mode']??'ask')!=='auto'
+            || (array_key_exists('budget',$preferences)&&$total>(float)$preferences['budget']);
     }
     public static function preferences(int $tenant,int $user,?array $input=null): array
     {
         $row=self::owner('preference',$tenant,$user)->find();
-        $value=$row?self::json($row['preferences']):['mode'=>'ask','budget'=>0,'models'=>[]];
+        $value=$row?self::json($row['preferences']):['mode'=>'ask','models'=>[]];
+        unset($value['budget']); // Retired preference, including reads and favorite-only updates.
         if($input!==null){
             $favorites = array_values(array_filter((array)($value['skill_favorites'] ?? []), 'is_string'));
             if (array_key_exists('favorite_skill', $input)) {
@@ -69,11 +73,10 @@ final class AgentStore
     }
     public static function validatePreferences(array $input): array
     {
-        $mode=(string)($input['mode']??'ask');$budget=$input['budget']??0;
-        if(!in_array($mode,['ask','auto'],true)||!is_numeric($budget)||!is_finite((float)$budget)||(float)$budget<0||(float)$budget>1000000)throw new \InvalidArgumentException('运行模式或预算无效');
-        if($mode==='auto'&&(float)$budget<=0)throw new \InvalidArgumentException('请先设置自动模式的工具积分预算');
+        $mode=(string)($input['mode']??'ask');
+        if(!in_array($mode,['ask','auto'],true))throw new \InvalidArgumentException('运行模式无效');
         $models=[];
         foreach(['text','image','video','voice','music'] as $type){$model=$input['models'][$type]??'';if(!is_scalar($model)||strlen((string)$model)>120)throw new \InvalidArgumentException('模型偏好无效');$models[$type]=trim((string)$model);}
-        return ['mode'=>$mode,'budget'=>round((float)$budget,4),'models'=>$models];
+        return ['mode'=>$mode,'models'=>$models];
     }
 }

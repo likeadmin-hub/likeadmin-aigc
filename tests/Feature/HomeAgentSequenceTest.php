@@ -57,12 +57,12 @@ namespace {
  $request=request();$request->tenantId=1;$request->userId=1;$request->userInfo=['tenant_id'=>1,'user_id'=>1];
  $balances=fn()=>[Db::name('user')->where('id',1)->value('user_money'),Db::name('tenant')->where('id',1)->value('point_balance')];$before=$balances();
  Db::startTrans();try{
-  $fixture=static function(string $mode='auto',int $budget=200):int{
+  $fixture=static function(string $mode='auto',?int $budget=null):int{
    $now=time();$session=AigcLlmSession::create(['tenant_id'=>1,'user_id'=>1,'title'=>'offline sequence','model_code'=>'text-preferred','status'=>'streaming','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
    $base=['tenant_id'=>1,'user_id'=>1,'session_id'=>$session['id'],'create_time'=>$now,'update_time'=>$now,'delete_time'=>0,'token_usage_json'=>[],'finish_reason'=>''];
    $m=AigcLlmMessage::create($base+['role'=>'user','content'=>'先生成产品图，再做5秒展示视频','seq'=>1,'status'=>'done','parent_user_message_id'=>0]);
    $a=AigcLlmMessage::create($base+['role'=>'assistant','content'=>'','seq'=>2,'status'=>'streaming','parent_user_message_id'=>$m['id']]);
-   return (int)S::table('run')->insertGetId(['tenant_id'=>1,'user_id'=>1,'session_id'=>$session['id'],'message_id'=>$a['id'],'request_id'=>'sequence-'.bin2hex(random_bytes(12)),'payload_hash'=>str_repeat('a',64),'content'=>$m['content'],'preferences'=>S::encode(['mode'=>$mode,'budget'=>$budget,'models'=>['text'=>'text-preferred','image'=>'image-preferred','video'=>'video-preferred']]),'attachments'=>'[]','status'=>'queued','phase'=>'chat','reply'=>'','create_time'=>$now,'update_time'=>$now]);
+   return (int)S::table('run')->insertGetId(['tenant_id'=>1,'user_id'=>1,'session_id'=>$session['id'],'message_id'=>$a['id'],'request_id'=>'sequence-'.bin2hex(random_bytes(12)),'payload_hash'=>str_repeat('a',64),'content'=>$m['content'],'preferences'=>S::encode(['mode'=>$mode,'models'=>['text'=>'text-preferred','image'=>'image-preferred','video'=>'video-preferred']]+($budget===null?[]:['budget'=>$budget])),'attachments'=>'[]','status'=>'queued','phase'=>'chat','reply'=>'','create_time'=>$now,'update_time'=>$now]);
   };
   // Claim only our fixture, never tick another user's queued task.
   $work=static function(int $id):array{
@@ -70,7 +70,7 @@ namespace {
    S::table('run')->where('id',$id)->update(['status'=>'running','lease_token'=>bin2hex(random_bytes(16)),'lease_until'=>time()+1500]);
    $run=S::run(1,1,$id);$method=new \ReflectionMethod(E::class,$run['phase']==='chat'?'chat':'executeSteps');$method->setAccessible(true);$method->invoke(null,$run);return E::detail(1,1,$id);
   };
-  foreach([['ask',200],['auto',200],['auto',85]] as [$mode,$budget]){
+  foreach([['ask',null],['auto',null],['auto',200],['auto',85]] as [$mode,$budget]){
    $start=count(Fake::$submits);$id=$fixture($mode,$budget);$view=$work($id);$hash=$view['approval_hash'];
    check($view['sequence']['pending']===['将生成图制作成视频'],'No durable upcoming step');
    check(count(Fake::$submits)===$start,'Planning submitted paid work');
@@ -83,7 +83,7 @@ namespace {
    $view=$work($id);check($view['estimated_points']==110&&$view['pending_points']==80,'Cumulative/current quote confused');
    rejects(fn()=>E::confirm(1,1,$id,$hash));
    if($mode==='ask'||$budget===85){check($view['status']==='awaiting_confirmation','Second phase bypassed consent or total budget');if($budget===85)check($view['confirmation_reason']==='budget_exceeded','Budget reason missing');E::confirm(1,1,$id,$view['approval_hash']);}
-   else check($view['status']==='queued','Budgeted auto phase unnecessarily paused');
+   else check($view['status']==='queued','Automatic phase unnecessarily paused');
    $work($id);$view=$work($id);
    check($view['status']==='success'&&$view['sequence']['state']==='completed','Sequence incomplete');
    check(count(Fake::$submits)===$start+2,'Repeat paid submit');

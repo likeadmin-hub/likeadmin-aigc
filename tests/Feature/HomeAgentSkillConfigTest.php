@@ -42,7 +42,11 @@ Db::startTrans();try{
  $store=\app\common\service\app\aigc_llm\agent\AgentStore::class;
  $prefs=$store::preferences($t,1999999906,['favorite_skill'=>['id'=>'plan','favorite'=>'1']]);check($prefs['skill_favorites']===['plan'],'Favorite not saved');
  $prefs=$store::preferences($t,1999999906,['mode'=>'auto','budget'=>10,'models'=>['image'=>'chosen']]);check($prefs['skill_favorites']===['plan'],'Preference save erased favorites');
+ check(!array_key_exists('budget',$prefs),'New preference save retained retired budget');
+ $store::owner('preference',$t,1999999906)->update(['preferences'=>$store::encode($prefs+['budget'=>0])]);
+ $read=$store::preferences($t,1999999906);check(!array_key_exists('budget',$read)&&!$store::requiresConfirmation($read,110),'Saved legacy zero budget blocks new automatic run');
  $prefs=$store::preferences($t,1999999906,['favorite_skill'=>['id'=>'plan','favorite'=>'1']]);check($prefs['mode']==='auto'&&$prefs['models']['image']==='chosen'&&count($prefs['skill_favorites'])===1,'Favorite changed preferences or duplicated');
+ check(!array_key_exists('budget',$prefs),'Favorite-only update restored retired budget');
  check(empty($store::preferences($t,1999999907)['skill_favorites'])&&empty($store::preferences($t+1,1999999906)['skill_favorites']),'Favorite ownership leak');
  try{$store::preferences($t,1999999906,['favorite_skill'=>['id'=>'missing','favorite'=>'1']]);throw new LogicException('Unknown skill favorited');}catch(InvalidArgumentException){}
  check($store::preferences($t,1999999906,['favorite_skill'=>['id'=>'plan','favorite'=>'0']])['skill_favorites']===[],'Unfavorite failed');
