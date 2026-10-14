@@ -15,7 +15,9 @@ try{
  pdfFixture($dir.'/doc.pdf');$page=M::pdf($dir.'/doc.pdf',$dir,0);check(str_contains($page['content'],'Lime-7246')&&$page['total_pages']===1&&$page['next_offset']===null,'Native PDF text/pages lost');check(str_starts_with(current($page['visuals']),'data:image/jpeg;base64,'),'Mixed/scanned page visual missing');
  file_put_contents($dir.'/bad.pdf','not a PDF');reject(fn()=>M::pdf($dir.'/bad.pdf',$dir,0));reject(fn()=>M::command(['/bin/sh','-c','true']));
  M::command(['/usr/bin/ffmpeg','-v','error','-y','-f','lavfi','-i','color=c=blue:s=320x180:d=1','-f','lavfi','-i','sine=frequency=440:duration=1','-c:v','mpeg4','-c:a','aac','-shortest',$dir.'/clip.mp4']);
- $video=M::video($dir.'/clip.mp4',$dir,0);check($video['has_audio']&&$video['has_video']&&count($video['visuals'])===4&&$video['next_offset']===null,'Video sampling/track information wrong');check(filesize(M::audio($dir.'/clip.mp4',$dir))>1000,'Audio track not extracted');
+ $video=M::video($dir.'/clip.mp4',$dir,0);check($video['has_audio']&&$video['has_video']&&count($video['visuals'])===4&&$video['next_offset']===null,'Video sampling/track information wrong');check(count($video['frame_times'])===4&&str_contains($video['content'],'画面'),'Visual evidence must be explicitly described');
+ file_put_contents($dir.'/playlist.m3u8',"#EXTM3U\n#EXTINF:1,\n/etc/passwd\n");reject(fn()=>M::probe($dir.'/playlist.m3u8'));
+ check(filesize(M::audio($dir.'/clip.mp4',$dir))>1000,'Audio track not extracted');
  Db::startTrans();try{
   $now=time();$p=['mode'=>'ask','models'=>['text'=>'fixture']];
   $id=S::table('run')->insertGetId(['tenant_id'=>1,'user_id'=>1,'session_id'=>0,'message_id'=>0,'request_id'=>'understanding-'.bin2hex(random_bytes(10)),'payload_hash'=>str_repeat('f',64),'content'=>'理解素材','preferences'=>S::encode($p),'attachments'=>'[]','status'=>'running','phase'=>'tools','reply'=>'','lease_token'=>'test','lease_until'=>$now+600,'create_time'=>$now,'update_time'=>$now]);
@@ -25,6 +27,13 @@ try{
   $before=(float)Db::name('user')->where('id',1)->value('user_money');$r=$reserve->invoke(null,1,1,$prepared);$repeat=$reserve->invoke(null,1,1,$prepared);check(!$repeat['fresh']&&$repeat['task_id']===$r['task_id'],'STT replay created another charge');
   $finish->invoke(null,$r['consumption_id'],true,['file_id'=>$prepared['inputs']['file_id'],'text'=>'Launch starts at nine fifteen.']);$finish->invoke(null,$r['consumption_id'],true,['text'=>'same result']);$uncertain->invoke(null,$r['consumption_id']);
   $after=(float)Db::name('user')->where('id',1)->value('user_money');check(abs(($before-$after)-$quote['user'])<0.001,'STT charged more than one request');check(T::query(1,1,$r['task_id'])['status']==='success','Terminal success downgraded');reject(fn()=>T::query(1,2,$r['task_id']));
+  $audit=Db::name('ai_consumption_log')->where('id',$r['consumption_id'])->value('response_summary');check((S::json($audit)['text']??'')==='Launch starts at nine fifteen.','Terminal receipt overwritten');
+  $sid2=S::table('step')->insertGetId(['tenant_id'=>1,'user_id'=>1,'run_id'=>$id,'step_key'=>hash('sha256','stt-rejected'),'title'=>'拒绝验收','tool_code'=>T::CODE,'prepared'=>'{}','status'=>'submitting','result'=>'','create_time'=>$now,'update_time'=>$now]);
+  $second=$reserve->invoke(null,1,1,array_replace($prepared,['step_id'=>$sid2]));$uncertain->invoke(null,$second['consumption_id']);check(T::query(1,1,$second['task_id'])['status']==='needs_review','Unknown receipt became success');
+  $replay=$reserve->invoke(null,1,1,array_replace($prepared,['step_id'=>$sid2]));check(!$replay['fresh'],'Unknown receipt resubmitted');
+  $finish->invoke(null,$second['consumption_id'],false,['error'=>'Fixture explicit rejection']);$finish->invoke(null,$second['consumption_id'],false,['error'=>'Duplicate rejection']);
+  check(abs((float)Db::name('user')->where('id',1)->value('user_money')-$after)<0.001,'Failed STT did not refund exactly once');
+  S::table('step')->where('id',$sid2)->delete();
   S::table('step')->where('id',$sid)->update(['status'=>'success']);$run=S::run(1,1,$id);check(T::resume($run),'STT completion did not resume answer');$new=S::run(1,1,$id);check($new['phase']==='chat'&&$new['status']==='queued'&&!T::resume($new),'STT continuation repeated');
  }finally{Db::rollback();}
  echo "Home Agent media understanding passed: PDF extraction/rendering, invalid data/command rejection, video sampling/audio extraction, owned STT receipts, one-time billing and continuation; rolled back\n";

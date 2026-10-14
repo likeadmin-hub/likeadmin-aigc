@@ -91,7 +91,9 @@ final class AgentTranscriptionTool
     private static function finish(int $id,bool $success,array $result): void
     {
         // Preserve returned text even if accounting fails; recovery must never dispatch STT again.
-        AiConsumptionLog::where('id',$id)->whereNotIn('billing_status',['settled','refunded'])->update(['response_summary'=>AgentStore::encode($result),'update_time'=>time()]);
+        $receipt=AgentStore::json(AiConsumptionLog::where('id',$id)->value('response_summary'));
+        $audit=$result+array_intersect_key($receipt,array_flip(['http_status','provider_receipt']));
+        AiConsumptionLog::where('id',$id)->whereNotIn('billing_status',['settled','refunded'])->update(['response_summary'=>AgentStore::encode($audit),'update_time'=>time()]);
         Db::transaction(function()use($id,$success,$result){
             $log=AiConsumptionLog::where('id',$id)->lock(true)->find();$task=AiAppTask::find($log['app_task_id']);
             if(in_array($log['billing_status'],['settled','refunded'],true))return;
