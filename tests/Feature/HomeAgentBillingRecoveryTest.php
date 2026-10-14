@@ -171,6 +171,12 @@ namespace {
    S::table('run')->where('id',$id)->update(['preferences'=>S::encode(['mode'=>'ask','models'=>['text'=>$selection]]),'attachments'=>S::encode([['file_id'=>$file]]),'status'=>'running','lease_token'=>'fixture']);
    $run=S::run(1,1,$id);\app\common\service\app\aigc_llm\agent\AgentLongReadService::begin($run,$file);
    S::table('run')->where('id',$id)->update(['phase'=>'reading']);$run=S::run(1,1,$id);
+   $wallet=balance();$billCount=AiConsumptionLog::count();Db::name('user')->where('id',1)->update(['user_money'=>0]);
+   \app\common\service\app\aigc_llm\agent\AgentLongReadService::work($run);
+   check(S::run(1,1,$id)['status']==='failed'&&F::$calls===0&&AiConsumptionLog::count()===$billCount,'Unpaid reading admission became review-only or billed');
+   Db::name('user')->where('id',1)->update(['user_money'=>$wallet]);
+   \app\common\service\app\aigc_llm\agent\AgentLongReadService::resume(1,1,$id);
+   S::table('run')->where('id',$id)->update(['status'=>'running','lease_token'=>'fixture']);$run=S::run(1,1,$id);
    \app\common\service\app\aigc_llm\agent\AgentLongReadService::work($run);
    $c=AiConsumptionLog::order('id','desc')->find();$receipt=\app\common\service\app\aigc_llm\agent\AgentTextReceipt::read(1,1,(int)$c['id']);
    check($c['billing_status']==='settled'&&$receipt['reading_source']['file_id']===$file&&$receipt['reading_source']['offset']===0,'Reading receipt cannot identify paid source segment');

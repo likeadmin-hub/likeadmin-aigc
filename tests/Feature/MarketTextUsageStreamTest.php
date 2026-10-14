@@ -51,3 +51,5 @@ foreach([
  check($normalize->invoke(null,$u)===$u,'Normalization lost usage field provenance');
 }
 echo "Usage completeness passed: missing/invalid counters, explicit zero, totals consistency and equal-price total-only compatibility\n";
+$units=$same;$units['input']['usage_unit_size']=1000;$units['output']['usage_unit_size']=1000000;
+check(!$settle->invoke(null,$units,$normalize->invoke(null,['total_tokens'=>12])),'Different effective token rates settled from total only');

@@ -1753,8 +1753,8 @@ class MarketTextModelRuntimeService
         }
         $input = (array)($snapshot['input'] ?? []);
         $output = (array)($snapshot['output'] ?? []);
-        return (float)($input['platform_price'] ?? 0) === (float)($output['platform_price'] ?? 0)
-            && (float)($input['tenant_price'] ?? 0) === (float)($output['tenant_price'] ?? 0);
+        return (float)($input['platform_price'] ?? 0) / MarketUsageSettlementService::unitSize($input) === (float)($output['platform_price'] ?? 0) / MarketUsageSettlementService::unitSize($output)
+            && (float)($input['tenant_price'] ?? 0) / MarketUsageSettlementService::unitSize($input) === (float)($output['tenant_price'] ?? 0) / MarketUsageSettlementService::unitSize($output);
     }
 
     private static function protocol(string $default, array $protocols, string $modelCode = ''): string
