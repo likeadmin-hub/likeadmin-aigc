@@ -243,6 +243,7 @@
     },
     {
       "api_path": "app.aigc_llm.agent/upload",
+      "description": "上传图片、视频、音频（最大50MB）或 TXT、Markdown、CSV、DOCX（最大10MB、正文20万字）；文档校验后存储，由当前会话按需分段读取",
       "api_method": "POST",
       "permission_key": "aigc_llm:agent:upload:user",
       "scene": "user",
