@@ -254,3 +254,5 @@ Validation: missing/corrupt preview-map fixtures, an intentionally failing previ
 - 上传 PDF 限 10MB、100 页；音视频限 50MB、10 分钟。解析临时目录私有且 finally 清理；本地文件限定 uploads 真实路径，远程文件走 OpenSafeHttp。上游使用本地提取音轨 multipart 上传。
 - 部署依赖：PHP proc_open、Poppler `/usr/bin/pdfinfo,pdftotext,pdftoppm`，FFmpeg `/usr/bin/ffmpeg,ffprobe`。Debian 安装 `apt-get install poppler-utils ffmpeg`。缺依赖时报明确错误，不伪装已理解。建议独立低权限 Worker 并设置容器 CPU/内存限额。
 - 转写只识别语音，不能保证识别音乐、音效、说话人身份。语音工具报价不包含按实际 Token 结算的对话模型费用。
+
+宝塔可能默认禁用 `proc_open`。不要全局修改 FPM：用 `AGENT_PHP_BIN=/www/server/php/82/bin/php sh scripts/home-agent-php.sh think home-agent:worker` 启动此 Worker。脚本仅对该 CLI 进程移除 `proc_open` 禁用项，保留其他禁用函数。测试同样通过此包装器调用。
