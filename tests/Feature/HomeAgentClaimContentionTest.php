@@ -7,6 +7,7 @@ namespace app\common\service\app\aigc_llm\agent {
     }
     final class ClaimQuery {
         public function __call(string $name,array $args){
+            if($name==='column')return [];
             if($name==='select')return new class {public function toArray():array{return [];}};
             if($name==='find'){
                 AgentStore::$claims++;
