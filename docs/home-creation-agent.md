@@ -14,7 +14,7 @@
 | 转写回执恢复、结算、退款、人工核对 | 已实现；任务 4034 仍缺原始回执，40 算力预占待核对 |
 | 本地常驻与并发恢复 | 已加入统一 Supervisor 组；三进程六任务、提交中断及自动拉起验收通过 |
 | 历史文本账务 | 既有 41 条缺可信用量记录仍待上游依据；不自动补扣 |
-| 更多文本工具协议 | 当前首页 Agent 仍只开放 OpenAI Chat；Responses、Anthropic 原生工具往返待接入 |
+| 更多文本工具协议 | OpenAI Chat 已支持；Anthropic 原生往返与离线回归已完成，当前租户无可用模型，真实验收待补；Responses 待接入 |
 | 配音/TTS 及其他非工作室工具 | 待按具体工具契约逐项接入和验收 |
 | 生产部署及生产负载验证 | 本地验证不能替代生产验收；尚未执行 |
 
@@ -36,7 +36,21 @@
 
 图片/视频使用原业务服务的真实报价和价格快照，执行前重新检查报价，变更后重新确认。随机加密 IV 不会触发错误的报价变更。Agent 不额外扣生成积分，不伪造 API Key 或开放平台账单。
 
-当前首发文本工具协议为 OpenAI Chat。Responses 和 Anthropic 原生工具往返尚未接入，首页模型目录暂不展示这些协议；旧聊天仍沿用原有协议支持。模型协议兼容不等于上游保证支持所有工具，需真实供应商验收。
+首页文本工具协议支持 OpenAI Chat 与 Anthropic Messages（后者真实供应商验收待补）；Responses 原生工具往返仍未接入，首页目录暂不展示 Responses。市场目录、租户上架与定价仍为模型可用性的前提。模型协议兼容不等于供应商保证支持所有工具。
+
+### Anthropic 原生工具接入与验收（2026-10-14）
+
+- 只修改 server，任务分支 `feature/agent-enhancements`。无前端、迁移、菜单、权限或公开 API 变更；不接入工作室工具。
+- 统一文本服务转换 Neuron 工具历史为 `tool_use` / `tool_result`，合并并行结果，支持 URL/base64 图片；固定本轮选定模型。
+- 原生 SSE 分离正文、参数 JSON 分片、结束标记和分段 usage；思考与签名块不展示。首页禁用扩展思考，因为当前 Neuron 历史不保留其签名块。
+- 完整结束且所有参数合法后才执行工具。收到回执后断流、截断或参数不完整，不重提、不直接补扣、不误记退款：保留回执、部分正文与用量，进入既有 `settlement_failed` / Agent `needs_review`。以 `usage_complete=false`、`provider_stream_incomplete` 标识仍需上游证据。没有新增状态枚举。
+- 调用方统一收到 prompt/completion/total token；正常结算仍使用实际用量和原价格快照。旧文本无回执错误路径不在本次调整范围。
+
+验证：`HomeAgentAnthropicProtocolTest` 使用真实 Neuron 与 SSE 字节缓冲，模拟原生供应商线协议，覆盖并行工具、中文碎片、文本顺序、空参数、图片、思考隔离、截断拒绝、用量和 Chat 兼容。`HomeAgentBillingRecoveryTest` 使用真实本地事务与账务，模拟正常原生输出和收到回执后的断流/超时；不重提、不扣错、不误退款、保留证据，夹具全部回滚。其余通过的回归：MarketTextUsageStream、HomeAgentProvider、HomeAgentVisibleReply、HomeAgentContextChat；PHPUnit MarketTextModelPayloadContract（9 项）、ShortDramaTextModelContract（10 项）、CanvasNeuronRuntime（10 项）。
+
+真实验收限制：读取租户 1 可执行市场目录，没有 Anthropic Messages 模型。本阶段未发起真实 Claude 请求、未产生真实测试费用、未修改用户模型偏好，也未自行上架模型。需有效模型上架后补真实工具往返、usage 与账单验收。任务 4034 的历史 40 算力预占未变更。Responses、配音/TTS 和生产部署仍待后续。
+
+协议依据：[Anthropic Messages API](https://platform.claude.com/docs/en/api/messages/create)、[工具使用](https://platform.claude.com/docs/claude/docs/tool-use)、[扩展思考与工具历史](https://platform.claude.com/docs/en/docs/build-with-claude/extended-thinking)。
 
 ## 工具接入方法
 
