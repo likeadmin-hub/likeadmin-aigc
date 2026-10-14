@@ -36,12 +36,18 @@ class MarketVideoRuntimeService
 
     public static function options(int $tenantId, string $resourceType): array
     {
+        return MarketCatalogReadScope::remember('video:' . $tenantId . ':' . $resourceType, static fn(): array => self::buildOptions($tenantId, $resourceType));
+    }
+
+    private static function buildOptions(int $tenantId, string $resourceType): array
+    {
         $where = ['resource_type' => $resourceType, 'status' => 1];
         if ($resourceType === PowerMarketService::TYPE_MODEL) {
             $where['model_type'] = 'video';
         }
         $products = PowerMarketProduct::where($where)->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
         TenantPowerMarketService::applyProductDisplays($tenantId, $products);
+        $catalogueSkus = MarketCatalogSkuReader::forProducts($tenantId, array_column($products, 'id'), ['sort' => 'desc', 'id' => 'asc']);
         $options = [];
         foreach ($products as $product) {
             if ($resourceType === PowerMarketService::TYPE_APP_API
@@ -51,7 +57,7 @@ class MarketVideoRuntimeService
             if ($resourceType === PowerMarketService::TYPE_APP_API && self::isShadowedAppApi($product, $products)) {
                 continue;
             }
-            $skus = self::availableSkus($tenantId, (int)$product['id']);
+            $skus = $catalogueSkus[(int)$product['id']]['available'] ?? [];
             if ($skus === []) {
                 $options[] = self::unavailableOption($resourceType, $product, '暂无可售 SKU');
                 continue;

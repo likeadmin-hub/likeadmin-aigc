@@ -2099,6 +2099,11 @@ class AigcShortDramaService
 
     public static function home(int $tenantId, int $userId): array
     {
+        return \app\common\service\power\MarketCatalogReadScope::run(static fn(): array => self::buildHome($tenantId, $userId));
+    }
+
+    private static function buildHome(int $tenantId, int $userId): array
+    {
         $config = self::publicConfig($tenantId);
         $userModelGroups = array_merge(
             self::userScriptModelGroups((array)($config['model_groups'] ?? []), (array)($config['models'] ?? [])),
