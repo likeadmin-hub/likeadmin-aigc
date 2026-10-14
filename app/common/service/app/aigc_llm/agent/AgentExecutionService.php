@@ -238,19 +238,7 @@ final class AgentExecutionService
                 if($current['status']!=='awaiting_confirmation'||$current['lease_token']!==$run['lease_token'])return;
                 try{$result=AgentCapabilityCatalog::query($run,$step['tool_code'],(int)$step['task_id']);}
                 catch(\Throwable $e){continue;}
-                $status=(string)($result['status']??'');
-                $done=in_array($status,['success','completed','succeeded','partial_success'],true);
-                $failed=in_array($status,['failed','error','canceled','cancelled'],true);
-                $state=$done?'success':($failed?'failed':($status==='needs_review'?'needs_review':'running'));
-                Db::transaction(static function()use($run,$step,$result,$done,$failed,$state){
-                    $current=AgentStore::owner('run',(int)$run['tenant_id'],(int)$run['user_id'])->where('id',$run['id'])->lock(true)->find();
-                    if(!$current||$current['status']!=='awaiting_confirmation'||$current['lease_token']!==$run['lease_token'])return;
-                    // Result registration is local and idempotent; provider query above holds no DB lock.
-                    if($done)AgentArtifactService::collect($current,$step,$result);
-                    AgentStore::owner('step',(int)$run['tenant_id'],(int)$run['user_id'])->where(['id'=>$step['id'],'task_id'=>$step['task_id']])->whereIn('status',['running','submitting'])
-                        ->update(['status'=>$state,'result'=>AgentStore::encode($result),'error'=>$failed?'生成未完成，请检查该任务后重试':($state==='needs_review'?'原任务结果待核对':''),'update_time'=>time()]);
-                    AgentStore::event($current,'task.updated',['step_id'=>$step['id'],'status'=>$state]);
-                });
+                self::recordStepOutcome($run,$step,$result);
             }
         }finally{self::releaseConfirmationPoll($run);}
     }
@@ -470,36 +458,88 @@ final class AgentExecutionService
                 try{$result=AgentCapabilityCatalog::submit($fresh);}
                 catch(\Throwable $e){
                     Log::error('Home Agent step '.$step['id'].' submit: '.get_class($e));
-                    $bound=(int)AgentStore::table('step')->where('id',$step['id'])->value('task_id');
-                    AgentStore::table('step')->where('id',$step['id'])->update(['status'=>$bound?'running':'needs_review','error'=>$bound?'正在恢复已受理的任务':'提交结果待核对，请勿重复提交','update_time'=>time()]);
-                    $waiting=$waiting||$bound>0;$review=$review||!$bound;continue;
+                    $state=self::recordStepOutcome($run,$step,null,true);
+                    if($state===null)return;
+                    $waiting=$waiting||$state==='running';$review=$review||$state==='needs_review';continue;
                 }
-                $taskId=(int)($result['task_id']??0);
-                if($taskId<1){AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'needs_review','error'=>'未收到有效任务标识，请勿重复提交','update_time'=>time()]);$review=true;continue;}
-                AgentStore::table('step')->where('id',$step['id'])->update(['task_id'=>$taskId,'result'=>AgentStore::encode($result),'status'=>'running','update_time'=>time()]);
-                $step['task_id']=$taskId;
+                $state=self::recordStepOutcome($run,$step,$result,true);
             }else{
                 if(!(int)$step['task_id'])throw new \RuntimeException('任务提交结果待核对');
-                try{$result=AgentCapabilityCatalog::query($run,$step['tool_code'],(int)$step['task_id']);}
-                catch(\Exception $e){
-                    $expired=time()-(int)$run['create_time']>86400;
-                    AgentStore::table('step')->where('id',$step['id'])->update(['status'=>$expired?'needs_review':'running','error'=>$expired?'任务状态无法确认，请人工核对':'查询暂不可用，正在恢复','update_time'=>time()]);
-                    $review=$review||$expired;$waiting=$waiting||!$expired;continue;
+                // A completed native receipt survives local result-registration failures.
+                $result=AgentStore::json($step['result']);
+                if(empty($result['_agent_collection_pending'])){
+                    try{$result=AgentCapabilityCatalog::query($run,$step['tool_code'],(int)$step['task_id']);}
+                    catch(\Exception $e){
+                        $state=self::recordStepOutcome($run,$step,null);
+                        if($state===null)return;
+                        $review=$review||$state==='needs_review';$waiting=$waiting||$state==='running';continue;
+                    }
                 }
+                $state=self::recordStepOutcome($run,$step,$result);
             }
-            $status=(string)($result['status']??(!empty($result['results'])?'success':'running'));
-            $done=in_array($status,['success','completed','succeeded','partial_success'],true);$error=in_array($status,['failed','error','canceled','cancelled'],true);
-            $uncertain=$status==='needs_review';$state=$done?'success':($error?'failed':($uncertain?'needs_review':'running'));$review=$review||$uncertain;
-            if($done){try{AgentArtifactService::collect($run,$step,$result);}catch(\Throwable $e){$waiting=true;continue;}}
-            AgentStore::table('step')->where('id',$step['id'])->update(['status'=>$state,'result'=>AgentStore::encode($result),'error'=>$error?'生成未完成，请检查该任务后重试':'','update_time'=>time()]);
-            AgentStore::event($run,'task.updated',['step_id'=>$step['id'],'status'=>$state]);
-            $waiting=$waiting||!($done||$error||$uncertain);$failed=$failed||$error||$status==='partial_success';$success=$success||$done;
+            if($state===null)return;
+            $waiting=$waiting||$state==='running';$failed=$failed||$state==='failed'||($result['status']??'')==='partial_success';
+            $success=$success||$state==='success';$review=$review||$state==='needs_review';
         }
         if($waiting){AgentStore::update($run,['status'=>'waiting_tasks','next_run_time'=>time()+5,'lease_token'=>'','lease_until'=>0]);return;}
         $current=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
         if(!$review&&!$failed&&!(int)$current['cancel_requested']&&AgentTranscriptionTool::resume($run))return;
         if(!$review&&!$failed&&!(int)$current['cancel_requested']&&AgentSequenceService::advance($run))return;
         self::finish($run,$review?'needs_review':((int)$current['cancel_requested']?'canceled':($failed?($success?'partial_success':'failed'):'success')),$review?'部分提交结果待核对；已知任务结果已保留':'');
+    }
+    /** Fence every response, including failures. Native query/submit never holds these locks. */
+    private static function recordStepOutcome(array $run,array $step,?array $result,bool $submission=false): ?string
+    {
+        return Db::transaction(static function()use($run,$step,$result,$submission){
+            $tenant=(int)$run['tenant_id'];$user=(int)$run['user_id'];
+            $current=AgentStore::owner('run',$tenant,$user)->where('id',$run['id'])->lock(true)->find();
+            $saved=AgentStore::owner('step',$tenant,$user)->where(['id'=>$step['id'],'run_id'=>$run['id']])->lock(true)->find();
+            if(!$current||!$saved||in_array($saved['status'],['success','failed','canceled'],true))return null;
+            $task=(int)($result['task_id']??$saved['task_id']);
+            if($task>0&&(int)$saved['task_id']>0&&$task!==(int)$saved['task_id'])return null;
+            $owned=!empty($run['lease_token'])&&$current['lease_token']===$run['lease_token']
+                &&in_array($current['status'],['running','awaiting_confirmation'],true)&&(int)$current['lease_until']>=time();
+            if(!$owned){
+                // A late accepted submission is evidence, not permission to restart a run or replace a final result.
+                if($submission&&$result!==null&&$task>0&&!(int)$saved['task_id']&&in_array($saved['status'],['submitting','needs_review'],true))
+                    AgentStore::owner('step',$tenant,$user)->where('id',$saved['id'])->update(['task_id'=>$task,'result'=>AgentStore::encode($result),'update_time'=>time()]);
+                return null;
+            }
+            if(!in_array($saved['status'],['submitting','running'],true))return null;
+            if(!$submission&&((int)$saved['task_id']!==(int)$step['task_id']||AgentPlanService::version($saved)!==AgentPlanService::version($step)))return null;
+            $prepared=AgentStore::json($saved['prepared']);
+            if(empty($prepared['_execution']['started_at'])){
+                // Legacy steps: use their real admission event, never the age of the conversation/plan.
+                $started=0;
+                foreach(AgentStore::owner('event',$tenant,$user)->where(['run_id'=>$run['id'],'event_type'=>'tool.started'])->order('id')->select()->toArray() as $event)
+                    if((int)(AgentStore::json($event['payload'])['step_id']??0)===(int)$saved['id']){$started=(int)$event['create_time'];break;}
+                $prepared['_execution']['started_at']=$started?:time();
+            }
+            $error='';
+            if($result===null){
+                $state=$submission?((int)$saved['task_id']?'running':'needs_review'):(time()-(int)$prepared['_execution']['started_at']>86400?'needs_review':'running');
+                $error=$submission?($state==='running'?'正在恢复已受理的任务':'提交结果待核对，请勿重复提交'):($state==='needs_review'?'任务状态无法确认，请人工核对':'查询暂不可用，正在恢复');
+            }elseif($task<1){$state='needs_review';$error='未收到有效任务标识，请勿重复提交';}
+            else{
+                $status=(string)($result['status']??(!empty($result['results'])?'success':'running'));
+                $done=in_array($status,['success','completed','succeeded','partial_success'],true);
+                $failed=in_array($status,['failed','error','canceled','cancelled'],true);
+                $state=$done?'success':($failed?'failed':($status==='needs_review'?'needs_review':'running'));
+                if($done){
+                    try{$result['_agent_artifact_ids']=Db::transaction(static fn()=>AgentArtifactService::collect($current,$saved,$result));unset($result['_agent_collection_pending']);}
+                    catch(\Throwable $e){
+                        $state='running';$error='结果正在保存，稍后自动恢复';
+                        // Invalid ownership/identity must be queried again, never accepted from a cached receipt.
+                        $result['_agent_collection_pending']=!($e instanceof \app\common\service\open_platform\OpenException);
+                    }
+                }elseif($failed)$error='生成未完成，请检查该任务后重试';
+            }
+            $values=['status'=>$state,'prepared'=>AgentStore::encode($prepared),'error'=>$error,'update_time'=>time()];
+            if($result!==null)$values+=['task_id'=>$task,'result'=>AgentStore::encode($result)];
+            AgentStore::owner('step',$tenant,$user)->where('id',$saved['id'])->update($values);
+            AgentStore::event($current,'task.updated',['step_id'=>$saved['id'],'status'=>$state]);
+            return $state;
+        });
     }
     /** The submitting transition is the admission point. A stale worker may never acquire it twice. */
     private static function admitStep(array $run,array $step,?array $fresh): string
@@ -524,7 +564,8 @@ final class AgentExecutionService
                 self::finishMessage($run,'done');
                 AgentStore::event($run,'plan.changed',['reason'=>'模型契约或报价变化，请重新确认剩余步骤']);return 'changed';
             }
-            $query->update(['status'=>'submitting','update_time'=>time()]);
+            $prepared['_execution']=['started_at'=>time()];
+            $query->update(['status'=>'submitting','prepared'=>AgentStore::encode($prepared),'update_time'=>time()]);
             AgentStore::event($run,'tool.started',['step_id'=>$step['id'],'title'=>$step['title']]);
             return 'submitting';
         });
