@@ -50,6 +50,7 @@ final class VirtualPayRefundService
     }
     public function request(int $tenant,int $actor,int $id): array
     {
+        VirtualPayPolicy::assertRuntime();
         $i=self::owned($tenant,$id);if($i['status']!=='paid')throw new \RuntimeException('请先核对到账状态后再处理退款');
         $o=$this->pay->query($i);if((int)$o['order_type']===7||(int)$i['order_type']===7)throw new \RuntimeException('Apple 支付不支持开发者主动退款，请引导用户在 App Store 申请退款');
         return Db::transaction(function()use($tenant,$actor,$id,$i){
@@ -83,23 +84,23 @@ final class VirtualPayRefundService
                 $r=$this->pay->gateway()->request($v,'/xpay/query_order',['openid'=>$i['openid'],'env'=>(int)$i['env'],'order_id'=>$i['refund_order_id']]);$refund=$r['order']??[];VirtualPayPolicy::assertRuntime();
                 if(($refund['order_id']??'')!==$i['refund_order_id']||(int)($refund['env_type']??0)!==(int)$i['env']+1||!in_array((int)($refund['order_type']??-1),[1,8],true)||(int)($refund['refund_fee']??-1)!==(int)$i['refund_cents'])throw new \RuntimeException('原退款请求身份或金额核对失败，暂不能再次退款');
                 if((int)$refund['status']===8){$this->complete($i,$refund);return true;}
-                if((int)$refund['status']!==7){Db::name('virtual_pay_intent')->where('id',$id)->update(['refund_status'=>'processing','updated_at'=>time()]);return false;}
+                if((int)$refund['status']!==7){Db::name('virtual_pay_intent')->where('id',$id)->where('refund_status','<>','success')->update(['refund_status'=>'processing','updated_at'=>time()]);return false;}
             }
-            $eligibility=$this->eligibility($i);if (!$eligibility['safe']) { Db::name('virtual_pay_intent')->where('id',$id)->update(['refund_status'=>'manual','last_error'=>$eligibility['reason'],'updated_at'=>time()]);return false; }
+            $eligibility=$this->eligibility($i);if (!$eligibility['safe']) { Db::name('virtual_pay_intent')->where('id',$id)->where('refund_status','<>','success')->update(['refund_status'=>'manual','last_error'=>$eligibility['reason'],'updated_at'=>time()]);return false; }
             $original=$this->pay->query($i);if((int)$original['order_type']===7)throw new \RuntimeException('该交易为 Apple 支付，请等待用户渠道退款');
             if((int)($original['left_fee']??-1)!==(int)$i['refund_cents'])throw new \RuntimeException('剩余可退金额与全额退款不一致，请人工核对');
             VirtualPayPolicy::assertRuntime();
-            Db::name('virtual_pay_intent')->where('id',$id)->update(['refund_requested_at'=>time(),'refund_status'=>'submitting','updated_at'=>time()]);
+            Db::name('virtual_pay_intent')->where('id',$id)->where('refund_status','<>','success')->update(['refund_requested_at'=>time(),'refund_status'=>'submitting','updated_at'=>time()]);
             $this->pay->gateway()->request($v,'/xpay/refund_order',['openid'=>$i['openid'],'order_id'=>$i['out_trade_no'],'refund_order_id'=>$i['refund_order_id'],'left_fee'=>(int)$original['left_fee'],'refund_fee'=>(int)$i['refund_cents'],'biz_meta'=>$i['attach'],'refund_reason'=>'3','req_from'=>'1','env'=>(int)$i['env']]);
-            VirtualPayPolicy::assertRuntime();Db::name('virtual_pay_intent')->where('id',$id)->update(['refund_status'=>'processing','updated_at'=>time()]);return false;
-        }catch(\Throwable $e){if(!(function_exists('aigc_runtime_generation_changed')&&\aigc_runtime_generation_changed()))Db::name('virtual_pay_intent')->where('id',$id)->update(['refund_status'=>'unknown','last_error'=>VirtualPayPolicy::error($e),'updated_at'=>time()]);throw $e;}
+            VirtualPayPolicy::assertRuntime();Db::name('virtual_pay_intent')->where('id',$id)->where('refund_status','<>','success')->update(['refund_status'=>'processing','updated_at'=>time()]);return false;
+        }catch(\Throwable $e){if(!(function_exists('aigc_runtime_generation_changed')&&\aigc_runtime_generation_changed()))Db::name('virtual_pay_intent')->where('id',$id)->where('refund_status','<>','success')->update(['refund_status'=>'unknown','last_error'=>VirtualPayPolicy::error($e),'updated_at'=>time()]);throw $e;}
         finally{try{Db::query('SELECT RELEASE_LOCK(?)',[$lock]);}catch(\Throwable){}}
     }
     private function checkExternalRefund(array $i): bool
     {
         $o=$this->pay->query($i);VirtualPayPolicy::assertRuntime();
         if((int)$o['status']===8&&(int)($o['left_fee']??-1)===0){$this->complete($i,$o);return true;}
-        if((int)$o['status']===5){Db::name('virtual_pay_intent')->where('id',$i['id'])->update(['refund_status'=>'processing','updated_at'=>time()]);return false;}
+        if((int)$o['status']===5){Db::name('virtual_pay_intent')->where('id',$i['id'])->where('refund_status','<>','success')->update(['refund_status'=>'processing','updated_at'=>time()]);return false;}
         return false;
     }
     public function complete(array $i,array $proof): void
@@ -134,6 +135,7 @@ final class VirtualPayRefundService
     }
     public function event(int $tenant,string $app,array $m): array
     {
+        VirtualPayPolicy::assertRuntime();
         $reference=(string)($m['pay_order_id']??$m['MchOrderId']??'');$i=Db::name('virtual_pay_intent')->where(['tenant_id'=>$tenant,'app_id'=>$app])->where(function($q)use($reference){$q->where('out_trade_no',$reference)->whereOr('wx_order_id',$reference);})->find();
         if(($m['Event']??'')==='xpay_subscribe_ios_refund_query_notify'){
             $p=$i?$this->eligibility($i,false):['safe'=>false,'reason'=>'订单尚无法自动归属，需要人工核对'];
@@ -142,12 +144,20 @@ final class VirtualPayRefundService
         if(!$i)throw new \RuntimeException('退款通知未关联原支付订单');
         if ($i['refund_status']==='success') return ['ErrCode'=>0,'ErrMsg'=>''];
         if(isset($m['OpenId'])&&$m['OpenId']!==$i['openid'])throw new \RuntimeException('退款通知用户不匹配');
-        $channel=$this->pay->query($i);
-        if (!in_array((int)$channel['status'],[5,8],true) && ($i['refund_source']??'none')!=='merchant') throw new \RuntimeException('渠道退款状态尚未确认，请稍后核对');
-        if(VirtualPayPolicy::integer($m['RefundFee']??null)!==(int)$i['amount_cents']){Db::name('virtual_pay_intent')->where('id',$i['id'])->update(['refund_status'=>'manual','last_error'=>'收到部分退款通知，请人工核对','updated_at'=>time()]);return ['ErrCode'=>0,'ErrMsg'=>''];}
-        $sn=(string)($m['MchRefundId']??'');if($i['refund_order_id']!==''&&$sn!==''&&$sn!==$i['refund_order_id'])throw new \RuntimeException('退款通知编号与原请求不一致，请人工核对');
-        Db::name('virtual_pay_intent')->where('id',$i['id'])->update(['refund_source'=>($i['refund_source']??'none')==='merchant'?'merchant':'channel','refund_status'=>'processing','refund_order_id'=>$i['refund_order_id']?:$sn,'refund_cents'=>$i['amount_cents'],'updated_at'=>time()]);
-        Db::name('virtual_pay_work')->extra('IGNORE')->insert(['intent_id'=>$i['id'],'kind'=>'refund','next_at'=>time(),'updated_at'=>time()]);Db::name('virtual_pay_work')->where(['intent_id'=>$i['id'],'kind'=>'refund'])->update(['status'=>'pending','next_at'=>time(),'updated_at'=>time()]);
-        return ['ErrCode'=>0,'ErrMsg'=>''];
+        $channel=$this->pay->query($i);VirtualPayPolicy::assertRuntime();
+        return Db::transaction(function()use($tenant,$i,$m,$channel){
+            // The worker may have completed while this notification was querying the channel.
+            VirtualPayService::order($tenant,(int)$i['user_id'],$i['biz_type'],(int)$i['order_id'],true);
+            Db::name('tenant_package_price_snapshot')->where(['tenant_id'=>$tenant,'biz_type'=>$i['biz_type'],'order_id'=>$i['order_id']])->lock(true)->find();
+            $i=self::owned($tenant,(int)$i['id'],true);VirtualPayPolicy::assertRuntime();
+            if($i['refund_status']==='success')return ['ErrCode'=>0,'ErrMsg'=>''];
+            if(!in_array((int)$channel['status'],[5,8],true)&&$i['refund_source']!=='merchant')throw new \RuntimeException('渠道退款状态尚未确认，请稍后核对');
+            if(VirtualPayPolicy::integer($m['RefundFee']??null)!==(int)$i['amount_cents']){Db::name('virtual_pay_intent')->where('id',$i['id'])->update(['refund_status'=>'manual','last_error'=>'收到部分退款通知，请人工核对','updated_at'=>time()]);return ['ErrCode'=>0,'ErrMsg'=>''];}
+            $sn=(string)($m['MchRefundId']??'');if($i['refund_order_id']!==''&&$sn!==''&&$sn!==$i['refund_order_id'])throw new \RuntimeException('退款通知编号与原请求不一致，请人工核对');
+            Db::name('virtual_pay_intent')->where('id',$i['id'])->update(['refund_source'=>$i['refund_source']==='merchant'?'merchant':'channel','refund_status'=>'processing','refund_order_id'=>$i['refund_order_id']?:$sn,'refund_cents'=>$i['amount_cents'],'updated_at'=>time()]);
+            VirtualPayMaintenanceService::enqueue((int)$i['id'],'refund');
+            Db::name('virtual_pay_work')->where(['intent_id'=>$i['id'],'kind'=>'refund'])->where('status','<>','running')->update(['status'=>'pending','next_at'=>time(),'updated_at'=>time()]);
+            return ['ErrCode'=>0,'ErrMsg'=>''];
+        });
     }
 }
