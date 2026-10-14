@@ -13472,6 +13472,17 @@
           "unit": "rpx",
           "min": 0,
           "max": 48
+        },
+        "item_width": {
+          "key": "item_width",
+          "label": "子项宽度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 1500,
+          "help": "仅该横滑容器的直接子组件；0或未填写保留原78%宽度，正值使用rpx，不修改嵌套后代或子组件内部图片宽度。"
         }
       },
       "style_fields": {
@@ -13843,7 +13854,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "Single-row children container; source rows do not create children.",
+        "Single-row children container; source rows do not create children. Optional item_width is 0–1500rpx: 0/absent retains legacy78%; positive width affects only direct children, never nested descendants or row image widths.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -24301,5 +24312,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "b4eaa2b17c298e643349f84d630ff5123a80bd6e078de983268498b35c2fe274"
+  "hash": "1ced6e2c73c3cd40f472efe81fa3d551128f6afc18b0b390ed6b98d339d06566"
 }
