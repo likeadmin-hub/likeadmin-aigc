@@ -59,11 +59,11 @@ class PaymentLogic extends BaseLogic
         try {
             if ($params['from'] == 'recharge') {
                 // 充值
-                $order = RechargeOrder::findOrEmpty($params['order_id'])->toArray();
+                $order = \app\common\service\virtualpay\VirtualPayService::order((int)$params['tenant_id'],(int)$userId,'recharge',(int)$params['order_id'])->toArray();
             }
             if ($params['from'] == 'membership') {
                 // 会员购买
-                $order = MembershipOrder::findOrEmpty($params['order_id'])->toArray();
+                $order = \app\common\service\virtualpay\VirtualPayService::order((int)$params['tenant_id'],(int)$userId,'membership',(int)$params['order_id'])->toArray();
             }
             if ($params['from'] == TenantPowerMallService::FROM) {
                 $order = TenantPowerOrder::findOrEmpty($params['order_id'])->toArray();
@@ -91,6 +91,16 @@ class PaymentLogic extends BaseLogic
                 throw new \Exception('待支付订单不存在');
             }
 
+            if (in_array($params['from'], ['recharge','membership'], true) && $terminal === UserTerminalEnum::WECHAT_MMP && (float)$order['order_amount'] > 0) {
+                $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$params['from'],(int)$order['id']);
+                $virtual=(int)$order['pay_way']===PayEnum::VIRTUAL_PAY;
+                if (!$virtual && $snapshot) {
+                    try { $config=\app\common\service\virtualpay\VirtualPayConfigService::detail((int)$order['tenant_id'],0);$virtual=(bool)$config['enabled']; } catch (\Exception $e) { $virtual=false; }
+                }
+                if ($virtual) return ['lists'=>[['id'=>0,'name'=>'微信虚拟支付','pay_way'=>PayEnum::VIRTUAL_PAY,'is_default'=>1,'icon'=>'','extra'=>'微信小程序虚拟商品支付']], 'order_amount'=>$order['order_amount'],'expires_at'=>(int)($snapshot['expires_at']??0)];
+            }
+
+            if (in_array($params['from'],['recharge','membership'],true) && (int)$order['pay_way']===PayEnum::VIRTUAL_PAY && $terminal!==UserTerminalEnum::WECHAT_MMP) throw new \RuntimeException('该订单已在微信小程序发起支付，请在原小程序核对结果');
             // 租户购买平台算力必须使用平台侧收款配置，不能读取租户给终端用户收款的配置。
             $pay_way = in_array($params['from'],[TenantBrandService::FROM_ORDER,TenantBrandService::FROM_QUOTA],true) && (int)($order['flow_version']??1)===2
                 ? (new \app\common\service\brand\BrandChannelGateway())->ways($params['from'],$order,(int)$terminal)
@@ -193,6 +203,13 @@ class PaymentLogic extends BaseLogic
     public static function getPayStatus($params)
     {
         try {
+            if (in_array($params['from'],['recharge','membership'],true)) {
+                $owned=\app\common\service\virtualpay\VirtualPayService::order((int)$params['tenant_id'],(int)$params['user_id'],$params['from'],(int)$params['order_id']);
+                if ((int)$owned['pay_way']===PayEnum::VIRTUAL_PAY) {
+                    $status=(new \app\common\service\virtualpay\VirtualPayService())->status((int)$params['tenant_id'],(int)$params['user_id'],$params['from'],(int)$params['order_id']);
+                    return $status+['pay_status'=>$status['delivery_status']==='granted'?1:0,'pay_way'=>PayEnum::VIRTUAL_PAY,'order'=>['order_id'=>(int)$owned['id'],'order_amount'=>$owned['order_amount']]];
+                }
+            }
             $order = [];
             $orderInfo = [];
             switch ($params['from']) {
@@ -358,13 +375,13 @@ class PaymentLogic extends BaseLogic
         try {
             switch ($params['from']) {
                 case 'recharge':
-                    $order = RechargeOrder::findOrEmpty($params['order_id']);
+                    $order = \app\common\service\virtualpay\VirtualPayService::order((int)$params['tenant_id'],(int)$params['user_id'],'recharge',(int)$params['order_id']);
                     if ($order->isEmpty()) {
                         throw new \Exception('充值订单不存在');
                     }
                     break;
                 case 'membership':
-                    $order = MembershipOrder::findOrEmpty($params['order_id']);
+                    $order = \app\common\service\virtualpay\VirtualPayService::order((int)$params['tenant_id'],(int)$params['user_id'],'membership',(int)$params['order_id']);
                     if ($order->isEmpty()) {
                         throw new \Exception('会员订单不存在');
                     }
@@ -448,6 +465,17 @@ class PaymentLogic extends BaseLogic
         if (in_array($from, [TenantPowerMallService::FROM, TenantBrandService::FROM_QUOTA], true) && !self::isTenantPowerPayWayEnabled((int)$payWay, (int)$terminal)) {
             self::setError('支付方式不可用');
             return false;
+        }
+
+        if (in_array($from,['recharge','membership'],true)) {
+            $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$from,(int)$order['id']);
+            if ($snapshot && ($snapshot['status']!=='pending'||(int)$snapshot['expires_at']<=time())) { self::setError('订单已过期或关闭，请先核对支付结果');return false; }
+            if ((int)$order['pay_way']===PayEnum::VIRTUAL_PAY) { self::setError('该订单已发起虚拟支付，请核对原交易后操作');return false; }
+            if ($terminal===UserTerminalEnum::WECHAT_MMP && $snapshot && (float)$order['order_amount']>0) {
+                try { $config=\app\common\service\virtualpay\VirtualPayConfigService::detail((int)$order['tenant_id'],0); }
+                catch (\Exception $e) { $config=['enabled'=>0]; }
+                if ($config['enabled']) { self::setError('请使用微信小程序虚拟支付');return false; }
+            }
         }
 
         // 支付编号-仅为微信支付预置(同一商户号下不同客户端支付需使用唯一订单号)

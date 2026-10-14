@@ -11,6 +11,19 @@ use think\facade\Cache;
 /** Handles unauthenticated callbacks from the WeChat open platform. */
 class OpenPlatformCallbackService
 {
+    private static function virtualReply(string $app,array $event,bool $json): array
+    {
+        if($app==='')throw new \RuntimeException('虚拟支付回调缺少小程序身份');
+        $sn=(string)($event['OutTradeNo']??$event['MchOrderId']??$event['pay_order_id']??'');
+        if($sn!=='')$tenant=(int)(\think\facade\Db::name('virtual_pay_intent')->where(['app_id'=>$app,'out_trade_no'=>$sn])->value('tenant_id')??0);
+        else $tenant=(int)(WechatAuthorizer::withoutGlobalScope()->where(['authorizer_appid'=>$app,'authorizer_type'=>'miniprogram'])->value('tenant_id')??0);
+        if($tenant<=0)throw new \RuntimeException('虚拟支付回调未关联原租户');
+        $result=(new \app\common\service\virtualpay\VirtualPayNotifyService())->event($tenant,$app,$event);
+        if($json)return ['response'=>json_encode($result,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)];
+        $xml='<xml>';foreach($result as $key=>$value)$xml.='<'.$key.'>'.htmlspecialchars((string)$value,ENT_XML1|ENT_QUOTES,'UTF-8').'</'.$key.'>';
+        return ['response'=>$xml.'</xml>'];
+    }
+
     public static function handle($request): array|string
     {
         $config = \app\common\model\wechat\WechatOpenPlatform::withoutGlobalScope()->findOrEmpty(1)->toArray();
@@ -54,14 +67,24 @@ class OpenPlatformCallbackService
         }
         if ($timestamp === '' || $nonce === '' || abs(time() - (int)$timestamp) > 300) throw new \RuntimeException('回调时间戳或 Nonce 已过期');
         $raw = (string)$request->getContent();
-        $xml = @simplexml_load_string($raw, 'SimpleXMLElement', LIBXML_NONET | LIBXML_NOCDATA);
-        if (!$xml) throw new \RuntimeException('回调报文格式错误');
-        $encrypted = trim((string)($xml->Encrypt ?? ''));
+        if (str_starts_with(ltrim($raw),'{')) {
+            $envelope=\app\common\service\virtualpay\VirtualPayNotifyService::parse($raw);
+            $encrypted=trim((string)($envelope['Encrypt']??$envelope['encrypt']??''));
+        } else {
+            $xml = @simplexml_load_string($raw, 'SimpleXMLElement', LIBXML_NONET | LIBXML_NOCDATA);
+            if (!$xml) throw new \RuntimeException('回调报文格式错误');
+            $encrypted = trim((string)($xml->Encrypt ?? ''));
+        }
         if ($encrypted === '') throw new \RuntimeException('回调密文为空');
         $expected = sha1(implode('', self::sorted([$token, $timestamp, $nonce, $encrypted])));
         if ($signature === '' || !hash_equals($expected, $signature)) throw new \RuntimeException('回调签名校验失败');
         $encryptor = new Encryptor($appId, $token, $aesKey, $appId);
         $plain = $encryptor->decrypt($encrypted, $signature, $nonce, $timestamp);
+        if (str_starts_with(ltrim($plain),'{')) {
+            $virtual=\app\common\service\virtualpay\VirtualPayNotifyService::parse($plain);
+            if (str_starts_with((string)($virtual['Event']??''),'xpay_')) return self::virtualReply($routeAppId,$virtual,true);
+            throw new \RuntimeException('不支持的 JSON 授权回调');
+        }
         $message = @simplexml_load_string($plain, 'SimpleXMLElement', LIBXML_NONET | LIBXML_NOCDATA);
         if (!$message) throw new \RuntimeException('回调解密失败');
         $authorizerAppId = trim((string)($message->ToUserName ?? ''));
@@ -72,6 +95,9 @@ class OpenPlatformCallbackService
         // secondary equality check must not reject valid whole-network tests.
         if ($routeAppId !== '' && $authorizerAppId !== '' && !hash_equals($routeAppId, $authorizerAppId)) {
             error_log('[wechat-callback] route/message appid differ: route=' . $routeAppId . ' message=' . $authorizerAppId);
+        }
+        if (str_starts_with((string)($message->Event??''),'xpay_')) {
+            return self::virtualReply($routeAppId,json_decode(json_encode($message,JSON_THROW_ON_ERROR),true,64,JSON_THROW_ON_ERROR),false);
         }
         $testReply = self::wholeNetworkTestReply($message, $config);
         if ($testReply !== null) {

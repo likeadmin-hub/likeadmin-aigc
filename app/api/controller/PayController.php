@@ -75,6 +75,12 @@ class PayController extends BaseApiController
             return $this->fail('额度订单请使用租户后台支付');
         }
         $params = $this->bindTenantPaymentContext($params);
+        if ((int)$params['pay_way'] === \app\common\enum\PayEnum::VIRTUAL_PAY) {
+            try {
+                (new \app\common\service\license\MiniprogramAccessService())->assertEnabled();
+                return $this->data((new \app\common\service\virtualpay\VirtualPayService())->prepay((int)$this->request->tenantId,$this->userId,$this->getUserTerminal(),$params['from'],(int)$params['order_id'],(string)($params['session_id']??''),(string)($params['platform']??''),0));
+            } catch (\Exception $e) { return $this->fail($e->getMessage()); }
+        }
         //订单信息
         $order = PaymentLogic::getPayOrderInfo($params);
         if (false === $order) {
@@ -180,10 +186,10 @@ class PayController extends BaseApiController
 
     private function bindTenantPaymentContext(array $params): array
     {
-        if (in_array($params['from'] ?? '', [TenantPowerMallService::FROM, TenantBrandService::FROM_QUOTA, TenantBrandService::FROM_ORDER], true)) {
+        if (in_array($params['from'] ?? '', ['recharge','membership',TenantPowerMallService::FROM, TenantBrandService::FROM_QUOTA, TenantBrandService::FROM_ORDER], true)) {
             $params['tenant_id'] = (int)$this->request->tenantId;
         }
-        if (($params['from'] ?? '') === TenantBrandService::FROM_ORDER) {
+        if (in_array($params['from'] ?? '', ['recharge','membership',TenantBrandService::FROM_ORDER],true)) {
             $params['user_id'] = $this->userId;
         }
         return $params;
