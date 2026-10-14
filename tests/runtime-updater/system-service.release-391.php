@@ -20,7 +20,7 @@ function release391Seed(string $table,array $values): void {
 function release391Result(array $result): void { echo 'RESULT '.json_encode(['passed'=>true]+$result,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR).PHP_EOL; }
 release391Check(getenv('SYSTEM_SERVICE_DISPOSABLE')==='1','Disposable fixture required');
 $phase=$argv[1]??'';$site='/fixture/site';$stateFile='/fixture/release391-state.json';
-release391Check(in_array($phase,['prepare','apply','observe','http','inspect'],true),'Invalid fixture phase');
+release391Check(in_array($phase,['prepare','fail-original','authorize-recovery','apply','observe','http','inspect'],true),'Invalid fixture phase');
 set_exception_handler(static function(Throwable $error): void {fwrite(STDERR,'FAIL '.($GLOBALS['release391_phase']??'fixture').': '.$error->getMessage().PHP_EOL);exit(1);});$GLOBALS['release391_phase']=$phase;
 if($phase==='http'){
  $raw=false;$status=0;for($i=0;$i<50;$i++){$curl=curl_init('http://127.0.0.1:9014/platformapi/config/getConfig');curl_setopt_array($curl,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>10,CURLOPT_HTTPHEADER=>['Host: system.fixture']]);$raw=curl_exec($curl);$status=curl_getinfo($curl,CURLINFO_HTTP_CODE);curl_close($curl);if($raw!==false)break;usleep(100000);}
@@ -60,7 +60,7 @@ if($phase==='prepare'){
  release391Check(hash_file('sha256',(new ReflectionClass(SystemPackageUpdateService::class))->getFileName())==='3857377ab20a5806c280dad2ace544fe96f0e2be493ae953c291825dcba32844','Old service is not genuine391');
  // These are real old-file executions on a fresh391 database, not manufactured journal rows.
  $oldApps=array_unique(array_merge(app\common\service\app\AppAccessService::DEFAULT_APP_CODES,['image_human']));$installed=[];
- foreach($oldApps as $code){if(!is_file(AppRegistryService::manifestPath($code)))continue;AppRegistryService::installFromLocal($code,'1.0.391');$installed[]=$code;}
+ foreach(getenv('RELEASE391_NO_HISTORY')==='1'?[]:$oldApps as $code){if(!is_file(AppRegistryService::manifestPath($code)))continue;AppRegistryService::installFromLocal($code,'1.0.391');$installed[]=$code;}
  foreach($appMigrations as $row)release391Check(Db::name('app_migration')->where(['app_code'=>$row['app_code'],'migration_key'=>basename($row['package_path'])])->count()===0,'A new migration was pre-registered');
  release391Check(Db::query("SELECT DATA_TYPE AS data_type FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='la_aigc_video_config' AND COLUMN_NAME='config_json'")[0]['data_type']==='text','Genuine391 video column was pre-widened');
  release391Check((int)Db::query("SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND (TABLE_NAME LIKE 'la_open_platform_%' OR TABLE_NAME IN ('la_user_asset_labels','la_user_asset_state'))")[0]['n']===0,'New feature schema was pre-installed');
@@ -92,13 +92,47 @@ if($phase==='prepare'){
  $archive='/release392.zip';$sha=hash_file('sha256',$archive);$now=time();$id=Db::name('update_package')->insertGetId(['package_id'=>'private-actual392-fixture','type'=>'system','source'=>'cloud','app_code'=>'','version'=>'1.0.392','format'=>'zip','local_path'=>$archive,'sha256'=>$sha,'package_size'=>filesize($archive),'manifest_json'=>'{}','status'=>'downloaded','create_time'=>$now,'update_time'=>$now]);
  $context=$license->verifiedSiteContext();$response=(object)['code'=>1,'msg'=>'isolated test grant','server_time'=>$now,'data'=>['product_code'=>UpdateSourceClient::PRODUCT_CODE,'version'=>'1.0.392','target_version'=>'1.0.392','sha256'=>$sha,'format'=>'zip','site_grant'=>['license_no'=>$context['license_no'],'license_version'=>$context['license_version'],'domains'=>[$context['domain']],'machine_fingerprint_hash'=>$context['machine_fingerprint_hash'],'version_id'=>392,'issued_at'=>$now,'expires_at'=>$now+3600]]];
  release391Check(openssl_sign(SignedLicenseProtocol::json($response),$signature,$key,OPENSSL_ALGO_SHA256),'Test package signing failed');$response->signature=base64_encode($signature);Db::name('system_package_grant')->insert(['package_id'=>$id,'context_key'=>SystemUpdateProtocol::contextKey($context,UpdateSourceClient::getSource()),'response_json'=>SignedLicenseProtocol::json($response),'create_time'=>$now,'update_time'=>$now]);
+ $brokenId=0;
+ if(is_file('/broken392.zip')){
+  $brokenSha=hash_file('sha256','/broken392.zip');
+  $brokenId=Db::name('update_package')->insertGetId(['package_id'=>'private-original392-fixture','type'=>'system','source'=>'cloud','app_code'=>'','version'=>'1.0.392','format'=>'zip','local_path'=>'/broken392.zip','sha256'=>$brokenSha,'package_size'=>filesize('/broken392.zip'),'manifest_json'=>'{}','status'=>'downloaded','create_time'=>$now,'update_time'=>$now]);
+  $response->data['sha256']=$brokenSha;unset($response->signature);openssl_sign(SignedLicenseProtocol::json($response),$signature,$key,OPENSSL_ALGO_SHA256);$response->signature=base64_encode($signature);
+  Db::name('system_package_grant')->insert(['package_id'=>$brokenId,'context_key'=>SystemUpdateProtocol::contextKey($context,UpdateSourceClient::getSource()),'response_json'=>SignedLicenseProtocol::json($response),'create_time'=>$now,'update_time'=>$now]);
+ }
  (new ComposerRuntimeUpdateService($site))->ensureBaseline();$pointer=json_decode(file_get_contents($site.'/.composer-runtime/current.json'),true,512,JSON_THROW_ON_ERROR);
  $protectedFiles=[];foreach(['.env','config/install.lock','public/uploads/protected.bin','runtime/task-lease.json','oem/brand.json'] as $file)$protectedFiles[$file]=hash_file('sha256',$site.'/'.$file);
  $canonical=[];foreach(['app','route','extend','vendor'] as $directory)$canonical[$directory]=release391JsonHash(release391Hashes($site.'/'.$directory));
- release391Write($stateFile,json_encode(['package_id'=>$id,'archive_sha256'=>$sha,'pointer'=>$pointer,'protected_files'=>$protectedFiles,'canonical'=>$canonical,'protected_rows'=>$protectedRows,'old_migrations'=>release391Rows('app_migration'),'custom_menu'=>Db::name('tenant_system_menu')->where('id',99001)->find(),'video_config_sha256'=>release391JsonHash(release391Rows('aigc_video_config'))],JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
+ release391Write($stateFile,json_encode(['package_id'=>$id,'broken_package_id'=>$brokenId,'archive_sha256'=>$sha,'pointer'=>$pointer,'protected_files'=>$protectedFiles,'canonical'=>$canonical,'protected_rows'=>$protectedRows,'old_migrations'=>release391Rows('app_migration'),'custom_menu'=>Db::name('tenant_system_menu')->where('id',99001)->find(),'video_config_sha256'=>release391JsonHash(release391Rows('aigc_video_config'))],JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
  release391Result(['phase'=>'prepare','core'=>'1.0.391','old_apps_installed'=>$installed,'new_migrations_pre_registered'=>0,'archive_sha256'=>$sha,'fixture_authority'=>true]);exit;
 }
 $state=json_decode(file_get_contents($stateFile),true,512,JSON_THROW_ON_ERROR);$id=(int)$state['package_id'];
+if($phase==='fail-original'){
+ release391Check(!is_file($site.'/config/runtime_migration_baseline.php')&&Db::name('app_migration')->where('app_code','aigc_image')->count()===0,'Failure fixture already has history');
+ try{(new SystemPackageUpdateService())->apply((int)$state['broken_package_id']);throw new LogicException('Original392 did not reproduce failure');}
+ catch(RuntimeException $e){release391Check(str_contains($e->getMessage(),'新迁移不支持会话变量或动态 SQL'),'Wrong original failure: '.$e->getMessage());}
+ $journals=glob($site.'/.composer-runtime/journals/*.json');release391Check(count($journals)===1,'Original journal missing');$j=json_decode(file_get_contents($journals[0]),true);
+ release391Check($j['status']==='rolled_back'&&$j['sql_state']==='running','Original uncertain SQL state was changed');
+ $state['original_digest']=$j['digest'];release391Write($stateFile,json_encode($state));release391Result(['phase'=>$phase,'original_journal'=>$j['digest'],'historical_image_rows'=>0]);exit;
+}
+if($phase==='authorize-recovery'){
+ $service=new SystemPackageUpdateService();release391Check($service->preflight($id)['passed'],'Replacement preflight failed');
+ $package=Db::name('update_package')->where('id',$id)->find();$extract=$package['extract_path'];
+ require_once $extract.'/files/app/common/service/update/System392RecoveryService.php';
+ $class=app\common\service\update\System392RecoveryService::class;
+ $proof=$class::authorize($id,$state['original_digest'],false);release391Check(count($proof['system_sql'])===3,'Not all prior system SQL was verified');
+ // A missing previously completed table must never be accepted as resumable.
+ Db::execute('RENAME TABLE la_user_asset_labels TO la_fixture_hidden_labels');
+ try{$class::authorize($id,$state['original_digest'],false);throw new LogicException('Partial SQL state was accepted');}catch(RuntimeException $e){}finally{Db::execute('RENAME TABLE la_fixture_hidden_labels TO la_user_asset_labels');}
+ Db::execute('ALTER TABLE la_user_asset_state MODIFY id bigint unsigned NOT NULL');
+ try{$class::authorize($id,$state['original_digest'],false);throw new LogicException('Missing auto increment was accepted');}catch(RuntimeException $e){}finally{Db::execute('ALTER TABLE la_user_asset_state MODIFY id bigint unsigned NOT NULL AUTO_INCREMENT');}
+ Db::execute('ALTER TABLE la_user_asset_state MODIFY favorite tinyint unsigned NULL DEFAULT 0');
+ try{$class::authorize($id,$state['original_digest'],false);throw new LogicException('Changed default was accepted');}catch(RuntimeException $e){}finally{Db::execute('ALTER TABLE la_user_asset_state MODIFY favorite tinyint unsigned NULL DEFAULT NULL');}
+ $originalTask=Db::name('update_task')->where('package_id',(int)$state['broken_package_id'])->where('action','apply')->find();$error=$originalTask['error'];
+ Db::name('update_task')->where('id',$originalTask['id'])->update(['error'=>'Unknown database interruption']);
+ try{$class::authorize($id,$state['original_digest'],false);throw new LogicException('Unknown original error was accepted');}catch(RuntimeException $e){}finally{Db::name('update_task')->where('id',$originalTask['id'])->update(['error'=>$error]);}
+ $class::authorize($id,$state['original_digest'],true);
+ release391Result(['phase'=>$phase,'system_sql_verified'=>3,'partial_schema_rejected'=>true,'missing_autoincrement_rejected'=>true,'changed_default_rejected'=>true,'unknown_error_rejected'=>true]);exit;
+}
 if($phase==='inspect'){
  $package=Db::name('update_package')->where('id',$id)->find();$tasks=Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply'])->field('id,status,error')->select()->toArray();
  release391Result(['phase'=>'inspect','package_status'=>$package['status']??null,'package_error'=>$package['error']??null,'apply_tasks'=>$tasks,'pointer'=>json_decode((string)file_get_contents($site.'/.composer-runtime/current.json'),true),'active_journal_exists'=>is_file($site.'/.composer-runtime/active.json')]);exit;
@@ -115,7 +149,7 @@ release391Check(str_contains((new ReflectionClass(SystemPackageUpdateService::cl
 release391Check(json_decode(file_get_contents($site.'/upgrade/version.json'),true)['version']==='1.0.392','Upgrade marker wrong');
 release391Check(class_exists('NeuronAI\\Agent\\Agent')&&str_contains((new ReflectionClass('NeuronAI\\Agent\\Agent'))->getFileName(),'/.composer-runtime/generations/'),'SDK is not served by final generation');
 $package=Db::name('update_package')->where('id',$id)->find();$tasks=Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply'])->select()->toArray();release391Check($package['status']==='applied'&&count($tasks)===1&&$tasks[0]['status']==='success','Apply owner/task/package is not unique committed success');
-$journals=glob($site.'/.composer-runtime/journals/*.json');release391Check(count($journals)===1&&!is_file($site.'/.composer-runtime/active.json'),'Runtime writer journal is not unique finalized');$journal=json_decode(file_get_contents($journals[0]),true,512,JSON_THROW_ON_ERROR);release391Check($journal['status']==='committed'&&$journal['sql_state']==='done'&&$journal['generation']===$pointer['generation'],'Final writer journal does not match served generation');
+$journals=glob($site.'/.composer-runtime/journals/*.json');release391Check(count($journals)===(empty($state['broken_package_id'])?1:2)&&!is_file($site.'/.composer-runtime/active.json'),'Runtime writer journal is not unique finalized');$journal=null;foreach($journals as $jp){$j=json_decode(file_get_contents($jp),true,512,JSON_THROW_ON_ERROR);if(($j['status']??'')==='committed')$journal=$j;else release391Check($j['digest']===$state['original_digest']&&$j['status']==='rolled_back'&&$j['sql_state']==='running','Original uncertain journal was rewritten');}release391Check(is_array($journal),'Committed journal missing');release391Check($journal['status']==='committed'&&$journal['sql_state']==='done'&&$journal['generation']===$pointer['generation'],'Final writer journal does not match served generation');
 foreach($state['protected_files'] as $file=>$hash)release391Check(hash_file('sha256',$site.'/'.$file)===$hash,'Protected fixture file changed: '.$file);
 foreach($state['canonical'] as $directory=>$hash)release391Check(release391JsonHash(release391Hashes($site.'/'.$directory))===$hash,'Canonical code/vendor changed: '.$directory);
 foreach($state['protected_rows'] as $table=>$rows)release391Check(release391Rows($table)===$rows,'Protected business/price/config records changed: '.$table);

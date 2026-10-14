@@ -110,6 +110,10 @@ class ConfigService
             }
             // 返回配置值
             if ($value !== null) {
+                if (!AdminTerminalEnum::isPlatform() && is_string($value) && str_starts_with($value,'uploads/oem_brands/')
+                    && in_array($type.':'.$name,['tenant:web_logo','tenant:web_favicon','website:shop_logo','website:pc_logo','website:pc_ico','website:h5_favicon'],true)) {
+                    return \app\common\service\brand\BrandLogoService::display((int)request()->tenantId,$value);
+                }
                 if ($type === 'copyright' && $name === 'config' && !OemBrandService::read() && self::shouldUseDefaultCopyright($value)) {
                     return self::DEFAULT_COPYRIGHT_CONFIG;
                 }

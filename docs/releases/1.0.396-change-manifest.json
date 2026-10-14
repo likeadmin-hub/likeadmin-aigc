@@ -1,0 +1,2259 @@
+{
+  "base_ref": "b868d9ac3afe8a4d0ca2a52bfbcdb5b10f4c993f",
+  "source_commit": "488b13240c7711b29cade93a1f7aaa40ce6749aa",
+  "base_version": "1.0.395",
+  "target_version": "1.0.396",
+  "bridge": false,
+  "paths": [
+    {
+      "path": "config/project.php",
+      "delivery": "files/config/project.php"
+    },
+    {
+      "path": "docs/releases/1.0.396.md",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "public/_nuxt/AiGenerationState.72d1d92b.js",
+      "delivery": "files/public/_nuxt/AiGenerationState.72d1d92b.js"
+    },
+    {
+      "path": "public/_nuxt/AiGenerationState.a3686f89.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/Arrow-up.0ef25ad7.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/Arrow-up.c0e2fae2.js",
+      "delivery": "files/public/_nuxt/Arrow-up.c0e2fae2.js"
+    },
+    {
+      "path": "public/_nuxt/Close-small.c41e1ce5.js",
+      "delivery": "files/public/_nuxt/Close-small.c41e1ce5.js"
+    },
+    {
+      "path": "public/_nuxt/Close-small.cdece2ce.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ComposerSkillEditor.1789a745.js",
+      "delivery": "files/public/_nuxt/ComposerSkillEditor.1789a745.js"
+    },
+    {
+      "path": "public/_nuxt/ComposerSkillEditor.c7a7af60.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ConfiguredModelIcon.42295ac7.js",
+      "delivery": "files/public/_nuxt/ConfiguredModelIcon.42295ac7.js"
+    },
+    {
+      "path": "public/_nuxt/ConfiguredModelIcon.be391f90.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ConversationReply.a07fa69b.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ConversationReply.ad59fce0.js",
+      "delivery": "files/public/_nuxt/ConversationReply.ad59fce0.js"
+    },
+    {
+      "path": "public/_nuxt/DeveloperDialog.vue.7180e5f7.js",
+      "delivery": "files/public/_nuxt/DeveloperDialog.vue.7180e5f7.js"
+    },
+    {
+      "path": "public/_nuxt/DeveloperDialog.vue.9588422b.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/DeveloperPagination.e5820473.js",
+      "delivery": "files/public/_nuxt/DeveloperPagination.e5820473.js"
+    },
+    {
+      "path": "public/_nuxt/DeveloperPagination.ffea6327.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/DeveloperRecords.4b9a4857.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/DeveloperRecords.d5abf50c.js",
+      "delivery": "files/public/_nuxt/DeveloperRecords.d5abf50c.js"
+    },
+    {
+      "path": "public/_nuxt/DeveloperShell.vue.2171f716.js",
+      "delivery": "files/public/_nuxt/DeveloperShell.vue.2171f716.js"
+    },
+    {
+      "path": "public/_nuxt/DeveloperShell.vue.88175f7c.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/Down.d40771ff.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/Down.e84b4ba2.js",
+      "delivery": "files/public/_nuxt/Down.e84b4ba2.js"
+    },
+    {
+      "path": "public/_nuxt/GeoConsoleLayout.7f4a3de6.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/GeoConsoleLayout.fd2784d6.js",
+      "delivery": "files/public/_nuxt/GeoConsoleLayout.fd2784d6.js"
+    },
+    {
+      "path": "public/_nuxt/GlassSurface.vue.4e234e76.js",
+      "delivery": "files/public/_nuxt/GlassSurface.vue.4e234e76.js"
+    },
+    {
+      "path": "public/_nuxt/GlassSurface.vue.c0021dde.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/HomeAgentComposer.9b6106cf.js",
+      "delivery": "files/public/_nuxt/HomeAgentComposer.9b6106cf.js"
+    },
+    {
+      "path": "public/_nuxt/HomeAgentComposer.c67da8a9.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ImagineIcon.15ed2f7f.js",
+      "delivery": "files/public/_nuxt/ImagineIcon.15ed2f7f.js"
+    },
+    {
+      "path": "public/_nuxt/ImagineIcon.57b85b45.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ImagineWorkspacePage.279669fe.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ImagineWorkspacePage.b825ee0a.js",
+      "delivery": "files/public/_nuxt/ImagineWorkspacePage.b825ee0a.js"
+    },
+    {
+      "path": "public/_nuxt/OfficialSiteContent.vue.1290983b.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/OfficialSiteContent.vue.fd63d42b.js",
+      "delivery": "files/public/_nuxt/OfficialSiteContent.vue.fd63d42b.js"
+    },
+    {
+      "path": "public/_nuxt/OfficialSiteShell.vue.16d27783.js",
+      "delivery": "files/public/_nuxt/OfficialSiteShell.vue.16d27783.js"
+    },
+    {
+      "path": "public/_nuxt/OfficialSiteShell.vue.eee3cd53.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/OfficialVisual.12563dbe.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/OfficialVisual.cc5f50ac.js",
+      "delivery": "files/public/_nuxt/OfficialVisual.cc5f50ac.js"
+    },
+    {
+      "path": "public/_nuxt/OfficialWebsitePage.vue.58f6aabc.js",
+      "delivery": "files/public/_nuxt/OfficialWebsitePage.vue.58f6aabc.js"
+    },
+    {
+      "path": "public/_nuxt/OfficialWebsitePage.vue.94c13661.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaCardActionsMenu.vue.887a653f.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaCardActionsMenu.vue.c0f46384.js",
+      "delivery": "files/public/_nuxt/ShortDramaCardActionsMenu.vue.c0f46384.js"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaCreditPill.b1378160.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaCreditPill.c36cf982.js",
+      "delivery": "files/public/_nuxt/ShortDramaCreditPill.c36cf982.js"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaFlowTopbar.00f60658.js",
+      "delivery": "files/public/_nuxt/ShortDramaFlowTopbar.00f60658.js"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaFlowTopbar.ac91bc76.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaGrainientPlaceholder.0f485b7c.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaGrainientPlaceholder.dedff162.js",
+      "delivery": "files/public/_nuxt/ShortDramaGrainientPlaceholder.dedff162.js"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaImagePreview.63de262a.js",
+      "delivery": "files/public/_nuxt/ShortDramaImagePreview.63de262a.js"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaImagePreview.8d75bb2e.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaMentionComposer.34de31d4.js",
+      "delivery": "files/public/_nuxt/ShortDramaMentionComposer.34de31d4.js"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaMentionComposer.9e57ade8.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaMentionMenu.ae00d147.js",
+      "delivery": "files/public/_nuxt/ShortDramaMentionMenu.ae00d147.js"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaMentionMenu.dab53a07.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaPageSkeleton.2f8e3a72.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaPageSkeleton.5d30be45.js",
+      "delivery": "files/public/_nuxt/ShortDramaPageSkeleton.5d30be45.js"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaSideNav.93a2cb9f.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaSideNav.c69c6284.js",
+      "delivery": "files/public/_nuxt/ShortDramaSideNav.c69c6284.js"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaStyleLoading.04169e31.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaStyleLoading.ba108f6d.js",
+      "delivery": "files/public/_nuxt/ShortDramaStyleLoading.ba108f6d.js"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaThemeToggle.vue.a76ff5d5.js",
+      "delivery": "files/public/_nuxt/ShortDramaThemeToggle.vue.a76ff5d5.js"
+    },
+    {
+      "path": "public/_nuxt/ShortDramaThemeToggle.vue.d7882cc9.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/VideoStudioIcon.7641b2c7.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/VideoStudioIcon.9dcb260d.js",
+      "delivery": "files/public/_nuxt/VideoStudioIcon.9dcb260d.js"
+    },
+    {
+      "path": "public/_nuxt/VideoWorkPreview.vue.19180258.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/VideoWorkPreview.vue.8c1f2aac.js",
+      "delivery": "files/public/_nuxt/VideoWorkPreview.vue.8c1f2aac.js"
+    },
+    {
+      "path": "public/_nuxt/VisualCreationWorkbench.7662985e.js",
+      "delivery": "files/public/_nuxt/VisualCreationWorkbench.7662985e.js"
+    },
+    {
+      "path": "public/_nuxt/VisualCreationWorkbench.d3880bc2.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/_Uint8Array.871aad40.js",
+      "delivery": "files/public/_nuxt/_Uint8Array.871aad40.js"
+    },
+    {
+      "path": "public/_nuxt/_Uint8Array.f3ba1d50.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/_code_.321cf5a0.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/_code_.cd55ed2c.js",
+      "delivery": "files/public/_nuxt/_code_.cd55ed2c.js"
+    },
+    {
+      "path": "public/_nuxt/_id_.0964ee37.js",
+      "delivery": "files/public/_nuxt/_id_.0964ee37.js"
+    },
+    {
+      "path": "public/_nuxt/_id_.76d5b83b.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/_id_.85f277af.js",
+      "delivery": "files/public/_nuxt/_id_.85f277af.js"
+    },
+    {
+      "path": "public/_nuxt/_id_.e3321cfd.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/_initCloneObject.3ad0b9a8.js",
+      "delivery": "files/public/_nuxt/_initCloneObject.3ad0b9a8.js"
+    },
+    {
+      "path": "public/_nuxt/_initCloneObject.dd9a7e3d.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/_slug_.4260eff3.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/_slug_.b8acafc3.js",
+      "delivery": "files/public/_nuxt/_slug_.b8acafc3.js"
+    },
+    {
+      "path": "public/_nuxt/_type_.5f9fc1ff.js",
+      "delivery": "files/public/_nuxt/_type_.5f9fc1ff.js"
+    },
+    {
+      "path": "public/_nuxt/_type_.7498a102.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/_workspaceId_.924b7991.js",
+      "delivery": "files/public/_nuxt/_workspaceId_.924b7991.js"
+    },
+    {
+      "path": "public/_nuxt/_workspaceId_.95ef035c.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/account-settings.302c7c75.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/account-settings.f1598d0c.js",
+      "delivery": "files/public/_nuxt/account-settings.f1598d0c.js"
+    },
+    {
+      "path": "public/_nuxt/ai-accounts.22fb1ce8.js",
+      "delivery": "files/public/_nuxt/ai-accounts.22fb1ce8.js"
+    },
+    {
+      "path": "public/_nuxt/ai-accounts.2f5778f7.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/aigc_digital_human.1baa48c6.js",
+      "delivery": "files/public/_nuxt/aigc_digital_human.1baa48c6.js"
+    },
+    {
+      "path": "public/_nuxt/aigc_digital_human.beebf209.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/aigc_image.05b30149.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/aigc_image.f134c807.js",
+      "delivery": "files/public/_nuxt/aigc_image.f134c807.js"
+    },
+    {
+      "path": "public/_nuxt/aigc_llm.16166ea7.js",
+      "delivery": "files/public/_nuxt/aigc_llm.16166ea7.js"
+    },
+    {
+      "path": "public/_nuxt/aigc_llm.679d95dc.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/aigc_video.11a1ffee.js",
+      "delivery": "files/public/_nuxt/aigc_video.11a1ffee.js"
+    },
+    {
+      "path": "public/_nuxt/aigc_video.272df22a.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/analysis.35b04362.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/analysis.99b9e799.js",
+      "delivery": "files/public/_nuxt/analysis.99b9e799.js"
+    },
+    {
+      "path": "public/_nuxt/api-keys.8ed9b0a5.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/api-keys.a8010672.js",
+      "delivery": "files/public/_nuxt/api-keys.a8010672.js"
+    },
+    {
+      "path": "public/_nuxt/api.0d972aa2.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/api.118d8f2f.js",
+      "delivery": "files/public/_nuxt/api.118d8f2f.js"
+    },
+    {
+      "path": "public/_nuxt/api.2020aa51.js",
+      "delivery": "files/public/_nuxt/api.2020aa51.js"
+    },
+    {
+      "path": "public/_nuxt/api.2162266c.js",
+      "delivery": "files/public/_nuxt/api.2162266c.js"
+    },
+    {
+      "path": "public/_nuxt/api.21843f01.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/api.2ba7ded8.js",
+      "delivery": "files/public/_nuxt/api.2ba7ded8.js"
+    },
+    {
+      "path": "public/_nuxt/api.47cfc183.js",
+      "delivery": "files/public/_nuxt/api.47cfc183.js"
+    },
+    {
+      "path": "public/_nuxt/api.4e61b3ae.js",
+      "delivery": "files/public/_nuxt/api.4e61b3ae.js"
+    },
+    {
+      "path": "public/_nuxt/api.57f2b6ef.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/api.5da3f8b2.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/api.77fd8198.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/api.c7d5c14d.js",
+      "delivery": "files/public/_nuxt/api.c7d5c14d.js"
+    },
+    {
+      "path": "public/_nuxt/api.d4979109.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/api.e611df15.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/articles.26898936.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/articles.81e409ef.js",
+      "delivery": "files/public/_nuxt/articles.81e409ef.js"
+    },
+    {
+      "path": "public/_nuxt/asset-gallery-modal.2ea5a78d.js",
+      "delivery": "files/public/_nuxt/asset-gallery-modal.2ea5a78d.js"
+    },
+    {
+      "path": "public/_nuxt/asset-gallery-modal.6dcff90f.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/assets-panel.2d323e50.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/assets-panel.8fae2738.js",
+      "delivery": "files/public/_nuxt/assets-panel.8fae2738.js"
+    },
+    {
+      "path": "public/_nuxt/assets.52d28dc9.js",
+      "delivery": "files/public/_nuxt/assets.52d28dc9.js"
+    },
+    {
+      "path": "public/_nuxt/assets.7fe9c14d.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/asyncData.a4bcb55c.js",
+      "delivery": "files/public/_nuxt/asyncData.a4bcb55c.js"
+    },
+    {
+      "path": "public/_nuxt/asyncData.dd610bf7.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/auto-production.6291ec79.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/auto-production.a6b4155a.js",
+      "delivery": "files/public/_nuxt/auto-production.a6b4155a.js"
+    },
+    {
+      "path": "public/_nuxt/avatar.1cdd0ae4.js",
+      "delivery": "files/public/_nuxt/avatar.1cdd0ae4.js"
+    },
+    {
+      "path": "public/_nuxt/avatar.7ee74142.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/balance.b712a5f9.js",
+      "delivery": "files/public/_nuxt/balance.b712a5f9.js"
+    },
+    {
+      "path": "public/_nuxt/balance.f653170e.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/billing.ceefb768.js",
+      "delivery": "files/public/_nuxt/billing.ceefb768.js"
+    },
+    {
+      "path": "public/_nuxt/billing.f19db7fa.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/blank.d17c92fb.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/blank.d74f0fcb.js",
+      "delivery": "files/public/_nuxt/blank.d74f0fcb.js"
+    },
+    {
+      "path": "public/_nuxt/brand-words.53faf51a.js",
+      "delivery": "files/public/_nuxt/brand-words.53faf51a.js"
+    },
+    {
+      "path": "public/_nuxt/brand-words.b0d5eeb0.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/brand.a9e63322.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/brand.cd054e64.js",
+      "delivery": "files/public/_nuxt/brand.cd054e64.js"
+    },
+    {
+      "path": "public/_nuxt/cache.79668ea7.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/cache.d966a7a4.js",
+      "delivery": "files/public/_nuxt/cache.d966a7a4.js"
+    },
+    {
+      "path": "public/_nuxt/callback.356c3a48.js",
+      "delivery": "files/public/_nuxt/callback.356c3a48.js"
+    },
+    {
+      "path": "public/_nuxt/callback.c2fe6936.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/canvas.06b6eba5.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/canvas.bcc67440.js",
+      "delivery": "files/public/_nuxt/canvas.bcc67440.js"
+    },
+    {
+      "path": "public/_nuxt/cases.34d90001.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/cases.92f38b4e.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/cases.b673ad9f.js",
+      "delivery": "files/public/_nuxt/cases.b673ad9f.js"
+    },
+    {
+      "path": "public/_nuxt/cases.ee67c20e.js",
+      "delivery": "files/public/_nuxt/cases.ee67c20e.js"
+    },
+    {
+      "path": "public/_nuxt/castArray.5790b6ba.js",
+      "delivery": "files/public/_nuxt/castArray.5790b6ba.js"
+    },
+    {
+      "path": "public/_nuxt/castArray.ee4501ad.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/catalog.36bcf9b4.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/catalog.4ea16d79.js",
+      "delivery": "files/public/_nuxt/catalog.4ea16d79.js"
+    },
+    {
+      "path": "public/_nuxt/channels.c3dd8a58.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/channels.fe540d8f.js",
+      "delivery": "files/public/_nuxt/channels.fe540d8f.js"
+    },
+    {
+      "path": "public/_nuxt/collection.363634a8.js",
+      "delivery": "files/public/_nuxt/collection.363634a8.js"
+    },
+    {
+      "path": "public/_nuxt/collection.54fa1dd3.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/competitors.8aa863be.js",
+      "delivery": "files/public/_nuxt/competitors.8aa863be.js"
+    },
+    {
+      "path": "public/_nuxt/competitors.bc13276e.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/conversion.9d1b58ca.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/conversion.9ecdb35f.js",
+      "delivery": "files/public/_nuxt/conversion.9ecdb35f.js"
+    },
+    {
+      "path": "public/_nuxt/create.a0d858a3.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/create.d31e97f0.js",
+      "delivery": "files/public/_nuxt/create.d31e97f0.js"
+    },
+    {
+      "path": "public/_nuxt/creation.d099e37e.js",
+      "delivery": "files/public/_nuxt/creation.d099e37e.js"
+    },
+    {
+      "path": "public/_nuxt/creation.dc8211fb.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/debounce.3b018eae.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/debounce.42ab267a.js",
+      "delivery": "files/public/_nuxt/debounce.42ab267a.js"
+    },
+    {
+      "path": "public/_nuxt/default.83fc89e2.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/default.da88bba3.js",
+      "delivery": "files/public/_nuxt/default.da88bba3.js"
+    },
+    {
+      "path": "public/_nuxt/diagnosis.83852976.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/diagnosis.ec2c693d.js",
+      "delivery": "files/public/_nuxt/diagnosis.ec2c693d.js"
+    },
+    {
+      "path": "public/_nuxt/distribution.bd31ac1f.js",
+      "delivery": "files/public/_nuxt/distribution.bd31ac1f.js"
+    },
+    {
+      "path": "public/_nuxt/distribution.d1d64d71.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/domains.a8e05bde.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/domains.bc965d9f.js",
+      "delivery": "files/public/_nuxt/domains.bc965d9f.js"
+    },
+    {
+      "path": "public/_nuxt/download.ba1864cb.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/download.e0a64d93.js",
+      "delivery": "files/public/_nuxt/download.e0a64d93.js"
+    },
+    {
+      "path": "public/_nuxt/dropdown.6588c6e4.js",
+      "delivery": "files/public/_nuxt/dropdown.6588c6e4.js"
+    },
+    {
+      "path": "public/_nuxt/dropdown.e005a87c.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/el-alert.09a6da84.js",
+      "delivery": "files/public/_nuxt/el-alert.09a6da84.js"
+    },
+    {
+      "path": "public/_nuxt/el-alert.cdce81cb.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/el-card.a08ac3d4.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/el-card.d17ab09e.js",
+      "delivery": "files/public/_nuxt/el-card.d17ab09e.js"
+    },
+    {
+      "path": "public/_nuxt/el-dropdown.077b8a67.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/el-dropdown.e7a4e560.js",
+      "delivery": "files/public/_nuxt/el-dropdown.e7a4e560.js"
+    },
+    {
+      "path": "public/_nuxt/el-popover.00ef7bbd.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/el-popover.76a626b9.js",
+      "delivery": "files/public/_nuxt/el-popover.76a626b9.js"
+    },
+    {
+      "path": "public/_nuxt/el-tabs.d9744b96.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/el-tabs.e0de1dfd.js",
+      "delivery": "files/public/_nuxt/el-tabs.e0de1dfd.js"
+    },
+    {
+      "path": "public/_nuxt/entry.6d74ff4e.js",
+      "delivery": "files/public/_nuxt/entry.6d74ff4e.js"
+    },
+    {
+      "path": "public/_nuxt/entry.cef9df88.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/episode.946adb17.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/episode.ae49f870.js",
+      "delivery": "files/public/_nuxt/episode.ae49f870.js"
+    },
+    {
+      "path": "public/_nuxt/episodes.a1551ac3.js",
+      "delivery": "files/public/_nuxt/episodes.a1551ac3.js"
+    },
+    {
+      "path": "public/_nuxt/episodes.c63af4d5.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/error-404.4ba72cff.js",
+      "delivery": "files/public/_nuxt/error-404.4ba72cff.js"
+    },
+    {
+      "path": "public/_nuxt/error-404.82fb1510.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/error-500.393131bf.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/error-500.5303998e.js",
+      "delivery": "files/public/_nuxt/error-500.5303998e.js"
+    },
+    {
+      "path": "public/_nuxt/flatten.1436ab53.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/flatten.df00e6ee.js",
+      "delivery": "files/public/_nuxt/flatten.df00e6ee.js"
+    },
+    {
+      "path": "public/_nuxt/gallery.3ccda189.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/gallery.5aa73923.js",
+      "delivery": "files/public/_nuxt/gallery.5aa73923.js"
+    },
+    {
+      "path": "public/_nuxt/goals.b33ebfa9.js",
+      "delivery": "files/public/_nuxt/goals.b33ebfa9.js"
+    },
+    {
+      "path": "public/_nuxt/goals.beee0dd5.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/help-float.0f0abe8c.js",
+      "delivery": "files/public/_nuxt/help-float.0f0abe8c.js"
+    },
+    {
+      "path": "public/_nuxt/help-float.3d60c3ec.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/hot-search.6141a9ff.js",
+      "delivery": "files/public/_nuxt/hot-search.6141a9ff.js"
+    },
+    {
+      "path": "public/_nuxt/hot-search.e23a6cf2.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/image_human.05290166.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/image_human.81f0dbe2.js",
+      "delivery": "files/public/_nuxt/image_human.81f0dbe2.js"
+    },
+    {
+      "path": "public/_nuxt/images.488013e4.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/images.fcebc5a1.js",
+      "delivery": "files/public/_nuxt/images.fcebc5a1.js"
+    },
+    {
+      "path": "public/_nuxt/index-plans.3a59931c.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index-plans.e96511c6.js",
+      "delivery": "files/public/_nuxt/index-plans.e96511c6.js"
+    },
+    {
+      "path": "public/_nuxt/index-records.0416aba1.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index-records.39262666.js",
+      "delivery": "files/public/_nuxt/index-records.39262666.js"
+    },
+    {
+      "path": "public/_nuxt/index.015b199e.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.071fbb06.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.0d0159b4.js",
+      "delivery": "files/public/_nuxt/index.0d0159b4.js"
+    },
+    {
+      "path": "public/_nuxt/index.0e980bc6.js",
+      "delivery": "files/public/_nuxt/index.0e980bc6.js"
+    },
+    {
+      "path": "public/_nuxt/index.0fb75d98.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.1b33a7a0.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.29518f30.js",
+      "delivery": "files/public/_nuxt/index.29518f30.js"
+    },
+    {
+      "path": "public/_nuxt/index.33777005.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.34d6a528.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.38496520.js",
+      "delivery": "files/public/_nuxt/index.38496520.js"
+    },
+    {
+      "path": "public/_nuxt/index.459d3606.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.46344946.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.4763eddf.js",
+      "delivery": "files/public/_nuxt/index.4763eddf.js"
+    },
+    {
+      "path": "public/_nuxt/index.51e57446.js",
+      "delivery": "files/public/_nuxt/index.51e57446.js"
+    },
+    {
+      "path": "public/_nuxt/index.58462568.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.5aed97de.js",
+      "delivery": "files/public/_nuxt/index.5aed97de.js"
+    },
+    {
+      "path": "public/_nuxt/index.5b6a42b0.js",
+      "delivery": "files/public/_nuxt/index.5b6a42b0.js"
+    },
+    {
+      "path": "public/_nuxt/index.5c815803.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.61709a42.js",
+      "delivery": "files/public/_nuxt/index.61709a42.js"
+    },
+    {
+      "path": "public/_nuxt/index.6316fe4d.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.63303b7b.js",
+      "delivery": "files/public/_nuxt/index.63303b7b.js"
+    },
+    {
+      "path": "public/_nuxt/index.64e7a459.js",
+      "delivery": "files/public/_nuxt/index.64e7a459.js"
+    },
+    {
+      "path": "public/_nuxt/index.6969d592.css",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.74fdf4f0.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.78f71ada.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.83263007.js",
+      "delivery": "files/public/_nuxt/index.83263007.js"
+    },
+    {
+      "path": "public/_nuxt/index.8cc7f395.js",
+      "delivery": "files/public/_nuxt/index.8cc7f395.js"
+    },
+    {
+      "path": "public/_nuxt/index.939645c1.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.96b64b3f.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.989299ae.js",
+      "delivery": "files/public/_nuxt/index.989299ae.js"
+    },
+    {
+      "path": "public/_nuxt/index.9a3e3c69.js",
+      "delivery": "files/public/_nuxt/index.9a3e3c69.js"
+    },
+    {
+      "path": "public/_nuxt/index.9e1bab14.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.a064c7ed.js",
+      "delivery": "files/public/_nuxt/index.a064c7ed.js"
+    },
+    {
+      "path": "public/_nuxt/index.aa941f08.js",
+      "delivery": "files/public/_nuxt/index.aa941f08.js"
+    },
+    {
+      "path": "public/_nuxt/index.b5d5a14c.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.b8af3f3f.js",
+      "delivery": "files/public/_nuxt/index.b8af3f3f.js"
+    },
+    {
+      "path": "public/_nuxt/index.c6dd3480.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.cbcb4a5d.js",
+      "delivery": "files/public/_nuxt/index.cbcb4a5d.js"
+    },
+    {
+      "path": "public/_nuxt/index.d0256ed6.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.d19afe33.css",
+      "delivery": "files/public/_nuxt/index.d19afe33.css"
+    },
+    {
+      "path": "public/_nuxt/index.d67e4939.js",
+      "delivery": "files/public/_nuxt/index.d67e4939.js"
+    },
+    {
+      "path": "public/_nuxt/index.dbb3c52b.js",
+      "delivery": "files/public/_nuxt/index.dbb3c52b.js"
+    },
+    {
+      "path": "public/_nuxt/index.dbbf67d9.js",
+      "delivery": "files/public/_nuxt/index.dbbf67d9.js"
+    },
+    {
+      "path": "public/_nuxt/index.dd8f736b.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.de6f1cc1.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.e5f30fa1.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.e5f84cf1.js",
+      "delivery": "files/public/_nuxt/index.e5f84cf1.js"
+    },
+    {
+      "path": "public/_nuxt/index.ee9185af.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.f3fb1d7d.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.f6d73ee4.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/index.f924d0a1.js",
+      "delivery": "files/public/_nuxt/index.f924d0a1.js"
+    },
+    {
+      "path": "public/_nuxt/index.fc1b2c14.js",
+      "delivery": "files/public/_nuxt/index.fc1b2c14.js"
+    },
+    {
+      "path": "public/_nuxt/info.0b6a6fa0.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/info.ffa46937.js",
+      "delivery": "files/public/_nuxt/info.ffa46937.js"
+    },
+    {
+      "path": "public/_nuxt/invite.59703f63.js",
+      "delivery": "files/public/_nuxt/invite.59703f63.js"
+    },
+    {
+      "path": "public/_nuxt/invite.b9f678b2.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/isEqual.8c300e83.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/isEqual.98ad5ba9.js",
+      "delivery": "files/public/_nuxt/isEqual.98ad5ba9.js"
+    },
+    {
+      "path": "public/_nuxt/keywords.ad8f29cd.js",
+      "delivery": "files/public/_nuxt/keywords.ad8f29cd.js"
+    },
+    {
+      "path": "public/_nuxt/keywords.f49fd020.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/knowledge.98611238.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/knowledge.b1248bdc.js",
+      "delivery": "files/public/_nuxt/knowledge.b1248bdc.js"
+    },
+    {
+      "path": "public/_nuxt/locale-switcher.32999aca.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/locale-switcher.46138c82.js",
+      "delivery": "files/public/_nuxt/locale-switcher.46138c82.js"
+    },
+    {
+      "path": "public/_nuxt/login.6eaeecb9.js",
+      "delivery": "files/public/_nuxt/login.6eaeecb9.js"
+    },
+    {
+      "path": "public/_nuxt/login.baea6c7a.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/map.0858cd9f.js",
+      "delivery": "files/public/_nuxt/map.0858cd9f.js"
+    },
+    {
+      "path": "public/_nuxt/map.ec24930e.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/materials.4caeda41.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/materials.80474c1f.js",
+      "delivery": "files/public/_nuxt/materials.80474c1f.js"
+    },
+    {
+      "path": "public/_nuxt/media-favorites.11c35071.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/media-favorites.e36654dd.js",
+      "delivery": "files/public/_nuxt/media-favorites.e36654dd.js"
+    },
+    {
+      "path": "public/_nuxt/media-roi.9f6c300e.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/media-roi.fd195b7a.js",
+      "delivery": "files/public/_nuxt/media-roi.fd195b7a.js"
+    },
+    {
+      "path": "public/_nuxt/oem.d1f84e29.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/oem.d4b0371d.js",
+      "delivery": "files/public/_nuxt/oem.d4b0371d.js"
+    },
+    {
+      "path": "public/_nuxt/official-media.4505b92f.js",
+      "delivery": "files/public/_nuxt/official-media.4505b92f.js"
+    },
+    {
+      "path": "public/_nuxt/official-media.bb3c742e.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/official-site.45a69ebe.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/official-site.94384942.js",
+      "delivery": "files/public/_nuxt/official-site.94384942.js"
+    },
+    {
+      "path": "public/_nuxt/open.3bda4840.js",
+      "delivery": "files/public/_nuxt/open.3bda4840.js"
+    },
+    {
+      "path": "public/_nuxt/open.e2f9041f.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/overseas-media.5de4ac9a.js",
+      "delivery": "files/public/_nuxt/overseas-media.5de4ac9a.js"
+    },
+    {
+      "path": "public/_nuxt/overseas-media.d8285ef3.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/overview.2aae9d50.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/overview.eabbb028.js",
+      "delivery": "files/public/_nuxt/overview.eabbb028.js"
+    },
+    {
+      "path": "public/_nuxt/payment.1681cfec.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/payment.1725e71e.js",
+      "delivery": "files/public/_nuxt/payment.1725e71e.js"
+    },
+    {
+      "path": "public/_nuxt/pc-account-modal-shell.vue.08d6f2a7.js",
+      "delivery": "files/public/_nuxt/pc-account-modal-shell.vue.08d6f2a7.js"
+    },
+    {
+      "path": "public/_nuxt/pc-account-modal-shell.vue.a5b01264.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/pc-adapters.aac191e3.js",
+      "delivery": "files/public/_nuxt/pc-adapters.aac191e3.js"
+    },
+    {
+      "path": "public/_nuxt/pc-adapters.d5a3d0c7.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/pc-login-modal.vue.3eb685bb.js",
+      "delivery": "files/public/_nuxt/pc-login-modal.vue.3eb685bb.js"
+    },
+    {
+      "path": "public/_nuxt/pc-login-modal.vue.78c03302.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/pc-playback-icon.6e9c024b.js",
+      "delivery": "files/public/_nuxt/pc-playback-icon.6e9c024b.js"
+    },
+    {
+      "path": "public/_nuxt/pc-playback-icon.d3f33f22.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/plan.2d614b1b.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/plan.d1798e32.js",
+      "delivery": "files/public/_nuxt/plan.d1798e32.js"
+    },
+    {
+      "path": "public/_nuxt/plans.2865c588.js",
+      "delivery": "files/public/_nuxt/plans.2865c588.js"
+    },
+    {
+      "path": "public/_nuxt/plans.d41e5096.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/playground.03a3e25f.js",
+      "delivery": "files/public/_nuxt/playground.03a3e25f.js"
+    },
+    {
+      "path": "public/_nuxt/playground.f249688e.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/preferences.05d58f7d.js",
+      "delivery": "files/public/_nuxt/preferences.05d58f7d.js"
+    },
+    {
+      "path": "public/_nuxt/preferences.6e1dd990.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/pricing.97102e93.js",
+      "delivery": "files/public/_nuxt/pricing.97102e93.js"
+    },
+    {
+      "path": "public/_nuxt/pricing.be871bf8.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/product-detect.adf616de.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/product-detect.bb892010.js",
+      "delivery": "files/public/_nuxt/product-detect.bb892010.js"
+    },
+    {
+      "path": "public/_nuxt/products.285dbe2b.js",
+      "delivery": "files/public/_nuxt/products.285dbe2b.js"
+    },
+    {
+      "path": "public/_nuxt/products.8b540f25.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/products.a4ca2ad9.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/products.f089866d.js",
+      "delivery": "files/public/_nuxt/products.f089866d.js"
+    },
+    {
+      "path": "public/_nuxt/projects.6b4b5d4c.js",
+      "delivery": "files/public/_nuxt/projects.6b4b5d4c.js"
+    },
+    {
+      "path": "public/_nuxt/projects.76cff6de.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/projects.ac622cfe.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/projects.dae35011.js",
+      "delivery": "files/public/_nuxt/projects.dae35011.js"
+    },
+    {
+      "path": "public/_nuxt/recharge.5692f776.js",
+      "delivery": "files/public/_nuxt/recharge.5692f776.js"
+    },
+    {
+      "path": "public/_nuxt/recharge.d402ff68.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/records.7ac5d71c.js",
+      "delivery": "files/public/_nuxt/records.7ac5d71c.js"
+    },
+    {
+      "path": "public/_nuxt/records.bf7cb5b5.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/register.80df0a9e.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/register.ce80db4f.js",
+      "delivery": "files/public/_nuxt/register.ce80db4f.js"
+    },
+    {
+      "path": "public/_nuxt/replay.7052b9cf.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/replay.84b8649c.js",
+      "delivery": "files/public/_nuxt/replay.84b8649c.js"
+    },
+    {
+      "path": "public/_nuxt/reports.5183fd66.js",
+      "delivery": "files/public/_nuxt/reports.5183fd66.js"
+    },
+    {
+      "path": "public/_nuxt/reports.dafcaa55.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/requests.3b809d7d.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/requests.afe85029.js",
+      "delivery": "files/public/_nuxt/requests.afe85029.js"
+    },
+    {
+      "path": "public/_nuxt/result.3d55d719.js",
+      "delivery": "files/public/_nuxt/result.3d55d719.js"
+    },
+    {
+      "path": "public/_nuxt/result.876ff6c3.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/rules.5d331604.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/rules.6a492ced.js",
+      "delivery": "files/public/_nuxt/rules.6a492ced.js"
+    },
+    {
+      "path": "public/_nuxt/sahngchuan.6334a9da.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/sahngchuan.dfcf06c3.js",
+      "delivery": "files/public/_nuxt/sahngchuan.dfcf06c3.js"
+    },
+    {
+      "path": "public/_nuxt/scene.3bbc096e.js",
+      "delivery": "files/public/_nuxt/scene.3bbc096e.js"
+    },
+    {
+      "path": "public/_nuxt/scene.bc9e3393.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/scenes.07e1b2bf.js",
+      "delivery": "files/public/_nuxt/scenes.07e1b2bf.js"
+    },
+    {
+      "path": "public/_nuxt/scenes.70f06086.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/security.47dc82ff.js",
+      "delivery": "files/public/_nuxt/security.47dc82ff.js"
+    },
+    {
+      "path": "public/_nuxt/security.4f9db84b.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/self-media.62c0b0e8.js",
+      "delivery": "files/public/_nuxt/self-media.62c0b0e8.js"
+    },
+    {
+      "path": "public/_nuxt/self-media.7ed49372.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/site-articles.457e465a.js",
+      "delivery": "files/public/_nuxt/site-articles.457e465a.js"
+    },
+    {
+      "path": "public/_nuxt/site-articles.ce77ebb5.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/site-editor.6b9eeecc.js",
+      "delivery": "files/public/_nuxt/site-editor.6b9eeecc.js"
+    },
+    {
+      "path": "public/_nuxt/site-editor.cc0997e0.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/site-settings.c16b6cfd.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/site-settings.ddb8fcbc.js",
+      "delivery": "files/public/_nuxt/site-settings.ddb8fcbc.js"
+    },
+    {
+      "path": "public/_nuxt/skill-create.5aec2ddc.js",
+      "delivery": "files/public/_nuxt/skill-create.5aec2ddc.js"
+    },
+    {
+      "path": "public/_nuxt/skill-create.61af0c92.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/skills.d2cc8bbf.js",
+      "delivery": "files/public/_nuxt/skills.d2cc8bbf.js"
+    },
+    {
+      "path": "public/_nuxt/skills.dc2418c6.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/smart_clip.28683ac4.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/smart_clip.2e388282.js",
+      "delivery": "files/public/_nuxt/smart_clip.2e388282.js"
+    },
+    {
+      "path": "public/_nuxt/smart_clip.32803db7.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/smart_clip.46474c28.js",
+      "delivery": "files/public/_nuxt/smart_clip.46474c28.js"
+    },
+    {
+      "path": "public/_nuxt/spend.6eaa716c.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/spend.99b77d2b.js",
+      "delivery": "files/public/_nuxt/spend.99b77d2b.js"
+    },
+    {
+      "path": "public/_nuxt/storyboard.7351d9ea.js",
+      "delivery": "files/public/_nuxt/storyboard.7351d9ea.js"
+    },
+    {
+      "path": "public/_nuxt/storyboard.b38da661.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/sub-accounts.85b0ccd7.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/sub-accounts.e8505e67.js",
+      "delivery": "files/public/_nuxt/sub-accounts.e8505e67.js"
+    },
+    {
+      "path": "public/_nuxt/subject-create.2e8b5378.js",
+      "delivery": "files/public/_nuxt/subject-create.2e8b5378.js"
+    },
+    {
+      "path": "public/_nuxt/subject-create.aa33a860.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/subject.d6470d47.js",
+      "delivery": "files/public/_nuxt/subject.d6470d47.js"
+    },
+    {
+      "path": "public/_nuxt/subject.e5952847.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/submission-orders.7f2e491d.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/submission-orders.a1eba2a5.js",
+      "delivery": "files/public/_nuxt/submission-orders.a1eba2a5.js"
+    },
+    {
+      "path": "public/_nuxt/tasks.9543bbc3.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/tasks.d211e65b.js",
+      "delivery": "files/public/_nuxt/tasks.d211e65b.js"
+    },
+    {
+      "path": "public/_nuxt/usage.1203cdb3.js",
+      "delivery": "files/public/_nuxt/usage.1203cdb3.js"
+    },
+    {
+      "path": "public/_nuxt/usage.4f35bbb0.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/useAccount.08a488fe.js",
+      "delivery": "files/public/_nuxt/useAccount.08a488fe.js"
+    },
+    {
+      "path": "public/_nuxt/useAccount.e0f780bc.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/useAiPcHomeDecorate.70e11bc9.js",
+      "delivery": "files/public/_nuxt/useAiPcHomeDecorate.70e11bc9.js"
+    },
+    {
+      "path": "public/_nuxt/useAiPcHomeDecorate.8423058e.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/useAiRecentTools.3102a3ca.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/useAiRecentTools.bf07f34a.js",
+      "delivery": "files/public/_nuxt/useAiRecentTools.bf07f34a.js"
+    },
+    {
+      "path": "public/_nuxt/useAiWorkspaceFavorites.f8800db4.js",
+      "delivery": "files/public/_nuxt/useAiWorkspaceFavorites.f8800db4.js"
+    },
+    {
+      "path": "public/_nuxt/useAiWorkspaceFavorites.fa03998f.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/useImageBatchSubmission.6d1d9183.js",
+      "delivery": "files/public/_nuxt/useImageBatchSubmission.6d1d9183.js"
+    },
+    {
+      "path": "public/_nuxt/useImageBatchSubmission.a522bf7a.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/useLockFn.73870d6a.js",
+      "delivery": "files/public/_nuxt/useLockFn.73870d6a.js"
+    },
+    {
+      "path": "public/_nuxt/useLockFn.cbd7d6ca.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/useOfficialLocale.1df652b9.js",
+      "delivery": "files/public/_nuxt/useOfficialLocale.1df652b9.js"
+    },
+    {
+      "path": "public/_nuxt/useOfficialLocale.800cd543.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/useOpenPages.7487a916.js",
+      "delivery": "files/public/_nuxt/useOpenPages.7487a916.js"
+    },
+    {
+      "path": "public/_nuxt/useOpenPages.f0cc62db.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/useShortDramaHomeStyle.5fd1ffcc.js",
+      "delivery": "files/public/_nuxt/useShortDramaHomeStyle.5fd1ffcc.js"
+    },
+    {
+      "path": "public/_nuxt/useShortDramaHomeStyle.b443b16c.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/useToolDisplayName.a3b8d5b5.js",
+      "delivery": "files/public/_nuxt/useToolDisplayName.a3b8d5b5.js"
+    },
+    {
+      "path": "public/_nuxt/useToolDisplayName.f2e6dc4a.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/user-center-layout.39ddee45.js",
+      "delivery": "files/public/_nuxt/user-center-layout.39ddee45.js"
+    },
+    {
+      "path": "public/_nuxt/user-center-layout.a2cab54e.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/video.de205937.js",
+      "delivery": "files/public/_nuxt/video.de205937.js"
+    },
+    {
+      "path": "public/_nuxt/video.ee4985a5.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/website.c04f5072.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/website.cc7f3ee6.js",
+      "delivery": "files/public/_nuxt/website.cc7f3ee6.js"
+    },
+    {
+      "path": "public/_nuxt/workspace-assets.11d9ef7a.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/workspace-assets.209d4d4d.js",
+      "delivery": "files/public/_nuxt/workspace-assets.209d4d4d.js"
+    },
+    {
+      "path": "public/_nuxt/xiazai.04967930.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/_nuxt/xiazai.1a5edf53.js",
+      "delivery": "files/public/_nuxt/xiazai.1a5edf53.js"
+    },
+    {
+      "path": "public/_nuxt/zaici.7211fc01.js",
+      "delivery": "files/public/_nuxt/zaici.7211fc01.js"
+    },
+    {
+      "path": "public/_nuxt/zaici.80330bf4.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/pc/200.html",
+      "delivery": "files/public/pc/200.html"
+    },
+    {
+      "path": "public/pc/404.html",
+      "delivery": "files/public/pc/404.html"
+    },
+    {
+      "path": "public/pc/account/security/index.html",
+      "delivery": "files/public/pc/account/security/index.html"
+    },
+    {
+      "path": "public/pc/ai/assets/index.html",
+      "delivery": "files/public/pc/ai/assets/index.html"
+    },
+    {
+      "path": "public/pc/ai/avatar/index.html",
+      "delivery": "files/public/pc/ai/avatar/index.html"
+    },
+    {
+      "path": "public/pc/ai/create/index.html",
+      "delivery": "files/public/pc/ai/create/index.html"
+    },
+    {
+      "path": "public/pc/ai/index.html",
+      "delivery": "files/public/pc/ai/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/canvas/index.html",
+      "delivery": "files/public/pc/ai/short-drama/canvas/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/episode/index.html",
+      "delivery": "files/public/pc/ai/short-drama/episode/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/episodes/index.html",
+      "delivery": "files/public/pc/ai/short-drama/episodes/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/images/index.html",
+      "delivery": "files/public/pc/ai/short-drama/images/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/index.html",
+      "delivery": "files/public/pc/ai/short-drama/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/plan/index.html",
+      "delivery": "files/public/pc/ai/short-drama/plan/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/projects/index.html",
+      "delivery": "files/public/pc/ai/short-drama/projects/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/scene/index.html",
+      "delivery": "files/public/pc/ai/short-drama/scene/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/skill-create/index.html",
+      "delivery": "files/public/pc/ai/short-drama/skill-create/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/skills/index.html",
+      "delivery": "files/public/pc/ai/short-drama/skills/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/storyboard/index.html",
+      "delivery": "files/public/pc/ai/short-drama/storyboard/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/subject-create/index.html",
+      "delivery": "files/public/pc/ai/short-drama/subject-create/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/subject/index.html",
+      "delivery": "files/public/pc/ai/short-drama/subject/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/video/index.html",
+      "delivery": "files/public/pc/ai/short-drama/video/index.html"
+    },
+    {
+      "path": "public/pc/ai/smart_clip/index.html",
+      "delivery": "files/public/pc/ai/smart_clip/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_action_transfer/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_action_transfer/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_background_removal/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_background_removal/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_fashion_lookbook/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_fashion_lookbook/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_fitting/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_fitting/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_hairstyle/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_hairstyle/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_image_translate/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_image_translate/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_local_redraw/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_local_redraw/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_model_wear/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_model_wear/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_music/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_music/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_music_cover/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_music_cover/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_one_click_cleanup/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_one_click_cleanup/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_outpaint/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_outpaint/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_person_replacement/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_person_replacement/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_photo_restore/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_photo_restore/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_product_image/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_product_image/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_product_multi_angle/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_product_multi_angle/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_product_promo_video/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_product_promo_video/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_product_suite/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_product_suite/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_style_transfer/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_style_transfer/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_watermark_removal/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_watermark_removal/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/index.html",
+      "delivery": "files/public/pc/ai/tools/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-12/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-12/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-13/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-13/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-14/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-14/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-16/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-16/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-17/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-17/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-18/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-18/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-20/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-20/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-21/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-21/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-22/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-22/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-23/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-23/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-26/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-26/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-27/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-27/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-28/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-28/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-29/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-29/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-30/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-30/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_canvas/index.html",
+      "delivery": "files/public/pc/app/aigc_canvas/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_canvas/replay/index.html",
+      "delivery": "files/public/pc/app/aigc_canvas/replay/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_digital_human/index.html",
+      "delivery": "files/public/pc/app/aigc_digital_human/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/account-settings/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/account-settings/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/ai-accounts/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/ai-accounts/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/analysis/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/analysis/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/articles/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/articles/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/auto-production/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/auto-production/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/balance/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/balance/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/brand-words/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/brand-words/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/brand/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/brand/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/cases/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/cases/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/channels/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/channels/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/competitors/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/competitors/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/conversion/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/conversion/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/creation/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/creation/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/diagnosis/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/diagnosis/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/domains/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/domains/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/gallery/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/gallery/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/goals/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/goals/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/hot-search/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/hot-search/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/index-plans/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/index-plans/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/index-records/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/index-records/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/invite/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/invite/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/keywords/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/keywords/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/knowledge/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/knowledge/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/map/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/map/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/materials/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/materials/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/media-favorites/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/media-favorites/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/media-roi/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/media-roi/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/official-media/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/official-media/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/overseas-media/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/overseas-media/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/plans/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/plans/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/product-detect/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/product-detect/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/products/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/products/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/recharge/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/recharge/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/records/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/records/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/reports/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/reports/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/rules/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/rules/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/self-media/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/self-media/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/site-articles/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/site-articles/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/site-editor/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/site-editor/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/site-settings/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/site-settings/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/spend/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/spend/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/sub-accounts/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/sub-accounts/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/submission-orders/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/submission-orders/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/website/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/website/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_image/index.html",
+      "delivery": "files/public/pc/app/aigc_image/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_llm/index.html",
+      "delivery": "files/public/pc/app/aigc_llm/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_video/index.html",
+      "delivery": "files/public/pc/app/aigc_video/index.html"
+    },
+    {
+      "path": "public/pc/app/image_human/index.html",
+      "delivery": "files/public/pc/app/image_human/index.html"
+    },
+    {
+      "path": "public/pc/app/smart_clip/index.html",
+      "delivery": "files/public/pc/app/smart_clip/index.html"
+    },
+    {
+      "path": "public/pc/cases/index.html",
+      "delivery": "files/public/pc/cases/index.html"
+    },
+    {
+      "path": "public/pc/docs/index.html",
+      "delivery": "files/public/pc/docs/index.html"
+    },
+    {
+      "path": "public/pc/index.html",
+      "delivery": "files/public/pc/index.html"
+    },
+    {
+      "path": "public/pc/join-opc/index.html",
+      "delivery": "files/public/pc/join-opc/index.html"
+    },
+    {
+      "path": "public/pc/join-opc/payment/index.html",
+      "delivery": "files/public/pc/join-opc/payment/index.html"
+    },
+    {
+      "path": "public/pc/join-opc/result/index.html",
+      "delivery": "files/public/pc/join-opc/result/index.html"
+    },
+    {
+      "path": "public/pc/login/index.html",
+      "delivery": "files/public/pc/login/index.html"
+    },
+    {
+      "path": "public/pc/official/oem/index.html",
+      "delivery": "files/public/pc/official/oem/index.html"
+    },
+    {
+      "path": "public/pc/official/open/index.html",
+      "delivery": "files/public/pc/official/open/index.html"
+    },
+    {
+      "path": "public/pc/pricing/index.html",
+      "delivery": "files/public/pc/pricing/index.html"
+    },
+    {
+      "path": "public/pc/products/index.html",
+      "delivery": "files/public/pc/products/index.html"
+    },
+    {
+      "path": "public/pc/register/index.html",
+      "delivery": "files/public/pc/register/index.html"
+    },
+    {
+      "path": "public/pc/scenes/index.html",
+      "delivery": "files/public/pc/scenes/index.html"
+    },
+    {
+      "path": "public/pc/user/api-keys/index.html",
+      "delivery": "files/public/pc/user/api-keys/index.html"
+    },
+    {
+      "path": "public/pc/user/billing/index.html",
+      "delivery": "files/public/pc/user/billing/index.html"
+    },
+    {
+      "path": "public/pc/user/collection/index.html",
+      "delivery": "files/public/pc/user/collection/index.html"
+    },
+    {
+      "path": "public/pc/user/developer/catalog/index.html",
+      "delivery": "files/public/pc/user/developer/catalog/index.html"
+    },
+    {
+      "path": "public/pc/user/developer/overview/index.html",
+      "delivery": "files/public/pc/user/developer/overview/index.html"
+    },
+    {
+      "path": "public/pc/user/developer/playground/index.html",
+      "delivery": "files/public/pc/user/developer/playground/index.html"
+    },
+    {
+      "path": "public/pc/user/developer/requests/index.html",
+      "delivery": "files/public/pc/user/developer/requests/index.html"
+    },
+    {
+      "path": "public/pc/user/developer/tasks/index.html",
+      "delivery": "files/public/pc/user/developer/tasks/index.html"
+    },
+    {
+      "path": "public/pc/user/developer/usage/index.html",
+      "delivery": "files/public/pc/user/developer/usage/index.html"
+    },
+    {
+      "path": "public/pc/user/distribution/index.html",
+      "delivery": "files/public/pc/user/distribution/index.html"
+    },
+    {
+      "path": "public/pc/user/info/index.html",
+      "delivery": "files/public/pc/user/info/index.html"
+    },
+    {
+      "path": "public/pc/user/preferences/index.html",
+      "delivery": "files/public/pc/user/preferences/index.html"
+    },
+    {
+      "path": "public/pc/wechat/callback/index.html",
+      "delivery": "files/public/pc/wechat/callback/index.html"
+    },
+    {
+      "path": "public/upgrade/version.json",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "upgrade/version.json",
+      "delivery": "source-only-or-protected"
+    }
+  ],
+  "migrations": [],
+  "uncovered": []
+}

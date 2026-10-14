@@ -8,6 +8,11 @@ return [
         'home-agent:stt-reconcile' => 'app\\common\\command\\HomeAgentSttReconcile',
         'home-agent:health' => 'app\\common\\command\\HomeAgentHealth',
         'home-agent:worker' => 'app\\common\\command\\HomeAgentWorker',
+
+        'virtualpay:maintain' => 'app\\common\\command\\VirtualPayMaintain',
+        'brand:worker' => 'app\\common\\command\\BrandWorker',
+        'brand:maintain' => 'app\\common\\command\\BrandMaintain',
+        'decoration:agent-worker' => 'app\\common\\command\\DecorationAgentWorker',
         'open-platform:worker' => 'app\\common\\command\\OpenPlatformWorker',
         'short-drama:episode-worker' => 'app\common\command\ShortDramaEpisodeWorker',
         'short-drama:planning-worker' => 'app\common\command\ShortDramaPlanningWorker',

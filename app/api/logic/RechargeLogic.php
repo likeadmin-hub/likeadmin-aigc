@@ -46,16 +46,10 @@ class RechargeLogic extends BaseLogic
             $money = (float)($params['money'] ?? 0);
             $points = $money;
             if (!empty($params['package_id'])) {
-                $package = RechargePackage::where([
-                    'tenant_id' => (int)$params['tenant_id'],
-                    'id' => (int)$params['package_id'],
-                    'status' => RechargePackageService::STATUS_ENABLED,
-                ])->findOrEmpty()->toArray();
-                if (empty($package)) {
-                    throw new \Exception('算力套餐不存在或已下架');
-                }
-                $money = (float)$package['amount'];
-                $points = (float)$package['points'];
+                return \app\common\service\promotion\PackagePricingService::create(
+                    (int)$params['tenant_id'], (int)$params['user_id'], (int)$params['terminal'],
+                    'recharge', (int)$params['package_id'], 'package', (string)($params['quote_hash'] ?? '')
+                );
             }
             if ($money <= 0 && empty($package)) {
                 throw new \Exception('请选择充值套餐或填写充值' . PointUnitService::unit());
@@ -79,7 +73,7 @@ class RechargeLogic extends BaseLogic
                 'from' => 'recharge'
             ];
         } catch (\Exception $e) {
-            self::setError($e->getMessage());
+            self::setError(\app\common\service\virtualpay\VirtualPayPolicy::error($e));
             return false;
         }
     }

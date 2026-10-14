@@ -143,6 +143,36 @@ function baselineFixture() {
     f.run=out=>spawnSync(process.execPath,[script.pathname,'--repo',f.repo,'--base-ref',f.base,'--base-version','1.0.390','--version','1.0.391','--out-dir',path.join(f.dir,out),'--composer-runtime','--bootstrap-inner'],{encoding:'utf8'})
     return f
 }
+test('bootstrap staging delivers retention reader, collector, runner and retry hook together',()=>{
+    const f=baselineFixture()
+    const files=['runtime-retention.php','scripts/runtime-cleanup.php','app/common/service/update/RuntimeRetentionService.php','app/common/command/Crontab.php']
+    try {
+        for(const relative of files)f.write(relative,'<?php // retention delivery fixture')
+        execFileSync('git',['add',...files],{cwd:f.repo})
+        execFileSync('git',['commit','-m','retention protocol'],{cwd:f.repo,stdio:'pipe'})
+        const result=f.run('retention-stage');assert.equal(result.status,0,result.stderr)
+        const coverage=JSON.parse(fs.readFileSync(path.join(f.dir,'retention-stage/release-change-manifest.json')))
+        for(const relative of files){
+            assert.ok(fs.existsSync(path.join(f.dir,'retention-stage/files',relative)),relative)
+            assert.ok(coverage.paths.some(row=>row.path===relative),relative)
+        }
+    }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
+})
+test('bootstrap includes unchanged customer message helper for its direct failure response',()=>{
+    const f=baselineFixture(),relative='app/common/service/update/UpdateCustomerMessage.php'
+    const git=(...args)=>execFileSync('git',args,{cwd:f.repo,encoding:'utf8',stdio:'pipe'})
+    try {
+        f.write(relative,'<?php // existing presentation helper')
+        f.write('config/project.php',"<?php return ['version'=>'1.0.390'];")
+        git('add',relative,'config/project.php');git('commit','-m','baseline with existing helper')
+        f.base=git('rev-parse','HEAD').trim()
+        f.write('config/project.php',"<?php return ['version'=>'1.0.391'];")
+        git('add','config/project.php');git('commit','-m','target version')
+        const result=f.run('customer-message-stage');assert.equal(result.status,0,result.stderr)
+        assert.ok(fs.existsSync(path.join(f.dir,'customer-message-stage/files',relative)),'bootstrap failure presentation dependency must be delivered')
+        assert.equal(fs.readFileSync(path.join(f.dir,'customer-message-stage/files',relative),'utf8'),'<?php // existing presentation helper')
+    }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
+})
 test('signed runtime baseline derives migration identity solely from predecessor Git bytes',()=>{
     const f=baselineFixture()
     try {

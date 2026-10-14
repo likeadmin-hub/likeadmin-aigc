@@ -33,7 +33,7 @@ Before importing into an existing installation, apply `app/apps/aigc_video/migra
 
 ## Pixlr Ads 场景模板（租户主动导入）
 
-`pixlr-ads.json` 为 2026-10-12 在 Pixlr Video Creation → Ads 可见的 60 条演示素材清单。中文场景方向为重新编写，不是原站完整提示词或隐藏参数；原演示并非本站模型实测输出。此批不是默认目录替换，不自动分发到其他租户。
+`app/apps/aigc_video/data/pixlr-ads.json` 为 2026-10-12 在 Pixlr Video Creation → Ads 可见的 60 条演示素材清单。中文场景方向为重新编写，不是原站完整提示词或隐藏参数；原演示并非本站模型实测输出。此批不是默认目录替换，不自动分发到其他租户。
 
 1. 在本地 develop 执行 `python3 scripts/prepare-pixlr-ad-media.py --media-dir=/path/to/pixlr-ads`。需要 ffmpeg/ffprobe；仅允许清单 CDN HTTPS 地址，拒绝跳转，每份视频上限 80 MiB、网络和解码均设超时。提取首个解码帧为 JPEG，记录尺寸、时长和 SHA-256。
 2. `php scripts/import-pixlr-ad-templates.php --tenant=1 --product=98 --media-dir=/path/to/pixlr-ads` 先校验；加 `--apply` 上传到该租户有效存储、登记素材库、备份配置并追加保存。目标模型必须支持图生视频、768P、自适应比例及可枚举时长。使用最接近演示时长的可用值。
@@ -41,3 +41,5 @@ Before importing into an existing installation, apply `app/apps/aigc_video/migra
 4. 保存前校验配置没有并发变化，出现变化时保留已上传素材并中止配置保存。每次执行后检查回读；未调用生成接口、不扣算力。来源素材的使用及分发授权由部署方核实，来源记录不等于授权证明。
 
 媒体文件、运行配置备份、存储地址不提交源码。其他环境须执行同一素材准备/导入过程；不会随源码推送同步本地租户配置。
+
+素材准备和导入均读取当前激活的运行版本；已有安装不会回退到旧站点app目录。升级尚未完成时素材准备会阻止执行。导入前可用PHP 8.2运行 php scripts/import-pixlr-ad-templates.php --check-runtime，仅核对运行目录、模板数量及服务类来源，不上传文件、不修改配置或调用模型。

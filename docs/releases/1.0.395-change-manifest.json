@@ -1,0 +1,2151 @@
+{
+  "base_ref": "478609480376e5bfb45f3b123c4ae1d42c5cd04f",
+  "source_commit": "f2a1b6e0d956800bbb9f08f91111d6fa6591565f",
+  "base_version": "1.0.394",
+  "target_version": "1.0.395",
+  "bridge": false,
+  "paths": [
+    {
+      "path": ".example.env",
+      "delivery": "files/.example.env"
+    },
+    {
+      "path": "README.md",
+      "delivery": "files/README.md"
+    },
+    {
+      "path": "app/common/command/DecorationAgentWorker.php",
+      "delivery": "files/app/common/command/DecorationAgentWorker.php"
+    },
+    {
+      "path": "app/common/service/decorate/agent/DecorationAgentService.php",
+      "delivery": "files/app/common/service/decorate/agent/DecorationAgentService.php"
+    },
+    {
+      "path": "app/common/service/update/ComposerRuntimeUpdateService.php",
+      "delivery": "files/app/common/service/update/ComposerRuntimeUpdateService.php"
+    },
+    {
+      "path": "app/common/service/update/ProjectUpdateProcessGate.php",
+      "delivery": "files/app/common/service/update/ProjectUpdateProcessGate.php"
+    },
+    {
+      "path": "app/common/service/update/SystemPackageUpdateService.php",
+      "delivery": "files/app/common/service/update/SystemPackageUpdateService.php"
+    },
+    {
+      "path": "app/common/service/update/SystemRuntimeBootstrapService.php",
+      "delivery": "files/app/common/service/update/SystemRuntimeBootstrapService.php"
+    },
+    {
+      "path": "config/decoration_agent.php",
+      "delivery": "files/config/decoration_agent.php"
+    },
+    {
+      "path": "config/project.php",
+      "delivery": "files/config/project.php"
+    },
+    {
+      "path": "docs/decoration-agent-implementation.md",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "docs/releases/1.0.395.md",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-13-system-release-395.md",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "docs/worker-aware-updates-20261013.md",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "public/mp-weixin/.artifact.meta.json",
+      "delivery": "files/public/mp-weixin/.artifact.meta.json"
+    },
+    {
+      "path": "public/pc/200.html",
+      "delivery": "files/public/pc/200.html"
+    },
+    {
+      "path": "public/pc/404.html",
+      "delivery": "files/public/pc/404.html"
+    },
+    {
+      "path": "public/pc/account/security/index.html",
+      "delivery": "files/public/pc/account/security/index.html"
+    },
+    {
+      "path": "public/pc/ai/assets/index.html",
+      "delivery": "files/public/pc/ai/assets/index.html"
+    },
+    {
+      "path": "public/pc/ai/avatar/index.html",
+      "delivery": "files/public/pc/ai/avatar/index.html"
+    },
+    {
+      "path": "public/pc/ai/create/index.html",
+      "delivery": "files/public/pc/ai/create/index.html"
+    },
+    {
+      "path": "public/pc/ai/index.html",
+      "delivery": "files/public/pc/ai/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/canvas/index.html",
+      "delivery": "files/public/pc/ai/short-drama/canvas/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/episode/index.html",
+      "delivery": "files/public/pc/ai/short-drama/episode/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/episodes/index.html",
+      "delivery": "files/public/pc/ai/short-drama/episodes/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/images/index.html",
+      "delivery": "files/public/pc/ai/short-drama/images/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/index.html",
+      "delivery": "files/public/pc/ai/short-drama/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/plan/index.html",
+      "delivery": "files/public/pc/ai/short-drama/plan/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/projects/index.html",
+      "delivery": "files/public/pc/ai/short-drama/projects/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/scene/index.html",
+      "delivery": "files/public/pc/ai/short-drama/scene/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/skill-create/index.html",
+      "delivery": "files/public/pc/ai/short-drama/skill-create/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/skills/index.html",
+      "delivery": "files/public/pc/ai/short-drama/skills/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/storyboard/index.html",
+      "delivery": "files/public/pc/ai/short-drama/storyboard/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/subject-create/index.html",
+      "delivery": "files/public/pc/ai/short-drama/subject-create/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/subject/index.html",
+      "delivery": "files/public/pc/ai/short-drama/subject/index.html"
+    },
+    {
+      "path": "public/pc/ai/short-drama/video/index.html",
+      "delivery": "files/public/pc/ai/short-drama/video/index.html"
+    },
+    {
+      "path": "public/pc/ai/smart_clip/index.html",
+      "delivery": "files/public/pc/ai/smart_clip/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_action_transfer/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_action_transfer/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_background_removal/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_background_removal/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_fashion_lookbook/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_fashion_lookbook/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_fitting/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_fitting/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_hairstyle/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_hairstyle/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_image_translate/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_image_translate/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_local_redraw/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_local_redraw/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_model_wear/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_model_wear/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_music/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_music/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_music_cover/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_music_cover/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_one_click_cleanup/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_one_click_cleanup/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_outpaint/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_outpaint/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_person_replacement/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_person_replacement/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_photo_restore/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_photo_restore/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_product_image/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_product_image/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_product_multi_angle/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_product_multi_angle/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_product_promo_video/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_product_promo_video/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_product_suite/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_product_suite/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_style_transfer/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_style_transfer/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/aigc_watermark_removal/index.html",
+      "delivery": "files/public/pc/ai/tools/aigc_watermark_removal/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/index.html",
+      "delivery": "files/public/pc/ai/tools/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-12/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-12/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-13/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-13/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-14/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-14/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-16/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-16/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-17/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-17/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-18/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-18/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-20/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-20/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-21/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-21/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-22/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-22/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-23/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-23/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-26/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-26/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-27/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-27/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-28/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-28/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-29/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-29/index.html"
+    },
+    {
+      "path": "public/pc/ai/tools/tool-card-30/index.html",
+      "delivery": "files/public/pc/ai/tools/tool-card-30/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_canvas/index.html",
+      "delivery": "files/public/pc/app/aigc_canvas/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_canvas/replay/index.html",
+      "delivery": "files/public/pc/app/aigc_canvas/replay/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_digital_human/index.html",
+      "delivery": "files/public/pc/app/aigc_digital_human/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/account-settings/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/account-settings/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/ai-accounts/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/ai-accounts/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/analysis/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/analysis/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/articles/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/articles/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/auto-production/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/auto-production/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/balance/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/balance/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/brand-words/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/brand-words/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/brand/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/brand/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/cases/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/cases/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/channels/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/channels/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/competitors/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/competitors/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/conversion/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/conversion/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/creation/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/creation/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/diagnosis/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/diagnosis/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/domains/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/domains/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/gallery/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/gallery/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/goals/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/goals/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/hot-search/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/hot-search/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/index-plans/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/index-plans/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/index-records/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/index-records/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/invite/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/invite/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/keywords/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/keywords/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/knowledge/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/knowledge/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/map/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/map/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/materials/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/materials/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/media-favorites/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/media-favorites/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/media-roi/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/media-roi/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/official-media/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/official-media/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/overseas-media/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/overseas-media/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/plans/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/plans/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/product-detect/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/product-detect/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/products/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/products/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/recharge/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/recharge/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/records/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/records/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/reports/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/reports/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/rules/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/rules/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/self-media/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/self-media/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/site-articles/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/site-articles/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/site-editor/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/site-editor/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/site-settings/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/site-settings/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/spend/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/spend/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/sub-accounts/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/sub-accounts/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/submission-orders/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/submission-orders/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/console/website/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/console/website/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_geo/index.html",
+      "delivery": "files/public/pc/app/aigc_geo/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_image/index.html",
+      "delivery": "files/public/pc/app/aigc_image/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_llm/index.html",
+      "delivery": "files/public/pc/app/aigc_llm/index.html"
+    },
+    {
+      "path": "public/pc/app/aigc_video/index.html",
+      "delivery": "files/public/pc/app/aigc_video/index.html"
+    },
+    {
+      "path": "public/pc/app/image_human/index.html",
+      "delivery": "files/public/pc/app/image_human/index.html"
+    },
+    {
+      "path": "public/pc/app/smart_clip/index.html",
+      "delivery": "files/public/pc/app/smart_clip/index.html"
+    },
+    {
+      "path": "public/pc/cases/index.html",
+      "delivery": "files/public/pc/cases/index.html"
+    },
+    {
+      "path": "public/pc/docs/index.html",
+      "delivery": "files/public/pc/docs/index.html"
+    },
+    {
+      "path": "public/pc/index.html",
+      "delivery": "files/public/pc/index.html"
+    },
+    {
+      "path": "public/pc/join-opc/index.html",
+      "delivery": "files/public/pc/join-opc/index.html"
+    },
+    {
+      "path": "public/pc/join-opc/payment/index.html",
+      "delivery": "files/public/pc/join-opc/payment/index.html"
+    },
+    {
+      "path": "public/pc/join-opc/result/index.html",
+      "delivery": "files/public/pc/join-opc/result/index.html"
+    },
+    {
+      "path": "public/pc/login/index.html",
+      "delivery": "files/public/pc/login/index.html"
+    },
+    {
+      "path": "public/pc/official/oem/index.html",
+      "delivery": "files/public/pc/official/oem/index.html"
+    },
+    {
+      "path": "public/pc/official/open/index.html",
+      "delivery": "files/public/pc/official/open/index.html"
+    },
+    {
+      "path": "public/pc/pricing/index.html",
+      "delivery": "files/public/pc/pricing/index.html"
+    },
+    {
+      "path": "public/pc/products/index.html",
+      "delivery": "files/public/pc/products/index.html"
+    },
+    {
+      "path": "public/pc/register/index.html",
+      "delivery": "files/public/pc/register/index.html"
+    },
+    {
+      "path": "public/pc/scenes/index.html",
+      "delivery": "files/public/pc/scenes/index.html"
+    },
+    {
+      "path": "public/pc/user/api-keys/index.html",
+      "delivery": "files/public/pc/user/api-keys/index.html"
+    },
+    {
+      "path": "public/pc/user/billing/index.html",
+      "delivery": "files/public/pc/user/billing/index.html"
+    },
+    {
+      "path": "public/pc/user/collection/index.html",
+      "delivery": "files/public/pc/user/collection/index.html"
+    },
+    {
+      "path": "public/pc/user/developer/catalog/index.html",
+      "delivery": "files/public/pc/user/developer/catalog/index.html"
+    },
+    {
+      "path": "public/pc/user/developer/overview/index.html",
+      "delivery": "files/public/pc/user/developer/overview/index.html"
+    },
+    {
+      "path": "public/pc/user/developer/playground/index.html",
+      "delivery": "files/public/pc/user/developer/playground/index.html"
+    },
+    {
+      "path": "public/pc/user/developer/requests/index.html",
+      "delivery": "files/public/pc/user/developer/requests/index.html"
+    },
+    {
+      "path": "public/pc/user/developer/tasks/index.html",
+      "delivery": "files/public/pc/user/developer/tasks/index.html"
+    },
+    {
+      "path": "public/pc/user/developer/usage/index.html",
+      "delivery": "files/public/pc/user/developer/usage/index.html"
+    },
+    {
+      "path": "public/pc/user/distribution/index.html",
+      "delivery": "files/public/pc/user/distribution/index.html"
+    },
+    {
+      "path": "public/pc/user/info/index.html",
+      "delivery": "files/public/pc/user/info/index.html"
+    },
+    {
+      "path": "public/pc/user/preferences/index.html",
+      "delivery": "files/public/pc/user/preferences/index.html"
+    },
+    {
+      "path": "public/pc/wechat/callback/index.html",
+      "delivery": "files/public/pc/wechat/callback/index.html"
+    },
+    {
+      "path": "public/platform/assets/403-BsKIF7r6.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/403-CIHuRibP.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/403-ClCdPiNR.js",
+      "delivery": "files/public/platform/assets/403-ClCdPiNR.js"
+    },
+    {
+      "path": "public/platform/assets/403-acGmJ_hL.js",
+      "delivery": "files/public/platform/assets/403-acGmJ_hL.js"
+    },
+    {
+      "path": "public/platform/assets/404-BzUSakWT.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/404-CTQ9etmE.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/404-CyzGIBoD.js",
+      "delivery": "files/public/platform/assets/404-CyzGIBoD.js"
+    },
+    {
+      "path": "public/platform/assets/404-DOCt699S.js",
+      "delivery": "files/public/platform/assets/404-DOCt699S.js"
+    },
+    {
+      "path": "public/platform/assets/ManagementPanel-BZtC3lu3.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/ManagementPanel-CbCfSTrS.js",
+      "delivery": "files/public/platform/assets/ManagementPanel-CbCfSTrS.js"
+    },
+    {
+      "path": "public/platform/assets/VideoEffectConfig-DmykEVI4.js",
+      "delivery": "files/public/platform/assets/VideoEffectConfig-DmykEVI4.js"
+    },
+    {
+      "path": "public/platform/assets/VideoEffectConfig-uuCjfm89.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/add-CRTpaUkZ.js",
+      "delivery": "files/public/platform/assets/add-CRTpaUkZ.js"
+    },
+    {
+      "path": "public/platform/assets/add-D7CjrLh_.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-5TDBEitR.js",
+      "delivery": "files/public/platform/assets/api-5TDBEitR.js"
+    },
+    {
+      "path": "public/platform/assets/api-B3ll0GEv.js",
+      "delivery": "files/public/platform/assets/api-B3ll0GEv.js"
+    },
+    {
+      "path": "public/platform/assets/api-BAXjvAX2.js",
+      "delivery": "files/public/platform/assets/api-BAXjvAX2.js"
+    },
+    {
+      "path": "public/platform/assets/api-BA_M4aEy.js",
+      "delivery": "files/public/platform/assets/api-BA_M4aEy.js"
+    },
+    {
+      "path": "public/platform/assets/api-BKhL3vWd.js",
+      "delivery": "files/public/platform/assets/api-BKhL3vWd.js"
+    },
+    {
+      "path": "public/platform/assets/api-Bq2kb4bi.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-BwDOp-WM.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-C85ReOzA.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-C9aenAqC.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-CIRSgHpw.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-CS321hG3.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-CXJ8j6cT.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-Cg1Dvlai.js",
+      "delivery": "files/public/platform/assets/api-Cg1Dvlai.js"
+    },
+    {
+      "path": "public/platform/assets/api-D1XXQakO.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-D4MYTtub.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-DDFt2YTz.js",
+      "delivery": "files/public/platform/assets/api-DDFt2YTz.js"
+    },
+    {
+      "path": "public/platform/assets/api-DIVREn5L.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-DKpaJSAb.js",
+      "delivery": "files/public/platform/assets/api-DKpaJSAb.js"
+    },
+    {
+      "path": "public/platform/assets/api-DYoLTMdE.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-DjNBvDuV.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-DnVWreOC.js",
+      "delivery": "files/public/platform/assets/api-DnVWreOC.js"
+    },
+    {
+      "path": "public/platform/assets/api-DpmAkZr-.js",
+      "delivery": "files/public/platform/assets/api-DpmAkZr-.js"
+    },
+    {
+      "path": "public/platform/assets/api-NNKZ1v-i.js",
+      "delivery": "files/public/platform/assets/api-NNKZ1v-i.js"
+    },
+    {
+      "path": "public/platform/assets/api-kAx07Kn7.js",
+      "delivery": "files/public/platform/assets/api-kAx07Kn7.js"
+    },
+    {
+      "path": "public/platform/assets/api-nJWIookD.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/api-pJdEbzOH.js",
+      "delivery": "files/public/platform/assets/api-pJdEbzOH.js"
+    },
+    {
+      "path": "public/platform/assets/api-wHGdxEz_.js",
+      "delivery": "files/public/platform/assets/api-wHGdxEz_.js"
+    },
+    {
+      "path": "public/platform/assets/api-yfdi3eV0.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/auth-D_smHcpn.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/auth-XJtmH5Kd.js",
+      "delivery": "files/public/platform/assets/auth-XJtmH5Kd.js"
+    },
+    {
+      "path": "public/platform/assets/auth.vue_vue_type_script_setup_true_lang-4RpbUTK3.js",
+      "delivery": "files/public/platform/assets/auth.vue_vue_type_script_setup_true_lang-4RpbUTK3.js"
+    },
+    {
+      "path": "public/platform/assets/auth.vue_vue_type_script_setup_true_lang-D3JNoaCO.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/authorizations-C_2Jy9Iq.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/authorizations-DCVInp1F.js",
+      "delivery": "files/public/platform/assets/authorizations-DCVInp1F.js"
+    },
+    {
+      "path": "public/platform/assets/authorizers-Cw6Abw2Q.js",
+      "delivery": "files/public/platform/assets/authorizers-Cw6Abw2Q.js"
+    },
+    {
+      "path": "public/platform/assets/authorizers-Mkvfjvnb.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/cache-CQCukIy5.js",
+      "delivery": "files/public/platform/assets/cache-CQCukIy5.js"
+    },
+    {
+      "path": "public/platform/assets/cache-tNmZCK3P.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/channel-8ajH2g3j.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/channel-BQ9IuqFf.js",
+      "delivery": "files/public/platform/assets/channel-BQ9IuqFf.js"
+    },
+    {
+      "path": "public/platform/assets/channel-C327ULTD.js",
+      "delivery": "files/public/platform/assets/channel-C327ULTD.js"
+    },
+    {
+      "path": "public/platform/assets/channel-CCHZzCR6.js",
+      "delivery": "files/public/platform/assets/channel-CCHZzCR6.js"
+    },
+    {
+      "path": "public/platform/assets/channel-Caumcmnb.js",
+      "delivery": "files/public/platform/assets/channel-Caumcmnb.js"
+    },
+    {
+      "path": "public/platform/assets/channel-CmBRIkCL.js",
+      "delivery": "files/public/platform/assets/channel-CmBRIkCL.js"
+    },
+    {
+      "path": "public/platform/assets/channel-D5oMFvEE.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/channel-D_kXQa94.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/channel-DijKNMaU.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/channel-w4iJ_rXo.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/code-BCqy13Vn.js",
+      "delivery": "files/public/platform/assets/code-BCqy13Vn.js"
+    },
+    {
+      "path": "public/platform/assets/code-CrCsIPDT.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/code-preview--Io_H-lP.js",
+      "delivery": "files/public/platform/assets/code-preview--Io_H-lP.js"
+    },
+    {
+      "path": "public/platform/assets/code-preview-DmmeCiW7.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/code-preview.vue_vue_type_script_setup_true_lang-1W3BJBg1.js",
+      "delivery": "files/public/platform/assets/code-preview.vue_vue_type_script_setup_true_lang-1W3BJBg1.js"
+    },
+    {
+      "path": "public/platform/assets/code-preview.vue_vue_type_script_setup_true_lang-BE81nZyr.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/config-B2hkSl9y.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/config-BSrHmKmB.js",
+      "delivery": "files/public/platform/assets/config-BSrHmKmB.js"
+    },
+    {
+      "path": "public/platform/assets/config-BxNQ82ou.js",
+      "delivery": "files/public/platform/assets/config-BxNQ82ou.js"
+    },
+    {
+      "path": "public/platform/assets/config-CExiU3YX.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/config-CKqWgDTc.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/config-CPEJcy1o.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/config-Cnq8BpI6.js",
+      "delivery": "files/public/platform/assets/config-Cnq8BpI6.js"
+    },
+    {
+      "path": "public/platform/assets/config-Cu0Q7fw5.js",
+      "delivery": "files/public/platform/assets/config-Cu0Q7fw5.js"
+    },
+    {
+      "path": "public/platform/assets/config-CvJjIdtU.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/config-CvUfS0hQ.js",
+      "delivery": "files/public/platform/assets/config-CvUfS0hQ.js"
+    },
+    {
+      "path": "public/platform/assets/config-D4spl8fl.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/config-D7_HdPzp.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/config-DIsCxiyE.js",
+      "delivery": "files/public/platform/assets/config-DIsCxiyE.js"
+    },
+    {
+      "path": "public/platform/assets/config-DhLN2_c_.js",
+      "delivery": "files/public/platform/assets/config-DhLN2_c_.js"
+    },
+    {
+      "path": "public/platform/assets/config-PQScet5M.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/config-UI0WQ-7g.js",
+      "delivery": "files/public/platform/assets/config-UI0WQ-7g.js"
+    },
+    {
+      "path": "public/platform/assets/config-ryD2D4oI.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/config-ym-ewjAW.js",
+      "delivery": "files/public/platform/assets/config-ym-ewjAW.js"
+    },
+    {
+      "path": "public/platform/assets/consumer-Cp_8Ffl7.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/consumer-D02Y64xG.js",
+      "delivery": "files/public/platform/assets/consumer-D02Y64xG.js"
+    },
+    {
+      "path": "public/platform/assets/consumption-C2u2qz4J.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/consumption-DL0VXJEz.js",
+      "delivery": "files/public/platform/assets/consumption-DL0VXJEz.js"
+    },
+    {
+      "path": "public/platform/assets/contracts-DNpNEOxh.js",
+      "delivery": "files/public/platform/assets/contracts-DNpNEOxh.js"
+    },
+    {
+      "path": "public/platform/assets/contracts-ecSOFJQB.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/data-table-CwHbVz7E.js",
+      "delivery": "files/public/platform/assets/data-table-CwHbVz7E.js"
+    },
+    {
+      "path": "public/platform/assets/data-table-lQynAOyU.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/data-table.vue_vue_type_script_setup_true_lang-Bj7hMVzi.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/data-table.vue_vue_type_script_setup_true_lang-p51e22yp.js",
+      "delivery": "files/public/platform/assets/data-table.vue_vue_type_script_setup_true_lang-p51e22yp.js"
+    },
+    {
+      "path": "public/platform/assets/department-CHWJ18Fw.js",
+      "delivery": "files/public/platform/assets/department-CHWJ18Fw.js"
+    },
+    {
+      "path": "public/platform/assets/department-Dfrtrq-o.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/dependencies--nwPAspr.js",
+      "delivery": "files/public/platform/assets/dependencies--nwPAspr.js"
+    },
+    {
+      "path": "public/platform/assets/dependencies-BDujuO4M.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/dependencies-DEF_T42K.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/dependencies-DOstGrhC.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/dependencies-Xa2k-zw9.js",
+      "delivery": "files/public/platform/assets/dependencies-Xa2k-zw9.js"
+    },
+    {
+      "path": "public/platform/assets/dependencies-ZWb-HcD9.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/dependencies-_PFPJL4L.js",
+      "delivery": "files/public/platform/assets/dependencies-_PFPJL4L.js"
+    },
+    {
+      "path": "public/platform/assets/dependencies-wZbb0T-N.js",
+      "delivery": "files/public/platform/assets/dependencies-wZbb0T-N.js"
+    },
+    {
+      "path": "public/platform/assets/detail-CUlHwQQr.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/detail-Df8XK8iL.js",
+      "delivery": "files/public/platform/assets/detail-Df8XK8iL.js"
+    },
+    {
+      "path": "public/platform/assets/dict-BBqI_1Cs.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/dict-DNiRHz0W.js",
+      "delivery": "files/public/platform/assets/dict-DNiRHz0W.js"
+    },
+    {
+      "path": "public/platform/assets/documents-B8AIMJzx.js",
+      "delivery": "files/public/platform/assets/documents-B8AIMJzx.js"
+    },
+    {
+      "path": "public/platform/assets/documents-DJTD0Eii.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-B-t1oh3c.js",
+      "delivery": "files/public/platform/assets/edit-B-t1oh3c.js"
+    },
+    {
+      "path": "public/platform/assets/edit-B4LocXZ1.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-B7hTVBGZ.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-BKg09gqo.js",
+      "delivery": "files/public/platform/assets/edit-BKg09gqo.js"
+    },
+    {
+      "path": "public/platform/assets/edit-BMx0YXtK.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-BPeLWB6j.js",
+      "delivery": "files/public/platform/assets/edit-BPeLWB6j.js"
+    },
+    {
+      "path": "public/platform/assets/edit-B_s0Memk.js",
+      "delivery": "files/public/platform/assets/edit-B_s0Memk.js"
+    },
+    {
+      "path": "public/platform/assets/edit-B_vbMrA_.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-BhRf070E.js",
+      "delivery": "files/public/platform/assets/edit-BhRf070E.js"
+    },
+    {
+      "path": "public/platform/assets/edit-BimNi61J.js",
+      "delivery": "files/public/platform/assets/edit-BimNi61J.js"
+    },
+    {
+      "path": "public/platform/assets/edit-Bp4QxQuO.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-Bxgvae1N.js",
+      "delivery": "files/public/platform/assets/edit-Bxgvae1N.js"
+    },
+    {
+      "path": "public/platform/assets/edit-COe02EVO.js",
+      "delivery": "files/public/platform/assets/edit-COe02EVO.js"
+    },
+    {
+      "path": "public/platform/assets/edit-CYVRhAhd.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-Cl7RUk1F.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-D1XQsYt0.js",
+      "delivery": "files/public/platform/assets/edit-D1XQsYt0.js"
+    },
+    {
+      "path": "public/platform/assets/edit-D6YLCkvH.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-D7t7hwoK.js",
+      "delivery": "files/public/platform/assets/edit-D7t7hwoK.js"
+    },
+    {
+      "path": "public/platform/assets/edit-D8DxjCJs.js",
+      "delivery": "files/public/platform/assets/edit-D8DxjCJs.js"
+    },
+    {
+      "path": "public/platform/assets/edit-DFEnQBb4.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-DOYLNi6l.js",
+      "delivery": "files/public/platform/assets/edit-DOYLNi6l.js"
+    },
+    {
+      "path": "public/platform/assets/edit-DRD3GnBE.js",
+      "delivery": "files/public/platform/assets/edit-DRD3GnBE.js"
+    },
+    {
+      "path": "public/platform/assets/edit-DRhDdMJR.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-DtE3RKWH.js",
+      "delivery": "files/public/platform/assets/edit-DtE3RKWH.js"
+    },
+    {
+      "path": "public/platform/assets/edit-VipTgtei.js",
+      "delivery": "files/public/platform/assets/edit-VipTgtei.js"
+    },
+    {
+      "path": "public/platform/assets/edit-YPp9Gh0h.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-p9IANYuA.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-qyu87Plz.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-rCbgxzYA.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit-rUEd-Bse.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-8Um-6VJ-.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-AadTrs0u.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-B-laNCRh.js",
+      "delivery": "files/public/platform/assets/edit.vue_vue_type_script_setup_true_lang-B-laNCRh.js"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-BevYhHKQ.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-BjhQdSO8.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-BnnQz1HV.js",
+      "delivery": "files/public/platform/assets/edit.vue_vue_type_script_setup_true_lang-BnnQz1HV.js"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-C5v0J8Sa.js",
+      "delivery": "files/public/platform/assets/edit.vue_vue_type_script_setup_true_lang-C5v0J8Sa.js"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-CpyzkVxp.js",
+      "delivery": "files/public/platform/assets/edit.vue_vue_type_script_setup_true_lang-CpyzkVxp.js"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-Cq44Q69Z.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-D2NngrXb.js",
+      "delivery": "files/public/platform/assets/edit.vue_vue_type_script_setup_true_lang-D2NngrXb.js"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-DCIFtSah.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-DHdPRDVa.js",
+      "delivery": "files/public/platform/assets/edit.vue_vue_type_script_setup_true_lang-DHdPRDVa.js"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-DIS_NcZi.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-DWtTCDML.js",
+      "delivery": "files/public/platform/assets/edit.vue_vue_type_script_setup_true_lang-DWtTCDML.js"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-Hv2jbqcW.js",
+      "delivery": "files/public/platform/assets/edit.vue_vue_type_script_setup_true_lang-Hv2jbqcW.js"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-RlhEUvZn.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-TBU1TjlS.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-nm7yFfv-.js",
+      "delivery": "files/public/platform/assets/edit.vue_vue_type_script_setup_true_lang-nm7yFfv-.js"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-p2zf3QU3.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/edit.vue_vue_type_script_setup_true_lang-z75K4kvg.js",
+      "delivery": "files/public/platform/assets/edit.vue_vue_type_script_setup_true_lang-z75K4kvg.js"
+    },
+    {
+      "path": "public/platform/assets/effects-CKiaDEpR.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/effects-y5q7NCr6.js",
+      "delivery": "files/public/platform/assets/effects-y5q7NCr6.js"
+    },
+    {
+      "path": "public/platform/assets/environment-CoZAwy4f.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/environment-Gaf1PNkp.js",
+      "delivery": "files/public/platform/assets/environment-Gaf1PNkp.js"
+    },
+    {
+      "path": "public/platform/assets/error-ANXgYujY.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/error-C_cXuAMO.js",
+      "delivery": "files/public/platform/assets/error-C_cXuAMO.js"
+    },
+    {
+      "path": "public/platform/assets/filing-CwdJr2AK.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/filing-DqiXB2ra.js",
+      "delivery": "files/public/platform/assets/filing-DqiXB2ra.js"
+    },
+    {
+      "path": "public/platform/assets/index--o_HoKtJ.js",
+      "delivery": "files/public/platform/assets/index--o_HoKtJ.js"
+    },
+    {
+      "path": "public/platform/assets/index-07OY1RyK.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-1a0oM9xY.js",
+      "delivery": "files/public/platform/assets/index-1a0oM9xY.js"
+    },
+    {
+      "path": "public/platform/assets/index-6CLPHs1Z.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-B1voq9Ih.js",
+      "delivery": "files/public/platform/assets/index-B1voq9Ih.js"
+    },
+    {
+      "path": "public/platform/assets/index-B2bvTghK.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-B33U19NC.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-B7HVLebV.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-BDKGv0UR.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-BWY3608z.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-BXXyTvQ4.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-BYlQPmOF.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-Ba4JGVNd.js",
+      "delivery": "files/public/platform/assets/index-Ba4JGVNd.js"
+    },
+    {
+      "path": "public/platform/assets/index-BegO5gUW.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-Bi90L4ei.js",
+      "delivery": "files/public/platform/assets/index-Bi90L4ei.js"
+    },
+    {
+      "path": "public/platform/assets/index-BiSO-8He.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-BlUSUvhF.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-BriPaGtE.css",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-C2HDOO0W.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-C4dGWqlW.js",
+      "delivery": "files/public/platform/assets/index-C4dGWqlW.js"
+    },
+    {
+      "path": "public/platform/assets/index-C57l6wJR.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-C71KJhp4.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-CCMmss-7.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-CDeXZSRA.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-CSk9UPdq.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-CTAUP7p4.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-CWSw_y9o.js",
+      "delivery": "files/public/platform/assets/index-CWSw_y9o.js"
+    },
+    {
+      "path": "public/platform/assets/index-CWbEd5kC.js",
+      "delivery": "files/public/platform/assets/index-CWbEd5kC.js"
+    },
+    {
+      "path": "public/platform/assets/index-CacovUNX.js",
+      "delivery": "files/public/platform/assets/index-CacovUNX.js"
+    },
+    {
+      "path": "public/platform/assets/index-Calg43ZW.js",
+      "delivery": "files/public/platform/assets/index-Calg43ZW.js"
+    },
+    {
+      "path": "public/platform/assets/index-CmrUtfm0.js",
+      "delivery": "files/public/platform/assets/index-CmrUtfm0.js"
+    },
+    {
+      "path": "public/platform/assets/index-CpAxpKbZ.js",
+      "delivery": "files/public/platform/assets/index-CpAxpKbZ.js"
+    },
+    {
+      "path": "public/platform/assets/index-Cqum8IWl.js",
+      "delivery": "files/public/platform/assets/index-Cqum8IWl.js"
+    },
+    {
+      "path": "public/platform/assets/index-CsTw4n7S.js",
+      "delivery": "files/public/platform/assets/index-CsTw4n7S.js"
+    },
+    {
+      "path": "public/platform/assets/index-CsyHc8iW.js",
+      "delivery": "files/public/platform/assets/index-CsyHc8iW.js"
+    },
+    {
+      "path": "public/platform/assets/index-CvBr11rR.js",
+      "delivery": "files/public/platform/assets/index-CvBr11rR.js"
+    },
+    {
+      "path": "public/platform/assets/index-Cy1gV0-Z.js",
+      "delivery": "files/public/platform/assets/index-Cy1gV0-Z.js"
+    },
+    {
+      "path": "public/platform/assets/index-D5fHmEqQ.js",
+      "delivery": "files/public/platform/assets/index-D5fHmEqQ.js"
+    },
+    {
+      "path": "public/platform/assets/index-D6WBpGJu.js",
+      "delivery": "files/public/platform/assets/index-D6WBpGJu.js"
+    },
+    {
+      "path": "public/platform/assets/index-DA7fgua0.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-DCo1Q1pr.js",
+      "delivery": "files/public/platform/assets/index-DCo1Q1pr.js"
+    },
+    {
+      "path": "public/platform/assets/index-DDn4SklY.js",
+      "delivery": "files/public/platform/assets/index-DDn4SklY.js"
+    },
+    {
+      "path": "public/platform/assets/index-DFNSR6eR.js",
+      "delivery": "files/public/platform/assets/index-DFNSR6eR.js"
+    },
+    {
+      "path": "public/platform/assets/index-DKMiL89L.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-DTHWQK_s.js",
+      "delivery": "files/public/platform/assets/index-DTHWQK_s.js"
+    },
+    {
+      "path": "public/platform/assets/index-D_7vxybK.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-DdLmI3Z_.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-DfDD0baW.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-DkNgLkn-.js",
+      "delivery": "files/public/platform/assets/index-DkNgLkn-.js"
+    },
+    {
+      "path": "public/platform/assets/index-DuPfLgR9.css",
+      "delivery": "files/public/platform/assets/index-DuPfLgR9.css"
+    },
+    {
+      "path": "public/platform/assets/index-DvN61Fj_.js",
+      "delivery": "files/public/platform/assets/index-DvN61Fj_.js"
+    },
+    {
+      "path": "public/platform/assets/index-DwsanUI2.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-DxvNkLWk.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-DzFxwCDe.js",
+      "delivery": "files/public/platform/assets/index-DzFxwCDe.js"
+    },
+    {
+      "path": "public/platform/assets/index-DzcGDjz7.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-LdlglJaq.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-OGp_J9CB.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-TwI1mWKa.js",
+      "delivery": "files/public/platform/assets/index-TwI1mWKa.js"
+    },
+    {
+      "path": "public/platform/assets/index-_p3m-fSL.js",
+      "delivery": "files/public/platform/assets/index-_p3m-fSL.js"
+    },
+    {
+      "path": "public/platform/assets/index-a7weXPde.js",
+      "delivery": "files/public/platform/assets/index-a7weXPde.js"
+    },
+    {
+      "path": "public/platform/assets/index-dMaEo0oa.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-ihmQLg1d.js",
+      "delivery": "files/public/platform/assets/index-ihmQLg1d.js"
+    },
+    {
+      "path": "public/platform/assets/index-jVe2t8r6.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-kiKRouiC.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-mlgU0PJm.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index-oupFcS6U.js",
+      "delivery": "files/public/platform/assets/index-oupFcS6U.js"
+    },
+    {
+      "path": "public/platform/assets/index-vC4o96F1.js",
+      "delivery": "files/public/platform/assets/index-vC4o96F1.js"
+    },
+    {
+      "path": "public/platform/assets/index-ySJwS8rg.js",
+      "delivery": "files/public/platform/assets/index-ySJwS8rg.js"
+    },
+    {
+      "path": "public/platform/assets/index.vue_vue_type_script_setup_true_lang-BGy69g52.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index.vue_vue_type_script_setup_true_lang-BQsBTfCv.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index.vue_vue_type_script_setup_true_lang-CaWZQv5p.js",
+      "delivery": "files/public/platform/assets/index.vue_vue_type_script_setup_true_lang-CaWZQv5p.js"
+    },
+    {
+      "path": "public/platform/assets/index.vue_vue_type_script_setup_true_lang-Cxbbxyuu.js",
+      "delivery": "files/public/platform/assets/index.vue_vue_type_script_setup_true_lang-Cxbbxyuu.js"
+    },
+    {
+      "path": "public/platform/assets/index.vue_vue_type_script_setup_true_lang-D0IBS1Ul.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/index.vue_vue_type_script_setup_true_lang-Do-LRwBv.js",
+      "delivery": "files/public/platform/assets/index.vue_vue_type_script_setup_true_lang-Do-LRwBv.js"
+    },
+    {
+      "path": "public/platform/assets/information-BS-3noF_.js",
+      "delivery": "files/public/platform/assets/information-BS-3noF_.js"
+    },
+    {
+      "path": "public/platform/assets/information-CFb8bmaH.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/journal-BC9jvzV9.js",
+      "delivery": "files/public/platform/assets/journal-BC9jvzV9.js"
+    },
+    {
+      "path": "public/platform/assets/journal-N5-xTOdZ.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/login-1eyH1pxp.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/login-COtzy_pH.js",
+      "delivery": "files/public/platform/assets/login-COtzy_pH.js"
+    },
+    {
+      "path": "public/platform/assets/login_register-C0KJXooZ.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/login_register-DeIIPhPd.js",
+      "delivery": "files/public/platform/assets/login_register-DeIIPhPd.js"
+    },
+    {
+      "path": "public/platform/assets/logs-BElTqz5Z.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/logs-CiFcfo62.js",
+      "delivery": "files/public/platform/assets/logs-CiFcfo62.js"
+    },
+    {
+      "path": "public/platform/assets/market-CilE0NtD.js",
+      "delivery": "files/public/platform/assets/market-CilE0NtD.js"
+    },
+    {
+      "path": "public/platform/assets/market-DWjS8C97.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/menu-DGbLTBrb.js",
+      "delivery": "files/public/platform/assets/menu-DGbLTBrb.js"
+    },
+    {
+      "path": "public/platform/assets/menu-DfOibQNm.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/message-DQNccysj.js",
+      "delivery": "files/public/platform/assets/message-DQNccysj.js"
+    },
+    {
+      "path": "public/platform/assets/message-DkTUAA7G.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/miniprogram-BSyy4gm4.js",
+      "delivery": "files/public/platform/assets/miniprogram-BSyy4gm4.js"
+    },
+    {
+      "path": "public/platform/assets/miniprogram-DIN1Mye5.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/official-C0pWJdsc.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/official-C5l8yqh-.js",
+      "delivery": "files/public/platform/assets/official-C5l8yqh-.js"
+    },
+    {
+      "path": "public/platform/assets/open_platform-DzjR7kjs.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/open_platform-VdrTsShG.js",
+      "delivery": "files/public/platform/assets/open_platform-VdrTsShG.js"
+    },
+    {
+      "path": "public/platform/assets/overview-5PpCchLI.js",
+      "delivery": "files/public/platform/assets/overview-5PpCchLI.js"
+    },
+    {
+      "path": "public/platform/assets/overview-66cNvb-1.js",
+      "delivery": "files/public/platform/assets/overview-66cNvb-1.js"
+    },
+    {
+      "path": "public/platform/assets/overview-BBIU3svW.js",
+      "delivery": "files/public/platform/assets/overview-BBIU3svW.js"
+    },
+    {
+      "path": "public/platform/assets/overview-BR37xzyJ.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/overview-BuNqIWna.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/overview-CCITiUGg.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/overview-CtMp5iw0.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/overview-DEWiOR0q.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/overview-DW9btOTN.js",
+      "delivery": "files/public/platform/assets/overview-DW9btOTN.js"
+    },
+    {
+      "path": "public/platform/assets/overview-gZv4_Wdo.js",
+      "delivery": "files/public/platform/assets/overview-gZv4_Wdo.js"
+    },
+    {
+      "path": "public/platform/assets/package-CYYsKG72.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/package-D-G3NOnn.js",
+      "delivery": "files/public/platform/assets/package-D-G3NOnn.js"
+    },
+    {
+      "path": "public/platform/assets/pages-BN--2rbw.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/pages-J-zxrf_x.js",
+      "delivery": "files/public/platform/assets/pages-J-zxrf_x.js"
+    },
+    {
+      "path": "public/platform/assets/pay-1uKB0bhD.js",
+      "delivery": "files/public/platform/assets/pay-1uKB0bhD.js"
+    },
+    {
+      "path": "public/platform/assets/pay-BNyWVge-.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/perm-Br0RfUOG.js",
+      "delivery": "files/public/platform/assets/perm-Br0RfUOG.js"
+    },
+    {
+      "path": "public/platform/assets/perm-xGWN4W4M.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/picker-BUsjmRs7.js",
+      "delivery": "files/public/platform/assets/picker-BUsjmRs7.js"
+    },
+    {
+      "path": "public/platform/assets/picker-lTHZPRMz.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/point-unit-834Fe9ZW.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/point-unit-LSGi62Kd.js",
+      "delivery": "files/public/platform/assets/point-unit-LSGi62Kd.js"
+    },
+    {
+      "path": "public/platform/assets/post-DOKsxoQQ.js",
+      "delivery": "files/public/platform/assets/post-DOKsxoQQ.js"
+    },
+    {
+      "path": "public/platform/assets/post-dC2axu9C.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/power_mall-2dPkZvtr.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/power_mall-BpeToNXF.js",
+      "delivery": "files/public/platform/assets/power_mall-BpeToNXF.js"
+    },
+    {
+      "path": "public/platform/assets/protocol-BjPo2l3z.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/protocol-d6XNAxN1.js",
+      "delivery": "files/public/platform/assets/protocol-d6XNAxN1.js"
+    },
+    {
+      "path": "public/platform/assets/public-avatar-BZXiJ5du.js",
+      "delivery": "files/public/platform/assets/public-avatar-BZXiJ5du.js"
+    },
+    {
+      "path": "public/platform/assets/public-avatar-DexF4DGo.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/public-voice-2uNxFp7I.js",
+      "delivery": "files/public/platform/assets/public-voice-2uNxFp7I.js"
+    },
+    {
+      "path": "public/platform/assets/public-voice-B3zMSBYv.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/relations-add-C88hn8Z_.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/relations-add-DhA8iCt4.js",
+      "delivery": "files/public/platform/assets/relations-add-DhA8iCt4.js"
+    },
+    {
+      "path": "public/platform/assets/relations-add.vue_vue_type_script_setup_true_lang-BM_uq5OA.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/relations-add.vue_vue_type_script_setup_true_lang-DH-DLNCz.js",
+      "delivery": "files/public/platform/assets/relations-add.vue_vue_type_script_setup_true_lang-DH-DLNCz.js"
+    },
+    {
+      "path": "public/platform/assets/requests-DytYj2iE.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/requests-E9l-AAd5.js",
+      "delivery": "files/public/platform/assets/requests-E9l-AAd5.js"
+    },
+    {
+      "path": "public/platform/assets/role-CKpqioNd.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/role-D07PhimN.js",
+      "delivery": "files/public/platform/assets/role-D07PhimN.js"
+    },
+    {
+      "path": "public/platform/assets/setting-DDrg0QZZ.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/setting-II13Ti9z.js",
+      "delivery": "files/public/platform/assets/setting-II13Ti9z.js"
+    },
+    {
+      "path": "public/platform/assets/setup-B0wstyOd.js",
+      "delivery": "files/public/platform/assets/setup-B0wstyOd.js"
+    },
+    {
+      "path": "public/platform/assets/setup-CeSGOy2g.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/spec-9e74tr9j.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/spec-BFcBCnWe.js",
+      "delivery": "files/public/platform/assets/spec-BFcBCnWe.js"
+    },
+    {
+      "path": "public/platform/assets/spec-C2RCmIwk.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/spec-DCwNhTcU.js",
+      "delivery": "files/public/platform/assets/spec-DCwNhTcU.js"
+    },
+    {
+      "path": "public/platform/assets/spec-Dpe5uqW5.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/spec-DzwnvnuE.js",
+      "delivery": "files/public/platform/assets/spec-DzwnvnuE.js"
+    },
+    {
+      "path": "public/platform/assets/spec-J-E0W89S.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/spec-NspDGuJg.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/spec-UHHXc7Vt.js",
+      "delivery": "files/public/platform/assets/spec-UHHXc7Vt.js"
+    },
+    {
+      "path": "public/platform/assets/spec-tAMevDAz.js",
+      "delivery": "files/public/platform/assets/spec-tAMevDAz.js"
+    },
+    {
+      "path": "public/platform/assets/stat-DwzkFC4k.js",
+      "delivery": "files/public/platform/assets/stat-DwzkFC4k.js"
+    },
+    {
+      "path": "public/platform/assets/stat-jF2LBlJo.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/task-CsYcKCNq.js",
+      "delivery": "files/public/platform/assets/task-CsYcKCNq.js"
+    },
+    {
+      "path": "public/platform/assets/task-DoX4szTQ.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/task-log-BkvHm1GQ.js",
+      "delivery": "files/public/platform/assets/task-log-BkvHm1GQ.js"
+    },
+    {
+      "path": "public/platform/assets/task-log-CGYi4GUl.js",
+      "delivery": "files/public/platform/assets/task-log-CGYi4GUl.js"
+    },
+    {
+      "path": "public/platform/assets/task-log-DT0EcLEr.js",
+      "delivery": "files/public/platform/assets/task-log-DT0EcLEr.js"
+    },
+    {
+      "path": "public/platform/assets/task-log-D_hoLx2P.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/task-log-DmqCyJoq.js",
+      "delivery": "files/public/platform/assets/task-log-DmqCyJoq.js"
+    },
+    {
+      "path": "public/platform/assets/task-log-IOz9yR-H.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/task-log-gymPA8iA.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/task-log-ubwjcXol.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-5KB4sQnf.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-B9aeTfP9.js",
+      "delivery": "files/public/platform/assets/tenant-usage-B9aeTfP9.js"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-BHVn_Q5s.js",
+      "delivery": "files/public/platform/assets/tenant-usage-BHVn_Q5s.js"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-BTSs1HEb.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-B_emUZ-_.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-BbG8uo8-.js",
+      "delivery": "files/public/platform/assets/tenant-usage-BbG8uo8-.js"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-Bl8dZJTi.js",
+      "delivery": "files/public/platform/assets/tenant-usage-Bl8dZJTi.js"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-BpcnsA1b.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-C6B3zf-e.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-CEIGJvQa.js",
+      "delivery": "files/public/platform/assets/tenant-usage-CEIGJvQa.js"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-CmKv3USK.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-Cnz6xvAA.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-Czz6E7bk.js",
+      "delivery": "files/public/platform/assets/tenant-usage-Czz6E7bk.js"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-D0JZTIGZ.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-D4J9Cu2X.js",
+      "delivery": "files/public/platform/assets/tenant-usage-D4J9Cu2X.js"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-DFrVoOn-.js",
+      "delivery": "files/public/platform/assets/tenant-usage-DFrVoOn-.js"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-DLgyLiaj.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-Din77a22.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-DlwJFJJE.js",
+      "delivery": "files/public/platform/assets/tenant-usage-DlwJFJJE.js"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-DwW9VfPa.js",
+      "delivery": "files/public/platform/assets/tenant-usage-DwW9VfPa.js"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-O2M7qgcT.js",
+      "delivery": "files/public/platform/assets/tenant-usage-O2M7qgcT.js"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-TwQKHcNw.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-Y1X2kkgh.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-eoqiAXAV.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-vqAtW3Xs.js",
+      "delivery": "files/public/platform/assets/tenant-usage-vqAtW3Xs.js"
+    },
+    {
+      "path": "public/platform/assets/tenant-usage-xL1P-gyH.js",
+      "delivery": "files/public/platform/assets/tenant-usage-xL1P-gyH.js"
+    },
+    {
+      "path": "public/platform/assets/tenant_package-BBHvNqKU.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/tenant_package-DnGMZqAp.js",
+      "delivery": "files/public/platform/assets/tenant_package-DnGMZqAp.js"
+    },
+    {
+      "path": "public/platform/assets/useDictOptions-DpdzV0-T.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/useDictOptions-Q8FAfvd5.js",
+      "delivery": "files/public/platform/assets/useDictOptions-Q8FAfvd5.js"
+    },
+    {
+      "path": "public/platform/assets/user-BAq-ir6B.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/user-DK2oqn8h.js",
+      "delivery": "files/public/platform/assets/user-DK2oqn8h.js"
+    },
+    {
+      "path": "public/platform/assets/versions-Bs3TqVkT.js",
+      "delivery": "files/public/platform/assets/versions-Bs3TqVkT.js"
+    },
+    {
+      "path": "public/platform/assets/versions-k3L0o5Le.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/assets/website-CQp1s7Wi.js",
+      "delivery": "files/public/platform/assets/website-CQp1s7Wi.js"
+    },
+    {
+      "path": "public/platform/assets/website-PzAceSKM.js",
+      "delivery": "delete_files"
+    },
+    {
+      "path": "public/platform/index.html",
+      "delivery": "files/public/platform/index.html"
+    },
+    {
+      "path": "runtime-loader.php",
+      "delivery": "files/runtime-loader.php"
+    },
+    {
+      "path": "scripts/composer-runtime-runner.php",
+      "delivery": "files/scripts/composer-runtime-runner.php"
+    },
+    {
+      "path": "scripts/start-ai-task-worker.sh",
+      "delivery": "files/scripts/start-ai-task-worker.sh"
+    },
+    {
+      "path": "tests/decoration-agent/default-availability.php",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "tests/decoration-agent/unified-worker.py",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "tests/decoration-agent/worker-readiness.php",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "tests/runtime-updater/before-sql-gate.php",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "tests/runtime-updater/frontend-assets-only.php",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "tests/runtime-updater/frontend-no-ddl.php",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "tests/runtime-updater/manager-generation.php",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "tests/runtime-updater/worker-boundary.php",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "tests/runtime-updater/worker-impact.php",
+      "delivery": "source-only-or-protected"
+    },
+    {
+      "path": "upgrade/version.json",
+      "delivery": "source-only-or-protected"
+    }
+  ],
+  "migrations": [],
+  "uncovered": []
+}

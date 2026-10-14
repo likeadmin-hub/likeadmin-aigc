@@ -59,11 +59,11 @@ class PaymentLogic extends BaseLogic
         try {
             if ($params['from'] == 'recharge') {
                 // 充值
-                $order = RechargeOrder::findOrEmpty($params['order_id'])->toArray();
+                $order = \app\common\service\virtualpay\VirtualPayService::order((int)$params['tenant_id'],(int)$userId,'recharge',(int)$params['order_id'])->toArray();
             }
             if ($params['from'] == 'membership') {
                 // 会员购买
-                $order = MembershipOrder::findOrEmpty($params['order_id'])->toArray();
+                $order = \app\common\service\virtualpay\VirtualPayService::order((int)$params['tenant_id'],(int)$userId,'membership',(int)$params['order_id'])->toArray();
             }
             if ($params['from'] == TenantPowerMallService::FROM) {
                 $order = TenantPowerOrder::findOrEmpty($params['order_id'])->toArray();
@@ -91,10 +91,22 @@ class PaymentLogic extends BaseLogic
                 throw new \Exception('待支付订单不存在');
             }
 
+            if (in_array($params['from'], ['recharge','membership'], true) && $terminal === UserTerminalEnum::WECHAT_MMP && (float)$order['order_amount'] > 0) {
+                $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$params['from'],(int)$order['id']);
+                $virtual=(int)$order['pay_way']===PayEnum::VIRTUAL_PAY;
+                if (!$virtual && $snapshot) {
+                    try { $config=\app\common\service\virtualpay\VirtualPayConfigService::detail((int)$order['tenant_id'],0);$virtual=\app\common\service\virtualpay\VirtualPayConfigService::enabledFor($config,(string)($params['platform']??'')); } catch (\Exception $e) { $virtual=false; }
+                }
+                if ($virtual) return ['package_snapshot'=>(bool)$snapshot,'locked_channel'=>$virtual && trim((string)$order['pay_sn'])!==''?PayEnum::VIRTUAL_PAY:0,'lists'=>[['id'=>0,'name'=>'微信虚拟支付','pay_way'=>PayEnum::VIRTUAL_PAY,'is_default'=>1,'icon'=>'','extra'=>'微信小程序虚拟商品支付']], 'order_amount'=>$order['order_amount'],'expires_at'=>(int)($snapshot['expires_at']??0)];
+            }
+
+            if (in_array($params['from'],['recharge','membership'],true) && (int)$order['pay_way']===PayEnum::VIRTUAL_PAY && $terminal!==UserTerminalEnum::WECHAT_MMP) throw new \RuntimeException('该订单已在微信小程序发起支付，请在原小程序核对结果');
             // 租户购买平台算力必须使用平台侧收款配置，不能读取租户给终端用户收款的配置。
-            $pay_way = in_array($params['from'], [TenantPowerMallService::FROM, TenantBrandService::FROM_QUOTA], true)
+            $pay_way = in_array($params['from'],[TenantBrandService::FROM_ORDER,TenantBrandService::FROM_QUOTA],true) && (int)($order['flow_version']??1)===2
+                ? (new \app\common\service\brand\BrandChannelGateway())->ways($params['from'],$order,(int)$terminal)
+                : (in_array($params['from'], [TenantPowerMallService::FROM, TenantBrandService::FROM_QUOTA], true)
                 ? self::getTenantPowerPayWayByTerminal((int)$terminal)
-                : self::getPayWayByTerminal((int)$terminal);
+                : self::getPayWayByTerminal((int)$terminal));
 
             foreach ($pay_way as $k => &$item) {
                 if ($item['pay_way'] == PayEnum::WECHAT_PAY) {
@@ -113,13 +125,20 @@ class PaymentLogic extends BaseLogic
                 }
             }
 
+            $packageSnapshot=in_array($params['from'],['recharge','membership'],true)?\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$params['from'],(int)$order['id']):null;
             return [
+                'locked_channel' => $packageSnapshot && trim((string)$order['pay_sn'])!=='' ? (int)$order['pay_way'] : 0,
+                'package_snapshot' => (bool)$packageSnapshot,
                 'lists' => array_values($pay_way),
                 'order_amount' => $order['order_amount'],
+                'expires_at' => $packageSnapshot ? (int)$packageSnapshot['expires_at'] : ((int)($order['flow_version']??1)===2 ? (int)($order['reserve_expire_time']??((int)$order['create_time']+1800)) : 0),
             ];
 
         } catch (\Exception $e) {
-            self::setError($e->getMessage());
+            if (in_array($params['from']??'',[TenantBrandService::FROM_ORDER,TenantBrandService::FROM_QUOTA],true)) {
+                Log::error('OEM payment: '.$e->getMessage());
+                self::setError(\app\common\service\brand\BrandOrderPolicy::error($e));
+            } else self::setError($e->getMessage());
             return false;
         }
     }
@@ -187,6 +206,23 @@ class PaymentLogic extends BaseLogic
     public static function getPayStatus($params)
     {
         try {
+            if (in_array($params['from'],['recharge','membership'],true)) {
+                $owned=\app\common\service\virtualpay\VirtualPayService::order((int)$params['tenant_id'],(int)$params['user_id'],$params['from'],(int)$params['order_id']);
+                $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$params['tenant_id'],$params['from'],(int)$params['order_id']);
+                if ($snapshot && (int)$owned['pay_way']!==PayEnum::VIRTUAL_PAY) {
+                    if ((int)$owned['pay_way']>0 && trim((string)$owned['pay_sn'])!=='') {
+                        try { (new \app\common\service\promotion\PackagePaymentService())->reconcile((int)$params['tenant_id'],(int)$params['user_id'],$params['from'],(int)$params['order_id']); }
+                        catch (\Throwable $e) { Log::warning('Package payment reconciliation: '.\app\common\service\virtualpay\VirtualPayPolicy::error($e)); }
+                    }
+                    $owned=\app\common\service\virtualpay\VirtualPayService::order((int)$params['tenant_id'],(int)$params['user_id'],$params['from'],(int)$params['order_id']);
+                    $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$params['tenant_id'],$params['from'],(int)$params['order_id']);
+                    return ['pay_status'=>(int)$owned['pay_status'],'pay_way'=>(int)$owned['pay_way'],'payment_status'=>$snapshot['status'],'closed_time'=>(int)$snapshot['closed_at'],'expires_at'=>(int)$snapshot['expires_at'],'order'=>['order_id'=>(int)$owned['id'],'order_sn'=>$snapshot['order_sn'],'order_amount'=>$owned['order_amount']]];
+                }
+                if ((int)$owned['pay_way']===PayEnum::VIRTUAL_PAY) {
+                    $status=(new \app\common\service\virtualpay\VirtualPayService())->status((int)$params['tenant_id'],(int)$params['user_id'],$params['from'],(int)$params['order_id']);
+                    return $status+['pay_status'=>($status['delivery_status']==='granted'&&$status['refund_status']==='none')?1:0,'pay_way'=>PayEnum::VIRTUAL_PAY,'order'=>['order_id'=>(int)$owned['id'],'order_sn'=>(string)($owned['sn']??$owned['order_sn']),'pay_time'=>(int)$owned['pay_time']>0?date('Y-m-d H:i:s',(int)$owned['pay_time']):'','pay_way'=>'微信虚拟支付','order_amount'=>$owned['order_amount']]];
+                }
+            }
             $order = [];
             $orderInfo = [];
             switch ($params['from']) {
@@ -269,7 +305,12 @@ class PaymentLogic extends BaseLogic
                         $order = TenantBrandQuotaOrder::where(['tenant_id' => (int)$params['tenant_id'], 'id' => $params['order_id']])->findOrEmpty();
                     }
                     if ($order->isEmpty()) {
-                        throw new \Exception('额度订单不存在');
+                        throw new \app\common\service\brand\BrandUserException('额度订单不存在');
+                    }
+                    if ((int)$order['flow_version']===2) {
+                        \app\common\service\brand\BrandPaymentService::reconcile($params['from'],(int)$order['id']);
+                        $model=$params['from']===TenantBrandService::FROM_QUOTA?TenantBrandQuotaOrder::class:TenantBrandOrder::class;
+                        $order=$model::where(['id'=>$order['id'],'tenant_id'=>$order['tenant_id']])->findOrEmpty();
                     }
                     $payTime = empty($order['pay_time']) ? '' : date('Y-m-d H:i:s', $order['pay_time']);
                     $orderInfo = [
@@ -293,7 +334,12 @@ class PaymentLogic extends BaseLogic
                     }
                     $order = TenantBrandOrder::where($where)->findOrEmpty();
                     if ($order->isEmpty()) {
-                        throw new \Exception('贴牌订单不存在');
+                        throw new \app\common\service\brand\BrandUserException('贴牌订单不存在');
+                    }
+                    if ((int)$order['flow_version']===2) {
+                        \app\common\service\brand\BrandPaymentService::reconcile($params['from'],(int)$order['id']);
+                        $model=$params['from']===TenantBrandService::FROM_QUOTA?TenantBrandQuotaOrder::class:TenantBrandOrder::class;
+                        $order=$model::where(['id'=>$order['id'],'tenant_id'=>$order['tenant_id']])->findOrEmpty();
                     }
                     $payTime = empty($order['pay_time']) ? '' : date('Y-m-d H:i:s', $order['pay_time']);
                     $orderInfo = [
@@ -316,10 +362,15 @@ class PaymentLogic extends BaseLogic
             return [
                 'pay_status' => $order['pay_status'],
                 'pay_way' => $order['pay_way'],
+                'closed_time' => (int)($order['closed_time']??0),
+                'expires_at' => (int)($order['flow_version']??1)===2 ? (int)($order['reserve_expire_time']??((int)$order['create_time']+1800)) : 0,
                 'order' => $orderInfo
             ];
         } catch (\Exception $e) {
-            self::setError($e->getMessage());
+            if (in_array($params['from']??'',[TenantBrandService::FROM_ORDER,TenantBrandService::FROM_QUOTA],true)) {
+                Log::error('OEM payment: '.$e->getMessage());
+                self::setError(\app\common\service\brand\BrandOrderPolicy::error($e));
+            } else self::setError($e->getMessage());
             return false;
         }
     }
@@ -337,13 +388,13 @@ class PaymentLogic extends BaseLogic
         try {
             switch ($params['from']) {
                 case 'recharge':
-                    $order = RechargeOrder::findOrEmpty($params['order_id']);
+                    $order = \app\common\service\virtualpay\VirtualPayService::order((int)$params['tenant_id'],(int)$params['user_id'],'recharge',(int)$params['order_id']);
                     if ($order->isEmpty()) {
                         throw new \Exception('充值订单不存在');
                     }
                     break;
                 case 'membership':
-                    $order = MembershipOrder::findOrEmpty($params['order_id']);
+                    $order = \app\common\service\virtualpay\VirtualPayService::order((int)$params['tenant_id'],(int)$params['user_id'],'membership',(int)$params['order_id']);
                     if ($order->isEmpty()) {
                         throw new \Exception('会员订单不存在');
                     }
@@ -362,10 +413,10 @@ class PaymentLogic extends BaseLogic
                 case TenantBrandService::FROM_QUOTA:
                     $order = TenantBrandQuotaOrder::findOrEmpty($params['order_id']);
                     if ($order->isEmpty()) {
-                        throw new \Exception('额度订单不存在');
+                        throw new \app\common\service\brand\BrandUserException('额度订单不存在');
                     }
                     if ((int)($params['tenant_id'] ?? 0) > 0 && (int)$order['tenant_id'] !== (int)$params['tenant_id']) {
-                        throw new \Exception('额度订单不存在');
+                        throw new \app\common\service\brand\BrandUserException('额度订单不存在');
                     }
                     $order['sn'] = $order['order_sn'];
                     break;
@@ -379,21 +430,24 @@ class PaymentLogic extends BaseLogic
                     }
                     $order = TenantBrandOrder::where($where)->findOrEmpty();
                     if ($order->isEmpty()) {
-                        throw new \Exception('贴牌订单不存在');
+                        throw new \app\common\service\brand\BrandUserException('贴牌订单不存在');
                     }
-                    if ((int)$order['pay_status'] !== PayEnum::ISPAID && ((int)$order['reserve_status'] !== TenantBrandService::RESERVE_ACTIVE || (int)$order['reserve_expire_time'] <= time())) {
-                        throw new \Exception('贴牌订单已过期，请重新创建订单');
+                    if ((int)$order['pay_status'] !== PayEnum::ISPAID && (((int)$order['flow_version']===1 && (int)$order['reserve_status'] !== TenantBrandService::RESERVE_ACTIVE) || (int)$order['reserve_expire_time'] <= time() || (int)($order['closed_time']??0)>0)) {
+                        throw new \app\common\service\brand\BrandUserException('贴牌订单已过期，请重新创建订单');
                     }
                     $order['sn'] = $order['order_sn'];
                     break;
             }
 
             if ($order['pay_status'] == PayEnum::ISPAID) {
-                throw new \Exception('订单已支付');
+                throw new \app\common\service\brand\BrandUserException('订单已支付');
             }
             return $order;
         } catch (\Exception $e) {
-            self::$error = $e->getMessage();
+            if (in_array($params['from']??'',[TenantBrandService::FROM_ORDER,TenantBrandService::FROM_QUOTA],true)) {
+                Log::error('OEM payment: '.$e->getMessage());
+                self::setError(\app\common\service\brand\BrandOrderPolicy::error($e));
+            } else self::setError($e->getMessage());
             return false;
         }
     }
@@ -410,11 +464,36 @@ class PaymentLogic extends BaseLogic
      * @author mjf
      * @date 2024/3/18 16:49
      */
-    public static function pay($payWay, $from, $order, $terminal, $redirectUrl)
+    public static function pay($payWay, $from, $order, $terminal, $redirectUrl, string $platform = '')
     {
+        if (in_array($from,[TenantBrandService::FROM_ORDER,TenantBrandService::FROM_QUOTA],true) && (int)($order['flow_version']??1)===2) {
+            try {
+                return \app\common\service\brand\BrandPaymentService::prepay($from,$order instanceof \think\Model?$order->toArray():$order,(int)$payWay,(string)$redirectUrl);
+            } catch (\Throwable $e) {
+                Log::error('OEM prepay: '.$e->getMessage());
+                self::setError(\app\common\service\brand\BrandOrderPolicy::error($e));
+                return false;
+            }
+        }
         if (in_array($from, [TenantPowerMallService::FROM, TenantBrandService::FROM_QUOTA], true) && !self::isTenantPowerPayWayEnabled((int)$payWay, (int)$terminal)) {
             self::setError('支付方式不可用');
             return false;
+        }
+
+        if (in_array($from,['recharge','membership'],true)) {
+            $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$from,(int)$order['id']);
+            if ($snapshot && ($snapshot['status']!=='pending'||(int)$snapshot['expires_at']<=time())) { self::setError('订单已过期或关闭，请先核对支付结果');return false; }
+            if ((int)$order['pay_way']===PayEnum::VIRTUAL_PAY) { self::setError('该订单已发起虚拟支付，请核对原交易后操作');return false; }
+            if ($terminal===UserTerminalEnum::WECHAT_MMP && $snapshot && (float)$order['order_amount']>0) {
+                try { $config=\app\common\service\virtualpay\VirtualPayConfigService::detail((int)$order['tenant_id'],0); }
+                catch (\Exception $e) { $config=['enabled'=>0]; }
+                if (\app\common\service\virtualpay\VirtualPayConfigService::enabledFor($config,$platform)) { self::setError('请使用微信小程序虚拟支付');return false; }
+            }
+        }
+
+        if (!empty($snapshot) && (float)$order['order_amount']>0) {
+            try { return (new \app\common\service\promotion\PackagePaymentService())->prepay($from,$order instanceof \think\Model?$order->toArray():$order,(int)$payWay,(int)$terminal,(string)$redirectUrl); }
+            catch (\Throwable $e) { self::setError(\app\common\service\virtualpay\VirtualPayPolicy::error($e));return false; }
         }
 
         // 支付编号-仅为微信支付预置(同一商户号下不同客户端支付需使用唯一订单号)

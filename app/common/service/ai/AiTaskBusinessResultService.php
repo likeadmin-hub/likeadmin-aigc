@@ -71,6 +71,8 @@ class AiTaskBusinessResultService
             'aigc_short_drama_script_task' => AigcShortDramaService::refreshScriptTask($businessId),
             'aigc_short_drama_generation_task' => AigcShortDramaService::refreshMarketGenerationTask($businessId),
             'aigc_canvas_run' => null,
+            // The decoration worker owns slot hydration after managed assets settle.
+            'decorate_agent_image_slot' => null,
             'aigc_music_task' => \app\common\service\power\MarketMusicOperationRuntimeService::syncNative($consumption, $businessId),
             'aigc_pic_lipsync_task' => AigcPicLipsyncService::syncConsumption($businessId, (int)$consumption['user_id']),
             'aigc_digital_human_task' => AigcDigitalHumanService::syncMarketConsumption($consumptionId, $businessId),
@@ -112,6 +114,7 @@ class AiTaskBusinessResultService
             'aigc_short_drama_script_task',
             'aigc_short_drama_generation_task',
             'aigc_canvas_run',
+            'decorate_agent_image_slot',
             'aigc_watermark_removal_task',
             'aigc_pic_lipsync_task',
             'aigc_digital_human_task',

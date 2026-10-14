@@ -48,6 +48,8 @@ final class WechatAccountMergeTest extends TestCase
             'user' => "id INTEGER PRIMARY KEY, tenant_id INTEGER, sn TEXT, account TEXT, mobile TEXT DEFAULT '', password TEXT DEFAULT '', nickname TEXT DEFAULT '', avatar TEXT DEFAULT '', is_new_user INTEGER DEFAULT 1, is_disable INTEGER DEFAULT 0, user_money NUMERIC DEFAULT 0, create_time INTEGER, update_time INTEGER, delete_time INTEGER",
             'user_auth' => "id INTEGER PRIMARY KEY, tenant_id INTEGER, user_id INTEGER, openid TEXT, unionid TEXT DEFAULT '', terminal INTEGER, create_time INTEGER, update_time INTEGER",
             'user_session' => 'id INTEGER PRIMARY KEY, tenant_id INTEGER, user_id INTEGER, terminal INTEGER, token TEXT, expire_time INTEGER, create_time INTEGER, update_time INTEGER',
+            'tenant_package_price_snapshot' => 'id INTEGER PRIMARY KEY, tenant_id INTEGER, user_id INTEGER, status TEXT',
+            'tenant_package_discount_claim' => 'id INTEGER PRIMARY KEY, tenant_id INTEGER, user_id INTEGER, biz_type TEXT, package_id INTEGER, status TEXT, order_id INTEGER, consumed_at INTEGER, create_time INTEGER, update_time INTEGER',
             'tenant_sms_log' => 'id INTEGER PRIMARY KEY, tenant_id INTEGER, mobile TEXT, code TEXT, scene_id INTEGER, send_status INTEGER, send_time INTEGER, is_verify INTEGER DEFAULT 0, check_num INTEGER DEFAULT 0, create_time INTEGER, update_time INTEGER, delete_time INTEGER',
         ] as $table => $columns) {
             Db::execute("CREATE TABLE la_{$table} ({$columns})");

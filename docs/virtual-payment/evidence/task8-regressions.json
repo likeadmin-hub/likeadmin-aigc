@@ -1,0 +1,52 @@
+[
+  {
+    "test": "WechatAccountMergeTest",
+    "exit": 0,
+    "output": "PHPUnit 9.6.38 by Sebastian Bergmann and contributors.\n\n..........                                                        10 / 10 (100%)\n\nTime: 00:02.100, Memory: 24.97 MB\n\nOK (10 tests, 37 assertions)\n"
+  },
+  {
+    "test": "OpenPlatformCallbackContractTest",
+    "exit": 0,
+    "output": "PHPUnit 9.6.38 by Sebastian Bergmann and contributors.\n\n.....                                                               5 / 5 (100%)\n\nTime: 00:00.005, Memory: 26.97 MB\n\nOK (5 tests, 38 assertions)\n"
+  },
+  {
+    "test": "MiniprogramCommercialAccessTest",
+    "exit": 0,
+    "output": "PHPUnit 9.6.38 by Sebastian Bergmann and contributors.\n\n...                                                                 3 / 3 (100%)\n\nTime: 00:00.007, Memory: 26.97 MB\n\nOK (3 tests, 37 assertions)\n"
+  },
+  {
+    "test": "MiniprogramManagementTest",
+    "exit": 0,
+    "output": "PHPUnit 9.6.38 by Sebastian Bergmann and contributors.\n\n..........                                                        10 / 10 (100%)\n\nTime: 00:00.004, Memory: 28.97 MB\n\nOK (10 tests, 11 assertions)\n"
+  },
+  {
+    "test": "MiniprogramPrivacySettingTest",
+    "exit": 0,
+    "output": "PHPUnit 9.6.38 by Sebastian Bergmann and contributors.\n\n.....                                                               5 / 5 (100%)\n\nTime: 00:00.003, Memory: 26.97 MB\n\nOK (5 tests, 8 assertions)\n"
+  },
+  {
+    "test": "oem-orders-payment",
+    "exit": 0,
+    "output": "PASS real OEM zero/available inventory, scope, payment validation, duplicates and late refund\n"
+  },
+  {
+    "test": "oem-prepay",
+    "exit": 0,
+    "output": "PASS real OEM payment intents, method switch, query compensation and query throttling\n"
+  },
+  {
+    "test": "oem-gateway",
+    "exit": 0,
+    "output": "PASS real gateway merchant selection, receipt order check, secret exclusion and merchant change guard\n"
+  },
+  {
+    "test": "oem-refund",
+    "exit": 0,
+    "output": "PASS real refund review, channel confirmation, unknown-result query and worker fencing\n"
+  },
+  {
+    "test": "oem-provision",
+    "exit": 0,
+    "output": "PASS real platform approval, inactive provisioning, immutable delivery, idempotency and renewal\n"
+  }
+]

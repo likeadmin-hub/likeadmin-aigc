@@ -399,6 +399,7 @@ class SystemPackageUpdateService
                 $this->assertIncrementalComposerRuntime($manifest, $extract['path']);
                 $runtime = (new ComposerRuntimeUpdateService(UpgradeLogic::getProjectPath()))->preflight($extract['path'], $manifest);
                 $builtinApps = $this->preflightBuiltinApps($extract['path'], $manifest);
+                $processImpact = ProjectUpdateProcessGate::inspectUpdate(UpgradeLogic::getProjectPath(), $extract['path'], $manifest);
                 $result = [
                     'passed' => true,
                     'errors' => [],
@@ -407,6 +408,7 @@ class SystemPackageUpdateService
                     'environment' => $preflight['environment'],
                     'builtin_apps' => $builtinApps,
                     'composer_runtime' => $runtime,
+                    'process_impact' => $processImpact,
                 ];
                 $package->save([
                     'version' => (string)($manifest['version'] ?? $package['version']),
@@ -458,15 +460,21 @@ class SystemPackageUpdateService
             $extractPath = rtrim((string)$package['extract_path'], '/');
             (new SystemPackageGrantService())->ensure($package->toArray());
             $manifest = $this->readUpdateManifest($extractPath);
+            $processImpact = ProjectUpdateProcessGate::inspectUpdate(UpgradeLogic::getProjectPath(), $extractPath, $manifest);
+            ProjectUpdateProcessGate::assertUpdateAllowed(UpgradeLogic::getProjectPath(), $processImpact);
             $runtimeInstaller = new ComposerRuntimeUpdateService(UpgradeLogic::getProjectPath());
             $binding=['kind'=>'system','package_id'=>(int)$package['id'],'task_id'=>(int)$task['id'],'archive_sha256'=>(string)$package['sha256'],'context'=>array_intersect_key($_SERVER,array_flip(['HTTP_HOST','SERVER_NAME','SERVER_ADDR','SERVER_PORT','HTTPS']))];
+            // Derived only by this authenticated server from verified bytes.
+            // UI-only updates must not opportunistically repair unrelated schema.
+            $binding['runtime_metadata_unchanged']=!$processImpact['requires_stop'];
             $encoded=json_encode($binding,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
             $installation = $runtimeInstaller->apply($extractPath, $manifest, [
                 'immutable_code'=>true,'bootstrap_context'=>$binding,
+                'before_sql'=>fn()=>ProjectUpdateProcessGate::assertUpdateAllowed(UpgradeLogic::getProjectPath(),$processImpact),
                 'sql'=>fn(string $generation)=>$runtimeInstaller->bootstrapChild(['--bootstrap-prepare',$generation,$extractPath,$encoded]),
                 'files'=>fn()=> (new SystemRuntimeBootstrapService())->copySharedFiles($extractPath,$manifest),
                 'finalize'=>fn()=>[],
-                'marker'=>fn()=>null,
+                'marker'=>fn()=>ProjectUpdateProcessGate::assertUpdateAllowed(UpgradeLogic::getProjectPath(),$processImpact),
                 'complete'=>fn(string $generation)=>$runtimeInstaller->bootstrapChild(['--bootstrap-complete',$generation,$extractPath,$encoded])['completion'],
             ]);
             $result = $installation['completion'] ?? ['version'=>$package['version'], 'extract_path'=>$extractPath, 'composer_runtime'=>$installation];
@@ -500,12 +508,20 @@ class SystemPackageUpdateService
         set_time_limit(self::UPDATE_EXECUTION_TIMEOUT);
     }
 
-    public function prepareBootstrapSql(string $extractPath): array
+    public function prepareBootstrapSql(string $extractPath,array $binding=[]): array
     {
         if (PHP_SAPI !== 'cli' || empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])) throw new RuntimeException('自举迁移必须在隔离进程执行');
         $manifest=$this->readUpdateManifest($extractPath);
+        if(($binding['runtime_metadata_unchanged']??false)===true){
+            $impact=ProjectUpdateProcessGate::inspectUpdate(root_path(),$extractPath,$manifest);
+            if($impact['requires_stop'])throw new RuntimeException('无需停机更新的运行内容已变化，请重新预检');
+            return [];
+        }
         $appSqlOwners=$this->runtimeAppSqlOwners($extractPath,$manifest);
         \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
+        if (System392RecoveryService::shouldSkipCompletedSystemSql($extractPath)) {
+            return $this->prepareRuntimeApps($extractPath,(string)$manifest['version']);
+        }
         Db::startTrans();
         try { $this->applySqlGroup($extractPath,$manifest,'data',$appSqlOwners); Db::commit(); }
         catch (Throwable $e) { Db::rollback(); throw $e; }
@@ -522,7 +538,7 @@ class SystemPackageUpdateService
         \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
         Db::startTrans();
         try {
-            $apps=$this->finalizeRuntimeApps($extractPath,(string)$package['version']);
+            $apps=($binding['runtime_metadata_unchanged']??false)===true?$this->syncRuntimePublicAssets($extractPath):$this->finalizeRuntimeApps($extractPath,(string)$package['version']);
             $result=['version'=>$package['version'],'extract_path'=>$extractPath,'builtin_apps'=>$apps,'composer_runtime'=>['generation'=>$GLOBALS['AIGC_RUNTIME_GENERATION']]];
             $package->save(['status'=>'applied','error'=>'','update_time'=>time()]);
             $this->finishTask($task,'success',$result);
@@ -542,6 +558,18 @@ class SystemPackageUpdateService
             $result[$code]=AppRegistryService::prepareRuntimeMigrations($code,(string)$manifest['version']);
         }
         PackageProvisionService::prepareRuntimeSchema();
+        return $result;
+    }
+
+    /** Deploy static app bridges without migration or global tenant defaults. */
+    private function syncRuntimePublicAssets(string $extractPath): array
+    {
+        $result=[];
+        foreach($this->packagedBuiltinAppCodes($extractPath) as $code){
+            $manifest=AppRegistryService::getManifest($code);
+            AppRegistryService::installPublicAssets($manifest,base_path().'apps/'.$code);
+            $result[$code]=['status'=>'static_assets_updated'];
+        }
         return $result;
     }
 

@@ -12,7 +12,7 @@ class TenantBrandOrderLists extends BaseAdminDataLists implements ListsSearchInt
     public function setSearch(): array
     {
         return [
-            '=' => ['o.order_sn', 'o.package_id', 'o.pay_status', 'o.open_status', 'o.tenant_id'],
+            '=' => ['o.order_sn', 'o.package_id', 'o.pay_status', 'o.open_status', 'o.tenant_id', 'o.workflow_state', 'o.platform_review', 'o.refund_status'],
         ];
     }
 
@@ -42,7 +42,7 @@ class TenantBrandOrderLists extends BaseAdminDataLists implements ListsSearchInt
             ->limit($this->limitOffset, $this->limitLength)
             ->select()
             ->toArray();
-        return array_map([TenantBrandService::class, 'formatBrandOrder'], $rows);
+        return array_map(fn($row)=>TenantBrandService::formatBrandOrder($row,'platform'), $rows);
     }
 
     public function count(): int

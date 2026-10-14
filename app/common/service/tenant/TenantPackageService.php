@@ -10,6 +10,7 @@ use app\common\model\tenant\TenantPackage;
 use app\common\model\tenant\TenantPackageAppPlan;
 use app\common\service\app\AppPlanService;
 use app\common\service\app\AppRegistryService;
+use app\common\service\brand\BrandOrderPolicy;
 use RuntimeException;
 use think\facade\Db;
 
@@ -40,8 +41,8 @@ class TenantPackageService
     {
         $name = trim((string)($params['name'] ?? ''));
         $durationDays = (int)($params['duration_days'] ?? 0);
-        $salePrice = (float)($params['sale_price'] ?? $params['price'] ?? 0);
-        $quotaPrice = (float)($params['quota_price'] ?? 0);
+        $salePrice = BrandOrderPolicy::cents((string)($params['sale_price'] ?? $params['price'] ?? '0'));
+        $quotaPrice = BrandOrderPolicy::cents((string)($params['quota_price'] ?? '0'));
         if ($name === '') {
             throw new RuntimeException('请输入套餐名称');
         }
@@ -55,8 +56,8 @@ class TenantPackageService
         $data = [
             'name' => $name,
             'duration_days' => $durationDays,
-            'sale_price' => self::formatAmount($salePrice),
-            'quota_price' => self::formatAmount($quotaPrice),
+            'sale_price' => BrandOrderPolicy::amount($salePrice),
+            'quota_price' => BrandOrderPolicy::amount($quotaPrice),
             'quota_unit' => trim((string)($params['quota_unit'] ?? '个')),
             'description' => trim((string)($params['description'] ?? '')),
             'sort' => (int)($params['sort'] ?? 0),
@@ -64,15 +65,32 @@ class TenantPackageService
             'update_time' => time(),
         ];
         $appPlans = self::normalizeAppPlans((array)($params['app_plans'] ?? []));
+        $data['prices_configured'] = $salePrice > 0 && $quotaPrice > 0 && !empty($appPlans) ? 1 : 0;
 
         return Db::transaction(function () use ($params, $data, $appPlans) {
             $id = (int)($params['id'] ?? 0);
             if ($id > 0) {
-                $package = TenantPackage::findOrEmpty($id);
+                $package = TenantPackage::where('id', $id)->lock(true)->findOrEmpty();
                 if ($package->isEmpty()) {
                     throw new RuntimeException('租户套餐不存在');
                 }
-                $package->save($data);
+                if (!empty($package['package_code']) && (int)$data['status'] === self::STATUS_ENABLED && !$data['prices_configured']) {
+                    throw new RuntimeException('请先配置采购价、建议售价和应用权益，再上架套餐');
+                }
+                $oldPlans = TenantPackageAppPlan::where('package_id', $id)->field('app_code,app_plan_id')->order('app_code,app_plan_id')->select()->toArray();
+                $nextPlans = $appPlans;
+                usort($nextPlans, static fn($a,$b)=>strcmp($a['app_code'],$b['app_code']) ?: ($a['app_plan_id']<=>$b['app_plan_id']));
+                $rightsChanged = (int)$package['duration_days'] !== (int)$data['duration_days'] || $oldPlans != $nextPlans;
+                $used = TenantBrandQuotaOrder::where('package_id', $id)->count() + TenantBrandOrder::where('package_id', $id)->count();
+                if ($rightsChanged && $used > 0) {
+                    // Retain the original SKU for purchased inventory and in-flight legacy orders.
+                    $data['package_version'] = (int)$package['package_version'] + 1;
+                    $data['family_package_id'] = (int)$package['family_package_id'] ?: $id;
+                    $data['create_time'] = time();
+                    $package = TenantPackage::create($data);
+                } else {
+                    $package->save($data);
+                }
             } else {
                 $data['create_time'] = time();
                 $package = TenantPackage::create($data);
@@ -184,7 +202,8 @@ class TenantPackageService
             if ($exists->isEmpty()) {
                 throw new RuntimeException('绑定的应用套餐不存在或已禁用');
             }
-            $normalized[$appCode . ':' . $planId] = [
+            if (isset($normalized[$appCode])) throw new RuntimeException('同一应用只能配置一份权益');
+            $normalized[$appCode] = [
                 'app_code' => $appCode,
                 'app_plan_id' => $planId,
             ];

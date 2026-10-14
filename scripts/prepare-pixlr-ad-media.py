@@ -2,7 +2,34 @@
 """Download reviewed Ads previews and extract their actual first decoded frame.
 Run only on local develop. Media stays outside source control. No AI calls.
 """
-import argparse, concurrent.futures, hashlib, json, pathlib, subprocess
+import argparse, concurrent.futures, hashlib, json, pathlib, re, subprocess
+
+def active_catalog(site):
+    """Read the selected application generation; never fall back to stale code."""
+    store = site / '.composer-runtime'
+    if (store / 'active.json').exists():
+        raise RuntimeError('Finish or recover the system update before preparing Ads media')
+    pointer = store / 'current.json'
+    generation = site
+    if pointer.exists():
+        selected = json.loads(pointer.read_text())
+        identity = selected.get('generation', '')
+        if selected.get('schema') != 1 or not isinstance(identity, str) or not re.fullmatch(r'(?:baseline|release)-[a-f0-9]{24,64}', identity):
+            raise RuntimeError('Invalid selected runtime generation')
+        generation = store / 'generations' / identity
+        if generation.is_symlink() or not generation.is_dir():
+            raise RuntimeError('Invalid runtime generation directory')
+        metadata = json.loads((generation / 'generation.json').read_text())
+        if metadata.get('schema') != 1:
+            raise RuntimeError('Invalid runtime generation manifest')
+    catalog = generation / 'app/apps/aigc_video/data/pixlr-ads.json'
+    try:
+        catalog.resolve().relative_to(generation.resolve())
+    except ValueError:
+        raise RuntimeError('Ads catalog must remain inside its runtime generation')
+    if not catalog.is_file():
+        raise RuntimeError('The active installation does not include the Ads catalog')
+    return catalog
 
 def main():
     ap = argparse.ArgumentParser()
@@ -10,7 +37,7 @@ def main():
     ap.add_argument('--ffmpeg', default='ffmpeg')
     ap.add_argument('--ffprobe', default='ffprobe')
     args = ap.parse_args()
-    rows = json.loads((pathlib.Path(__file__).resolve().parents[1] / 'docs/video-effects/pixlr-ads.json').read_text())['items']
+    rows = json.loads(active_catalog(pathlib.Path(__file__).resolve().parents[1]).read_text())['items']
     folder = pathlib.Path(args.media_dir); folder.mkdir(parents=True, exist_ok=True, mode=0o700)
     def prepare(row):
         url = row['source_video']

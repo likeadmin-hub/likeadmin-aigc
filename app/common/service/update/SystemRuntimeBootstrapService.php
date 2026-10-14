@@ -36,7 +36,10 @@ class SystemRuntimeBootstrapService
                 $message=str_replace(root_path(),'[site]/',$failure->getMessage());
                 if(!$uncertain){$package->save(['status'=>'apply_failed','error'=>$message,'update_time'=>time()]);$task->save(['status'=>'failed','error'=>$message,'update_time'=>time()]);}
                 else $message='更新子进程状态待核验，持久化日志已保留；请勿重新运行 SQL，待原进程结束后重试';
-                \app\common\service\JsonService::fail($message)->send();exit(0);
+                // The old interpreter has not activated the new autoloader yet.
+                if (!class_exists(UpdateCustomerMessage::class, false)) require_once __DIR__.'/UpdateCustomerMessage.php';
+                \think\facade\Log::error('[系统更新] ' . $message);
+                \app\common\service\JsonService::fail(UpdateCustomerMessage::format($message))->send();exit(0);
             }
         }
         // Never resume the original 390 tail, including its catch that could overwrite a committed upgrade.
@@ -92,7 +95,7 @@ class SystemRuntimeBootstrapService
 
     public function copySharedFiles(string $extract, array $manifest): void
     {
-        ProjectUpdateProcessGate::assertDrained(root_path());
+        ProjectUpdateProcessGate::assertUpdateAllowed(root_path(),ProjectUpdateProcessGate::inspectUpdate(root_path(),$extract,$manifest));
         foreach((array)($manifest['full_replace_dirs']??[]) as $directory){
             if(!in_array($directory,['public/admin','public/platform','public/pc','public/_nuxt','public/media','public/mobile','public/mp-weixin','public/static'],true))throw new RuntimeException('自举覆盖目录无效');
             $this->remove(root_path().$directory);

@@ -29,6 +29,7 @@ class PayEnum
     //支付类型
     const BALANCE_PAY   = 1; //算力支付
     const WECHAT_PAY    = 2; //微信支付
+    const VIRTUAL_PAY   = 4; //微信小程序虚拟支付
     const ALI_PAY       = 3; //支付宝支付
 
 
@@ -59,6 +60,7 @@ class PayEnum
             self::BALANCE_PAY => PointUnitService::unit() . '支付',
             self::WECHAT_PAY => '微信支付',
             self::ALI_PAY => '支付宝支付',
+            self::VIRTUAL_PAY => '微信虚拟支付',
         ];
         if ($value === true) {
             return $data;

@@ -29,7 +29,7 @@ try {
         $services = include $GLOBALS['AIGC_RUNTIME_VENDOR'] . '/services.php';
         if (!is_array($services)) throw new RuntimeException('运行时服务发现清单无效');
         foreach ($services as $class) if (!is_string($class) || !class_exists($class)) throw new RuntimeException('运行时服务无法自动加载');
-        echo json_encode(['passed'=>true,'services'=>$services], JSON_UNESCAPED_SLASHES);
+        echo json_encode(['passed'=>true,'services'=>$services,'retention_lease'=>isset($GLOBALS['AIGC_RUNTIME_LEASE']) && $GLOBALS['AIGC_RUNTIME_LEASE']->holds(basename($generation))], JSON_UNESCAPED_SLASHES);
     } elseif ($mode === '--finalize') {
         $GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'] = $argv[2] ?? '';
         $context = json_decode($argv[5] ?? '{}', true, 512, JSON_THROW_ON_ERROR);
@@ -55,7 +55,7 @@ try {
         require (is_file(($argv[2]??'').'/runtime-loader.php') ? $argv[2].'/runtime-loader.php' : $siteRoot.'/runtime-loader.php');
         $app=new AigcRuntimeApp($siteRoot);$app->initialize();
         $service=new \app\common\service\update\SystemPackageUpdateService();
-        if($mode==='--bootstrap-prepare')$result=['passed'=>true,'prepared'=>$service->prepareBootstrapSql($argv[3])];
+        if($mode==='--bootstrap-prepare')$result=['passed'=>true,'prepared'=>$service->prepareBootstrapSql($argv[3],$binding)];
         elseif($mode==='--bootstrap-complete')$result=['passed'=>true,'completion'=>$service->completeBootstrap($argv[3],$binding)];
         else {
             $package=\app\common\model\update\UpdatePackage::find((int)$binding['package_id']);

@@ -12244,7 +12244,7 @@ INSERT INTO `la_app` (`code`,`name`,`icon`,`description`,`category`,`cover`,`cli
 VALUES ('aigc_pic_lipsync','图片数字人','resource/image/common/menu_generator.png','上传人物图片，使用音频或文案驱动生成数字人视频，支持快速、标准和 MAX 模式。提供应用开通、展示配置、素材管理、任务管理和用量统计。','aigc','','platform,tenant,pc,uniapp',1,890,'1.0.4','installed','allow',UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `is_builtin`=1,`status`='installed',`expire_policy`='allow',`update_time`=UNIX_TIMESTAMP();
 INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-SELECT t.id,'aigc_pic_lipsync',a.current_version,'paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM (SELECT 0 AS id UNION SELECT id FROM la_tenant) t JOIN la_app a ON a.code='aigc_pic_lipsync'
+SELECT t.id,'aigc_pic_lipsync',a.current_version,'paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM (SELECT 0 AS id UNION SELECT id FROM `la_tenant`) t JOIN `la_app` a ON a.code='aigc_pic_lipsync'
 ON DUPLICATE KEY UPDATE `buy_status`='paid',`shelf_status`='on',`enable_status`='enabled',`expire_time`=0,`update_time`=UNIX_TIMESTAMP();
 UPDATE `la_app_plan` SET `status`=0 WHERE `app_code`='aigc_pic_lipsync';
 
@@ -12364,3 +12364,590 @@ SELECT parent.tenant_id,parent.id,'C','技能配置','',40,'app.aigc_llm.config/
 FROM `la_tenant_system_menu` parent
 WHERE parent.app_code='aigc_llm' AND parent.source='app' AND parent.source_menu_key='aigc_llm'
 AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` existing WHERE existing.tenant_id=parent.tenant_id AND existing.app_code='aigc_llm' AND existing.source_menu_key='aigc_llm_skill_config');
+
+-- AI decoration Agent: additive shared tenant-scoped records; no existing page changes.
+
+CREATE TABLE IF NOT EXISTS `la_decorate_agent_session` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` bigint unsigned NOT NULL, `admin_id` bigint unsigned NOT NULL, `template_id` bigint unsigned NOT NULL, `page_id` bigint unsigned NOT NULL DEFAULT 0, `scope` varchar(20) NOT NULL DEFAULT 'page', `selected_id` varchar(100) NOT NULL DEFAULT '', `preferences` longtext NOT NULL, `facts` longtext NOT NULL, `active_candidate_id` bigint unsigned NOT NULL DEFAULT 0, `create_time` bigint NOT NULL DEFAULT 0, `update_time` bigint NOT NULL DEFAULT 0, PRIMARY KEY (`id`), KEY `idx_tenant_owner` (`tenant_id`,`admin_id`,`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_decorate_agent_message` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` bigint unsigned NOT NULL, `admin_id` bigint unsigned NOT NULL, `session_id` bigint unsigned NOT NULL, `run_id` bigint unsigned NOT NULL DEFAULT 0, `role` varchar(16) NOT NULL, `content` longtext NOT NULL, `attachments` longtext NOT NULL, `create_time` bigint NOT NULL DEFAULT 0, `update_time` bigint NOT NULL DEFAULT 0, PRIMARY KEY (`id`), KEY `idx_tenant_owner` (`tenant_id`,`admin_id`,`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_decorate_agent_run` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` bigint unsigned NOT NULL, `admin_id` bigint unsigned NOT NULL, `session_id` bigint unsigned NOT NULL, `status` varchar(32) NOT NULL DEFAULT 'queued', `input_json` longtext NOT NULL, `context_json` longtext NOT NULL, `result_json` longtext NOT NULL, `events_json` longtext NOT NULL, `candidate_id` bigint unsigned NOT NULL DEFAULT 0, `model_calls` int NOT NULL DEFAULT 0, `tool_calls` int NOT NULL DEFAULT 0, `cancel_requested` tinyint NOT NULL DEFAULT 0, `lease_token` varchar(64) NOT NULL DEFAULT '', `lease_expire_time` bigint NOT NULL DEFAULT 0, `next_run_time` bigint NOT NULL DEFAULT 0, `idempotency_key` varchar(100) NOT NULL, `spent_points` decimal(20,6) NOT NULL DEFAULT 0, `create_time` bigint NOT NULL DEFAULT 0, `update_time` bigint NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `uq_submit` (`tenant_id`,`admin_id`,`idempotency_key`), KEY `idx_work` (`status`,`next_run_time`,`lease_expire_time`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_decorate_agent_candidate` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` bigint unsigned NOT NULL, `admin_id` bigint unsigned NOT NULL, `session_id` bigint unsigned NOT NULL, `run_id` bigint unsigned NOT NULL, `revision` int NOT NULL DEFAULT 1, `status` varchar(32) NOT NULL DEFAULT 'ready', `base_hash` varchar(64) NOT NULL, `base_json` longtext NOT NULL, `payload_json` longtext NOT NULL, `changes_json` longtext NOT NULL, `applied_page_id` bigint unsigned NOT NULL DEFAULT 0, `create_time` bigint NOT NULL DEFAULT 0, `update_time` bigint NOT NULL DEFAULT 0, PRIMARY KEY (`id`), KEY `idx_tenant_owner` (`tenant_id`,`admin_id`,`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_decorate_agent_image_slot` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` bigint unsigned NOT NULL, `admin_id` bigint unsigned NOT NULL, `session_id` bigint unsigned NOT NULL, `run_id` bigint unsigned NOT NULL, `candidate_id` bigint unsigned NOT NULL DEFAULT 0, `slot_key` varchar(160) NOT NULL, `status` varchar(32) NOT NULL DEFAULT 'queued', `request_json` longtext NOT NULL, `consumption_id` bigint unsigned NOT NULL DEFAULT 0, `result_json` longtext NOT NULL, `error` varchar(1000) NOT NULL DEFAULT '', `attempt` int NOT NULL DEFAULT 1, `create_time` bigint NOT NULL DEFAULT 0, `update_time` bigint NOT NULL DEFAULT 0, PRIMARY KEY (`id`), KEY `idx_tenant_owner` (`tenant_id`,`admin_id`,`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_decorate_agent_checkpoint` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` bigint unsigned NOT NULL, `admin_id` bigint unsigned NOT NULL, `session_id` bigint unsigned NOT NULL, `candidate_id` bigint unsigned NOT NULL, `page_id` bigint unsigned NOT NULL, `kind` varchar(20) NOT NULL DEFAULT 'apply', `before_json` longtext NOT NULL, `after_json` longtext NOT NULL, `before_hash` varchar(64) NOT NULL, `after_hash` varchar(64) NOT NULL, `idempotency_key` varchar(100) NOT NULL, `create_time` bigint NOT NULL DEFAULT 0, `update_time` bigint NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `uq_checkpoint` (`tenant_id`,`admin_id`,`idempotency_key`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- OEM_V2: additive schema, legacy orders remain flow_version=1.
+
+ALTER TABLE `la_tenant_package` ADD COLUMN `package_code` varchar(64) DEFAULT NULL;
+
+ALTER TABLE `la_tenant_package` ADD COLUMN `package_version` int unsigned NOT NULL DEFAULT 1;
+
+ALTER TABLE `la_tenant_package` ADD COLUMN `family_package_id` int unsigned NOT NULL DEFAULT 0;
+
+ALTER TABLE `la_tenant_package` ADD COLUMN `prices_configured` tinyint unsigned NOT NULL DEFAULT 0;
+
+ALTER TABLE `la_tenant_package` ADD UNIQUE INDEX `uk_oem_code` (`package_code`);
+
+ALTER TABLE `la_tenant` ADD COLUMN `oem_sales_enabled` tinyint unsigned NOT NULL DEFAULT 0;
+
+ALTER TABLE `la_tenant` ADD COLUMN `oem_flow_enabled` tinyint unsigned NOT NULL DEFAULT 0;
+
+ALTER TABLE `la_tenant_brand_order` ADD COLUMN `flow_version` tinyint unsigned NOT NULL DEFAULT 1;
+
+ALTER TABLE `la_tenant_brand_order` ADD COLUMN `order_kind` varchar(16) NOT NULL DEFAULT 'new';
+
+ALTER TABLE `la_tenant_brand_order` ADD COLUMN `workflow_state` varchar(32) NOT NULL DEFAULT 'awaiting_payment';
+
+ALTER TABLE `la_tenant_brand_order` ADD COLUMN `tenant_review` varchar(16) NOT NULL DEFAULT 'pending';
+
+ALTER TABLE `la_tenant_brand_order` ADD COLUMN `platform_review` varchar(16) NOT NULL DEFAULT 'pending';
+
+ALTER TABLE `la_tenant_brand_order` ADD COLUMN `package_snapshot` longtext;
+
+ALTER TABLE `la_tenant_brand_order` ADD COLUMN `brand_snapshot` longtext;
+
+ALTER TABLE `la_tenant_brand_order` ADD COLUMN `review_note` varchar(500) NOT NULL DEFAULT '';
+
+ALTER TABLE `la_tenant_brand_order` ADD COLUMN `closed_time` int unsigned NOT NULL DEFAULT 0;
+
+ALTER TABLE `la_tenant_brand_order` ADD COLUMN `delivered_time` int unsigned NOT NULL DEFAULT 0;
+
+ALTER TABLE `la_tenant_brand_order` ADD COLUMN `service_expire_time` int unsigned NOT NULL DEFAULT 0;
+
+ALTER TABLE `la_tenant_brand_order` ADD COLUMN `last_remind_time` int unsigned NOT NULL DEFAULT 0;
+
+ALTER TABLE `la_tenant_brand_order` ADD COLUMN `remind_count` int unsigned NOT NULL DEFAULT 0;
+
+ALTER TABLE `la_tenant_brand_order` ADD INDEX `idx_oem_work` (`flow_version`,`workflow_state`,`pay_time`);
+
+ALTER TABLE `la_tenant_brand_order` ADD INDEX `idx_oem_owner` (`tenant_id`,`user_id`,`id`);
+
+ALTER TABLE `la_tenant_brand_quota_order` ADD COLUMN `flow_version` tinyint unsigned NOT NULL DEFAULT 1;
+
+ALTER TABLE `la_tenant_brand_quota_order` ADD COLUMN `brand_order_id` int unsigned NOT NULL DEFAULT 0;
+
+ALTER TABLE `la_tenant_brand_quota_order` ADD COLUMN `package_snapshot` longtext;
+
+ALTER TABLE `la_tenant_brand_quota_order` ADD COLUMN `closed_time` int unsigned NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS `la_tenant_brand_event` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` int unsigned NOT NULL,
+  `tenant_id` int unsigned NOT NULL,
+  `actor_type` varchar(16) NOT NULL,
+  `actor_id` int unsigned NOT NULL DEFAULT 0,
+  `action` varchar(64) NOT NULL,
+  `state` varchar(32) NOT NULL,
+  `note` varchar(500) NOT NULL DEFAULT '',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_order` (`order_id`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_tenant_brand_payment_intent` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `order_from` varchar(32) NOT NULL,
+  `order_id` int unsigned NOT NULL,
+  `tenant_id` int unsigned NOT NULL,
+  `pay_sn` varchar(64) NOT NULL,
+  `channel` tinyint unsigned NOT NULL,
+  `merchant_id` varchar(128) NOT NULL,
+  `amount_cents` bigint unsigned NOT NULL,
+  `currency` varchar(8) NOT NULL DEFAULT 'CNY',
+  `context` longtext,
+  `expires_at` int unsigned NOT NULL,
+  `last_query_time` int unsigned NOT NULL DEFAULT 0,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_pay_sn` (`pay_sn`),
+  KEY `idx_order` (`order_from`,`order_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_tenant_brand_payment` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `intent_id` int unsigned NOT NULL,
+  `order_from` varchar(32) NOT NULL,
+  `order_id` int unsigned NOT NULL,
+  `tenant_id` int unsigned NOT NULL,
+  `channel` tinyint unsigned NOT NULL,
+  `merchant_id` varchar(128) NOT NULL,
+  `transaction_id` varchar(128) NOT NULL,
+  `amount_cents` bigint unsigned NOT NULL,
+  `currency` varchar(8) NOT NULL DEFAULT 'CNY',
+  `disposition` varchar(16) NOT NULL DEFAULT 'primary',
+  `paid_time` int unsigned NOT NULL,
+  `context` longtext,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_trade` (`channel`,`merchant_id`,`transaction_id`),
+  KEY `idx_order` (`order_from`,`order_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_tenant_brand_refund` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `payment_id` int unsigned NOT NULL,
+  `order_from` varchar(32) NOT NULL,
+  `order_id` int unsigned NOT NULL,
+  `tenant_id` int unsigned NOT NULL,
+  `refund_sn` varchar(64) NOT NULL,
+  `amount_cents` bigint unsigned NOT NULL,
+  `status` varchar(16) NOT NULL DEFAULT 'queued',
+  `reason` varchar(255) NOT NULL DEFAULT '',
+  `channel_refund_id` varchar(128) NOT NULL DEFAULT '',
+  `last_error` varchar(500) NOT NULL DEFAULT '',
+  `attempts` int unsigned NOT NULL DEFAULT 0,
+  `next_check_time` int unsigned NOT NULL DEFAULT 0,
+  `lease_token` varchar(64) NOT NULL DEFAULT '',
+  `lease_until` int unsigned NOT NULL DEFAULT 0,
+  `confirmed_time` int unsigned NOT NULL DEFAULT 0,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_payment` (`payment_id`),
+  UNIQUE KEY `uk_refund_sn` (`refund_sn`),
+  KEY `idx_poll` (`status`,`next_check_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_tenant_brand_job` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` int unsigned NOT NULL,
+  `status` varchar(16) NOT NULL DEFAULT 'queued',
+  `lease_token` varchar(64) NOT NULL DEFAULT '',
+  `lease_until` int unsigned NOT NULL DEFAULT 0,
+  `heartbeat_time` int unsigned NOT NULL DEFAULT 0,
+  `attempts` int unsigned NOT NULL DEFAULT 0,
+  `steps` longtext,
+  `last_error` varchar(500) NOT NULL DEFAULT '',
+  `runtime_generation` varchar(128) NOT NULL DEFAULT '',
+  `finished_time` int unsigned NOT NULL DEFAULT 0,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_order` (`order_id`),
+  KEY `idx_claim` (`status`,`lease_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_tenant_brand_domain` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` int unsigned NOT NULL,
+  `tenant_id` int unsigned NOT NULL,
+  `domain` varchar(255) NOT NULL,
+  `challenge` varchar(128) NOT NULL,
+  `status` varchar(16) NOT NULL DEFAULT 'pending',
+  `verified_time` int unsigned NOT NULL DEFAULT 0,
+  `last_check_time` int unsigned NOT NULL DEFAULT 0,
+  `last_error` varchar(500) NOT NULL DEFAULT '',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_order` (`order_id`),
+  KEY `idx_domain` (`domain`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `la_tenant_package` (`package_code`,`name`,`duration_days`,`sale_price`,`quota_price`,`status`,`sort`,`prices_configured`,`create_time`,`update_time`) SELECT 'oem_basic','基础版',365,0,0,0,30,0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS(SELECT 1 FROM `la_tenant_package` WHERE `package_code`='oem_basic');
+
+INSERT INTO `la_tenant_package` (`package_code`,`name`,`duration_days`,`sale_price`,`quota_price`,`status`,`sort`,`prices_configured`,`create_time`,`update_time`) SELECT 'oem_professional','专业版',365,0,0,0,20,0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS(SELECT 1 FROM `la_tenant_package` WHERE `package_code`='oem_professional');
+
+INSERT INTO `la_tenant_package` (`package_code`,`name`,`duration_days`,`sale_price`,`quota_price`,`status`,`sort`,`prices_configured`,`create_time`,`update_time`) SELECT 'oem_enterprise','企业版',365,0,0,0,10,0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS(SELECT 1 FROM `la_tenant_package` WHERE `package_code`='oem_enterprise');
+
+-- OEM workbench and least-privilege action menus.
+
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT 0,'M','贴牌业务','el-icon-Connection',640,'','brand','','','',0,1,0,'','core','core_oem_platform',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS(SELECT 1 FROM `la_system_menu` WHERE `source_menu_key`='core_oem_platform');
+
+
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT (SELECT id FROM `la_system_menu` WHERE source_menu_key='core_oem_platform' LIMIT 1),'C','贴牌工作台','el-icon-Document',100,'brand.order/lists','order','brand/order','','',0,1,0,'','core','core_oem_platform_order',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS(SELECT 1 FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_order');
+
+
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT (SELECT id FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_order' LIMIT 1),'A','订单详情','',0,'brand.order/detail','','','','',0,0,0,'','core','core_oem_platform_detail',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS(SELECT 1 FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_detail');
+
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT (SELECT id FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_order' LIMIT 1),'A','确认开通','',0,'brand.order/confirm','','','','',0,0,0,'','core','core_oem_platform_confirm',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS(SELECT 1 FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_confirm');
+
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT (SELECT id FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_order' LIMIT 1),'A','退回或拒绝','',0,'brand.order/review','','','','',0,0,0,'','core','core_oem_platform_review',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS(SELECT 1 FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_review');
+
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT (SELECT id FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_order' LIMIT 1),'A','重试开通','',0,'brand.order/retry','','','','',0,0,0,'','core','core_oem_platform_retry',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS(SELECT 1 FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_retry');
+
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT (SELECT id FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_order' LIMIT 1),'A','处理异常退款','',0,'brand.order/resolveRefund','','','','',0,0,0,'','core','core_oem_platform_resolveRefund',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS(SELECT 1 FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_resolveRefund');
+
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT (SELECT id FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_order' LIMIT 1),'A','销售租户','',0,'brand.order/sellers','','','','',0,0,0,'','core','core_oem_platform_sellers',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS(SELECT 1 FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_sellers');
+
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT (SELECT id FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_order' LIMIT 1),'A','销售资格配置','',0,'brand.order/saveSeller','','','','',0,0,0,'','core','core_oem_platform_saveSeller',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS(SELECT 1 FROM `la_system_menu` WHERE source_menu_key='core_oem_platform_saveSeller');
+
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT p.tenant_id,p.id,'A','订单详情','',0,'brand.order/detail','','','','',0,0,0,'','core','core_oem_tenant_brand_order_detail',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.source_menu_key='core_tenant_brand_order' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=p.tenant_id AND e.source_menu_key='core_oem_tenant_brand_order_detail');
+
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT p.tenant_id,p.id,'A','审核申请','',0,'brand.order/review','','','','',0,0,0,'','core','core_oem_tenant_brand_order_review',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.source_menu_key='core_tenant_brand_order' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=p.tenant_id AND e.source_menu_key='core_oem_tenant_brand_order_review');
+
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT p.tenant_id,p.id,'A','提交平台','',0,'brand.order/submit','','','','',0,0,0,'','core','core_oem_tenant_brand_order_submit',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.source_menu_key='core_tenant_brand_order' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=p.tenant_id AND e.source_menu_key='core_oem_tenant_brand_order_submit');
+
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT p.tenant_id,p.id,'A','预占额度','',0,'brand.order/reserve','','','','',0,0,0,'','core','core_oem_tenant_brand_order_reserve',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.source_menu_key='core_tenant_brand_order' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=p.tenant_id AND e.source_menu_key='core_oem_tenant_brand_order_reserve');
+
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT p.tenant_id,p.id,'A','退款审核','',0,'brand.order/refundReview','','','','',0,0,0,'','core','core_oem_tenant_brand_order_refundReview',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.source_menu_key='core_tenant_brand_order' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=p.tenant_id AND e.source_menu_key='core_oem_tenant_brand_order_refundReview');
+
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT p.tenant_id,p.id,'A','经营统计','',0,'brand.order/statistics','','','','',0,0,0,'','core','core_oem_tenant_brand_order_statistics',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.source_menu_key='core_tenant_brand_order' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=p.tenant_id AND e.source_menu_key='core_oem_tenant_brand_order_statistics');
+
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT p.tenant_id,p.id,'A','采购详情','',0,'brand.quota/detail','','','','',0,0,0,'','core','core_oem_tenant_brand_quota_detail',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.source_menu_key='core_tenant_brand_quota' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=p.tenant_id AND e.source_menu_key='core_oem_tenant_brand_quota_detail');
+
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT p.tenant_id,p.id,'A','按单采购','',0,'brand.quota/purchaseForOrder','','','','',0,0,0,'','core','core_oem_tenant_brand_quota_purchaseForOrder',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.source_menu_key='core_tenant_brand_quota' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=p.tenant_id AND e.source_menu_key='core_oem_tenant_brand_quota_purchaseForOrder');
+
+-- Runs after 20261013_oem_self_service_v2.sql. Repeat execution preserves explicit qualification changes.
+ALTER TABLE `la_tenant_brand_event` ADD COLUMN `payload` longtext;
+
+UPDATE `la_tenant` t SET t.`oem_sales_enabled`=1
+WHERE NOT EXISTS(SELECT 1 FROM `la_config` WHERE `type`='oem_migration' AND `name`='legacy_qualification_v1') AND t.`oem_flow_enabled`=0 AND (
+  EXISTS(SELECT 1 FROM `la_tenant_brand_package_price` p WHERE p.`tenant_id`=t.`id`)
+  OR EXISTS(SELECT 1 FROM `la_tenant_brand_quota_order` q WHERE q.`tenant_id`=t.`id` AND q.`pay_status`=1)
+);
+INSERT INTO `la_config` (`type`,`name`,`value`) SELECT 'oem_migration','legacy_qualification_v1','done' WHERE NOT EXISTS(SELECT 1 FROM `la_config` WHERE `type`='oem_migration' AND `name`='legacy_qualification_v1');
+
+-- OEM maintenance is lightweight and never provisions tenants in the scheduler.
+INSERT INTO `la_dev_crontab` (`name`,`type`,`system`,`remark`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`create_time`,`update_time`,`delete_time`)
+SELECT '贴牌订单核对与提醒',1,1,'付款退款核对、未付款超时关闭、付款24小时后每日人工跟进提醒','brand:maintain','',1,'* * * * *','',0,'0','0',UNIX_TIMESTAMP(),UNIX_TIMESTAMP(),NULL
+WHERE NOT EXISTS (SELECT 1 FROM `la_dev_crontab` WHERE `command`='brand:maintain' AND (`delete_time` IS NULL OR `delete_time`=0));
+
+-- OEM transaction refund recovery permission, additive and idempotent.
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT p.id,'A','退款交易核对','',0,'brand.order/refunds','','','','',0,0,0,'','core','core_oem_platform_refunds',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_system_menu` p WHERE p.source_menu_key='core_oem_platform_order' AND NOT EXISTS(SELECT 1 FROM `la_system_menu` e WHERE e.source_menu_key='core_oem_platform_refunds');
+
+-- Keep bounded reconciliation live for old unresolved channel intents.
+ALTER TABLE `la_tenant_brand_payment_intent` ADD INDEX `idx_reconcile` (`last_query_time`,`id`);
+
+-- Additive promotion/quote state. Existing packages and orders remain unchanged.
+CREATE TABLE IF NOT EXISTS `la_tenant_package_promotion` (
+ `id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL DEFAULT 0,
+ `biz_type` varchar(24) NOT NULL, `package_id` int unsigned NOT NULL,
+ `enabled` tinyint unsigned NOT NULL DEFAULT 0, `rule_new` tinyint unsigned NOT NULL DEFAULT 0,
+ `rule_all` tinyint unsigned NOT NULL DEFAULT 0, `hours` int unsigned NOT NULL DEFAULT 48,
+ `discount_prices` longtext, `all_start` int unsigned NOT NULL DEFAULT 0, `all_end` int unsigned NOT NULL DEFAULT 0,
+ `version` int unsigned NOT NULL DEFAULT 1, `create_time` int unsigned NOT NULL DEFAULT 0, `update_time` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_package` (`tenant_id`,`biz_type`,`package_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `la_tenant_package_discount_claim` (
+ `id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL,
+ `user_id` int unsigned NOT NULL, `biz_type` varchar(24) NOT NULL, `package_id` int unsigned NOT NULL,
+ `status` varchar(16) NOT NULL DEFAULT 'available', `order_id` int unsigned NOT NULL DEFAULT 0,
+ `reserved_until` int unsigned NOT NULL DEFAULT 0, `consumed_at` int unsigned NOT NULL DEFAULT 0,
+ `create_time` int unsigned NOT NULL DEFAULT 0, `update_time` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_user_package` (`tenant_id`,`user_id`,`biz_type`,`package_id`),
+ KEY `idx_reserved` (`status`,`reserved_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `la_tenant_package_price_snapshot` (
+ `id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `user_id` int unsigned NOT NULL,
+ `biz_type` varchar(24) NOT NULL, `order_id` int unsigned NOT NULL, `order_sn` varchar(64) NOT NULL,
+ `package_id` int unsigned NOT NULL DEFAULT 0, `cycle` varchar(16) NOT NULL DEFAULT 'package',
+ `regular_cents` bigint unsigned NOT NULL, `payable_cents` bigint unsigned NOT NULL,
+ `is_discount` tinyint unsigned NOT NULL DEFAULT 0, `promotion_version` int unsigned NOT NULL DEFAULT 0,
+ `matched_rules` varchar(64) NOT NULL DEFAULT '', `eligible_end_at` int unsigned NOT NULL DEFAULT 0,
+ `expires_at` int unsigned NOT NULL, `status` varchar(16) NOT NULL DEFAULT 'pending',
+ `rights` longtext, `created_at` int unsigned NOT NULL, `paid_at` int unsigned NOT NULL DEFAULT 0,
+ `channel` int unsigned NOT NULL DEFAULT 0, `closed_at` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_order` (`tenant_id`,`biz_type`,`order_id`),
+ UNIQUE KEY `uk_sn` (`tenant_id`,`biz_type`,`order_sn`), KEY `idx_due` (`status`,`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
+SELECT 0,p.id,'C','虚拟支付','el-icon-Wallet',80,'finance.virtual_pay/detail','virtual_pay','finance/virtual_pay','','',0,1,0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_tenant_system_menu` p WHERE p.tenant_id=0 AND p.paths='package' AND p.type='M' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=0 AND e.perms='finance.virtual_pay/detail');
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
+SELECT 0,p.id,'A','保存优惠','',0,'finance.promotion/save','','','','',0,0,0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_tenant_system_menu` p WHERE p.tenant_id=0 AND p.paths='package' AND p.type='M' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=0 AND e.perms='finance.promotion/save');
+
+-- Independent mini-program identities and append-only credential versions.
+CREATE TABLE IF NOT EXISTS `la_virtual_pay_config` (
+ `id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL,
+ `app_id` varchar(64) NOT NULL, `env` tinyint unsigned NOT NULL DEFAULT 0,
+ `enabled` tinyint unsigned NOT NULL DEFAULT 0, `enabled_platforms` varchar(32) NOT NULL DEFAULT 'ios,android', `version_id` bigint unsigned NOT NULL DEFAULT 0,
+ `update_time` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_app_env` (`tenant_id`,`app_id`,`env`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `la_virtual_pay_config_version` (
+ `id` bigint unsigned NOT NULL AUTO_INCREMENT, `config_id` bigint unsigned NOT NULL,
+ `tenant_id` int unsigned NOT NULL, `app_id` varchar(64) NOT NULL, `env` tinyint unsigned NOT NULL,
+ `authorizer_id` int unsigned NOT NULL DEFAULT 0, `offer_id` varchar(64) NOT NULL,
+ `mini_secret` text NOT NULL, `app_key` text NOT NULL, `token` text NOT NULL, `aes_key` text NOT NULL,
+ `message_mode` varchar(16) NOT NULL DEFAULT 'safe', `created_at` int unsigned NOT NULL,
+ PRIMARY KEY (`id`), KEY `idx_identity` (`tenant_id`,`app_id`,`env`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `la_virtual_pay_product` (
+ `id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL,
+ `app_id` varchar(64) NOT NULL, `env` tinyint unsigned NOT NULL, `biz_type` varchar(24) NOT NULL,
+ `package_id` int unsigned NOT NULL, `cycle` varchar(16) NOT NULL, `variant` varchar(16) NOT NULL,
+ `product_id` varchar(128) NOT NULL, `price_cents` bigint unsigned NOT NULL, `updated_at` int unsigned NOT NULL,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_mapping` (`tenant_id`,`app_id`,`env`,`biz_type`,`package_id`,`cycle`,`variant`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `la_virtual_pay_session` (
+ `id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `user_id` int unsigned NOT NULL,
+ `app_id` varchar(64) NOT NULL, `session_id` char(64) NOT NULL, `openid` varchar(128) NOT NULL,
+ `session_key` text NOT NULL, `expires_at` int unsigned NOT NULL,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_session` (`session_id`), KEY `idx_expire` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+UPDATE `la_tenant_system_menu` SET `source`='core',`source_menu_key`='core_tenant_virtual_pay',`is_core`=1 WHERE tenant_id=0 AND perms='finance.virtual_pay/detail';
+UPDATE `la_tenant_system_menu` SET `source`='core',`source_menu_key`='core_tenant_promotion_save',`is_core`=1 WHERE tenant_id=0 AND perms='finance.promotion/save';
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`perms`,`is_show`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT 0,p.id,'A','保存配置','finance.virtual_pay/save',0,'core','core_tenant_virtual_pay_save',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.tenant_id=0 AND p.perms='finance.virtual_pay/detail' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=0 AND e.perms='finance.virtual_pay/save');
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`perms`,`is_show`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT 0,p.id,'A','绑定道具','finance.virtual_pay/saveProduct',0,'core','core_tenant_virtual_pay_saveProduct',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.tenant_id=0 AND p.perms='finance.virtual_pay/detail' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=0 AND e.perms='finance.virtual_pay/saveProduct');
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`perms`,`is_show`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT 0,p.id,'A','交易记录','finance.virtual_pay/orders',0,'core','core_tenant_virtual_pay_orders',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.tenant_id=0 AND p.perms='finance.virtual_pay/detail' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=0 AND e.perms='finance.virtual_pay/orders');
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`perms`,`is_show`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT 0,p.id,'A','重试核对','finance.virtual_pay/retry',0,'core','core_tenant_virtual_pay_retry',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.tenant_id=0 AND p.perms='finance.virtual_pay/detail' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=0 AND e.perms='finance.virtual_pay/retry');
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`perms`,`is_show`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT 0,p.id,'A','发起退款','finance.virtual_pay/refund',0,'core','core_tenant_virtual_pay_refund',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.tenant_id=0 AND p.perms='finance.virtual_pay/detail' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=0 AND e.perms='finance.virtual_pay/refund');
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`perms`,`is_show`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT 0,p.id,'A','异常处理','finance.virtual_pay/resolve',0,'core','core_tenant_virtual_pay_resolve',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.tenant_id=0 AND p.perms='finance.virtual_pay/detail' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=0 AND e.perms='finance.virtual_pay/resolve');
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`perms`,`is_show`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT 0,p.id,'A','优惠详情','finance.promotion/detail',0,'core','core_tenant_promotion_detail',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.tenant_id=0 AND p.paths='package' AND p.type='M' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=0 AND e.perms='finance.promotion/detail');
+CREATE TABLE IF NOT EXISTS `la_virtual_pay_intent` (
+ `id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `user_id` int unsigned NOT NULL,
+ `biz_type` varchar(24) NOT NULL, `order_id` int unsigned NOT NULL, `config_version_id` bigint unsigned NOT NULL,
+ `app_id` varchar(64) NOT NULL, `env` tinyint unsigned NOT NULL, `openid` varchar(128) NOT NULL,
+ `out_trade_no` varchar(32) NOT NULL, `platform` varchar(16) NOT NULL,
+ `product_id` varchar(128) NOT NULL, `amount_cents` bigint unsigned NOT NULL, `attach` varchar(128) NOT NULL,
+ `sign_data` longtext NOT NULL, `status` varchar(24) NOT NULL DEFAULT 'pending',
+ `delivery_status` varchar(24) NOT NULL DEFAULT 'pending', `xpay_shipping_status` varchar(24) NOT NULL DEFAULT 'pending',
+ `general_shipping_status` varchar(24) NOT NULL DEFAULT 'pending', `refund_status` varchar(24) NOT NULL DEFAULT 'none',
+ `wx_order_id` varchar(128) NOT NULL DEFAULT '', `wxpay_order_id` varchar(128) NOT NULL DEFAULT '',
+ `order_type` tinyint unsigned NOT NULL DEFAULT 0, `paid_at` int unsigned NOT NULL DEFAULT 0,
+ `created_at` int unsigned NOT NULL, `expires_at` int unsigned NOT NULL, `updated_at` int unsigned NOT NULL,
+ `last_error` varchar(500) NOT NULL DEFAULT '', `refund_order_id` varchar(32) NOT NULL DEFAULT '',
+ `refund_requested_at` int unsigned NOT NULL DEFAULT 0, `refund_cents` bigint unsigned NOT NULL DEFAULT 0,
+ `recovery_status` varchar(24) NOT NULL DEFAULT 'none', `rights_before` longtext,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_attempt` (`out_trade_no`), KEY `idx_order` (`tenant_id`,`biz_type`,`order_id`),
+ KEY `idx_pending` (`status`,`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `la_virtual_pay_receipt` (
+ `id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `intent_id` bigint unsigned NOT NULL,
+ `app_id` varchar(64) NOT NULL, `env` tinyint unsigned NOT NULL, `transaction_key` varchar(128) NOT NULL,
+ `amount_cents` bigint unsigned NOT NULL, `kind` varchar(24) NOT NULL DEFAULT 'payment',
+ `normalized` longtext NOT NULL, `created_at` int unsigned NOT NULL,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_transaction` (`app_id`,`env`,`transaction_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `la_virtual_pay_event` (
+ `id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `app_id` varchar(64) NOT NULL,
+ `intent_id` bigint unsigned NOT NULL DEFAULT 0, `event` varchar(80) NOT NULL, `event_key` char(64) NOT NULL,
+ `payload` longtext NOT NULL, `status` varchar(24) NOT NULL DEFAULT 'pending', `message` varchar(500) NOT NULL DEFAULT '',
+ `created_at` int unsigned NOT NULL, `updated_at` int unsigned NOT NULL,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_event` (`tenant_id`,`app_id`,`event_key`), KEY `idx_attention` (`tenant_id`,`status`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `la_virtual_pay_work` (
+ `id` bigint unsigned NOT NULL AUTO_INCREMENT, `intent_id` bigint unsigned NOT NULL, `kind` varchar(24) NOT NULL,
+ `status` varchar(24) NOT NULL DEFAULT 'pending', `next_at` int unsigned NOT NULL DEFAULT 0,
+ `lease_token` varchar(64) NOT NULL DEFAULT '', `lease_until` int unsigned NOT NULL DEFAULT 0,
+ `generation` varchar(128) NOT NULL DEFAULT '', `attempts` int unsigned NOT NULL DEFAULT 0,
+ `last_error` varchar(500) NOT NULL DEFAULT '', `updated_at` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_work` (`intent_id`,`kind`), KEY `idx_due` (`status`,`next_at`,`lease_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ALTER TABLE `la_virtual_pay_intent` ADD COLUMN `refund_source` varchar(16) NOT NULL DEFAULT 'none';
+ALTER TABLE `la_ai_app_task` ADD INDEX `idx_virtual_refund_user` (`tenant_id`,`user_id`,`status`);
+ALTER TABLE `la_ai_consumption_log` ADD INDEX `idx_virtual_refund_billing` (`tenant_id`,`user_id`,`billing_status`);
+INSERT INTO `la_dev_crontab` (`name`,`type`,`system`,`remark`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`create_time`,`update_time`,`delete_time`)
+SELECT '虚拟支付订单核对',1,1,'有界核对付款、退款和发货结果，过期未付款订单经渠道核对后释放优惠','virtualpay:maintain','',1,'* * * * *','',0,'0','0',UNIX_TIMESTAMP(),UNIX_TIMESTAMP(),NULL
+WHERE NOT EXISTS(SELECT 1 FROM `la_dev_crontab` WHERE command='virtualpay:maintain' AND (delete_time IS NULL OR delete_time=0));
+
+ALTER TABLE `la_tenant_package_price_snapshot` ADD COLUMN `payment_context` text NULL;
+CREATE TABLE IF NOT EXISTS `la_package_payment_receipt` (
+ `id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `snapshot_id` bigint unsigned NOT NULL,
+ `channel` tinyint unsigned NOT NULL, `transaction_id` varchar(128) NOT NULL, `amount_cents` bigint unsigned NOT NULL,
+ `status` varchar(24) NOT NULL, `message` varchar(500) NOT NULL DEFAULT '', `created_at` int unsigned NOT NULL, `updated_at` int unsigned NOT NULL,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_transaction` (`channel`,`transaction_id`), KEY `idx_package_attention` (`tenant_id`,`status`), KEY `idx_snapshot` (`snapshot_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ALTER TABLE `la_tenant_package_price_snapshot` ADD COLUMN `next_check_at` int unsigned NOT NULL DEFAULT 0;
+ALTER TABLE `la_tenant_package_price_snapshot` ADD INDEX `idx_payment_due` (`status`,`next_check_at`,`expires_at`);
+
+-- BEGIN open_platform install bootstrap (generated from app manifest)
+-- Missing records only; preserve tenant-owned menus and API authorization/settings.
+INSERT IGNORE INTO `la_app` (`code`,`name`,`icon`,`description`,`category`,`cover`,`client_tags`,`is_builtin`,`sort`,`current_version`,`status`,`expire_policy`,`install_time`,`update_time`) VALUES ('open_platform','开放平台','','统一管理 API 接入、开发者密钥、接口文档与调用记录。','system','','platform,tenant,pc',1,0,'1.0.5','installed','allow',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_version` (`app_code`,`version`,`require_core`,`package_path`,`manifest_json`,`changelog`,`status`,`create_time`) VALUES ('open_platform','1.0.5','>=1.0.391','local','{"code":"open_platform","name":"开放平台","version":"1.0.5","require_core":">=1.0.391","description":"统一管理 API 接入、开发者密钥、接口文档与调用记录。","is_builtin":1,"system_default":1,"expire_policy":"allow","category":"system","api_prefix":"/app/open_platform","frontends":["platform","tenant","pc"],"migrations":"migrations","menus":"menus/tenant.json","platform_menus":"menus/platform.json","permissions":"permissions/tenant.json","frontend_entries":[{"terminal":"platform","entry_key":"open_platform_platform","name":"开放平台","path":"/app/open_platform","status":1,"sort":90},{"terminal":"tenant","entry_key":"open_platform_tenant","name":"开放平台","path":"/app/open_platform","status":1,"sort":90},{"terminal":"pc","entry_key":"open_platform_pc","name":"开放平台","path":"/user/developer/overview","status":1,"sort":90}],"changelog":"1. 新增平台与租户 API 管理入口。\\n2. 支持平台授权与租户调用开关独立管理。\\n3. 支持商城能力按需加入或移出 API。\\n4. 补齐管理菜单图标与简短名称，开发者首页和文档入口移至概览。\\n5. 支持批量加入或取消商城 API 调用。\\n6. API 文档自动更新商城与工具目录，支持分类和搜索。\\n7. 文档覆盖完整上架目录，支持一键显示全部接口。\\n8. 接口管理和文档补充增加搜索分页与自动文档说明。\\n9. 调用记录支持业务任务、执行消耗、积分流水和回调的层级溯源。\\n10. 租户列表支持直接切换 API 授权。"}','1. 新增平台与租户 API 管理入口。
+2. 支持平台授权与租户调用开关独立管理。
+3. 支持商城能力按需加入或移出 API。
+4. 补齐管理菜单图标与简短名称，开发者首页和文档入口移至概览。
+5. 支持批量加入或取消商城 API 调用。
+6. API 文档自动更新商城与工具目录，支持分类和搜索。
+7. 文档覆盖完整上架目录，支持一键显示全部接口。
+8. 接口管理和文档补充增加搜索分页与自动文档说明。
+9. 调用记录支持业务任务、执行消耗、积分流水和回调的层级溯源。
+10. 租户列表支持直接切换 API 授权。',1,UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_frontend_entry` (`app_code`,`terminal`,`entry_key`,`name`,`path`,`icon`,`sort`,`status`,`meta`,`create_time`,`update_time`) VALUES ('open_platform','platform','open_platform_platform','开放平台','/app/open_platform','',90,1,'[]',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_frontend_entry` (`app_code`,`terminal`,`entry_key`,`name`,`path`,`icon`,`sort`,`status`,`meta`,`create_time`,`update_time`) VALUES ('open_platform','tenant','open_platform_tenant','开放平台','/app/open_platform','',90,1,'[]',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_frontend_entry` (`app_code`,`terminal`,`entry_key`,`name`,`path`,`icon`,`sort`,`status`,`meta`,`create_time`,`update_time`) VALUES ('open_platform','pc','open_platform_pc','开放平台','/user/developer/overview','',90,1,'[]',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/detail','GET','open_platform_platform_config','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/setup','POST','open_platform_platform_setup','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/pages','GET','open_platform_platform_pages','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/savePages','POST','open_platform_platform_savePages','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/contracts','GET','open_platform_platform_contracts','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/saveContract','POST','open_platform_platform_saveContract','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/publishContract','POST','open_platform_platform_publishContract','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/documents','GET','open_platform_platform_documents','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/saveDocument','POST','open_platform_platform_saveDocument','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/publishDocument','POST','open_platform_platform_publishDocument','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/requests','GET','open_platform_platform_requests','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/recoveryPreview','GET','open_platform_platform_recoveryPreview','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/inventory','GET','open_platform_platform_inventory','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/requestDetail','GET','open_platform_platform_requestDetail','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/detail','GET','open_platform_tenant_config','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/setup','POST','open_platform_tenant_setup','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/pages','GET','open_platform_tenant_pages','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/savePages','POST','open_platform_tenant_savePages','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/contracts','GET','open_platform_tenant_contracts','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/documents','GET','open_platform_tenant_documents','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/saveDocument','POST','open_platform_tenant_saveDocument','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/requests','GET','open_platform_tenant_requests','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/recoveryPreview','GET','open_platform_tenant_recoveryPreview','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/publishDocument','POST','open_platform_tenant_publishDocument','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/requestDetail','GET','open_platform_tenant_requestDetail','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/inventory','GET','open_platform_tenant_inventory','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/overview','GET','open_platform:console:overview','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/keys','GET','open_platform:console:keys','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/pages','GET','open_platform:console:pages','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/catalog','GET','open_platform:console:catalog','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/requests','GET','open_platform:console:requests','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/requestDetail','GET','open_platform:console:requestDetail','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/debugTask','GET','open_platform:console:debugTask','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/tasks','GET','open_platform:console:tasks','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/usage','GET','open_platform:console:usage','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/callbacks','GET','open_platform:console:callbacks','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/debugPermit','GET','open_platform:console:debugPermit','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/usageExport','GET','open_platform:console:usageExport','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/createKey','POST','open_platform:console:createKey','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/setKey','POST','open_platform:console:setKey','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/rotateKey','POST','open_platform:console:rotateKey','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/updateKey','POST','open_platform:console:updateKey','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/replayCallback','POST','open_platform:console:replayCallback','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.docs/pages','GET','open_platform:docs:pages','user',0,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.docs/lists','GET','open_platform:docs:lists','user',0,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.docs/openapi','GET','open_platform:docs:openapi','user',0,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/createVerification','POST','open_platform_platform_createVerification','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/resumeTracking','POST','open_platform_platform_resumeTracking','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/resumeTracking','POST','open_platform_tenant_resumeTracking','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/marketPlan','GET','open_platform_platform_marketPlan','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/importMarketContracts','POST','open_platform_platform_importMarketContracts','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.console/quote','POST','open_platform:console:quote','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/setMarketExposure','POST','open_platform_platform_setMarketExposure','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/setMarketExposure','POST','open_platform_tenant_setMarketExposure','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('open_platform','app.open_platform.management/setTenantAuthorization','POST','open_platform_platform_setTenantAuthorization','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
+SELECT t.tenant_id,'open_platform','1.0.5','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant`) t;
+-- Shared tenant menus are seeded here; split tables are synced by DefaultAppService on creation/update.
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT 0,'M','API 管理','el-icon-Connection',85,'','open-platform','','','',0,1,0,'open_platform','app','open_platform_platform',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform');
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform' LIMIT 1),'C','开放设置','el-icon-Setting',0,'app.open_platform.management/detail','config','apps/open_platform/config','','',0,1,0,'open_platform','app','open_platform_platform_config',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_config') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_config' LIMIT 1),'A','开放设置操作','',0,'app.open_platform.management/setup','','','','',0,0,0,'open_platform','app','open_platform_platform_setup',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_setup') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_config' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_config' LIMIT 1),'A','能力清单','',0,'app.open_platform.management/inventory','','','','',0,0,0,'open_platform','app','open_platform_platform_inventory',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_inventory') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_config' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_config' LIMIT 1),'A','商城 API 开放设置','',0,'app.open_platform.management/setMarketExposure','','','','',0,0,0,'open_platform','app','open_platform_platform_setMarketExposure',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_setMarketExposure') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_config' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_config' LIMIT 1),'A','租户 API 授权开关','',0,'app.open_platform.management/setTenantAuthorization','','','','',0,0,0,'open_platform','app','open_platform_platform_setTenantAuthorization',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_setTenantAuthorization') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_config' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform' LIMIT 1),'C','页面管理','el-icon-Monitor',0,'app.open_platform.management/pages','pages','apps/open_platform/pages','','',0,1,0,'open_platform','app','open_platform_platform_pages',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_pages') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_pages' LIMIT 1),'A','页面管理操作','',0,'app.open_platform.management/savePages','','','','',0,0,0,'open_platform','app','open_platform_platform_savePages',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_savePages') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_pages' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform' LIMIT 1),'C','接口管理','el-icon-Connection',0,'app.open_platform.management/contracts','contracts','apps/open_platform/contracts','','',0,1,0,'open_platform','app','open_platform_platform_contracts',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_contracts') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_contracts' LIMIT 1),'A','接口管理操作','',0,'app.open_platform.management/saveContract','','','','',0,0,0,'open_platform','app','open_platform_platform_saveContract',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_saveContract') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_contracts' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_contracts' LIMIT 1),'A','发布','',0,'app.open_platform.management/publishContract','','','','',0,0,0,'open_platform','app','open_platform_platform_publishContract',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_publishContract') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_contracts' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_contracts' LIMIT 1),'A','草稿验收','',0,'app.open_platform.management/createVerification','','','','',0,0,0,'open_platform','app','open_platform_platform_createVerification',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_createVerification') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_contracts' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_contracts' LIMIT 1),'A','商城契约编译计划','',0,'app.open_platform.management/marketPlan','','','','',0,0,0,'open_platform','app','open_platform_platform_marketPlan',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_marketPlan') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_contracts' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_contracts' LIMIT 1),'A','导入商城契约草稿','',0,'app.open_platform.management/importMarketContracts','','','','',0,0,0,'open_platform','app','open_platform_platform_importMarketContracts',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_importMarketContracts') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_contracts' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform' LIMIT 1),'C','文档补充','el-icon-Document',0,'app.open_platform.management/documents','documents','apps/open_platform/documents','','',0,1,0,'open_platform','app','open_platform_platform_documents',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_documents') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_documents' LIMIT 1),'A','文档补充操作','',0,'app.open_platform.management/saveDocument','','','','',0,0,0,'open_platform','app','open_platform_platform_saveDocument',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_saveDocument') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_documents' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_documents' LIMIT 1),'A','发布','',0,'app.open_platform.management/publishDocument','','','','',0,0,0,'open_platform','app','open_platform_platform_publishDocument',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_publishDocument') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_documents' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform' LIMIT 1),'C','调用记录','el-icon-List',0,'app.open_platform.management/requests','requests','apps/open_platform/requests','','',0,1,0,'open_platform','app','open_platform_platform_requests',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_requests') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_requests' LIMIT 1),'A','调用与异常操作','',0,'app.open_platform.management/recoveryPreview','','','','',0,0,0,'open_platform','app','open_platform_platform_recoveryPreview',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_recoveryPreview') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_requests' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_requests' LIMIT 1),'A','调用详情','',0,'app.open_platform.management/requestDetail','','','','',0,0,0,'open_platform','app','open_platform_platform_requestDetail',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_requestDetail') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_requests' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_requests' LIMIT 1),'A','确认恢复原任务跟踪','',0,'app.open_platform.management/resumeTracking','','','','',0,0,0,'open_platform','app','open_platform_platform_resumeTracking',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_platform_resumeTracking') AND (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_platform_requests' LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,0,'M','API 管理','el-icon-Connection',85,'','open-platform','','','',0,1,0,'open_platform','app','open_platform_tenant',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant' AND m.tenant_id=t.tenant_id);
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant' AND p.tenant_id=t.tenant_id LIMIT 1),'C','开放设置','el-icon-Setting',0,'app.open_platform.management/detail','config','apps/open_platform/config','','',0,1,0,'open_platform','app','open_platform_tenant_config',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_config' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_config' AND p.tenant_id=t.tenant_id LIMIT 1),'A','开放设置操作','',0,'app.open_platform.management/setup','','','','',0,0,0,'open_platform','app','open_platform_tenant_setup',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_setup' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_config' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_config' AND p.tenant_id=t.tenant_id LIMIT 1),'A','能力清单','',0,'app.open_platform.management/inventory','','','','',0,0,0,'open_platform','app','open_platform_tenant_inventory',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_inventory' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_config' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_config' AND p.tenant_id=t.tenant_id LIMIT 1),'A','商城 API 开放设置','',0,'app.open_platform.management/setMarketExposure','','','','',0,0,0,'open_platform','app','open_platform_tenant_setMarketExposure',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_setMarketExposure' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_config' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant' AND p.tenant_id=t.tenant_id LIMIT 1),'C','页面管理','el-icon-Monitor',0,'app.open_platform.management/pages','pages','apps/open_platform/pages','','',0,1,0,'open_platform','app','open_platform_tenant_pages',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_pages' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_pages' AND p.tenant_id=t.tenant_id LIMIT 1),'A','页面管理操作','',0,'app.open_platform.management/savePages','','','','',0,0,0,'open_platform','app','open_platform_tenant_savePages',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_savePages' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_pages' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant' AND p.tenant_id=t.tenant_id LIMIT 1),'C','接口管理','el-icon-Connection',0,'app.open_platform.management/contracts','contracts','apps/open_platform/contracts','','',0,1,0,'open_platform','app','open_platform_tenant_contracts',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_contracts' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant' AND p.tenant_id=t.tenant_id LIMIT 1),'C','文档补充','el-icon-Document',0,'app.open_platform.management/documents','documents','apps/open_platform/documents','','',0,1,0,'open_platform','app','open_platform_tenant_documents',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_documents' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_documents' AND p.tenant_id=t.tenant_id LIMIT 1),'A','文档补充操作','',0,'app.open_platform.management/saveDocument','','','','',0,0,0,'open_platform','app','open_platform_tenant_saveDocument',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_saveDocument' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_documents' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_documents' AND p.tenant_id=t.tenant_id LIMIT 1),'A','发布文档','',0,'app.open_platform.management/publishDocument','','','','',0,0,0,'open_platform','app','open_platform_tenant_publishDocument',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_publishDocument' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_documents' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant' AND p.tenant_id=t.tenant_id LIMIT 1),'C','调用记录','el-icon-List',0,'app.open_platform.management/requests','requests','apps/open_platform/requests','','',0,1,0,'open_platform','app','open_platform_tenant_requests',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_requests' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_requests' AND p.tenant_id=t.tenant_id LIMIT 1),'A','调用与异常操作','',0,'app.open_platform.management/recoveryPreview','','','','',0,0,0,'open_platform','app','open_platform_tenant_recoveryPreview',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_recoveryPreview' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_requests' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_requests' AND p.tenant_id=t.tenant_id LIMIT 1),'A','调用详情','',0,'app.open_platform.management/requestDetail','','','','',0,0,0,'open_platform','app','open_platform_tenant_requestDetail',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_requestDetail' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_requests' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_requests' AND p.tenant_id=t.tenant_id LIMIT 1),'A','确认恢复原任务跟踪','',0,'app.open_platform.management/resumeTracking','','','','',0,0,0,'open_platform','app','open_platform_tenant_resumeTracking',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='open_platform' AND m.source_menu_key='open_platform_tenant_resumeTracking' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='open_platform' AND p.source_menu_key='open_platform_tenant_requests' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+-- END open_platform install bootstrap

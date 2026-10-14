@@ -19,7 +19,7 @@ try {
     runWorker(\app\common\command\CanvasSubAgentWorker::class,['sleep'=>1,'lease'=>180,'limit'=>2,'once'=>false,'worker'=>'test']);
     if(\app\common\service\app\aigc_canvas\agent\runtime\SubAgentTaskService::$finished!==[3])throw new RuntimeException('subtask state was not finished');
     $GLOBALS['epoch_changed']=true;
-    foreach ([\app\common\command\ShortDramaEpisodeWorker::class, \app\common\command\ShortDramaPlanningWorker::class, \app\common\command\ShortDramaCanvasAgentWorker::class, \app\common\command\Crontab::class] as $class) runWorker($class,['once'=>false,'tenant'=>1,'sleep'=>1]);
+    foreach ([\app\common\command\ShortDramaEpisodeWorker::class, \app\common\command\ShortDramaPlanningWorker::class, \app\common\command\ShortDramaCanvasAgentWorker::class, \app\common\command\DecorationAgentWorker::class, \app\common\command\Crontab::class] as $class) runWorker($class,['once'=>false,'tenant'=>1,'sleep'=>1]);
     echo "PASS: generation retirement occurs after claimed batch/task completion and before another claim\n";
 } catch(Throwable $e){fwrite(STDERR,"FAIL: ".$e->getMessage()."\n");exit(1);}
 }

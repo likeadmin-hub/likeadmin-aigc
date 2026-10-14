@@ -1,0 +1,78 @@
+{
+  "result": "PASS",
+  "manifest_paths": 2791,
+  "uncovered": [],
+  "signature_files": 3783,
+  "fallback_signature_files": 3783,
+  "sql_count": 10,
+  "full_replace_dirs": [
+    "public/_nuxt",
+    "public/admin",
+    "public/media",
+    "public/mobile",
+    "public/mp-weixin",
+    "public/pc",
+    "public/platform"
+  ],
+  "mini_files": 1195,
+  "mini_source_sha": "cc02c292738017f07eb2c7d528f108b5bfd560c3",
+  "no_local_path_leaks": true,
+  "version": "1.0.398",
+  "base_version": "1.0.397",
+  "server_source_commit": "ba3e7542897aa878192e4f513228eb30bbbc7114",
+  "metadata": {
+    "package_id": "system_1.0.398",
+    "type": "system",
+    "app_code": "",
+    "version": "1.0.398",
+    "format": "zip",
+    "fallback_format": "tar.gz",
+    "filename": "system_1.0.398.zip",
+    "fallback_filename": "system_1.0.398.tar.gz",
+    "sha256": "7ff736182c836c0126e274f9590d77f8f01dd7e3444400fa7c123d06ef9efa1a",
+    "fallback_sha256": "c1f48c34c93ac2be0bcb0ae2358e88fa16269ca8daec2639287125cbadea4a45",
+    "size": 112188667,
+    "fallback_size": 110281571
+  },
+  "upgrade_chain_preflight": {
+    "passed": true,
+    "customer_contract": "AigcOpenApiService::systemPackage",
+    "chain": [
+      "1.0.397",
+      "1.0.398"
+    ],
+    "signed_download_preparation": true,
+    "wrong_predecessor_rejected": true,
+    "package_sha256": "7ff736182c836c0126e274f9590d77f8f01dd7e3444400fa7c123d06ef9efa1a",
+    "transaction_rolled_back": true,
+    "scope": "local real service contract; online release remains unopened"
+  },
+  "checks": {
+    "official_production_builds": [
+      "pc",
+      "tenant",
+      "platform",
+      "h5",
+      "mp-weixin"
+    ],
+    "php_lint_files": 138,
+    "staging_tests": 10,
+    "composer_packaging_tests": 11,
+    "runtime_bootstrap_packaging_tests": 3,
+    "official_package_verifier": "passed",
+    "actual_397_to_398_upgrade": "passed",
+    "existing_business_and_running_task_preservation": "passed",
+    "mini_artifact_archive_and_hash_verification": "passed",
+    "real_charge_and_refund": "SKIPPED per user",
+    "physical_wechat_device_sdk": "not tested",
+    "wechat_upload_review_publish": "not performed",
+    "global_typecheck": "known pre-existing baseline failures; see feature reports"
+  },
+  "customer_installation": "not performed",
+  "formal_opening": "owner_manual",
+  "feature_reports": [
+    "docs/oem/TEST-REPORT-2026-10-14.md",
+    "docs/virtual-payment/TEST-REPORT-2026-10-14.md",
+    "docs/virtual-payment/PLATFORM-SELECTION-2026-10-14.md"
+  ]
+}

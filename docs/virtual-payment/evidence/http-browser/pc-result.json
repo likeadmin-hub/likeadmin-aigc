@@ -1,0 +1,74 @@
+{
+  "result": "PASS",
+  "tests": [
+    "actual login HTTP",
+    "discount and countdown",
+    "confirmed price",
+    "QR decoded",
+    "server grant",
+    "coupon once across reopening"
+  ],
+  "requests": [
+    {
+      "path": "/api/login/account",
+      "code": 1
+    },
+    {
+      "path": "/api/membership/plans",
+      "code": 1
+    },
+    {
+      "path": "/api/recharge/config",
+      "code": 1
+    },
+    {
+      "path": "/api/package.price/pending",
+      "code": 1
+    },
+    {
+      "path": "/api/package.price/quote",
+      "code": 1
+    },
+    {
+      "path": "/api/package.price/pending",
+      "code": 1
+    },
+    {
+      "path": "/api/package.price/quote",
+      "code": 1
+    },
+    {
+      "path": "/api/recharge/recharge",
+      "code": 1
+    },
+    {
+      "path": "/api/pay/payWay",
+      "code": 1
+    },
+    {
+      "path": "/api/pay/payWay",
+      "code": 1
+    },
+    {
+      "path": "/api/pay/prepay",
+      "code": 1
+    },
+    {
+      "path": "/api/pay/payStatus",
+      "code": 1
+    },
+    {
+      "path": "/api/recharge/config",
+      "code": 1
+    },
+    {
+      "path": "/api/package.price/pending",
+      "code": 1
+    },
+    {
+      "path": "/api/package.price/quote",
+      "code": 1
+    }
+  ],
+  "errors": []
+}

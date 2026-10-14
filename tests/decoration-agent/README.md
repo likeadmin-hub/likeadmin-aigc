@@ -1,0 +1,29 @@
+# Deterministic Decoration Agent contract
+
+Run `php tests/decoration-agent/run.php` from `server`, or run `docker exec bt /www/server/php/82/bin/php /www/wwwroot/likeadmin_aigc_saas/server/tests/decoration-agent/run.php` using the compatible local PHP 8.2 runtime. Tests perform no database or provider calls. The default bt PHP 8.0 runtime emits an existing duplicate-fileinfo warning; use PHP 8.2 for a clean run.
+
+`DecorationAgentCatalog` exposes static `version()`, `hash()`, `summary()`, `definition(name)` and `create(name,id)` methods. The generated JSON at `app/common/service/decorate/agent/catalog/mobile-catalog.json` is packaged together with the immutable application code. It includes 46 contracts and exact `createDefaultMobileWidget` defaults, plus page-meta defaults from the editor options module and enum constraints read from its actual property panel. `Catalog::pageMeta()` returns the page-meta contract. Regenerate from frontend using `node tenant/scripts/export-decoration-agent-catalog.mjs`; `--check` fails on either backend JSON or frontend version/hash drift. The loader verifies the SHA-256 over sorted-key canonical JSON without the `hash` member. Empty JSON objects and arrays remain distinct during verification.
+
+`DecorationAgentOperations::apply(candidate, operations, scope)` accepts decoded page shape `{data: Widget[], meta: PageMeta[], name, ...unknown}`. It returns `{candidate, changes, image_requests}`. Invalid edits throw `InvalidArgumentException`. Inputs remain unchanged. Model-supplied IDs are ignored for creation; component/list copy receives fresh server IDs. Missing legacy root IDs target `legacy_<sanitized-name>_<index>` without rewriting stored objects for field edits; explicit structural edits materialize stable legacy IDs inside the candidate (selected scope only inside its subtree), preserving identity for subsequent operations. Existing drafts are untouched until apply; nested missing IDs use underscore-separated index paths. Duplicate existing IDs fail safely.
+
+Operations use `type` (`op` is also accepted):
+
+- `add_component`: `name`, optional `content`/`styles` objects or `fields` map of approved dot paths, `children` specifications, `parent_id`, `index`.
+- `update_component`: `widget_id`, `fields` map, e.g. `{"content.title":"欢迎","styles.opacity":80,"content.data.0.title":"创作"}`.
+- `delete_component`: `widget_id`.
+- `copy_component` / `move_component`: `widget_id`, optional destination `parent_id` and `index` (index after removal for move).
+- `edit_list`: `widget_id`, `field` (data/fallback_data/areas when registered), `action` (add/update/delete/copy/move), `index`, `row` (`item` alias) or `fields`, `to_index` for move. Existing unknown row fields survive edits; old out-of-editor-limit lists remain editable without increasing their size.
+- `configure_page`: optional `name`; `fields` are page-meta content keys, also accepting `content.<key>`.
+- `bind_source`: `widget_id`, `source_key`, optional `mode` (source/hybrid/manual) and bounded `params`. Empty source key is allowed in manual mode. Each source has its own parameter allowlist.
+- `request_image`: `widget_id`, approved image `field`, `prompt`, `ratio`, `reference_file_ids`. Returns a descriptor including `old_value` without page mutation; caller authorizes tenant files and generation and compares the current slot value against `old_value` before late hydration.
+- `replace_page`: `components` is a list of the same name/content/styles/fields/children specifications as add; optional `name` validates the page name. Page/new_page scope only. This explicit operation discards the old component tree.
+
+Scope is `{scope: 'page'|'selected'|'new_page', selected_id?, allowed_links?, approved_urls?}`. Selected scope allows its subtree and refuses root insertion, movement outside it, or page edits. Links must match a trusted available link object; explicit approved external URLs allow only validated HTTP(S) destinations with no credentials. Rich text permits a small formatting-only tag subset without attributes. Image descriptors must target registered image fields. Image writes require a trusted existing/default image URL or an explicitly approved server/user asset URL. Page metadata uses the editor string values for `title_type` and `bg_type`; background video requires an approved URL. The caller must still validate media tenant ownership and prompt policy.
+
+`DecorationAgentMerge::merge(base,current,candidate)` returns `{merged,conflicts}`. It merges disjoint component/object fields and page metadata while preserving unknown extensions. Arrays of content rows are atomic. Conflicting deletion, movement, simultaneous different structure changes, or same-field edits leave the complete current draft intact and report structured conflict reasons. Use `merge(appliedSnapshot,current,baseSnapshot)` for safe rollback; concurrent edits remain protected.
+
+`evaluation-fixtures.json` supplies 25 model-facing Chinese task cases with actual factory input snapshots and declarative expected assertions. An evaluation runner should request operations from the real configured model, apply the deterministic engine, and evaluate equals/component_count/unchanged_widget/unique_ids/image_request_count/image_request_slot assertions. It is not itself evidence of a live-model run.
+
+A real-model runner can require `tests/decoration-agent/evaluate-result.php` and call `evaluateDecorationAgentFixture($fixture,$appliedResult)` for the fixture predicates. The CLI accepts `fixture-id result.json` and exits nonzero on failed expectations. Duplicate pending image descriptors for the same widget/field should be deduplicated by the caller before submission.
+
+Run `php tests/decoration-agent/catalog-deployment.php` to verify the frozen catalog from a separate application directory without site-root resources, matching immutable runtime packaging.

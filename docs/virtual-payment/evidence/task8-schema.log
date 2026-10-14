@@ -1,0 +1,3 @@
+PASS promotion fresh: actual migration executor/repeat/disabled default/new tenant menu
+PASS promotion upgrade: actual migration executor/repeat/disabled default/new tenant menu
+PASS promotion prefix: actual migration executor/repeat/disabled default/new tenant menu

@@ -193,7 +193,7 @@ class MarketTextModelRuntimeService
                     break;
                 } catch (\Throwable $initialError) {
                     if ($initialError instanceof MarketTextModelProviderException && $initialError->partialResult !== null) throw $initialError;
-                    if ($openTextCall || !empty($params['_agent_tool_history'])) throw $initialError;
+                    if ($openTextCall || !empty($params['_agent_tool_history']) || !empty($params['_disable_compatibility_retry'])) throw $initialError;
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
                     if ($retry === null) {
                         $retry = self::compatibleTransportOptions($initialError->getMessage(), $transportOptions);
@@ -266,6 +266,10 @@ class MarketTextModelRuntimeService
             }
             if ($openTextCall && !\app\common\service\open_platform\OpenTextLifecycle::rejectionConfirmed()) {
                 \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
+                throw $e;
+            }
+            if ($tenantAdminConsumption && $action === 'decoration_agent_text' && !empty($params['_decoration_preserve_uncertain']) && preg_match('/timeout|timed out|超时|cURL|connection|reset|empty response|无效响应/i', $e->getMessage())) {
+                AiConsumptionLog::where('id', (int)$context['consumption']['id'])->update(['run_status'=>'pending_confirmation','error_code'=>'submission_uncertain','error_message'=>$e->getMessage(),'update_time'=>time()]);
                 throw $e;
             }
             self::fail($context, $e->getMessage(), 'provider_error');

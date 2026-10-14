@@ -2,8 +2,9 @@
 /** Append reviewed Ads templates to a tenant; existing IDs are never overwritten.
  * php scripts/import-pixlr-ad-templates.php --tenant=1 --product=98 --media-dir=... [--apply]
  */
-require dirname(__DIR__).'/vendor/autoload.php';
-(new \think\App())->initialize();
+$siteRoot = dirname(__DIR__);
+require $siteRoot.'/runtime-loader.php';
+(new \AigcRuntimeApp($siteRoot))->initialize();
 use app\common\service\app\aigc_video\VideoEffectService as Effects;
 use app\common\service\app\aigc_video\AigcVideoService as Video;
 use app\common\service\storage\StorageConfigService;
@@ -12,10 +13,16 @@ use app\common\model\file\TenantFile;
 use app\common\model\auth\TenantAdmin;
 use app\common\service\FileService;
 
-$options=getopt('', ['tenant:','product:','media-dir:','apply']);
+$options=getopt('', ['tenant:','product:','media-dir:','apply','check-runtime']);
+if (isset($options['check-runtime'])) {
+    $catalog = $GLOBALS['AIGC_RUNTIME_GENERATION'].'/app/apps/aigc_video/data/pixlr-ads.json';
+    $items = json_decode(file_get_contents($catalog), true, 512, JSON_THROW_ON_ERROR)['items'];
+    echo json_encode(['generation'=>$GLOBALS['AIGC_RUNTIME_GENERATION'], 'catalog_items'=>count($items), 'service_source'=>(new ReflectionClass(Effects::class))->getFileName()], JSON_UNESCAPED_SLASHES)."\n";
+    exit;
+}
 $tenant=(int)($options['tenant']??0);$product=(int)($options['product']??0);$dir=realpath($options['media-dir']??'');
 if($tenant<=0 || $product<=0 || !$dir)throw new RuntimeException('Require tenant, product and media directory');
-$source=json_decode(file_get_contents(dirname(__DIR__).'/docs/video-effects/pixlr-ads.json'),true,512,JSON_THROW_ON_ERROR)['items'];
+$source=json_decode(file_get_contents($GLOBALS['AIGC_RUNTIME_GENERATION'].'/app/apps/aigc_video/data/pixlr-ads.json'),true,512,JSON_THROW_ON_ERROR)['items'];
 $media=array_column(json_decode(file_get_contents($dir.'/media.json'),true,512,JSON_THROW_ON_ERROR),null,'id');
 $config=Video::config($tenant);$existing=Effects::catalog($tenant);$existingIds=array_column($existing,'id');
 $model=null;foreach($config['option_config']['channels']??[] as $candidate)if((int)$candidate['market_product_id']===$product)$model=$candidate;

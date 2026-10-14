@@ -81,7 +81,7 @@ abstract class Server
      * 设置上传的文件信息
      * @param string $filePath
      */
-    public function setUploadFileByReal($filePath)
+    public function setUploadFileByReal($filePath, ?string $targetName = null)
     {
         // 设置为系统内部上传
         $this->isInternal = true;
@@ -99,6 +99,12 @@ abstract class Server
         ];
         // 生成保存文件名
         $this->fileName = $this->buildSaveName();
+        if ($targetName !== null) {
+            if (!preg_match('/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/D', $targetName) || str_contains($targetName, '..') || strtolower(pathinfo($targetName, PATHINFO_EXTENSION)) !== $extension) {
+                throw new Exception('内部素材目标文件名无效');
+            }
+            $this->fileName = $targetName;
+        }
     }
 
     /**

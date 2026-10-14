@@ -8,8 +8,8 @@ file_put_contents($work.'/think','<?php sleep(20);');file_put_contents($work.'/o
 ProjectUpdateProcessGate::assertDrained($work);
 $pipes=[];$other=proc_open([PHP_BINARY,$work.'/other/think','ai:task-worker'],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);usleep(100000);
 ProjectUpdateProcessGate::assertDrained($work);proc_terminate($other);foreach($pipes as $p)fclose($p);proc_close($other);
-foreach([true,false] as $absolute){
-    $pipes=[];$worker=proc_open([PHP_BINARY,$absolute?$work.'/think':'think','ai:task-worker'],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,$work);usleep(100000);
+foreach(['ai:task-worker','brand:worker','brand:maintain'] as $command) foreach([true,false] as $absolute){
+    $pipes=[];$worker=proc_open([PHP_BINARY,$absolute?$work.'/think':'think',$command],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,$work);usleep(100000);
     $blocked=false;try{ProjectUpdateProcessGate::assertDrained($work);}catch(RuntimeException $e){$blocked=str_contains($e->getMessage(),'本项目任务');}
     gateCheck($blocked,'active same-project worker was not blocked');proc_terminate($worker);foreach($pipes as $p)fclose($p);proc_close($worker);
 }
