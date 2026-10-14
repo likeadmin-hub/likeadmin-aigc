@@ -9,6 +9,8 @@ use app\common\service\open_platform\OpenStore;
 function check($ok,$message){if(!$ok)throw new RuntimeException($message);}
 function denied(callable $f){try{$f();}catch(InvalidArgumentException){return;}throw new RuntimeException('Expected topic rejection');}
 $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local rollback test only');
+// Enable counting only in this CLI process, before opening the rollback transaction.
+$config=Db::getConfig();$config['connections']['mysql']['trigger_sql']=true;Db::setConfig($config);Db::connect('mysql',true);
 Db::startTrans();try{
  $tenant=1999999903;$user=1999999903;$now=time();
  $session=AigcLlmSession::create(['tenant_id'=>$tenant,'user_id'=>$user,'title'=>'topics','model_code'=>'fixture','status'=>'idle','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
