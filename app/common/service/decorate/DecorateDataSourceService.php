@@ -136,7 +136,7 @@ class DecorateDataSourceService
         }
         return [
             'key' => $key,
-            'params' => (array)(array_key_exists('source_params', $content) ? $content['source_params'] : ($source['params'] ?? [])),
+            'params' => (array)(array_key_exists('source_params', $content) ? $content['source_params'] : (array_key_exists('source_key', $content) ? [] : ($source['params'] ?? []))),
         ];
     }
 
