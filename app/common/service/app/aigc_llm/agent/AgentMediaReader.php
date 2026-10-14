@@ -10,6 +10,7 @@ final class AgentMediaReader
 {
     public const MAX_BYTES=52428800;
     public const MAX_SECONDS=600;
+    private const FORMATS='mov,matroska,webm,mp3,wav,ogg,flac,aac,avi';
     public static function withFile(int $tenant,int $user,string $file,callable $read): mixed
     {
         $row=OpenStore::owner('file',$tenant,$user)->where('file_id',$file)->find();
@@ -68,7 +69,7 @@ final class AgentMediaReader
     }
     public static function probe(string $path): array
     {
-        $data=json_decode(self::command(['/usr/bin/ffprobe','-v','error','-protocol_whitelist','file','-show_entries','format=duration:stream=codec_type','-of','json',$path]),true);
+        $data=json_decode(self::command(['/usr/bin/ffprobe','-v','error','-protocol_whitelist','file','-format_whitelist',self::FORMATS,'-show_entries','format=duration:stream=codec_type','-of','json',$path]),true);
         $duration=(float)($data['format']['duration']??0);
         if($duration<=0||!is_finite($duration)||$duration>self::MAX_SECONDS)throw new \InvalidArgumentException('音视频理解支持10分钟以内的有效素材，请拆分后上传');
         return ['duration'=>$duration,'has_audio'=>in_array('audio',array_column($data['streams']??[],'codec_type'),true),'has_video'=>in_array('video',array_column($data['streams']??[],'codec_type'),true)];
@@ -79,16 +80,16 @@ final class AgentMediaReader
         $start=max(0,$offset);$end=min($info['duration'],$start+30);$visuals=[];
         for($i=0;$i<4&&$start<$end;$i++){
             $time=$start+($end-$start)*$i/4;
-            self::command(['/usr/bin/ffmpeg','-v','error','-nostdin','-y','-protocol_whitelist','file','-ss',(string)$time,'-i',$path,'-frames:v','1','-vf','scale=960:960:force_original_aspect_ratio=decrease','-threads','1',$dir.'/frame.jpg']);
+            self::command(['/usr/bin/ffmpeg','-v','error','-nostdin','-y','-protocol_whitelist','file','-format_whitelist',self::FORMATS,'-ss',(string)$time,'-i',$path,'-frames:v','1','-vf','scale=960:960:force_original_aspect_ratio=decrease','-threads','1',$dir.'/frame.jpg']);
             $visuals['视频 '.round($time,2).' 秒']=self::image($dir.'/frame.jpg');
         }
-        return $info+['offset'=>$start,'next_offset'=>$end<$info['duration']?(int)$end:null,'visuals'=>$visuals,'instruction'=>'这里是按时间抽样的画面，不是连续完整视频；不要推测未采样动作或声音。offset 按秒计，每次最多30秒四帧。需要对白、旁白或完整音视频理解时，先使用 audio_transcription 保存转写方案；无音轨则明确无音轨。'];
+        return $info+['content'=>'本批视频画面已抽取，图像随本工具结果附在用户消息中；请直接读取这些带时间标签的图像。','frame_times'=>array_keys($visuals),'offset'=>$start,'next_offset'=>$end<$info['duration']?(int)$end:null,'visuals'=>$visuals,'instruction'=>'这里是按时间抽样的画面，不是连续完整视频；不要推测未采样动作或声音。offset 按秒计，每次最多30秒四帧。需要对白、旁白或完整音视频理解时，先使用 audio_transcription 保存转写方案；无音轨则明确无音轨。'];
     }
     public static function audio(string $path,string $dir): string
     {
         if(!self::probe($path)['has_audio'])throw new \InvalidArgumentException('素材没有音轨，无法转写');
         $output=$dir.'/speech.wav';
-        self::command(['/usr/bin/ffmpeg','-v','error','-nostdin','-y','-protocol_whitelist','file','-i',$path,'-vn','-ac','1','-ar','16000','-c:a','pcm_s16le','-threads','1',$output],60);
+        self::command(['/usr/bin/ffmpeg','-v','error','-nostdin','-y','-protocol_whitelist','file','-format_whitelist',self::FORMATS,'-i',$path,'-vn','-ac','1','-ar','16000','-c:a','pcm_s16le','-threads','1',$output],60);
         if(!is_file($output)||filesize($output)>self::MAX_BYTES)throw new \InvalidArgumentException('音轨过大，请拆分后上传');
         return $output;
     }
