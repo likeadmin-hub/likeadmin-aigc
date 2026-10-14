@@ -61,6 +61,7 @@ final class ResponsesMessagesAdapter
     {
         $state['responses'] = true;
         $type = (string)($json['type'] ?? '');
+        $state['native_event_type'] = $type;
         $response = (array)($json['response'] ?? []);
         $id = (string)($response['id'] ?? '');
         if ($id !== '') {
@@ -83,6 +84,7 @@ final class ResponsesMessagesAdapter
         } elseif (in_array($type, ['response.output_text.done', 'response.refusal.done'], true)) {
             self::text($state, $index . ':' . (int)($json['content_index'] ?? 0), (string)($json['text'] ?? $json['refusal'] ?? ''), false, $emit);
         } elseif (in_array($type, ['response.failed', 'response.incomplete'], true)) {
+            $state['native_error_code'] = $type;
             $state['error'] = '模型回复未完整结束，请勿重复提交，费用待核对';
         } elseif ($type === 'response.completed') {
             $state['responses_complete'] = ($response['status'] ?? '') === 'completed';
@@ -99,6 +101,7 @@ final class ResponsesMessagesAdapter
                     default => [],
                 };
                 if ($allowed === [] || (($item['type'] ?? '') === 'message' && ($item['role'] ?? '') !== 'assistant')) {
+                    $state['native_error_code'] = 'responses_output_type';
                     $state['error'] = '模型返回了不支持的输出类型，未执行本轮工具';
                     return;
                 }
@@ -122,7 +125,7 @@ final class ResponsesMessagesAdapter
     {
         $previous = (string)($state['responses_text'][$key] ?? '');
         if (!$delta) {
-            if (!str_starts_with($text, $previous)) { $state['error'] = '模型流式正文不一致，未执行本轮工具'; return; }
+            if (!str_starts_with($text, $previous)) { $state['native_error_code'] = 'responses_text_mismatch'; $state['error'] = '模型流式正文不一致，未执行本轮工具'; return; }
             $text = substr($text, strlen($previous));
         }
         $state['responses_text'][$key] = $previous . $text;
