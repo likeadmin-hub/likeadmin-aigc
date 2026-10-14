@@ -269,10 +269,11 @@ final class AgentExecutionService
                 'message_id'=>['type'=>'integer','minimum'=>1],
                 'file_id'=>$string('作品或消息里的素材标识'),
                 'offset'=>['type'=>'integer','minimum'=>0,'description'=>'上一段返回的 next_offset：文本按字符、PDF按页、视频按秒计数'],
+                'transcript_offset'=>['type'=>'integer','minimum'=>0,'description'=>'视频语音正文下一段的 transcription.next_offset，按字符计数，与画面 offset 独立'],
             ],['action']),function(array $p)use($run,$vision,&$loadedImages){
                 $action=(string)$p['action'];
                 if($action==='read_asset'){
-                    $result=AgentContextService::readAsset($run,(string)($p['file_id']??''),(int)($p['offset']??0));
+                    $result=AgentContextService::readAsset($run,(string)($p['file_id']??''),(int)($p['offset']??0),(int)($p['transcript_offset']??0));
                     if(isset($result['visuals'])){
                         // Replace derived pages/frames after each batch; do not accumulate unbounded images.
                         foreach(array_keys($loadedImages) as $key)if(str_starts_with($key,'derived:'.$result['file_id'].':'))unset($loadedImages[$key]);

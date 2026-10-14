@@ -256,3 +256,19 @@ Validation: missing/corrupt preview-map fixtures, an intentionally failing previ
 - 转写只识别语音，不能保证识别音乐、音效、说话人身份。语音工具报价不包含按实际 Token 结算的对话模型费用。
 
 宝塔可能默认禁用 `proc_open`。不要全局修改 FPM：用 `AGENT_PHP_BIN=/www/server/php/82/bin/php sh scripts/home-agent-php.sh think home-agent:worker` 启动此 Worker。脚本仅对该 CLI 进程移除 `proc_open` 禁用项，保留其他禁用函数。测试同样通过此包装器调用。
+
+#### 本地真实验收记录（2026-10-14）
+
+租户 1、用户 1，使用其当前选择的文本模型 `market_text_12`。上传素材均为专门生成的非隐私测试资料。咨询模式通过前端确认转写。仅验证首页通用 Agent，没有接入工作室应用。
+
+| 请求 | 会话 / run | 结果 |
+| --- | --- | --- |
+| 普通 PDF 与无文字层扫描 PDF | 186 / 383 | 成功。准确读出 09:15 Lin、09:45 Chen、Lime-7246，以及 Blue notebooks、17、Cedar-5831 |
+| 视频画面和语音联合理解 | 190 / 400 | 成功。蓝底白字 BLUE NOTEBOOKS 17；旁白识别 9:15、17 本蓝色笔记本、Cedar；转写后自动恢复回答，原有回复和状态保留 |
+| 独立语音理解 | 191 / 402 | 成功。识别 10:30、6 个红色文件夹、Maple；没有带入其他会话的 9:15、17、Cedar |
+
+成功转写：任务 4041 / 消费 4319、任务 4051 / 消费 4329，各结算 40 算力。以上验收及修复过程中的文本模型消费合计 952.73，已结算总计 **1032.73**。
+
+**待核对记录：**首次独立音频试验 run 398 / step 191 / 任务 4034 / 消费 4312，由于未适配实际供应商 `data.result.text` 返回结构而停在 needs_review，原回执未完整保存，40 算力仍为预占。不能仅凭后续样本成功推断该次上游结算；未重提、未手工改成功、未凭空退回或补扣。后续已兼容返回结构并保存 HTTP 状态和私有供应商回执，需供应商账单/日志核对这一笔。run 397 使用无效的 0.28 秒测试音频，在确认前取消，没有发生语音转写费用。
+
+回归：HomeAgentMediaUnderstandingTest（本地真实解码、伪造文件/播放列表拒绝、单次扣费、重复结算防护、明确失败只退一次、未知回执不重提、自动继续回答）、UploadedDocument、Context、Topic、Planning、Sequence、CapabilityIsolation 均通过。前端 composer/presentation/generation/run 共 30 项通过，调整确认按钮后 generation/presentation 10 项重跑通过；两个 Vue 组件脚本与模板编译通过。回归数据库数据均回滚；真实验收会话保留供查看。

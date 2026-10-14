@@ -205,7 +205,7 @@ final class AgentContextService
     {
         return self::asset($run,$file)['asset'];
     }
-    public static function readAsset(array $run,string $file,int $offset=0): array
+    public static function readAsset(array $run,string $file,int $offset=0,int $transcriptOffset=0): array
     {
         $found=self::asset($run,$file);$asset=$found['asset'];$data=AgentStore::json($found['artifact']['data']??'');
         $out=['file_id'=>$file,'name'=>$found['artifact']['title']??$asset['name'],'mime'=>$asset['mime']??'','url'=>$asset['url']??''];
@@ -218,7 +218,7 @@ final class AgentContextService
             foreach(AgentStore::owner('step',(int)$run['tenant_id'],(int)$run['user_id'])->whereIn('run_id',$runs)->where(['tool_code'=>AgentTranscriptionTool::CODE,'status'=>'success'])->order('id','desc')->select()->toArray() as $step){
                 if((AgentStore::json($step['prepared'])['inputs']['file_id']??'')===$file){$transcript=AgentStore::json($step['result'])['transcription']??null;break;}
             }
-            if(str_starts_with($asset['mime'],'video/'))return $out+['content_available'=>true,'transcription'=>$transcript]+AgentMediaReader::withFile((int)$run['tenant_id'],(int)$run['user_id'],$file,static fn($path,$dir)=>AgentMediaReader::video($path,$dir,$offset));
+            if(str_starts_with($asset['mime'],'video/'))return $out+['content_available'=>true,'transcription'=>$transcript===null?null:self::page((string)($transcript['text']??''),$transcriptOffset)]+AgentMediaReader::withFile((int)$run['tenant_id'],(int)$run['user_id'],$file,static fn($path,$dir)=>AgentMediaReader::video($path,$dir,$offset));
             if($transcript!==null)return $out+['content_available'=>true,'source'=>'speech_transcription','instruction'=>'这是识别出的语音，可能有错字；不是音乐或音效分析。']+self::page((string)($transcript['text']??''),$offset);
             return $out+['content_available'=>false,'instruction'=>'尚未转写。需要读取内容时用 audio_transcription 调用 plan_creation，确认后转写，完成后自动恢复回答。'];
         }
