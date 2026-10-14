@@ -182,6 +182,8 @@ final class DecorationAgentDesignContext
             'composition'=>'整页先安排主视觉、文字介绍、核心入口、真实案例/内容、服务。主视觉配真实装饰素材，标题用文字组件，少量大块留白和一致间距，不用大量空卡片填满。',
             'entries'=>'根据真实入口数量及视觉层级选择columns，遵循各组件的font_size(px)、icon_size(rpx)、image_fit及显隐参数；内卡按真实契约设置item_background/description_color/icon_color及item_padding/item_radius/item_min_height(rpx)。named glyph仅单色，不画未经支持的渐变；复杂图形需要授权的独立图片素材。',
             'design_fidelity'=>'整页设计图必须按当前可写参数和runtime_notes规划实际尺寸、字号与图形。大标题显式使用title-bar.font_size(px)，副标题用sub_font_size；不能假设rich-text h1有跨端固定字号。入口卡片尺寸用已声明内卡参数；media-card需要跨端同高度时显式image_height(rpx)。原素材保留存储身份并选择正确裁切比例；设计图内应画出拟生成的独立素材构图，等待确认只禁止提交独立素材任务，不是把设计图中的素材区域留空。',
+            'visual_measurement'=>'按已确认设计图的实际宽度换算到375px逻辑画布，分别估算外边距、区块顶部间距、主视觉宽高、内卡宽高、字号和图片宽高；这些是实现规划估算，不是相似度测量。区分styles.margin_horizontal与padding_horizontal，二者会叠加收窄可用区域，不要在每层容器重复设置同样外边距。横滑容器仅表示多卡横向滚动，不表示单张卡片左图右文。若设计不含系统导航，显式page-meta.content.show_nav=0，不能保留默认导航再另加大标题。',
+            'visual_repair'=>'复审先核对实际截图覆盖整页、图片完整、背景与字可见；逐区指出导航重复、默认占位标题、裁切/比例、布局方向、内卡大小和图标样式差异。本轮修改过的视觉必须重新截图，不能根据改写参数假设修复成功。需要复现批准图中的复杂图标或插图时，按批准设计参考生成独立素材，不用单色glyph冒称复杂图形已经一致。',
             'theme_defaults'=>'组件factory中的styles.color是显式默认文字色，不会自动被页面或导航文字色覆盖。深浅主题逐块核对外壳背景及实际styles.color的对比；支持item_background/description_color的内卡分别配置。不支持内卡配色的组件按runtime_notes/runtime_capabilities真实边界设计，不能声称全局继承或整块文字都已换色。',
             'media'=>'decorative是系统装饰素材，不是用户作品、客户案例或业务证明；user_case才能按真实案例展示。banner无图片不能承担欢迎文字；无真实AI教程不得把普通生活文章包装成教程。',
             'source'=>'ai_tools只含推荐配置，空时使用真实uniapp app_entries或合法links；用户资料/会员/额度/用户资产依赖登录用户，管理员预览空不代表接口失效。manual也必须通过bind_source，field_map不支持写入。',

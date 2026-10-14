@@ -324,6 +324,31 @@ final class DecorationAgentService
     }
     public static function candidate(int $tenant,int $admin,int $id): array
     {$r=self::owned('candidate',$tenant,$admin,$id);$p=self::decode($r['payload_json']);$s=self::owned('session',$tenant,$admin,(int)$r['session_id']);$page=self::page($tenant,(int)$s['template_id'],(int)$s['page_id']);if($p['new_page']??false)$page['page_code']='';$p['resolved_sources']=self::resolvedPage($tenant,$page,$p)['resolved_sources'];return $p+['base_data'=>self::decode($r['base_json'])['data']??[],'base_meta'=>self::decode($r['base_json'])['meta']??[],'id'=>$id,'run_id'=>(int)$r['run_id'],'acceptance'=>self::acceptanceForCandidate($r),'payload_hash'=>self::hash(self::decode($r['payload_json'])),'revision'=>(int)$r['revision'],'status'=>$r['status'],'base_hash'=>$r['base_hash'],'changes'=>self::decode($r['changes_json']),'image_slots'=>self::slots($tenant,$admin,(int)$r['run_id'],$id)];}
+    /** Read-only same-origin raster transport, scoped to one exact owned candidate snapshot. */
+    public static function candidateCaptureAssets(int $tenant,int $admin,array $parameters): array
+    {
+        if(array_diff(array_keys($parameters),['candidate_id','revision','candidate_hash']))throw new RuntimeException('截图素材接口仅接受候选版本，不接受URL或资源地址');
+        $id=filter_var($parameters['candidate_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        $revision=filter_var($parameters['revision']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);$hash=$parameters['candidate_hash']??null;
+        if($id===false||$revision===false||!is_string($hash)||!preg_match('/^[a-f0-9]{64}$/D',$hash))throw new RuntimeException('截图候选版本参数无效');
+        $candidate=self::owned('candidate',$tenant,$admin,$id);$payload=self::decode($candidate['payload_json']);
+        if(!in_array($candidate['status'],['ready','waiting_images','applied','rolled_back'],true)||(int)$candidate['revision']!==$revision||!hash_equals(self::hash($payload),$hash))throw new RuntimeException('候选已变化或不可截图，请刷新预览');
+        DecorationAgentDesignService::assertNoReferenceImages($payload,null,[],$tenant);
+        $identities=DecorationAgentAssetReferences::captureIdentities($payload,$tenant);$map=[];$assets=[];$total=0;
+        if(count($identities)>30)throw new RuntimeException('候选截图图片数量超过本轮传输上限');
+        // No DB locks during storage I/O. Read once per immutable identity, then recheck the snapshot.
+        foreach($identities as $value=>$identity){
+            $read=DecorationAgentMediaService::readStoredImage($tenant,$identity);$length=strlen($read['bytes']);$total+=$length;
+            if($total>20*1024*1024)throw new RuntimeException('候选截图图片总大小超过20MB');
+            $data='data:'.$read['mime_type'].';base64,'.base64_encode($read['bytes']);$map[$value]=$data;$map[$read['url']]=$data;
+            $assets[]=['value'=>$value,'delivery_url'=>$read['url'],'mime_type'=>$read['mime_type'],'width'=>$read['width'],'height'=>$read['height'],'sha256'=>$read['sha256'],'byte_length'=>$length];
+        }
+        $fresh=self::owned('candidate',$tenant,$admin,$id);
+        if((int)$fresh['revision']!==$revision||$fresh['payload_json']!==$candidate['payload_json']||$fresh['status']!==$candidate['status'])throw new RuntimeException('候选在读取图片时已变化，请刷新预览后截图');
+        DecorationAgentDesignService::assertNoReferenceImages($payload,null,[],$tenant);
+        return ['candidate_id'=>$id,'revision'=>$revision,'candidate_hash'=>$hash,'image_data_urls'=>$map,'assets'=>$assets];
+    }
+
     public static function discard(int $tenant,int $admin,int $id): array
     {return Db::transaction(function()use($tenant,$admin,$id){$r=self::q('candidate',$tenant,$admin)->where('id',$id)->lock(true)->find();if(!$r)throw new RuntimeException('装修记录不存在或无权访问');if($r['status']==='applied')throw new RuntimeException('已应用的候选请通过撤销恢复');self::q('candidate',$tenant,$admin)->where('id',$id)->update(['status'=>'discarded']);self::q('session',$tenant,$admin)->where('id',$r['session_id'])->where('active_candidate_id',$id)->update(['active_candidate_id'=>0]);if((int)$r['run_id']>0)self::cancel($tenant,$admin,(int)$r['run_id']);return ['id'=>$id,'status'=>'discarded'];});}
     private static function conflictMessage(array $conflicts,array $current,array $candidate): string
