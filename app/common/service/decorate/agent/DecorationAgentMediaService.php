@@ -208,10 +208,28 @@ final class DecorationAgentMediaService
         return $result;
     }
 
+    /** Design-derived generation must retain its visual anchor, never silently drop references. */
+    public static function assertDesignReferenceModel(int $tenant,array $selection,int $referenceCount=1): void
+    {
+        $product=(int)($selection['market_product_id']??$selection['id']??$selection['product_id']??$selection['model_id']??0);
+        foreach(self::options($tenant) as $option)if((int)($option['market_product_id']??$option['id']??0)===$product){
+            if(($option['available']??true)!==true||empty($option['supports_reference_images']))throw new Exception('设计稿优先和按图生成素材需要支持参考图的生图模型，当前选择不满足参考能力要求');
+            $maximum=(int)($option['max_reference_images']??0);
+            if($maximum>0&&$referenceCount>$maximum)throw new Exception('设计图及素材参考数量超过当前生图模型上限');
+            return;
+        }
+        throw new Exception('设计参考所选生图模型当前不可用');
+    }
+
+    private static function assertDesignRequestReferences(int $tenant,array $selection,array $request,array $resolved): void
+    {
+        if(($request['purpose']??'')==='design'||!empty($request['reference_design_slot_id']))self::assertDesignReferenceModel($tenant,$selection,count($resolved['reference_images']??[]));
+    }
+
     public static function quote(int $tenantId, array $selection, int $quantity = 1, array $request = [],int $slotId=0): array
     {
         self::assertTenant($tenantId);
-        self::referenceRequest($tenantId, $request,$slotId);
+        $resolved=self::referenceRequest($tenantId, $request,$slotId);self::assertDesignRequestReferences($tenantId,$selection,$request,$resolved);
         $quote = MarketImageModelRuntimeService::quote($tenantId, $selection, $quantity, [], true);
         $quote['actual_tenant_cost_points'] = (float)$quote['tenant_cost_points'];
         $quote['cost_known'] = (string)$quote['settlement_mode'] !== 'actual_usage';
@@ -223,7 +241,7 @@ final class DecorationAgentMediaService
     {
         self::assertTenant($tenantId);
         if ($adminId <= 0 || $slotId <= 0) throw new Exception('装修图片任务身份无效');
-        $request = self::referenceRequest($tenantId, $request,$slotId);
+        $original=$request;$request = self::referenceRequest($tenantId, $request,$slotId);self::assertDesignRequestReferences($tenantId,$selection,$original,$request);
         $receipt = MarketImageModelRuntimeService::reserve($tenantId, 0, 'decoration_agent_image', (string)$slotId, $selection, $request, $quantity, 'system_default', self::BUSINESS_TABLE, [], true);
         $receipt['spent_points'] = (float)self::consumption($tenantId, (int)$receipt['consumption_id'])['reserved_tenant_cost'];
         return $receipt;
@@ -233,7 +251,8 @@ final class DecorationAgentMediaService
     {
         $consumption = self::consumption(0, $consumptionId);
         $slotId=(int)AiAppTask::where('id',(int)$consumption['app_task_id'])->value('business_id');
-        $request = self::referenceRequest((int)$consumption['tenant_id'], $request,$slotId);
+        $original=$request;$request = self::referenceRequest((int)$consumption['tenant_id'], $request,$slotId);
+        self::assertDesignRequestReferences((int)$consumption['tenant_id'],['market_product_id'=>(int)$consumption['product_id'],'market_sku_id'=>(int)$consumption['sku_id']],$original,$request);
         $snapshot = (array)$consumption['price_snapshot'];
         $request['quantity'] = max(1, (int)($snapshot['_tenant_admin_image_quantity'] ?? 1));
         MarketImageModelRuntimeService::submit($consumptionId, $request, true);

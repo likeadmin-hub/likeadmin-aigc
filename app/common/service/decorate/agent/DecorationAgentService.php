@@ -175,6 +175,7 @@ final class DecorationAgentService
         $budget=(float)($p['budget_points']??0);if(!is_finite($budget)||$budget<=0)throw new RuntimeException('请确认本轮消费预算');
         $imageName='';if(in_array('generate',$sources,true)){$selection=(array)$p['image_model_selection'];$product=(int)($selection['market_product_id']??$selection['id']??$selection['product_id']??$selection['model_id']??0);foreach(DecorationAgentMediaService::options($tenant) as $option)if((int)($option['market_product_id']??$option['id'])===$product){$imageName=(string)$option['name'];break;}}
         if($designFirst&&$imageName==='')throw new RuntimeException('设计稿优先需要当前可用的生图模型');
+        if(($designFirst||$approved)&&in_array('generate',$sources,true))DecorationAgentMediaService::assertDesignReferenceModel($tenant,(array)$p['image_model_selection']);
         return ['design_first'=>$designFirst,'design_parent_run_id'=>(int)($p['design_parent_run_id']??0),'image_model_name'=>$imageName,'message'=>trim((string)$p['message']),'model_selection'=>['id'=>$model['id'],'sku_id'=>$model['market_sku_id']],'image_model_selection'=>(array)($p['image_model_selection']??[]),'sources'=>$sources,'image_strategy'=>($p['image_strategy']??'')==='generate_first'?'generate_first':'existing_first','attachments'=>$attachments,'requires_vision'=>$vision,'scope'=>$scope,'selected_id'=>(string)($p['selected_id']??''),'budget_points'=>$budget,'catalog_hash'=>$p['catalog_hash']];
     }
     private static function visionReferenceCount(array $input,array $context): int
@@ -603,7 +604,8 @@ final class DecorationAgentService
         // Capture an image request only after its authorized source has a durable identity.
         if (($op['type'] ?? '') === 'request_image') $page=self::attachScopedMaterials($page,$materials,$tenant,$scope);
         if(($op['type']??'')==='request_image'&&array_intersect((array)($op['reference_file_ids']??[]),DecorationAgentMediaService::evidenceFileIds($tenant)))throw new RuntimeException('验收截图不能作为独立素材生成参考');
-        if(($op['type']??'')==='request_image'&&isset($op['reference_design_slot_id'])){
+        if(($op['type']??'')==='request_image'&&!empty($scope['approved_design'])&&!array_key_exists('reference_design_slot_id',$op))$op['reference_design_slot_id']=(int)$scope['approved_design']['slot_id'];
+        if(($op['type']??'')==='request_image'&&array_key_exists('reference_design_slot_id',$op)){
             if(!is_int($op['reference_design_slot_id'])||$op['reference_design_slot_id']<=0)throw new RuntimeException('设计参考位置无效');
             DecorationAgentDesignService::approvedForRun($tenant,(int)($scope['admin_id']??0),(int)($scope['run_id']??0),$op['reference_design_slot_id']);
         }
