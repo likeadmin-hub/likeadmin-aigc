@@ -244,3 +244,13 @@ Validation: missing/corrupt preview-map fixtures, an intentionally failing previ
 验收：新增 `HomeAgentUploadedDocumentTest.php` 通过，覆盖中文/UTF-16、DOCX 段落与表格、损坏/超限/外部实体拒绝、实际 Neuron 两段读取、话题恢复与隔离、租户/用户/会话隔离和源文件丢失；事务与测试文件已清理。既有 Context、ContextChat、Topic、Planning、BillingRecovery 五项后端回归通过；PC composer/presentation/run/conversation 共 35 项测试、输入框 SFC 编译和 PHP 语法检查通过。
 
 页面真实验收 session 171 / run 364：从首页 Agent 选择一份 1657 字节的自建 DOCX 并发送，经正式上传接口存入租户阿里云存储。所选模型正确返回 09:15 新品展示负责人林夏、09:45 观众体验负责人陈川，以及正文中的校验词“青柠-7246”；完成后显示复制按钮，未建立任何生成步骤，浏览器无控制台 error。文本 consumption 4297 / 4298 均已结算，分别 26.36 / 28.45 算力（合计 54.81）；无文档解析工具费用。未改模型偏好或运行模式。该文档为验收资料，无真实活动安排。
+
+### PDF、扫描件和音视频理解（2026-10-14）
+
+- 首页 `read_asset` 增加 PDF 分页读取（两页一批，文字加页面图），图片扫描件走用户当前视觉文本模型；不自动更换模型。
+- 视频使用 FFmpeg 按时间抽帧（30 秒四帧），返回时间标签、总时长和下一批位置；不能宣称连续完整观看或从画面推测声音。
+- 语音及视频音轨通过首页专用 `audio_transcription` 工具接入 `voice_tts/stt`。咨询模式保存方案和真实按次报价，按钮确认后执行；自动模式遵守累计预算。完成后恢复当前问题，已有转写可读取，不重复扣费。
+- 使用现有 Agent step、AiAppTask、AiConsumptionLog 和积分预占/结算/退回，不新增表。提交前绑定任务；超时、响应不明或结算异常保留待核对，不自动重提。新会话/新话题不继承其他任务或转写。
+- 上传 PDF 限 10MB、100 页；音视频限 50MB、10 分钟。解析临时目录私有且 finally 清理；本地文件限定 uploads 真实路径，远程文件走 OpenSafeHttp。上游使用本地提取音轨 multipart 上传。
+- 部署依赖：PHP proc_open、Poppler `/usr/bin/pdfinfo,pdftotext,pdftoppm`，FFmpeg `/usr/bin/ffmpeg,ffprobe`。Debian 安装 `apt-get install poppler-utils ffmpeg`。缺依赖时报明确错误，不伪装已理解。建议独立低权限 Worker 并设置容器 CPU/内存限额。
+- 转写只识别语音，不能保证识别音乐、音效、说话人身份。语音工具报价不包含按实际 Token 结算的对话模型费用。
