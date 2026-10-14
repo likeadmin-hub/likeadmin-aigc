@@ -15,5 +15,11 @@ Db::startTrans();try{
  Db::name('virtual_pay_work')->where('id',$work['id'])->update(['lease_until'=>time()-1]);$unknown=true;$m->run(1,5);oemCheck(Db::name('tenant_package_discount_claim')->where(['tenant_id'=>$f['tenant'],'user_id'=>$f['user']])->value('status')==='reserved','unknown preserves reservation');
  $unknown=false;$original['order']['status']=6;$original['order']['paid_fee']=0;Db::name('virtual_pay_work')->where('id',$work['id'])->update(['next_at'=>0]);$m->run(1,5);oemCheck(Price::snapshot($f['tenant'],'recharge',$f['order']['order_id'])['status']==='closed','confirmed closed releases order');oemCheck(Price::quote($f['tenant'],$f['user'],'recharge',$f['package'])['is_discount'],'closed unpaid releases discount');
  $f=virtualFixture();Price::closeConfirmed($f['tenant'],$f['user'],'recharge',$f['order']['order_id'],'never_started');oemCheck(Price::quote($f['tenant'],$f['user'],'recharge',$f['package'])['is_discount'],'unlaunched cancellation releases');
+ $raw='SQLSTATE[HY000] internal /repo/private.php:12';
+ Db::name('virtual_pay_intent')->where('id',$i['id'])->update(['last_error'=>$raw]);
+ Db::name('virtual_pay_event')->insert(['tenant_id'=>$i['tenant_id'],'app_id'=>$i['app_id'],'intent_id'=>$i['id'],'event'=>'xpay_goods_deliver_notify','event_key'=>hash('sha256','admin-error-fixture'),'payload'=>'{}','status'=>'failed','message'=>$raw,'created_at'=>time(),'updated_at'=>time()]);
+ $admin=\app\common\service\virtualpay\VirtualPayAdminService::orders((int)$i['tenant_id']);
+ oemCheck(!str_contains(json_encode($admin),'SQLSTATE'),'admin errors must not expose internal exception text');
+ oemCheck(Db::name('virtual_pay_intent')->where('id',$i['id'])->value('last_error')===$raw,'diagnostic source remains available internally');
  echo "PASS maintenance lease takeover, unknown retention, server-confirmed closure and detached client reconciliation\n";
 }finally{Db::rollback();}
