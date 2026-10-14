@@ -288,3 +288,13 @@ For verified supplier records, an operator may pass `--evidence=/private/receipt
 There is no documented query-by-request-ID endpoint for this synchronous STT integration. Captured upstream IDs support supplier investigation; no endpoint or upstream idempotency guarantee is invented. Task 4034 remains reserved until original upstream evidence is available.
 
 Validation: local rollback tests cover partial transport, response headers, private journal recovery after lost database receipt, in-flight protection, exact-once settlement/refund, tenant ownership, manual evidence preview/audit, cancellation and original-run wake. Existing media understanding and text billing recovery suites also pass. No new paid transcription is submitted for this repair. CLI apply exits with code 2 when evidence remains insufficient.
+
+### Worker 常驻与并发验收
+
+首页 Agent 加入既有 `scripts/start-ai-task-worker.sh` 的统一宝塔 Supervisor 进程组。组内通过 `home-agent-php.sh` 启动首页 Worker，仅对该 CLI 启用媒体解码所需的 `proc_open`。沿用组级自动重启及 TERM 优雅退出；不另外启动第二个首页常驻实例。现有其他任务消费者命令不变。
+
+新增只读检查：`AGENT_PHP_BIN=/www/server/php/82/bin/php sh scripts/home-agent-php.sh think home-agent:health`。输出当前主机 Worker 心跳、媒体依赖、回执目录可写性、就绪/运行/过期租约/待核对数量，以及转写待核对预占总额；没有提示词、素材内容或凭据。退出码 0 表示检查通过，2 表示依赖或进程不健康，1 表示检查异常。待核对账务单独列出，不等同于 Worker 宕机。
+
+心跳位于私有 runtime/home-agent-workers，忙碌时按现有 1500 秒任务租约判断，空闲心跳超过 30 秒视为异常。该命令需在 Worker 所在容器及可检测其 PID 的身份下运行。未提供跨主机进程探测或外部告警通知服务。
+
+更新步骤：先暂停新请求并核对各消费者无活动工作；更新源码后按部署流程重启现有 AI Worker 守护组；检查 Supervisor 与 `home-agent:health`。停止临时 Agent 进程后再切换常驻组，避免维护窗口内有两套管理器。已有工具任务仅恢复查询；中断且提交结果未知的请求保留待核对，不自动重发。此说明为源码部署指引，不等同于已完成生产部署。
