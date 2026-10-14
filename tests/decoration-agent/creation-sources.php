@@ -43,4 +43,11 @@ $noop=new ReflectionMethod(\app\common\service\decorate\agent\DecorationAgentSer
 checkCreation($noop->invoke(null,$context,$following,['scope'=>'page']),'worker proves aliased duplicate before consuming tool budget');$different['widget_id']='@tutorials';checkCreation(!$noop->invoke(null,$context,$different,['scope'=>'page']),'worker retains real bind changes');
 $manual=O::apply($page,[['type'=>'add_component','name'=>'case-feed','content'=>['data_mode'=>'manual']]],['scope'=>'page']);checkCreation($manual['candidate']['data'][0]['content']['data_mode']==='manual'&&$manual['candidate']['data'][0]['content']['source_key']==='image_cases','manual declaration keeps compatible dynamic default source without dropping mode');
 $conflict=$inline;unset($conflict['ref']);$conflict['fields']=['content.source_key'=>'image_cases'];rejectsCreation(fn()=>O::validateCreationBindings([['type'=>'configure_page','fields'=>['title'=>'must not mutate']],$conflict]),'no-ref creation conflict detected in preflight before earlier page changes');
+$literal='<div style="color:red">欢迎开始创作</div>';
+$plain=O::apply($page,[['type'=>'add_component','name'=>'rich-text','content'=>['text'=>$literal]]],['scope'=>'page']);
+checkCreation($plain['candidate']['data'][0]['content']['text']===$literal&&($plain['candidate']['data'][0]['content']['html']??'')==='','literal text remains text and is never promoted into HTML');
+$safe='<h2>欢迎开始创作</h2><p>从文字、图片和视频创作开始。</p>';
+$rich=O::apply($page,[['type'=>'add_component','name'=>'rich-text','content'=>['html'=>$safe],'styles'=>['color'=>'#334155']]],['scope'=>'page']);
+checkCreation($rich['candidate']['data'][0]['content']['html']===$safe&&$rich['candidate']['data'][0]['styles']['color']==='#334155','exact safe formatted example uses HTML field and approved styles');
+rejectsCreation(fn()=>O::apply($page,[['type'=>'add_component','name'=>'rich-text','content'=>['html'=>$literal]]],['scope'=>'page']),'inline CSS HTML remains forbidden');
 echo "creation sources: $n checks passed\n";
