@@ -129,23 +129,41 @@ final class AgentArtifactService
         }else $id=Db::name($step['tool_code'].'_result')->where($scope)->value('id');
         return $id ? $source.':result:'.$id : null;
     }
-    private static function save(array $run,int $step,string $title,string $kind,string $file,array $storage,array $extra=[]): void
+    private static function save(array $run,int $step,string $title,string $kind,string $file,array $storage,array $extra=[]): int
     {
         $identity=hash('sha256',$run['session_id'].':'.$file);
-        if(AgentStore::owner('artifact',(int)$run['tenant_id'],(int)$run['user_id'])->where('identity_hash',$identity)->find())return;
-        AgentStore::table('artifact')->insert(['tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'session_id'=>$run['session_id'],'run_id'=>$run['id'],'step_id'=>$step,'identity_hash'=>$identity,'title'=>mb_substr($title,0,200),'kind'=>$kind,'data'=>AgentStore::encode(['file_id'=>$file]+$extra),'storage_scope'=>$storage['storage_scope'],'storage_engine'=>$storage['storage_engine'],'storage_domain'=>$storage['storage_domain']??'','favorite'=>0,'create_time'=>time()]);
+        $existing=AgentStore::owner('artifact',(int)$run['tenant_id'],(int)$run['user_id'])->where('identity_hash',$identity)->find();
+        if($existing)return (int)$existing['id'];
+        $id=(int)AgentStore::table('artifact')->insertGetId(['tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'session_id'=>$run['session_id'],'run_id'=>$run['id'],'step_id'=>$step,'identity_hash'=>$identity,'title'=>mb_substr($title,0,200),'kind'=>$kind,'data'=>AgentStore::encode(['file_id'=>$file]+$extra),'storage_scope'=>$storage['storage_scope'],'storage_engine'=>$storage['storage_engine'],'storage_domain'=>$storage['storage_domain']??'','favorite'=>0,'create_time'=>time()]);
         AgentStore::event($run,'artifact.created',['file_id'=>$file,'kind'=>$kind]);
         AgentContextService::created($run,$file);
+        return $id;
     }
-    public static function collect(array $run,array $step,array $result): void
+    public static function collect(array $run,array $step,array $result): array
     {
+        $ids=[];
         foreach((array)($result['results']??[]) as $row){
             if(!is_array($row))continue;
             $file=OpenAssets::registerResult((int)$run['tenant_id'],(int)$run['user_id'],$step['tool_code']===AgentSpeechTool::CODE?'aigc_llm':$step['tool_code'],$row);
             if(!$file)continue;
             $kind=!empty($row['video_uri'])?'video':(!empty($row['audio_uri'])?'audio':(!empty($row['image_uri'])?'image':'document'));
-            self::save($run,(int)$step['id'],$step['title'],$kind,$file,$row);
+            $ids[]=self::save($run,(int)$step['id'],$step['title'],$kind,$file,$row);
         }
+        return array_values(array_unique($ids));
+    }
+    /** Step-to-output links are separate from the session gallery's file deduplication. */
+    public static function forSteps(array $run,array $steps): array
+    {
+        $ids=[];foreach($steps as $step)foreach(AgentStore::json($step['result'])['_agent_artifact_ids']??[] as $id)$ids[]=(int)$id;
+        $query=AgentStore::owner('artifact',(int)$run['tenant_id'],(int)$run['user_id'])->where('session_id',$run['session_id']);
+        $rows=$query->where(function($q)use($ids,$run){$q->where('run_id',$run['id']);if($ids)$q->whereOr('id','in',$ids);})->select()->toArray();
+        $out=[];
+        foreach($steps as $step){
+            $refs=array_map('intval',AgentStore::json($step['result'])['_agent_artifact_ids']??[]);
+            foreach($rows as $row)if(in_array((int)$row['id'],$refs,true)||((int)$row['run_id']===(int)$run['id']&&(int)$row['step_id']===(int)$step['id']))
+                $out[]=array_replace($row,['step_id'=>(int)$step['id']]);
+        }
+        return $out;
     }
     /** Minimal OOXML, with escaped plain paragraphs and no executable or external content. */
     public static function writeDocx(string $path,string $title,string $content): void

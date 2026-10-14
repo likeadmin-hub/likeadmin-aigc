@@ -117,10 +117,10 @@ final class AgentPlanService
         // Query an existing task only. Never recreate a lost supplier submission.
         $result=AgentCapabilityCatalog::query($snapshot,$step['tool_code'],(int)$step['task_id']);
         $status=(string)($result['status']??'');$done=in_array($status,['success','completed','succeeded','partial_success'],true);$failed=in_array($status,['failed','error','canceled','cancelled'],true);
-        if($done)AgentArtifactService::collect($snapshot,$step,$result);
         Db::transaction(static function()use($tenant,$user,$id,$stepId,$version,$result,$done,$failed){
             $run=self::lock($tenant,$user,$id);$step=self::step($run,$stepId);
             if(!hash_equals(self::version($step),$version))return;
+            if($done)$result['_agent_artifact_ids']=AgentArtifactService::collect($run,$step,$result);
             AgentStore::owner('step',$tenant,$user)->where('id',$stepId)->update(['status'=>$done?'success':($failed?'failed':'needs_review'),'result'=>AgentStore::encode($result),'error'=>$done?'':($failed?'原任务已确认失败':'原任务尚未确认完成，请稍后再核对'),'update_time'=>time()]);
             // Resume only polling/continuation through the original worker; no old approval authorizes a new submission.
             $pending=AgentStore::owner('step',$tenant,$user)->where(['run_id'=>$id,'status'=>'proposed'])->count();
