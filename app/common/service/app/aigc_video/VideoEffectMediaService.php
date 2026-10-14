@@ -32,25 +32,18 @@ final class VideoEffectMediaService
 
     public static function apply(array $rows, array $defaults): array
     {
-        return self::brandlessPreviews($rows, $defaults, self::managedPreviews(dirname(__DIR__, 4).'/apps/aigc_video/data/legacy_video_effect_media.json'), self::registry());
-    }
-
-    /** Only known reference/managed defaults are replaced; custom previews and blanks survive. */
-    public static function brandlessPreviews(array $rows, array $defaults, array $legacy, array $registry): array
-    {
+        $rows = self::resolve($rows, $defaults, self::registry(), static function(array $file): string {
+            return FileService::getFileUrlByStorage($file['uri'], 'platform', $file['storage_engine'], $file['storage_domain']);
+        });
+        // Source-delivered fallback for installations without a local media registry.
+        // Match the original URL exactly so tenant edits and blank previews survive.
+        $managed = self::managedPreviews(dirname(__DIR__, 4).'/apps/aigc_video/data/video_effect_media.json');
         $sources = array_column($defaults, null, 'id');
         foreach ($rows as &$row) {
             foreach (['poster', 'video'] as $field) {
-                $current = (string)($row[$field] ?? '');
-                if ($current === '') continue;
-                $file = $registry[$row['id']][$field] ?? [];
-                $path = ltrim((string)parse_url($current, PHP_URL_PATH), '/');
-                $managed = !empty($file['uri']) && ($file['storage_scope'] ?? '') === 'platform'
-                    && $path === ltrim($file['uri'], '/')
-                    && (($file['storage_engine'] ?? '') === 'local' || parse_url($current, PHP_URL_HOST) === parse_url($file['storage_domain'] ?? '', PHP_URL_HOST));
-                if (\app\common\service\InspirationBrandService::isReferenceUrl($current)
-                    || $current === ($legacy[$row['id']][$field] ?? null) || $managed) {
-                    $row[$field] = $sources[$row['id']][$field] ?? ($field === 'poster' ? '/resource/image/inspiration/camera.svg' : '/resource/image/inspiration/camera.mp4');
+                if (isset($managed[$row['id']][$field], $sources[$row['id']][$field])
+                    && ($row[$field] ?? '') === $sources[$row['id']][$field]) {
+                    $row[$field] = $managed[$row['id']][$field];
                 }
             }
         }
