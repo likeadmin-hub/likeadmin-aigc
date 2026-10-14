@@ -19,7 +19,10 @@ final class AgentController extends BaseAdminController
     private function call(string $method,bool $write=false): mixed
     {
         try{
-            $p=$this->request->param();if($method==='apply'&&!empty($p['candidate_id'])){$candidate=Agent::candidate($this->tenantId,$this->adminId,(int)$p['candidate_id']);if($candidate['new_page']??false)$p['scope']='new_page';}$this->access($write,($p['scope']??'')==='new_page'&&in_array($method,['start','apply'],true));
+            $p=$this->request->param();
+            // trim() converts native JSON booleans to strings. Preserve this strict opt-in's wire type.
+            if(array_key_exists('design_first',$p))$p['design_first']=$this->request->param('design_first',null,null);
+            if($method==='apply'&&!empty($p['candidate_id'])){$candidate=Agent::candidate($this->tenantId,$this->adminId,(int)$p['candidate_id']);if($candidate['new_page']??false)$p['scope']='new_page';}$this->access($write,($p['scope']??'')==='new_page'&&in_array($method,['start','apply'],true));
             if($method==='bootstrap')return $this->success('获取成功',Agent::bootstrap($this->tenantId,$this->adminId,$p));
             if($method==='session')$result=Agent::session($this->tenantId,$this->adminId,(int)($p['session_id']??$p['id']??0));
             elseif($method==='run')$result=Agent::run($this->tenantId,$this->adminId,(int)($p['run_id']??$p['id']??0));

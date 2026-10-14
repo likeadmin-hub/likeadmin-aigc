@@ -159,18 +159,35 @@ final class DecorationAgentDesignService
         $uris=array_filter([(string)($approved['asset']['image_uri']??''),(string)($blocked['screenshot_uri']??'')]);
         foreach((array)($blocked['uris']??[]) as $uri)$uris[]=(string)$uri;
         if($tenant>0)$uris=array_merge($uris,self::blockedUris($tenant));
-        $keys=array_map(fn($uri)=>ltrim($uri,'/'),$uris);
+        $keys=array_map(fn($uri)=>self::imagePath((string)$uri),$uris);
         $walk=function(array $rows)use(&$walk,$keys): void {
             foreach($rows as $widget){
                 if(!is_array($widget))continue;
                 try{$def=($widget['name']??'')==='page-meta'?DecorationAgentCatalog::pageMeta():DecorationAgentCatalog::definition($widget['name']??'');}catch(\Throwable $error){continue;}
                 $values=[];foreach(['content'=>'content_fields','styles'=>'style_fields'] as $section=>$schemas)foreach($def[$schemas]??[] as $key=>$schema)if(($schema['type']??'')==='image')$values[]=$widget[$section][$key]??'';
                 foreach($def['lists']??[] as $key=>$list)foreach($widget['content'][$key]??[] as $row)foreach($list['fields']??[] as $field=>$schema)if(($schema['type']??'')==='image')$values[]=$row[$field]??'';
-                foreach($values as $value)if(is_string($value)&&$value!==''&&in_array(ltrim((string)(parse_url($value,PHP_URL_PATH)??$value),'/'),$keys,true))throw new RuntimeException('整页设计图或验收截图不能作为DIY图片素材');
+                foreach($values as $value)if(is_string($value)&&$value!==''&&in_array(self::imagePath($value),$keys,true))throw new RuntimeException('整页设计图或验收截图不能作为DIY图片素材');
                 if(isset($widget['children']))$walk($widget['children']);
             }
         };
         $walk($page['data']??[]);$walk($page['meta']??[]);
+    }
+
+    /** Compare resource paths without expanding the engine's exact URL approval set. */
+    private static function imagePath(string $value): string
+    {
+        $path=parse_url($value,PHP_URL_PATH);
+        if(!is_string($path))throw new RuntimeException('图片资源路径无效');
+        // Proxies can decode more than once; fail closed for excessive or control-byte aliases.
+        for($i=0;$i<8;$i++){$decoded=rawurldecode($path);if($decoded===$path)break;$path=$decoded;}
+        if(rawurldecode($path)!==$path||preg_match('/[\x00-\x1F\x7F]/',$path))throw new RuntimeException('图片资源路径编码不明确');
+        $segments=[];
+        foreach(explode('/',str_replace('\\','/',$path)) as $part){
+            if($part===''||$part==='.')continue;
+            if($part==='..'){array_pop($segments);continue;}
+            $segments[]=$part;
+        }
+        return implode('/',$segments);
     }
 
     public static function persist(int $tenant,int $admin,int $runId,array &$context,array $decision,?array $request): void
