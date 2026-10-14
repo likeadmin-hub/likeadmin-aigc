@@ -29,6 +29,15 @@ final class DecorationAgentDecision
         return (string)($result['content']??'');
     }
 
+    public static function partialReply(\Throwable $error): string
+    {
+        $result=$error instanceof \app\common\service\power\TextSettlementPending ? $error->result
+            : ($error instanceof \app\common\service\power\MarketTextModelProviderException ? $error->partialResult : null);
+        // Partial failures must explicitly identify final-content provenance.
+        if(!is_array($result)||($result['content_source']??'')!=='content')return '';
+        return (new DecorationAgentReplyStream())->append(self::finalContent($result));
+    }
+
     public static function safeReply(mixed $reply): string
     {
         if (!is_string($reply)) return '';
