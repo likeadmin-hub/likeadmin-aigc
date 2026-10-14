@@ -45,8 +45,10 @@ stop_pid() {
     case "$command" in
         *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*|*"$SHORT_DRAMA_AGENT_MATCH"*|*"$CANVAS_SUBAGENT_MATCH"*|*"$HOME_AGENT_MATCH"*)
             kill -TERM "$target" 2>/dev/null || true
+            grace=20
+            case "$command" in *"$HOME_AGENT_MATCH"*) grace=1800 ;; esac
             i=0
-            while kill -0 "$target" 2>/dev/null && [ "$i" -lt 20 ]; do sleep 1; i=$((i + 1)); done
+            while kill -0 "$target" 2>/dev/null && [ "$i" -lt "$grace" ]; do sleep 1; i=$((i + 1)); done
             kill -0 "$target" 2>/dev/null && kill -KILL "$target" 2>/dev/null || true
             ;;
     esac
