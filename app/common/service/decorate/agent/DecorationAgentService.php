@@ -51,6 +51,12 @@ final class DecorationAgentService
         };
         return ['priority'=>'最新冻结批准图片优先于旧蓝图/默认值/历史提案；旧蓝图不是视觉批准规范。真实契约、权限及来源限制保持优先。',
             'target'=>array_intersect_key($design,array_flip(['run_id','revision','hash','slot_id'])),
+            'server_validation_contract'=>[
+                'candidate_binding'=>['field'=>'candidate_hash','object'=>'完整候选payload（含_decoration_design设计绑定）','checks'=>'服务端校验tenant/admin/session、candidate_id、revision及完整候选hash；入队和模型调用前校验，完成与应用时再次重验。'],
+                'draft_concurrency'=>['field'=>'expected_hash','object'=>'当前未应用的页面草稿','comparison'=>'仅与当前草稿hash比较以防并发变化，不与candidate_hash比较；候选与草稿是不同对象，两个hash正常可以不同。'],
+                'capture_evidence'=>['meaning'=>'capture_attested=false表示客户端预览截图没有服务器DOM来源证明，不表示PNG无效，也不是必须改为true的通过条件。','validated'=>'服务端校验ADMIN文件归属、实际PNG字节/尺寸/hash、区别于设计原图，并在后续重验。','limit'=>'仅支持对所提供两图的模型视觉对照与服务器交互配置检查；不证明真实DOM、真实点击、登录或业务调用。'],
+                'model_scope'=>'按实际两图给六类具体证据，不能以两个不同对象hash不等或缺少DOM attestation自造拒绝条件；可见差异仍须判未通过，写入后仍需新截图，最终版本/费用/应用许可由服务端硬校验决定。',
+            ],
             'image_dimensions'=>['logical_width_px'=>$logicalWidth,'approved_design'=>$dimensions($design['asset']??[]),'actual_capture'=>$dimensions(['width'=>$review['screenshot_width']??0,'height'=>$review['screenshot_height']??0]),'units'=>'尺寸是实际图片像素，乘各自scale后比较逻辑px；375逻辑宽下1rpx=0.5px，px字段不按rpx解释。'],
             'region_checks'=>['按图片辨认页头、主视觉、入口卡、标题及内容区的target/actual几何边界、宽高和间距，估算需明确标注。','区分区块标题、卡标题、正文/标签，比较可见字号、字重、行高、基线与换行。','比较图标可见bbox、内边距、形状及材质，不能仅检查icon_size外壳参数。','比较图片比例、主体位置、构图与裁切及卡片内图文排列；需要独立元素时按批准参考生成。','比较外壳/内卡背景、文字对比度、边框与阴影；只选择当前runtime_notes真正支持的参数。','任一区域有明确差异或关键项无法辨认，不能判通过；修复后需要新截图。'],
             'acceptance_rule'=>'六类具体证据；视觉五类由图对图判断，interaction仅server_contract；任何写入/生图均使本轮验收不通过。'];

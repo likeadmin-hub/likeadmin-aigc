@@ -37,6 +37,7 @@ try {
  $candidate=Db::name('decorate_agent_candidate')->where('id',$candidateId)->find();
  $p=['candidate_id'=>$candidateId,'revision'=>1,'candidate_hash'=>S::hash($payload),'expected_hash'=>S::hash($draft),'design_run_id'=>$designRun,'design_hash'=>$design['hash'],'screenshot_file_id'=>$fileId,'budget_points'=>25,'idempotency_key'=>'fixture-review'];
  $valid=A::validateReview(1,1,$p);
+ acceptanceCheck($p['candidate_hash']!==$p['expected_hash']&&$valid['visual_review']['capture_attested']===false,'candidate and draft are different exact-hash objects, and valid client PNG remains explicitly unattested');
  acceptanceCheck($valid['snapshot']===$payload&&count($valid['attachments'])===1&&$valid['attachments'][0]['file_id']===$fileId&&$valid['attachments'][0]['uses']===['layout']&&$valid['attachments'][0]['width']===3&&$valid['attachments'][0]['height']===4,'owned actual PNG snapshot uses layout only');
  acceptanceCheck($valid['visual_review']['screenshot_sha256']===$screenshot['sha256']&&!$valid['visual_review']['capture_attested'],'screenshot hash/dimensions come from bytes and are not DOM attestation');
  acceptanceCheck(!str_contains(S::json($valid['visual_review']),'base64')&&!str_contains(S::json($valid['visual_review']),'https://'),'frozen evidence contains no image bytes or signed URL');
@@ -55,6 +56,8 @@ try {
  Db::name('decorate_agent_run')->where('id',$runId)->update(['context_json'=>S::json($ctx)]);$run=Db::name('decorate_agent_run')->where('id',$runId)->find();
  $beforeRows=Db::name('decorate_agent_run')->where('id',$runId)->find();$report=A::record($candidate,$run,$acceptance,false);
  acceptanceCheck($report['passed']&&$report['checks'][5]['source']==='server_contract'&&str_contains($report['checks'][5]['detail'],'未实测'),'six visual checks + actual server contract produces bounded pass');
+ acceptanceCheck($report['passed']&&$report['capture_attested']===false&&$report['candidate_hash']!==$valid['visual_review']['expected_hash']&&str_contains($report['scope'],'不证明真实点击'),'independent hashes and false DOM attestation allow only the bounded model-visual/server-contract pass');
+ $staleCtx=$ctx;$staleCtx['visual_review']['expected_hash']=str_repeat('0',64);$staleRun=$run;$staleRun['context_json']=S::json($staleCtx);$staleReport=A::record($candidate,$staleRun,$acceptance,false);acceptanceCheck(!$staleReport['passed']&&in_array('当前草稿已变化，请刷新后重新截图验收',$staleReport['reasons'],true),'independent draft hash must still match actual current draft; semantic guidance never bypasses concurrency guard');
  acceptanceCheck(Db::name('decorate_agent_run')->where('id',$runId)->find()===$beforeRows,'record does not persist itself or mutate billing');
  acceptanceCheck(!A::record($candidate,$run,$acceptance,true)['passed'],'reported pass with actual writes cannot pass');
  $repairDiagnosis=$acceptance;$repairDiagnosis['passed']=false;$repairDiagnosis['summary']='本轮诊断输入旧截图；修复效果待重新截图验证';foreach($repairDiagnosis['checks'] as &$check){$check['passed']=false;$check['detail']='输入原图target/actual区域存在差异，修复尚未验证';$check['evidence']=['具体输入区域对照'];}unset($check);
