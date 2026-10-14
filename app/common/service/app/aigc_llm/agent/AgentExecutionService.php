@@ -198,6 +198,10 @@ final class AgentExecutionService
     }
     private static function chat(array $run): void
     {
+        AgentReadCache::scope(static fn()=>self::chatInScope($run));
+    }
+    private static function chatInScope(array $run): void
+    {
         AgentStore::event($run,'run.started',[]);
         $preferences=AgentStore::json($run['preferences']);
         $usage=AgentStore::json(AigcLlmMessage::where('id',$run['message_id'])->where('tenant_id',$run['tenant_id'])->value('token_usage_json'))['calls']??[];
@@ -305,7 +309,7 @@ final class AgentExecutionService
                     'task_state'=>AgentContextService::taskState($run),
                     default=>throw new \InvalidArgumentException('不支持的上下文操作'),
                 };
-            }),
+            },12),
             new AgentFunctionTool('set_creation_focus','根据用户明确的选择记录当前正在编辑的素材和目标。话题切换时传空 file_id 清除；多个候选不明确时先询问，不能擅自选择。此操作不会确认或执行收费任务。',$object(['file_id'=>$string('当前会话素材标识，空字符串清除'),'goal'=>$string('用户当前创作目标；不包含推测的任务状态或费用')],['file_id','goal']),function(array $p)use($run,&$loadedImages){self::checkpoint($run);$focus=AgentContextService::focus($run,(string)$p['file_id'],(string)$p['goal']);$loadedImages=array_intersect_key($loadedImages,array_flip($focus['file_ids']));return $focus;}),
             new AgentFunctionTool('find_creation_tools','按创作需求搜索当前可用工具。返回精简能力；使用前再读取具体工具参数。',$object(['query'=>$string('需求关键词')]),function(array $p)use($run){
                 $all=AgentCapabilityCatalog::all((int)$run['tenant_id'],(int)$run['user_id']);$query=trim((string)($p['query']??''));$rows=[];
