@@ -563,7 +563,8 @@ final class DecorationAgentService
                     $quote=DecorationAgentMediaService::quote($tenant,$input['image_model_selection'],1,$request,(int)$slot['id']);if(($quote['cost_known']??true)===false)throw new RuntimeException('该图片规格按实际用量计费，无法在本轮预算内预估，请选择按次规格');$cost=(float)($quote['tenant_cost_points']??$quote['tenant_cost']??0);
                     if(self::spent($r)+$cost>$input['budget_points'])throw new RuntimeException('图片费用超过本轮剩余预算');
                     $receipt=Db::transaction(function()use($tenant,$admin,$slot,$r,$input,$request){
-                        $candidate=self::q('candidate',$tenant,$admin)->where('id',$slot['candidate_id'])->lock(true)->find();if(!$candidate||$candidate['status']==='discarded')throw new RuntimeException('候选已舍弃，图片提交已停止');
+                        if(($slot['request']['purpose']??'')==='design')DecorationAgentDesignService::assertSubmission($slot,$r);
+                        else{$candidate=self::q('candidate',$tenant,$admin)->where('id',$slot['candidate_id'])->lock(true)->find();if(!$candidate||$candidate['status']==='discarded')throw new RuntimeException('候选已舍弃，图片提交已停止');}
                         self::fence((int)$r['id']);$locked=self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->lock(true)->find();if($locked['status']!=='queued')throw new RuntimeException('图片任务已被处理');
                         if(Db::name('decorate_agent_run')->where('id',$r['id'])->value('cancel_requested'))throw new RuntimeException('任务已停止');
                         $receipt=DecorationAgentMediaService::reserve($tenant,$admin,(int)$slot['id'],$input['image_model_selection'],$request);
