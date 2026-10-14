@@ -58,7 +58,8 @@ final class DecorationAgentDesignContext
             'owner'=>'server','readonly_fields'=>['id'],'creation'=>'omit id',
             'replacement'=>'new rows without id','existing_update'=>'edit_list:index',
         ];
-        return ['component_id'=>['owner'=>'server','readonly'=>true,'creation'=>'use ref alias, omit id'],
+        return ['component_id'=>['owner'=>'server','readonly'=>true,'creation'=>'omit id; alias only on add_component operation root',
+                'alias_support'=>['operation'=>'add_component','target'=>'operation root component','unsupported'=>['replace_page.components','children']]],
             'list_row_ids'=>$lists,'note'=>'默认值、已有列表和数据源返回的id只读，不得复制到新增、整表替换或字段更新参数。'];
     }
 
@@ -184,7 +185,9 @@ final class DecorationAgentDesignContext
             'media'=>'decorative是系统装饰素材，不是用户作品、客户案例或业务证明；user_case才能按真实案例展示。banner无图片不能承担欢迎文字；无真实AI教程不得把普通生活文章包装成教程。',
             'source'=>'ai_tools只含推荐配置，空时使用真实uniapp app_entries或合法links；用户资料/会员/额度/用户资产依赖登录用户，管理员预览空不代表接口失效。manual也必须通过bind_source，field_map不支持写入。',
             'assets'=>'只能用本轮material_summary/search_materials/icons明确给出的URL或用户明确上传素材；named icon值只来自当前组件lists.fields.icon.options，不写桌面图标名。',
-            'identities'=>'组件id及所有列表行id均由服务端管理。新增组件用ref别名，不传id；新增/整表替换的rows不含id，不复制默认值或数据源行id。修改已有列表用edit_list按index与fields，不更新id。',
+            'identities'=>'组件id及所有列表行id均由服务端管理。add_component操作最外层可用ref别名，不传id；新增/整表替换的rows不含id，不复制默认值或数据源行id。修改已有列表用edit_list按index与fields，不更新id。',
+            'references'=>'ref仅支持add_component操作最外层直接创建的组件，不支持replace_page.components或children里的ref。replace_page后在下一轮读取component_index真实ID再bind_source/update/request_image；需要同批引用可改用多个add_component最外层ref。',
+            'page_theme'=>'页面背景与导航背景各自按page_meta_contract配置，区块背景不能替代页面背景；完整主题需同时核对页面、导航及各组件实际前景/背景。',
         ];
     }
 
