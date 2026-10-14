@@ -28,7 +28,7 @@ final class PackagePromotionService
     {
         return Db::transaction(function()use($tenant,$from,$package,$input){
             $base=PackagePricingService::catalog($tenant,$from,$package,'package',false,true);
-            $old=self::get($tenant,$from,$package);$enabled=!empty($input['enabled'])?1:0;$new=!empty($input['rule_new'])?1:0;$all=!empty($input['rule_all'])?1:0;$hours=(int)($input['hours']??48);
+            $old=self::get($tenant,$from,$package);if(isset($input['version'])&&(int)$input['version']!==(int)($old['version']??0))throw new \RuntimeException('优惠配置已被修改，请重新加载后再保存');$enabled=!empty($input['enabled'])?1:0;$new=!empty($input['rule_new'])?1:0;$all=!empty($input['rule_all'])?1:0;$hours=(int)($input['hours']??48);
             $prices=[];$raw=(array)($input['discount_prices']??[]);
             foreach($raw as $cycle=>$price){
                 if(!in_array($cycle,['package','monthly','yearly'],true))throw new \InvalidArgumentException('优惠购买周期不正确');

@@ -19,6 +19,7 @@ Db::startTrans();try{
  $first=Config::active($t,0);$d=Config::save($t,0,['enabled'=>1,'offer_id'=>'123','app_key'=>'']);$latest=Config::active($t,0);
  oemCheck(Config::secret($latest,'app_key')==='fixture-private-appkey','blank keeps key');
  Config::save($t,0,['enabled'=>1,'offer_id'=>'124','app_key'=>'new-private-appkey']);
+ oemReject(fn()=>Config::save($t,0,$d+['app_key'=>'']),'stale administrator must reload configuration');
  oemCheck(Config::secret(Config::version($t,(int)$first['id']),'app_key')==='fixture-private-appkey','old merchant remains available');
  oemReject(fn()=>Config::version($t+1,(int)$first['id']),'no cross tenant version');
  Db::name('tenant_config')->where(['tenant_id'=>$t,'type'=>'mnp_setting','name'=>'app_id'])->update(['value'=>'wxNEW-app']);
@@ -36,6 +37,7 @@ Db::startTrans();try{
  oemReject(fn()=>Policy::client('ios',1,990),'iOS rejects sandbox');oemReject(fn()=>Policy::client('ios',0,99),'iOS minimum');Policy::client('android',1,1);
  $pkg=app\common\service\recharge\RechargePackageService::save($t,['name'=>'Virtual goods','amount'=>'19.00','points'=>'100']);
  Config::saveProduct($t,0,['from'=>'recharge','package_id'=>$pkg->id,'cycle'=>'package','variant'=>'regular','product_id'=>'regular-month','price'=>'19.00']);
+ oemReject(fn()=>Config::saveProduct($t,0,['app_id'=>'wx-before-switch','from'=>'recharge','package_id'=>$pkg->id,'cycle'=>'package','variant'=>'regular','product_id'=>'regular-month','price'=>'19.00']),'stale product app cannot be rebound');
  $g=Config::product($t,'wxvirtual-test',0,'recharge',$pkg->id,'package','regular');oemCheck($g['price_cents']===1900,'price mapping in fen');
  oemReject(fn()=>Config::saveProduct($t,0,['from'=>'recharge','package_id'=>$pkg->id,'cycle'=>'package','variant'=>'regular','product_id'=>'bad','price'=>'9.90']),'mapping must match backend price');
  $calls=[];$transport=new Gateway(static function($method,$path,$query,$body)use(&$calls){$calls[]=[$method,$path,$query,$body];return ['errcode'=>0,'order'=>[]];});

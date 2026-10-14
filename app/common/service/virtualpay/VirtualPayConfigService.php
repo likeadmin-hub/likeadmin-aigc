@@ -60,6 +60,7 @@ final class VirtualPayConfigService
         return Db::transaction(function()use($tenant,$env,$input,$i){
             $scope=['tenant_id'=>$tenant,'app_id'=>$i['app_id'],'env'=>$env];Db::name('virtual_pay_config')->extra('IGNORE')->insert($scope);
             $c=Db::name('virtual_pay_config')->where($scope)->lock(true)->find();$v=$c['version_id']?self::version($tenant,(int)$c['version_id']):[];
+            if(isset($input['version_id'])&&(int)$input['version_id']!==(int)$c['version_id'])throw new \RuntimeException('支付配置已被修改，请重新加载后再保存');
             $enabled=!empty($input['enabled'])?1:0;
             if(!$enabled&&empty($input['offer_id'])&&empty($input['app_key'])){Db::name('virtual_pay_config')->where('id',$c['id'])->update(['enabled'=>0,'update_time'=>time()]);return self::detail($tenant,$env);}
             self::requireVault();$offer=trim((string)($input['offer_id']??($v['offer_id']??'')));if(!preg_match('/^\d{1,32}$/D',$offer))throw new \RuntimeException('请填写正确的 OfferID');
@@ -77,7 +78,7 @@ final class VirtualPayConfigService
     }
     public static function saveProduct(int $tenant,int $env,array $input): void
     {
-        VirtualPayPolicy::environment($env);$i=self::identity($tenant);$from=(string)($input['from']??'');$package=(int)($input['package_id']??0);$cycle=(string)($input['cycle']??'package');$variant=(string)($input['variant']??'regular');
+        VirtualPayPolicy::environment($env);$i=self::identity($tenant);if(isset($input['app_id'])&&$input['app_id']!==$i['app_id'])throw new \RuntimeException('小程序身份已变化，请重新加载后再绑定道具');$from=(string)($input['from']??'');$package=(int)($input['package_id']??0);$cycle=(string)($input['cycle']??'package');$variant=(string)($input['variant']??'regular');
         if(!in_array($variant,['regular','discount'],true))throw new \RuntimeException('道具价格类型不正确');
         $catalog=Price::catalog($tenant,$from,$package,$cycle,false);if($catalog['cycle']!==$cycle)throw new \RuntimeException('请按实际购买周期绑定道具');
         $price=Money::cents($input['price']??'0');$expected=$catalog['regular_cents'];
