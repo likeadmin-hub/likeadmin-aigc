@@ -179,6 +179,13 @@ final class WorkspaceAssetService
         if ($kind === 'task' && !$restore && in_array($task['status'] ?? '', ['pending','running','queued','waiting_tasks'], true)) throw new InvalidArgumentException('任务仍在执行，请完成后再删除作品');
         Db::name($table)->where($owner)->where('id',(int)$id)->where('delete_time',$restore ? $stamp : 0)->update(['delete_time'=>$restore ? 0 : $stamp]);
         if (!$task || $source === 'short_drama') return;
+        if ($kind === 'task' && $source === 'fitting') {
+            $ids = $task['image_task_ids'] ?? [];
+            if (is_string($ids)) $ids = json_decode($ids,true) ?: [];
+            $ids = array_unique(array_filter(array_map('intval',array_merge((array)$ids,[$task['image_task_id'] ?? 0]))));
+            foreach ($ids as $child) self::syncDeletion($tenant,$user,'image:task:'.$child,$stamp,$restore);
+            return;
+        }
         if ($kind === 'task') {
             $results = Db::name($prefix.'_result')->where($owner)->where('task_id',$taskId)->where('delete_time',$restore ? $stamp : 0)->select()->toArray();
             foreach ($results as $result) {

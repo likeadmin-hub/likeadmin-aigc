@@ -33,15 +33,19 @@ try {
     Library::update($tenant,$user,['refs'=>[$ref],'action'=>'remove']);
     reject(fn()=>Library::update($tenant,$user,['refs'=>[$ref],'action'=>'restore']));
     check(Library::read($tenant,$user)['supplemental']===[],'Removed asset remains a tombstone');
-    foreach (['pic_lipsync'=>'aigc_pic_lipsync','product_image'=>'aigc_product_image'] as $source=>$table) {
+    foreach (['pic_lipsync'=>'aigc_pic_lipsync','product_image'=>'aigc_product_image','video'=>'aigc_video','music'=>'aigc_music','style_transfer'=>'aigc_style_transfer'] as $source=>$table) {
         $taskId=Db::name($table.'_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','create_time'=>time()]);
-        $media=$source==='pic_lipsync'?'video_uri':'image_uri';
+        $media=in_array($source,['pic_lipsync','video'],true)?'video_uri':($source==='music'?'audio_uri':'image_uri');
         $resultId=Db::name($table.'_result')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$taskId,$media=>'uploads/tool-fixture.'.($source==='pic_lipsync'?'mp4':'png'),'create_time'=>time()]);
         $toolRef=$source.':result:'.$resultId;
         Library::update($tenant,$user,['refs'=>[$toolRef],'label'=>'review']);
         reject(fn()=>Library::update($tenant,$user+1,['refs'=>[$toolRef],'favorite'=>1]));
         $saved=array_values(array_filter(Library::read($tenant,$user)['supplemental'],fn($row)=>$row['ref']===$toolRef));
         check(count($saved)===1 && $saved[0]['source']===$source,'Tool labels preserve their source without requiring a favorite');
+        Library::update($tenant,$user,['refs'=>[$toolRef],'action'=>'trash']);
+        check((int)Db::name($table.'_result')->where('id',$resultId)->value('delete_time')>0,'Tool source result deleted');
+        Library::update($tenant,$user,['refs'=>[$toolRef],'action'=>'restore']);
+        check((int)Db::name($table.'_result')->where('id',$resultId)->value('delete_time')===0,'Tool source result restored');
     }
     $secondTask=Db::name('aigc_image_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','prompt'=>'Pagination fixture','create_time'=>time()]);
     Db::name('aigc_image_task')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','prompt'=>'Other live pagination fixture','create_time'=>time()]);
