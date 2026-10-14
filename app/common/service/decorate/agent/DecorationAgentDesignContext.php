@@ -35,10 +35,10 @@ final class DecorationAgentDesignContext
         $lists=[];
         foreach($definition['lists']??[] as $key=>$list){
             $row=[];foreach($list['fields']??[] as $field=>$schema)$row[$field]=self::schema($schema,$detailed);
-            $lists[$key]=['fields'=>$row]+array_intersect_key($list,array_flip(['min_items','max_items']));
+            $lists[$key]=['fields'=>$row,'server_owned_id'=>true]+array_intersect_key($list,array_flip(['min_items','max_items']));
         }
         return array_intersect_key($definition,array_flip(['name','title','category','repeatable']))+[
-            'fields'=>$fields,'lists'=>$lists,'style_keys'=>array_keys($definition['style_fields']??[]),
+            'fields'=>$fields,'lists'=>$lists,'component_id_readonly'=>true,'style_keys'=>array_keys($definition['style_fields']??[]),
             'container'=>(bool)($definition['children']['supported']??false),
             'source'=>array_intersect_key($definition['source']??[],array_flip($detailed?['default_key','allowed_keys','modes']:['default_key','modes'])),
             'semantics'=>self::semantics((string)$definition['name']),'runtime_capabilities'=>$detailed?self::runtimeNotes($definition['name']):array_intersect_key(self::runtimeNotes($definition['name']),array_flip(['support','unsupported_fields'])),'image_slots'=>self::imageSlots($definition),
@@ -48,7 +48,18 @@ final class DecorationAgentDesignContext
     public static function contract(string $name): array
     {
         $definition=DecorationAgentCatalog::definition($name);
-        return $definition+['semantics'=>self::semantics($name),'runtime_capabilities'=>self::runtimeNotes($name),'image_slots'=>self::imageSlots($definition),'write_policy'=>'source_key/source_params/data_mode用bind_source；field_map仅展示默认契约，禁止任意写入；所有图片只来自本轮授权素材或受控request_image。'];
+        return $definition+['semantics'=>self::semantics($name),'runtime_capabilities'=>self::runtimeNotes($name),'image_slots'=>self::imageSlots($definition),'write_constraints'=>self::identityConstraints($definition),'write_policy'=>'组件及所有列表行id由服务端管理；新增/整表替换不传id，已有行用edit_list按index修改，不复制default/source行id。source_key/source_params/data_mode用bind_source；field_map仅展示默认契约，禁止任意写入；所有图片只来自本轮授权素材或受控request_image。'];
+    }
+
+    private static function identityConstraints(array $definition): array
+    {
+        $lists=[];
+        foreach ($definition['lists']??[] as $field=>$list) $lists[$field]=[
+            'owner'=>'server','readonly_fields'=>['id'],'creation'=>'omit id',
+            'replacement'=>'new rows without id','existing_update'=>'edit_list:index',
+        ];
+        return ['component_id'=>['owner'=>'server','readonly'=>true,'creation'=>'use ref alias, omit id'],
+            'list_row_ids'=>$lists,'note'=>'默认值、已有列表和数据源返回的id只读，不得复制到新增、整表替换或字段更新参数。'];
     }
 
     public static function discover(array $query): array
@@ -168,10 +179,12 @@ final class DecorationAgentDesignContext
         return [
             'units'=>'移动逻辑宽375px；字段按契约px/rpx写，rpx按750设计宽。样式只用style_keys及shared_style_contract允许的字段。',
             'composition'=>'整页先安排主视觉、文字介绍、核心入口、真实案例/内容、服务。主视觉配真实装饰素材，标题用文字组件，少量大块留白和一致间距，不用大量空卡片填满。',
-            'entries'=>'根据真实入口数量及视觉层级选择columns，遵循各组件的font_size(px)、icon_size(rpx)、image_fit及显隐参数；深色卡片同时配置实际支持的item_background/description_color，styles.color继承，不让内容背景与字色打架。',
+            'entries'=>'根据真实入口数量及视觉层级选择columns，遵循各组件的font_size(px)、icon_size(rpx)、image_fit及显隐参数；内卡只配置实际支持的item_background/description_color。',
+            'theme_defaults'=>'组件factory中的styles.color是显式默认文字色，不会自动被页面或导航文字色覆盖。深浅主题逐块核对外壳背景及实际styles.color的对比；支持item_background/description_color的内卡分别配置。不支持内卡配色的组件按runtime_notes/runtime_capabilities真实边界设计，不能声称全局继承或整块文字都已换色。',
             'media'=>'decorative是系统装饰素材，不是用户作品、客户案例或业务证明；user_case才能按真实案例展示。banner无图片不能承担欢迎文字；无真实AI教程不得把普通生活文章包装成教程。',
             'source'=>'ai_tools只含推荐配置，空时使用真实uniapp app_entries或合法links；用户资料/会员/额度/用户资产依赖登录用户，管理员预览空不代表接口失效。manual也必须通过bind_source，field_map不支持写入。',
             'assets'=>'只能用本轮material_summary/search_materials/icons明确给出的URL或用户明确上传素材；named icon值只来自当前组件lists.fields.icon.options，不写桌面图标名。',
+            'identities'=>'组件id及所有列表行id均由服务端管理。新增组件用ref别名，不传id；新增/整表替换的rows不含id，不复制默认值或数据源行id。修改已有列表用edit_list按index与fields，不更新id。',
         ];
     }
 
