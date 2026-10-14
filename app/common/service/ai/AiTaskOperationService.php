@@ -199,9 +199,9 @@ class AiTaskOperationService
 
     private static function decision(array $target, string $action): array
     {
-        if (($target['app_code'] ?? '') === 'aigc_llm' && ($target['action_code'] ?? '') === 'agent_transcribe') {
+        if (($target['app_code'] ?? '') === 'aigc_llm' && in_array($target['action_code'] ?? '', ['agent_transcribe','agent_speech'], true)) {
             return in_array($action, [self::ACTION_QUERY,self::ACTION_RETRY_QUERY,self::ACTION_COMPLETE_BY_QUERY], true)
-                ? ['allowed'=>true,'reason'=>''] : ['allowed'=>false,'reason'=>'转写仅支持回执核对，不能强制失败、重复提交或删除待核对账务'];
+                ? ['allowed'=>true,'reason'=>''] : ['allowed'=>false,'reason'=>'语音任务仅支持回执核对，不能强制失败、重复提交或删除待核对账务'];
         }
         $run = (string)$target['run_status'];
         $billing = (string)$target['billing_status'];

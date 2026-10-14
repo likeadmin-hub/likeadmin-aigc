@@ -63,5 +63,11 @@ namespace {
     fixture(function()use($prefs){[$run,$p]=prepared($prefs);foreach([['text'=>' '],['text'=>str_repeat('字',501)],['text'=>'你好','reference_id'=>'other-voice']] as $bad){try{T::prepare($run,$bad);throw new \LogicException('Invalid speech input accepted');}catch(\InvalidArgumentException|\app\common\service\open_platform\OpenException){}}$run['preferences']=S::encode(['models'=>['voice'=>'speech_sku:0']]);try{T::prepare($run,['text'=>'你好']);throw new \LogicException('Unavailable selection fell back');}catch(\InvalidArgumentException){}});
     check(T::classify(['complete'=>true,'http_status'=>500,'body'=>'{"code":0}'])===null,'HTTP 500 must not refund');
     check(T::classify(['complete'=>true,'http_status'=>200,'body'=>'{"code":1,"data":{}}'])===null,'Missing output must not complete');
+    $decision=new \ReflectionMethod(\app\common\service\ai\AiTaskOperationService::class,'decision');
+    foreach(['agent_speech','agent_transcribe'] as $actionCode){
+        $target=['app_code'=>'aigc_llm','action_code'=>$actionCode,'upstream_task_id'=>'','billing_status'=>'reserved','run_status'=>'needs_review'];
+        foreach(['query','retry_query','complete_by_query'] as $action)check($decision->invoke(null,$target,$action)['allowed'],'Receipt query blocked without upstream ID');
+        foreach(['fail','recover','delete','retry_transfer'] as $action)check(!$decision->invoke(null,$target,$action)['allowed'],'Unsafe generic operation accepted');
+    }
     echo "Speech passed: real rollback billing, frozen character quote, success/refund/review, duplicate recovery, storage recovery, asset metadata, tenant isolation, no model fallback\n";
 }
