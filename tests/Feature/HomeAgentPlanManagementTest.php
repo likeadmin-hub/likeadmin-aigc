@@ -16,7 +16,7 @@ namespace {
  use app\common\service\app\aigc_llm\agent\{AgentStore as S,AgentExecutionService as E,AgentPlanService as P,AgentCapabilityCatalog as Fake};
  use app\common\model\app\aigc_llm\{AigcLlmSession,AigcLlmMessage};
  function check($ok,$why){if(!$ok)throw new \RuntimeException($why);}
- function denied(callable $f){try{$f();}catch(\InvalidArgumentException){return;}throw new \RuntimeException('Expected rejection');}
+ function denied(callable $f){try{$f();}catch(\InvalidArgumentException|\app\common\service\open_platform\OpenException){return;}throw new \RuntimeException('Expected rejection');}
  $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local rollback only');
  Db::startTrans();try{
   $now=time();$session=AigcLlmSession::create(['tenant_id'=>1,'user_id'=>1,'title'=>'plan fixture','status'=>'idle','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
