@@ -47,7 +47,7 @@ final class AgentCapabilityCatalog
             $out[$code]=['code'=>$code,'name'=>self::NAMES[$code],'description'=>match($code){'aigc_image'=>'文字或参考图生成图片','aigc_video'=>'文字或参考图生成视频','aigc_music'=>'生成歌曲或纯音乐，不是朗读配音 TTS','aigc_fitting'=>'用户上传服装图和模特图生成试衣图片'},'schema'=>self::schema($code),'version'=>'home-1','model_options'=>self::creationConfig($tenant,$code)['option_config']??[]];
         }
         try{AgentTranscriptionTool::quote($tenant);$out[AgentTranscriptionTool::CODE]=['code'=>AgentTranscriptionTool::CODE,'name'=>'语音转文字','description'=>'识别音频或视频音轨中的语音，转写完成后继续总结或回答；按次收费，需要先保存方案','schema'=>AgentTranscriptionTool::schema(),'version'=>'home-stt-1'];}catch(\InvalidArgumentException){}
-        if(AgentSpeechTool::models($tenant)['models'])$out[AgentSpeechTool::CODE]=['code'=>AgentSpeechTool::CODE,'name'=>'文字配音','description'=>'把正文朗读为MP3；同步服务最多500字符、异步服务最多10000字符，以用户所选配音服务为准。使用默认模型和音色，不是音乐或音色克隆','schema'=>AgentSpeechTool::schema(),'version'=>'home-speech-2'];
+        if(AgentSpeechTool::models($tenant)['models'])$out[AgentSpeechTool::CODE]=['code'=>AgentSpeechTool::CODE,'name'=>'文字配音','description'=>'把正文朗读为MP3，最多10000字符；系统按正文长度选择可用服务。使用默认音色，不是音乐或音色克隆','schema'=>AgentSpeechTool::schema(),'version'=>'home-speech-2'];
         return $out;
     }
     public static function models(int $tenant): array
@@ -56,13 +56,26 @@ final class AgentCapabilityCatalog
         $text['models']=array_values(array_filter($text['models']??[],static function($model)use($tenant){try{\app\common\service\power\MarketTextModelRuntimeService::resolveAgentModel($tenant,(string)$model['code']);return true;}catch(\Exception){return false;}}));
         return ['text'=>$text,'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>self::creationConfig($tenant,'aigc_video')['option_config']??[],'music'=>self::SERVICES['aigc_music']::config($tenant)['option_config']??[],'voice'=>AgentSpeechTool::models($tenant)];
     }
+    public static function withAudioDefaults(int $tenant,array $preferences): array
+    {
+        unset($preferences['models']['music'],$preferences['models']['voice']);
+        $options=self::creationConfig($tenant,'aigc_music')['option_config']??[];
+        $preferences['_audio_defaults']=['music'=>(string)($options['defaults']['channel']??''),'speech'=>AgentSpeechTool::defaultServices($tenant)];
+        return $preferences;
+    }
+    private static function selection(array $run,string $type): string
+    {
+        $preferences=AgentStore::json($run['preferences']);
+        if($type==='music'&&isset($preferences['_audio_defaults']))return (string)($preferences['_audio_defaults']['music']??'');
+        return (string)($preferences['models'][$type]??'');
+    }
     public static function describe(array $run,string $code): array
     {
         if($code===AgentSpeechTool::CODE)return AgentSpeechTool::describe($run);
         if($code===AgentTranscriptionTool::CODE)return ['code'=>$code,'schema'=>AgentTranscriptionTool::schema(),'quote'=>AgentTranscriptionTool::quote((int)$run['tenant_id']),'instruction'=>'只支持本话题音频或视频中的语音识别，不识别音色身份或音乐音效。plan_creation 保存收费转写方案，完成后系统自动恢复当前回答；不要猜测未识别的内容。'];
         self::authorize((int)$run['tenant_id'],(int)$run['user_id'],$code);
         $type=self::TYPES[$code];
-        $selection=(string)(AgentStore::json($run['preferences'])['models'][$type]??'');
+        $selection=self::selection($run,$type);
         return ['code'=>$code,'schema'=>self::schema($code),'constraints'=>AgentExtendedTools::constraints($code),'selected_model'=>AgentCreationContext::selectedModel(
             self::creationConfig((int)$run['tenant_id'],$code)['option_config']??[],$selection),
             'instruction'=>'只能使用 selected_model；不自行替换。费用只能引用 plan_creation 成功返回的估价。素材字段仅传用户 file_id；试衣分别传 garment_images 服装图、model_images 模特图，不能猜测角色。音乐只支持歌曲或纯音乐，不支持配音/TTS；必须向用户说明 constraints 中的能力限制，不能承诺精确时长，也不能把计费规格说成输出时长保证。参数不兼容时解释具体原因，不能声称方案已经保存。'];
@@ -77,8 +90,8 @@ final class AgentCapabilityCatalog
         OpenSchema::validateRequest($params,self::schema($code),true);
         OpenPolicy::validateInput($params);$inputs=$params;
         $params=OpenMaterials::resolve($tenant,$user,$params);OpenSafeHttp::checkInputs($params);
-        $type=self::TYPES[$code];$model=(string)(AgentStore::json($run['preferences'])['models'][$type]??'');
-        if($model==='')throw new \InvalidArgumentException('请先在模型偏好中选择'.$type.'模型');
+        $type=self::TYPES[$code];$model=self::selection($run,$type);
+        if($model==='')throw new \InvalidArgumentException($type==='music'?'音乐生成服务暂不可用，请联系管理员配置默认渠道':'请先在模型偏好中选择'.$type.'模型');
         $params['model_id']=$model;$params['channel']=$model;
         if($code==='aigc_music')$quote=OpenToolPricing::applicationMusicBudget($tenant,$user,$params);
         elseif($code==='aigc_fitting'){
