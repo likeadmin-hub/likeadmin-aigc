@@ -215,6 +215,7 @@ class MembershipService
             }
             $snapshot = \app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'], 'membership', (int)$order['id']);
             if ($snapshot) {
+                User::where(['tenant_id'=>(int)$order['tenant_id'],'id'=>(int)$order['user_id']])->lock(true)->findOrEmpty();
                 $rights = json_decode($snapshot['rights'], true, 512, JSON_THROW_ON_ERROR);
                 $appCodes = $rights['app_codes'];
                 $features = $rights['features'];

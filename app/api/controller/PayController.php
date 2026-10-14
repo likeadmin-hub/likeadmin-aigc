@@ -79,7 +79,7 @@ class PayController extends BaseApiController
             try {
                 (new \app\common\service\license\MiniprogramAccessService())->assertEnabled();
                 return $this->data((new \app\common\service\virtualpay\VirtualPayService())->prepay((int)$this->request->tenantId,$this->userId,$this->getUserTerminal(),$params['from'],(int)$params['order_id'],(string)($params['session_id']??''),(string)($params['platform']??''),0));
-            } catch (\Exception $e) { return $this->fail($e->getMessage()); }
+            } catch (\Exception $e) { return $this->fail(\app\common\service\virtualpay\VirtualPayPolicy::error($e)); }
         }
         //订单信息
         $order = PaymentLogic::getPayOrderInfo($params);

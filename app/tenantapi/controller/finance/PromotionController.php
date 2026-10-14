@@ -11,11 +11,11 @@ class PromotionController extends BaseAdminController
             $from=(string)$this->request->get('from');$id=(int)$this->request->get('package_id');
             PackagePricingService::catalog($this->tenantId,$from,$id,'package',false);
             return $this->data(PackagePromotionService::detail($this->tenantId,$from,$id));
-        } catch (\Exception $e) { return $this->fail($e->getMessage()); }
+        } catch (\Exception $e) { return $this->fail(\app\common\service\virtualpay\VirtualPayPolicy::error($e)); }
     }
     public function save()
     {
         try { return $this->data(PackagePromotionService::save($this->tenantId,(string)$this->request->post('from'),(int)$this->request->post('package_id'),$this->request->post())); }
-        catch (\Exception $e) { return $this->fail($e->getMessage()); }
+        catch (\Exception $e) { return $this->fail(\app\common\service\virtualpay\VirtualPayPolicy::error($e)); }
     }
 }

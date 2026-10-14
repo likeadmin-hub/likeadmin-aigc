@@ -318,6 +318,25 @@ class WeChatPayService extends BasePayService
     /**
      * Query a transaction by the merchant order number.
      */
+    public function packageContext(): array
+    {
+        $channel = match((int)$this->terminal) {
+            UserTerminalEnum::WECHAT_MMP => WeChatConfigService::getMnpConfig(),
+            UserTerminalEnum::IOS, UserTerminalEnum::ANDROID => WeChatConfigService::getOpConfig(),
+            default => WeChatConfigService::getOaConfig(),
+        };
+        $identity=['app_id'=>$this->getPaymentAppId($channel),'merchant'=>(string)$this->config['mch_id']];
+        $stable=$this->config;
+        foreach (['private_key','certificate'] as $field) if(isset($stable[$field])&&is_string($stable[$field])&&is_file($stable[$field]))$stable[$field]=file_get_contents($stable[$field]);
+        unset($stable['http'], $stable['notify_url']);
+        return $identity+['fingerprint'=>hash('sha256',json_encode([$identity,$stable],JSON_THROW_ON_ERROR))];
+    }
+    public function closePay(string $sn): void
+    {
+        $response=$this->app->getClient()->post('v3/pay/transactions/out-trade-no/'.rawurlencode($sn).'/close',['json'=>['mchid'=>(string)$this->config['mch_id']]]);
+        if($response->getStatusCode()!==204)throw new \RuntimeException('微信关单结果尚未确认');
+    }
+
     public function checkPay(string $orderSn): array
     {
         $response = $this->app->getClient()->get(
@@ -396,6 +415,7 @@ class WeChatPayService extends BasePayService
         // 支付通知
         $server->handlePaid(function (Message $message) {
             if ($message['trade_state'] === 'SUCCESS') {
+                if (in_array($message['attach'], ['recharge','membership'], true) && (new \app\common\service\promotion\PackagePaymentService())->callback(2,(string)$message['out_trade_no'])) return true;
                 $extra['transaction_id'] = $message['transaction_id'];
                 $attach = $message['attach'];
                 $message['out_trade_no'] = mb_substr($message['out_trade_no'], 0, 18);

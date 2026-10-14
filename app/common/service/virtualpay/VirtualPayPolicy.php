@@ -3,6 +3,17 @@ declare(strict_types=1);
 namespace app\common\service\virtualpay;
 final class VirtualPayPolicy
 {
+    public static function assertRuntime(): void
+    {
+        if (function_exists('aigc_runtime_generation_changed') && \aigc_runtime_generation_changed()) throw new \RuntimeException('系统版本已更新，本次核对交由新进程继续处理');
+    }
+    public static function error(\Throwable $e): string
+    {
+        if (in_array(get_class($e),[\RuntimeException::class,\InvalidArgumentException::class],true)
+            && !preg_match('/SQLSTATE|\bSQL\b|\.php(?::| on line)|\/repo\/|stack trace/i',$e->getMessage())) return $e->getMessage();
+        \think\facade\Log::error('Virtual payment internal failure: '.get_class($e).' '.$e->getMessage());
+        return '系统处理暂未完成，请稍后重试或联系管理员核对订单';
+    }
     public static function integer(mixed $value): int
     {
         if ((!is_int($value) && !is_string($value)) || !preg_match('/^\d{1,12}$/D', (string)$value)) throw new \RuntimeException('渠道数值格式不正确');

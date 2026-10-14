@@ -40,6 +40,7 @@ final class PackagePricingService
     {
         if ($user <= 0) throw new \RuntimeException('请先登录后购买套餐');
         return Db::transaction(function()use($tenant,$user,$terminal,$from,$package,$cycle,$quoteHash){
+            $identity=User::where(['tenant_id'=>$tenant,'id'=>$user])->lock(true)->findOrEmpty();if($identity->isEmpty()||!empty($identity['is_disable']))throw new \RuntimeException('用户身份已变化，请重新登录');
             $base=self::catalog($tenant,$from,$package,$cycle?:'package',true,true);$p=PackagePromotionService::get($tenant,$from,$package);$scope=self::scope($tenant,$user,$from,$package);$claim=[];
             if(!empty($p['enabled'])){
                 Db::name('tenant_package_discount_claim')->extra('IGNORE')->insert($scope+['status'=>'available','create_time'=>time()]);
@@ -64,14 +65,24 @@ final class PackagePricingService
     {
         return Db::name('tenant_package_price_snapshot')->where(['tenant_id'=>$tenant,'biz_type'=>$from,'order_id'=>$id])->find();
     }
+    /** Confirmed funds consume a discount even when entitlement delivery must retry. */
+    public static function confirmPaymentCoupon(int $tenant, string $from, int $id): void
+    {
+        $s = self::snapshot($tenant, $from, $id);
+        if (!$s || !(int)$s['is_discount'] || $s['status'] === 'closed') return;
+        $claim = Db::name('tenant_package_discount_claim')->where(self::scope($tenant, (int)$s['user_id'], $from, (int)$s['package_id']))->lock(true)->find();
+        if (!$claim || (int)$claim['order_id'] !== $id || !in_array($claim['status'], ['reserved', 'used'], true)) throw new \RuntimeException('订单优惠资格需要核对');
+        if ($claim['status'] === 'used') return;
+        Db::name('tenant_package_discount_claim')->where('id', $claim['id'])->update(['status'=>'used','consumed_at'=>time(),'reserved_until'=>0,'update_time'=>time()]);
+    }
     public static function consume(int $tenant,string $from,int $id): void
     {
         $s=Db::name('tenant_package_price_snapshot')->where(['tenant_id'=>$tenant,'biz_type'=>$from,'order_id'=>$id])->lock(true)->find();if(!$s||$s['status']==='paid')return;
         if($s['status']!=='pending')throw new \RuntimeException('订单已关闭，到账款项需要核对处理');
         if((int)$s['is_discount']){
             $claim=Db::name('tenant_package_discount_claim')->where(self::scope($tenant,(int)$s['user_id'],$from,(int)$s['package_id']))->lock(true)->find();
-            if(!$claim||$claim['status']!=='reserved'||(int)$claim['order_id']!==$id)throw new \RuntimeException('订单优惠资格需要核对');
-            Db::name('tenant_package_discount_claim')->where('id',$claim['id'])->update(['status'=>'used','consumed_at'=>time(),'update_time'=>time()]);
+            if(!$claim||!in_array($claim['status'],['reserved','used'],true)||(int)$claim['order_id']!==$id)throw new \RuntimeException('订单优惠资格需要核对');
+            if ($claim['status']==='reserved') Db::name('tenant_package_discount_claim')->where('id',$claim['id'])->update(['status'=>'used','consumed_at'=>time(),'reserved_until'=>0,'update_time'=>time()]);
         }
         Db::name('tenant_package_price_snapshot')->where('id',$s['id'])->update(['status'=>'paid','paid_at'=>time()]);
     }
@@ -80,7 +91,7 @@ final class PackagePricingService
     {
         if(!in_array($channelState,['never_started','closed'],true))throw new \RuntimeException('支付结果仍需核对，暂不能释放优惠资格');
         Db::transaction(function()use($tenant,$user,$from,$id,$channelState){
-            $model=$from==='recharge'?RechargeOrder::where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$id]):MembershipOrder::where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$id]);$order=$model->lock(true)->findOrEmpty();
+            $model=$from==='recharge'?RechargeOrder::withoutGlobalScope()->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$id]):MembershipOrder::withoutGlobalScope()->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$id]);$order=$model->lock(true)->findOrEmpty();
             $s=Db::name('tenant_package_price_snapshot')->where(['tenant_id'=>$tenant,'user_id'=>$user,'biz_type'=>$from,'order_id'=>$id])->lock(true)->find();if(!$s)throw new \RuntimeException('订单不存在');if($s['status']==='closed')return;if($s['status']!=='pending')throw new \RuntimeException('已付款订单不能取消');
             if($order->isEmpty()||(int)$order['pay_status'])throw new \RuntimeException('订单状态已变化，请刷新');
             if($channelState==='never_started'&&((int)$order['pay_way']>0||trim((string)$order['pay_sn'])!==''||(int)$s['channel']>0))throw new \RuntimeException('支付已发起，需先查询渠道结果');

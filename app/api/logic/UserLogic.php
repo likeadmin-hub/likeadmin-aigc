@@ -351,6 +351,7 @@ class UserLogic extends BaseLogic
             if (!empty($targetUser->is_disable)) {
                 throw new \Exception('您的账号异常，请联系客服。');
             }
+            \app\common\service\promotion\PackageIdentityService::merge((int)$targetUser->tenant_id,$shadowUserId,(int)$targetUser->id);
             $authRows = UserAuth::where('user_id', $shadowUserId)->select();
             foreach ($authRows as $auth) {
                 $sameOpenid = UserAuth::where('openid', $auth->openid)

@@ -51,6 +51,7 @@ class RefundLogic extends BaseLogic
      */
     public static function refund($order, $refundRecordId, $refundAmount, $handleId)
     {
+        if ((int)$order['pay_way']===PayEnum::VIRTUAL_PAY) throw new \RuntimeException('虚拟支付订单需通过专用退款核对流程处理');
         // 退款前校验
         self::refundBeforeCheck($refundAmount);
 

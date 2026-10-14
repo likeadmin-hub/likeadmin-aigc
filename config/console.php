@@ -5,6 +5,7 @@
 return [
     // 指令定义
     'commands' => [
+        'virtualpay:maintain' => 'app\\common\\command\\VirtualPayMaintain',
         'brand:worker' => 'app\\common\\command\\BrandWorker',
         'brand:maintain' => 'app\\common\\command\\BrandMaintain',
         'decoration:agent-worker' => 'app\\common\\command\\DecorationAgentWorker',
