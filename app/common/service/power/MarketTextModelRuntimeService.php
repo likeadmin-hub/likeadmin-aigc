@@ -79,11 +79,11 @@ class MarketTextModelRuntimeService
         return $options[0];
     }
 
-    /** Homepage tools currently use the OpenAI Chat tool-message contract. No protocol fallback. */
+    /** Supported protocols translate to the same business tool contract. No model fallback. */
     public static function resolveAgentModel(int $tenantId, string $selection, bool $requiresVision = false): array
     {
         $model=self::resolveModel($tenantId,$selection,$requiresVision);
-        if(self::protocolForModel($model)!=='openai_chat')throw new \InvalidArgumentException('当前 Agent 尚未接入此模型的工具协议，请选择兼容对话工具调用的模型');
+        if(!in_array(self::protocolForModel($model), ['openai_chat', 'anthropic_messages'], true))throw new \InvalidArgumentException('当前 Agent 尚未接入此模型的工具协议，请选择兼容对话工具调用的模型');
         return $model;
     }
 
@@ -128,6 +128,11 @@ class MarketTextModelRuntimeService
         $modelConfig = self::modelConfig($params);
         $maxTokens = self::resolveMaxTokens($model, $modelConfig);
         $generationParams = self::generationParams($model, $modelConfig);
+        // Neuron's canonical history does not carry signed thinking blocks.
+        // Do not enable a mode whose tool continuation we cannot faithfully replay.
+        if (!empty($params['_agent_tool_history']) && self::protocolForModel($model) === 'anthropic_messages') {
+            $generationParams['thinking'] = ['type' => 'disabled'];
+        }
         // Agent runtimes may supply OpenAI-compatible function schemas. These
         // are capability metadata, not provider credentials, and must reach
         // the selected market text channel unchanged.
@@ -662,7 +667,7 @@ class MarketTextModelRuntimeService
         if ($protocol === 'anthropic_messages') {
             $payload = [
                 'model' => $model['model_code'],
-                'messages' => $messages,
+                'messages' => AnthropicMessagesAdapter::messages($messages),
                 'max_tokens' => $maxTokens,
             ];
             if ($system !== '') {
@@ -742,6 +747,7 @@ class MarketTextModelRuntimeService
         if (is_string($value)) {
             return match (strtolower($value)) {
                 'auto' => ['type' => 'auto'],
+                'none' => ['type' => 'none'],
                 'required', 'any' => ['type' => 'any'],
                 default => [],
             };
@@ -1201,6 +1207,12 @@ class MarketTextModelRuntimeService
             \app\common\service\open_platform\OpenCallContext::providerFailure($status,$body,!empty($state['content'])||!empty($state['reasoning'])||!empty($state['tool_calls']));
             throw self::providerException($state['error'], !empty($state['model_fallback_allowed']), $state);
         }
+        try {
+            AnthropicMessagesAdapter::assertComplete($state);
+        } catch (\RuntimeException $error) {
+            // An incomplete tool response must not fall back to a different model.
+            throw self::providerException($error->getMessage(), false, $state);
+        }
         // Some OpenAI-compatible reasoning models emit their only textual output
         // under reasoning_content. Preserve it as a last-resort response instead
         // of treating a completed provider request as an empty result.
@@ -1317,6 +1329,14 @@ class MarketTextModelRuntimeService
     /** @param array<string, mixed> $state */
     private static function applyStreamEvent(array $event, array &$state, callable $onEvent): void
     {
+        if (!empty($event['anthropic'])) $state['anthropic'] = true;
+        if (!empty($event['anthropic_complete'])) $state['anthropic_complete'] = true;
+        if (isset($event['tool_block_stop'])) {
+            foreach ($state['tool_calls'] as &$call) {
+                if (($call['index'] ?? -1) === $event['tool_block_stop'] && ($call['function']['arguments'] ?? '') === '') $call['function']['arguments'] = '{}';
+            }
+            unset($call);
+        }
         if (!empty($event['finish_reason']) && ($event['finish_reason'] !== 'stop' || empty($state['finish_reason']))) {
             $state['finish_reason'] = (string)$event['finish_reason'];
         }
@@ -1374,6 +1394,8 @@ class MarketTextModelRuntimeService
         if (in_array($eventType, ['error', 'failed', 'fail', 'response.failed', 'response.incomplete'], true)) {
             return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败', 'model_fallback_allowed' => UpstreamErrorMessageService::allowsModelFallback($json)];
         }
+        $nativeEvent = AnthropicMessagesAdapter::event($json, $eventType);
+        if ($nativeEvent !== null) return $nativeEvent;
         foreach (['data', 'result', 'output', 'response'] as $key) {
             if (!empty($json[$key]) && is_array($json[$key]) && self::looksLikePayload($json[$key])) {
                 $event = self::parseProviderPayload($json[$key], $eventName, $stream);
@@ -1462,6 +1484,10 @@ class MarketTextModelRuntimeService
     /** @return array<int, array<string, mixed>> */
     private static function mergeToolCalls(array $current, array $incoming): array
     {
+        // Block indices can be sparse (text/thinking blocks occupy other slots).
+        $indexed = [];
+        foreach ($current as $position => $call) $indexed[(int)($call['index'] ?? $position)] = $call;
+        $current = $indexed;
         foreach ($incoming as $position => $call) {
             if (!is_array($call)) {
                 continue;
@@ -1478,7 +1504,7 @@ class MarketTextModelRuntimeService
                     $existingFunction[$key] = $function[$key];
                 }
             }
-            $current[$index] = array_merge($existing, $call, ['function' => $existingFunction]);
+            $current[$index] = array_merge($existing, $call, ['index' => $index, 'function' => $existingFunction]);
         }
         ksort($current);
         return array_values($current);
