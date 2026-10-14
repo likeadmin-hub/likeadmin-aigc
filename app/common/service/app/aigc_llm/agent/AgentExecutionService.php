@@ -275,7 +275,7 @@ final class AgentExecutionService
                     $result=AgentContextService::readAsset($run,(string)($p['file_id']??''),(int)($p['offset']??0));
                     if(isset($result['visuals'])){
                         // Replace derived pages/frames after each batch; do not accumulate unbounded images.
-                        foreach(array_keys($loadedImages) as $key)if(str_starts_with($key,'derived:'))unset($loadedImages[$key]);
+                        foreach(array_keys($loadedImages) as $key)if(str_starts_with($key,'derived:'.$result['file_id'].':'))unset($loadedImages[$key]);
                         if($vision&&count($loadedImages)+count($result['visuals'])>8)throw new \InvalidArgumentException('本轮视觉素材过多，请分轮读取');
                         if($vision){foreach($result['visuals'] as $label=>$url)$loadedImages['derived:'.$result['file_id'].':'.$label]=$url;$result['visual_input']='本批页面或视频帧已附带至下一次模型请求';}
                         else $result['visual_input']='所选对话模型不支持视觉，不能识别扫描文字或视频画面，请用户选择支持图片理解的文本模型';

@@ -55,13 +55,15 @@ final class AgentTranscriptionTool
             try{
                 $wire=self::request($url,$key,$audio,$source);
                 $data=json_decode($wire['body'],true);
+                AiConsumptionLog::where('id',$cid)->update(['response_summary'=>AgentStore::encode(['http_status'=>$wire['status'],'provider_receipt'=>$data??mb_substr($wire['body'],0,200000)]),'update_time'=>time()]);
+                $recognized=$data['data']['text']??$data['data']['result']['text']??null;
                 if($wire['status']<500&&is_array($data)&&((isset($data['code'])&&(int)$data['code']===0)||isset($data['error']))){
                     self::finish($cid,false,['error'=>'语音识别服务拒绝了请求，请检查素材后重试']);
-                }elseif($wire['status']===200&&(int)($data['code']??0)===1&&is_string($data['data']['text']??null)&&mb_strlen($data['data']['text'])<=100000){
+                }elseif($wire['status']===200&&(int)($data['code']??0)===1&&is_string($recognized)&&mb_strlen($recognized)<=100000){
                     // Empty text is a valid completed recognition (silence/no intelligible speech).
-                    self::finish($cid,true,['text'=>$data['data']['text'],'language'=>(string)($data['data']['language']??''),'duration'=>(float)($data['data']['duration']??0),'file_id'=>$prepared['inputs']['file_id']]);
+                    self::finish($cid,true,['text'=>$recognized,'language'=>(string)($data['data']['language']??''),'duration'=>(float)($data['data']['duration']??0),'file_id'=>$prepared['inputs']['file_id']]);
                 }else self::uncertain($cid);
-            }catch(\Throwable $e){self::uncertain($cid);}
+            }catch(\Throwable $e){\think\facade\Log::error('Home Agent STT '.$cid.' failed: '.get_class($e).' '.$e->getMessage());self::uncertain($cid);}
             return self::query($tenant,$user,$id);
         });
     }
@@ -89,7 +91,7 @@ final class AgentTranscriptionTool
     private static function finish(int $id,bool $success,array $result): void
     {
         // Preserve returned text even if accounting fails; recovery must never dispatch STT again.
-        AiConsumptionLog::where('id',$id)->update(['response_summary'=>AgentStore::encode($result),'update_time'=>time()]);
+        AiConsumptionLog::where('id',$id)->whereNotIn('billing_status',['settled','refunded'])->update(['response_summary'=>AgentStore::encode($result),'update_time'=>time()]);
         Db::transaction(function()use($id,$success,$result){
             $log=AiConsumptionLog::where('id',$id)->lock(true)->find();$task=AiAppTask::find($log['app_task_id']);
             if(in_array($log['billing_status'],['settled','refunded'],true))return;
@@ -116,7 +118,7 @@ final class AgentTranscriptionTool
     private static function request(string $url,string $key,string $audio,array $source): array
     {
         $ch=curl_init($url);$body='';
-        curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>['audio'=>new \CURLFile($audio,'audio/wav','speech.wav'),'ignore_timestamps'=>'true'],CURLOPT_CONNECTTIMEOUT=>15,CURLOPT_TIMEOUT=>180,CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$key,'Accept: application/json'],CURLOPT_SSL_VERIFYPEER=>UpdateSourceClient::sslVerify($source),CURLOPT_SSL_VERIFYHOST=>UpdateSourceClient::sslVerify($source)?2:0,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_WRITEFUNCTION=>static function($ch,$part)use(&$body){if(strlen($body)+strlen($part)>2097152)return 0;$body.=$part;return strlen($part);}]);
+        curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>['audio'=>new \CURLFile($audio,'audio/wav','speech.wav'),'ignore_timestamps'=>'1'],CURLOPT_CONNECTTIMEOUT=>15,CURLOPT_TIMEOUT=>180,CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$key,'Accept: application/json'],CURLOPT_SSL_VERIFYPEER=>UpdateSourceClient::sslVerify($source),CURLOPT_SSL_VERIFYHOST=>UpdateSourceClient::sslVerify($source)?2:0,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_WRITEFUNCTION=>static function($ch,$part)use(&$body){if(strlen($body)+strlen($part)>2097152)return 0;$body.=$part;return strlen($part);}]);
         try{if(curl_exec($ch)===false)throw new \RuntimeException('转写连接中断');return ['status'=>(int)curl_getinfo($ch,CURLINFO_HTTP_CODE),'body'=>$body];}finally{curl_close($ch);}
     }
     public static function resume(array $run): bool
