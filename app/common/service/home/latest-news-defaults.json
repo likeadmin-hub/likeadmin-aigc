@@ -1,8 +1,8 @@
 [
   {
-    "title": "图片创作",
-    "media_url": "/resource/image/inspiration/image.mp4",
-    "poster": "/resource/image/inspiration/image.svg",
+    "title": "热门Nano Banana 应用",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/nanoapps_banner.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/nanoapps_banner.webp",
     "id": "reference-34",
     "media_type": "video",
     "enabled": 1,
@@ -15,9 +15,9 @@
     "storage_domain": ""
   },
   {
-    "title": "创作工作流",
-    "media_url": "/resource/image/inspiration/workflow.mp4",
-    "poster": "/resource/image/inspiration/workflow.svg",
+    "title": "工作流",
+    "media_url": "https://cdn.web.imagine.art/imagine-one/home/spotlight-cards/videos/workflow.webm",
+    "poster": "https://cdn.web.imagine.art/imagine-one/home/spotlight-cards/images/workflow.webp",
     "id": "reference-32",
     "media_type": "video",
     "enabled": 1,
@@ -30,9 +30,9 @@
     "storage_domain": ""
   },
   {
-    "title": "图片编辑",
-    "media_url": "/resource/image/inspiration/edit.mp4",
-    "poster": "/resource/image/inspiration/edit.svg",
+    "title": "局部重绘",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/inpaint1.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/inpaint1.webp",
     "id": "reference-25",
     "media_type": "video",
     "enabled": 1,
@@ -46,8 +46,8 @@
   },
   {
     "title": "音频创作",
-    "media_url": "/resource/image/inspiration/audio.mp4",
-    "poster": "/resource/image/inspiration/audio.svg",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/audio.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/audio.png",
     "id": "reference-17",
     "media_type": "video",
     "enabled": 1,
@@ -60,9 +60,9 @@
     "storage_domain": ""
   },
   {
-    "title": "参考图创作",
-    "media_url": "/resource/image/inspiration/image.mp4",
-    "poster": "/resource/image/inspiration/image.svg",
+    "title": "GPT图像2.5",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/gpt-2.5.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/gpt-2.5.webp",
     "id": "reference-2",
     "media_type": "video",
     "enabled": 1,
@@ -75,9 +75,9 @@
     "storage_domain": ""
   },
   {
-    "title": "镜头创作",
-    "media_url": "/resource/image/inspiration/camera.mp4",
-    "poster": "/resource/image/inspiration/camera.svg",
+    "title": "电影级镜头视角",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/campaigns/ca.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/campaigns/ca.webp",
     "id": "reference-29",
     "media_type": "video",
     "enabled": 1,
@@ -90,9 +90,9 @@
     "storage_domain": ""
   },
   {
-    "title": "创意工具",
-    "media_url": "/resource/image/inspiration/apps.mp4",
-    "poster": "/resource/image/inspiration/apps.svg",
+    "title": "创意应用",
+    "media_url": "https://imagine.animagic.art/imagine-one/home/spotlight-cards/videos/apps.mp4",
+    "poster": "https://imagine.animagic.art/imagine-one/home/spotlight-cards/images/apps.png",
     "id": "reference-36",
     "media_type": "video",
     "enabled": 1,
