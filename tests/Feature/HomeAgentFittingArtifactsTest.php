@@ -23,7 +23,7 @@ Db::startTrans();try{
  $ref='image:result:'.$result;A::favorite($tenant,$user,$artifact,true);
  check((int)Db::name('user_asset_state')->where($owner+['asset_ref'=>$ref])->value('favorite')===1,'Fitting favorite not shared with image asset');
  Library::update($tenant,$user,['refs'=>[$ref],'favorite'=>0]);check($get()['favorite']===0,'Asset unfavorite did not reach Agent');
- Db::name('aigc_image_task')->where('id',$child)->update(['user_id'=>$user+1]);check($get()['generation']===null,'Foreign child task metadata exposed');
+ Db::name('aigc_image_task')->where('id',$child)->update(['user_id'=>$user+1]);check(A::lists($tenant,$user,$session)===[],'Foreign child task must not expose an artifact');
  Db::name('aigc_image_task')->where('id',$child)->update(['user_id'=>$user]);
  Db::name('aigc_fitting_task')->where('id',$task)->update(['image_task_id'=>0,'image_task_ids'=>'[]']);check($get()['generation']===null,'Unlinked image result reused');
  echo "Home Agent fitting artifacts passed: original submitted details, linked image ownership and shared favorites; rolled back\n";
