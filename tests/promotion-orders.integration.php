@@ -26,6 +26,7 @@ Db::startTrans();try {
  oemCheck(Db::name('user')->where('id',$u)->value('user_money')==='100.00','credit exactly once');
  oemCheck(Price::quote($t,$u,'recharge',(int)$pkg->id,'package')['reason']==='used','lifetime once-only across activity restart');
  Promo::save($t,'recharge',(int)$pkg->id,['enabled'=>1,'rule_new'=>1,'rule_all'=>1,'hours'=>48,'discount_prices'=>['package'=>'9.90'],'restart'=>1]);
+ oemReject(fn()=>Promo::save($t,'recharge',(int)$pkg->id,$p),'stale promotion save cannot overwrite newer activity');
  oemCheck(!Price::quote($t,$u,'recharge',(int)$pkg->id,'package')['is_discount'],'restart does not reset consumption');
  $m=Member::savePlan($t,['name'=>'Discount member','monthly_price'=>'19.00','duration_months'=>1,'features'=>['original feature'],'bonus_points'=>'5.00','app_codes'=>[]]);
  Promo::save($t,'membership',(int)$m->id,['enabled'=>1,'rule_new'=>1,'rule_all'=>0,'hours'=>48,'discount_prices'=>['package'=>'9.90']]);
