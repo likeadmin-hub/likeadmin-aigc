@@ -66,6 +66,7 @@ final class AgentController extends BaseAdminController
     public function discard(){return $this->call('discard',true);}
     public function apply(){return $this->call('apply',true);}
     public function rollback(){return $this->call('rollback',true);}
+    public function reviewDesign(){return $this->call('reviewDesign',true);}
     public function confirmDesign(){return $this->call('confirmDesign',true);}
     public function retryImage(){return $this->call('retryImage',true);}
     public function replaceImage(){return $this->call('replaceImage',true);}

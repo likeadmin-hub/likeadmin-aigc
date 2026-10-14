@@ -54,15 +54,27 @@ final class DecorationAgentDesignService
         if(!in_array($operation['type']??'',['request_design','get_context','catalog','data_sources','links','search_materials','icons','validate'],true))throw new RuntimeException('请先生成并确认设计稿，确认前不能修改页面或生成独立素材');
     }
 
-    public static function request(array $operation,array $input,array $generation,array $materials=[],int $tenant=0): array
+    public static function request(array $operation,array $input,array $generation,array $materials=[],int $tenant=0,array $links=[]): array
     {
         if(!in_array('generate',$input['sources'],true))throw new RuntimeException('未授权生成设计稿');
         $prompt=trim((string)($operation['prompt']??''));$blueprint=$operation['blueprint']??null;
         if($prompt===''||mb_strlen($prompt)>8000||!is_array($blueprint)||$blueprint===[]||strlen(DecorationAgentService::json($blueprint))>12000)throw new RuntimeException('请提供完整设计图提示词和有界页面规划');
+        $regions=$blueprint['regions']??null;$components=[];
+        if(!is_array($regions)||!array_is_list($regions)||count($regions)<1||count($regions)>20)throw new RuntimeException('设计规划需要有界regions及真实组件');
+        foreach($regions as $region){
+            if(!is_array($region)||!is_array($region['components']??null)||!array_is_list($region['components'])||!$region['components'])throw new RuntimeException('每个设计区域必须声明实际components');
+            foreach($region['components'] as $component){$spec=is_string($component)?['name'=>$component]:$component;if(!is_array($spec)||isset($spec['id']))throw new RuntimeException('设计组件规范无效或自行填写ID');DecorationAgentCatalog::definition((string)($spec['name']??''));$components[]=$spec;}
+        }
+        $urls=array_column($materials,'url');
+        foreach($materials as $material){$identity=DecorationAgentAssetReferences::materialAsset($material,$tenant);if($identity)$urls[]='/'.ltrim($identity['image_uri'],'/');}
+        // Validate renderable overrides in memory only: this never creates a durable candidate.
+        DecorationAgentOperations::apply(['data'=>[],'meta'=>[]],[['type'=>'replace_page','components'=>$components]],['scope'=>'page','approved_urls'=>$urls,'allowed_links'=>$links]);
         $ratios=$generation['selected_model']['ratio_options']??[];$ratio=(string)($operation['ratio']??(in_array('9:16',$ratios,true)?'9:16':($ratios[0]??'')));
         if($ratio===''||!in_array($ratio,$ratios,true))throw new RuntimeException('设计图比例不在当前模型支持范围内');
         $ids=$operation['reference_material_ids']??[];
         if(!is_array($ids)||!array_is_list($ids)||count($ids)>5||count(array_filter($ids,'is_string'))!==count($ids))throw new RuntimeException('设计素材参考标识无效');
+        $maxReferences=(int)($generation['selected_model']['max_reference_images']??0);
+        if($maxReferences>0&&count($ids)>$maxReferences)throw new RuntimeException('设计素材参考超过当前模型允许数量');
         if($ids&&!($generation['selected_model']['supports_reference_images']??false))throw new RuntimeException('当前生图模型不支持素材参考图');
         $selected=[];$byId=array_column($materials,null,'id');$builtins=array_column(DecorationAgentMediaService::builtinMaterials(),null,'id');
         foreach(array_unique($ids) as $id){
@@ -72,8 +84,30 @@ final class DecorationAgentDesignService
             $asset=DecorationAgentAssetReferences::materialAsset($material,$tenant);if(!$asset)throw new RuntimeException('设计素材缺少可核实的存储身份');
             $selected[]=['id'=>$id,'kind'=>'stored','source'=>$material['source'],'file_id'=>(int)($material['file_id']??0),'slot_id'=>(int)($material['slot_id']??0),'asset'=>array_intersect_key($asset,array_flip(['image_uri','storage_scope','storage_engine','storage_domain']))];
         }
+        $replacements=[];
+        foreach($materials as $material){$asset=DecorationAgentAssetReferences::materialAsset($material,$tenant);if($asset&&is_string($material['url']??null))$replacements[$material['url']]='/'.ltrim($asset['image_uri'],'/');}
+        foreach($blueprint['regions'] as &$region)foreach($region['components'] as &$spec)if(is_array($spec))$spec=self::freezeSpec($spec,$replacements);
+        unset($region,$spec);
         $blueprint['selected_materials']=$selected;
-        return ['purpose'=>'design','prompt'=>'生成完整移动页面UI设计稿，展示页面从顶部到全部内容区及底部的整体布局。不是装饰主视觉，不是单张背景；文字、图标、卡片和间距必须清晰。依据可用组件和真实内容，不能虚构业务案例。使用所提供的真实素材参考，保持素材内容和已规划参数，不把它们替换为虚构图片。'.$prompt,'blueprint'=>$blueprint,'ratio'=>$ratio,'reference_file_ids'=>[],'design_materials'=>$selected];
+        return ['purpose'=>'design','prompt'=>'生成完整移动页面UI设计稿，展示页面从顶部到全部内容区及底部的整体布局。不是装饰主视觉，不是单张背景；文字、图标、卡片和间距必须清晰。依据可用组件和真实内容，不能虚构业务案例。使用所提供的真实素材参考，保持素材内容和已规划参数，不把它们替换为虚构图片。'.$prompt."\n严格遵循以下可实现组件规划；参考图按selected_materials顺序对应。URI/ID仅是资源标识，不要把它们画进页面：".DecorationAgentService::json($blueprint),'blueprint'=>$blueprint,'ratio'=>$ratio,'reference_file_ids'=>[],'design_materials'=>$selected];
+    }
+
+    private static function freezeSpec(array $spec,array $replacements): array
+    {
+        $definition=DecorationAgentCatalog::definition($spec['name']);
+        foreach(['content'=>'content_fields','styles'=>'style_fields'] as $section=>$fields)foreach($definition[$fields]??[] as $key=>$schema)if(($schema['type']??'')==='image'&&is_string($spec[$section][$key]??null))$spec[$section][$key]=$replacements[$spec[$section][$key]]??$spec[$section][$key];
+        $freezeRows=function(array $rows,array $list)use($replacements): array {foreach($rows as &$row)foreach($list['fields']??[] as $key=>$schema)if(($schema['type']??'')==='image'&&is_string($row[$key]??null))$row[$key]=$replacements[$row[$key]]??$row[$key];unset($row);return $rows;};
+        foreach($definition['lists']??[] as $key=>$list)if(isset($spec['content'][$key]))$spec['content'][$key]=$freezeRows($spec['content'][$key],$list);
+        foreach($spec['fields']??[] as $path=>$value){
+            if(preg_match('/^(content|styles)\.([a-zA-Z0-9_-]+)(?:\.(\d+)\.([a-zA-Z0-9_-]+))?$/D',$path,$parts)){
+                $schema=$definition[$parts[1]==='content'?'content_fields':'style_fields'][$parts[2]]??[];
+                if(isset($parts[4]))$schema=$definition['lists'][$parts[2]]['fields'][$parts[4]]??[];
+                if(($schema['type']??'')==='image'&&is_string($value))$spec['fields'][$path]=$replacements[$value]??$value;
+                elseif($parts[1]==='content'&&isset($definition['lists'][$parts[2]])&&!isset($parts[4]))$spec['fields'][$path]=$freezeRows($value,$definition['lists'][$parts[2]]);
+            }
+        }
+        foreach($spec['children']??[] as $i=>$child)$spec['children'][$i]=self::freezeSpec($child,$replacements);
+        return $spec;
     }
 
     public static function materialReferences(int $tenant,array $slot): array
@@ -93,12 +127,38 @@ final class DecorationAgentDesignService
         return $refs;
     }
 
-    /** Design/reference screenshots are not decorative assets, including signed URL aliases. */
-    public static function assertNoReferenceImages(array $page,?array $approved,array $blocked=[]): void
+    public static function approvedMaterials(int $tenant,array $approved,array $sources): array
     {
-        if(!$approved&&!$blocked)return;
+        $result=[];$builtins=array_column(DecorationAgentMediaService::builtinMaterials(),null,'id');
+        foreach($approved['blueprint']['selected_materials']??[] as $material){
+            if(!in_array($material['source']??'',$sources,true))continue;
+            if(($material['kind']??'')==='builtin'){
+                $builtin=$builtins[$material['id']]??null;if($builtin&&$builtin['uri']===$material['uri'])$result[]=$builtin;
+                continue;
+            }
+            $asset=DecorationAgentAssetReferences::materialAsset($material,$tenant);
+            if(!$asset||!self::sameAsset($asset,$material['asset']))continue;
+            $result[]=array_replace($material,$asset,['url'=>self::assetUrl($tenant,$asset),'uri'=>$asset['image_uri'],'type'=>'image','role'=>'selected_design_material','title'=>'已确认设计稿选定的真实素材','dimensions_known'=>isset($asset['width'],$asset['height'])]);
+        }
+        return $result;
+    }
+
+    public static function blockedUris(int $tenant): array
+    {
+        $ids=DecorationAgentMediaService::evidenceFileIds($tenant);$uris=[];
+        if($ids)$uris=Db::name('tenant_file')->where('tenant_id',$tenant)->whereIn('id',$ids)->column('uri');
+        $slots=Db::name('decorate_agent_image_slot')->where('tenant_id',$tenant)->whereLike('request_json','%"purpose"%')->field('request_json,result_json')->select()->toArray();
+        foreach($slots as $slot)if((DecorationAgentService::decode($slot['request_json'])['purpose']??'')==='design')foreach(DecorationAgentService::decode($slot['result_json'])['images']??[] as $image)if(is_string($image['image_uri']??null))$uris[]=$image['image_uri'];
+        return array_values(array_unique($uris));
+    }
+
+    /** Design/reference screenshots are not decorative assets, including signed URL aliases. */
+    public static function assertNoReferenceImages(array $page,?array $approved,array $blocked=[],int $tenant=0): void
+    {
+        if(!$approved&&!$blocked&&!$tenant)return;
         $uris=array_filter([(string)($approved['asset']['image_uri']??''),(string)($blocked['screenshot_uri']??'')]);
         foreach((array)($blocked['uris']??[]) as $uri)$uris[]=(string)$uri;
+        if($tenant>0)$uris=array_merge($uris,self::blockedUris($tenant));
         $keys=array_map(fn($uri)=>ltrim($uri,'/'),$uris);
         $walk=function(array $rows)use(&$walk,$keys): void {
             foreach($rows as $widget){
@@ -180,8 +240,10 @@ final class DecorationAgentDesignService
 
     public static function confirmedDesign(int $tenant,int $admin,int $id,string $hash): array
     {
-        $run=self::ownedRun($tenant,$admin,$id);$ctx=DecorationAgentService::decode($run['context_json']);$design=$ctx['design']??[];
-        $session=Db::name('decorate_agent_session')->where(['id'=>$run['session_id'],'tenant_id'=>$tenant,'admin_id'=>$admin])->find();$latest=DecorationAgentService::decode($session['preferences']??'[]')['_design_state']['run_id']??0;
+        $hint=self::ownedRun($tenant,$admin,$id);
+        $session=Db::name('decorate_agent_session')->where(['id'=>$hint['session_id'],'tenant_id'=>$tenant,'admin_id'=>$admin])->lock(true)->find();
+        $run=Db::name('decorate_agent_run')->where(['id'=>$id,'tenant_id'=>$tenant,'admin_id'=>$admin])->lock(true)->find();
+        if(!$run)throw new RuntimeException('设计执行不存在');$ctx=DecorationAgentService::decode($run['context_json']);$design=$ctx['design']??[];$latest=DecorationAgentService::decode($session['preferences']??'[]')['_design_state']['run_id']??0;
         if((int)$run['cancel_requested']||$latest!==$id||($design['status']??'')!=='approved'||!hash_equals((string)($design['hash']??''),$hash)||self::designHash($design)!==$hash)throw new RuntimeException('设计稿未确认、已取消或版本已失效');
         $asset=DecorationAgentAssetReferences::designAsset((int)$design['slot_id'],$tenant,$admin);
         if(!$asset||!self::sameAsset($asset,$design['asset']))throw new RuntimeException('设计资源归属或存储身份已变化');
@@ -207,8 +269,9 @@ final class DecorationAgentDesignService
 
     public static function assertCanApply(int $tenant,int $admin,int $sessionId): void
     {
-        $session=Db::name('decorate_agent_session')->where(['id'=>$sessionId,'tenant_id'=>$tenant,'admin_id'=>$admin])->find();$latest=(int)(DecorationAgentService::decode($session['preferences']??'[]')['_design_state']['run_id']??0);
-        if(!$latest)return;$run=self::ownedRun($tenant,$admin,$latest);$status=self::draft($run)['status'];
+        $session=Db::name('decorate_agent_session')->where(['id'=>$sessionId,'tenant_id'=>$tenant,'admin_id'=>$admin])->lock(true)->find();$latest=(int)(DecorationAgentService::decode($session['preferences']??'[]')['_design_state']['run_id']??0);
+        if(!$latest)return;$run=Db::name('decorate_agent_run')->where(['id'=>$latest,'tenant_id'=>$tenant,'admin_id'=>$admin])->lock(true)->find();
+        if(!$run)throw new RuntimeException('最新设计执行不存在');$status=self::draft($run)['status'];
         if(in_array($status,['planning','generating','awaiting_confirmation'],true))throw new RuntimeException('请先确认设计稿，再预览并应用实施候选');
     }
 
