@@ -77,6 +77,8 @@ final class AgentStore
         if(!in_array($mode,['ask','auto'],true))throw new \InvalidArgumentException('运行模式无效');
         $models=[];
         foreach(['text','image','video','voice','music'] as $type){$model=$input['models'][$type]??'';if(!is_scalar($model)||strlen((string)$model)>120)throw new \InvalidArgumentException('模型偏好无效');$models[$type]=trim((string)$model);}
-        return ['mode'=>$mode,'models'=>$models];
+        $result=['mode'=>$mode,'models'=>$models];
+        if(array_key_exists('generation',$input))$result['generation']=AgentComposerSettings::generation($input['generation']);
+        return $result;
     }
 }

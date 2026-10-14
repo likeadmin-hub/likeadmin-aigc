@@ -24,7 +24,7 @@ final class AgentCreationContext
             if (!in_array($selection,array_map('strval',[$model['id']??'', $model['value']??'', $model['code']??'']),true)) continue;
             return ['selection'=>$selection]+array_intersect_key($model,array_flip([
                 'name','description','duration_options','resolution_options','ratio_options',
-                'default_duration','default_resolution','generation_modes','max_reference_images',
+                'default_duration','default_resolution','generation_modes','max_reference_images','quantity_options',
             ]));
         }
         return ['selection'=>$selection,'available'=>false,'instruction'=>'所选模型不可用，不要猜测名称或替换模型。'];
