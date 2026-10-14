@@ -154,9 +154,7 @@ class MarketTextModelRuntimeService
         if ($homeAgent) {
             // Admission only: keep actual-usage pricing and zero reservation unchanged.
             // A paid payer needs at least the wallet's smallest unit; free sides stay free.
-            PointService::assertCanConsumeAmounts($tenantId, $userId,
-                max((float)$model['input']['platform_price'], (float)$model['output']['platform_price']) > 0 ? 0.01 : 0,
-                max((float)$model['input']['tenant_price'], (float)$model['output']['tenant_price']) > 0 ? 0.01 : 0);
+            self::assertAgentBalance($tenantId, $userId, $model);
             \app\common\service\app\aigc_llm\agent\AgentTextReceipt::prepare();
         }
         $requestSummary = [
@@ -598,6 +596,13 @@ class MarketTextModelRuntimeService
     {
         $product['source_payload'] = $snapshot;
         return !empty(PowerMarketService::capability($product)['supports_vision']);
+    }
+
+    private static function assertAgentBalance(int $tenantId,int $userId,array $model): void
+    {
+        PointService::assertCanConsumeAmounts($tenantId,$userId,
+            max((float)$model['input']['platform_price'],(float)$model['output']['platform_price'])>0?0.01:0,
+            max((float)$model['input']['tenant_price'],(float)$model['output']['tenant_price'])>0?0.01:0);
     }
 
     private static function quote(array $model, int $inputTokens, int $outputTokens): array
