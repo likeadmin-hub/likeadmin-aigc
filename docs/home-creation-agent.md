@@ -45,7 +45,7 @@
 - 转换 `function_call` / `function_call_output`、函数 Schema、指定工具、结构化输出和图片输入。保留原 Schema 可选字段，不自动提升为必填。
 - 首页强制 `store=false`，请求加密推理续接信息；仅当前 Provider 实例按工具调用标识保存原生输出，不使用 `previous_response_id` / conversation 继承其他会话，不向用户展示推理或加密字段。
 - SSE 正文与参数分片分别处理，最终参数采用完整快照而非重复追加；完整结束、参数校验通过后才交给 Neuron。正文结束快照按整体内容合并，兼容网关缺少 `output_index` 的情况。
-- 收到回执后失败、断流、缺用量或原生输出校验失败，保留已接收正文与账务证据，进入既有待核对状态，禁止自动重提、补扣或误退款。新增安全诊断码与最后事件类型，不记录私密正文或密钥。零预占文本待核对只报告结算待核对，不误报未释放预占；真实非零预占仍受审计。
+- 收到回执后失败、断流或原生输出校验失败，保留已接收正文与账务证据，进入既有待核对状态，禁止自动重提、补扣或误退款。正常完成但缺用量仍沿用 `pending_usage`。新增安全诊断码与最后事件类型，不记录私密正文或密钥。零预占文本待核对只报告结算待核对，不误报未释放预占；真实非零预占仍受审计。
 
 离线验证通过：新增 HomeAgentResponsesProtocol（真实 Neuron + 原生 SSE 字节分片，包含并行工具、加密续接隔离、缺索引快照去重、无效参数、截断、图片、用量）；扩展 HomeAgentBillingRecovery（真实事务账务，模拟 Responses 成功与中断，全部回滚）。HomeAgentAnthropicProtocol、MarketTextUsageStream、HomeAgentProvider、HomeAgentVisibleReply、HomeAgentContextChat、HomeAgentPlanning 通过。共享回归 MarketTextModelPayloadContract 9 项、ShortDramaTextModelContract 10 项、CanvasNeuronRuntime 10 项通过。
 
