@@ -21,4 +21,10 @@ $checks=array_map(fn($category)=>['category'=>$category,'passed'=>false,'detail'
 $diagnosis=['passed'=>false,'checks'=>$checks,'summary'=>'本轮只诊断输入原图，修复后需重新截图'];
 $parsed=D::parse(S::json(['reply'=>'已生成修复候选，效果待截图验证','kind'=>'final','operations'=>[['type'=>'configure_page','fields'=>['content.show_nav'=>0]]],'acceptance'=>$diagnosis]));
 guidanceCheck($parsed['acceptance']===$diagnosis&&$parsed['operations'][0]['type']==='configure_page','decision parser preserves complete explicit-false input-image diagnosis alongside repair operations');
+$assetInstruction=D::independentAssetInstruction();
+guidanceCheck(str_contains($assetInstruction,'approved_design')&&str_contains($assetInstruction,'visual_review')&&str_contains(D::visualReviewInstruction(),$assetInstruction),'implementation and visual review share the same approved-raster asset contract');
+foreach(['形状','画风','材质','颜色','背景','可见bbox'] as $feature)guidanceCheck(str_contains($assetInstruction,$feature),'asset prompt derives actual approved appearance feature '.$feature);
+guidanceCheck(str_contains($assetInstruction,'不能从页面主题')&&str_contains($assetInstruction,'3D')&&str_contains($assetInstruction,'玻璃')&&str_contains($assetInstruction,'金属')&&str_contains($assetInstruction,'除非批准图本身明确包含'),'flat reference cannot be restyled from theme while genuinely visible materials remain allowed');
+guidanceCheck(str_contains($assetInstruction,'素材策略和来源授权')&&str_contains($assetInstruction,'既有匹配素材')&&str_contains($assetInstruction,'单元素')&&str_contains($assetInstruction,'禁止改变'),'reuse and single-element prompts preserve authorized strategy and explicit style locks');
+guidanceCheck(str_contains($assetInstruction,'真实透明能力')&&str_contains($assetInstruction,'实际容器背景')&&str_contains($assetInstruction,'alpha')&&str_contains($assetInstruction,'图片留白')&&str_contains($assetInstruction,'rpx外壳'),'background/transparency and actual visible bounds are distinct from image canvas or rpx shell');
 echo "visual review guidance: $n checks passed (real context/prompt services, no DB/provider writes)\n";
