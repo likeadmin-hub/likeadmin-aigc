@@ -55,6 +55,7 @@ namespace app\common\service\power {
 }
 namespace {
  require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
+ require dirname(__DIR__).'/Support/HomeAgentFixture.php';
  set_exception_handler(static function(\Throwable $e){fwrite(STDERR,$e->getMessage().PHP_EOL.$e->getTraceAsString().PHP_EOL);exit(1);});
  use think\facade\Db;
  use app\common\model\ai\{AiConsumptionLog,AiAppTask};
@@ -70,7 +71,7 @@ namespace {
  $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local rollback test only');
  check(S::table('run')->whereIn('status',['queued','running','waiting_tasks'])->count()===0,'Do not run alongside active Agent jobs');
  $request=request();$request->tenantId=1;$request->userId=1;$request->userInfo=['tenant_id'=>1,'user_id'=>1];
- $selection=(string)S::preferences(1,1)['models']['text'];$model=R::resolveAgentModel(1,$selection);
+ $selection=HomeAgentFixture::textSelection();$model=R::resolveAgentModel(1,$selection);
  $expected=invoke('quote',$model,10000,10000);check($expected['user_charge_points']>0&&$expected['user_charge_points']<balance(),'Fixture needs a priced model within local wallet');
  $params=['content'=>'离线计费验收','model_selection'=>$selection,'source_app_code'=>'aigc_llm','business_table'=>'aigc_llm_agent_run','business_id'=>0,'_disable_model_fallback'=>true,'_disable_transient_retry'=>true,'_agent_tool_history'=>true];
  foreach(['success','native_success','responses_success'] as $successMode)fixture(function()use($params,$expected,$successMode){

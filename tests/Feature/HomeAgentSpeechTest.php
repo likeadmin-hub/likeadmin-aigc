@@ -1,5 +1,11 @@
 <?php
 // Real wallet/database transactions; only outbound synthesis, download and storage are replaced.
+namespace app\common\service\update {
+    final class UpdateSourceClient {
+        public static function getSource():array{return ['base_url'=>'https://fixture.invalid','api_key'=>'fixture-only'];}
+        public static function sslVerify(array $source):bool{return true;}
+    }
+}
 namespace app\common\service\app\aigc_llm\agent {
     final class SpeechFixture {public static int $calls=0;public static int $queries=0;public static string $mode='success';public static string $queryMode='success';public static bool $storageFail=false;}
     function curl_init($url){$ch=new \stdClass();$ch->url=$url;return $ch;}
@@ -30,6 +36,7 @@ namespace app\common\service\app\aigc_music {
 }
 namespace {
     require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
+    require dirname(__DIR__).'/Support/HomeAgentFixture.php';
     set_exception_handler(static function(\Throwable $e){fwrite(STDERR,$e->getMessage()."\n".$e->getTraceAsString()."\n");exit(1);});
     use think\facade\Db;
     use app\common\service\app\aigc_llm\agent\{AgentStore as S,AgentExecutionService as E,AgentSpeechTool as T,SpeechFixture as F,AgentArtifactService};
@@ -41,7 +48,7 @@ namespace {
     check(S::table('run')->whereIn('status',['queued','running','waiting_tasks'])->count()===0,'Active Agent jobs present');
     request()->tenantId=1;request()->userId=1;request()->userInfo=['tenant_id'=>1,'user_id'=>1];
     $models=T::models(1);check(count($models['models'])>0,'A priced default speech SKU is required');
-    $prefs=S::preferences(1,1);$prefs['models']['voice']=$models['defaults']['model'];$prefs['mode']='ask';
+    $prefs=HomeAgentFixture::preferences();$prefs['models']['voice']=$models['defaults']['model'];$prefs['mode']='ask';
     function prepared(array $prefs):array {
         $view=E::submit(1,1,['session_id'=>0,'content'=>'测试配音','request_id'=>'speech-test-'.bin2hex(random_bytes(12)),'preferences'=>$prefs]);
         // Keep the original explicitly selected-service fixtures as legacy compatibility coverage.

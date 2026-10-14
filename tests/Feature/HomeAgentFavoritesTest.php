@@ -1,7 +1,7 @@
 <?php
 // Local, rollback-only fixtures. No provider calls or physical files are created.
 require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
-set_exception_handler(static function(Throwable $e){fwrite(STDERR,$e->getMessage().PHP_EOL);exit(1);});
+set_exception_handler(static function(Throwable $e){fwrite(STDERR,$e->getMessage().PHP_EOL.$e->getTraceAsString().PHP_EOL);exit(1);});
 use think\facade\Db;
 use app\common\service\WorkspaceAssetService as Library;
 use app\common\service\app\aigc_llm\agent\{AgentArtifactService as Artifacts,AgentStore as S};
@@ -40,8 +40,10 @@ Db::startTrans();try{
   check(!str_contains(S::encode($meta),'secret-fixture')&&!str_contains(S::encode($meta),'private-fixture'),'Private task metadata exposed');
   Db::name($app.'_task')->where('id',$task)->update(['user_id'=>$user+1]);check($get()['generation']===null,'Task metadata crossed user boundary');
   Db::name($app.'_task')->where('id',$task)->update(['user_id'=>$user,'tenant_id'=>$tenant+1]);check($get()['generation']===null,'Task metadata crossed tenant boundary');
-  Db::name($app.'_task')->where('id',$task)->update(['tenant_id'=>$tenant,'delete_time'=>time()]);check($get()['generation']===null,'Deleted task metadata returned');
+  Db::name($app.'_task')->where('id',$task)->update(['tenant_id'=>$tenant,'delete_time'=>time()]);
+  check(!in_array((int)$artifact,array_map('intval',array_column(Artifacts::lists($tenant,$user,$session),'id')),true),'Deleted task artifact remained visible');
   Db::name($app.'_task')->where('id',$task)->update(['delete_time'=>0]);
+  check($get()['generation']['prompt']===$submitted['prompt'],'Restored task metadata was not recovered');
   S::table('step')->where('id',$step)->update(['run_id'=>$run+1]);check($get()['generation']===null,'Task metadata crossed run boundary');
   S::table('step')->where('id',$step)->update(['run_id'=>$run]);
 

@@ -8,7 +8,7 @@ use InvalidArgumentException;
 use think\facade\Db;
 use app\common\model\tenant\Tenant;
 
-/** Fixed seven-card configuration for the Imagine home only. No DIY or navigation mutations. */
+/** Fixed seven-card configuration for the Inspiration home only. No DIY or navigation mutations. */
 final class PcHomeShortcutsService
 {
     private const TYPE = 'pc_home_shortcuts';

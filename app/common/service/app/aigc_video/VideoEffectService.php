@@ -42,7 +42,7 @@ class VideoEffectService
             $result[$row['id']]=array_intersect_key($row,array_flip(['id','name','description','instruction','poster','video','categories']))+['enabled'=>$enabled,'product_ids'=>array_values(array_unique($ids)),'methods'=>array_values(array_unique($methods)),'require_image'=>$requireImage];
             if (!empty($row['template'])) $result[$row['id']]['template']=self::normalizeTemplate($row['template'],$result[$row['id']]);
         }
-        return array_values($result);
+        return VideoEffectMediaService::brandlessPreviews(array_values($result), self::defaults(), [], []);
     }
 
     private static function normalizeTemplate($template, array $effect): array

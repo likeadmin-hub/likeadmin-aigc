@@ -1,7 +1,7 @@
 <?php
 /** Platform default preview migration. No tenant edits, generation, or release publishing.
  * php scripts/migrate-default-video-effect-media.php --media-dir=/path/to/media --apply
- * Or --download --apply to fetch the reviewed catalog sources with bounded downloads.
+ * Supply owned, brand-free local preview files; remote reference downloads are retired.
  * Omitting --apply validates local files only. Resume with the same command after failure.
  */
 require dirname(__DIR__).'/vendor/autoload.php';
@@ -32,24 +32,8 @@ foreach ($rows as $row) {
     foreach (['poster'=>'webp', 'video'=>'mp4'] as $field=>$ext) {
         $path = rtrim($dir, '/').'/'.$row['id'].'.'.$ext;
         $limit = ($field === 'poster' ? 10 : 40) * 1024 * 1024;
-        if (!is_file($path) && $download) {
-            $source = $row[$field];
-            if (!str_starts_with($source, 'https://imagine.animagic.art/remote-config/assets/video_effects/')) throw new RuntimeException('Unapproved source URL');
-            $temp = $path.'.part';
-            $handle = fopen($temp, 'wb');
-            $bytes = 0;
-            $curl = curl_init($source);
-            curl_setopt_array($curl, [CURLOPT_CONNECTTIMEOUT=>10, CURLOPT_TIMEOUT=>120,
-                CURLOPT_FOLLOWLOCATION=>false, CURLOPT_FAILONERROR=>true, CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,
-                CURLOPT_WRITEFUNCTION=>static function($curl, $chunk) use ($handle, $limit, &$bytes) {
-                    $bytes += strlen($chunk);
-                    return $bytes > $limit ? 0 : fwrite($handle, $chunk);
-                }]);
-            $ok = curl_exec($curl); $status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-            curl_close($curl); fclose($handle);
-            if (!$ok || $status !== 200) { @unlink($temp); throw new RuntimeException('Download failed: '.$row['id'].'/'.$field); }
-            rename($temp, $path);
-        }
+        if ($download) throw new RuntimeException('Remote reference downloads are retired; provide owned local previews via --media-dir');
+        if (!is_file($path)) continue;
         if (!is_file($path) || filesize($path) < 100 || filesize($path) > $limit) throw new RuntimeException('Missing or oversized media: '.$row['id'].'/'.$field);
         $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
         if ($mime !== ($ext === 'mp4' ? 'video/mp4' : 'image/webp')) throw new RuntimeException('Invalid media MIME: '.$row['id'].'/'.$field);

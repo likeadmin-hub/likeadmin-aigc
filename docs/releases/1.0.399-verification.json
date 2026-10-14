@@ -1,0 +1,114 @@
+{
+  "version": "1.0.399",
+  "builds": {
+    "pc": "passed",
+    "tenant": "passed",
+    "platform": "passed",
+    "h5": "passed",
+    "mp-weixin": "passed"
+  },
+  "php_changed_files_linted": 93,
+  "home_agent_and_related_groups_passed": 34,
+  "pc_focused_tests_passed": 140,
+  "staging_tests_passed": 10,
+  "fresh_installer_and_repeated_repair": "passed",
+  "installation_seed_generators": "both --check passed",
+  "zip_signed_files": 3754,
+  "zip_entries": 4257,
+  "tar_file_and_signature_parity": "passed",
+  "chain": [
+    "1.0.398",
+    "1.0.399"
+  ],
+  "invalid_predecessor_rejected": true,
+  "media_test_runtime": "isolated PHP8.2 with Debian FFmpeg/Poppler; bt media components absent",
+  "source_commit_at_build": "9d6cb951b9582956d39062c66875ff36624ad4ff",
+  "post_build_commits": "test fixtures and ignored historic runtime artifacts only; source coverage audit confirms all archived files equal final source",
+  "package": {
+    "package_id": "system_1.0.399",
+    "type": "system",
+    "app_code": "",
+    "version": "1.0.399",
+    "format": "zip",
+    "fallback_format": "tar.gz",
+    "filename": "system_1.0.399.zip",
+    "fallback_filename": "system_1.0.399.tar.gz",
+    "sha256": "37d2985581f9e7424f2d38d30b029ac60adf32cff4774472209c1dea11cd8d11",
+    "fallback_sha256": "b99e964db5d61580a0f5678279f1b89ddda4e5f674ed600e9bb0a16f61932ef6",
+    "size": 112155360,
+    "fallback_size": 110382071
+  },
+  "online": {
+    "passed": true,
+    "record_id": 373,
+    "version": "1.0.399",
+    "status": 1,
+    "beta_enabled": 1,
+    "http_status": 200,
+    "download_host": "platform-xhadmin-cn.oss-cn-beijing.aliyuncs.com",
+    "download_bytes": 112155360,
+    "sha256": "37d2985581f9e7424f2d38d30b029ac60adf32cff4774472209c1dea11cd8d11",
+    "base_version": "1.0.398",
+    "target_version": "1.0.399",
+    "verification_access": "owner signed private OSS read; no customer license bypass or beta switch change",
+    "private_acl_verified": true
+  },
+  "source_coverage": {
+    "passed": true,
+    "source_commit": "a4e90988f40d334ac3e20fc1d11b632841928916",
+    "covered_paths": 2254,
+    "source_only_or_protected_paths": 1476,
+    "changed_paths": 3730,
+    "full_replace_dirs": [
+      "public/_nuxt",
+      "public/admin",
+      "public/media",
+      "public/mobile",
+      "public/mp-weixin",
+      "public/pc",
+      "public/platform"
+    ],
+    "sql_order": [
+      "sql/structure/20261013_home_agent_context.sql",
+      "sql/structure/20261013_home_agent_skill_menu.sql",
+      "sql/structure/20261013_home_creation_agent.sql",
+      "sql/structure/20261014_home_agent_registry.sql",
+      "sql/structure/20261014_open_platform_install_bootstrap.sql",
+      "sql/structure/zz_20261013_home_context.sql",
+      "sql/structure/zz_20261013_home_creation_agent.sql",
+      "sql/structure/zz_20261013_skill_menu.sql"
+    ],
+    "protected_version_markers_absent": true,
+    "all_package_files_equal_verified_source": true
+  },
+  "agent_tests": {
+    "source_commit": "70078f0d4",
+    "local_runtime": "bt PHP82, database z_cn on127.0.0.1",
+    "groups_completed": 34,
+    "passed": 34,
+    "failed": 0,
+    "pending": [],
+    "test_changes": "Test-local catalogue selections, absent video configuration fixture, fresh stream fixture, explicit fake TTS source, deleted artifact hiding/restoration assertion",
+    "safety": "All wallets,preferences,providers,model configs,SKUs,prices and six Agent tables match canonical baseline.358/363 tables unchanged;5 background cron/compensation tables changed while waiting for media packages.21 events reference preexisting consumption IDs91,104,105,528,529,530,615; no Agent speech/STT reservation or active Agent runs remains. No paid provider, daemon or worker command started by tests.",
+    "initial_bt_media_blocker": "/usr/bin/pdfinfo,pdftotext,pdftoppm,ffmpeg,ffprobe absent",
+    "test_commit": "73330efe4163fe74b58cfda098ed95bfa1f6e2c4",
+    "home_agent_groups": "30/30 pass",
+    "related_regression_groups": "4/4 pass",
+    "media_runtime": "likeadmin-release-399-media PHP8.2 official FFmpeg/Poppler, /repo, same local z_cn DB via network container:bt",
+    "background_changed_tables": [
+      "la_ai_consumption_event",
+      "la_ai_consumption_log",
+      "la_ai_task_job",
+      "la_aigc_short_drama_generation_task",
+      "la_dev_crontab"
+    ]
+  },
+  "mini_program": {
+    "passed": true,
+    "version": "1.0.399",
+    "file_count": 1195,
+    "source_sha": "c6515f192a8efffa817018fe0d4af4f74819399c",
+    "uploaded_to_wechat": false
+  },
+  "runtime_boundary": "Published package and source; customer sites and production workers were not upgraded/restarted by this release task."
+}

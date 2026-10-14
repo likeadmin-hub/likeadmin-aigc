@@ -1,1 +1,0 @@
-"use strict";const t=require("../utils/request/index.js");exports.getPayResult=function(e){return t.request.get({url:"/pay/payStatus",data:e},{isAuth:!0})},exports.getPayWay=function(e){return t.request.get({url:"/pay/payWay",data:e},{isAuth:!0})},exports.prepay=function(e){return t.request.post({url:"/pay/prepay",data:e},{isAuth:!0})};
