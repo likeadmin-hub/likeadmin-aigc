@@ -44,6 +44,11 @@ class AgentController extends BaseApiController
         exit;
     }
     public function confirm(){return $this->handle(fn($t,$u)=>AgentExecutionService::confirm($t,$u,(int)$this->request->post('run_id',0),(string)$this->request->post('approval_hash','')));}
+    public function planEditor(){return $this->handle(fn($t,$u)=>\app\common\service\app\aigc_llm\agent\AgentPlanService::editor($t,$u,(int)$this->request->get('run_id',0),(int)$this->request->get('step_id',0)));}
+    public function editPlan(){return $this->handle(fn($t,$u)=>\app\common\service\app\aigc_llm\agent\AgentPlanService::edit($t,$u,(int)$this->request->post('run_id',0),(int)$this->request->post('step_id',0),(string)$this->request->post('approval_hash',''),(array)$this->request->post('changes',[]),(bool)$this->request->post('remove',false)));}
+    public function retryStep(){return $this->handle(fn($t,$u)=>\app\common\service\app\aigc_llm\agent\AgentPlanService::retry($t,$u,(int)$this->request->post('run_id',0),(int)$this->request->post('step_id',0),(string)$this->request->post('version','')));}
+    public function checkStep(){return $this->handle(fn($t,$u)=>\app\common\service\app\aigc_llm\agent\AgentPlanService::check($t,$u,(int)$this->request->post('run_id',0),(int)$this->request->post('step_id',0),(string)$this->request->post('version','')));}
+    public function resumeReading(){return $this->handle(fn($t,$u)=>\app\common\service\app\aigc_llm\agent\AgentLongReadService::resume($t,$u,(int)$this->request->post('run_id',0)));}
     public function stop(){return $this->handle(fn($t,$u)=>AgentExecutionService::stop($t,$u,(int)$this->request->post('run_id',0)));}
     public function runs(){return $this->handle(function($t,$u){
         $ids=AgentStore::owner('run',$t,$u)->where('session_id',(int)$this->request->get('session_id',0))->order('id','desc')->limit(30)->column('id');

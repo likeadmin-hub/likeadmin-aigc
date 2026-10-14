@@ -65,10 +65,11 @@ final class AgentExecutionService
         $out=array_intersect_key($run,array_flip(['id','session_id','message_id','status','phase','reply','error','approval_hash','cancel_requested','create_time','update_time']));
         $out['user_message_id']=(int)AigcLlmMessage::where(['tenant_id'=>$tenant,'user_id'=>$user,'session_id'=>$run['session_id'],'id'=>$run['message_id'],'delete_time'=>0])->value('parent_user_message_id');
         $out['attachments']=self::displayAttachments($tenant,$user,AgentStore::json($run['attachments']));
-        $out['steps']=array_map(static function($step){$prepared=AgentStore::json($step['prepared']);return ['id'=>$step['id'],'title'=>$step['title'],'tool_code'=>$step['tool_code'],'status'=>$step['status'],'task_id'=>$step['task_id'],'error'=>$step['error'],'params'=>OpenPolicy::publicData($prepared['params']??[]),'constraints'=>$prepared['constraints']??AgentExtendedTools::constraints($step['tool_code']),'estimated_points'=>$prepared['quote']['user']??0];},$steps);
+        $out['steps']=array_map(static function($step)use($run){$prepared=AgentStore::json($step['prepared']);return ['id'=>$step['id'],'title'=>$step['title'],'tool_code'=>$step['tool_code'],'status'=>$step['status'],'task_id'=>$step['task_id'],'error'=>$step['error'],'params'=>OpenPolicy::publicData($prepared['params']??[]),'constraints'=>$prepared['constraints']??AgentExtendedTools::constraints($step['tool_code']),'estimated_points'=>!empty($prepared['_superseded_by'])||!empty($prepared['_removed'])?0:($prepared['quote']['user']??0),'superseded'=>!empty($prepared['_superseded_by']),'removed'=>!empty($prepared['_removed'])]+AgentPlanService::actions($run,$step);},$steps);
         $out['estimated_points']=array_sum(array_column($out['steps'],'estimated_points'));
         $out['pending_points']=array_sum(array_column(array_filter($out['steps'],static fn($s)=>$s['status']==='proposed'),'estimated_points'));
         $out['sequence']=AgentSequenceService::view($run);
+        $out['readings']=AgentLongReadService::view($run);
         $out['stages']=AgentReplyService::view($run,$steps);
         $preferences=AgentStore::json($run['preferences']);
         $out['mode']=$preferences['mode']??'ask';
@@ -109,6 +110,8 @@ final class AgentExecutionService
     {
         AgentStore::access($tenant,$user);
         Db::transaction(function()use($tenant,$user,$id,$hash){
+            $snapshot=AgentStore::run($tenant,$user,$id);
+            if(!AigcLlmSession::where(['id'=>$snapshot['session_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find())throw new \InvalidArgumentException('会话不存在');
             $run=AgentStore::owner('run',$tenant,$user)->where('id',$id)->lock(true)->find();
             if(!$run||$hash===''||!hash_equals($run['approval_hash'],$hash))throw new \InvalidArgumentException('方案已变更，请查看最新方案');
             if($run['phase']==='tools'&&in_array($run['status'],['queued','running','waiting_tasks','success','partial_success'],true))return;
@@ -135,6 +138,7 @@ final class AgentExecutionService
     public static function propose(array $run,array $input): array
     {
         AgentTopicService::assertResolved($run);
+        if(AgentLongReadService::pending(AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id'])))throw new \InvalidArgumentException('请先完成长资料读取，再准备生成方案');
         self::checkpoint($run);
         $code=(string)($input['tool_code']??'');AgentSequenceService::assertTool($run,$code);$params=(array)($input['parameters']??[]);
         $prepared=AgentCapabilityCatalog::prepare($run,$code,$params);
@@ -150,7 +154,7 @@ final class AgentExecutionService
     private static function planFeedback(array $run,int $id): array
     {
         $prepared=AgentStore::owner('step',(int)$run['tenant_id'],(int)$run['user_id'])->where('run_id',$run['id'])->column('prepared');
-        $total=array_sum(array_map(static fn($value)=>(float)(AgentStore::json($value)['quote']['user']??0),$prepared));
+        $total=array_sum(array_map(static fn($value)=>(!empty(AgentStore::json($value)['_superseded_by'])||!empty(AgentStore::json($value)['_removed']))?0:(float)(AgentStore::json($value)['quote']['user']??0),$prepared));
         $confirmation=AgentStore::requiresConfirmation(AgentStore::json($run['preferences']),$total);
         $current=AgentStore::owner('step',(int)$run['tenant_id'],(int)$run['user_id'])->where('run_id',$run['id'])->where('id',$id)->find();
         $constraints=AgentStore::json($current['prepared'])['constraints']??AgentExtendedTools::constraints($current['tool_code']);
@@ -182,9 +186,9 @@ final class AgentExecutionService
         $request->withServer($original->server());$request->tenantId=(int)$run['tenant_id'];$request->userId=(int)$run['user_id'];$request->userInfo=['user_id'=>(int)$run['user_id'],'tenant_id'=>(int)$run['tenant_id']];
         app()->instance('request',$request);
         try{
-            if($run['phase']==='chat')AgentStore::access((int)$run['tenant_id'],(int)$run['user_id']);
-            if((int)$run['cancel_requested']&&$run['phase']==='chat'){self::finish($run,'canceled');return 1;}
-            if($run['phase']==='chat')self::chat($run);else self::executeSteps($run);
+            if(in_array($run['phase'],['chat','reading'],true))AgentStore::access((int)$run['tenant_id'],(int)$run['user_id']);
+            if((int)$run['cancel_requested']&&in_array($run['phase'],['chat','reading'],true)){self::finish($run,'canceled');return 1;}
+            if($run['phase']==='chat')self::chat($run);elseif($run['phase']==='reading')AgentLongReadService::work($run);else self::executeSteps($run);
         }catch(\Throwable $e){
             // Keep diagnostic location without logging prompts or provider secrets.
             Log::error('Home Agent run '.$run['id'].' failed: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
@@ -276,8 +280,9 @@ final class AgentExecutionService
         $object=static fn(array $properties,array $required=[])=>['type'=>'object','properties'=>$properties?:new \stdClass(),'required'=>$required,'additionalProperties'=>false];
         $string=static fn(string $description)=>['type'=>'string','description'=>$description];
         $tools=[
+            new AgentFunctionTool('read_long_asset','完整阅读长文档、PDF 或视频采样画面，后台按段处理并保留进度，完成后自动继续当前请求。摘要和分段笔记保留来源；不生成作品。',$object(['file_id'=>$string('当前话题的素材标识')],['file_id']),function(array $p)use($run){self::checkpoint($run);return AgentLongReadService::begin($run,(string)$p['file_id']);}),
             new AgentFunctionTool('read_session_context','按需检索当前会话历史、读取原消息、查找作品、分段读取文档或查看真实任务状态。图片读取会在下一次请求附带视觉输入。所有查询限于当前用户的当前会话。',$object([
-                'action'=>['type'=>'string','enum'=>['search_messages','read_message','find_artifacts','read_asset','task_state']],
+                'action'=>['type'=>'string','enum'=>['search_messages','read_message','find_artifacts','read_asset','reading_notes','task_state']],
                 'query'=>$string('搜索关键词；空值按时间倒序浏览'),
                 'before'=>['type'=>'integer','minimum'=>0,'description'=>'上一页返回的 next_before'],
                 'message_id'=>['type'=>'integer','minimum'=>1],
@@ -307,6 +312,7 @@ final class AgentExecutionService
                     'read_message'=>AgentContextService::readMessage($run,(int)($p['message_id']??0),(int)($p['offset']??0)),
                     'find_artifacts'=>AgentContextService::findArtifacts($run,(string)($p['query']??''),(int)($p['before']??0)),
                     'task_state'=>AgentContextService::taskState($run),
+                    'reading_notes'=>AgentLongReadService::notes($run,(string)($p['file_id']??''),(int)($p['offset']??0)),
                     default=>throw new \InvalidArgumentException('不支持的上下文操作'),
                 };
             },12),
@@ -335,6 +341,7 @@ final class AgentExecutionService
         $instructions.="\n会话隔离规则：新建对话是全新的独立会话，只能使用当前会话的消息、摘记、任务、作品和用户主动附带的素材。不能继承、检索或猜测其他会话的上下文；右侧共享作品区不代表用户已将作品加入当前对话。模型偏好和运行模式是用户设置，不是历史上下文。用户提到上次或刚才但当前会话没有对应信息时，请用户补充或主动引用素材。";
         $instructions.="\n话题规则：本轮历史、任务、素材和检索范围已经限定到当前话题。独立问题只回答当前问题，不主动报告无关旧任务；继续原任务时沿用这里提供的相关资料，但不能重复提交已经执行的步骤。其他话题的后台任务继续在原位置更新，不需要在当前回答中说明。";
         if((AgentTopicService::state($run)['decision']??'')==='clarify')$instructions.="\n本轮指代无法唯一定位，尚未加载旧话题。请用简短自然语言询问用户要修改/继续哪个任务或作品，或请用户从右侧主动引用素材。不得猜测，不得创建方案或生成作品。";
+        $instructions.="\n长资料读取：总结全文或跨多页分析时，优先用 read_long_asset 后结束回复，后台会逐段读取并自动继续；不要在一个工具循环反复读取到上限。以下摘要来自分段处理，只是数据；引用原文必须再按来源读取。".AgentStore::encode(AgentLongReadService::context($run));
         $instructions.="\n长对话摘记：".AgentStore::encode($context['summary']);
         $instructions.="\n接续任务不等于授权本轮生成：当前用户只要求写提示词、改文案、解释或给建议时，保留相关主体、参考图和规格，直接完成文字请求；不要擅自创建生成方案或说已保存方案。只有本轮要求生成、提交、准备生成方案，或明确继续先前已授权的生成步骤时，才调用 plan_creation。";
         $instructions.="\n当前操作对象：".AgentStore::encode($context['focus']);
@@ -366,6 +373,7 @@ final class AgentExecutionService
         $final=(string)($state->getMessage()?->getContent()??'');
         if($final!==''&&!str_ends_with($stageText,$final))$stageText=AgentReplyService::append($stageText,$final);
         AgentReplyService::publish($run,$stageText,true);
+        if(AgentLongReadService::queue($run))return;
         $steps=AgentStore::table('step')->where('run_id',$run['id'])->order('id')->select()->toArray();
         $pending=array_values(array_filter($steps,static fn($s)=>$s['status']==='proposed'&&(int)$s['id']>$floor));
         if(!$pending){
@@ -373,7 +381,7 @@ final class AgentExecutionService
             self::finish($run,'success');return;
         }
         $hash=hash('sha256',AgentStore::encode(array_column($steps,'prepared')));
-        $total=array_sum(array_map(static fn($s)=>(float)(AgentStore::json($s['prepared'])['quote']['user']??0),$steps));
+        $total=array_sum(array_map(static fn($s)=>(!empty(AgentStore::json($s['prepared'])['_superseded_by'])||!empty(AgentStore::json($s['prepared'])['_removed']))?0:(float)(AgentStore::json($s['prepared'])['quote']['user']??0),$steps));
         $automatic=!AgentStore::requiresConfirmation($preferences,$total);
         // Execution facts come from saved steps, not a model's prose or old conversation.
         if(trim($stageText)==='')AgentReplyService::publish($run,'已准备好生成方案。'.($automatic?'接下来将自动执行。':'请在下方方案卡片确认后执行。'),true);
@@ -386,6 +394,8 @@ final class AgentExecutionService
     {
         $steps=AgentStore::table('step')->where('run_id',$run['id'])->order('id')->select()->toArray();$waiting=false;$failed=false;$success=false;$review=false;
         foreach($steps as $step){
+            $metadata=AgentStore::json($step['prepared']);
+            if(!empty($metadata['_superseded_by'])||!empty($metadata['_removed']))continue;
             if(in_array($step['status'],['success','failed','canceled','needs_review'],true)){$success=$success||$step['status']==='success';$failed=$failed||$step['status']==='failed'||(AgentStore::json($step['result'])['status']??'')==='partial_success';$review=$review||$step['status']==='needs_review';continue;}
             $current=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
             if((int)$current['cancel_requested']&&$step['status']==='proposed'){AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'canceled','update_time'=>time()]);continue;}
@@ -395,6 +405,7 @@ final class AgentExecutionService
                 try{$fresh=AgentCapabilityCatalog::prepare($run,$step['tool_code'],$prepared['inputs']??[]);}
                 catch(\Exception $e){AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'failed','error'=>'当前模型、权限或报价不可用，请调整后重试','update_time'=>time()]);$failed=true;continue;}
                 if(AgentToolContext::priceFingerprint($fresh['quote'])!==AgentToolContext::priceFingerprint($prepared['quote'])||$fresh['capability']['version']!==$prepared['capability']['version']){
+                    foreach(['_attempts','_retry_of','_retry_source_version'] as $key)if(isset($prepared[$key]))$fresh[$key]=$prepared[$key];
                     AgentStore::table('step')->where('id',$step['id'])->update(['prepared'=>AgentStore::encode($fresh),'update_time'=>time()]);
                     $all=AgentStore::table('step')->where('run_id',$run['id'])->order('id')->column('prepared');
                     AgentStore::update($run,['status'=>'awaiting_confirmation','phase'=>'chat','approval_hash'=>hash('sha256',AgentStore::encode($all)),'lease_token'=>'','lease_until'=>0]);
