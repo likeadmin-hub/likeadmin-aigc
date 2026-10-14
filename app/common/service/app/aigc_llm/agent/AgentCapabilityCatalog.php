@@ -47,7 +47,7 @@ final class AgentCapabilityCatalog
             $out[$code]=['code'=>$code,'name'=>self::NAMES[$code],'description'=>match($code){'aigc_image'=>'文字或参考图生成图片','aigc_video'=>'文字或参考图生成视频','aigc_music'=>'生成歌曲或纯音乐，不是朗读配音 TTS','aigc_fitting'=>'用户上传服装图和模特图生成试衣图片'},'schema'=>self::schema($code),'version'=>'home-1','model_options'=>self::creationConfig($tenant,$code)['option_config']??[]];
         }
         try{AgentTranscriptionTool::quote($tenant);$out[AgentTranscriptionTool::CODE]=['code'=>AgentTranscriptionTool::CODE,'name'=>'语音转文字','description'=>'识别音频或视频音轨中的语音，转写完成后继续总结或回答；按次收费，需要先保存方案','schema'=>AgentTranscriptionTool::schema(),'version'=>'home-stt-1'];}catch(\InvalidArgumentException){}
-        if(AgentSpeechTool::models($tenant)['models'])$out[AgentSpeechTool::CODE]=['code'=>AgentSpeechTool::CODE,'name'=>'文字配音','description'=>'把500字符内的正文朗读为MP3，使用用户所选配音服务的默认模型和音色，不是音乐或音色克隆','schema'=>AgentSpeechTool::schema(),'version'=>'home-speech-1'];
+        if(AgentSpeechTool::models($tenant)['models'])$out[AgentSpeechTool::CODE]=['code'=>AgentSpeechTool::CODE,'name'=>'文字配音','description'=>'把正文朗读为MP3；同步服务最多500字符、异步服务最多10000字符，以用户所选配音服务为准。使用默认模型和音色，不是音乐或音色克隆','schema'=>AgentSpeechTool::schema(),'version'=>'home-speech-2'];
         return $out;
     }
     public static function models(int $tenant): array

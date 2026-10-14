@@ -47,6 +47,7 @@ final class AgentWorkerHealth
         $runs=AgentStore::table('run');
         $oldest=(int)(clone $runs)->whereIn('status',['queued','waiting_tasks'])->where('next_run_time','<=',$now)->min('create_time');
         $review=\think\facade\Db::name('ai_consumption_log')->where(['app_code'=>'aigc_llm','action_code'=>'agent_transcribe','billing_status'=>'reserved','run_status'=>'needs_review']);
+        $speech=\think\facade\Db::name('ai_consumption_log')->where(['app_code'=>'aigc_llm','action_code'=>'agent_speech','billing_status'=>'reserved','run_status'=>'needs_review']);
         $media=['proc_open'=>function_exists('proc_open')];
         foreach(['pdfinfo','pdftotext','pdftoppm','ffmpeg','ffprobe'] as $bin)$media[$bin]=is_executable('/usr/bin/'.$bin);
         $journal=runtime_path().'home-agent-stt-receipts';
@@ -58,6 +59,7 @@ final class AgentWorkerHealth
                 'expired_leases'=>(clone $runs)->where('status','running')->where('lease_until','<',$now)->count(),
                 'oldest_ready_age_seconds'=>$oldest?$now-$oldest:0,
                 'review_runs'=>(clone $runs)->where('status','needs_review')->count()],
-            'stt_review'=>['count'=>(clone $review)->count(),'reserved_points'=>(float)(clone $review)->sum('reserved_user_price')]];
+            'stt_review'=>['count'=>(clone $review)->count(),'reserved_points'=>(float)(clone $review)->sum('reserved_user_price')],
+            'speech_review'=>['count'=>(clone $speech)->count(),'reserved_points'=>(float)(clone $speech)->sum('reserved_user_price')]];
     }
 }
