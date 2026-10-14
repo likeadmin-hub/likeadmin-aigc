@@ -396,7 +396,32 @@ class AppDisplayConfigService
             $params,
             self::recommendationValue((array)($params['extra'] ?? []), $currentRecommendation)
         );
+        foreach (['skill_preview_images'=>5,'skill_preview_videos'=>3] as $field=>$limit) {
+            $value=$params[$field]??$params['extra'][$field]??$current['extra'][$field]??[];
+            $extra[$field]=self::normalizeSkillMedia($value,$limit);
+        }
         return $extra;
+    }
+
+    public static function normalizeSkillMedia(mixed $items,int $limit): array
+    {
+        if(!is_array($items)||count($items)>$limit)throw new \InvalidArgumentException('技能展示素材数量不正确');
+        $out=[];
+        foreach($items as $item){
+            if(!is_string($item)||strlen($item)>2048)throw new \InvalidArgumentException('技能展示素材地址不正确');
+            $item=trim($item);
+            if($item==='')continue;
+            if(preg_match('~[\\x00-\\x20]~',$item)||str_starts_with($item,'//')||str_contains($item,'\\')||preg_match('~(^|/)\\.\\.(/|$)~',$item)||preg_match('~^[a-z][a-z0-9+.-]*:~i',$item)&&!preg_match('~^https?://[^/]+~i',$item))throw new \InvalidArgumentException('请通过素材库选择有效的图片或视频');
+            $out[]=FileService::setFileUrl($item);
+        }
+        return array_values(array_unique($out));
+    }
+
+    /** Whitelisted public presentation only; never expose arbitrary display extras. */
+    public static function skillPreview(int $tenantId,string $appCode): array
+    {
+        $display=self::detail($tenantId,$appCode);
+        return array_intersect_key($display,array_flip(['title','description','status','cover_url','skill_preview_image_urls','skill_preview_video_urls']));
     }
 
     private static function recommendationValue(array $data, int $default = 0): int
@@ -412,6 +437,11 @@ class AppDisplayConfigService
     private static function withUrls(array $data): array
     {
         $data['cover_url'] = !empty($data['cover_uri']) ? FileService::getFileUrl((string)$data['cover_uri']) : '';
+        foreach (['skill_preview_images'=>'skill_preview_image_urls','skill_preview_videos'=>'skill_preview_video_urls'] as $field=>$urls) {
+            try{$items=self::normalizeSkillMedia($data['extra'][$field]??[],str_ends_with($field,'images')?5:3);}catch(\InvalidArgumentException){$items=[];}
+            $data[$field]=$items;
+            $data[$urls]=array_map(static fn($uri)=>FileService::getFileUrl($uri),$items);
+        }
         $data['icon_url'] = !empty($data['icon_uri']) ? FileService::getFileUrl((string)$data['icon_uri']) : '';
         return $data;
     }

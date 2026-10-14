@@ -47,6 +47,13 @@ class AigcDigitalHumanService
             $data = self::defaultConfigData();
         }
 
+        // Use the same resolved tenant price as voice-clone settlement.
+        $clonePricing = AigcDigitalHumanPricingService::config($tenantId);
+        $data['pricing'] = is_array($data['config_json']['pricing'] ?? null) ? $data['config_json']['pricing'] : [];
+        $data['pricing']['voice_clone'] = [
+            'tenant_unit_price' => $clonePricing[AigcDigitalHumanPricingService::TYPE_VOICE_CLONE]['tenant_unit_price'],
+        ];
+
         try {
             $data['option_config'] = AigcDigitalHumanChannelService::userConfig($tenantId);
         } catch (Throwable $e) {

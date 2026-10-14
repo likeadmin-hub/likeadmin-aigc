@@ -10,9 +10,14 @@ final class OpenImagePricing
     private const MULTI_IMAGE=['aigc_fitting','aigc_product_multi_angle','aigc_fashion_lookbook'];
     public static function fittingBudget($request,array $params): array
     {
+        OpenToolAdapter::authorize((int)$request->tenantId,(int)$request->userId,'aigc_fitting');
+        return self::applicationFittingBudget((int)$request->tenantId,(int)$request->userId,$params);
+    }
+    public static function applicationFittingBudget(int $tenant,int $user,array $params): array
+    {
+        $denied=\app\common\service\app\AppAccessService::assertTenantCanUse($tenant,'aigc_fitting',$user,true,false);
+        if($denied)throw new OpenException('permission_denied','试衣工具不可用',403);
         $params=json_decode(OpenStore::encode($params),true,64,JSON_THROW_ON_ERROR);
-        $tenant=(int)$request->tenantId;$user=(int)$request->userId;
-        OpenToolAdapter::authorize($tenant,$user,'aigc_fitting');
         // Preset model images are validated by the native service. All other
         // input, including custom model images and aliases, needs ownership first.
         $config=\app\common\service\app\aigc_fitting\AigcFittingService::config($tenant);
@@ -66,6 +71,13 @@ final class OpenImagePricing
     {
         $tenant=(int)$request->tenantId;$user=(int)$request->userId;
         OpenToolAdapter::authorize($tenant,$user,'aigc_image');
+        return self::capture($tenant,$user,$params,'aigc_image');
+    }
+    /** Same native pricing for logged-in application users, independent of API-key publication. */
+    public static function applicationBudget(int $tenant,int $user,array $params): array
+    {
+        $denied=\app\common\service\app\AppAccessService::assertTenantCanUse($tenant,'aigc_image',$user,true,false);
+        if($tenant<1||$user<1||$denied)throw new OpenException('permission_denied','图片工具不可用',403);
         return self::capture($tenant,$user,$params,'aigc_image');
     }
     private static function capture(int $tenant,int $user,array $params,string $app): array
@@ -134,6 +146,7 @@ final class OpenImagePricing
     }
     public static function selection(int $tenant,int $user): ?array
     {
+        $agent=\app\common\service\app\aigc_llm\agent\AgentToolContext::image($tenant,$user);if($agent!==null)return $agent;
         $id=OpenCallContext::id();if($id==='')return null;
         $row=OpenStore::owner('request',$tenant,$user)->where(['request_id'=>$id,'kind'=>'tool','method'=>'POST'])->find();if(!$row||!in_array($row['app_code'],array_merge(['aigc_image'],self::COMPOSITES,self::MULTI_IMAGE),true))return null;
         return OpenToolPricing::forRequest($row['app_code'],$tenant,$user);

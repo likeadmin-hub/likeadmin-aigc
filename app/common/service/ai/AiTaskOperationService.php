@@ -190,6 +190,7 @@ class AiTaskOperationService
             'type' => $matches[1], 'tenant_id' => (int)($row['tenant_id'] ?? $task['tenant_id'] ?? 0),
             'app_task_id' => $appTaskId, 'consumption_id' => (int)($row['id'] ?? 0),
             'business_table' => (string)($task['business_table'] ?? ''), 'business_id' => (int)($task['business_id'] ?? 0),
+            'action_code' => (string)($row['action_code'] ?? $task['action_code'] ?? ''),
             'app_code' => (string)($row['app_code'] ?? $task['app_code'] ?? ''), 'status' => (string)($task['status'] ?? ''),
             'run_status' => (string)($row['run_status'] ?? ''), 'billing_status' => (string)($row['billing_status'] ?? ''),
             'upstream_task_id' => (string)($row['upstream_task_id'] ?? $row['upstream_request_id'] ?? ''),
@@ -198,6 +199,10 @@ class AiTaskOperationService
 
     private static function decision(array $target, string $action): array
     {
+        if (($target['app_code'] ?? '') === 'aigc_llm' && in_array($target['action_code'] ?? '', ['agent_transcribe','agent_speech'], true)) {
+            return in_array($action, [self::ACTION_QUERY,self::ACTION_RETRY_QUERY,self::ACTION_COMPLETE_BY_QUERY], true)
+                ? ['allowed'=>true,'reason'=>''] : ['allowed'=>false,'reason'=>'语音任务仅支持回执核对，不能强制失败、重复提交或删除待核对账务'];
+        }
         $run = (string)$target['run_status'];
         $billing = (string)$target['billing_status'];
         $upstream = (string)$target['upstream_task_id'];
@@ -221,6 +226,16 @@ class AiTaskOperationService
 
     private static function queueQuery(array $target, string $action): void
     {
+        if (($target['app_code'] ?? '') === 'aigc_llm' && ($target['action_code'] ?? '') === 'agent_speech') {
+            $result=\app\common\service\app\aigc_llm\agent\AgentSpeechTool::reconcile((int)$target['consumption_id'],(int)$target['tenant_id']);
+            if (!$result['resolved']) throw new \RuntimeException('配音回执不足或保存尚未完成，请核对上游记录；不会重新生成');
+            return;
+        }
+        if (($target['app_code'] ?? '') === 'aigc_llm' && ($target['action_code'] ?? '') === 'agent_transcribe') {
+            $result=\app\common\service\app\aigc_llm\agent\AgentTranscriptionRecovery::reconcile((int)$target['consumption_id'],(int)$target['tenant_id']);
+            if (!$result['resolved']) throw new \RuntimeException($result['reason']);
+            return;
+        }
         $ids = (int)$target['app_task_id'] > 0
             ? AiConsumptionLog::where('app_task_id', (int)$target['app_task_id'])->column('id')
             : [(int)$target['consumption_id']];

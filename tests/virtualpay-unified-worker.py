@@ -12,9 +12,12 @@ def until(fn,label):
 with tempfile.TemporaryDirectory(prefix='virtual-unified-') as tmp:
  site=Path(tmp)/'site';(site/'scripts').mkdir(parents=True);(site/'runtime').mkdir();(site/'think').touch()
  shutil.copy(ROOT/'scripts/start-ai-task-worker.sh',site/'scripts')
+ shutil.copy(ROOT/'scripts/home-agent-php.sh',site/'scripts')
  fake=Path(tmp)/'php';fake.write_text('''#!/usr/bin/env python3
 import os,sys,time,signal
 from pathlib import Path
+if sys.argv[1]=='-r':sys.exit(0)
+if sys.argv[1]=='-d':del sys.argv[1:3]
 r=Path(sys.argv[1]).parent/'runtime';cmd=sys.argv[2]
 with (r/'started').open('a') as f:f.write(f'{os.getpid()} {cmd}\\n')
 if cmd=='virtualpay:maintain':
@@ -33,11 +36,11 @@ while True:time.sleep(.05)
  env=dict(os.environ,PHP_BIN=str(fake),PATH=tmp+':'+os.environ['PATH'])
  p=subprocess.Popen(['/bin/dash' if '--dash' in sys.argv else '/bin/sh',str(site/'scripts/start-ai-task-worker.sh')],env=env,start_new_session=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  def entries():return (site/'runtime/started').read_text().splitlines() if (site/'runtime/started').exists() else []
- expected={'ai:task-worker','short-drama:episode-worker','short-drama:planning-worker','short-drama:canvas-agent-worker','canvas:subagent-worker','decoration:agent-worker','brand:worker'}
+ expected={'ai:task-worker','short-drama:episode-worker','short-drama:planning-worker','short-drama:canvas-agent-worker','canvas:subagent-worker','decoration:agent-worker','brand:worker','home-agent:worker'}
  try:
   until(lambda:(site/'runtime/active').exists(),'unified entry did not recover virtual maintenance after a failed iteration')
   rows=entries();ai=[r for r in rows if not r.endswith('virtualpay:maintain')]
-  assert {r.split()[1] for r in ai}==expected and len(ai)==7,'existing workers restarted or omitted'
+  assert {r.split()[1] for r in ai}==expected and len(ai)==8,'existing workers restarted or omitted'
   assert len([r for r in rows if r.endswith('virtualpay:maintain')])==2,'failed iteration did not retry once'
   time.sleep(.25);assert entries()==rows,'maintenance iterations overlapped'
   if '--group' in sys.argv:os.killpg(p.pid,signal.SIGTERM)
@@ -50,9 +53,9 @@ while True:time.sleep(.05)
   assert (site/'runtime/finished').exists(),'active maintenance was killed before completion'
   assert entries()==rows,('shutdown started another iteration', rows,entries())
   until(lambda:(site/'runtime/stopped').exists(),'workers did not stop')
-  assert len((site/'runtime/stopped').read_text().splitlines())==7,'existing shutdown contract changed'
+  assert len((site/'runtime/stopped').read_text().splitlines())==8,'existing shutdown contract changed'
  finally:
   (site/'runtime/finish').touch()
   if p.poll() is None:
    os.killpg(p.pid,signal.SIGTERM);p.communicate(timeout=8)
-print('PASS unified virtual maintenance startup/retry/non-overlap/graceful drain and seven existing workers unchanged')
+print('PASS unified virtual maintenance startup/retry/non-overlap/graceful drain and eight existing workers unchanged')

@@ -12,6 +12,16 @@ final class WorkspaceAssetTest extends TestCase
         self::assertSame('', $action);
         self::assertSame([['upload:result:5'], ['label'=>'review'], 'restore'], WorkspaceAssetService::normalize(['refs'=>['upload:result:5'],'label'=>'review','action'=>'restore']));
     }
+    public function testFavoriteFlagsSupportRequestEncodingWithoutLooseCoercion(): void
+    {
+        foreach ([0, 1, '0', '1', false, true] as $flag) {
+            self::assertSame(['favorite'=>(int)$flag], WorkspaceAssetService::normalize(['refs'=>['image:result:1'],'favorite'=>$flag])[1]);
+        }
+        foreach (['false', '', null, 2, '01', '1x', [], 0.5] as $flag) {
+            try { WorkspaceAssetService::normalizeFavorite($flag); self::fail('Invalid favorite accepted'); }
+            catch (InvalidArgumentException $e) { self::assertSame('收藏状态无效', $e->getMessage()); }
+        }
+    }
     public function testToolSourcesKeepTheirOwnReferences(): void
     {
         foreach (['pic_lipsync','product_image','style_transfer','product_promo_video','smart_clip','music','music_cover'] as $source) {
@@ -24,7 +34,7 @@ final class WorkspaceAssetTest extends TestCase
         foreach ([
             ['refs'=>[],'action'=>'trash'], ['refs'=>['image:result:0'],'action'=>'trash'],
             ['refs'=>['user:result:1'],'action'=>'trash'], ['refs'=>['upload:task:1'],'action'=>'trash'],
-            ['refs'=>['image:result:1'],'favorite'=>'1'], ['refs'=>['image:result:1'],'label'=>'admin'],
+            ['refs'=>['image:result:1'],'favorite'=>'true'], ['refs'=>['image:result:1'],'label'=>'admin'],
             ['refs'=>['image:result:1'],'action'=>'delete_file'], ['refs'=>['image:result:1'],'uri'=>'https://example.com'],
             ['refs'=>array_fill(0,101,'image:result:1'),'action'=>'trash'], ['refs'=>['image:result:1']],
         ] as $input) {

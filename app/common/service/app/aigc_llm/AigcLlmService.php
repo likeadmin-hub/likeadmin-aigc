@@ -42,6 +42,7 @@ class AigcLlmService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
+        $skills = \app\common\service\app\aigc_llm\agent\AgentSkillConfigService::apply($tenantId, $params);
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::config($tenantId);
         $configJson = array_merge((array)($current['config_json'] ?? []), self::normalizeJson($params['config_json'] ?? []));
@@ -49,6 +50,7 @@ class AigcLlmService
             'tenant_id' => $tenantId,
             'status' => (int)($params['status'] ?? $current['status'] ?? 1),
             'config_json' => [
+                'agent_skills' => $skills ?? (array)($current['config_json']['agent_skills'] ?? []),
                 'system_prompt' => trim((string)($configJson['system_prompt'] ?? '')),
                 'max_context_messages' => max(2, (int)($configJson['max_context_messages'] ?? 12)),
                 'auto_title_chars' => max(8, (int)($configJson['auto_title_chars'] ?? 18)),
@@ -141,11 +143,22 @@ class AigcLlmService
     public static function messageLists(int $tenantId, int $userId, int $sessionId): array
     {
         self::findUserSession($tenantId, $userId, $sessionId);
-        return AigcLlmMessage::where([
+        $rows = AigcLlmMessage::where([
             'tenant_id' => $tenantId,
             'session_id' => $sessionId,
             'delete_time' => 0,
         ])->order(['seq' => 'asc', 'id' => 'asc'])->select()->toArray();
+        // Message history is not limited to the latest 30 execution records.
+        $parents=[];
+        foreach($rows as $row)if($row['role']==='assistant' && (int)$row['parent_user_message_id']>0)$parents[$row['id']]=(int)$row['parent_user_message_id'];
+        $attachments=[];
+        if($parents){
+            $runs=\app\common\service\app\aigc_llm\agent\AgentStore::owner('run',$tenantId,$userId)->where('session_id',$sessionId)->whereIn('message_id',array_keys($parents))->field('message_id,attachments')->select()->toArray();
+            foreach($runs as $run)$attachments[$parents[$run['message_id']]]=\app\common\service\app\aigc_llm\agent\AgentExecutionService::displayAttachments($tenantId,$userId,\app\common\service\app\aigc_llm\agent\AgentStore::json($run['attachments']));
+        }
+        foreach($rows as &$row)if($row['role']==='user')$row['attachments']=$attachments[$row['id']]??[];
+        unset($row);
+        return $rows;
     }
 
     public static function adminSessionLists(int $tenantId, array $params = []): array

@@ -22,26 +22,33 @@ try {
     $read=Library::read($tenant,$user);
     check(count($read['supplemental'])===1 && $read['states'][0]['trashed_at']>0,'Trash can be read independently of recent source limits');
     check(count(Library::read($tenant,$user+1)['states'])===0,'Cross-user reads are isolated');
-    check((int)Db::name('aigc_image_result')->where('id',$result)->value('delete_time')===0,'Source result retained');
+    check((int)Db::name('aigc_image_result')->where('id',$result)->value('delete_time')>0,'Source result soft-deleted across tool pages');
     Library::update($tenant,$user,['refs'=>[$ref],'action'=>'restore']);
     check((int)Library::read($tenant,$user)['states'][0]['trashed_at']===0,'Restore works');
+    check((int)Db::name('aigc_image_result')->where('id',$result)->value('delete_time')===0,'Result restored');
+    check((int)Db::name('aigc_image_task')->where('id',$task)->value('delete_time')===0,'Task history restored');
     reject(fn()=>Library::update($tenant,$user,['refs'=>[$ref,'image:result:2147483647'],'action'=>'trash']));
     check((int)Library::read($tenant,$user)['states'][0]['trashed_at']===0,'Mixed-ownership batch rolls back entirely');
     Library::update($tenant,$user,['refs'=>[$ref],'action'=>'trash']);
     Library::update($tenant,$user,['refs'=>[$ref],'action'=>'remove']);
     reject(fn()=>Library::update($tenant,$user,['refs'=>[$ref],'action'=>'restore']));
     check(Library::read($tenant,$user)['supplemental']===[],'Removed asset remains a tombstone');
-    foreach (['pic_lipsync'=>'aigc_pic_lipsync','product_image'=>'aigc_product_image'] as $source=>$table) {
+    foreach (['pic_lipsync'=>'aigc_pic_lipsync','product_image'=>'aigc_product_image','video'=>'aigc_video','music'=>'aigc_music','style_transfer'=>'aigc_style_transfer'] as $source=>$table) {
         $taskId=Db::name($table.'_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','create_time'=>time()]);
-        $media=$source==='pic_lipsync'?'video_uri':'image_uri';
+        $media=in_array($source,['pic_lipsync','video'],true)?'video_uri':($source==='music'?'audio_uri':'image_uri');
         $resultId=Db::name($table.'_result')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$taskId,$media=>'uploads/tool-fixture.'.($source==='pic_lipsync'?'mp4':'png'),'create_time'=>time()]);
         $toolRef=$source.':result:'.$resultId;
         Library::update($tenant,$user,['refs'=>[$toolRef],'label'=>'review']);
         reject(fn()=>Library::update($tenant,$user+1,['refs'=>[$toolRef],'favorite'=>1]));
         $saved=array_values(array_filter(Library::read($tenant,$user)['supplemental'],fn($row)=>$row['ref']===$toolRef));
         check(count($saved)===1 && $saved[0]['source']===$source,'Tool labels preserve their source without requiring a favorite');
+        Library::update($tenant,$user,['refs'=>[$toolRef],'action'=>'trash']);
+        check((int)Db::name($table.'_result')->where('id',$resultId)->value('delete_time')>0,'Tool source result deleted');
+        Library::update($tenant,$user,['refs'=>[$toolRef],'action'=>'restore']);
+        check((int)Db::name($table.'_result')->where('id',$resultId)->value('delete_time')===0,'Tool source result restored');
     }
     $secondTask=Db::name('aigc_image_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','prompt'=>'Pagination fixture','create_time'=>time()]);
+    Db::name('aigc_image_task')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','prompt'=>'Other live pagination fixture','create_time'=>time()]);
     $firstPage=\app\common\service\app\aigc_image\AigcImageService::taskLists($tenant,$user,['page_no'=>1,'page_size'=>1,'status'=>'success']);
     $secondPage=\app\common\service\app\aigc_image\AigcImageService::taskLists($tenant,$user,['page_no'=>2,'page_size'=>1,'status'=>'success']);
     check((int)$firstPage['count']===2 && count($firstPage['lists'])===1 && count($secondPage['lists'])===1,'Image task pagination preserves older tasks');
@@ -50,6 +57,10 @@ try {
     $drama=\app\common\service\app\aigc_short_drama\AigcShortDramaService::assetLists($tenant,$user,['page_no'=>2,'page_size'=>1]);
     check((int)$drama['count']===2 && count($drama['lists'])===1,'Short-drama and canvas results paginate without exclusion');
     $localFile=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>10,'name'=>'local.png','uri'=>'uploads/images/20261012/local.png','upload_origin'=>'local','create_time'=>time()]);
+    Library::update($tenant,$user,['refs'=>['upload:result:'.$localFile],'action'=>'trash']);
+    check(Library::uploads($tenant,$user,1)['lists']===[],'Local upload removed from shared selectors');
+    Library::update($tenant,$user,['refs'=>['upload:result:'.$localFile],'action'=>'restore']);
+    check(count(Library::uploads($tenant,$user,1)['lists'])===1,'Local upload restored to selectors');
     $generatedFile=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>10,'name'=>'generated.png','uri'=>'uploads/aigc_image/20261012/generated.png','create_time'=>time()]);
     $webm=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>30,'name'=>'local.webm','uri'=>'uploads/file/local.webm','upload_origin'=>'local','create_time'=>time()]);
     foreach (['mp3','pdf'] as $ext) {

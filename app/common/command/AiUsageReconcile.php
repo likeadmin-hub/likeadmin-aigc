@@ -29,6 +29,14 @@ class AiUsageReconcile extends Command
             ->select();
         $count = 0;
         foreach ($rows as $row) {
+            if($row['app_code']==='aigc_llm'&&$row['action_code']==='agent_speech'){
+                \app\common\service\app\aigc_llm\agent\AgentSpeechTool::reconcile((int)$row['id'],(int)$row['tenant_id']);
+                $count++;continue;
+            }
+            if($row['app_code']==='aigc_llm'&&$row['action_code']==='agent_transcribe'){
+                \app\common\service\app\aigc_llm\agent\AgentTranscriptionRecovery::reconcile((int)$row['id'],(int)$row['tenant_id']);
+                $count++;continue;
+            }
             $snapshot=(array)$row['price_snapshot'];
             if(($snapshot['runtime_adapter']??'')==='music_operation')AiTaskJobService::enqueueMusicOperation((int)$row['id']);
             else AiTaskJobService::enqueueQueryResult((int)$row['id'], 10, true);

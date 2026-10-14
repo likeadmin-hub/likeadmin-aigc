@@ -79,6 +79,14 @@ class MarketTextModelRuntimeService
         return $options[0];
     }
 
+    /** Supported protocols translate to the same business tool contract. No model fallback. */
+    public static function resolveAgentModel(int $tenantId, string $selection, bool $requiresVision = false): array
+    {
+        $model=self::resolveModel($tenantId,$selection,$requiresVision);
+        if(!in_array(self::protocolForModel($model), ['openai_chat', 'anthropic_messages', 'openai_responses'], true))throw new \InvalidArgumentException('当前 Agent 尚未接入此模型的工具协议，请选择兼容对话工具调用的模型');
+        return $model;
+    }
+
     /**
      * Resolve the effective server-side model without executing a provider
      * request.  Callers use this for preflight so an attachment can silently
@@ -107,7 +115,7 @@ class MarketTextModelRuntimeService
         $resultValidator=$params['_result_validator']??null;
         if ($resultValidator!==null && !is_callable($resultValidator)) throw new Exception('文本结果校验器无效');
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
-        $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? []);
+        $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? [], !empty($params['_agent_tool_history']));
         $requiresVision = $referenceImages !== [] || !empty($params['requires_vision']);
         $model = \app\common\service\open_platform\OpenCallContext::textModel() ?? (!empty($params['_disable_model_fallback'])
             ? self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)
@@ -120,6 +128,16 @@ class MarketTextModelRuntimeService
         $modelConfig = self::modelConfig($params);
         $maxTokens = self::resolveMaxTokens($model, $modelConfig);
         $generationParams = self::generationParams($model, $modelConfig);
+        // Neuron's canonical history does not carry signed thinking blocks.
+        // Do not enable a mode whose tool continuation we cannot faithfully replay.
+        if (!empty($params['_agent_tool_history']) && self::protocolForModel($model) === 'anthropic_messages') {
+            $generationParams['thinking'] = ['type' => 'disabled'];
+        }
+        if (!empty($params['_agent_tool_history']) && self::protocolForModel($model) === 'openai_responses') {
+            $generationParams['store'] = false;
+            $generationParams['include'] = ['reasoning.encrypted_content'];
+            unset($generationParams['previous_response_id'], $generationParams['conversation']);
+        }
         // Agent runtimes may supply OpenAI-compatible function schemas. These
         // are capability metadata, not provider credentials, and must reach
         // the selected market text channel unchanged.
@@ -163,6 +181,7 @@ class MarketTextModelRuntimeService
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
+                    if (empty($params['_agent_tool_history'])) unset($result['_responses_output']);
                     if ($openTextCall) {
                         $usage = self::normalizeUsage((array)($result['usage'] ?? []));
                         \app\common\service\open_platform\OpenTextLifecycle::recordResult($context, $result, $usage);
@@ -173,7 +192,8 @@ class MarketTextModelRuntimeService
                     if ($resultValidator!==null) $resultValidator($result);
                     break;
                 } catch (\Throwable $initialError) {
-                    if ($openTextCall || !empty($params['_disable_compatibility_retry'])) throw $initialError;
+                    if ($initialError instanceof MarketTextModelProviderException && $initialError->partialResult !== null) throw $initialError;
+                    if ($openTextCall || !empty($params['_agent_tool_history']) || !empty($params['_disable_compatibility_retry'])) throw $initialError;
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
                     if ($retry === null) {
                         $retry = self::compatibleTransportOptions($initialError->getMessage(), $transportOptions);
@@ -213,11 +233,15 @@ class MarketTextModelRuntimeService
             try {
                 self::settle($context, $actual, $usage, $result, (int)round((microtime(true) - $started) * 1000));
             } catch (\Throwable $settlementError) {
-                if (!$openTextCall) throw $settlementError;
+                if (!$openTextCall) {
+                    try{self::deferSettlement($context,$result,$usage,$settlementError);}
+                    catch(\Throwable $persistError){Log::error('Text settlement evidence write failed for consumption '.$context['consumption']['id'].': '.get_class($persistError));}
+                    throw new TextSettlementPending((int)$context['consumption']['id'],$result,$usage,$settlementError);
+                }
                 \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $settlementError);
             }
             $billingStatus = (string)AiConsumptionLog::where('id', (int)$context['consumption']['id'])->value('billing_status');
-            return $result + [
+            return array_replace($result, [
                 'effective_max_tokens' => $maxTokens,
                 'model_code' => $model['model_code'],
                 'model_name' => $model['name'],
@@ -227,8 +251,19 @@ class MarketTextModelRuntimeService
                 'consumption_id' => (int)$context['consumption']['id'],
                 'billing' => ['billing_status' => $billingStatus] + $actual,
                 'usage' => $usage,
-            ];
+            ]);
         } catch (\Throwable $e) {
+            if($e instanceof TextSettlementPending)throw $e;
+            if ($e instanceof MarketTextModelProviderException && $e->partialResult !== null) {
+                $result = $e->partialResult;
+                $usage = self::normalizeUsage((array)$result['usage']) + ['usage_complete' => false];
+                if ($openTextCall) {
+                    \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
+                    throw $e;
+                }
+                self::deferSettlement($context, $result, $usage, $e, true);
+                throw new TextSettlementPending((int)$context['consumption']['id'], $result, $usage, $e, '模型回复未完整结束，已保留收到的内容；费用待核对，未执行本轮工具，请勿重复提交');
+            }
             if ($openTextCall && !\app\common\service\open_platform\OpenTextLifecycle::rejectionConfirmed()) {
                 \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
                 throw $e;
@@ -317,6 +352,7 @@ class MarketTextModelRuntimeService
             if ($task->isEmpty()) {
                 return;
             }
+            if(in_array((string)$task['status'],['success','failed','canceled','cancelled'],true))return;
             $logs = AiConsumptionLog::where('app_task_id', $appTaskId)->lock(true)->select();
             foreach ($logs as $consumption) {
                 if ((string)$consumption['billing_status'] !== 'reserved') {
@@ -574,6 +610,7 @@ class MarketTextModelRuntimeService
     {
         Db::transaction(function () use ($context, $actual, $usage, $result, $elapsed) {
             $c = AiConsumptionLog::lock(true)->findOrEmpty((int)$context['consumption']['id']); if ($c->isEmpty() || $c['billing_status'] === 'settled') return;
+            if(!in_array((string)$c['billing_status'],['pending_usage','reserved'],true))throw new Exception('该记录已终结或待人工核对，不能自动重新扣费');
             $task = AiAppTask::lock(true)->findOrEmpty((int)$c['app_task_id']); $now = time();
             $hasActualUsage = self::canSettleUsageFromSnapshot(self::arrayValue($c['price_snapshot'] ?? []), $usage);
             if ($hasActualUsage) {
@@ -586,10 +623,26 @@ class MarketTextModelRuntimeService
         });
     }
 
+    /** Preserve trusted usage and the submit-time price snapshot for an explicit audit decision. */
+    private static function deferSettlement(array $context,array $result,array $usage,\Throwable $error,bool $incomplete=false): void
+    {
+        Db::transaction(function()use($context,$result,$usage,$error,$incomplete){
+            $c=AiConsumptionLog::lock(true)->findOrEmpty((int)$context['consumption']['id']);
+            if($c->isEmpty()||!in_array((string)$c['billing_status'],['pending_usage','reserved'],true))return;
+            $now=time();
+            $c->save(['run_status'=>$incomplete?'failed':'success','billing_status'=>'settlement_failed','usage_snapshot'=>$usage+['settlement_basis'=>$incomplete?'awaiting_provider_receipt':'awaiting_settlement'],
+                'upstream_request_id'=>(string)($result['provider_request_id']??$c['upstream_request_id']),
+                'response_summary'=>['output_length'=>mb_strlen((string)($result['content']??''),'UTF-8')],
+                'error_code'=>$incomplete?'provider_stream_incomplete':'settlement_failed','error_message'=>$incomplete?'回复未完整结束，费用待核对':'结果已确认，费用结算待核对','finish_time'=>$now,'update_time'=>$now]);
+            AiAppTask::where('id',$c['app_task_id'])->update(['status'=>$incomplete?'failed':'success','progress'=>100,'finish_time'=>$now,'update_time'=>$now]);
+            self::event((int)$c['id'],'settlement_deferred','failed',['reason'=>$incomplete?'provider_stream_incomplete':'wallet_settlement_failed','error_type'=>get_class($error),'protocol_diagnostic'=>(array)($result['protocol_diagnostic']??[])]);
+        });
+    }
+
     private static function fail(array $context, string $message, string $code): void
     {
         Db::transaction(function () use ($context, $message, $code) {
-            $c = AiConsumptionLog::lock(true)->findOrEmpty((int)$context['consumption']['id']); if ($c->isEmpty() || in_array((string)$c['billing_status'], ['settled', 'refunded'], true)) return;
+            $c = AiConsumptionLog::lock(true)->findOrEmpty((int)$context['consumption']['id']); if ($c->isEmpty() || !in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return;
             $task = AiAppTask::lock(true)->findOrEmpty((int)$c['app_task_id']);
             PointService::releaseReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], (string)$c['consume_no'] . '-release', self::billingRemark((string)$c['app_code'], 'failed'), self::extra($task, $c, 'refunded'));
             $now = time(); $c->save(['run_status' => 'failed', 'billing_status' => 'refunded', 'error_code' => $code, 'error_message' => mb_substr($message, 0, 1000), 'finish_time' => $now, 'update_time' => $now]);
@@ -628,14 +681,14 @@ class MarketTextModelRuntimeService
             return array_merge([
                 'model' => $model['model_code'],
                 'instructions' => $system,
-                'input' => $messages,
+                'input' => ResponsesMessagesAdapter::input($messages),
                 'max_output_tokens' => $maxTokens,
             ], self::protocolGenerationParams($protocol, $generationParams));
         }
         if ($protocol === 'anthropic_messages') {
             $payload = [
                 'model' => $model['model_code'],
-                'messages' => $messages,
+                'messages' => AnthropicMessagesAdapter::messages($messages),
                 'max_tokens' => $maxTokens,
             ];
             if ($system !== '') {
@@ -653,6 +706,7 @@ class MarketTextModelRuntimeService
     /** Remove or translate options which are not valid for the selected protocol. */
     private static function protocolGenerationParams(string $protocol, array $generationParams): array
     {
+        if ($protocol === 'openai_responses') return ResponsesMessagesAdapter::params($generationParams);
         if ($protocol !== 'anthropic_messages') {
             if ($protocol !== 'openai_chat') {
                 unset($generationParams['stream_options']);
@@ -715,6 +769,7 @@ class MarketTextModelRuntimeService
         if (is_string($value)) {
             return match (strtolower($value)) {
                 'auto' => ['type' => 'auto'],
+                'none' => ['type' => 'none'],
                 'required', 'any' => ['type' => 'any'],
                 default => [],
             };
@@ -728,7 +783,7 @@ class MarketTextModelRuntimeService
     }
 
     /** @return array<int, array{role:string, content:mixed}> */
-    private static function normalizeMessages(string $content, array $referenceImages, $value): array
+    private static function normalizeMessages(string $content, array $referenceImages, $value, bool $agentTools = false): array
     {
         $messages = [];
         foreach (is_array($value) ? $value : [] as $item) {
@@ -736,6 +791,16 @@ class MarketTextModelRuntimeService
                 continue;
             }
             $role = strtolower(trim((string)($item['role'] ?? 'user')));
+            if ($agentTools && $role === 'tool' && !empty($item['tool_call_id']) && is_string($item['content'] ?? null)) {
+                $messages[] = ['role' => 'tool', 'tool_call_id' => (string)$item['tool_call_id'], 'content' => $item['content']];
+                continue;
+            }
+            if ($agentTools && $role === 'assistant' && !empty($item['tool_calls']) && is_array($item['tool_calls'])) {
+                $row = ['role' => 'assistant', 'content' => (string)($item['content'] ?? ''), 'tool_calls' => $item['tool_calls']];
+                if (is_array($item['_responses_output'] ?? null)) $row['_responses_output'] = $item['_responses_output'];
+                $messages[] = $row;
+                continue;
+            }
             if (!in_array($role, ['user', 'assistant'], true)) {
                 continue;
             }
@@ -827,6 +892,7 @@ class MarketTextModelRuntimeService
             return null;
         }
         $parameterHints = [
+            'stream_options' => ['stream_options', 'include_usage'],
             'enable_thinking' => ['enable_thinking', 'thinking'],
             'response_format' => ['response_format', 'json_object', 'json schema'],
             'tools' => ['tools', 'tool_calls', 'function calling', 'function_call'],
@@ -1015,6 +1081,12 @@ class MarketTextModelRuntimeService
             }
             $result[$key] = $key === 'tools' && is_array($value) ? array_values($value) : $value;
         }
+        // OpenAI Chat streams omit token usage unless it is explicitly requested.
+        // Keep it in generation params so unsupported-option compatibility handling
+        // can remove it before a safe retry; other protocols supply usage natively.
+        if (self::protocolForModel($model) === 'openai_chat') {
+            $result['stream_options'] = (array)($result['stream_options'] ?? []) + ['include_usage' => true];
+        }
         return $result;
     }
 
@@ -1144,7 +1216,8 @@ class MarketTextModelRuntimeService
         curl_close($ch);
 
         if ($errno) {
-            throw new Exception(self::networkError($error));
+            $state['native_error_code'] = 'transport_errno_' . $errno;
+            throw self::providerException(self::networkError($error), false, $state);
         }
         if ($status >= 400) {
             \app\common\service\open_platform\OpenCallContext::providerFailure($status,$body,!empty($state['content'])||!empty($state['reasoning'])||!empty($state['tool_calls']));
@@ -1159,6 +1232,14 @@ class MarketTextModelRuntimeService
             \app\common\service\open_platform\OpenCallContext::providerFailure($status,$body,!empty($state['content'])||!empty($state['reasoning'])||!empty($state['tool_calls']));
             throw self::providerException($state['error'], !empty($state['model_fallback_allowed']), $state);
         }
+        try {
+            AnthropicMessagesAdapter::assertComplete($state);
+            ResponsesMessagesAdapter::assertComplete($state);
+        } catch (\RuntimeException $error) {
+            // An incomplete tool response must not fall back to a different model.
+            $state['native_error_code'] = empty($state['responses_complete']) && !empty($state['responses']) ? 'responses_missing_completion' : 'native_output_validation';
+            throw self::providerException($error->getMessage(), false, $state);
+        }
         // Some OpenAI-compatible reasoning models emit their only textual output
         // under reasoning_content. Preserve it as a last-resort response instead
         // of treating a completed provider request as an empty result.
@@ -1168,7 +1249,8 @@ class MarketTextModelRuntimeService
             $state['content'] = $state['reasoning'];
         }
         if (!$receivedEvent || (trim((string)$state['content']) === '' && empty($state['tool_calls']))) {
-            throw new Exception('文本模型未返回有效内容');
+            $state['native_error_code'] = 'native_empty_output';
+            throw self::providerException('文本模型未返回有效内容', false, $state);
         }
         return [
             'content' => $state['content'],
@@ -1179,6 +1261,7 @@ class MarketTextModelRuntimeService
             'stream_mode' => $receivedSseEvent ? 'sse' : 'buffered_response',
             'stream_delta_count' => (int)$state['delta_count'],
             'finish_reason' => (string)($state['finish_reason'] ?? ''),
+            '_responses_output' => (array)($state['responses_output'] ?? []),
         ];
     }
 
@@ -1275,6 +1358,18 @@ class MarketTextModelRuntimeService
     /** @param array<string, mixed> $state */
     private static function applyStreamEvent(array $event, array &$state, callable $onEvent): void
     {
+        if (($event['type'] ?? '') === 'responses_event') {
+            ResponsesMessagesAdapter::apply($event['payload'], $state, $onEvent);
+            return;
+        }
+        if (!empty($event['anthropic'])) $state['anthropic'] = true;
+        if (!empty($event['anthropic_complete'])) $state['anthropic_complete'] = true;
+        if (isset($event['tool_block_stop'])) {
+            foreach ($state['tool_calls'] as &$call) {
+                if (($call['index'] ?? -1) === $event['tool_block_stop'] && ($call['function']['arguments'] ?? '') === '') $call['function']['arguments'] = '{}';
+            }
+            unset($call);
+        }
         if (!empty($event['finish_reason']) && ($event['finish_reason'] !== 'stop' || empty($state['finish_reason']))) {
             $state['finish_reason'] = (string)$event['finish_reason'];
         }
@@ -1292,7 +1387,7 @@ class MarketTextModelRuntimeService
             return;
         }
         if (!empty($event['usage']) && is_array($event['usage'])) {
-            $state['usage'] = $event['usage'];
+            $state['usage'] = array_replace_recursive((array)($state['usage'] ?? []), $event['usage']);
         }
         if (!empty($event['tool_calls']) && is_array($event['tool_calls'])) {
             $state['tool_calls'] = self::mergeToolCalls((array)$state['tool_calls'], $event['tool_calls']);
@@ -1329,9 +1424,12 @@ class MarketTextModelRuntimeService
             return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败', 'model_fallback_allowed' => UpstreamErrorMessageService::allowsModelFallback($json)];
         }
         $eventType = strtolower((string)($json['type'] ?? $json['event'] ?? $eventName));
+        if (str_starts_with($eventType, 'response.')) return ['type' => 'responses_event', 'payload' => ['type' => $eventType] + $json];
         if (in_array($eventType, ['error', 'failed', 'fail', 'response.failed', 'response.incomplete'], true)) {
             return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败', 'model_fallback_allowed' => UpstreamErrorMessageService::allowsModelFallback($json)];
         }
+        $nativeEvent = AnthropicMessagesAdapter::event($json, $eventType);
+        if ($nativeEvent !== null) return $nativeEvent;
         foreach (['data', 'result', 'output', 'response'] as $key) {
             if (!empty($json[$key]) && is_array($json[$key]) && self::looksLikePayload($json[$key])) {
                 $event = self::parseProviderPayload($json[$key], $eventName, $stream);
@@ -1420,6 +1518,10 @@ class MarketTextModelRuntimeService
     /** @return array<int, array<string, mixed>> */
     private static function mergeToolCalls(array $current, array $incoming): array
     {
+        // Block indices can be sparse (text/thinking blocks occupy other slots).
+        $indexed = [];
+        foreach ($current as $position => $call) $indexed[(int)($call['index'] ?? $position)] = $call;
+        $current = $indexed;
         foreach ($incoming as $position => $call) {
             if (!is_array($call)) {
                 continue;
@@ -1436,7 +1538,7 @@ class MarketTextModelRuntimeService
                     $existingFunction[$key] = $function[$key];
                 }
             }
-            $current[$index] = array_merge($existing, $call, ['function' => $existingFunction]);
+            $current[$index] = array_merge($existing, $call, ['index' => $index, 'function' => $existingFunction]);
         }
         ksort($current);
         return array_values($current);
@@ -1506,7 +1608,15 @@ class MarketTextModelRuntimeService
     {
         $hasOutput = !empty($state['content']) || !empty($state['reasoning']) || !empty($state['tool_calls'])
             || (int)($state['delta_count'] ?? 0) > 0;
-        return new MarketTextModelProviderException($message, $fallbackAllowed && !$hasOutput);
+        $partial = (!empty($state['anthropic']) || !empty($state['responses'])) && !empty($state['request_id']) ? [
+            'content' => (string)($state['content'] ?? ''),
+            'provider_request_id' => (string)$state['request_id'],
+            'usage' => (array)($state['usage'] ?? []),
+            // Never hand partial calls to Neuron or a delayed continuation.
+            'tool_calls' => [],
+            'protocol_diagnostic' => ['code' => (string)($state['native_error_code'] ?? 'native_stream_error'), 'last_event' => substr((string)($state['native_event_type'] ?? ''), 0, 80), 'provider_code' => (string)($state['native_provider_code'] ?? '')],
+        ] : null;
+        return new MarketTextModelProviderException($message, $fallbackAllowed && !$hasOutput && $partial === null, $partial);
     }
 
     private static function providerError($payload): string

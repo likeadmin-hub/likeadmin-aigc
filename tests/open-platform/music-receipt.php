@@ -32,7 +32,7 @@ Db::startTrans();try{
     $transient=false;try{$provider->fetchResult('fixture-music-receipt',$request);}catch(Throwable){$transient=true;}check($transient&&Task::where('id',$task['id'])->value('status')==='running','Temporary query failure became terminal generation failure');
     [$unknown,$unknownTask,$unknownRequest]=$make('/api/v1/music-no-task');$uncertain=false;try{$provider->generate($unknownRequest);}catch(app\common\service\open_platform\OpenException $e){$uncertain=$e->errorType==='upstream_uncertain';}check($uncertain&&Task::where('id',$unknownTask['id'])->value('status')==='running','Unknown submission returned a definitive failure');
     [$rejected,$rejectedTask,$rejectedRequest]=$make('/api/v1/music-reject');$reject=$provider->generate($rejectedRequest);check(!$reject->success&&app\common\service\open_platform\OpenTextLifecycle::rejectionConfirmed(),'Explicit rejection incorrectly held as uncertain');
-    C::leave();$plain=$provider->fetchResult('fixture-music-receipt',$request);check(!$plain->success,'Existing non-API provider behavior changed');
+    C::leave();$plainTransient=false;try{$provider->fetchResult('fixture-music-receipt',$request);}catch(Throwable){$plainTransient=true;}check($plainTransient,'Native query failure incorrectly became generation failure');
     check($wallets()===$before,'Receipt recovery changed wallets');
     echo "PASS loopback music receipt precedes native save, encrypted owned ID restoration, immutable upstream identity, unknown admission and temporary query retention, explicit rejection, ordinary provider behavior and no charges\n";
 }finally{C::leave();Db::rollback();}

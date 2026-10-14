@@ -308,6 +308,15 @@ class AiTaskJobService
     {
         $consumption = AiConsumptionLog::findOrEmpty($consumptionId);
         if ($consumption->isEmpty()) return true;
+        if($consumption['app_code']==='aigc_llm'&&$consumption['action_code']==='agent_speech'){
+            \app\common\service\app\aigc_llm\agent\AgentSpeechTool::reconcile($consumptionId,(int)$consumption['tenant_id']);
+            return true;
+        }
+        if($consumption['app_code']==='aigc_llm'&&$consumption['action_code']==='agent_transcribe'){
+            \app\common\service\app\aigc_llm\agent\AgentTranscriptionRecovery::reconcile($consumptionId,(int)$consumption['tenant_id']);
+            // The dedicated STT worker owns pending review; never use generic provider query/settlement.
+            return true;
+        }
         AiTaskLifecycleEventService::record($consumptionId, 'query_start', 'running', [
             'provider' => (string)$consumption['provider'],
             'protocol' => (string)$consumption['protocol'],

@@ -37,7 +37,7 @@ final class VideoEffectMediaService
         });
         // Source-delivered fallback for installations without a local media registry.
         // Match the original URL exactly so tenant edits and blank previews survive.
-        $managed = json_decode(file_get_contents(dirname(__DIR__, 4).'/apps/aigc_video/data/video_effect_media.json'), true, 512, JSON_THROW_ON_ERROR);
+        $managed = self::managedPreviews(dirname(__DIR__, 4).'/apps/aigc_video/data/video_effect_media.json');
         $sources = array_column($defaults, null, 'id');
         foreach ($rows as &$row) {
             foreach (['poster', 'video'] as $field) {
@@ -49,6 +49,29 @@ final class VideoEffectMediaService
         }
         unset($row);
         return $rows;
+    }
+
+    /** Optional display data must not prevent config reads or generation. */
+    private static function managedPreviews(string $path): array
+    {
+        if (!is_file($path) || !is_readable($path)) return [];
+        try {
+            $decoded = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        } catch (\Throwable) {
+            // Keep the original defaults if a deployment replaces/removes the file.
+            return [];
+        }
+        if (!is_array($decoded)) return [];
+        $result = [];
+        foreach ($decoded as $id => $files) {
+            if (!is_array($files)) continue;
+            foreach (['poster', 'video'] as $field) {
+                if (isset($files[$field]) && is_string($files[$field]) && $files[$field] !== '') {
+                    $result[$id][$field] = $files[$field];
+                }
+            }
+        }
+        return $result;
     }
 
     public static function resolve(array $rows, array $defaults, array $registry, callable $url): array

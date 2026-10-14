@@ -11,7 +11,7 @@ use think\facade\Db;
 /** Read-only market task reconciliation for rollout gates and incident triage. */
 class MarketTaskReconciliationService
 {
-    public static function audit(int $tenantId = 0, string $appCode = '', int $limit = 500): array
+    public static function audit(int $tenantId = 0, string $appCode = '', int $limit = 500, string $businessTable = '', int $userId = 0): array
     {
         $query = AiConsumptionLog::where('provider', 'power_market')->order('id', 'desc')->limit(max(1, min(5000, $limit)));
         if ($tenantId > 0) {
@@ -20,6 +20,8 @@ class MarketTaskReconciliationService
         if ($appCode !== '') {
             $query->where('app_code', $appCode);
         }
+        if($userId>0)$query->where('user_id',$userId);
+        if($businessTable!=='')$query->whereIn('app_task_id',Db::raw(AiAppTask::where('business_table',$businessTable)->field('id')->buildSql()));
         $issues = [];
         $checked = 0;
         foreach ($query->select() as $consumption) {
@@ -139,8 +141,33 @@ class MarketTaskReconciliationService
         }
         $runStatus = (string)($consumption['run_status'] ?? '');
         $billingStatus = (string)($consumption['billing_status'] ?? '');
-        if (in_array($runStatus, ['failed', 'canceled', 'cancelled'], true) && !in_array($billingStatus, ['refunded', 'none'], true)) {
+        $context['user_id']=(int)$consumption['user_id'];
+        if($appTask&&!$appTask->isEmpty()){
+            $context['business_table']=(string)$appTask['business_table'];$context['business_id']=(int)$appTask['business_id'];
+            if((int)$appTask['tenant_id']!==(int)$consumption['tenant_id']||(int)$appTask['user_id']!==(int)$consumption['user_id'])$issues[]=array_merge($context,['code'=>'task_owner_mismatch']);
+        }
+        $prices=$consumption['price_snapshot']??[];if(is_string($prices))$prices=json_decode($prices,true)?:[];
+        $text=isset($prices['input'],$prices['output'])&&($consumption['usage_unit']??'')==='token';
+        if($runStatus==='success'&&$billingStatus==='pending_usage')$issues[]=array_merge($context,['code'=>$text?'text_usage_pending':'actual_usage_pending','has_upstream_reference'=>trim((string)($consumption['upstream_request_id']??''))!==''||trim((string)($consumption['upstream_task_id']??''))!=='']);
+        if($billingStatus==='settlement_failed')$issues[]=array_merge($context,['code'=>'settlement_failed']);
+        // Text calls have no media assets. They still need exactly one traceable deduction per payer.
+        if($text&&$billingStatus==='settled'){
+            foreach(['tenant'=>['tenant_point_log','tenant_id','actual_tenant_cost','tenant_point_sn'],'user'=>['user_account_log','user_id','actual_user_price','user_point_sn']] as $side=>$fields){
+                [$table,$owner,$amount,$reference]=$fields;if((float)$consumption[$amount]<=0)continue;
+                $sn=trim((string)($consumption[$reference]??''));
+                if($sn===''||Db::name($table)->where([$owner=>(int)$consumption[$owner],'source_sn'=>$sn])->count()!==1)$issues[]=array_merge($context,['code'=>$side.'_billing_log_not_idempotent']);
+            }
+        }
+        $zeroReservationTextReview = $text && $billingStatus === 'settlement_failed'
+            && (float)($consumption['reserved_tenant_cost'] ?? 0) <= 0 && (float)($consumption['reserved_user_price'] ?? 0) <= 0;
+        if (in_array($runStatus, ['failed', 'canceled', 'cancelled'], true) && !in_array($billingStatus, ['refunded', 'none'], true) && !$zeroReservationTextReview) {
             $issues[] = array_merge($context, ['code' => 'reservation_not_released']);
+        }
+        if(in_array($runStatus,['failed','canceled','cancelled'],true)&&$billingStatus==='refunded'){
+            foreach(['tenant'=>['tenant_point_log','tenant_id','reserved_tenant_cost'],'user'=>['user_account_log','user_id','reserved_user_price']] as $side=>$fields){
+                [$table,$owner,$amount]=$fields;if((float)($consumption[$amount]??0)<=0)continue;
+                if(Db::name($table)->where([$owner=>(int)$consumption[$owner],'source_sn'=>(string)$consumption['consume_no'].'-release'])->count()!==1)$issues[]=array_merge($context,['code'=>$side.'_refund_log_not_idempotent']);
+            }
         }
         if ($runStatus === 'success' && $billingStatus === 'settled' && self::expectsResultAssets($consumption)) {
             $assets = AiTaskResultAsset::where('consumption_id', $id)->select()->toArray();
@@ -157,10 +184,10 @@ class MarketTaskReconciliationService
             }
             if ((float)($consumption['reserved_tenant_cost'] ?? 0) > 0 || (float)($consumption['reserved_user_price'] ?? 0) > 0) {
                 $sourceSn = (string)($consumption['consume_no'] ?? '') . '-reserve';
-                if (Db::name('tenant_point_log')->where(['tenant_id' => (int)$consumption['tenant_id'], 'source_sn' => $sourceSn])->count() !== 1) {
+                if ((float)($consumption['reserved_tenant_cost']??0)>0 && Db::name('tenant_point_log')->where(['tenant_id' => (int)$consumption['tenant_id'], 'source_sn' => $sourceSn])->count() !== 1) {
                     $issues[] = array_merge($context, ['code' => 'tenant_billing_log_not_idempotent']);
                 }
-                if (Db::name('user_account_log')->where(['user_id' => (int)$consumption['user_id'], 'source_sn' => $sourceSn])->count() !== 1) {
+                if ((float)($consumption['reserved_user_price']??0)>0 && Db::name('user_account_log')->where(['user_id' => (int)$consumption['user_id'], 'source_sn' => $sourceSn])->count() !== 1) {
                     $issues[] = array_merge($context, ['code' => 'user_billing_log_not_idempotent']);
                 }
             }

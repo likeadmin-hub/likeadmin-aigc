@@ -42,8 +42,7 @@ final class WorkspaceAssetService
         }
         $patch = [];
         if (array_key_exists('favorite', $params)) {
-            if (!in_array($params['favorite'], [0, 1], true)) throw new InvalidArgumentException('收藏状态无效');
-            $patch['favorite'] = $params['favorite'];
+            $patch['favorite'] = self::normalizeFavorite($params['favorite']);
         }
         if (array_key_exists('label', $params)) {
             if (!is_string($params['label']) || (!in_array($params['label'], self::LABELS, true) && !preg_match('/^l_[0-9a-f]{16}$/D', $params['label']))) throw new InvalidArgumentException('资产标签无效');
@@ -55,15 +54,23 @@ final class WorkspaceAssetService
         return [array_values(array_unique($refs)), $patch, $action];
     }
 
+    /** Request trim filters and form encoding turn numeric flags into strings. */
+    public static function normalizeFavorite(mixed $value): int
+    {
+        if (!in_array($value, [0, 1, '0', '1', false, true], true)) throw new InvalidArgumentException('收藏状态无效');
+        return (int)$value;
+    }
+
     public static function read(int $tenant, int $user): array
     {
         self::identity($tenant, $user);
+        self::synchronizeDeleted($tenant, $user);
         $states = Db::name(self::TABLE)->where(['tenant_id' => $tenant, 'user_id' => $user])->select()->toArray();
         $supplemental = [];
         // Read saved references independently of the source's recent-results limit.
         foreach ($states as $state) {
             if ($state['hidden_at'] || (!$state['trashed_at'] && !$state['favorite'] && !$state['label'])) continue;
-            $asset = self::owned($tenant, $user, $state['asset_ref']);
+            $asset = self::owned($tenant, $user, $state['asset_ref'], (bool)$state['trashed_at']);
             if ($asset) $supplemental[] = $asset;
         }
         return ['states' => array_map(fn($row) => array_intersect_key($row, array_flip(['asset_ref','favorite','label','trashed_at','hidden_at'])), $states), 'supplemental' => $supplemental, 'labels' => WorkspaceAssetLabelService::read($tenant,$user)];
@@ -80,12 +87,13 @@ final class WorkspaceAssetService
             }
             $output = [];
             foreach ($refs as $ref) {
-                if (!self::owned($tenant, $user, $ref)) throw new InvalidArgumentException('资产不存在或无权操作');
+                if (!self::owned($tenant, $user, $ref, true)) throw new InvalidArgumentException('资产不存在或无权操作');
                 $scope = ['tenant_id' => $tenant, 'user_id' => $user, 'asset_ref' => $ref];
                 // Insert-ignore + row lock also serializes first writes from different devices.
                 Db::name(self::TABLE)->extra('IGNORE')->insert($scope + ['create_time' => time(), 'update_time' => time()]);
                 $row = Db::name(self::TABLE)->where($scope)->lock(true)->find();
                 if ($row['hidden_at']) throw new InvalidArgumentException('资产已从资产库移除');
+                if (!$row['trashed_at'] && !self::owned($tenant, $user, $ref)) throw new InvalidArgumentException('资产不存在或无权操作');
                 $data = $patch + ['update_time' => time()];
                 if ($action === 'trash') $data['trashed_at'] = (int)$row['trashed_at'] ?: time();
                 if ($action === 'restore') $data['trashed_at'] = 0;
@@ -93,6 +101,8 @@ final class WorkspaceAssetService
                     if (!$row['trashed_at']) throw new InvalidArgumentException('请先将资产移到最近删除');
                     $data['hidden_at'] = time();
                 }
+                if ($action === 'trash') self::syncDeletion($tenant, $user, $ref, (int)$data['trashed_at']);
+                if ($action === 'restore') self::syncDeletion($tenant, $user, $ref, (int)$row['trashed_at'], true);
                 Db::name(self::TABLE)->where($scope)->update($data);
                 $output[] = array_intersect_key(array_replace($row, $data), array_flip(['asset_ref','favorite','label','trashed_at','hidden_at']));
             }
@@ -114,18 +124,103 @@ final class WorkspaceAssetService
         if ($tenant <= 0 || $user <= 0) throw new InvalidArgumentException('请先登录');
     }
 
-    private static function owned(int $tenant, int $user, string $ref): ?array
+    public static function sourceForApp(string $app): ?string
+    {
+        $source = array_search($app, self::SOURCES, true);
+        return $source === false ? null : $source;
+    }
+
+    public static function isFileVisible(int $tenant, int $user, array $file): bool
+    {
+        $query = Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source_id'=>$user,'source'=>FileEnum::SOURCE_USER,'uri'=>$file['uri']]);
+        foreach (['storage_scope','storage_engine','storage_domain'] as $field) $query->where($field,$file[$field] ?? '');
+        $rows = $query->field('id,delete_time')->select()->toArray();
+        if (!$rows) return true; // Legacy managed outputs may have no upload record.
+        foreach ($rows as $row) if ((int)$row['delete_time'] > 0) return false;
+        $refs = array_map(static fn($row)=>'upload:result:'.$row['id'],$rows);
+        return !Db::name(self::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user])->whereIn('asset_ref',$refs)
+            ->where(function($q) { $q->where('trashed_at','>',0)->whereOr('hidden_at','>',0); })->count();
+    }
+
+    public static function isVisible(int $tenant, int $user, string $ref): bool
+    {
+        $state = Db::name(self::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user,'asset_ref'=>$ref])->find();
+        return !($state['trashed_at'] ?? 0) && !($state['hidden_at'] ?? 0) && self::owned($tenant, $user, $ref) !== null;
+    }
+
+    /** Repair legacy library-only tombstones; never delete files or cancel live jobs. */
+    public static function synchronizeDeleted(int $tenant, int $user): void
+    {
+        self::identity($tenant, $user);
+        Db::transaction(function() use ($tenant, $user) {
+            $rows = Db::name(self::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user])->where('trashed_at','>',0)->order('id')->lock(true)->select()->toArray();
+            foreach ($rows as $row) self::syncDeletion($tenant, $user, $row['asset_ref'], (int)$row['trashed_at']);
+        });
+    }
+
+    private static function syncDeletion(int $tenant, int $user, string $ref, int $stamp, bool $restore = false): void
+    {
+        if (!$stamp) return;
+        [$source, $kind, $id] = explode(':', $ref);
+        $owner = ['tenant_id'=>$tenant,'user_id'=>$user];
+        if ($source === 'upload') {
+            $file = Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source_id'=>$user,'id'=>(int)$id,'source'=>FileEnum::SOURCE_USER,'upload_origin'=>'local']);
+            if ($restore) $file->where('delete_time',$stamp);
+            else $file->where(function($query) { $query->whereNull('delete_time')->whereOr('delete_time',0); });
+            $file->update(['delete_time'=>$restore ? null : $stamp]);
+            return;
+        }
+        $prefix = self::SOURCES[$source];
+        $table = $source === 'short_drama' ? $prefix.'_asset' : $prefix.'_'.$kind;
+        $record = Db::name($table)->where($owner)->where('id',(int)$id)->lock(true)->find();
+        if (!$record) return;
+        $taskId = $kind === 'task' ? (int)$id : (int)($record['task_id'] ?? 0);
+        $task = $source !== 'short_drama' && $taskId ? Db::name($prefix.'_task')->where($owner)->where('id',$taskId)->lock(true)->find() : null;
+        if ($kind === 'task' && !$restore && in_array($task['status'] ?? '', ['pending','running','queued','waiting_tasks'], true)) throw new InvalidArgumentException('任务仍在执行，请完成后再删除作品');
+        Db::name($table)->where($owner)->where('id',(int)$id)->where('delete_time',$restore ? $stamp : 0)->update(['delete_time'=>$restore ? 0 : $stamp]);
+        if (!$task || $source === 'short_drama') return;
+        if ($kind === 'task' && $source === 'fitting') {
+            $ids = $task['image_task_ids'] ?? [];
+            if (is_string($ids)) $ids = json_decode($ids,true) ?: [];
+            $ids = array_unique(array_filter(array_map('intval',array_merge((array)$ids,[$task['image_task_id'] ?? 0]))));
+            foreach ($ids as $child) self::syncDeletion($tenant,$user,'image:task:'.$child,$stamp,$restore);
+            return;
+        }
+        if ($kind === 'task') {
+            $results = Db::name($prefix.'_result')->where($owner)->where('task_id',$taskId)->where('delete_time',$restore ? $stamp : 0)->select()->toArray();
+            foreach ($results as $result) {
+                if ($restore) {
+                    $state = Db::name(self::TABLE)->where($owner+['asset_ref'=>$source.':result:'.$result['id']])->find();
+                    if (($state['trashed_at'] ?? 0) || ($state['hidden_at'] ?? 0)) continue;
+                }
+                Db::name($prefix.'_result')->where($owner)->where('id',$result['id'])->update(['delete_time'=>$restore ? 0 : $stamp]);
+            }
+        } elseif (!$restore) {
+            if (!in_array($task['status'], ['pending','running','queued','waiting_tasks'], true) && !Db::name($prefix.'_result')->where($owner)->where('task_id',$taskId)->where('delete_time',0)->count())
+                Db::name($prefix.'_task')->where($owner)->where('id',$taskId)->where('delete_time',0)->update(['delete_time'=>$stamp]);
+        } elseif ((int)$task['delete_time'] > 0) {
+            $explicit = Db::name(self::TABLE)->where($owner+['asset_ref'=>$source.':task:'.$taskId])->find();
+            if (($explicit['trashed_at'] ?? 0) || ($explicit['hidden_at'] ?? 0)) return;
+            $ids = Db::name($prefix.'_result')->where($owner)->where('task_id',$taskId)->column('id');
+            $refs = array_map(static fn($id)=>$source.':result:'.$id, $ids);
+            if ($refs && Db::name(self::TABLE)->where($owner)->whereIn('asset_ref',$refs)->where('trashed_at',(int)$task['delete_time'])->count())
+                Db::name($prefix.'_task')->where($owner)->where('id',$taskId)->update(['delete_time'=>0]);
+        }
+    }
+
+    private static function owned(int $tenant, int $user, string $ref, bool $includeDeleted = false): ?array
     {
         [$source, $kind, $id] = explode(':', $ref);
         if ($source === 'upload') {
-            $file = TenantFile::where(['id' => (int)$id, 'tenant_id' => $tenant, 'source' => FileEnum::SOURCE_USER, 'source_id' => $user, 'upload_origin' => 'local'])
+            $file = ($includeDeleted ? TenantFile::withTrashed() : TenantFile::where([]))->where(['id' => (int)$id, 'tenant_id' => $tenant, 'source' => FileEnum::SOURCE_USER, 'source_id' => $user, 'upload_origin' => 'local'])
                 ->whereRaw('(type IN (10, 20) OR (type = 30 AND LOWER(uri) LIKE ?))', ['%.webm'])->find();
             return $file ? self::presentUpload($file->toArray()) : null;
         }
         $prefix = self::SOURCES[$source] ?? null;
         if (!$prefix) return null;
         $table = $source === 'short_drama' ? $prefix . '_asset' : $prefix . '_' . $kind;
-        $scope = ['tenant_id' => $tenant, 'user_id' => $user, 'delete_time' => 0];
+        $scope = ['tenant_id' => $tenant, 'user_id' => $user];
+        if (!$includeDeleted) $scope['delete_time'] = 0;
         $record = Db::name($table)->where($scope)->where('id', (int)$id)->find();
         if (!$record) return null;
         $task = [];

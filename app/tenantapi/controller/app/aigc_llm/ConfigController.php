@@ -9,12 +9,16 @@ class ConfigController extends BaseAdminController
 {
     public function detail()
     {
-        return $this->success('获取成功', AigcLlmService::config($this->tenantId));
+        return $this->success('获取成功', AigcLlmService::config($this->tenantId)+['skill_configs'=>\app\common\service\app\aigc_llm\agent\AgentSkillConfigService::detail($this->tenantId)]);
     }
 
     public function setup()
     {
-        AigcLlmService::saveConfig($this->tenantId, $this->request->post());
+        try {
+            AigcLlmService::saveConfig($this->tenantId, $this->request->post());
+        } catch (\InvalidArgumentException $e) {
+            return $this->fail($e->getMessage());
+        }
         return $this->success('保存成功', [], 1, 1);
     }
 }

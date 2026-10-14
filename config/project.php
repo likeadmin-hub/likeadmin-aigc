@@ -120,7 +120,7 @@ return [
 
     //上传文件的格式 (文件)
     'file_file' => [
-        'zip','rar','txt','pdf','doc','docx','xls','xlsx','ppt','pptx','csv','txt','ftr','7z','gz',
+        'zip','rar','txt','md','markdown','pdf','doc','docx','xls','xlsx','ppt','pptx','csv','txt','ftr','7z','gz',
         'mp3','wav','ogg','flac','aac','m4a','opus','webm'
     ],
 
