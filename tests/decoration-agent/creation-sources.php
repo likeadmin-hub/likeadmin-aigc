@@ -50,4 +50,16 @@ $safe='<h2>欢迎开始创作</h2><p>从文字、图片和视频创作开始。<
 $rich=O::apply($page,[['type'=>'add_component','name'=>'rich-text','content'=>['html'=>$safe],'styles'=>['color'=>'#334155']]],['scope'=>'page']);
 checkCreation($rich['candidate']['data'][0]['content']['html']===$safe&&$rich['candidate']['data'][0]['styles']['color']==='#334155','exact safe formatted example uses HTML field and approved styles');
 rejectsCreation(fn()=>O::apply($page,[['type'=>'add_component','name'=>'rich-text','content'=>['html'=>$literal]]],['scope'=>'page']),'inline CSS HTML remains forbidden');
+// Real run45 failure shape: manual mode was incorrectly placed in update fields.
+$existing=['data'=>[C::create('creation-entry-grid','existing_entry'),C::create('news','untouched')],'meta'=>[],'name'=>'fixture'];
+$rows=[['title'=>'图片创作','description'=>'进入图片创作工具','link'=>['path'=>'/apps/aigc_image/pages/index/index','query'=>[]]]];
+$manualBind=['type'=>'bind_source','widget_id'=>'existing_entry','mode'=>'manual','source_key'=>'','params'=>[]];
+$manualData=['type'=>'update_component','widget_id'=>'existing_entry','fields'=>['content.data'=>$rows]];
+$selected=['scope'=>'selected','selected_id'=>'existing_entry','allowed_links'=>$allowedLinks];
+rejectsCreation(fn()=>O::apply($existing,[['type'=>'update_component','widget_id'=>'existing_entry','fields'=>['content.data_mode'=>'manual','content.data'=>$rows]]],$selected),'run45 combined direct manual-mode update remains forbidden');
+$twoStep=O::apply($existing,[$manualBind,$manualData],$selected)['candidate'];
+checkCreation($twoStep['data'][0]['content']['data_mode']==='manual'&&$twoStep['data'][0]['content']['source_key']===''&&$twoStep['data'][0]['content']['source_params']===[]&&$twoStep['data'][0]['content']['data'][0]['link']===$rows[0]['link'],'existing-widget bind then data update installs only the trusted real entry');
+checkCreation($twoStep['data'][1]===$existing['data'][1]&&$existing['data'][0]['content']['data']===[],'manual conversion preserves outside selected scope and original snapshot');
+$untrusted=$manualData;$untrusted['fields']['content.data'][0]['link']=['path'=>'https://invented.invalid'];rejectsCreation(fn()=>O::apply($existing,[$manualBind,$untrusted],$selected),'manual entry still enforces link allowlist');
+rejectsCreation(fn()=>O::apply($existing,[$manualBind,$manualData],['scope'=>'selected','selected_id'=>'untouched','allowed_links'=>$allowedLinks]),'manual conversion still enforces selected ownership');
 echo "creation sources: $n checks passed\n";
