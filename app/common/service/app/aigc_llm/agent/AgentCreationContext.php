@@ -22,7 +22,7 @@ final class AgentCreationContext
     {
         foreach ($selection===''?[]:($options['channels']??$options['models']??[]) as $model) {
             if (!in_array($selection,array_map('strval',[$model['id']??'', $model['value']??'', $model['code']??'']),true)) continue;
-            return ['selection'=>$selection]+array_intersect_key($model,array_flip([
+            return ['selection'=>$selection,'qualities'=>array_map(static fn($quality)=>array_intersect_key($quality,array_flip(['value','label','resolution','duration']))+['ratios'=>array_values(array_unique(array_map(static fn($ratio)=>(string)($ratio['value']??$ratio['ratio']??''),$quality['ratios']??[])))],$model['qualities']??[])]+array_intersect_key($model,array_flip([
                 'name','description','duration_options','resolution_options','ratio_options',
                 'default_duration','default_resolution','generation_modes','max_reference_images','quantity_options',
             ]));

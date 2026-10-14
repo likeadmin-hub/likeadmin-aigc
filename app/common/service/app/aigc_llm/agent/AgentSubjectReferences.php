@@ -7,7 +7,7 @@ final class AgentSubjectReferences
 {
     public static function lists(int $tenant,int $user,array $params): array
     {
-        $result=AigcShortDramaService::subjectLibraryLists($tenant,$user,$params);
+        $result=AigcShortDramaService::subjectLibraryLists($tenant,$user,$params,false);
         $result['lists']=array_map(static fn($row)=>array_intersect_key($row,array_flip(['id','name','image','description','category','scope'])),$result['lists']);
         return $result;
     }
