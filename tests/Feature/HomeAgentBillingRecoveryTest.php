@@ -16,7 +16,7 @@ namespace app\common\service\power {
   $write=$handle->options[CURLOPT_WRITEFUNCTION];
   if(BillingTransportFixture::$mode==='reject'){$write($handle,json_encode(['error'=>['message'=>'fixture rejected']]));return true;}
   if(BillingTransportFixture::$mode==='timeout')return false;
-  if(BillingTransportFixture::$mode==='native_incomplete'){
+  if(in_array(BillingTransportFixture::$mode,['native_incomplete','native_timeout'],true)){
    foreach([
     ['type'=>'message_start','message'=>['id'=>'fixture-native-receipt','usage'=>['input_tokens'=>19,'output_tokens'=>0]]],
     ['type'=>'content_block_delta','index'=>0,'delta'=>['type'=>'text_delta','text'=>'已收到的正文']],
@@ -30,8 +30,8 @@ namespace app\common\service\power {
   foreach($chunks as $chunk)$write($handle,'data: '.json_encode($chunk,JSON_UNESCAPED_UNICODE)."\n\n");
   $write($handle,"data: [DONE]\n\n");return true;
  }
- function curl_errno($handle){return BillingTransportFixture::$mode==='timeout'?28:0;}
- function curl_error($handle){return BillingTransportFixture::$mode==='timeout'?'fixture timeout':'';}
+ function curl_errno($handle){return in_array(BillingTransportFixture::$mode,['timeout','native_timeout'],true)?28:0;}
+ function curl_error($handle){return in_array(BillingTransportFixture::$mode,['timeout','native_timeout'],true)?'Operation timed out':'';}
  function curl_getinfo($handle,$option){return BillingTransportFixture::$mode==='reject'?400:200;}
  function curl_close($handle){}
 }
@@ -71,8 +71,10 @@ namespace {
   check(balance()===$before&&in_array('text_usage_pending',issueCodes($result['consumption_id']),true),'Missing actual usage charged or escaped audit');
   $report=Audit::audit(1,'aigc_llm',500,'aigc_llm_agent_run',999999);check($report['checked']===0,'Audit crossed user filter');
  });
- fixture(function()use($params){
-  F::$mode='native_incomplete';$before=balance();
+ foreach(['native_incomplete','native_timeout'] as $nativeMode)fixture(function()use($params,$nativeMode){
+  F::$mode=$nativeMode;$before=balance();
+  // Shared non-Agent callers must not retry after receiving a native receipt either.
+  if($nativeMode==='native_timeout'){$params['_agent_tool_history']=false;$params['_disable_transient_retry']=false;}
   try{R::generate(1,1,$params,static function(){});throw new \LogicException('Incomplete native stream succeeded');}
   catch(TextSettlementPending $e){
    $c=AiConsumptionLog::findOrEmpty($e->consumptionId);
