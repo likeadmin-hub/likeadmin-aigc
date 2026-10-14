@@ -18,3 +18,7 @@ Focused rollback fixtures: `HomeAgentPlanManagementTest.php`, `HomeAgentLongRead
 Reload the local worker only through its normal process manager after current work has drained. The shared supervisor script manages other queues, so do not kill it merely to refresh one service. No production deployment is included.
 
 Before reverting to code that does not understand the `reading` phase, finish or explicitly stop those runs and preserve their preferences/notes. Do not clear task/consumption records or refund manually as part of a source rollback. Reverting the UI alone is compatible with existing confirmation and stop APIs.
+
+## Worker contention regression
+
+Lease recovery and task claiming happen before provider execution. MySQL deadlock (1213) and lock-wait timeout (1205) errors in those transactions are rolled back by the existing transaction wrapper; the worker defers until its next poll instead of exiting and restarting the shared supervisor group. Other database errors and errors after a provider call are not replayed. Worker diagnostics log only the exception class, SQLSTATE and numeric driver code, never query text or credentials.

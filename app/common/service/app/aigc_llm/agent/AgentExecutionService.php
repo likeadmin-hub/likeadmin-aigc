@@ -164,23 +164,14 @@ final class AgentExecutionService
     }
     public static function tick(): int
     {
-        // A lost worker cannot safely replay a paid provider submission.
-        foreach(AgentStore::table('run')->where('status','running')->where('lease_until','<',time())->limit(10)->select()->toArray() as $stale){
-            Db::transaction(function()use($stale){
-                $current=AgentStore::table('run')->where('id',$stale['id'])->lock(true)->find();
-                if(!$current||$current['status']!=='running'||(int)$current['lease_until']>=time())return;
-                $unknown=AgentStore::table('step')->where('run_id',$current['id'])->where('status','submitting')->where('task_id',0)->count();
-                if($current['phase']==='tools'&&!$unknown)AgentStore::update($current,['status'=>'waiting_tasks','lease_token'=>'','lease_until'=>0,'next_run_time'=>0]);
-                else self::finish($current,'needs_review','执行连接中断，已保留结果；请核对任务后再继续');
-            });
+        // Only lease recovery/claim transactions are safe to retry: no provider call has started.
+        try{$run=self::claimNextRun();}
+        catch(\think\db\exception\PDOException $e){
+            $code=(int)($e->getData()['PDO Error Info']['Driver Error Code']??0);
+            if(!in_array($code,[1205,1213],true))throw $e;
+            Log::warning('Home Agent claim deferred after database lock contention: '.$code);
+            return 0;
         }
-        $run=Db::transaction(function(){
-            $row=AgentStore::table('run')->whereIn('status',['queued','waiting_tasks'])->where('next_run_time','<=',time())->order('id')->lock(true)->find();
-            if(!$row)return null;
-            $row['lease_token']=bin2hex(random_bytes(16));
-            AgentStore::table('run')->where('id',$row['id'])->update(['status'=>'running','lease_token'=>$row['lease_token'],'lease_until'=>time()+1500,'update_time'=>time()]);
-            return $row;
-        });
         if(!$run)return 0;
         $original=app()->request;$request=new \app\Request();
         $request->withServer($original->server());$request->tenantId=(int)$run['tenant_id'];$request->userId=(int)$run['user_id'];$request->userInfo=['user_id'=>(int)$run['user_id'],'tenant_id'=>(int)$run['tenant_id']];
@@ -199,6 +190,26 @@ final class AgentExecutionService
             self::finish($run,$unknown?'needs_review':((int)$latest['cancel_requested']?'canceled':'failed'),$unknown?'任务提交结果待核对，请勿重复提交':($e instanceof \InvalidArgumentException?$e->getMessage():'本次执行未完成，请稍后重试'));
         }finally{app()->instance('request',$original);}
         return 1;
+    }
+    private static function claimNextRun(): ?array
+    {
+        // A lost worker cannot safely replay a paid provider submission.
+        foreach(AgentStore::table('run')->where('status','running')->where('lease_until','<',time())->limit(10)->select()->toArray() as $stale){
+            Db::transaction(function()use($stale){
+                $current=AgentStore::table('run')->where('id',$stale['id'])->lock(true)->find();
+                if(!$current||$current['status']!=='running'||(int)$current['lease_until']>=time())return;
+                $unknown=AgentStore::table('step')->where('run_id',$current['id'])->where('status','submitting')->where('task_id',0)->count();
+                if($current['phase']==='tools'&&!$unknown)AgentStore::update($current,['status'=>'waiting_tasks','lease_token'=>'','lease_until'=>0,'next_run_time'=>0]);
+                else self::finish($current,'needs_review','执行连接中断，已保留结果；请核对任务后再继续');
+            });
+        }
+        return Db::transaction(function(){
+            $row=AgentStore::table('run')->whereIn('status',['queued','waiting_tasks'])->where('next_run_time','<=',time())->order('id')->lock(true)->find();
+            if(!$row)return null;
+            $row['lease_token']=bin2hex(random_bytes(16));
+            AgentStore::table('run')->where('id',$row['id'])->update(['status'=>'running','lease_token'=>$row['lease_token'],'lease_until'=>time()+1500,'update_time'=>time()]);
+            return $row;
+        });
     }
     private static function chat(array $run): void
     {
