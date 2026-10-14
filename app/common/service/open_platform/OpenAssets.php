@@ -39,6 +39,6 @@ final class OpenAssets
     }
     public static function detail(int $tenantId,int $userId,string $id): array
     {
-        $row=OpenStore::owner('file',$tenantId,$userId)->where('file_id',$id)->find();if(!$row)throw new OpenException('not_found','素材不存在',404);return ['file_id'=>$row['file_id'],'name'=>$row['name'],'mime'=>$row['mime'],'size'=>$row['size'],'url'=>FileService::getFileUrlByStorage($row['uri'],$row['storage_scope'],$row['storage_engine'],$row['storage_domain'])];
+        $row=OpenStore::owner('file',$tenantId,$userId)->where('file_id',$id)->find();if(!$row || !\app\common\service\WorkspaceAssetService::isFileVisible($tenantId,$userId,$row))throw new OpenException('not_found','素材不存在',404);return ['file_id'=>$row['file_id'],'name'=>$row['name'],'mime'=>$row['mime'],'size'=>$row['size'],'url'=>FileService::getFileUrlByStorage($row['uri'],$row['storage_scope'],$row['storage_engine'],$row['storage_domain'])];
     }
 }

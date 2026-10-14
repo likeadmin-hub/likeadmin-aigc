@@ -130,6 +130,18 @@ final class WorkspaceAssetService
         return $source === false ? null : $source;
     }
 
+    public static function isFileVisible(int $tenant, int $user, array $file): bool
+    {
+        $query = Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source_id'=>$user,'source'=>FileEnum::SOURCE_USER,'uri'=>$file['uri']]);
+        foreach (['storage_scope','storage_engine','storage_domain'] as $field) $query->where($field,$file[$field] ?? '');
+        $rows = $query->field('id,delete_time')->select()->toArray();
+        if (!$rows) return true; // Legacy managed outputs may have no upload record.
+        foreach ($rows as $row) if ((int)$row['delete_time'] > 0) return false;
+        $refs = array_map(static fn($row)=>'upload:result:'.$row['id'],$rows);
+        return !Db::name(self::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user])->whereIn('asset_ref',$refs)
+            ->where(function($q) { $q->where('trashed_at','>',0)->whereOr('hidden_at','>',0); })->count();
+    }
+
     public static function isVisible(int $tenant, int $user, string $ref): bool
     {
         $state = Db::name(self::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user,'asset_ref'=>$ref])->find();

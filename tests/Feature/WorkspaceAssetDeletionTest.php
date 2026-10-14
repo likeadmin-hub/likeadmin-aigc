@@ -25,6 +25,11 @@ try {
         S::table('artifact')->insert($owner+$storage+['session_id'=>$tenant,'run_id'=>$run,'step_id'=>$step,'identity_hash'=>hash('sha256',$file),'title'=>'fixture','kind'=>'image','data'=>S::encode(['file_id'=>$file]),'create_time'=>time()]);
     }
     check(count(A::lists($tenant,$user,$tenant))===2, 'Two live Agent artworks');
+    $upload=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source_id'=>$user,'source'=>1,'upload_origin'=>'local','type'=>10,'name'=>'fixture','uri'=>'uploads/deletion-fixture-0.png','create_time'=>time()]+$storage);
+    W::update($tenant,$user,['refs'=>['upload:result:'.$upload],'action'=>'trash']);
+    check(count(A::lists($tenant,$user,$tenant))===1, 'Deleted upload aliases disappear from conversation artwork');
+    W::update($tenant,$user,['refs'=>['upload:result:'.$upload],'action'=>'restore']);
+    check(count(A::lists($tenant,$user,$tenant))===2, 'Restored managed file becomes visible again');
     W::update($tenant,$user,['refs'=>['image:result:'.$ids[0]],'action'=>'trash']);
     check(count(A::lists($tenant,$user,$tenant))===1, 'Deleted artwork must disappear from Agent');
     check((int)Db::name('aigc_image_task')->where('id',$task)->value('delete_time')===0, 'Sibling output keeps task visible');
