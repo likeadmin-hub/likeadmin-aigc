@@ -9,7 +9,7 @@ namespace app\common\service\power {
    if(self::$after)(self::$after)();
    $body=json_decode($params['messages'][0]['content'][0]['text'],true);
    if(mb_strlen($body['material'])>8000||mb_strlen($body['previous_summary'])>3000)throw new \RuntimeException('Unbounded context');
-   return ['content'=>json_encode(['summary'=>'累计读取到 '.$body['source']['end'],'note'=>'本段 '.$body['source']['offset'].' 的事实']),'consumption_id'=>count(self::$calls),'usage'=>['prompt_tokens'=>10,'completion_tokens'=>10]];
+   return ['content'=>json_encode(['summary'=>str_repeat('摘要',1490).$body['source']['end'],'note'=>str_repeat('事实',240).$body['source']['offset']]),'consumption_id'=>count(self::$calls),'usage'=>['prompt_tokens'=>10,'completion_tokens'=>10]];
   }
  }
 }
@@ -39,6 +39,7 @@ namespace {
   check($stopped['status']==='canceled'&&L::view($stopped)[0]['offset']===8000,'Stop lost a paid chunk');
   L::resume(1,1,$id);L::resume(1,1,$id);$next=$work();check(L::view($next)[0]['offset']===12000&&count(Fake::$calls)===3,'Resume reread or recharged completed chunks');
   for($i=3;$i<50;$i++)$complete=$work();check(L::view($complete)[0]['status']==='completed'&&L::view($complete)[0]['offset']===200000,'Long document was truncated');
+  check(strlen($complete['preferences'])<10000&&L::view($complete)[0]['segments']===50,'Notes overflowed run preferences');
   $resumed=$work();check($resumed['phase']==='chat'&&count(Fake::$calls)===50,'Completion did not resume original chat exactly once');
   $notes=L::notes($resumed,$file);check(count($notes['items'])===5&&$notes['items'][4]['offset']===16000&&$notes['next_offset']===5,'Source citations lost');
   $tail=L::notes($resumed,$file,45);check(count($tail['items'])===5&&$tail['items'][4]['offset']===196000&&$tail['next_offset']===null,'Long read tail or pagination lost');
@@ -46,6 +47,7 @@ namespace {
   foreach([['tenant_id'=>2],['user_id'=>2],['session_id'=>$session['id']+9999]] as $foreign)denied(fn()=>L::notes(array_replace($resumed,$foreign),$file));
   $saved=OpenStore::owner('file',1,1)->where('file_id',$file)->find();OpenStore::owner('file',1,1)->where('file_id',$file)->delete();
   check(L::context($resumed)===[],'Deleted source survived via summary');denied(fn()=>L::notes($resumed,$file));OpenStore::table('file')->insert($saved);
+  S::table('run')->where('id',$id)->update(['status'=>'canceled','phase'=>'reading','cancel_requested'=>1]);L::resume(1,1,$id);L::resume(1,1,$id);check(S::run(1,1,$id)['phase']==='chat'&&count(Fake::$calls)===50,'Stop at final chunk did not resume answer without recharging');
   $p=S::json($resumed['preferences']);$p['_long_reads'][$file]['status']='pending';$p['_long_reads'][$file]['offset']=16000;
   S::table('run')->where('id',$id)->update(['preferences'=>S::encode($p),'phase'=>'reading','status'=>'queued']);Fake::$fail=true;$uncertain=$work();
   check($uncertain['status']==='needs_review'&&L::view($uncertain)[0]['offset']===16000,'Uncertain model response advanced cursor');denied(fn()=>L::resume(1,1,$id));
