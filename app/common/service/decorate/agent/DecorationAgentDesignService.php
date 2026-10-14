@@ -210,6 +210,27 @@ final class DecorationAgentDesignService
         });
     }
 
+    /** A design slot deliberately has no candidate; verify its current approval phase instead. */
+    public static function assertSubmission(array $slot,array $run): void
+    {
+        $tenant=(int)$run['tenant_id'];$admin=(int)$run['admin_id'];
+        $session=Db::name('decorate_agent_session')->where(['id'=>$run['session_id'],'tenant_id'=>$tenant,'admin_id'=>$admin])->lock(true)->find();
+        $current=Db::name('decorate_agent_run')->where(['id'=>$run['id'],'tenant_id'=>$tenant,'admin_id'=>$admin])->lock(true)->find();
+        $currentSlot=Db::name('decorate_agent_image_slot')->where(['id'=>$slot['id'],'tenant_id'=>$tenant,'admin_id'=>$admin])->lock(true)->find();
+        if(!$session||!$current||!$currentSlot)throw new RuntimeException('设计提交归属已失效');
+        $context=DecorationAgentService::decode($current['context_json']);$design=$context['design']??[];
+        $input=DecorationAgentService::decode($current['input_json']);$latest=DecorationAgentService::decode($session['preferences'])['_design_state']??[];
+        if(!self::designing($input,$context)||!in_array($input['scope']??'',['page','new_page'],true)||!in_array('generate',$input['sources']??[],true)
+            ||$current['status']!=='waiting_images'||(int)$current['cancel_requested']||($context['phase']??'')!=='design'
+            ||(int)($latest['run_id']??0)!==(int)$current['id']||(int)($latest['revision']??0)!==(int)($design['revision']??0)
+            ||($design['status']??'')!=='generating'||(int)($design['slot_id']??0)!==(int)$currentSlot['id']
+            ||(int)$current['candidate_id']!==0||(int)$currentSlot['candidate_id']!==0
+            ||(int)$currentSlot['run_id']!==(int)$current['id']||(int)$currentSlot['session_id']!==(int)$session['id']
+            ||$currentSlot['slot_key']!=='design:page'||(DecorationAgentService::decode($currentSlot['request_json'])['purpose']??'')!=='design'){
+            throw new RuntimeException('设计已取消、被新版本替代或提交位置不匹配');
+        }
+    }
+
     public static function complete(array $slot,array $result): void
     {
         $tenant=(int)$slot['tenant_id'];$admin=(int)$slot['admin_id'];$id=(int)$slot['run_id'];
