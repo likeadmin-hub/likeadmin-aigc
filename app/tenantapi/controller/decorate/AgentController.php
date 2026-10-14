@@ -66,6 +66,7 @@ final class AgentController extends BaseAdminController
     public function events(){return $this->call('events');}
     public function cancel(){return $this->call('cancel',true);}
     public function candidate(){return $this->call('candidate');}
+    public function candidateCaptureAssets(){if(!$this->request->isPost())return $this->fail('截图素材读取仅支持POST');return $this->call('candidateCaptureAssets');}
     public function discard(){return $this->call('discard',true);}
     public function apply(){return $this->call('apply',true);}
     public function rollback(){return $this->call('rollback',true);}

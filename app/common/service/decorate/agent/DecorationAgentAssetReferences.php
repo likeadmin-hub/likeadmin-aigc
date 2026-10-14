@@ -90,6 +90,32 @@ final class DecorationAgentAssetReferences
         return $urls;
     }
 
+    /** Capture only declared current image refs; return authoritative storage identity, never client URLs. */
+    public static function captureIdentities(array $page,int $tenant): array
+    {
+        if($tenant<=0)throw new \InvalidArgumentException('截图素材租户无效');
+        $result=[];$identities=[];$cache=[];
+        self::walk($page,function(array &$widget,array $definition)use($tenant,&$result,&$identities,&$cache): void {
+            $fields=self::imageFields($widget,$definition);
+            foreach((array)($widget[self::REFS]??[]) as $field=>$ref){
+                if(!is_array($ref)||!in_array($field,$fields,true))continue;
+                $expected=$ref['expected_value']??null;
+                if(!is_string($expected)||DecorationAgentOperations::get($widget,$field)!==$expected)continue;
+                $kind=$ref['kind']??'';$id=filter_var($ref['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                if($id===false||!in_array($kind,['file','slot'],true))throw new \InvalidArgumentException('截图素材身份无效');
+                $key=$kind.':'.$id;
+                if(!array_key_exists($key,$cache))$cache[$key]=$kind==='file'?self::file($id,$tenant):self::slot($id,$tenant);
+                $record=$cache[$key];$match=null;
+                foreach($record?($kind==='file'?[$record]:$record['assets']):[] as $asset)if($asset['stable']===$expected){$match=$asset;break;}
+                if(!$match)throw new \InvalidArgumentException('截图素材未确认、来源无权读取或图片已变化');
+                $identity=json_encode([$match['uri'],$match['scope'],$match['engine'],$match['domain']]);
+                if(isset($identities[$expected])&&$identities[$expected]!==$identity)throw new \InvalidArgumentException('截图素材存在存储身份冲突');
+                $identities[$expected]=$identity;$result[$expected]=$match['asset'];
+            }
+        });
+        return $result;
+    }
+
     private static function attach(array &$widget,string $field,string $kind,int $id,string $stable): void
     {
         DecorationAgentOperations::set($widget,$field,$stable);
