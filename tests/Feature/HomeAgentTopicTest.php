@@ -43,11 +43,12 @@ Db::startTrans();try{
  check(C::readAsset($resume,$file)['file_id']===$file,'Related asset inaccessible');
  $third=T::resolve($make('把节奏再放慢一点'),fn()=>['action'=>'continue','topic_id'=>(int)$first['id']]);
  check(count(T::runIds($third))===3,'Continuation did not preserve topic chain');
- $before=Db::getQueryTimes();for($i=0;$i<10;$i++)$uncached=T::runIds($third);$uncachedQueries=Db::getQueryTimes()-$before;
- $before=Db::getQueryTimes();\app\common\service\app\aigc_llm\agent\AgentReadCache::scope(function()use($third,$uncached){
+ $queries=0;Db::listen(static function()use(&$queries){$queries++;});
+ $before=$queries;for($i=0;$i<10;$i++)$uncached=T::runIds($third);$uncachedQueries=$queries-$before;
+ $before=$queries;\app\common\service\app\aigc_llm\agent\AgentReadCache::scope(function()use($third,$uncached){
   for($i=0;$i<10;$i++)check(T::runIds($third)===$uncached,'Cached topic membership changed');
   foreach([['tenant_id'=>$third['tenant_id']+1],['user_id'=>$third['user_id']+1],['session_id'=>$third['session_id']+9999]] as $foreign)denied(fn()=>T::runIds(array_replace($third,$foreign)));
- });$cachedQueries=Db::getQueryTimes()-$before;
+ });$cachedQueries=$queries-$before;
  check($cachedQueries<$uncachedQueries,'Repeated topic queries not reduced');
  echo "Topic membership SQL: $uncachedQueries uncached -> $cachedQueries scoped (including 3 rejected owner checks)\n";
  $reset=T::resolve($make('重新开始，写一首诗'),static function(){throw new RuntimeException('Explicit reset invoked routing');});
