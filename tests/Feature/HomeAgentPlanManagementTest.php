@@ -46,6 +46,8 @@ namespace {
   check(count($retry['steps'])===3&&count($again['steps'])===3&&$retry['steps'][0]['superseded']&&$retry['pending_points']==20,'Retry not idempotent or charged historical quote');
   check($retry['status']==='awaiting_confirmation'&&Fake::$submitted===[$one],'Retry bypassed paid approval');
   $next=$retry['steps'][2];check($next['id']!==$one&&$next['attempts']===1,'Retry must get a new native billing identity');
+  $retry=P::edit(1,1,$id,$next['id'],$retry['approval_hash'],['prompt'=>'retry edited']);
+  $lineage=S::json(S::table('step')->where('id',$next['id'])->value('prepared'));check($lineage['_retry_of']===$one&&count($lineage['_attempts'])===1,'Editing retry lost attempt lineage');
   E::confirm(1,1,$id,$retry['approval_hash']);S::table('run')->where('id',$id)->update(['status'=>'running','lease_token'=>'retry','lease_until'=>time()+1500]);
   (new \ReflectionMethod(E::class,'executeSteps'))->invoke(null,S::run(1,1,$id));
   check(Fake::$submitted===[$one,$next['id']],'Old attempt was resubmitted');

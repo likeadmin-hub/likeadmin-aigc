@@ -24,7 +24,7 @@ namespace {
  function check($ok,$why){if(!$ok)throw new \RuntimeException($why);}
  function denied(callable $f){try{$f();}catch(\InvalidArgumentException|\app\common\service\open_platform\OpenException){return;}throw new \RuntimeException('Expected rejection');}
  $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local rollback only');
- $dir=public_path().'uploads/long-read-'.bin2hex(random_bytes(8));mkdir($dir,0700,true);$path=$dir.'/source.txt';file_put_contents($path,str_repeat('资料正文。',4000));
+ $dir=public_path().'uploads/long-read-'.bin2hex(random_bytes(8));mkdir($dir,0700,true);$path=$dir.'/source.txt';file_put_contents($path,str_repeat('资料正文。',40000));
  Db::startTrans();try{
   $now=time();$session=AigcLlmSession::create(['tenant_id'=>1,'user_id'=>1,'title'=>'long read','model_code'=>'fixture','status'=>'streaming','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
   $message=AigcLlmMessage::create(['tenant_id'=>1,'user_id'=>1,'session_id'=>$session['id'],'role'=>'assistant','content'=>'正在读取','seq'=>1,'status'=>'streaming','token_usage_json'=>[],'finish_reason'=>'','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
@@ -38,9 +38,10 @@ namespace {
   Fake::$after=static fn()=>S::table('run')->where('id',$id)->update(['cancel_requested'=>1]);$stopped=$work();Fake::$after=null;
   check($stopped['status']==='canceled'&&L::view($stopped)[0]['offset']===8000,'Stop lost a paid chunk');
   L::resume(1,1,$id);L::resume(1,1,$id);$next=$work();check(L::view($next)[0]['offset']===12000&&count(Fake::$calls)===3,'Resume reread or recharged completed chunks');
-  $work();$complete=$work();check(L::view($complete)[0]['status']==='completed'&&L::view($complete)[0]['offset']===20000,'Long document was truncated');
-  $resumed=$work();check($resumed['phase']==='chat'&&count(Fake::$calls)===5,'Completion did not resume original chat exactly once');
-  $notes=L::notes($resumed,$file);check(count($notes['items'])===5&&$notes['items'][4]['offset']===16000&&$notes['next_offset']===null,'Source citations lost');
+  for($i=3;$i<50;$i++)$complete=$work();check(L::view($complete)[0]['status']==='completed'&&L::view($complete)[0]['offset']===200000,'Long document was truncated');
+  $resumed=$work();check($resumed['phase']==='chat'&&count(Fake::$calls)===50,'Completion did not resume original chat exactly once');
+  $notes=L::notes($resumed,$file);check(count($notes['items'])===5&&$notes['items'][4]['offset']===16000&&$notes['next_offset']===5,'Source citations lost');
+  $tail=L::notes($resumed,$file,45);check(count($tail['items'])===5&&$tail['items'][4]['offset']===196000&&$tail['next_offset']===null,'Long read tail or pagination lost');
   check(count(L::context($resumed))===1,'Summary unavailable to original request');
   foreach([['tenant_id'=>2],['user_id'=>2],['session_id'=>$session['id']+9999]] as $foreign)denied(fn()=>L::notes(array_replace($resumed,$foreign),$file));
   $saved=OpenStore::owner('file',1,1)->where('file_id',$file)->find();OpenStore::owner('file',1,1)->where('file_id',$file)->delete();
@@ -49,6 +50,9 @@ namespace {
   S::table('run')->where('id',$id)->update(['preferences'=>S::encode($p),'phase'=>'reading','status'=>'queued']);Fake::$fail=true;$uncertain=$work();
   check($uncertain['status']==='needs_review'&&L::view($uncertain)[0]['offset']===16000,'Uncertain model response advanced cursor');denied(fn()=>L::resume(1,1,$id));
   check(S::owner('step',1,1)->where('run_id',$id)->count()===0,'Reading submitted generation');
-  echo "Long reading passed: 20000 characters / 5 bounded calls, durable citations, stop/resume without replay, idempotent scheduling, owner/deletion isolation, uncertain response blocked; mocked transport, rolled back\n";
+  // A source removed after a paid response must not make the same chunk resumable.
+  Fake::$fail=false;Fake::$after=static fn()=>OpenStore::owner('file',1,1)->where('file_id',$file)->delete();
+  $lost=$work();Fake::$after=null;check($lost['status']==='needs_review'&&L::view($lost)[0]['offset']===16000,'Post-payment persistence/authorization failure became resumable');denied(fn()=>L::resume(1,1,$id));
+  echo "Long reading passed: 200000 characters / 50 bounded calls, durable citations, stop/resume without replay, idempotent scheduling, owner/deletion isolation, uncertain response blocked; mocked transport, rolled back\n";
  }finally{Db::rollback();@unlink($path);@rmdir($dir);}
 }

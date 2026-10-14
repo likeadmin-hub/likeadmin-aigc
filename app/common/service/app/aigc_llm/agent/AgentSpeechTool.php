@@ -277,7 +277,8 @@ final class AgentSpeechTool
         if(!$row)throw new \InvalidArgumentException('配音任务不存在');
         $log=AiConsumptionLog::where(['app_task_id'=>$task,'tenant_id'=>$tenant,'user_id'=>$user,'action_code'=>self::ACTION,'api_code'=>'tts_async','billing_status'=>'reserved'])->find();
         if($log){try{self::reconcile((int)$log['id'],$tenant);}catch(\Throwable $e){self::uncertain((int)$log['id']);}$row=AiAppTask::find($task);}
-        return ['task_id'=>$task,'status'=>$row['status'],'results'=>((array)$row['result_summary'])['results']??[]];
+        $billing=array_values(array_unique(AiConsumptionLog::where(['app_task_id'=>$task,'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>self::ACTION])->column('billing_status')));
+        return ['task_id'=>$task,'status'=>$row['status'],'billing_status'=>count($billing)===1?$billing[0]:'unknown','results'=>((array)$row['result_summary'])['results']??[]];
     }
     private static function wake(array $log): void
     {

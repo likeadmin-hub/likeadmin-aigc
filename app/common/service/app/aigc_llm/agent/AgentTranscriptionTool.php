@@ -113,7 +113,8 @@ final class AgentTranscriptionTool
     {
         $row=AiAppTask::where(['id'=>$task,'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>'agent_transcribe'])->find();
         if(!$row)throw new \InvalidArgumentException('转写任务不存在');
-        return ['task_id'=>$task,'status'=>$row['status'],'transcription'=>(array)$row['result_summary']];
+        $billing=array_values(array_unique(AiConsumptionLog::where(['app_task_id'=>$task,'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>'agent_transcribe'])->column('billing_status')));
+        return ['task_id'=>$task,'status'=>$row['status'],'billing_status'=>count($billing)===1?$billing[0]:'unknown','transcription'=>(array)$row['result_summary']];
     }
     /** Replays only durable evidence; never sends the paid request again. */
     public static function reconcileReceipt(int $id): bool

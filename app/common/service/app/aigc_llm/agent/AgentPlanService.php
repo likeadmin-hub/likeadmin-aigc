@@ -73,7 +73,7 @@ final class AgentPlanService
         OpenSchema::validateRequest($changes,['type'=>'object','properties'=>$fields,'additionalProperties'=>false],true);
         // Pricing/admission may use external services. Never hold session locks while preparing.
         $fresh=$remove?$old:AgentCapabilityCatalog::prepare($snapshot,$step['tool_code'],array_replace($old['inputs']??[],$changes));
-        if(isset($old['_attempts']))$fresh['_attempts']=$old['_attempts'];
+        foreach(['_attempts','_retry_of','_retry_source_version'] as $key)if(isset($old[$key]))$fresh[$key]=$old[$key];
         Db::transaction(static function()use($tenant,$user,$id,$stepId,$hash,$fresh,$remove){
             $run=self::lock($tenant,$user,$id);$step=self::step($run,$stepId);
             if(!hash_equals((string)$run['approval_hash'],$hash)||!self::actions($run,$step)['editable'])throw new \InvalidArgumentException('方案已变更，请刷新后编辑');

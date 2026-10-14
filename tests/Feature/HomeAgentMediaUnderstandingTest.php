@@ -33,6 +33,7 @@ try{
   $replay=$reserve->invoke(null,1,1,array_replace($prepared,['step_id'=>$sid2]));check(!$replay['fresh'],'Unknown receipt resubmitted');
   $finish->invoke(null,$second['consumption_id'],false,['error'=>'Fixture explicit rejection']);$finish->invoke(null,$second['consumption_id'],false,['error'=>'Duplicate rejection']);
   check(abs((float)Db::name('user')->where('id',1)->value('user_money')-$after)<0.001,'Failed STT did not refund exactly once');
+  check(T::query(1,1,$second['task_id'])['billing_status']==='refunded','Transcription retry cannot verify refund');
   S::table('step')->where('id',$sid2)->delete();
   S::table('step')->where('id',$sid)->update(['status'=>'success']);$run=S::run(1,1,$id);check(T::resume($run),'STT completion did not resume answer');$new=S::run(1,1,$id);check($new['phase']==='chat'&&$new['status']==='queued'&&!T::resume($new),'STT continuation repeated');
  }finally{Db::rollback();}
