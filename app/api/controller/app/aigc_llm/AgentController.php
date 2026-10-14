@@ -53,10 +53,13 @@ class AgentController extends BaseApiController
     public function upload(){return $this->handle(function($t,$u){
         $file=$this->request->file('file');if(!$file||$file->getSize()>50*1024*1024)throw new \InvalidArgumentException('请选择50MB以内的素材');
         $mime=$file->getMime();$type=explode('/',$mime)[0];
-        if(\app\common\service\app\aigc_llm\agent\AgentDocumentReader::supports($file->getOriginalName())){
+        if(strtolower($file->getOriginalExtension())==='pdf'){
+            if($file->getSize()>10*1024*1024||$mime!=='application/pdf')throw new \InvalidArgumentException('请选择10MB以内的有效 PDF');
+            $type='file';
+        }elseif(\app\common\service\app\aigc_llm\agent\AgentDocumentReader::supports($file->getOriginalName())){
             \app\common\service\app\aigc_llm\agent\AgentDocumentReader::extract($file->getPathname(),$file->getOriginalName());
             $type='file';
-        }elseif(!in_array($type,['image','video','audio'],true))throw new \InvalidArgumentException('请添加图片、视频、音频或 TXT、Markdown、CSV、DOCX 文档');
+        }elseif(!in_array($type,['image','video','audio'],true))throw new \InvalidArgumentException('请添加图片、视频、音频或 PDF、TXT、Markdown、CSV、DOCX 文档');
         return OpenAssets::upload($t,$u,$type);
     });}
 }

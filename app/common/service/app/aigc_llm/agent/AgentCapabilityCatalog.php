@@ -20,6 +20,7 @@ final class AgentCapabilityCatalog
     public static function schema(string $code): array
     {
         self::assertSupported($code);
+        if($code===AgentTranscriptionTool::CODE)return AgentTranscriptionTool::schema();
         if(in_array($code,['aigc_music','aigc_fitting'],true))return AgentExtendedTools::schema($code);
         $properties=['prompt'=>['type'=>'string','minLength'=>1,'maxLength'=>10000],'negative_prompt'=>['type'=>'string','maxLength'=>4000],'ratio'=>['type'=>'string'],'reference_images'=>['type'=>'array','maxItems'=>8,'items'=>['type'=>'string','pattern'=>'^of_[a-f0-9]{32}$'],'description'=>'用户素材的 file_id；禁止构造或猜测地址']];
         if($code==='aigc_image')$properties+=['quantity'=>['type'=>'integer','minimum'=>1,'maximum'=>4],'quality'=>['type'=>'string']];
@@ -29,7 +30,7 @@ final class AgentCapabilityCatalog
     public static function assertSupported(string $code): void
     {
         // Deliberate homepage allowlist: never import the studio or public API tool catalogue wholesale.
-        if(!isset(self::SERVICES[$code]))throw new \InvalidArgumentException('首页 Agent 不支持此工具；工作室应用不在可调用范围内');
+        if($code!==AgentTranscriptionTool::CODE&&!isset(self::SERVICES[$code]))throw new \InvalidArgumentException('首页 Agent 不支持此工具；工作室应用不在可调用范围内');
     }
     private static function authorize(int $tenant,int $user,string $code): void
     {
@@ -44,6 +45,7 @@ final class AgentCapabilityCatalog
             try{self::authorize($tenant,$user,$code);}catch(\InvalidArgumentException){continue;}
             $out[$code]=['code'=>$code,'name'=>self::NAMES[$code],'description'=>match($code){'aigc_image'=>'文字或参考图生成图片','aigc_video'=>'文字或参考图生成视频','aigc_music'=>'生成歌曲或纯音乐，不是朗读配音 TTS','aigc_fitting'=>'用户上传服装图和模特图生成试衣图片'},'schema'=>self::schema($code),'version'=>'home-1','model_options'=>self::creationConfig($tenant,$code)['option_config']??[]];
         }
+        try{AgentTranscriptionTool::quote($tenant);$out[AgentTranscriptionTool::CODE]=['code'=>AgentTranscriptionTool::CODE,'name'=>'语音转文字','description'=>'识别音频或视频音轨中的语音，转写完成后继续总结或回答；按次收费，需要先保存方案','schema'=>AgentTranscriptionTool::schema(),'version'=>'home-stt-1'];}catch(\InvalidArgumentException){}
         return $out;
     }
     public static function models(int $tenant): array
@@ -54,6 +56,7 @@ final class AgentCapabilityCatalog
     }
     public static function describe(array $run,string $code): array
     {
+        if($code===AgentTranscriptionTool::CODE)return ['code'=>$code,'schema'=>AgentTranscriptionTool::schema(),'quote'=>AgentTranscriptionTool::quote((int)$run['tenant_id']),'instruction'=>'只支持本话题音频或视频中的语音识别，不识别音色身份或音乐音效。plan_creation 保存收费转写方案，完成后系统自动恢复当前回答；不要猜测未识别的内容。'];
         self::authorize((int)$run['tenant_id'],(int)$run['user_id'],$code);
         $type=self::TYPES[$code];
         $selection=(string)(AgentStore::json($run['preferences'])['models'][$type]??'');
@@ -63,6 +66,7 @@ final class AgentCapabilityCatalog
     }
     public static function prepare(array $run,string $code,array $params): array
     {
+        if($code===AgentTranscriptionTool::CODE)return AgentTranscriptionTool::prepare($run,$params);
         $tenant=(int)$run['tenant_id'];$user=(int)$run['user_id'];self::authorize($tenant,$user,$code);
         // Only fields declared by this native adapter are accepted from the model.
         unset($params['model_id'],$params['channel']);
@@ -90,6 +94,7 @@ final class AgentCapabilityCatalog
     }
     public static function submit(array $prepared): array
     {
+        if($prepared['capability']['code']===AgentTranscriptionTool::CODE)return AgentTranscriptionTool::submit($prepared);
         $request=request();$code=$prepared['capability']['code'];self::authorize((int)$request->tenantId,(int)$request->userId,$code);
         $scoped=OpenToolRequest::from($request,$prepared['params'],['app_code'=>$code,'route'=>'POST tasks']);
         app()->instance('request',$scoped);
@@ -98,6 +103,7 @@ final class AgentCapabilityCatalog
     }
     public static function query(array $run,string $code,int $taskId): array
     {
+        if($code===AgentTranscriptionTool::CODE)return AgentTranscriptionTool::query((int)$run['tenant_id'],(int)$run['user_id'],$taskId);
         if(!isset(self::SERVICES[$code]))throw new \InvalidArgumentException('未知任务类型');
         return self::SERVICES[$code]::taskDetail((int)$run['tenant_id'],$taskId,(int)$run['user_id']);
     }
