@@ -89,9 +89,20 @@ final class ResponsesMessagesAdapter
             // Completion is authoritative; never concatenate full arguments to deltas.
             $items = array_key_exists('output', $response) ? (array)$response['output'] : (array)($state['responses_items'] ?? []);
             ksort($items);
-            $state['responses_output'] = array_values($items);
+            $continuation = [];
             $calls = [];
             foreach ($items as $itemIndex => $item) {
+                $allowed = match ($item['type'] ?? '') {
+                    'message' => ['type', 'id', 'role', 'status', 'content', 'phase'],
+                    'function_call' => ['type', 'id', 'call_id', 'name', 'arguments', 'status'],
+                    'reasoning' => ['type', 'id', 'summary', 'encrypted_content', 'status'],
+                    default => [],
+                };
+                if ($allowed === [] || (($item['type'] ?? '') === 'message' && ($item['role'] ?? '') !== 'assistant')) {
+                    $state['error'] = '模型返回了不支持的输出类型，未执行本轮工具';
+                    return;
+                }
+                $continuation[] = array_intersect_key($item, array_flip($allowed));
                 if (($item['type'] ?? '') === 'function_call') {
                     $calls[] = ['id' => $item['call_id'] ?? '', 'type' => 'function', 'function' => ['name' => $item['name'] ?? '', 'arguments' => $item['arguments'] ?? '']];
                 } elseif (($item['type'] ?? '') === 'message') {
@@ -100,6 +111,7 @@ final class ResponsesMessagesAdapter
                     }
                 }
             }
+            $state['responses_output'] = $continuation;
             $state['tool_calls'] = $calls;
             $state['finish_reason'] = $calls === [] ? 'stop' : 'tool_calls';
         }
