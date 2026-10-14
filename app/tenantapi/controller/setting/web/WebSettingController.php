@@ -35,6 +35,7 @@ class WebSettingController extends BaseAdminController
     public function getWebsite()
     {
         $result = WebSettingLogic::getWebsiteInfo();
+        $result = \app\common\service\InspirationBrandService::publicPresentation($result, (int)$this->request->get('presentation_schema', 0) >= 2);
         return $this->data($result);
     }
 

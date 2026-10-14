@@ -73,9 +73,9 @@ class LatestNewsService
         $result = [];
         foreach ($rows as $row) {
             $id = (string)($row['id'] ?? '');
-            $referenceMedia = \app\common\service\InspirationBrandService::isReferenceUrl((string)($row['media_url'] ?? ''));
+            $host = strtolower((string)parse_url($row['media_url'] ?? '', PHP_URL_HOST));
             $isReference = preg_match('/^reference-\d+$/', $id)
-                && $referenceMedia;
+                && preg_match('/(^|\.)(imagine\.art|imagine\.animagic\.art)$/', $host);
             if ($isReference) {
                 if (!isset($titles[$id])) { continue; }
                 $row['title'] = $titles[$id];
