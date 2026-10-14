@@ -53,6 +53,10 @@ namespace app\common\service\power {
  function curl_getinfo($handle,$option){return BillingTransportFixture::$mode==='reject'?400:200;}
  function curl_close($handle){}
 }
+namespace app\common\service\app\aigc_llm\agent {
+ final class TextReceiptFault {public static bool $failWrite=false;}
+ function fopen($path,$mode){if(TextReceiptFault::$failWrite&&str_contains($path,'home-agent-text-receipts/'))return false;return \fopen($path,$mode);}
+}
 namespace {
  require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
  require dirname(__DIR__).'/Support/HomeAgentFixture.php';
@@ -67,7 +71,7 @@ namespace {
  function invoke(string $method,...$args){return (new \ReflectionMethod(R::class,$method))->invoke(null,...$args);}
  function balance(){return (float)Db::name('user')->where('id',1)->value('user_money');}
  function issueCodes(int $id){return array_column((new \ReflectionMethod(Audit::class,'issues'))->invoke(null,AiConsumptionLog::findOrEmpty($id)->toArray()),'code');}
- function fixture(callable $test){$files=glob(runtime_path().'home-agent-text-receipts/*')?:[];$before=balance();Db::startTrans();try{F::$calls=0;F::$mode='success';F::$beforeResponse=null;$test();}finally{Db::rollback();F::$beforeResponse=null;foreach(array_diff(glob(runtime_path().'home-agent-text-receipts/*')?:[],$files) as $file)unlink($file);}check(balance()===$before,'Fixture changed real balance');}
+ function fixture(callable $test){$files=glob(runtime_path().'home-agent-text-receipts/*')?:[];$before=balance();Db::startTrans();try{F::$calls=0;F::$mode='success';F::$beforeResponse=null;$test();}finally{Db::rollback();F::$beforeResponse=null;\app\common\service\app\aigc_llm\agent\TextReceiptFault::$failWrite=false;foreach(array_diff(glob(runtime_path().'home-agent-text-receipts/*')?:[],$files) as $file)unlink($file);}check(balance()===$before,'Fixture changed real balance');}
  $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local rollback test only');
  check(S::table('run')->whereIn('status',['queued','running','waiting_tasks'])->count()===0,'Do not run alongside active Agent jobs');
  $request=request();$request->tenantId=1;$request->userId=1;$request->userInfo=['tenant_id'=>1,'user_id'=>1];
@@ -173,6 +177,29 @@ namespace {
    \app\common\service\open_platform\OpenStore::table('file')->where('file_id',$file)->delete();
    try{\app\common\service\app\aigc_llm\agent\AgentTextReceipt::read(1,1,(int)$c['id']);throw new \LogicException('Deleted material readable through receipt');}catch(\InvalidArgumentException|\app\common\service\open_platform\OpenException){}
   }finally{unlink($path);rmdir($dir);}
+ });
+ fixture(function()use($params){
+  F::$beforeResponse=static fn()=>\app\common\service\app\aigc_llm\agent\TextReceiptFault::$failWrite=true;
+  $before=balance();try{R::generate(1,1,$params);throw new \LogicException('Expected receipt persistence failure');}catch(TextSettlementPending $e){
+   check(F::$calls===1&&balance()===$before&&AiConsumptionLog::where('id',$e->consumptionId)->value('billing_status')==='settlement_failed','Receipt failure charged, refunded or replayed');
+   check($e->result['content']==='可信正文，已保留。','Failed journal discarded in-memory reply');
+  }
+ });
+ fixture(function()use($model){
+  foreach(['user'=>'tenant_price','tenant'=>'platform_price'] as $side=>$price){
+   $free=$model;$free['input'][$price]=0;$free['output'][$price]=0;
+   $field=$side==='user'?'user_money':'point_balance';$before=Db::name($side)->where('id',1)->value($field);Db::name($side)->where('id',1)->update([$field=>0]);
+   invoke('assertAgentBalance',1,1,$free);
+   Db::name($side)->where('id',1)->update([$field=>$before]);
+  }
+  check(F::$calls===0,'Free-side admission called provider');
+ });
+ fixture(function()use($params){
+  // Other consumers keep the shared runtime's established contract.
+  $params['source_app_code']='aigc_short_drama';$params['business_table']='aigc_short_drama_script_task';
+  F::$mode='no_usage';Db::name('user')->where('id',1)->update(['user_money'=>0]);
+  $files=glob(runtime_path().'home-agent-text-receipts/*')?:[];$result=R::generate(1,1,$params);
+  check(F::$calls===1&&$result['billing']['billing_status']==='pending_usage'&&(glob(runtime_path().'home-agent-text-receipts/*')?:[])===$files,'Agent-only guard changed a shared consumer');
  });
  // Legacy reservations still release exactly once using the shared wallet services.
  fixture(function()use($model){
