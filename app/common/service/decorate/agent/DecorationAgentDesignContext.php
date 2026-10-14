@@ -125,7 +125,11 @@ final class DecorationAgentDesignContext
             'asset-entries'=>['supported'=>'user_assets rows，固定4列；整行空态','layout'=>'方形缩略图/标题/description','limitations'=>'无入口columns/font设置；无素材库操作按钮/状态机；游客空源保留合法空态','unsupported_fields'=>['content.field_map']],
             'service-grid'=>['supported'=>'columns/font_size/icon_size/show_title/show_sub_title/image_fit；row image/icon/title/description/link','layout'=>'与creation-entry相同；合法服务链接','limitations'=>'新内卡/文字样式被两端消费；content无title默认，公共仍保留历史常用服务标题','unsupported_fields'=>['content.field_map']],
         ];
-        if($name==='media-card')$notes[$name]['image_composition']='非list图片槽宽为内容区域100%，image_width不在此布局消费；contain遇到槽宽高比与图片不同会露出图片槽默认浅色底，不透明外壳background_color不会把内底改成同色。透明媒体组件通过真实surface token使内底alpha为0，可放在深色card里，图像居中留白不露白底；用已有图高/padding/margin控制可见图形并用独立title-bar align=center作为可编辑标签。不要编造image_background/align/crop字段。';
+        if($name==='media-card'){
+            $notes[$name]['supported'].='；非list可选image_max_width；可选text_align及styles.image_background';
+            $notes[$name]['image_composition']='image_max_width按rpx限制非list图片槽宽并居中，正值不超过内容可用宽，0/未配置保留100%；list忽略它，仍用image_width。image_height是槽高；可见主体尺寸还取决于真实画布留白及fit，最大宽不能代替bbox。styles.image_background仅图片槽底，空/缺省保留旧surface，支持transparent、3/4/6/8位hex、整数rgb0–255及rgba alpha0–1（含.5），不支持named/hsl/var/gradient/url。text_align空/缺省保留旧样式，left/center/right只对卡内标题/说明，点击link保留。contain保留完整图片但可能露出槽底；cover可能裁掉主体，必须对照真实bbox确认，不能为去白底盲目cover。不要编造crop字段。';
+        }
+        if($name==='banner')$notes[$name]['image_composition']='image_height是图片内容高度，不等于含padding/圆角外壳/阴影的整卡高度；对照设计需分别量图片和外壳。cover不会自动去掉源文件内嵌黑条，若原裁切无黑条应保留该可见图高，用真实深色背景/padding补外壳，不把整卡高度直接写成图片高度。';
         return ['audit'=>'2026-10-15 source control paths; browser coverage is separate','support'=>'partial']+($notes[$name]??[]);
     }
 
