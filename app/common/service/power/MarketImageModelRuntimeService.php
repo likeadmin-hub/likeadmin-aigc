@@ -81,22 +81,24 @@ class MarketImageModelRuntimeService
     /** @return array<int, array<string, mixed>> */
     public static function options(int $tenantId): array
     {
+        return MarketCatalogReadScope::remember('image:' . $tenantId, static fn(): array => self::buildOptions($tenantId));
+    }
+
+    private static function buildOptions(int $tenantId): array
+    {
         $products = PowerMarketProduct::where([
             'resource_type' => PowerMarketService::TYPE_MODEL,
             'model_type' => 'image',
             'status' => 1,
         ])->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
         TenantPowerMarketService::applyProductDisplays($tenantId, $products);
+        $catalogueSkus = MarketCatalogSkuReader::forProducts($tenantId, array_column($products, 'id'));
         $options = [];
         foreach ($products as $product) {
             $meta = self::metadata($product);
-            $platformSkuCount = PowerMarketSku::where([
-                'product_id' => (int)$product['id'],
-                'status' => 1,
-                'sale_status' => 1,
-            ])->count();
+            $platformSkuCount = $catalogueSkus[(int)$product['id']]['platform_count'] ?? 0;
             $skus = [];
-            foreach (self::availableSkus($tenantId, (int)$product['id']) as $market) {
+            foreach ($catalogueSkus[(int)$product['id']]['available'] ?? [] as $market) {
                 $sku = $market['sku'];
                 $locked = self::arrayValue($sku['locked_params'] ?? []);
                 $quality = self::skuQuality($sku, $locked);

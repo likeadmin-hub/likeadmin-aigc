@@ -118,6 +118,11 @@ class AigcCanvasService
 
     public static function config(int $tenantId): array
     {
+        return \app\common\service\power\MarketCatalogReadScope::run(static fn(): array => self::buildConfig($tenantId));
+    }
+
+    private static function buildConfig(int $tenantId): array
+    {
         $resourceStatus = self::resourceStatus($tenantId);
         $text = self::textConfig($tenantId);
         $marketRouter = CanvasModelRouterService::marketOverview($tenantId);

@@ -52,6 +52,11 @@ final class AgentCapabilityCatalog
     }
     public static function models(int $tenant): array
     {
+        return \app\common\service\power\MarketCatalogReadScope::run(static fn(): array => self::buildModels($tenant));
+    }
+
+    private static function buildModels(int $tenant): array
+    {
         $text=AigcLlmService::config($tenant)['option_config']??[];
         $text['models']=array_values(array_filter($text['models']??[],static function($model)use($tenant){try{\app\common\service\power\MarketTextModelRuntimeService::resolveAgentModel($tenant,(string)$model['code']);return true;}catch(\Exception){return false;}}));
         return ['text'=>$text,'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>self::creationConfig($tenant,'aigc_video')['option_config']??[],'music'=>self::SERVICES['aigc_music']::config($tenant)['option_config']??[],'voice'=>AgentSpeechTool::models($tenant)];

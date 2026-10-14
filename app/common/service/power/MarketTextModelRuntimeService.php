@@ -463,16 +463,22 @@ class MarketTextModelRuntimeService
     /** @return array<int, array<string, mixed>> */
     private static function options(int $tenantId, bool $vision): array
     {
+        return MarketCatalogReadScope::remember('text:' . $tenantId . ':' . (int)$vision, static fn(): array => self::buildOptions($tenantId, $vision));
+    }
+
+    private static function buildOptions(int $tenantId, bool $vision): array
+    {
         $products = PowerMarketProduct::where(['resource_type' => PowerMarketService::TYPE_MODEL, 'model_type' => 'text', 'status' => 1])
             ->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
         TenantPowerMarketService::applyProductDisplays($tenantId, $products);
+        $catalogueSkus = MarketCatalogSkuReader::forProducts($tenantId, array_column($products, 'id'));
         $options = [];
         foreach ($products as $product) {
             $snapshot = self::arrayValue($product['source_payload'] ?? []);
             if ($vision && !self::supportsVision($snapshot, $product)) {
                 continue;
             }
-            $prices = self::marketPrices($tenantId, (int)$product['id']);
+            $prices = self::formatMarketPrices($catalogueSkus[(int)$product['id']]['available'] ?? []);
             if ($prices === []) {
                 continue;
             }
@@ -534,19 +540,15 @@ class MarketTextModelRuntimeService
     }
 
     /** @return array<string, array<string, mixed>> */
-    private static function marketPrices(int $tenantId, int $productId): array
+    private static function formatMarketPrices(array $markets): array
     {
-        $rows = PowerMarketSku::where(['product_id' => $productId, 'status' => 1, 'sale_status' => 1])->select()->toArray();
         $valid = [];
-        foreach ($rows as $sku) {
-            $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
-            if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) {
-                continue;
-            }
+        foreach ($markets as $market) {
+            $sku = $market['sku'];
             $valid[] = [
                 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku),
                 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'],
-                'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points'],
+                'tenant_price' => $market['tenant_price'],
             ];
         }
         if ($valid === []) return [];
