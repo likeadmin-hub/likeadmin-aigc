@@ -3,9 +3,9 @@ namespace { require dirname(__DIR__,2).'/vendor/autoload.php'; }
 // Stub the transport only. Exercise the actual native service, task, Agent worker and billing.
 namespace app\common\service\app\aigc_music {
  class XhadminAigcMusicProvider extends MockAigcMusicProvider {
-  public static int $submits=0,$queries=0;public static bool $queryUnavailable=true;
-  public function generate(AigcMusicGenerateRequest $request): AigcMusicGenerateResult {self::$submits++;return new AigcMusicGenerateResult(true,[], '', 'agent-music-fixture');}
-  public function fetchResult(string $id,AigcMusicGenerateRequest $request): AigcMusicGenerateResult {self::$queries++;if(self::$queryUnavailable)throw new \RuntimeException('temporary query unavailable');return new AigcMusicGenerateResult(true,[['title'=>'Music fixture','audio_uri'=>'uploads/agent-music-fixture.mp3','mime_type'=>'audio/mpeg','duration'=>30,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']], '',$id);}
+  public static int $submits=0,$queries=0;public static bool $queryUnavailable=true,$rejectSubmit=false,$rejectResult=false;
+  public function generate(AigcMusicGenerateRequest $request): AigcMusicGenerateResult {self::$submits++;return new AigcMusicGenerateResult(!self::$rejectSubmit,[], self::$rejectSubmit?'fixture rejected':'', 'agent-music-fixture');}
+  public function fetchResult(string $id,AigcMusicGenerateRequest $request): AigcMusicGenerateResult {self::$queries++;if(self::$queryUnavailable)throw new \RuntimeException('temporary query unavailable');if(self::$rejectResult)return new AigcMusicGenerateResult(false,[],'fixture generation failed',$id);return new AigcMusicGenerateResult(true,[['title'=>'Music fixture','audio_uri'=>'uploads/agent-music-fixture.mp3','mime_type'=>'audio/mpeg','duration'=>30,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']], '',$id);}
  }
 }
 namespace {
@@ -37,7 +37,19 @@ namespace {
   check(abs($before-$balance()-(float)$prepared['quote']['user'])<0.001,'Music price not settled exactly once');$settled=$balance();
   Music::taskDetail(1,$task,1);Music::taskDetail(1,$task,1);check($balance()===$settled&&Fake::$submits===1,'Polling charged or submitted twice');
   A::favorite(1,1,(int)$items[0]['id'],true);check(A::lists(1,1,(int)$run['session_id'])[0]['favorite']===1,'Music favorite failed');
-  echo "Home Agent music workflow passed: real task/worker, mocked transport, audio artifact, exact single billing, repeated poll and favorite; rolled back\n";
+  foreach(['submit','result'] as $failure){
+   Fake::$rejectSubmit=$failure==='submit';Fake::$rejectResult=$failure==='result';$submits=Fake::$submits;
+   $failed=E::submit(1,1,['request_id'=>'music_failure_'.bin2hex(random_bytes(12)),'content'=>'offline music '.$failure.' failure']);$failedRun=S::run(1,1,(int)$failed['id']);
+   S::table('step')->insert(['tenant_id'=>1,'user_id'=>1,'run_id'=>$failedRun['id'],'step_key'=>hash('sha256',(string)$failedRun['id']),'title'=>'Music failure fixture','tool_code'=>'aigc_music','prepared'=>S::encode($prepared),'result'=>'','create_time'=>time(),'update_time'=>time()]);
+   S::table('run')->where('id',$failedRun['id'])->update(['phase'=>'tools','status'=>'queued']);E::tick();
+   S::table('run')->where('id',$failedRun['id'])->update(['next_run_time'=>0]);E::tick();
+   $failed=E::detail(1,1,(int)$failedRun['id']);check($failed['status']==='failed','Confirmed music '.$failure.' rejection did not terminate');
+   $failedTask=(int)$failed['steps'][0]['task_id'];check($failedTask>0,'Failed music task lost its mapping');
+   Music::taskDetail(1,$failedTask,1);Music::taskDetail(1,$failedTask,1);E::tick();
+   check($balance()===$settled&&Fake::$submits===$submits+1,'Failed music task charged or resubmitted');
+   check(A::lists(1,1,(int)$failedRun['session_id'])===[],'Failed music task exposed a result asset');
+  }
+  echo "Home Agent music workflow passed: real task/worker, mocked transport, audio artifact, exact single billing, repeated poll, favorite, submit rejection and asynchronous failure without charge/resubmit; rolled back\n";
  }finally{Db::rollback();}
  check($balance()===$before,'Rollback did not restore balance');
 }
