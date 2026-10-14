@@ -3,6 +3,11 @@ declare(strict_types=1);
 namespace app\common\service\virtualpay;
 final class VirtualPayPolicy
 {
+    public static function integer(mixed $value): int
+    {
+        if ((!is_int($value) && !is_string($value)) || !preg_match('/^\d{1,12}$/D', (string)$value)) throw new \RuntimeException('渠道数值格式不正确');
+        return (int)$value;
+    }
     public static function environment(int $env): void
     {
         if (!in_array($env, [0,1], true)) throw new \InvalidArgumentException('支付环境不正确');

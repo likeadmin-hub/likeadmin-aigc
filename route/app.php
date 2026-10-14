@@ -31,7 +31,7 @@ $openPlatformCallback = function () {
         }
         $contentType = is_string($result) && str_starts_with(ltrim($result), '<xml')
             ? 'application/xml; charset=utf-8'
-            : 'text/plain; charset=utf-8';
+            : (is_string($result) && str_starts_with(ltrim($result),'{') ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8');
         $response = response($result, 200, ['Content-Type' => $contentType]);
         return $isAuthorizationCallback ? $response->cookie(\app\common\service\wechat\OpenPlatformService::authStateCookieName(), '', \app\common\service\wechat\OpenPlatformService::authStateCookieOptions(-3600))->cookie(\app\common\service\wechat\OpenPlatformService::authReturnOriginCookieName(), '', \app\common\service\wechat\OpenPlatformService::authStateCookieOptions(-3600)) : $response;
     } catch (\Throwable $e) {
@@ -153,3 +153,13 @@ Route::rule('t/:tenant_id/pc', function () use ($tenantFrontendRedirect) {
 Route::rule('crontab', function () {
     Console::call('crontab');
 });
+
+// Manual mini-program virtual payment callback. No login; signature and app-scoped AES are mandatory.
+Route::rule('wechat/virtual-pay/:tenant/:appid/callback', function () {
+    try {
+        $request=request();$raw=(string)$request->getContent();
+        $reply=(new \app\common\service\virtualpay\VirtualPayNotifyService())->manual((int)$request->param('tenant'),(string)$request->param('appid'),$raw,$request->get(),$request->isGet());
+        $type=str_starts_with(ltrim($reply),'{')?'application/json; charset=utf-8':(str_starts_with(ltrim($reply),'<xml')?'application/xml; charset=utf-8':'text/plain; charset=utf-8');
+        return response($reply,200,['Content-Type'=>$type,'Cache-Control'=>'no-store']);
+    } catch (\Throwable $e) { return response('fail',400,['Content-Type'=>'text/plain; charset=utf-8','Cache-Control'=>'no-store']); }
+}, 'GET|POST')->pattern(['tenant'=>'[0-9]+','appid'=>'[A-Za-z0-9_-]+']);

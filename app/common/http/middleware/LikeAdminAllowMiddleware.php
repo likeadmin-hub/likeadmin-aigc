@@ -85,6 +85,7 @@ class LikeAdminAllowMiddleware
         }
         // Proof has no user data or mutations; it matches the requested host and a random challenge.
         if ($normalizedPath === 'api/brand.domain/probe') return $next($request);
+        if (preg_match('#^wechat/virtual-pay/[0-9]+/[A-Za-z0-9_-]+/callback$#', $normalizedPath)) return $next($request);
         if ($normalizedPath === 'wechat/open-platform/callback'
             || $normalizedPath === 'wechat/open-platform/authorize'
             || preg_match('#^wechat/open-platform/[A-Za-z0-9_-]+/callback$#', $normalizedPath)) {

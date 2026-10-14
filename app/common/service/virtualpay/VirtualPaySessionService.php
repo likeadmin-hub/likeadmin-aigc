@@ -7,7 +7,7 @@ use app\common\service\virtualpay\VirtualPayVault as Cipher;
 final class VirtualPaySessionService
 {
     private VirtualPayGateway $gateway;
-    public function __construct(?VirtualPayGateway $gateway=null){$this->gateway=$gateway??new VirtualPayGateway();}
+    public function __construct(?VirtualPayGateway $gateway=null){$this->gateway=$gateway??app()->make(VirtualPayGateway::class);}
     public function exchange(int $tenant,int $user,string $code): string
     {
         VirtualPayConfigService::requireVault();if($code===''||$user<=0)throw new \RuntimeException('请重新登录微信小程序');

@@ -7,13 +7,13 @@ def sql(db,q):return run(['docker','exec','-i','likeadmin-oem-db','mysql','-uroo
 def migrate(db,prefix,content):return run(['docker','run','--rm','-i','--network','likeadmin-oem-dev','-v',str(root)+':/repo:ro','--tmpfs','/repo/runtime','-w','/repo','-e','OEM_DISPOSABLE=1','-e','PHP_DATABASE_HOSTNAME=oem-mysql','-e','PHP_DATABASE_DATABASE='+db,'-e','PHP_DATABASE_PREFIX='+prefix,'-e','PHP_DATABASE_USERNAME=root','-e','PHP_DATABASE_PASSWORD=','-e','PHP_CACHE_DRIVER=file','likeadmin-install-worker-test:local','php','tests/oem-schema-migrate.php'],content)
 try:
  migration=(root/'upgrade/20261014_package_promotion.sql').read_text();assert migration==(root/'public/upgrade/20261014_package_promotion.sql').read_text()
- virtual=(root/'upgrade/20261014_virtual_payment.sql').read_text();assert virtual==(root/'public/upgrade/20261014_virtual_payment.sql').read_text();migration+='\n'+virtual
+ virtual=(root/'upgrade/20261014_virtual_payment.sql').read_text();assert virtual==(root/'public/upgrade/20261014_virtual_payment.sql').read_text();orders=(root/'upgrade/20261014_virtual_payment_orders.sql').read_text();assert orders==(root/'public/upgrade/20261014_virtual_payment_orders.sql').read_text();migration+='\n'+virtual+'\n'+orders
  old=run(['git','-C',str(root),'show','24301c49d:public/install/db/like.sql']);install=(root/'public/install/db/like.sql').read_text()
  for mode,prefix in [('fresh','la_'),('upgrade','la_'),('prefix','qa_')]:
   db='oem_promotion_schema_'+mode+'_'+key;created.append(db);run(['docker','exec','likeadmin-oem-db','mysql','-uroot','-e','CREATE DATABASE '+db]);sql(db,(install if mode=='fresh' else old).replace('la_',prefix))
   migrate(db,prefix,migration);sql(db,f"INSERT INTO {prefix}tenant_package_promotion (tenant_id,biz_type,package_id,enabled,discount_prices) VALUES(77,'membership',44,1,'{{\"package\":990}}');")
   migrate(db,prefix,migration)
-  for table in ['tenant_package_promotion','tenant_package_discount_claim','tenant_package_price_snapshot','virtual_pay_config','virtual_pay_config_version','virtual_pay_product','virtual_pay_session']:assert sql(db,f"SHOW TABLES LIKE '{prefix}{table}'")==prefix+table
+  for table in ['tenant_package_promotion','tenant_package_discount_claim','tenant_package_price_snapshot','virtual_pay_config','virtual_pay_config_version','virtual_pay_product','virtual_pay_session','virtual_pay_intent','virtual_pay_receipt','virtual_pay_event','virtual_pay_work']:assert sql(db,f"SHOW TABLES LIKE '{prefix}{table}'")==prefix+table
   assert sql(db,f"SELECT enabled FROM {prefix}tenant_package_promotion WHERE tenant_id=77 AND package_id=44")=='1'
   assert sql(db,f"SELECT COUNT(*) FROM {prefix}tenant_system_menu WHERE tenant_id=0 AND perms='finance.virtual_pay/detail'")=='1'
   assert sql(db,f"SELECT COUNT(*) FROM {prefix}tenant_system_menu WHERE tenant_id=0 AND perms='finance.promotion/save'")=='1'
