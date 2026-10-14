@@ -64,7 +64,7 @@ final class AgentSpeechTool
         $effective=OpenCharacterInputPricing::transportParameters($offer['config'],$raw);
         $quote=OpenCharacterInputPricing::quote($offer['product'],$offer['sku'],$offer['retail'],$raw,65536,strlen(AgentStore::encode($raw)),$offer['config']);
         $quote['snapshot']+=['product_id'=>(int)$offer['product']['id'],'sku_id'=>(int)$offer['sku']['id'],'model_name'=>$offer['product']['name'].'（平台默认模型/音色）','selection'=>$selection,'speech_api'=>$offer['product']['upstream_api_code']];
-        return ['run_id'=>(int)$run['id'],'capability'=>['code'=>self::CODE,'name'=>'文字配音','version'=>'home-speech-1'],'inputs'=>$params,
+        return ['run_id'=>(int)$run['id'],'capability'=>['code'=>self::CODE,'name'=>'文字配音','version'=>'home-speech-2'],'inputs'=>$params,
             'params'=>['prompt'=>$params['text'],'characters'=>$quote['snapshot']['character_input']['quantity'],'format'=>'mp3','model_name'=>$quote['snapshot']['model_name'],'execution_mode'=>$async?'async':'sync'],
             'speech_payload'=>$effective,'quote'=>$quote,'constraints'=>['description'=>'使用平台默认模型和默认音色，最多'.$limit.'字符；按字符计费，音频时长由内容决定。']];
     }
@@ -245,7 +245,8 @@ final class AgentSpeechTool
     }
     private static function storeAudio(string $url,int $tenant,int $user): array
     {
-        $wire=OpenSafeHttp::get($url,20*1024*1024,45);$mime=(new \finfo(FILEINFO_MIME_TYPE))->buffer($wire['body']);
+        // Match the existing music storage bound; long speech can exceed the short-text 20 MB limit.
+        $wire=OpenSafeHttp::get($url,100*1024*1024,45);$mime=(new \finfo(FILEINFO_MIME_TYPE))->buffer($wire['body']);
         if(!in_array($mime,['audio/mpeg','audio/mp3'],true))throw new \RuntimeException('配音返回的不是有效 MP3 音频');
         $stored=AigcMusicAssetService::persistGeneratedAudio('data:audio/mp3;base64,'.base64_encode($wire['body']),$tenant,$user);
         if(empty($stored['stored']))throw new \RuntimeException('配音音频保存失败');
