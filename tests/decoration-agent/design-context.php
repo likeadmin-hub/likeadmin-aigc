@@ -1,0 +1,48 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/../../vendor/autoload.php';
+(new think\App())->initialize();set_exception_handler(function($error){fwrite(STDERR,$error->getMessage()."\n");exit(1);});request()->tenantId=1;request()->withServer(['HTTP_HOST'=>'z.cn','SERVER_NAME'=>'z.cn','SERVER_PORT'=>'80','REQUEST_SCHEME'=>'http']);
+use app\common\service\decorate\agent\DecorationAgentDesignContext as D;
+use app\common\service\decorate\agent\DecorationAgentCatalog as C;
+use app\common\service\decorate\agent\DecorationAgentOperations as O;
+use app\common\service\decorate\agent\DecorationAgentMediaService as M;
+$n=0;function designCheck($ok,$label){global $n;if(!$ok)throw new RuntimeException($label);$n++;}
+$catalog=D::catalog();designCheck(count($catalog)===count(C::summary()['components']),'all components have compact writable contracts');
+$creation=array_values(array_filter($catalog,fn($d)=>$d['name']==='creation-entry-grid'))[0];designCheck(isset($creation['lists']['data']['fields']['image'])&&!isset($creation['fields']['field_map'])&&!isset($creation['defaults']),'usable row image fields and no unsupported field_map/default dump');
+$page=['data'=>[]];foreach(array_slice(C::summary()['components'],0,12) as $i=>$definition)$page['data'][]=C::create($definition['name'],'present'.$i);
+$related=D::related($page,'page','','把全页做成深色创意工作室首页');designCheck(count($related)>8,'existing candidate contracts have no eight-component truncation');
+$empty=D::related(['data'=>[]],'page','','创意工作室：首页、会员服务和教程案例');$names=array_column($empty,'name');foreach(['rich-text','banner','creation-entry-grid','service-grid','tutorial-carousel','case-feed','membership-card'] as $name)designCheck(in_array($name,$names,true),'intent contracts '.$name);
+$selection=D::related($page,'selected','present0','整页');designCheck(count($selection)===1&&$selection[0]['name']===$page['data'][0]['name'],'selected scope remains focused');
+$icons=D::icons();designCheck(array_slice(array_column($icons,'component'),0,3)===['button-group','floating-action','nav'],'legacy icon mappings retained');
+$generic=array_values(array_filter($icons,fn($r)=>$r['component']==='creation-entry-grid'&&$r['field']==='content.data.*.image'))[0];designCheck(count($generic['options'])>=6&&$generic['options'][0]['width']===300,'creation image icons have real dimensions');
+$materials=M::builtinMaterials();designCheck(count($materials)===3&&$materials[0]['role']==='decorative'&&$materials[0]['width']===2130&&$materials[0]['height']===963,'curated originals have exact metadata and honest role');
+$items=M::search(1,'',['content'],[],12);designCheck(count(array_filter($items,fn($r)=>($r['role']??'')==='decorative'))===3,'allowed content includes builtin decoration');
+$closed=M::search(1,'',['upload'],[],12);designCheck($closed===[],'disabled content cannot introduce builtin/app imagery');
+$studio=M::search(1,'玻璃',['content'],[],12);designCheck(count($studio)>=2&&count(array_filter($studio,fn($r)=>$r['role']==='decorative'))>=2,'curated semantic tags searchable');
+$url=$materials[0]['url'];$blank=['data'=>[],'meta'=>[],'name'=>'fixture'];$op=['type'=>'add_component','name'=>'banner','content'=>['data'=>[['image'=>$url]]]];
+try{O::apply($blank,[$op],['scope'=>'page']);throw new RuntimeException('unapproved URL accepted');}catch(InvalidArgumentException $e){designCheck(true,'default blanket image trust remains denied');}
+designCheck(O::apply($blank,[$op],['scope'=>'page','approved_urls'=>[$url]])['candidate']['data'][0]['content']['data'][0]['image']===$url,'exact current allowed material can be used');
+$synthetic=C::definition('creation-entry-grid');$synthetic['lists']['data']['fields']['icon']=['options'=>[['value'=>'image','label'=>'图片'],['value'=>'video','label'=>'视频']]];
+$named=D::namedIcons([$synthetic]);designCheck($named[0]['options'][0]['value']==='image'&&$named[0]['field']==='content.data.*.icon','named options derive from actual supplied catalog field definitions');
+$batch=D::discover(['names'=>['search','creation-entry-grid','video-player']]);designCheck(count($batch['components'])===3&&$batch['components'][0]['defaults']===C::definition('search')['defaults'],'batch full definitions retain original defaults');
+$part=D::discover(['page'=>2,'limit'=>7]);designCheck($part['total']===46&&count($part['components'])===7,'all component discovery supports pagination');
+$named=D::namedIcons(null,'绘图');$entry=array_values(array_filter($named,fn($group)=>$group['component']==='creation-entry-grid'))[0];designCheck(in_array('photo',array_column($entry['options'],'value'),true)&&!in_array('account',array_column($entry['options'],'value'),true),'semantic icon query selects registered values and excludes unrelated');
+$index=D::iconSummary(D::icons());designCheck(count($index['palettes'])<count($index['bindings']),'automatic icons share palettes rather than repeating enums');
+$cli=M::builtinMaterials();designCheck(str_starts_with($cli[0]['url'],'/resource/')&&!str_contains($cli[0]['url'],'http://resource'),'first-party URI is host independent');
+$service=new ReflectionMethod(\app\common\service\decorate\agent\DecorationAgentService::class,'modelContext');$service->setAccessible(true);
+$input=['scope'=>'page','selected_id'=>'','message'=>'创建工作室首页','sources'=>['content'],'attachments'=>[],'image_strategy'=>'existing_first','budget_points'=>25,'image_model_selection'=>[]];$session=['template_id'=>1,'page_id'=>1];$ctx=['candidate'=>['data'=>[],'meta'=>[],'name'=>'fixture'],'facts'=>[],'observations'=>[]];
+$context=$service->invokeArgs(null,[1,1,$session,$input,&$ctx,true]);designCheck($context['source_inventory']['app_entries']['count']===26&&$context['source_inventory']['ai_tools']['count']===0&&isset($context['source_inventory']['ai_tools']['warning']),'actual owner inventory distinguishes recommendation empty from real mobile entries');
+designCheck(in_array($context['material_summary'][0]['url'],$ctx['approved_material_urls'],true)&&!$context['generation']['allowed'],'actual context authorizes only returned images and keeps generate gate closed');
+$input['sources']=[];$closedContext=['candidate'=>['data'=>[],'meta'=>[],'name'=>'fixture'],'facts'=>[],'observations'=>[]];$closed=$service->invokeArgs(null,[1,1,$session,$input,&$closedContext,true]);designCheck($closed['material_summary']===[]&&!in_array($cli[0]['url'],$closedContext['approved_material_urls'],true),'automatic context cannot bypass disabled content source');
+$namedPage=['data'=>[C::create('creation-entry-grid','entry')],'meta'=>[],'name'=>'fixture'];$namedResult=O::apply($namedPage,[['type'=>'update_component','widget_id'=>'entry','fields'=>['content.data'=>[['title'=>'图片创作','icon'=>'photo']]]]],['scope'=>'page']);designCheck($namedResult['candidate']['data'][0]['content']['data'][0]['icon']==='photo','finite named glyph works without image URL approval');
+$gen=new ReflectionMethod(\app\common\service\decorate\agent\DecorationAgentService::class,'generationContext');$gen->setAccessible(true);$generationInput=$input;$generationInput['sources']=['generate'];$generationInput['image_model_selection']=['market_product_id'=>195,'market_sku_id'=>720];$generationInput['remaining_budget_points']=19;
+$generation=$gen->invoke(null,1,$generationInput,['candidate'=>['data'=>[C::create('banner','hero')]]]);designCheck($generation['allowed']&&$generation['remaining_budget_points']===19&&$generation['selected_model']['selected_sku']['platform_unit_cost']==6&&in_array('16:9',$generation['selected_model']['ratio_options'],true),'registered image model exposes actual price/ratio and remaining budget without submission');
+designCheck(count(array_filter($generation['rendered_slots'],fn($slot)=>$slot['field']==='content.data.0.image'&&$slot['preferred']))===1&&!in_array('content.data.0.cover',array_column($generation['rendered_slots'],'field'),true),'generation prefers actual rendered hero field rather than generic unused cover');
+\think\facade\Db::startTrans();try{
+ $id=\think\facade\Db::name('decorate_agent_session')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'template_id'=>1,'page_id'=>1,'scope'=>'page','preferences'=>'{}','facts'=>'[]','create_time'=>time(),'update_time'=>time()]);$session=['id'=>$id,'template_id'=>1,'page_id'=>1];$quoteContext=['candidate'=>['data'=>[],'meta'=>[],'name'=>'fixture'],'facts'=>[],'observations'=>[]];$quoteWire=$service->invokeArgs(null,[1,1,$session,$input,&$quoteContext,true]);
+ \think\facade\Db::name('decorate_agent_message')->insert(['tenant_id'=>1,'admin_id'=>1,'session_id'=>$id,'run_id'=>0,'role'=>'user','content'=>$input['message'],'attachments'=>'[]','create_time'=>time(),'update_time'=>time()]);$actualContext=['candidate'=>['data'=>[],'meta'=>[],'name'=>'fixture'],'facts'=>[],'observations'=>[]];$actualWire=$service->invokeArgs(null,[1,1,$session,$input,&$actualContext,false]);designCheck($quoteWire===$actualWire,'quote and first actual model request use identical context construction');
+}finally{\think\facade\Db::rollback();}
+foreach(C::summary()['components'] as $definition)designCheck(isset(D::contract($definition['name'])['runtime_capabilities']['limitations']),$definition['name'].' has audited runtime boundaries');
+designCheck(!in_array('content.cover',array_column(D::contract('audio-player')['image_slots'],'field'),true)&&!in_array('content.data.*.image',array_column(D::contract('membership-card')['image_slots'],'field'),true),'unused audio/member generic images are not generation targets');
+designCheck(D::contract('search')['runtime_notes']===C::definition('search')['runtime_notes'],'raw registry runtime notes preserved alongside structured capabilities');
+echo "design context: $n checks passed\n";

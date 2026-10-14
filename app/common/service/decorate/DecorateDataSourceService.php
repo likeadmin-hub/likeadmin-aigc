@@ -64,6 +64,8 @@ class DecorateDataSourceService
 
         $page['data'] = self::encodeJson($filtered);
         $page['resolved_sources'] = self::resolveRefs((int)($context['tenant_id'] ?? 0), array_values($refs), $context);
+        $urls=\app\common\service\decorate\agent\DecorationAgentAssetReferences::resolveUrls(['data'=>$filtered,'meta'=>$meta],(int)($context['tenant_id']??0));
+        if($urls){$page['resolved_asset_urls']=$urls;$page['resolved_sources']['__decoration_asset_urls']=$urls;}
         if (($page['page_code'] ?? '') === 'user' && ($page['terminal'] ?? '') === 'mobile') {
             $page['resolved_sources']['__features'] = [
                 'distribution_enabled' => DistributionService::isEnabled((int)($context['tenant_id'] ?? 0)) ? 1 : 0,
