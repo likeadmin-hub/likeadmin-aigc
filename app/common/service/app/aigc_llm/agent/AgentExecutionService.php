@@ -47,6 +47,9 @@ final class AgentExecutionService
             if((string)$session['status']==='streaming')throw new \InvalidArgumentException('请等待当前回复完成');
             $active=AgentStore::owner('run',$tenant,$user)->where('session_id',$session['id'])->whereIn('status',['queued','running','waiting_tasks'])->find();
             if($active)throw new \InvalidArgumentException('当前会话任务仍在执行，可先停止或新建会话');
+            $pending=AgentStore::owner('run',$tenant,$user)->where('session_id',$session['id'])->where('status','awaiting_confirmation')->lock(true)->column('id');
+            if($pending&&AgentStore::owner('step',$tenant,$user)->whereIn('run_id',$pending)->whereIn('status',['running','submitting','needs_review'])->count())
+                throw new \InvalidArgumentException('当前方案仍有已提交或待核对的任务，请等待结果或新建会话');
             // A new instruction supersedes only unexecuted plans, never submitted tasks.
             AgentStore::owner('run',$tenant,$user)->where('session_id',$session['id'])->where('status','awaiting_confirmation')->update(['status'=>'canceled','cancel_requested'=>1,'update_time'=>time()]);
             $seq=(int)AigcLlmMessage::where(['tenant_id'=>$tenant,'session_id'=>$session['id']])->max('seq');
@@ -449,22 +452,20 @@ final class AgentExecutionService
             if(!empty($metadata['_superseded_by'])||!empty($metadata['_removed']))continue;
             if(in_array($step['status'],['success','failed','canceled','needs_review'],true)){$success=$success||$step['status']==='success';$failed=$failed||$step['status']==='failed'||(AgentStore::json($step['result'])['status']??'')==='partial_success';$review=$review||$step['status']==='needs_review';continue;}
             $current=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
-            if((int)$current['cancel_requested']&&$step['status']==='proposed'){AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'canceled','update_time'=>time()]);continue;}
+            if(empty($run['lease_token'])||$current['lease_token']!==$run['lease_token']||$current['status']!=='running'||(int)$current['lease_until']<time())return;
             $prepared=AgentStore::json($step['prepared']);
             if($step['status']==='proposed'){
-                self::checkpoint($run);
-                try{AgentStore::access((int)$run['tenant_id'],(int)$run['user_id']);$fresh=AgentCapabilityCatalog::prepare($run,$step['tool_code'],$prepared['inputs']??[]);}
-                catch(\Exception $e){AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'failed','error'=>'当前模型、权限或报价不可用，请调整后重试','update_time'=>time()]);$failed=true;continue;}
-                if(AgentToolContext::priceFingerprint($fresh['quote'])!==AgentToolContext::priceFingerprint($prepared['quote'])||$fresh['capability']['version']!==$prepared['capability']['version']){
-                    foreach(['_attempts','_retry_of','_retry_source_version'] as $key)if(isset($prepared[$key]))$fresh[$key]=$prepared[$key];
-                    AgentStore::table('step')->where('id',$step['id'])->update(['prepared'=>AgentStore::encode($fresh),'update_time'=>time()]);
-                    $all=AgentStore::table('step')->where('run_id',$run['id'])->order('id')->column('prepared');
-                    AgentStore::update($run,['status'=>'awaiting_confirmation','phase'=>'chat','approval_hash'=>hash('sha256',AgentStore::encode($all)),'lease_token'=>'','lease_until'=>0]);
-                    self::finishMessage($run,'done');
-                    AgentStore::event($run,'plan.changed',['reason'=>'模型契约或报价变化，请重新确认剩余步骤']);return;
+                $fresh=null;
+                if(!(int)$current['cancel_requested']){
+                    AgentStore::update($run,['lease_until'=>time()+1500]);
+                    // Quotes may be slow. Do not hold database locks over preparation or provider I/O.
+                    try{AgentStore::access((int)$run['tenant_id'],(int)$run['user_id']);$fresh=AgentCapabilityCatalog::prepare($run,$step['tool_code'],$prepared['inputs']??[]);}
+                    catch(\Exception $e){/* Resolve failure only after checking the current lease and cancellation. */}
                 }
-                AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'submitting','update_time'=>time()]);
-                AgentStore::event($run,'tool.started',['step_id'=>$step['id'],'title'=>$step['title']]);
+                $admission=self::admitStep($run,$step,$fresh);
+                if($admission==='canceled')continue;
+                if($admission==='failed'){$failed=true;continue;}
+                if($admission!=='submitting')return;
                 $fresh['step_id']=(int)$step['id'];
                 try{$result=AgentCapabilityCatalog::submit($fresh);}
                 catch(\Throwable $e){
@@ -499,6 +500,34 @@ final class AgentExecutionService
         if(!$review&&!$failed&&!(int)$current['cancel_requested']&&AgentTranscriptionTool::resume($run))return;
         if(!$review&&!$failed&&!(int)$current['cancel_requested']&&AgentSequenceService::advance($run))return;
         self::finish($run,$review?'needs_review':((int)$current['cancel_requested']?'canceled':($failed?($success?'partial_success':'failed'):'success')),$review?'部分提交结果待核对；已知任务结果已保留':'');
+    }
+    /** The submitting transition is the admission point. A stale worker may never acquire it twice. */
+    private static function admitStep(array $run,array $step,?array $fresh): string
+    {
+        return Db::transaction(static function()use($run,$step,$fresh){
+            $tenant=(int)$run['tenant_id'];$user=(int)$run['user_id'];
+            // Match submit/confirm/edit lock order; no provider call occurs in this transaction.
+            if(!AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find())throw new \InvalidArgumentException('会话已删除');
+            $current=AgentStore::owner('run',$tenant,$user)->where('id',$run['id'])->lock(true)->find();
+            if(!$current||empty($run['lease_token'])||$current['lease_token']!==$run['lease_token']||$current['status']!=='running'||$current['phase']!=='tools'||(int)$current['lease_until']<time())return 'stale';
+            $saved=AgentStore::owner('step',$tenant,$user)->where(['id'=>$step['id'],'run_id'=>$run['id']])->lock(true)->find();
+            if(!$saved||$saved['status']!=='proposed'||(int)$saved['task_id']||AgentPlanService::version($saved)!==AgentPlanService::version($step))return 'stale';
+            $query=AgentStore::owner('step',$tenant,$user)->where('id',$step['id']);
+            if((int)$current['cancel_requested']){$query->update(['status'=>'canceled','update_time'=>time()]);return 'canceled';}
+            if($fresh===null){$query->update(['status'=>'failed','error'=>'当前模型、权限或报价不可用，请调整后重试','update_time'=>time()]);return 'failed';}
+            $prepared=AgentStore::json($saved['prepared']);
+            if(AgentToolContext::priceFingerprint($fresh['quote'])!==AgentToolContext::priceFingerprint($prepared['quote'])||$fresh['capability']['version']!==$prepared['capability']['version']){
+                foreach(['_attempts','_retry_of','_retry_source_version'] as $key)if(isset($prepared[$key]))$fresh[$key]=$prepared[$key];
+                $query->update(['prepared'=>AgentStore::encode($fresh),'update_time'=>time()]);
+                $all=AgentStore::table('step')->where('run_id',$run['id'])->order('id')->column('prepared');
+                AgentStore::update($run,['status'=>'awaiting_confirmation','phase'=>'chat','approval_hash'=>hash('sha256',AgentStore::encode($all)),'lease_token'=>'','lease_until'=>0]);
+                self::finishMessage($run,'done');
+                AgentStore::event($run,'plan.changed',['reason'=>'模型契约或报价变化，请重新确认剩余步骤']);return 'changed';
+            }
+            $query->update(['status'=>'submitting','update_time'=>time()]);
+            AgentStore::event($run,'tool.started',['step_id'=>$step['id'],'title'=>$step['title']]);
+            return 'submitting';
+        });
     }
     private static function checkpoint(array $run): void
     {
