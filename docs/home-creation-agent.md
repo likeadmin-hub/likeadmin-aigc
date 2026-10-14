@@ -208,3 +208,9 @@ Validation: missing/corrupt preview-map fixtures, an intentionally failing previ
 - 重连重新同步完整当前状态，不依赖客户端保留全部事件；原 JSON detail/events 接口兼容。订阅只读，不创建任务、不执行模型、不扣费。
 - PC 优先 SSE，断线后通过 detail 恢复并重连；旧连接、切换会话、停止、卸载的迟到结果不能覆盖当前状态。新增文字逐字展示，历史正文立即显示，阶段文字展示完再出现方案/复制操作。
 - 无数据库迁移；新增用户接口 schema，未更改后台角色权限、供应商协议和任务/计费状态。
+
+验收记录：
+- 后端 `HomeAgentStreamTest.php`（本地事务回滚）与 `HomeAgentVisibleReplyTest.php` 通过，覆盖归属隔离、实时/最终快照、重连、断开、连接时限和正式回复过滤；控制器语法及 API schema JSON 检查通过。
+- PC 的 run/reply-reveal/reply-stages/conversation/artifact-library 共 34 项测试通过；两个修改组件 SFC 编译通过。回归时更新了已过时的共享作品区测试，并修复删除当前会话时内部清理被忙碌标志阻止的问题。
+- 页面实测 session 156：run 333（198 字）、334（126 字）均成功，均为纯文字、0 个创作步骤；真实访问日志包含 `POST /api/app.aigc_llm.agent/stream` 200，浏览器无控制台 error，完成后显示复制按钮。逐字节奏、重连幂等和阶段顺序由自动化测试覆盖。
+- 本次不重新进行图片/视频/音乐付费验收，不更改历史失败记录和计费数据；生产并发连接容量未做压测。
