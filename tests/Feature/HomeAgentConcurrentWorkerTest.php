@@ -15,6 +15,7 @@ namespace app\common\service\app\aigc_image {
 }
 namespace {
  require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
+ require dirname(__DIR__).'/Support/HomeAgentFixture.php';
  set_exception_handler(static function(Throwable $e){fwrite(STDERR,$e->getMessage()."\n".$e->getTraceAsString()."\n");exit(1);});
  use think\facade\Db;
  use app\common\service\app\aigc_llm\agent\{AgentStore as S,AgentExecutionService as E,AgentCapabilityCatalog as C};
@@ -41,7 +42,7 @@ namespace {
  $wait=function()use(&$children){$codes=[];foreach($children as [$process,$log]){$codes[]=proc_close($process);fclose($log);}$children=[];return $codes;};
  $create=function()use(&$ids,&$sessions,$dir){
   $now=time();$session=Db::name('aigc_llm_session')->insertGetId(['tenant_id'=>1,'user_id'=>1,'title'=>'离线并发夹具','model_code'=>'fixture','status'=>'idle','last_message_at'=>$now,'message_count'=>0,'create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);$sessions[]=$session;
-  $id=S::table('run')->insertGetId(['tenant_id'=>1,'user_id'=>1,'session_id'=>$session,'message_id'=>0,'request_id'=>'concurrency-'.bin2hex(random_bytes(12)),'payload_hash'=>str_repeat('d',64),'content'=>'离线并发验收','preferences'=>S::encode(S::preferences(1,1)),'attachments'=>'[]','status'=>'awaiting_confirmation','phase'=>'tools','reply'=>'','create_time'=>$now,'update_time'=>$now]);
+  $id=S::table('run')->insertGetId(['tenant_id'=>1,'user_id'=>1,'session_id'=>$session,'message_id'=>0,'request_id'=>'concurrency-'.bin2hex(random_bytes(12)),'payload_hash'=>str_repeat('d',64),'content'=>'离线并发验收','preferences'=>S::encode(HomeAgentFixture::preferences()),'attachments'=>'[]','status'=>'awaiting_confirmation','phase'=>'tools','reply'=>'','create_time'=>$now,'update_time'=>$now]);
   $ids[]=$id;$run=S::run(1,1,$id);$prepared=C::prepare($run,'aigc_image',['prompt'=>'offline concurrency fixture']);
   S::table('step')->insert(['tenant_id'=>1,'user_id'=>1,'run_id'=>$id,'step_key'=>hash('sha256',(string)$id),'title'=>'fixture','tool_code'=>'aigc_image','prepared'=>S::encode($prepared),'result'=>'','create_time'=>$now,'update_time'=>$now]);
   S::table('run')->where('id',$id)->update(['status'=>'queued']);file_put_contents($dir.'/fixture.json',json_encode(['ids'=>$ids]));return $id;
