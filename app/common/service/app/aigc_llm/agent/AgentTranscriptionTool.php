@@ -48,21 +48,16 @@ final class AgentTranscriptionTool
             $source=UpdateSourceClient::getSource();$key=trim((string)($source['active_api_key']??$source['api_key']??$source['license_key']??''));
             $parts=parse_url((string)($source['active_base_url']??$source['base_url']??''));
             if(!$key||empty($parts['host']))throw new \InvalidArgumentException('语音识别服务未配置');
+            AgentTranscriptionRecovery::prepareJournal();
             $reservation=self::reserve($tenant,$user,$prepared);
             if(!$reservation['fresh'])return self::query($tenant,$user,$reservation['task_id']);
             $id=$reservation['task_id'];$cid=$reservation['consumption_id'];
             $url=($parts['scheme']??'https').'://'.$parts['host'].(isset($parts['port'])?':'.$parts['port']:'').'/api/v1/apps/voice_tts/stt';
             try{
                 $wire=self::request($url,$key,$audio,$source);
-                $data=json_decode($wire['body'],true);
-                AiConsumptionLog::where('id',$cid)->update(['response_summary'=>AgentStore::encode(['http_status'=>$wire['status'],'provider_receipt'=>$data??mb_substr($wire['body'],0,200000)]),'update_time'=>time()]);
-                $recognized=$data['data']['text']??$data['data']['result']['text']??null;
-                if($wire['status']<500&&is_array($data)&&((isset($data['code'])&&(int)$data['code']===0)||isset($data['error']))){
-                    self::finish($cid,false,['error'=>'语音识别服务拒绝了请求，请检查素材后重试']);
-                }elseif($wire['status']===200&&(int)($data['code']??0)===1&&is_string($recognized)&&mb_strlen($recognized)<=100000){
-                    // Empty text is a valid completed recognition (silence/no intelligible speech).
-                    self::finish($cid,true,['text'=>$recognized,'language'=>(string)($data['data']['language']??$data['data']['result']['language']??''),'duration'=>(float)($data['data']['duration']??$data['data']['result']['duration']??0),'file_id'=>$prepared['inputs']['file_id']]);
-                }else self::uncertain($cid);
+                AgentTranscriptionRecovery::record($cid,$wire);
+                self::reconcileReceipt($cid);
+                AgentTranscriptionRecovery::reconcile($cid,$tenant);
             }catch(\Throwable $e){\think\facade\Log::error('Home Agent STT '.$cid.' failed: '.get_class($e).' '.$e->getMessage());self::uncertain($cid);}
             return self::query($tenant,$user,$id);
         });
@@ -92,7 +87,7 @@ final class AgentTranscriptionTool
     {
         // Preserve returned text even if accounting fails; recovery must never dispatch STT again.
         $receipt=AgentStore::json(AiConsumptionLog::where('id',$id)->value('response_summary'));
-        $audit=$result+array_intersect_key($receipt,array_flip(['http_status','provider_receipt']));
+        $audit=$result+$receipt;
         AiConsumptionLog::where('id',$id)->whereNotIn('billing_status',['settled','refunded'])->update(['response_summary'=>AgentStore::encode($audit),'update_time'=>time()]);
         Db::transaction(function()use($id,$success,$result){
             $log=AiConsumptionLog::where('id',$id)->lock(true)->find();$task=AiAppTask::find($log['app_task_id']);
@@ -101,15 +96,18 @@ final class AgentTranscriptionTool
             $tenant=(float)$log['reserved_tenant_cost'];$user=(float)$log['reserved_user_price'];
             if($success)PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$log['tenant_id'],(int)$log['user_id'],$tenant,$user,$tenant,$user,$log['consume_no'],'语音转写结算',$extra);
             else PointService::releaseReservedBusinessAmountsInCurrentTransaction((int)$log['tenant_id'],(int)$log['user_id'],$tenant,$user,$log['consume_no'].'-release','语音转写失败退回',$extra);
-            $log->save(['run_status'=>$success?'success':'failed','billing_status'=>$success?'settled':'refunded','actual_tenant_cost'=>$success?$tenant:0,'actual_user_price'=>$success?$user:0,'finish_time'=>time(),'update_time'=>time()]);
+            $log->save(['run_status'=>$success?'success':'failed','billing_status'=>$success?'settled':'refunded','actual_tenant_cost'=>$success?$tenant:0,'actual_user_price'=>$success?$user:0,'error_code'=>'','error_message'=>'','finish_time'=>time(),'update_time'=>time()]);
             $task->save(['status'=>$success?'success':'failed','progress'=>100,'result_summary'=>$result,'actual_tenant_cost'=>$success?$tenant:0,'actual_user_price'=>$success?$user:0,'finish_time'=>time(),'update_time'=>time()]);
         });
     }
     private static function uncertain(int $id): void
     {
-        $log=AiConsumptionLog::find($id);if(!$log||in_array($log['billing_status'],['settled','refunded'],true))return;
-        $log->save(['run_status'=>'needs_review','error_code'=>'stt_receipt_uncertain','error_message'=>'转写受理或结算结果待核对，请勿重复提交','update_time'=>time()]);
-        AiAppTask::where('id',$log['app_task_id'])->update(['status'=>'needs_review','update_time'=>time()]);
+        Db::transaction(function()use($id){
+            $log=AiConsumptionLog::where('id',$id)->lock(true)->find();
+            if(!$log||in_array($log['billing_status'],['settled','refunded'],true))return;
+            $log->save(['run_status'=>'needs_review','error_code'=>'stt_receipt_uncertain','error_message'=>'转写受理或结算结果待核对，请勿重复提交','update_time'=>time()]);
+            AiAppTask::where('id',$log['app_task_id'])->update(['status'=>'needs_review','update_time'=>time()]);
+        });
     }
     public static function query(int $tenant,int $user,int $task): array
     {
@@ -117,11 +115,33 @@ final class AgentTranscriptionTool
         if(!$row)throw new \InvalidArgumentException('转写任务不存在');
         return ['task_id'=>$task,'status'=>$row['status'],'transcription'=>(array)$row['result_summary']];
     }
+    /** Replays only durable evidence; never sends the paid request again. */
+    public static function reconcileReceipt(int $id): bool
+    {
+        $log=AiConsumptionLog::where(['id'=>$id,'app_code'=>'aigc_llm','action_code'=>'agent_transcribe'])->find();
+        if(!$log)throw new \InvalidArgumentException('转写消费记录不存在');
+        if(in_array($log['billing_status'],['settled','refunded'],true))return true;
+        $receipt=AgentStore::json($log['response_summary']);
+        $result=AgentTranscriptionRecovery::classify($receipt,AgentStore::json($log['request_summary']));
+        if($result===null){self::uncertain($id);return false;}
+        self::finish($id,$result['success'],$result['result']);
+        return true;
+    }
     private static function request(string $url,string $key,string $audio,array $source): array
     {
-        $ch=curl_init($url);$body='';
-        curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>['audio'=>new \CURLFile($audio,'audio/wav','speech.wav'),'ignore_timestamps'=>'1'],CURLOPT_CONNECTTIMEOUT=>15,CURLOPT_TIMEOUT=>180,CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$key,'Accept: application/json'],CURLOPT_SSL_VERIFYPEER=>UpdateSourceClient::sslVerify($source),CURLOPT_SSL_VERIFYHOST=>UpdateSourceClient::sslVerify($source)?2:0,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_WRITEFUNCTION=>static function($ch,$part)use(&$body){if(strlen($body)+strlen($part)>2097152)return 0;$body.=$part;return strlen($part);}]);
-        try{if(curl_exec($ch)===false)throw new \RuntimeException('转写连接中断');return ['status'=>(int)curl_getinfo($ch,CURLINFO_HTTP_CODE),'body'=>$body];}finally{curl_close($ch);}
+        $ch=curl_init($url);$body='';$headers=[];$started=microtime(true);
+        curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>['audio'=>new \CURLFile($audio,'audio/wav','speech.wav'),'ignore_timestamps'=>'1'],CURLOPT_CONNECTTIMEOUT=>15,CURLOPT_TIMEOUT=>180,CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$key,'Accept: application/json'],CURLOPT_SSL_VERIFYPEER=>UpdateSourceClient::sslVerify($source),CURLOPT_SSL_VERIFYHOST=>UpdateSourceClient::sslVerify($source)?2:0,CURLOPT_FOLLOWLOCATION=>false,
+            CURLOPT_HEADERFUNCTION=>static function($ch,$line)use(&$headers){
+                if(preg_match('~^HTTP/~i',$line))$headers=[];
+                $pair=explode(':',$line,2);$name=strtolower(trim($pair[0]));
+                if(count($pair)===2&&in_array($name,['x-request-id','request-id','x-task-id'],true))$headers[$name]=substr(trim($pair[1]),0,200);
+                return strlen($line);
+            },
+            CURLOPT_WRITEFUNCTION=>static function($ch,$part)use(&$body){if(strlen($body)+strlen($part)>2097152)return 0;$body.=$part;return strlen($part);}]);
+        try{
+            $complete=curl_exec($ch)!==false;
+            return ['http_status'=>(int)curl_getinfo($ch,CURLINFO_HTTP_CODE),'body'=>$body,'headers'=>$headers,'complete'=>$complete,'transport_errno'=>curl_errno($ch),'elapsed_ms'=>(int)((microtime(true)-$started)*1000)];
+        }finally{curl_close($ch);}
     }
     public static function resume(array $run): bool
     {
