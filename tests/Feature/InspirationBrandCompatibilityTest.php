@@ -11,6 +11,12 @@ check($next['inspiration_background'] === $old['imagine_background'], 'Legacy ba
 check(!isset($next['imagine_background']) && $next['models'] === $old['models'], 'Canonical output and supplier values');
 check(Brand::configuration($next) === $next, 'Normalization must be idempotent');
 check(Brand::configuration($old + ['inspiration_background'=>[]])['inspiration_background'] === [], 'Explicit new empty config must win');
+$canonical = $next + ['website'=>['pc_home_style'=>'inspiration'],'user'=>['points'=>123.45]];
+$legacy = Brand::publicPresentation($canonical, false);
+check($legacy['home_style'] === 'imagine' && $legacy['website']['pc_home_style'] === 'imagine', 'Cached bundles must retain their original style switches');
+check($legacy['imagine_background'] === $canonical['inspiration_background'], 'Cached bundles must retain original background fields');
+check($legacy['models'] === $canonical['models'] && $legacy['user'] === $canonical['user'], 'Protocol values and balance must not change with presentation');
+check(Brand::publicPresentation($canonical, true) === $canonical && !isset($canonical['imagine_background']), 'New clients and canonical storage must remain unchanged');
 check(Brand::assetPath('/imagine-home/social.jpeg') === '/inspiration-home/social.jpeg', 'Old cover paths remain readable');
 check(Brand::assetPath('/uploads/custom.jpeg') === '/uploads/custom.jpeg', 'Tenant paths must not change');
 foreach (['https://cdn.web.imagine.art/banner.mp4','https://imagine.animagic.art/banner.mp4','https://cdn-imagine.vyro.ai/a.webp','//www.imagine.art/a'] as $url) check(Brand::isReferenceUrl($url), 'Reference host missed');

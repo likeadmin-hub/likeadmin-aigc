@@ -58,6 +58,7 @@ class PcController extends BaseApiController
     public function config()
     {
         $result = PcLogic::getConfigData();
+        $result = \app\common\service\InspirationBrandService::publicPresentation($result, (int)$this->request->get('presentation_schema', 0) >= 2);
         return $this->data($result);
     }
 
