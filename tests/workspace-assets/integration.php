@@ -44,6 +44,7 @@ try {
         check(count($saved)===1 && $saved[0]['source']===$source,'Tool labels preserve their source without requiring a favorite');
     }
     $secondTask=Db::name('aigc_image_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','prompt'=>'Pagination fixture','create_time'=>time()]);
+    Db::name('aigc_image_task')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','prompt'=>'Other live pagination fixture','create_time'=>time()]);
     $firstPage=\app\common\service\app\aigc_image\AigcImageService::taskLists($tenant,$user,['page_no'=>1,'page_size'=>1,'status'=>'success']);
     $secondPage=\app\common\service\app\aigc_image\AigcImageService::taskLists($tenant,$user,['page_no'=>2,'page_size'=>1,'status'=>'success']);
     check((int)$firstPage['count']===2 && count($firstPage['lists'])===1 && count($secondPage['lists'])===1,'Image task pagination preserves older tasks');
@@ -52,6 +53,10 @@ try {
     $drama=\app\common\service\app\aigc_short_drama\AigcShortDramaService::assetLists($tenant,$user,['page_no'=>2,'page_size'=>1]);
     check((int)$drama['count']===2 && count($drama['lists'])===1,'Short-drama and canvas results paginate without exclusion');
     $localFile=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>10,'name'=>'local.png','uri'=>'uploads/images/20261012/local.png','upload_origin'=>'local','create_time'=>time()]);
+    Library::update($tenant,$user,['refs'=>['upload:result:'.$localFile],'action'=>'trash']);
+    check(Library::uploads($tenant,$user,1)['lists']===[],'Local upload removed from shared selectors');
+    Library::update($tenant,$user,['refs'=>['upload:result:'.$localFile],'action'=>'restore']);
+    check(count(Library::uploads($tenant,$user,1)['lists'])===1,'Local upload restored to selectors');
     $generatedFile=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>10,'name'=>'generated.png','uri'=>'uploads/aigc_image/20261012/generated.png','create_time'=>time()]);
     $webm=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>30,'name'=>'local.webm','uri'=>'uploads/file/local.webm','upload_origin'=>'local','create_time'=>time()]);
     foreach (['mp3','pdf'] as $ext) {
