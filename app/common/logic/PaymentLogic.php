@@ -97,7 +97,7 @@ class PaymentLogic extends BaseLogic
                 if (!$virtual && $snapshot) {
                     try { $config=\app\common\service\virtualpay\VirtualPayConfigService::detail((int)$order['tenant_id'],0);$virtual=(bool)$config['enabled']; } catch (\Exception $e) { $virtual=false; }
                 }
-                if ($virtual) return ['lists'=>[['id'=>0,'name'=>'微信虚拟支付','pay_way'=>PayEnum::VIRTUAL_PAY,'is_default'=>1,'icon'=>'','extra'=>'微信小程序虚拟商品支付']], 'order_amount'=>$order['order_amount'],'expires_at'=>(int)($snapshot['expires_at']??0)];
+                if ($virtual) return ['package_snapshot'=>(bool)$snapshot,'locked_channel'=>$virtual && trim((string)$order['pay_sn'])!==''?PayEnum::VIRTUAL_PAY:0,'lists'=>[['id'=>0,'name'=>'微信虚拟支付','pay_way'=>PayEnum::VIRTUAL_PAY,'is_default'=>1,'icon'=>'','extra'=>'微信小程序虚拟商品支付']], 'order_amount'=>$order['order_amount'],'expires_at'=>(int)($snapshot['expires_at']??0)];
             }
 
             if (in_array($params['from'],['recharge','membership'],true) && (int)$order['pay_way']===PayEnum::VIRTUAL_PAY && $terminal!==UserTerminalEnum::WECHAT_MMP) throw new \RuntimeException('该订单已在微信小程序发起支付，请在原小程序核对结果');
@@ -220,7 +220,7 @@ class PaymentLogic extends BaseLogic
                 }
                 if ((int)$owned['pay_way']===PayEnum::VIRTUAL_PAY) {
                     $status=(new \app\common\service\virtualpay\VirtualPayService())->status((int)$params['tenant_id'],(int)$params['user_id'],$params['from'],(int)$params['order_id']);
-                    return $status+['pay_status'=>$status['delivery_status']==='granted'?1:0,'pay_way'=>PayEnum::VIRTUAL_PAY,'order'=>['order_id'=>(int)$owned['id'],'order_amount'=>$owned['order_amount']]];
+                    return $status+['pay_status'=>($status['delivery_status']==='granted'&&$status['refund_status']==='none')?1:0,'pay_way'=>PayEnum::VIRTUAL_PAY,'order'=>['order_id'=>(int)$owned['id'],'order_sn'=>(string)($owned['sn']??$owned['order_sn']),'pay_time'=>(int)$owned['pay_time']>0?date('Y-m-d H:i:s',(int)$owned['pay_time']):'','pay_way'=>'微信虚拟支付','order_amount'=>$owned['order_amount']]];
                 }
             }
             $order = [];

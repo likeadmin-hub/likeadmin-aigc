@@ -8,7 +8,7 @@ use app\common\service\virtualpay\VirtualPayNotifyService as Notify;
 Db::startTrans();try{
  $f=virtualFixture();$intent=[];$query=[];$calls=[];
  $gateway=new Gateway(static function($method,$path,$q,$body)use(&$f,&$query,&$calls){$calls[]=$path;if($path==='/sns/jscode2session')return ['openid'=>$f['openid'],'session_key'=>'fixture-session'];if($path==='/xpay/query_order')return $query;return ['errcode'=>0];});
- $ways=app\common\logic\PaymentLogic::getPayWay($f['user'],1,['tenant_id'=>$f['tenant'],'from'=>'recharge','order_id'=>$f['order']['order_id']]);oemCheck($ways['lists'][0]['pay_way']===4,'MNP enabled snapshot exposes virtual payment');
+ $ways=app\common\logic\PaymentLogic::getPayWay($f['user'],1,['tenant_id'=>$f['tenant'],'from'=>'recharge','order_id'=>$f['order']['order_id']]);oemCheck($ways['lists'][0]['pay_way']===4,'MNP enabled snapshot exposes virtual payment');oemCheck(($ways['package_snapshot']??false)===true,'virtual checkout exposes package lifecycle');
  oemCheck(app\common\logic\PaymentLogic::getPayWay($f['user']+1,1,['tenant_id'=>$f['tenant'],'from'=>'recharge','order_id'=>$f['order']['order_id']])===false,'legacy pay-way endpoint cannot access another owner');
  oemCheck(app\common\logic\PaymentLogic::getPayOrderInfo(['tenant_id'=>$f['tenant']+1,'user_id'=>$f['user'],'from'=>'recharge','order_id'=>$f['order']['order_id']])===false,'legacy prepay cannot access another tenant');
  $session=(new Session($gateway))->exchange($f['tenant'],$f['user'],'code');$pay=new Pay($gateway);
@@ -46,5 +46,7 @@ Db::startTrans();try{
  $push=(new EasyWeChat\Kernel\Encryptor('wx-component-test','component-token',$aes,'wx-component-test'))->encryptAsArray($raw,'component-nonce',time());
  $request=new class($f['app'],$push) { public function __construct(private string $app,private array $push){} public function param($name,$default=''){return ['appid'=>$this->app,'timestamp'=>(string)$this->push['timestamp'],'nonce'=>$this->push['nonce'],'msg_signature'=>$this->push['signature']][$name]??$default;} public function isGet(){return false;}public function getContent(){return json_encode(['Encrypt'=>$this->push['ciphertext']]);} };
  $authorized=app\common\service\wechat\OpenPlatformCallbackService::handle($request);oemCheck(json_decode($authorized['response'],true)['ErrCode']===0,'shared component dispatcher does not generic-success XPay before delivery');
+ Db::name('virtual_pay_intent')->where('id',$intent['id'])->update(['refund_status'=>'success']);
+ $refunded=app\common\logic\PaymentLogic::getPayStatus(['tenant_id'=>$f['tenant'],'user_id'=>$f['user'],'from'=>'recharge','order_id'=>$f['order']['order_id']]);oemCheck($refunded['pay_status']===0,'refunded funds cannot display successful entitlement');oemCheck($refunded['order']['order_sn']===$f['order']['order_sn'],'restored virtual result carries business order identity');
  echo "PASS verified Apple/no-Wx receipt, signatures, owner/env/amount isolation, restored attempt and atomic once grant\n";
 }finally{Db::rollback();}
