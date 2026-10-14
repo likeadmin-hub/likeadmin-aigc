@@ -12,7 +12,13 @@ final class DecorationAgentDecision
         if(!is_array($value)||!in_array($value['kind']??'', ['final','tools','clarify'],true))throw new \InvalidArgumentException('装修决策类型无效');
         $operations=$value['operations']??[];
         if(!is_array($operations)||!array_is_list($operations)||count($operations)>20)throw new \InvalidArgumentException('装修操作格式或数量无效');
-        foreach($operations as $op)if(!is_array($op)||!is_string($op['type']??null))throw new \InvalidArgumentException('装修操作无效');
+        foreach($operations as &$op){
+            if(!is_array($op))throw new \InvalidArgumentException('装修操作无效');
+            $type=$op['type']??$op['op']??null;
+            if(!is_string($type)||trim($type)==='')throw new \InvalidArgumentException('装修操作无效');
+            $op['type']=$type;unset($op['op']);
+        }
+        unset($op);
         if($value['kind']==='clarify'&&trim((string)($value['question']??''))==='')throw new \InvalidArgumentException('缺少澄清问题');
         return ['reply'=>self::safeReply($value['reply']??''),'kind'=>$value['kind'],'operations'=>$operations,'question'=>mb_substr((string)($value['question']??''),0,500),'facts'=>array_slice((array)($value['facts']??[]),0,20),'warnings'=>array_slice((array)($value['warnings']??[]),0,10)];
     }
@@ -44,6 +50,7 @@ final class DecorationAgentDecision
 只返回JSON，reply必须是第一个字段：{"reply":"给用户看的自然语言回答","kind":"final|tools|clarify","operations":[],"question":"","facts":[],"warnings":[]}。reply用自然、清晰的中文直接回应用户，只描述当前实际状态；操作执行前只能说准备或建议，不能声称已经修改、保存、发布或完成。reply不得包含推理过程、工具参数、JSON、内部标识或费用诊断。用户仅聊天、询问能力、咨询建议或讨论方案时，返回final且operations为空；只有用户明确要求修改才编辑。clarify的question不要在reply里重复。不要输出推理过程。facts只保存用户确认的偏好及参考图分析事实。
 查询工具：get_context；catalog {name?}；data_sources {key?,params?}；links；search_materials {query,limit?}；icons {query?}；validate。
 编辑工具：add_component {name,ref?,parent_id?,index?,content?,styles?,fields?}；update_component {widget_id,fields:{"content.key":value,"styles.key":value}}；move_component {widget_id,parent_id?,index}；copy_component {widget_id,parent_id?,index?}；delete_component {widget_id}；edit_list {widget_id,field,action,index?,item?,fields?,to_index?}；configure_page {fields,name?}；bind_source {widget_id,source_key,params?,mode?}；replace_page {components:[{name,content?,styles?,children?}],name?}；request_image {widget_id,field,prompt,ratio?,reference_file_ids?}。
+每个operation必须用type字段指定操作，例如：{"type":"configure_page","fields":{"content.title":"灵感工作室","content.nav_bg_color":"#EDF4FF"}}。不要使用op等其他键名。
 新增组件可指定ref如news1，后续同批操作widget_id可写@news1，由服务端关联新ID；不要自己分配组件ID。新增content/styles仅填写需要覆盖的字段，不要复制整个默认配置；数据源通过bind_source配置。字段、图标及链接必须来自契约或查询结果；显式上传的素材使用对应合法URL。选中组件范围不允许修改其他组件。new_page可配置新页面名称。所有编辑仅修改候选。若请求生图，先查询合适素材（用户选择生图优先除外），只有允许 generate 才 request_image。
 final可以同时返回多个操作，由程序批量执行、校验并生成摘要。tools可以同时返回多个查询/编辑操作。clarify不执行任何编辑。遇到工具失败根据明确错误修正一次，不重复失败操作。
 PROMPT;
