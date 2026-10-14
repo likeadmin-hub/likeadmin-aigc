@@ -158,7 +158,9 @@ class MarketTaskReconciliationService
                 if($sn===''||Db::name($table)->where([$owner=>(int)$consumption[$owner],'source_sn'=>$sn])->count()!==1)$issues[]=array_merge($context,['code'=>$side.'_billing_log_not_idempotent']);
             }
         }
-        if (in_array($runStatus, ['failed', 'canceled', 'cancelled'], true) && !in_array($billingStatus, ['refunded', 'none'], true)) {
+        $zeroReservationTextReview = $text && $billingStatus === 'settlement_failed'
+            && (float)($consumption['reserved_tenant_cost'] ?? 0) <= 0 && (float)($consumption['reserved_user_price'] ?? 0) <= 0;
+        if (in_array($runStatus, ['failed', 'canceled', 'cancelled'], true) && !in_array($billingStatus, ['refunded', 'none'], true) && !$zeroReservationTextReview) {
             $issues[] = array_merge($context, ['code' => 'reservation_not_released']);
         }
         if(in_array($runStatus,['failed','canceled','cancelled'],true)&&$billingStatus==='refunded'){
