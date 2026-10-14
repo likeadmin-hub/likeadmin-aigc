@@ -8,6 +8,10 @@ use app\common\service\decorate\agent\DecorationAgentOperations as O;
 use app\common\service\decorate\agent\DecorationAgentMediaService as M;
 $n=0;function designCheck($ok,$label){global $n;if(!$ok)throw new RuntimeException($label);$n++;}
 $catalog=D::catalog();designCheck(count($catalog)===count(C::summary()['components']),'all components have compact writable contracts');
+foreach(D::digest()['components'] as $component)foreach(['supported','layout','limitations','unsupported_fields'] as $key)designCheck(array_key_exists($key,$component['runtime_capabilities']),$component['name'].' exposes actual runtime '.$key.' in the initial model catalog');
+$grid=['data'=>[C::create('grid','grid-parent')],'meta'=>[]];$grid['data'][0]['children']=[C::create('title-bar','grid-child')];
+designCheck(O::apply($grid,[['type'=>'update_component','widget_id'=>'grid-child','fields'=>['styles.grid_column'=>1]]],['scope'=>'page'])['candidate']['data'][0]['children'][0]['styles']['grid_column']===1,'real operation writes direct grid child integer span from exported schema');
+foreach([-1,3.5,13] as $span){try{O::apply($grid,[['type'=>'update_component','widget_id'=>'grid-child','fields'=>['styles.grid_column'=>$span]]],['scope'=>'page']);throw new RuntimeException('invalid grid span accepted');}catch(InvalidArgumentException $e){designCheck(true,'grid span rejects unsupported value '.$span);}}
 $creation=array_values(array_filter($catalog,fn($d)=>$d['name']==='creation-entry-grid'))[0];designCheck(isset($creation['lists']['data']['fields']['image'])&&!isset($creation['fields']['field_map'])&&!isset($creation['defaults']),'usable row image fields and no unsupported field_map/default dump');
 $page=['data'=>[]];foreach(array_slice(C::summary()['components'],0,12) as $i=>$definition)$page['data'][]=C::create($definition['name'],'present'.$i);
 $related=D::related($page,'page','','把全页做成深色创意工作室首页');designCheck(count($related)>8,'existing candidate contracts have no eight-component truncation');
