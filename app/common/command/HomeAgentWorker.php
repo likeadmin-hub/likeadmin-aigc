@@ -19,6 +19,8 @@ final class HomeAgentWorker extends Command
             if(time()-$lastReconcile>=60){
                 try{\app\common\service\app\aigc_llm\agent\AgentTranscriptionRecovery::scan();}
                 catch(\Throwable $e){\think\facade\Log::error('Home Agent STT recovery: '.get_class($e));}
+                try{\app\common\service\app\aigc_llm\agent\AgentSpeechTool::scan();}
+                catch(\Throwable $e){\think\facade\Log::error('Home Agent speech recovery: '.get_class($e));}
                 $lastReconcile=time();
             }
             $count=AgentExecutionService::tick();

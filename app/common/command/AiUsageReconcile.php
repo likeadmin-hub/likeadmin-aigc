@@ -29,6 +29,10 @@ class AiUsageReconcile extends Command
             ->select();
         $count = 0;
         foreach ($rows as $row) {
+            if($row['app_code']==='aigc_llm'&&$row['action_code']==='agent_speech'){
+                \app\common\service\app\aigc_llm\agent\AgentSpeechTool::reconcile((int)$row['id'],(int)$row['tenant_id']);
+                $count++;continue;
+            }
             if($row['app_code']==='aigc_llm'&&$row['action_code']==='agent_transcribe'){
                 \app\common\service\app\aigc_llm\agent\AgentTranscriptionRecovery::reconcile((int)$row['id'],(int)$row['tenant_id']);
                 $count++;continue;
