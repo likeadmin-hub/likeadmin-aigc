@@ -72,7 +72,7 @@ class MarketTextModelPayloadContractTest extends TestCase
             'model_code' => 'claude-sonnet-5',
         ], $messages, 'system text', 2048, ['temperature' => 0.7, 'top_p' => 0.9, 'presence_penalty' => 0.1]);
         self::assertSame('claude-sonnet-5', $anthropicPayload['model']);
-        self::assertSame($messages, $anthropicPayload['messages']);
+        self::assertSame([['role' => 'user', 'content' => [['type' => 'text', 'text' => 'hello']]]], $anthropicPayload['messages']);
         self::assertSame('system text', $anthropicPayload['system']);
         self::assertSame(2048, $anthropicPayload['max_tokens']);
         self::assertSame(0.7, $anthropicPayload['temperature']);
