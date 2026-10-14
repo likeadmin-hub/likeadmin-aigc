@@ -1,0 +1,92 @@
+[
+  {
+    "test": "changed-php-syntax",
+    "count": 63,
+    "exit": 0
+  },
+  {
+    "test": "promotion-policy.php",
+    "exit": 0,
+    "output": "PASS promotion cents, OR/expiry, once-only eligibility and activity lifecycle\n"
+  },
+  {
+    "test": "promotion-orders.integration.php",
+    "exit": 0,
+    "output": "PASS actual recharge/member discount orders, shared claim, snapshots, paid idempotency and cancellation\n"
+  },
+  {
+    "test": "promotion-concurrency.integration.php",
+    "exit": 0,
+    "output": "PASS six real processes, single reservation, tenant/owner isolation and unknown channel retention\n"
+  },
+  {
+    "test": "package-payment.integration.php",
+    "exit": 0,
+    "output": "PASS ordinary price lock, fixed attempt, cross-channel exclusion, original credentials, close/query, late and duplicate receipts\n"
+  },
+  {
+    "test": "package-identity.integration.php",
+    "exit": 0,
+    "output": "PASS pending account identity retention and merged refunded discount remains used\n"
+  },
+  {
+    "test": "virtualpay-gateway.integration.php",
+    "exit": 0,
+    "output": "PASS app/env isolation, encrypted key versions, bound sessions, raw HMAC and goods amounts\n"
+  },
+  {
+    "test": "virtualpay-payment.integration.php",
+    "exit": 0,
+    "output": "PASS verified Apple/no-Wx receipt, signatures, owner/env/amount isolation, restored attempt and atomic once grant\n"
+  },
+  {
+    "test": "virtualpay-delivery.integration.php",
+    "exit": 0,
+    "output": "PASS durable paid fault/recovery, pre-grant validation, XPay compensation, unknown shipping retention, Apple exclusion and late receipt\n"
+  },
+  {
+    "test": "virtualpay-concurrency.integration.php",
+    "exit": 0,
+    "output": "PASS six real payment processes, one receipt, one rights grant, one balance ledger and one consumed coupon\n"
+  },
+  {
+    "test": "virtualpay-recovery.integration.php",
+    "exit": 0,
+    "output": "PASS fixed query-first refunds, unknown/debit-state retention, unused recovery, once discount and running-task/Apple protection\n"
+  },
+  {
+    "test": "virtualpay-maintenance.integration.php",
+    "exit": 0,
+    "output": "PASS maintenance lease takeover, unknown retention, server-confirmed closure and detached client reconciliation\n"
+  },
+  {
+    "test": "virtualpay-review-regressions.integration.php",
+    "exit": 0,
+    "output": "PASS later_refund\nPASS refund_before_grant\nPASS payer_identity\nPASS monotonic_refund\nPASS generation_request\nPASS generation_event\nPASS generation_status\nPASS generation_notify\n"
+  },
+  {
+    "test": "oem-orders-payment.integration.php",
+    "exit": 0,
+    "output": "PASS real OEM zero/available inventory, scope, payment validation, duplicates and late refund\n"
+  },
+  {
+    "test": "oem-prepay.integration.php",
+    "exit": 0,
+    "output": "PASS real OEM payment intents, method switch, query compensation and query throttling\n"
+  },
+  {
+    "test": "oem-gateway.integration.php",
+    "exit": 0,
+    "output": "PASS real gateway merchant selection, receipt order check, secret exclusion and merchant change guard\n"
+  },
+  {
+    "test": "oem-refund.integration.php",
+    "exit": 0,
+    "output": "PASS real refund review, channel confirmation, unknown-result query and worker fencing\n"
+  },
+  {
+    "test": "oem-provision.integration.php",
+    "exit": 0,
+    "output": "PASS real platform approval, inactive provisioning, immutable delivery, idempotency and renewal\n"
+  }
+]

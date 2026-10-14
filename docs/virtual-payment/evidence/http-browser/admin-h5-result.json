@@ -1,0 +1,10 @@
+{
+  "result": "PASS",
+  "events": [
+    "real tenant configuration saved, blank key preserved",
+    "real tenant promotion saved",
+    "H5 membership quote, Alipay window, real server grant",
+    "platform existing login and workbench"
+  ],
+  "errors": []
+}
