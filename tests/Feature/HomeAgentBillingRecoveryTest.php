@@ -44,8 +44,9 @@ namespace app\common\service\power {
    return true;
   }
   $chunks=[['id'=>'fixture-request','choices'=>[['delta'=>['content'=>'可信正文，已保留。']]]]];
-  if(BillingTransportFixture::$mode!=='no_usage')$chunks[]=['choices'=>[],'usage'=>['prompt_tokens'=>10000,'completion_tokens'=>10000,'total_tokens'=>20000]];
+  if(!in_array(BillingTransportFixture::$mode,['no_usage','partial_usage'],true))$chunks[]=['choices'=>[],'usage'=>['prompt_tokens'=>10000,'completion_tokens'=>10000,'total_tokens'=>20000]];
   foreach($chunks as $chunk)$write($handle,'data: '.json_encode($chunk,JSON_UNESCAPED_UNICODE)."\n\n");
+  if(BillingTransportFixture::$mode==='partial_usage')$write($handle,'data: '.json_encode(['choices'=>[],'usage'=>['prompt_tokens'=>10000,'total_tokens'=>20000]])."\n\n");
   $write($handle,"data: [DONE]\n\n");return true;
  }
  function curl_errno($handle){return in_array(BillingTransportFixture::$mode,['timeout','native_timeout'],true)?28:0;}
@@ -150,7 +151,7 @@ namespace {
  });
  foreach(['tenant','user'] as $side)fixture(function()use($params,$side){
   Db::name($side)->where('id',1)->update([$side==='tenant'?'point_balance':'user_money'=>0]);$before=AiConsumptionLog::count();
-  try{R::generate(1,1,$params);throw new \LogicException('Zero balance admitted');}catch(\InvalidArgumentException $e){check(str_contains($e->getMessage(),'不足'),'Wrong shortage error');}
+  try{R::generate(1,1,$params);throw new \LogicException('Zero balance admitted');}catch(\app\common\service\power\TextAdmissionRejected $e){check(str_contains($e->getMessage(),'不足'),'Wrong shortage error');}
   check(F::$calls===0&&AiConsumptionLog::count()===$before,'Shortage reached provider or created billing');
  });
  fixture(function()use($params){
@@ -213,6 +214,12 @@ namespace {
   check(issueCodes((int)$c['id'])===[],'Valid refund failed audit');
   Db::name('user_account_log')->where(['user_id'=>1,'source_sn'=>$sn.'-release'])->delete();
   check(in_array('user_refund_log_not_idempotent',issueCodes((int)$c['id']),true),'Audit missed the deliberately removed fixture refund');
+ });
+ foreach(['aigc_llm','aigc_short_drama'] as $app)fixture(function()use($params,$app){
+  F::$mode='partial_usage';$before=balance();$p=$params;$p['source_app_code']=$app;$p['business_table']=$app==='aigc_llm'?'aigc_llm_agent_run':'aigc_short_drama_script_task';
+  $r=R::generate(1,1,$p,static function(){});$c=AiConsumptionLog::findOrEmpty($r['consumption_id']);
+  check($c['billing_status']==='pending_usage'&&balance()===$before&&$r['billing']['user_charge_points']==0&&F::$calls===1,'Incomplete usage charged or replayed');
+  check($r['content']!==''&&$c['usage_snapshot']['token_fields']['output']===false,'Missing usage or response evidence lost');
  });
  echo "Home Agent billing recovery passed: trusted usage, missing usage audit, exact-once payment/refund, reject/timeout, wallet failure, late events and worker review; all fixtures rolled back\n";
 }

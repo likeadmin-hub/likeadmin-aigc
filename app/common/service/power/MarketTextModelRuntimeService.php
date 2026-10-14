@@ -247,10 +247,11 @@ class MarketTextModelRuntimeService
                 }
             }
             $usage = self::normalizeUsage((array)($result['usage'] ?? []));
-            if (self::canSettleUsage($model, $usage) && (int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0) {
+            $canSettle = self::canSettleUsage($model, $usage);
+            if ($canSettle && (int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0) {
                 $usage['prompt_tokens'] = (int)$usage['total_tokens'];
             }
-            $actual = self::quote($model, (int)$usage['prompt_tokens'], (int)$usage['completion_tokens']);
+            $actual = self::quote($model, $canSettle ? (int)$usage['prompt_tokens'] : 0, $canSettle ? (int)$usage['completion_tokens'] : 0);
             try {
                 self::settle($context, $actual, $usage, $result, (int)round((microtime(true) - $started) * 1000));
             } catch (\Throwable $settlementError) {
@@ -606,7 +607,7 @@ class MarketTextModelRuntimeService
                 max((float)$model['input']['tenant_price'],(float)$model['output']['tenant_price'])>0?0.01:0);
         } catch (\RuntimeException $e) {
             // The worker exposes admission errors; do not turn a shortage into an opaque retry message.
-            throw new \InvalidArgumentException($e->getMessage(),0,$e);
+            throw new TextAdmissionRejected($e->getMessage(),0,$e);
         }
     }
 
@@ -1717,7 +1718,14 @@ class MarketTextModelRuntimeService
     private static function normalizeUsage(array $usage): array
     {
         $prompt = (int)($usage['prompt_tokens'] ?? $usage['input_tokens'] ?? 0); $completion = (int)($usage['completion_tokens'] ?? $usage['output_tokens'] ?? 0);
-        return ['prompt_tokens' => max(0, $prompt), 'completion_tokens' => max(0, $completion), 'total_tokens' => max(0, (int)($usage['total_tokens'] ?? $usage['totalTokens'] ?? ($prompt + $completion))), 'provider_reported' => $usage !== []];
+        $fields=['input'=>isset($usage['prompt_tokens'])||isset($usage['input_tokens']),
+            'output'=>isset($usage['completion_tokens'])||isset($usage['output_tokens']),
+            'total'=>isset($usage['total_tokens'])||isset($usage['totalTokens']),'valid'=>true];
+        foreach(['prompt_tokens','input_tokens','completion_tokens','output_tokens','total_tokens','totalTokens'] as $key){
+            if(isset($usage[$key])&&(!is_numeric($usage[$key])||!is_finite((float)$usage[$key])||(float)$usage[$key]<0||(float)$usage[$key]!==floor((float)$usage[$key])))$fields['valid']=false;
+        }
+        return ['prompt_tokens' => max(0, $prompt), 'completion_tokens' => max(0, $completion), 'total_tokens' => max(0, (int)($usage['total_tokens'] ?? $usage['totalTokens'] ?? ($prompt + $completion))), 'provider_reported' => $usage['provider_reported'] ?? $usage !== [],
+            'token_fields'=>$usage['token_fields']??$fields];
     }
 
     private static function canSettleUsage(array $model, array $usage): bool
@@ -1732,10 +1740,14 @@ class MarketTextModelRuntimeService
     {
         $prompt = (int)($usage['prompt_tokens'] ?? 0);
         $completion = (int)($usage['completion_tokens'] ?? 0);
-        if ($prompt > 0 || $completion > 0) {
-            return true;
-        }
         $total = (int)($usage['total_tokens'] ?? 0);
+        $fields=$usage['token_fields']??['input'=>isset($usage['prompt_tokens']),'output'=>isset($usage['completion_tokens']),'total'=>isset($usage['total_tokens']),'valid'=>true];
+        if(empty($fields['valid'])||$prompt<0||$completion<0||$total<0)return false;
+        if(!empty($fields['input'])||!empty($fields['output'])){
+            // Missing is not zero. Inconsistent totals are not a basis for a charge.
+            return !empty($fields['input'])&&!empty($fields['output'])&&($prompt+$completion)>0
+                &&(empty($fields['total'])||$total===$prompt+$completion);
+        }
         if ($total <= 0) {
             return false;
         }

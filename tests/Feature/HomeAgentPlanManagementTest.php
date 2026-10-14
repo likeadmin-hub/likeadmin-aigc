@@ -1,12 +1,12 @@
 <?php
 namespace app\common\service\app\aigc_llm\agent {
  final class AgentCapabilityCatalog {
-  public static array $submitted=[];public static bool $denied=false;public static array $task=['status'=>'failed','billing_status'=>'refunded','results'=>[]];
+  public static $onQuery=null;public static array $queried=[];public static bool $changed=false;public static bool $running=false;public static array $submitted=[];public static bool $denied=false;public static array $task=['status'=>'failed','billing_status'=>'refunded','results'=>[]];
   public static function schema(string $code):array{return ['type'=>'object','properties'=>['prompt'=>['type'=>'string','minLength'=>1],'quantity'=>['type'=>'integer','minimum'=>1,'maximum'=>4]],'required'=>['prompt'],'additionalProperties'=>false];}
   public static function describe(array $run,string $code):array{if(self::$denied)throw new \InvalidArgumentException('denied');return [];}
-  public static function prepare(array $run,string $code,array $params):array{self::describe($run,$code);\app\common\service\open_platform\OpenSchema::validateRequest($params,self::schema($code),true);return ['run_id'=>$run['id'],'capability'=>['code'=>$code,'version'=>'fixture'],'inputs'=>$params,'params'=>$params,'quote'=>['user'=>10*($params['quantity']??1),'tenant'=>1,'snapshot'=>[]]];}
-  public static function submit(array $prepared):array{self::$submitted[]=$prepared['step_id'];return ['task_id'=>1234,'status'=>'failed','billing_status'=>'refunded','results'=>[]];}
-  public static function query(array $run,string $code,int $id):array{return self::$task+['task_id'=>$id];}
+  public static function prepare(array $run,string $code,array $params):array{self::describe($run,$code);\app\common\service\open_platform\OpenSchema::validateRequest($params,self::schema($code),true);return ['run_id'=>$run['id'],'capability'=>['code'=>$code,'version'=>'fixture'],'inputs'=>$params,'params'=>$params,'quote'=>['user'=>((self::$changed&&$params['prompt']==='second')?20:10)*($params['quantity']??1),'tenant'=>1,'snapshot'=>[]]];}
+  public static function submit(array $prepared):array{self::$submitted[]=$prepared['step_id'];return ['task_id'=>1234,'status'=>self::$running?'running':'failed','billing_status'=>'refunded','results'=>[]];}
+  public static function query(array $run,string $code,int $id):array{self::$queried[]=$id;if(self::$onQuery)(self::$onQuery)();return self::$task+['task_id'=>$id];}
  }
 }
 namespace {
@@ -55,6 +55,36 @@ namespace {
   $unknown=E::detail(1,1,$id);denied(fn()=>P::retry(1,1,$id,$next['id'],$unknown['steps'][2]['version']));
   S::table('step')->where('id',$next['id'])->update(['task_id'=>5678]);$unknown=E::detail(1,1,$id);
   $checked=P::check(1,1,$id,$next['id'],$unknown['steps'][2]['version']);check($checked['steps'][2]['status']==='failed'&&count(Fake::$submitted)===2,'Recovery submitted again');
+
+  S::table('step')->where('id',$next['id'])->update(['status'=>'failed']);S::table('run')->where('id',$id)->update(['status'=>'failed']);
+  $v=E::detail(1,1,$id)['steps'][2]['version'];
+  denied(fn()=>P::retry(2,1,$id,$next['id'],$v));denied(fn()=>P::retry(1,2,$id,$next['id'],$v));
+  Fake::$task=['status'=>'failed','billing_status'=>'refunded','results'=>[['id'=>999]]];denied(fn()=>P::retry(1,1,$id,$next['id'],$v));
+  Fake::$task=['status'=>'success','billing_status'=>'settled','results'=>[]];denied(fn()=>P::retry(1,1,$id,$next['id'],$v));
+  $p=S::json(S::table('step')->where('id',$next['id'])->value('prepared'));$p['_attempts']=[[],[],[]];
+  S::table('step')->where('id',$next['id'])->update(['prepared'=>S::encode($p)]);$v=E::detail(1,1,$id)['steps'][2]['version'];denied(fn()=>P::retry(1,1,$id,$next['id'],$v));
+  echo "EDGE_PASS retry_owner_results_settled_attempt_limit\n";
+  S::table('step')->where('run_id',$id)->delete();
+  S::table('run')->where('id',$id)->update(['status'=>'awaiting_confirmation','phase'=>'chat','cancel_requested'=>0,'approval_hash'=>'mixed','lease_token'=>'']);
+  $a=$make('first');$b=$make('second');E::confirm(1,1,$id,'mixed');Fake::$running=true;Fake::$changed=true;
+  S::table('run')->where('id',$id)->update(['status'=>'running','phase'=>'tools','lease_token'=>'mixed','lease_until'=>time()+1500]);
+  (new \ReflectionMethod(E::class,'executeSteps'))->invoke(null,S::run(1,1,$id));
+  $view=E::detail(1,1,$id);check($view['status']==='awaiting_confirmation'&&$view['steps'][0]['status']==='running'&&$view['steps'][1]['status']==='proposed','Mixed running/requote behavior changed');
+  $hash=$view['approval_hash'];$submitted=Fake::$submitted;Fake::$denied=true;
+  Fake::$task=['status'=>'success','billing_status'=>'settled','results'=>[['image_uri'=>'uploads/poll-fixture-'.bin2hex(random_bytes(8)).'.png','storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']]];
+  check(E::tick()===1,'Waiting approval did not poll submitted task');$view=E::detail(1,1,$id);
+  check($view['status']==='awaiting_confirmation'&&$view['approval_hash']===$hash&&$view['steps'][0]['status']==='success'&&$view['steps'][1]['status']==='proposed','Polling consumed approval or changed proposal');
+  check(Fake::$submitted===$submitted&&S::table('artifact')->where(['run_id'=>$id,'step_id'=>$a])->count()===1,'Polling resubmitted or lost artifact');
+  check(E::tick()===0,'Terminal step unnecessarily polled');
+  // A user confirming while a query is in flight wins; the late query cannot overwrite it.
+  S::table('step')->where('id',$a)->update(['status'=>'running']);S::table('run')->where('id',$id)->update(['next_run_time'=>0]);
+  Fake::$onQuery=static fn()=>E::confirm(1,1,$id,$hash);E::tick();Fake::$onQuery=null;
+  check(S::run(1,1,$id)['status']==='queued'&&S::table('step')->where('id',$a)->value('status')==='running'&&Fake::$submitted===$submitted,'Late polling overwrote confirmation');
+  Fake::$denied=false;
+  // Stop while waiting still cancels only the proposal and polls the original task.
+  S::table('run')->where('id',$id)->update(['status'=>'awaiting_confirmation']);E::stop(1,1,$id);
+  check(S::run(1,1,$id)['status']==='waiting_tasks','Stop lost submitted task');E::tick();
+  check(S::run(1,1,$id)['status']==='canceled'&&S::table('step')->where('id',$b)->value('status')==='canceled'&&Fake::$submitted===$submitted,'Stop submitted unapproved step');
   echo "Plan management passed: edits, live quote, stale approvals, removal, tenant/user isolation, native submit identity, idempotent retry, unsettled billing and unknown submission protection; rolled back\n";
  }finally{Db::rollback();}
 }

@@ -123,6 +123,12 @@ final class AgentLongReadService
                 AgentStore::event($run,'reading.progress',['file_id'=>$file,'offset'=>$job['offset'],'total'=>$total]);
             });
         }catch(\Throwable $e){
+            if($e instanceof \app\common\service\power\TextAdmissionRejected){
+                // This typed error is emitted only before consumption creation/provider I/O.
+                AgentStore::update($run,['status'=>'failed','error'=>$e->getMessage().'；此前读取进度已保留，处理后可继续读取','lease_token'=>'','lease_until'=>0]);
+                AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id']])->update(['status'=>'idle']);
+                AgentStore::event($run,'reading.admission_rejected',[]);return;
+            }
             if($e instanceof \app\common\service\power\TextSettlementPending){
                 $usage=AgentStore::json(AigcLlmMessage::where(['id'=>$run['message_id'],'tenant_id'=>$run['tenant_id']])->value('token_usage_json'));
                 $usage['calls'][]=['purpose'=>'long_read','consumption_id'=>$e->consumptionId,'billing'=>['billing_status'=>'settlement_failed'],'usage'=>$e->usage];
