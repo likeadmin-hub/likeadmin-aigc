@@ -28,6 +28,13 @@ class AigcVideoService
     public const APP_CODE = 'aigc_video';
     private const DUPLICATE_WINDOW_SECONDS = 6;
 
+    /** Model capability consumers do not need effect previews or display assets. */
+    public static function creationConfig(int $tenantId): array
+    {
+        $status = AigcVideoConfig::where('tenant_id', $tenantId)->value('status');
+        return ['status'=>$status === null ? 1 : (int)$status, 'option_config'=>self::marketOptionConfig($tenantId)];
+    }
+
     public static function config(int $tenantId): array
     {
         $config = AigcVideoConfig::where('tenant_id', $tenantId)->findOrEmpty();
