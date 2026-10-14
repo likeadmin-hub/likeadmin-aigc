@@ -269,6 +269,6 @@ Validation: missing/corrupt preview-map fixtures, an intentionally failing previ
 
 成功转写：任务 4041 / 消费 4319、任务 4051 / 消费 4329，各结算 40 算力。以上验收及修复过程中的文本模型消费合计 952.73，已结算总计 **1032.73**。
 
-**待核对记录：**首次独立音频试验 run 398 / step 191 / 任务 4034 / 消费 4312，由于未适配实际供应商 `data.result.text` 返回结构而停在 needs_review，原回执未完整保存，40 算力仍为预占。不能仅凭后续样本成功推断该次上游结算；未重提、未手工改成功、未凭空退回或补扣。后续已兼容返回结构并保存 HTTP 状态和私有供应商回执，需供应商账单/日志核对这一笔。run 397 使用无效的 0.28 秒测试音频，在确认前取消，没有发生语音转写费用。
+**待核对记录：**首次独立音频试验 run 398 / step 191 / 任务 4034 / 消费 4312，停在 needs_review，原回执未完整保存，40 算力仍为预占。初版只识别 `data.text`；后续真实调用证实供应商返回 `data.result.text`，修复后成功，但缺少该次原始回执，不能断言其上游最终结果。不能仅凭后续样本成功推断该次上游结算；未重提、未手工改成功、未凭空退回或补扣。后续已兼容返回结构并保存 HTTP 状态和私有供应商回执，需供应商账单/日志核对这一笔。run 397 使用无效的 0.28 秒测试音频，在确认前取消，没有发生语音转写费用。
 
 回归：HomeAgentMediaUnderstandingTest（本地真实解码、伪造文件/播放列表拒绝、单次扣费、重复结算防护、明确失败只退一次、未知回执不重提、自动继续回答）、UploadedDocument、Context、Topic、Planning、Sequence、CapabilityIsolation 均通过。前端 composer/presentation/generation/run 共 30 项通过，调整确认按钮后 generation/presentation 10 项重跑通过；两个 Vue 组件脚本与模板编译通过。回归数据库数据均回滚；真实验收会话保留供查看。
