@@ -39,6 +39,46 @@ class DecorationAgentOperations
         return ['candidate' => $candidate, 'changes' => $engine->changes, 'image_requests' => $engine->images];
     }
 
+    /** Reject two declarations that would bind the same newly created reference differently. */
+    public static function validateCreationBindings(array $operations): void
+    {
+        $engine=new self();$created=[];
+        foreach($operations as $op){
+            if(($op['type']??$op['op']??'')==='add_component'){
+                // Validate every add before any preceding operations can mutate a candidate.
+                $fields=$engine->creationFields($op);$explicit=[];
+                foreach(['source_key'=>'source_key','source_params'=>'params','data_mode'=>'mode'] as $field=>$key)if(array_key_exists('content.'.$field,$fields))$explicit[$key]=$fields['content.'.$field];
+                $definition=DecorationAgentCatalog::definition((string)($op['name']??''));
+                $widget=DecorationAgentCatalog::create($definition['name'],self::newId());
+                $binding=$engine->creationBinding($fields,$widget);
+                if($binding!==null){
+                    $engine->bind($widget,$definition,$binding);
+                    if(!empty($op['ref']))$created[(string)$op['ref']]=['widget'=>$widget,'definition'=>$definition,'explicit'=>$explicit];
+                }
+            }elseif(($op['type']??$op['op']??'')==='bind_source'&&str_starts_with((string)($op['widget_id']??''),'@')){
+                $ref=substr($op['widget_id'],1);
+                if(!isset($created[$ref]))continue;
+                $next=$created[$ref]['widget'];$explicit=$created[$ref]['explicit'];
+                $engine->bind($next,$created[$ref]['definition'],$op);
+                foreach(['source_key','mode'] as $key)if(array_key_exists($key,$explicit)&&array_key_exists($key,$op)&&$explicit[$key]!==$op[$key])self::fail('Conflicting creation and bind_source declarations');
+                foreach($explicit['params']??[] as $key=>$value)if(array_key_exists($key,$op['params']??[])&&$value!==$op['params'][$key])self::fail('Conflicting creation and bind_source declarations');
+                // Valid new parameters enrich the inline declaration; they are a real bind.
+                $created[$ref]['widget']=$next;
+            }
+        }
+    }
+
+    /** A duplicate bind is free only after source and selected-scope validation. */
+    public static function isUnchangedBinding(array $candidate,array $op,array $scope): bool
+    {
+        if(!in_array($scope['scope']??'', ['page','selected','new_page'],true))self::fail('Invalid edit scope');
+        $engine=new self();$engine->scope=$scope;$map=self::index($candidate['data']??[]);$id=(string)($op['widget_id']??'');
+        if(!isset($map[$id]))self::fail('Target component is missing: '.$id);
+        $engine->assertScope($id,$map);$widget=$map[$id]['widget'];$before=$widget;
+        $engine->bind($widget,DecorationAgentCatalog::definition($widget['name']),$op);
+        return $widget===$before;
+    }
+
     /** Materialize IDs only inside a candidate receiving explicit structural edits. */
     private static function stabilizeLegacyIds(array &$data,array $parentPath,array $prefix): void
     {
@@ -154,20 +194,40 @@ class DecorationAgentOperations
     {
         $widget = DecorationAgentCatalog::create((string)($spec['name'] ?? ''), self::newId());
         $definition = DecorationAgentCatalog::definition($widget['name']);
-        $fields = [];
-        foreach (['content','styles'] as $section) {
-            if (isset($spec[$section]) && !is_array($spec[$section])) self::fail('Component '.$section.' must be an object');
-            foreach ($spec[$section] ?? [] as $key=>$value) $fields[$section.'.'.$key] = $value;
-        }
-        if (isset($spec['fields']) && !is_array($spec['fields'])) self::fail('Component fields must be an object');
-        $fields = array_replace($fields,$spec['fields'] ?? []);
-        $this->fields($widget, $definition, $fields);
+        $fields=$this->creationFields($spec);
+        $binding=$this->creationBinding($fields,$widget);
+        // An empty copied default mapping is inert; custom mappings stay forbidden.
+        if(($fields['content.field_map']??null)===[])unset($fields['content.field_map']);
+        $this->fields($widget,$definition,$fields);
+        if($binding!==null)$this->bind($widget,$definition,$binding);
         if (!empty($spec['children'])) {
             if (!$definition['children']['supported']) self::fail('Component does not support children');
             $widget['children'] = array_map(fn($child) => $this->build($child), $spec['children']);
         }
         return $widget;
     }
+    private function creationFields(array $spec): array
+    {
+        $fields=[];
+        foreach(['content','styles'] as $section){
+            if(isset($spec[$section])&&!is_array($spec[$section]))self::fail('Component '.$section.' must be an object');
+            foreach($spec[$section]??[] as $key=>$value)$fields[$section.'.'.$key]=$value;
+        }
+        if(isset($spec['fields'])&&!is_array($spec['fields']))self::fail('Component fields must be an object');
+        foreach(['source_key','source_params','data_mode'] as $key){$path='content.'.$key;if(array_key_exists($path,$fields)&&array_key_exists($path,$spec['fields']??[])&&$fields[$path]!==$spec['fields'][$path])self::fail('Conflicting source declarations');}
+        return array_replace($fields,$spec['fields']??[]);
+    }
+
+    private function creationBinding(array &$fields,array $widget): ?array
+    {
+        $source=[];
+        foreach(['source_key','source_params','data_mode'] as $key){$path='content.'.$key;if(array_key_exists($path,$fields)){$source[$key]=$fields[$path];unset($fields[$path]);}}
+        if(!$source)return null;
+        $key=$source['source_key']??($widget['content']['source_key']??'');
+        $mode=$source['data_mode']??(array_key_exists('source_key',$source)?($key===''?'manual':'source'):($widget['content']['data_mode']??'manual'));
+        return ['source_key'=>$key,'mode'=>$mode,'params'=>$source['source_params']??[]];
+    }
+
     private function fields(array &$widget, array $definition, array $fields): void
     {
         foreach ($fields as $path => $value) {

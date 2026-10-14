@@ -301,13 +301,16 @@ final class DecorationAgentService
         $replyTime=0;$publishReply((new DecorationAgentReplyStream())->append(DecorationAgentDecision::finalContent($result)));
         $ctx['calling']=false;$ctx['last_result']=$result;self::fence($id);if(in_array($result['billing']['billing_status']??'', ['pending_usage','pending_confirmation'],true)){self::saveContext($id,$ctx);self::finish($id,'needs_review',['error'=>'模型结果费用待核实，已停止后续调用']);return;}self::saveContext($id,$ctx);
         if(Db::name('decorate_agent_run')->where('id',$id)->value('cancel_requested')){self::finish($id,'canceled',['summary'=>'执行已停止，已发生费用保留']);return;}
-        try{$decision=DecorationAgentDecision::parse(DecorationAgentDecision::finalContent($result));}catch(\InvalidArgumentException $e){$ctx['observations'][]=['error'=>$e->getMessage()];$stop=self::decisionFailureLimitReached($ctx,$e->getMessage());self::saveContext($id,$ctx);if($stop)self::finish($id,'failed',['error'=>'模型重复返回同类无效装修方案，已停止后续调用：'.$e->getMessage()]);return;}
+        try{$decision=DecorationAgentDecision::parse(DecorationAgentDecision::finalContent($result));DecorationAgentOperations::validateCreationBindings($decision['operations']);}catch(\InvalidArgumentException $e){$ctx['observations'][]=['error'=>$e->getMessage()];$stop=self::decisionFailureLimitReached($ctx,$e->getMessage());self::saveContext($id,$ctx);if($stop)self::finish($id,'failed',['error'=>'模型重复返回同类无效装修方案，已停止后续调用：'.$e->getMessage()]);return;}
         $publishReply(DecorationAgentDecision::message($decision),true);
         $ctx['facts']=array_slice(array_merge($ctx['facts'],$decision['facts']),-40);
         self::q('session',$tenant,$admin)->where('id',$s['id'])->update(['facts'=>self::json($ctx['facts'])]);
         if($decision['kind']==='clarify'){self::saveContext($id,$ctx);self::finish($id,'awaiting_input',['reply'=>$decision['reply'],'question'=>$decision['question']]);return;}
         $ops=$decision['operations'];$count=(int)$r['tool_calls'];$imageRequests=[];
-        foreach($ops as $op){if(++$count>20){self::finish($id,'limited',['error'=>'已达到本轮工具次数上限']);return;}if(Db::name('decorate_agent_run')->where('id',$id)->value('cancel_requested')){self::finish($id,'canceled',[]);return;}
+        foreach($ops as $op){
+            if(Db::name('decorate_agent_run')->where('id',$id)->value('cancel_requested')){self::finish($id,'canceled',[]);return;}
+            if(self::duplicateSourceBinding($ctx,$op,$input))continue;
+            if(++$count>20){self::finish($id,'limited',['error'=>'已达到本轮工具次数上限']);return;}
             try{foreach(['widget_id','parent_id'] as $targetKey)if(isset($op[$targetKey])&&str_starts_with((string)$op[$targetKey],'@')){$alias=substr($op[$targetKey],1);if(!isset($ctx['refs'][$alias]))throw new RuntimeException('本轮组件引用不存在');$op[$targetKey]=$ctx['refs'][$alias];}$query=self::queryTool($tenant,$admin,$s,$input,$ctx,$op,$links,$sources);if($query!==null){$ctx['observations'][]=['tool'=>$op['type'],'result'=>$query];if($op['type']==='search_materials')$ctx['approved_material_urls']=array_values(array_unique(array_merge($ctx['approved_material_urls']??[],array_column($query,'url'))));}else{$scope=['scope'=>$input['scope'],'selected_id'=>$input['selected_id'],'allowed_links'=>$links,'approved_urls'=>array_merge(self::explicitUrls($input['message'],$input['attachments']),$ctx['approved_material_urls']??[])];$applied=DecorationAgentOperations::apply($ctx['candidate'],[$op],$scope);$ctx['candidate']=$applied['candidate'];if($op['type']==='add_component'&&!empty($op['ref'])){$last=end($applied['changes']);$ctx['refs'][(string)$op['ref']]=$last['widget_id'];}$ctx['changes']=array_merge($ctx['changes'],$applied['changes']);$imageRequests=array_merge($imageRequests,$applied['image_requests']);}$ctx['failures'][self::json($op)]=0;}
             catch(\Throwable $e){$key=self::json($op);$ctx['failures'][$key]=($ctx['failures'][$key]??0)+1;$ctx['observations'][]=['tool'=>$op['type'],'error'=>$e->getMessage()];if($ctx['failures'][$key]>1){self::saveContext($id,$ctx);self::finish($id,'failed',['error'=>'重复操作失败：'.$e->getMessage()]);return;}$decision['kind']='tools';}
             self::saveContext($id,$ctx);Db::name('decorate_agent_run')->where('id',$id)->update(['tool_calls'=>$count]);self::event($id,'tool',['message'=>'已处理装修操作','tool'=>$op['type']]);
@@ -327,6 +330,15 @@ final class DecorationAgentService
         if($decision['kind']==='final'){$summary=count($ctx['changes']).'项装修调整已生成，请预览后应用。';$pending=self::q('image_slot',$tenant,$admin)->where('run_id',$id)->whereIn('status',['queued','running'])->count();self::q('candidate',$tenant,$admin)->where('id',$cId)->update(['status'=>$pending?'waiting_images':'ready']);self::finish($id,$pending?'waiting_images':'completed',['reply'=>$decision['reply'],'question'=>$decision['question'],'summary'=>$summary,'warnings'=>$decision['warnings']]);}
         });
     }
+    private static function duplicateSourceBinding(array $ctx,array $op,array $input): bool
+    {
+        if(($op['type']??'')!=='bind_source')return false;
+        $id=(string)($op['widget_id']??'');
+        if(str_starts_with($id,'@')){$alias=substr($id,1);if(!isset($ctx['refs'][$alias]))return false;$op['widget_id']=$ctx['refs'][$alias];}
+        try{return DecorationAgentOperations::isUnchangedBinding($ctx['candidate'],$op,['scope'=>$input['scope'],'selected_id'=>$input['selected_id']??'']);}
+        catch(\InvalidArgumentException $e){return false;}
+    }
+
     private static function decisionFailureLimitReached(array &$ctx,string $reason): bool
     {
         $ctx['decision_failures'][$reason]=($ctx['decision_failures'][$reason]??0)+1;
