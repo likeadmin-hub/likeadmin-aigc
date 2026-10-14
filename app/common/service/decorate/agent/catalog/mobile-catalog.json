@@ -19390,6 +19390,227 @@
           "default": 1,
           "unit": ""
         },
+        "font_size": {
+          "key": "font_size",
+          "label": "媒体标题字号",
+          "type": "select",
+          "value_type": "number",
+          "default": 0,
+          "unit": "px",
+          "min": 0,
+          "max": 32,
+          "options": [
+            {
+              "label": "沿用旧默认",
+              "value": 0
+            },
+            {
+              "label": "10px",
+              "value": 10
+            },
+            {
+              "label": "11px",
+              "value": 11
+            },
+            {
+              "label": "12px",
+              "value": 12
+            },
+            {
+              "label": "13px",
+              "value": 13
+            },
+            {
+              "label": "14px",
+              "value": 14
+            },
+            {
+              "label": "15px",
+              "value": 15
+            },
+            {
+              "label": "16px",
+              "value": 16
+            },
+            {
+              "label": "17px",
+              "value": 17
+            },
+            {
+              "label": "18px",
+              "value": 18
+            },
+            {
+              "label": "19px",
+              "value": 19
+            },
+            {
+              "label": "20px",
+              "value": 20
+            },
+            {
+              "label": "21px",
+              "value": 21
+            },
+            {
+              "label": "22px",
+              "value": 22
+            },
+            {
+              "label": "23px",
+              "value": 23
+            },
+            {
+              "label": "24px",
+              "value": 24
+            },
+            {
+              "label": "25px",
+              "value": 25
+            },
+            {
+              "label": "26px",
+              "value": 26
+            },
+            {
+              "label": "27px",
+              "value": 27
+            },
+            {
+              "label": "28px",
+              "value": 28
+            },
+            {
+              "label": "29px",
+              "value": 29
+            },
+            {
+              "label": "30px",
+              "value": 30
+            },
+            {
+              "label": "31px",
+              "value": 31
+            },
+            {
+              "label": "32px",
+              "value": 32
+            }
+          ],
+          "help": "每行媒体标题，0保留共享13px/公开26rpx；正值只能选10–32逻辑px，两端一致。不是区块标题。"
+        },
+        "sub_font_size": {
+          "key": "sub_font_size",
+          "label": "媒体说明字号",
+          "type": "select",
+          "value_type": "number",
+          "default": 0,
+          "unit": "px",
+          "min": 0,
+          "max": 24,
+          "options": [
+            {
+              "label": "沿用旧默认",
+              "value": 0
+            },
+            {
+              "label": "10px",
+              "value": 10
+            },
+            {
+              "label": "11px",
+              "value": 11
+            },
+            {
+              "label": "12px",
+              "value": 12
+            },
+            {
+              "label": "13px",
+              "value": 13
+            },
+            {
+              "label": "14px",
+              "value": 14
+            },
+            {
+              "label": "15px",
+              "value": 15
+            },
+            {
+              "label": "16px",
+              "value": 16
+            },
+            {
+              "label": "17px",
+              "value": 17
+            },
+            {
+              "label": "18px",
+              "value": 18
+            },
+            {
+              "label": "19px",
+              "value": 19
+            },
+            {
+              "label": "20px",
+              "value": 20
+            },
+            {
+              "label": "21px",
+              "value": 21
+            },
+            {
+              "label": "22px",
+              "value": 22
+            },
+            {
+              "label": "23px",
+              "value": 23
+            },
+            {
+              "label": "24px",
+              "value": 24
+            }
+          ],
+          "help": "每行媒体说明，0保留共享11px/公开22rpx；正值只能选10–24逻辑px。"
+        },
+        "font_weight": {
+          "key": "font_weight",
+          "label": "媒体标题字重",
+          "type": "select",
+          "value_type": "number",
+          "default": 0,
+          "unit": "",
+          "options": [
+            {
+              "label": "沿用旧默认",
+              "value": 0
+            },
+            {
+              "label": "常规",
+              "value": 400
+            },
+            {
+              "label": "中等",
+              "value": 500
+            },
+            {
+              "label": "半粗",
+              "value": 600
+            },
+            {
+              "label": "粗体",
+              "value": 700
+            },
+            {
+              "label": "特粗",
+              "value": 800
+            }
+          ],
+          "help": "仅每行媒体标题；0保留共享strong原bolder/公开继承原字重，显式400–800两端一致。"
+        },
         "image_fit": {
           "key": "image_fit",
           "label": "图片缩放",
@@ -19836,7 +20057,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "single/grid/double/scroll and cover/contain are consumed. list is inner left-image/right-copy; list_scroll=1 enables outer horizontal 72%-width cards without changing inner layout. image_width is rpx, only list consumes it; 0 uses160rpx; actual image width is capped at45% of the card width. Explicit positive image_height (rpx) matches both clients; 0/absent retains shared4:3/public210rpx legacy defaults.",
+        "single/grid/double/scroll and cover/contain are consumed. list is inner left-image/right-copy; list_scroll=1 enables outer horizontal 72%-width cards without changing inner layout. image_width is rpx, only list consumes it; 0 uses160rpx; actual image width is capped at45% of the card width. Row typography: font_size enum0 or10–32px, sub_font_size enum0 or10–24px, font_weight enum0/400/500/600/700/800. Positive sizes are logicalpx; 0 retains shared13/11px/public26/22rpx and each old title weight. Explicit positive image_height (rpx) matches both clients; 0/absent retains shared4:3/public210rpx legacy defaults.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -24080,5 +24301,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "c32f390ecd7c6719053b1ced7176670cd24b3ee96ea647dc10b52391c9689e56"
+  "hash": "43ca1f0a1269b97339669d96933dacc020b916cd9dbb1eb6c63fc960ba0ccad1"
 }

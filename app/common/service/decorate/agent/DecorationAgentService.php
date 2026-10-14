@@ -41,6 +41,21 @@ final class DecorationAgentService
         }
         return $links;
     }
+    private static function visualReviewContext(array $context): ?array
+    {
+        if(empty($context['visual_review']))return null;
+        $design=$context['approved_design']??[];$review=$context['visual_review'];$logicalWidth=375;
+        $dimensions=static function(array $values)use($logicalWidth):array {
+            $width=max(0,(int)($values['width']??0));$height=max(0,(int)($values['height']??0));
+            return ['width_px'=>$width?:null,'height_px'=>$height?:null,'to_logical_px_scale'=>$width>0?$logicalWidth/$width:null];
+        };
+        return ['priority'=>'最新冻结批准图片优先于旧蓝图/默认值/历史提案；旧蓝图不是视觉批准规范。真实契约、权限及来源限制保持优先。',
+            'target'=>array_intersect_key($design,array_flip(['run_id','revision','hash','slot_id'])),
+            'image_dimensions'=>['logical_width_px'=>$logicalWidth,'approved_design'=>$dimensions($design['asset']??[]),'actual_capture'=>$dimensions(['width'=>$review['screenshot_width']??0,'height'=>$review['screenshot_height']??0]),'units'=>'尺寸是实际图片像素，乘各自scale后比较逻辑px；375逻辑宽下1rpx=0.5px，px字段不按rpx解释。'],
+            'region_checks'=>['按图片辨认页头、主视觉、入口卡、标题及内容区的target/actual几何边界、宽高和间距，估算需明确标注。','区分区块标题、卡标题、正文/标签，比较可见字号、字重、行高、基线与换行。','比较图标可见bbox、内边距、形状及材质，不能仅检查icon_size外壳参数。','比较图片比例、主体位置、构图与裁切及卡片内图文排列；需要独立元素时按批准参考生成。','比较外壳/内卡背景、文字对比度、边框与阴影；只选择当前runtime_notes真正支持的参数。','任一区域有明确差异或关键项无法辨认，不能判通过；修复后需要新截图。'],
+            'acceptance_rule'=>'六类具体证据；视觉五类由图对图判断，interaction仅server_contract；任何写入/生图均使本轮验收不通过。'];
+    }
+
     private static function modelContext(int $tenant,int $admin,array $session,array $input,array &$ctx,bool $quote=false): array
     {
         $links=self::availableLinks($tenant,(int)$session['template_id']);
@@ -62,6 +77,7 @@ final class DecorationAgentService
         $inventory['article']['warning']='这是文章资讯，不是经过确认的AI课程目录；不得把普通文章包装成教程。';
         foreach(['user_profile','membership_summary','account_summary','recent_tasks','user_assets'] as $key)$inventory[$key]=['requires_login'=>true,'warning'=>'按访问页面的登录用户实时读取；后台编辑未登录用户时不补假数据。'];
         return [
+            'visual_review_target'=>self::visualReviewContext($ctx),
             'scope'=>$input['scope'],'selected_id'=>$input['selected_id'],'page'=>$ctx['candidate'],'component_index'=>self::componentIndex($ctx['candidate']['data']),
             'component_catalog'=>self::compactCatalog(),'related_contracts'=>DecorationAgentDesignContext::related($ctx['candidate'],$input['scope'],$input['selected_id'],$input['message']),
             'shared_style_contract'=>DecorationAgentDesignContext::sharedStyles(),'page_meta_contract'=>DecorationAgentCatalog::pageMeta(),'design_guide'=>DecorationAgentDesignContext::guide(),
@@ -255,7 +271,7 @@ final class DecorationAgentService
         }
         $prepared=DecorationAgentAcceptance::validateReview($tenant,$admin,$parameters);
         $candidate=$prepared['candidate'];$original=self::owned('run',$tenant,$admin,(int)$candidate['run_id']);
-        $request=self::decode($original['input_json']);$request['message']='将已确认设计图与实际候选截图逐项对照。发现差异用真实组件操作修复；本轮修复后需要重新截图复审，不能宣称已通过。';
+        $request=self::decode($original['input_json']);$request['message']='将最新批准设计图与实际候选截图逐区域视觉对照，发现差异用真实组件和独立素材修复。'.DecorationAgentDecision::visualReviewInstruction();
         $request['catalog_hash']=DecorationAgentCatalog::hash();$request['design_first']=false;unset($request['design_parent_run_id']);
         $request['budget_points']=$parameters['budget_points'];$request['attachments']=$prepared['attachments'];
         $input=self::input($tenant,$admin,$request,true);self::assertOperator($tenant,$admin,$input['scope']);
