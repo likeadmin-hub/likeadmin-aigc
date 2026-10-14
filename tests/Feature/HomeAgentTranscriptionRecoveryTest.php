@@ -36,8 +36,11 @@ Db::startTrans();try{
   return $r+['step_id'=>$sid,'prepared'=>$p,'log'=>$log];
  };
  $r=$create();$cid=$r['consumption_id'];
+ Db::name('ai_consumption_log')->where('id',$cid)->update(['create_time'=>time()]);
+ check(!R::reconcile($cid,1)['resolved']&&Db::name('ai_consumption_log')->where('id',$cid)->value('run_status')==='running','In-flight call changed to review');
+ Db::name('ai_consumption_log')->where('id',$cid)->update(['create_time'=>$now]);
  $good=['http_status'=>200,'body'=>json_encode(['code'=>1,'data'=>['result'=>['text'=>'会议九点十五开始'],'request_id'=>'real-trace']]),'headers'=>['x-request-id'=>'header-trace'],'complete'=>true];
- R::record($cid,$good);check((fileperms(end($paths))&0777)===0600,'Receipt journal not private');
+ R::record($cid,$good,$r['log']);check((fileperms(end($paths))&0777)===0600,'Receipt journal not private');
  // Simulate receipt committed to journal but database update lost during outage.
  Db::name('ai_consumption_log')->where('id',$cid)->update(['response_summary'=>'[]']);$uncertain->invoke(null,$cid);
  S::table('step')->where('id',$r['step_id'])->update(['status'=>'needs_review']);S::table('run')->where('id',$run)->update(['status'=>'needs_review']);

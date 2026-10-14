@@ -55,7 +55,7 @@ final class AgentTranscriptionTool
             $url=($parts['scheme']??'https').'://'.$parts['host'].(isset($parts['port'])?':'.$parts['port']:'').'/api/v1/apps/voice_tts/stt';
             try{
                 $wire=self::request($url,$key,$audio,$source);
-                AgentTranscriptionRecovery::record($cid,$wire);
+                AgentTranscriptionRecovery::record($cid,$wire,$reservation['receipt_context']);
                 self::reconcileReceipt($cid);
                 AgentTranscriptionRecovery::reconcile($cid,$tenant);
             }catch(\Throwable $e){\think\facade\Log::error('Home Agent STT '.$cid.' failed: '.get_class($e).' '.$e->getMessage());self::uncertain($cid);}
@@ -76,7 +76,7 @@ final class AgentTranscriptionTool
             $log=AiConsumptionLog::create(['consume_no'=>$no,'app_task_id'=>$task['id'],'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>'agent_transcribe','resource_type'=>'app_api','product_id'=>$quote['snapshot']['product_id'],'sku_id'=>$quote['snapshot']['sku_id'],'api_code'=>'stt','protocol'=>'application_api','provider'=>'power_market','quantity'=>1,'usage_unit'=>'per_call','price_snapshot'=>$quote,'request_summary'=>$prepared['inputs'],'response_summary'=>[],'usage_snapshot'=>['calls'=>1],'run_status'=>'running','billing_status'=>'reserved','reserved_tenant_cost'=>$quote['tenant'],'reserved_user_price'=>$quote['user'],'tenant_point_sn'=>$no.'-reserve','user_point_sn'=>$no.'-reserve','create_time'=>$now,'update_time'=>$now]);
             PointService::reserveBusinessAmountsInCurrentTransaction($tenant,$user,$quote['tenant'],$quote['user'],$no.'-reserve','语音转写预占',self::extra($task->toArray(),$log->toArray(),'reserved'));
             AgentStore::table('step')->where('id',$step['id'])->update(['task_id'=>$task['id'],'update_time'=>$now]);
-            return ['fresh'=>true,'task_id'=>(int)$task['id'],'consumption_id'=>(int)$log['id']];
+            return ['fresh'=>true,'task_id'=>(int)$task['id'],'consumption_id'=>(int)$log['id'],'receipt_context'=>$log->toArray()];
         });
     }
     private static function extra(array $task,array $log,string $stage): array
