@@ -95,16 +95,6 @@ final class AgentLongReadService
             $raw=trim((string)($result['content']??''));$raw=preg_replace('/^```(?:json)?\s*|\s*```$/u','',$raw);
             $parsed=json_decode($raw,true);
             if(!is_array($parsed)||!is_string($parsed['summary']??null)||!is_string($parsed['note']??null)||trim($parsed['summary'])===''||trim($parsed['note'])==='')throw new \RuntimeException('资料摘要格式无效');
-        }catch(\Throwable $e){
-            if($e instanceof \app\common\service\power\TextSettlementPending){
-                $usage=AgentStore::json(AigcLlmMessage::where(['id'=>$run['message_id'],'tenant_id'=>$run['tenant_id']])->value('token_usage_json'));
-                $usage['calls'][]=['purpose'=>'long_read','consumption_id'=>$e->consumptionId,'billing'=>['billing_status'=>'settlement_failed'],'usage'=>$e->usage];
-                AigcLlmMessage::where(['id'=>$run['message_id'],'tenant_id'=>$run['tenant_id']])->update(['token_usage_json'=>AgentStore::encode($usage)]);
-            }
-            AgentStore::update($run,['status'=>'needs_review','error'=>'本段资料分析结果或费用待核对，已保留此前进度，请勿重复提交','lease_token'=>'','lease_until'=>0]);
-            AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id']])->update(['status'=>'idle']);
-            AgentStore::event($run,'reading.review',[]);return;
-        }
         // The source may have been deleted while the model was running.
         AgentContextService::authorizedAsset($run,$file);
         Db::transaction(static function()use($run,$file,$parsed,$source,$moreText,$nextText,$page,$total,$end){
@@ -117,6 +107,16 @@ final class AgentLongReadService
             if((int)$current['cancel_requested'])AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id']])->update(['status'=>'idle']);
             AgentStore::event($run,'reading.progress',['file_id'=>$file,'offset'=>$job['offset'],'total'=>$total]);
         });
+        }catch(\Throwable $e){
+            if($e instanceof \app\common\service\power\TextSettlementPending){
+                $usage=AgentStore::json(AigcLlmMessage::where(['id'=>$run['message_id'],'tenant_id'=>$run['tenant_id']])->value('token_usage_json'));
+                $usage['calls'][]=['purpose'=>'long_read','consumption_id'=>$e->consumptionId,'billing'=>['billing_status'=>'settlement_failed'],'usage'=>$e->usage];
+                AigcLlmMessage::where(['id'=>$run['message_id'],'tenant_id'=>$run['tenant_id']])->update(['token_usage_json'=>AgentStore::encode($usage)]);
+            }
+            AgentStore::update($run,['status'=>'needs_review','error'=>'本段资料分析结果或费用待核对，已保留此前进度，请勿重复提交','lease_token'=>'','lease_until'=>0]);
+            AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id']])->update(['status'=>'idle']);
+            AgentStore::event($run,'reading.review',[]);return;
+        }
     }
     private static function resumeChat(array $run): void
     {
