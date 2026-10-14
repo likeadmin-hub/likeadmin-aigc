@@ -600,9 +600,14 @@ class MarketTextModelRuntimeService
 
     private static function assertAgentBalance(int $tenantId,int $userId,array $model): void
     {
-        PointService::assertCanConsumeAmounts($tenantId,$userId,
-            max((float)$model['input']['platform_price'],(float)$model['output']['platform_price'])>0?0.01:0,
-            max((float)$model['input']['tenant_price'],(float)$model['output']['tenant_price'])>0?0.01:0);
+        try {
+            PointService::assertCanConsumeAmounts($tenantId,$userId,
+                max((float)$model['input']['platform_price'],(float)$model['output']['platform_price'])>0?0.01:0,
+                max((float)$model['input']['tenant_price'],(float)$model['output']['tenant_price'])>0?0.01:0);
+        } catch (\RuntimeException $e) {
+            // The worker exposes admission errors; do not turn a shortage into an opaque retry message.
+            throw new \InvalidArgumentException($e->getMessage(),0,$e);
+        }
     }
 
     private static function quote(array $model, int $inputTokens, int $outputTokens): array

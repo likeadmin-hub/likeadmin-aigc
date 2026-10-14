@@ -150,7 +150,7 @@ namespace {
  });
  foreach(['tenant','user'] as $side)fixture(function()use($params,$side){
   Db::name($side)->where('id',1)->update([$side==='tenant'?'point_balance':'user_money'=>0]);$before=AiConsumptionLog::count();
-  try{R::generate(1,1,$params);throw new \LogicException('Zero balance admitted');}catch(\RuntimeException $e){check(str_contains($e->getMessage(),'不足'),'Wrong shortage error');}
+  try{R::generate(1,1,$params);throw new \LogicException('Zero balance admitted');}catch(\InvalidArgumentException $e){check(str_contains($e->getMessage(),'不足'),'Wrong shortage error');}
   check(F::$calls===0&&AiConsumptionLog::count()===$before,'Shortage reached provider or created billing');
  });
  fixture(function()use($params){
