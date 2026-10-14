@@ -12543,7 +12543,7 @@ FROM `la_tenant_system_menu` p WHERE p.tenant_id=0 AND p.paths='package' AND p.t
 CREATE TABLE IF NOT EXISTS `la_virtual_pay_config` (
  `id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL,
  `app_id` varchar(64) NOT NULL, `env` tinyint unsigned NOT NULL DEFAULT 0,
- `enabled` tinyint unsigned NOT NULL DEFAULT 0, `version_id` bigint unsigned NOT NULL DEFAULT 0,
+ `enabled` tinyint unsigned NOT NULL DEFAULT 0, `enabled_platforms` varchar(32) NOT NULL DEFAULT 'ios,android', `version_id` bigint unsigned NOT NULL DEFAULT 0,
  `update_time` int unsigned NOT NULL DEFAULT 0,
  PRIMARY KEY (`id`), UNIQUE KEY `uk_app_env` (`tenant_id`,`app_id`,`env`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -95,7 +95,7 @@ class PaymentLogic extends BaseLogic
                 $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$params['from'],(int)$order['id']);
                 $virtual=(int)$order['pay_way']===PayEnum::VIRTUAL_PAY;
                 if (!$virtual && $snapshot) {
-                    try { $config=\app\common\service\virtualpay\VirtualPayConfigService::detail((int)$order['tenant_id'],0);$virtual=(bool)$config['enabled']; } catch (\Exception $e) { $virtual=false; }
+                    try { $config=\app\common\service\virtualpay\VirtualPayConfigService::detail((int)$order['tenant_id'],0);$virtual=\app\common\service\virtualpay\VirtualPayConfigService::enabledFor($config,(string)($params['platform']??'')); } catch (\Exception $e) { $virtual=false; }
                 }
                 if ($virtual) return ['package_snapshot'=>(bool)$snapshot,'locked_channel'=>$virtual && trim((string)$order['pay_sn'])!==''?PayEnum::VIRTUAL_PAY:0,'lists'=>[['id'=>0,'name'=>'微信虚拟支付','pay_way'=>PayEnum::VIRTUAL_PAY,'is_default'=>1,'icon'=>'','extra'=>'微信小程序虚拟商品支付']], 'order_amount'=>$order['order_amount'],'expires_at'=>(int)($snapshot['expires_at']??0)];
             }
@@ -464,7 +464,7 @@ class PaymentLogic extends BaseLogic
      * @author mjf
      * @date 2024/3/18 16:49
      */
-    public static function pay($payWay, $from, $order, $terminal, $redirectUrl)
+    public static function pay($payWay, $from, $order, $terminal, $redirectUrl, string $platform = '')
     {
         if (in_array($from,[TenantBrandService::FROM_ORDER,TenantBrandService::FROM_QUOTA],true) && (int)($order['flow_version']??1)===2) {
             try {
@@ -487,7 +487,7 @@ class PaymentLogic extends BaseLogic
             if ($terminal===UserTerminalEnum::WECHAT_MMP && $snapshot && (float)$order['order_amount']>0) {
                 try { $config=\app\common\service\virtualpay\VirtualPayConfigService::detail((int)$order['tenant_id'],0); }
                 catch (\Exception $e) { $config=['enabled'=>0]; }
-                if ($config['enabled']) { self::setError('请使用微信小程序虚拟支付');return false; }
+                if (\app\common\service\virtualpay\VirtualPayConfigService::enabledFor($config,$platform)) { self::setError('请使用微信小程序虚拟支付');return false; }
             }
         }
 
