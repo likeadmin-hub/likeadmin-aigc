@@ -30,7 +30,7 @@ namespace {
  }
  check(S::table('run')->whereIn('status',['queued','running','waiting_tasks'])->count()===0,'Stop active jobs before testing');
  check(\app\common\service\app\aigc_llm\agent\AgentWorkerHealth::processes()===[],'Stop real homepage worker before concurrent test');
- $dir=sys_get_temp_dir().'/home-agent-concurrency-'.bin2hex(random_bytes(8));mkdir($dir,0700);$ids=[];$children=[];
+ $dir=sys_get_temp_dir().'/home-agent-concurrency-'.bin2hex(random_bytes(8));mkdir($dir,0700);$ids=[];$sessions=[];$children=[];
  $request=request();$request->tenantId=1;$request->userId=1;$request->userInfo=['user_id'=>1,'tenant_id'=>1];
  $wallet=(float)Db::name('user')->where('id',1)->value('user_money');$consumptions=Db::name('ai_consumption_log')->where(['tenant_id'=>1,'user_id'=>1,'app_code'=>'aigc_llm'])->count();
  $launch=function(string $mode='')use($dir,&$children){
@@ -39,8 +39,9 @@ namespace {
   check(is_resource($process),'Child start failed');$children[]=[$process,$log];
  };
  $wait=function()use(&$children){$codes=[];foreach($children as [$process,$log]){$codes[]=proc_close($process);fclose($log);}$children=[];return $codes;};
- $create=function()use(&$ids,$dir){
-  $now=time();$id=S::table('run')->insertGetId(['tenant_id'=>1,'user_id'=>1,'session_id'=>0,'message_id'=>0,'request_id'=>'concurrency-'.bin2hex(random_bytes(12)),'payload_hash'=>str_repeat('d',64),'content'=>'离线并发验收','preferences'=>S::encode(S::preferences(1,1)),'attachments'=>'[]','status'=>'awaiting_confirmation','phase'=>'tools','reply'=>'','create_time'=>$now,'update_time'=>$now]);
+ $create=function()use(&$ids,&$sessions,$dir){
+  $now=time();$session=Db::name('aigc_llm_session')->insertGetId(['tenant_id'=>1,'user_id'=>1,'title'=>'离线并发夹具','model_code'=>'fixture','status'=>'idle','last_message_at'=>$now,'message_count'=>0,'create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);$sessions[]=$session;
+  $id=S::table('run')->insertGetId(['tenant_id'=>1,'user_id'=>1,'session_id'=>$session,'message_id'=>0,'request_id'=>'concurrency-'.bin2hex(random_bytes(12)),'payload_hash'=>str_repeat('d',64),'content'=>'离线并发验收','preferences'=>S::encode(S::preferences(1,1)),'attachments'=>'[]','status'=>'awaiting_confirmation','phase'=>'tools','reply'=>'','create_time'=>$now,'update_time'=>$now]);
   $ids[]=$id;$run=S::run(1,1,$id);$prepared=C::prepare($run,'aigc_image',['prompt'=>'offline concurrency fixture']);
   S::table('step')->insert(['tenant_id'=>1,'user_id'=>1,'run_id'=>$id,'step_key'=>hash('sha256',(string)$id),'title'=>'fixture','tool_code'=>'aigc_image','prepared'=>S::encode($prepared),'result'=>'','create_time'=>$now,'update_time'=>$now]);
   S::table('run')->where('id',$id)->update(['status'=>'queued']);file_put_contents($dir.'/fixture.json',json_encode(['ids'=>$ids]));return $id;
@@ -48,6 +49,7 @@ namespace {
  try{
   for($i=0;$i<6;$i++)$create();
   for($i=0;$i<3;$i++)$launch();check($wait()===[0,0,0],'Concurrent workers failed; inspect '.$dir);
+  check(is_file($dir.'/calls'),'No native submit: '.json_encode(S::table('run')->whereIn('id',$ids)->field('id,status,error')->select(),JSON_UNESCAPED_UNICODE));
   $lines=file($dir.'/calls',FILE_IGNORE_NEW_LINES);check(count(array_filter($lines,fn($s)=>$s==='submit'))===6,'Concurrent submit duplicated or lost');
   check(S::table('run')->whereIn('id',$ids)->where('status','waiting_tasks')->count()===6,'Submitted task state lost');
   // Simulate process loss after durable task binding. Recovery may query, never submit.
@@ -66,6 +68,7 @@ namespace {
  }finally{
   foreach($children as [$process,$log]){proc_terminate($process);proc_close($process);fclose($log);}
   if($ids)Db::transaction(function()use($ids){foreach(['event','step','run'] as $table)S::table($table)->whereIn($table==='run'?'id':'run_id',$ids)->delete();});
+  if($sessions)Db::name('aigc_llm_session')->whereIn('id',$sessions)->delete();
   foreach(glob($dir.'/*')?:[] as $file)unlink($file);rmdir($dir);
  }
 }
