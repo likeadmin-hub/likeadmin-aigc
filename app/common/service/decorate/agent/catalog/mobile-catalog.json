@@ -286,6 +286,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: show_hotword/show_button; preview is a visual placeholder."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -815,6 +818,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: fixed_position/show_button; same normal-flow search renderer.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -1326,6 +1333,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: style/bg_style. Public mixed images/text keeps image swiper; text-only uses first visible row."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -1840,6 +1850,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: show_search is visual copy, not interactive search; public indicator is fixed.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -2331,6 +2345,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: public style paging/link supported; shared preview style paging/link not simulated. Row descriptions/tags are not rendered."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -2878,6 +2895,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: show_click/styles.title_color/styles.text_color. Non-article sources require explicit links; never infer article IDs."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -3328,6 +3348,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: public swiper/links versus shared first-image preview."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -3625,6 +3648,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: content.link."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -3970,6 +3996,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: icon/icon_mode/data_source. partial: public font_weight; configured font_size requires font_size_mode=configured."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -4338,6 +4367,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: public row.desc/link; shared preview omits descriptions/link interaction."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -4748,6 +4780,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: mode/fit; main image remains cover, areas use percentage coordinates."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -5288,6 +5323,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: shared image ratio 4:3 versus public fixed 210rpx height. image_fit is not a writable field for this component.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -5598,6 +5637,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: content.height; public line styles.color versus shared theme border."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -5860,6 +5902,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: shared static account preview; public real user/login and its dedicated configured text colors. No user data mutation."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -6333,6 +6378,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: shared visual rows versus public navigation; description/tag not rendered."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -6782,6 +6830,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: shared first image/name preview versus public image-only swiper."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -7285,6 +7336,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: shared title-only preview; public qrcode/mobile/time/remark/actions.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -7777,6 +7832,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "source rows do not populate html/text; public rich-text capabilities differ from browser HTML.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -8255,6 +8314,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "source rows/data do not populate height.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -8766,6 +8829,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: cover. partial: public autoplay is disabled, shared native autoplay is supported.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -9439,6 +9506,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "icon means legacy literal symbol, not the entry system-glyph enum. page uses horizontal CSS scrolling.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -9990,6 +10061,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "active is initial style; clicks navigate rather than change the current page content.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -10544,6 +10619,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: title/aspect_ratio. Source rows do not populate video_url/cover.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -11139,6 +11218,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Uses separate auto/type symbols or icon_image, not entry system-glyph names. Customer service depends on terminal capabilities.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -11693,6 +11776,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: trigger/delay/closeable; currently an inline promo card, not a modal lifecycle.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -12182,6 +12269,10 @@
         "supported": true,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Source rows/data do not create children.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -12685,6 +12776,10 @@
         "supported": true,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Children are a 1–12 column grid. Child span read compatibility differs from writable style schema; do not invent layout objects.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -13180,6 +13275,10 @@
         "supported": true,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Children require valid percentage placement. Source rows/data do not create children.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -13666,6 +13765,10 @@
         "supported": true,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Single-row children container; source rows do not create children.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -14161,6 +14264,10 @@
         "supported": true,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "2–4 column children container, not case-feed row columns.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -14645,6 +14752,10 @@
         "supported": true,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Source rows/data do not create children.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -15164,6 +15275,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Row description is not a subtitle fallback; no writable named-glyph slot. Images are square/aspectFill.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -15683,6 +15798,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Row image_fit is implemented. Undeclared icon is not a system-glyph slot; do not recommend icon names.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -16197,6 +16316,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Row description is not a subtitle fallback. Shared/public image proportions differ.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -16699,6 +16822,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Fixed two columns; no writable columns. Empty content.title adds no default block heading. Row descriptions/tags are not shown.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -16815,6 +16942,71 @@
           "type": "text",
           "value_type": "string",
           "default": "AI 应用"
+        },
+        "columns": {
+          "key": "columns",
+          "label": "每行数量",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 4,
+          "unit": "",
+          "min": 1,
+          "max": 5
+        },
+        "font_size": {
+          "key": "font_size",
+          "label": "入口字号",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 13,
+          "unit": "px",
+          "min": 10,
+          "max": 24
+        },
+        "icon_size": {
+          "key": "icon_size",
+          "label": "图标尺寸",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 84,
+          "unit": "rpx",
+          "min": 32,
+          "max": 160
+        },
+        "show_title": {
+          "key": "show_title",
+          "label": "显示入口标题",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "Controls each row title, not the block heading."
+        },
+        "show_sub_title": {
+          "key": "show_sub_title",
+          "label": "显示入口说明",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "Controls each row description."
+        },
+        "image_fit": {
+          "key": "image_fit",
+          "label": "图片适配",
+          "type": "select",
+          "value_type": "string",
+          "default": "cover",
+          "options": [
+            {
+              "label": "裁剪填满",
+              "value": "cover"
+            },
+            {
+              "label": "完整显示",
+              "value": "contain"
+            }
+          ]
         }
       },
       "style_fields": {
@@ -16990,6 +17182,20 @@
           "min": 0,
           "max": 100
         },
+        "item_background": {
+          "key": "item_background",
+          "label": "入口卡片底色",
+          "type": "color",
+          "value_type": "string",
+          "default": ""
+        },
+        "description_color": {
+          "key": "description_color",
+          "label": "入口说明颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": ""
+        },
         "padding": {
           "key": "padding",
           "label": "旧版内边距",
@@ -17075,6 +17281,150 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "help": "Public glyph name; existing emoji/image addresses remain readable. Image takes priority."
             }
           }
         },
@@ -17153,6 +17503,150 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "help": "Public glyph name; existing emoji/image addresses remain readable. Image takes priority."
             }
           }
         }
@@ -17193,6 +17687,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Images/app brand assets take precedence over finite system glyphs. show_title/show_sub_title control row copy, not block heading.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -17309,6 +17807,71 @@
           "type": "text",
           "value_type": "string",
           "default": "开始创作"
+        },
+        "columns": {
+          "key": "columns",
+          "label": "每行数量",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 4,
+          "unit": "",
+          "min": 1,
+          "max": 5
+        },
+        "font_size": {
+          "key": "font_size",
+          "label": "入口字号",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 13,
+          "unit": "px",
+          "min": 10,
+          "max": 24
+        },
+        "icon_size": {
+          "key": "icon_size",
+          "label": "图标尺寸",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 84,
+          "unit": "rpx",
+          "min": 32,
+          "max": 160
+        },
+        "show_title": {
+          "key": "show_title",
+          "label": "显示入口标题",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "Controls each row title, not the block heading."
+        },
+        "show_sub_title": {
+          "key": "show_sub_title",
+          "label": "显示入口说明",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "Controls each row description."
+        },
+        "image_fit": {
+          "key": "image_fit",
+          "label": "图片适配",
+          "type": "select",
+          "value_type": "string",
+          "default": "cover",
+          "options": [
+            {
+              "label": "裁剪填满",
+              "value": "cover"
+            },
+            {
+              "label": "完整显示",
+              "value": "contain"
+            }
+          ]
         }
       },
       "style_fields": {
@@ -17484,6 +18047,20 @@
           "min": 0,
           "max": 100
         },
+        "item_background": {
+          "key": "item_background",
+          "label": "入口卡片底色",
+          "type": "color",
+          "value_type": "string",
+          "default": ""
+        },
+        "description_color": {
+          "key": "description_color",
+          "label": "入口说明颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": ""
+        },
         "padding": {
           "key": "padding",
           "label": "旧版内边距",
@@ -17569,6 +18146,150 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "help": "Public glyph name; existing emoji/image addresses remain readable. Image takes priority."
             }
           }
         },
@@ -17647,6 +18368,150 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "help": "Public glyph name; existing emoji/image addresses remain readable. Image takes priority."
             }
           }
         }
@@ -17690,6 +18555,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "show_title/show_sub_title control row copy, not block heading. Finite system glyph or actual image; unknown names are not URLs.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -18187,6 +19056,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Generic compact rows, not task progress/cost controls.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -18353,6 +19226,23 @@
           "value_type": "number",
           "default": 1,
           "unit": ""
+        },
+        "image_fit": {
+          "key": "image_fit",
+          "label": "图片缩放",
+          "type": "select",
+          "value_type": "string",
+          "default": "cover",
+          "options": [
+            {
+              "label": "裁剪填满",
+              "value": "cover"
+            },
+            {
+              "label": "完整显示",
+              "value": "contain"
+            }
+          ]
         }
       },
       "style_fields": {
@@ -18731,6 +19621,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "single/grid/double/scroll layout and cover/contain are consumed. Shared/public image proportions differ.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -19223,6 +20117,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Generic source rows, not an automatic profile hero; source must provide standard title/image/description.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -19715,6 +20613,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Source-backed entitlement facts; display/navigation only, no membership mutation.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -20238,6 +21140,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "icon means literal legacy symbol, not entry system-glyph enum; image uses aspectFit.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -20734,6 +21640,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Fixed four-column standard rows; arbitrary user_profile properties are not automatically mapped.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -21216,6 +22126,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Compact standard rows; arbitrary account_summary properties are not automatically mapped.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -21702,6 +22616,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Fixed four-column source rows with full-row empty state; no writable columns/font settings.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -21813,6 +22731,71 @@
           "type": "array",
           "value_type": "array",
           "default": []
+        },
+        "columns": {
+          "key": "columns",
+          "label": "每行数量",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 4,
+          "unit": "",
+          "min": 1,
+          "max": 5
+        },
+        "font_size": {
+          "key": "font_size",
+          "label": "入口字号",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 13,
+          "unit": "px",
+          "min": 10,
+          "max": 24
+        },
+        "icon_size": {
+          "key": "icon_size",
+          "label": "图标尺寸",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 84,
+          "unit": "rpx",
+          "min": 32,
+          "max": 160
+        },
+        "show_title": {
+          "key": "show_title",
+          "label": "显示入口标题",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "Controls each row title, not the block heading."
+        },
+        "show_sub_title": {
+          "key": "show_sub_title",
+          "label": "显示入口说明",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "Controls each row description."
+        },
+        "image_fit": {
+          "key": "image_fit",
+          "label": "图片适配",
+          "type": "select",
+          "value_type": "string",
+          "default": "cover",
+          "options": [
+            {
+              "label": "裁剪填满",
+              "value": "cover"
+            },
+            {
+              "label": "完整显示",
+              "value": "contain"
+            }
+          ]
         }
       },
       "style_fields": {
@@ -21988,6 +22971,20 @@
           "min": 0,
           "max": 100
         },
+        "item_background": {
+          "key": "item_background",
+          "label": "入口卡片底色",
+          "type": "color",
+          "value_type": "string",
+          "default": ""
+        },
+        "description_color": {
+          "key": "description_color",
+          "label": "入口说明颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": ""
+        },
         "padding": {
           "key": "padding",
           "label": "旧版内边距",
@@ -22073,6 +23070,150 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "help": "Public glyph name; existing emoji/image addresses remain readable. Image takes priority."
             }
           }
         },
@@ -22151,6 +23292,150 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "help": "Public glyph name; existing emoji/image addresses remain readable. Image takes priority."
             }
           }
         }
@@ -22183,6 +23468,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "show_title/show_sub_title control row copy. Public historical default block heading remains.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -22536,5 +23825,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "dfc5151f37376df8f81589f31f5060ef15721e641b9998b0d2113c83a82b7d77"
+  "hash": "11e1c99f51731031ad5cd9f6d5c38d349ab8d06e8aadb0c7ba96cd2d8245d883"
 }
