@@ -32,7 +32,7 @@ final class AgentSequenceService
                 AgentStore::update($run,['preferences'=>AgentStore::encode($preferences)]);
                 AgentStore::event($run,'sequence.planned',['stages'=>array_column($stages,'title')]);
             }
-            return ['scheduled'=>true,'instruction'=>'后续安排已保存。现在只为当前已具备素材的步骤调用 plan_creation；缺资料先询问。系统会在当前生成成功后恢复执行后续步骤，每次按累计预算或确认按钮授权。后续尚未估价，不能声称费用已确认。'];
+            return ['scheduled'=>true,'instruction'=>'后续安排已保存。现在只为当前已具备素材的步骤调用 plan_creation；缺资料先询问。系统会在当前生成成功后恢复执行后续步骤，根据运行模式自动执行或通过方案按钮确认。后续尚未估价，不能声称费用已确认。'];
         });
     }
     private static function lock(array $run): array
