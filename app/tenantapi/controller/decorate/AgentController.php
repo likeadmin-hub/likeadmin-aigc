@@ -38,6 +38,28 @@ final class AgentController extends BaseAdminController
     public function start(){return $this->call('start',true);}
     public function continue(){return $this->call('start',true);}
     public function run(){return $this->call('run');}
+    public function stream()
+    {
+        try {
+            if (!$this->request->isGet()) throw new \RuntimeException('进度连接仅支持GET');
+            $this->access();
+            $id=filter_var($this->request->get('run_id'),FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            $after=filter_var($this->request->get('after',0),FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);
+            if ($id===false || $after===false) throw new \RuntimeException('装修进度编号无效');
+            $tenant=$this->tenantId;$admin=$this->adminId;
+            // Authenticate, authorize and check ownership before returning streaming headers.
+            $initial=Agent::run($tenant,$admin,$id);
+            return new \app\common\service\open_platform\OpenStreamResponse(function()use($tenant,$admin,$id,$after,$initial){
+                @ini_set('zlib.output_compression','0');
+                while (ob_get_level()>0) { if (!@ob_end_flush()) break; }
+                $stream=new \app\common\service\decorate\agent\DecorationAgentStream(
+                    fn()=>Agent::run($tenant,$admin,$id),
+                    function(string $frame): void { echo $frame;flush(); }
+                );
+                $stream->send($initial,$after);
+            },['Content-Type'=>'text/event-stream; charset=utf-8','Cache-Control'=>'no-cache, no-transform','X-Accel-Buffering'=>'no']);
+        } catch (\Throwable $e) { return $this->fail($e->getMessage(),['message'=>$e->getMessage()]); }
+    }
     public function events(){return $this->call('events');}
     public function cancel(){return $this->call('cancel',true);}
     public function candidate(){return $this->call('candidate');}

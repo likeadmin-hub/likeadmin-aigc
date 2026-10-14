@@ -15,6 +15,7 @@ final class DecorationAgentDecisionNode extends Node
         if($this->called)throw new \RuntimeException('装修决策已执行');
         $this->called=true;
         $result=($this->provider)();
+        DecorationAgentDecision::finalContent($result);
         $state->set('result',$result);
         return new StopEvent();
     }
