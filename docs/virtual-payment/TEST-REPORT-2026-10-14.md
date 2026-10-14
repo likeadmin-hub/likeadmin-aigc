@@ -75,3 +75,15 @@ Node 回归须分别在 `web/pc`、`web/uniapp`、`web/tenant` 目录执行 `nod
 当前没有推送或发布；版本号、主站运行代次及业务资产没有切换。仍需后续获准发布时完成真实小程序配置、真机验收、部署迁移与线上 cron 验证。
 
 实施裁决与审查未覆盖项的完整记录见 [DECISIONS.md](DECISIONS.md)，运维步骤见 [OPERATIONS.md](OPERATIONS.md)。
+
+## 统一启动入口补充验收
+
+按用户要求，虚拟支付核对已补入 `scripts/start-ai-task-worker.sh`，不启动额外的整套 cron。新增循环与原七类队列分开监控，单轮失败继续间隔重试，循环退出只恢复自身；停止时等待当前有界核对完成，不再启动下一轮。
+
+- `tests/virtualpay-unified-worker.py`：使用真实统一脚本、临时目录和假 PHP 进程，验证启动、失败后重试、单轮不重叠、七类 worker 不重启、父进程 TERM 后排空。先观察缺少入口及停止期间重启迭代的失败，再修复通过。
+- 同一测试的 `--group`、`--dash`、`--dash --group`：进程组 TERM、POSIX dash 下排空及停止派发均通过。
+- `tests/decoration-agent/unified-worker.py`：更新已有 OEM worker 数量为七类，保留原启动、停止、重启、关键子进程失败收尾和其他项目隔离断言，全部通过。
+- `tests/virtualpay-command-lock.integration.php`：真实 MySQL 持有正式维护命令的数据库锁，同时启动两个独立 PHP 命令竞争，均立即跳过执行，且不能释放原持有者的锁。覆盖统一入口与独立 cron 并存防重。
+- Shell 语法及 Git diff 检查通过。仅本地合入，没有调用主项目启动脚本、重启现有业务或触碰运行中的任务；真实站点需在后续正常排空更新窗口加载脚本。
+
+历史验收清单及证据哈希保持原样，本节对应后续统一入口修补，未重新构建或发布任何前端资产。

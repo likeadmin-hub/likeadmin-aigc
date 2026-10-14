@@ -10,7 +10,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 EXPECTED = {'ai:task-worker', 'short-drama:episode-worker', 'short-drama:planning-worker',
-            'short-drama:canvas-agent-worker', 'canvas:subagent-worker', 'decoration:agent-worker'}
+            'short-drama:canvas-agent-worker', 'canvas:subagent-worker', 'decoration:agent-worker', 'brand:worker'}
 
 def until(check, label):
     deadline = time.monotonic() + 8
@@ -32,6 +32,7 @@ import os, signal, sys, time
 from pathlib import Path
 root=Path(sys.argv[1]).parent
 command=sys.argv[2]
+if command=='virtualpay:maintain': sys.exit(0)
 with (root/'runtime/started').open('a') as f: f.write(f'{os.getpid()} {command}\\n')
 def stop(*args):
     with (root/'runtime/stopped').open('a') as f: f.write(command+'\\n')
@@ -63,7 +64,7 @@ while True:
     neighbour = subprocess.Popen([str(fake), str(other / 'think'), 'decoration:agent-worker'])
     owner = launch()
     try:
-        until(lambda: started() == EXPECTED, 'unified entry did not start all six queues')
+        until(lambda: started() == EXPECTED, 'unified entry did not start all seven queues')
         owner.send_signal(signal.SIGTERM)
         out, err = owner.communicate(timeout=8)
         assert owner.returncode == 143, (owner.returncode, out, err)
@@ -71,7 +72,7 @@ while True:
         assert neighbour.poll() is None, 'shutdown killed another project worker'
         (site / 'runtime/stopped').unlink()
         owner = launch()
-        until(lambda: len(commands('started')) == 12, 'restart failed to relaunch six queues')
+        until(lambda: len(commands('started')) == 14, 'restart failed to relaunch seven queues')
         (site / 'runtime/fail').touch()
         out, err = owner.communicate(timeout=8)
         assert owner.returncode == 1, (owner.returncode, out, err)
@@ -83,4 +84,4 @@ while True:
             owner.communicate(timeout=8)
         neighbour.terminate()
         neighbour.wait(timeout=8)
-print('PASS: six-queue startup, stop, restart, child-failure cleanup and other-project isolation')
+print('PASS: seven-queue startup, stop, restart, child-failure cleanup and other-project isolation')
