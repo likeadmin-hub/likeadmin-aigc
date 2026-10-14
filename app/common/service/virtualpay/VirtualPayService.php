@@ -24,7 +24,7 @@ final class VirtualPayService
     public function prepay(int $tenant,int $user,int $terminal,string $from,int $orderId,string $session,string $platform,int $env=0): array
     {
         if($terminal!==1)throw new \RuntimeException('虚拟支付仅支持微信小程序');
-        $v=VirtualPayConfigService::active($tenant,$env);$s=(new VirtualPaySessionService($this->gateway))->get($tenant,$user,$v['app_id'],$session);
+        $v=VirtualPayConfigService::active($tenant,$env,$platform);$s=(new VirtualPaySessionService($this->gateway))->get($tenant,$user,$v['app_id'],$session);
         return Db::transaction(function()use($tenant,$user,$from,$orderId,$platform,$env,$v,$s){
             $o=self::order($tenant,$user,$from,$orderId,true);if((int)$o['pay_status'])throw new \RuntimeException('订单已支付，请查看交付结果');
             $snapshot=Db::name('tenant_package_price_snapshot')->where(['tenant_id'=>$tenant,'biz_type'=>$from,'order_id'=>$orderId])->lock(true)->find();
