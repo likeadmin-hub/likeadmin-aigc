@@ -1,1 +1,1 @@
-<u-swiper wx:if="{{a}}" bindclick="{{b}}" bindchange="{{c}}" u-i="20880013-0" bind:__l="__l" u-p="{{d}}"></u-swiper>
+<u-swiper wx:if="{{a}}" bindclick="{{b}}" bindchange="{{c}}" u-i="224d28d9-0" bind:__l="__l" u-p="{{d}}"></u-swiper>
