@@ -34,6 +34,7 @@ final class VirtualPayService
             if(trim((string)$o['pay_sn'])!==''&&(int)$o['pay_way']!==self::CHANNEL)throw new \RuntimeException('原支付单尚未关闭，请先核对原渠道状态');
             $existing=Db::name('virtual_pay_intent')->where(['tenant_id'=>$tenant,'biz_type'=>$from,'order_id'=>$orderId])->where('status','<>','closed')->order('id desc')->lock(true)->find();
             if($existing){
+                if($existing['openid']!==$s['openid'])throw new \RuntimeException('此订单由另一个微信账号发起，请使用原微信账号核对支付结果');
                 if($existing['app_id']!==$v['app_id']||(int)$existing['env']!==$env)throw new \RuntimeException('订单已在原小程序或支付环境发起，请先核对原支付结果');
                 $original=VirtualPayConfigService::version($tenant,(int)$existing['config_version_id']);$sign=VirtualPayPolicy::sign(json_decode($existing['sign_data'],true,512,JSON_THROW_ON_ERROR),VirtualPayConfigService::secret($original,'app_key'),$s['session_key']);
                 return $sign+['out_trade_no'=>$existing['out_trade_no'],'order_amount'=>\app\common\service\promotion\PackagePromotionPolicy::amount((int)$existing['amount_cents']),'expires_at'=>(int)$existing['expires_at']];
@@ -51,8 +52,9 @@ final class VirtualPayService
     }
     public function query(array $intent): array
     {
+        VirtualPayPolicy::assertRuntime();
         $v=VirtualPayConfigService::version((int)$intent['tenant_id'],(int)$intent['config_version_id']);
-        $r=$this->gateway->request($v,'/xpay/query_order',['openid'=>$intent['openid'],'env'=>(int)$intent['env'],'order_id'=>$intent['out_trade_no']]);$o=$r['order']??null;
+        $r=$this->gateway->request($v,'/xpay/query_order',['openid'=>$intent['openid'],'env'=>(int)$intent['env'],'order_id'=>$intent['out_trade_no']]);VirtualPayPolicy::assertRuntime();$o=$r['order']??null;
         if(!is_array($o)||($o['order_id']??'')!==$intent['out_trade_no']||(int)($o['env_type']??0)!==(int)$intent['env']+1)throw new \RuntimeException('渠道订单身份或环境核对失败');
         if((int)($o['order_fee']??-1)!==(int)$intent['amount_cents']||(in_array((int)($o['status']??0),[2,3,4,5,8],true)&&(int)($o['paid_fee']??-1)!==(int)$intent['amount_cents']))throw new \RuntimeException('渠道订单金额核对失败');
         if(isset($o['biz_meta'])&&$o['biz_meta']!==''&&$o['biz_meta']!==$intent['attach'])throw new \RuntimeException('渠道订单商品关联信息核对失败');return $o;
@@ -82,7 +84,16 @@ final class VirtualPayService
             $snapshot=Db::name('tenant_package_price_snapshot')->where(['tenant_id'=>$intent['tenant_id'],'biz_type'=>$intent['biz_type'],'order_id'=>$intent['order_id']])->lock(true)->find();
             $i=Db::name('virtual_pay_intent')->where('id',$intent['id'])->lock(true)->find();
             $old=Db::name('virtual_pay_receipt')->where(['app_id'=>$i['app_id'],'env'=>$i['env'],'transaction_key'=>$tx])->lock(true)->find();
-            if($old){if((int)$old['intent_id']!==(int)$i['id'])throw new \RuntimeException('交易编号已关联其他订单，需要人工核对');return;}
+            if($old){
+                if((int)$old['intent_id']!==(int)$i['id'])throw new \RuntimeException('交易编号已关联其他订单，需要人工核对');
+                // Receipt idempotency must not discard a later financial state transition.
+                if(in_array((int)$query['status'],[5,8],true)&&$i['refund_status']!=='success'){
+                    Db::name('virtual_pay_intent')->where('id',$i['id'])->update(['refund_status'=>'processing','refund_source'=>$i['refund_source']==='merchant'?'merchant':'channel','delivery_status'=>$i['delivery_status']==='granted'?'granted':'blocked','updated_at'=>time()]);
+                    VirtualPayMaintenanceService::enqueue((int)$i['id'],'refund');
+                    Db::name('virtual_pay_work')->where(['intent_id'=>$i['id'],'kind'=>'refund'])->where('status','<>','running')->update(['status'=>'pending','next_at'=>time(),'updated_at'=>time()]);
+                }
+                return;
+            }
             if($i['wx_order_id']!==''&&$i['wx_order_id']!==$tx)throw new \RuntimeException('同一支付尝试返回了不同交易，请人工核对');
             $kind=in_array((int)$query['status'],[5,8],true)?'refunded':'payment';if(!$snapshot||$snapshot['status']==='closed')$kind='late';elseif((int)$order['pay_status']&&$i['delivery_status']!=='granted')$kind='duplicate';
             if (in_array($kind,['payment','refunded'],true)) Price::confirmPaymentCoupon((int)$i['tenant_id'],$i['biz_type'],(int)$i['order_id']);
@@ -95,7 +106,7 @@ final class VirtualPayService
     {
         $order=self::order($tenant,$user,$from,$id);$i=Db::name('virtual_pay_intent')->where(['tenant_id'=>$tenant,'user_id'=>$user,'biz_type'=>$from,'order_id'=>$id])->order('id desc')->find();
         if(!$i)throw new \RuntimeException('尚未发起虚拟支付');
-        if($query&&$i['refund_status']==='none'){try{$this->reconcile($i);}catch(\Throwable $e){Db::name('virtual_pay_intent')->where('id',$i['id'])->update(['last_error'=>mb_substr($e->getMessage(),0,500),'updated_at'=>time()]);}}
+        if($query&&$i['refund_status']==='none'){try{$this->reconcile($i);}catch(\Throwable $e){VirtualPayPolicy::assertRuntime();Db::name('virtual_pay_intent')->where('id',$i['id'])->update(['last_error'=>mb_substr($e->getMessage(),0,500),'updated_at'=>time()]);}}
         $i=Db::name('virtual_pay_intent')->where('id',$i['id'])->find();
         return ['order_id'=>$id,'from'=>$from,'order_amount'=>\app\common\service\promotion\PackagePromotionPolicy::amount((int)$i['amount_cents']),'payment_status'=>$i['status'],'delivery_status'=>$i['delivery_status'],'shipping_status'=>$i['xpay_shipping_status'],'general_shipping_status'=>$i['general_shipping_status'],'refund_status'=>$i['refund_status'],'expires_at'=>(int)$i['expires_at'],'message'=>$i['last_error']!==''?'支付或交付仍在核对，请稍后查询或联系管理员':'','confirm_receipt'=>false];
     }

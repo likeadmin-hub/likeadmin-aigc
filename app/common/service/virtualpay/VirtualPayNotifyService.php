@@ -56,6 +56,7 @@ final class VirtualPayNotifyService
     }
     public function event(int $tenant,string $app,array $message): array
     {
+        VirtualPayPolicy::assertRuntime();
         $message=self::normalized($message);
         $event=(string)($message['Event']??'');if(!str_starts_with($event,'xpay_'))throw new \RuntimeException('不支持的虚拟支付事件');
         $sn=self::reference($message);
@@ -79,7 +80,7 @@ final class VirtualPayNotifyService
                 // Complaints/risk events are accepted and visible to operators, without changing funds or rights.
                 Db::name('virtual_pay_event')->where($scope)->update(['status'=>'attention','message'=>'请在微信平台核对投诉或风控事项','updated_at'=>time()]);return ['ErrCode'=>0,'ErrMsg'=>''];
             }
-            Db::name('virtual_pay_event')->where($scope)->update(['status'=>'done','message'=>'','updated_at'=>time()]);return $result;
-        }catch(\Throwable $e){Db::name('virtual_pay_event')->where($scope)->update(['status'=>'failed','message'=>mb_substr($e->getMessage(),0,500),'updated_at'=>time()]);throw $e;}
+            VirtualPayPolicy::assertRuntime();Db::name('virtual_pay_event')->where($scope)->update(['status'=>'done','message'=>'','updated_at'=>time()]);return $result;
+        }catch(\Throwable $e){VirtualPayPolicy::assertRuntime();Db::name('virtual_pay_event')->where($scope)->update(['status'=>'failed','message'=>mb_substr($e->getMessage(),0,500),'updated_at'=>time()]);throw $e;}
     }
 }
