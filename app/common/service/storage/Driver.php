@@ -42,9 +42,9 @@ class Driver
      * @param string $filePath
      * @return mixed
      */
-    public function setUploadFileByReal($filePath)
+    public function setUploadFileByReal($filePath, ?string $targetName = null)
     {
-        return $this->engine->setUploadFileByReal($filePath);
+        return $this->engine->setUploadFileByReal($filePath, $targetName);
     }
 
     /**

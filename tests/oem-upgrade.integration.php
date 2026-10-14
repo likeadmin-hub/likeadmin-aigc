@@ -1,0 +1,40 @@
+<?php
+declare(strict_types=1);
+/** Actual previous updater and candidate archive; isolated signing authority only. */
+function upgradeCheck(bool $ok,string $message):void{if(!$ok)throw new RuntimeException($message);}
+$site='/site';$phase=$argv[1]??'';
+upgradeCheck(getenv('OEM_DISPOSABLE')==='1'&&str_starts_with((string)getenv('PHP_DATABASE_DATABASE'),'oem_upgrade_')&&getenv('PHP_DATABASE_HOSTNAME')==='oem-mysql','Own disposable upgrade site required');
+require $site.'/runtime-loader.php';$app=new AigcRuntimeApp($site);$app->setBaseEnvName('oem-disposable')->setEnvName('oem-disposable')->initialize();define('ROOT_PATH',$site.'/public');
+set_exception_handler(static function(Throwable $e){fwrite(STDERR,(string)$e.PHP_EOL);exit(1);});
+use think\facade\Db;
+use app\common\service\update\SystemPackageUpdateService;
+use app\common\service\update\ComposerRuntimeUpdateService;
+use app\common\service\update\UpdateLicenseService;
+use app\common\service\update\UpdateSourceClient;
+use app\common\service\update\SystemUpdateProtocol;
+use app\common\service\license\SignedLicenseProtocol;
+upgradeCheck((Db::query('SELECT DATABASE() AS db')[0]['db']??'')===getenv('PHP_DATABASE_DATABASE'),'Upgrade database escaped');
+request()->withServer(array_merge(request()->server(),['HTTP_HOST'=>'oem-upgrade.fixture','SERVER_NAME'=>'oem-upgrade.fixture']));
+$stateFile=$site.'/runtime/oem-upgrade.json';
+function upgradeSeed(string $table,array $values):void{
+ foreach(Db::query('SHOW COLUMNS FROM `la_'.$table.'`') as $c){if(array_key_exists($c['Field'],$values)||$c['Null']==='YES'||$c['Default']!==null||str_contains($c['Extra'],'auto_increment')||str_contains($c['Extra'],'GENERATED'))continue;$values[$c['Field']]=preg_match('/int|decimal|float|double/',$c['Type'])?0:($c['Type']==='json'?'{}':'');}Db::name($table)->insert($values);
+}
+if($phase==='apply'){
+ upgradeCheck(config('project.version')==='1.0.397','Previous committed runtime required');
+ // Match a real397 station: execute the historical builtin installations, never fabricate migration journals.
+ foreach(['aigc_image','aigc_video','aigc_digital_human','aigc_canvas','aigc_llm','image_human'] as $code) \app\common\service\app\AppRegistryService::installFromLocal($code,'1.0.397');
+ $key=openssl_pkey_new(['private_key_bits'=>2048]);$public=openssl_pkey_get_details($key)['key'];Db::name('update_source')->where('status',1)->update(['status'=>0]);Db::name('update_source')->insert(['name'=>'oem isolated upgrade authority','base_url'=>'https://fixture.invalid','online_base_url'=>'https://fixture.invalid','license_key'=>'fixture','online_license_key'=>'fixture','dev_mode'=>1,'public_key'=>$public,'status'=>1]);
+ $license=new UpdateLicenseService();$machine=$license->machineCode();$payload=(object)['schema_version'=>3,'license_no'=>'LIC-OEM-ISOLATED','version'=>1,'product_code'=>UpdateSourceClient::PRODUCT_CODE,'domains'=>[$machine['domain']],'machine_fingerprint_hash'=>$machine['machine_fingerprint_hash'],'license_type'=>'commercial','is_perpetual'=>true,'expires_at'=>0,'update_mode'=>'lifetime','issuer'=>(object)['copyright'=>[]]];openssl_sign(SignedLicenseProtocol::json($payload),$sign,$key,OPENSSL_ALGO_SHA256);$license->storeCertificate(SignedLicenseProtocol::json((object)['payload'=>$payload,'signature'=>base64_encode($sign),'algorithm'=>'RSA-SHA256']));
+ upgradeSeed('tenant',['id'=>901,'sn'=>'oem901','name'=>'Protected existing seller','point_balance'=>'128.50','create_time'=>1]);upgradeSeed('user',['id'=>901,'tenant_id'=>901,'sn'=>901,'account'=>'oem901','user_money'=>'77.25']);upgradeSeed('recharge_order',['tenant_id'=>901,'user_id'=>901,'sn'=>'preserved','order_amount'=>'3.00','pay_status'=>1]);
+ upgradeSeed('aigc_short_drama_episode_task',['tenant_id'=>901,'user_id'=>901,'status'=>'running','heartbeat_at'=>123456,'attempt_number'=>2]);upgradeSeed('tenant_package',['id'=>901,'name'=>'Existing sold package','duration_days'=>77,'quota_price'=>'88.88','sale_price'=>'123.45']);upgradeSeed('tenant_brand_order',['tenant_id'=>901,'user_id'=>901,'order_sn'=>'protected-oem-legacy','package_id'=>901,'package_name'=>'Existing sold package','order_amount'=>'123.45','pay_status'=>1,'open_status'=>1,'child_tenant_id'=>901]);
+ $tables=['user','recharge_order','aigc_short_drama_episode_task','tenant_brand_order','tenant_package'];$protected=[];foreach($tables as $t)$protected[$t]=Db::name($t)->order('id')->select()->toArray();
+ foreach(['public/uploads/protected.bin'=>'KEEP','runtime/task-lease.json'=>'{"owner":"existing-task","attempts":2}'] as $p=>$v){if(!is_dir(dirname($site.'/'.$p)))mkdir(dirname($site.'/'.$p),0755,true);file_put_contents($site.'/'.$p,$v);}
+ $sha=hash_file('sha256','/oem.zip');$now=time();$id=Db::name('update_package')->insertGetId(['package_id'=>'isolated-oem-candidate','type'=>'system','source'=>'cloud','app_code'=>'','version'=>'1.0.398','format'=>'zip','local_path'=>'/oem.zip','sha256'=>$sha,'package_size'=>filesize('/oem.zip'),'manifest_json'=>'{}','status'=>'downloaded','create_time'=>$now,'update_time'=>$now]);
+ $context=$license->verifiedSiteContext();$response=(object)['code'=>1,'msg'=>'isolated grant','server_time'=>$now,'data'=>['product_code'=>UpdateSourceClient::PRODUCT_CODE,'version'=>'1.0.398','target_version'=>'1.0.398','sha256'=>$sha,'format'=>'zip','site_grant'=>['license_no'=>$context['license_no'],'license_version'=>$context['license_version'],'domains'=>[$context['domain']],'machine_fingerprint_hash'=>$context['machine_fingerprint_hash'],'version_id'=>398,'issued_at'=>$now,'expires_at'=>$now+3600]]];openssl_sign(SignedLicenseProtocol::json($response),$sign,$key,OPENSSL_ALGO_SHA256);$response->signature=base64_encode($sign);Db::name('system_package_grant')->insert(['package_id'=>$id,'context_key'=>SystemUpdateProtocol::contextKey($context,UpdateSourceClient::getSource()),'response_json'=>SignedLicenseProtocol::json($response),'create_time'=>$now,'update_time'=>$now]);
+ (new ComposerRuntimeUpdateService($site))->ensureBaseline();$state=['package_id'=>$id,'protected'=>$protected,'old_generation'=>json_decode(file_get_contents($site.'/.composer-runtime/current.json'),true)['generation']];file_put_contents($stateFile,json_encode($state));$service=new SystemPackageUpdateService();$check=$service->preflight($id);upgradeCheck($check['passed'],'Actual candidate preflight failed: '.json_encode($check,JSON_UNESCAPED_UNICODE));$result=$service->apply($id);upgradeCheck(($result['version']??'')==='1.0.398','Actual update did not finish');echo "PASS actual397 signed candidate preflight/apply to398\n";
+}else{
+ $state=json_decode(file_get_contents($stateFile),true);upgradeCheck(config('project.version')==='1.0.398','Fresh runtime version did not switch');upgradeCheck(Db::name('update_package')->where('id',$state['package_id'])->value('status')==='applied','Update marker not successful');
+ foreach($state['protected'] as $t=>$oldRows){$new=Db::name($t)->order('id')->select()->toArray();foreach($oldRows as $old){$found=array_values(array_filter($new,fn($r)=>$r['id']===$old['id']));upgradeCheck(count($found)===1&&array_intersect_key($found[0],$old)===$old,'Existing business changed: '.$t);}}
+ upgradeCheck(Db::name('tenant_brand_order')->where('order_sn','protected-oem-legacy')->value('flow_version')===1,'Legacy order was reclassified');upgradeCheck(Db::name('tenant_package')->whereNotNull('package_code')->count()===3,'Upgrade defaults not exactly three');upgradeCheck(file_get_contents($site.'/public/uploads/protected.bin')==='KEEP'&&file_get_contents($site.'/runtime/task-lease.json')==='{"owner":"existing-task","attempts":2}','Protected task/upload changed');upgradeCheck(json_decode(file_get_contents($site.'/.composer-runtime/current.json'),true)['generation']!==$state['old_generation'],'Runtime pointer did not switch');upgradeCheck(class_exists('app\\common\\service\\brand\\BrandPaymentService'),'OEM class unavailable after update');
+ echo "PASS fresh398 runtime, legacy order/price/payment/running AI task and persistent files preserved\n";
+}
