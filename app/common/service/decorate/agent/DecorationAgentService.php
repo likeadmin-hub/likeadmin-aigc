@@ -301,7 +301,7 @@ final class DecorationAgentService
         $replyTime=0;$publishReply((new DecorationAgentReplyStream())->append(DecorationAgentDecision::finalContent($result)));
         $ctx['calling']=false;$ctx['last_result']=$result;self::fence($id);if(in_array($result['billing']['billing_status']??'', ['pending_usage','pending_confirmation'],true)){self::saveContext($id,$ctx);self::finish($id,'needs_review',['error'=>'模型结果费用待核实，已停止后续调用']);return;}self::saveContext($id,$ctx);
         if(Db::name('decorate_agent_run')->where('id',$id)->value('cancel_requested')){self::finish($id,'canceled',['summary'=>'执行已停止，已发生费用保留']);return;}
-        try{$decision=DecorationAgentDecision::parse(DecorationAgentDecision::finalContent($result));}catch(\InvalidArgumentException $e){$ctx['observations'][]=['error'=>$e->getMessage()];self::saveContext($id,$ctx);return;}
+        try{$decision=DecorationAgentDecision::parse(DecorationAgentDecision::finalContent($result));}catch(\InvalidArgumentException $e){$ctx['observations'][]=['error'=>$e->getMessage()];$stop=self::decisionFailureLimitReached($ctx,$e->getMessage());self::saveContext($id,$ctx);if($stop)self::finish($id,'failed',['error'=>'模型重复返回同类无效装修方案，已停止后续调用：'.$e->getMessage()]);return;}
         $publishReply(DecorationAgentDecision::message($decision),true);
         $ctx['facts']=array_slice(array_merge($ctx['facts'],$decision['facts']),-40);
         self::q('session',$tenant,$admin)->where('id',$s['id'])->update(['facts'=>self::json($ctx['facts'])]);
@@ -326,6 +326,11 @@ final class DecorationAgentService
         self::saveContext($id,$ctx);self::q('session',$tenant,$admin)->where('id',$s['id'])->update(['active_candidate_id'=>$cId,'facts'=>self::json($ctx['facts'])]);
         if($decision['kind']==='final'){$summary=count($ctx['changes']).'项装修调整已生成，请预览后应用。';$pending=self::q('image_slot',$tenant,$admin)->where('run_id',$id)->whereIn('status',['queued','running'])->count();self::q('candidate',$tenant,$admin)->where('id',$cId)->update(['status'=>$pending?'waiting_images':'ready']);self::finish($id,$pending?'waiting_images':'completed',['reply'=>$decision['reply'],'question'=>$decision['question'],'summary'=>$summary,'warnings'=>$decision['warnings']]);}
         });
+    }
+    private static function decisionFailureLimitReached(array &$ctx,string $reason): bool
+    {
+        $ctx['decision_failures'][$reason]=($ctx['decision_failures'][$reason]??0)+1;
+        return $ctx['decision_failures'][$reason]>=2;
     }
     private static function explicitUrls(string $message,array $attachments): array
     {preg_match_all('~https?://[^\s<>"\x{3000}-\x{9fff}]+~u',$message,$m);return array_values(array_unique(array_merge($m[0],array_column(array_filter($attachments,fn($a)=>in_array('asset',$a['uses']??[],true)),'url'))));}
