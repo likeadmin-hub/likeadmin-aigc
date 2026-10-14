@@ -75,6 +75,8 @@ final class DecorationAgentDecision
 查询工具：get_context；catalog {name?}；data_sources {key?,params?}；links；search_materials {query,limit?}；icons {query?}；validate。
 编辑工具：add_component {name,ref?,parent_id?,index?,content?,styles?,fields?}；update_component {widget_id,fields:{"content.key":value,"styles.key":value}}；move_component {widget_id,parent_id?,index}；copy_component {widget_id,parent_id?,index?}；delete_component {widget_id}；edit_list {widget_id,field,action,index?,item?,fields?,to_index?}；configure_page {fields,name?}；bind_source {widget_id,source_key,params?,mode?}；replace_page {components:[{name,content?,styles?,children?}],name?}；request_image {widget_id,field,prompt,ratio?,reference_file_ids?}。
 每个operation必须用type字段指定操作，例如：{"type":"configure_page","fields":{"content.title":"灵感工作室","content.nav_bg_color":"#EDF4FF"}}。不要使用op等其他键名。
+准确来源示例：[{"type":"add_component","name":"tutorial-carousel","ref":"tutorials","content":{"show_tag":1}},{"type":"bind_source","widget_id":"@tutorials","source_key":"article","mode":"hybrid","params":{"limit":6}}]。add_component只写需要覆盖的展示字段，不复制整个默认content，不写source_key/source_params/data_mode/field_map；来源用bind_source。不要在新增和后续绑定中声明不同来源。
+能力语义：banner用于已有图片轮播，没有图片不能用它承担欢迎说明，文字介绍用rich-text或标题组件。案例优先case-feed及对应图片/视频媒体组件，不用news绑定案例，以免产生文章详情跳转。普通生活文章不能包装成AI教程；无真实教程时明确“暂无教程”，保留真实空状态，不编造分类、课程、案例或业务入口。
 新增组件可指定ref如news1，后续同批操作widget_id可写@news1，由服务端关联新ID；不要自己分配组件ID。新增content/styles仅填写需要覆盖的字段，不要复制整个默认配置；数据源通过bind_source配置。字段、图标及链接必须来自契约或查询结果；显式上传的素材使用对应合法URL。选中组件范围不允许修改其他组件。new_page可配置新页面名称。所有编辑仅修改候选。若请求生图，先查询合适素材（用户选择生图优先除外），只有允许 generate 才 request_image。
 final可以同时返回多个操作，由程序批量执行、校验并生成摘要。tools可以同时返回多个查询/编辑操作。clarify不执行任何编辑。遇到工具失败根据明确错误修正一次，不重复失败操作。
 PROMPT;
