@@ -61,7 +61,7 @@ final class AgentTranscriptionTool
                     self::finish($cid,false,['error'=>'语音识别服务拒绝了请求，请检查素材后重试']);
                 }elseif($wire['status']===200&&(int)($data['code']??0)===1&&is_string($recognized)&&mb_strlen($recognized)<=100000){
                     // Empty text is a valid completed recognition (silence/no intelligible speech).
-                    self::finish($cid,true,['text'=>$recognized,'language'=>(string)($data['data']['language']??''),'duration'=>(float)($data['data']['duration']??0),'file_id'=>$prepared['inputs']['file_id']]);
+                    self::finish($cid,true,['text'=>$recognized,'language'=>(string)($data['data']['language']??$data['data']['result']['language']??''),'duration'=>(float)($data['data']['duration']??$data['data']['result']['duration']??0),'file_id'=>$prepared['inputs']['file_id']]);
                 }else self::uncertain($cid);
             }catch(\Throwable $e){\think\facade\Log::error('Home Agent STT '.$cid.' failed: '.get_class($e).' '.$e->getMessage());self::uncertain($cid);}
             return self::query($tenant,$user,$id);
