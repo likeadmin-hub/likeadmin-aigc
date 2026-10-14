@@ -30,7 +30,7 @@ namespace {
         return invoke('curl', 'https://fixture.invalid', 'fixture-only', [], static function($type, $data) use (&$visible) { if ($type === 'delta') $visible[] = $data['delta']; }, true, 10);
     }
     function start(): array { return ['type'=>'message_start','message'=>['id'=>'msg_fixture','usage'=>['input_tokens'=>123,'output_tokens'=>0]]]; }
-    function end(string $reason): array { return [['type'=>'message_delta','delta'=>['stop_reason'=>$reason],'usage'=>['output_tokens'=>17]],['type'=>'message_stop']]; }
+    function finishWire(string $reason): array { return [['type'=>'message_delta','delta'=>['stop_reason'=>$reason],'usage'=>['output_tokens'=>17]],['type'=>'message_stop']]; }
     function block(int $index, string $id, string $name, array $fragments): array {
         $events = [['type'=>'content_block_start','index'=>$index,'content_block'=>['type'=>'tool_use','id'=>$id,'name'=>$name,'input'=>(object)[]]]];
         foreach ($fragments as $part) $events[] = ['type'=>'content_block_delta','index'=>$index,'delta'=>['type'=>'input_json_delta','partial_json'=>$part]];
@@ -42,14 +42,14 @@ namespace {
         ['type'=>'content_block_delta','index'=>0,'delta'=>['type'=>'text_delta','text'=>'再回答。']],
         ['type'=>'content_block_delta','index'=>1,'delta'=>['type'=>'thinking_delta','thinking'=>'秘密推理']],
         ['type'=>'content_block_delta','index'=>1,'delta'=>['type'=>'signature_delta','signature'=>'secret']],
-    ], block(2,'tool_a','lookup',['{"name":"','服装','"}']), block(4,'tool_b','lookup',['{"name":"模特"}']), end('tool_use'));
+    ], block(2,'tool_a','lookup',['{"name":"','服装','"}']), block(4,'tool_b','lookup',['{"name":"模特"}']), finishWire('tool_use'));
     $result = wire($events, $visible);
     check($visible === ['先查询。','再回答。'] && $result['content'] === '先查询。再回答。', 'Native blocks leaked or text reordered');
     check(count($result['tool_calls']) === 2 && $result['tool_calls'][0]['function']['arguments'] === '{"name":"服装"}' && $result['tool_calls'][1]['id'] === 'tool_b', 'Sparse block indices or fragmented arguments corrupted');
     check(invoke('normalizeUsage',$result['usage'])['total_tokens'] === 140 && $result['provider_request_id'] === 'msg_fixture', 'Native receipt/usage lost');
-    $empty = wire(array_merge([start()],block(3,'empty','list',[]),end('tool_use')));
+    $empty = wire(array_merge([start()],block(3,'empty','list',[]),finishWire('tool_use')));
     check($empty['tool_calls'][0]['function']['arguments'] === '{}','Empty tool input not an object');
-    foreach ([array_slice($events,0,-1),array_merge([start()],block(1,'broken','lookup',['{"name":']),end('tool_use')),array_merge([start()],block(1,'c','lookup',['{}']),end('max_tokens'))] as $invalid) {
+    foreach ([array_slice($events,0,-1),array_merge([start()],block(1,'broken','lookup',['{"name":']),finishWire('tool_use')),array_merge([start()],block(1,'c','lookup',['{}']),finishWire('max_tokens'))] as $invalid) {
         try { wire($invalid); throw new \LogicException('Unsafe stream accepted'); }
         catch (\Exception $e) { check(!$e instanceof \LogicException, $e->getMessage()); }
     }
@@ -74,7 +74,7 @@ namespace {
         $native = A::messages($request['messages']);
         check($request['model_selection'] === 'selected-claude' && $request['_disable_model_fallback'], 'Selected model changed');
         check($native[2]['content'][0]['tool_use_id'] === 'tool_a' && $native[2]['content'][1]['tool_use_id'] === 'tool_b', 'Neuron results did not round trip');
-        return wire(array_merge([start(),['type'=>'content_block_delta','index'=>0,'delta'=>['type'=>'text_delta','text'=>'已找到服装和模特。']]],end('end_turn')));
+        return wire(array_merge([start(),['type'=>'content_block_delta','index'=>0,'delta'=>['type'=>'text_delta','text'=>'已找到服装和模特。']]],finishWire('end_turn')));
     });
     $tool = new class($toolExecutions) extends Tool {
         protected string $name = 'lookup';
