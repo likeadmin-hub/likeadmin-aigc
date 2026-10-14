@@ -41,14 +41,14 @@ final class DecorationAgentDesignContext
             'fields'=>$fields,'lists'=>$lists,'style_keys'=>array_keys($definition['style_fields']??[]),
             'container'=>(bool)($definition['children']['supported']??false),
             'source'=>array_intersect_key($definition['source']??[],array_flip($detailed?['default_key','allowed_keys','modes']:['default_key','modes'])),
-            'semantics'=>self::semantics((string)$definition['name']),'runtime_notes'=>$detailed?self::runtimeNotes($definition['name']):array_intersect_key(self::runtimeNotes($definition['name']),array_flip(['support','unsupported_fields'])),'image_slots'=>self::imageSlots($definition),
+            'semantics'=>self::semantics((string)$definition['name']),'runtime_capabilities'=>$detailed?self::runtimeNotes($definition['name']):array_intersect_key(self::runtimeNotes($definition['name']),array_flip(['support','unsupported_fields'])),'image_slots'=>self::imageSlots($definition),
         ];
     }
 
     public static function contract(string $name): array
     {
         $definition=DecorationAgentCatalog::definition($name);
-        return $definition+['semantics'=>self::semantics($name),'runtime_notes'=>self::runtimeNotes($name),'image_slots'=>self::imageSlots($definition),'write_policy'=>'source_key/source_params/data_mode用bind_source；field_map仅展示默认契约，禁止任意写入；所有图片只来自本轮授权素材或受控request_image。'];
+        return $definition+['semantics'=>self::semantics($name),'runtime_capabilities'=>self::runtimeNotes($name),'image_slots'=>self::imageSlots($definition),'write_policy'=>'source_key/source_params/data_mode用bind_source；field_map仅展示默认契约，禁止任意写入；所有图片只来自本轮授权素材或受控request_image。'];
     }
 
     public static function discover(array $query): array

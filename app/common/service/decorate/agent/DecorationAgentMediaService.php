@@ -13,6 +13,7 @@ use app\common\service\open_platform\OpenSafeHttp;
 use app\common\service\power\MarketImageModelRuntimeService;
 use app\common\service\storage\StorageSignedUrlService;
 use Exception;
+use think\facade\Db;
 
 /** Tenant-admin authoring adapter. No request field can opt ordinary users into this payer. */
 final class DecorationAgentMediaService
@@ -100,6 +101,7 @@ final class DecorationAgentMediaService
             }
         }
         if (in_array('tenant', $allowedSources, true)) {
+            foreach (self::generatedMaterials($tenantId, $needle) as $material) $candidates[] = $material;
             $files = TenantFile::where(['tenant_id' => $tenantId, 'source' => FileEnum::SOURCE_ADMIN, 'type' => FileEnum::IMAGE_TYPE]);
             // Bounded filename discovery supports synonyms without pretending to inspect pixels.
             foreach ($files->order('id', 'desc')->limit(50)->select()->toArray() as $file) {
@@ -134,7 +136,7 @@ final class DecorationAgentMediaService
             }
         }
         // Select across allowed sources rather than letting newest uploads consume the entire limit.
-        $priority=['uploaded_asset'=>100,'decorative'=>90,'user_case'=>80,'app_icon'=>70,'app_cover'=>60,'tenant_asset'=>50,'article_cover'=>30];
+        $priority=['uploaded_asset'=>100,'decorative'=>90,'generated_decorative'=>85,'user_case'=>80,'app_icon'=>70,'app_cover'=>60,'tenant_asset'=>50,'article_cover'=>30];
         usort($candidates,fn($a,$b)=>($priority[$b['role']??'']??0)<=>($priority[$a['role']??'']??0));
         $seen = []; $result = [];
         foreach ($candidates as $candidate) {
@@ -146,6 +148,45 @@ final class DecorationAgentMediaService
             }
             $seen[$candidate['url']] = true; $result[] = $candidate;
             if (count($result) >= $limit) break;
+        }
+        return $result;
+    }
+
+    /** Reuse only settled system authoring assets, never ordinary users' private images. */
+    private static function generatedMaterials(int $tenantId, string $query): array
+    {
+        $result = [];
+        $slots = Db::name('decorate_agent_image_slot')->where('tenant_id', $tenantId)
+            ->whereIn('status', ['success', 'regenerated'])->order('id', 'desc')->limit(50)->select()->toArray();
+        foreach ($slots as $slot) {
+            $request = DecorationAgentService::decode($slot['request_json']);
+            $prompt = (string)($request['prompt'] ?? '');
+            if ($query !== '' && !self::matches($prompt, [], $query)) continue;
+            $stored = DecorationAgentService::decode($slot['result_json']);
+            foreach ((array)($stored['images'] ?? []) as $asset) {
+                if (!is_array($asset) || empty($asset['image_uri'])) continue;
+                $stable = '/' . ltrim((string)$asset['image_uri'], '/');
+                // The shared resolver verifies receipt, task, ownership and immutable storage identity.
+                $widget = DecorationAgentCatalog::create('banner', 'material:' . $slot['id']);
+                $delivery = (string)($asset['url'] ?? $stable);
+                $widget['content']['data'] = [['image' => $delivery]];
+                $proof = DecorationAgentAssetReferences::attachMaterials(['data' => [$widget], 'meta' => []],
+                    [array_replace($asset, ['slot_id' => (int)$slot['id'], 'file_id' => 0, 'url' => $delivery])], $tenantId);
+                if (($proof['data'][0]['_decoration_asset_refs']['content.data.0.image']['id'] ?? 0) !== (int)$slot['id']) continue;
+                $urls = DecorationAgentAssetReferences::resolveUrls($proof, $tenantId);
+                if (!isset($urls[$stable])) continue;
+                $width = max(0, (int)($asset['width'] ?? 0));
+                $height = max(0, (int)($asset['height'] ?? 0));
+                $result[] = array_replace($asset, [
+                    'id' => 'slot:' . $slot['id'] . ':' . hash('sha256', $stable),
+                    'slot_id' => (int)$slot['id'], 'file_id' => 0, 'uri' => (string)$asset['image_uri'],
+                    'source' => 'tenant', 'source_key' => 'decoration_generated', 'title' => $prompt,
+                    'type' => 'image', 'role' => 'generated_decorative', 'tags' => ['装修生成', $prompt],
+                    'dimensions_known' => $width > 0 && $height > 0,
+                    'match_basis' => 'generation_prompt', 'provenance' => '租户后台装修生成的装饰素材，不是用户作品或客户案例',
+                ]);
+                $result[array_key_last($result)]['url'] = $urls[$stable];
+            }
         }
         return $result;
     }
@@ -184,26 +225,35 @@ final class DecorationAgentMediaService
     public static function poll(int $tenantId, int $consumptionId, bool $refresh = true): array
     {
         self::assertTenant($tenantId);
-        $consumption = self::consumption($tenantId, $consumptionId);
-        if ($refresh && in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage'], true)) {
-            MarketImageModelRuntimeService::refresh($consumptionId);
+        $request = request();
+        $previousTenant = $request->tenantId ?? null;
+        $request->tenantId = $tenantId;
+        try {
             $consumption = self::consumption($tenantId, $consumptionId);
-        }
-        $summary = (array)$consumption['response_summary'];
-        $images = [];
-        if ((string)$consumption['run_status'] === 'success' && (string)$consumption['billing_status'] === 'settled') {
-            AiTaskResultAssetService::recordConsumptionAssets($consumptionId, true);
-            foreach ((array)($summary['images'] ?? []) as $image) {
-                if (!is_array($image) || empty($image['image_uri']) || empty($image['storage_scope']) || empty($image['storage_engine'])) continue;
-                $images[] = $image + ['url' => FileService::getFileUrlByStorage((string)$image['image_uri'], (string)$image['storage_scope'], (string)$image['storage_engine'], (string)($image['storage_domain'] ?? ''))];
+            if ($refresh && in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage'], true)) {
+                MarketImageModelRuntimeService::refresh($consumptionId);
+                $consumption = self::consumption($tenantId, $consumptionId);
             }
+            $summary = (array)$consumption['response_summary'];
+            $images = [];
+            if ((string)$consumption['run_status'] === 'success' && (string)$consumption['billing_status'] === 'settled') {
+                AiTaskResultAssetService::recordConsumptionAssets($consumptionId, true);
+                foreach ((array)($summary['images'] ?? []) as $image) {
+                    if (!is_array($image) || empty($image['image_uri']) || empty($image['storage_scope']) || empty($image['storage_engine'])) continue;
+                    $url = (string)$image['storage_engine'] === 'local' ? '/' . ltrim((string)$image['image_uri'], '/')
+                        : FileService::getFileUrlByStorage((string)$image['image_uri'], (string)$image['storage_scope'], (string)$image['storage_engine'], (string)($image['storage_domain'] ?? ''));
+                    $images[] = array_replace($image, ['url' => $url]);
+                }
+            }
+            $status = (string)$consumption['run_status'];
+            if ($status === 'success' && (string)$consumption['billing_status'] !== 'settled') $status = 'running';
+            if ($status === 'success' && $images === []) $status = 'needs_review';
+            if (in_array($status, ['submitting', 'pending_confirmation'], true) || ($status === 'running' && (string)$consumption['upstream_task_id'] === '')) $status = 'needs_review';
+            $spent = (string)$consumption['billing_status'] === 'settled' ? (float)$consumption['actual_tenant_cost'] : ((string)$consumption['billing_status'] === 'refunded' ? 0.0 : (float)$consumption['reserved_tenant_cost']);
+            return ['consumption_id' => $consumptionId, 'app_task_id' => (int)$consumption['app_task_id'], 'status' => $status, 'images' => $images, 'error' => (string)$consumption['error_message'], 'billing_status' => (string)$consumption['billing_status'], 'spent_points' => $spent, 'actual_spent_points' => (float)$consumption['actual_tenant_cost']];
+        } finally {
+            $request->tenantId = $previousTenant;
         }
-        $status = (string)$consumption['run_status'];
-        if ($status === 'success' && (string)$consumption['billing_status'] !== 'settled') $status = 'running';
-        if ($status === 'success' && $images === []) $status = 'needs_review';
-        if (in_array($status, ['submitting', 'pending_confirmation'], true) || ($status === 'running' && (string)$consumption['upstream_task_id'] === '')) $status = 'needs_review';
-        $spent = (string)$consumption['billing_status'] === 'settled' ? (float)$consumption['actual_tenant_cost'] : ((string)$consumption['billing_status'] === 'refunded' ? 0.0 : (float)$consumption['reserved_tenant_cost']);
-        return ['consumption_id' => $consumptionId, 'app_task_id' => (int)$consumption['app_task_id'], 'status' => $status, 'images' => $images, 'error' => (string)$consumption['error_message'], 'billing_status' => (string)$consumption['billing_status'], 'spent_points' => $spent, 'actual_spent_points' => (float)$consumption['actual_tenant_cost']];
     }
 
     private static function consumption(int $tenantId, int $id): AiConsumptionLog
@@ -299,7 +349,16 @@ final class DecorationAgentMediaService
     private static function fileUrl(array $file): string
     {
         $signed = StorageSignedUrlService::resolve((string)$file['uri'], (string)($file['storage_scope'] ?? ''), (string)($file['storage_engine'] ?? ''), (string)($file['storage_domain'] ?? ''), (int)($file['tenant_id'] ?? 0));
-        return $signed ?? FileService::getFileUrlByStorage((string)$file['uri'], (string)($file['storage_scope'] ?? ''), (string)($file['storage_engine'] ?? ''), (string)($file['storage_domain'] ?? ''));
+        if ($signed !== null) return $signed;
+        $request = request();
+        $previousTenant = $request->tenantId ?? null;
+        $request->tenantId = (int)($file['tenant_id'] ?? 0);
+        try {
+            return (string)($file['storage_engine'] ?? '') === 'local' ? '/' . ltrim((string)$file['uri'], '/')
+                : FileService::getFileUrlByStorage((string)$file['uri'], (string)($file['storage_scope'] ?? ''), (string)($file['storage_engine'] ?? ''), (string)($file['storage_domain'] ?? ''));
+        } finally {
+            $request->tenantId = $previousTenant;
+        }
     }
 
     private static function assertTenant(int $tenantId): void

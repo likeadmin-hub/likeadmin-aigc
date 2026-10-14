@@ -230,7 +230,7 @@ final class DecorationAgentService
     {
         $payload=$payload??self::payload($page);$source=$page;$source['data']=self::json($payload['data']);$source['meta']=self::json($payload['meta']);
         $resolved=DecorateDataSourceService::applyToPage($source,['tenant_id'=>$tenant,'user_id'=>0,'terminal'=>'mobile','preview'=>true]);
-        $page['resolved_sources']=$resolved['resolved_sources']??[];return $page;
+        $page['resolved_sources']=$resolved['resolved_sources']??[];if(isset($resolved['resolved_asset_urls']))$page['resolved_asset_urls']=$resolved['resolved_asset_urls'];return $page;
     }
     public static function candidate(int $tenant,int $admin,int $id): array
     {$r=self::owned('candidate',$tenant,$admin,$id);$p=self::decode($r['payload_json']);$s=self::owned('session',$tenant,$admin,(int)$r['session_id']);$page=self::page($tenant,(int)$s['template_id'],(int)$s['page_id']);if($p['new_page']??false)$page['page_code']='';$p['resolved_sources']=self::resolvedPage($tenant,$page,$p)['resolved_sources'];return $p+['base_data'=>self::decode($r['base_json'])['data']??[],'base_meta'=>self::decode($r['base_json'])['meta']??[],'id'=>$id,'revision'=>(int)$r['revision'],'status'=>$r['status'],'base_hash'=>$r['base_hash'],'changes'=>self::decode($r['changes_json']),'image_slots'=>self::slots($tenant,$admin,(int)$r['run_id'],$id)];}
@@ -301,14 +301,14 @@ final class DecorationAgentService
             if(in_array($run['status'],['queued','running','waiting_images'],true))throw new RuntimeException('当前轮执行尚未结束，请等待完成后重试');
             if($slot['status']!=='failed'&&!($slot['status']==='success'&&($p['regenerate']??false)===true))throw new RuntimeException('只有确定失败的图片允许重试；成功图片需明确选择重新生成');if(self::q('image_slot',$tenant,$admin)->where('run_id',$slot['run_id'])->count()>=5)throw new RuntimeException('本轮图片次数已达上限，请新建一轮继续');
             $requestJson=$slot['request_json'];
-            if($slot['status']==='success'){$payload=self::decode($candidate['payload_json']);$request=self::decode($requestJson);$nodes=DecorationAgentOperations::index($payload['data']);$node=$nodes[$request['widget_id']]??null;if(!$node)throw new RuntimeException('图片组件已删除，请新建一轮调整');$request['old_value']=DecorationAgentOperations::get($node['widget'],$request['field']);$requestJson=self::json($request);}
+            if($slot['status']==='success'){$payload=self::decode($candidate['payload_json']);$request=self::decode($requestJson);$nodes=DecorationAgentOperations::index($payload['data']);$node=$nodes[$request['widget_id']]??null;if(!$node)throw new RuntimeException('图片组件已删除，请新建一轮调整');$request['old_value']=DecorationAgentOperations::get($node['widget'],$request['field']);$request['old_ref']=$node['widget']['_decoration_asset_refs'][$request['field']]??null;$requestJson=self::json($request);}
             $id=self::insert('image_slot',$tenant,$admin,['session_id'=>$slot['session_id'],'run_id'=>$slot['run_id'],'candidate_id'=>$slot['candidate_id'],'slot_key'=>$slot['slot_key'],'request_json'=>$requestJson,'result_json'=>'{}','attempt'=>(int)$slot['attempt']+1]);
             self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->update(['status'=>$slot['status']==='success'?'regenerated':'retried']);self::q('run',$tenant,$admin)->where('id',$slot['run_id'])->update(['status'=>'waiting_images','cancel_requested'=>0,'next_run_time'=>time()]);return ['slot_id'=>$id];
         });
     }
     public static function replaceImage(int $tenant,int $admin,array $p): array
     {
-        $slot=self::owned('image_slot',$tenant,$admin,(int)$p['slot_id']);$a=DecorationAgentMediaService::validateAttachments($tenant,[['file_id'=>(int)$p['file_id'],'uses'=>['asset']]]);$c=self::candidate($tenant,$admin,(int)$slot['candidate_id']);$request=self::decode($slot['request_json']);$map=DecorationAgentOperations::index($c['data']);if(!isset($map[$request['widget_id']]))throw new RuntimeException('图片组件已删除');$request['old_value']=DecorationAgentOperations::get($map[$request['widget_id']]['widget'],$request['field']);$slot['request_json']=self::json($request);self::hydrate($slot,(string)$a[0]['url']);self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->update(['status'=>'success','result_json'=>self::json(['images'=>$a])]);return self::candidate($tenant,$admin,(int)$slot['candidate_id']);
+        $slot=self::owned('image_slot',$tenant,$admin,(int)$p['slot_id']);$a=DecorationAgentMediaService::validateAttachments($tenant,[['file_id'=>(int)$p['file_id'],'uses'=>['asset']]]);$c=self::candidate($tenant,$admin,(int)$slot['candidate_id']);$request=self::decode($slot['request_json']);$map=DecorationAgentOperations::index($c['data']);if(!isset($map[$request['widget_id']]))throw new RuntimeException('图片组件已删除');$request['old_value']=DecorationAgentOperations::get($map[$request['widget_id']]['widget'],$request['field']);$request['old_ref']=$map[$request['widget_id']]['widget']['_decoration_asset_refs'][$request['field']]??null;$slot['request_json']=self::json($request);self::hydrate($slot,(string)$a[0]['url'],null,$a[0]);self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->update(['status'=>'success','result_json'=>self::json(['images'=>$a])]);return self::candidate($tenant,$admin,(int)$slot['candidate_id']);
     }
     public static function tick(int $tenant=0): int
     {
@@ -358,7 +358,7 @@ final class DecorationAgentService
             if(Db::name('decorate_agent_run')->where('id',$id)->value('cancel_requested')){self::finish($id,'canceled',[]);return;}
             if(self::duplicateSourceBinding($ctx,$op,$input))continue;
             if(++$count>20){self::finish($id,'limited',['error'=>'已达到本轮工具次数上限']);return;}
-            try{foreach(['widget_id','parent_id'] as $targetKey)if(isset($op[$targetKey])&&str_starts_with((string)$op[$targetKey],'@')){$alias=substr($op[$targetKey],1);if(!isset($ctx['refs'][$alias]))throw new RuntimeException('本轮组件引用不存在');$op[$targetKey]=$ctx['refs'][$alias];}$query=self::queryTool($tenant,$admin,$s,$input,$ctx,$op,$links,$sources);if($query!==null){$ctx['observations'][]=['tool'=>$op['type'],'result'=>$query];if($op['type']==='search_materials'){$ctx['approved_material_urls']=array_values(array_unique(array_merge($ctx['approved_material_urls']??[],array_column($query,'url'))));$ctx['trusted_materials']=array_values(array_merge($ctx['trusted_materials']??[],$query));}if($op['type']==='icons')$ctx['approved_material_urls']=array_values(array_unique(array_merge($ctx['approved_material_urls']??[],DecorationAgentDesignContext::iconUrls($query))));}else{$scope=['scope'=>$input['scope'],'selected_id'=>$input['selected_id'],'allowed_links'=>$links,'approved_urls'=>array_merge(self::explicitUrls($input['message'],$input['attachments']),$ctx['approved_material_urls']??[])];$applied=DecorationAgentOperations::apply($ctx['candidate'],[$op],$scope);$ctx['candidate']=$applied['candidate'];if($op['type']==='add_component'&&!empty($op['ref'])){$last=end($applied['changes']);$ctx['refs'][(string)$op['ref']]=$last['widget_id'];}$ctx['changes']=array_merge($ctx['changes'],$applied['changes']);$imageRequests=array_merge($imageRequests,$applied['image_requests']);}$ctx['failures'][self::json($op)]=0;}
+            try{foreach(['widget_id','parent_id'] as $targetKey)if(isset($op[$targetKey])&&str_starts_with((string)$op[$targetKey],'@')){$alias=substr($op[$targetKey],1);if(!isset($ctx['refs'][$alias]))throw new RuntimeException('本轮组件引用不存在');$op[$targetKey]=$ctx['refs'][$alias];}$query=self::queryTool($tenant,$admin,$s,$input,$ctx,$op,$links,$sources);if($query!==null){$ctx['observations'][]=['tool'=>$op['type'],'result'=>$query];if($op['type']==='search_materials'){$ctx['approved_material_urls']=array_values(array_unique(array_merge($ctx['approved_material_urls']??[],array_column($query,'url'))));$ctx['trusted_materials']=array_values(array_merge($ctx['trusted_materials']??[],$query));}if($op['type']==='icons')$ctx['approved_material_urls']=array_values(array_unique(array_merge($ctx['approved_material_urls']??[],DecorationAgentDesignContext::iconUrls($query))));}else{$scope=['scope'=>$input['scope'],'selected_id'=>$input['selected_id'],'allowed_links'=>$links,'approved_urls'=>array_merge(self::explicitUrls($input['message'],$input['attachments']),$ctx['approved_material_urls']??[])];$applied=self::applyVisualOperation($ctx['candidate'],$op,$scope,$ctx['trusted_materials']??[],$tenant);$ctx['candidate']=$applied['candidate'];if($op['type']==='add_component'&&!empty($op['ref'])){$last=end($applied['changes']);$ctx['refs'][(string)$op['ref']]=$last['widget_id'];}$ctx['changes']=array_merge($ctx['changes'],$applied['changes']);$imageRequests=array_merge($imageRequests,$applied['image_requests']);}$ctx['failures'][self::json($op)]=0;}
             catch(\Throwable $e){$key=self::json($op);$ctx['failures'][$key]=($ctx['failures'][$key]??0)+1;$ctx['observations'][]=['tool'=>$op['type'],'error'=>$e->getMessage()];if($ctx['failures'][$key]>1){self::saveContext($id,$ctx);self::finish($id,'failed',['error'=>'重复操作失败：'.$e->getMessage()]);return;}$decision['kind']='tools';}
             self::saveContext($id,$ctx);Db::name('decorate_agent_run')->where('id',$id)->update(['tool_calls'=>$count]);self::event($id,'tool',['message'=>'已处理装修操作','tool'=>$op['type']]);
         }
@@ -441,7 +441,7 @@ final class DecorationAgentService
                     $result=DecorationAgentMediaService::submit((int)$receipt['consumption_id'],$request);
                 }else{$result=DecorationAgentMediaService::poll($tenant,(int)$slot['consumption_id']);}
                 $status=$result['status']??'running';self::fence((int)$r['id']);if(in_array($status,['pending_confirmation','needs_review','unknown'],true)){$uncertain=true;self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->update(['status'=>'needs_review','result_json'=>self::json($result)]);continue;}
-                if($status==='success'){$images=$result['images']??[];$url=(string)($images[0]['url']??$images[0]['image_uri']??$images[0]['uri']??'');if($url==='')throw new RuntimeException('图片结果为空');self::hydrate($slot,$url);self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->update(['status'=>'success','result_json'=>self::json($result)]);self::event((int)$r['id'],'image',['message'=>'配图已完成','slot_id'=>$slot['id']]);}
+                if($status==='success'){self::completeImage($slot,$result);self::event((int)$r['id'],'image',['message'=>'配图已完成','slot_id'=>$slot['id']]);}
                 elseif(in_array($status,['failed','canceled'],true))throw new RuntimeException((string)($result['error']??'图片生成失败'));
                 else{$pending++;self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->update(['status'=>'running','result_json'=>self::json($result)]);}
             }catch(\Throwable $e){self::fence((int)$r['id']);$current=self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->find();$billing=!empty($current['consumption_id'])?AiConsumptionLog::where('id',$current['consumption_id'])->find():null;$ambiguous=($current['status']??'')==='submitting'||($billing&&$billing['billing_status']==='settled');if($ambiguous)$uncertain=true;self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->update(['status'=>$ambiguous?'needs_review':'failed','error'=>mb_substr($e->getMessage(),0,1000)]);}
@@ -450,16 +450,57 @@ final class DecorationAgentService
         if(!$pending){self::q('candidate',$tenant,$admin)->where('id',$r['candidate_id'])->where('status','waiting_images')->update(['status'=>'ready']);self::finish((int)$r['id'],'completed',['summary'=>'候选页面已生成，失败图片可单独重试']);}
         else Db::name('decorate_agent_run')->where('id',$r['id'])->update(['next_run_time'=>time()+3,'spent_points'=>self::spent($r)]);
     }
-    private static function hydrate(array $slot,string $url): void
+    private static function applyVisualOperation(array $page,array $op,array $scope,array $materials,int $tenant): array
+    {
+        // Capture an image request only after its authorized source has a durable identity.
+        if (($op['type'] ?? '') === 'request_image') $page=self::attachScopedMaterials($page,$materials,$tenant,$scope);
+        $applied=DecorationAgentOperations::apply($page,[$op],$scope);
+        $applied['candidate']=self::attachScopedMaterials($applied['candidate'],$materials,$tenant,$scope);
+        return $applied;
+    }
+
+    private static function attachScopedMaterials(array $page,array $materials,int $tenant,array $scope): array
+    {
+        if (!$materials) return $page;
+        if (($scope['scope'] ?? '') !== 'selected') return DecorationAgentAssetReferences::attachMaterials($page,$materials,$tenant);
+        $index=DecorationAgentOperations::index($page['data'] ?? []);
+        $selected=$index[(string)($scope['selected_id'] ?? '')] ?? null;
+        if (!$selected) throw new RuntimeException('选中的组件不存在');
+        $node=&$page['data'];
+        foreach ($selected['path'] as $depth=>$position) {
+            if ($depth>0) $node=&$node['children'];
+            $node=&$node[$position];
+        }
+        $converted=DecorationAgentAssetReferences::attachMaterials(['data'=>[$node],'meta'=>[]],$materials,$tenant);
+        $node=$converted['data'][0];
+        unset($node);
+        return $page;
+    }
+
+    private static function completeImage(array $slot,array $result): void
+    {
+        $tenant=(int)$slot['tenant_id'];$admin=(int)$slot['admin_id'];$asset=$result['images'][0]??null;
+        if(!is_array($asset)||empty($asset['image_uri'])||empty($asset['storage_scope'])||empty($asset['storage_engine']))throw new RuntimeException('图片尚未形成可保存的资源');
+        $url=(string)($asset['url']??$asset['image_uri']);
+        Db::transaction(function()use($tenant,$admin,$slot,$result,$asset,$url): void {
+            self::fence((int)$slot['run_id']);
+            self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->update(['status'=>'success','result_json'=>self::json($result)]);
+            self::hydrate($slot,$url,$asset);
+        });
+    }
+
+    private static function hydrate(array $slot,string $url,?array $asset=null,?array $material=null): void
     {
         $tenant=(int)$slot['tenant_id'];$admin=(int)$slot['admin_id'];$request=self::decode($slot['request_json']??$slot['request']??[]);
-        Db::transaction(function()use($tenant,$admin,$slot,$request,$url){$c=self::q('candidate',$tenant,$admin)->where('id',$slot['candidate_id'])->lock(true)->find();if(!$c||$c['status']==='discarded')return;
-            $payload=self::decode($c['payload_json']);$index=DecorationAgentOperations::index($payload['data']);$node=$index[$request['widget_id']]??null;if(!$node||DecorationAgentOperations::get($node['widget'],$request['field'])!==($request['old_value']??null)){self::event((int)$slot['run_id'],'image_detached',['message'=>'图片位置已被修改，素材已保留']);return;}if(($request['old_value']??null)===$url)return;$op=['type'=>'update_component','widget_id'=>$request['widget_id'],'fields'=>[$request['field']=>$url]];$new=DecorationAgentOperations::apply($payload,[$op],['scope'=>'page','approved_urls'=>[$url],'allowed_links'=>[]]);
+        Db::transaction(function()use($tenant,$admin,$slot,$request,$url,$asset,$material){$c=self::q('candidate',$tenant,$admin)->where('id',$slot['candidate_id'])->lock(true)->find();if(!$c||in_array($c['status'],['discarded','rolled_back'],true))return;
+            $payload=self::decode($c['payload_json']);$index=DecorationAgentOperations::index($payload['data']);$node=$index[$request['widget_id']]??null;if(!$node||DecorationAgentOperations::get($node['widget'],$request['field'])!==($request['old_value']??null)||($node['widget']['_decoration_asset_refs'][$request['field']]??null)!==($request['old_ref']??null)){self::event((int)$slot['run_id'],'image_detached',['message'=>'图片位置已被修改，素材已保留']);return;}if(($request['old_value']??null)===$url)return;$op=['type'=>'update_component','widget_id'=>$request['widget_id'],'fields'=>[$request['field']=>$url]];$new=DecorationAgentOperations::apply($payload,[$op],['scope'=>'page','approved_urls'=>[$url],'allowed_links'=>[]]);
+            if($asset!==null)$new['candidate']=DecorationAgentAssetReferences::attachGenerated($new['candidate'],$slot,$asset);
+            elseif($material!==null)$new['candidate']=self::attachScopedMaterials($new['candidate'],[$material],$tenant,['scope'=>'selected','selected_id'=>$request['widget_id']]);
             $old=$payload;self::q('candidate',$tenant,$admin)->where('id',$c['id'])->inc('revision')->update(['payload_json'=>self::json($new['candidate'])]);
             if($c['status']==='applied'){$s=self::owned('session',$tenant,$admin,(int)$c['session_id']);$page=self::page($tenant,(int)$s['template_id'],(int)$c['applied_page_id'],true);$current=self::payload($page);$old['new_page']=false;$target=$new['candidate'];$target['new_page']=false;$merge=DecorationAgentMerge::merge($old,$current,$target);if($merge['conflicts'])return;
                 $saved=DecorateTemplateService::savePage($tenant,['template_id'=>$s['template_id'],'id'=>$page['id'],'terminal'=>'mobile','data'=>self::json($merge['merged']['data']),'meta'=>self::json($merge['merged']['meta'])]);self::insert('checkpoint',$tenant,$admin,['session_id'=>$s['id'],'candidate_id'=>$c['id'],'page_id'=>$page['id'],'kind'=>'image','before_json'=>self::json($current),'after_json'=>self::json(self::payload($saved)),'before_hash'=>self::hash($current),'after_hash'=>self::hash(self::payload($saved)),'idempotency_key'=>'image:'.$slot['id'].':'.hash('sha256',$url)]);
                 $group=self::q('checkpoint',$tenant,$admin)->where(['candidate_id'=>$c['id'],'page_id'=>$page['id']])->whereIn('kind',['apply','create'])->order('id','desc')->lock(true)->find();
-                if($group){$groupAfter=self::decode($group['after_json']);$advanced=DecorationAgentOperations::apply($groupAfter,[$op],['scope'=>'page','approved_urls'=>[$url],'allowed_links'=>[]])['candidate'];self::q('checkpoint',$tenant,$admin)->where('id',$group['id'])->update(['after_json'=>self::json($advanced),'after_hash'=>self::hash($advanced)]);}
+                if($group){$groupAfter=self::decode($group['after_json']);$advanced=DecorationAgentOperations::apply($groupAfter,[$op],['scope'=>'page','approved_urls'=>[$url],'allowed_links'=>[]])['candidate'];if($asset!==null)$advanced=DecorationAgentAssetReferences::attachGenerated($advanced,$slot,$asset);elseif($material!==null)$advanced=self::attachScopedMaterials($advanced,[$material],$tenant,['scope'=>'selected','selected_id'=>$request['widget_id']]);self::q('checkpoint',$tenant,$admin)->where('id',$group['id'])->update(['after_json'=>self::json($advanced),'after_hash'=>self::hash($advanced)]);}
             }
         });
     }

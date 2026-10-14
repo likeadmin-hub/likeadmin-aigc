@@ -376,7 +376,7 @@ class DecorationAgentOperations
         $ratio=$op['ratio']??'1:1';if(!in_array($ratio,['1:1','2:3','3:2','3:4','4:3','9:16','16:9','21:9'],true))self::fail('Image aspect ratio invalid');
         $references=$op['reference_file_ids']??[];if(!is_array($references)||count($references)>10)self::fail('Too many reference files');
         foreach($references as $file)if(!is_int($file)||$file<=0)self::fail('Reference file id invalid');
-        $this->images[]=['widget_id'=>$id,'field'=>$field,'prompt'=>$prompt,'ratio'=>$ratio,'reference_file_ids'=>$references,'old_value'=>self::get($widget,$field)];
+        $this->images[]=['widget_id'=>$id,'field'=>$field,'prompt'=>$prompt,'ratio'=>$ratio,'reference_file_ids'=>$references,'old_value'=>self::get($widget,$field),'old_ref'=>$widget['_decoration_asset_refs'][$field]??null];
     }
     private function configurePage(array &$page,array $op): void
     {
