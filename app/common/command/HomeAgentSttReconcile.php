@@ -31,7 +31,7 @@ final class HomeAgentSttReconcile extends Command
             }elseif($apply)$result=Recovery::reconcile((int)$rows[0]['id'],$tenant);
             else $result=['dry_run'=>true,'records'=>$rows];
             $output->writeln(json_encode($result,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT));
-            return 0;
+            return $apply&&isset($result['resolved'])&&!$result['resolved']?2:0;
         }catch(\Throwable $e){$output->writeln($e->getMessage());return 1;}
     }
 }
