@@ -81,8 +81,6 @@ final class ResponsesMessagesAdapter
             $state['responses_items'][$index]['arguments'] = (string)($json['arguments'] ?? '');
         } elseif (in_array($type, ['response.output_text.delta', 'response.refusal.delta'], true)) {
             self::text($state, $index . ':' . (int)($json['content_index'] ?? 0), (string)($json['delta'] ?? ''), true, $emit);
-        } elseif (in_array($type, ['response.output_text.done', 'response.refusal.done'], true)) {
-            self::text($state, $index . ':' . (int)($json['content_index'] ?? 0), (string)($json['text'] ?? $json['refusal'] ?? ''), false, $emit);
         } elseif (in_array($type, ['response.failed', 'response.incomplete'], true)) {
             $state['native_error_code'] = $type;
             $state['error'] = '模型回复未完整结束，请勿重复提交，费用待核对';
@@ -93,6 +91,7 @@ final class ResponsesMessagesAdapter
             ksort($items);
             $continuation = [];
             $calls = [];
+            $finalText = '';
             foreach ($items as $itemIndex => $item) {
                 $allowed = match ($item['type'] ?? '') {
                     'message' => ['type', 'id', 'role', 'status', 'content', 'phase'],
@@ -110,11 +109,20 @@ final class ResponsesMessagesAdapter
                     $calls[] = ['id' => $item['call_id'] ?? '', 'type' => 'function', 'function' => ['name' => $item['name'] ?? '', 'arguments' => $item['arguments'] ?? '']];
                 } elseif (($item['type'] ?? '') === 'message') {
                     foreach ($item['content'] ?? [] as $partIndex => $part) {
-                        if (in_array($part['type'] ?? '', ['output_text', 'refusal'], true)) self::text($state, $itemIndex . ':' . $partIndex, (string)($part['text'] ?? $part['refusal'] ?? ''), false, $emit);
+                        if (in_array($part['type'] ?? '', ['output_text', 'refusal'], true)) $finalText .= (string)($part['text'] ?? $part['refusal'] ?? '');
                     }
                 }
             }
             $state['responses_output'] = $continuation;
+            // Gateways may omit output_index on text deltas. Reconcile the whole
+            // visible answer, not per-item snapshots with potentially different keys.
+            $visible = (string)$state['content'];
+            if (!str_starts_with($finalText, $visible)) {
+                $state['native_error_code'] = 'responses_text_mismatch';
+                $state['error'] = '模型流式正文不一致，未执行本轮工具';
+                return;
+            }
+            self::text($state, 'completion', substr($finalText, strlen($visible)), true, $emit);
             $state['tool_calls'] = $calls;
             $state['finish_reason'] = $calls === [] ? 'stop' : 'tool_calls';
         }
