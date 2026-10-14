@@ -17,4 +17,17 @@ foreach([[0,['id'=>175],'test',[$image]],[1,[],'test',[$image]],[1,['id'=>175],'
 $guard=new ReflectionMethod(T::class,'assertVisionProbeScope');$guard->setAccessible(true);
 $guard->invoke(null,1,0,$p,true);$checks++;
 foreach([[1,2,$p,true],[1,0,$p,false],[0,0,$p,true],[1,0,array_replace($p,['action_code'=>'text_generate']),true],[1,0,array_replace($p,['_disable_model_fallback'=>false]),true]] as $args){try{$guard->invokeArgs(null,$args);throw new RuntimeException('Invalid probe operator accepted');}catch(InvalidArgumentException $e){$checks++;}}
+$identity=new ReflectionMethod(T::class,'assertVisionProbeModel');$identity->setAccessible(true);
+$model=['id'=>175,'market_sku_id'=>682,'market_input_sku_id'=>682,'market_output_sku_id'=>683];
+$identity->invoke(null,['id'=>175,'sku_id'=>682],$model);$checks++;
+foreach([['id'=>174,'sku_id'=>682],['id'=>175,'sku_id'=>99999999],['id'=>175,'product_id'=>176],['id'=>175,'market_sku_id'=>0]] as $selection){try{$identity->invoke(null,$selection,$model);throw new RuntimeException('Invalid resolved probe identity accepted');}catch(InvalidArgumentException $e){$checks++;}}
+$uncertain=new ReflectionMethod(T::class,'preserveUncertainSubmission');$uncertain->setAccessible(true);
+foreach(['cURL error 28: timeout','connection reset','empty response'] as $message)checkProbe($uncertain->invoke(null,true,'decoration_capability_probe',$p,$message,true),'An ambiguous probe must preserve its pending receipt');
+checkProbe(!$uncertain->invoke(null,true,'decoration_capability_probe',$p,'upstream model unavailable',true),'A confirmed rejection remains a confirmed failure');
+checkProbe(!$uncertain->invoke(null,true,'decoration_capability_probe',$p,'timeout',false),'Client params cannot enable the operator probe policy');
+checkProbe($uncertain->invoke(null,true,'decoration_agent_text',$p,'timeout',false),'Existing decoration uncertain handling is unchanged');
+$transport=new ReflectionMethod(T::class,'initialTransportOptions');$transport->setAccessible(true);
+$wire=$transport->invoke(null,$model+['protocol'=>'openai_responses'],$p,true,true);
+checkProbe($wire['include_market_context']===false&&$wire['include_channel']===true,'A trusted probe uses the same strict native Responses transport');
+checkProbe($transport->invoke(null,$model+['protocol'=>'openai_responses'],$p,true,false)['include_market_context']===true,'Normal calls cannot opt into the server-only probe transport');
 echo "vision probe: $checks checks passed (no provider calls or capability writes)\n";

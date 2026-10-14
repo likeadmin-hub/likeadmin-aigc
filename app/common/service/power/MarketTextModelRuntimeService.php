@@ -132,6 +132,21 @@ class MarketTextModelRuntimeService
         self::visionProbeParams($tenantId,(array)($params['model_selection']??[]),(string)($params['content']??''),(array)$params['reference_images']);
     }
 
+    private static function assertVisionProbeModel(array $selection,array $model): void
+    {
+        if((string)($selection['id']??'')!==(string)$model['id'])throw new \InvalidArgumentException('视觉探测模型身份不一致');
+        if(isset($selection['product_id'])&&(int)$selection['product_id']!==(int)$model['id'])throw new \InvalidArgumentException('视觉探测产品身份不一致');
+        $skus=array_filter(array_map('intval',[$model['market_sku_id']??0,$model['market_input_sku_id']??0,$model['market_output_sku_id']??0]));
+        foreach(['market_sku_id','sku_id','market_input_sku_id'] as $key)if(array_key_exists($key,$selection)&&(!is_scalar($selection[$key])||!preg_match('/^[1-9][0-9]*$/D',(string)$selection[$key])||!in_array((int)$selection[$key],$skus,true)))throw new \InvalidArgumentException('视觉探测规格已变化或不可用');
+    }
+
+    private static function preserveUncertainSubmission(bool $tenantAdmin,string $action,array $params,string $message,bool $operatorProbe=false): bool
+    {
+        return $tenantAdmin&&($action==='decoration_agent_text'||$operatorProbe)
+            &&!empty($params['_decoration_preserve_uncertain'])
+            &&preg_match('/timeout|timed out|超时|cURL|connection|reset|empty response|无效响应/i',$message)===1;
+    }
+
     /**
      * @param array<string, mixed> $params content, system_prompt, model_selection, action_code
      * @return array<string, mixed>
@@ -158,6 +173,7 @@ class MarketTextModelRuntimeService
         $model = $operatorCapabilityProbe !== null ? self::resolveModel($tenantId,$operatorCapabilityProbe,false) : (\app\common\service\open_platform\OpenCallContext::textModel() ?? (!empty($params['_disable_model_fallback'])
             ? self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)
             : self::resolveRoutedModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)));
+        if($operatorCapabilityProbe!==null)self::assertVisionProbeModel($operatorCapabilityProbe,$model);
         if ($tenantAdminConsumption) {
             // Persist zero retail price so delayed usage settlement has the same payer.
             $model['input']['tenant_price'] = 0;
@@ -215,7 +231,7 @@ class MarketTextModelRuntimeService
         try {
             self::event((int)$context['consumption']['id'], 'submit', 'running', ['model_code' => $model['model_code']]);
             $compatibilityAttempts = 0;
-            $transportOptions = self::initialTransportOptions($model,$params,$tenantAdminConsumption);
+            $transportOptions = self::initialTransportOptions($model,$params,$tenantAdminConsumption,$operatorCapabilityProbe!==null);
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
@@ -306,7 +322,7 @@ class MarketTextModelRuntimeService
                 \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
                 throw $e;
             }
-            if ($tenantAdminConsumption && $action === 'decoration_agent_text' && !empty($params['_decoration_preserve_uncertain']) && preg_match('/timeout|timed out|超时|cURL|connection|reset|empty response|无效响应/i', $e->getMessage())) {
+            if (self::preserveUncertainSubmission($tenantAdminConsumption,$action,$params,$e->getMessage(),$operatorCapabilityProbe!==null)) {
                 AiConsumptionLog::where('id', (int)$context['consumption']['id'])->update(['run_status'=>'pending_confirmation','error_code'=>'submission_uncertain','error_message'=>$e->getMessage(),'update_time'=>time()]);
                 throw $e;
             }
@@ -702,10 +718,10 @@ class MarketTextModelRuntimeService
         return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout);
     }
 
-    private static function initialTransportOptions(array $model,array $params,bool $tenantAdminConsumption): array
+    private static function initialTransportOptions(array $model,array $params,bool $tenantAdminConsumption,bool $operatorCapabilityProbe=false): array
     {
         $decorationResponses=$tenantAdminConsumption
-            && ($params['action_code']??'')==='decoration_agent_text'
+            && (($params['action_code']??'')==='decoration_agent_text'||$operatorCapabilityProbe)
             && !empty($params['_decoration_native_responses_transport'])
             && self::protocolForModel($model)==='openai_responses';
         return ['include_market_context'=>!$decorationResponses,'include_channel'=>true];
