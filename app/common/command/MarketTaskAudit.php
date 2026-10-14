@@ -16,6 +16,8 @@ class MarketTaskAudit extends Command
             ->setDescription('Read-only reconciliation for power-market tasks')
             ->addOption('tenant-id', null, Option::VALUE_OPTIONAL, 'Tenant id', 0)
             ->addOption('app-code', null, Option::VALUE_OPTIONAL, 'Application code', '')
+            ->addOption('business-table', null, Option::VALUE_OPTIONAL, 'Business table (audit only)', '')
+            ->addOption('user-id', null, Option::VALUE_OPTIONAL, 'User id (audit only)', 0)
             ->addOption('limit', null, Option::VALUE_OPTIONAL, 'Maximum records', 500)
             ->addOption('repair-assets', null, Option::VALUE_NONE, 'Repair durable result-asset rows')
             ->addOption('apply', null, Option::VALUE_NONE, 'Apply a requested repair; otherwise remain read-only')
@@ -37,7 +39,9 @@ class MarketTaskAudit extends Command
         $report = MarketTaskReconciliationService::audit(
             max(0, (int)$input->getOption('tenant-id')),
             trim((string)$input->getOption('app-code')),
-            max(1, (int)$input->getOption('limit'))
+            max(1, (int)$input->getOption('limit')),
+            trim((string)$input->getOption('business-table')),
+            max(0, (int)$input->getOption('user-id'))
         );
         $output->writeln(json_encode($report, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         return !empty($report['issue_count']) && $input->getOption('fail-on-issues') ? 1 : 0;

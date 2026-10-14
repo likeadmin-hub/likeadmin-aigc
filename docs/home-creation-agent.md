@@ -214,3 +214,10 @@ Validation: missing/corrupt preview-map fixtures, an intentionally failing previ
 - PC 的 run/reply-reveal/reply-stages/conversation/artifact-library 共 34 项测试通过；两个修改组件 SFC 编译通过。回归时更新了已过时的共享作品区测试，并修复删除当前会话时内部清理被忙碌标志阻止的问题。
 - 页面实测 session 156：run 333（198 字）、334（126 字）均成功，均为纯文字、0 个创作步骤；真实访问日志包含 `POST /api/app.aigc_llm.agent/stream` 200，浏览器无控制台 error，完成后显示复制按钮。逐字节奏、重连幂等和阶段顺序由自动化测试覆盖。
 - 本次不重新进行图片/视频/音乐付费验收，不更改历史失败记录和计费数据；生产并发连接容量未做压测。
+
+### 2026-10-14：计费异常闭环补充
+
+- 市场只读审计补充已完成但用量待结算、费用结算失败、文本实际扣款流水、失败预占退款流水检查；可用 `--business-table=aigc_llm_agent_run --user-id=...` 聚焦首页 Agent。
+- 非开放平台文本调用在上游已返回结果而钱包结算失败时，保留真实 token、请求标识、提交时价格快照并标记 `settlement_failed`，不再归类为供应商失败退款。首页 Agent 保留正式正文，进入 `needs_review`，不继续工具执行或自动重试模型。
+- 已退款/待核对记录不能被迟到结算自动重新扣款；已完成任务不会被迟到超时处理降级。
+- 无 API 或数据库结构变更，不修改报价和正常扣费规则。历史用量缺失记录仅审计，补扣/核销仍需管理决策。

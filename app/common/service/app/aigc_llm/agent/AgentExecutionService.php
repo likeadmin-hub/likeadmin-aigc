@@ -181,6 +181,7 @@ final class AgentExecutionService
             $latest=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
             if($latest['lease_token']!==$run['lease_token'])return 1;
             $unknown=AgentStore::table('step')->where('run_id',$run['id'])->where('status','submitting')->count()>0;
+            if($e instanceof \app\common\service\power\TextSettlementPending){self::finish($run,'needs_review',$e->getMessage());return 1;}
             self::finish($run,$unknown?'needs_review':((int)$latest['cancel_requested']?'canceled':'failed'),$unknown?'任务提交结果待核对，请勿重复提交':($e instanceof \InvalidArgumentException?$e->getMessage():'本次执行未完成，请稍后重试'));
         }finally{app()->instance('request',$original);}
         return 1;
@@ -231,6 +232,12 @@ final class AgentExecutionService
                 AgentReplyService::publish($run,AgentReplyService::append($stageText,$text));
             });
             }catch(\Throwable $e){
+                if($e instanceof \app\common\service\power\TextSettlementPending){
+                    $body=($e->result['content_source']??'content')==='content'?(string)($e->result['content']??''):'';
+                    if($body!==''&&str_starts_with($body,$text))$text=$body;
+                    $usage[]=['consumption_id'=>$e->consumptionId,'billing'=>['billing_status'=>'settlement_failed'],'usage'=>$e->usage];
+                    AigcLlmMessage::where(['id'=>$run['message_id'],'tenant_id'=>$run['tenant_id']])->update(['token_usage_json'=>AgentStore::encode(['calls'=>$usage])]);
+                }
                 AgentReplyService::publish($run,AgentReplyService::append($stageText,$text));
                 throw $e;
             }
