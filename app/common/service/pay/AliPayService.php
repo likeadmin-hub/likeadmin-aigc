@@ -46,6 +46,7 @@ class AliPayService extends BasePayService
      * @var
      */
     protected $pay;
+    private array $packageIdentity = [];
 
     /**
      * 初始化设置
@@ -77,6 +78,7 @@ class AliPayService extends BasePayService
         if (empty($config)) {
             throw new \Exception('请配置好支付设置');
         }
+        $this->packageIdentity=['app_id'=>(string)($config['config']['app_id']??''),'merchant'=>(string)($config['config']['app_id']??''),'fingerprint'=>hash('sha256',json_encode($config['config'],JSON_THROW_ON_ERROR))];
         $options = new Config();
         $options->protocol = 'https';
         $options->gatewayHost = 'openapi.alipay.com';
@@ -176,6 +178,7 @@ class AliPayService extends BasePayService
             if (!in_array($data['trade_status'], ['TRADE_SUCCESS', 'TRADE_FINISHED'])) {
                 return true;
             }
+            if (in_array($data['passback_params']??'', ['recharge','membership'], true) && (new \app\common\service\promotion\PackagePaymentService())->callback(3,(string)$data['out_trade_no'])) return true;
             $extra['transaction_id'] = $data['trade_no'];
             //验证订单是否已支付
             switch ($data['passback_params']) {
@@ -314,6 +317,9 @@ class AliPayService extends BasePayService
      * @author 段誉
      * @date 2021/7/28 17:36
      */
+    public function packageContext(): array { return $this->packageIdentity; }
+    public function closePay(string $sn): void { $r=$this->pay->common()->close($sn);if((string)($r->code??'')!=='10000')throw new \RuntimeException('支付宝关单结果尚未确认'); }
+
     public function checkPay($orderSn)
     {
         return $this->pay->common()->query($orderSn);

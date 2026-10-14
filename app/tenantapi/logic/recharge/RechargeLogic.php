@@ -95,6 +95,7 @@ class RechargeLogic extends BaseLogic
         Db::startTrans();
         try {
             $order = RechargeOrder::findOrEmpty($params['recharge_id']);
+            if ((int)$order['pay_way']===\app\common\enum\PayEnum::VIRTUAL_PAY) throw new \RuntimeException('虚拟支付订单请到套餐管理的虚拟支付页面核对退款，Apple 支付需用户向 App Store 申请');
 
             // 更新订单信息, 标记已发起退款状态,具体退款成功看退款日志
             RechargeOrder::update([
@@ -170,6 +171,7 @@ class RechargeLogic extends BaseLogic
         try {
             $record = RefundRecord::findOrEmpty($params['record_id']);
             $order = RechargeOrder::findOrEmpty($record['order_id']);
+            if ((int)$order['pay_way']===\app\common\enum\PayEnum::VIRTUAL_PAY) throw new \RuntimeException('虚拟支付订单请到虚拟支付页面核对原退款请求');
 
             // 退款
             $result = RefundLogic::refund($order, $record['id'], $order['order_amount'], $adminId);

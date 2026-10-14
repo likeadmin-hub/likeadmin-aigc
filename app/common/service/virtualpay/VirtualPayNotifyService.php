@@ -43,11 +43,23 @@ final class VirtualPayNotifyService
         $xml='<xml>';foreach($result as $k=>$value)$xml.='<'.$k.'>'.htmlspecialchars((string)$value,ENT_XML1|ENT_QUOTES,'UTF-8').'</'.$k.'>';return $xml.'</xml>';
     }
     /** Receives only a signature/decryption-verified message from one of the two callback dispatchers. */
+    public static function normalized(array $message): array
+    {
+        foreach (['WxaVirtualPayIosRefundQueryNotifyEvent','IosRefundQuery'] as $field) {
+            if (isset($message[$field]) && is_array($message[$field])) $message=$message[$field]+$message;
+        }
+        return $message;
+    }
+    public static function reference(array $message): string
+    {
+        $message=self::normalized($message);return (string)($message['OutTradeNo']??$message['MchOrderId']??$message['pay_order_id']??'');
+    }
     public function event(int $tenant,string $app,array $message): array
     {
+        $message=self::normalized($message);
         $event=(string)($message['Event']??'');if(!str_starts_with($event,'xpay_'))throw new \RuntimeException('不支持的虚拟支付事件');
-        $sn=(string)($message['OutTradeNo']??$message['MchOrderId']??$message['pay_order_id']??'');
-        $i=$sn!==''?VirtualPayService::intent($tenant,$app,$sn):null;
+        $sn=self::reference($message);
+        $i=$sn!==''?Db::name('virtual_pay_intent')->where(['tenant_id'=>$tenant,'app_id'=>$app])->where(function($q)use($sn){$q->where('out_trade_no',$sn)->whereOr('wx_order_id',$sn);})->find():null;
         $raw=json_encode($message,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);$key=hash('sha256',$event.'|'.$raw);
         $scope=['tenant_id'=>$tenant,'app_id'=>$app,'event_key'=>$key];Db::name('virtual_pay_event')->extra('IGNORE')->insert($scope+['intent_id'=>(int)($i['id']??0),'event'=>$event,'payload'=>$raw,'created_at'=>time(),'updated_at'=>time()]);
         try{

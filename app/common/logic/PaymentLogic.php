@@ -125,10 +125,13 @@ class PaymentLogic extends BaseLogic
                 }
             }
 
+            $packageSnapshot=in_array($params['from'],['recharge','membership'],true)?\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$params['from'],(int)$order['id']):null;
             return [
+                'locked_channel' => $packageSnapshot && trim((string)$order['pay_sn'])!=='' ? (int)$order['pay_way'] : 0,
+                'package_snapshot' => (bool)$packageSnapshot,
                 'lists' => array_values($pay_way),
                 'order_amount' => $order['order_amount'],
-                'expires_at' => (int)($order['flow_version']??1)===2 ? (int)($order['reserve_expire_time']??((int)$order['create_time']+1800)) : 0,
+                'expires_at' => $packageSnapshot ? (int)$packageSnapshot['expires_at'] : ((int)($order['flow_version']??1)===2 ? (int)($order['reserve_expire_time']??((int)$order['create_time']+1800)) : 0),
             ];
 
         } catch (\Exception $e) {
@@ -205,6 +208,16 @@ class PaymentLogic extends BaseLogic
         try {
             if (in_array($params['from'],['recharge','membership'],true)) {
                 $owned=\app\common\service\virtualpay\VirtualPayService::order((int)$params['tenant_id'],(int)$params['user_id'],$params['from'],(int)$params['order_id']);
+                $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$params['tenant_id'],$params['from'],(int)$params['order_id']);
+                if ($snapshot && (int)$owned['pay_way']!==PayEnum::VIRTUAL_PAY) {
+                    if ((int)$owned['pay_way']>0 && trim((string)$owned['pay_sn'])!=='') {
+                        try { (new \app\common\service\promotion\PackagePaymentService())->reconcile((int)$params['tenant_id'],(int)$params['user_id'],$params['from'],(int)$params['order_id']); }
+                        catch (\Throwable $e) { Log::warning('Package payment reconciliation: '.\app\common\service\virtualpay\VirtualPayPolicy::error($e)); }
+                    }
+                    $owned=\app\common\service\virtualpay\VirtualPayService::order((int)$params['tenant_id'],(int)$params['user_id'],$params['from'],(int)$params['order_id']);
+                    $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$params['tenant_id'],$params['from'],(int)$params['order_id']);
+                    return ['pay_status'=>(int)$owned['pay_status'],'pay_way'=>(int)$owned['pay_way'],'payment_status'=>$snapshot['status'],'closed_time'=>(int)$snapshot['closed_at'],'expires_at'=>(int)$snapshot['expires_at'],'order'=>['order_id'=>(int)$owned['id'],'order_sn'=>$snapshot['order_sn'],'order_amount'=>$owned['order_amount']]];
+                }
                 if ((int)$owned['pay_way']===PayEnum::VIRTUAL_PAY) {
                     $status=(new \app\common\service\virtualpay\VirtualPayService())->status((int)$params['tenant_id'],(int)$params['user_id'],$params['from'],(int)$params['order_id']);
                     return $status+['pay_status'=>$status['delivery_status']==='granted'?1:0,'pay_way'=>PayEnum::VIRTUAL_PAY,'order'=>['order_id'=>(int)$owned['id'],'order_amount'=>$owned['order_amount']]];
@@ -476,6 +489,11 @@ class PaymentLogic extends BaseLogic
                 catch (\Exception $e) { $config=['enabled'=>0]; }
                 if ($config['enabled']) { self::setError('请使用微信小程序虚拟支付');return false; }
             }
+        }
+
+        if (!empty($snapshot) && (float)$order['order_amount']>0) {
+            try { return (new \app\common\service\promotion\PackagePaymentService())->prepay($from,$order instanceof \think\Model?$order->toArray():$order,(int)$payWay,(int)$terminal,(string)$redirectUrl); }
+            catch (\Throwable $e) { self::setError(\app\common\service\virtualpay\VirtualPayPolicy::error($e));return false; }
         }
 
         // 支付编号-仅为微信支付预置(同一商户号下不同客户端支付需使用唯一订单号)

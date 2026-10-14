@@ -21,7 +21,7 @@ final class MiniappShippingService
     public function sync(int $id): bool
     {
         $i=Db::name('virtual_pay_intent')->where('id',$id)->find();if(!$i||$i['delivery_status']!=='granted'||$i['refund_status']!=='none')throw new \RuntimeException('订单尚未交付或正在退款，不能录入发货');
-        $o=$this->inspect($i);
+        $o=$this->inspect($i);VirtualPayPolicy::assertRuntime();
         if($o===null){Db::name('virtual_pay_intent')->where('id',$id)->update(['general_shipping_status'=>'not_applicable','updated_at'=>time()]);return true;}
         if(!empty($o['shipping']['finish_shipping'])||in_array((int)($o['order_state']??0),[2,3,4,6],true)){
             Db::name('virtual_pay_intent')->where('id',$id)->update(['general_shipping_status'=>(int)$o['order_state']===3?'received':'confirmed','updated_at'=>time()]);return true;
@@ -35,13 +35,13 @@ final class MiniappShippingService
                 'logistics_type'=>3,'delivery_mode'=>1,'shipping_list'=>[['item_desc'=>$i['biz_type']==='recharge'?'算力套餐权益已到账':'会员套餐权益已生效']],
                 'upload_time'=>gmdate(DATE_RFC3339),'payer'=>['openid'=>$i['openid']],
             ],false);
-            Db::name('virtual_pay_intent')->where('id',$id)->update(['general_shipping_status'=>'confirming','updated_at'=>time()]);return false;
-        }catch(\Throwable $e){Db::name('virtual_pay_intent')->where('id',$id)->update(['general_shipping_status'=>'unknown','updated_at'=>time()]);throw $e;}
+            VirtualPayPolicy::assertRuntime();Db::name('virtual_pay_intent')->where('id',$id)->update(['general_shipping_status'=>'confirming','updated_at'=>time()]);return false;
+        }catch(\Throwable $e){VirtualPayPolicy::assertRuntime();Db::name('virtual_pay_intent')->where('id',$id)->update(['general_shipping_status'=>'unknown','updated_at'=>time()]);throw $e;}
     }
     public function confirmation(array $i): array
     {
         if($i['delivery_status']!=='granted'||$i['refund_status']!=='none')return ['confirm_receipt'=>false];
-        $o=$this->inspect($i);if(!$o)return ['confirm_receipt'=>false];
+        $o=$this->inspect($i);VirtualPayPolicy::assertRuntime();if(!$o)return ['confirm_receipt'=>false];
         return ['confirm_receipt'=>(int)$o['order_state']===2,'receipt_received'=>in_array((int)$o['order_state'],[3,4,6],true),'transaction_id'=>$i['wxpay_order_id']];
     }
 }

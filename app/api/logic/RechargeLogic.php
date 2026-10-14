@@ -73,7 +73,7 @@ class RechargeLogic extends BaseLogic
                 'from' => 'recharge'
             ];
         } catch (\Exception $e) {
-            self::setError($e->getMessage());
+            self::setError(\app\common\service\virtualpay\VirtualPayPolicy::error($e));
             return false;
         }
     }

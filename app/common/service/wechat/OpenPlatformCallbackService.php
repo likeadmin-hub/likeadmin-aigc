@@ -14,8 +14,8 @@ class OpenPlatformCallbackService
     private static function virtualReply(string $app,array $event,bool $json): array
     {
         if($app==='')throw new \RuntimeException('虚拟支付回调缺少小程序身份');
-        $sn=(string)($event['OutTradeNo']??$event['MchOrderId']??$event['pay_order_id']??'');
-        if($sn!=='')$tenant=(int)(\think\facade\Db::name('virtual_pay_intent')->where(['app_id'=>$app,'out_trade_no'=>$sn])->value('tenant_id')??0);
+        $sn=\app\common\service\virtualpay\VirtualPayNotifyService::reference($event);
+        if($sn!=='')$tenant=(int)(\think\facade\Db::name('virtual_pay_intent')->where('app_id',$app)->where(function($q)use($sn){$q->where('out_trade_no',$sn)->whereOr('wx_order_id',$sn);})->value('tenant_id')??0);
         else $tenant=(int)(WechatAuthorizer::withoutGlobalScope()->where(['authorizer_appid'=>$app,'authorizer_type'=>'miniprogram'])->value('tenant_id')??0);
         if($tenant<=0)throw new \RuntimeException('虚拟支付回调未关联原租户');
         $result=(new \app\common\service\virtualpay\VirtualPayNotifyService())->event($tenant,$app,$event);

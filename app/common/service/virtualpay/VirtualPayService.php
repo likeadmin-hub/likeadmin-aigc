@@ -43,7 +43,8 @@ final class VirtualPayService
             $sn='V'.bin2hex(random_bytes(15));$attach='vp:'.$sn;
             $data=['offerId'=>$v['offer_id'],'buyQuantity'=>1,'env'=>$env,'currencyType'=>'CNY','productId'=>$product['product_id'],'goodsPrice'=>(int)$snapshot['payable_cents'],'outTradeNo'=>$sn,'attach'=>$attach];
             $sign=VirtualPayPolicy::sign($data,VirtualPayConfigService::secret($v,'app_key'),$s['session_key']);
-            Db::name('virtual_pay_intent')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'biz_type'=>$from,'order_id'=>$orderId,'config_version_id'=>$v['id'],'app_id'=>$v['app_id'],'env'=>$env,'openid'=>$s['openid'],'out_trade_no'=>$sn,'platform'=>$platform,'product_id'=>$product['product_id'],'amount_cents'=>$snapshot['payable_cents'],'attach'=>$attach,'sign_data'=>$sign['signData'],'created_at'=>time(),'updated_at'=>time(),'expires_at'=>$snapshot['expires_at']]);
+            $intentId=Db::name('virtual_pay_intent')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'biz_type'=>$from,'order_id'=>$orderId,'config_version_id'=>$v['id'],'app_id'=>$v['app_id'],'env'=>$env,'openid'=>$s['openid'],'out_trade_no'=>$sn,'platform'=>$platform,'product_id'=>$product['product_id'],'amount_cents'=>$snapshot['payable_cents'],'attach'=>$attach,'sign_data'=>$sign['signData'],'created_at'=>time(),'updated_at'=>time(),'expires_at'=>$snapshot['expires_at']]);
+            VirtualPayMaintenanceService::enqueue((int)$intentId,'payment');
             $o->save(['pay_way'=>self::CHANNEL,'pay_sn'=>$sn]);Db::name('tenant_package_price_snapshot')->where('id',$snapshot['id'])->update(['channel'=>self::CHANNEL]);
             return $sign+['out_trade_no'=>$sn,'order_amount'=>\app\common\service\promotion\PackagePromotionPolicy::amount((int)$snapshot['payable_cents']),'expires_at'=>(int)$snapshot['expires_at']];
         });
@@ -58,13 +59,19 @@ final class VirtualPayService
     }
     public function reconcile(array $intent, string $expectedTransaction = ''): array
     {
-        $o=$this->query($intent);$state=(int)$o['status'];
+        VirtualPayPolicy::assertRuntime();$o=$this->query($intent);VirtualPayPolicy::assertRuntime();$state=(int)$o['status'];
         if ($expectedTransaction !== '' && ($o['wxpay_order_id']??'') !== $expectedTransaction) throw new \RuntimeException('微信交易编号不匹配');
         if(in_array($state,[2,3,4,5,8],true)){
             $this->confirm($intent,$o);
             if(in_array($state,[2,3,4],true))(new VirtualPayDeliveryService($this))->grant((int)$intent['id']);
             // Refund states are reconciled by the dedicated refund service; never turn debit state5 into success.
-        }elseif($state===6){Db::name('virtual_pay_intent')->where(['id'=>$intent['id'],'status'=>'pending'])->update(['status'=>'closed','updated_at'=>time()]);}
+        }elseif($state===6){
+            if((int)($o['paid_fee']??-1)!==0)throw new \RuntimeException('已关闭渠道订单仍有付款记录，请人工核对');
+            Db::transaction(function()use($intent){
+                Price::closeConfirmed((int)$intent['tenant_id'],(int)$intent['user_id'],$intent['biz_type'],(int)$intent['order_id'],'closed');
+                Db::name('virtual_pay_intent')->where(['id'=>$intent['id'],'status'=>'pending'])->update(['status'=>'closed','updated_at'=>time()]);
+            });
+        }
         return $o;
     }
     private function confirm(array $intent,array $query): void
@@ -78,8 +85,9 @@ final class VirtualPayService
             if($old){if((int)$old['intent_id']!==(int)$i['id'])throw new \RuntimeException('交易编号已关联其他订单，需要人工核对');return;}
             if($i['wx_order_id']!==''&&$i['wx_order_id']!==$tx)throw new \RuntimeException('同一支付尝试返回了不同交易，请人工核对');
             $kind=in_array((int)$query['status'],[5,8],true)?'refunded':'payment';if(!$snapshot||$snapshot['status']==='closed')$kind='late';elseif((int)$order['pay_status']&&$i['delivery_status']!=='granted')$kind='duplicate';
+            if (in_array($kind,['payment','refunded'],true)) Price::confirmPaymentCoupon((int)$i['tenant_id'],$i['biz_type'],(int)$i['order_id']);
             Db::name('virtual_pay_receipt')->insert(['tenant_id'=>$i['tenant_id'],'intent_id'=>$i['id'],'app_id'=>$i['app_id'],'env'=>$i['env'],'transaction_key'=>$tx,'amount_cents'=>$i['amount_cents'],'kind'=>$kind,'normalized'=>json_encode($query,JSON_THROW_ON_ERROR),'created_at'=>time()]);
-            Db::name('virtual_pay_intent')->where('id',$i['id'])->update(['status'=>'paid','wx_order_id'=>$tx,'wxpay_order_id'=>(string)($query['wxpay_order_id']??''),'order_type'=>(int)($query['order_type']??0),'paid_at'=>time(),'refund_status'=>$kind==='payment'?'none':($kind==='refunded'?'processing':'required'),'delivery_status'=>$kind==='payment'?'pending':'blocked','updated_at'=>time()]);
+            Db::name('virtual_pay_intent')->where('id',$i['id'])->update(['status'=>'paid','wx_order_id'=>$tx,'wxpay_order_id'=>(string)($query['wxpay_order_id']??''),'order_type'=>(int)($query['order_type']??0),'paid_at'=>time(),'refund_status'=>$kind==='payment'?'none':($kind==='refunded'?'processing':'required'),'refund_source'=>$kind==='refunded'?'channel':'none','delivery_status'=>$kind==='payment'?'pending':'blocked','updated_at'=>time()]);
             Db::name('virtual_pay_work')->extra('IGNORE')->insert(['intent_id'=>$i['id'],'kind'=>$kind==='payment'?'delivery':'refund','next_at'=>time(),'updated_at'=>time()]);
         });
     }

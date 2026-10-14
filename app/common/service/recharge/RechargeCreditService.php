@@ -31,6 +31,7 @@ class RechargeCreditService
             return;
         }
 
+        if (\app\common\service\promotion\PackagePricingService::snapshot((int)$order->tenant_id,'recharge',(int)$order->id)) User::where(['tenant_id'=>(int)$order->tenant_id,'id'=>(int)$order->user_id])->lock(true)->findOrEmpty();
         \app\common\service\promotion\PackagePricingService::consume((int)$order->tenant_id, 'recharge', (int)$order->id);
         self::credit($order);
 
