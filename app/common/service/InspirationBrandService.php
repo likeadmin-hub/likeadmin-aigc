@@ -22,6 +22,16 @@ final class InspirationBrandService
         return $config;
     }
 
+    /** Keep cached PC bundles readable without changing canonical stored configuration. */
+    public static function publicPresentation(array $data, bool $modern): array
+    {
+        if ($modern) return $data;
+        if (($data['home_style'] ?? '') === 'inspiration') $data['home_style'] = 'imagine';
+        if (($data['website']['pc_home_style'] ?? '') === 'inspiration') $data['website']['pc_home_style'] = 'imagine';
+        if (array_key_exists('inspiration_background', $data)) $data['imagine_background'] = $data['inspiration_background'];
+        return $data;
+    }
+
     public static function assetPath(string $value): string
     {
         return preg_replace('~^/?imagine-home/~', '/inspiration-home/', $value);
