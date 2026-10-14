@@ -1245,7 +1245,7 @@ class MarketTextModelRuntimeService
         // of treating a completed provider request as an empty result.
         $contentSource = 'content';
         if (trim((string)$state['content']) === '' && trim((string)$state['reasoning']) !== '') {
-            $contentSource = 'reasoning';
+            $contentSource = 'reasoning';$state['content_source']='reasoning';
             $state['content'] = $state['reasoning'];
         }
         if (!$receivedEvent || (trim((string)$state['content']) === '' && empty($state['tool_calls']))) {
@@ -1610,11 +1610,15 @@ class MarketTextModelRuntimeService
             || (int)($state['delta_count'] ?? 0) > 0;
         $partial = (!empty($state['anthropic']) || !empty($state['responses'])) && !empty($state['request_id']) ? [
             'content' => (string)($state['content'] ?? ''),
+            'content_source' => (string)($state['content_source']??'content'),
             'provider_request_id' => (string)$state['request_id'],
             'usage' => (array)($state['usage'] ?? []),
             // Never hand partial calls to Neuron or a delayed continuation.
             'tool_calls' => [],
-            'protocol_diagnostic' => ['code' => (string)($state['native_error_code'] ?? 'native_stream_error'), 'last_event' => substr((string)($state['native_event_type'] ?? ''), 0, 80), 'provider_code' => (string)($state['native_provider_code'] ?? '')],
+            'protocol_diagnostic' => ['code' => (string)($state['native_error_code'] ?? 'native_stream_error'), 'last_event' => substr((string)($state['native_event_type'] ?? ''), 0, 80), 'provider_code' => (string)($state['native_provider_code'] ?? ''),
+                'provider_type'=>(string)($state['native_provider_type']??''),'provider_message'=>(string)($state['native_provider_message']??''),'response_status'=>(string)($state['native_response_status']??''),
+                'output_present'=>(bool)($state['native_output_present']??false),'output_items'=>(int)($state['native_output_item_count']??0),'visible_chars'=>mb_strlen((string)($state['content']??'')),'reasoning_chars'=>mb_strlen((string)($state['reasoning']??'')),
+                'delta_count'=>(int)($state['delta_count']??0),'reasoning_delta_count'=>(int)($state['native_reasoning_delta_count']??0),'function_delta_count'=>(int)($state['native_function_delta_count']??0)],
         ] : null;
         return new MarketTextModelProviderException($message, $fallbackAllowed && !$hasOutput && $partial === null, $partial);
     }

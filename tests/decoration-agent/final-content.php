@@ -21,4 +21,12 @@ foreach(['reasoning','reasoning_content','analysis',''] as $source){try{$result=
 $final=['content'=>'{"reply":"建议先调整留白。","kind":"final","operations":[]}','content_source'=>'content'];
 verifyFinalContent(D::parse(D::finalContent($final))['reply']==='建议先调整留白。','official content retained');
 verifyFinalContent(D::finalContent(['content'=>$final['content']])===$final['content'],'legacy response without source stays compatible');
+$partial=['content'=>'{"reply":"已收到页面要求，准备调整标题。","kind":"final","operations":[{"type":"delete_component","widget_id":"w0"}', 'content_source'=>'content'];
+$pending=new \app\common\service\power\TextSettlementPending(1,$partial,[],new RuntimeException('fixture stream incomplete'));
+verifyFinalContent(D::partialReply($pending)==='已收到页面要求，准备调整标题。','partial terminal snapshot without deltas recovers only root reply');
+$partial['content_source']='reasoning';$pending=new \app\common\service\power\TextSettlementPending(1,$partial,[],new RuntimeException('fixture'));
+verifyFinalContent(D::partialReply($pending)==='','partial reasoning never becomes reply');
+unset($partial['content_source']);$exception=new \app\common\service\power\MarketTextModelProviderException('fixture',false,$partial);
+verifyFinalContent(D::partialReply($exception)==='','unknown partial content source fails closed');
+verifyFinalContent(D::partialReply(new RuntimeException('fixture'))==='','unrelated exception has no reply');
 echo "final content: $n checks passed\n";
