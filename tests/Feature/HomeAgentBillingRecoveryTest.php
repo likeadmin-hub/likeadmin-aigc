@@ -16,6 +16,15 @@ namespace app\common\service\power {
   $write=$handle->options[CURLOPT_WRITEFUNCTION];
   if(BillingTransportFixture::$mode==='reject'){$write($handle,json_encode(['error'=>['message'=>'fixture rejected']]));return true;}
   if(BillingTransportFixture::$mode==='timeout')return false;
+  if(BillingTransportFixture::$mode==='native_incomplete'){
+   foreach([
+    ['type'=>'message_start','message'=>['id'=>'fixture-native-receipt','usage'=>['input_tokens'=>19,'output_tokens'=>0]]],
+    ['type'=>'content_block_delta','index'=>0,'delta'=>['type'=>'text_delta','text'=>'已收到的正文']],
+    ['type'=>'content_block_start','index'=>1,'content_block'=>['type'=>'tool_use','id'=>'partial','name'=>'lookup','input'=>[]]],
+    ['type'=>'content_block_delta','index'=>1,'delta'=>['type'=>'input_json_delta','partial_json'=>'{"name":']],
+   ] as $event)$write($handle,'data: '.json_encode($event,JSON_UNESCAPED_UNICODE)."\n\n");
+   return true;
+  }
   $chunks=[['id'=>'fixture-request','choices'=>[['delta'=>['content'=>'可信正文，已保留。']]]]];
   if(BillingTransportFixture::$mode!=='no_usage')$chunks[]=['choices'=>[],'usage'=>['prompt_tokens'=>10000,'completion_tokens'=>10000,'total_tokens'=>20000]];
   foreach($chunks as $chunk)$write($handle,'data: '.json_encode($chunk,JSON_UNESCAPED_UNICODE)."\n\n");
@@ -61,6 +70,18 @@ namespace {
   F::$mode='no_usage';$before=balance();$result=R::generate(1,1,$params,static function(){});
   check(balance()===$before&&in_array('text_usage_pending',issueCodes($result['consumption_id']),true),'Missing actual usage charged or escaped audit');
   $report=Audit::audit(1,'aigc_llm',500,'aigc_llm_agent_run',999999);check($report['checked']===0,'Audit crossed user filter');
+ });
+ fixture(function()use($params){
+  F::$mode='native_incomplete';$before=balance();
+  try{R::generate(1,1,$params,static function(){});throw new \LogicException('Incomplete native stream succeeded');}
+  catch(TextSettlementPending $e){
+   $c=AiConsumptionLog::findOrEmpty($e->consumptionId);
+   check($c['billing_status']==='settlement_failed'&&$c['error_code']==='provider_stream_incomplete','Unknown native result incorrectly refunded');
+   check($c['upstream_request_id']==='fixture-native-receipt'&&$c['usage_snapshot']['prompt_tokens']===19&&$c['usage_snapshot']['usage_complete']===false,'Partial receipt evidence lost');
+   check($e->result['content']==='已收到的正文'&&$e->result['tool_calls']===[],'Partial calls escaped into Neuron');
+   invoke('fail',['consumption'=>$c],'late error','fixture');
+   check(balance()===$before&&F::$calls===1&&AiConsumptionLog::where('id',$c['id'])->value('billing_status')==='settlement_failed','Unknown result charged, refunded or resubmitted');
+  }
  });
  foreach(['reject','timeout'] as $mode)fixture(function()use($params,$mode,$expected){
   F::$mode=$mode;$before=balance();try{R::generate(1,1,$params,static function(){});throw new \LogicException('Fixture must fail');}catch(\Exception $e){check(!$e instanceof \LogicException,'Provider error unexpectedly succeeded');}
