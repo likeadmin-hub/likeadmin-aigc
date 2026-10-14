@@ -14,7 +14,7 @@
 | 转写回执恢复、结算、退款、人工核对 | 已实现；任务 4034 仍缺原始回执，40 算力预占待核对 |
 | 本地常驻与并发恢复 | 已加入统一 Supervisor 组；三进程六任务、提交中断及自动拉起验收通过 |
 | 历史文本账务 | 既有 41 条缺可信用量记录仍待上游依据；不自动补扣 |
-| 更多文本工具协议 | OpenAI Chat 已支持；Anthropic 原生往返与离线回归已完成，当前租户无可用模型，真实验收待补；Responses 待接入 |
+| 更多文本工具协议 | Chat、Anthropic、Responses 已接入；Anthropic 缺可用模型待实测；Responses 真实工具往返成功，供应商间歇失败及最终修复后的真实复验仍待闭环 |
 | 配音/TTS 及其他非工作室工具 | 待按具体工具契约逐项接入和验收 |
 | 生产部署及生产负载验证 | 本地验证不能替代生产验收；尚未执行 |
 
@@ -36,7 +36,33 @@
 
 图片/视频使用原业务服务的真实报价和价格快照，执行前重新检查报价，变更后重新确认。随机加密 IV 不会触发错误的报价变更。Agent 不额外扣生成积分，不伪造 API Key 或开放平台账单。
 
-首页文本工具协议支持 OpenAI Chat 与 Anthropic Messages（后者真实供应商验收待补）；Responses 原生工具往返仍未接入，首页目录暂不展示 Responses。市场目录、租户上架与定价仍为模型可用性的前提。模型协议兼容不等于供应商保证支持所有工具。
+首页文本工具协议支持 OpenAI Chat、Anthropic Messages 与 Responses。市场目录、租户上架与定价仍为模型可用性的前提；不会切换用户选定模型。协议接入与供应商真实验收分别记录，后两者的验收限制见下文。
+
+### Responses 原生工具接入与验收（2026-10-14）
+
+范围：后端 `feature/agent-enhancements`，未修改前端、公开 API、菜单、权限或数据库结构。Neuron 仍使用已有业务工具与费用确认机制。
+
+- 转换 `function_call` / `function_call_output`、函数 Schema、指定工具、结构化输出和图片输入。保留原 Schema 可选字段，不自动提升为必填。
+- 首页强制 `store=false`，请求加密推理续接信息；仅当前 Provider 实例按工具调用标识保存原生输出，不使用 `previous_response_id` / conversation 继承其他会话，不向用户展示推理或加密字段。
+- SSE 正文与参数分片分别处理，最终参数采用完整快照而非重复追加；完整结束、参数校验通过后才交给 Neuron。正文结束快照按整体内容合并，兼容网关缺少 `output_index` 的情况。
+- 收到回执后失败、断流、缺用量或原生输出校验失败，保留已接收正文与账务证据，进入既有待核对状态，禁止自动重提、补扣或误退款。新增安全诊断码与最后事件类型，不记录私密正文或密钥。零预占文本待核对只报告结算待核对，不误报未释放预占；真实非零预占仍受审计。
+
+离线验证通过：新增 HomeAgentResponsesProtocol（真实 Neuron + 原生 SSE 字节分片，包含并行工具、加密续接隔离、缺索引快照去重、无效参数、截断、图片、用量）；扩展 HomeAgentBillingRecovery（真实事务账务，模拟 Responses 成功与中断，全部回滚）。HomeAgentAnthropicProtocol、MarketTextUsageStream、HomeAgentProvider、HomeAgentVisibleReply、HomeAgentContextChat、HomeAgentPlanning 通过。共享回归 MarketTextModelPayloadContract 9 项、ShortDramaTextModelContract 10 项、CanvasNeuronRuntime 10 项通过。
+
+真实测试使用租户 1 / 用户 1 已上架的 `GPT-5.6 Terra`（市场模型 11），每个请求最多 1024 输出 token、最多两次模型往返，只查询现有能力，不提交创作任务，不修改用户偏好。
+
+| 本地文本任务 | 消费记录 | 结果 | 实际用户算力 |
+| --- | --- | --- | --- |
+| 4118 / 4119 | 4396 / 4397 | 读取能力列表并中文回复；首次脚本工具计数没有适配 Neuron 克隆，后续改用共享计数 | 0.15 + 0.83 |
+| 4120 | 4398 | 已有回执但无完整回复/用量，待核对；未重发 | 0，预占 0 |
+| 4121 / 4122 | 4399 / 4400 | 共享计数确认工具执行一次，真实结果回传，回复“共有 5 项”；发现正文快照重复后补修复与离线用例 | 0.14 + 0.23 |
+| 4123 | 4401 | 最终修复后的独立查询收到上游 `response.failed`，无用量；待核对，未重发 | 0，预占 0 |
+
+本轮真实已结算共 **1.35 算力**；四条已结算消费的只读账务审计无异常。4120 回执 `resp_f7397456cf6f0b32`，4123 回执 `resp_d049eeae8d1ac890`，需要上游补完整用量/费用依据后核对，不能根据猜测扣费。没有重跑这些未知结果的请求；4034 的历史 40 算力预占未修改。
+
+结论：协议实现、真实工具往返及常规结算已有证据；重复快照修复有离线回归证据，但修复后的真实查询遇到上游失败，所以**不能标记整个供应商验收已完成**。未继续 TTS 或生产发布。
+
+协议依据：[OpenAI Function calling](https://developers.openai.com/api/docs/guides/function-calling)、[Reasoning models](https://developers.openai.com/api/docs/guides/reasoning)。
 
 ### Anthropic 原生工具接入与验收（2026-10-14）
 
