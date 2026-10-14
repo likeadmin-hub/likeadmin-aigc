@@ -19,6 +19,7 @@ class AgentController extends BaseApiController
         foreach(array_unique(array_merge(['aigc_llm'],array_keys($tools))) as $code)$displays[$code]=\app\common\service\app\AppDisplayConfigService::skillPreview($t,$code==='speech_synthesis'?'aigc_llm':$code);
         return ['preferences'=>AgentStore::preferences($t,$u),'models'=>AgentCapabilityCatalog::models($t),'tools'=>array_values($tools),'skill_displays'=>$displays,'skill_configs'=>\app\common\service\app\aigc_llm\agent\AgentSkillConfigService::forTools($t,array_keys($tools))];
     });}
+    public function subjects(){return $this->handle(fn($t,$u)=>\app\common\service\app\aigc_llm\agent\AgentSubjectReferences::lists($t,$u,$this->request->get()));}
     public function preferences(){return $this->handle(fn($t,$u)=>AgentStore::preferences($t,$u,$this->request->post()));}
     public function submit(){return $this->handle(fn($t,$u)=>AgentExecutionService::submit($t,$u,$this->request->post()));}
     public function detail(){return $this->handle(fn($t,$u)=>AgentExecutionService::detail($t,$u,(int)$this->request->get('run_id',0)));}

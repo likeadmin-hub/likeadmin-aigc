@@ -1505,6 +1505,25 @@ class AigcShortDramaService
         ]);
     }
 
+    /** Authorized subject projection for Agent references; never accept client URLs. */
+    public static function agentSubjectReference(int $tenantId, int $userId, int $id): array
+    {
+        $row=AigcShortDramaSubject::where(['id'=>$id,'status'=>1,'delete_time'=>0])->findOrEmpty();
+        if($row->isEmpty())throw new \InvalidArgumentException('主体不存在或已停用');
+        $data=$row->toArray();
+        $owned=$data['source']==='user'&&(int)$data['tenant_id']===$tenantId&&(int)$data['user_id']===$userId;
+        $public=$data['source']==='public'&&(int)$data['user_id']===0&&in_array((int)$data['tenant_id'],[0,$tenantId],true)&&!in_array($data['name'],self::LEGACY_PUBLIC_SUBJECT_NAMES,true);
+        if(!$owned&&!$public)throw new \InvalidArgumentException('主体不存在或无权引用');
+        $uri=self::storageCanonicalUri((string)($data['image']??''));
+        if($uri==='')throw new \InvalidArgumentException('主体尚未添加参考图片');
+        $storage=self::storageInfoForUploadedFile((int)$data['tenant_id'],$uri);
+        if(!$storage)$storage=self::storageInfoForShortDramaAsset((int)$data['tenant_id'],(int)$data['user_id'],$uri);
+        // Bundled public resources have no upload record, but have a fixed local storage scope.
+        if(!$storage&&$public&&str_starts_with($uri,'resource/')&&!str_contains($uri,'..'))$storage=['storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>''];
+        if(empty($storage['storage_scope'])||empty($storage['storage_engine']))throw new \InvalidArgumentException('主体图片缺少存储信息，请在主体库重新上传');
+        return ['image_uri'=>$uri,'name'=>(string)$data['name'],'description'=>(string)($data['description']??'')]+$storage;
+    }
+
     public static function saveSubjectLibrary(int $tenantId, int $userId, array $params): array
     {
         $id = (int)($params['id'] ?? 0);

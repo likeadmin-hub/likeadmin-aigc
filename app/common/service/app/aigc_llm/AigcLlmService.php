@@ -42,14 +42,19 @@ class AigcLlmService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
-        $skills = \app\common\service\app\aigc_llm\agent\AgentSkillConfigService::apply($tenantId, $params);
-        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::config($tenantId);
         $configJson = array_merge((array)($current['config_json'] ?? []), self::normalizeJson($params['config_json'] ?? []));
+        $agentModel=trim((string)($configJson['agent_text_model']??''));
+        if($agentModel!=='' && $agentModel!==(string)($current['config_json']['agent_text_model']??'')){
+            try{MarketTextModelRuntimeService::resolveAgentModel($tenantId,$agentModel);}catch(\Exception $e){throw new \InvalidArgumentException('请选择可用的 Agent 文本模型：'.$e->getMessage());}
+        }
+        $skills = \app\common\service\app\aigc_llm\agent\AgentSkillConfigService::apply($tenantId, $params);
+        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $data = [
             'tenant_id' => $tenantId,
             'status' => (int)($params['status'] ?? $current['status'] ?? 1),
             'config_json' => [
+                'agent_text_model' => $agentModel,
                 'agent_skills' => $skills ?? (array)($current['config_json']['agent_skills'] ?? []),
                 'system_prompt' => trim((string)($configJson['system_prompt'] ?? '')),
                 'max_context_messages' => max(2, (int)($configJson['max_context_messages'] ?? 12)),
@@ -631,6 +636,7 @@ class AigcLlmService
         return [
             'status' => 1,
             'config_json' => [
+                'agent_text_model' => '',
                 'system_prompt' => '',
                 'max_context_messages' => 12,
                 'auto_title_chars' => 18,
