@@ -226,6 +226,11 @@ class AiTaskOperationService
 
     private static function queueQuery(array $target, string $action): void
     {
+        if (($target['app_code'] ?? '') === 'aigc_llm' && ($target['action_code'] ?? '') === 'agent_speech') {
+            $result=\app\common\service\app\aigc_llm\agent\AgentSpeechTool::reconcile((int)$target['consumption_id'],(int)$target['tenant_id']);
+            if (!$result['resolved']) throw new \RuntimeException('配音回执不足或保存尚未完成，请核对上游记录；不会重新生成');
+            return;
+        }
         if (($target['app_code'] ?? '') === 'aigc_llm' && ($target['action_code'] ?? '') === 'agent_transcribe') {
             $result=\app\common\service\app\aigc_llm\agent\AgentTranscriptionRecovery::reconcile((int)$target['consumption_id'],(int)$target['tenant_id']);
             if (!$result['resolved']) throw new \RuntimeException($result['reason']);

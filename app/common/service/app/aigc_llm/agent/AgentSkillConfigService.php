@@ -10,6 +10,7 @@ use app\common\service\FileService;
 final class AgentSkillConfigService
 {
     private const DEFAULTS=[
+        'speech'=>['name'=>'文字配音','category'=>'音频','tool'=>'speech_synthesis','description'=>'把短文本朗读为语音，使用平台默认模型和音色。','prompt'=>'帮我把下面的正文生成配音，使用我选择的配音服务。请先确认需要朗读的正文，最多500字符，使用默认音色。','materials'=>'提供需要朗读的正文；暂不支持指定或克隆音色。'],
         'fitting'=>['name'=>'AI 试衣','category'=>'图片','tool'=>'aigc_fitting','description'=>'将服装穿到指定模特身上，生成试衣效果图。','prompt'=>'使用 AI 试衣功能，帮我把服装图片中的衣服穿到模特身上，保留模特的脸、姿势和背景，生成一张试衣效果图。请先确认服装图和模特图，缺少素材时引导我补充。','materials'=>'需要服装图片和一张模特照片，可通过输入框的“添加素材”上传。请说明每张图片的用途。'],
         'image'=>['name'=>'图片创作','category'=>'图片','tool'=>'aigc_image','description'=>'根据画面描述或参考图创作图片。','prompt'=>'帮我创作图片，请根据我的用途和画面想法完善提示词，使用我选择的图片模型生成。','materials'=>'描述想要的画面；参考图片可选。'],
         'video'=>['name'=>'视频创作','category'=>'视频','tool'=>'aigc_video','description'=>'把文字创意或参考图片制作成视频。','prompt'=>'帮我创作视频，使用我选择的视频模型。请先确认画面内容、人物动作、镜头和时长；如果需要参考图，请引导我添加。','materials'=>'描述画面、动作和时长；图生视频需要参考图片。'],
@@ -42,10 +43,10 @@ final class AgentSkillConfigService
         foreach ($defaults as $id => $default) {
             $value = $saved[$id] ?? [];
             if (!empty($value['deleted'])) continue;
-            $app = $default['tool'] ?? 'aigc_llm';
+            $app = ($default['tool'] ?? '') === 'speech_synthesis' ? 'aigc_llm' : ($default['tool'] ?? 'aigc_llm');
             $display = $displays[$app] ??= Display::detail($tenant, $app);
             $item = ['id'=>$id,'app_code'=>$app,'builtin'=>isset(self::DEFAULTS[$id]),'enabled'=>1,'sort'=>0] + $default;
-            if (isset(self::DEFAULTS[$id]['tool'])) {
+            if (isset(self::DEFAULTS[$id]['tool']) && $app !== 'aigc_llm') {
                 $item['name'] = $display['title'] ?: $default['name'];
                 $item['description'] = $display['description'] ?: $default['description'];
             }

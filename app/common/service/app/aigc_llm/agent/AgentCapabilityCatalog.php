@@ -11,7 +11,7 @@ use app\common\service\open_platform\{OpenToolPricing,OpenSchema,OpenMaterials,O
 final class AgentCapabilityCatalog
 {
     private const SERVICES=['aigc_image'=>AigcImageService::class,'aigc_video'=>AigcVideoService::class,'aigc_music'=>\app\common\service\app\aigc_music\AigcMusicService::class,'aigc_fitting'=>\app\common\service\app\aigc_fitting\AigcFittingService::class];
-    public const TYPES=['aigc_image'=>'image','aigc_video'=>'video','aigc_music'=>'music','aigc_fitting'=>'image'];
+    public const TYPES=['aigc_image'=>'image','aigc_video'=>'video','aigc_music'=>'music','aigc_fitting'=>'image',AgentSpeechTool::CODE=>'voice'];
     private const NAMES=['aigc_image'=>'图片创作','aigc_video'=>'视频创作','aigc_music'=>'音乐创作','aigc_fitting'=>'AI试衣'];
     private static function creationConfig(int $tenant,string $code): array
     {
@@ -20,6 +20,7 @@ final class AgentCapabilityCatalog
     public static function schema(string $code): array
     {
         self::assertSupported($code);
+        if($code===AgentSpeechTool::CODE)return AgentSpeechTool::schema();
         if($code===AgentTranscriptionTool::CODE)return AgentTranscriptionTool::schema();
         if(in_array($code,['aigc_music','aigc_fitting'],true))return AgentExtendedTools::schema($code);
         $properties=['prompt'=>['type'=>'string','minLength'=>1,'maxLength'=>10000],'negative_prompt'=>['type'=>'string','maxLength'=>4000],'ratio'=>['type'=>'string'],'reference_images'=>['type'=>'array','maxItems'=>8,'items'=>['type'=>'string','pattern'=>'^of_[a-f0-9]{32}$'],'description'=>'用户素材的 file_id；禁止构造或猜测地址']];
@@ -30,7 +31,7 @@ final class AgentCapabilityCatalog
     public static function assertSupported(string $code): void
     {
         // Deliberate homepage allowlist: never import the studio or public API tool catalogue wholesale.
-        if($code!==AgentTranscriptionTool::CODE&&!isset(self::SERVICES[$code]))throw new \InvalidArgumentException('首页 Agent 不支持此工具；工作室应用不在可调用范围内');
+        if(!in_array($code,[AgentTranscriptionTool::CODE,AgentSpeechTool::CODE],true)&&!isset(self::SERVICES[$code]))throw new \InvalidArgumentException('首页 Agent 不支持此工具；工作室应用不在可调用范围内');
     }
     private static function authorize(int $tenant,int $user,string $code): void
     {
@@ -46,16 +47,18 @@ final class AgentCapabilityCatalog
             $out[$code]=['code'=>$code,'name'=>self::NAMES[$code],'description'=>match($code){'aigc_image'=>'文字或参考图生成图片','aigc_video'=>'文字或参考图生成视频','aigc_music'=>'生成歌曲或纯音乐，不是朗读配音 TTS','aigc_fitting'=>'用户上传服装图和模特图生成试衣图片'},'schema'=>self::schema($code),'version'=>'home-1','model_options'=>self::creationConfig($tenant,$code)['option_config']??[]];
         }
         try{AgentTranscriptionTool::quote($tenant);$out[AgentTranscriptionTool::CODE]=['code'=>AgentTranscriptionTool::CODE,'name'=>'语音转文字','description'=>'识别音频或视频音轨中的语音，转写完成后继续总结或回答；按次收费，需要先保存方案','schema'=>AgentTranscriptionTool::schema(),'version'=>'home-stt-1'];}catch(\InvalidArgumentException){}
+        if(AgentSpeechTool::models($tenant)['models'])$out[AgentSpeechTool::CODE]=['code'=>AgentSpeechTool::CODE,'name'=>'文字配音','description'=>'把500字符内的正文朗读为MP3，使用用户所选配音服务的默认模型和音色，不是音乐或音色克隆','schema'=>AgentSpeechTool::schema(),'version'=>'home-speech-1'];
         return $out;
     }
     public static function models(int $tenant): array
     {
         $text=AigcLlmService::config($tenant)['option_config']??[];
         $text['models']=array_values(array_filter($text['models']??[],static function($model)use($tenant){try{\app\common\service\power\MarketTextModelRuntimeService::resolveAgentModel($tenant,(string)$model['code']);return true;}catch(\Exception){return false;}}));
-        return ['text'=>$text,'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>self::creationConfig($tenant,'aigc_video')['option_config']??[],'music'=>self::SERVICES['aigc_music']::config($tenant)['option_config']??[]];
+        return ['text'=>$text,'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>self::creationConfig($tenant,'aigc_video')['option_config']??[],'music'=>self::SERVICES['aigc_music']::config($tenant)['option_config']??[],'voice'=>AgentSpeechTool::models($tenant)];
     }
     public static function describe(array $run,string $code): array
     {
+        if($code===AgentSpeechTool::CODE)return AgentSpeechTool::describe($run);
         if($code===AgentTranscriptionTool::CODE)return ['code'=>$code,'schema'=>AgentTranscriptionTool::schema(),'quote'=>AgentTranscriptionTool::quote((int)$run['tenant_id']),'instruction'=>'只支持本话题音频或视频中的语音识别，不识别音色身份或音乐音效。plan_creation 保存收费转写方案，完成后系统自动恢复当前回答；不要猜测未识别的内容。'];
         self::authorize((int)$run['tenant_id'],(int)$run['user_id'],$code);
         $type=self::TYPES[$code];
@@ -66,6 +69,7 @@ final class AgentCapabilityCatalog
     }
     public static function prepare(array $run,string $code,array $params): array
     {
+        if($code===AgentSpeechTool::CODE)return AgentSpeechTool::prepare($run,$params);
         if($code===AgentTranscriptionTool::CODE)return AgentTranscriptionTool::prepare($run,$params);
         $tenant=(int)$run['tenant_id'];$user=(int)$run['user_id'];self::authorize($tenant,$user,$code);
         // Only fields declared by this native adapter are accepted from the model.
@@ -94,6 +98,7 @@ final class AgentCapabilityCatalog
     }
     public static function submit(array $prepared): array
     {
+        if($prepared['capability']['code']===AgentSpeechTool::CODE)return AgentSpeechTool::submit($prepared);
         if($prepared['capability']['code']===AgentTranscriptionTool::CODE)return AgentTranscriptionTool::submit($prepared);
         $request=request();$code=$prepared['capability']['code'];self::authorize((int)$request->tenantId,(int)$request->userId,$code);
         $scoped=OpenToolRequest::from($request,$prepared['params'],['app_code'=>$code,'route'=>'POST tasks']);
@@ -103,6 +108,7 @@ final class AgentCapabilityCatalog
     }
     public static function query(array $run,string $code,int $taskId): array
     {
+        if($code===AgentSpeechTool::CODE)return AgentSpeechTool::query((int)$run['tenant_id'],(int)$run['user_id'],$taskId);
         if($code===AgentTranscriptionTool::CODE)return AgentTranscriptionTool::query((int)$run['tenant_id'],(int)$run['user_id'],$taskId);
         if(!isset(self::SERVICES[$code]))throw new \InvalidArgumentException('未知任务类型');
         return self::SERVICES[$code]::taskDetail((int)$run['tenant_id'],$taskId,(int)$run['user_id']);

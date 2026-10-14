@@ -16,7 +16,7 @@ class AgentController extends BaseApiController
     }
     public function config(){return $this->handle(function($t,$u){
         $tools=AgentCapabilityCatalog::all($t,$u);$displays=[];
-        foreach(array_unique(array_merge(['aigc_llm'],array_keys($tools))) as $code)$displays[$code]=\app\common\service\app\AppDisplayConfigService::skillPreview($t,$code);
+        foreach(array_unique(array_merge(['aigc_llm'],array_keys($tools))) as $code)$displays[$code]=\app\common\service\app\AppDisplayConfigService::skillPreview($t,$code==='speech_synthesis'?'aigc_llm':$code);
         return ['preferences'=>AgentStore::preferences($t,$u),'models'=>AgentCapabilityCatalog::models($t),'tools'=>array_values($tools),'skill_displays'=>$displays,'skill_configs'=>\app\common\service\app\aigc_llm\agent\AgentSkillConfigService::forTools($t,array_keys($tools))];
     });}
     public function preferences(){return $this->handle(fn($t,$u)=>AgentStore::preferences($t,$u,$this->request->post()));}

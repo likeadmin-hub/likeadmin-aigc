@@ -42,6 +42,10 @@ final class AgentArtifactService
     {
         $tenant=(int)$artifact['tenant_id'];$user=(int)$artifact['user_id'];
         $step=AgentStore::owner('step',$tenant,$user)->where(['id'=>$artifact['step_id'],'run_id'=>$artifact['run_id']])->find();
+        if($step&&$step['tool_code']===AgentSpeechTool::CODE){
+            $task=\app\common\model\ai\AiAppTask::where(['id'=>$step['task_id'],'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>'agent_speech'])->find();
+            return $task?array_intersect_key((array)$task['request_summary'],array_flip(['prompt','model_name','characters','format'])):null;
+        }
         if(!$step||!in_array($step['tool_code'],['aigc_image','aigc_video','aigc_music','aigc_fitting'],true)||!(int)$step['task_id'])return null;
         $task=Db::name($step['tool_code'].'_task')->where(['id'=>$step['task_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find();
         if(!$task)return null;
@@ -121,7 +125,7 @@ final class AgentArtifactService
     {
         foreach((array)($result['results']??[]) as $row){
             if(!is_array($row))continue;
-            $file=OpenAssets::registerResult((int)$run['tenant_id'],(int)$run['user_id'],$step['tool_code'],$row);
+            $file=OpenAssets::registerResult((int)$run['tenant_id'],(int)$run['user_id'],$step['tool_code']===AgentSpeechTool::CODE?'aigc_llm':$step['tool_code'],$row);
             if(!$file)continue;
             $kind=!empty($row['video_uri'])?'video':(!empty($row['audio_uri'])?'audio':(!empty($row['image_uri'])?'image':'document'));
             self::save($run,(int)$step['id'],$step['title'],$kind,$file,$row);
