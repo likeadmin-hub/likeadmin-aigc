@@ -18,6 +18,8 @@ final class MarketNeuronProvider implements AIProviderInterface
     private array $tools = [];
     private int $calls = 0;
     private bool $repairAttempted = false;
+    /** Native continuation evidence lives only in this run's provider instance. */
+    private array $responsesHistory = [];
 
     public function __construct(private string $model, private \Closure $transport, private ?\Closure $validateReply = null) {}
     public function getModel(): string { return $this->model; }
@@ -39,7 +41,7 @@ final class MarketNeuronProvider implements AIProviderInterface
         ], $this->tools);
         $request = [
             'content'=>'继续完成当前用户请求', 'model_selection'=>$this->model,
-            'messages'=>self::messages($messages), 'system_prompt'=>$this->instructions,
+            'messages'=>$this->requestMessages($messages), 'system_prompt'=>$this->instructions,
             'tools'=>$schemas, 'tool_choice'=>'auto', '_agent_tool_history'=>true,
             '_disable_model_fallback'=>true, '_disable_transient_retry'=>true,
         ];
@@ -61,6 +63,10 @@ final class MarketNeuronProvider implements AIProviderInterface
             }
         }
         $calls=[];
+        if (!empty($result['tool_calls']) && !empty($result['_responses_output'])) {
+            $key = self::toolHistoryKey($result['tool_calls']);
+            $this->responsesHistory[$key] = $result['_responses_output'];
+        }
         foreach ((array)($result['tool_calls']??[]) as $call) {
             $arguments=$call['function']['arguments']??'{}';
             if (is_string($arguments)) $arguments=json_decode($arguments,true,32,JSON_THROW_ON_ERROR);
@@ -116,6 +122,21 @@ final class MarketNeuronProvider implements AIProviderInterface
             $out[]=$row;
         }
         return $out;
+    }
+    private function requestMessages(array $messages): array
+    {
+        $rows = self::messages($messages);
+        foreach ($rows as &$row) {
+            if (empty($row['tool_calls'])) continue;
+            $key = self::toolHistoryKey($row['tool_calls']);
+            if (isset($this->responsesHistory[$key])) $row['_responses_output'] = $this->responsesHistory[$key];
+        }
+        unset($row);
+        return $rows;
+    }
+    private static function toolHistoryKey(array $calls): string
+    {
+        return hash('sha256', json_encode(array_column($calls, 'id'), JSON_THROW_ON_ERROR));
     }
     /** Approximate the complete input, including instructions/tools; drop only complete old turns. */
     public static function fitContext(array $messages,string $instructions,array $tools,int $budget=24000): array

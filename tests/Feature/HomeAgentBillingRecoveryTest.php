@@ -16,6 +16,15 @@ namespace app\common\service\power {
   $write=$handle->options[CURLOPT_WRITEFUNCTION];
   if(BillingTransportFixture::$mode==='reject'){$write($handle,json_encode(['error'=>['message'=>'fixture rejected']]));return true;}
   if(BillingTransportFixture::$mode==='timeout')return false;
+  if(in_array(BillingTransportFixture::$mode,['responses_success','responses_incomplete'],true)){
+   $done=BillingTransportFixture::$mode==='responses_success';
+   foreach([
+    ['type'=>'response.created','response'=>['id'=>'fixture-responses-receipt','status'=>'in_progress']],
+    ['type'=>'response.output_text.delta','output_index'=>0,'content_index'=>0,'delta'=>'已收到的正文'],
+    ['type'=>$done?'response.completed':'response.incomplete','response'=>['id'=>'fixture-responses-receipt','status'=>$done?'completed':'incomplete','output'=>[['type'=>'message','role'=>'assistant','content'=>[['type'=>'output_text','text'=>'已收到的正文']]]],'usage'=>['input_tokens'=>$done?10000:19,'output_tokens'=>$done?10000:1]]],
+   ] as $event)$write($handle,'data: '.json_encode($event,JSON_UNESCAPED_UNICODE)."\n\n");
+   return true;
+  }
   if(BillingTransportFixture::$mode==='native_success'){
    foreach([
     ['type'=>'message_start','message'=>['id'=>'fixture-native-complete','usage'=>['input_tokens'=>10000,'output_tokens'=>0]]],
@@ -64,7 +73,7 @@ namespace {
  $selection=(string)S::preferences(1,1)['models']['text'];$model=R::resolveAgentModel(1,$selection);
  $expected=invoke('quote',$model,10000,10000);check($expected['user_charge_points']>0&&$expected['user_charge_points']<balance(),'Fixture needs a priced model within local wallet');
  $params=['content'=>'离线计费验收','model_selection'=>$selection,'source_app_code'=>'aigc_llm','business_table'=>'aigc_llm_agent_run','business_id'=>0,'_disable_model_fallback'=>true,'_disable_transient_retry'=>true,'_agent_tool_history'=>true];
- foreach(['success','native_success'] as $successMode)fixture(function()use($params,$expected,$successMode){
+ foreach(['success','native_success','responses_success'] as $successMode)fixture(function()use($params,$expected,$successMode){
   F::$mode=$successMode;
   $before=balance();$result=R::generate(1,1,$params,static function(){});$cid=(int)$result['consumption_id'];
   check($result['usage']['prompt_tokens']===10000&&$result['usage']['completion_tokens']===10000,'Caller did not receive normalized token usage');
@@ -82,7 +91,7 @@ namespace {
   check(balance()===$before&&in_array('text_usage_pending',issueCodes($result['consumption_id']),true),'Missing actual usage charged or escaped audit');
   $report=Audit::audit(1,'aigc_llm',500,'aigc_llm_agent_run',999999);check($report['checked']===0,'Audit crossed user filter');
  });
- foreach(['native_incomplete','native_timeout'] as $nativeMode)fixture(function()use($params,$nativeMode){
+ foreach(['native_incomplete','native_timeout','responses_incomplete'] as $nativeMode)fixture(function()use($params,$nativeMode){
   F::$mode=$nativeMode;$before=balance();
   // Shared non-Agent callers must not retry after receiving a native receipt either.
   if($nativeMode==='native_timeout'){$params['_agent_tool_history']=false;$params['_disable_transient_retry']=false;}
@@ -90,7 +99,7 @@ namespace {
   catch(TextSettlementPending $e){
    $c=AiConsumptionLog::findOrEmpty($e->consumptionId);
    check($c['billing_status']==='settlement_failed'&&$c['error_code']==='provider_stream_incomplete','Unknown native result incorrectly refunded');
-   check($c['upstream_request_id']==='fixture-native-receipt'&&$c['usage_snapshot']['prompt_tokens']===19&&$c['usage_snapshot']['usage_complete']===false,'Partial receipt evidence lost');
+   check($c['upstream_request_id']===($nativeMode==='responses_incomplete'?'fixture-responses-receipt':'fixture-native-receipt')&&$c['usage_snapshot']['prompt_tokens']===19&&$c['usage_snapshot']['usage_complete']===false,'Partial receipt evidence lost');
    check($e->result['content']==='已收到的正文'&&$e->result['tool_calls']===[],'Partial calls escaped into Neuron');
    invoke('fail',['consumption'=>$c],'late error','fixture');
    check(balance()===$before&&F::$calls===1&&AiConsumptionLog::where('id',$c['id'])->value('billing_status')==='settlement_failed','Unknown result charged, refunded or resubmitted');
