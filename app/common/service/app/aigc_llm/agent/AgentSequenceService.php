@@ -69,6 +69,7 @@ final class AgentSequenceService
             $current=self::lock($run);$preferences=AgentStore::json($current['preferences']);$state=self::state($current);
             if(!$state)return false;
             $steps=AgentStore::owner('step',(int)$run['tenant_id'],(int)$run['user_id'])->where('run_id',$run['id'])->where('id','>',(int)$state['step_floor'])->select()->toArray();
+            $steps=array_values(array_filter($steps,static fn($step)=>empty(AgentStore::json($step['prepared'])['_superseded_by'])&&empty(AgentStore::json($step['prepared'])['_removed'])));
             foreach($steps as $step)if($step['status']!=='success'||(AgentStore::json($step['result'])['status']??'')==='partial_success')return false;
             $artifacts=AgentStore::owner('artifact',(int)$run['tenant_id'],(int)$run['user_id'])->where('run_id',$run['id'])->where('id','>',(int)$state['artifact_floor'])->select()->toArray();
             // A clarification, a fictional plan or a completed job without output cannot trigger another charge.

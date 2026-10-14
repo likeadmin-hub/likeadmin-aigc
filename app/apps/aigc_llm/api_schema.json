@@ -257,6 +257,46 @@
       "scene": "user",
       "need_login": 1,
       "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/planEditor",
+      "api_method": "GET",
+      "permission_key": "aigc_llm:agent:planEditor:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/editPlan",
+      "api_method": "POST",
+      "permission_key": "aigc_llm:agent:editPlan:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/retryStep",
+      "api_method": "POST",
+      "permission_key": "aigc_llm:agent:retryStep:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/checkStep",
+      "api_method": "POST",
+      "permission_key": "aigc_llm:agent:checkStep:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/resumeReading",
+      "api_method": "POST",
+      "permission_key": "aigc_llm:agent:resumeReading:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
     }
   ]
 }
