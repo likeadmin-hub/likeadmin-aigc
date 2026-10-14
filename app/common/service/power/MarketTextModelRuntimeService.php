@@ -631,7 +631,7 @@ class MarketTextModelRuntimeService
                 'response_summary'=>['output_length'=>mb_strlen((string)($result['content']??''),'UTF-8')],
                 'error_code'=>$incomplete?'provider_stream_incomplete':'settlement_failed','error_message'=>$incomplete?'回复未完整结束，费用待核对':'结果已确认，费用结算待核对','finish_time'=>$now,'update_time'=>$now]);
             AiAppTask::where('id',$c['app_task_id'])->update(['status'=>$incomplete?'failed':'success','progress'=>100,'finish_time'=>$now,'update_time'=>$now]);
-            self::event((int)$c['id'],'settlement_deferred','failed',['reason'=>$incomplete?'provider_stream_incomplete':'wallet_settlement_failed','error_type'=>get_class($error)]);
+            self::event((int)$c['id'],'settlement_deferred','failed',['reason'=>$incomplete?'provider_stream_incomplete':'wallet_settlement_failed','error_type'=>get_class($error),'protocol_diagnostic'=>(array)($result['protocol_diagnostic']??[])]);
         });
     }
 
@@ -1212,6 +1212,7 @@ class MarketTextModelRuntimeService
         curl_close($ch);
 
         if ($errno) {
+            $state['native_error_code'] = 'transport_errno_' . $errno;
             throw self::providerException(self::networkError($error), false, $state);
         }
         if ($status >= 400) {
@@ -1232,6 +1233,7 @@ class MarketTextModelRuntimeService
             ResponsesMessagesAdapter::assertComplete($state);
         } catch (\RuntimeException $error) {
             // An incomplete tool response must not fall back to a different model.
+            $state['native_error_code'] = empty($state['responses_complete']) && !empty($state['responses']) ? 'responses_missing_completion' : 'native_output_validation';
             throw self::providerException($error->getMessage(), false, $state);
         }
         // Some OpenAI-compatible reasoning models emit their only textual output
@@ -1243,7 +1245,8 @@ class MarketTextModelRuntimeService
             $state['content'] = $state['reasoning'];
         }
         if (!$receivedEvent || (trim((string)$state['content']) === '' && empty($state['tool_calls']))) {
-            throw new Exception('文本模型未返回有效内容');
+            $state['native_error_code'] = 'native_empty_output';
+            throw self::providerException('文本模型未返回有效内容', false, $state);
         }
         return [
             'content' => $state['content'],
@@ -1607,6 +1610,7 @@ class MarketTextModelRuntimeService
             'usage' => (array)($state['usage'] ?? []),
             // Never hand partial calls to Neuron or a delayed continuation.
             'tool_calls' => [],
+            'protocol_diagnostic' => ['code' => (string)($state['native_error_code'] ?? 'native_stream_error'), 'last_event' => substr((string)($state['native_event_type'] ?? ''), 0, 80)],
         ] : null;
         return new MarketTextModelProviderException($message, $fallbackAllowed && !$hasOutput && $partial === null, $partial);
     }
