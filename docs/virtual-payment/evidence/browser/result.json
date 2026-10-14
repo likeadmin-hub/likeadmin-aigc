@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "tests": [
+    "blank keys",
+    "read-only app",
+    "saved price",
+    "explicit restart cancellation",
+    "offline preservation",
+    "unsaved guard",
+    "select popup keyboard",
+    "refund confirmation cancellation",
+    "390px layout"
+  ],
+  "errors": []
+}

@@ -1,0 +1,63 @@
+{
+  "server_develop": "00dec089ad55063b65a0ac2640680ac5070f40e7",
+  "server_runtime": "00dec089ad55063b65a0ac2640680ac5070f40e7",
+  "web_develop": "62f433c3c2c16c98770688806f3508ee3b28832a",
+  "web_feature": "c972fb53566d6693d5a001a68319604529b715ff",
+  "source_scope": "product source commit; documentation-only seal may follow",
+  "real_debit": "SKIPPED",
+  "real_refund": "SKIPPED",
+  "native_device": "NOT_EXECUTED",
+  "files": {
+    "task8-pc-tests-final.log": "2c7f6c6730470aa13796b0b340d8da08f9d3a6f562dc1e8071bcb70c9d1e2a90",
+    "review-green.log": "da5a4027bbdb23c84a06dbf98455ab0a74a866d2ffacca34f1b0591b2c3f0d36",
+    "tenant-tests.log": "d7cec0ceb6b278fd239bdab155a16fbf38a8ed9e7f5a8de6aaea8addf7165716",
+    "task8-regressions.json": "6ec8673af699700465c1db036166fa2961b91f635341eab5c1f7a0a76c1f9872",
+    "task8-http-final.log": "ab9e66d879b5947e498b810721f23c1ae278d6d5152324777b4d58cfb4d4c4fc",
+    "task8-uni-tests-final.log": "6b88d41d0f4f563b7ab885e58f919994198b2634e73352d2ee22888f3dbc6959",
+    "task8-schema.log": "6a5d028e485c9880aa2a3834422a48b5ca7402879f681bb316563c0d596e03eb",
+    "task8-mp-final.log": "63a68101d99c1420dbd26f6138531beed4b45f4325fb9b03b164d77115c682a6",
+    "final-backend.json": "4c947d59f2dfcd8005335ed2e40eca751af458e859f25f41870133e6b132f738",
+    "final-phpunit.log": "5c40d5b7dedc0938e2a131e5d49d3d57f9346df20c6e09f0ba9ecc2fd99d0252",
+    "review-red.log": "a8cdeda055240cd7ba1e68445dd1156a71241032344b85238e94b58d452e9146",
+    "platform-tests.log": "7681f37ea9b29403ff4556463d0c4fd442ac01cfa9093370d144ff841ae10bf2",
+    "browser/result.json": "2ccd69334d45ae44d4db57ccf28bf48e87777f9dd6d2a8649e684f4c51dfdbb0",
+    "http-browser/pc-qr.png": "79d5b0880c088473cf867e35e1d2aace130d34dc4fd95cd81420ec5827d8a838",
+    "http-browser/pc-result.json": "e9a4155f066943c1ddbf176cdd33569e084ad2f357387ed81a6d4e04e2840f5b",
+    "http-browser/pc-once-used.png": "ed16f55e4f34550a3104a1b9e9ded12a5aef2c329af1192cc75217974acd42a0",
+    "http-browser/platform-regression.png": "2b27e935f7bcdc788680df4fa9e5a0aa83234b7d5898c62e015b670bf328f4ea",
+    "http-browser/h5-real-offer.png": "29262b9f1552b2c2a4a7f5220069ff2358cfcc6552e3e3d6021305839f431c11",
+    "http-browser/tenant-real-promotion.png": "cb87cf01fb2eabac0cea6949992b30b1568afe1905cff0b8c88c9a7b9537cbb8",
+    "http-browser/h5-real-paid.png": "ee5cc3d362692dc523fe664ae19de96de0cd75b9f8da53fe934854b5b2c8559c",
+    "http-browser/pc-offer.png": "88ca696b32275c7d3aa11dbb54c0b327cc64b08c87bcbdb327c9d0c4d88fb55e",
+    "http-browser/tenant-real-config.png": "e71acce26ec31512e8d5a03ca079ef72ac5fa0e4540d04f8d3e9ae2ceb9b4852",
+    "http-browser/admin-h5-result.json": "a5badc6374d5a02a2fae8252351ef9f907e0e9b1fd6e25351584c9880f99778a"
+  },
+  "builds": {
+    "pc": {
+      "path": "/Users/likeadmin/Documents/docker-dir/bt/wwwroot/likeadmin_aigc_saas/web/pc/.output",
+      "file_count": 872,
+      "tree_sha256": "9ffcb82777143c5ecc857d82cf7abf174f86cbb492141970c05ebfee93187849"
+    },
+    "tenant": {
+      "path": "/tmp/virtual-pay-ui-checks/tenant-dist",
+      "file_count": 1664,
+      "tree_sha256": "baa9ec5b81139dc759e51516fc6d53d64c4988134f951205c504ef7680265439"
+    },
+    "platform": {
+      "path": "/tmp/virtual-pay-ui-checks/platform-dist",
+      "file_count": 297,
+      "tree_sha256": "e02ba6d8bd7db92667b19a04dfda8070ea1aca154fda043db2de1ffe98418575"
+    },
+    "h5": {
+      "path": "/tmp/virtual-pay-ui-checks/uni-h5",
+      "file_count": 406,
+      "tree_sha256": "a8843ded26275e862b65f7182b07343844845c2c460e82a43762f0186931bc75"
+    },
+    "mp-weixin": {
+      "path": "/tmp/virtual-pay-ui-checks/uni-mp",
+      "file_count": 1195,
+      "tree_sha256": "3ab2a36ad317cb98f33a077d777005ff456238f900708db318542b9085414ca9"
+    }
+  },
+  "runtime_source_verified": true
+}
