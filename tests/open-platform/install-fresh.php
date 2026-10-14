@@ -27,6 +27,19 @@ try{
  $freshApp=$pdo->query("SELECT * FROM `".$prefix."app` WHERE code='open_platform'")->fetch(PDO::FETCH_ASSOC);
  check($freshApp && $freshApp['status']==='installed' && (int)$freshApp['is_builtin']===1 && $freshApp['expire_policy']==='allow', 'Actual fresh installer omitted open_platform registration');
  check((int)$pdo->query("SELECT COUNT(*) FROM `".$prefix."app_frontend_entry` WHERE app_code='open_platform'")->fetchColumn()===3, 'Actual fresh installer omitted API frontend entries');
+ $llmManifest=json_decode(file_get_contents($root.'/app/apps/aigc_llm/manifest.json'),true,512,JSON_THROW_ON_ERROR);
+ check($pdo->query("SELECT current_version FROM `".$prefix."app` WHERE code='aigc_llm'")->fetchColumn()===$llmManifest['version'], 'Fresh installer has stale Agent registry version');
+ $expectedAgentApis=json_decode(file_get_contents($root.'/app/apps/aigc_llm/api_schema.json'),true,512,JSON_THROW_ON_ERROR)['apis'];
+ foreach($expectedAgentApis as $api){
+  $q=$pdo->prepare('SELECT permission_key,need_login,need_role_permission FROM `'.$prefix.'app_api` WHERE app_code=? AND api_path=? AND api_method=? AND scene=?');
+  $q->execute(['aigc_llm',$api['api_path'],$api['api_method']??'GET',$api['scene']??'tenant_admin']);$rows=$q->fetchAll(PDO::FETCH_ASSOC);
+  check(count($rows)===1&&$rows[0]['permission_key']===$api['permission_key']&&(int)$rows[0]['need_login']===(int)$api['need_login']&&(int)$rows[0]['need_role_permission']===(int)$api['need_role_permission'], 'Fresh installer omitted/drifted Agent API '.$api['api_path']);
+ }
+ $agentRepair=file_get_contents($root.'/upgrade/20261014_home_agent_registry.sql');
+ check($agentRepair===file_get_contents($root.'/public/upgrade/20261014_home_agent_registry.sql'), 'Agent registry upgrade paths drifted');
+ $beforeAgentApis=$pdo->query("SELECT * FROM `".$prefix."app_api` WHERE app_code='aigc_llm' ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+ for($i=0;$i<2;$i++)$pdo->exec(str_replace('la_',$prefix,$agentRepair));
+ check($pdo->query("SELECT * FROM `".$prefix."app_api` WHERE app_code='aigc_llm' ORDER BY id")->fetchAll(PDO::FETCH_ASSOC)===$beforeAgentApis, 'Agent registry repair was not idempotent');
  $freshKeys=static function(array $menus)use(&$freshKeys){$keys=[];foreach($menus as $menu){$keys[]=$menu['source_menu_key'];$keys=array_merge($keys,$freshKeys($menu['children']??[]));}sort($keys);return $keys;};
  foreach(['platform'=>'system_menu','tenant'=>'tenant_system_menu'] as $terminal=>$table){
   $expected=$freshKeys(json_decode(file_get_contents($root.'/app/apps/open_platform/menus/'.$terminal.'.json'),true));
@@ -54,6 +67,8 @@ try{
  Db::name('tenant')->insert(['id'=>123456,'sn'=>'opf_fixture','name'=>'opf fixture','tactics'=>0,'create_time'=>time(),'update_time'=>time()]);
  $customId=Db::name('tenant_system_menu')->insertGetId(['tenant_id'=>123456,'app_code'=>'open_platform','source'=>'tenant','source_menu_key'=>'opf_custom','name'=>'Owned custom menu','type'=>'C','create_time'=>time(),'update_time'=>time()]);
  for($i=0;$i<2;$i++)DefaultAppService::syncTenantDefaults(123456,'opf_fixture',false);
+ check(Db::name('tenant_app')->where(['tenant_id'=>123456,'app_code'=>'aigc_llm'])->value('version')===$llmManifest['version'], 'New tenant got stale Agent version');
+ check(Db::name('tenant_system_menu')->where(['tenant_id'=>123456,'app_code'=>'aigc_llm','source_menu_key'=>'aigc_llm_skill_config'])->count()===1, 'New tenant missed/duplicated Agent skill menu');
  $opened=Db::name('tenant_app')->where(['tenant_id'=>123456,'app_code'=>'open_platform'])->select()->toArray();check(count($opened)===1&&$opened[0]['buy_status']==='paid'&&$opened[0]['shelf_status']==='on'&&$opened[0]['enable_status']==='enabled','New tenant module not installed, enabled and shelved');
  $actual=Db::name('tenant_system_menu')->where(['tenant_id'=>123456,'app_code'=>'open_platform','source'=>'app'])->column('source_menu_key');sort($actual);sort($tenantKeys);check($actual===$tenantKeys,'New tenant menus or action permissions missing or duplicated');
  check(Db::name('tenant_system_menu')->where('id',$customId)->value('name')==='Owned custom menu','Default sync overwrote tenant-owned menu');
