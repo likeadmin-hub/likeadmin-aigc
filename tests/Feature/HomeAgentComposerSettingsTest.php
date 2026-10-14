@@ -24,9 +24,9 @@ Db::startTrans();try{
  foreach([['mode'=>'bad'],['mode'=>'custom','image'=>['quantity'=>0]],['mode'=>'custom','video'=>['duration'=>61]],['mode'=>'custom','image'=>['quality'=>[]]]] as $bad)rejected(fn()=>Settings::generation($bad));
  $quote=C::prepare($run,'aigc_image',['prompt'=>'蓝色杯子','quantity'=>4]);check((int)$quote['params']['quantity']===1,'Planner overrode user quantity before quote');
  check(($quote['inputs']['quantity']??0)===1,'Approval inputs disagree with quote');
- $videoOptions=C::models(1)['video'];$video=null;foreach($videoOptions['channels']??[] as $candidate)if((string)($candidate['code']??$candidate['id']??'')===$stored['models']['video'])$video=$candidate;
+ $videoOptions=C::models(1)['video'];$video=null;foreach($videoOptions['channels']??[] as $candidate)if(in_array('text_to_video',$candidate['generation_modes']??[],true)){$video=$candidate;break;}
  check($video!==null,'Video fixture missing');$resolution=(string)($video['qualities'][0]['resolution']??$video['default_resolution']??'');$duration=(int)($video['duration_options'][0]??$video['qualities'][0]['duration']??5);
- $videoPrefs=$stored;$videoPrefs['generation']['video']=['duration'=>$duration];if($resolution!=='')$videoPrefs['generation']['video']['resolution']=$resolution;
+ $videoPrefs=$stored;$videoPrefs['models']['video']=(string)($video['code']??$video['id']);$videoPrefs['generation']['video']=['duration'=>$duration];if($resolution!=='')$videoPrefs['generation']['video']['resolution']=$resolution;
  $videoRun=$run;$videoRun['preferences']=S::encode($videoPrefs);$videoQuote=C::prepare($videoRun,'aigc_video',['prompt'=>'缓慢移动的风景镜头','duration'=>60]);
  check((int)$videoQuote['params']['duration']===$duration,'User video duration not applied before pricing');
  $beforeConfig=AigcLlmService::config(1);AigcLlmService::saveConfig(1,['config_json'=>['agent_text_model'=>$configured]]);check(AigcLlmService::config(1)['config_json']['agent_text_model']===$configured,'Admin model setting not persisted');
