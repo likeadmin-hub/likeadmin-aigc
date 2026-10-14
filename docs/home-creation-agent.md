@@ -200,3 +200,11 @@ Runs 312/313 in session 117 failed before the answering model call, including th
 Agent video capability/authorization/model-list reads now use `AigcVideoService::creationConfig`, containing only actual model options and app status. They do not load effect previews or display assets. The existing full video configuration API and tenant-custom/blank preview behavior remain unchanged. No schema, permission, billing, frontend or provider-setting changes.
 
 Validation: missing/corrupt preview-map fixtures, an intentionally failing preview catalogue with real Agent capability readers, disabled-tool isolation, planning/topic/document-context/music-billing regressions all pass. Worker restarted with the integrated implementation. Real selected-model runs 329 (greeting, new session 155) and 330 (cute-style prompt, existing TV-reference session 132) both succeeded with zero generation steps. Original failed runs and messages were not rewritten or automatically resubmitted.
+
+### 2026-10-14：首页 Agent 流式订阅
+
+- 新增用户端 `POST app.aigc_llm.agent/stream`，仅接受 `run_id`，沿用登录、应用访问与租户/用户归属校验。
+- 订阅持久化 Worker 输出，每 100ms 检查文字阶段变化，工具阶段每 500ms 检查。推送公开的 `run.snapshot`，含累计正文和有序阶段；无变化时每 5 秒同步，连接最长 20 秒，随后客户端重连。终止/待确认状态发送 `done`。
+- 重连重新同步完整当前状态，不依赖客户端保留全部事件；原 JSON detail/events 接口兼容。订阅只读，不创建任务、不执行模型、不扣费。
+- PC 优先 SSE，断线后通过 detail 恢复并重连；旧连接、切换会话、停止、卸载的迟到结果不能覆盖当前状态。新增文字逐字展示，历史正文立即显示，阶段文字展示完再出现方案/复制操作。
+- 无数据库迁移；新增用户接口 schema，未更改后台角色权限、供应商协议和任务/计费状态。
