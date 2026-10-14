@@ -22,7 +22,7 @@ namespace {
  use app\common\service\app\aigc_llm\agent\AgentCapabilityCatalog as Fake;
  function check($ok,$why){if(!$ok)throw new RuntimeException($why);}
  $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local fixture only');
- function isolated(string $prefix):void{check((bool)preg_match('/^agent_probe_[a-f0-9]{16}_$/D',$prefix),'Invalid isolated prefix');$config=config('database');$config['connections']['agent_isolated']=$config['connections']['mysql'];$config['connections']['agent_isolated']['prefix']=$prefix;$config['default']='agent_isolated';Db::setConfig($config);}
+ function isolated(string $prefix):void{check((bool)preg_match('/^agent_probe_[a-f0-9]{16}_$/D',$prefix),'Invalid isolated prefix');$config=config('database');$config['connections']['agent_isolated']=$config['connections']['mysql'];$config['connections']['agent_isolated']['prefix']=$prefix;$config['default']='agent_isolated';app()->config->set($config,'database');}
  if(($argv[1]??'')==='child'){
   $dir=$argv[2]??'';check(str_starts_with($dir,sys_get_temp_dir().'/home-agent-concurrency-')&&is_file($dir.'/fixture.json'),'Missing test ownership marker');
   $fixture=json_decode(file_get_contents($dir.'/fixture.json'),true);$ids=$fixture['ids'];isolated($fixture['prefix']);
@@ -48,7 +48,7 @@ namespace {
   S::table('run')->where('id',$id)->update(['status'=>'queued']);file_put_contents($dir.'/fixture.json',json_encode(['ids'=>$ids,'prefix'=>$prefix]));return $id;
  };
  try{
-  foreach($tables as $table){$target=$prefix.$table;$source=$db['prefix'].$table;check((bool)preg_match('/^[a-zA-Z0-9_]+$/D',$source),'Invalid source identifier');$admin->execute("CREATE TABLE `$target` LIKE `$source`");$created[]=$target;}
+  foreach($tables as $table){$target=$prefix.$table;$source=$db['prefix'].$table;check((bool)preg_match('/^[a-zA-Z0-9_]+$/D',$source),'Invalid source identifier');$admin->execute("CREATE TABLE `$target` LIKE `$source`");$created[]=$target;file_put_contents($dir.'/tables.json',json_encode($created));}
   isolated($prefix);
   for($i=0;$i<6;$i++)$create();
   for($i=0;$i<3;$i++)$launch();check($wait()===[0,0,0],'Concurrent workers failed; inspect '.$dir);
@@ -69,6 +69,7 @@ namespace {
   echo "Isolated concurrent Agent passed: 3 processes/6 runs, one submit each, bound-task restart queries, real child crash quarantine, no paid calls\n";
  }finally{
   foreach($children as [$process,$log]){proc_terminate($process);proc_close($process);fclose($log);}
+  foreach(glob($dir.'/child-*.log')?:[] as $file)if(filesize($file))fwrite(STDERR,file_get_contents($file));
   foreach(array_reverse($created) as $table)$admin->execute("DROP TABLE `$table`");
   foreach(glob($dir.'/*')?:[] as $file)unlink($file);rmdir($dir);
  }
