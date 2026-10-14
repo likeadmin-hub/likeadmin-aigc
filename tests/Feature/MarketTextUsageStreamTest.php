@@ -32,3 +32,22 @@ $usage=$normalize->invoke(null,$state['usage']);
 check($usage['prompt_tokens']===123&&$usage['completion_tokens']===17&&$usage['total_tokens']===140,'Partial usage replaced earlier token counters');
 check($normalize->invoke(null,[])['provider_reported']===false,'Missing usage was invented');
 echo "Market text usage stream passed: protocol-specific request, usage-only tail, incremental usage, compatibility and no guessed tokens\n";
+
+$settle=method('canSettleUsageFromSnapshot');$same=['input'=>['platform_price'=>1,'tenant_price'=>2],'output'=>['platform_price'=>1,'tenant_price'=>2]];
+$unequal=['input'=>['platform_price'=>1,'tenant_price'=>2],'output'=>['platform_price'=>3,'tenant_price'=>4]];
+foreach([
+ [['prompt_tokens'=>10,'completion_tokens'=>2,'total_tokens'=>12],true,true],
+ [['input_tokens'=>10,'output_tokens'=>0],true,true],
+ [['prompt_tokens'=>10,'total_tokens'=>12],false,false],
+ [['completion_tokens'=>2],false,false],
+ [['prompt_tokens'=>10,'completion_tokens'=>2,'total_tokens'=>15],false,false],
+ [['prompt_tokens'=>10,'completion_tokens'=>2,'total_tokens'=>0],false,false],
+ [['prompt_tokens'=>10,'completion_tokens'=>-1],false,false],
+ [['prompt_tokens'=>10,'completion_tokens'=>'bad'],false,false],
+ [['total_tokens'=>12],true,false],
+ [[],false,false],
+] as [$raw,$equalExpected,$unequalExpected]){
+ $u=$normalize->invoke(null,$raw);check($settle->invoke(null,$same,$u)===$equalExpected&&$settle->invoke(null,$unequal,$u)===$unequalExpected,'Incomplete/inconsistent counters settled or valid pricing regressed');
+ check($normalize->invoke(null,$u)===$u,'Normalization lost usage field provenance');
+}
+echo "Usage completeness passed: missing/invalid counters, explicit zero, totals consistency and equal-price total-only compatibility\n";

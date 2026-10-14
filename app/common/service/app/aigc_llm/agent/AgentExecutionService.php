@@ -177,6 +177,7 @@ final class AgentExecutionService
         $request->withServer($original->server());$request->tenantId=(int)$run['tenant_id'];$request->userId=(int)$run['user_id'];$request->userInfo=['user_id'=>(int)$run['user_id'],'tenant_id'=>(int)$run['tenant_id']];
         app()->instance('request',$request);
         try{
+            if($run['status']==='awaiting_confirmation'){self::pollConfirmedSteps($run);return 1;}
             if(in_array($run['phase'],['chat','reading'],true))AgentStore::access((int)$run['tenant_id'],(int)$run['user_id']);
             if((int)$run['cancel_requested']&&in_array($run['phase'],['chat','reading'],true)){self::finish($run,'canceled');return 1;}
             if($run['phase']==='chat')self::chat($run);elseif($run['phase']==='reading')AgentLongReadService::work($run);else self::executeSteps($run);
@@ -185,6 +186,9 @@ final class AgentExecutionService
             Log::error('Home Agent run '.$run['id'].' failed: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
             $latest=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
             if($latest['lease_token']!==$run['lease_token'])return 1;
+            if($run['status']==='awaiting_confirmation'){
+                self::releaseConfirmationPoll($run);return 1;
+            }
             $unknown=AgentStore::table('step')->where('run_id',$run['id'])->where('status','submitting')->count()>0;
             if($e instanceof \app\common\service\power\TextSettlementPending){self::finish($run,'needs_review',$e->getMessage());return 1;}
             self::finish($run,$unknown?'needs_review':((int)$latest['cancel_requested']?'canceled':'failed'),$unknown?'任务提交结果待核对，请勿重复提交':($e instanceof \InvalidArgumentException?$e->getMessage():'本次执行未完成，请稍后重试'));
@@ -205,11 +209,47 @@ final class AgentExecutionService
         }
         return Db::transaction(function(){
             $row=AgentStore::table('run')->whereIn('status',['queued','waiting_tasks'])->where('next_run_time','<=',time())->order('id')->lock(true)->find();
+            if(!$row){
+                // Approval stays pending. Claim only tasks already submitted, never proposals or review records.
+                $ids=AgentStore::table('step')->where('task_id','>',0)->whereIn('status',['running','submitting'])->column('run_id');
+                if($ids)$row=AgentStore::table('run')->whereIn('id',$ids)->where('status','awaiting_confirmation')->where('next_run_time','<=',time())->where('lease_until','<',time())->order('id')->lock(true)->find();
+            }
             if(!$row)return null;
             $row['lease_token']=bin2hex(random_bytes(16));
-            AgentStore::table('run')->where('id',$row['id'])->update(['status'=>'running','lease_token'=>$row['lease_token'],'lease_until'=>time()+1500,'update_time'=>time()]);
+            AgentStore::table('run')->where('id',$row['id'])->update(['status'=>$row['status']==='awaiting_confirmation'?'awaiting_confirmation':'running','lease_token'=>$row['lease_token'],'lease_until'=>time()+1500,'update_time'=>time()]);
             return $row;
         });
+    }
+    private static function releaseConfirmationPoll(array $run): void
+    {
+        AgentStore::owner('run',(int)$run['tenant_id'],(int)$run['user_id'])->where(['id'=>$run['id'],'status'=>'awaiting_confirmation','lease_token'=>$run['lease_token']])
+            ->update(['lease_token'=>'','lease_until'=>0,'next_run_time'=>time()+5,'update_time'=>time()]);
+    }
+    /** Poll existing owned tasks while the user edits/confirms the remaining proposal. Never submit or advance a sequence. */
+    private static function pollConfirmedSteps(array $run): void
+    {
+        try{
+            $steps=AgentStore::owner('step',(int)$run['tenant_id'],(int)$run['user_id'])->where('run_id',$run['id'])->where('task_id','>',0)->whereIn('status',['running','submitting'])->order('id')->select()->toArray();
+            foreach($steps as $step){
+                $current=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
+                if($current['status']!=='awaiting_confirmation'||$current['lease_token']!==$run['lease_token'])return;
+                try{$result=AgentCapabilityCatalog::query($run,$step['tool_code'],(int)$step['task_id']);}
+                catch(\Throwable $e){continue;}
+                $status=(string)($result['status']??'');
+                $done=in_array($status,['success','completed','succeeded','partial_success'],true);
+                $failed=in_array($status,['failed','error','canceled','cancelled'],true);
+                $state=$done?'success':($failed?'failed':($status==='needs_review'?'needs_review':'running'));
+                Db::transaction(static function()use($run,$step,$result,$done,$failed,$state){
+                    $current=AgentStore::owner('run',(int)$run['tenant_id'],(int)$run['user_id'])->where('id',$run['id'])->lock(true)->find();
+                    if(!$current||$current['status']!=='awaiting_confirmation'||$current['lease_token']!==$run['lease_token'])return;
+                    // Result registration is local and idempotent; provider query above holds no DB lock.
+                    if($done)AgentArtifactService::collect($current,$step,$result);
+                    AgentStore::owner('step',(int)$run['tenant_id'],(int)$run['user_id'])->where(['id'=>$step['id'],'task_id'=>$step['task_id']])->whereIn('status',['running','submitting'])
+                        ->update(['status'=>$state,'result'=>AgentStore::encode($result),'error'=>$failed?'生成未完成，请检查该任务后重试':($state==='needs_review'?'原任务结果待核对':''),'update_time'=>time()]);
+                    AgentStore::event($current,'task.updated',['step_id'=>$step['id'],'status'=>$state]);
+                });
+            }
+        }finally{self::releaseConfirmationPoll($run);}
     }
     private static function chat(array $run): void
     {
