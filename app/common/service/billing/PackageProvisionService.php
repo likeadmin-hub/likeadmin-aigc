@@ -159,6 +159,18 @@ class PackageProvisionService
             'source_menu_key' => 'core_tenant_package',
         ]);
 
+        $virtualId = self::upsertMenu($table, $tenantId, [
+            'pid'=>$packageId, 'type'=>'C', 'name'=>'虚拟支付', 'icon'=>'el-icon-Wallet', 'sort'=>80,
+            'perms'=>'finance.virtual_pay/detail', 'paths'=>'virtual_pay', 'component'=>'finance/virtual_pay',
+            'source_menu_key'=>'core_tenant_virtual_pay',
+        ]);
+        foreach (['save'=>'保存配置','saveProduct'=>'绑定道具','orders'=>'交易记录','retry'=>'重试核对','refund'=>'发起退款','resolve'=>'异常处理'] as $action=>$label) {
+            self::upsertMenu($table, $tenantId, ['pid'=>$virtualId,'type'=>'A','name'=>$label,'perms'=>'finance.virtual_pay/'.$action,'source_menu_key'=>'core_tenant_virtual_pay_'.$action,'is_show'=>0]);
+        }
+        foreach (['detail'=>'优惠详情','save'=>'保存优惠'] as $action=>$label) {
+            self::upsertMenu($table, $tenantId, ['pid'=>$packageId,'type'=>'A','name'=>$label,'perms'=>'finance.promotion/'.$action,'source_menu_key'=>'core_tenant_promotion_'.$action,'is_show'=>0]);
+        }
+
         $membershipId = self::upsertMenu($table, $tenantId, [
             'pid' => $packageId,
             'type' => 'C',
