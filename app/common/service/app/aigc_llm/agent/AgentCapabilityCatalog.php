@@ -13,6 +13,10 @@ final class AgentCapabilityCatalog
     private const SERVICES=['aigc_image'=>AigcImageService::class,'aigc_video'=>AigcVideoService::class,'aigc_music'=>\app\common\service\app\aigc_music\AigcMusicService::class,'aigc_fitting'=>\app\common\service\app\aigc_fitting\AigcFittingService::class];
     public const TYPES=['aigc_image'=>'image','aigc_video'=>'video','aigc_music'=>'music','aigc_fitting'=>'image'];
     private const NAMES=['aigc_image'=>'图片创作','aigc_video'=>'视频创作','aigc_music'=>'音乐创作','aigc_fitting'=>'AI试衣'];
+    private static function creationConfig(int $tenant,string $code): array
+    {
+        return $code==='aigc_video' ? AigcVideoService::creationConfig($tenant) : self::SERVICES[$code]::config($tenant);
+    }
     public static function schema(string $code): array
     {
         self::assertSupported($code);
@@ -31,14 +35,14 @@ final class AgentCapabilityCatalog
     {
         self::assertSupported($code);
         $denied=AppAccessService::assertTenantCanUse($tenant,$code,$user,true,false);
-        if($denied||(int)(self::SERVICES[$code]::config($tenant)['status']??0)!==1)throw new \InvalidArgumentException('当前账号不可使用此工具');
+        if($denied||(int)(self::creationConfig($tenant,$code)['status']??0)!==1)throw new \InvalidArgumentException('当前账号不可使用此工具');
     }
     public static function all(int $tenant,int $user): array
     {
         $out=[];
         foreach(self::SERVICES as $code=>$service){
             try{self::authorize($tenant,$user,$code);}catch(\InvalidArgumentException){continue;}
-            $out[$code]=['code'=>$code,'name'=>self::NAMES[$code],'description'=>match($code){'aigc_image'=>'文字或参考图生成图片','aigc_video'=>'文字或参考图生成视频','aigc_music'=>'生成歌曲或纯音乐，不是朗读配音 TTS','aigc_fitting'=>'用户上传服装图和模特图生成试衣图片'},'schema'=>self::schema($code),'version'=>'home-1','model_options'=>$service::config($tenant)['option_config']??[]];
+            $out[$code]=['code'=>$code,'name'=>self::NAMES[$code],'description'=>match($code){'aigc_image'=>'文字或参考图生成图片','aigc_video'=>'文字或参考图生成视频','aigc_music'=>'生成歌曲或纯音乐，不是朗读配音 TTS','aigc_fitting'=>'用户上传服装图和模特图生成试衣图片'},'schema'=>self::schema($code),'version'=>'home-1','model_options'=>self::creationConfig($tenant,$code)['option_config']??[]];
         }
         return $out;
     }
@@ -46,7 +50,7 @@ final class AgentCapabilityCatalog
     {
         $text=AigcLlmService::config($tenant)['option_config']??[];
         $text['models']=array_values(array_filter($text['models']??[],static function($model)use($tenant){try{\app\common\service\power\MarketTextModelRuntimeService::resolveAgentModel($tenant,(string)$model['code']);return true;}catch(\Exception){return false;}}));
-        return ['text'=>$text,'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>AigcVideoService::config($tenant)['option_config']??[],'music'=>self::SERVICES['aigc_music']::config($tenant)['option_config']??[]];
+        return ['text'=>$text,'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>self::creationConfig($tenant,'aigc_video')['option_config']??[],'music'=>self::SERVICES['aigc_music']::config($tenant)['option_config']??[]];
     }
     public static function describe(array $run,string $code): array
     {
@@ -54,7 +58,7 @@ final class AgentCapabilityCatalog
         $type=self::TYPES[$code];
         $selection=(string)(AgentStore::json($run['preferences'])['models'][$type]??'');
         return ['code'=>$code,'schema'=>self::schema($code),'constraints'=>AgentExtendedTools::constraints($code),'selected_model'=>AgentCreationContext::selectedModel(
-            self::SERVICES[$code]::config((int)$run['tenant_id'])['option_config']??[],$selection),
+            self::creationConfig((int)$run['tenant_id'],$code)['option_config']??[],$selection),
             'instruction'=>'只能使用 selected_model；不自行替换。费用只能引用 plan_creation 成功返回的估价。素材字段仅传用户 file_id；试衣分别传 garment_images 服装图、model_images 模特图，不能猜测角色。音乐只支持歌曲或纯音乐，不支持配音/TTS；必须向用户说明 constraints 中的能力限制，不能承诺精确时长，也不能把计费规格说成输出时长保证。参数不兼容时解释具体原因，不能声称方案已经保存。'];
     }
     public static function prepare(array $run,string $code,array $params): array
