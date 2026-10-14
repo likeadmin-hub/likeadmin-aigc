@@ -90,7 +90,7 @@ namespace {
     fixture(function()use($prefs){
         [$run,$p]=prepared($prefs);$first=T::submit($p);$paid=balance();
         Db::name('aigc_llm_config')->where('tenant_id',1)->update(['status'=>0]);
-        $again=T::submit($p);
+        $again=T::query(1,1,(int)$first['task_id']);
         check($again['task_id']===$first['task_id']&&F::$calls===1&&balance()===$paid,'Revocation blocked safe existing-task recovery or resubmitted');
     });
     $async=array_values(array_filter($models['models'],fn($m)=>$m['execution_mode']==='async'));
