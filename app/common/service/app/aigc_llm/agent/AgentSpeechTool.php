@@ -17,7 +17,7 @@ final class AgentSpeechTool
     private const ACTION = 'agent_speech';
     public static function schema(): array
     {
-        return ['type'=>'object','properties'=>['text'=>['type'=>'string','minLength'=>1,'maxLength'=>10000,'description'=>'需要实际朗读的正文，不是生成指令；同步服务最多500字符，异步服务最多10000字符，以用户所选服务为准']],'required'=>['text'],'additionalProperties'=>false];
+        return ['type'=>'object','properties'=>['text'=>['type'=>'string','minLength'=>1,'maxLength'=>10000,'description'=>'需要实际朗读的完整正文，不是生成指令；最多10000字符，系统按正文长度选择可用配音服务']],'required'=>['text'],'additionalProperties'=>false];
     }
     private static function offers(int $tenant): array
     {
@@ -45,21 +45,40 @@ final class AgentSpeechTool
     }
     public static function describe(array $run): array
     {
-        $selected=(string)(AgentStore::json($run['preferences'])['models']['voice']??'');
+        $preferences=AgentStore::json($run['preferences']);
+        if(isset($preferences['_audio_defaults'])){
+            $defaults=$preferences['_audio_defaults']['speech']??[];
+            $available=array_column(self::models((int)$run['tenant_id'])['models'],null,'code');
+            $short=$available[$defaults['short']??'']??null;$long=$available[$defaults['long']??'']??null;
+            return ['code'=>self::CODE,'schema'=>self::schema(),'selected_model'=>['name'=>'默认配音服务','available'=>(bool)($short||$long),'max_characters'=>$long?10000:($short['max_characters']??0)],
+                'instruction'=>'仅朗读用户确认的完整正文为MP3，使用默认音色。系统按正文长度选择可用服务，短文本优先同步，超过500字符使用长文本服务；不要让用户选择配音偏好或同步/异步接口。不能克隆或保证指定音色，不拆分收费，不改写正文。缺正文或指定音色时先澄清；必须 plan_creation 获得实际报价并按运行模式执行。'];
+        }
+        $selected=(string)($preferences['models']['voice']??'');
         $rows=self::models((int)$run['tenant_id'])['models'];$model=null;
         foreach($rows as $row)if($row['code']===$selected)$model=$row;
         return ['code'=>self::CODE,'schema'=>self::schema(),'selected_model'=>$model??['available'=>false],
             'instruction'=>'仅将用户确认的正文朗读为MP3；同步服务最多500字符，异步服务最多10000字符，以 selected_model 为准。超出所选服务限制时请用户切换配音偏好，不自动换服务、不拆分成多次收费。使用所选服务的平台默认模型和音色，不保证性别、音色或时长。不能克隆音色，不能把音乐工具用于配音。缺正文或用户要求指定音色时先澄清；必须 plan_creation 获得报价并按运行模式执行。'];
     }
+    public static function defaultServices(int $tenant): array
+    {
+        $sync='';$async='';
+        foreach(self::models($tenant)['models'] as $model){
+            if($model['execution_mode']==='sync'&&$sync==='')$sync=$model['code'];
+            if($model['execution_mode']==='async'&&$async==='')$async=$model['code'];
+        }
+        return ['short'=>$sync?:$async,'long'=>$async];
+    }
     public static function prepare(array $run,array $params): array
     {
         OpenSchema::validateRequest($params,self::schema(),true);OpenPolicy::validateInput($params);
         if(trim($params['text'])==='')throw new \InvalidArgumentException('请输入需要朗读的正文');
-        $selection=(string)(AgentStore::json($run['preferences'])['models']['voice']??'');
+        $preferences=AgentStore::json($run['preferences']);
+        $automatic=isset($preferences['_audio_defaults']);
+        $selection=$automatic?(string)($preferences['_audio_defaults']['speech'][mb_strlen($params['text'])>500?'long':'short']??''):(string)($preferences['models']['voice']??'');
         $offer=self::offers((int)$run['tenant_id'])[$selection]??null;
-        if(!$offer)throw new \InvalidArgumentException('请在配音偏好中选择当前可用的配音服务');
+        if(!$offer)throw new \InvalidArgumentException($automatic?'当前正文所需的配音服务暂不可用，请联系管理员配置；未提交生成':'原配音服务已不可用，请重新创建方案');
         $async=$offer['product']['upstream_api_code']==='tts_async';$limit=$async?10000:500;
-        if(mb_strlen($params['text'])>$limit)throw new \InvalidArgumentException('所选配音服务最多'.$limit.'字符，请调整正文或配音偏好');
+        if(mb_strlen($params['text'])>$limit)throw new \InvalidArgumentException('当前配音服务最多'.$limit.'字符，请调整正文或重新创建方案');
         $raw=['text'=>$params['text'],'format'=>'mp3'];
         $effective=OpenCharacterInputPricing::transportParameters($offer['config'],$raw);
         $quote=OpenCharacterInputPricing::quote($offer['product'],$offer['sku'],$offer['retail'],$raw,65536,strlen(AgentStore::encode($raw)),$offer['config']);

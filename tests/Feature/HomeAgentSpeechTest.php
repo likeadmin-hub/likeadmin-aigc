@@ -44,6 +44,8 @@ namespace {
     $prefs=S::preferences(1,1);$prefs['models']['voice']=$models['defaults']['model'];$prefs['mode']='ask';
     function prepared(array $prefs):array {
         $view=E::submit(1,1,['session_id'=>0,'content'=>'测试配音','request_id'=>'speech-test-'.bin2hex(random_bytes(12)),'preferences'=>$prefs]);
+        // Keep the original explicitly selected-service fixtures as legacy compatibility coverage.
+        S::table('run')->where('id',$view['id'])->update(['preferences'=>S::encode($prefs)]);
         S::table('run')->where('id',$view['id'])->update(['status'=>'running','phase'=>'tools','lease_token'=>'fixture']);$run=S::run(1,1,$view['id']);
         $p=T::prepare($run,['text'=>'你好，世界。']);
         $p['step_id']=S::table('step')->insertGetId(['tenant_id'=>1,'user_id'=>1,'run_id'=>$view['id'],'step_key'=>bin2hex(random_bytes(16)),'title'=>'配音测试','tool_code'=>T::CODE,'prepared'=>S::encode($p),'result'=>'','status'=>'submitting','create_time'=>time(),'update_time'=>time()]);
