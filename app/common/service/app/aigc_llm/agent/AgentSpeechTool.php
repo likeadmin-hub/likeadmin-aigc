@@ -10,19 +10,19 @@ use app\common\service\ai\AiTaskResultAssetService;
 use app\common\service\app\aigc_music\AigcMusicAssetService;
 use think\facade\Db;
 
-/** Short default-voice speech. Receipt recovery never resubmits synthesis. */
+/** Default-voice speech. Receipt recovery and async polling never resubmit synthesis. */
 final class AgentSpeechTool
 {
     public const CODE = 'speech_synthesis';
     private const ACTION = 'agent_speech';
     public static function schema(): array
     {
-        return ['type'=>'object','properties'=>['text'=>['type'=>'string','minLength'=>1,'maxLength'=>500,'description'=>'需要实际朗读的正文，不是生成指令；最多500字符']],'required'=>['text'],'additionalProperties'=>false];
+        return ['type'=>'object','properties'=>['text'=>['type'=>'string','minLength'=>1,'maxLength'=>10000,'description'=>'需要实际朗读的正文，不是生成指令；同步服务最多500字符，异步服务最多10000字符，以用户所选服务为准']],'required'=>['text'],'additionalProperties'=>false];
     }
     private static function offers(int $tenant): array
     {
         $out=[];
-        $products=Db::name('power_market_product')->where(['resource_type'=>'app_api','upstream_app_code'=>'voice_tts','upstream_api_code'=>'tts','status'=>1])->select()->toArray();
+        $products=Db::name('power_market_product')->where(['resource_type'=>'app_api','upstream_app_code'=>'voice_tts','status'=>1])->whereIn('upstream_api_code',['tts','tts_async'])->order('id')->select()->toArray();
         foreach($products as $product){
             foreach(Db::name('power_market_sku')->where(['product_id'=>$product['id'],'status'=>1,'sale_status'=>1,'usage_unit'=>'character'])->order('id')->select()->toArray() as $sku){
                 $retail=Db::name('tenant_power_market_sku_price')->where(['tenant_id'=>$tenant,'sku_id'=>$sku['id']])->find();
@@ -40,7 +40,7 @@ final class AgentSpeechTool
     }
     public static function models(int $tenant): array
     {
-        $rows=[];foreach(self::offers($tenant) as $code=>$offer)$rows[]=['code'=>$code,'name'=>$offer['product']['name'].'（平台默认模型/音色）','description'=>'短文本朗读，最多500字符；按字符计费','unit_price'=>$offer['retail'],'unit_size'=>(float)$offer['sku']['usage_unit_size']];
+        $rows=[];foreach(self::offers($tenant) as $code=>$offer){$async=$offer['product']['upstream_api_code']==='tts_async';$rows[]=['code'=>$code,'name'=>$offer['product']['name'].'（平台默认模型/音色）','description'=>$async?'长文本异步朗读，最多10000字符；按字符计费':'短文本朗读，最多500字符；按字符计费','max_characters'=>$async?10000:500,'execution_mode'=>$async?'async':'sync','unit_price'=>$offer['retail'],'unit_size'=>(float)$offer['sku']['usage_unit_size']];}
         return ['models'=>$rows,'defaults'=>['model'=>$rows[0]['code']??'']];
     }
     public static function describe(array $run): array
@@ -49,7 +49,7 @@ final class AgentSpeechTool
         $rows=self::models((int)$run['tenant_id'])['models'];$model=null;
         foreach($rows as $row)if($row['code']===$selected)$model=$row;
         return ['code'=>self::CODE,'schema'=>self::schema(),'selected_model'=>$model??['available'=>false],
-            'instruction'=>'仅将用户确认的正文朗读为语音，最多500字符，MP3；使用配音偏好中选定服务的平台默认模型和默认音色，不保证性别、音色或时长。不能克隆音色，不能把音乐工具用于配音。缺正文或用户要求指定音色时先澄清；必须 plan_creation 获得报价并按运行模式执行。'];
+            'instruction'=>'仅将用户确认的正文朗读为MP3；同步服务最多500字符，异步服务最多10000字符，以 selected_model 为准。超出所选服务限制时请用户切换配音偏好，不自动换服务、不拆分成多次收费。使用所选服务的平台默认模型和音色，不保证性别、音色或时长。不能克隆音色，不能把音乐工具用于配音。缺正文或用户要求指定音色时先澄清；必须 plan_creation 获得报价并按运行模式执行。'];
     }
     public static function prepare(array $run,array $params): array
     {
@@ -58,13 +58,15 @@ final class AgentSpeechTool
         $selection=(string)(AgentStore::json($run['preferences'])['models']['voice']??'');
         $offer=self::offers((int)$run['tenant_id'])[$selection]??null;
         if(!$offer)throw new \InvalidArgumentException('请在配音偏好中选择当前可用的配音服务');
+        $async=$offer['product']['upstream_api_code']==='tts_async';$limit=$async?10000:500;
+        if(mb_strlen($params['text'])>$limit)throw new \InvalidArgumentException('所选配音服务最多'.$limit.'字符，请调整正文或配音偏好');
         $raw=['text'=>$params['text'],'format'=>'mp3'];
         $effective=OpenCharacterInputPricing::transportParameters($offer['config'],$raw);
-        $quote=OpenCharacterInputPricing::quote($offer['product'],$offer['sku'],$offer['retail'],$raw,16384,strlen(AgentStore::encode($raw)),$offer['config']);
-        $quote['snapshot']+=['product_id'=>(int)$offer['product']['id'],'sku_id'=>(int)$offer['sku']['id'],'model_name'=>$offer['product']['name'].'（平台默认模型/音色）','selection'=>$selection];
+        $quote=OpenCharacterInputPricing::quote($offer['product'],$offer['sku'],$offer['retail'],$raw,65536,strlen(AgentStore::encode($raw)),$offer['config']);
+        $quote['snapshot']+=['product_id'=>(int)$offer['product']['id'],'sku_id'=>(int)$offer['sku']['id'],'model_name'=>$offer['product']['name'].'（平台默认模型/音色）','selection'=>$selection,'speech_api'=>$offer['product']['upstream_api_code']];
         return ['run_id'=>(int)$run['id'],'capability'=>['code'=>self::CODE,'name'=>'文字配音','version'=>'home-speech-1'],'inputs'=>$params,
-            'params'=>['prompt'=>$params['text'],'characters'=>$quote['snapshot']['character_input']['quantity'],'format'=>'mp3','model_name'=>$quote['snapshot']['model_name']],
-            'speech_payload'=>$effective,'quote'=>$quote,'constraints'=>['description'=>'使用平台默认模型和默认音色，最多500字符；按字符计费，音频时长由内容决定。']];
+            'params'=>['prompt'=>$params['text'],'characters'=>$quote['snapshot']['character_input']['quantity'],'format'=>'mp3','model_name'=>$quote['snapshot']['model_name'],'execution_mode'=>$async?'async':'sync'],
+            'speech_payload'=>$effective,'quote'=>$quote,'constraints'=>['description'=>'使用平台默认模型和默认音色，最多'.$limit.'字符；按字符计费，音频时长由内容决定。']];
     }
     private static function directory(): string
     {
@@ -93,7 +95,11 @@ final class AgentSpeechTool
         $parts=parse_url((string)($source['active_base_url']??$source['base_url']??''));
         if(!$key||empty($parts['host']))throw new \InvalidArgumentException('配音服务未配置');
         self::directory();
-        $reservation=Db::transaction(function()use($tenant,$user,$prepared){
+        $base=($parts['scheme']??'https').'://'.$parts['host'].(isset($parts['port'])?':'.$parts['port']:'');
+        $api=(string)($prepared['quote']['snapshot']['speech_api']??'tts');
+        if(!in_array($api,['tts','tts_async'],true))throw new \InvalidArgumentException('配音接口无效');
+        $fingerprint=hash('sha256',$base.'|'.$key);
+        $reservation=Db::transaction(function()use($tenant,$user,$prepared,$api,$fingerprint){
             $run=AgentStore::owner('run',$tenant,$user)->where('id',$prepared['run_id'])->lock(true)->find();
             if(!$run||(int)$run['cancel_requested']||$run['status']!=='running'||$run['phase']!=='tools')throw new \InvalidArgumentException('配音已停止');
             $step=AgentStore::owner('step',$tenant,$user)->where(['id'=>$prepared['step_id'],'run_id'=>$run['id'],'tool_code'=>self::CODE])->lock(true)->find();
@@ -102,14 +108,14 @@ final class AgentSpeechTool
             $q=$prepared['quote'];$now=time();$no='CSP'.bin2hex(random_bytes(12));
             PointService::assertCanConsumeAmounts($tenant,$user,$q['tenant'],$q['user']);
             $task=AiAppTask::create(['task_no'=>'ASP'.bin2hex(random_bytes(12)),'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>self::ACTION,'business_table'=>'aigc_llm_agent_step','business_id'=>$step['id'],'status'=>'running','progress'=>10,'request_summary'=>$prepared['params'],'result_summary'=>[],'estimated_tenant_cost'=>$q['tenant'],'estimated_user_price'=>$q['user'],'idempotency_key'=>sha1('agent-speech|'.$tenant.'|'.$step['id']),'create_time'=>$now,'update_time'=>$now]);
-            $log=AiConsumptionLog::create(['consume_no'=>$no,'app_task_id'=>$task['id'],'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>self::ACTION,'resource_type'=>'app_api','product_id'=>$q['snapshot']['product_id'],'sku_id'=>$q['snapshot']['sku_id'],'api_code'=>'tts','protocol'=>'application_api','provider'=>'power_market','quantity'=>$prepared['params']['characters'],'usage_unit'=>'character','price_snapshot'=>$q,'request_summary'=>$prepared['params'],'response_summary'=>[],'usage_snapshot'=>['characters'=>$prepared['params']['characters']],'run_status'=>'running','billing_status'=>'reserved','reserved_tenant_cost'=>$q['tenant'],'reserved_user_price'=>$q['user'],'tenant_point_sn'=>$no.'-reserve','user_point_sn'=>$no.'-reserve','create_time'=>$now,'update_time'=>$now]);
+            $log=AiConsumptionLog::create(['consume_no'=>$no,'app_task_id'=>$task['id'],'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>self::ACTION,'resource_type'=>'app_api','product_id'=>$q['snapshot']['product_id'],'sku_id'=>$q['snapshot']['sku_id'],'api_code'=>$api,'protocol'=>'application_api','provider'=>'power_market','quantity'=>$prepared['params']['characters'],'usage_unit'=>'character','price_snapshot'=>$q,'request_summary'=>$prepared['params'],'response_summary'=>['transport_fingerprint'=>$fingerprint],'usage_snapshot'=>['characters'=>$prepared['params']['characters']],'run_status'=>'running','billing_status'=>'reserved','reserved_tenant_cost'=>$q['tenant'],'reserved_user_price'=>$q['user'],'tenant_point_sn'=>$no.'-reserve','user_point_sn'=>$no.'-reserve','create_time'=>$now,'update_time'=>$now]);
             PointService::reserveBusinessAmountsInCurrentTransaction($tenant,$user,$q['tenant'],$q['user'],$no.'-reserve','文字配音预占',self::extra($task->toArray(),$log->toArray()));
             AgentStore::table('step')->where('id',$step['id'])->update(['task_id'=>$task['id'],'update_time'=>$now]);
             return ['fresh'=>true,'task_id'=>(int)$task['id'],'log'=>$log->toArray()];
         });
         if($reservation['fresh']){
             $log=$reservation['log'];
-            $url=($parts['scheme']??'https').'://'.$parts['host'].(isset($parts['port'])?':'.$parts['port']:'').'/api/v1/apps/voice_tts/tts';
+            $url=$base.'/api/v1/apps/voice_tts/'.$api;
             try{self::record($log,self::request($url,$key,$prepared['speech_payload'],$source));self::reconcile((int)$log['id'],$tenant,true);}
             catch(\Throwable $e){self::uncertain((int)$log['id']);\think\facade\Log::error('Home Agent speech '.$log['id'].': '.get_class($e));}
         }
@@ -142,18 +148,20 @@ final class AgentSpeechTool
         if(!$log)throw new \InvalidArgumentException('配音记录不存在');$log=$log->toArray();
         if(in_array($log['billing_status'],['settled','refunded'],true)){self::wake($log);return ['resolved'=>true];}
         $created=is_numeric($log['create_time'])?(int)$log['create_time']:strtotime((string)$log['create_time']);
-        if(!$received&&$log['run_status']==='running'&&$created>time()-240)return ['resolved'=>false];
+        if(!$received&&$log['api_code']!=='tts_async'&&$log['run_status']==='running'&&$created>time()-240)return ['resolved'=>false];
         $path=self::journal($log);$lock=fopen($path.'.lock','c');if(!$lock)throw new \RuntimeException('配音恢复锁不可用');chmod($path.'.lock',0600);
         if(!flock($lock,LOCK_EX|LOCK_NB)){fclose($lock);return ['resolved'=>false];}
         try{
             $log=AiConsumptionLog::find($id)->toArray();if(in_array($log['billing_status'],['settled','refunded'],true))return ['resolved'=>true];
-            if(!is_file($path)){self::uncertain($id);return ['resolved'=>false];}
+            if(!is_file($path)){if($created<=time()-240)self::uncertain($id);return ['resolved'=>false];}
             $journal=AgentStore::json(OpenVault::open(file_get_contents($path)));
             if(($journal['id']??0)!==$id||($journal['tenant_id']??0)!==$tenant||($journal['consume_no']??'')!==$log['consume_no'])throw new \RuntimeException('配音回执归属不匹配');
-            $wire=$journal['wire'];$result=self::classify($wire);
+            $wire=$journal['wire'];$result=$log['api_code']==='tts_async'?self::asyncResult($log,$wire,$received):self::classify($wire);
+            if(($result['pending']??false)===true)return ['resolved'=>false];
+            $log=AiConsumptionLog::find($id)->toArray();
             $summary=AgentStore::json($log['response_summary']);$summary['receipt']=['http_status'=>$wire['http_status'],'complete'=>$wire['complete'],'transport_errno'=>$wire['transport_errno']??0];
             $data=json_decode($wire['body'],true)?:[];
-            AiConsumptionLog::where('id',$id)->update(['response_summary'=>AgentStore::encode($summary),'upstream_request_id'=>substr((string)($wire['headers']['x-request-id']??$data['request_id']??''),0,100),'upstream_task_id'=>substr((string)($data['data']['task_id']??''),0,100),'update_time'=>time()]);
+            AiConsumptionLog::where('id',$id)->update(['response_summary'=>AgentStore::encode($summary),'upstream_request_id'=>substr((string)($wire['headers']['x-request-id']??$data['request_id']??$log['upstream_request_id']??''),0,100),'upstream_task_id'=>$log['api_code']==='tts_async'?$log['upstream_task_id']:substr((string)($data['data']['task_id']??''),0,100),'update_time'=>time()]);
             if($result===null){self::uncertain($id);return ['resolved'=>false];}
             if($result['success']&&empty($summary['items'])){
                 $summary['items']=[self::storeAudio($result['audio_url'],$tenant,(int)$log['user_id'])];
@@ -172,6 +180,69 @@ final class AgentSpeechTool
             self::wake($log);@unlink($path);return ['resolved'=>true];
         }finally{flock($lock,LOCK_UN);fclose($lock);}
     }
+    /** Only a complete, matching task result can settle an async reservation. Query errors cannot refund. */
+    public static function classifyAsyncQuery(array $wire,string $taskId): ?array
+    {
+        if(empty($wire['complete'])||(int)($wire['http_status']??0)!==200)return null;
+        $body=json_decode((string)($wire['body']??''),true);
+        if(!is_array($body)||(isset($body['code'])&&(string)$body['code']!=='1'))return null;
+        $data=$body['data']??$body;
+        if(!is_array($data)||(string)($data['task_id']??'')!==$taskId)return null;
+        $status=strtolower((string)($data['status']??''));
+        if(in_array($status,['pending','queued','processing','running'],true))return ['pending'=>true];
+        if($status==='failed')return ['success'=>false];
+        if(!in_array($status,['success','completed'],true))return null;
+        $result=$data['result']??[];
+        if(!is_array($result))return null;
+        if(isset($result['transfer_status'])&&$result['transfer_status']!=='success')return null;
+        $url=$result['audio_url']??null;
+        return is_string($url)&&preg_match('~^https?://~i',$url)?['success'=>true,'audio_url'=>$url]:null;
+    }
+    /** Called under the private receipt lock, with no database transaction held during network IO. */
+    private static function asyncResult(array $log,array &$wire,bool $received): ?array
+    {
+        $body=json_decode((string)($wire['body']??''),true);
+        if(empty($wire['complete'])||!is_array($body))return null;
+        // An explicit rejection of submission is different from a failed GET query.
+        $rejection=self::classify($wire);
+        if(($rejection['success']??null)===false)return $rejection;
+        if(!in_array((int)($wire['http_status']??0),[200,202],true)||(isset($body['code'])&&(string)$body['code']!=='1'))return null;
+        $data=$body['data']??$body;$taskId=$data['task_id']??null;
+        if(!is_string($taskId)||!preg_match('/^[a-zA-Z0-9_-]{1,100}$/D',$taskId))return null;
+        if($log['upstream_task_id']!==''&&$log['upstream_task_id']!==$taskId)throw new \RuntimeException('配音任务回执不匹配');
+        $id=(int)$log['id'];$summary=AgentStore::json($log['response_summary']);
+        AiConsumptionLog::where('id',$id)->update(['upstream_task_id'=>$taskId]);
+        if(isset($wire['poll_receipt'])){
+            $terminal=self::classifyAsyncQuery($wire['poll_receipt'],$taskId);
+            if($terminal!==null&&!isset($terminal['pending']))return $terminal;
+        }
+        if(!$received&&(int)($summary['poll_after']??0)>time())return ['pending'=>true];
+        if($received){
+            $summary['poll_after']=time()+10;
+            AiConsumptionLog::where('id',$id)->update(['response_summary'=>AgentStore::encode($summary),'update_time'=>time()]);
+            return ['pending'=>true];
+        }
+        $source=UpdateSourceClient::getSource();$key=trim((string)($source['active_api_key']??$source['api_key']??$source['license_key']??''));
+        $parts=parse_url((string)($source['active_base_url']??$source['base_url']??''));
+        $base=($parts['scheme']??'https').'://'.($parts['host']??'').(isset($parts['port'])?':'.$parts['port']:'');
+        // A changed upstream account must never receive another account's task ID.
+        if(!$key||empty($parts['host'])||!hash_equals((string)($summary['transport_fingerprint']??''),hash('sha256',$base.'|'.$key)))throw new \RuntimeException('配音服务配置已变化，待核对原任务');
+        $poll=self::request($base.'/api/v1/tasks/'.rawurlencode($taskId),$key,[],$source,'GET');
+        $result=self::classifyAsyncQuery($poll,$taskId);
+        $summary['poll_after']=time()+($result===null?60:10);
+        $summary['query_receipt']=['http_status'=>$poll['http_status'],'complete'=>$poll['complete'],'transport_errno'=>$poll['transport_errno']??0];
+        AiConsumptionLog::where('id',$id)->update(['response_summary'=>AgentStore::encode($summary),'update_time'=>time()]);
+        if($result===null)return null;
+        if(isset($result['pending'])){
+            AiConsumptionLog::where('id',$id)->update(['run_status'=>'running','error_code'=>'','error_message'=>'']);
+            AiAppTask::where('id',$log['app_task_id'])->update(['status'=>'running','update_time'=>time()]);
+            self::wake($log);
+            return $result;
+        }
+        // Preserve the accepted task receipt plus terminal query before saving media or settling.
+        $wire['poll_receipt']=$poll;self::record($log,$wire);
+        return $result;
+    }
     private static function storeAudio(string $url,int $tenant,int $user): array
     {
         $wire=OpenSafeHttp::get($url,20*1024*1024,45);$mime=(new \finfo(FILEINFO_MIME_TYPE))->buffer($wire['body']);
@@ -184,6 +255,8 @@ final class AgentSpeechTool
     {
         $row=AiAppTask::where(['id'=>$task,'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>self::ACTION])->find();
         if(!$row)throw new \InvalidArgumentException('配音任务不存在');
+        $log=AiConsumptionLog::where(['app_task_id'=>$task,'tenant_id'=>$tenant,'user_id'=>$user,'action_code'=>self::ACTION,'api_code'=>'tts_async','billing_status'=>'reserved'])->find();
+        if($log){try{self::reconcile((int)$log['id'],$tenant);}catch(\Throwable $e){self::uncertain((int)$log['id']);}$row=AiAppTask::find($task);}
         return ['task_id'=>$task,'status'=>$row['status'],'results'=>((array)$row['result_summary'])['results']??[]];
     }
     private static function wake(array $log): void
@@ -204,10 +277,11 @@ final class AgentSpeechTool
         $tasks=AgentStore::table('step')->where('tool_code',self::CODE)->whereIn('status',['running','needs_review','submitting'])->where('task_id','>',0)->column('task_id');
         if($tasks)foreach(AiConsumptionLog::where(['app_code'=>'aigc_llm','action_code'=>self::ACTION])->whereIn('app_task_id',$tasks)->whereIn('billing_status',['settled','refunded'])->select() as $row)self::wake($row->toArray());
     }
-    private static function request(string $url,string $key,array $payload,array $source): array
+    private static function request(string $url,string $key,array $payload,array $source,string $method='POST'): array
     {
         $ch=curl_init($url);$body='';$headers=[];
-        curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>AgentStore::encode($payload),CURLOPT_CONNECTTIMEOUT=>15,CURLOPT_TIMEOUT=>180,CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$key,'Content-Type: application/json','Accept: application/json'],CURLOPT_SSL_VERIFYPEER=>UpdateSourceClient::sslVerify($source),CURLOPT_SSL_VERIFYHOST=>UpdateSourceClient::sslVerify($source)?2:0,CURLOPT_FOLLOWLOCATION=>false,
+        $methodOptions=$method==='GET'?[CURLOPT_HTTPGET=>true]:[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>AgentStore::encode($payload)];
+        curl_setopt_array($ch,$methodOptions+[CURLOPT_CONNECTTIMEOUT=>15,CURLOPT_TIMEOUT=>$method==='GET'?30:180,CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$key,'Content-Type: application/json','Accept: application/json'],CURLOPT_SSL_VERIFYPEER=>UpdateSourceClient::sslVerify($source),CURLOPT_SSL_VERIFYHOST=>UpdateSourceClient::sslVerify($source)?2:0,CURLOPT_FOLLOWLOCATION=>false,
             CURLOPT_HEADERFUNCTION=>static function($ch,$line)use(&$headers){if(preg_match('~^HTTP/~i',$line))$headers=[];$pair=explode(':',$line,2);$name=strtolower(trim($pair[0]));if(count($pair)===2&&in_array($name,['x-request-id','request-id','x-task-id'],true))$headers[$name]=substr(trim($pair[1]),0,200);return strlen($line);},
             CURLOPT_WRITEFUNCTION=>static function($ch,$part)use(&$body){if(strlen($body)+strlen($part)>2097152)return 0;$body.=$part;return strlen($part);}]);
         try{$complete=curl_exec($ch)!==false;return ['http_status'=>(int)curl_getinfo($ch,CURLINFO_HTTP_CODE),'body'=>$body,'headers'=>$headers,'complete'=>$complete,'transport_errno'=>curl_errno($ch)];}finally{curl_close($ch);}

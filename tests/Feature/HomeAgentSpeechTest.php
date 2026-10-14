@@ -1,14 +1,19 @@
 <?php
 // Real wallet/database transactions; only outbound synthesis, download and storage are replaced.
 namespace app\common\service\app\aigc_llm\agent {
-    final class SpeechFixture {public static int $calls=0;public static string $mode='success';public static bool $storageFail=false;}
-    function curl_init($url){return new \stdClass();}
+    final class SpeechFixture {public static int $calls=0;public static int $queries=0;public static string $mode='success';public static string $queryMode='success';public static bool $storageFail=false;}
+    function curl_init($url){$ch=new \stdClass();$ch->url=$url;return $ch;}
     function curl_setopt_array($ch,$options){$ch->options=$options;return true;}
     function curl_exec($ch){
-        SpeechFixture::$calls++;$body=SpeechFixture::$mode==='reject'?['code'=>0,'msg'=>'fixture rejection']:['code'=>1,'data'=>['result'=>['audio_url'=>'https://fixture.invalid/audio.mp3']]];
+        if($ch->options[CURLOPT_HTTPGET]??false){
+            SpeechFixture::$queries++;$mode=SpeechFixture::$queryMode;
+            $body=$mode==='unavailable'?['code'=>0,'msg'=>'not found']:['code'=>1,'data'=>['task_id'=>$mode==='mismatch'?'other-task':'fixture-async','status'=>$mode==='pending'?'running':($mode==='failed'?'failed':'completed'),'result'=>['audio_url'=>'https://fixture.invalid/audio.mp3']]];
+            ($ch->options[CURLOPT_WRITEFUNCTION])($ch,json_encode($body));return $mode!=='timeout';
+        }
+        SpeechFixture::$calls++;$body=SpeechFixture::$mode==='reject'?['code'=>0,'msg'=>'fixture rejection']:(str_ends_with($ch->url,'/tts_async')?['code'=>1,'data'=>['task_id'=>'fixture-async','status'=>'pending']]:['code'=>1,'data'=>['result'=>['audio_url'=>'https://fixture.invalid/audio.mp3']]]);
         ($ch->options[CURLOPT_WRITEFUNCTION])($ch,json_encode($body));return SpeechFixture::$mode!=='timeout';
     }
-    function curl_getinfo($ch,$option){return SpeechFixture::$mode==='reject'?400:200;}
+    function curl_getinfo($ch,$option){return ($ch->options[CURLOPT_HTTPGET]??false)?(SpeechFixture::$queryMode==='unavailable'?404:200):(SpeechFixture::$mode==='reject'?400:200);}
     function curl_errno($ch){return SpeechFixture::$mode==='timeout'?28:0;}
     function curl_close($ch){}
 }
@@ -31,7 +36,7 @@ namespace {
     use app\common\model\ai\{AiConsumptionLog,AiAppTask};
     function check($ok,$message){if(!$ok)throw new \RuntimeException($message);}
     function balance(){return (float)Db::name('user')->where('id',1)->value('user_money');}
-    function fixture(callable $fn){$before=balance();$files=glob(runtime_path().'home-agent-speech-receipts/*')?:[];Db::startTrans();try{F::$calls=0;F::$mode='success';F::$storageFail=false;$fn();}finally{Db::rollback();foreach(array_diff(glob(runtime_path().'home-agent-speech-receipts/*')?:[],$files) as $file)unlink($file);}check(balance()===$before,'Test altered wallet');}
+    function fixture(callable $fn){$before=balance();$files=glob(runtime_path().'home-agent-speech-receipts/*')?:[];Db::startTrans();try{F::$calls=0;F::$queries=0;F::$mode='success';F::$queryMode='success';F::$storageFail=false;$fn();}finally{Db::rollback();foreach(array_diff(glob(runtime_path().'home-agent-speech-receipts/*')?:[],$files) as $file)unlink($file);}check(balance()===$before,'Test altered wallet');}
     $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local rollback test only');
     check(S::table('run')->whereIn('status',['queued','running','waiting_tasks'])->count()===0,'Active Agent jobs present');
     request()->tenantId=1;request()->userId=1;request()->userInfo=['tenant_id'=>1,'user_id'=>1];
@@ -67,6 +72,26 @@ namespace {
         try{T::submit($p);throw new \LogicException('Insufficient balance accepted');}catch(\RuntimeException $e){check(str_contains($e->getMessage(),'不足'),'Unexpected shortage error');}
         check(F::$calls===0&&AiConsumptionLog::count()===$before,'Shortage submitted or created a reservation');
     });
+    $async=array_values(array_filter($models['models'],fn($m)=>$m['execution_mode']==='async'));
+    check(count($async)>0,'An enabled asynchronous speech SKU is required');$asyncPrefs=$prefs;$asyncPrefs['models']['voice']=$async[0]['code'];
+    function pollNow(int $cid):void{$summary=S::json(AiConsumptionLog::find($cid)['response_summary']);$summary['poll_after']=0;AiConsumptionLog::where('id',$cid)->update(['response_summary'=>S::encode($summary)]);}
+    fixture(function()use($asyncPrefs){
+        [$run,$p]=prepared($asyncPrefs);$long=T::prepare($run,['text'=>str_repeat('字',10000)]);check($long['params']['characters']===10000&&$long['params']['execution_mode']==='async','Long-text quote lost characters');
+        try{T::prepare($run,['text'=>str_repeat('字',10001)]);throw new \LogicException('Long text limit not enforced');}catch(\InvalidArgumentException|\app\common\service\open_platform\OpenException){}
+        $before=balance();$r=T::submit($p);$cid=(int)AiConsumptionLog::where('app_task_id',$r['task_id'])->value('id');
+        check($r['status']==='running'&&F::$calls===1&&F::$queries===0,'Async acceptance did not wait');T::query(1,1,$r['task_id']);check(F::$queries===0,'Poll throttle ignored');
+        F::$queryMode='pending';pollNow($cid);check(T::query(1,1,$r['task_id'])['status']==='running','Pending query failed');
+        F::$queryMode='success';pollNow($cid);$done=T::query(1,1,$r['task_id']);check($done['status']==='success'&&count($done['results'])===1,'Async completion failed');
+        T::submit($p);T::query(1,1,$r['task_id']);T::reconcile($cid,1);check(F::$calls===1&&F::$queries===2&&abs($before-balance()-$p['quote']['user'])<0.0001,'Async duplicate IO or charge');
+    });
+    foreach(['unavailable','timeout','mismatch'] as $mode)fixture(function()use($asyncPrefs,$mode){
+        [$run,$p]=prepared($asyncPrefs);$before=balance();$r=T::submit($p);$cid=(int)AiConsumptionLog::where('app_task_id',$r['task_id'])->value('id');F::$queryMode=$mode;pollNow($cid);
+        check(T::query(1,1,$r['task_id'])['status']==='needs_review','Uncertain query did not retain review');check(AiConsumptionLog::find($cid)['billing_status']==='reserved'&&F::$calls===1,'Query error refunded or resubmitted');
+        F::$queryMode='success';pollNow($cid);check(T::query(1,1,$r['task_id'])['status']==='success'&&F::$calls===1,'Original async query did not recover');check(abs($before-balance()-$p['quote']['user'])<0.0001,'Recovered async charge incorrect');
+    });
+    fixture(function()use($asyncPrefs){[$run,$p]=prepared($asyncPrefs);$before=balance();$r=T::submit($p);$cid=(int)AiConsumptionLog::where('app_task_id',$r['task_id'])->value('id');F::$queryMode='failed';pollNow($cid);check(T::query(1,1,$r['task_id'])['status']==='failed'&&balance()===$before,'Terminal async failure not refunded');T::reconcile($cid,1);check(F::$calls===1&&F::$queries===1&&balance()===$before,'Async failure repeated charge');});
+    fixture(function()use($asyncPrefs){[$run,$p]=prepared($asyncPrefs);$r=T::submit($p);$cid=(int)AiConsumptionLog::where('app_task_id',$r['task_id'])->value('id');F::$storageFail=true;pollNow($cid);check(T::query(1,1,$r['task_id'])['status']==='needs_review','Async storage failure lost state');F::$storageFail=false;T::reconcile($cid,1);check(T::query(1,1,$r['task_id'])['status']==='success'&&F::$queries===1&&F::$calls===1,'Terminal receipt recovery did network IO again');});
+    fixture(function()use($asyncPrefs){[$run,$p]=prepared($asyncPrefs);$r=T::submit($p);$cid=(int)AiConsumptionLog::where('app_task_id',$r['task_id'])->value('id');$summary=S::json(AiConsumptionLog::find($cid)['response_summary']);$summary['transport_fingerprint']='changed';$summary['poll_after']=0;AiConsumptionLog::where('id',$cid)->update(['response_summary'=>S::encode($summary)]);check(T::query(1,1,$r['task_id'])['status']==='needs_review'&&F::$queries===0,'Changed source received original task ID');});
     check(T::classify(['complete'=>true,'http_status'=>500,'body'=>'{"code":0}'])===null,'HTTP 500 must not refund');
     check(T::classify(['complete'=>true,'http_status'=>200,'body'=>'{"code":1,"data":{}}'])===null,'Missing output must not complete');
     $decision=new \ReflectionMethod(\app\common\service\ai\AiTaskOperationService::class,'decision');
