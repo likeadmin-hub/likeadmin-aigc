@@ -964,6 +964,27 @@
           "type": "array",
           "value_type": "array",
           "default": []
+        },
+        "show_caption": {
+          "key": "show_caption",
+          "label": "图像文案",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "min": 0,
+          "max": 1,
+          "options": [
+            {
+              "label": "隐藏",
+              "value": 0
+            },
+            {
+              "label": "显示",
+              "value": 1
+            }
+          ],
+          "help": "仅有图轮播：0隐藏，1显示；未设置保留旧端行为（共享有文案/公开无文案）。文字主视觉标题与说明不受影响。"
         }
       },
       "style_fields": {
@@ -1334,7 +1355,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "unsupported: style/bg_style. Public mixed images/text keeps image swiper; text-only uses first visible row."
+        "unsupported: style/bg_style. Public mixed images/text keeps image swiper; text-only uses first visible row. show_caption=0 hides image captions, 1 enables both clients; absent retains shared caption/public no-caption legacy. Text-only copy is unaffected."
       ],
       "compatibility": {
         "unknown_fields": "preserve",
@@ -19336,6 +19357,10 @@
             {
               "label": "宫格",
               "value": "grid"
+            },
+            {
+              "label": "图左文右列表",
+              "value": "list"
             }
           ]
         },
@@ -19392,6 +19417,46 @@
           "min": 0,
           "max": 1200,
           "help": "明确正值时两端同一图片高度；0/未配置保留共享4:3与公开端210rpx旧默认。仅控制图片，不拉伸文字。"
+        },
+        "image_width": {
+          "key": "image_width",
+          "label": "列表图片宽度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 600,
+          "help": "仅图左文右列表的内部图片宽度，0使用160rpx，图片不超过卡宽45%；不控制外部卡宽，其它布局忽略。建议同时明确image_height以使两端一致。",
+          "show_if": {
+            "key": "layout",
+            "equals": "list"
+          }
+        },
+        "list_scroll": {
+          "key": "list_scroll",
+          "label": "列表横向滑动",
+          "type": "switch",
+          "value_type": "number",
+          "default": 0,
+          "unit": "",
+          "min": 0,
+          "max": 1,
+          "options": [
+            {
+              "label": "纵排",
+              "value": 0
+            },
+            {
+              "label": "横滑",
+              "value": 1
+            }
+          ],
+          "help": "仅list：0外层纵向列表；1外层横滑露出下一卡，卡内仍左图右文；每张卡宽为容器72%。",
+          "show_if": {
+            "key": "layout",
+            "equals": "list"
+          }
         }
       },
       "style_fields": {
@@ -19771,7 +19836,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "single/grid/double/scroll layout and cover/contain are consumed. Explicit positive image_height (rpx) matches both clients; 0/absent retains shared4:3/public210rpx legacy defaults.",
+        "single/grid/double/scroll and cover/contain are consumed. list is inner left-image/right-copy; list_scroll=1 enables outer horizontal 72%-width cards without changing inner layout. image_width is rpx, only list consumes it; 0 uses160rpx; actual image width is capped at45% of the card width. Explicit positive image_height (rpx) matches both clients; 0/absent retains shared4:3/public210rpx legacy defaults.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -24015,5 +24080,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "49d649c34aff030a2aa807ebe5908695d0f6d8d46cfe0e85e0ecf618d20a1673"
+  "hash": "c32f390ecd7c6719053b1ced7176670cd24b3ee96ea647dc10b52391c9689e56"
 }
