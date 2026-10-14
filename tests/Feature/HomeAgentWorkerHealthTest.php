@@ -23,6 +23,7 @@ try{
   $result=H::evaluate($sample);check(!$result['healthy']&&$result['issues'][0]['code']===$code,'Missed fault '.$code);
  }
  foreach(['stt_review','speech_review'] as $kind){$sample=$base;$sample[$kind]['count']=1;$result=H::evaluate($sample);check($result['healthy']&&$result['attention_required']&&$result['issues'][0]['code']==='manual_review_required','Review should alert without declaring worker dead');}
+ foreach(['pending_usage','settlement_failed'] as $kind){$sample=$base;$sample['text_review']=[$kind=>1];$r=H::evaluate($sample);check($r['healthy']&&$r['attention_required']&&in_array('text_billing_review_required',array_column($r['issues'],'code'),true),'Text review missed or worker incorrectly marked dead');}
  $sample=$base;$sample['queue']['expired_leases']=1;$sample['queue']['oldest_expired_lease_age_seconds']=59;check(H::evaluate($sample)['healthy'],'No recovery grace period');
  // Verify real query semantics: a one-hour-old supplier job due now is not an hour of queue starvation.
  $db=config('database.connections.mysql');check($db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local rollback test only');

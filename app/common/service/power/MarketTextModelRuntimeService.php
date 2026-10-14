@@ -150,6 +150,15 @@ class MarketTextModelRuntimeService
         $appCode = self::safeCode((string)($params['source_app_code'] ?? $params['app_code'] ?? 'aigc_short_drama'), 'aigc_short_drama');
         $businessTable = self::safeCode((string)($params['business_table'] ?? ($appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task')), $appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task');
         $businessId = (int)($params['business_id'] ?? 0);
+        $homeAgent = $appCode === 'aigc_llm' && $businessTable === 'aigc_llm_agent_run';
+        if ($homeAgent) {
+            // Admission only: keep actual-usage pricing and zero reservation unchanged.
+            // A paid payer needs at least the wallet's smallest unit; free sides stay free.
+            PointService::assertCanConsumeAmounts($tenantId, $userId,
+                max((float)$model['input']['platform_price'], (float)$model['output']['platform_price']) > 0 ? 0.01 : 0,
+                max((float)$model['input']['tenant_price'], (float)$model['output']['tenant_price']) > 0 ? 0.01 : 0);
+            \app\common\service\app\aigc_llm\agent\AgentTextReceipt::prepare();
+        }
         $requestSummary = [
             'content_length' => array_sum(array_map(static fn(array $message): int => self::messageContentLength($message['content'] ?? ''), $messages)),
             'message_count' => count($messages),
@@ -158,6 +167,9 @@ class MarketTextModelRuntimeService
             'model_code' => $model['model_code'],
             'generation_params' => $generationParams + ['max_tokens' => $maxTokens],
         ];
+        if ($homeAgent && is_array($params['_agent_reading_source'] ?? null)) {
+            $requestSummary['agent_reading_source'] = array_intersect_key($params['_agent_reading_source'], array_flip(['file_id','offset','end','unit','text_offset']));
+        }
         // Token SKU amounts must come from the upstream usage record. Showing a
         // locally guessed total or reserving max_tokens makes the price wrong.
         $reserve = self::quote($model, 0, 0);
@@ -181,6 +193,16 @@ class MarketTextModelRuntimeService
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
+                    if ($homeAgent) {
+                        try { \app\common\service\app\aigc_llm\agent\AgentTextReceipt::record($context['consumption']->toArray(), $context['appTask']->toArray(), $result, true); }
+                        catch (\Throwable $receiptError) {
+                            // A response already exists. Never reinterpret persistence failure as provider rejection.
+                            $usage = self::normalizeUsage((array)($result['usage'] ?? []));
+                            try { self::deferSettlement($context, $result, $usage, $receiptError); }
+                            catch (\Throwable $persistError) { Log::error('Agent receipt review write failed: '.get_class($persistError)); }
+                            throw new TextSettlementPending((int)$context['consumption']['id'], $result, $usage, $receiptError);
+                        }
+                    }
                     if (empty($params['_agent_tool_history'])) unset($result['_responses_output']);
                     if ($openTextCall) {
                         $usage = self::normalizeUsage((array)($result['usage'] ?? []));
@@ -192,6 +214,7 @@ class MarketTextModelRuntimeService
                     if ($resultValidator!==null) $resultValidator($result);
                     break;
                 } catch (\Throwable $initialError) {
+                    if ($initialError instanceof TextSettlementPending) throw $initialError;
                     if ($initialError instanceof MarketTextModelProviderException && $initialError->partialResult !== null) throw $initialError;
                     if ($openTextCall || !empty($params['_agent_tool_history']) || !empty($params['_disable_compatibility_retry'])) throw $initialError;
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
@@ -256,6 +279,10 @@ class MarketTextModelRuntimeService
             if($e instanceof TextSettlementPending)throw $e;
             if ($e instanceof MarketTextModelProviderException && $e->partialResult !== null) {
                 $result = $e->partialResult;
+                if ($homeAgent) {
+                    try { \app\common\service\app\aigc_llm\agent\AgentTextReceipt::record($context['consumption']->toArray(), $context['appTask']->toArray(), $result, false); }
+                    catch (\Throwable $receiptError) { Log::error('Agent partial text receipt failed for consumption '.$context['consumption']['id'].': '.get_class($receiptError)); }
+                }
                 $usage = self::normalizeUsage((array)$result['usage']) + ['usage_complete' => false];
                 if ($openTextCall) {
                     \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
@@ -263,6 +290,12 @@ class MarketTextModelRuntimeService
                 }
                 self::deferSettlement($context, $result, $usage, $e, true);
                 throw new TextSettlementPending((int)$context['consumption']['id'], $result, $usage, $e, '模型回复未完整结束，已保留收到的内容；费用待核对，未执行本轮工具，请勿重复提交');
+            }
+            if ($homeAgent && $result !== null) {
+                $usage = self::normalizeUsage((array)($result['usage'] ?? []));
+                try { self::deferSettlement($context, $result, $usage, $e); }
+                catch (\Throwable $persistError) { Log::error('Agent result review write failed: '.get_class($persistError)); }
+                throw new TextSettlementPending((int)$context['consumption']['id'], $result, $usage, $e);
             }
             if ($openTextCall && !\app\common\service\open_platform\OpenTextLifecycle::rejectionConfirmed()) {
                 \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);

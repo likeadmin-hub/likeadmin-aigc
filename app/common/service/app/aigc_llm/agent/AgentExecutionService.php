@@ -413,7 +413,7 @@ final class AgentExecutionService
             $prepared=AgentStore::json($step['prepared']);
             if($step['status']==='proposed'){
                 self::checkpoint($run);
-                try{$fresh=AgentCapabilityCatalog::prepare($run,$step['tool_code'],$prepared['inputs']??[]);}
+                try{AgentStore::access((int)$run['tenant_id'],(int)$run['user_id']);$fresh=AgentCapabilityCatalog::prepare($run,$step['tool_code'],$prepared['inputs']??[]);}
                 catch(\Exception $e){AgentStore::table('step')->where('id',$step['id'])->update(['status'=>'failed','error'=>'当前模型、权限或报价不可用，请调整后重试','update_time'=>time()]);$failed=true;continue;}
                 if(AgentToolContext::priceFingerprint($fresh['quote'])!==AgentToolContext::priceFingerprint($prepared['quote'])||$fresh['capability']['version']!==$prepared['capability']['version']){
                     foreach(['_attempts','_retry_of','_retry_source_version'] as $key)if(isset($prepared[$key]))$fresh[$key]=$prepared[$key];
