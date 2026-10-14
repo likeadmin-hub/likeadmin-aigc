@@ -49,7 +49,8 @@ final class DecorationAgentService
         if($quote){$recent[]=['role'=>'user','content'=>$input['message']];$recent=array_slice($recent,-16);}
         $icons=DecorationAgentDesignContext::icons();
         $materials=DecorationAgentMediaService::search($tenant,'',$input['sources'],$input['attachments'],12);
-        if(!empty($ctx['approved_design'])){$materials=array_values(array_column(array_merge(DecorationAgentDesignService::approvedMaterials($tenant,$ctx['approved_design'],$input['sources']),$materials),null,'id'));$materials=array_slice($materials,0,12);}
+        $materialAnchor=$ctx['approved_design']??$ctx['design']['parent_reference']??null;
+        if($materialAnchor){$materials=array_values(array_column(array_merge(DecorationAgentDesignService::approvedMaterials($tenant,$materialAnchor,$input['sources']),$materials),null,'id'));$materials=array_slice($materials,0,12);}
         $ctx['approved_material_urls']=array_values(array_unique(array_merge($ctx['approved_material_urls']??[],array_column($materials,'url'),DecorationAgentDesignContext::iconUrls($icons))));
         $ctx['trusted_materials']=array_values(array_merge($ctx['trusted_materials']??[],$materials));
         $inventory=[];
@@ -66,7 +67,8 @@ final class DecorationAgentService
             'shared_style_contract'=>DecorationAgentDesignContext::sharedStyles(),'page_meta_contract'=>DecorationAgentCatalog::pageMeta(),'design_guide'=>DecorationAgentDesignContext::guide(),
             'links'=>$links,'data_sources'=>$sources,'source_inventory'=>$inventory,'icon_catalog'=>DecorationAgentDesignContext::iconSummary($icons),'material_summary'=>$materials,
             'image_sources'=>$input['sources'],'image_strategy'=>$input['image_strategy'],'generation'=>self::generationContext($tenant,$input,$ctx),
-            'visual_review'=>$ctx['visual_review']??null,'vision_reference_order'=>!empty($ctx['visual_review'])?['实际候选截图','已确认设计稿']:(!empty($ctx['approved_design'])?['layout/style附件（若有）','已确认设计稿']:[]),
+            'visual_review'=>$ctx['visual_review']??null,'vision_reference_order'=>!empty($ctx['visual_review'])?['实际候选截图','已确认设计稿']:(!empty($ctx['approved_design'])?['layout/style附件（若有）','已确认设计稿']:(!empty($ctx['design']['parent_reference'])?['layout/style附件（若有）','上一版完整设计稿']:[])),
+            'design_parent'=>$ctx['design']['parent_reference']??null,'prior_blueprint'=>$ctx['design']['prior_blueprint']??[],
             'design_phase'=>$ctx['phase']??($input['design_first']??false?'design':'normal'),'approved_design'=>$ctx['approved_design']??null,'design_constraints'=>!empty($ctx['approved_design'])||($input['design_first']??false)?'设计图用于视觉对照，严禁作为整页背景或单图组件。按全46真实契约还原布局、参数、图标及素材；需截图图对图复审，未经复审不能声称1:1。':'',
             'attachments'=>$input['attachments'],'facts'=>$ctx['facts']??[],'conversation'=>array_map(fn($message)=>['role'=>$message['role'],'content'=>$message['content']],$recent),'tool_results'=>$ctx['observations']??[],
         ];
@@ -177,7 +179,15 @@ final class DecorationAgentService
     }
     private static function visionReferenceCount(array $input,array $context): int
     {
-        return count(array_filter($input['attachments'],fn($attachment)=>array_intersect($attachment['uses'],['layout','style'])))+(!empty($context['approved_design'])?1:0);
+        return count(array_filter($input['attachments'],fn($attachment)=>array_intersect($attachment['uses'],['layout','style'])))+(!empty($context['approved_design'])||!empty($context['design']['parent_reference'])?1:0);
+    }
+    private static function modelReferences(int $tenant,int $admin,int $id,array $input,array $context): array
+    {
+        $references=DecorationAgentMediaService::visionReferences($tenant,$input['attachments']);$designImage=null;
+        if(!empty($context['approved_design']))$designImage=DecorationAgentDesignService::referenceBytes($tenant,$admin,$context['approved_design']);
+        elseif(!empty($context['design']['parent_reference']))$designImage=DecorationAgentDesignService::parentReferenceBytes($tenant,$admin,$id);
+        if($designImage)$references[]='data:'.$designImage['mime_type'].';base64,'.base64_encode($designImage['bytes']);
+        return $references;
     }
     private static function textEstimate(array $model,string $text,int $output=4096): float
     {
@@ -194,10 +204,11 @@ final class DecorationAgentService
         $quoteContext=['candidate'=>$candidate,'facts'=>self::decode($s['facts']??'[]'),'observations'=>[]];
         $latest=(int)(self::decode($s['preferences']??'[]')['_design_state']['run_id']??0);
         if(!$input['design_first']&&$latest){$designRun=self::owned('run',$tenant,$admin,$latest);$design=DecorationAgentDesignService::draft($designRun);if(($design['status']??'')==='approved'){$quoteContext['approved_design']=DecorationAgentDesignService::confirmedDesign($tenant,$admin,$latest,$design['hash']);$input['requires_vision']=true;$model=MarketTextModelRuntimeService::resolveModel($tenant,$input['model_selection'],true);}}
+        if($input['design_first']&&!empty($s['id'])){$quoteContext['phase']='design';$quoteContext['design']=DecorationAgentDesignService::initialState($tenant,$admin,$s,$input);}
         $context=self::modelContext($tenant,$admin,$s,$input,$quoteContext,true);
         $estimate=self::textEstimate($model,self::json($context)."\n用户需求：".$input['message'].DecorationAgentDecision::prompt().str_repeat('v',self::visionReferenceCount($input,$quoteContext) * 6000));
         $imageQuote=[];if(in_array('generate',$input['sources'],true))$imageQuote=DecorationAgentMediaService::quote($tenant,$input['image_model_selection'],1,['attachments'=>$input['attachments'],'reference_file_ids'=>array_column(array_filter($input['attachments'],fn($a)=>in_array('generation',$a['uses'],true)),'file_id')]);
-        return ['estimated_points'=>$estimate,'text_estimated_points'=>$estimate,'max_text_estimated_points'=>$estimate*6,'image_unit_points'=>(float)($imageQuote['tenant_cost_points']??$imageQuote['tenant_cost']??0),'max_model_calls'=>6,'max_images'=>$input['design_first']?1:5,'estimate_only'=>true];
+        return ['vision_reference_count'=>self::visionReferenceCount($input,$quoteContext),'estimated_points'=>$estimate,'text_estimated_points'=>$estimate,'max_text_estimated_points'=>$estimate*6,'image_unit_points'=>(float)($imageQuote['tenant_cost_points']??$imageQuote['tenant_cost']??0),'max_model_calls'=>6,'max_images'=>$input['design_first']?1:5,'estimate_only'=>true];
     }
     public static function start(int $tenant,int $admin,array $p,?array $approvedDesign=null): array
     {
@@ -417,8 +428,7 @@ final class DecorationAgentService
         $context=self::modelContext($tenant,$admin,$s,$input,$ctx);
         $content=self::json($context)."\n用户需求：".$input['message'];
         if($spent+self::textEstimate($model,$content.DecorationAgentDecision::prompt().str_repeat('v',self::visionReferenceCount($input,$ctx) * 6000))>$input['budget_points']){self::finish($id,'budget_exceeded',['error'=>'本轮预算不足以继续，请提高预算后发起新一轮']);return;}
-        $references=DecorationAgentMediaService::visionReferences($tenant,$input['attachments']);
-        if(!empty($ctx['approved_design'])){$designImage=DecorationAgentDesignService::referenceBytes($tenant,$admin,$ctx['approved_design']);$references[]='data:'.$designImage['mime_type'].';base64,'.base64_encode($designImage['bytes']);}
+        $references=self::modelReferences($tenant,$admin,$id,$input,$ctx);
         Db::name('decorate_agent_run')->where('id',$id)->update(['status'=>'running','model_calls'=>(int)$r['model_calls']+1,'spent_points'=>$spent]);$ctx['calling']=true;self::saveContext($id,$ctx);self::event($id,'model',['message'=>'理解需求并安排组件','step'=>(int)$r['model_calls']+1]);
         $replyParser=new DecorationAgentReplyStream();$replyStep=(int)$r['model_calls']+1;$replyText='';$replyFlushed='';$replyTime=0.0;
         $publishReply=function(string $text,bool $complete=false)use($id,$replyStep,&$ctx,&$replyText,&$replyFlushed,&$replyTime): void {
@@ -443,7 +453,7 @@ final class DecorationAgentService
             if(Db::name('decorate_agent_run')->where('id',$id)->value('cancel_requested')){self::finish($id,'canceled',[]);return;}
             if(self::duplicateSourceBinding($ctx,$op,$input))continue;
             if(++$count>20){self::finish($id,'limited',['error'=>'已达到本轮工具次数上限']);return;}
-            try{DecorationAgentDesignService::assertOperation($input,$ctx,$op);if($op['type']==='request_design'){if($designRequest!==null)throw new RuntimeException('本轮只生成一张设计稿');$designRequest=DecorationAgentDesignService::request($op,$input,self::generationContext($tenant,$input,$ctx),$ctx['trusted_materials']??[],$tenant,$links);self::saveContext($id,$ctx);Db::name('decorate_agent_run')->where('id',$id)->update(['tool_calls'=>$count]);self::event($id,'tool',['message'=>'已安排完整页面设计稿','tool'=>'request_design']);continue;}foreach(['widget_id','parent_id'] as $targetKey)if(isset($op[$targetKey])&&str_starts_with((string)$op[$targetKey],'@')){$alias=substr($op[$targetKey],1);if(!isset($ctx['refs'][$alias]))throw new RuntimeException('本轮组件引用不存在');$op[$targetKey]=$ctx['refs'][$alias];}$query=self::queryTool($tenant,$admin,$s,$input,$ctx,$op,$links,$sources);if($query!==null){$ctx['observations'][]=['tool'=>$op['type'],'result'=>$query];if($op['type']==='search_materials'){$ctx['approved_material_urls']=array_values(array_unique(array_merge($ctx['approved_material_urls']??[],array_column($query,'url'))));$ctx['trusted_materials']=array_values(array_merge($ctx['trusted_materials']??[],$query));}if($op['type']==='icons')$ctx['approved_material_urls']=array_values(array_unique(array_merge($ctx['approved_material_urls']??[],DecorationAgentDesignContext::iconUrls($query))));}else{$scope=['scope'=>$input['scope'],'selected_id'=>$input['selected_id'],'allowed_links'=>$links,'approved_urls'=>array_merge(self::explicitUrls($input['message'],$input['attachments']),$ctx['approved_material_urls']??[]),'approved_design'=>$ctx['approved_design']??null,'blocked_sources'=>$ctx['visual_review']['blocked_sources']??[],'run_id'=>$id,'admin_id'=>$admin];$applied=self::applyVisualOperation($ctx['candidate'],$op,$scope,$ctx['trusted_materials']??[],$tenant);$ctx['candidate']=$applied['candidate'];if($op['type']==='add_component'&&!empty($op['ref'])){$last=end($applied['changes']);$ctx['refs'][(string)$op['ref']]=$last['widget_id'];}$ctx['changes']=array_merge($ctx['changes'],$applied['changes']);$imageRequests=array_merge($imageRequests,$applied['image_requests']);}$ctx['failures'][self::json($op)]=0;}
+            try{DecorationAgentDesignService::assertOperation($input,$ctx,$op);if($op['type']==='request_design'){if($designRequest!==null)throw new RuntimeException('本轮只生成一张设计稿');$designRequest=DecorationAgentDesignService::request($op,$input,self::generationContext($tenant,$input,$ctx),$ctx['trusted_materials']??[],$tenant,$links,$ctx['design']['parent_reference']??null);self::saveContext($id,$ctx);Db::name('decorate_agent_run')->where('id',$id)->update(['tool_calls'=>$count]);self::event($id,'tool',['message'=>'已安排完整页面设计稿','tool'=>'request_design']);continue;}foreach(['widget_id','parent_id'] as $targetKey)if(isset($op[$targetKey])&&str_starts_with((string)$op[$targetKey],'@')){$alias=substr($op[$targetKey],1);if(!isset($ctx['refs'][$alias]))throw new RuntimeException('本轮组件引用不存在');$op[$targetKey]=$ctx['refs'][$alias];}$query=self::queryTool($tenant,$admin,$s,$input,$ctx,$op,$links,$sources);if($query!==null){$ctx['observations'][]=['tool'=>$op['type'],'result'=>$query];if($op['type']==='search_materials'){$ctx['approved_material_urls']=array_values(array_unique(array_merge($ctx['approved_material_urls']??[],array_column($query,'url'))));$ctx['trusted_materials']=array_values(array_merge($ctx['trusted_materials']??[],$query));}if($op['type']==='icons')$ctx['approved_material_urls']=array_values(array_unique(array_merge($ctx['approved_material_urls']??[],DecorationAgentDesignContext::iconUrls($query))));}else{$scope=['scope'=>$input['scope'],'selected_id'=>$input['selected_id'],'allowed_links'=>$links,'approved_urls'=>array_merge(self::explicitUrls($input['message'],$input['attachments']),$ctx['approved_material_urls']??[]),'approved_design'=>$ctx['approved_design']??null,'blocked_sources'=>$ctx['visual_review']['blocked_sources']??[],'run_id'=>$id,'admin_id'=>$admin];$applied=self::applyVisualOperation($ctx['candidate'],$op,$scope,$ctx['trusted_materials']??[],$tenant);$ctx['candidate']=$applied['candidate'];if($op['type']==='add_component'&&!empty($op['ref'])){$last=end($applied['changes']);$ctx['refs'][(string)$op['ref']]=$last['widget_id'];}$ctx['changes']=array_merge($ctx['changes'],$applied['changes']);$imageRequests=array_merge($imageRequests,$applied['image_requests']);}$ctx['failures'][self::json($op)]=0;}
             catch(\Throwable $e){$key=self::json($op);$ctx['failures'][$key]=($ctx['failures'][$key]??0)+1;$ctx['observations'][]=['tool'=>$op['type'],'error'=>$e->getMessage()];if($ctx['failures'][$key]>1){self::saveContext($id,$ctx);self::finish($id,'failed',['error'=>'重复操作失败：'.$e->getMessage()]);return;}$decision['kind']='tools';}
             self::saveContext($id,$ctx);Db::name('decorate_agent_run')->where('id',$id)->update(['tool_calls'=>$count]);self::event($id,'tool',['message'=>'已处理装修操作','tool'=>$op['type']]);
         }

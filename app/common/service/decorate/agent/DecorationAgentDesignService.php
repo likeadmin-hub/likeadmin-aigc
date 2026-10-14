@@ -24,12 +24,22 @@ final class DecorationAgentDesignService
         $state=DecorationAgentService::decode($session['preferences'])['_design_state']??[];
         $latest=(int)($state['run_id']??0);$parent=(int)($input['design_parent_run_id']??0);
         if($parent&&$parent!==$latest)throw new RuntimeException('设计版本已更新，请使用最新设计稿调整');
+        $reference=null;$prior=[];
         if($latest){
             $old=self::ownedRun($tenant,$admin,$latest);
             if((int)$old['session_id']!==(int)$session['id'])throw new RuntimeException('设计会话不匹配');
             if($old['status']==='needs_review')throw new RuntimeException('上次设计提交或费用待核实，不能重新生成');
+            $design=DecorationAgentService::decode($old['context_json'])['design']??[];
+            if((int)$old['cancel_requested']||($design['status']??'')==='canceled'){
+                if($parent)throw new RuntimeException('已取消设计不能作为调整参考');$latest=0;
+            }elseif(in_array($design['status']??'',['awaiting_confirmation','approved'],true)&&!empty($design['asset'])){
+                $asset=DecorationAgentAssetReferences::designAsset((int)$design['slot_id'],$tenant,$admin);
+                if(!$asset||!self::sameAsset($asset,$design['asset'])||self::designHash($design)!==($design['hash']??''))throw new RuntimeException('上一版设计资源或哈希已变化');
+                $reference=['run_id'=>$latest]+array_intersect_key($design,array_flip(['revision','hash','slot_id','blueprint','asset']));
+            }elseif(in_array($old['status'],['failed','awaiting_input','budget_exceeded','limited'],true)&&empty($design['asset'])){$prior=$design['blueprint']??[];}
+            else throw new RuntimeException('上一版设计尚不可用作调整参考');
         }
-        return ['status'=>'planning','revision'=>(int)($state['revision']??0)+1,'parent_run_id'=>$parent?:$latest,'slot_id'=>0,'prompt'=>'','blueprint'=>[],'hash'=>''];
+        return ['status'=>'planning','revision'=>(int)($state['revision']??0)+1,'parent_run_id'=>$parent?:$latest,'parent_reference'=>$reference,'prior_blueprint'=>$prior,'slot_id'=>0,'prompt'=>'','blueprint'=>[],'hash'=>''];
     }
 
     /** Called under the existing session start lock. */
@@ -54,7 +64,7 @@ final class DecorationAgentDesignService
         if(!in_array($operation['type']??'',['request_design','get_context','catalog','data_sources','links','search_materials','icons','validate'],true))throw new RuntimeException('请先生成并确认设计稿，确认前不能修改页面或生成独立素材');
     }
 
-    public static function request(array $operation,array $input,array $generation,array $materials=[],int $tenant=0,array $links=[]): array
+    public static function request(array $operation,array $input,array $generation,array $materials=[],int $tenant=0,array $links=[],?array $parentReference=null): array
     {
         if(!in_array('generate',$input['sources'],true))throw new RuntimeException('未授权生成设计稿');
         $prompt=trim((string)($operation['prompt']??''));$blueprint=$operation['blueprint']??null;
@@ -71,11 +81,12 @@ final class DecorationAgentDesignService
         DecorationAgentOperations::apply(['data'=>[],'meta'=>[]],[['type'=>'replace_page','components'=>$components]],['scope'=>'page','approved_urls'=>$urls,'allowed_links'=>$links]);
         $ratios=$generation['selected_model']['ratio_options']??[];$ratio=(string)($operation['ratio']??(in_array('9:16',$ratios,true)?'9:16':($ratios[0]??'')));
         if($ratio===''||!in_array($ratio,$ratios,true))throw new RuntimeException('设计图比例不在当前模型支持范围内');
-        $ids=$operation['reference_material_ids']??[];
+        $ids=$operation['reference_material_ids']??array_column($parentReference['blueprint']['selected_materials']??[],'id');
         if(!is_array($ids)||!array_is_list($ids)||count($ids)>5||count(array_filter($ids,'is_string'))!==count($ids))throw new RuntimeException('设计素材参考标识无效');
         $maxReferences=(int)($generation['selected_model']['max_reference_images']??0);
-        if($maxReferences>0&&count($ids)>$maxReferences)throw new RuntimeException('设计素材参考超过当前模型允许数量');
-        if($ids&&!($generation['selected_model']['supports_reference_images']??false))throw new RuntimeException('当前生图模型不支持素材参考图');
+        $referenceCount=count($ids)+($parentReference?1:0)+count(array_filter($input['attachments']??[],fn($attachment)=>in_array('generation',$attachment['uses']??[],true)));
+        if($maxReferences>0&&$referenceCount>$maxReferences)throw new RuntimeException('设计素材参考超过当前模型允许数量');
+        if($referenceCount&&!($generation['selected_model']['supports_reference_images']??false))throw new RuntimeException('当前生图模型不支持素材参考图');
         $selected=[];$byId=array_column($materials,null,'id');$builtins=array_column(DecorationAgentMediaService::builtinMaterials(),null,'id');
         foreach(array_unique($ids) as $id){
             $material=$byId[$id]??null;if(!$material)throw new RuntimeException('素材参考必须来自本轮授权搜索结果');
@@ -89,7 +100,9 @@ final class DecorationAgentDesignService
         foreach($blueprint['regions'] as &$region)foreach($region['components'] as &$spec)if(is_array($spec))$spec=self::freezeSpec($spec,$replacements);
         unset($region,$spec);
         $blueprint['selected_materials']=$selected;
-        return ['purpose'=>'design','prompt'=>'生成完整移动页面UI设计稿，展示页面从顶部到全部内容区及底部的整体布局。不是装饰主视觉，不是单张背景；文字、图标、卡片和间距必须清晰。依据可用组件和真实内容，不能虚构业务案例。使用所提供的真实素材参考，保持素材内容和已规划参数，不把它们替换为虚构图片。'.$prompt."\n严格遵循以下可实现组件规划；参考图按selected_materials顺序对应。URI/ID仅是资源标识，不要把它们画进页面：".DecorationAgentService::json($blueprint),'blueprint'=>$blueprint,'ratio'=>$ratio,'reference_file_ids'=>[],'design_materials'=>$selected];
+        $referenceOrder=$parentReference?'第一张参考图是上一版完整UI，之后按selected_materials顺序对应真实素材。':'参考图按selected_materials顺序对应真实素材。';
+        if($parentReference)$prompt='这是对上一版设计稿的调整：第一张参考图是上一版完整UI，保留未要求变更的主视觉、图标、入口及布局，仅修改明确要求的区域。后续参考图依次对应selected_materials。'.$prompt;
+        return ['purpose'=>'design','prompt'=>'生成完整移动页面UI设计稿，展示页面从顶部到全部内容区及底部的整体布局。不是装饰主视觉，不是单张背景；文字、图标、卡片和间距必须清晰。依据可用组件和真实内容，不能虚构业务案例。使用所提供的真实素材参考，保持素材内容和已规划参数，不把它们替换为虚构图片。'.$prompt."\n严格遵循以下可实现组件规划；".$referenceOrder."URI/ID仅是资源标识，不要把它们画进页面：".DecorationAgentService::json($blueprint),'blueprint'=>$blueprint,'ratio'=>$ratio,'reference_file_ids'=>[],'design_materials'=>$selected,'design_parent'=>$parentReference];
     }
 
     private static function freezeSpec(array $spec,array $replacements): array
@@ -110,11 +123,33 @@ final class DecorationAgentDesignService
         return $spec;
     }
 
+    public static function parentReferenceBytes(int $tenant,int $admin,int $childId): ?array
+    {
+        $child=self::ownedRun($tenant,$admin,$childId);$context=DecorationAgentService::decode($child['context_json']);$design=$context['design']??[];$reference=$design['parent_reference']??null;
+        if(!$reference)return null;
+        $session=Db::name('decorate_agent_session')->where(['id'=>$child['session_id'],'tenant_id'=>$tenant,'admin_id'=>$admin])->find();$latest=DecorationAgentService::decode($session['preferences']??'[]')['_design_state']??[];
+        if((int)$child['cancel_requested']||!self::designing(DecorationAgentService::decode($child['input_json']),$context)
+            ||(int)($latest['run_id']??0)!==$childId||(int)($latest['revision']??0)!==(int)$design['revision']
+            ||(int)$design['parent_run_id']!==(int)$reference['run_id'])throw new RuntimeException('设计调整参考链已取消或被替代');
+        $parent=self::ownedRun($tenant,$admin,(int)$reference['run_id']);$previous=DecorationAgentService::decode($parent['context_json'])['design']??[];
+        $frozen=['run_id'=>(int)$parent['id']]+array_intersect_key($previous,array_flip(['revision','hash','slot_id','blueprint','asset']));
+        if((int)$parent['cancel_requested']||(int)$parent['session_id']!==(int)$child['session_id']||($previous['status']??'')!=='superseded'
+            ||(int)$previous['revision']+1!==(int)$design['revision']||$frozen!==$reference||self::designHash($previous)!==$reference['hash'])throw new RuntimeException('上一版设计身份、哈希或调整顺序已变化');
+        $asset=DecorationAgentAssetReferences::designAsset((int)$reference['slot_id'],$tenant,$admin);
+        if(!$asset||!self::sameAsset($asset,$reference['asset']))throw new RuntimeException('上一版设计资源归属已变化');
+        $read=DecorationAgentMediaService::readStoredImage($tenant,$asset);
+        if(!hash_equals($reference['asset']['sha256'],$read['sha256']))throw new RuntimeException('上一版设计图片内容已变化');
+        return $read;
+    }
+
     public static function materialReferences(int $tenant,array $slot): array
     {
         $run=self::ownedRun($tenant,(int)$slot['admin_id'],(int)$slot['run_id']);if((int)$run['cancel_requested'])throw new RuntimeException('设计任务已取消');
         $input=DecorationAgentService::decode($run['input_json']);$request=DecorationAgentService::decode($slot['request_json']);$refs=[];$builtins=array_column(DecorationAgentMediaService::builtinMaterials(),null,'id');
         if(($request['purpose']??'')!=='design')throw new RuntimeException('普通图片位置不能读取设计阶段素材参考');
+        $parent=DecorationAgentService::decode($run['context_json'])['design']['parent_reference']??null;
+        if(($request['design_parent']??null)!==$parent)throw new RuntimeException('设计参考必须来自当前冻结的调整链');
+        if($parent){$read=self::parentReferenceBytes($tenant,(int)$slot['admin_id'],(int)$slot['run_id']);$refs[]='data:'.$read['mime_type'].';base64,'.base64_encode($read['bytes']);}
         foreach($request['design_materials']??[] as $material){
             if(!in_array($material['source']??'',$input['sources'],true))throw new RuntimeException('设计素材来源已失效');
             if(($material['kind']??'')==='builtin'){

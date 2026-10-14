@@ -3443,6 +3443,62 @@
           "type": "link",
           "value_type": "object",
           "default": {}
+        },
+        "font_size": {
+          "key": "font_size",
+          "label": "主标题字号",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 17,
+          "unit": "px",
+          "min": 10,
+          "max": 48,
+          "help": "主标题的逻辑px字号，不使用HTML标题标签推断大小。"
+        },
+        "sub_font_size": {
+          "key": "sub_font_size",
+          "label": "副标题字号",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 12,
+          "unit": "px",
+          "min": 10,
+          "max": 24
+        },
+        "font_weight": {
+          "key": "font_weight",
+          "label": "主标题字重",
+          "type": "select",
+          "value_type": "number",
+          "default": 0,
+          "unit": "",
+          "options": [
+            {
+              "label": "沿用旧端默认",
+              "value": 0
+            },
+            {
+              "label": "常规",
+              "value": 400
+            },
+            {
+              "label": "中等",
+              "value": 500
+            },
+            {
+              "label": "半粗",
+              "value": 600
+            },
+            {
+              "label": "粗体",
+              "value": 700
+            },
+            {
+              "label": "特粗",
+              "value": 800
+            }
+          ],
+          "help": "0保留共享预览700/公开端600；明确设置后两端一致。"
         }
       },
       "style_fields": {
@@ -17203,6 +17259,47 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "item_padding": {
+          "key": "item_padding",
+          "label": "入口卡片内边距",
+          "type": "stepper",
+          "value_type": "number",
+          "default": null,
+          "unit": "rpx",
+          "min": 0,
+          "max": 120,
+          "help": "每张入口内卡的内边距；未设置保留旧端默认，0表示无内边距。"
+        },
+        "item_radius": {
+          "key": "item_radius",
+          "label": "入口卡片圆角",
+          "type": "stepper",
+          "value_type": "number",
+          "default": null,
+          "unit": "rpx",
+          "min": 0,
+          "max": 120,
+          "help": "每张入口内卡的圆角；未设置保留旧端默认，0表示直角。"
+        },
+        "item_min_height": {
+          "key": "item_min_height",
+          "label": "入口卡片最小高度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 800,
+          "help": "每张入口内卡的最小高度；0按内容自然撑开，不是固定高度。"
+        },
+        "icon_color": {
+          "key": "icon_color",
+          "label": "系统图标颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": "",
+          "help": "仅系统named glyph，十六进制或rgb/rgba；空继承文字颜色，不影响图片、emoji或入口文字。"
         }
       },
       "lists": {
@@ -18068,6 +18165,47 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "item_padding": {
+          "key": "item_padding",
+          "label": "入口卡片内边距",
+          "type": "stepper",
+          "value_type": "number",
+          "default": null,
+          "unit": "rpx",
+          "min": 0,
+          "max": 120,
+          "help": "每张入口内卡的内边距；未设置保留旧端默认，0表示无内边距。"
+        },
+        "item_radius": {
+          "key": "item_radius",
+          "label": "入口卡片圆角",
+          "type": "stepper",
+          "value_type": "number",
+          "default": null,
+          "unit": "rpx",
+          "min": 0,
+          "max": 120,
+          "help": "每张入口内卡的圆角；未设置保留旧端默认，0表示直角。"
+        },
+        "item_min_height": {
+          "key": "item_min_height",
+          "label": "入口卡片最小高度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 800,
+          "help": "每张入口内卡的最小高度；0按内容自然撑开，不是固定高度。"
+        },
+        "icon_color": {
+          "key": "icon_color",
+          "label": "系统图标颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": "",
+          "help": "仅系统named glyph，十六进制或rgb/rgba；空继承文字颜色，不影响图片、emoji或入口文字。"
         }
       },
       "lists": {
@@ -19243,6 +19381,17 @@
               "value": "contain"
             }
           ]
+        },
+        "image_height": {
+          "key": "image_height",
+          "label": "媒体图片高度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 1200,
+          "help": "明确正值时两端同一图片高度；0/未配置保留共享4:3与公开端210rpx旧默认。仅控制图片，不拉伸文字。"
         }
       },
       "style_fields": {
@@ -19622,7 +19771,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "single/grid/double/scroll layout and cover/contain are consumed. Shared/public image proportions differ.",
+        "single/grid/double/scroll layout and cover/contain are consumed. Explicit positive image_height (rpx) matches both clients; 0/absent retains shared4:3/public210rpx legacy defaults.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -22992,6 +23141,47 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "item_padding": {
+          "key": "item_padding",
+          "label": "入口卡片内边距",
+          "type": "stepper",
+          "value_type": "number",
+          "default": null,
+          "unit": "rpx",
+          "min": 0,
+          "max": 120,
+          "help": "每张入口内卡的内边距；未设置保留旧端默认，0表示无内边距。"
+        },
+        "item_radius": {
+          "key": "item_radius",
+          "label": "入口卡片圆角",
+          "type": "stepper",
+          "value_type": "number",
+          "default": null,
+          "unit": "rpx",
+          "min": 0,
+          "max": 120,
+          "help": "每张入口内卡的圆角；未设置保留旧端默认，0表示直角。"
+        },
+        "item_min_height": {
+          "key": "item_min_height",
+          "label": "入口卡片最小高度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 800,
+          "help": "每张入口内卡的最小高度；0按内容自然撑开，不是固定高度。"
+        },
+        "icon_color": {
+          "key": "icon_color",
+          "label": "系统图标颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": "",
+          "help": "仅系统named glyph，十六进制或rgb/rgba；空继承文字颜色，不影响图片、emoji或入口文字。"
         }
       },
       "lists": {
@@ -23825,5 +24015,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "11e1c99f51731031ad5cd9f6d5c38d349ab8d06e8aadb0c7ba96cd2d8245d883"
+  "hash": "49d649c34aff030a2aa807ebe5908695d0f6d8d46cfe0e85e0ecf618d20a1673"
 }
