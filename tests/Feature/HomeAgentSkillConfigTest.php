@@ -10,7 +10,11 @@ $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']
 Db::startTrans();try{
  $t=1999999906;
  Display::save($t,'aigc_fitting',['cover_uri'=>'https://example.test/cover.png','skill_preview_images'=>['https://example.test/old.png']]);
- $items=array_column(Skills::detail($t),null,'id');check(count($items)===7&&$items['fitting']['images']===['https://example.test/old.png'],'Legacy media/defaults missing');
+ $items=array_column(Skills::detail($t),null,'id');
+ check(array_diff(['speech','fitting','image','video','music','document','script','plan'],array_keys($items))===[],'Required default skill missing');
+ check($items['fitting']['images']===['https://example.test/old.png'],'Legacy media missing');
+ check(!in_array('speech',array_column(Skills::forTools($t,[]),'id'),true),'Speech skill bypassed tool availability');
+ check(in_array('speech',array_column(Skills::forTools($t,['speech_synthesis']),'id'),true),'Authorized speech skill unavailable');
  Llm::saveConfig($t,['status'=>1,'config_json'=>['system_prompt'=>'preserve me']]);
  Llm::saveConfig($t,['skill_configs'=>[['id'=>'fitting','name'=>'试穿效果','enabled'=>0,'sort'=>30,'prompt'=>'请先确认服装和模特','materials'=>'两张图','images'=>[],'videos'=>['https://example.test/demo.mp4']],['id'=>'document','images'=>['https://example.test/doc.png']]]]);
  $items=array_column(Skills::detail($t),null,'id');check($items['fitting']['name']==='试穿效果'&&$items['fitting']['enabled']===0&&$items['fitting']['images']===[]&&$items['fitting']['cover_url']==='https://example.test/cover.png','Saved setting/clear/cover failed');
@@ -42,5 +46,5 @@ Db::startTrans();try{
  check(empty($store::preferences($t,1999999907)['skill_favorites'])&&empty($store::preferences($t+1,1999999906)['skill_favorites']),'Favorite ownership leak');
  try{$store::preferences($t,1999999906,['favorite_skill'=>['id'=>'missing','favorite'=>'1']]);throw new LogicException('Unknown skill favorited');}catch(InvalidArgumentException){}
  check($store::preferences($t,1999999906,['favorite_skill'=>['id'=>'plan','favorite'=>'0']])['skill_favorites']===[],'Unfavorite failed');
- echo "Central Agent skills passed: seven defaults, legacy media, independent text skills, base preservation, ownership and immutable tools; rolled back\n";
+ echo "Central Agent skills passed: default skills, speech authorization, legacy media, independent text skills, base preservation, ownership and immutable tools; rolled back\n";
 }finally{Db::rollback();}
