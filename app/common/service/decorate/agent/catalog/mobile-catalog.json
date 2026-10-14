@@ -19609,7 +19609,7 @@
               "value": 800
             }
           ],
-          "help": "仅每行媒体标题；0保留共享strong原bolder/公开继承原字重，显式400–800两端一致。"
+          "help": "仅每行媒体标题；0保留共享原CSS级联（不新增字重覆盖）/公开继承原字重，显式400–800两端一致。"
         },
         "image_fit": {
           "key": "image_fit",
@@ -20057,7 +20057,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "single/grid/double/scroll and cover/contain are consumed. list is inner left-image/right-copy; list_scroll=1 enables outer horizontal 72%-width cards without changing inner layout. image_width is rpx, only list consumes it; 0 uses160rpx; actual image width is capped at45% of the card width. Row typography: font_size enum0 or10–32px, sub_font_size enum0 or10–24px, font_weight enum0/400/500/600/700/800. Positive sizes are logicalpx; 0 retains shared13/11px/public26/22rpx and each old title weight. Explicit positive image_height (rpx) matches both clients; 0/absent retains shared4:3/public210rpx legacy defaults.",
+        "single/grid/double/scroll and cover/contain are consumed. list is inner left-image/right-copy; list_scroll=1 enables outer horizontal 72%-width cards without changing inner layout. image_width is rpx, only list consumes it; 0 uses160rpx; actual image width is capped at45% of the card width. Row typography: font_size enum0 or10–32px, sub_font_size enum0 or10–24px, font_weight enum0/400/500/600/700/800. Positive sizes are logicalpx; 0 retains shared13/11px/public26/22rpx and each old title weight: shared zero/absent adds no font-weight override; public inherits the old weight. Explicit positive image_height (rpx) matches both clients; 0/absent retains shared4:3/public210rpx legacy defaults.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -24301,5 +24301,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "43ca1f0a1269b97339669d96933dacc020b916cd9dbb1eb6c63fc960ba0ccad1"
+  "hash": "b4eaa2b17c298e643349f84d630ff5123a80bd6e078de983268498b35c2fe274"
 }
