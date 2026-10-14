@@ -16,4 +16,9 @@ $unknown=$context;unset($unknown['approved_design']['asset']['width']);guidanceC
 guidanceCheck($method->invoke(null,[])===null,'ordinary conversations gain no visual-review target');
 $prompt=D::prompt();guidanceCheck(str_contains($prompt,'批准图片优先')&&str_contains($prompt,'估算')&&str_contains($prompt,'旧蓝图'),'decision prompt explicitly treats measurements as estimates and prior parameters as subordinate');
 guidanceCheck(str_contains($prompt,'可见bbox')&&str_contains($prompt,'独立图标')&&str_contains($prompt,'重新截图'),'review checks real visible image/glyph composition and requires a new screenshot after repair');
+guidanceCheck(str_contains($prompt,'每轮')&&str_contains($prompt,'修复final也必须返回acceptance')&&!str_contains($prompt,'只有未发生任何编辑/生图、各类证据充分时才返回acceptance'),'every repair round retains six-category diagnosis instead of suppressing acceptance');
+$checks=array_map(fn($category)=>['category'=>$category,'passed'=>false,'detail'=>'本轮输入旧截图的target/actual存在差异；本轮修复效果尚未验证。','evidence'=>['对应区域的具体target/actual对照']],['layout','typography','color','assets','icons','interaction']);
+$diagnosis=['passed'=>false,'checks'=>$checks,'summary'=>'本轮只诊断输入原图，修复后需重新截图'];
+$parsed=D::parse(S::json(['reply'=>'已生成修复候选，效果待截图验证','kind'=>'final','operations'=>[['type'=>'configure_page','fields'=>['content.show_nav'=>0]]],'acceptance'=>$diagnosis]));
+guidanceCheck($parsed['acceptance']===$diagnosis&&$parsed['operations'][0]['type']==='configure_page','decision parser preserves complete explicit-false input-image diagnosis alongside repair operations');
 echo "visual review guidance: $n checks passed (real context/prompt services, no DB/provider writes)\n";
