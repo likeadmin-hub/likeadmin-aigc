@@ -546,16 +546,10 @@ class installModel
 
     private function normalizeSqlStatement(string $sql): string
     {
-        $lines = preg_split('/\r\n|\r|\n/', trim($sql));
-        $statements = [];
-        foreach ($lines as $line) {
-            $trimmed = trim($line);
-            if ($trimmed === '' || str_starts_with($trimmed, '--') || str_starts_with($trimmed, '#')) {
-                continue;
-            }
-            $statements[] = $line;
-        }
-        return trim(implode("\n", $statements));
+        // SQL comments must be removed outside quoted values only. Markdown
+        // headings and blank lines in the built-in API guides are data.
+        require_once $this->getAppRoot() . '/app/common/service/database/SqlMigrationExecutor.php';
+        return implode(";\n", \app\common\service\database\SqlMigrationExecutor::split($sql));
     }
 
     /**
