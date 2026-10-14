@@ -41,7 +41,7 @@ final class DecorationAgentDesignContext
             'fields'=>$fields,'lists'=>$lists,'component_id_readonly'=>true,'style_keys'=>array_keys($definition['style_fields']??[]),
             'container'=>(bool)($definition['children']['supported']??false),
             'source'=>array_intersect_key($definition['source']??[],array_flip($detailed?['default_key','allowed_keys','modes']:['default_key','modes'])),
-            'semantics'=>self::semantics((string)$definition['name']),'runtime_capabilities'=>$detailed?self::runtimeNotes($definition['name']):array_intersect_key(self::runtimeNotes($definition['name']),array_flip(['support','unsupported_fields'])),'image_slots'=>self::imageSlots($definition),
+            'semantics'=>self::semantics((string)$definition['name']),'runtime_capabilities'=>self::runtimeNotes($definition['name']),'image_slots'=>self::imageSlots($definition),
         ];
     }
 
@@ -104,7 +104,7 @@ final class DecorationAgentDesignContext
             'floating-action'=>['supported'=>'position/offset_right/offset_bottom/button_size/button_gap/button_shape；row type/link/icon_mode/icon_image/show_text/phone','layout'=>'图片square；type支持链接/回顶/客服/电话；固定层','limitations'=>'采用独立auto/type符号系统，不等同14类入口glyph；contact依赖端能力；不是普通文档流','unsupported_fields'=>['content.field_map']],
             'popup-promo'=>['supported'=>'image/title/desc/link','layout'=>'当前是文档流内推广卡背景cover','limitations'=>'trigger/delay/closeable未消费；**没有弹窗生命周期**，不可承诺首次/延迟/关闭行为','unsupported_fields'=>['content.trigger','content.delay','content.closeable','content.field_map']],
             'section'=>['supported'=>'children、外壳样式','layout'=>'正常流容器','limitations'=>'列表/source不自动创建children','unsupported_fields'=>['content.field_map']],
-            'grid'=>['supported'=>'columns/gap、children','layout'=>'1–12栅格；读取child styles布局span','limitations'=>'children跨度布局读字段与当前通用style写入契约不完全一致；不能凭空写未声明layout对象','unsupported_fields'=>['content.field_map']],
+            'grid'=>['supported'=>'columns/gap、children；直接子组件可选styles.grid_column','layout'=>'1–12列；子组件grid_column为0–12整数，正值按最近父栅格列数限制占列，显式0整行；缺省先兼容旧span，无旧值才整行','limitations'=>'占列只影响最近父栅格直接子项，不传播到后代；只能写声明的styles.grid_column，不能凭空写layout对象；source不会生成children','unsupported_fields'=>['content.field_map']],
             'stack'=>['supported'=>'min_height、children','layout'=>'百分比/叠层布局，共享/公共child布局辅助','limitations'=>'默认布局需显式合法child定位配置；data/source非children；位置字段写入边界需单独导出','unsupported_fields'=>['content.field_map']],
             'horizontal-scroll'=>['supported'=>'gap、children、可选item_width','layout'=>'单行横滑组件容器；item_width为0–1500rpx，正值只指定最近横滑容器直接子组件卡宽，不传播到嵌套后代','limitations'=>'item_width=0或未配置保留78%旧卡宽与样式级联；source rows不会转换为子组件；image_width只改变媒体卡内图宽，不能代替本字段','unsupported_fields'=>['content.field_map']],
             'masonry'=>['supported'=>'columns/gap、children','layout'=>'2–4 CSS columns的容器','limitations'=>'这是子组件瀑布流；不是case-feed的图片列表列数开关','unsupported_fields'=>['content.field_map']],
@@ -199,7 +199,7 @@ final class DecorationAgentDesignContext
     private static function semantics(string $name): string
     {
         return match($name){
-            'search'=>'搜索输入；placeholder说明范围，热点/按钮显隐跟随契约，点击执行真实搜索。',
+            'search'=>'搜索入口；placeholder/height真实消费，公共端可导航搜索，共享端仅示意；热点/按钮显隐未消费，不能承诺。',
             'fixed-search'=>'搜索展示；fixed_position当前未消费，不宣称固定定位；具体端交互见runtime_notes。',
             'banner'=>'图片主视觉轮播；data.image实际展示，image_height/autoplay/interval/indicator控制呈现，文字另用标题/富文本。',
             'carousel-search'=>'轮播主视觉叠加搜索；图片用data.image，搜索及轮播参数按条件显示，注意遮挡与文字对比。',
@@ -225,7 +225,7 @@ final class DecorationAgentDesignContext
             'floating-action'=>'浮动动作按钮；type与icon_mode/system/image决定图形，按钮位置/大小/间距不能挡内容，电话/客服真实。',
             'popup-promo'=>'文档流推广卡；content.image为背景，点击合法link；当前没有弹窗生命周期，trigger/delay/closeable未消费。',
             'section'=>'通用区域容器；children承载独立组件，background/padding统一分组，遵循最大深度与selected范围。',
-            'grid'=>'栅格容器；children按列数/间距排列，保持移动端宽度，不创建超出容器限制的嵌套。',
+            'grid'=>'栅格容器；children按列数/间距排列，直接子项styles.grid_column控制占列（显式0整行；缺省兼容旧span），保持移动端宽度和嵌套范围。',
             'stack'=>'堆叠容器；children层叠排列，注意层级/偏移/尺寸不遮住操作，遵循容器限制。',
             'horizontal-scroll'=>'横滑容器；children水平滚动，可选item_width正值按rpx指定直接子卡宽，0或缺省保留78%；间距决定可见节奏，内容可真实点击。',
             'masonry'=>'瀑布流容器；children按列错位排列，适合不同图片高度，保留真实封面和链接。',

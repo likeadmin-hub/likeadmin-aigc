@@ -255,6 +255,71 @@
           "type": "color",
           "value_type": "string",
           "default": "#999999"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {},
@@ -630,6 +695,71 @@
           "type": "color",
           "value_type": "string",
           "default": "#999999"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -1159,6 +1289,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -1683,6 +1878,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -2178,6 +2438,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -2700,6 +3025,71 @@
           "type": "color",
           "value_type": "string",
           "default": "#333333"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -3181,6 +3571,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -3694,6 +4149,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {},
@@ -4042,6 +4562,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {},
@@ -4327,6 +4912,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -4756,6 +5406,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -5212,6 +5927,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -5683,6 +6463,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {},
@@ -5948,6 +6793,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {},
@@ -6267,6 +7177,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -6719,6 +7694,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -7225,6 +8265,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -7721,6 +8826,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -8203,6 +9373,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -8718,6 +9953,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -9372,6 +10672,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -9950,6 +11315,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -10508,6 +11938,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -11050,6 +12545,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -11665,6 +13225,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -12158,6 +13783,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -12665,6 +14355,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -12854,7 +14609,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "Children are a 1–12 column grid. Child span read compatibility differs from writable style schema; do not invent layout objects.",
+        "Children are a 1–12 integer column grid. Each direct child styles.grid_column is integer0–12: Explicit0 spans the full parent row; absent preserves read-only legacy layout/grid/content aliases, or spans the full row if none exist. Positive spans are clamped to the nearest parent columns. Canonical presence wins over aliases. Nested grids do not override their own outer span; no arbitrary layout objects.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -13164,6 +14919,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -13665,6 +15485,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -14164,6 +16049,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -14652,6 +16602,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -15175,6 +17190,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -15690,6 +17770,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -16216,6 +18361,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -16711,6 +18921,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -17291,6 +19566,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         },
         "item_padding": {
           "key": "item_padding",
@@ -18198,6 +20538,71 @@
           "default": 24,
           "unit": "rpx"
         },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
+        },
         "item_padding": {
           "key": "item_padding",
           "label": "入口卡片内边距",
@@ -19027,6 +21432,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -19879,6 +22349,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -20375,6 +22910,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -20871,6 +23471,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -21382,6 +24047,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -21898,6 +24628,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -22384,6 +25179,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -22863,6 +25723,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -23438,6 +26363,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         },
         "item_padding": {
           "key": "item_padding",
@@ -24312,5 +27302,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "1ced6e2c73c3cd40f472efe81fa3d551128f6afc18b0b390ed6b98d339d06566"
+  "hash": "0c0bcfcd0de34b261b6d4778e1f12cf0c4b41788db2594ea88994e7f1a3ef478"
 }
