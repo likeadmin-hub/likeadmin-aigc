@@ -77,10 +77,37 @@ log_startup "exec: $PHP_BIN $SERVER_DIR/think ai:task-worker"
 # child in this script's process group so one restart starts the complete set
 # and no queue is silently left behind.
 pids=""
+virtual_pid=""
+monitor_sleep=""
+# This bounded side loop is deliberately separate from critical queue consumers:
+# a payment-channel failure must never restart AI/OEM workers or their tasks.
+start_virtual_maintenance() {
+    (
+        stopping=0
+        sleeper=""
+        trap 'stopping=1; [ -z "$sleeper" ] || kill -TERM "$sleeper" 2>/dev/null || true' TERM INT
+        while [ "$stopping" -eq 0 ]; do
+            # Ignore group TERM only for the current bounded operation. The loop
+            # stops scheduling and waits for it to finish its durable writes.
+            (trap '' TERM INT; exec "$PHP_BIN" "$SERVER_DIR/think" virtualpay:maintain) >> "$LOG_FILE" 2>&1 &
+            current=$!
+            while kill -0 "$current" 2>/dev/null; do wait "$current" || true; done
+            [ "$stopping" -eq 0 ] || break
+            sleep 60 &
+            sleeper=$!
+            wait "$sleeper" || true
+            sleeper=""
+        done
+    ) &
+    virtual_pid=$!
+}
 cleanup() {
     trap - TERM INT EXIT
+    [ -z "$monitor_sleep" ] || kill -TERM "$monitor_sleep" 2>/dev/null || true
+    [ -z "$virtual_pid" ] || kill -TERM "$virtual_pid" 2>/dev/null || true
     for pid in $pids; do kill -TERM "$pid" 2>/dev/null || true; done
     for pid in $pids; do wait "$pid" 2>/dev/null || true; done
+    [ -z "$virtual_pid" ] || wait "$virtual_pid" 2>/dev/null || true
 }
 trap 'exit 143' TERM
 trap 'exit 130' INT
@@ -100,10 +127,16 @@ pids="$pids $!"
 pids="$pids $!"
 "$PHP_BIN" "$SERVER_DIR/think" brand:worker --sleep=3 >> "$LOG_FILE" 2>&1 &
 pids="$pids $!"
-log_startup "started workers: $pids"
+start_virtual_maintenance
+log_startup "started workers: $pids; virtual maintenance: $virtual_pid"
 # POSIX sh (including dash and older Bash in sh mode) has no wait -n.
-# If any child stops, exit nonzero so Supervisor restarts the complete group.
+# If a critical queue consumer stops, retain the existing group restart policy.
 while :; do
+    if ! kill -0 "$virtual_pid" 2>/dev/null; then
+        wait "$virtual_pid" 2>/dev/null || true
+        log_startup "virtual maintenance loop exited; restarting only payment reconciliation"
+        start_virtual_maintenance
+    fi
     for pid in $pids; do
         if ! kill -0 "$pid" 2>/dev/null; then
             status=0
@@ -112,5 +145,8 @@ while :; do
             exit 1
         fi
     done
-    sleep 1
+    sleep 1 &
+    monitor_sleep=$!
+    wait "$monitor_sleep" || true
+    monitor_sleep=""
 done
