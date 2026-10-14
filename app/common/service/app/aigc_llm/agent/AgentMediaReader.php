@@ -32,6 +32,7 @@ final class AgentMediaReader
     }
     public static function command(array $args,int $timeout=30,int $max=4194304): string
     {
+        if(!function_exists('proc_open'))throw new \InvalidArgumentException('当前 Worker 未启用素材解析，请使用 scripts/home-agent-php.sh 启动');
         $allowed=['/usr/bin/pdfinfo','/usr/bin/pdftotext','/usr/bin/pdftoppm','/usr/bin/ffprobe','/usr/bin/ffmpeg'];
         if(!in_array($args[0],$allowed,true)||!is_executable($args[0]))throw new \InvalidArgumentException('素材解析组件未安装，请联系管理员安装 Poppler 和 FFmpeg');
         $proc=proc_open($args,[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,null,['PATH'=>'/usr/bin:/bin','LANG'=>'C.UTF-8']);
