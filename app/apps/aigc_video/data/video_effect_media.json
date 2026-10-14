@@ -1,362 +1,362 @@
 {
-    "push_in": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/images/20261012/20261012042036ec46d2128.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video/20261012/202610120427580b77d6632.mp4"
-    },
-    "pull_out": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/images/20261012/2026101204203643b841941.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video/20261012/20261012042758d5c6b8356.mp4"
-    },
-    "truck_right": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/images/20261012/20261012042036b5be70749.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video/20261012/2026101204275854ed08054.mp4"
-    },
-    "pan_right": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205162967cbf2934.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051629d3cd28968.mp4"
-    },
-    "truck_left": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051630f62038220.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051630463158245.mp4"
-    },
-    "aerial_drone_shot": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051630babe50036.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516316abd30264.mp4"
-    },
-    "ground_level_tracking_shot": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205163165cfe7733.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516312aca21175.mp4"
-    },
-    "dolly_zoom_out": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516329d0b51396.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051632ad39c5612.mp4"
-    },
-    "fix_and_pose": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051633476394851.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516334d62c8764.mp4"
-    },
-    "treking": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051634e8eb61311.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051634d98679031.mp4"
-    },
-    "fizzy_drink_ad": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051634ccdf13669.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051635a88b84831.mp4"
-    },
-    "arc_left1": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051635cf7aa8755.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051636228f24736.mp4"
-    },
-    "dutch_angle": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051636f5c512617.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051636e48c01828.mp4"
-    },
-    "werewolf": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051637363d04124.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051637df2ca8915.mp4"
-    },
-    "atomic_blast1": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205163708c135240.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205163882bb72243.mp4"
-    },
-    "caught_in_action": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051638631b17731.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205163891a062402.mp4"
-    },
-    "exploded": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205163906c711040.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051639a6d909595.mp4"
-    },
-    "handheld_run": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051639f08e21169.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516397b6909435.mp4"
-    },
-    "outfit_check": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205164006c818111.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205164097d239673.mp4"
-    },
-    "timelapse": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051641e2ffc9810.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051641f80ae8751.mp4"
-    },
-    "flame_on": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205164109f971133.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205164136d475085.mp4"
-    },
-    "pan_left": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051642913605489.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051642d6df31738.mp4"
-    },
-    "zoom_out": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051642270d07148.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051643cde3d7882.mp4"
-    },
-    "padestal_up": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516430681e0588.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516444c8bb9198.mp4"
-    },
-    "pov": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051644b2f092373.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516456915f1676.mp4"
-    },
-    "orbit_right": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516457f2402676.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051645cd3cd0782.mp4"
-    },
-    "dolly_zoom_in": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516468c5701013.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051646374242735.mp4"
-    },
-    "northern_lightning": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205164757ac32335.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051647055d37006.mp4"
-    },
-    "levitation": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051647452b85173.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516486f8188542.mp4"
-    },
-    "product_splash": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516482ca8a5167.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051648f5b2a8178.mp4"
-    },
-    "crane_up1": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516491fc140692.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516498e0ff7907.mp4"
-    },
-    "through_object_out": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051649aa5373546.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165012e0f6340.mp4"
-    },
-    "column_wipe": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051650608039898.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165027d331506.mp4"
-    },
-    "boiling_point": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051651b5ee67412.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051651007e84710.mp4"
-    },
-    "cloth_rain": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516519ba466126.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051651d1ae88736.mp4"
-    },
-    "explosion": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165286f1e9634.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516527da634149.mp4"
-    },
-    "happy_mode": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165231d0d7528.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516538d9155511.mp4"
-    },
-    "rapid_zoom_in1": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051653876d91457.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516531501c4647.mp4"
-    },
-    "trainrush": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516544d3907676.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165477d9d8652.mp4"
-    },
-    "tilt_up": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516542fb6e3314.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165487b130315.mp4"
-    },
-    "zoom_in": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051655781bf0784.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051655afb528707.mp4"
-    },
-    "padestal_down": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051655dd17e6108.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051656ecae74645.mp4"
-    },
-    "fpv_drone_shot": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165695c9c5656.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051657d74201455.mp4"
-    },
-    "bullet_time": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051657d82671683.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051657dec7f9071.mp4"
-    },
-    "tilted_reality": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051658c21823801.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516585fc949171.mp4"
-    },
-    "police_escape": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516588601c3640.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516591f13a8773.mp4"
-    },
-    "alien_invasion": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051659d4bee6065.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051659821901951.mp4"
-    },
-    "red_carpet": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051700f96242928.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051700b92503738.mp4"
-    },
-    "crane_down1": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051701d20dc6060.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051701e20d48736.mp4"
-    },
-    "magic_johnson": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517017fb479582.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205170244b8c8472.mp4"
-    },
-    "smog_transition": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205170230b635481.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051702018932828.mp4"
-    },
-    "bts": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051703357e55003.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517033063f6083.mp4"
-    },
-    "crying": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051703df77a4470.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517034099c5204.mp4"
-    },
-    "flip": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051704d2e860184.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517045d7638504.mp4"
-    },
-    "jib_down": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517049f57c3067.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051705f6fac5283.mp4"
-    },
-    "rapid_zoom_out1": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051705476b72350.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051705f67034280.mp4"
-    },
-    "wireframe": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517061ee968009.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517065f1e93060.mp4"
-    },
-    "tilt_down": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517066877c9911.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517070b4083570.mp4"
-    },
-    "elevator_door": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051707485403813.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051707c39d82094.mp4"
-    },
-    "orbit_left": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051708fcd378949.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051708c024b8654.mp4"
-    },
-    "micro_zoom_in": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205170871dfd5004.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051709ab0470952.mp4"
-    },
-    "roll_right": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517091604a1069.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051709f1b3e5677.mp4"
-    },
-    "whip_pan": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051710250696124.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051710a70555723.mp4"
-    },
-    "motorcycle_ride": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051710b2edc8579.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051711222488081.mp4"
-    },
-    "escape_run": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051711600c36960.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051711ab6a72527.mp4"
-    },
-    "focus_shift": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051712120f42248.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205171205d3b6260.mp4"
-    },
-    "fire_transition": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051712ced7f2942.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051713ca9f86820.mp4"
-    },
-    "logo_transition": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051713631b50577.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517136efa92004.mp4"
-    },
-    "car_mount": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517147b8674133.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051714bf7da2447.mp4"
-    },
-    "double_exposure": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051714b315e5856.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051714149307597.mp4"
-    },
-    "glitch": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051715a86182675.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051715ef4cb2053.mp4"
-    },
-    "jib_up": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051715f401f0724.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517161f3b20414.mp4"
-    },
-    "selfie_pose": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517167dada4499.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051716586754330.mp4"
-    },
-    "skeleton": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051716859917746.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051717c29c66953.mp4"
-    },
-    "low_angle": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051717e025e3483.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051717def592408.mp4"
-    },
-    "high_angle": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517185b4f73256.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051718be1991010.mp4"
-    },
-    "over_the_shoulder": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517183496b0040.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517191cd5d8945.mp4"
-    },
-    "action_run": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205171901fa80058.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051719db3f24341.mp4"
-    },
-    "outfit_switch": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205172088be29854.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051720cdfae4123.mp4"
-    },
-    "day_to_night_timelapse": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051720be59b2433.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205172156aa18089.mp4"
-    },
-    "arc_right1": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517211568c2310.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051721297874754.mp4"
-    },
-    "360": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517229a5843662.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051722cb3428998.mp4"
-    },
-    "raven_transition": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205172240d7b3999.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051723a04366211.mp4"
-    },
-    "angry_mode": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051723554266532.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051723110d52879.mp4"
-    },
-    "car_rush": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051724c41268605.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051724951534230.mp4"
-    },
-    "drunk_master": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205172413f573781.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517246be884562.mp4"
-    },
-    "group_photo": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051725b0e235354.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051725749f66505.mp4"
-    },
-    "money_rain": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517255e5414198.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205172674c5a9461.mp4"
-    },
-    "shadow": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051726f92288489.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517265d71d7328.mp4"
-    },
-    "timelapse_glam": {
-        "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517265cc151968.webp",
-        "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205172777e9c5694.mp4"
-    }
+  "push_in": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "pull_out": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "truck_right": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "pan_right": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "truck_left": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "aerial_drone_shot": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "ground_level_tracking_shot": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "dolly_zoom_out": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "fix_and_pose": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "treking": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "fizzy_drink_ad": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "arc_left1": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "dutch_angle": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "werewolf": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "atomic_blast1": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "caught_in_action": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "exploded": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "handheld_run": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "outfit_check": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "timelapse": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "flame_on": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "pan_left": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "zoom_out": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "padestal_up": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "pov": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "orbit_right": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "dolly_zoom_in": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "northern_lightning": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "levitation": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "product_splash": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "crane_up1": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "through_object_out": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "column_wipe": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "boiling_point": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "cloth_rain": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "explosion": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "happy_mode": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "rapid_zoom_in1": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "trainrush": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "tilt_up": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "zoom_in": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "padestal_down": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "fpv_drone_shot": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "bullet_time": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "tilted_reality": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "police_escape": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "alien_invasion": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "red_carpet": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "crane_down1": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "magic_johnson": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "smog_transition": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "bts": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "crying": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "flip": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "jib_down": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "rapid_zoom_out1": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "wireframe": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "tilt_down": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "elevator_door": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "orbit_left": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "micro_zoom_in": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "roll_right": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "whip_pan": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "motorcycle_ride": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "escape_run": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "focus_shift": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "fire_transition": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "logo_transition": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "car_mount": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "double_exposure": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "glitch": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "jib_up": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "selfie_pose": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "skeleton": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "low_angle": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "high_angle": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "over_the_shoulder": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "action_run": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "outfit_switch": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "day_to_night_timelapse": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "arc_right1": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "360": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "raven_transition": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "angry_mode": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "car_rush": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "drunk_master": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "group_photo": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "money_rain": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "shadow": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  },
+  "timelapse_glam": {
+    "poster": "/resource/image/inspiration/camera.svg",
+    "video": "/resource/image/inspiration/camera.mp4"
+  }
 }

@@ -65,21 +65,24 @@ class LatestNewsService
         else { $record->save(['value' => $value]); }
     }
 
-    /** Apply the current selection to legacy samples without replacing tenant content or enabled states. */
+    /** Replace old reference promotions at read/save time without changing tenant-owned media. */
     private static function curateReferenceNews(array $rows): array
     {
-        $defaults = json_decode(file_get_contents(__DIR__ . '/latest-news-defaults.json'), true);
-        $titles = array_column($defaults, 'title', 'id');
+        $defaults = array_column(json_decode(file_get_contents(__DIR__.'/latest-news-defaults.json'), true), null, 'id');
         $result = [];
         foreach ($rows as $row) {
             $id = (string)($row['id'] ?? '');
-            $host = strtolower((string)parse_url($row['media_url'] ?? '', PHP_URL_HOST));
-            $isReference = preg_match('/^reference-\d+$/', $id)
-                && preg_match('/(^|\.)(imagine\.art|imagine\.animagic\.art)$/', $host);
-            if ($isReference) {
-                if (!isset($titles[$id])) { continue; }
-                $row['title'] = $titles[$id];
+            $reference = \app\common\service\InspirationBrandService::isReferenceUrl((string)($row['media_url'] ?? ''));
+            if ($reference && preg_match('/^reference-\d+$/', $id) && !isset($defaults[$id])) continue;
+            $fallback = $defaults[$id] ?? reset($defaults);
+            if ($reference) {
+                $row['media_url'] = ($row['media_type'] ?? 'image') === 'video' ? $fallback['media_url'] : $fallback['poster'];
+                // Historical storage metadata belongs to the removed reference file.
+                $row['storage_scope'] = $row['storage_engine'] = $row['storage_domain'] = '';
             }
+            if ($reference || \app\common\service\InspirationBrandService::isReferenceUrl((string)($row['poster'] ?? ''))) $row['poster'] = $fallback['poster'];
+            if ($reference || \app\common\service\InspirationBrandService::hasBrandName((string)($row['title'] ?? ''))) $row['title'] = $fallback['title'];
+            if (\app\common\service\InspirationBrandService::isReferenceUrl((string)($row['link']['path'] ?? ''))) $row['link'] = ['kind'=>'none','path'=>''];
             $result[] = $row;
         }
         return $result;

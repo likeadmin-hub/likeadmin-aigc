@@ -6,7 +6,7 @@
 
 已提交旧任务的冻结预算仅用于历史执行兼容，不扩大旧任务授权、不重写历史数据或自动恢复待确认任务。历史记录中的 `budget_exceeded` 仍可解释旧任务暂停原因；下文预算相关记录为此前实现。无需数据库迁移。
 
-任务分支：两个源码库均为 `feature/agent-enhancements`。范围为首页输入框和 PC `aigc_llm` 的 Imagine Agent 工作区。旧版 LLM 页面、无限画布和短剧画布保留原流程。
+任务分支：两个源码库均为 `feature/agent-enhancements`。范围为首页输入框和 PC `aigc_llm` 的 Inspiration Agent 工作区。旧版 LLM 页面、无限画布和短剧画布保留原流程。
 
 ## 当前进度（2026-10-14）
 

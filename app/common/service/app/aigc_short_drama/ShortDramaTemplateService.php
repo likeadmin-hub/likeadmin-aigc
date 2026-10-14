@@ -12,11 +12,11 @@ final class ShortDramaTemplateService
 {
     /** Existing homepage covers are bundled with the PC application, not tenant uploads. */
     private const BUNDLED_COVER_URLS = [
-        '/imagine-home/character.jpeg',
-        '/imagine-home/fashion.jpeg',
-        '/imagine-home/snooker.jpeg',
-        '/imagine-home/sunglasses.jpeg',
-        '/imagine-home/social.jpeg',
+        '/inspiration-home/character.jpeg',
+        '/inspiration-home/fashion.jpeg',
+        '/inspiration-home/snooker.jpeg',
+        '/inspiration-home/sunglasses.jpeg',
+        '/inspiration-home/social.jpeg',
     ];
 
     public static function adminLists(int $tenantId, array $params = []): array

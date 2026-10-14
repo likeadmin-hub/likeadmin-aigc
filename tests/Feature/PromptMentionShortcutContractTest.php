@@ -25,9 +25,9 @@ class PromptMentionShortcutContractTest extends TestCase
     public function testCreateComposerDoesNotUseAtAsTheReferenceUploadShortcut(): void
     {
         $page = \Tests\Support\CompiledAssets::source('pc/pages/ai/create.vue');
-        $studio = \Tests\Support\CompiledAssets::source('pc/apps/aigc_video/components/ImagineVideoStudio.vue');
+        $studio = \Tests\Support\CompiledAssets::source('pc/apps/aigc_video/components/InspirationVideoStudio.vue');
         $input = \Tests\Support\CompiledAssets::source('pc/apps/aigc_video/components/VideoPromptInput.vue');
-        self::assertStringContainsString('<ImagineVideoStudio', $page);
+        self::assertStringContainsString('<InspirationVideoStudio', $page);
         self::assertStringContainsString('<VideoPromptInput', $studio);
         self::assertStringContainsString(':items="mentionItems"', $studio);
         self::assertStringContainsString('promptInput?.openMentions($event)', $studio);
@@ -37,7 +37,7 @@ class PromptMentionShortcutContractTest extends TestCase
 
     public function testCreationImageAndVideoPagesDoNotUseAtAsTheUploadShortcut(): void
     {
-        $studio = \Tests\Support\CompiledAssets::source('pc/apps/aigc_video/components/ImagineVideoStudio.vue');
+        $studio = \Tests\Support\CompiledAssets::source('pc/apps/aigc_video/components/InspirationVideoStudio.vue');
         $input = \Tests\Support\CompiledAssets::source('pc/apps/aigc_video/components/VideoPromptInput.vue');
         self::assertStringContainsString(':media-type="generationMode"', \Tests\Support\CompiledAssets::source('pc/pages/ai/create.vue'));
         self::assertStringContainsString('isImage', $studio);

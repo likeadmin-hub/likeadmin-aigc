@@ -21,7 +21,7 @@ foreach($config['option_config']['channels']??[] as $candidate)if((int)$candidat
 if(!$model)throw new RuntimeException('Selected model is not available for this tenant');
 $admin=TenantAdmin::where('tenant_id',$tenant)->where('disable',0)->order('id','asc')->value('id');
 if(!$admin)throw new RuntimeException('No tenant administrator found');
-$rows=Effects::defaults();$existing=array_column(Effects::catalog($tenant),null,'id');
+$rows=Effects::defaults();$replaceMedia=[];$existing=array_column(Effects::catalog($tenant),null,'id');
 foreach($rows as &$row){
     if(!array_intersect($row['methods'],$model['generation_modes']??[]))throw new RuntimeException('Unsupported model mode for '.$row['id']);
     $row['methods']=array_values(array_intersect($row['methods'],$model['generation_modes']));
@@ -29,9 +29,11 @@ foreach($rows as &$row){
     if(isset($existing[$row['id']]['template']))$row['template']=$existing[$row['id']]['template'];
     foreach(['poster'=>'webp','video'=>'mp4'] as $field=>$ext){
         $old=$existing[$row['id']][$field]??'';
-        if($old!=='' && !str_contains($old,'imagine.animagic.art')){$row[$field]=$old;continue;}
+        if($old!=='' && !\app\common\service\InspirationBrandService::isReferenceUrl($old) && $old!==$row[$field]){$row[$field]=$old;continue;}
         $path=$dir.'/'.$row['id'].'.'.$ext;
-        if(!is_file($path) || filesize($path)>40*1024*1024 || filesize($path)<100)throw new RuntimeException('Missing/invalid media: '.$row['id'].'.'.$ext);
+        if(!is_file($path))continue;
+        $replaceMedia[$row['id']][$field]=true;
+        if(filesize($path)>40*1024*1024 || filesize($path)<100)throw new RuntimeException('Invalid media: '.$row['id'].'.'.$ext);
         $mime=(new finfo(FILEINFO_MIME_TYPE))->file($path);
         if(!in_array($mime,$ext==='mp4'?['video/mp4']:['image/webp'],true))throw new RuntimeException('Unexpected media type: '.$row['id']);
     }
@@ -41,7 +43,7 @@ if(!isset($options['apply'])){echo 'Validated '.count($rows)." presets and model
 $storage=StorageConfigService::getEffectiveConfig($tenant);$domain=StorageConfigService::getEffectiveDomain($tenant);
 foreach($rows as &$row){
     foreach(['poster'=>'webp','video'=>'mp4'] as $field=>$ext){
-        if(!str_contains($row[$field],'imagine.animagic.art'))continue;
+        if(empty($replaceMedia[$row['id']][$field]))continue;
         $path=$dir.'/'.$row['id'].'.'.$ext;$name='effect-'.$row['id'].'-'.substr(hash_file('sha256',$path),0,12).'.'.$ext;
         $file=TenantFile::where(['tenant_id'=>$tenant,'name'=>$name,'source'=>0])->findOrEmpty();
         if($file->isEmpty()){

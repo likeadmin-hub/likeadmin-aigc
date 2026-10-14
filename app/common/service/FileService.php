@@ -42,6 +42,7 @@ class FileService
      */
     public static function getFileUrl(string $uri = '', string $type = '') : string
     {
+        $uri = InspirationBrandService::assetPath($uri);
         if (strstr($uri, 'http://'))  return $uri;
         if (strstr($uri, 'https://')) return $uri;
 
@@ -69,6 +70,7 @@ class FileService
 
     public static function getFileUrlByStorage(string $uri = '', string $storageScope = '', string $storageEngine = '', string $storageDomain = ''): string
     {
+        $uri = InspirationBrandService::assetPath($uri);
         $localUri = self::localUriFromUrl($uri);
         if ($storageEngine === 'local') {
             return self::format(request()->domain() ?: $storageDomain, $localUri ?: $uri);
