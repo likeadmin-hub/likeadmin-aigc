@@ -69,6 +69,22 @@ final class DecorationAgentMediaService
         return MarketImageModelRuntimeService::options($tenantId);
     }
 
+    /** Reviewed first-party decoration images; never label these as user/customer cases. */
+    public static function builtinMaterials(): array
+    {
+        $result=[];
+        foreach([
+            ['banner001','玻璃城市主视觉',['玻璃','城市','建筑','创意','工作室','主视觉','灰色']],
+            ['banner002','彩色玻璃立方',['玻璃','立方','彩色','创意','工作室','主视觉','抽象']],
+            ['banner003','浅蓝数据概念',['数据','科技','浅蓝','概念','背景','主视觉']],
+        ] as [$file,$title,$tags]){
+            $uri='resource/image/tenantapi/default/'.$file.'.png';$info=@getimagesize(public_path().$uri);
+            if(!$info)continue;
+            $result[]=['id'=>'builtin:'.$file,'file_id'=>0,'uri'=>$uri,'url'=>'/'.$uri,'source'=>'content','source_key'=>'builtin_decoration','title'=>$title,'type'=>'image','role'=>'decorative','tags'=>$tags,'width'=>$info[0],'height'=>$info[1],'dimensions_known'=>true,'suggested_uses'=>['banner','背景主视觉'],'provenance'=>'随系统提供的装饰图片，不是用户生成作品或客户案例'];
+        }
+        return $result;
+    }
+
     /** Search tenant media plus existing published decoration sources, respecting enabled source flags. */
     public static function search(int $tenantId, string $query, array $allowedSources, array $attachments, int $limit = 12): array
     {
@@ -76,18 +92,19 @@ final class DecorationAgentMediaService
         $limit = max(1, min(50, $limit));
         $needle = mb_strtolower(trim($query));
         $candidates = [];
+        if(in_array('content',$allowedSources,true))foreach(self::builtinMaterials() as $material)if($needle===''||self::matches($material['title'],$material['tags'],$needle))$candidates[]=$material;
         if (in_array('upload', $allowedSources, true)) {
             foreach (self::validateAttachments($tenantId, $attachments) as $attachment) {
                 if (!in_array('asset', $attachment['uses'], true)) continue;
-                $candidates[] = $attachment + ['id' => 'file:' . $attachment['file_id'], 'source' => 'upload', 'title' => '上传参考图'];
+                $candidates[] = $attachment + ['id' => 'file:' . $attachment['file_id'], 'source' => 'upload', 'title' => '上传参考图','type'=>'image','role'=>'uploaded_asset','tags'=>[],'dimensions_known'=>true];
             }
         }
         if (in_array('tenant', $allowedSources, true)) {
             $files = TenantFile::where(['tenant_id' => $tenantId, 'source' => FileEnum::SOURCE_ADMIN, 'type' => FileEnum::IMAGE_TYPE]);
-            if ($needle !== '') $files->whereLike('name', '%' . $query . '%');
-            foreach ($files->order('id', 'desc')->limit($limit)->select()->toArray() as $file) {
-                if (!self::imageExtension((string)$file['uri'])) continue;
-                $candidates[] = ['id' => 'file:' . $file['id'], 'file_id' => (int)$file['id'], 'url' => self::fileUrl($file), 'source' => 'tenant', 'title' => (string)$file['name'], 'width' => 0, 'height' => 0];
+            // Bounded filename discovery supports synonyms without pretending to inspect pixels.
+            foreach ($files->order('id', 'desc')->limit(50)->select()->toArray() as $file) {
+                if (!self::imageExtension((string)$file['uri'])||($needle!==''&&!self::matches((string)$file['name'],[],$needle))) continue;
+                $candidates[] = ['id' => 'file:' . $file['id'], 'file_id' => (int)$file['id'], 'url' => self::fileUrl($file), 'source' => 'tenant', 'title' => (string)$file['name'], 'width' => 0, 'height' => 0,'uri'=>(string)$file['uri'],'type'=>'image','role'=>'tenant_asset','tags'=>[],'dimensions_known'=>false,'match_basis'=>'filename_only','semantic_confidence'=>'unknown'];
             }
         }
         $refs = [];
@@ -101,23 +118,32 @@ final class DecorationAgentMediaService
         foreach ($refs as $key => $ref) {
             $params = (array)($ref['params'] ?? []);
             $params['limit'] = 50;
-            $rows = DecorateDataSourceService::resolve($key, $params, $tenantId, ['tenant_id' => $tenantId, 'terminal' => 'mobile']);
+            if($key==='app_entries')$params['terminal']='uniapp';
+            $rows = DecorateDataSourceService::resolve($key, $params, $tenantId, ['tenant_id' => $tenantId, 'terminal' => 'uniapp']);
             $rows = isset($rows['lists']) ? $rows['lists'] : $rows;
             foreach ($rows as $row) {
                 if (!is_array($row)) continue;
                 $title = (string)($row['title'] ?? $row['name'] ?? '');
-                if ($needle !== '' && !str_contains(mb_strtolower($title . ' ' . (string)($row['description'] ?? $row['desc'] ?? '')), $needle)) continue;
+                if ($needle !== '' && !self::matches($title.' '.(string)($row['description']??$row['desc']??''),[$key,(string)($row['app_code']??'')],$needle)) continue;
                 foreach (['image', 'cover_url', 'cover', 'image_url', 'icon'] as $field) {
                     $uri = trim((string)($row[$field] ?? ''));
                     if ($uri === '' || !self::imageExtension($uri)) continue;
-                    $candidates[] = ['id' => $key . ':' . (string)($row['id'] ?? $row['app_code'] ?? '') . ':' . $field, 'file_id' => 0, 'url' => FileService::getFileUrl($uri), 'source' => 'content', 'source_key' => $key, 'source_id' => $row['id'] ?? $row['app_code'] ?? '', 'title' => $title, 'width' => 0, 'height' => 0];
+                    $candidates[] = ['id' => $key . ':' . (string)($row['id'] ?? $row['app_code'] ?? '') . ':' . $field, 'file_id' => 0, 'url' => self::contentImageUrl($uri), 'source' => 'content', 'source_key' => $key, 'source_id' => $row['id'] ?? $row['app_code'] ?? '', 'title' => $title, 'width' => 0, 'height' => 0,'uri'=>$uri,'type'=>'image','role'=>match($key){'image_cases'=>'user_case','app_entries'=>'app_icon','ai_tools'=>'app_cover',default=>'article_cover'},'tags'=>[$key],'dimensions_known'=>false];
                     break;
                 }
             }
         }
+        // Select across allowed sources rather than letting newest uploads consume the entire limit.
+        $priority=['uploaded_asset'=>100,'decorative'=>90,'user_case'=>80,'app_icon'=>70,'app_cover'=>60,'tenant_asset'=>50,'article_cover'=>30];
+        usort($candidates,fn($a,$b)=>($priority[$b['role']??'']??0)<=>($priority[$a['role']??'']??0));
         $seen = []; $result = [];
         foreach ($candidates as $candidate) {
             if (isset($seen[$candidate['url']])) continue;
+            $uri=(string)($candidate['uri']??'');
+            if($uri!==''&&!preg_match('#^https?://#i',$uri)){
+                $root=realpath(public_path());$path=realpath(public_path().ltrim($uri,'/'));
+                if($root&&$path&&str_starts_with($path,$root.DIRECTORY_SEPARATOR)&&is_file($path)&&filesize($path)<=self::MAX_BYTES){$info=@getimagesize($path);if($info){$candidate['width']=$info[0];$candidate['height']=$info[1];$candidate['dimensions_known']=true;}}
+            }
             $seen[$candidate['url']] = true; $result[] = $candidate;
             if (count($result) >= $limit) break;
         }
@@ -242,6 +268,29 @@ final class DecorationAgentMediaService
         $info = @getimagesizefromstring($data);
         if (!$info || !in_array($info['mime'] ?? '', ['image/jpeg', 'image/png', 'image/webp'], true) || $info[0] < 1 || $info[1] < 1) throw new Exception('附件仅支持有效的JPG、PNG、WEBP图片');
         return [(int)$info[0], (int)$info[1]];
+    }
+
+    private static function matches(string $title,array $tags,string $query): bool
+    {
+        if($query==='')return true;
+        $text=mb_strtolower($title.' '.implode(' ',$tags));
+        if(str_contains($text,$query))return true;
+        foreach($tags as $tag)if(mb_strlen($tag)>1&&str_contains($query,mb_strtolower($tag)))return true;
+        $terms=preg_split('/[\s,，、|]+/u',$query)?:[];
+        foreach(['图片|绘图|图像|生图'=>'图片 绘图 图像 生图 image photo img','视频|短片'=>'视频 短片 video','文字|写作|文案'=>'文字 写作 文案 llm','玻璃|立方'=>'玻璃 立方','科技|数据'=>'科技 数据'] as $pattern=>$synonyms)if(preg_match('/'.$pattern.'/u',$query))$terms=array_merge($terms,explode(' ',$synonyms));
+        foreach($terms as $term)if($term!==''&&str_contains($text,$term))return true;
+        return false;
+    }
+
+    private static function contentImageUrl(string $uri): string
+    {
+        // First-party public icons must also work in a CLI worker with no request host.
+        $local=preg_replace('#^https?://resource/#i','resource/',$uri);
+        if(str_starts_with(ltrim((string)$local,'/'),'resource/')){
+            $root=realpath(public_path());$path=realpath(public_path().ltrim((string)$local,'/'));
+            if($root&&$path&&str_starts_with($path,$root.DIRECTORY_SEPARATOR)&&is_file($path))return '/'.ltrim((string)$local,'/');
+        }
+        return FileService::getFileUrl($uri);
     }
 
     private static function imageExtension(string $uri): bool
