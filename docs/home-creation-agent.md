@@ -272,3 +272,17 @@ Validation: missing/corrupt preview-map fixtures, an intentionally failing previ
 **待核对记录：**首次独立音频试验 run 398 / step 191 / 任务 4034 / 消费 4312，停在 needs_review，原回执未完整保存，40 算力仍为预占。初版只识别 `data.text`；后续真实调用证实供应商返回 `data.result.text`，修复后成功，但缺少该次原始回执，不能断言其上游最终结果。不能仅凭后续样本成功推断该次上游结算；未重提、未手工改成功、未凭空退回或补扣。后续已兼容返回结构并保存 HTTP 状态和私有供应商回执，需供应商账单/日志核对这一笔。run 397 使用无效的 0.28 秒测试音频，在确认前取消，没有发生语音转写费用。
 
 回归：HomeAgentMediaUnderstandingTest（本地真实解码、伪造文件/播放列表拒绝、单次扣费、重复结算防护、明确失败只退一次、未知回执不重提、自动继续回答）、UploadedDocument、Context、Topic、Planning、Sequence、CapabilityIsolation 均通过。前端 composer/presentation/generation/run 共 30 项通过，调整确认按钮后 generation/presentation 10 项重跑通过；两个 Vue 组件脚本与模板编译通过。回归数据库数据均回滚；真实验收会话保留供查看。
+
+### STT receipt reconciliation
+
+The synchronous STT adapter now captures bounded response bodies (including transport errors), HTTP status and allowlisted request/task trace headers. A private `runtime/home-agent-stt-receipts/` atomic journal is written before the database receipt so a database interruption can recover the response. Receipt files are removed after terminal settlement; unresolved receipts remain for operator review. Provision this directory on durable private storage, never under the public web root. A crash before the receipt is received/written still requires upstream evidence.
+
+The homepage worker checks aged transcription records every minute. It replays complete stored success/rejection receipts through the original reservation and shared point services, then wakes only the original non-canceled Agent run. It never submits transcription again. Incomplete/unknown receipts retain their reservation and produce one `stt.review_required` audit event plus a protected warning. This is a log/admin review alert, not an external notification service.
+
+Existing administration consumption-list query/retry-query/complete-by-query actions now reconcile STT receipts even without an upstream task ID. If evidence is missing the operation explicitly fails with a review reason; it does not pretend a query succeeded. Force failure, recovery resubmission and deletion are blocked for STT through these actions. No new API, permissions, tables or frontend components are required.
+
+Read-only audit: `php think home-agent:stt-reconcile --tenant=1 --task=4034`.
+Replay durable evidence: add `--apply`. This cannot resolve missing evidence.
+For verified supplier records, an operator may pass `--evidence=/private/receipt.json --operator=admin-id --reason="supplier-ticket-reference"`; this previews by default and requires `--apply` to persist/settle. File format: `{"tenant_id":1,"task_no":"original ASTT task number","receipt":{"complete":true,"http_status":200,"provider_receipt":{"code":1,"data":{"result":{"text":"original transcription"}}}}}`. Explicit rejection receipts use their original status/body. The operation records operator, reason and receipt digest and refuses tenant/task mismatch, terminal overwrite and replacement of an already definite stored receipt. Do not fabricate receipts or use this for unverified write-offs.
+
+There is no documented query-by-request-ID endpoint for this synchronous STT integration. Captured upstream IDs support supplier investigation; no endpoint or upstream idempotency guarantee is invented. Task 4034 remains reserved until original upstream evidence is available.
