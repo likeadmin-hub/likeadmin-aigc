@@ -1457,7 +1457,7 @@ class AigcShortDramaService
         ]);
     }
 
-    public static function subjectLibraryLists(int $tenantId, int $userId, array $params = []): array
+    public static function subjectLibraryLists(int $tenantId, int $userId, array $params = [], bool $includeThreeViews = true): array
     {
         $scope = (string)($params['scope'] ?? $params['source'] ?? 'public');
         $scope = $scope === 'user' ? 'user' : 'public';
@@ -1493,6 +1493,7 @@ class AigcShortDramaService
         $count = (int)(clone $query)->count();
         $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
         $subjectIds = array_map(static fn($row) => (int)($row['id'] ?? 0), $rows);
+        if(!$includeThreeViews)return ['lists'=>array_map(static fn($row)=>['id'=>(int)$row['id'],'name'=>(string)$row['name'],'image'=>self::subjectStoredFileUrl($row,'image'),'description'=>(string)$row['description'],'category'=>(string)$row['category'],'scope'=>$scope],$rows),'count'=>$count,'page_no'=>$pageNo,'page_size'=>$pageSize];
         $threeViewMap = self::latestSubjectLibraryAssets($tenantId, $userId, $subjectIds, 'three_view');
 
         return self::sanitizeUtf8Payload([
