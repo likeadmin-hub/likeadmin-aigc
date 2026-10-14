@@ -156,6 +156,14 @@ final class AgentTranscriptionRecovery
         if(!is_array($receipt)||($receipt['complete']??null)!==true||self::classify($receipt,AgentStore::json($log['request_summary']))===null)throw new \InvalidArgumentException('凭据缺少完整明确的成功或拒绝回执');
         if($log['billing_status']!=='reserved')throw new \InvalidArgumentException('任务已经结算或退款，不允许覆盖');
         if($log['run_status']==='running'&&self::timestamp($log['create_time'])>time()-240)throw new \InvalidArgumentException('任务仍在处理中');
+        $existing=AgentStore::json($log['response_summary']);
+        $path=self::path($log);
+        if(is_file($path)){
+            $journal=AgentStore::json(file_get_contents($path));
+            if((int)($journal['consumption_id']??0)!==$id||(int)($journal['tenant_id']??0)!==$tenant||($journal['consume_no']??'')!==$log['consume_no'])throw new \InvalidArgumentException('本地回执归属不匹配');
+            if(self::classify($journal['receipt']??[],AgentStore::json($log['request_summary']))!==null)throw new \InvalidArgumentException('已有完整本地回执，请直接恢复，不允许人工覆盖');
+        }
+        if(self::classify($existing,AgentStore::json($log['request_summary']))!==null)throw new \InvalidArgumentException('已有完整回执，请直接恢复');
         $preview=['task_id'=>(int)$task['id'],'decision'=>self::classify($receipt,AgentStore::json($log['request_summary']))['success']?'settle':'refund','points'=>(float)$log['reserved_user_price'],'apply'=>$apply];
         if(!$apply)return $preview;
         Db::transaction(function()use($id,$log,$receipt,$operator,$reason){

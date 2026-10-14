@@ -46,6 +46,8 @@ Db::startTrans();try{
  R::record($cid,$good,$r['log']);check((fileperms(end($paths))&0777)===0600,'Receipt journal not private');
  // Simulate receipt committed to journal but database update lost during outage.
  Db::name('ai_consumption_log')->where('id',$cid)->update(['response_summary'=>'[]']);$uncertain->invoke(null,$cid);
+ $originalNo=Db::name('ai_app_task')->where('id',$r['task_id'])->value('task_no');
+ rejects(fn()=>R::importEvidence($cid,1,['tenant_id'=>1,'task_no'=>$originalNo,'receipt'=>['http_status'=>400,'complete'=>true,'provider_receipt'=>['code'=>0]]],'fixture','wrongly contradicts journal',false));
  S::table('step')->where('id',$r['step_id'])->update(['status'=>'needs_review']);S::table('run')->where('id',$run)->update(['status'=>'needs_review']);
  rejects(fn()=>R::reconcile($cid,999999));
  $held=balance();$result=R::reconcile($cid,1);check($result['resolved']&&$result['billing_status']==='settled'&&balance()===$held,'Journal recovery charged twice');
