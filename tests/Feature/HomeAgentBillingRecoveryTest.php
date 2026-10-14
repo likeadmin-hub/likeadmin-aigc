@@ -16,6 +16,15 @@ namespace app\common\service\power {
   $write=$handle->options[CURLOPT_WRITEFUNCTION];
   if(BillingTransportFixture::$mode==='reject'){$write($handle,json_encode(['error'=>['message'=>'fixture rejected']]));return true;}
   if(BillingTransportFixture::$mode==='timeout')return false;
+  if(BillingTransportFixture::$mode==='native_success'){
+   foreach([
+    ['type'=>'message_start','message'=>['id'=>'fixture-native-complete','usage'=>['input_tokens'=>10000,'output_tokens'=>0]]],
+    ['type'=>'content_block_delta','index'=>0,'delta'=>['type'=>'text_delta','text'=>'可信正文，已保留。']],
+    ['type'=>'message_delta','delta'=>['stop_reason'=>'end_turn'],'usage'=>['output_tokens'=>10000]],
+    ['type'=>'message_stop'],
+   ] as $event)$write($handle,'data: '.json_encode($event,JSON_UNESCAPED_UNICODE)."\n\n");
+   return true;
+  }
   if(in_array(BillingTransportFixture::$mode,['native_incomplete','native_timeout'],true)){
    foreach([
     ['type'=>'message_start','message'=>['id'=>'fixture-native-receipt','usage'=>['input_tokens'=>19,'output_tokens'=>0]]],
@@ -55,8 +64,10 @@ namespace {
  $selection=(string)S::preferences(1,1)['models']['text'];$model=R::resolveAgentModel(1,$selection);
  $expected=invoke('quote',$model,10000,10000);check($expected['user_charge_points']>0&&$expected['user_charge_points']<balance(),'Fixture needs a priced model within local wallet');
  $params=['content'=>'离线计费验收','model_selection'=>$selection,'source_app_code'=>'aigc_llm','business_table'=>'aigc_llm_agent_run','business_id'=>0,'_disable_model_fallback'=>true,'_disable_transient_retry'=>true,'_agent_tool_history'=>true];
- fixture(function()use($params,$expected){
+ foreach(['success','native_success'] as $successMode)fixture(function()use($params,$expected,$successMode){
+  F::$mode=$successMode;
   $before=balance();$result=R::generate(1,1,$params,static function(){});$cid=(int)$result['consumption_id'];
+  check($result['usage']['prompt_tokens']===10000&&$result['usage']['completion_tokens']===10000,'Caller did not receive normalized token usage');
   check(abs($before-balance()-$expected['user_charge_points'])<0.001,'Actual token settlement changed');
   check(issueCodes($cid)===[],'Settled text call missing a payer log');$settled=balance();
   $c=AiConsumptionLog::findOrEmpty($cid);$ctx=['consumption'=>$c];

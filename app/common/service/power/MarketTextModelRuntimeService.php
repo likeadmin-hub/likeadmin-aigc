@@ -235,7 +235,7 @@ class MarketTextModelRuntimeService
                 \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $settlementError);
             }
             $billingStatus = (string)AiConsumptionLog::where('id', (int)$context['consumption']['id'])->value('billing_status');
-            return $result + [
+            return array_replace($result, [
                 'effective_max_tokens' => $maxTokens,
                 'model_code' => $model['model_code'],
                 'model_name' => $model['name'],
@@ -245,7 +245,7 @@ class MarketTextModelRuntimeService
                 'consumption_id' => (int)$context['consumption']['id'],
                 'billing' => ['billing_status' => $billingStatus] + $actual,
                 'usage' => $usage,
-            ];
+            ]);
         } catch (\Throwable $e) {
             if($e instanceof TextSettlementPending)throw $e;
             if ($e instanceof MarketTextModelProviderException && $e->partialResult !== null) {
