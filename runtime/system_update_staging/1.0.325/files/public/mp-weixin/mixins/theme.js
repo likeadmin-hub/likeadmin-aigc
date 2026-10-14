@@ -1,1 +1,0 @@
-"use strict";const e=require("../stores/theme.js"),r=require("../stores/app.js"),o={computed:{$theme(){const o=e.useThemeStore(),t=r.useAppStore();return{primaryColor:o.primaryColor,pageStyle:o.vars,navColor:o.navColor,navBgColor:o.navBgColor,title:t.getWebsiteConfig.shop_name}}}};exports.theme=o;
