@@ -51,6 +51,8 @@ namespace {
     check($visible===['先查','询。']&&$result['content']==='先查询。','Snapshot repeated text or reasoning leaked');
     check(count($result['tool_calls'])===2&&$result['tool_calls'][0]['id']==='call_a'&&$result['tool_calls'][0]['function']['arguments']===$callA['arguments'],'Native calls duplicated or wrong call ID');
     check($result['_responses_output']===$items&&$result['usage']['total_tokens']===140&&$result['provider_request_id']==='resp_fixture','Continuation/receipt/usage lost');
+    $unindexed=wire([created(),['type'=>'response.output_text.delta','delta'=>'共有 5 项。'],['type'=>'response.output_text.done','text'=>'共有 5 项。'],complete([$reasoning,message('共有 5 项。')])],$chunks);
+    check($chunks===['共有 5 项。']&&$unindexed['content']==='共有 5 项。','Gateway without output_index repeated its terminal snapshot');
     foreach([
         array_slice($events,0,-1),
         [created(),complete([array_replace($callA,['arguments'=>'{"name":'])])],
