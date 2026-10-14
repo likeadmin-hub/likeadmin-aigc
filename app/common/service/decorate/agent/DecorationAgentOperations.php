@@ -280,11 +280,23 @@ class DecorationAgentOperations
         foreach ($parts as $part) { if (!isset($node[$part])) $node[$part]=[]; if (!is_array($node[$part])) self::fail('Field parent is not an object'); $node =& $node[$part]; }
         $node[$leaf] = $value;
     }
+    private static function validMediaImageBackground($value): bool
+    {
+        if(!is_string($value))return false;$color=trim($value);
+        if($color===''||strtolower($color)==='transparent'||preg_match('/^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/iD',$color))return true;
+        if(!preg_match('/^(rgb|rgba)\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*(0(?:\.\d+)?|1(?:\.0+)?|\.\d+))?\s*\)$/iD',$color,$parts))return false;
+        foreach(array_slice($parts,2,3) as $channel)if((int)$channel>255)return false;
+        $alpha=isset($parts[5])&&$parts[5]!=='';
+        return (strtolower($parts[1])==='rgba')===$alpha;
+    }
+
     private function validate($value, array $schema): void
     {
         $type = $schema['value_type'] ?? 'string';
         $valid = $type === 'number' ? (is_int($value)||is_float($value)) : ($type === 'string' ? is_string($value) : ($type === 'boolean' ? is_bool($value) : ($type === 'null' ? $value===null : is_array($value))));
         if (!$valid) self::fail('Wrong field value type: expected ' . $type);
+        // This new optional field matches its real renderer; legacy colors keep their existing policy.
+        if(($schema['key']??'')==='image_background'&&($schema['type']??'')==='color'&&!self::validMediaImageBackground($value))self::fail('Unsupported media image background color');
         if(is_string($value)&&(($schema['style']??false)||($schema['type']??'')==='color')&&preg_match('/url\s*\(|expression\s*\(|javascript:|@import|[;\x00-\x1f]/i',$value))self::fail('Unsafe style value');
         if ($type === 'array' && array_values($value)!==$value) self::fail('Expected a list');
         if ($type === 'number' && (!is_finite((float)$value) || (isset($schema['min']) && $value < $schema['min']) || (isset($schema['max']) && $value > $schema['max']))) self::fail('Field is outside allowed numeric range');
