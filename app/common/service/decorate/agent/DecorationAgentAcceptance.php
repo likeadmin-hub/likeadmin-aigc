@@ -4,6 +4,7 @@ namespace app\common\service\decorate\agent;
 
 use app\common\service\app\AppFrontendManifestService;
 use app\common\service\decorate\DecorateTemplateService;
+use app\common\enum\FileEnum;
 use RuntimeException;
 use think\facade\Db;
 
@@ -38,10 +39,14 @@ final class DecorationAgentAcceptance
         $design=DecorationAgentDesignService::referenceBytes($tenant,$admin,$approved);
         if(($design['bytes']??'')===''||!self::sameHash((string)($design['sha256']??''),hash('sha256',$design['bytes']))) throw new RuntimeException('设计稿冻结内容校验失败');
         if(hash_equals(hash('sha256',$design['bytes']),$screenshot['sha256'])||hash_equals(self::pixelHash($design['bytes']),self::pixelHash($screenshot['bytes']))) throw new RuntimeException('设计稿不能作为实际装修截图，请重新截取预览');
+        $file=Db::name('tenant_file')->where(['tenant_id'=>$tenant,'id'=>$fileId,'source'=>FileEnum::SOURCE_ADMIN,'type'=>FileEnum::IMAGE_TYPE])->whereNull('delete_time')->find();
+        if(!$file) throw new RuntimeException('截图素材已失效，请重新上传');
         $evidence=['candidate_id'=>(int)$candidate['id'],'revision'=>$revision,'candidate_hash'=>$hash,
             'expected_hash'=>(string)$p['expected_hash'],'design_run_id'=>$provenance['run_id'],'design_revision'=>$provenance['revision'],
             'design_hash'=>$provenance['hash'],'screenshot_file_id'=>$fileId,'design_sha256'=>$design['sha256'],
             'screenshot_sha256'=>$screenshot['sha256'],'screenshot_width'=>$screenshot['width'],'screenshot_height'=>$screenshot['height'],
+            'blocked_sources'=>['uris'=>array_values(array_unique([(string)$approved['asset']['image_uri'],(string)$file['uri']])),
+                'file_ids'=>[$fileId],'slot_ids'=>[(int)$approved['slot_id']],'sha256'=>[$design['sha256'],$screenshot['sha256']]],
             'screenshot_origin'=>'client_preview_capture','capture_attested'=>false,'interaction_contract'=>self::interactionContract($snapshot,$tenant,(int)$session['template_id'])];
         return ['candidate'=>$candidate,'snapshot'=>$snapshot,'approved_design'=>$approved,'attachments'=>$attachments,'visual_review'=>$evidence];
     }
