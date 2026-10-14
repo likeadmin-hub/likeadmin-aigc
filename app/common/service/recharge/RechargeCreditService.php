@@ -15,6 +15,13 @@ class RechargeCreditService
 {
     public static function complete(string $orderSn, array $extra = []): void
     {
+        \think\facade\Db::transaction(static function () use ($orderSn, $extra) {
+            self::completeLocked($orderSn, $extra);
+        });
+    }
+
+    private static function completeLocked(string $orderSn, array $extra): void
+    {
         $order = RechargeOrder::where('sn', $orderSn)->lock(true)->findOrEmpty();
         if ($order->isEmpty()) {
             throw new RuntimeException('充值订单不存在');
@@ -24,6 +31,7 @@ class RechargeCreditService
             return;
         }
 
+        \app\common\service\promotion\PackagePricingService::consume((int)$order->tenant_id, 'recharge', (int)$order->id);
         self::credit($order);
 
         $order->transaction_id = $extra['transaction_id'] ?? '';
