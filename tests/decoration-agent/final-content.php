@@ -29,4 +29,9 @@ verifyFinalContent(D::partialReply($pending)==='','partial reasoning never becom
 unset($partial['content_source']);$exception=new \app\common\service\power\MarketTextModelProviderException('fixture',false,$partial);
 verifyFinalContent(D::partialReply($exception)==='','unknown partial content source fails closed');
 verifyFinalContent(D::partialReply(new RuntimeException('fixture'))==='','unrelated exception has no reply');
+$rejected=['content'=>'','content_source'=>'content','protocol_diagnostic'=>['provider_type'=>'','provider_code'=>'invalid_request_error','provider_message'=>'Unsupported parameter: input_pricing_sku_key']];
+$pending=new \app\common\service\power\TextSettlementPending(1,$rejected,[],new RuntimeException('fixture'));
+$details=D::failureDetails($pending);verifyFinalContent($details['error_code']==='provider_parameter_rejected'&&$details['error']==='当前模型不支持此次请求中的参数，本轮未完成。请核对模型配置和本轮费用后再继续。'&&!str_contains($details['error'],'input_pricing_sku_key'),'structured safe parameter rejection reaches run UI');
+$rejected['protocol_diagnostic']['provider_message']='Connection interrupted';$pending=new \app\common\service\power\TextSettlementPending(1,$rejected,[],new RuntimeException('fixture'));
+verifyFinalContent(D::failureDetails($pending)===[],'unknown interruption stays existing review path');
 echo "final content: $n checks passed\n";

@@ -1,10 +1,11 @@
 <?php
 // Native wire fixtures through the actual curl SSE decoder and Neuron loop; no paid calls.
 namespace app\common\service\power {
-    final class ResponsesWireFixture { public static array $events = []; }
+    final class ResponsesWireFixture { public static array $events = []; public static array $payload = []; }
     function curl_init() { return new \stdClass(); }
     function curl_setopt_array($handle, array $options) { $handle->options = $options; return true; }
     function curl_exec($handle) {
+        ResponsesWireFixture::$payload=json_decode($handle->options[CURLOPT_POSTFIELDS],true);
         $wire = '';
         foreach (ResponsesWireFixture::$events as $event) $wire .= 'data: '.json_encode($event, JSON_UNESCAPED_UNICODE)."\n\n";
         foreach (str_split($wire, 7) as $chunk) ($handle->options[CURLOPT_WRITEFUNCTION])($handle, $chunk);
@@ -64,9 +65,28 @@ namespace {
         try { wire($broken); throw new \LogicException('Unsafe tool response accepted'); }
         catch(MarketTextModelProviderException $e) { check($e->partialResult!==null&&$e->partialResult['tool_calls']===[]&&!$e->allowsModelFallback,'Incomplete native response lost review evidence'); }
     }
+    $selectedModel=['model_code'=>'gpt-fixture','protocols'=>'openai_responses','channel_code'=>'fixture-channel','product_id'=>41,'input'=>['sku_id'=>42,'sku_key'=>'fixture-input','platform_price'=>3,'tenant_price'=>4],'output'=>['sku_id'=>43,'sku_key'=>'fixture-output','platform_price'=>5,'tenant_price'=>6]];
+    $beforeModel=$selectedModel;$decorationParams=['action_code'=>'decoration_agent_text','_decoration_native_responses_transport'=>true];
+    $options=invoke('initialTransportOptions',$selectedModel,$decorationParams,true);
+    $payload=invoke('transportPayload','openai_responses',$selectedModel,[['role'=>'user','content'=>'页面生成']],'装修',4096,[],$options);
+    F::$events=[created(),complete([message('完成')])];invoke('curl','https://fixture.invalid','fixture-only',$payload,static function(){},true,10);
+    $actual=F::$payload;check($actual['model']==='gpt-fixture'&&$actual['channel']==='fixture-channel'&&$actual['stream']===true,'Decoration lost gateway model/channel routing or SSE');
+    check(!array_intersect_key($actual,invoke('marketContext',$selectedModel)),'Decoration native wire leaked internal SKU selectors');
+    check($selectedModel===$beforeModel&&invoke('quote',$selectedModel,1000000,1000000)['tenant_cost_points']===8.0,'Transport changed resolved SKU context or local price selection');
+    foreach([[false,$decorationParams,$selectedModel],[true,['action_code'=>'another_app','_decoration_native_responses_transport'=>true],$selectedModel],[true,['action_code'=>'decoration_agent_text'],$selectedModel],[true,$decorationParams,array_replace($selectedModel,['protocols'=>'openai_chat'])]] as [$adminPayer,$params,$model])check(invoke('initialTransportOptions',$model,$params,$adminPayer)['include_market_context']===true,'Unrelated AI request transport changed');
     $failure=['type'=>'response.failed','response'=>['id'=>'resp_fixture','status'=>'failed','output'=>[],'error'=>['code'=>'invalid_request_error','type'=>'invalid_request_error','message'=>'Unsupported parameter: max_output_tokens. <b>See</b> https://provider.invalid/help token sk-fixturePrivateSecret']]];
     try {wire([created(),$failure]);throw new \LogicException('Native failure accepted');}
     catch(MarketTextModelProviderException $e){$d=$e->partialResult['protocol_diagnostic'];check($d['provider_type']==='invalid_request_error'&&$d['response_status']==='failed'&&str_contains($d['provider_message'],'Unsupported parameter: max_output_tokens'),'Native error detail lost');check(!str_contains($d['provider_message'],'provider.invalid')&&!str_contains($d['provider_message'],'sk-fixturePrivateSecret')&&!str_contains($d['provider_message'],'<b>'),'Native diagnostics leaked URL/credential/markup');check($e->partialResult['content_source']==='content'&&$d['visible_chars']===0&&$d['delta_count']===0&&$d['output_items']===0,'Zero output proof missing');}
+    foreach([
+        'api_key=fixture-secret', 'x-api-key: fixture-secret', 'Authorization: Basic Zml4dHVyZTpwYXNzd29yZA==',
+        '"access_token": "fixture-secret"', "client_secret='fixture-secret'", 'token=fixture-secret',
+        'Bearer fixture-secret', 'token eyJhbGciOiJub25lIn0.eyJzdWIiOiJmaXh0dXJlIn0.c2lnbmF0dXJl',
+        'Echoed credential fixture-only without a label'
+    ] as $secretText){
+        $secretFailure=$failure;$secretFailure['response']['error']['message']='Unsupported parameter: max_output_tokens. '.$secretText;
+        try{wire([created(),$secretFailure]);throw new \LogicException('Secret-bearing failure accepted');}
+        catch(MarketTextModelProviderException $e){$diagnostic=$e->partialResult['protocol_diagnostic']['provider_message'];check(str_contains($diagnostic,'Unsupported parameter: max_output_tokens')&&!str_contains($diagnostic,'fixture-secret')&&!str_contains($diagnostic,'fixture-only')&&!str_contains($diagnostic,'Zml4dHVyZTpwYXNzd29yZA')&&!str_contains($diagnostic,'eyJhbGciOiJub25lIn0'),'Native diagnostics leaked known credential pattern or request key');}
+    }
     $partialReply='{"reply":"已收到页面要求，准备调整标题。","kind":"final","operations":[{"type":"configure_page","fields":{"content.title":"待审核"}}';
     $partialFailure=$failure;$partialFailure['response']['output']=[message($partialReply)];
     try{wire([created(),$partialFailure],$chunks);throw new \LogicException('Partial failed response accepted');}

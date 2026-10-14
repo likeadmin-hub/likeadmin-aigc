@@ -57,7 +57,7 @@ final class ResponsesMessagesAdapter
         return $params;
     }
 
-    public static function apply(array $json, array &$state, callable $emit): void
+    public static function apply(array $json, array &$state, callable $emit, string $requestKey = ''): void
     {
         $state['responses'] = true;
         $type = (string)($json['type'] ?? '');
@@ -86,8 +86,8 @@ final class ResponsesMessagesAdapter
             self::text($state, $index . ':' . (int)($json['content_index'] ?? 0), (string)($json['delta'] ?? ''), true, $emit);
         } elseif (in_array($type, ['response.failed', 'response.incomplete'], true)) {
             $state['native_response_status']=self::code((string)($response['status']??''));
-            $state['native_provider_type']=self::code((string)($response['error']['type']??''));
-            $state['native_provider_message']=self::diagnosticMessage((string)($response['error']['message']??''));
+            $state['native_provider_type']=self::code((string)($response['error']['type']??''),$requestKey);
+            $state['native_provider_message']=self::diagnosticMessage((string)($response['error']['message']??''),$requestKey);
             $state['native_output_present']=array_key_exists('output',$response)&&is_array($response['output']);
             $items=$state['native_output_present']?$response['output']:($state['responses_items']??[]);
             $state['native_output_item_count']=max((int)($state['native_output_item_count']??0),count($items),count($state['responses_items']??[]));
@@ -96,7 +96,7 @@ final class ResponsesMessagesAdapter
             $snapshotText='';foreach($items as $item)if(($item['type']??'')==='message'&&($item['role']??'')==='assistant')foreach($item['content']??[] as $part)if(in_array($part['type']??'',['output_text','refusal'],true))$snapshotText.=(string)($part['text']??$part['refusal']??'');
             if($snapshotText!==''&&str_starts_with($snapshotText,(string)$state['content']))$state['content']=$snapshotText;
             $state['native_error_code'] = $type;
-            $state['native_provider_code'] = substr(preg_replace('/[^a-zA-Z0-9_.-]/', '', (string)($response['error']['code'] ?? $response['incomplete_details']['reason'] ?? '')), 0, 80);
+            $state['native_provider_code'] = self::code((string)($response['error']['code'] ?? $response['incomplete_details']['reason'] ?? ''),$requestKey);
             $state['error'] = '模型回复未完整结束，请勿重复提交，费用待核对';
         } elseif ($type === 'response.completed') {
             $state['responses_complete'] = ($response['status'] ?? '') === 'completed';
@@ -143,13 +143,24 @@ final class ResponsesMessagesAdapter
         // Other native events, including reasoning summaries, contain no visible answer.
     }
 
-    private static function code(string $value): string {return substr((string)preg_replace('/[^a-zA-Z0-9_.-]/','',$value),0,80);}
-    private static function diagnosticMessage(string $value): string
+    private static function code(string $value, string $requestKey = ''): string
     {
-        $value=strip_tags($value);
-        $value=(string)preg_replace('~https?://[^\\s<>]+~iu','[redacted URL]',$value);
-        $value=(string)preg_replace('/\\b(?:Bearer\\s+[^\\s,;]+|sk-[A-Za-z0-9_-]+)/iu','[redacted credential]',$value);
-        return mb_substr(trim((string)preg_replace('/[\\x00-\\x20]+/u',' ',$value)),0,1000,'UTF-8');
+        if ($requestKey !== '') $value = str_replace($requestKey, '[redacted]', $value);
+        return substr((string)preg_replace('/[^a-zA-Z0-9_.-]/', '', $value), 0, 80);
+    }
+
+    private static function diagnosticMessage(string $value, string $requestKey = ''): string
+    {
+        // Remove the transport's actual key before truncation or HTML cleanup.
+        if ($requestKey !== '') $value = str_replace($requestKey, '[redacted credential]', $value);
+        $value = strip_tags($value);
+        $value = (string)preg_replace('~https?://[^\s<>]+~iu', '[redacted URL]', $value);
+        $value = (string)preg_replace(
+            '~(?<![\w-])["\']?(?:x[-_]?api[-_]?key|api[-_]?key|access[-_]?token|refresh[-_]?token|client[-_]?secret|authorization|token|secret)["\']?\s*[:=]\s*(?:"[^"]*"|\'[^\']*\'|(?:Bearer|Basic)\s+[^\s,;]+|[^\s,;]+)~iu',
+            '[redacted credential]', $value
+        );
+        $value = (string)preg_replace('~\b(?:(?:Bearer|Basic)\s+[^\s,;]+|sk-[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)~iu', '[redacted credential]', $value);
+        return mb_substr(trim((string)preg_replace('/[\x00-\x20]+/u', ' ', $value)), 0, 1000, 'UTF-8');
     }
 
     private static function text(array &$state, string $key, string $text, bool $delta, callable $emit): void
