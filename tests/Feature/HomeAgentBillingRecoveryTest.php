@@ -99,6 +99,9 @@ namespace {
   catch(TextSettlementPending $e){
    $c=AiConsumptionLog::findOrEmpty($e->consumptionId);
    check($c['billing_status']==='settlement_failed'&&$c['error_code']==='provider_stream_incomplete','Unknown native result incorrectly refunded');
+   check(!in_array('reservation_not_released',issueCodes($e->consumptionId),true)&&in_array('settlement_failed',issueCodes($e->consumptionId),true),'Zero reservation falsely reported as held funds');
+   $reserved=$c->toArray();$reserved['reserved_user_price']=1;
+   check(in_array('reservation_not_released',array_column((new ReflectionMethod(Audit::class,'issues'))->invoke(null,$reserved),'code'),true),'Real reservation stopped being audited');
    check($c['upstream_request_id']===($nativeMode==='responses_incomplete'?'fixture-responses-receipt':'fixture-native-receipt')&&$c['usage_snapshot']['prompt_tokens']===19&&$c['usage_snapshot']['usage_complete']===false,'Partial receipt evidence lost');
    check($e->result['content']==='已收到的正文'&&$e->result['tool_calls']===[],'Partial calls escaped into Neuron');
    invoke('fail',['consumption'=>$c],'late error','fixture');

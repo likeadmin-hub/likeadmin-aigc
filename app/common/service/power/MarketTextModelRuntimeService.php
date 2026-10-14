@@ -1610,7 +1610,7 @@ class MarketTextModelRuntimeService
             'usage' => (array)($state['usage'] ?? []),
             // Never hand partial calls to Neuron or a delayed continuation.
             'tool_calls' => [],
-            'protocol_diagnostic' => ['code' => (string)($state['native_error_code'] ?? 'native_stream_error'), 'last_event' => substr((string)($state['native_event_type'] ?? ''), 0, 80)],
+            'protocol_diagnostic' => ['code' => (string)($state['native_error_code'] ?? 'native_stream_error'), 'last_event' => substr((string)($state['native_event_type'] ?? ''), 0, 80), 'provider_code' => (string)($state['native_provider_code'] ?? '')],
         ] : null;
         return new MarketTextModelProviderException($message, $fallbackAllowed && !$hasOutput && $partial === null, $partial);
     }

@@ -83,6 +83,7 @@ final class ResponsesMessagesAdapter
             self::text($state, $index . ':' . (int)($json['content_index'] ?? 0), (string)($json['delta'] ?? ''), true, $emit);
         } elseif (in_array($type, ['response.failed', 'response.incomplete'], true)) {
             $state['native_error_code'] = $type;
+            $state['native_provider_code'] = substr(preg_replace('/[^a-zA-Z0-9_.-]/', '', (string)($response['error']['code'] ?? $response['incomplete_details']['reason'] ?? '')), 0, 80);
             $state['error'] = '模型回复未完整结束，请勿重复提交，费用待核对';
         } elseif ($type === 'response.completed') {
             $state['responses_complete'] = ($response['status'] ?? '') === 'completed';
