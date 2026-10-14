@@ -126,8 +126,8 @@ final class DecorationAgentDesignContext
             'service-grid'=>['supported'=>'columns/font_size/icon_size/show_title/show_sub_title/image_fit；row image/icon/title/description/link','layout'=>'与creation-entry相同；合法服务链接','limitations'=>'新内卡/文字样式被两端消费；content无title默认，公共仍保留历史常用服务标题','unsupported_fields'=>['content.field_map']],
         ];
         if($name==='media-card'){
-            $notes[$name]['supported'].='；非list可选image_max_width；可选text_align及styles.image_background';
-            $notes[$name]['image_composition']='image_max_width按rpx限制非list图片槽宽并居中，正值不超过内容可用宽，0/未配置保留100%；list忽略它，仍用image_width。image_height是槽高；可见主体尺寸还取决于真实画布留白及fit，最大宽不能代替bbox。styles.image_background仅图片槽底，空/缺省保留旧surface，支持transparent、3/4/6/8位hex、整数rgb0–255及rgba alpha0–1（含.5），不支持named/hsl/var/gradient/url。text_align空/缺省保留旧样式，left/center/right只对卡内标题/说明，点击link保留。contain保留完整图片但可能露出槽底；cover可能裁掉主体，必须对照真实bbox确认，不能为去白底盲目cover。不要编造crop字段。';
+            $notes[$name]['supported'].='；非list可选image_max_width；list可选image_text_gap；可选text_align及styles.image_background';
+            $notes[$name]['image_composition']='image_max_width按rpx限制非list图片槽宽并居中，正值不超过内容可用宽，0/未配置保留100%；list忽略它，仍用image_width。image_text_gap只控制list内部图与文之间的间距，正值0–240rpx，0/缺省沿用共享12px与公开24rpx；不改变外部卡宽、styles.item_gap、来源或整卡点击，非list忽略。image_height是槽高；可见主体尺寸还取决于真实画布留白及fit，最大宽不能代替bbox。styles.image_background仅图片槽底，空/缺省保留旧surface，支持transparent、3/4/6/8位hex、整数rgb0–255及rgba alpha0–1（含.5），不支持named/hsl/var/gradient/url。text_align空/缺省保留旧样式，left/center/right只对卡内标题/说明，点击link保留。contain保留完整图片但可能露出槽底；cover可能裁掉主体，必须对照真实bbox确认，不能为去白底盲目cover。不要编造crop字段。';
             $notes[$name]['fit_math']='image_max_width限制盒宽，不保证实际绘制画布宽。源画布W×H、盒宽w高h：contain缩放min(w/W,h/H)，cover缩放max(w/W,h/H)，默认居中；源主体bbox乘缩放后再与盒子相交，才是可见主体。方图用contain时画布绘制边长min(w,h)，增大盒宽但盒高较小不会放大图形；cover绘制边长max(w,h)，只在已验证裁掉同色留白且完整主体仍在盒内时使用。修改图槽高/上padding需联算标签基线，不能以尺寸字段相同声称图标已匹配。';
         }
         if($name==='banner')$notes[$name]['image_composition']='image_height是图片内容高度，不等于含padding/圆角外壳/阴影的整卡高度；对照设计需分别量图片和外壳。cover不会自动去掉源文件内嵌黑条，若原裁切无黑条应保留该可见图高，用真实深色背景/padding补外壳，不把整卡高度直接写成图片高度。';

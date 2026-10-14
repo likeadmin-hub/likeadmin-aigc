@@ -22157,6 +22157,21 @@
           "max": 1500,
           "help": "仅非list媒体图片槽；正值不超过父卡宽并居中，0/未填写保留原100%宽。list忽略并继续使用image_width；不改变整卡宽度或其它图片组件。"
         },
+        "image_text_gap": {
+          "key": "image_text_gap",
+          "label": "列表图文间距",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 240,
+          "help": "仅media-card list内部图片与文字之间；正值为rpx，0/缺省沿用共享12px、公开24rpx。不是整卡间距；不改变styles.item_gap、来源或整卡点击。",
+          "show_if": {
+            "key": "layout",
+            "equals": "list"
+          }
+        },
         "image_width": {
           "key": "image_width",
           "label": "列表图片宽度",
@@ -22648,7 +22663,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "Optional image_max_width is 0–1500rpx: positive non-list slot width is capped by the parent and centered; 0/absent retains 100%, list ignores it and uses image_width. styles.image_background supports transparent/hex/rgb/rgba pure color only on this image slot; empty retains the old softsurface and preserves image URL. text_align enum empty/left/center/right controls only row title/description copy, never outer heading/source/link/click; empty retains CSS. single/grid/double/scroll and cover/contain are consumed. list is inner left-image/right-copy; list_scroll=1 enables outer horizontal 72%-width cards without changing inner layout. image_width is rpx, only list consumes it; 0 uses160rpx; actual image width is capped at45% of the card width. Row typography: font_size enum0 or10–32px, sub_font_size enum0 or10–24px, font_weight enum0/400/500/600/700/800. Positive sizes are logicalpx; 0 retains shared13/11px/public26/22rpx and each old title weight: shared zero/absent adds no font-weight override; public inherits the old weight. Explicit positive image_height (rpx) matches both clients; 0/absent retains shared4:3/public210rpx legacy defaults.",
+        "Optional image_text_gap is 0–240rpx and only list consumes it between image and copy; positive values use rpx, 0/absent keeps shared12px/public24rpx. It never changes styles.item_gap, source rows or whole-card links. Optional image_max_width is 0–1500rpx: positive non-list slot width is capped by the parent and centered; 0/absent retains 100%, list ignores it and uses image_width. styles.image_background supports transparent/hex/rgb/rgba pure color only on this image slot; empty retains the old softsurface and preserves image URL. text_align enum empty/left/center/right controls only row title/description copy, never outer heading/source/link/click; empty retains CSS. single/grid/double/scroll and cover/contain are consumed. list is inner left-image/right-copy; list_scroll=1 enables outer horizontal 72%-width cards without changing inner layout. image_width is rpx, only list consumes it; 0 uses160rpx; actual image width is capped at45% of the card width. Row typography: font_size enum0 or10–32px, sub_font_size enum0 or10–24px, font_weight enum0/400/500/600/700/800. Positive sizes are logicalpx; 0 retains shared13/11px/public26/22rpx and each old title weight: shared zero/absent adds no font-weight override; public inherits the old weight. Explicit positive image_height (rpx) matches both clients; 0/absent retains shared4:3/public210rpx legacy defaults.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -27347,5 +27362,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "95a049d9a8102e4b41b72b0ddea55ea987f0107a05532411574f0d7c3a709136"
+  "hash": "66c0a84db55d892bd46107a6633493799b3e6e1577f2857bae85b196c24f07aa"
 }
