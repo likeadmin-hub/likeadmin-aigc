@@ -1519,7 +1519,7 @@ class AigcShortDramaService
         $storage=self::storageInfoForUploadedFile((int)$data['tenant_id'],$uri);
         if(!$storage)$storage=self::storageInfoForShortDramaAsset((int)$data['tenant_id'],(int)$data['user_id'],$uri);
         // Bundled public resources have no upload record, but have a fixed local storage scope.
-        if(!$storage&&$public&&str_starts_with($uri,'resource/')&&!str_contains($uri,'..'))$storage=['storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>''];
+        if((empty($storage['storage_scope'])||empty($storage['storage_engine']))&&$public&&str_starts_with($uri,'resource/')&&!str_contains($uri,'..'))$storage=['storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>''];
         if(empty($storage['storage_scope'])||empty($storage['storage_engine']))throw new \InvalidArgumentException('主体图片缺少存储信息，请在主体库重新上传');
         return ['image_uri'=>$uri,'name'=>(string)$data['name'],'description'=>(string)($data['description']??'')]+$storage;
     }
