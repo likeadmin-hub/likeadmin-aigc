@@ -362,7 +362,10 @@ final class DecorationAgentDesignService
             if($run['status']!=='awaiting_design_confirmation'||($d['status']??'')!=='awaiting_confirmation'||!DecorationAgentAssetReferences::designAsset((int)$d['slot_id'],$tenant,$admin))throw new RuntimeException('设计稿尚未成功或费用待核实，不能确认');
             $approved=['run_id'=>$id]+array_intersect_key($d,array_flip(['revision','hash','slot_id','prompt','blueprint','asset']));
             $d['status']='approved';$ctx['design']=$d;Db::name('decorate_agent_run')->where('id',$id)->update(['context_json'=>DecorationAgentService::json($ctx)]);
-            $input=DecorationAgentService::decode($run['input_json']);$input['design_first']=false;unset($input['design_parent_run_id']);$input['session_id']=$session['id'];$input['budget_points']=$budget;$input['idempotency_key']='design-implementation:'.hash('sha256',$tenant.':'.$admin.':'.$id.':'.$hash.':'.$key);
+            $input=DecorationAgentService::decode($run['input_json']);
+            // Confirmation is a new authorization. Preserve the design-only brief in its original history.
+            $input['message']='我已确认第'.$revision.'版设计稿。现在授权按已确认的完整设计图及冻结规划开始页面实施：使用真实可编辑组件还原布局、文字、配色、图标和已选素材；仅在当前已授权来源和本轮预算内生成所需独立素材。请生成候选页面供预览，完成后通过实际截图与设计稿逐项复审。';
+            $input['design_first']=false;unset($input['design_parent_run_id']);$input['session_id']=$session['id'];$input['budget_points']=$budget;$input['idempotency_key']='design-implementation:'.hash('sha256',$tenant.':'.$admin.':'.$id.':'.$hash.':'.$key);
             $implementation=DecorationAgentService::start($tenant,$admin,$input,$approved);
             $ctx['design']['implementation_run_id']=$implementation['id'];$ctx['design']['confirmation_key']=$key;Db::name('decorate_agent_run')->where('id',$id)->update(['context_json'=>DecorationAgentService::json($ctx)]);
             DecorationAgentService::finishDesign($id,'completed',['reply'=>'设计稿已确认，开始按真实组件实施；完成后需图对图验收。']);
