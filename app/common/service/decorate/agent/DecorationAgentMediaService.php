@@ -285,9 +285,10 @@ final class DecorationAgentMediaService
 
     private static function referenceRequest(int $tenantId, array $request,int $slotId=0): array
     {
+        $designRequest=($request['purpose']??'')==='design';
         $designSlot=(int)($request['reference_design_slot_id']??0);
         $materialReferences=[];
-        if(!empty($request['design_materials'])){
+        if(!empty($request['design_materials'])||!empty($request['design_parent'])){
             $slot=Db::name('decorate_agent_image_slot')->where(['id'=>$slotId,'tenant_id'=>$tenantId])->find();
             if(!$slot)throw new Exception('设计素材参考图片位置无效');
             $materialReferences=DecorationAgentDesignService::materialReferences($tenantId,$slot);
@@ -316,7 +317,7 @@ final class DecorationAgentMediaService
             $read=DecorationAgentDesignService::referenceBytes($tenantId,(int)$slot['admin_id'],$approved);
             $references[]='data:'.$read['mime_type'].';base64,'.base64_encode($read['bytes']);
         }
-        $request['reference_images'] = array_values(array_unique(array_merge($references,$materialReferences)));
+        $request['reference_images'] = array_values(array_unique($designRequest?array_merge($materialReferences,$references):array_merge($references,$materialReferences)));
         unset($request['reference_file_ids']);
         unset($request['callback_url']);
         return $request;
