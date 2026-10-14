@@ -116,6 +116,96 @@ final class DecorationAgentAssetReferences
         return $result;
     }
 
+    /** Freeze only identities already present in a server-owned page snapshot. */
+    public static function freezeMaterials(array $page,int $tenant,array $sources,array $attachments=[],array $historical=[]): array
+    {
+        $manifest=[];
+        self::walk($page,function(array &$widget,array $definition)use($tenant,&$manifest):void{
+            foreach(self::imageFields($widget,$definition) as $field){
+                $ref=$widget[self::REFS][$field]??null;$value=DecorationAgentOperations::get($widget,$field);
+                if(!is_array($ref)||!is_string($value)||($ref['expected_value']??null)!==$value)continue;
+                $kind=$ref['kind']??'';$id=(int)($ref['id']??0);if(!in_array($kind,['file','slot'],true)||$id<=0)continue;
+                // Keep revoked identities as deny entries; never downgrade a managed image to a plain URL.
+                $key=$kind.':'.$id.':'.$value;$manifest[$key]=['kind'=>$kind,'id'=>$id,'stable_uri'=>$value,'asset'=>[],'aliases'=>[$value]];
+                $record=$kind==='file'?self::file($id,$tenant):($kind==='slot'?self::slot($id,$tenant):null);
+                foreach($record?($kind==='file'?[$record]:$record['assets']):[] as $asset)if($asset['stable']===$value){
+                    $key=$kind.':'.$id.':'.$value;$manifest[$key]=['kind'=>$kind,'id'=>$id,'stable_uri'=>$value,'asset'=>array_intersect_key($asset['asset'],array_flip(['image_uri','storage_scope','storage_engine','storage_domain'])),'aliases'=>[$value]];break;
+                }
+            }
+        });
+        foreach(self::refreshMaterials(array_values($manifest),$tenant,$sources,$attachments,$historical) as $entry)$manifest[$entry['kind'].':'.$entry['id'].':'.$entry['stable_uri']]=$entry;
+        return array_values($manifest);
+    }
+
+    /** Revocations, source policy and stored identity are rechecked on every reuse. */
+    public static function refreshMaterials(array $manifest,int $tenant,array $sources,array $attachments=[],array $historical=[]): array
+    {
+        $result=[];$identities=[];$blocked=array_map(fn($uri)=>'/'.ltrim($uri,'/'),DecorationAgentDesignService::blockedUris($tenant));
+        $uploads=[];if(in_array('upload',$sources,true))foreach($attachments as $attachment)if(in_array('asset',$attachment['uses']??[],true))$uploads[]=(int)$attachment['file_id'];
+        foreach($manifest as $entry){
+            $kind=$entry['kind']??'';$id=(int)($entry['id']??0);$source=$kind==='file'&&in_array($id,$uploads,true)?'upload':'tenant';
+            if(!in_array($source,$sources,true)||!in_array($kind,['file','slot'],true))continue;
+            $record=$kind==='file'?self::file($id,$tenant):self::slot($id,$tenant);$match=null;
+            foreach($record?($kind==='file'?[$record]:$record['assets']):[] as $asset)if($asset['stable']===($entry['stable_uri']??null)&&self::matchingAsset([$asset],$entry['asset']??[])){$match=$asset;break;}
+            if(!$match||in_array($match['stable'],$blocked,true))continue;
+            $identity=json_encode([$match['uri'],$match['scope'],$match['engine'],$match['domain']]);
+            if(isset($identities[$match['stable']])&&$identities[$match['stable']]!==$identity)throw new \InvalidArgumentException('复用素材存储身份冲突');
+            $identities[$match['stable']]=$identity;$url=DecorationAgentDesignService::assetUrl($tenant,$match['asset']);$aliases=[$match['stable'],$url];
+            foreach(array_merge($entry['aliases']??[],array_column($historical,'url')) as $alias){
+                if(!is_string($alias))continue;
+                // Historical aliases must be server-authored metadata for the same object/origin.
+                $a=parse_url($alias);$b=parse_url($url);
+                if($alias===$match['stable']||(is_array($a)&&is_array($b)&&array_intersect_key($a,array_flip(['scheme','host','port','path']))===array_intersect_key($b,array_flip(['scheme','host','port','path']))))$aliases[]=$alias;
+            }
+            $entry=array_replace($entry,['source'=>$source,'url'=>$url,'aliases'=>array_values(array_unique($aliases)),'file_id'=>$kind==='file'?$id:0,'slot_id'=>$kind==='slot'?$id:0,'asset'=>array_intersect_key($match['asset'],array_flip(['image_uri','storage_scope','storage_engine','storage_domain'])),'title'=>'当前基准页面已使用的素材','role'=>'owned_page_asset']);
+            $result[]=$entry;
+        }
+        return $result;
+    }
+
+    public static function managedValue(string $value,array $manifest): bool
+    {
+        foreach($manifest as $entry)if(in_array($value,$entry['aliases']??[],true)||DecorationAgentDesignService::imagePath($value)===DecorationAgentDesignService::imagePath((string)($entry['stable_uri']??'')))return true;
+        return false;
+    }
+
+    public static function assertManagedReuse(array $page,array $manifest,array $valid,array $before=[]): void
+    {
+        $aliases=[];foreach($valid as $entry)$aliases=array_merge($aliases,$entry['aliases']);
+        $unchanged=[];
+        self::walk($before,function(array &$widget,array $definition)use(&$unchanged):void{
+            foreach(self::imageFields($widget,$definition) as $field)$unchanged[(string)($widget['id']??'page-meta').':'.$field]=[DecorationAgentOperations::get($widget,$field),$widget[self::REFS][$field]??null];
+        });
+        self::walk($page,function(array &$widget,array $definition)use($manifest,$aliases,$unchanged):void{
+            foreach(self::imageFields($widget,$definition) as $field){
+                $value=DecorationAgentOperations::get($widget,$field);
+                if(!is_string($value)||!self::managedValue($value,$manifest)||in_array($value,$aliases,true))continue;
+                // An unchanged revoked image may remain, but cannot be copied or rebound elsewhere.
+                $old=$unchanged[(string)($widget['id']??'page-meta').':'.$field]??null;
+                if($old!==null&&$old===[$value,$widget[self::REFS][$field]??null]&&$old[1]!==null)continue;
+                throw new \InvalidArgumentException('复用素材来源已失效或地址不是本轮授权别名');
+            }
+        });
+    }
+
+    /** A newly reused value must remain managed even if authority changed during attachment. */
+    public static function assertManagedBindings(array $page,array $manifest,array $valid,array $before=[]): void
+    {
+        $unchanged=[];
+        self::walk($before,function(array &$widget,array $definition)use(&$unchanged):void{
+            foreach(self::imageFields($widget,$definition) as $field)$unchanged[(string)($widget['id']??'page-meta').':'.$field]=[DecorationAgentOperations::get($widget,$field),$widget[self::REFS][$field]??null];
+        });
+        self::walk($page,function(array &$widget,array $definition)use($manifest,$valid,$unchanged):void{
+            foreach(self::imageFields($widget,$definition) as $field){
+                $value=DecorationAgentOperations::get($widget,$field);$ref=$widget[self::REFS][$field]??null;
+                if(!is_string($value)||!self::managedValue($value,$manifest))continue;
+                if(($unchanged[(string)($widget['id']??'page-meta').':'.$field]??null)===[$value,$ref]&&$ref!==null)continue;
+                foreach($valid as $entry)if($value===$entry['stable_uri']&&$ref===['kind'=>$entry['kind'],'id'=>$entry['id'],'expected_value'=>$value])continue 2;
+                throw new \InvalidArgumentException('复用素材未形成当前授权的持久引用');
+            }
+        });
+    }
+
     private static function attach(array &$widget,string $field,string $kind,int $id,string $stable): void
     {
         DecorationAgentOperations::set($widget,$field,$stable);

@@ -209,7 +209,7 @@ final class DecorationAgentDesignService
     }
 
     /** Compare resource paths without expanding the engine's exact URL approval set. */
-    private static function imagePath(string $value): string
+    public static function imagePath(string $value): string
     {
         $path=parse_url($value,PHP_URL_PATH);
         if(!is_string($path))throw new RuntimeException('图片资源路径无效');
@@ -354,6 +354,9 @@ final class DecorationAgentDesignService
         if($key===''||strlen($key)>100||!is_finite($budget)||$budget<=0||strlen($hash)!==64)throw new RuntimeException('请提供有效设计版本、确认标识和实施预算');
         $hint=self::ownedRun($tenant,$admin,$id);
         return Db::transaction(function()use($tenant,$admin,$id,$revision,$hash,$key,$budget,$hint): array {
+            // Continuation uses the same candidate -> session lock order as apply and start.
+            $continuation=DecorationAgentService::decode($hint['input_json']);
+            if(!empty($continuation['continue_candidate_id']))Db::name('decorate_agent_candidate')->where(['id'=>$continuation['continue_candidate_id'],'tenant_id'=>$tenant,'admin_id'=>$admin,'session_id'=>$hint['session_id']])->lock(true)->find();
             $session=Db::name('decorate_agent_session')->where(['id'=>$hint['session_id'],'tenant_id'=>$tenant,'admin_id'=>$admin])->lock(true)->find();
             $run=Db::name('decorate_agent_run')->where('id',$id)->lock(true)->find();$ctx=DecorationAgentService::decode($run['context_json']);$d=$ctx['design']??[];
             $latest=(int)(DecorationAgentService::decode($session['preferences'])['_design_state']['run_id']??0);
