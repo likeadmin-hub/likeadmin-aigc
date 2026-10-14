@@ -61,6 +61,12 @@ namespace {
         S::table('step')->where('id',$p['step_id'])->update(['status'=>'needs_review']);S::table('run')->where('id',$run['id'])->update(['status'=>'needs_review','lease_token'=>'','lease_until'=>0]);T::scan();check(S::run(1,1,$run['id'])['status']==='waiting_tasks','Settled task failed to wake original run');
     });
     fixture(function()use($prefs){[$run,$p]=prepared($prefs);foreach([['text'=>' '],['text'=>str_repeat('字',501)],['text'=>'你好','reference_id'=>'other-voice']] as $bad){try{T::prepare($run,$bad);throw new \LogicException('Invalid speech input accepted');}catch(\InvalidArgumentException|\app\common\service\open_platform\OpenException){}}$run['preferences']=S::encode(['models'=>['voice'=>'speech_sku:0']]);try{T::prepare($run,['text'=>'你好']);throw new \LogicException('Unavailable selection fell back');}catch(\InvalidArgumentException){}});
+    foreach(['tenant','user'] as $side)fixture(function()use($prefs,$side){
+        [$run,$p]=prepared($prefs);$field=$side==='tenant'?'point_balance':'user_money';
+        Db::name($side)->where('id',1)->update([$field=>0]);$before=AiConsumptionLog::count();
+        try{T::submit($p);throw new \LogicException('Insufficient balance accepted');}catch(\RuntimeException $e){check(str_contains($e->getMessage(),'不足'),'Unexpected shortage error');}
+        check(F::$calls===0&&AiConsumptionLog::count()===$before,'Shortage submitted or created a reservation');
+    });
     check(T::classify(['complete'=>true,'http_status'=>500,'body'=>'{"code":0}'])===null,'HTTP 500 must not refund');
     check(T::classify(['complete'=>true,'http_status'=>200,'body'=>'{"code":1,"data":{}}'])===null,'Missing output must not complete');
     $decision=new \ReflectionMethod(\app\common\service\ai\AiTaskOperationService::class,'decision');
