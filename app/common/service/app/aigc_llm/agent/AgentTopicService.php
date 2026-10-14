@@ -20,12 +20,19 @@ final class AgentTopicService
     {
         $topic=self::state($run);
         if(!$topic)return null; // Legacy records remain readable without rewriting them.
-        $root=(int)$topic['root_run_id'];$ids=[];
-        foreach(self::rows($run) as $row){
-            $state=self::state($row);
-            if((int)($state['root_run_id']??$row['id'])===$root)$ids[]=(int)$row['id'];
-        }
-        return array_values(array_unique(array_merge($ids,[(int)$run['id']])));
+        // Membership up to this run is frozen; authorization must still be live.
+        if(!AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'delete_time'=>0])->find())throw new \InvalidArgumentException('会话不存在');
+        $root=(int)$topic['root_run_id'];
+        $key='topic:'.implode(':',[$run['tenant_id'],$run['user_id'],$run['session_id'],$run['id'],$root]);
+        return AgentReadCache::remember($key,static function()use($run,$root){
+            $ids=[];
+            $rows=AgentStore::owner('run',(int)$run['tenant_id'],(int)$run['user_id'])->where('session_id',$run['session_id'])->where('id','<=',$run['id'])->field('id,preferences')->order('id','desc')->select()->toArray();
+            foreach($rows as $row){
+                $state=self::state($row);
+                if((int)($state['root_run_id']??$row['id'])===$root)$ids[]=(int)$row['id'];
+            }
+            return array_values(array_unique(array_merge($ids,[(int)$run['id']])));
+        });
     }
     public static function resolve(array $run,callable $classify): array
     {

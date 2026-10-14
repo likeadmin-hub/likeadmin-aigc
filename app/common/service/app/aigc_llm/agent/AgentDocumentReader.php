@@ -25,11 +25,20 @@ final class AgentDocumentReader
         if (!self::supports((string)$row['name'])) throw new \InvalidArgumentException('当前可读取 TXT、Markdown、CSV 和 DOCX 正文，请转换格式后上传');
         if ((int)$row['size'] > self::MAX_BYTES) throw new \InvalidArgumentException('文档不能超过10MB，请拆分后上传');
         if ((string)$row['storage_engine'] === 'local') {
+            clearstatcache();
             $root = realpath(public_path().'uploads');
             $path = realpath(public_path().ltrim((string)$row['uri'], '/'));
             if (!$root || !$path || !str_starts_with($path, $root.DIRECTORY_SEPARATOR) || !is_file($path)) throw new \InvalidArgumentException('文档文件不可用，请重新上传');
-            return self::extract($path, (string)$row['name']);
+            clearstatcache(true,$path);
+            $key='document:'.hash('sha256',serialize([$tenant,$user,$row,filesize($path),filemtime($path),filectime($path)]));
+            return AgentReadCache::remember($key,static fn()=>self::extract($path,(string)$row['name']));
         }
+        $key='document:'.hash('sha256',serialize([$tenant,$user,$row]));
+        return AgentReadCache::remember($key,static fn()=>self::download($row));
+    }
+
+    private static function download(array $row): string
+    {
         $temp = tempnam(sys_get_temp_dir(), 'agent-doc-');
         if ($temp === false) throw new \InvalidArgumentException('文档暂时无法读取，请稍后重试');
         try {

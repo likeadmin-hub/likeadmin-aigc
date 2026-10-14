@@ -20,8 +20,10 @@ final class AgentContextService
     private static function owned(string $table,array $run)
     {
         $query=AgentStore::owner($table,(int)$run['tenant_id'],(int)$run['user_id'])->where('session_id',$run['session_id']);
-        $ids=AgentTopicService::runIds($run);
-        if($ids!==null&&in_array($table,['run','artifact'],true))$query->whereIn($table==='run'?'id':'run_id',$ids);
+        if(in_array($table,['run','artifact'],true)){
+            $ids=AgentTopicService::runIds($run);
+            if($ids!==null)$query->whereIn($table==='run'?'id':'run_id',$ids);
+        }
         return $query;
     }
     private static function messages(array $run)

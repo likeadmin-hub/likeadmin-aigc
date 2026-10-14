@@ -48,6 +48,15 @@ namespace {
   OpenStore::table('file')->insert(['tenant_id'=>$t,'user_id'=>$u,'file_id'=>Fake::$file,'uri'=>substr($temp,strlen(public_path())),'name'=>'会议流程.txt','mime'=>'text/plain','size'=>strlen($body),'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']+OpenStore::timestamp());
   $run=$makeRun([['file_id'=>Fake::$file]]);$page=C::readAsset($run,Fake::$file);$rest=C::readAsset($run,Fake::$file,4000);
   check($page['content_available']&&$page['next_offset']===4000&&$rest['next_offset']===null&&$page['content'].$rest['content']===$body,'Uploaded document pagination lost text');
+  \app\common\service\app\aigc_llm\agent\AgentReadCache::scope(function()use($run,$body,$t,$u){
+   $first=C::readAsset($run,Fake::$file);$last=C::readAsset($run,Fake::$file,4000);
+   check($first['content'].$last['content']===$body,'Cached document lost text');
+   foreach([['tenant_id'=>$t+1],['user_id'=>$u+1],['session_id'=>$run['session_id']+9999]] as $other)denied(fn()=>C::readAsset(array_replace($run,$other),Fake::$file));
+   $saved=OpenStore::owner('file',$t,$u)->where('file_id',Fake::$file)->find();
+   OpenStore::owner('file',$t,$u)->where('file_id',Fake::$file)->delete();
+   denied(fn()=>C::readAsset($run,Fake::$file));
+   OpenStore::table('file')->insert($saved);
+  });
   $chat=new \ReflectionMethod(E::class,'chat');$chat->invoke(null,$run);
   check(count(Fake::$requests)===3&&str_contains(S::encode(Fake::$requests[2]['messages']),'观众体验'),'Actual Neuron read loop did not receive the final page');
   $view=E::detail($t,$u,(int)$run['id']);check($view['status']==='success'&&$view['steps']===[],'Reading created a paid generation plan');
