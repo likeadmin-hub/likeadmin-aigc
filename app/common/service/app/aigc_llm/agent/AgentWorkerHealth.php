@@ -45,21 +45,50 @@ final class AgentWorkerHealth
     {
         $processes=self::processes();$now=time();
         $runs=AgentStore::table('run');
-        $oldest=(int)(clone $runs)->whereIn('status',['queued','waiting_tasks'])->where('next_run_time','<=',$now)->min('create_time');
+        // A long supplier task is not a stalled queue: measure from its next due poll.
+        $due=(clone $runs)->whereIn('status',['queued','waiting_tasks'])->where('next_run_time','<=',$now);
+        $times=array_filter([(int)(clone $due)->where('next_run_time','>',0)->min('next_run_time'),
+            (int)(clone $due)->where('next_run_time','<=',0)->min('create_time')]);
+        $oldest=$times?min($times):0;
+        $expired=(clone $runs)->where('status','running')->where('lease_until','<',$now);
+        $expiredCount=(clone $expired)->count();
+        $oldestLease=(int)(clone $expired)->min('lease_until');
         $review=\think\facade\Db::name('ai_consumption_log')->where(['app_code'=>'aigc_llm','action_code'=>'agent_transcribe','billing_status'=>'reserved','run_status'=>'needs_review']);
         $speech=\think\facade\Db::name('ai_consumption_log')->where(['app_code'=>'aigc_llm','action_code'=>'agent_speech','billing_status'=>'reserved','run_status'=>'needs_review']);
         $media=['proc_open'=>function_exists('proc_open')];
         foreach(['pdfinfo','pdftotext','pdftoppm','ffmpeg','ffprobe'] as $bin)$media[$bin]=is_executable('/usr/bin/'.$bin);
-        $journal=runtime_path().'home-agent-stt-receipts';
-        return ['healthy'=>count(array_filter($processes,static fn($p)=>$p['healthy']))>0,
+        $storage=[];
+        foreach(['stt','speech'] as $kind){
+            $journal=runtime_path().'home-agent-'.$kind.'-receipts';
+            $storage[$kind]=file_exists($journal)?is_dir($journal)&&is_writable($journal):is_writable(runtime_path());
+        }
+        return self::evaluate(['healthy'=>count(array_filter($processes,static fn($p)=>$p['healthy']))>0,
             'processes'=>$processes,'media_dependencies'=>$media,
-            'receipt_storage_writable'=>is_dir($journal)?is_writable($journal):is_writable(runtime_path()),
+            'receipt_storage'=>$storage,'receipt_storage_writable'=>!in_array(false,$storage,true),
             'queue'=>['ready'=>(clone $runs)->whereIn('status',['queued','waiting_tasks'])->where('next_run_time','<=',$now)->count(),
                 'running'=>(clone $runs)->where('status','running')->count(),
-                'expired_leases'=>(clone $runs)->where('status','running')->where('lease_until','<',$now)->count(),
+                'expired_leases'=>$expiredCount,
+                'oldest_expired_lease_age_seconds'=>$expiredCount?$now-$oldestLease:0,
                 'oldest_ready_age_seconds'=>$oldest?$now-$oldest:0,
                 'review_runs'=>(clone $runs)->where('status','needs_review')->count()],
             'stt_review'=>['count'=>(clone $review)->count(),'reserved_points'=>(float)(clone $review)->sum('reserved_user_price')],
-            'speech_review'=>['count'=>(clone $speech)->count(),'reserved_points'=>(float)(clone $speech)->sum('reserved_user_price')]];
+            'speech_review'=>['count'=>(clone $speech)->count(),'reserved_points'=>(float)(clone $speech)->sum('reserved_user_price')]]);
+    }
+    /** Stable, content-free signals for an external scheduler/monitor. Never repairs tasks. */
+    public static function evaluate(array $report): array
+    {
+        $issues=[];
+        $add=static function(string $code,string $severity)use(&$issues){$issues[]=['code'=>$code,'severity'=>$severity];};
+        if(!count(array_filter($report['processes'],static fn($p)=>$p['healthy'])))$add('worker_unavailable','critical');
+        if(in_array(false,$report['media_dependencies'],true))$add('media_dependency_unavailable','critical');
+        if(!$report['receipt_storage_writable'])$add('receipt_storage_unwritable','critical');
+        if($report['queue']['oldest_ready_age_seconds']>=300)$add('queue_stalled','critical');
+        // Allow the worker one recovery cycle before alerting on a just-expired lease.
+        if($report['queue']['expired_leases']>0&&$report['queue']['oldest_expired_lease_age_seconds']>=60)$add('lease_recovery_stalled','critical');
+        if($report['queue']['review_runs']>0||$report['stt_review']['count']>0||$report['speech_review']['count']>0)$add('manual_review_required','warning');
+        $report['healthy']=!count(array_filter($issues,static fn($issue)=>$issue['severity']==='critical'));
+        $report['attention_required']=(bool)$issues;
+        $report['issues']=$issues;
+        return $report;
     }
 }
