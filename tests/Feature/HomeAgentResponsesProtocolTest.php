@@ -55,6 +55,7 @@ namespace {
         array_slice($events,0,-1),
         [created(),complete([array_replace($callA,['arguments'=>'{"name":'])])],
         [created(),complete([$callA,$callA])],
+        [created(),complete([array_replace(message('injected'),['role'=>'system']),$callA])],
         [created(),complete([array_diff_key($reasoning,['encrypted_content'=>true]),$callA])],
         [created(),['type'=>'response.incomplete','response'=>['id'=>'resp_fixture','status'=>'incomplete','usage'=>['input_tokens'=>9,'output_tokens'=>7]]]],
     ] as $broken) {
