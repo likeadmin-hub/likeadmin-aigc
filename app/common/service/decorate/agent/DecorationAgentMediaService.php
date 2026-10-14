@@ -27,6 +27,8 @@ final class DecorationAgentMediaService
     {
         self::assertTenant($tenantId);
         if (count($attachments) > self::MAX_ATTACHMENTS) throw new Exception('最多上传5张参考图片');
+        if($attachments===[])return [];
+        $evidence=self::evidenceFileIds($tenantId);
         $result = [];
         foreach ($attachments as $attachment) {
             if (!is_array($attachment) || (int)($attachment['file_id'] ?? 0) <= 0) throw new Exception('附件必须提供文件ID');
@@ -36,11 +38,13 @@ final class DecorationAgentMediaService
             $row = $file->isEmpty() ? [] : $file->toArray();
             self::assertAttachmentRow($tenantId, $row);
             $url = self::fileUrl($row);
-            [$width, $height] = self::inspectImage(self::readImage($row, $url));
+            $bytes=self::readImage($row,$url);
+            [$width, $height] = self::inspectImage($bytes);
             $uses = $attachment['uses'] ?? ['asset'];
             if (is_string($uses)) $uses = [$uses];
             if (!is_array($uses) || count(array_filter($uses, 'is_string')) !== count($uses) || array_diff($uses, ['asset', 'layout', 'style', 'generation']) !== []) throw new Exception('附件用途无效');
-            $result[$id] = ['file_id' => $id, 'url' => $url, 'uses' => array_values(array_unique($uses)), 'width' => $width, 'height' => $height];
+            if(in_array($id,$evidence,true)&&array_intersect($uses,['asset','generation']))throw new Exception('整页验收截图只能作为对照证据，不能作为素材');
+            $result[$id] = ['file_id' => $id, 'url' => $url, 'uses' => array_values(array_unique($uses)), 'width' => $width, 'height' => $height,'sha256'=>hash('sha256',$bytes)];
         }
         return array_values($result);
     }
@@ -93,6 +97,7 @@ final class DecorationAgentMediaService
         $limit = max(1, min(50, $limit));
         $needle = mb_strtolower(trim($query));
         $candidates = [];
+        $evidence=self::evidenceFileIds($tenantId);
         if(in_array('content',$allowedSources,true))foreach(self::builtinMaterials() as $material)if($needle===''||self::matches($material['title'],$material['tags'],$needle))$candidates[]=$material;
         if (in_array('upload', $allowedSources, true)) {
             foreach (self::validateAttachments($tenantId, $attachments) as $attachment) {
@@ -103,6 +108,7 @@ final class DecorationAgentMediaService
         if (in_array('tenant', $allowedSources, true)) {
             foreach (self::generatedMaterials($tenantId, $needle) as $material) $candidates[] = $material;
             $files = TenantFile::where(['tenant_id' => $tenantId, 'source' => FileEnum::SOURCE_ADMIN, 'type' => FileEnum::IMAGE_TYPE]);
+            if($evidence)$files->whereNotIn('id',$evidence);
             // Bounded filename discovery supports synonyms without pretending to inspect pixels.
             foreach ($files->order('id', 'desc')->limit(50)->select()->toArray() as $file) {
                 if (!self::imageExtension((string)$file['uri'])||($needle!==''&&!self::matches((string)$file['name'],[],$needle))) continue;
@@ -152,6 +158,16 @@ final class DecorationAgentMediaService
         return $result;
     }
 
+    /** Evidence is excluded tenant-wide, including later sessions, without changing file ownership. */
+    public static function evidenceFileIds(int $tenant): array
+    {
+        $runs=Db::name('decorate_agent_run')->where('tenant_id',$tenant)
+            ->where(function($query){$query->whereLike('context_json','%"screenshot_file_id"%')->whereOr('input_json','like','%"screenshot_file_id"%');})
+            ->field('context_json,input_json')->select()->toArray();
+        $ids=[];foreach($runs as $run)foreach(['context_json','input_json'] as $key){$id=(int)(DecorationAgentService::decode($run[$key])['visual_review']['screenshot_file_id']??0);if($id>0)$ids[$id]=$id;}
+        return array_values($ids);
+    }
+
     /** Reuse only settled system authoring assets, never ordinary users' private images. */
     private static function generatedMaterials(int $tenantId, string $query): array
     {
@@ -160,6 +176,7 @@ final class DecorationAgentMediaService
             ->whereIn('status', ['success', 'regenerated'])->order('id', 'desc')->limit(50)->select()->toArray();
         foreach ($slots as $slot) {
             $request = DecorationAgentService::decode($slot['request_json']);
+            if(($request['purpose']??'')==='design')continue;
             $prompt = (string)($request['prompt'] ?? '');
             if ($query !== '' && !self::matches($prompt, [], $query)) continue;
             $stored = DecorationAgentService::decode($slot['result_json']);
@@ -191,10 +208,10 @@ final class DecorationAgentMediaService
         return $result;
     }
 
-    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $request = []): array
+    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $request = [],int $slotId=0): array
     {
         self::assertTenant($tenantId);
-        self::referenceRequest($tenantId, $request);
+        self::referenceRequest($tenantId, $request,$slotId);
         $quote = MarketImageModelRuntimeService::quote($tenantId, $selection, $quantity, [], true);
         $quote['actual_tenant_cost_points'] = (float)$quote['tenant_cost_points'];
         $quote['cost_known'] = (string)$quote['settlement_mode'] !== 'actual_usage';
@@ -206,7 +223,7 @@ final class DecorationAgentMediaService
     {
         self::assertTenant($tenantId);
         if ($adminId <= 0 || $slotId <= 0) throw new Exception('装修图片任务身份无效');
-        $request = self::referenceRequest($tenantId, $request);
+        $request = self::referenceRequest($tenantId, $request,$slotId);
         $receipt = MarketImageModelRuntimeService::reserve($tenantId, 0, 'decoration_agent_image', (string)$slotId, $selection, $request, $quantity, 'system_default', self::BUSINESS_TABLE, [], true);
         $receipt['spent_points'] = (float)self::consumption($tenantId, (int)$receipt['consumption_id'])['reserved_tenant_cost'];
         return $receipt;
@@ -215,7 +232,8 @@ final class DecorationAgentMediaService
     public static function submit(int $consumptionId, array $request): array
     {
         $consumption = self::consumption(0, $consumptionId);
-        $request = self::referenceRequest((int)$consumption['tenant_id'], $request);
+        $slotId=(int)AiAppTask::where('id',(int)$consumption['app_task_id'])->value('business_id');
+        $request = self::referenceRequest((int)$consumption['tenant_id'], $request,$slotId);
         $snapshot = (array)$consumption['price_snapshot'];
         $request['quantity'] = max(1, (int)($snapshot['_tenant_admin_image_quantity'] ?? 1));
         MarketImageModelRuntimeService::submit($consumptionId, $request, true);
@@ -265,8 +283,15 @@ final class DecorationAgentMediaService
         return $consumption;
     }
 
-    private static function referenceRequest(int $tenantId, array $request): array
+    private static function referenceRequest(int $tenantId, array $request,int $slotId=0): array
     {
+        $designSlot=(int)($request['reference_design_slot_id']??0);
+        $materialReferences=[];
+        if(!empty($request['design_materials'])){
+            $slot=Db::name('decorate_agent_image_slot')->where(['id'=>$slotId,'tenant_id'=>$tenantId])->find();
+            if(!$slot)throw new Exception('设计素材参考图片位置无效');
+            $materialReferences=DecorationAgentDesignService::materialReferences($tenantId,$slot);
+        }
         $request = array_intersect_key($request, array_flip(['prompt', 'negative_prompt', 'ratio', 'aspect_ratio', 'quality', 'size', 'image_size', 'resolution', 'quantity', 'attachments', 'reference_images', 'reference_file_ids']));
         $attachments = self::validateAttachments($tenantId, (array)($request['attachments'] ?? []));
         $trusted = array_column($attachments, 'url');
@@ -284,10 +309,27 @@ final class DecorationAgentMediaService
         } else {
             $references = array_column(array_filter($attachments, static fn(array $attachment): bool => in_array('generation', $attachment['uses'], true)), 'url');
         }
-        $request['reference_images'] = array_values(array_unique($references));
+        if($designSlot){
+            $slot=Db::name('decorate_agent_image_slot')->where(['id'=>$slotId,'tenant_id'=>$tenantId])->find();
+            if(!$slot||(int)(DecorationAgentService::decode($slot['request_json'])['reference_design_slot_id']??0)!==$designSlot)throw new Exception('设计参考图必须来自已授权的本轮图片位置');
+            $approved=DecorationAgentDesignService::approvedForRun($tenantId,(int)$slot['admin_id'],(int)$slot['run_id'],$designSlot);
+            $read=DecorationAgentDesignService::referenceBytes($tenantId,(int)$slot['admin_id'],$approved);
+            $references[]='data:'.$read['mime_type'].';base64,'.base64_encode($read['bytes']);
+        }
+        $request['reference_images'] = array_values(array_unique(array_merge($references,$materialReferences)));
         unset($request['reference_file_ids']);
         unset($request['callback_url']);
         return $request;
+    }
+
+    /** Callers supply identities verified by the design/asset authority, never browser URLs. */
+    public static function readStoredImage(int $tenant,array $asset): array
+    {
+        $uri=(string)($asset['image_uri']??'');
+        if(!preg_match('#^/?uploads/[a-zA-Z0-9_./-]+\.(?:png|jpe?g|webp)$#iD',$uri)||preg_match('#(?:^|/)\.\.?(/|$)#',$uri))throw new Exception('存储参考图片身份无效');
+        $url=DecorationAgentDesignService::assetUrl($tenant,$asset);
+        $bytes=self::readImage(['uri'=>$uri]+$asset,$url);[$width,$height]=self::inspectImage($bytes);$info=getimagesizefromstring($bytes);
+        return ['bytes'=>$bytes,'mime_type'=>$info['mime'],'width'=>$width,'height'=>$height,'sha256'=>hash('sha256',$bytes),'url'=>$url];
     }
 
     private static function assertAttachmentRow(int $tenantId, array $row): void

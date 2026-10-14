@@ -1,0 +1,236 @@
+<?php
+declare(strict_types=1);
+namespace app\common\service\decorate\agent;
+
+use app\common\service\FileService;
+use think\facade\Db;
+use RuntimeException;
+
+/** Approval metadata is durable; design images remain references, never DIY content. */
+final class DecorationAgentDesignService
+{
+    public static function designing(array $input,array $context): bool
+    {return ($input['design_first']??false)===true&&empty($context['approved_design']);}
+
+    private static function ownedRun(int $tenant,int $admin,int $id): array
+    {
+        $run=Db::name('decorate_agent_run')->where(['id'=>$id,'tenant_id'=>$tenant,'admin_id'=>$admin])->find();
+        if(!$run)throw new RuntimeException('设计执行不存在或无权访问');
+        return $run;
+    }
+
+    public static function initialState(int $tenant,int $admin,array $session,array $input): array
+    {
+        $state=DecorationAgentService::decode($session['preferences'])['_design_state']??[];
+        $latest=(int)($state['run_id']??0);$parent=(int)($input['design_parent_run_id']??0);
+        if($parent&&$parent!==$latest)throw new RuntimeException('设计版本已更新，请使用最新设计稿调整');
+        if($latest){
+            $old=self::ownedRun($tenant,$admin,$latest);
+            if((int)$old['session_id']!==(int)$session['id'])throw new RuntimeException('设计会话不匹配');
+            if($old['status']==='needs_review')throw new RuntimeException('上次设计提交或费用待核实，不能重新生成');
+        }
+        return ['status'=>'planning','revision'=>(int)($state['revision']??0)+1,'parent_run_id'=>$parent?:$latest,'slot_id'=>0,'prompt'=>'','blueprint'=>[],'hash'=>''];
+    }
+
+    /** Called under the existing session start lock. */
+    public static function registerStart(int $tenant,int $admin,int $id,array $session,array $design): void
+    {
+        $preferences=DecorationAgentService::decode(Db::name('decorate_agent_session')->where('id',$session['id'])->value('preferences'));
+        $previous=(int)($preferences['_design_state']['run_id']??0);
+        if($previous){
+            $old=self::ownedRun($tenant,$admin,$previous);$ctx=DecorationAgentService::decode($old['context_json']);
+            if(isset($ctx['design'])){$ctx['design']['status']='superseded';Db::name('decorate_agent_run')->where('id',$previous)->update(['context_json'=>DecorationAgentService::json($ctx)]);DecorationAgentService::event($previous,'design_superseded',['revision'=>$design['revision']]);}
+        }
+        $preferences['_design_state']=['run_id'=>$id,'revision'=>$design['revision']];
+        Db::name('decorate_agent_session')->where(['id'=>$session['id'],'tenant_id'=>$tenant,'admin_id'=>$admin])->update(['preferences'=>DecorationAgentService::json($preferences)]);
+    }
+
+    public static function assertOperation(array $input,array $context,array $operation): void
+    {
+        if(!self::designing($input,$context)){
+            if(($operation['type']??'')==='request_design')throw new RuntimeException('当前轮不是设计稿生成阶段');
+            return;
+        }
+        if(!in_array($operation['type']??'',['request_design','get_context','catalog','data_sources','links','search_materials','icons','validate'],true))throw new RuntimeException('请先生成并确认设计稿，确认前不能修改页面或生成独立素材');
+    }
+
+    public static function request(array $operation,array $input,array $generation,array $materials=[],int $tenant=0): array
+    {
+        if(!in_array('generate',$input['sources'],true))throw new RuntimeException('未授权生成设计稿');
+        $prompt=trim((string)($operation['prompt']??''));$blueprint=$operation['blueprint']??null;
+        if($prompt===''||mb_strlen($prompt)>8000||!is_array($blueprint)||$blueprint===[]||strlen(DecorationAgentService::json($blueprint))>12000)throw new RuntimeException('请提供完整设计图提示词和有界页面规划');
+        $ratios=$generation['selected_model']['ratio_options']??[];$ratio=(string)($operation['ratio']??(in_array('9:16',$ratios,true)?'9:16':($ratios[0]??'')));
+        if($ratio===''||!in_array($ratio,$ratios,true))throw new RuntimeException('设计图比例不在当前模型支持范围内');
+        $ids=$operation['reference_material_ids']??[];
+        if(!is_array($ids)||!array_is_list($ids)||count($ids)>5||count(array_filter($ids,'is_string'))!==count($ids))throw new RuntimeException('设计素材参考标识无效');
+        if($ids&&!($generation['selected_model']['supports_reference_images']??false))throw new RuntimeException('当前生图模型不支持素材参考图');
+        $selected=[];$byId=array_column($materials,null,'id');$builtins=array_column(DecorationAgentMediaService::builtinMaterials(),null,'id');
+        foreach(array_unique($ids) as $id){
+            $material=$byId[$id]??null;if(!$material)throw new RuntimeException('素材参考必须来自本轮授权搜索结果');
+            if(!in_array($material['source']??'',$input['sources'],true))throw new RuntimeException('设计素材来源未授权');
+            if(isset($builtins[$id])){$selected[]=['id'=>$id,'kind'=>'builtin','source'=>'content','uri'=>$builtins[$id]['uri']];continue;}
+            $asset=DecorationAgentAssetReferences::materialAsset($material,$tenant);if(!$asset)throw new RuntimeException('设计素材缺少可核实的存储身份');
+            $selected[]=['id'=>$id,'kind'=>'stored','source'=>$material['source'],'file_id'=>(int)($material['file_id']??0),'slot_id'=>(int)($material['slot_id']??0),'asset'=>array_intersect_key($asset,array_flip(['image_uri','storage_scope','storage_engine','storage_domain']))];
+        }
+        $blueprint['selected_materials']=$selected;
+        return ['purpose'=>'design','prompt'=>'生成完整移动页面UI设计稿，展示页面从顶部到全部内容区及底部的整体布局。不是装饰主视觉，不是单张背景；文字、图标、卡片和间距必须清晰。依据可用组件和真实内容，不能虚构业务案例。使用所提供的真实素材参考，保持素材内容和已规划参数，不把它们替换为虚构图片。'.$prompt,'blueprint'=>$blueprint,'ratio'=>$ratio,'reference_file_ids'=>[],'design_materials'=>$selected];
+    }
+
+    public static function materialReferences(int $tenant,array $slot): array
+    {
+        $run=self::ownedRun($tenant,(int)$slot['admin_id'],(int)$slot['run_id']);if((int)$run['cancel_requested'])throw new RuntimeException('设计任务已取消');
+        $input=DecorationAgentService::decode($run['input_json']);$request=DecorationAgentService::decode($slot['request_json']);$refs=[];$builtins=array_column(DecorationAgentMediaService::builtinMaterials(),null,'id');
+        if(($request['purpose']??'')!=='design')throw new RuntimeException('普通图片位置不能读取设计阶段素材参考');
+        foreach($request['design_materials']??[] as $material){
+            if(!in_array($material['source']??'',$input['sources'],true))throw new RuntimeException('设计素材来源已失效');
+            if(($material['kind']??'')==='builtin'){
+                $builtin=$builtins[$material['id']]??null;if(!$builtin||$builtin['uri']!==$material['uri'])throw new RuntimeException('内置素材参考已变化');
+                $bytes=file_get_contents(public_path().$builtin['uri']);$mime=getimagesizefromstring($bytes)['mime'];$refs[]='data:'.$mime.';base64,'.base64_encode($bytes);continue;
+            }
+            $asset=DecorationAgentAssetReferences::materialAsset($material,$tenant);if(!$asset||!self::sameAsset($asset,$material['asset']))throw new RuntimeException('设计素材归属或存储身份已变化');
+            $read=DecorationAgentMediaService::readStoredImage($tenant,$asset);$refs[]='data:'.$read['mime_type'].';base64,'.base64_encode($read['bytes']);
+        }
+        return $refs;
+    }
+
+    /** Design/reference screenshots are not decorative assets, including signed URL aliases. */
+    public static function assertNoReferenceImages(array $page,?array $approved,array $blocked=[]): void
+    {
+        if(!$approved&&!$blocked)return;
+        $uris=array_filter([(string)($approved['asset']['image_uri']??''),(string)($blocked['screenshot_uri']??'')]);
+        foreach((array)($blocked['uris']??[]) as $uri)$uris[]=(string)$uri;
+        $keys=array_map(fn($uri)=>ltrim($uri,'/'),$uris);
+        $walk=function(array $rows)use(&$walk,$keys): void {
+            foreach($rows as $widget){
+                if(!is_array($widget))continue;
+                try{$def=($widget['name']??'')==='page-meta'?DecorationAgentCatalog::pageMeta():DecorationAgentCatalog::definition($widget['name']??'');}catch(\Throwable $error){continue;}
+                $values=[];foreach(['content'=>'content_fields','styles'=>'style_fields'] as $section=>$schemas)foreach($def[$schemas]??[] as $key=>$schema)if(($schema['type']??'')==='image')$values[]=$widget[$section][$key]??'';
+                foreach($def['lists']??[] as $key=>$list)foreach($widget['content'][$key]??[] as $row)foreach($list['fields']??[] as $field=>$schema)if(($schema['type']??'')==='image')$values[]=$row[$field]??'';
+                foreach($values as $value)if(is_string($value)&&$value!==''&&in_array(ltrim((string)(parse_url($value,PHP_URL_PATH)??$value),'/'),$keys,true))throw new RuntimeException('整页设计图或验收截图不能作为DIY图片素材');
+                if(isset($widget['children']))$walk($widget['children']);
+            }
+        };
+        $walk($page['data']??[]);$walk($page['meta']??[]);
+    }
+
+    public static function persist(int $tenant,int $admin,int $runId,array &$context,array $decision,?array $request): void
+    {
+        if($request===null){
+            Db::name('decorate_agent_run')->where('id',$runId)->update(['context_json'=>DecorationAgentService::json($context)]);
+            if($decision['kind']==='final')DecorationAgentService::finishDesign($runId,'awaiting_input',['reply'=>$decision['reply'],'question'=>$decision['question'],'summary'=>'设计图尚未生成，页面未开始实施。']);
+            return;
+        }
+        Db::transaction(function()use($tenant,$admin,$runId,&$context,$decision,$request): void {
+            $run=self::ownedRun($tenant,$admin,$runId);
+            if((int)$run['cancel_requested'])return;
+            $slot=Db::name('decorate_agent_image_slot')->where(['tenant_id'=>$tenant,'admin_id'=>$admin,'run_id'=>$runId,'slot_key'=>'design:page'])->find();
+            if(!$slot){$slotId=(int)Db::name('decorate_agent_image_slot')->insertGetId(['tenant_id'=>$tenant,'admin_id'=>$admin,'session_id'=>$run['session_id'],'run_id'=>$runId,'candidate_id'=>0,'slot_key'=>'design:page','request_json'=>DecorationAgentService::json($request),'result_json'=>'{}','status'=>'queued','create_time'=>time(),'update_time'=>time()]);}
+            else {$slotId=(int)$slot['id'];if(!in_array($slot['status'],['queued','running','submitting'],true))throw new RuntimeException('已有设计结果，不自动重复生成');}
+            $context['design']=array_replace($context['design'],['status'=>'generating','slot_id'=>$slotId,'prompt'=>$request['prompt'],'blueprint'=>$request['blueprint']]);
+            $context['observations'][]=['tool'=>'request_design','result'=>['slot_id'=>$slotId,'status'=>'queued','purpose'=>'design']];
+            Db::name('decorate_agent_run')->where('id',$runId)->update(['context_json'=>DecorationAgentService::json($context)]);
+            DecorationAgentService::finishDesign($runId,'waiting_images',['reply'=>$decision['reply'],'summary'=>'正在生成设计稿，确认后再实施页面。']);
+        });
+    }
+
+    public static function complete(array $slot,array $result): void
+    {
+        $tenant=(int)$slot['tenant_id'];$admin=(int)$slot['admin_id'];$id=(int)$slot['run_id'];
+        // Persist the settled result first; storage reads run without a database lock.
+        Db::name('decorate_agent_image_slot')->where(['id'=>$slot['id'],'tenant_id'=>$tenant,'admin_id'=>$admin])->update(['status'=>'success','result_json'=>DecorationAgentService::json($result)]);
+        $asset=DecorationAgentAssetReferences::designAsset((int)$slot['id'],$tenant,$admin);
+        if(!$asset)throw new RuntimeException('设计资源尚未形成可核实的存储结果');
+        $read=DecorationAgentMediaService::readStoredImage($tenant,$asset);
+        $identity=array_intersect_key($asset,array_flip(['image_uri','storage_scope','storage_engine','storage_domain']));
+        $identity+=['width'=>$read['width'],'height'=>$read['height'],'sha256'=>$read['sha256']];
+        Db::transaction(function()use($tenant,$admin,$id,$slot,$identity): void {
+            $run=self::ownedRun($tenant,$admin,$id);$ctx=DecorationAgentService::decode($run['context_json']);
+            if((int)$run['cancel_requested']||($ctx['design']['status']??'')==='superseded')return;
+            $ctx['design']['asset']=$identity;$ctx['design']['status']='awaiting_confirmation';
+            $ctx['design']['hash']=self::designHash($ctx['design']);
+            Db::name('decorate_agent_run')->where('id',$id)->update(['context_json'=>DecorationAgentService::json($ctx)]);
+        });
+    }
+
+    private static function canonical(mixed $value): mixed
+    {
+        if(!is_array($value))return $value;
+        if(!array_is_list($value))ksort($value);
+        return array_map([self::class,'canonical'],$value);
+    }
+    private static function designHash(array $design): string
+    {return hash('sha256',DecorationAgentService::json(self::canonical(array_intersect_key($design,array_flip(['revision','prompt','blueprint','asset'])))));}
+
+    public static function draft(array $run): ?array
+    {
+        $ctx=DecorationAgentService::decode($run['context_json']);$d=$ctx['design']??null;if(!$d)return null;
+        $status=(string)$d['status'];if((int)$run['cancel_requested'])$status='canceled';elseif(in_array($run['status'],['failed','needs_review','limited','budget_exceeded'],true))$status=$run['status']==='needs_review'?'needs_review':'failed';
+        $url='';if(!empty($d['asset'])){$asset=DecorationAgentAssetReferences::designAsset((int)$d['slot_id'],(int)$run['tenant_id'],(int)$run['admin_id']);if($asset&&self::sameAsset($asset,$d['asset']))$url=self::assetUrl((int)$run['tenant_id'],$asset);}
+        return ['run_id'=>(int)$run['id'],'revision'=>(int)$d['revision'],'hash'=>(string)$d['hash'],'status'=>$status,'url'=>$url,'slot_id'=>(int)$d['slot_id'],'prompt'=>(string)$d['prompt'],'blueprint'=>$d['blueprint'],'width'=>(int)($d['asset']['width']??0),'height'=>(int)($d['asset']['height']??0)]+array_intersect_key($d,array_flip(['implementation_run_id']));
+    }
+
+    private static function sameAsset(array $a,array $b): bool
+    {foreach(['image_uri','storage_scope','storage_engine','storage_domain'] as $field)if(($a[$field]??'')!==($b[$field]??''))return false;return true;}
+
+    public static function assetUrl(int $tenant,array $asset): string
+    {
+        $request=request();$previous=$request->tenantId??null;$request->tenantId=$tenant;
+        try{return ($asset['storage_engine']??'')==='local'?'/'.ltrim($asset['image_uri'],'/'):FileService::getFileUrlByStorage($asset['image_uri'],$asset['storage_scope'],$asset['storage_engine'],(string)($asset['storage_domain']??''));}finally{$request->tenantId=$previous;}
+    }
+
+    public static function confirmedDesign(int $tenant,int $admin,int $id,string $hash): array
+    {
+        $run=self::ownedRun($tenant,$admin,$id);$ctx=DecorationAgentService::decode($run['context_json']);$design=$ctx['design']??[];
+        $session=Db::name('decorate_agent_session')->where(['id'=>$run['session_id'],'tenant_id'=>$tenant,'admin_id'=>$admin])->find();$latest=DecorationAgentService::decode($session['preferences']??'[]')['_design_state']['run_id']??0;
+        if((int)$run['cancel_requested']||$latest!==$id||($design['status']??'')!=='approved'||!hash_equals((string)($design['hash']??''),$hash)||self::designHash($design)!==$hash)throw new RuntimeException('设计稿未确认、已取消或版本已失效');
+        $asset=DecorationAgentAssetReferences::designAsset((int)$design['slot_id'],$tenant,$admin);
+        if(!$asset||!self::sameAsset($asset,$design['asset']))throw new RuntimeException('设计资源归属或存储身份已变化');
+        return ['run_id'=>$id]+array_intersect_key($design,array_flip(['revision','hash','slot_id','prompt','blueprint','asset']));
+    }
+
+    public static function referenceBytes(int $tenant,int $admin,array $approved): array
+    {
+        $current=self::confirmedDesign($tenant,$admin,(int)$approved['run_id'],(string)$approved['hash']);
+        if($current!==$approved)throw new RuntimeException('冻结设计身份不匹配');
+        $read=DecorationAgentMediaService::readStoredImage($tenant,$current['asset']);
+        if(!hash_equals($current['asset']['sha256'],$read['sha256']))throw new RuntimeException('设计图内容已变化，请重新生成并确认');
+        return $read;
+    }
+
+    public static function approvedForRun(int $tenant,int $admin,int $runId,int $slotId): array
+    {
+        $run=self::ownedRun($tenant,$admin,$runId);if((int)$run['cancel_requested'])throw new RuntimeException('实施任务已取消');
+        $approved=DecorationAgentService::decode($run['context_json'])['approved_design']??[];
+        if(!$approved||(int)$approved['slot_id']!==$slotId)throw new RuntimeException('参考图必须来自本轮冻结的已确认设计稿');
+        return self::confirmedDesign($tenant,$admin,(int)$approved['run_id'],(string)$approved['hash']);
+    }
+
+    public static function assertCanApply(int $tenant,int $admin,int $sessionId): void
+    {
+        $session=Db::name('decorate_agent_session')->where(['id'=>$sessionId,'tenant_id'=>$tenant,'admin_id'=>$admin])->find();$latest=(int)(DecorationAgentService::decode($session['preferences']??'[]')['_design_state']['run_id']??0);
+        if(!$latest)return;$run=self::ownedRun($tenant,$admin,$latest);$status=self::draft($run)['status'];
+        if(in_array($status,['planning','generating','awaiting_confirmation'],true))throw new RuntimeException('请先确认设计稿，再预览并应用实施候选');
+    }
+
+    public static function confirm(int $tenant,int $admin,array $parameters): array
+    {
+        $id=(int)($parameters['run_id']??0);$revision=(int)($parameters['revision']??0);$hash=(string)($parameters['design_hash']??'');$key=trim((string)($parameters['idempotency_key']??''));$budget=(float)($parameters['budget_points']??0);
+        if($key===''||strlen($key)>100||!is_finite($budget)||$budget<=0||strlen($hash)!==64)throw new RuntimeException('请提供有效设计版本、确认标识和实施预算');
+        $hint=self::ownedRun($tenant,$admin,$id);
+        return Db::transaction(function()use($tenant,$admin,$id,$revision,$hash,$key,$budget,$hint): array {
+            $session=Db::name('decorate_agent_session')->where(['id'=>$hint['session_id'],'tenant_id'=>$tenant,'admin_id'=>$admin])->lock(true)->find();
+            $run=Db::name('decorate_agent_run')->where('id',$id)->lock(true)->find();$ctx=DecorationAgentService::decode($run['context_json']);$d=$ctx['design']??[];
+            $latest=(int)(DecorationAgentService::decode($session['preferences'])['_design_state']['run_id']??0);
+            if($latest!==$id||(int)$run['cancel_requested']||$revision!==(int)($d['revision']??0)||!hash_equals((string)($d['hash']??''),$hash)||self::designHash($d)!==$hash)throw new RuntimeException('设计稿已更新、取消或确认版本不匹配');
+            if(($d['status']??'')==='approved'&&!empty($d['implementation_run_id']))return DecorationAgentService::run($tenant,$admin,(int)$d['implementation_run_id']);
+            if($run['status']!=='awaiting_design_confirmation'||($d['status']??'')!=='awaiting_confirmation'||!DecorationAgentAssetReferences::designAsset((int)$d['slot_id'],$tenant,$admin))throw new RuntimeException('设计稿尚未成功或费用待核实，不能确认');
+            $approved=['run_id'=>$id]+array_intersect_key($d,array_flip(['revision','hash','slot_id','prompt','blueprint','asset']));
+            $d['status']='approved';$ctx['design']=$d;Db::name('decorate_agent_run')->where('id',$id)->update(['context_json'=>DecorationAgentService::json($ctx)]);
+            $input=DecorationAgentService::decode($run['input_json']);$input['design_first']=false;unset($input['design_parent_run_id']);$input['session_id']=$session['id'];$input['budget_points']=$budget;$input['idempotency_key']='design-implementation:'.hash('sha256',$tenant.':'.$admin.':'.$id.':'.$hash.':'.$key);
+            $implementation=DecorationAgentService::start($tenant,$admin,$input,$approved);
+            $ctx['design']['implementation_run_id']=$implementation['id'];$ctx['design']['confirmation_key']=$key;Db::name('decorate_agent_run')->where('id',$id)->update(['context_json'=>DecorationAgentService::json($ctx)]);
+            DecorationAgentService::finishDesign($id,'completed',['reply'=>'设计稿已确认，开始按真实组件实施；完成后需图对图验收。']);
+            return $implementation;
+        });
+    }
+}

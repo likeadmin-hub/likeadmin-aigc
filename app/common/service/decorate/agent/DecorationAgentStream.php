@@ -21,7 +21,7 @@ final class DecorationAgentStream
         $this->frame('run',$snapshot);
         $fingerprint=$this->json($snapshot);
         while (!(($this->disconnected)())) {
-            if (in_array($snapshot['status']??'', ['completed','awaiting_input','failed','limited','budget_exceeded','needs_review','canceled'],true)) { $this->frame('done',$snapshot);return; }
+            if (in_array($snapshot['status']??'', ['completed','awaiting_design_confirmation','awaiting_input','failed','limited','budget_exceeded','needs_review','canceled'],true)) { $this->frame('done',$snapshot);return; }
             $now=($this->clock)();
             if ($now-$start>=min(20,max(0.1,$duration))) { $this->frame('reconnect',$snapshot);return; }
             if ($now-$keepalive>=4) { ($this->write)(": keepalive\n\n");$keepalive=$now; }
@@ -29,7 +29,7 @@ final class DecorationAgentStream
             $next=$this->json($snapshot);
             if ($next!==$fingerprint) { $this->frame('run',$snapshot);$fingerprint=$next; }
             // A changed terminal snapshot should be followed immediately by done.
-            if (!in_array($snapshot['status']??'', ['completed','awaiting_input','failed','limited','budget_exceeded','needs_review','canceled'],true)) ($this->sleep)(250000);
+            if (!in_array($snapshot['status']??'', ['completed','awaiting_design_confirmation','awaiting_input','failed','limited','budget_exceeded','needs_review','canceled'],true)) ($this->sleep)(250000);
         }
     }
     private function json(array $snapshot): string { return json_encode($snapshot,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR); }

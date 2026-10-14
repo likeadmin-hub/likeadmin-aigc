@@ -105,10 +105,27 @@ final class DecorationAgentAssetReferences
     }
 
     /** System decoration generations are shareable authoring assets; ordinary USER files are not. */
-    private static function slot(int $id,int $tenant): ?array
+    /** Dedicated design reads require the same admin; they are never reusable DIY assets. */
+    public static function designAsset(int $id,int $tenant,int $admin): ?array
+    {
+        $owned=self::slot($id,$tenant,true);
+        if(!$owned||(int)$owned['slot']['admin_id']!==$admin||(self::decode($owned['slot']['request_json'])['purpose']??'')!=='design')return null;
+        return $owned['assets'][0]['asset']??null;
+    }
+
+    /** Server-selected material identities reuse the existing file/settled-slot authority. */
+    public static function materialAsset(array $material,int $tenant): ?array
+    {
+        if((int)($material['file_id']??0)>0)return self::file((int)$material['file_id'],$tenant)['asset']??null;
+        $owned=self::slot((int)($material['slot_id']??0),$tenant);
+        return $owned?self::matchingAsset($owned['assets'],(array)($material['asset']??$material))['asset']??null:null;
+    }
+
+    private static function slot(int $id,int $tenant,bool $allowDesign=false): ?array
     {
         $slot=Db::name('decorate_agent_image_slot')->where(['id'=>$id,'tenant_id'=>$tenant])->find();
         if(!$slot||(int)$slot['admin_id']<=0||!in_array($slot['status'],['success','regenerated'],true))return null;
+        if(!$allowDesign&&(self::decode($slot['request_json'])['purpose']??'')==='design')return null;
         $result=self::decode($slot['result_json']);
         if(($result['status']??'')!=='success'||($result['billing_status']??'')!=='settled')return null;
         $consumption=Db::name('ai_consumption_log')->where(['id'=>(int)$slot['consumption_id'],'tenant_id'=>$tenant,'user_id'=>0,'app_code'=>'system_default','protocol'=>'image_generate','run_status'=>'success','billing_status'=>'settled'])->find();
