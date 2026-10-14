@@ -23,19 +23,28 @@ final class AgentArtifactService
             if(!in_array($kind,['image','video','audio','document'],true))throw new \InvalidArgumentException('作品类型无效');
             $query->where('kind',$kind);
         }
-        $rows=$query->order('id','desc')->limit(100)->select()->toArray();
-        return array_map(static function($row)use($tenant,$user){
-            $data=AgentStore::json($row['data']);
-            $asset=OpenAssets::detail($tenant,$user,$data['file_id']);
-            $ref=self::libraryReference($row);
-            if($ref){
-                $state=Db::name('user_asset_state')->where(['tenant_id'=>$tenant,'user_id'=>$user,'asset_ref'=>$ref])->find();
-                // Import only a legacy positive favorite; an explicit shared zero always wins.
-                if(!$state && (int)$row['favorite']===1)$state=WorkspaceAssetService::update($tenant,$user,['refs'=>[$ref],'favorite'=>1])['states'][0];
-                $row['favorite']=(int)($state['favorite']??0);
+        $output=[];$cursor=$before;
+        do {
+            $batch=clone $query;
+            if($cursor>0)$batch->where('id','<',$cursor);
+            $rows=$batch->order('id','desc')->limit(100)->select()->toArray();
+            foreach($rows as $row){
+                $data=AgentStore::json($row['data']);
+                $ref=self::libraryReference($row,true);
+                if($ref && !WorkspaceAssetService::isVisible($tenant,$user,$ref))continue;
+                try{$asset=OpenAssets::detail($tenant,$user,$data['file_id']);}
+                catch(\app\common\service\open_platform\OpenException $e){if($e->errorType==='not_found')continue;throw $e;}
+                if($ref){
+                    $state=Db::name('user_asset_state')->where(['tenant_id'=>$tenant,'user_id'=>$user,'asset_ref'=>$ref])->find();
+                    if(!$state && (int)$row['favorite']===1)$state=WorkspaceAssetService::update($tenant,$user,['refs'=>[$ref],'favorite'=>1])['states'][0];
+                    $row['favorite']=(int)($state['favorite']??0);
+                }
+                $output[]=array_intersect_key($row,array_flip(['id','run_id','step_id','title','kind','favorite','create_time']))+$asset+['content'=>$data['content']??'','generation'=>self::generationMetadata($row)];
+                if(count($output)===100)return $output;
             }
-            return array_intersect_key($row,array_flip(['id','run_id','step_id','title','kind','favorite','create_time']))+$asset+['content'=>$data['content']??'','generation'=>self::generationMetadata($row)];
-        },$rows);
+            $cursor=$rows?(int)end($rows)['id']:0;
+        } while(count($rows)===100);
+        return $output;
     }
     /** Read the submitted native task, never the proposal, artifact title or current preferences. */
     private static function generationMetadata(array $artifact): ?array
@@ -90,20 +99,26 @@ final class AgentArtifactService
         });
     }
     /** Resolve the original owned generation record, including artifacts saved before library linking. */
-    private static function libraryReference(array $artifact): ?string
+    private static function libraryReference(array $artifact,bool $includeDeleted=false): ?string
     {
         if(!(int)$artifact['step_id'])return null; // Standalone documents keep their session favorite.
         $tenant=(int)$artifact['tenant_id'];$user=(int)$artifact['user_id'];
         $step=AgentStore::owner('step',$tenant,$user)->where(['id'=>$artifact['step_id'],'run_id'=>$artifact['run_id']])->find();
-        $sources=['aigc_image'=>['image','image_uri'],'aigc_video'=>['video','video_uri'],'aigc_music'=>['music','audio_uri'],'aigc_fitting'=>['image','image_uri']];
+        $source=$step?WorkspaceAssetService::sourceForApp($step['tool_code']):null;
+        $sources=['aigc_fitting'=>['image','image_uri']];
+        $uriField=['image'=>'image_uri','video'=>'video_uri','audio'=>'audio_uri'][$artifact['kind']]??null;
+        if($source && $uriField && $source!=='short_drama')$sources[$step['tool_code']]=[$source,$uriField];
+        if($step && $step['tool_code']==='aigc_fitting')$sources['aigc_fitting']=['image','image_uri'];
         if(!$step||!isset($sources[$step['tool_code']])||!(int)$step['task_id'])return null;
         $data=AgentStore::json($artifact['data']);
         $file=OpenStore::owner('file',$tenant,$user)->where('file_id',$data['file_id']??'')->find();
         if(!$file)return null;
         [$source,$uriField]=$sources[$step['tool_code']];
-        $scope=['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$step['task_id'],'delete_time'=>0,$uriField=>$file['uri']];
+        $scope=['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$step['task_id'],$uriField=>$file['uri']];
         foreach(['storage_scope','storage_engine','storage_domain'] as $field)$scope[$field]=$file[$field]??'';
-        $task=Db::name($step['tool_code'].'_task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$step['task_id'],'delete_time'=>0])->find();
+        if(!$includeDeleted)$scope['delete_time']=0;
+        $taskScope=['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$step['task_id']];if(!$includeDeleted)$taskScope['delete_time']=0;
+        $task=Db::name($step['tool_code'].'_task')->where($taskScope)->find();
         if(!$task)return null;
         if($step['tool_code']==='aigc_fitting'){
             unset($scope['task_id']);

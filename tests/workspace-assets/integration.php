@@ -22,9 +22,11 @@ try {
     $read=Library::read($tenant,$user);
     check(count($read['supplemental'])===1 && $read['states'][0]['trashed_at']>0,'Trash can be read independently of recent source limits');
     check(count(Library::read($tenant,$user+1)['states'])===0,'Cross-user reads are isolated');
-    check((int)Db::name('aigc_image_result')->where('id',$result)->value('delete_time')===0,'Source result retained');
+    check((int)Db::name('aigc_image_result')->where('id',$result)->value('delete_time')>0,'Source result soft-deleted across tool pages');
     Library::update($tenant,$user,['refs'=>[$ref],'action'=>'restore']);
     check((int)Library::read($tenant,$user)['states'][0]['trashed_at']===0,'Restore works');
+    check((int)Db::name('aigc_image_result')->where('id',$result)->value('delete_time')===0,'Result restored');
+    check((int)Db::name('aigc_image_task')->where('id',$task)->value('delete_time')===0,'Task history restored');
     reject(fn()=>Library::update($tenant,$user,['refs'=>[$ref,'image:result:2147483647'],'action'=>'trash']));
     check((int)Library::read($tenant,$user)['states'][0]['trashed_at']===0,'Mixed-ownership batch rolls back entirely');
     Library::update($tenant,$user,['refs'=>[$ref],'action'=>'trash']);
