@@ -23,6 +23,25 @@ class AgentController extends BaseApiController
     public function submit(){return $this->handle(fn($t,$u)=>AgentExecutionService::submit($t,$u,$this->request->post()));}
     public function detail(){return $this->handle(fn($t,$u)=>AgentExecutionService::detail($t,$u,(int)$this->request->get('run_id',0)));}
     public function events(){return $this->handle(fn($t,$u)=>AgentExecutionService::events($t,$u,(int)$this->request->get('run_id',0),(int)$this->request->get('after',0)));}
+    public function stream()
+    {
+        $tenant=(int)$this->request->tenantId;$user=$this->userId;$id=(int)$this->request->post('run_id',0);
+        // Authenticate and verify ownership before starting a long-lived response.
+        try{AgentStore::access($tenant,$user);AgentStore::run($tenant,$user,$id);}
+        catch(\InvalidArgumentException|OpenException $e){return $this->fail($e->getMessage());}
+        @ini_set('zlib.output_compression','0');
+        @ini_set('implicit_flush','1');
+        while(ob_get_level()>0)@ob_end_flush();
+        header('Content-Type: text/event-stream; charset=utf-8');
+        header('Cache-Control: no-cache, no-transform');
+        header('X-Accel-Buffering: no');
+        $emit=static function(string $event,array $data): void {
+            echo 'event: '.$event."\ndata: ".AgentStore::encode($data)."\n\n";@flush();
+        };
+        try{\app\common\service\app\aigc_llm\agent\AgentStreamService::follow($tenant,$user,$id,$emit,static fn()=>!connection_aborted());}
+        catch(\Throwable $e){\think\facade\Log::error('Home Agent stream: '.get_class($e));$emit('error',['message'=>'连接中断，正在重新连接；任务仍在后台执行']);}
+        exit;
+    }
     public function confirm(){return $this->handle(fn($t,$u)=>AgentExecutionService::confirm($t,$u,(int)$this->request->post('run_id',0),(string)$this->request->post('approval_hash','')));}
     public function stop(){return $this->handle(fn($t,$u)=>AgentExecutionService::stop($t,$u,(int)$this->request->post('run_id',0)));}
     public function runs(){return $this->handle(function($t,$u){
