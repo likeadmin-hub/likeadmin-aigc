@@ -335,6 +335,9 @@ final class DecorationAgentService
 
     public static function reviewDesign(int $tenant,int $admin,array $parameters): array
     {
+        $allowed=['candidate_id','revision','candidate_hash','expected_hash','design_run_id','design_hash','screenshot_file_id','budget_points','idempotency_key','model_selection'];
+        if(array_diff(array_keys($parameters),$allowed))throw new RuntimeException('验收参数包含不支持的字段');
+        $selection=array_key_exists('model_selection',$parameters)?self::reviewModelSelection($parameters['model_selection']):null;
         $key=trim((string)($parameters['idempotency_key']??''));
         if($key===''||strlen($key)>100)throw new RuntimeException('验收提交标识无效');
         $key='design-review:'.hash('sha256',$key);
@@ -342,6 +345,12 @@ final class DecorationAgentService
         if($old){
             $evidence=self::decode($old['context_json'])['visual_review']??[];
             foreach(['candidate_id','revision','candidate_hash','expected_hash','design_run_id','design_hash','screenshot_file_id'] as $field)if((string)($evidence[$field]??'')!==(string)($parameters[$field]??''))throw new RuntimeException('验收标识已用于其他版本，请重新提交');
+            // Replay compares the effective frozen identity without resolving a model
+            // that may since have been delisted. Omitted selection keeps legacy replay.
+            if($selection!==null){
+                $frozen=self::decode($old['input_json'])['model_selection']??[];
+                if((int)($frozen['id']??0)!==$selection['id']||(isset($selection['sku_id'])&&(int)($frozen['sku_id']??0)!==$selection['sku_id']))throw new RuntimeException('验收标识已用于其他模型，请使用新的提交标识');
+            }
             return self::run($tenant,$admin,(int)$old['id']);
         }
         $prepared=DecorationAgentAcceptance::validateReview($tenant,$admin,$parameters);
@@ -349,7 +358,11 @@ final class DecorationAgentService
         $request=self::decode($original['input_json']);$request['message']='将最新批准设计图与实际候选截图逐区域视觉对照，发现差异用真实组件和独立素材修复。'.DecorationAgentDecision::visualReviewInstruction();
         $request['catalog_hash']=DecorationAgentCatalog::hash();$request['design_first']=false;unset($request['design_parent_run_id']);
         $request['budget_points']=$parameters['budget_points'];$request['attachments']=$prepared['attachments'];
+        if($selection!==null)$request['model_selection']=$selection;
         $input=self::input($tenant,$admin,$request,true);self::assertOperator($tenant,$admin,$input['scope']);
+        // The shared resolver supports SKU-first and ID fallback. A deliberate
+        // review override must match both supplied identities exactly.
+        if($selection!==null&&((int)$input['model_selection']['id']!==$selection['id']||(isset($selection['sku_id'])&&(int)$input['model_selection']['sku_id']!==$selection['sku_id'])))throw new RuntimeException('所选视觉模型与可用输入规格不匹配');
         $input['visual_review']=$prepared['visual_review'];
         return Db::transaction(function()use($tenant,$admin,$key,$input,$prepared,$candidate): array {
             $session=self::q('session',$tenant,$admin)->where('id',$candidate['session_id'])->lock(true)->find();
@@ -363,6 +376,17 @@ final class DecorationAgentService
             self::insert('message',$tenant,$admin,['session_id'=>$session['id'],'run_id'=>$id,'role'=>'user','content'=>'已提交实际候选截图，请与已确认设计稿对照验收。','attachments'=>self::json($prepared['attachments'])]);
             self::event($id,'queued',['message'=>'开始设计稿与实际截图对照']);return self::run($tenant,$admin,$id);
         });
+    }
+
+    private static function reviewModelSelection($selection): array
+    {
+        if(!is_array($selection)||!array_key_exists('id',$selection)||array_diff(array_keys($selection),['id','sku_id']))throw new RuntimeException('验收模型参数无效');
+        $normalized=[];
+        foreach($selection as $field=>$value){
+            if((!is_int($value)&&!is_string($value))||!preg_match('/^[1-9][0-9]*$/D',(string)$value)||filter_var($value,FILTER_VALIDATE_INT)===false)throw new RuntimeException('验收模型或规格标识无效');
+            $normalized[$field]=(int)$value;
+        }
+        return $normalized;
     }
 
     private static function acceptanceForCandidate(array $candidate): ?array

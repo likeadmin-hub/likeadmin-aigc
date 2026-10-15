@@ -39,10 +39,69 @@ try {
  $implementation=(int)Db::name('decorate_agent_run')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'session_id'=>$session['id'],'status'=>'completed','input_json'=>S::json($ordinaryInput),'context_json'=>'{}','result_json'=>'{}','events_json'=>'[]','idempotency_key'=>'review-flow-implementation:'.bin2hex(random_bytes(8))]);Db::name('decorate_agent_candidate')->where('id',$candidateId)->update(['run_id'=>$implementation]);
  $p=['candidate_id'=>$candidateId,'revision'=>1,'candidate_hash'=>S::hash($payload),'expected_hash'=>S::hash($draft),'design_run_id'=>$designRun,'design_hash'=>$design['hash'],'screenshot_file_id'=>$fileId,'budget_points'=>25,'idempotency_key'=>'fixture-review'];
 
+ // Exercise the real queue entry point without submitting any provider work.
+ reviewFlowCheck(count($models)>=2,'fixture has two tenant-enabled vision models');
+ $alternative=Text::resolveModel(1,['id'=>$models[1]['id']],true);
+ $selected=['id'=>(int)$alternative['id'],'sku_id'=>(int)$alternative['market_sku_id']];
+ Db::startTrans();
+ try {
+  $override=$p;$override['idempotency_key']='fixture-review-model';$override['model_selection']=$selected;
+  $switched=S::reviewDesign(1,1,$override);
+  $switchedRow=Db::name('decorate_agent_run')->where('id',$switched['id'])->find();$switchedInput=S::decode($switchedRow['input_json']);
+  reviewFlowCheck((int)$switchedInput['model_selection']['id']===$selected['id']&&(int)$switchedInput['model_selection']['sku_id']===$selected['sku_id'],'explicit review model and active input SKU are frozen');
+  reviewFlowCheck($switchedInput['sources']===$ordinaryInput['sources']&&$switchedInput['image_model_selection']===$ordinaryInput['image_model_selection']&&$switchedInput['scope']===$ordinaryInput['scope']&&$switchedInput['budget_points']===25,'model override preserves image authorization, sources, scope and budget');
+  reviewFlowCheck(S::decode($switchedRow['context_json'])['approved_design']['hash']===$design['hash']&&S::decode(Db::name('decorate_agent_run')->where('id',$implementation)->value('input_json'))===$ordinaryInput,'override preserves frozen design and original implementation input');
+  $same=$override;$same['model_selection']=array_map('strval',$selected);
+  reviewFlowCheck(S::reviewDesign(1,1,$same)['id']===$switched['id'],'numeric and string model identities replay the same run');
+  $same['model_selection']=['id'=>$selected['id']];
+  reviewFlowCheck(S::reviewDesign(1,1,$same)['id']===$switched['id'],'id-only replay keeps its frozen SKU');
+  $different=$override;$different['model_selection']=['id'=>(int)$models[0]['id']];
+  reviewFlowReject(fn()=>S::reviewDesign(1,1,$different),'same key cannot change the effective model');
+  $different['model_selection']=['id'=>$selected['id'],'sku_id'=>$selected['sku_id']+999999];
+  reviewFlowReject(fn()=>S::reviewDesign(1,1,$different),'same key cannot change the effective SKU');
+  Db::startTrans();
+  try {
+   Db::name('power_market_sku')->where('id',$selected['sku_id'])->update(['status'=>0]);
+   $fresh=$override;$fresh['idempotency_key']='fixture-review-disabled-sku';
+   reviewFlowReject(fn()=>S::reviewDesign(1,1,$fresh),'new key cannot ignore a disabled requested input SKU');
+   reviewFlowCheck(S::reviewDesign(1,1,$override)['id']===$switched['id'],'exact replay retains frozen identity after SKU disable');
+  } finally {Db::rollback();}
+  Db::name('power_market_product')->where('id',$selected['id'])->update(['status'=>0]);
+  reviewFlowCheck(S::reviewDesign(1,1,$override)['id']===$switched['id'],'exact replay does not re-resolve a delisted model');
+  $omitted=$override;unset($omitted['model_selection']);
+  reviewFlowCheck(S::reviewDesign(1,1,$omitted)['id']===$switched['id'],'legacy omitted selection replays frozen run after model delisting');
+  $fresh=$override;$fresh['idempotency_key']='fixture-review-delisted';
+  reviewFlowReject(fn()=>S::reviewDesign(1,1,$fresh),'new key cannot queue a delisted model');
+  $unknown=$override;$unknown['sources']=['generate'];
+  reviewFlowReject(fn()=>S::reviewDesign(1,1,$unknown),'idempotent replay also enforces API whitelist');
+ } finally {Db::rollback();}
+ foreach([null,[],['id'=>true],['id'=>1.5],['id'=>-1],['id'=>0],['id'=>'1e2'],['id'=>$selected['id'],'sku_id'=>0],['id'=>$selected['id'],'product_id'=>$selected['id']]] as $badSelection){
+  $bad=$p;$bad['model_selection']=$badSelection;
+  reviewFlowReject(fn()=>S::reviewDesign(1,1,$bad),'strict review selection rejects malformed or unknown fields');
+ }
+ $bad=$p;$bad['model_selection']=['id'=>$selected['id'],'sku_id'=>999999999];
+ reviewFlowReject(fn()=>S::reviewDesign(1,1,$bad),'invalid SKU cannot fall through resolveModel id matching');
+ $bad['model_selection']=['id'=>(int)$models[0]['id'],'sku_id'=>$selected['sku_id']];
+ reviewFlowReject(fn()=>S::reviewDesign(1,1,$bad),'another model SKU cannot select a conflicting model');
+ $nonVision=array_values(array_filter(Text::textOptions(1),fn($m)=>empty($m['supports_vision'])));
+ if($nonVision){$bad['model_selection']=['id'=>(int)$nonVision[0]['id']];reviewFlowReject(fn()=>S::reviewDesign(1,1,$bad),'nonvision selection is rejected before queueing');}
+ foreach(['sources'=>['generate'],'image_model_selection'=>['id'=>1],'endpoint'=>'https://invalid.example'] as $field=>$value){$bad=$p;$bad[$field]=$value;reviewFlowReject(fn()=>S::reviewDesign(1,1,$bad),'review API rejects unauthorized top-level override');}
+ $bad=$p;$bad['model_selection']=$selected;$bad['budget_points']=0;
+ reviewFlowReject(fn()=>S::reviewDesign(1,1,$bad),'explicit model retains budget preflight');
+
  $estimateReferences=new ReflectionMethod(S::class,'visionReferenceCount');$estimateReferences->setAccessible(true);
  reviewFlowCheck($estimateReferences->invoke(null,['attachments'=>[]],['approved_design'=>['run_id'=>$designRun]])===1&&$estimateReferences->invoke(null,['attachments'=>[['uses'=>['layout']]]],['approved_design'=>['run_id'=>$designRun]])===2,'budget counts actual implementation one-image and review two-image references');
  $review=S::reviewDesign(1,1,$p);$again=S::reviewDesign(1,1,$p);
  reviewFlowCheck($review['id']===$again['id']&&$review['candidate_id']===$candidateId,'review queues once for the actual existing candidate');
+ Db::startTrans();
+ try {
+  $legacyInput=S::decode(Db::name('decorate_agent_run')->where('id',$review['id'])->value('input_json'));$legacyInput['model_selection']['id']=(string)$legacyInput['model_selection']['id'];
+  Db::name('decorate_agent_run')->where('id',$review['id'])->update(['input_json'=>S::json($legacyInput)]);
+  Db::name('power_market_product')->where('id',(int)$legacyInput['model_selection']['id'])->update(['status'=>0]);
+  reviewFlowCheck(S::reviewDesign(1,1,$p)['id']===$review['id'],'old omitted request replays original string-ID model without availability lookup');
+  $explicit=$p;$explicit['model_selection']=$legacyInput['model_selection'];
+  reviewFlowCheck(S::reviewDesign(1,1,$explicit)['id']===$review['id'],'explicit same identity matches legacy string-ID storage');
+ } finally {Db::rollback();}
  $run=Db::name('decorate_agent_run')->where('id',$review['id'])->find();$ctx=S::decode($run['context_json']);$input=S::decode($run['input_json']);
  reviewFlowCheck($ctx['candidate']===$payload&&$ctx['base']===$draft&&$ctx['visual_review']['screenshot_file_id']===$fileId,'review freezes candidate, original base and real screenshot tuple');
  $contextMethod=new ReflectionMethod(S::class,'modelContext');$contextMethod->setAccessible(true);$contextCopy=$ctx;$modelContext=$contextMethod->invokeArgs(null,[1,1,$session,$input,&$contextCopy,false]);
