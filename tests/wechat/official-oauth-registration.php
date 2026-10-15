@@ -5,10 +5,11 @@ namespace app\common\service\storage {
     // The only external boundary replaced here is the avatar upload itself.
     class Driver {
         public static int $uploads = 0;
+        public static bool $fail = false;
         public function __construct(array $config) {
             if (!is_array($config['engine'][$config['default']] ?? null)) throw new \RuntimeException('Missing effective storage configuration');
         }
-        public function fetch(string $source, string $target): bool { self::$uploads++; return true; }
+        public function fetch(string $source, string $target): bool { self::$uploads++; if (self::$fail) throw new \RuntimeException("fixture storage outage"); return true; }
     }
 }
 namespace {
@@ -60,13 +61,36 @@ namespace {
         };
         $first = $login();
         if (empty($first['token']) || empty($first['id'])) throw new \RuntimeException('New-user login failed');
-        if (\app\common\service\storage\Driver::$uploads !== 1) throw new \RuntimeException('Avatar was not stored exactly once');
+        if (\app\common\service\storage\Driver::$uploads !== 0) throw new \RuntimeException('Avatar I/O still blocks the login response');
+        $listener = new \app\common\listener\WechatAvatarSync();
+        $pending = request()->wechatAvatarSync;
+        if (!$pending) throw new \RuntimeException('No deferred avatar work');
+        $listener->handle(\think\Response::create(['code'=>0], 'json'));
+        if (\app\common\service\storage\Driver::$uploads !== 0 || request()->wechatAvatarSync !== null) throw new \RuntimeException('Failed login executed avatar work');
+        request()->wechatAvatarSync = $pending;
+        $listener->handle(\think\Response::create(['code'=>1], 'json'));
+        if (\app\common\service\storage\Driver::$uploads !== 1) throw new \RuntimeException('Deferred avatar was not stored exactly once');
+        $listener->handle(\think\Response::create(['code'=>1], 'json'));
+        if (\app\common\service\storage\Driver::$uploads !== 1) throw new \RuntimeException('Deferred avatar work replayed');
         $second = $login();
         if ($second['id'] !== $first['id'] || $second['token'] === $first['token']) throw new \RuntimeException('Relogin did not reuse the user and rotate the session');
         if (UserAuth::where('openid', $profile['openid'])->count() !== 1) throw new \RuntimeException('Duplicate identity created');
         if (UserSession::where(['user_id'=>$first['id'], 'terminal'=>2])->count() !== 1) throw new \RuntimeException('Duplicate OA session created');
         if (\app\common\service\storage\Driver::$uploads !== 1) throw new \RuntimeException('Relogin uploaded the existing avatar again');
-        echo "OAuth full registration and relogin passed (actual LoginLogic, avatar with effective OSS configuration, identity/session reuse; all database changes rolled back, no external network)\n";
+        // A user's own avatar update must win over a late callback.
+        User::where('id', $first['id'])->update(['avatar'=>'uploads/selected-by-user.png']);
+        request()->wechatAvatarSync = $pending;
+        $listener->handle(\think\Response::create(['code'=>1], 'json'));
+        if (\app\common\service\storage\Driver::$uploads !== 1) throw new \RuntimeException('Stale job fetched after user avatar changed');
+        if (User::where('id', $first['id'])->value('avatar') !== 'uploads/selected-by-user.png') throw new \RuntimeException('User-selected avatar was overwritten');
+        User::where('id', $first['id'])->update(['avatar'=>'']);
+        $third = $login();
+        if (empty($third['token']) || \app\common\service\storage\Driver::$uploads !== 1) throw new \RuntimeException('Missing-avatar relogin blocked on I/O');
+        \app\common\service\storage\Driver::$fail = true;
+        $listener->handle(\think\Response::create(['code'=>1], 'json'));
+        if (User::where('id', $first['id'])->value('avatar') !== '') throw new \RuntimeException('Failed sync changed the avatar');
+        if (request()->wechatAvatarSync !== null) throw new \RuntimeException('Work leaked past the request');
+        echo "OAuth full registration and relogin passed (actual LoginLogic, deferred avatar after successful response, failure isolation, no replay/overwrite, identity/session reuse; all database changes rolled back, no external network)\n";
     } finally {
         Db::rollback();
         if (is_dir($cache)) {
