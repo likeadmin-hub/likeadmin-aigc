@@ -83,7 +83,9 @@ final class ResponsesMessagesAdapter
         } elseif ($type === 'response.function_call_arguments.done') {
             $state['responses_items'][$index]['arguments'] = (string)($json['arguments'] ?? '');
         } elseif (in_array($type, ['response.output_text.delta', 'response.refusal.delta'], true)) {
-            self::text($state, $index . ':' . (int)($json['content_index'] ?? 0), (string)($json['delta'] ?? ''), true, $emit);
+            self::textPart($json, $state, $emit);
+        } elseif (in_array($type, ['response.output_text.done', 'response.refusal.done'], true)) {
+            self::textPart($json, $state, $emit, true);
         } elseif (in_array($type, ['response.failed', 'response.incomplete'], true)) {
             $state['native_response_status']=self::code((string)($response['status']??''));
             $state['native_provider_type']=self::code((string)($response['error']['type']??''),$requestKey);
@@ -99,13 +101,18 @@ final class ResponsesMessagesAdapter
             $state['native_provider_code'] = self::code((string)($response['error']['code'] ?? $response['incomplete_details']['reason'] ?? ''),$requestKey);
             $state['error'] = '模型回复未完整结束，请勿重复提交，费用待核对';
         } elseif ($type === 'response.completed') {
+            $state['native_response_status'] = self::code((string)($response['status'] ?? ''));
+            $state['native_output_present'] = array_key_exists('output', $response) && is_array($response['output']);
+            $state['native_output_item_count'] = count($state['native_output_present'] ? $response['output'] : ($state['responses_items'] ?? []));
             $state['responses_complete'] = ($response['status'] ?? '') === 'completed';
+            if (($state['error'] ?? '') !== '') return;
             // Completion is authoritative; never concatenate full arguments to deltas.
             $items = array_key_exists('output', $response) ? (array)$response['output'] : (array)($state['responses_items'] ?? []);
             ksort($items);
             $continuation = [];
             $calls = [];
             $finalText = '';
+            $finalParts = [];
             foreach ($items as $itemIndex => $item) {
                 $allowed = match ($item['type'] ?? '') {
                     'message' => ['type', 'id', 'role', 'status', 'content', 'phase'],
@@ -122,21 +129,50 @@ final class ResponsesMessagesAdapter
                 if (($item['type'] ?? '') === 'function_call') {
                     $calls[] = ['id' => $item['call_id'] ?? '', 'type' => 'function', 'function' => ['name' => $item['name'] ?? '', 'arguments' => $item['arguments'] ?? '']];
                 } elseif (($item['type'] ?? '') === 'message') {
-                    foreach ($item['content'] ?? [] as $partIndex => $part) {
-                        if (in_array($part['type'] ?? '', ['output_text', 'refusal'], true)) $finalText .= (string)($part['text'] ?? $part['refusal'] ?? '');
+                    $parts = (array)($item['content'] ?? []);
+                    ksort($parts, SORT_NUMERIC);
+                    foreach ($parts as $partIndex => $part) {
+                        if (in_array($part['type'] ?? '', ['output_text', 'refusal'], true)) {
+                            $text = (string)($part['text'] ?? $part['refusal'] ?? '');
+                            $finalParts[$itemIndex . ':' . $partIndex] = $text;
+                            $finalText .= $text;
+                        }
                     }
                 }
             }
             $state['responses_output'] = $continuation;
-            // Gateways may omit output_index on text deltas. Reconcile the whole
-            // visible answer, not per-item snapshots with potentially different keys.
-            $visible = (string)$state['content'];
-            if (!str_starts_with($finalText, $visible)) {
-                $state['native_error_code'] = 'responses_text_mismatch';
-                $state['error'] = '模型流式正文不一致，未执行本轮工具';
+            if (($state['responses_text_mode'] ?? '') === 'indexed') {
+                // Arrival order is not output order. Each explicitly indexed part must
+                // independently agree with its authoritative completed counterpart.
+                foreach ($state['responses_text'] ?? [] as $key => $text) {
+                    if (!array_key_exists($key, $finalParts) || !str_starts_with($finalParts[$key], $text)) {
+                        self::textMismatch($state);
+                        return;
+                    }
+                }
+                foreach ($state['responses_text_done'] ?? [] as $key => $text) {
+                    if (!array_key_exists($key, $finalParts) || $finalParts[$key] !== $text) {
+                        self::textMismatch($state);
+                        return;
+                    }
+                }
+                foreach ($state['responses_head_prefix'] ?? [] as $itemIndex => $type) {
+                    if (($items[$itemIndex]['type'] ?? '') !== $type) {
+                        self::textMismatch($state);
+                        return;
+                    }
+                }
+            } elseif (!str_starts_with($finalText, (string)($state['responses_arrival_content'] ?? $state['content']))) {
+                // Missing/mixed indices cannot establish per-part identity. Preserve
+                // the old conservative whole-answer arrival-prefix contract.
+                self::textMismatch($state);
                 return;
             }
-            self::text($state, 'completion', substr($finalText, strlen($visible)), true, $emit);
+            if (!str_starts_with($finalText, (string)$state['content'])) {
+                self::textMismatch($state);
+                return;
+            }
+            self::visibleText($state, substr($finalText, strlen((string)$state['content'])), $emit);
             $state['tool_calls'] = $calls;
             $state['finish_reason'] = $calls === [] ? 'stop' : 'tool_calls';
         }
@@ -163,17 +199,84 @@ final class ResponsesMessagesAdapter
         return mb_substr(trim((string)preg_replace('/[\x00-\x20]+/u', ' ', $value)), 0, 1000, 'UTF-8');
     }
 
-    private static function text(array &$state, string $key, string $text, bool $delta, callable $emit): void
+    private static function textPart(array $event, array &$state, callable $emit, bool $done = false): void
     {
+        $text = (string)($event[$done ? 'text' : 'delta'] ?? $event['refusal'] ?? '');
+        // Received text remains output evidence even if its indices/closure are invalid.
+        if (!$done && $text !== '') $state['delta_count'] = (int)($state['delta_count'] ?? 0) + 1;
+        foreach (['output_index', 'content_index'] as $field) {
+            if (array_key_exists($field, $event) && (!is_int($event[$field]) || $event[$field] < 0)) {
+                self::textMismatch($state);
+                return;
+            }
+        }
+        $indexed = isset($event['output_index'], $event['content_index']);
+        // A gateway's unindexed done snapshot cannot identify which part it closes.
+        if ($done && !$indexed) return;
+        $mode = $state['responses_text_mode'] ?? 'indexed';
+        $state['responses_text_mode'] = $indexed ? $mode : 'legacy';
+        $output = $event['output_index'] ?? 0;
+        $part = $event['content_index'] ?? 0;
+        $key = $output . ':' . $part;
         $previous = (string)($state['responses_text'][$key] ?? '');
-        if (!$delta) {
-            if (!str_starts_with($text, $previous)) { $state['native_error_code'] = 'responses_text_mismatch'; $state['error'] = '模型流式正文不一致，未执行本轮工具'; return; }
-            $text = substr($text, strlen($previous));
+        if ($done) {
+            if ($mode === 'legacy') return;
+            if (!str_starts_with($text, $previous)
+                || (isset($state['responses_text_done'][$key]) && $state['responses_text_done'][$key] !== $text)) {
+                self::textMismatch($state);
+                return;
+            }
+            $state['responses_text_done'][$key] = $text;
+            return;
+        }
+        if ($text === '') return;
+        if (array_key_exists($key, $state['responses_text_done'] ?? [])) {
+            self::textMismatch($state);
+            return;
         }
         $state['responses_text'][$key] = $previous . $text;
+        $state['responses_arrival_content'] = ($state['responses_arrival_content'] ?? '') . $text;
+        if ($state['responses_text_mode'] === 'legacy') {
+            $arrival = (string)$state['responses_arrival_content'];
+            if (!str_starts_with($arrival, (string)$state['content'])) {
+                self::textMismatch($state);
+                return;
+            }
+            self::visibleText($state, substr($arrival, strlen((string)$state['content'])), $emit);
+            return;
+        }
+        if (!isset($state['responses_stream_head']) && $part === 0) {
+            $prefix = [];
+            for ($i = 0; $i < $output; $i++) {
+                $type = $state['responses_items'][$i]['type'] ?? '';
+                if (!in_array($type, ['reasoning', 'function_call'], true)) return;
+                $prefix[$i] = $type;
+            }
+            $state['responses_stream_head'] = $key;
+            $state['responses_head_prefix'] = $prefix;
+        }
+        // Later parts may arrive while the head still grows. Buffer them rather
+        // than emitting a sequence that would need a caller-wide reset protocol.
+        if (($state['responses_stream_head'] ?? null) === $key) {
+            $head = $state['responses_text'][$key];
+            if (!str_starts_with($head, (string)$state['content'])) {
+                self::textMismatch($state);
+                return;
+            }
+            self::visibleText($state, substr($head, strlen((string)$state['content'])), $emit);
+        }
+    }
+
+    private static function textMismatch(array &$state): void
+    {
+        $state['native_error_code'] = 'responses_text_mismatch';
+        $state['error'] = '模型流式正文不一致，未执行本轮工具';
+    }
+
+    private static function visibleText(array &$state, string $text, callable $emit): void
+    {
         if ($text === '') return;
         $state['content'] .= $text;
-        $state['delta_count'] = (int)($state['delta_count'] ?? 0) + 1;
         $emit('delta', ['delta' => $text]);
     }
 
