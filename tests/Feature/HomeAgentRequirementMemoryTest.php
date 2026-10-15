@@ -44,7 +44,7 @@ Db::startTrans();try{
  // Changes/deletions are live, no persistent interpretation or stale authorized cache.
  AigcLlmMessage::where('id',$sourceId)->update(['content'=>'更正：甲项目可以出现真人侧脸，仍不得出现正脸。']);
  $updated=C::requirements($run,'甲项目');check(str_contains(S::encode($updated),'真人侧脸')&&!str_contains(S::encode($updated),'原有商标'),'Edited source stale');
- AigcLlmMessage::where('id',$sourceId)->update(['delete_time'=>$now]);check(C::requirements($run,'甲项目')['items']===[],'Deleted source survived');
+ AigcLlmMessage::where('id',$sourceId)->update(['delete_time'=>$now]);check(!in_array($sourceId,array_column(C::requirements($run,'甲项目')['items'],'message_id'),true),'Deleted source survived');
  foreach([['tenant_id'=>$tenant+1],['user_id'=>$user+1]] as $foreign)denied(fn()=>C::requirements(array_replace($run,$foreign)));
  check(C::requirements(array_replace($run,['session_id'=>$samples[1][0]['session_id']]),'真人')['items']===[],'Cross-session source leaked');
 

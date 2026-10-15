@@ -31,11 +31,14 @@ namespace {
   $t=1999999903;$u=$t;$now=time();
   $s=AigcLlmSession::create(['tenant_id'=>$t,'user_id'=>$u,'title'=>'chat context fixture','model_code'=>'fixture','status'=>'streaming','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
   $base=['tenant_id'=>$t,'user_id'=>$u,'session_id'=>$s['id'],'create_time'=>$now,'update_time'=>$now,'delete_time'=>0,'token_usage_json'=>[],'finish_reason'=>''];
-  AigcLlmMessage::create($base+['role'=>'user','content'=>'流程表要求：所有环节必须保留负责人。','seq'=>1,'status'=>'done','parent_user_message_id'=>0]);
-  for($i=0;$i<25;$i++)AigcLlmMessage::create($base+['role'=>'user','content'=>'背景讨论'.$i,'seq'=>$i+2,'status'=>'done','parent_user_message_id'=>0]);
+  $oldUser=AigcLlmMessage::create($base+['role'=>'user','content'=>'流程表要求：所有环节必须保留负责人。','seq'=>1,'status'=>'done','parent_user_message_id'=>0]);
+  // A large preceding answer moves the old user requirement outside the recent-character window.
+  $oldAnswer=AigcLlmMessage::create($base+['role'=>'assistant','content'=>str_repeat('背景。',5000),'seq'=>2,'status'=>'done','parent_user_message_id'=>$oldUser['id']]);
+  $oldId=(int)S::table('run')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'session_id'=>$s['id'],'message_id'=>$oldAnswer['id'],'request_id'=>'context-old-'.bin2hex(random_bytes(8)),'payload_hash'=>str_repeat('b',64),'content'=>$oldUser['content'],'preferences'=>S::encode(['mode'=>'ask','models'=>['text'=>'chosen-model']]),'attachments'=>'[]','status'=>'success','phase'=>'chat','reply'=>'','create_time'=>$now,'update_time'=>$now]);
   $m=AigcLlmMessage::create($base+['role'=>'user','content'=>'看看刚才的流程表，再补充负责人。','seq'=>1,'status'=>'done','parent_user_message_id'=>0]);
   $a=AigcLlmMessage::create($base+['role'=>'assistant','content'=>'','seq'=>2,'status'=>'streaming','parent_user_message_id'=>$m['id']]);
   $id=S::table('run')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'session_id'=>$s['id'],'message_id'=>$a['id'],'request_id'=>'context-chat-'.bin2hex(random_bytes(8)),'payload_hash'=>str_repeat('a',64),'content'=>$m['content'],'preferences'=>S::encode(['mode'=>'ask','models'=>['text'=>'chosen-model']]),'attachments'=>'[]','status'=>'running','phase'=>'chat','reply'=>'','lease_token'=>'fixture','lease_until'=>$now+1500,'create_time'=>$now,'update_time'=>$now]);
+  S::table('run')->where('id',$id)->update(['preferences'=>S::encode(['mode'=>'ask','models'=>['text'=>'chosen-model'],'_topic'=>['root_run_id'=>$oldId,'decision'=>'continue']])]);
   Fake::$file='of_'.bin2hex(random_bytes(16));
   OpenStore::table('file')->insert(['tenant_id'=>$t,'user_id'=>$u,'file_id'=>Fake::$file,'uri'=>'uploads/context-chat.docx','name'=>'流程表.docx','mime'=>'application/vnd.openxmlformats-officedocument.wordprocessingml.document','size'=>1,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']+OpenStore::timestamp());
   S::table('artifact')->insert(['tenant_id'=>$t,'user_id'=>$u,'session_id'=>$s['id'],'run_id'=>$id,'step_id'=>0,'identity_hash'=>hash('sha256',Fake::$file),'title'=>'发布会流程表','kind'=>'document','data'=>S::encode(['file_id'=>Fake::$file,'content'=>'09:00 开场；09:10 产品介绍；09:30 体验。']),'create_time'=>$now]);
