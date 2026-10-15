@@ -400,7 +400,7 @@ class DecorationAgentOperations
         $rows=$widget['content'][$field]??[];$oldCount=count($rows);$action=$op['action']??'';$i=$op['index']??null;
         if ($action==='add') { $row=$op['row']??$op['item']??[];$this->validateList([$row],array_replace($contract,['min_items'=>0]));$row['id']=self::newId();$i=$i??count($rows);if(!is_int($i)||$i<0||$i>count($rows))self::fail('List insertion index invalid');array_splice($rows,$i,0,[$row]); }
         else {
-            if (!is_int($i)||!isset($rows[$i])) self::fail('List row index invalid');
+            if (!is_int($i)||!isset($rows[$i])) self::fail('List row index invalid for content.'.$field.': '.count($rows).' persisted rows. update/delete/copy/move require an existing index; use action=add with item to insert a row (omit index to append). Dynamic source results are not saved list rows.');
             if ($action==='update') foreach ($op['fields']??[] as $key=>$value) {if($key==='id'||!isset($contract['fields'][$key]))self::fail('Unapproved list row field');$this->validate($value,$contract['fields'][$key]);$rows[$i][$key]=$value;}
             elseif($action==='delete')array_splice($rows,$i,1);
             elseif($action==='copy'){ $row=$rows[$i];$row['id']=self::newId();array_splice($rows,$i+1,0,[$row]); }
