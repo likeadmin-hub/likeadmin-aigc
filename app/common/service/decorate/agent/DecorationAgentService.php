@@ -132,7 +132,7 @@ final class DecorationAgentService
 
     private static function componentIndex(array $data): array
     {
-        $result=[];foreach(DecorationAgentOperations::index($data) as $id=>$node)$result[]=['id'=>$id,'name'=>$node['widget']['name'],'path'=>$node['path']];return $result;
+        $result=[];foreach(DecorationAgentOperations::index($data) as $id=>$node)$result[]=['id'=>$id,'name'=>$node['widget']['name'],'path'=>$node['path'],'lists'=>DecorationAgentDesignContext::listState($node['widget'])];return $result;
     }
     private static function compactCatalog(): array
     {return DecorationAgentDesignContext::digest();}

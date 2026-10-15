@@ -14,6 +14,20 @@ final class DecorationAgentDesignContext
         return array_map(fn($definition)=>self::compact($definition,false),DecorationAgentCatalog::summary()['components']);
     }
 
+    /** Stored editable rows are distinct from rows resolved by a live data source. */
+    public static function listState(array $widget): array
+    {
+        try{$definition=DecorationAgentCatalog::definition((string)($widget['name']??''));}
+        catch(\InvalidArgumentException $e){return [];}
+        $state=[];
+        foreach($definition['lists']??[] as $field=>$contract){
+            $rows=$widget['content'][$field]??[];$count=is_array($rows)?count($rows):0;
+            $state[$field]=['configured'=>array_key_exists($field,$widget['content']??[]),
+                'persisted_rows'=>$count,'last_existing_index'=>$count?$count-1:null,'next_insert_index'=>$count];
+        }
+        return $state;
+    }
+
     public static function digest(): array
     {
         $components=self::catalog();$rows=[];$shared=$components[0]['style_keys']??[];
@@ -185,6 +199,7 @@ final class DecorationAgentDesignContext
     public static function guide(): array
     {
         return [
+            'editable_lists'=>'component_index.lists记录候选真实保存的列表行数，不是data_sources返回的动态行数。edit_list action=add用item新增（省略index追加），update用index和fields只改已有行，delete/copy/move也要求已有index。列表缺失或persisted_rows=0时先add，不能update index0；行id由服务端生成。app_entries返回多少个来源入口，都不表示source_graphics已有对应行；source_graphics是独立可选覆盖表，逐真实app_code+entry_key新增，已有覆盖项才按它自己的索引更新。',
             'units'=>'移动逻辑宽375px；字段按契约px/rpx写，rpx按750设计宽。样式只用style_keys及shared_style_contract允许的字段。',
             'composition'=>'整页先安排主视觉、文字介绍、核心入口、真实案例/内容、服务。主视觉配真实装饰素材，标题用文字组件，少量大块留白和一致间距，不用大量空卡片填满。',
             'entries'=>'根据真实入口数量及视觉层级选择columns，遵循各组件的font_size(px)、icon_size(rpx)、image_fit及显隐参数；内卡按真实契约设置item_background/description_color/icon_color及item_padding/item_radius/item_min_height(rpx)。named glyph仅单色，不画未经支持的渐变；复杂图形需要授权的独立图片素材。',
