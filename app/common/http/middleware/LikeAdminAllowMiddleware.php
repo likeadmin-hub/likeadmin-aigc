@@ -88,6 +88,8 @@ class LikeAdminAllowMiddleware
         if (preg_match('#^wechat/virtual-pay/[0-9]+/[A-Za-z0-9_-]+/callback$#', $normalizedPath)) return $next($request);
         if ($normalizedPath === 'wechat/open-platform/callback'
             || $normalizedPath === 'wechat/open-platform/authorize'
+            || $normalizedPath === 'wechat/official-oauth/authorize'
+            || $normalizedPath === 'wechat/official-oauth/callback'
             || preg_match('#^wechat/open-platform/[A-Za-z0-9_-]+/callback$#', $normalizedPath)) {
             return $next($request);
         }

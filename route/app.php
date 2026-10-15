@@ -11,6 +11,35 @@
 use think\facade\Console;
 use think\facade\Route;
 
+// End-user H5 OAuth: WeChat validates the component platform's web domain.
+// Keep its state/cookies/tickets separate from account-management authorization.
+Route::get('wechat/official-oauth/authorize', function () {
+    $service = new \app\common\service\wechat\OfficialAccountOAuthRelayService();
+    try {
+        $state = (string)request()->get('state', '');
+        $url = $service->launch($state, (string)request()->domain());
+        return response($service::navigationPage($url), 200, [
+            'Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store',
+            'Referrer-Policy' => 'no-referrer', 'X-Frame-Options' => 'DENY',
+        ])->cookie($service::STATE_COOKIE, $state, $service::cookieOptions(true));
+    } catch (\Throwable $e) {
+        return response('微信授权状态无效，请返回手机端重新登录', 400, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
+    }
+});
+Route::get('wechat/official-oauth/callback', function () {
+    $service = new \app\common\service\wechat\OfficialAccountOAuthRelayService();
+    try {
+        $target = $service->complete((string)request()->get('state', ''), (string)request()->get('code', ''),
+            (string)request()->cookie($service::STATE_COOKIE, ''), (string)request()->domain());
+        return response($service::navigationPage($target), 200, [
+            'Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store',
+            'Referrer-Policy' => 'no-referrer', 'X-Frame-Options' => 'DENY',
+        ])->cookie($service::STATE_COOKIE, '', array_merge($service::cookieOptions(true), ['expire' => -3600]));
+    } catch (\Throwable $e) {
+        return response('微信登录未完成，请返回手机端重新登录', 400, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
+    }
+});
+
 $openPlatformCallback = function () {
     $isAuthorizationCallback = request()->isGet() && (string)request()->param('auth_code', '') !== '';
     try {
