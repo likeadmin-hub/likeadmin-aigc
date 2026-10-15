@@ -9,9 +9,10 @@ namespace app\common\service\power {
   public static function generate(int $tenant,int $user,array $params,?callable $onEvent=null):array{
    self::$requests[]=$params;
    $n=count(self::$requests);
-   if($n===1)return ['tool_calls'=>[['id'=>'read-document','function'=>['name'=>'read_session_context','arguments'=>json_encode(['payload'=>['action'=>'read_asset','file_id'=>self::$file]])]]]];
-   if($n===2)return ['tool_calls'=>[['id'=>'focus-document','function'=>['name'=>'set_creation_focus','arguments'=>json_encode(['payload'=>['file_id'=>self::$file,'goal'=>'完善发布会流程']])]]]];
-   if($n===3)return ['content'=>'流程表包含开场、产品介绍和体验环节，可以为各环节补充负责人。'];
+   if($n===1)return ['tool_calls'=>[['id'=>'recall-requirements','function'=>['name'=>'read_session_context','arguments'=>json_encode(['payload'=>['action'=>'requirements','query'=>'负责人']])]]]];
+   if($n===2)return ['tool_calls'=>[['id'=>'read-document','function'=>['name'=>'read_session_context','arguments'=>json_encode(['payload'=>['action'=>'read_asset','file_id'=>self::$file]])]]]];
+   if($n===3)return ['tool_calls'=>[['id'=>'focus-document','function'=>['name'=>'set_creation_focus','arguments'=>json_encode(['payload'=>['file_id'=>self::$file,'goal'=>'完善发布会流程']])]]]];
+   if($n===4)return ['content'=>'流程表包含开场、产品介绍和体验环节，可以为各环节补充负责人。'];
    throw new \RuntimeException('Unexpected model retry');
   }
  }
@@ -30,6 +31,8 @@ namespace {
   $t=1999999903;$u=$t;$now=time();
   $s=AigcLlmSession::create(['tenant_id'=>$t,'user_id'=>$u,'title'=>'chat context fixture','model_code'=>'fixture','status'=>'streaming','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
   $base=['tenant_id'=>$t,'user_id'=>$u,'session_id'=>$s['id'],'create_time'=>$now,'update_time'=>$now,'delete_time'=>0,'token_usage_json'=>[],'finish_reason'=>''];
+  AigcLlmMessage::create($base+['role'=>'user','content'=>'流程表要求：所有环节必须保留负责人。','seq'=>1,'status'=>'done','parent_user_message_id'=>0]);
+  for($i=0;$i<25;$i++)AigcLlmMessage::create($base+['role'=>'user','content'=>'背景讨论'.$i,'seq'=>$i+2,'status'=>'done','parent_user_message_id'=>0]);
   $m=AigcLlmMessage::create($base+['role'=>'user','content'=>'看看刚才的流程表，再补充负责人。','seq'=>1,'status'=>'done','parent_user_message_id'=>0]);
   $a=AigcLlmMessage::create($base+['role'=>'assistant','content'=>'','seq'=>2,'status'=>'streaming','parent_user_message_id'=>$m['id']]);
   $id=S::table('run')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'session_id'=>$s['id'],'message_id'=>$a['id'],'request_id'=>'context-chat-'.bin2hex(random_bytes(8)),'payload_hash'=>str_repeat('a',64),'content'=>$m['content'],'preferences'=>S::encode(['mode'=>'ask','models'=>['text'=>'chosen-model']]),'attachments'=>'[]','status'=>'running','phase'=>'chat','reply'=>'','lease_token'=>'fixture','lease_until'=>$now+1500,'create_time'=>$now,'update_time'=>$now]);
@@ -37,8 +40,10 @@ namespace {
   OpenStore::table('file')->insert(['tenant_id'=>$t,'user_id'=>$u,'file_id'=>Fake::$file,'uri'=>'uploads/context-chat.docx','name'=>'流程表.docx','mime'=>'application/vnd.openxmlformats-officedocument.wordprocessingml.document','size'=>1,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']+OpenStore::timestamp());
   S::table('artifact')->insert(['tenant_id'=>$t,'user_id'=>$u,'session_id'=>$s['id'],'run_id'=>$id,'step_id'=>0,'identity_hash'=>hash('sha256',Fake::$file),'title'=>'发布会流程表','kind'=>'document','data'=>S::encode(['file_id'=>Fake::$file,'content'=>'09:00 开场；09:10 产品介绍；09:30 体验。']),'create_time'=>$now]);
   $run=S::run($t,$u,(int)$id);$chat=new \ReflectionMethod(E::class,'chat');$chat->setAccessible(true);$chat->invoke(null,$run);
-  check(count(Fake::$requests)===3,'Context tools not executed in real chat loop');
-  $second=Fake::$requests[1];$body=S::encode($second['messages']);
+  check(count(Fake::$requests)===4,'Context tools not executed in real chat loop');
+  check(str_contains(Fake::$requests[0]['system_prompt'],'关键需求原文线索')&&str_contains(Fake::$requests[0]['system_prompt'],'所有环节必须保留负责人'),'Old requirement not injected into actual model input');
+  check(str_contains(S::encode(Fake::$requests[1]['messages']),'keyword_candidates')||str_contains(S::encode(Fake::$requests[1]['messages']),'literal_search'),'Requirements tool not executed');
+  $second=Fake::$requests[2];$body=S::encode($second['messages']);
   check(str_contains($body,'09:10 产品介绍'),'Persisted document never reached the model');
   check(str_contains($second['system_prompt'],'真实任务记录')&&str_contains($second['system_prompt'],'长对话摘记'),'Context sections not injected');
   check($second['model_selection']==='chosen-model'&&$second['_disable_model_fallback'],'Model preference changed');

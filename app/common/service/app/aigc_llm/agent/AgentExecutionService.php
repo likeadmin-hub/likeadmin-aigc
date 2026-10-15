@@ -326,8 +326,8 @@ final class AgentExecutionService
         $string=static fn(string $description)=>['type'=>'string','description'=>$description];
         $tools=[
             new AgentFunctionTool('read_long_asset','完整阅读长文档、PDF 或视频采样画面，后台按段处理并保留进度，完成后自动继续当前请求。摘要和分段笔记保留来源；不生成作品。',$object(['file_id'=>$string('当前话题的素材标识')],['file_id']),function(array $p)use($run){self::checkpoint($run);return AgentLongReadService::begin($run,(string)$p['file_id']);}),
-            new AgentFunctionTool('read_session_context','按需检索当前会话历史、读取原消息、查找作品、分段读取文档或查看真实任务状态。图片读取会在下一次请求附带视觉输入。所有查询限于当前用户的当前会话。',$object([
-                'action'=>['type'=>'string','enum'=>['search_messages','read_message','find_artifacts','read_asset','reading_notes','task_state']],
+            new AgentFunctionTool('read_session_context','按需检索当前话题历史、读取原消息、查找作品或查看真实任务状态。requirements 分页找回较早的用户限制、决定和更正线索；query 可搜索无关键词的要求，线索不是全部需求或执行授权，截断时 read_message 核对。图片读取会附带视觉输入。所有查询限于当前用户的当前会话和话题。',$object([
+                'action'=>['type'=>'string','enum'=>['search_messages','requirements','read_message','find_artifacts','read_asset','reading_notes','task_state']],
                 'query'=>$string('搜索关键词；空值按时间倒序浏览'),
                 'before'=>['type'=>'integer','minimum'=>0,'description'=>'上一页返回的 next_before'],
                 'message_id'=>['type'=>'integer','minimum'=>1],
@@ -354,6 +354,7 @@ final class AgentExecutionService
                 }
                 return match($action){
                     'search_messages'=>AgentContextService::searchHistory($run,(string)($p['query']??''),(int)($p['before']??0)),
+                    'requirements'=>AgentContextService::requirements($run,(string)($p['query']??''),(int)($p['before']??0)),
                     'read_message'=>AgentContextService::readMessage($run,(int)($p['message_id']??0),(int)($p['offset']??0)),
                     'find_artifacts'=>AgentContextService::findArtifacts($run,(string)($p['query']??''),(int)($p['before']??0)),
                     'task_state'=>AgentContextService::taskState($run),
@@ -412,6 +413,8 @@ final class AgentExecutionService
         }
         $messages=array_map(static fn($row)=>$row['role']==='user'?new UserMessage($row['content']):new AssistantMessage($row['content']),AgentCreationContext::dialogue($rows));
         if(!$messages)$messages=[new UserMessage($run['content'])];
+        $schemas=array_map(static fn($tool)=>['type'=>'function','function'=>['name'=>$tool->getName(),'description'=>$tool->getDescription(),'parameters'=>$tool->getInputSchema()]],$tools);
+        $instructions=AgentRequirementMemory::appendInstructions($instructions,MarketNeuronProvider::messages($messages),$schemas,$context['requirements']);
         $agent=(new Agent())->setThreadId('home:'.$run['tenant_id'].':'.$run['user_id'].':'.$run['id'])->setAiProvider($provider)->setInstructions($instructions)->setTools($tools)->setContextWindow(16000);
         $state=$agent->chat($messages);
         self::checkpoint($run);
