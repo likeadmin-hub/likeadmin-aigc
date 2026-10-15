@@ -103,7 +103,7 @@ final class AgentContextService
         if(!$valid)unset($focus['goal']);
         $artifacts=self::findArtifacts($run,'',0)['items'];
         $state=self::taskState($run);
-        return ['recent'=>$recent,'summary'=>$summary,'focus'=>$focus,'focus_assets'=>$valid,'artifacts'=>array_slice($artifacts,0,12),'tasks'=>$state,
+        return ['recent'=>$recent,'summary'=>$summary,'requirements'=>self::requirements($run,'',$boundary,4),'focus'=>$focus,'focus_assets'=>$valid,'artifacts'=>array_slice($artifacts,0,12),'tasks'=>$state,
             'current_request'=>['message_id'=>(int)($recent[array_key_last($recent)]['id']??0),'text'=>(string)$run['content']]];
     }
     private static function summaryRequests(array $run,array $ids): array
@@ -165,6 +165,21 @@ final class AgentContextService
         if(trim($query)!=='')$q->where('content','like','%'.addcslashes(mb_substr(trim($query),0,100),'%_\\').'%');
         $rows=$q->order('id','desc')->limit(11)->select()->toArray();$more=count($rows)>10;$rows=array_slice($rows,0,10);
         return ['items'=>array_map(static fn($r)=>['message_id'=>(int)$r['id'],'role'=>$r['role'],'excerpt'=>self::excerpt((string)$r['content']),'truncated'=>mb_strlen((string)$r['content'])>320],$rows),'next_before'=>$more?(int)end($rows)['id']:null];
+    }
+    public static function requirements(array $run,string $query='',int $before=0,int $limit=8): array
+    {
+        self::assertSession($run);$query=mb_substr(trim($query),0,100);$limit=max(1,min(8,$limit));
+        $q=self::messages($run)->where('role','user');
+        if($before>0)$q->where('id','<',$before);
+        // Read current authorized source rows every time: edits/deletions cannot leave stale memory.
+        // A query searches all user messages, including requirements without any predefined cue.
+        if($query!=='')$q->where('content','like','%'.addcslashes($query,'%_\\').'%');
+        else $q->whereRaw('content REGEXP :requirement_cues',['requirement_cues'=>AgentRequirementMemory::CUES]);
+        $rows=$q->field('id,content')->order('id','desc')->limit($limit+1)->select()->toArray();
+        $more=count($rows)>$limit;$rows=array_slice($rows,0,$limit);
+        return ['items'=>array_map(static fn($row)=>AgentRequirementMemory::excerpt($row,$query),$rows),
+            'next_before'=>$more?(int)end($rows)['id']:null,'selection'=>$query===''?'keyword_candidates':'literal_search',
+            'verified'=>false,'instruction'=>AgentRequirementMemory::INSTRUCTION];
     }
     public static function readMessage(array $run,int $id,int $offset=0): array
     {
