@@ -21,6 +21,7 @@ use app\common\service\user\RegisterBonusService;
 use app\common\service\membership\MembershipService;
 use app\common\service\distribution\DistributionService;
 use app\common\service\storage\Driver as StorageDriver;
+use app\common\service\storage\StorageConfigService;
 use think\db\exception\DataNotFoundException;
 use think\db\exception\DbException;
 use think\db\exception\ModelNotFoundException;
@@ -263,10 +264,7 @@ class WechatUserService
     public function getAvatarByWechat(): string
     {
         // 存储引擎
-        $config = [
-            'default' => \app\common\service\ConfigService::get('storage', 'default', 'local'),
-            'engine' => \app\common\service\ConfigService::get('storage')
-        ];
+        $config = StorageConfigService::getEffectiveConfig((int)request()->tenantId);
 
         $fileName = md5($this->openid . time()) . '.jpeg';
 
