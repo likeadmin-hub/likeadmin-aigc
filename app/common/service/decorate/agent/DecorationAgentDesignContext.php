@@ -48,7 +48,7 @@ final class DecorationAgentDesignContext
     public static function contract(string $name): array
     {
         $definition=DecorationAgentCatalog::definition($name);
-        return $definition+['semantics'=>self::semantics($name),'runtime_capabilities'=>self::runtimeNotes($name),'image_slots'=>self::imageSlots($definition),'write_constraints'=>self::identityConstraints($definition),'write_policy'=>'组件及所有列表行id由服务端管理；新增/整表替换不传id，已有行用edit_list按index修改，不复制default/source行id。source_key/source_params/data_mode用bind_source；field_map仅展示默认契约，禁止任意写入；所有图片只来自本轮授权素材或受控request_image。'];
+        return $definition+['semantics'=>self::semantics($name),'runtime_capabilities'=>self::runtimeNotes($name),'image_slots'=>self::imageSlots($definition),'write_constraints'=>self::identityConstraints($definition),'visibility_operation'=>['type'=>'set_visibility','audiences'=>['all','guest','logged_in'],'runtime_rule_operator'=>'operator','restriction'=>'只可替换空规则或单一登录eq条件；不覆盖或清除其他规则，遵守selected子树范围；显示条件不替代数据权限。'],'write_policy'=>'组件及所有列表行id由服务端管理；新增/整表替换不传id，已有行用edit_list按index修改，不复制default/source行id。source_key/source_params/data_mode用bind_source；field_map仅展示默认契约，禁止任意写入；所有图片只来自本轮授权素材或受控request_image。'];
     }
 
     private static function identityConstraints(array $definition): array
@@ -196,6 +196,8 @@ final class DecorationAgentDesignContext
             'theme_defaults'=>'组件factory中的styles.color是显式默认文字色，不会自动被页面或导航文字色覆盖。深浅主题逐块核对外壳背景及实际styles.color的对比；支持item_background/description_color的内卡分别配置。不支持内卡配色的组件按runtime_notes/runtime_capabilities真实边界设计，不能声称全局继承或整块文字都已换色。',
             'media'=>'decorative是系统装饰素材，不是用户作品、客户案例或业务证明；user_case才能按真实案例展示。banner无图片不能承担欢迎文字；无真实AI教程不得把普通生活文章包装成教程。',
             'source'=>'ai_tools只含推荐配置，空时使用真实uniapp app_entries或合法links；用户资料/会员/额度/用户资产依赖登录用户，管理员预览空不代表接口失效。manual也必须通过bind_source，field_map不支持写入。',
+            'login_visibility'=>'set_visibility {widget_id,audience:"all"|"guest"|"logged_in"}设置组件登录可见性；运行时规则使用operator:eq。只控制显示，保留真实账户/任务/资产来源，不伪造访客数据；仅替换空规则或单一登录eq条件，复杂已有规则拒绝覆盖，all也不能清除其它限制；选中范围仅可操作该子树。',
+            'candidate_workflow'=>'用户要求生成或修改页面，同时说不应用、不发布、先预览时，仍应执行真实编辑并生成或更新候选；这些限制只禁止覆盖当前草稿或发布，不表示只给建议。只有明确仅咨询、讨论方案且未要求编辑时才final且operations为空。应用由管理员显式操作，发布另行确认；修改后的视觉仍需重新截图复审。',
             'assets'=>'只能用本轮material_summary/search_materials/icons明确给出的URL或用户明确上传素材；named icon值只来自当前组件lists.fields.icon.options，不写桌面图标名。',
             'identities'=>'组件id及所有列表行id均由服务端管理。add_component操作最外层可用ref别名，不传id；新增/整表替换的rows不含id，不复制默认值或数据源行id。修改已有列表用edit_list按index与fields，不更新id。',
             'references'=>'ref仅支持add_component操作最外层直接创建的组件，不支持replace_page.components或children里的ref。replace_page后在下一轮读取component_index真实ID再bind_source/update/request_image；需要同批引用可改用多个add_component最外层ref。',
