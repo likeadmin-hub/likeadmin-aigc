@@ -88,6 +88,7 @@ final class DecorationAgentService
         $inventory['article']['warning']='这是文章资讯，不是经过确认的AI课程目录；不得把普通文章包装成教程。';
         foreach(['user_profile','membership_summary','account_summary','recent_tasks','user_assets'] as $key)$inventory[$key]=['requires_login'=>true,'warning'=>'按访问页面的登录用户实时读取；后台编辑未登录用户时不补假数据。'];
         $result=[
+            'execution_limits'=>DecorationAgentExecutionBudget::context((int)($ctx['tool_calls']??0)),
             'visual_review_target'=>self::visualReviewContext($ctx),
             'scope'=>$input['scope'],'selected_id'=>$input['selected_id'],'page'=>$ctx['candidate'],'component_index'=>self::componentIndex($ctx['candidate']['data']),
             'component_catalog'=>self::compactCatalog(),'related_contracts'=>DecorationAgentDesignContext::related($ctx['candidate'],$input['scope'],$input['selected_id'],$input['message']),
@@ -169,7 +170,7 @@ final class DecorationAgentService
     public static function bootstrap(int $tenant,int $admin,array $p=[]): array
     {
         $catalog=new DecorationAgentCatalog();
-        $data=['enabled'=>true,'catalog_hash'=>$catalog->hash(),'catalog_version'=>$catalog->version(),'text_models'=>[],'image_models'=>[],'limits'=>['model_calls'=>6,'tools'=>20,'images'=>5,'attachments'=>5,'attachment_bytes'=>10485760],'sources'=>['tenant','content','upload','generate']];
+        $data=['enabled'=>true,'catalog_hash'=>$catalog->hash(),'catalog_version'=>$catalog->version(),'text_models'=>[],'image_models'=>[],'limits'=>['model_calls'=>6,'tools'=>DecorationAgentExecutionBudget::RUN_TOOLS,'images'=>5,'attachments'=>5,'attachment_bytes'=>10485760],'sources'=>['tenant','content','upload','generate']];
         if(!class_exists(Workflow::class)){$data['enabled']=false;$data['reason']='装修Agent运行依赖尚未安装';return $data;}
         try{foreach(['session','message','run','candidate','image_slot','checkpoint'] as $table)self::q($table,$tenant,$admin)->limit(1)->select();}catch(\Throwable $e){$data['enabled']=false;$data['reason']='装修Agent数据尚未初始化';return $data;}
         $data['text_models']=MarketTextModelRuntimeService::textOptions($tenant);
@@ -731,7 +732,7 @@ final class DecorationAgentService
         }
         $links=self::availableLinks($tenant,(int)$s['template_id']);$sources=DecorateDataSourceService::catalog($tenant);
         $model=MarketTextModelRuntimeService::resolveModel($tenant,$input['model_selection'],$input['requires_vision']);$spent=self::spent($r);$input['remaining_budget_points']=max(0,$input['budget_points']-$spent);
-        $ctx['run_id']=$id;$context=self::modelContext($tenant,$admin,$s,$input,$ctx);
+        $ctx['run_id']=$id;$ctx['tool_calls']=(int)$r['tool_calls'];$context=self::modelContext($tenant,$admin,$s,$input,$ctx);
         $content=self::json($context)."\n用户需求：".$input['message'];
         $estimateText=$content.DecorationAgentDecision::prompt().str_repeat('v',self::visionReferenceCount($input,$ctx)*6000);
         $estimated=self::textEstimate($model,$estimateText);
@@ -766,7 +767,7 @@ final class DecorationAgentService
         foreach($ops as $op){
             if(Db::name('decorate_agent_run')->where('id',$id)->value('cancel_requested')){self::finish($id,'canceled',[]);return;}
             if(self::duplicateSourceBinding($ctx,$op,$input))continue;
-            if(++$count>20){self::finish($id,'limited',['error'=>'已达到本轮工具次数上限']);return;}
+            if(!DecorationAgentExecutionBudget::consume($count,$ctx)){self::finish($id,'limited',['error'=>'已达到本轮工具次数上限']);return;}
             try{DecorationAgentDesignService::assertOperation($input,$ctx,$op);if($op['type']==='request_design'){if($designRequest!==null)throw new RuntimeException('本轮只生成一张设计稿');$designRequest=DecorationAgentDesignService::request($op,$input,self::generationContext($tenant,$input,$ctx),$ctx['trusted_materials']??[],$tenant,$links,$ctx['design']['parent_reference']??null);self::saveContext($id,$ctx);Db::name('decorate_agent_run')->where('id',$id)->update(['tool_calls'=>$count]);self::event($id,'tool',['message'=>'已安排完整页面设计稿','tool'=>'request_design']);continue;}foreach(['widget_id','parent_id'] as $targetKey)if(isset($op[$targetKey])&&str_starts_with((string)$op[$targetKey],'@')){$alias=substr($op[$targetKey],1);if(!isset($ctx['refs'][$alias]))throw new RuntimeException('本轮组件引用不存在');$op[$targetKey]=$ctx['refs'][$alias];}$query=self::queryTool($tenant,$admin,$s,$input,$ctx,$op,$links,$sources);if($query!==null){$ctx['observations'][]=['tool'=>$op['type'],'result'=>$query];if($op['type']==='search_materials'){$ctx['approved_material_urls']=array_values(array_unique(array_merge($ctx['approved_material_urls']??[],array_column($query,'url'))));$ctx['trusted_materials']=array_values(array_merge($ctx['trusted_materials']??[],$query));}if($op['type']==='icons')$ctx['approved_material_urls']=array_values(array_unique(array_merge($ctx['approved_material_urls']??[],DecorationAgentDesignContext::iconUrls($query))));}else{$scope=['scope'=>$input['scope'],'selected_id'=>$input['selected_id'],'allowed_links'=>$links,'approved_urls'=>array_merge(self::explicitUrls($input['message'],$input['attachments']),$ctx['approved_material_urls']??[]),'approved_design'=>$ctx['approved_design']??null,'blocked_sources'=>$ctx['visual_review']['blocked_sources']??[],'run_id'=>$id,'admin_id'=>$admin,'sources'=>$input['sources'],'attachments'=>$input['attachments'],'reusable_material_manifest'=>$ctx['reusable_material_manifest']??[]];$applied=self::applyVisualOperation($ctx['candidate'],$op,$scope,$ctx['trusted_materials']??[],$tenant);$ctx['candidate']=$applied['candidate'];if($op['type']==='add_component'&&!empty($op['ref'])){$last=end($applied['changes']);$ctx['refs'][(string)$op['ref']]=$last['widget_id'];}$ctx['changes']=array_merge($ctx['changes'],$applied['changes']);$imageRequests=array_merge($imageRequests,$applied['image_requests']);}$ctx['failures'][self::json($op)]=0;}
             catch(\Throwable $e){$key=self::json($op);$ctx['failures'][$key]=($ctx['failures'][$key]??0)+1;$ctx['observations'][]=['tool'=>$op['type'],'error'=>$e->getMessage()];if($ctx['failures'][$key]>1){self::saveContext($id,$ctx);self::finish($id,'failed',['error'=>'重复操作失败：'.$e->getMessage()]);return;}$decision['kind']='tools';}
             self::saveContext($id,$ctx);Db::name('decorate_agent_run')->where('id',$id)->update(['tool_calls'=>$count]);self::event($id,'tool',['message'=>'已处理装修操作','tool'=>$op['type']]);
