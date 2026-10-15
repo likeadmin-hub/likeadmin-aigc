@@ -2,6 +2,7 @@
 namespace app\common\service\power {
  final class MarketTextModelRuntimeService {
   public static array $calls=[];public static $after=null;
+  public static function resolveAgentModel(...$args):array{return [];}
   public static function modelGroups(...$args):array{return [];}
   public static function generate(int $t,int $u,array $p):array{
    self::$calls[]=json_decode($p['messages'][0]['content'][0]['text'],true);if(self::$after)(self::$after)();
