@@ -671,7 +671,7 @@ class MarketTextModelRuntimeService
                 PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points']);
                 PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points'], (string)$c['consume_no'], self::billingRemark((string)$c['app_code'], 'settled'), self::extra($task, $c, 'settled'));
             }
-            $c->save(['upstream_request_id' => (string)($result['provider_request_id'] ?? ''), 'run_status' => 'success', 'billing_status' => $hasActualUsage ? 'settled' : 'pending_usage', 'usage_snapshot' => $usage + ['settlement_basis' => $hasActualUsage ? 'actual_usage' : 'awaiting_actual_usage'], 'response_summary' => ['output_length' => mb_strlen((string)($result['content'] ?? ''), 'UTF-8')], 'actual_tenant_cost' => $hasActualUsage ? $actual['tenant_cost_points'] : 0, 'actual_user_price' => $hasActualUsage ? $actual['user_charge_points'] : 0, 'tenant_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'user_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'finish_time' => $now, 'update_time' => $now]);
+            $c->save(['upstream_request_id' => (string)($result['provider_request_id'] ?? ''), 'run_status' => 'success', 'billing_status' => $hasActualUsage ? 'settled' : 'pending_usage', 'usage_snapshot' => $usage + ['settlement_basis' => $hasActualUsage ? 'actual_usage' : 'awaiting_actual_usage'], 'response_summary' => ['output_length' => mb_strlen((string)($result['content'] ?? ''), 'UTF-8')] + (isset($result['protocol_evidence']) ? ['protocol_evidence'=>$result['protocol_evidence']] : []), 'actual_tenant_cost' => $hasActualUsage ? $actual['tenant_cost_points'] : 0, 'actual_user_price' => $hasActualUsage ? $actual['user_charge_points'] : 0, 'tenant_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'user_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => (float)$task['actual_tenant_cost'] + ($hasActualUsage ? (float)$actual['tenant_cost_points'] : 0), 'actual_user_price' => (float)$task['actual_user_price'] + ($hasActualUsage ? (float)$actual['user_charge_points'] : 0), 'finish_time' => $now, 'update_time' => $now]);
             self::event((int)$c['id'], $hasActualUsage ? 'settle' : 'await_usage', $hasActualUsage ? 'success' : 'pending', $usage, $elapsed);
         });
@@ -686,7 +686,7 @@ class MarketTextModelRuntimeService
             $now=time();
             $c->save(['run_status'=>$incomplete?'failed':'success','billing_status'=>'settlement_failed','usage_snapshot'=>$usage+['settlement_basis'=>$incomplete?'awaiting_provider_receipt':'awaiting_settlement'],
                 'upstream_request_id'=>(string)($result['provider_request_id']??$c['upstream_request_id']),
-                'response_summary'=>['output_length'=>mb_strlen((string)($result['content']??''),'UTF-8')],
+                'response_summary'=>['output_length'=>mb_strlen((string)($result['content']??''),'UTF-8')] + (isset($result['protocol_evidence']) ? ['protocol_evidence'=>$result['protocol_evidence']] : []),
                 'error_code'=>$incomplete?'provider_stream_incomplete':'settlement_failed','error_message'=>$incomplete?'回复未完整结束，费用待核对':'结果已确认，费用结算待核对','finish_time'=>$now,'update_time'=>$now]);
             AiAppTask::where('id',$c['app_task_id'])->update(['status'=>$incomplete?'failed':'success','progress'=>100,'finish_time'=>$now,'update_time'=>$now]);
             self::event((int)$c['id'],'settlement_deferred','failed',['reason'=>$incomplete?'provider_stream_incomplete':'wallet_settlement_failed','error_type'=>get_class($error),'protocol_diagnostic'=>(array)($result['protocol_diagnostic']??[])]);
@@ -715,7 +715,7 @@ class MarketTextModelRuntimeService
             throw new Exception('请输入文本内容');
         }
         $payload=self::transportPayload($protocol,$model,$messages,$system,$maxTokens,$generationParams,$transportOptions);
-        return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout);
+        return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout, $protocol === 'openai_responses' && !empty($transportOptions['require_native_responses']));
     }
 
     private static function initialTransportOptions(array $model,array $params,bool $tenantAdminConsumption,bool $operatorCapabilityProbe=false): array
@@ -724,7 +724,7 @@ class MarketTextModelRuntimeService
             && (($params['action_code']??'')==='decoration_agent_text'||$operatorCapabilityProbe)
             && !empty($params['_decoration_native_responses_transport'])
             && self::protocolForModel($model)==='openai_responses';
-        return ['include_market_context'=>!$decorationResponses,'include_channel'=>true];
+        return ['include_market_context'=>!$decorationResponses,'include_channel'=>true,'require_native_responses'=>$decorationResponses];
     }
 
     /** Routing stays on model/channel; local SKU snapshots never depend on the wire body. */
@@ -1207,7 +1207,7 @@ class MarketTextModelRuntimeService
         return true;
     }
 
-    private static function curl(string $url, string $key, array $payload, ?callable $onEvent, bool $sslVerify, int $requestTimeout): array
+    private static function curl(string $url, string $key, array $payload, ?callable $onEvent, bool $sslVerify, int $requestTimeout, bool $requireNativeResponses = false): array
     {
         // Upstream text generation is always SSE. Callers without a UI stream
         // still consume SSE here and receive the assembled result afterwards.
@@ -1219,7 +1219,7 @@ class MarketTextModelRuntimeService
             'Accept: text/event-stream',
         ];
 
-        $state = ['content' => '', 'reasoning' => '', 'usage' => [], 'request_id' => '', 'emitted_request_id' => '', 'error' => '', 'tool_calls' => [], 'delta_count' => 0];
+        $state = ['content' => '', 'reasoning' => '', 'usage' => [], 'request_id' => '', 'emitted_request_id' => '', 'error' => '', 'tool_calls' => [], 'delta_count' => 0, 'responses_expected' => $requireNativeResponses];
         $buffer = '';
         $body = '';
         $receivedEvent = false;
@@ -1302,6 +1302,10 @@ class MarketTextModelRuntimeService
             \app\common\service\open_platform\OpenCallContext::providerFailure($status,$body,!empty($state['content'])||!empty($state['reasoning'])||!empty($state['tool_calls']));
             throw self::providerException($state['error'], !empty($state['model_fallback_allowed']), $state);
         }
+        if ($requireNativeResponses && (empty($state['responses']) || !empty($state['legacy_output_event_count']))) {
+            $state['native_error_code'] = 'responses_protocol_mismatch';
+            throw self::providerException('模型未返回要求的原生Responses完整回复，未执行本轮工具；费用待核对', false, $state);
+        }
         try {
             AnthropicMessagesAdapter::assertComplete($state);
             ResponsesMessagesAdapter::assertComplete($state);
@@ -1330,6 +1334,7 @@ class MarketTextModelRuntimeService
             'tool_calls' => $state['tool_calls'],
             'stream_mode' => $receivedSseEvent ? 'sse' : 'buffered_response',
             'stream_delta_count' => (int)$state['delta_count'],
+            'protocol_evidence' => self::protocolEvidence($state),
             'finish_reason' => (string)($state['finish_reason'] ?? ''),
             '_responses_output' => (array)($state['responses_output'] ?? []),
         ];
@@ -1429,9 +1434,21 @@ class MarketTextModelRuntimeService
     private static function applyStreamEvent(array $event, array &$state, callable $onEvent, string $requestKey = ''): void
     {
         if (($event['type'] ?? '') === 'responses_event') {
+            $state['responses_event_count'] = (int)($state['responses_event_count'] ?? 0) + 1;
+            if (in_array($event['payload']['type'] ?? '', ['response.completed', 'response.failed', 'response.incomplete'], true)) $state['responses_terminal_seen'] = true;
+            if (!empty($event['payload']['response']['usage']) && is_array($event['payload']['response']['usage'])) {
+                $state['usage_event_count'] = (int)($state['usage_event_count'] ?? 0) + 1;
+                $state['usage_sources']['responses_native'] = true;
+            }
             ResponsesMessagesAdapter::apply($event['payload'], $state, $onEvent, $requestKey);
             return;
         }
+        // Only actual non-native output signals a protocol downgrade. Auxiliary
+        // usage/heartbeat/[DONE] events cannot satisfy or invalidate native closure.
+        if ((($event['type'] ?? '') === 'delta' && (string)($event['content'] ?? '') !== '') || !empty($event['tool_calls'])) {
+            $state['legacy_output_event_count'] = (int)($state['legacy_output_event_count'] ?? 0) + 1;
+        }
+        if (($event['type'] ?? '') === 'done' || !empty($event['finish_reason'])) $state['legacy_terminal_seen'] = true;
         if (!empty($event['anthropic'])) $state['anthropic'] = true;
         if (!empty($event['anthropic_complete'])) $state['anthropic_complete'] = true;
         if (isset($event['tool_block_stop'])) {
@@ -1457,6 +1474,8 @@ class MarketTextModelRuntimeService
             return;
         }
         if (!empty($event['usage']) && is_array($event['usage'])) {
+            $state['usage_event_count'] = (int)($state['usage_event_count'] ?? 0) + 1;
+            $state['usage_sources'][!empty($event['anthropic']) ? 'anthropic_messages' : 'compatible_sse'] = true;
             $state['usage'] = array_replace_recursive((array)($state['usage'] ?? []), $event['usage']);
         }
         if (!empty($event['tool_calls']) && is_array($event['tool_calls'])) {
@@ -1674,13 +1693,36 @@ class MarketTextModelRuntimeService
         return implode('', $parts);
     }
 
+    /** Safe parser observations only: never wire bodies, credentials, URLs or image data. */
+    private static function protocolEvidence(array $state): array
+    {
+        $responses = (int)($state['responses_event_count'] ?? 0);
+        $legacy = (int)($state['legacy_output_event_count'] ?? 0);
+        $nativeStatus = (string)($state['native_response_status'] ?? '');
+        $status = $responses > 0 ? $nativeStatus : (string)($state['finish_reason'] ?? '');
+        if (!in_array($status, ['', 'completed', 'failed', 'incomplete', 'in_progress', 'stop', 'length', 'tool_calls', 'end_turn', 'max_tokens', 'stop_sequence'], true)) $status = 'other';
+        return [
+            'expected_native_responses' => !empty($state['responses_expected']),
+            'branch' => $responses > 0 ? ($legacy > 0 ? 'mixed' : 'native_responses') : (!empty($state['anthropic']) ? 'anthropic_messages' : ($legacy > 0 ? 'legacy_sse' : 'unclassified_sse')),
+            'native_event_count' => $responses, 'legacy_output_event_count' => $legacy,
+            'terminal_seen' => $responses > 0 ? !empty($state['responses_terminal_seen']) : (!empty($state['anthropic']) ? !empty($state['anthropic_complete']) : !empty($state['legacy_terminal_seen'])),
+            'terminal_status' => $status,
+            'output_present' => $responses > 0 && array_key_exists('native_output_present', $state) ? (bool)$state['native_output_present'] : null,
+            'usage_event_count' => (int)($state['usage_event_count'] ?? 0),
+            'usage_sources' => array_values(array_intersect(['responses_native', 'anthropic_messages', 'compatible_sse'], array_keys($state['usage_sources'] ?? []))),
+        ];
+    }
+
     private static function providerException(string $message, bool $fallbackAllowed, array $state = []): Exception
     {
         $hasOutput = !empty($state['content']) || !empty($state['reasoning']) || !empty($state['tool_calls'])
             || (int)($state['delta_count'] ?? 0) > 0;
-        $partial = (!empty($state['anthropic']) || !empty($state['responses'])) && !empty($state['request_id']) ? [
+        $hasNativePartial = (!empty($state['anthropic']) || !empty($state['responses'])) && !empty($state['request_id']);
+        $hasExpectedPartial = !empty($state['responses_expected']) && ($hasOutput || !empty($state['usage']));
+        $partial = $hasNativePartial || $hasExpectedPartial ? [
             'content' => (string)($state['content'] ?? ''),
             'content_source' => (string)($state['content_source']??'content'),
+            'protocol_evidence' => self::protocolEvidence($state),
             'provider_request_id' => (string)$state['request_id'],
             'usage' => (array)($state['usage'] ?? []),
             // Never hand partial calls to Neuron or a delayed continuation.

@@ -1,13 +1,20 @@
 <?php
 // Native wire fixtures through the actual curl SSE decoder and Neuron loop; no paid calls.
+namespace app\common\service\update {
+    final class UpdateSourceClient {
+        public static function getSource(): array { return ['base_url'=>'https://fixture.invalid','api_key'=>'fixture-only']; }
+        public static function sslVerify(array $source): bool { return true; }
+    }
+}
 namespace app\common\service\power {
-    final class ResponsesWireFixture { public static array $events = []; public static array $payload = []; }
+    final class ResponsesWireFixture { public static array $events = []; public static array $payload = []; public static string $rawBody = ''; }
     function curl_init() { return new \stdClass(); }
     function curl_setopt_array($handle, array $options) { $handle->options = $options; return true; }
     function curl_exec($handle) {
         ResponsesWireFixture::$payload=json_decode($handle->options[CURLOPT_POSTFIELDS],true);
         $wire = '';
-        foreach (ResponsesWireFixture::$events as $event) $wire .= 'data: '.json_encode($event, JSON_UNESCAPED_UNICODE)."\n\n";
+        foreach (ResponsesWireFixture::$events as $event) $wire .= 'data: '.(is_string($event) ? $event : json_encode($event, JSON_UNESCAPED_UNICODE))."\n\n";
+        if (ResponsesWireFixture::$rawBody !== '') $wire = ResponsesWireFixture::$rawBody;
         foreach (str_split($wire, 7) as $chunk) ($handle->options[CURLOPT_WRITEFUNCTION])($handle, $chunk);
         return true;
     }
@@ -25,9 +32,9 @@ namespace {
     use NeuronAI\Tools\{Tool, ToolProperty, PropertyType};
     function check($ok, string $message): void { if (!$ok) throw new \RuntimeException($message); }
     function invoke(string $name, ...$args) { return (new \ReflectionMethod(R::class,$name))->invoke(null,...$args); }
-    function wire(array $events, ?array &$visible = null): array {
+    function wire(array $events, ?array &$visible = null, bool $requireNativeResponses = false): array {
         F::$events=$events; $visible=[];
-        return invoke('curl','https://fixture.invalid','fixture-only',[],static function($type,$data) use (&$visible) { if($type==='delta')$visible[]=$data['delta']; },true,10);
+        return invoke('curl','https://fixture.invalid','fixture-only',[],static function($type,$data) use (&$visible) { if($type==='delta')$visible[]=$data['delta']; },true,10,$requireNativeResponses);
     }
     function created(): array { return ['type'=>'response.created','response'=>['id'=>'resp_fixture','status'=>'in_progress']]; }
     function complete(array $items): array { return ['type'=>'response.completed','response'=>['id'=>'resp_fixture','status'=>'completed','output'=>$items,'usage'=>['input_tokens'=>123,'output_tokens'=>17,'total_tokens'=>140]]]; }
@@ -142,18 +149,51 @@ namespace {
         try { wire($broken); throw new \LogicException('Unsafe tool response accepted'); }
         catch(MarketTextModelProviderException $e) { check($e->partialResult!==null&&$e->partialResult['tool_calls']===[]&&!$e->allowsModelFallback,'Incomplete native response lost review evidence'); }
     }
+    $legacyEvents=[['id'=>'resp_legacy_fixture','choices'=>[['delta'=>['content'=>'{"reply":"truncated'],'finish_reason'=>null]]],['id'=>'resp_legacy_fixture','choices'=>[['delta'=>[],'finish_reason'=>'stop']]]];
+    try{wire($legacyEvents,$chunks,true);throw new \LogicException('Explicit native Responses request accepted legacy SSE without native terminal');}
+    catch(MarketTextModelProviderException $e){check($e->partialResult!==null&&$e->partialResult['tool_calls']===[]&&!$e->allowsModelFallback,'Native protocol downgrade preserves uncertain partial evidence without fallback/calls');}
+    $legacy=wire($legacyEvents,$chunks);
+    check($legacy['content']==='{"reply":"truncated'&&$legacy['finish_reason']==='stop','Ordinary legacy compatibility is unchanged by opt-in native enforcement');
+    $strict=wire([created(),textDelta(0,0,'native complete'),complete([message('native complete')])],$chunks,true);$proof=$strict['protocol_evidence'];
+    check($proof['expected_native_responses']&&$proof['branch']==='native_responses'&&$proof['terminal_seen']&&$proof['terminal_status']==='completed'&&$proof['output_present']===true&&$proof['native_event_count']===3&&$proof['legacy_output_event_count']===0&&$proof['usage_event_count']===1&&$proof['usage_sources']===['responses_native'],'Strict native success exposes actual bounded protocol/terminal/usage evidence');
+    check(!array_diff(array_keys($proof),['expected_native_responses','branch','native_event_count','legacy_output_event_count','terminal_seen','terminal_status','output_present','usage_event_count','usage_sources'])&&!preg_match('~fixture.invalid|base64|api_key|fixture-only|reference~',json_encode($proof)),'Protocol evidence contains no body/credential/URL/reference values');
+    $noUsageEnd=complete([message('complete without reported usage')]);unset($noUsageEnd['response']['usage']);
+    $noUsage=wire([created(),textDelta(0,0,'complete without reported usage'),$noUsageEnd],$chunks,true);
+    check($noUsage['usage']===[]&&$noUsage['protocol_evidence']['usage_event_count']===0&&$noUsage['protocol_evidence']['usage_sources']===[],'Missing native usage remains explicitly unknown instead of synthesized');
+    $auxiliary=wire([created(),['type'=>'heartbeat'],['usage'=>['prompt_tokens'=>3,'completion_tokens'=>2]],textDelta(0,0,'native with auxiliary events'),complete([message('native with auxiliary events')]),'[DONE]'],$chunks,true);
+    check($auxiliary['protocol_evidence']['branch']==='native_responses'&&$auxiliary['protocol_evidence']['legacy_output_event_count']===0&&$auxiliary['protocol_evidence']['usage_event_count']===2&&$auxiliary['protocol_evidence']['usage_sources']===['responses_native','compatible_sse'],'Usage-only/heartbeat/DONE auxiliaries neither downgrade nor substitute native terminal');
+    foreach([
+        [created(),textDelta(0,0,'missing native terminal'),'[DONE]'],
+        [created(),['id'=>'resp_fixture','choices'=>[['delta'=>['content'=>'mixed body']]]],complete([message('mixed body')])],
+        ['[DONE]'],
+    ] as $broken){
+        try{wire($broken,$chunks,true);throw new \LogicException('Strict native request accepted missing/mixed terminal');}
+        catch(MarketTextModelProviderException $e){check(!$e->allowsModelFallback&&($e->partialResult===null||$e->partialResult['tool_calls']===[]),'Strict terminal failure cannot invoke tools or switch provider');if($e->partialResult!==null)check($e->partialResult['protocol_evidence']['expected_native_responses']===true,'Strict partial preserves the expected protocol boundary');}
+    }
+    try{wire([['choices'=>[['delta'=>['content'=>'body without request ID'],'finish_reason'=>'stop']]]],$chunks,true);throw new \LogicException('No-ID downgrade accepted');}
+    catch(MarketTextModelProviderException $e){check($e->partialResult['content']==='body without request ID'&&!$e->allowsModelFallback,'Received output without a request ID still preserves uncertain strict partial evidence');}
+    try{wire([['error'=>['message'=>'fixture explicit zero-output rejection']]],$chunks,true);throw new \LogicException('Explicit rejection accepted');}
+    catch(MarketTextModelProviderException $e){check($e->partialResult===null,'Zero-output explicit rejection retains its existing classification path');}
+    F::$rawBody=json_encode(complete([message('buffered JSON is not native SSE')]));
+    try{wire([],$chunks,true);throw new \LogicException('Buffered JSON bypassed SSE terminal contract');}
+    catch(MarketTextModelProviderException $e){check(!$e->allowsModelFallback,'Successful buffered JSON cannot replace required native SSE');}finally{F::$rawBody='';}
     $selectedModel=['model_code'=>'gpt-fixture','protocols'=>'openai_responses','channel_code'=>'fixture-channel','product_id'=>41,'input'=>['sku_id'=>42,'sku_key'=>'fixture-input','platform_price'=>3,'tenant_price'=>4],'output'=>['sku_id'=>43,'sku_key'=>'fixture-output','platform_price'=>5,'tenant_price'=>6]];
+    check(invoke('canSettleUsage',$selectedModel,invoke('normalizeUsage',$noUsage['usage']))===false,'Unknown native usage cannot enter actual-usage settlement');
     $beforeModel=$selectedModel;$decorationParams=['action_code'=>'decoration_agent_text','_decoration_native_responses_transport'=>true];
     $options=invoke('initialTransportOptions',$selectedModel,$decorationParams,true);
     $payload=invoke('transportPayload','openai_responses',$selectedModel,[['role'=>'user','content'=>'页面生成']],'装修',4096,[],$options);
-    F::$events=[created(),complete([message('完成')])];invoke('curl','https://fixture.invalid','fixture-only',$payload,static function(){},true,10);
-    $actual=F::$payload;check($actual['model']==='gpt-fixture'&&$actual['channel']==='fixture-channel'&&$actual['stream']===true,'Decoration lost gateway model/channel routing or SSE');
+    F::$events=$legacyEvents;
+    try{invoke('request',$selectedModel,[['role'=>'user','content'=>'fixture']], 'fixture',4096,[],static function(){},10,$options);throw new \LogicException('Request dropped strict native transport requirement');}
+    catch(MarketTextModelProviderException $e){check($e->partialResult['protocol_evidence']['expected_native_responses']===true,'Actual request path must carry the server-native requirement into curl');}
+    F::$events=[created(),complete([message('完成')])];$throughRequest=invoke('request',$selectedModel,[['role'=>'user','content'=>'fixture']], 'fixture',4096,[],static function(){},10,$options);
+    check($throughRequest['protocol_evidence']['expected_native_responses']===true&&$throughRequest['protocol_evidence']['terminal_seen']===true,'Real native request path accepts a validated terminal');
+    $actual=F::$payload;check($options['require_native_responses']===true&&!isset($actual['require_native_responses']),'Native requirement remains server-side, never a provider parameter');check($actual['model']==='gpt-fixture'&&$actual['channel']==='fixture-channel'&&$actual['stream']===true,'Decoration lost gateway model/channel routing or SSE');
     check(!array_intersect_key($actual,invoke('marketContext',$selectedModel)),'Decoration native wire leaked internal SKU selectors');
     check($selectedModel===$beforeModel&&invoke('quote',$selectedModel,1000000,1000000)['tenant_cost_points']===8.0,'Transport changed resolved SKU context or local price selection');
-    foreach([[false,$decorationParams,$selectedModel],[true,['action_code'=>'another_app','_decoration_native_responses_transport'=>true],$selectedModel],[true,['action_code'=>'decoration_agent_text'],$selectedModel],[true,$decorationParams,array_replace($selectedModel,['protocols'=>'openai_chat'])]] as [$adminPayer,$params,$model])check(invoke('initialTransportOptions',$model,$params,$adminPayer)['include_market_context']===true,'Unrelated AI request transport changed');
+    foreach([[false,$decorationParams,$selectedModel],[true,['action_code'=>'another_app','_decoration_native_responses_transport'=>true],$selectedModel],[true,['action_code'=>'decoration_agent_text'],$selectedModel],[true,$decorationParams,array_replace($selectedModel,['protocols'=>'openai_chat'])]] as [$adminPayer,$params,$model])check(invoke('initialTransportOptions',$model,$params,$adminPayer)['include_market_context']===true&&invoke('initialTransportOptions',$model,$params,$adminPayer)['require_native_responses']===false,'Unrelated AI request transport changed');
     $failure=['type'=>'response.failed','response'=>['id'=>'resp_fixture','status'=>'failed','output'=>[],'error'=>['code'=>'invalid_request_error','type'=>'invalid_request_error','message'=>'Unsupported parameter: max_output_tokens. <b>See</b> https://provider.invalid/help token sk-fixturePrivateSecret']]];
     try {wire([created(),$failure]);throw new \LogicException('Native failure accepted');}
-    catch(MarketTextModelProviderException $e){$d=$e->partialResult['protocol_diagnostic'];check($d['provider_type']==='invalid_request_error'&&$d['response_status']==='failed'&&str_contains($d['provider_message'],'Unsupported parameter: max_output_tokens'),'Native error detail lost');check(!str_contains($d['provider_message'],'provider.invalid')&&!str_contains($d['provider_message'],'sk-fixturePrivateSecret')&&!str_contains($d['provider_message'],'<b>'),'Native diagnostics leaked URL/credential/markup');check($e->partialResult['content_source']==='content'&&$d['visible_chars']===0&&$d['delta_count']===0&&$d['output_items']===0,'Zero output proof missing');}
+    catch(MarketTextModelProviderException $e){$d=$e->partialResult['protocol_diagnostic'];check($d['provider_type']==='invalid_request_error'&&$d['response_status']==='failed'&&str_contains($d['provider_message'],'Unsupported parameter: max_output_tokens'),'Native error detail lost');check(!str_contains($d['provider_message'],'provider.invalid')&&!str_contains($d['provider_message'],'sk-fixturePrivateSecret')&&!str_contains($d['provider_message'],'<b>'),'Native diagnostics leaked URL/credential/markup');check($e->partialResult['protocol_evidence']['terminal_seen']===true&&$e->partialResult['protocol_evidence']['terminal_status']==='failed','Observed failed native terminal is diagnostic evidence, not successful completion');check($e->partialResult['content_source']==='content'&&$d['visible_chars']===0&&$d['delta_count']===0&&$d['output_items']===0,'Zero output proof missing');}
     foreach([
         'api_key=fixture-secret', 'x-api-key: fixture-secret', 'Authorization: Basic Zml4dHVyZTpwYXNzd29yZA==',
         '"access_token": "fixture-secret"', "client_secret='fixture-secret'", 'token=fixture-secret',
