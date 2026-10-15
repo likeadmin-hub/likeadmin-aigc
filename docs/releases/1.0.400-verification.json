@@ -1,0 +1,135 @@
+{
+  "version": "1.0.400",
+  "base_version": "1.0.399",
+  "scope": [
+    "conversational-decoration-and-sse",
+    "46-component-contracts",
+    "design-first-confirmation",
+    "online-design-region-assets",
+    "material-and-icon-matching",
+    "editable-renderer-parity",
+    "unlimited-new-authorization-policy",
+    "platform-dev-config",
+    "wechat-platform-oauth-relay",
+    "avatar-storage-and-post-response-sync"
+  ],
+  "builds": {
+    "pc": "passed",
+    "tenant": "passed",
+    "platform": "passed",
+    "h5": "passed",
+    "mp-weixin": "passed"
+  },
+  "frontend_tests": 251,
+  "backend_decoration_groups": 39,
+  "php_files_linted": 79,
+  "staging_tests": 10,
+  "text_payload_tests": {
+    "tests": 9,
+    "assertions": 38
+  },
+  "text_fallback_tests": {
+    "tests": 2,
+    "assertions": 25
+  },
+  "native_responses_regression": "passed",
+  "wechat_regression_groups": 4,
+  "source_coverage": {
+    "passed": true,
+    "version": "1.0.400",
+    "base_version": "1.0.399",
+    "signature_files": 3714,
+    "bad_hashes": [],
+    "forbidden_paths": [],
+    "changed_files_covered": 1321,
+    "source_only_or_protected": 54,
+    "full_replace_dirs": [
+      "public/_nuxt",
+      "public/admin",
+      "public/media",
+      "public/mobile",
+      "public/mp-weixin",
+      "public/pc",
+      "public/platform"
+    ],
+    "sql_order": [],
+    "tar_zip_file_parity": true,
+    "zip_sha256": "547c4f3042bb4d25285a538563d320937f4cee006214e91115fcc903484ac5ae",
+    "tar_sha256": "7cf9160a890b118cc73bd06047acbc610b28bfb59b5dc6051dee8ee23ca5e1af",
+    "rename_detection": false,
+    "staging_uncovered": []
+  },
+  "build_artifacts": {
+    "mp_version": "1.0.400",
+    "mp_files": 1195,
+    "mp_source_commit": "9b62efd6d01fa079556e1ad4be306b1af132a1b2",
+    "mp_sha256": "11bf55a676503095257585dfcc536a28027c2a5949ab1ef09ad93f7f8a18a1c3",
+    "version_archive_restored": true,
+    "entry_points_checked": 4,
+    "path_leaks": [],
+    "pc_embedded_version": "1.0.400"
+  },
+  "local_http": [
+    {
+      "path": "/platform/",
+      "status": 200,
+      "bytes": 6238
+    },
+    {
+      "path": "/admin/",
+      "status": 200,
+      "bytes": 6227
+    },
+    {
+      "path": "/pc/",
+      "status": 200,
+      "bytes": 7174
+    },
+    {
+      "path": "/mobile/",
+      "status": 200,
+      "bytes": 859
+    }
+  ],
+  "customer_chain": {
+    "passed": true,
+    "customer_contract": "AigcOpenApiService::systemPackage",
+    "chain": [
+      "1.0.399",
+      "1.0.400"
+    ],
+    "signed_download_preparation": true,
+    "wrong_predecessor_rejected": true,
+    "package_sha256": "547c4f3042bb4d25285a538563d320937f4cee006214e91115fcc903484ac5ae",
+    "transaction_rolled_back": true,
+    "scope": "local contract; not customer installation"
+  },
+  "package": {
+    "package_id": "system_1.0.400",
+    "type": "system",
+    "app_code": "",
+    "version": "1.0.400",
+    "format": "zip",
+    "fallback_format": "tar.gz",
+    "filename": "system_1.0.400.zip",
+    "fallback_filename": "system_1.0.400.tar.gz",
+    "sha256": "547c4f3042bb4d25285a538563d320937f4cee006214e91115fcc903484ac5ae",
+    "fallback_sha256": "7cf9160a890b118cc73bd06047acbc610b28bfb59b5dc6051dee8ee23ca5e1af",
+    "size": 112163614,
+    "fallback_size": 110301811
+  },
+  "new_sql_migrations": 0,
+  "customer_site_upgrade_executed": false,
+  "wechat_upload_or_review_executed": false,
+  "unrelated_worktree_files_preserved": true,
+  "tar_verification_mode": "official verifier against safely extracted TAR directory",
+  "package_signatures_verified": true,
+  "historical_design_acceptance": "Four pages at 375/390 and candidate432 review/application accepted before release; see prior acceptance artifacts",
+  "latest_phone_login_acceptance": "User confirmed success; server callback and oaLogin at 2026-10-15 19:02:38 +0800",
+  "post_response_avatar": "Local registration/relogin and real FPM response ordering verified; no new production registration was created for release testing",
+  "source_at_build": {
+    "server": "b498ad818",
+    "web": "9b62efd6d01fa079556e1ad4be306b1af132a1b2"
+  },
+  "release_record_and_remote_heads": "Reported separately after publication and remote readback; this document verifies source/build/package only."
+}
