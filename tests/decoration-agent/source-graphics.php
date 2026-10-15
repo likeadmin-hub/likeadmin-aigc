@@ -22,6 +22,9 @@ function graphicsReject(callable $call,string $why,string $expected=''):void{try
 $entry=['app_code'=>'aigc_image','entry_key'=>'aigc_image'];
 $graphic=$entry+['mode'=>'image','image'=>''];
 $widget=C::create('app-collection','apps');$widget['content']['data_mode']='source';$widget['content']['source_key']='app_entries';$widget['content']['source_params']=['terminal'=>'uniapp'];$widget['content']['source_graphics']=[$graphic];
+// The positive fixture deliberately displays the installed image app even
+// when it is beyond the default first eight manifest entries.
+$widget['content']['limit']=50;
 $base=['data'=>[$widget],'meta'=>[],'name'=>'source graphics','new_page'=>false];
 $op=['type'=>'request_image','widget_id'=>'apps','field'=>'content.source_graphics.0.image','prompt'=>'one independent application icon'];
 $scope=['scope'=>'page','source_graphic_entries'=>[$entry]];
@@ -56,6 +59,11 @@ Db::startTrans();try{
     graphicsCheck(isset($real['image_requests'][0]['source_graphic_target']),'real service injects current authoritative entries for an Agent request');
     $generation=new \ReflectionMethod(S::class,'generationContext');$ctx=['candidate'=>$base];$slots=$generation->invoke(null,1,$input,$ctx)['rendered_slots'];
     graphicsCheck(in_array($op['field'],array_column($slots,'field'),true),'generation context includes a live image-mode target');
+    $outside=$base;$outside['data'][0]['content']['limit']=1;
+    $outside['data'][0]['content']['source_graphics'][0]=array_intersect_key($live[1],array_flip(['app_code','entry_key']))+['mode'=>'image','image'=>''];
+    graphicsReject(fn()=>$apply->invoke(null,$outside,$op,['scope'=>'page','sources'=>['tenant'],'attachments'=>[]],[],1),'installed but undisplayed source entry cannot request generation','no longer available');
+    $outsideSlots=$generation->invoke(null,1,$input,['candidate'=>$outside])['rendered_slots'];
+    graphicsCheck(!in_array($op['field'],array_column($outsideSlots,'field'),true)&&Image::$quotes===0,'undisplayed entry has no advertised image target or quote');
     $hidden=$base;$hidden['data'][0]['content']['source_graphics'][0]['mode']='source';$ctx['candidate']=$hidden;$slots=$generation->invoke(null,1,$input,$ctx)['rendered_slots'];
     graphicsCheck(!in_array($op['field'],array_column($slots,'field'),true),'generation/extraction options do not advertise an unused graphic');
     mkdir($fixtureDir,0777,true);copy($root.'/public/resource/image/tenantapi/default/banner002.png',$fixtureDir.'/result.png');

@@ -46,7 +46,7 @@ namespace {
   // The manual images-only entry must use the same current source-graphic
   // authority and frozen target as an Agent request, before any paid boundary.
   Db::startTrans();try{
-   $graphicPayload=$payload;$apps=C::create('app-collection','apps');$apps['content']['source_graphics']=[['app_code'=>'aigc_image','entry_key'=>'aigc_image','mode'=>'image','image'=>'']];$graphicPayload['data'][]=$apps;
+   $graphicPayload=$payload;$apps=C::create('app-collection','apps');$apps['content']['limit']=50;$apps['content']['source_graphics']=[['app_code'=>'aigc_image','entry_key'=>'aigc_image','mode'=>'image','image'=>'']];$graphicPayload['data'][]=$apps;
    Db::name('decorate_agent_candidate')->where('id',$candidate)->update(['payload_json'=>S::json($graphicPayload)]);
    $graphicParams=array_replace($p,['candidate_hash'=>S::hash($graphicPayload),'widget_id'=>'apps','field'=>'content.source_graphics.0.image']);
    $graphicTuple=array_intersect_key($graphicParams,array_flip(['candidate_id','revision','candidate_hash']));
@@ -60,6 +60,10 @@ namespace {
    $unusedParams=array_replace($graphicParams,['candidate_hash'=>S::hash($unused)]);$unusedTuple=array_intersect_key($unusedParams,array_flip(['candidate_id','revision','candidate_hash']));
    extractionCheck(!in_array($graphicParams['field'],array_column(S::extractionOptions(1,1,$unusedTuple)['targets'],'field'),true),'unused source override is absent from manual extraction options');
    extractionReject(fn()=>S::quoteDesignAsset(1,1,$unusedParams),'manual extraction cannot bypass source-graphic image-mode checks');
+   $limited=$graphicPayload;$limited['data'][1]['content']['limit']=1;Db::name('decorate_agent_candidate')->where('id',$candidate)->update(['payload_json'=>S::json($limited)]);
+   $limitedParams=array_replace($graphicParams,['candidate_hash'=>S::hash($limited)]);$limitedTuple=array_intersect_key($limitedParams,array_flip(['candidate_id','revision','candidate_hash']));
+   extractionCheck(!in_array($graphicParams['field'],array_column(S::extractionOptions(1,1,$limitedTuple)['targets'],'field'),true),'display-limited app is absent from manual extraction targets');
+   extractionReject(fn()=>S::quoteDesignAsset(1,1,$limitedParams),'manual extraction cannot quote an installed but undisplayed app');
    extractionCheck(Runtime::$reserved===0&&Runtime::$submitted===0,'source-graphic options/quote/create tests never enter the paid boundary');
   }finally{Db::rollback();}
   $quote=S::quoteDesignAsset(1,1,$p);extractionCheck($quote['estimated_points']===1.0&&$quote['quantity']===1&&$quote['reference_count']===1&&Db::name('ai_consumption_log')->count()===$before&&Runtime::$reserved===0,'quote uses existing price without any slot/receipt/provider');
