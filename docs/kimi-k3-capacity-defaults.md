@@ -17,3 +17,9 @@
 - https://platform.kimi.ai/docs/api/chat
 
 离线覆盖：`KimiOfficialCapacityTest.php` 检查官方默认、显式输出、渠道/后台限制、其他模型隔离、三种协议参数、长输入原文保留、超限零调用；配合既有上下文、长资料、权限和计费回归。历史待核对记录不得补扣、退款或重新提交。
+
+## 验证结果
+
+13 个测试文件通过：KimiOfficialCapacity、HomeAgentContextFidelity、HomeAgentLongReadFidelity、HomeAgentCapabilityIsolation、HomeAgentBillingRecovery、HomeAgentResponsesProtocol、HomeAgentAnthropicProtocol；另含 PHPUnit 的 MarketTextModelPayloadContract、MarketTextModelFallbackMetadata、MarketModelCapabilities、ShortDramaGenerationReliability、ShortDramaEmbeddedContextBudget、CanvasNeuronRuntime（46 tests / 289 assertions）。测试禁用网络传输，数据库测试事务回滚。
+
+本地实际 `resolveAgentModel(1, 'kimi-k3')` 返回 1,048,576 上下文、131,072 默认输出、917,504 输入预算。测试及空闲安全重载前后，用户/租户账务流水、消费记录和队列摘要相同；历史转写待核对 40 积分、文本 pending_usage 41 条及 settlement_failed 2 条保持不变。未提交付费任务、补扣、退款或重复提交。
