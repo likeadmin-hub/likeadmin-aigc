@@ -81,6 +81,7 @@ namespace {
   check(abs($before-balance()-$expected['user_charge_points'])<0.001,'Actual token settlement changed');
   check(issueCodes($cid)===[],'Settled text call missing a payer log');$settled=balance();
   $c=AiConsumptionLog::findOrEmpty($cid);$ctx=['consumption'=>$c];
+  check(($c['response_summary']['protocol_evidence']??null)===$result['protocol_evidence'],'Future parser protocol observations were not persisted with the successful receipt');
   invoke('settle',$ctx,$expected,$result['usage'],$result,1);invoke('fail',$ctx,'late callback','fixture');R::failAppTask((int)$c['app_task_id'],'late timeout');
   check(balance()===$settled&&F::$calls===1,'Duplicate settlement, late failure or timeout changed the charge');
   check(AiAppTask::where('id',$c['app_task_id'])->value('status')==='success','Late timeout downgraded a completed task');
@@ -90,6 +91,7 @@ namespace {
  fixture(function()use($params){
   F::$mode='no_usage';$before=balance();$result=R::generate(1,1,$params,static function(){});
   check(balance()===$before&&in_array('text_usage_pending',issueCodes($result['consumption_id']),true),'Missing actual usage charged or escaped audit');
+  check($result['protocol_evidence']['usage_event_count']===0&&$result['protocol_evidence']['usage_sources']===[],'Missing usage evidence was replaced by an estimated provider usage source');
   $report=Audit::audit(1,'aigc_llm',500,'aigc_llm_agent_run',999999);check($report['checked']===0,'Audit crossed user filter');
  });
  foreach(['native_incomplete','native_timeout','responses_incomplete'] as $nativeMode)fixture(function()use($params,$nativeMode){
