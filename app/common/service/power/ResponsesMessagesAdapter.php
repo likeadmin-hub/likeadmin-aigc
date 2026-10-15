@@ -141,6 +141,15 @@ final class ResponsesMessagesAdapter
                 }
             }
             $state['responses_output'] = $continuation;
+            if (!empty($state['responses_unindexed_delta']) && !empty($state['responses_indexed_keys'])) {
+                // Mixed streams cannot locate unindexed gaps within multiple parts.
+                // Only a single final part shared by every indexed delta is provable.
+                $key = array_key_first($finalParts);
+                if (count($finalParts) !== 1 || array_keys($state['responses_indexed_keys']) !== [$key]) {
+                    self::textMismatch($state);
+                    return;
+                }
+            }
             // Downgrading to legacy arrival order cannot erase already proven
             // indexed prefixes, explicitly indexed done snapshots, or head facts.
             foreach ($state['responses_indexed_prefix'] ?? [] as $key => $text) {
@@ -210,6 +219,7 @@ final class ResponsesMessagesAdapter
                 return;
             }
         }
+        if (!$done && $text === '') return;
         $indexed = isset($event['output_index'], $event['content_index']);
         // A gateway's unindexed done snapshot cannot identify which part it closes.
         if ($done && !$indexed) return;
@@ -218,6 +228,10 @@ final class ResponsesMessagesAdapter
         $output = $event['output_index'] ?? 0;
         $part = $event['content_index'] ?? 0;
         $key = $output . ':' . $part;
+        if (!$done && $text !== '') {
+            if ($indexed) $state['responses_indexed_keys'][$key] = true;
+            else $state['responses_unindexed_delta'] = true;
+        }
         $previous = (string)($state['responses_text'][$key] ?? '');
         if ($done) {
             $known = (string)($state['responses_indexed_prefix'][$key] ?? '');
@@ -229,7 +243,6 @@ final class ResponsesMessagesAdapter
             $state['responses_text_done'][$key] = $text;
             return;
         }
-        if ($text === '') return;
         if ($indexed && array_key_exists($key, $state['responses_text_done'] ?? [])) {
             self::textMismatch($state);
             return;

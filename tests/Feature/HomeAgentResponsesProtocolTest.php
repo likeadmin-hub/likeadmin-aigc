@@ -61,6 +61,8 @@ namespace {
     $interleaved=[created(),textDelta(0,0,'A'),textDelta(0,1,'X'),textDelta(0,0,'B'),textDelta(0,1,'Y'),textDone(0,0,'AB'),textDone(0,1,'XY'),complete([$twoParts])];
     $ordered=wire($interleaved,$chunks);
     check($ordered['content']==='ABXY'&&implode('',$chunks)==='ABXY'&&$chunks===['A','B','XY']&&$ordered['stream_delta_count']===4,'Indexed content parts must stream only stable head and append canonical final tail');
+    $emptyTail=wire([created(),textDelta(0,0,'A'),textDelta(0,1,'X'),textDelta(0,0,'B'),textDelta(0,1,'Y'),['type'=>'response.output_text.delta','delta'=>''],complete([$twoParts])],$chunks);
+    check($emptyTail['content']==='ABXY'&&$chunks===['A','B','XY']&&$emptyTail['stream_delta_count']===4,'Empty unindexed delta creates neither mixed-part ambiguity nor received-text evidence');
     $reverse=wire([created(),textDelta(0,1,'X'),textDelta(0,0,'A'),textDelta(0,1,'Y'),textDelta(0,0,'B'),complete([$twoParts])],$chunks);
     check($reverse['content']==='ABXY'&&$chunks===['A','B','XY'],'Higher content part arriving first must not pollute visible head');
     $outputs=wire([created(),textDelta(1,0,'X'),textDelta(0,0,'A'),textDelta(1,0,'Y'),textDelta(0,0,'B'),complete([message('AB'),message('XY')])],$chunks);
@@ -85,7 +87,15 @@ namespace {
     check($mixedGap['content']==='ABC'&&implode('',$chunks)==='ABC','Unindexed gap must not contaminate or invent an indexed prefix while explicit done remains valid');
     $legacyDone=wire([created(),['type'=>'response.output_text.delta','delta'=>'A'],textDone(0,0,'AB'),complete([message('AB')])],$chunks);
     check($legacyDone['content']==='AB'&&implode('',$chunks)==='AB','Legacy-first stream retains a consistent explicitly indexed done snapshot');
+    $legacyParts=wire([created(),['type'=>'response.output_text.delta','delta'=>'A'],['type'=>'response.output_text.delta','delta'=>'B'],complete([message('A'),message('B')])],$chunks);
+    check($legacyParts['content']==='AB'&&implode('',$chunks)==='AB','Fully unindexed multi-part response preserves original whole-answer compatibility');
+    $mixedNonText=wire([created(),['type'=>'response.output_item.added','output_index'=>0,'item'=>$reasoning],textDelta(1,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],complete([$reasoning,message('AB'),$callA])],$chunks);
+    check($mixedNonText['content']==='AB'&&count($mixedNonText['tool_calls'])===1,'Mixed single-visible-part proof excludes reasoning and function items from visible-part count');
     $mixedProofFailures=[
+        [created(),['type'=>'response.output_text.delta','delta'=>'A'],textDelta(1,0,'X'),complete([message('AX'),message('Y')])],
+        [created(),textDelta(0,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],textDelta(1,0,'X'),complete([message('ABX'),message('Y')])],
+        [created(),['type'=>'response.output_text.delta','delta'=>'A'],textDelta(1,0,'B'),complete([message('AB')])],
+        [created(),textDelta(0,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],complete([message('A'),message('B')])],
         [created(),textDelta(0,0,'A'),textDelta(1,0,'X'),['type'=>'response.output_text.delta','delta'=>'Y'],complete([message('AX'),message('Y')])],
         [created(),['type'=>'response.output_text.delta','delta'=>'A'],textDone(0,0,'AX'),complete([message('AB')])],
         [created(),textDelta(0,0,'A'),textDelta(1,0,'X'),['type'=>'response.output_text.delta','delta'=>'Y'],complete([message('AXY')])],
@@ -107,6 +117,7 @@ namespace {
         [created(),textDelta(2,0,'AB'),complete([message('AB')])],
         [created(),textDelta(0,2,'AB'),complete([message('AB')])],
         [created(),textDelta(-1,0,'AB'),complete([message('AB')])],
+        [created(),textDelta(-1,0,''),complete([message('AB')])],
         [created(),array_replace(textDelta(0,0,'AB'),['content_index'=>'0']),complete([message('AB')])],
         [created(),textDelta(0,0,'A'),textDelta(0,1,'X'),['type'=>'response.output_text.delta','delta'=>'B'],complete([$twoParts])],
         [created(),['type'=>'response.output_item.added','output_index'=>0,'item'=>$reasoning],textDelta(1,0,'AB'),complete([message('other'),message('AB')])],
@@ -186,5 +197,5 @@ namespace {
     (new Agent())->setThreadId('fresh-responses-contract')->setAiProvider($fresh)->chat(new UserMessage('你好'));
     $legacy=invoke('normalizeMessages','test',[],[['role'=>'assistant','content'=>'visible','tool_calls'=>[['id'=>'a']],'_responses_output'=>$items]],false);
     check(!str_contains(json_encode($legacy),'opaque-fixture'),'Native continuation leaked into legacy normalization');
-    echo "Responses protocol passed: actual Neuron loop, parallel calls, native history, encrypted continuation isolation, fragmented SSE, indexed interleaving/head buffering/canonical completion, mixed prefix/done/head-proof preservation, conflict/done/terminal guards, no snapshot duplicates, incomplete review, images and usage\n";
+    echo "Responses protocol passed: actual Neuron loop, parallel calls, native history, encrypted continuation isolation, fragmented SSE, indexed interleaving/head buffering/canonical completion, mixed single-visible-part and prefix/done/head-proof preservation, conflict/done/terminal guards, no snapshot duplicates, incomplete review, images and usage\n";
 }
