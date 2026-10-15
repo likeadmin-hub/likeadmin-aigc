@@ -22,16 +22,18 @@ function reviewPng(int $w,int $h):string {
 function dataImage(string $bytes):string {return 'data:image/png;base64,'.base64_encode($bytes);}
 $actual=reviewPng(375,676);$design=reviewPng(768,1376);$refs=[dataImage($actual),dataImage($design)];$hashes=array_map(fn($x)=>hash('sha256',$x),$refs);
 $wire=R::references($refs,true);
-checkImage($wire[0]===$refs[0],'already 375-wide capture is byte preserved and remains first');
-$out=base64_decode(explode(',',$wire[1],2)[1],true);$info=getimagesizefromstring($out);
+checkImage($wire[1]===$refs[0],'actual capture is byte preserved and sent second, after the target');
+checkImage(R::referenceOrder()===['图1：已确认设计稿（target）','图2：实际候选截图（actual）'],'model order explicitly names the target first and actual second');
+$out=base64_decode(explode(',',$wire[0],2)[1],true);$info=getimagesizefromstring($out);
 checkImage($info[0]===375&&$info[1]===672,'design is full-width resampled with proportional rounded height');
 checkImage(array_map(fn($x)=>hash('sha256',$x),$refs)===$hashes&&hash('sha256',$design)===hash('sha256',base64_decode(explode(',',$refs[1],2)[1])),'source bytes and original identity remain unchanged');
 $decoded=imagecreatefromstring($out);
 checkImage((imagecolorat($decoded,180,0)&0xFFFFFF)===0xFF0000&&(imagecolorat($decoded,180,671)&0xFFFFFF)===0x0000FF,'top and bottom remain visible without crop or padding');
 checkImage(((imagecolorat($decoded,180,300)>>24)&127)===127,'transparent source remains transparent');imagedestroy($decoded);
-$small=R::references([dataImage(reviewPng(100,200)),$refs[0]],true);$smallInfo=getimagesizefromstring(base64_decode(explode(',',$small[0],2)[1]));
+$small=R::references([dataImage(reviewPng(100,200)),$refs[0]],true);$smallInfo=getimagesizefromstring(base64_decode(explode(',',$small[1],2)[1]));
 checkImage($smallInfo[0]===375&&$smallInfo[1]===750,'small images also use common width rather than mixed scale');
 checkImage(R::references(['invalid ordinary image'],false)===['invalid ordinary image'],'ordinary reference transport stays exactly unchanged');
+checkImage(R::references($refs,false)===$refs,'ordinary two-image chat or generation transport is not reordered');
 $meta=R::dimensions(768,1376);
 checkImage($meta['source']===['width_px'=>768,'height_px'=>1376]&&$meta['model_input']===['width_px'=>375,'height_px'=>672,'to_logical_px_scale'=>1],'model context dimensions describe actual source and transport geometry');
 checkImage(R::dimensions(0,0)['model_input']===null,'unknown source dimensions are not invented');

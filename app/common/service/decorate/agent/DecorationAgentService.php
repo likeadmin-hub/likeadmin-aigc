@@ -51,6 +51,7 @@ final class DecorationAgentService
         };
         return ['priority'=>'最新冻结批准图片优先于旧蓝图/默认值/历史提案；旧蓝图不是视觉批准规范。真实契约、权限及来源限制保持优先。',
             'target'=>array_intersect_key($design,array_flip(['run_id','revision','hash','slot_id'])),
+            'image_order'=>DecorationAgentReviewImages::referenceOrder(),
             'server_validation_contract'=>[
                 'candidate_binding'=>['field'=>'candidate_hash','object'=>'完整候选payload（含_decoration_design设计绑定）','checks'=>'服务端校验tenant/admin/session、candidate_id、revision及完整候选hash；入队和模型调用前校验，完成与应用时再次重验。'],
                 'draft_concurrency'=>['field'=>'expected_hash','object'=>'当前未应用的页面草稿','comparison'=>'仅与当前草稿hash比较以防并发变化，不与candidate_hash比较；候选与草稿是不同对象，两个hash正常可以不同。'],
@@ -96,7 +97,7 @@ final class DecorationAgentService
             'shared_style_contract'=>DecorationAgentDesignContext::sharedStyles(),'page_meta_contract'=>DecorationAgentCatalog::pageMeta(),'design_guide'=>DecorationAgentDesignContext::guide(),
             'links'=>$links,'data_sources'=>$sources,'source_inventory'=>$inventory,'icon_catalog'=>DecorationAgentDesignContext::iconSummary($icons),'material_summary'=>$materials,'reusable_materials'=>$ctx['reusable_materials']??[],
             'image_sources'=>$input['sources'],'image_strategy'=>$input['image_strategy'],'generation'=>self::generationContext($tenant,$input,$ctx),
-            'visual_review'=>$ctx['visual_review']??null,'vision_reference_order'=>!empty($ctx['visual_review'])?['实际候选截图','已确认设计稿']:(!empty($ctx['approved_design'])?['layout/style附件（若有）','已确认设计稿']:(!empty($ctx['design']['parent_reference'])?['layout/style附件（若有）','上一版完整设计稿']:[])),
+            'visual_review'=>$ctx['visual_review']??null,'vision_reference_order'=>!empty($ctx['visual_review'])?DecorationAgentReviewImages::referenceOrder():(!empty($ctx['approved_design'])?['layout/style附件（若有）','已确认设计稿']:(!empty($ctx['design']['parent_reference'])?['layout/style附件（若有）','上一版完整设计稿']:[])),
             'design_parent'=>$ctx['design']['parent_reference']??null,'prior_blueprint'=>$ctx['design']['prior_blueprint']??[],
             'design_phase'=>$ctx['phase']??($input['design_first']??false?'design':'normal'),'approved_design'=>$ctx['approved_design']??null,'design_constraints'=>!empty($ctx['approved_design'])||($input['design_first']??false)?'设计图用于视觉对照，严禁作为整页背景或单图组件。按全46真实契约还原布局、参数、图标及素材；需截图图对图复审，未经复审不能声称1:1。':'',
             'attachments'=>$input['attachments'],'facts'=>$ctx['facts']??[],'conversation'=>array_map(fn($message)=>['role'=>$message['role'],'content'=>$message['content']],$recent),'tool_results'=>$ctx['observations']??[],
