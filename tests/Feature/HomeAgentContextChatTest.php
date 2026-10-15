@@ -11,8 +11,9 @@ namespace app\common\service\power {
    $n=count(self::$requests);
    if($n===1)return ['tool_calls'=>[['id'=>'recall-requirements','function'=>['name'=>'read_session_context','arguments'=>json_encode(['payload'=>['action'=>'requirements','query'=>'负责人']])]]]];
    if($n===2)return ['tool_calls'=>[['id'=>'read-document','function'=>['name'=>'read_session_context','arguments'=>json_encode(['payload'=>['action'=>'read_asset','file_id'=>self::$file]])]]]];
-   if($n===3)return ['tool_calls'=>[['id'=>'focus-document','function'=>['name'=>'set_creation_focus','arguments'=>json_encode(['payload'=>['file_id'=>self::$file,'goal'=>'完善发布会流程']])]]]];
-   if($n===4)return ['content'=>'流程表包含开场、产品介绍和体验环节，可以为各环节补充负责人。'];
+   if($n===3)return ['tool_calls'=>[['id'=>'verify-quote','function'=>['name'=>'read_session_context','arguments'=>json_encode(['payload'=>['action'=>'verify_source','file_id'=>self::$file,'quote'=>'09:10 产品介绍','offset'=>0]])]]]];
+   if($n===4)return ['tool_calls'=>[['id'=>'focus-document','function'=>['name'=>'set_creation_focus','arguments'=>json_encode(['payload'=>['file_id'=>self::$file,'goal'=>'完善发布会流程']])]]]];
+   if($n===5)return ['content'=>'流程表包含开场、产品介绍和体验环节，可以为各环节补充负责人。'];
    throw new \RuntimeException('Unexpected model retry');
   }
  }
@@ -43,11 +44,12 @@ namespace {
   OpenStore::table('file')->insert(['tenant_id'=>$t,'user_id'=>$u,'file_id'=>Fake::$file,'uri'=>'uploads/context-chat.docx','name'=>'流程表.docx','mime'=>'application/vnd.openxmlformats-officedocument.wordprocessingml.document','size'=>1,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']+OpenStore::timestamp());
   S::table('artifact')->insert(['tenant_id'=>$t,'user_id'=>$u,'session_id'=>$s['id'],'run_id'=>$id,'step_id'=>0,'identity_hash'=>hash('sha256',Fake::$file),'title'=>'发布会流程表','kind'=>'document','data'=>S::encode(['file_id'=>Fake::$file,'content'=>'09:00 开场；09:10 产品介绍；09:30 体验。']),'create_time'=>$now]);
   $run=S::run($t,$u,(int)$id);$chat=new \ReflectionMethod(E::class,'chat');$chat->setAccessible(true);$chat->invoke(null,$run);
-  check(count(Fake::$requests)===4,'Context tools not executed in real chat loop');
+  check(count(Fake::$requests)===5,'Context tools not executed in real chat loop');
   check(str_contains(Fake::$requests[0]['system_prompt'],'关键需求原文线索')&&str_contains(Fake::$requests[0]['system_prompt'],'所有环节必须保留负责人'),'Old requirement not injected into actual model input');
   check(str_contains(S::encode(Fake::$requests[1]['messages']),'keyword_candidates')||str_contains(S::encode(Fake::$requests[1]['messages']),'literal_search'),'Requirements tool not executed');
   $second=Fake::$requests[2];$body=S::encode($second['messages']);
   check(str_contains($body,'09:10 产品介绍'),'Persisted document never reached the model');
+  $checked=S::encode(Fake::$requests[3]['messages']);check(str_contains($checked,'exact_quote')&&str_contains($checked,'semantic_verified'),'Source verification did not reach actual model input');
   check(str_contains($second['system_prompt'],'真实任务记录')&&str_contains($second['system_prompt'],'长对话摘记'),'Context sections not injected');
   check($second['model_selection']==='chosen-model'&&$second['_disable_model_fallback'],'Model preference changed');
   check(C::build(S::run($t,$u,(int)$id))['focus']['file_ids']===[Fake::$file],'Selected document not persisted');

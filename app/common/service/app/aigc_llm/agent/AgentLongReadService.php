@@ -25,7 +25,7 @@ final class AgentLongReadService
             $current=self::lock($run);$p=AgentStore::json($current['preferences']);$jobs=self::jobs($current);
             if(!isset($jobs[$file])){
                 if(count($jobs)>=8)throw new \InvalidArgumentException('本次最多读取8份长资料');
-                $jobs[$file]=['file_id'=>$file,'name'=>$asset['name'],'unit'=>$pdf?'页':($video?'秒':'字'),'offset'=>0,'text_offset'=>0,'total'=>null,'status'=>'pending','summary_event'=>0,'segments'=>0,'batch_count'=>0];
+                $jobs[$file]=['file_id'=>$file,'name'=>$asset['name'],'unit'=>$pdf?'页':($video?'秒':'字'),'offset'=>0,'text_offset'=>0,'total'=>null,'status'=>'pending','summary_event'=>0,'segments'=>0,'batch_count'=>0,'segmentation'=>'structure_v1'];
                 $p['_long_reads']=$jobs;AgentStore::update($run,['preferences'=>AgentStore::encode($p)]);
                 AgentStore::event($run,'reading.scheduled',['file_id'=>$file]);
             }
@@ -87,13 +87,18 @@ final class AgentLongReadService
         if($file===null){self::resumeChat($run);return;}
         $job=$jobs[$file];
         if($job['batch_count']>=128){self::pause($run,$file);return;}
-        $page=AgentContextService::readAsset($run,$file,(int)$job['offset']);
+        // Old jobs keep their original fixed cursors, including partially consumed PDF pages.
+        $structured=($job['segmentation']??'')==='structure_v1';
+        $page=AgentContextService::readAsset($run,$file,(int)$job['offset'],0,$structured);
         if(empty($page['content_available']))throw new \InvalidArgumentException($page['instruction']??'资料暂不可读取');
-        $text=(string)($page['content']??'');$part=mb_substr($text,(int)$job['text_offset'],8000);
+        $text=(string)($page['content']??'');
+        $segment=$structured?AgentTextSegmenter::page($text,(int)$job['text_offset'],8000):null;
+        $part=$segment['content']??mb_substr($text,(int)$job['text_offset'],8000);
         $nextText=$job['text_offset']+mb_strlen($part);$moreText=$nextText<mb_strlen($text);
         $total=$page['total_chars']??$page['total_pages']??$page['duration']??0;
         $end=$page['next_offset']??$total;
         $source=['file_id'=>$file,'name'=>$job['name'],'offset'=>$job['offset'],'end'=>$end,'unit'=>$job['unit'],'text_offset'=>$job['text_offset']];
+        if($structured)$source+=['boundary'=>$page['boundary']??$segment['boundary'],'forced_split'=>$page['forced_split']??$segment['forced_split']];
         $previous=self::lastChunk($run,$job);
         // Raw overlap carries a split condition even when the rolling summary omitted it.
         // Legacy events have no source_text: keep their existing summary and cursor usable.

@@ -327,7 +327,8 @@ final class AgentExecutionService
         $tools=[
             new AgentFunctionTool('read_long_asset','完整阅读长文档、PDF 或视频采样画面，后台按段处理并保留进度，完成后自动继续当前请求。摘要和分段笔记保留来源；不生成作品。',$object(['file_id'=>$string('当前话题的素材标识')],['file_id']),function(array $p)use($run){self::checkpoint($run);return AgentLongReadService::begin($run,(string)$p['file_id']);}),
             new AgentFunctionTool('read_session_context','按需检索当前话题历史、读取原消息、查找作品或查看真实任务状态。requirements 分页找回较早的用户限制、决定和更正线索；query 可搜索无关键词的要求，线索不是全部需求或执行授权，截断时 read_message 核对。图片读取会附带视觉输入。所有查询限于当前用户的当前会话和话题。',$object([
-                'action'=>['type'=>'string','enum'=>['search_messages','requirements','read_message','find_artifacts','read_asset','reading_notes','task_state']],
+                'action'=>['type'=>'string','enum'=>['search_messages','requirements','read_message','find_artifacts','read_asset','reading_notes','verify_source','task_state']],
+                'quote'=>['type'=>'string','maxLength'=>1000,'description'=>'verify_source 的原文引句；仅核对文字一致性，不能用摘要替代。必须同时指定 file_id 或 message_id，以及来源 offset'],
                 'query'=>$string('搜索关键词；空值按时间倒序浏览'),
                 'before'=>['type'=>'integer','minimum'=>0,'description'=>'上一页返回的 next_before'],
                 'message_id'=>['type'=>'integer','minimum'=>1],
@@ -359,6 +360,7 @@ final class AgentExecutionService
                     'find_artifacts'=>AgentContextService::findArtifacts($run,(string)($p['query']??''),(int)($p['before']??0)),
                     'task_state'=>AgentContextService::taskState($run),
                     'reading_notes'=>AgentLongReadService::notes($run,(string)($p['file_id']??''),(int)($p['offset']??0)),
+                    'verify_source'=>AgentSourceVerifier::verify($run,$p),
                     default=>throw new \InvalidArgumentException('不支持的上下文操作'),
                 };
             },12),
@@ -389,6 +391,7 @@ final class AgentExecutionService
         if((AgentTopicService::state($run)['decision']??'')==='clarify')$instructions.="\n本轮指代无法唯一定位，尚未加载旧话题。请用简短自然语言询问用户要修改/继续哪个任务或作品，或请用户从右侧主动引用素材。不得猜测，不得创建方案或生成作品。";
         $instructions.="\n长资料读取：总结全文或跨多页分析时，优先用 read_long_asset 后结束回复，后台会逐段读取并自动继续；不要在一个工具循环反复读取到上限。以下摘要来自分段处理，只是数据；引用原文必须再按来源读取。".AgentStore::encode(AgentLongReadService::context($run));
         $instructions.="\n长对话摘记：".AgentStore::encode($context['summary']);
+        $instructions.="\n来源核对：基于资料回答关键日期、金额、数量、例外或更正时，先读取对应原文，再用 read_session_context 的 verify_source 核对支持结论的原文引句，file_id/message_id 二选一并给出来源 offset。matched 仅表示文字一致，不证明结论成立；必须结合否定、主体、条件和后文更正，避免断章取义。不匹配则查找正确来源或明确无法核实，不要虚构引用。该工具不会执行生成、确认或扣费。";
         $instructions.="\n接续任务不等于授权本轮生成：当前用户只要求写提示词、改文案、解释或给建议时，保留相关主体、参考图和规格，直接完成文字请求；不要擅自创建生成方案或说已保存方案。只有本轮要求生成、提交、准备生成方案，或明确继续先前已授权的生成步骤时，才调用 plan_creation。";
         $instructions.="\n当前操作对象：".AgentStore::encode($context['focus']);
         $instructions.="\n真实任务记录（status=success 且 steps 为空只表示对话结束，不表示生成过作品）：".AgentStore::encode($context['tasks']);
