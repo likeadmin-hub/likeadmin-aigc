@@ -185,11 +185,47 @@ class DecorationAgentOperations
                 $this->insert($page['data'], $copy, $op);
             } elseif ($type === 'edit_list') $this->editList($widget, $definition, $op);
             elseif ($type === 'bind_source') $this->bind($widget, $definition, $op);
+            elseif ($type === 'set_visibility') $this->visibility($widget, $op);
             elseif ($type === 'request_image') $this->image($widget, $definition, $id, $op);
             else self::fail('Unsupported decoration operation: ' . $type);
         }
         $this->changes[] = ['type' => $type, 'widget_id' => $id, 'fields' => array_keys($op['fields'] ?? [])];
     }
+
+    /** Only simple login audiences are editable; preserve all other policies. */
+    private function visibility(array &$widget, array $op): void
+    {
+        if (array_diff(array_keys($op), ['type', 'op', 'widget_id', 'audience'])
+            || !is_string($op['widget_id'] ?? null) || $op['widget_id'] === ''
+            || !in_array($op['audience'] ?? null, ['all', 'guest', 'logged_in'], true)) {
+            self::fail('Invalid login visibility operation');
+        }
+        // Public runtime gives a non-null root policy priority over the legacy
+        // content policy. Never shadow a still-effective legacy restriction.
+        $existing = $widget['visibility'] ?? $widget['content']['visibility'] ?? [];
+        if (!is_array($existing) || array_diff(array_keys($existing), ['mode', 'rules'])
+            || !in_array($existing['mode'] ?? 'all', ['all', 'any'], true)) {
+            self::fail('Existing visibility policy cannot be replaced');
+        }
+        $rules = $existing['rules'] ?? [];
+        if (!is_array($rules) || !array_is_list($rules) || count($rules) > 1) {
+            self::fail('Existing visibility policy cannot be replaced');
+        }
+        foreach ($rules as $rule) {
+            // Historical PC editors wrote op:eq. Runtime defaults that shape
+            // to equality; only that known equivalent is safe to canonicalize.
+            if (!is_array($rule) || array_diff(array_keys($rule), ['field', 'operator', 'op', 'value'])
+                || ($rule['field'] ?? '') !== 'login_status'
+                || ($rule['operator'] ?? 'eq') !== 'eq' || ($rule['op'] ?? 'eq') !== 'eq'
+                || !in_array($rule['value'] ?? null, ['guest', 'logged_in'], true)) {
+                self::fail('Existing visibility policy cannot be replaced');
+            }
+        }
+        $widget['visibility'] = ['mode' => 'all', 'rules' => $op['audience'] === 'all' ? [] : [
+            ['field' => 'login_status', 'operator' => 'eq', 'value' => $op['audience']],
+        ]];
+    }
+
     private function build(array $spec): array
     {
         $widget = DecorationAgentCatalog::create((string)($spec['name'] ?? ''), self::newId());
