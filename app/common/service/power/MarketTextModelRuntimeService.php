@@ -515,6 +515,7 @@ class MarketTextModelRuntimeService
                 continue;
             }
             $meta = MarketModelCapabilities::applyMetadata($product, (array)($snapshot['market_metadata'] ?? []));
+            $capacity = TextModelCapacity::metadata(array_replace($meta, ['model_code' => (string)$product['upstream_model_code']]));
             $protocols = self::protocolList($meta['protocols'] ?? []);
             $options[] = [
                 'id' => (string)$product['id'],
@@ -532,9 +533,9 @@ class MarketTextModelRuntimeService
                 'protocol' => self::protocol((string)($meta['protocol'] ?? ''), $protocols, (string)$product['upstream_model_code']),
                 'protocols' => $protocols,
                 'max_tokens' => max(0, (int)($meta['max_tokens'] ?? 0)),
-                'max_output_tokens' => TextModelCapacity::metadata($meta)['max_output_tokens'],
-                'context_window' => TextModelCapacity::metadata($meta)['context_window'],
-                'max_input_tokens' => TextModelCapacity::metadata($meta)['max_input_tokens'],
+                'max_output_tokens' => $capacity['max_output_tokens'],
+                'context_window' => $capacity['context_window'],
+                'max_input_tokens' => $capacity['max_input_tokens'],
                 'default_params' => self::arrayValue($meta['default_params'] ?? []),
                 'params_schema' => self::arrayValue($meta['params_schema'] ?? []),
                 'capabilities' => array_replace(self::arrayValue($meta['capabilities'] ?? []), PowerMarketService::capability($product)),
@@ -1144,6 +1145,10 @@ class MarketTextModelRuntimeService
             'max_tokens', 'callback_url', 'callback', 'idempotency_key',
             'market_product_id', 'market_sku_id', 'sku_id'
         ], true);
+        if (strtolower(trim((string)($model['model_code'] ?? ''))) === 'kimi-k3') {
+            // K3 output aliases are resolved by TextModelCapacity, not free-form options.
+            $excluded['max_completion_tokens'] = $excluded['max_output_tokens'] = true;
+        }
         $keys = [];
         foreach (array_keys($defaults) as $key) {
             $key = (string)$key;
