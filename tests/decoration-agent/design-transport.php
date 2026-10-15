@@ -22,6 +22,14 @@ try {
  $payload['design_first']=false;$result=$quote($payload);transportCheck(($result['code']??0)===1&&$result['data']['max_images']===5,'actual JSON boolean false remains false');
  foreach(['false','true',0,1] as $invalid){$payload['design_first']=$invalid;$result=$quote($payload);transportCheck(($result['code']??1)!==1&&str_contains($result['msg']??'','布尔值'),'explicit nonboolean input remains rejected');}
  unset($payload['design_first']);$result=$quote($payload);transportCheck(($result['code']??0)===1&&$result['data']['max_images']===5,'omitted design_first retains ordinary default false');
+ $review=static function(array $selection): array {
+  $request=(new app\Request())->withServer(['REQUEST_METHOD'=>'POST'])->withHeader(['content-type'=>'application/json;charset=UTF-8'])->withInput(S::json(['idempotency_key'=>'transport-review','model_selection'=>$selection]));
+  $request->adminInfo=['tenant_id'=>1,'admin_id'=>1,'root'=>1];$request->tenantId=1;app()->instance('request',$request);
+  return (new AgentController(app()))->reviewDesign()->getData();
+ };
+ foreach([['id'=>true],['id'=>1,'sku_id'=>true]] as $selection){
+  $result=$review($selection);transportCheck(($result['code']??1)!==1&&str_contains($result['msg']??'','标识无效'),'actual review controller rejects JSON boolean model identities before candidate lookup');
+ }
  foreach(['https://fixture.invalid/%75ploads/design.png','https://fixture.invalid/uploads/temp/../design.png','https://fixture.invalid/uploads/%2e%2e/uploads/design.png','https://fixture.invalid/%2575ploads/design.png'] as $url){
   $page=O::apply(['data'=>[],'meta'=>[]],[['type'=>'add_component','name'=>'banner','content'=>['data'=>[['image'=>$url]]]]],['scope'=>'page','approved_urls'=>[$url]])['candidate'];
   $rejected=false;try{D::assertNoReferenceImages($page,null,['uris'=>['uploads/design.png']]);}catch(RuntimeException $error){$rejected=true;}
