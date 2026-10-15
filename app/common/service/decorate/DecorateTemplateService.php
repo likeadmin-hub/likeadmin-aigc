@@ -270,6 +270,7 @@ class DecorateTemplateService
         $draftData = self::repairExtraClosingBracket($draftData, $draftMeta);
         self::validatePagePayload($draftData, $draftMeta);
         self::assertExpectedUpdateTime($page, $params);
+        $draftData = self::normalizeSourceGraphicsData($draftData, (string)($page['draft_data'] ?: $page['data'] ?: '[]'), $tenantId);
 
         $page->save([
             'name' => (string)($params['name'] ?? $page['name']),
@@ -281,6 +282,56 @@ class DecorateTemplateService
             'id' => (int)$template['id'],
         ])->update(['publish_status' => 'draft']);
         return $page->toArray();
+    }
+
+    /** Only the new optional list enters managed-asset normalization. */
+    private static function normalizeSourceGraphicsData(string $dataJson, string $beforeJson, int $tenant): string
+    {
+        $data = json_decode($dataJson, true);
+        $before = json_decode($beforeJson, true);
+        $state = static function (array $rows): array {
+            $result = [];
+            $walk = function (array $rows, string $parent = '') use (&$walk, &$result): void {
+                foreach ($rows as $index => $widget) {
+                    if (!is_array($widget)) continue;
+                    $path = $parent . '/' . $index;
+                    if (($widget['name'] ?? '') === 'app-collection' && array_key_exists('source_graphics', $widget['content'] ?? [])) {
+                        $refs = array_filter((array)($widget['_decoration_asset_refs'] ?? []), static fn($key) => str_starts_with((string)$key, 'content.source_graphics.'), ARRAY_FILTER_USE_KEY);
+                        $result[$path . ':' . (string)($widget['id'] ?? '')] = [$widget['content']['source_graphics'], $refs];
+                    }
+                    if (is_array($widget['children'] ?? null)) $walk($widget['children'], $path);
+                }
+            };
+            $walk($rows);
+            return $result;
+        };
+        $currentState = $state(is_array($data) ? $data : []);
+        if (!$currentState || $currentState === $state(is_array($before) ? $before : [])) return $dataJson;
+        $normalized = \app\common\service\decorate\agent\DecorationAgentAssetReferences::normalizeSourceGraphics(
+            ['data' => $data, 'meta' => []], ['data' => is_array($before) ? $before : [], 'meta' => []], $tenant
+        )['data'];
+        if ($normalized === $data) return $dataJson;
+
+        // Patch only new fields into the original object tree. Re-encoding an
+        // associative copy would otherwise turn unrelated legacy {} into [].
+        $objects = json_decode($dataJson);
+        $patch = function (array &$objects, array $normalized) use (&$patch): void {
+            foreach ($objects as $index => $widget) {
+                if (!$widget instanceof \stdClass || !isset($normalized[$index])) continue;
+                $next = $normalized[$index];
+                if (($widget->name ?? '') === 'app-collection' && isset($widget->content) && property_exists($widget->content, 'source_graphics')) {
+                    $widget->content->source_graphics = $next['content']['source_graphics'];
+                    $refs = $widget->_decoration_asset_refs ?? new \stdClass();
+                    $refs = is_object($refs) ? $refs : (object)$refs;
+                    foreach (array_keys((array)$refs) as $key) if (str_starts_with((string)$key, 'content.source_graphics.')) unset($refs->{$key});
+                    foreach ($next['_decoration_asset_refs'] ?? [] as $key => $ref) if (str_starts_with((string)$key, 'content.source_graphics.')) $refs->{$key} = $ref;
+                    if (isset($widget->_decoration_asset_refs) || count((array)$refs)) $widget->_decoration_asset_refs = $refs;
+                }
+                if (is_array($widget->children ?? null)) $patch($widget->children, $next['children'] ?? []);
+            }
+        };
+        $patch($objects, $normalized);
+        return self::encodeJson($objects);
     }
 
     public static function updatePageBase(int $tenantId, array $params): array

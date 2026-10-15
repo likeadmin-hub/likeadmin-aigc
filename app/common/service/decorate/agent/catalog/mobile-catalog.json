@@ -19391,6 +19391,14 @@
               "value": "contain"
             }
           ]
+        },
+        "source_graphics": {
+          "key": "source_graphics",
+          "label": "应用来源图形",
+          "type": "list",
+          "value_type": "array",
+          "default": [],
+          "help": "可选显示覆盖，最多50项。仅app_entries实际源行按app_code与entry_key精确匹配；不修改源行、名称、链接、权限或状态，不创建入口。重复绑定以首项为准，不要重复添加；无配置保持原图形。"
         }
       },
       "style_fields": {
@@ -20139,6 +20147,214 @@
               "help": "Public glyph name; existing emoji/image addresses remain readable. Image takes priority."
             }
           }
+        },
+        "source_graphics": {
+          "min_items": 0,
+          "max_items": 50,
+          "limit_scope": "save",
+          "initial_items": 0,
+          "fields": {
+            "app_code": {
+              "key": "app_code",
+              "label": "真实应用代码",
+              "type": "text",
+              "value_type": "string",
+              "default": "",
+              "max_length": 64,
+              "help": "从data_sources app_entries返回的实际app_code选择，不使用列表位置或自造代码。"
+            },
+            "entry_key": {
+              "key": "entry_key",
+              "label": "真实入口标识",
+              "type": "text",
+              "value_type": "string",
+              "default": "",
+              "max_length": 128,
+              "help": "与app_code一起匹配真实entry_key；卸载或不存在的入口忽略，不创建行。"
+            },
+            "mode": {
+              "key": "mode",
+              "label": "图形来源",
+              "type": "select",
+              "value_type": "string",
+              "default": "source",
+              "options": [
+                {
+                  "label": "沿用应用图形",
+                  "value": "source"
+                },
+                {
+                  "label": "系统语义图标",
+                  "value": "icon"
+                },
+                {
+                  "label": "授权图片素材",
+                  "value": "image"
+                }
+              ],
+              "help": "source恢复原图形；icon明确优先于源行所有图片；image只显示本项授权image。只改变图形，不改变真实入口信息。"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "系统图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "show_if": {
+                "key": "mode",
+                "equals": "icon"
+              },
+              "help": "仅已有14类真实glyph，不接受URL或任意图标名；未知/空值保留源图形。"
+            },
+            "image": {
+              "key": "image",
+              "label": "授权图片",
+              "type": "image",
+              "value_type": "string",
+              "default": "",
+              "show_if": {
+                "key": "mode",
+                "equals": "image"
+              },
+              "help": "仅mode=image且匹配当前真实源行时渲染；复用授权素材或request_image到此精确leaf，仍需来源授权、托管refs和验收。"
+            }
+          }
         }
       },
       "source": {
@@ -20178,7 +20394,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "Images/app brand assets take precedence over finite system glyphs. show_title/show_sub_title control row copy, not block heading.",
+        "Optional source_graphics list max50 matches live app_entries by app_code+entry_key. First matching record wins; absent/source/invalid retains original. Explicit finite icon overrides source image priority; authorized image is a declared managed image leaf. Never override names/routes/permissions/status or create missing entries. Manual/fallback rows and other widgets ignore this list. Without a valid explicit override, images/app brand assets keep their original precedence over finite system glyphs. show_title/show_sub_title control row copy, not block heading.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -27383,5 +27599,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "337627207b1ca865c0f0fb966782a938234ec78fe4384b3e7348222f302507f4"
+  "hash": "7f982a80e7c53ea4df889835250b8f33e6a91d5cd5112bc7d939c2845f88b4bc"
 }
