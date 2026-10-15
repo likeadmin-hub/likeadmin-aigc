@@ -1,0 +1,75 @@
+<?php
+declare(strict_types=1);
+$root=dirname(__DIR__,2);require $root.'/runtime-loader.php';(new AigcRuntimeApp($root))->initialize();
+set_exception_handler(static function(Throwable $e):void{fwrite(STDERR,$e->getMessage().PHP_EOL.$e->getTraceAsString());exit(1);});
+use think\facade\Db;
+use app\common\service\decorate\agent\{DecorationAgentImageInspection as I,DecorationAgentCatalog as C,DecorationAgentService as S,DecorationAgentAssetReferences as R,DecorationAgentMediaService as M};
+$checks=0;function inspectionCheck(bool $ok,string $label):void{global $checks;if(!$ok)throw new RuntimeException($label);$checks++;}
+function inspectionReject(callable $call,string $label):void{try{$call();}catch(InvalidArgumentException $e){inspectionCheck(true,$label);return;}throw new RuntimeException('accepted: '.$label);}
+inspectionCheck(class_exists(I::class),'owned image inspection implementation exists');
+$uri='uploads/geometry_fixture_'.bin2hex(random_bytes(8)).'.png';$path=public_path().$uri;
+$im=imagecreatetruecolor(256,256);imagefill($im,0,0,imagecolorallocate($im,23,31,53));imagefilledrectangle($im,58,64,197,191,imagecolorallocate($im,60,204,239));imagepng($im,$path);imagedestroy($im);
+Db::startTrans();try{
+ request()->tenantId=1;
+ $asset=['image_uri'=>$uri,'url'=>'/'.$uri,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','width'=>256,'height'=>256];
+ $request=['widget_id'=>'icon','field'=>'content.data.0.image','generation_mode'=>'design_extract','asset_role'=>'icon','background'=>['mode'=>'solid','color'=>'#171F35']];
+ $result=['status'=>'success','billing_status'=>'settled','spent_points'=>6,'images'=>[$asset]];
+ $slotId=(int)Db::name('decorate_agent_image_slot')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'session_id'=>0,'run_id'=>0,'slot_key'=>'icon:content.data.0.image','status'=>'success','request_json'=>S::json($request),'result_json'=>S::json($result)]);
+ $taskId=(int)Db::name('ai_app_task')->insertGetId(['tenant_id'=>1,'user_id'=>0,'app_code'=>'system_default','business_table'=>'decorate_agent_image_slot','business_id'=>$slotId,'status'=>'success']);
+ $receiptId=(int)Db::name('ai_consumption_log')->insertGetId(['tenant_id'=>1,'user_id'=>0,'app_task_id'=>$taskId,'app_code'=>'system_default','protocol'=>'image_generate','run_status'=>'success','billing_status'=>'settled','response_summary'=>S::json(['images'=>[$asset]])]);
+ Db::name('decorate_agent_image_slot')->where('id',$slotId)->update(['consumption_id'=>$receiptId]);$slot=Db::name('decorate_agent_image_slot')->where('id',$slotId)->find();
+ $widget=C::create('media-card','icon');$widget['content']['data']=[['image'=>'/'.$uri,'title'=>'图片创作']];$page=R::attachGenerated(['data'=>[$widget],'meta'=>[]],$slot,$asset);$before=$page;$hash=S::hash($page);
+ $input=['scope'=>'page','selected_id'=>'','sources'=>['tenant'],'attachments'=>[]];$op=['type'=>'inspect_image','widget_id'=>'icon','field'=>'content.data.0.image'];
+ $report=I::inspect(1,1,$page,$input,$op);
+ inspectionCheck($report['visual_geometry']['status']==='measured'&&abs($report['visual_geometry']['fill_x']-.55)<.015,'current exact managed icon receives actual bbox');
+ $saved=Db::name('decorate_agent_image_slot')->where('id',$slotId)->find();$stored=S::decode($saved['result_json']);
+ inspectionCheck($stored['images'][0]['visual_geometry']===$report['visual_geometry'],'metadata cached only on matching image');
+ $without=$stored;unset($without['images'][0]['visual_geometry']);inspectionCheck($without===$result,'billing/storage/other result fields preserved');
+ $slotBefore=$slot;$slotAfter=$saved;unset($slotBefore['result_json'],$slotAfter['result_json']);inspectionCheck($slotBefore===$slotAfter&&$page===$before&&S::hash($page)===$hash,'no task state, candidate or hash changes');
+ inspectionCheck(I::inspect(1,1,$page,$input,$op)['visual_geometry']===$report['visual_geometry'],'fresh byte SHA allows stable cache reuse');
+ $im=imagecreatetruecolor(256,256);imagefill($im,0,0,imagecolorallocate($im,23,31,53));imagefilledrectangle($im,80,64,175,191,imagecolorallocate($im,60,204,239));imagepng($im,$path);imagedestroy($im);
+ $changed=I::inspect(1,1,$page,$input,$op);inspectionCheck($changed['visual_geometry']['asset_sha256']!==$report['visual_geometry']['asset_sha256']&&$changed['visual_geometry']['fill_x']<.4,'same URI changed bytes never reuse stale geometry');
+ inspectionReject(fn()=>I::inspect(2,1,$page,$input,$op),'cross tenant rejected');inspectionReject(fn()=>I::inspect(1,2,$page,$input,$op),'cross operator rejected');
+ inspectionReject(fn()=>I::inspect(1,1,$page,array_replace($input,['sources'=>['system']]),$op),'revoked tenant source rejected');
+ inspectionReject(fn()=>I::inspect(1,1,$page,$input,$op+['url'=>'https://untrusted.invalid/a.png']),'arbitrary caller URL rejected');
+ $stale=$page;$stale['data'][0]['content']['data'][0]['image']='/uploads/manual.png';inspectionReject(fn()=>I::inspect(1,1,$stale,$input,$op),'stale exact expected value rejected');
+ $wrong=$page;$wrong['data'][0]['_decoration_asset_refs']['content.data.0.title']=$wrong['data'][0]['_decoration_asset_refs']['content.data.0.image'];$wrong['data'][0]['content']['data'][0]['title']='/'.$uri;inspectionReject(fn()=>I::inspect(1,1,$wrong,$input,array_replace($op,['field'=>'content.data.0.title'])),'nonimage schema field rejected');
+ $section=C::create('section','parent');$section['children']=[$page['data'][0]];$other=C::create('title-bar','other');$nested=['data'=>[$section,$other],'meta'=>[]];
+ inspectionCheck(I::inspect(1,1,$nested,array_replace($input,['scope'=>'selected','selected_id'=>'parent']),$op)['slot_id']===$slotId,'selected subtree descendant allowed');
+ inspectionReject(fn()=>I::inspect(1,1,$nested,array_replace($input,['scope'=>'selected','selected_id'=>'other']),$op),'selected sibling escape rejected');
+ Db::name('ai_consumption_log')->where('id',$receiptId)->update(['billing_status'=>'reserved']);inspectionReject(fn()=>I::inspect(1,1,$page,$input,$op),'unsettled receipt rejected');Db::name('ai_consumption_log')->where('id',$receiptId)->update(['billing_status'=>'settled']);
+ $method=new ReflectionMethod(M::class,'generatedMaterials');$materials=$method->invoke(null,1,'');$found=array_values(array_filter($materials,fn($m)=>(int)$m['slot_id']===$slotId));inspectionCheck(($found[0]['visual_geometry']['asset_sha256']??null)===$changed['visual_geometry']['asset_sha256'],'authorized generated material summaries expose cached geometry');
+ $runId=(int)Db::name('decorate_agent_run')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'session_id'=>0,'status'=>'running','input_json'=>S::json($input),'context_json'=>S::json(['candidate'=>$page]),'result_json'=>'{}','events_json'=>'[]','idempotency_key'=>'geometry-'.bin2hex(random_bytes(8))]);
+ $candidateId=(int)Db::name('decorate_agent_candidate')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'session_id'=>0,'run_id'=>$runId,'status'=>'ready','base_hash'=>S::hash($page),'base_json'=>S::json($page),'payload_json'=>S::json($page),'changes_json'=>'[]']);
+ Db::name('decorate_agent_run')->where('id',$runId)->update(['candidate_id'=>$candidateId]);
+ $query=new ReflectionMethod(S::class,'queryTool');$dispatched=$query->invoke(null,1,1,[],$input,['candidate'=>$page,'run_id'=>$runId],$op,[],[]);
+ inspectionCheck($dispatched['slot_id']===$slotId&&$dispatched['visual_geometry']['status']==='measured','actual Agent query dispatcher resolves current candidate target');
+ $snapshotMethod=new ReflectionMethod(I::class,'snapshot');$snapshot=$snapshotMethod->invoke(null,1,1,$runId);$assertSnapshot=new ReflectionMethod(I::class,'assertSnapshot');
+ Db::name('decorate_agent_candidate')->where('id',$candidateId)->inc('revision')->update();
+ inspectionReject(fn()=>$assertSnapshot->invoke(null,1,1,$runId,$snapshot),'concurrent candidate revision invalidates response');
+ Db::name('decorate_agent_run')->where('id',$runId)->update(['cancel_requested'=>1]);inspectionReject(fn()=>I::inspect(1,1,$page,$input,$op,$runId),'stopped run rejects late inspection');Db::name('decorate_agent_run')->where('id',$runId)->update(['cancel_requested'=>0]);
+ $cache=new ReflectionMethod(I::class,'cache');$old=Db::name('decorate_agent_image_slot')->where('id',$slotId)->find();$newResult=S::decode($old['result_json']);$newResult['images'][0]['url']='CaseSensitive-A';$old['result_json']=S::json($newResult);Db::name('decorate_agent_image_slot')->where('id',$slotId)->update(['result_json'=>$old['result_json']]);
+ $newResult['images'][0]['url']='casesensitive-a';$concurrent=S::json($newResult);Db::name('decorate_agent_image_slot')->where('id',$slotId)->update(['result_json'=>$concurrent]);
+ inspectionReject(fn()=>$cache->invoke(null,$old,$result),'binary CAS rejects case-only concurrent result change');
+ inspectionCheck(Db::name('decorate_agent_image_slot')->where('id',$slotId)->value('result_json')===$concurrent,'CAS never overwrites newer result');
+ Db::name('decorate_agent_image_slot')->where('id',$slotId)->update(['result_json'=>S::json($result),'run_id'=>$runId,'candidate_id'=>$candidateId]);$slot=Db::name('decorate_agent_image_slot')->where('id',$slotId)->find();
+ $enriched=I::enrichCompletion($slot,$result);inspectionCheck(($enriched['images'][0]['visual_geometry']['status']??'')==='measured','future settled extraction completion enriches actual image bytes');
+ $noMetadata=$enriched;unset($noMetadata['images'][0]['visual_geometry']);inspectionCheck($noMetadata===$result,'completion enrichment preserves all original storage/billing data');
+ $complete=new ReflectionMethod(S::class,'completeImage');$complete->invoke(null,$slot,$result);$context=S::decode(Db::name('decorate_agent_run')->where('id',$runId)->value('context_json'));
+ inspectionCheck(($context['observations'][0]['tool']??'')==='image_completed'&&($context['observations'][0]['result']['visual_geometry'][0]['status']??'')==='measured','real completion records geometry observation for following Agent turns');
+ inspectionCheck(S::decode(Db::name('decorate_agent_candidate')->where('id',$candidateId)->value('payload_json'))===$page,'optional geometry cannot rewrite component sizes or payload');
+ unlink($path);$unavailable=I::enrichCompletion($slot,$result);inspectionCheck(($unavailable['images'][0]['visual_geometry']['reason']??'')==='stored_image_unavailable'&&$unavailable['status']==='success','missing measurement bytes never downgrade settled image success');
+ $pending=$page;$pending['data'][0]['content']['data'][0]['image']='/before.png';unset($pending['data'][0]['_decoration_asset_refs']);$pendingRequest=$request+['old_value'=>'/before.png','old_ref'=>null];
+ Db::name('decorate_agent_candidate')->where('id',$candidateId)->update(['payload_json'=>S::json($pending)]);Db::name('decorate_agent_image_slot')->where('id',$slotId)->update(['request_json'=>S::json($pendingRequest),'status'=>'running']);$slot=Db::name('decorate_agent_image_slot')->where('id',$slotId)->find();
+ $complete->invoke(null,$slot,$result);$completed=Db::name('decorate_agent_image_slot')->where('id',$slotId)->find();$hydrated=S::decode(Db::name('decorate_agent_candidate')->where('id',$candidateId)->value('payload_json'));
+ inspectionCheck($completed['status']==='success'&&($hydrated['data'][0]['_decoration_asset_refs']['content.data.0.image']['id']??0)===$slotId,'actual completion still hydrates managed image if optional measurement bytes unavailable');
+ inspectionCheck($hydrated['data'][0]['content']['data'][0]['image']==='/'.$uri&&S::decode($completed['result_json'])['billing_status']==='settled','optional geometry failure preserves durable identity and settlement');
+ $writes=new ReflectionMethod(\app\common\service\decorate\agent\DecorationAgentAcceptance::class,'hasWrites');
+ inspectionCheck($writes->invoke(null,[],['operations'=>[$op]])===false,'inspection is a read tool rather than a visual edit');
+ $project=new ReflectionMethod(\app\common\service\decorate\agent\DecorationAgentReviewContext::class,'materials');$entries=R::refreshMaterials(R::freezeMaterials($page,1,['tenant']),1,['tenant']);
+ $review=$project->invoke(null,$page,$entries,[['slot_id'=>$slotId,'visual_geometry'=>$changed['visual_geometry']]],['tenant']);
+ inspectionCheck(($review[0]['visual_geometry']??null)===($entries[0]['visual_geometry']??null)&&($review[0]['visual_geometry']['reason']??'')==='stored_image_unavailable','review whitelist uses current exact authority metadata instead of older same-slot summary');
+ // Completion enrichment has no task-state authority to mutate and is nonfatal for unavailable storage.
+ $bad=$result;$bad['images'][0]['image_uri']='uploads/missing_fixture.png';inspectionCheck(I::enrichCompletion($slot,$bad)===$bad,'unconfirmed completion asset remains untouched');
+}finally{Db::rollback();if(is_file($path))unlink($path);}
+echo "image inspection: $checks checks passed (isolated DB rollback, local synthetic fixture only; no provider calls)\n";

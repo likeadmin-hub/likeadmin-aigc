@@ -819,6 +819,7 @@ final class DecorationAgentService
             'catalog'=>DecorationAgentDesignContext::discover($op),
             'data_sources'=>empty($op['key'])?$sources: ['key'=>$op['key'],'items'=>DecorateDataSourceService::resolve((string)$op['key'],array_intersect_key((array)($op['params']??[]),array_flip(['limit','sort','terminal'])),$tenant,['user_id'=>0,'terminal'=>'uniapp'])],'links'=>$links,
             'search_materials'=>DecorationAgentMediaService::search($tenant,(string)($op['query']??''),$input['sources'],$input['attachments'],min(12,(int)($op['limit']??12))),
+            'inspect_image'=>DecorationAgentImageInspection::inspect($tenant,$admin,$ctx['candidate'],$input,$op,(int)($ctx['run_id']??0)),
             'icons'=>DecorationAgentDesignContext::icons((string)($op['query']??'')),
             'validate'=>DecorationAgentOperations::apply($ctx['candidate'],[],['scope'=>$input['scope'],'selected_id'=>$input['selected_id'],'allowed_links'=>$links,'approved_urls'=>array_merge(self::explicitUrls($input['message'],$input['attachments']),$ctx['approved_material_urls']??[])]),
             default=>null};
@@ -934,6 +935,7 @@ final class DecorationAgentService
     private static function completeImage(array $slot,array $result): void
     {
         if((self::decode($slot['request_json']??$slot['request']??[])['purpose']??'')==='design'){DecorationAgentDesignService::complete($slot,$result);return;}
+        $result=DecorationAgentImageInspection::enrichCompletion($slot,$result);
         $tenant=(int)$slot['tenant_id'];$admin=(int)$slot['admin_id'];$asset=$result['images'][0]??null;
         if(!is_array($asset)||empty($asset['image_uri'])||empty($asset['storage_scope'])||empty($asset['storage_engine']))throw new RuntimeException('图片尚未形成可保存的资源');
         $url=(string)($asset['url']??$asset['image_uri']);
@@ -943,6 +945,12 @@ final class DecorationAgentService
             self::fence((int)$slot['run_id']);
             self::q('image_slot',$tenant,$admin)->where('id',$slot['id'])->update(['status'=>'success','result_json'=>self::json($result)]);
             self::hydrate($slot,$url,$asset);
+            $geometry=array_values(array_filter(array_column($result['images']??[],'visual_geometry'),'is_array'));
+            if($geometry){
+                $run=Db::name('decorate_agent_run')->where('id',$slot['run_id'])->find();$context=self::decode($run['context_json']??'');$request=self::decode($slot['request_json']??$slot['request']??[]);
+                $context['observations'][]=['tool'=>'image_completed','result'=>['slot_id'=>(int)$slot['id'],'widget_id'=>$request['widget_id']??'','field'=>$request['field']??'','status'=>'success','visual_geometry'=>$geometry]];
+                Db::name('decorate_agent_run')->where('id',$slot['run_id'])->update(['context_json'=>self::json($context)]);
+            }
         });
     }
 
