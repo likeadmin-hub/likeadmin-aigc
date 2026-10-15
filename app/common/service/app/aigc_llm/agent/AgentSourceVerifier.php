@@ -11,28 +11,20 @@ final class AgentSourceVerifier
         $quote=(string)($input['quote']??'');$offset=max(0,(int)($input['offset']??0));
         if(($file!=='')===($message>0))throw new \InvalidArgumentException('请选择一条原消息或一份素材核对，不能同时指定');
         if(trim($quote)===''||mb_strlen($quote)>1000)throw new \InvalidArgumentException('请提供1000字以内的原文引句，不能使用摘要代替');
+        // Include the ordinary page boundary plus quote/condition context in ONE source read.
+        $windowChars=AgentContextService::READ_CHARS+mb_strlen($quote)-1+240;
         if($file!==''){
             $asset=AgentContextService::authorizedAsset($run,$file);
             $pdf=strtolower(pathinfo($asset['name'],PATHINFO_EXTENSION))==='pdf';
             if(!$pdf&&!AgentDocumentReader::supports($asset['name']))throw new \InvalidArgumentException('文字引文核对支持文档、PDF可提取文字和原消息；画面、扫描文字及声音不能据此自动核验');
-            $read=static fn($start)=>AgentContextService::readAsset($run,$file,$start);
-            $page=$read($offset);
+            $page=AgentContextService::readAsset($run,$file,$offset,0,false,$windowChars);
             if(empty($page['content_available']))throw new \InvalidArgumentException($page['instruction']??'原文不可读取');
             $source=['kind'=>'asset','file_id'=>$file,'name'=>$page['name'],'unit'=>isset($page['total_pages'])?'页':'字','offset'=>$page['offset']];
         }else{
-            $read=static fn($start)=>AgentContextService::readMessage($run,$message,$start);
-            $page=$read($offset);
+            $page=AgentContextService::readMessage($run,$message,$offset,$windowChars);
             $source=['kind'=>'message','message_id'=>$message,'role'=>$page['role'],'unit'=>'字','offset'=>$page['offset']];
         }
         $text=(string)$page['content'];$windowEnd=$source['offset']+mb_strlen($text);
-        // A small look-ahead catches quotes split at an ordinary fixed text-page boundary.
-        // PDF page offsets are not character offsets, so do not concatenate unrelated page batches.
-        if($source['unit']==='字'&&$page['next_offset']!==null&&mb_strlen($quote)>1){
-            $next=$read((int)$page['next_offset']);
-            if(($next['content_available']??true)===false)throw new \InvalidArgumentException($next['instruction']??'后续原文不可读取');
-            $text.=mb_substr((string)$next['content'],0,mb_strlen($quote)-1+240);
-            $windowEnd=$source['offset']+mb_strlen($text);
-        }
         $position=mb_strpos($text,$quote);$count=0;$search=0;
         while(($found=mb_strpos($text,$quote,$search))!==false){$count++;$search=$found+1;if($search>=mb_strlen($text))break;}
         $contextOffset=$position===false?0:max(0,$position-240);
