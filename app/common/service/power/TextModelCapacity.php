@@ -42,6 +42,7 @@ final class TextModelCapacity
         $default = (int)($model['default_params']['max_tokens'] ?? 0);
         if ($official !== [] && $default <= 0) {
             $default = (int)($model['default_params']['max_completion_tokens'] ?? 0);
+            if ($default <= 0) $default = (int)($model['default_params']['max_output_tokens'] ?? 0);
         }
         if ($default <= 0) $default = $official['default_output_tokens'] ?? 0;
         $value = $requested > 0 ? $requested : ($default > 0 ? $default : $fallback);

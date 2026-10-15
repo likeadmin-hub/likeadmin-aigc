@@ -17,6 +17,7 @@ same(917504, P::inputBudget($model), 'Reserve official output from shared contex
 same(4096, C::output($model, 4096), 'Explicit application output retained');
 same(8192, C::output($model + ['default_params'=>['max_tokens'=>8192]], 0), 'Configured output retained');
 same(16384, C::output($model + ['default_params'=>['max_completion_tokens'=>16384]], 0), 'Official output alias');
+same(20000, C::output($model + ['default_params'=>['max_output_tokens'=>20000]], 0), 'Responses output alias');
 $channel = array_replace($model, ['context_window'=>65536, 'max_input_tokens'=>30000, 'max_output_tokens'=>8192]);
 same(8192, C::output($channel, 0), 'Channel output limit wins');
 same(30000, P::inputBudget($channel), 'Channel input limit wins');
