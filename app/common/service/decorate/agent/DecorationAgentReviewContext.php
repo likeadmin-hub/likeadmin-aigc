@@ -36,6 +36,10 @@ final class DecorationAgentReviewContext
         },$designMaterials);
         $context['conversation']=['omitted'=>'Prior prose remains in server history; current user review instructions remain in the user message.',
             'visual_priority'=>'Approved raster and actual screenshot define the comparison. Old proposals are not the approved visual specification.'];
+        // Session facts are not version-bound. Old measurements (e.g.112rpx)
+        // can contradict the exact candidate captured now and cause oscillation.
+        // Keep them in server history/ordinary chat, never as fresh visual proof.
+        $context['facts']=[];
         return $context;
     }
 

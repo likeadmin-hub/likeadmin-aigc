@@ -16,7 +16,13 @@ $valid=[['kind'=>'slot','id'=>11,'stable_uri'=>'/uploads/owned.png','source'=>'t
 $projected=P::project($context,$valid,[]);
 projectionCheck(S::json($context)===$before,'projection does not mutate server security context');
 projectionCheck($projected['page']===$page&&$projected['visual_review']===$context['visual_review'],'raw candidate and exact evidence/security tuple unchanged');
-foreach(['source_inventory','image_sources','generation','facts','visual_review_target','attachments','vision_reference_order'] as $field)projectionCheck($projected[$field]===$context[$field],$field.' unchanged');
+foreach(['source_inventory','image_sources','generation','visual_review_target','attachments','vision_reference_order'] as $field)projectionCheck($projected[$field]===$context[$field],$field.' unchanged');
+projectionCheck($projected['facts']===[],'unversioned old claims cannot become evidence for the current capture');
+$stale=$context;$stale['facts']=[['observation'=>'Current image_max_width112rpx gives a31px visible icon.']];
+$stale['page']['data'][3]['content']['image_max_width']=136;
+$fresh=P::project($stale,$valid,[]);
+projectionCheck($fresh['facts']===[]&&$stale['facts']!==[],'stale measurements omitted only from model projection, retained in authoritative history');
+projectionCheck($fresh['page']===$stale['page']&&$fresh['visual_review']===$stale['visual_review'],'current candidate values and bound capture tuple remain exact');
 $expected=array_map(fn($name)=>D::contract($name),$names);
 projectionCheck(P::expandContracts($projected['related_contracts'])===$expected,'all7 complete original contracts including every default/field/condition/unit/enum/runtime constraint expand exactly');
 projectionCheck(str_contains($projected['related_contracts']['reference_rule'],'display-only')&&str_contains($projected['related_contracts']['reference_rule'],'uncompressed'),'schema references are discovery-only and never operation fields');
