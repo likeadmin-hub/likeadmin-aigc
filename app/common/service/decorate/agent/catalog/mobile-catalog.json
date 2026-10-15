@@ -14609,7 +14609,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "Children are a 1–12 integer column grid. Each direct child styles.grid_column is integer0–12: Explicit0 spans the full parent row; absent preserves read-only legacy layout/grid/content aliases, or spans the full row if none exist. Positive spans are clamped to the nearest parent columns. Canonical presence wins over aliases. Nested grids do not override their own outer span; no arbitrary layout objects.",
+        "Explicit gap0 is consumed as zero; absent/null/invalid gap keeps legacy8rpx. Children are a 1–12 integer column grid. Each direct child styles.grid_column is integer0–12: Explicit0 spans the full parent row; absent preserves read-only legacy layout/grid/content aliases, or spans the full row if none exist. Positive spans are clamped to the nearest parent columns. Canonical presence wins over aliases. Nested grids do not override their own outer span; no arbitrary layout objects.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -15293,6 +15293,27 @@
           "min": 0,
           "max": 48
         },
+        "bleed_end": {
+          "key": "bleed_end",
+          "label": "末端延伸",
+          "type": "switch",
+          "value_type": "number",
+          "default": 0,
+          "unit": "",
+          "min": 0,
+          "max": 1,
+          "options": [
+            {
+              "label": "关闭",
+              "value": 0
+            },
+            {
+              "label": "开启",
+              "value": 1
+            }
+          ],
+          "help": "仅本横滑容器：开启后可见轨道向右延伸自身实际水平padding，止于自身border内边界，不越过margin。内部布局仍用原内容宽，保持左起点、78%旧卡宽或显式item_width与gap；0/缺省保留原样。"
+        },
         "item_width": {
           "key": "item_width",
           "label": "子项宽度",
@@ -15739,7 +15760,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "Single-row children container; source rows do not create children. Optional item_width is 0–1500rpx: 0/absent retains legacy78%; positive width affects only direct children, never nested descendants or row image widths.",
+        "Optional bleed_end enum0/1: 1 extends only this viewport by its own horizontal padding to the shell inner border edge; internal row retains original content width, left start, legacy78%/explicit item widths and gap. 0/absent retains old DOM/CSS. Explicit gap0 is zero; absent/null/invalid keeps legacy8rpx fallback, existing factory gap10 is unchanged. Single-row children container; source rows do not create children. Optional item_width is 0–1500rpx: 0/absent retains legacy78%; positive width affects only direct children, never nested descendants or row image widths.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -27362,5 +27383,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "66c0a84db55d892bd46107a6633493799b3e6e1577f2857bae85b196c24f07aa"
+  "hash": "337627207b1ca865c0f0fb966782a938234ec78fe4384b3e7348222f302507f4"
 }
