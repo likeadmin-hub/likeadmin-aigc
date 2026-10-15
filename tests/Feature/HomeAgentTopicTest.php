@@ -84,10 +84,16 @@ Db::startTrans();try{
  $context=C::build($style);$body=S::encode($context);
  check(count(T::runIds($style))===4&&str_contains($body,'15s')&&$context['focus']['file_ids']===[$file],'Implicit continuation lost original goal/reference');
  check(!str_contains($body,'会议通知')&&!str_contains($body,'音乐任务'),'Continuation imported another topic');
- S::update($style,['reply'=>str_repeat('长',1800).'请确认镜头和时长']);
+ S::update($style,['reply'=>str_repeat('长',900).'中间关键追问：是否保留蓝围巾？'.str_repeat('长',900).'请确认镜头和时长']);
  T::resolve($make('另做一张小猫海报'),function($topics){
-  check(mb_strlen($topics[0]['last_reply'])<=1203&&str_ends_with($topics[0]['last_reply'],'请确认镜头和时长'),'Reply cue is not bounded or lost final question');
+  check(str_contains($topics[0]['last_reply'],'中间关键追问：是否保留蓝围巾？')&&str_ends_with($topics[0]['last_reply'],'请确认镜头和时长'),'Router lost middle condition or final question');
   return ['action'=>'new'];
+ });
+ $longRequest=str_repeat('参考背景。',200).'实际目标为乙项目，不要沿用甲项目素材。';
+ $long=T::resolve($make('重新开始，'.$longRequest),fn()=>['action'=>'new']);
+ T::resolve($make('接着处理乙项目'),function($topics)use($long,$longRequest){
+  check($topics[0]['requests'][0]==='重新开始，'.$longRequest&&$topics[0]['initial_request']==='重新开始，'.$longRequest,'Routing dropped the target after character 500');
+  return ['action'=>'continue','topic_id'=>(int)$long['id']];
  });
  echo "Home Agent topics passed: new, resume, chains, reset, ambiguity, scoped retrieval, late completion, explicit references and idempotent routing; rolled back\n";
 }finally{Db::rollback();}

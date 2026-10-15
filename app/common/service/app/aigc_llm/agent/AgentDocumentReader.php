@@ -30,11 +30,19 @@ final class AgentDocumentReader
             $path = realpath(public_path().ltrim((string)$row['uri'], '/'));
             if (!$root || !$path || !str_starts_with($path, $root.DIRECTORY_SEPARATOR) || !is_file($path)) throw new \InvalidArgumentException('文档文件不可用，请重新上传');
             clearstatcache(true,$path);
-            $key='document:'.hash('sha256',serialize([$tenant,$user,$row,filesize($path),filemtime($path),filectime($path)]));
-            return AgentReadCache::remember($key,static fn()=>self::extract($path,(string)$row['name']));
+            if(filesize($path)>self::MAX_BYTES)throw new \InvalidArgumentException('文档不能超过10MB，请拆分后上传');
+            $digest=hash_file('sha256',$path);
+            if($digest===false)throw new \InvalidArgumentException('文档暂时无法读取');
+            $key='document:'.hash('sha256',serialize([$tenant,$user,$row,$digest]));
+            return AgentReadCache::remember($key,static function()use($path,$row,$digest){
+                $text=self::extract($path,(string)$row['name']);
+                if(hash_file('sha256',$path)!==$digest)throw new \InvalidArgumentException('资料在读取期间发生更改，请重新读取');
+                return $text;
+            });
         }
-        $key='document:'.hash('sha256',serialize([$tenant,$user,$row]));
-        return AgentReadCache::remember($key,static fn()=>self::download($row));
+        // A remote object can be replaced without changing its database metadata.
+        // No immutable version/ETag contract is available here: read the current object.
+        return self::download($row);
     }
 
     private static function download(array $row): string

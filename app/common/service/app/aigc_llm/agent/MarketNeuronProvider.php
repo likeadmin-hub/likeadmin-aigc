@@ -21,7 +21,7 @@ final class MarketNeuronProvider implements AIProviderInterface
     /** Native continuation evidence lives only in this run's provider instance. */
     private array $responsesHistory = [];
 
-    public function __construct(private string $model, private \Closure $transport, private ?\Closure $validateReply = null) {}
+    public function __construct(private string $model, private \Closure $transport, private ?\Closure $validateReply = null, private int $inputBudget = 24000) {}
     public function getModel(): string { return $this->model; }
     public function systemPrompt(SystemMessage|string|null $prompt): AIProviderInterface
     {
@@ -45,7 +45,7 @@ final class MarketNeuronProvider implements AIProviderInterface
             'tools'=>$schemas, 'tool_choice'=>'auto', '_agent_tool_history'=>true,
             '_disable_model_fallback'=>true, '_disable_transient_retry'=>true,
         ];
-        $request['messages']=self::fitContext($request['messages'],$request['system_prompt'],$schemas);
+        $request['messages']=self::fitContext($request['messages'],$request['system_prompt'],$schemas,$this->inputBudget);
         $result = self::visibleResult(($this->transport)($request));
         if (empty($result['tool_calls']) && $this->validateReply !== null) {
             $correction=($this->validateReply)((string)($result['content']??''));
@@ -54,7 +54,7 @@ final class MarketNeuronProvider implements AIProviderInterface
                 ++$this->calls;
                 $request['system_prompt'].="\n".$correction;
                 $request['tool_choice']='required';
-                $request['messages']=self::fitContext($request['messages'],$request['system_prompt'],$schemas);
+                $request['messages']=self::fitContext($request['messages'],$request['system_prompt'],$schemas,$this->inputBudget);
                 $result=self::visibleResult(($this->transport)($request));
             }
             if (empty($result['tool_calls']) && ($this->validateReply)((string)($result['content']??''))) {
@@ -138,7 +138,16 @@ final class MarketNeuronProvider implements AIProviderInterface
     {
         return hash('sha256', json_encode(array_column($calls, 'id'), JSON_THROW_ON_ERROR));
     }
-    /** Approximate the complete input, including instructions/tools; drop only complete old turns. */
+    /** Capacity protection, not a token-saving target. Reserve the configured output allowance. */
+    public static function inputBudget(array $model): int
+    {
+        $capacity=\app\common\service\power\TextModelCapacity::metadata($model);
+        $limits=[];
+        if($capacity['max_input_tokens']>0)$limits[]=$capacity['max_input_tokens'];
+        if($capacity['context_window']>0)$limits[]=max(1,$capacity['context_window']-\app\common\service\power\TextModelCapacity::output($model,0));
+        return $limits?min($limits):24000;
+    }
+    /** Preserve complete supplied evidence. Reject overflow before transport, never silently drop turns. */
     public static function fitContext(array $messages,string $instructions,array $tools,int $budget=24000): array
     {
         $estimate=static function($value):int{
@@ -149,14 +158,16 @@ final class MarketNeuronProvider implements AIProviderInterface
         $base=$estimate($instructions)+$estimate($tools);
         $size=static function(array $rows)use($estimate,$base):int{
             $total=$base;
-            foreach($rows as $row){$total+=$estimate($row)+12;foreach(is_array($row['content']??null)?$row['content']:[] as $block)if(($block['type']??'')==='image_url')$total+=1024;}
+            foreach($rows as $row){
+                if(is_array($row['content']??null))foreach($row['content'] as &$block)if(($block['type']??'')==='image_url'){
+                    // Encoded image bytes are not text tokens; retain only a vision allowance in this estimate.
+                    $block=['type'=>'image_url'];$total+=1024;
+                }
+                unset($block);$total+=$estimate($row)+12;
+            }
             return $total;
         };
-        while($size($messages)>$budget){
-            $users=[];foreach($messages as $i=>$row)if($row['role']==='user')$users[]=$i;
-            if(count($users)<2)throw new \InvalidArgumentException('本轮内容较长，请分段处理文档或减少同时引用的素材后继续');
-            $messages=array_slice($messages,$users[1]);
-        }
+        if($size($messages)>$budget)throw new AgentContextCapacityExceeded('本轮完整上下文超出可处理容量，未删减原文或提交本次模型请求。请分段处理资料，或请管理员配置更大上下文的模型后继续');
         return $messages;
     }
 }

@@ -2,11 +2,11 @@
 // Deterministic preservation probes, not an LLM answer-quality benchmark. No paid transport.
 namespace app\common\service\power {
  final class MarketTextModelRuntimeService {
-  public static array $calls=[];public static $reply;public static $after=null;
-  public static function resolveAgentModel(...$args):array{return [];}
+  public static array $calls=[];public static $reply;public static $after=null;public static array $capacity=[];public static string $instructions='';
+  public static function resolveAgentModel(...$args):array{return self::$capacity;}
   public static function modelGroups(...$args):array{return [];}
   public static function generate(int $tenant,int $user,array $params):array{
-   $body=json_decode($params['messages'][0]['content'][0]['text'],true);self::$calls[]=$body;
+   $body=json_decode($params['messages'][0]['content'][0]['text'],true);self::$calls[]=$body;self::$instructions=$params['system_prompt'];
    if(self::$after)(self::$after)();
    return ['content'=>json_encode((self::$reply)($body),JSON_UNESCAPED_UNICODE),'usage'=>['prompt_tokens'=>0,'completion_tokens'=>0]];
   }
@@ -31,6 +31,8 @@ namespace {
  file_put_contents($path,$source);
  Db::startTrans();try{
   $session=AigcLlmSession::create(['tenant_id'=>$tenant,'user_id'=>$user,'title'=>'fidelity fixture','model_code'=>'fixture','status'=>'streaming','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
+  $prior='此前要求：附录中的例外也必须逐条保留；只用于内部评审。';
+  AigcLlmMessage::create(['tenant_id'=>$tenant,'user_id'=>$user,'session_id'=>$session['id'],'role'=>'user','content'=>$prior,'seq'=>0,'status'=>'done','token_usage_json'=>[],'finish_reason'=>'','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
   $message=AigcLlmMessage::create(['tenant_id'=>$tenant,'user_id'=>$user,'session_id'=>$session['id'],'role'=>'assistant','content'=>'','seq'=>1,'status'=>'streaming','token_usage_json'=>[],'finish_reason'=>'','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
   $file='of_'.bin2hex(random_bytes(16));OpenStore::table('file')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'file_id'=>$file,'uri'=>substr($path,strlen(public_path())),'name'=>'source.txt','mime'=>'text/plain','size'=>filesize($path),'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']+OpenStore::timestamp());
   $id=(int)S::table('run')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'session_id'=>$session['id'],'message_id'=>$message['id'],'request_id'=>'fidelity-'.bin2hex(random_bytes(12)),'payload_hash'=>str_repeat('a',64),'content'=>'全文核对金额、首付、截止日期和海外投放例外','preferences'=>S::encode(['mode'=>'ask','models'=>['text'=>'fixture']]),'attachments'=>S::encode([['file_id'=>$file]]),'status'=>'running','phase'=>'chat','reply'=>'','lease_token'=>'fixture','lease_until'=>$now+1500,'create_time'=>$now,'update_time'=>$now]);
@@ -42,6 +44,8 @@ namespace {
   Fake::$reply=static fn($body)=>['summary'=>$oversize,'note'=>$longNote];
   Fake::$after=static fn()=>S::table('run')->where('id',$id)->update(['cancel_requested'=>1]);
   $stopped=$work();Fake::$after=null;
+  check(str_contains(S::encode(Fake::$calls[0]['conversation']),$prior),'Long reading lost prior user scope');
+  check(!str_contains(Fake::$instructions,'3000')&&!str_contains(Fake::$instructions,'500'),'Length target still biases summary omission');
   check($stopped['status']==='canceled'&&L::view($stopped)[0]['offset']===4000,'Cancel lost completed segment');
   check(L::context($stopped)[0]['summary']===$oversize,'Oversize summary silently truncated');
   $first=L::notes($stopped,$file)['items'][0];
@@ -83,6 +87,10 @@ namespace {
   S::table('event')->where('id',$eventId)->update(['payload'=>S::encode(['summary'=>'旧事件摘要','note'=>'旧事件笔记','offset'=>4000])]);
   check(L::context($get())[0]['summary']==='旧事件摘要','Legacy event summary unreadable');
   $legacy=S::json($get()['preferences']);$legacy['_long_reads'][$file]['status']='pending';$legacy['_long_reads'][$file]['offset']=4000;
+  S::table('run')->where('id',$id)->update(['preferences'=>S::encode($legacy),'phase'=>'reading']);
+  $beforeCalls=count(Fake::$calls);$beforeJob=L::view($get());Fake::$capacity=['max_input_tokens'=>50];
+  $blocked=$work();Fake::$capacity=[];
+  check($blocked['status']==='failed'&&L::view($blocked)===$beforeJob&&count(Fake::$calls)===$beforeCalls,'Capacity rejection advanced cursor, charged or became review-only');
   S::table('run')->where('id',$id)->update(['preferences'=>S::encode($legacy)]);$work();$last=end(Fake::$calls);
   check($last['previous_summary']==='旧事件摘要'&&$last['previous_source_tail']==='','Legacy event resume broken');
   Fake::$reply=static fn($body)=>['summary'=>'','note'=>'invalid'];$bad=$work();

@@ -254,10 +254,13 @@ final class AgentExecutionService
         AgentStore::event($run,'run.started',[]);
         $preferences=AgentStore::json($run['preferences']);
         $usage=AgentStore::json(AigcLlmMessage::where('id',$run['message_id'])->where('tenant_id',$run['tenant_id'])->value('token_usage_json'))['calls']??[];
-        $run=AgentTopicService::resolve($run,function(array $candidates)use($run,$preferences,&$usage){
+        $inputBudget=MarketNeuronProvider::inputBudget(MarketTextModelRuntimeService::resolveAgentModel((int)$run['tenant_id'],(string)$preferences['models']['text']));
+        $run=AgentTopicService::resolve($run,function(array $candidates)use($run,$preferences,&$usage,$inputBudget){
             self::checkpoint($run);
+            $topicContent=AgentStore::encode(['current_request'=>$run['content'],'has_new_attachments'=>!empty(AgentStore::json($run['attachments'])),'topics'=>$candidates]);
+            MarketNeuronProvider::fitContext([['role'=>'user','content'=>$topicContent]],AgentTopicService::instructions(),[],$inputBudget);
             $result=MarketTextModelRuntimeService::generate((int)$run['tenant_id'],(int)$run['user_id'],[
-                'content'=>AgentStore::encode(['current_request'=>$run['content'],'has_new_attachments'=>!empty(AgentStore::json($run['attachments'])),'topics'=>$candidates]),
+                'content'=>$topicContent,
                 'system_prompt'=>AgentTopicService::instructions(),'model_selection'=>$preferences['models']['text'],
                 'app_code'=>'aigc_llm','source_app_code'=>'aigc_llm','business_table'=>'aigc_llm_agent_run','business_id'=>$run['id'],'action_code'=>'agent_chat',
                 '_agent_tool_history'=>true,'_require_final_content'=>true,'_disable_model_fallback'=>true,'_disable_transient_retry'=>true,
@@ -275,7 +278,7 @@ final class AgentExecutionService
         $visualAssets=!empty(AgentSequenceService::state($run)['active'])?AgentSequenceService::outputs($run):$context['focus_assets'];
         if($vision)foreach($visualAssets as $asset)if(str_starts_with($asset['mime']??'','image/'))$loadedImages[$asset['file_id']]=$asset['url'];
         $loadedImages=array_slice($loadedImages,0,8,true);
-        $provider=new MarketNeuronProvider((string)$preferences['models']['text'],function(array $params)use($run,&$stageText,&$usage,&$loadedImages){
+        $provider=new MarketNeuronProvider((string)$preferences['models']['text'],function(array $params)use($run,&$stageText,&$usage,&$loadedImages,$inputBudget){
             self::checkpoint($run);
             // Selected or explicitly read images are attached with an identity label. Unrelated old images stay metadata-only.
             for($i=count($params['messages'])-1;$i>=0;$i--)if($params['messages'][$i]['role']==='user'){
@@ -287,6 +290,7 @@ final class AgentExecutionService
                 break;
             }
             foreach($params['messages'] as $message)foreach(is_array($message['content'])?$message['content']:[] as $block)if(($block['type']??'')==='image_url')$params['requires_vision']=true;
+            MarketNeuronProvider::fitContext($params['messages'],$params['system_prompt'],$params['tools'],$inputBudget);
             $text='';$last=0.;
             try{$result=MarketTextModelRuntimeService::generate((int)$run['tenant_id'],(int)$run['user_id'],$params+['app_code'=>'aigc_llm','source_app_code'=>'aigc_llm','business_table'=>'aigc_llm_agent_run','business_id'=>$run['id'],'action_code'=>'agent_chat'],function(string $event,array $data)use($run,&$stageText,&$text,&$last){
                 if($event!=='delta')return;
@@ -321,7 +325,7 @@ final class AgentExecutionService
             if(!AgentCreationContext::unsupportedPlanClaim($reply)||AgentStore::owner('step',(int)$run['tenant_id'],(int)$run['user_id'])->where('run_id',$run['id'])->where('id','>',$floor)->count())return null;
             AgentStore::event($run,'plan.missing',[]);
             return '服务端核对：本轮没有任何已保存的生成步骤。禁止声称已规划、已保存、已提交，禁止要求文字确认。读取当前所选模型的工具说明，调用 plan_creation 校验并保存；参数不足或不兼容时据工具结果明确说明，不猜测模型、费用或执行入口。';
-        });
+        },$inputBudget);
         $object=static fn(array $properties,array $required=[])=>['type'=>'object','properties'=>$properties?:new \stdClass(),'required'=>$required,'additionalProperties'=>false];
         $string=static fn(string $description)=>['type'=>'string','description'=>$description];
         $tools=[
@@ -417,8 +421,9 @@ final class AgentExecutionService
         $messages=array_map(static fn($row)=>$row['role']==='user'?new UserMessage($row['content']):new AssistantMessage($row['content']),AgentCreationContext::dialogue($rows));
         if(!$messages)$messages=[new UserMessage($run['content'])];
         $schemas=array_map(static fn($tool)=>['type'=>'function','function'=>['name'=>$tool->getName(),'description'=>$tool->getDescription(),'parameters'=>$tool->getInputSchema()]],$tools);
-        $instructions=AgentRequirementMemory::appendInstructions($instructions,MarketNeuronProvider::messages($messages),$schemas,$context['requirements']);
-        $agent=(new Agent())->setThreadId('home:'.$run['tenant_id'].':'.$run['user_id'].':'.$run['id'])->setAiProvider($provider)->setInstructions($instructions)->setTools($tools)->setContextWindow(16000);
+        $instructions=AgentRequirementMemory::appendInstructions($instructions,MarketNeuronProvider::messages($messages),$schemas,$context['requirements'],$inputBudget);
+        // Neuron must not trim before our complete-input admission check sees the evidence.
+        $agent=(new Agent())->setThreadId('home:'.$run['tenant_id'].':'.$run['user_id'].':'.$run['id'])->setAiProvider($provider)->setInstructions($instructions)->setTools($tools)->setContextWindow(PHP_INT_MAX);
         $state=$agent->chat($messages);
         self::checkpoint($run);
         $final=(string)($state->getMessage()?->getContent()??'');

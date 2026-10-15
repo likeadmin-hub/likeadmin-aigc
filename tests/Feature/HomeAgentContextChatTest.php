@@ -3,7 +3,7 @@ namespace app\common\service\power {
  // Block all external text requests before autoloading the real execution service.
  final class MarketTextModelRuntimeService {
   public static array $requests=[];public static string $file='';
-  public static function resolveAgentModel(int $tenant,string $model,bool $vision=false):array{return [];}
+  public static function resolveAgentModel(int $tenant,string $model,bool $vision=false):array{return ['context_window'=>128000];}
   public static function resolveModel(int $tenant,$model,bool $vision=false):array{throw new \InvalidArgumentException('No enhancement model in offline fixture');}
   public static function modelGroups(int $tenant):array{return [];}
   public static function generate(int $tenant,int $user,array $params,?callable $onEvent=null):array{
@@ -33,7 +33,7 @@ namespace {
   $s=AigcLlmSession::create(['tenant_id'=>$t,'user_id'=>$u,'title'=>'chat context fixture','model_code'=>'fixture','status'=>'streaming','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
   $base=['tenant_id'=>$t,'user_id'=>$u,'session_id'=>$s['id'],'create_time'=>$now,'update_time'=>$now,'delete_time'=>0,'token_usage_json'=>[],'finish_reason'=>''];
   $oldUser=AigcLlmMessage::create($base+['role'=>'user','content'=>'流程表要求：所有环节必须保留负责人。','seq'=>1,'status'=>'done','parent_user_message_id'=>0]);
-  // A large preceding answer moves the old user requirement outside the recent-character window.
+  // A large preceding answer must not detach the old user requirement from this follow-up.
   $oldAnswer=AigcLlmMessage::create($base+['role'=>'assistant','content'=>str_repeat('背景。',5000),'seq'=>2,'status'=>'done','parent_user_message_id'=>$oldUser['id']]);
   $oldId=(int)S::table('run')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'session_id'=>$s['id'],'message_id'=>$oldAnswer['id'],'request_id'=>'context-old-'.bin2hex(random_bytes(8)),'payload_hash'=>str_repeat('b',64),'content'=>$oldUser['content'],'preferences'=>S::encode(['mode'=>'ask','models'=>['text'=>'chosen-model']]),'attachments'=>'[]','status'=>'success','phase'=>'chat','reply'=>'','create_time'=>$now,'update_time'=>$now]);
   $m=AigcLlmMessage::create($base+['role'=>'user','content'=>'看看刚才的流程表，再补充负责人。','seq'=>1,'status'=>'done','parent_user_message_id'=>0]);
@@ -45,7 +45,8 @@ namespace {
   S::table('artifact')->insert(['tenant_id'=>$t,'user_id'=>$u,'session_id'=>$s['id'],'run_id'=>$id,'step_id'=>0,'identity_hash'=>hash('sha256',Fake::$file),'title'=>'发布会流程表','kind'=>'document','data'=>S::encode(['file_id'=>Fake::$file,'content'=>'09:00 开场；09:10 产品介绍；09:30 体验。']),'create_time'=>$now]);
   $run=S::run($t,$u,(int)$id);$chat=new \ReflectionMethod(E::class,'chat');$chat->setAccessible(true);$chat->invoke(null,$run);
   check(count(Fake::$requests)===5,'Context tools not executed in real chat loop');
-  check(str_contains(Fake::$requests[0]['system_prompt'],'关键需求原文线索')&&str_contains(Fake::$requests[0]['system_prompt'],'所有环节必须保留负责人'),'Old requirement not injected into actual model input');
+  check(str_contains(S::encode(Fake::$requests[0]['messages']),'所有环节必须保留负责人'),'Prior user requirement lost at recent-character boundary');
+  check(str_contains(S::encode(Fake::$requests[0]['messages']),str_repeat('背景。',5000)),'Preceding answer silently trimmed before provider');
   check(str_contains(S::encode(Fake::$requests[1]['messages']),'keyword_candidates')||str_contains(S::encode(Fake::$requests[1]['messages']),'literal_search'),'Requirements tool not executed');
   $second=Fake::$requests[2];$body=S::encode($second['messages']);
   check(str_contains($body,'09:10 产品介绍'),'Persisted document never reached the model');
