@@ -436,21 +436,32 @@ class OpenPlatformService
 
     public static function authorizedOfficialCodeUrl(int $tenantId, string $redirectUrl): string
     {
+        $result = (new OfficialAccountOAuthRelayService())->start($tenantId, $redirectUrl, (string)request()->domain());
+        \think\facade\Cookie::set(OfficialAccountOAuthRelayService::BROWSER_COOKIE, $result['browser_nonce'], OfficialAccountOAuthRelayService::cookieOptions());
+        return $result['url'];
+    }
+
+    public static function authorizedOfficialOAuthIdentity(int $tenantId): array
+    {
         $authorizer = self::officialAuthorizer($tenantId);
         $config = self::rawConfig();
-        self::requireConfig($config, ['app_id']);
-        $query = http_build_query([
-            'appid' => (string)$authorizer['authorizer_appid'],
-            'redirect_uri' => $redirectUrl,
-            'response_type' => 'code',
-            'scope' => 'snsapi_userinfo',
-            'state' => bin2hex(random_bytes(12)),
+        self::requireConfig($config, ['app_id', 'callback_url']);
+        return [
+            'authorizer_appid' => (string)$authorizer['authorizer_appid'],
             'component_appid' => (string)$config['app_id'],
-        ]);
-        return 'https://open.weixin.qq.com/connect/oauth2/authorize?' . $query . '#wechat_redirect';
+            'platform_origin' => self::originFromUrl(self::callbackUrls($config)['authorization']),
+        ];
     }
 
     public static function authorizedOfficialUserByCode(int $tenantId, string $code): array
+    {
+        $user = (new OfficialAccountOAuthRelayService())->consume($tenantId, $code, (string)request()->cookie(OfficialAccountOAuthRelayService::BROWSER_COOKIE, ''));
+        \think\facade\Cookie::delete(OfficialAccountOAuthRelayService::BROWSER_COOKIE, OfficialAccountOAuthRelayService::cookieOptions());
+        return $user;
+    }
+
+    /** Only the validated platform callback exchanges a provider code. */
+    public static function exchangeAuthorizedOfficialUserByCode(int $tenantId, string $code): array
     {
         $authorizer = self::officialAuthorizer($tenantId);
         $config = self::rawConfig();
