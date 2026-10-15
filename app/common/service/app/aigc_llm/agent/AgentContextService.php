@@ -59,13 +59,21 @@ final class AgentContextService
     {
         $memory=self::ensure($run);
         $topic=(bool)AgentTopicService::state($run);
-        $recent=[];$chars=0;
-        foreach(self::messages($run)->order('id','desc')->limit(self::RECENT_MESSAGES)->select()->toArray() as $item){
+        $recent=[];$chars=0;$users=0;
+        // End at a user boundary, including at least the preceding exchange.
+        // Otherwise a short "按这个来" can lose the question/conditions it refers to.
+        foreach(self::messages($run)->order('id','desc')->limit(self::RECENT_MESSAGES+1)->select()->toArray() as $item){
             $size=mb_strlen((string)$item['content']);
-            if($recent && $chars+$size>self::RECENT_CHARS)break;
             $recent[]=$item;$chars+=$size;
+            if($item['role']==='user'){
+                $users++;
+                if($users>=2&&($chars>=self::RECENT_CHARS||count($recent)>=self::RECENT_MESSAGES))break;
+            }
         }
         $recent=array_reverse($recent);
+        // Unusual legacy histories can still begin with an orphan answer; retain
+        // its complete source as explicit context instead of losing it in dialogue().
+        $leading=[];while($recent&&$recent[0]['role']!=='user')$leading[]=array_shift($recent);
         $boundary=(int)($recent[0]['id']??$run['message_id']);
         // Topic summaries are rebuilt from their source messages; a session-wide
         // cached summary must never revive a different subject.
@@ -85,10 +93,14 @@ final class AgentContextService
         // Re-read source text so edits or deletions cannot leave stale private content in memory.
         $summary['requests']=self::summaryRequests($run,array_column($summary['requests']??[],'message_id'));
         $summary['older_message_count']=self::messages($run)->where('id','<',$boundary)->count();
+        $summary['leading_messages']=array_map(static fn($row)=>['message_id'=>(int)$row['id'],'role'=>$row['role'],'content'=>$row['content']],$leading);
+        $summary['history_partial']=$summary['older_message_count']>0;
+        $summary['next_before']=$summary['history_partial']?$boundary:null;
+        $summary['retrieval_instruction']='历史摘记与关键词候选不是全部需求。继续、确认或修改旧任务时，先核对相关原消息及前后文；可用 search_messages 的 before 游标继续浏览，read_message 按 next_offset 读取全文。不同对象的条件不能混用；不得因摘记未提及而忽略限制。';
         $currentAssets=AgentExecutionService::displayAttachments((int)$run['tenant_id'],(int)$run['user_id'],AgentStore::json($run['attachments']));
         $currentAssets=array_values(array_filter($currentAssets,static fn($a)=>!empty($a['url'])));
         if($currentAssets){
-            $focus=['file_ids'=>array_column($currentAssets,'file_id'),'source'=>'current_attachments','goal'=>self::excerpt((string)$run['content'],600)];
+            $focus=['file_ids'=>array_column($currentAssets,'file_id'),'source'=>'current_attachments','goal'=>(string)$run['content']];
             self::storeFocus($run,$focus);
         }elseif($topic){
             $focus=[];
@@ -113,10 +125,12 @@ final class AgentContextService
     }
     private static function storeFocus(array $run,array $focus): void
     {
+        if(strlen(AgentStore::encode($focus))>65535)throw new \InvalidArgumentException('创作目标超出存储容量，未截断或覆盖原目标，请分段设置');
         self::ensure($run);
         if(AgentTopicService::state($run)){
             $current=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
             $preferences=AgentStore::json($current['preferences']);$preferences['_topic_focus']=$focus;
+            if(strlen(AgentStore::encode($preferences))>65535)throw new \InvalidArgumentException('创作上下文超出存储容量，未截断或覆盖原目标，请分段设置');
             AgentStore::update($run,['preferences'=>AgentStore::encode($preferences)]);
             return;
         }
@@ -126,7 +140,7 @@ final class AgentContextService
     {
         self::assertSession($run);
         if($file!=='')self::asset($run,$file);
-        $focus=['file_ids'=>$file===''?[]:[$file],'source'=>'explicit_selection','goal'=>mb_substr($goal,0,600)];
+        $focus=['file_ids'=>$file===''?[]:[$file],'source'=>'explicit_selection','goal'=>$goal];
         self::storeFocus($run,$focus);
         return $focus;
     }
@@ -139,7 +153,7 @@ final class AgentContextService
         }
         $files=(int)$memory['focus_run_id']===(int)$run['id']&&($previous['source']??'')==='generated_artifact'?($previous['file_ids']??[]):[];
         $files[]= $file;
-        self::storeFocus($run,['file_ids'=>array_slice(array_values(array_unique($files)),-8),'source'=>'generated_artifact','goal'=>self::excerpt((string)$run['content'],600)]);
+        self::storeFocus($run,['file_ids'=>array_slice(array_values(array_unique($files)),-8),'source'=>'generated_artifact','goal'=>(string)$run['content']]);
     }
     public static function taskState(array $run): array
     {
