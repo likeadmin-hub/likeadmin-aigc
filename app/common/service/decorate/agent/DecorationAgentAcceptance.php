@@ -29,7 +29,7 @@ final class DecorationAgentAcceptance
         $session=self::owned('session',$tenant,$admin,(int)$candidate['session_id']);
         self::assertDraftHash($session,(string)($p['expected_hash']??''));
         $budget=(float)($p['budget_points']??0);
-        if(!is_finite($budget)||$budget<=0) throw new RuntimeException('请确认本轮验收预算');
+        if(!is_finite($budget)||$budget<0) throw new RuntimeException('验收预算参数无效');
         $key=(string)($p['idempotency_key']??'');
         if(trim($key)===''||strlen($key)>100) throw new RuntimeException('验收提交标识无效');
         $fileId=(int)($p['screenshot_file_id']??0);
@@ -193,8 +193,8 @@ final class DecorationAgentAcceptance
         foreach($rows as $row) {if((int)$row['tenant_id']!==(int)$run['tenant_id']||(int)$row['user_id']!==0||$row['app_code']!=='system_default'||$row['run_status']!=='success'||$row['billing_status']!=='settled'||$row['protocol']==='image_generate') return false;$found[]=(int)$row['id'];$total+=(float)$row['actual_tenant_cost'];}
         foreach($ids as $id) if(!in_array($id,$found,true)) return false;
         $billing=$ctx['last_result']['billing']['billing_status']??'settled';
-        $budget=(float)(DecorationAgentService::decode($run['input_json'])['budget_points']??0);
-        return $found!==[]&&$billing==='settled'&&is_finite($total)&&$total>=0&&$budget>0&&$total<=$budget;
+        $input=DecorationAgentService::decode($run['input_json']);$budget=(float)($input['budget_points']??0);
+        return $found!==[]&&$billing==='settled'&&is_finite($total)&&$total>=0&&(DecorationAgentExecutionPolicy::unlimited($input)||($budget>0&&$total<=$budget));
     }
     private static function interactionContract(array $snapshot,int $tenant,int $template): array
     {

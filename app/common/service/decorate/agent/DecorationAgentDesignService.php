@@ -351,7 +351,7 @@ final class DecorationAgentDesignService
     public static function confirm(int $tenant,int $admin,array $parameters): array
     {
         $id=(int)($parameters['run_id']??0);$revision=(int)($parameters['revision']??0);$hash=(string)($parameters['design_hash']??'');$key=trim((string)($parameters['idempotency_key']??''));$budget=(float)($parameters['budget_points']??0);
-        if($key===''||strlen($key)>100||!is_finite($budget)||$budget<=0||strlen($hash)!==64)throw new RuntimeException('请提供有效设计版本、确认标识和实施预算');
+        if($key===''||strlen($key)>100||!is_finite($budget)||$budget<0||strlen($hash)!==64)throw new RuntimeException('请提供有效设计版本、确认标识和调用参数');
         $hint=self::ownedRun($tenant,$admin,$id);
         return Db::transaction(function()use($tenant,$admin,$id,$revision,$hash,$key,$budget,$hint): array {
             // Continuation uses the same candidate -> session lock order as apply and start.
@@ -367,7 +367,7 @@ final class DecorationAgentDesignService
             $d['status']='approved';$ctx['design']=$d;Db::name('decorate_agent_run')->where('id',$id)->update(['context_json'=>DecorationAgentService::json($ctx)]);
             $input=DecorationAgentService::decode($run['input_json']);
             // Confirmation is a new authorization. Preserve the design-only brief in its original history.
-            $input['message']='我已确认第'.$revision.'版设计稿。现在授权按已确认的完整设计图及冻结规划开始页面实施：使用真实可编辑组件还原布局、文字、配色、图标和已选素材；仅在当前已授权来源和本轮预算内生成所需独立素材。请生成候选页面供预览，完成后通过实际截图与设计稿逐项复审。';
+            $input['message']='我已确认第'.$revision.'版设计稿。现在授权按已确认的完整设计图及冻结规划开始页面实施：使用真实可编辑组件还原布局、文字、配色、图标和已选素材；仅在当前已授权来源内生成所需独立素材。请生成候选页面供预览，完成后通过实际截图与设计稿逐项复审。';
             $input['design_first']=false;unset($input['design_parent_run_id']);$input['session_id']=$session['id'];$input['budget_points']=$budget;$input['idempotency_key']='design-implementation:'.hash('sha256',$tenant.':'.$admin.':'.$id.':'.$hash.':'.$key);
             $implementation=DecorationAgentService::start($tenant,$admin,$input,$approved);
             $ctx['design']['implementation_run_id']=$implementation['id'];$ctx['design']['confirmation_key']=$key;Db::name('decorate_agent_run')->where('id',$id)->update(['context_json'=>DecorationAgentService::json($ctx)]);

@@ -39,6 +39,7 @@ try {
  $implementation=(int)Db::name('decorate_agent_run')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'session_id'=>$session['id'],'status'=>'completed','input_json'=>S::json($ordinaryInput),'context_json'=>'{}','result_json'=>'{}','events_json'=>'[]','idempotency_key'=>'review-flow-implementation:'.bin2hex(random_bytes(8))]);Db::name('decorate_agent_candidate')->where('id',$candidateId)->update(['run_id'=>$implementation]);
  $p=['candidate_id'=>$candidateId,'revision'=>1,'candidate_hash'=>S::hash($payload),'expected_hash'=>S::hash($draft),'design_run_id'=>$designRun,'design_hash'=>$design['hash'],'screenshot_file_id'=>$fileId,'budget_points'=>25,'idempotency_key'=>'fixture-review'];
 
+ Db::startTrans();try{$zero=$p;$zero['budget_points']=0;$zero['idempotency_key']='fixture-unlimited-review';$zeroRun=S::reviewDesign(1,1,$zero);$zeroInput=S::decode(Db::name('decorate_agent_run')->where('id',$zeroRun['id'])->value('input_json'));reviewFlowCheck($zeroInput['budget_points']===0&&$zeroInput['execution_policy']==='unlimited_v1','visual review accepts zero budget and freezes unlimited policy');}finally{Db::rollback();}
  // Exercise the real queue entry point without submitting any provider work.
  reviewFlowCheck(count($models)>=2,'fixture has two tenant-enabled vision models');
  $alternative=Text::resolveModel(1,['id'=>$models[1]['id']],true);
@@ -91,8 +92,8 @@ try {
  $nonVision=array_values(array_filter(Text::textOptions(1),fn($m)=>empty($m['supports_vision'])));
  if($nonVision){$bad['model_selection']=['id'=>(int)$nonVision[0]['id']];reviewFlowReject(fn()=>S::reviewDesign(1,1,$bad),'nonvision selection is rejected before queueing');}
  foreach(['sources'=>['generate'],'image_model_selection'=>['id'=>1],'endpoint'=>'https://invalid.example'] as $field=>$value){$bad=$p;$bad[$field]=$value;reviewFlowReject(fn()=>S::reviewDesign(1,1,$bad),'review API rejects unauthorized top-level override');}
- $bad=$p;$bad['model_selection']=$selected;$bad['budget_points']=0;
- reviewFlowReject(fn()=>S::reviewDesign(1,1,$bad),'explicit model retains budget preflight');
+ $bad=$p;$bad['model_selection']=$selected;$bad['budget_points']=-1;
+ reviewFlowReject(fn()=>S::reviewDesign(1,1,$bad),'negative budget parameter rejected');
 
  $estimateReferences=new ReflectionMethod(S::class,'visionReferenceCount');$estimateReferences->setAccessible(true);
  reviewFlowCheck($estimateReferences->invoke(null,['attachments'=>[]],['approved_design'=>['run_id'=>$designRun]])===1&&$estimateReferences->invoke(null,['attachments'=>[['uses'=>['layout']]]],['approved_design'=>['run_id'=>$designRun]])===2,'budget counts actual implementation one-image and review two-image references');
@@ -115,7 +116,7 @@ try {
  reviewFlowCheck($contextCopy['approved_design']===$ctx['approved_design']&&$contextCopy['visual_review']===$ctx['visual_review']&&isset($contextCopy['trusted_materials'],$contextCopy['approved_material_urls']),'projection retains authoritative raw approval/evidence and trusted source context');
  Db::startTrans();
  try {
-  $tiny=$input;$tiny['budget_points']=0.001;Db::name('decorate_agent_run')->where('id',$review['id'])->update(['input_json'=>S::json($tiny)]);
+  $tiny=$input;unset($tiny['execution_policy']);$tiny['budget_points']=0.001;Db::name('decorate_agent_run')->where('id',$review['id'])->update(['input_json'=>S::json($tiny)]);
   $step=new ReflectionMethod(S::class,'step');$step->setAccessible(true);$step->invoke(null,$review['id'],'fixture-no-provider');
   $stopped=Db::name('decorate_agent_run')->where('id',$review['id'])->find();$stoppedCtx=S::decode($stopped['context_json']);$preflight=$stoppedCtx['budget_preflight'];
   $copy=$stoppedCtx;$tiny['remaining_budget_points']=0.001;$wireContext=$contextMethod->invokeArgs(null,[1,1,$session,$tiny,&$copy,false]);
@@ -145,7 +146,7 @@ try {
  reviewFlowCheck($fixed['revision']===2&&$fixed['acceptance']['passed']===false,'repair invalidates acceptance despite model passed=true');
  reviewFlowCheck(str_contains(S::run(1,1,$repair['id'])['assistant_reply'],'尚未通过'),'repair publishes honest incomplete verification outcome');
  $repairSlot=(int)Db::name('decorate_agent_image_slot')->insertGetId(['tenant_id'=>1,'admin_id'=>1,'session_id'=>$session['id'],'run_id'=>$repair['id'],'candidate_id'=>$candidateId,'slot_key'=>'intro:styles.background_image','status'=>'queued','request_json'=>'{}','result_json'=>'{}']);
- $slots=S::candidate(1,1,$candidateId)['image_slots'];reviewFlowCheck(count($slots)===1&&(int)$slots[0]['id']===$repairSlot&&(int)$slots[0]['run_id']===$repair['id']&&$slots[0]['remaining_budget_points']===24.0,'candidate returns repair image slots with their actual run budget');
+ $slots=S::candidate(1,1,$candidateId)['image_slots'];reviewFlowCheck(count($slots)===1&&(int)$slots[0]['id']===$repairSlot&&(int)$slots[0]['run_id']===$repair['id']&&$slots[0]['remaining_budget_points']===null,'candidate returns unlimited repair image slots without a fabricated numeric budget');
  reviewFlowReject(fn()=>S::apply(1,1,['candidate_id'=>$candidateId,'revision'=>2,'idempotency_key'=>'review-flow-unsafe-apply']),'apply rejects repaired version without fresh screenshot review');
  reviewFlowCheck(S::hash(S::payload(T::pageDetail(1,['template_id'=>$template['id'],'id'=>$page['id']])))===S::hash($draft),'reviews and repairs never modify the draft');
 }finally{Db::rollback();foreach($paths as $path)if(is_file($path))unlink($path);}
