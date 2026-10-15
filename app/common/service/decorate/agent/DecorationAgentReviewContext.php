@@ -107,7 +107,7 @@ final class DecorationAgentReviewContext
         foreach($valid as $entry){
             $key=($entry['kind']??'').':'.(int)($entry['id']??0).':'.($entry['stable_uri']??'');
             if(!isset($refs[$key])||!in_array($entry['source']??'tenant',$sources,true))continue;
-            $item=array_intersect_key($entry,array_flip(['kind','id','stable_uri','file_id','slot_id','width','height','title','name','role','tags','storage_scope','source']));
+            $item=array_intersect_key($entry,array_flip(['kind','id','stable_uri','file_id','slot_id','width','height','title','name','role','tags','storage_scope','source','visual_geometry']));
             foreach($metadata as $source){
                 $id=$entry['kind']==='file'?(int)($source['file_id']??0):(int)($source['slot_id']??0);
                 if($id!==(int)$entry['id'])continue;

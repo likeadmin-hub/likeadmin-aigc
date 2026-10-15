@@ -180,7 +180,7 @@ final class DecorationAgentAcceptance
         if(!empty($ctx['changes'])||!empty($ctx['image_requests'])) return true;
         $decision=$acceptance;
         if(isset($ctx['last_result'])) {$text=DecorationAgentDecision::finalContent($ctx['last_result']);$decision=json_decode($text,true)?:[];}
-        foreach($decision['operations']??[] as $op) if(!in_array($op['type']??$op['op']??'', ['get_context','catalog','data_sources','links','search_materials','icons','validate'],true)) return true;
+        foreach($decision['operations']??[] as $op) if(!in_array($op['type']??$op['op']??'', ['get_context','catalog','data_sources','links','search_materials','icons','inspect_image','validate'],true)) return true;
         return false;
     }
     private static function settled(array $run,array $ctx): bool

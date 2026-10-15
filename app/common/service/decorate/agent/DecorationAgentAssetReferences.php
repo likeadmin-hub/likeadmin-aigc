@@ -157,6 +157,7 @@ final class DecorationAgentAssetReferences
                 $a=parse_url($alias);$b=parse_url($url);
                 if($alias===$match['stable']||(is_array($a)&&is_array($b)&&array_intersect_key($a,array_flip(['scheme','host','port','path']))===array_intersect_key($b,array_flip(['scheme','host','port','path']))))$aliases[]=$alias;
             }
+            unset($entry['visual_geometry']);if(is_array($match['asset']['visual_geometry']??null))$entry['visual_geometry']=$match['asset']['visual_geometry'];
             $entry=array_replace($entry,['source'=>$source,'url'=>$url,'aliases'=>array_values(array_unique($aliases)),'file_id'=>$kind==='file'?$id:0,'slot_id'=>$kind==='slot'?$id:0,'asset'=>array_intersect_key($match['asset'],array_flip(['image_uri','storage_scope','storage_engine','storage_domain'])),'title'=>'当前基准页面已使用的素材','role'=>'owned_page_asset']);
             $result[]=$entry;
         }
