@@ -30,6 +30,12 @@ try {
  foreach([['id'=>true],['id'=>1,'sku_id'=>true]] as $selection){
   $result=$review($selection);transportCheck(($result['code']??1)!==1&&str_contains($result['msg']??'','标识无效'),'actual review controller rejects JSON boolean model identities before candidate lookup');
  }
+ $reviewNotes=static function(mixed $notes): array {
+  $request=(new app\Request())->withServer(['REQUEST_METHOD'=>'POST'])->withHeader(['content-type'=>'application/json;charset=UTF-8'])->withInput(S::json(['idempotency_key'=>'transport-review-notes','review_notes'=>$notes]));
+  $request->adminInfo=['tenant_id'=>1,'admin_id'=>1,'root'=>1];$request->tenantId=1;app()->instance('request',$request);
+  return (new AgentController(app()))->reviewDesign()->getData();
+ };
+ foreach([true,false,1,1.5,null,[]] as $notes){$result=$reviewNotes($notes);transportCheck(($result['code']??1)!==1&&str_contains($result['msg']??'','补充对照说明须为'),'actual JSON controller rejects non-string review notes before candidate lookup');}
  foreach(['https://fixture.invalid/%75ploads/design.png','https://fixture.invalid/uploads/temp/../design.png','https://fixture.invalid/uploads/%2e%2e/uploads/design.png','https://fixture.invalid/%2575ploads/design.png'] as $url){
   $page=O::apply(['data'=>[],'meta'=>[]],[['type'=>'add_component','name'=>'banner','content'=>['data'=>[['image'=>$url]]]]],['scope'=>'page','approved_urls'=>[$url]])['candidate'];
   $rejected=false;try{D::assertNoReferenceImages($page,null,['uris'=>['uploads/design.png']]);}catch(RuntimeException $error){$rejected=true;}
