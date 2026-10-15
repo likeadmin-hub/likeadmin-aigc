@@ -43,6 +43,25 @@ namespace {
   $before=Db::name('ai_consumption_log')->count();$options=S::extractionOptions(1,1,$tuple);
   extractionCheck($options['design']['revision']===1&&$options['supports_transparent_background']===false&&count($options['targets'])>0,'options exposes approved design, actual targets and explicit solid-only capability');
   $p=$tuple+['expected_hash'=>S::hash($base),'design_run_id'=>$designRun,'design_revision'=>1,'design_hash'=>$design['hash'],'widget_id'=>'hero','field'=>'content.data.0.image','generation_mode'=>'design_extract','region'=>['x'=>100,'y'=>200,'width'=>200,'height'=>200],'asset_role'=>'icon','background'=>['mode'=>'solid','color'=>'#102030'],'ratio'=>'1:1','prompt'=>'保留批准图的平面相框形状','image_model_selection'=>['market_product_id'=>999,'market_sku_id'=>999],'authorize_generation'=>true,'budget_points'=>10];
+  // The manual images-only entry must use the same current source-graphic
+  // authority and frozen target as an Agent request, before any paid boundary.
+  Db::startTrans();try{
+   $graphicPayload=$payload;$apps=C::create('app-collection','apps');$apps['content']['source_graphics']=[['app_code'=>'aigc_image','entry_key'=>'aigc_image','mode'=>'image','image'=>'']];$graphicPayload['data'][]=$apps;
+   Db::name('decorate_agent_candidate')->where('id',$candidate)->update(['payload_json'=>S::json($graphicPayload)]);
+   $graphicParams=array_replace($p,['candidate_hash'=>S::hash($graphicPayload),'widget_id'=>'apps','field'=>'content.source_graphics.0.image']);
+   $graphicTuple=array_intersect_key($graphicParams,array_flip(['candidate_id','revision','candidate_hash']));
+   extractionCheck(in_array($graphicParams['field'],array_column(S::extractionOptions(1,1,$graphicTuple)['targets'],'field'),true),'manual extraction options include only a real image-mode application tuple');
+   $graphicQuote=S::quoteDesignAsset(1,1,$graphicParams);$graphicRun=S::extractDesignAsset(1,1,$graphicQuote['canonical_request']+['quote_hash'=>$graphicQuote['quote_hash'],'idempotency_key'=>'extract-source-graphic']);
+   $graphicSlot=Db::name('decorate_agent_image_slot')->where('run_id',$graphicRun['id'])->find();$graphicRequest=S::decode($graphicSlot['request_json']);
+   extractionCheck(($graphicRequest['source_graphic_target']['app_code']??'')==='aigc_image'&&($graphicRequest['source_graphic_target']['mode']??'')==='image'&&$graphicRun['model_calls']===0,'manual extraction prepare freezes current source identity without text or image submission');
+   $wireMethod=new \ReflectionMethod(Media::class,'referenceRequest');$graphicRequest['attachments']=[];$graphicWire=$wireMethod->invoke(null,1,$graphicRequest,(int)$graphicSlot['id']);
+   extractionCheck(!array_key_exists('source_graphic_target',$graphicWire)&&count($graphicWire['reference_images'])===1,'source target audit metadata stays off the native image wire');
+   $unused=$graphicPayload;$unused['data'][1]['content']['source_graphics'][0]['mode']='icon';Db::name('decorate_agent_candidate')->where('id',$candidate)->update(['payload_json'=>S::json($unused)]);
+   $unusedParams=array_replace($graphicParams,['candidate_hash'=>S::hash($unused)]);$unusedTuple=array_intersect_key($unusedParams,array_flip(['candidate_id','revision','candidate_hash']));
+   extractionCheck(!in_array($graphicParams['field'],array_column(S::extractionOptions(1,1,$unusedTuple)['targets'],'field'),true),'unused source override is absent from manual extraction options');
+   extractionReject(fn()=>S::quoteDesignAsset(1,1,$unusedParams),'manual extraction cannot bypass source-graphic image-mode checks');
+   extractionCheck(Runtime::$reserved===0&&Runtime::$submitted===0,'source-graphic options/quote/create tests never enter the paid boundary');
+  }finally{Db::rollback();}
   $quote=S::quoteDesignAsset(1,1,$p);extractionCheck($quote['estimated_points']===1.0&&$quote['quantity']===1&&$quote['reference_count']===1&&Db::name('ai_consumption_log')->count()===$before&&Runtime::$reserved===0,'quote uses existing price without any slot/receipt/provider');
   $http=static function(string $method,array $body):array {$previous=request();$request=(new \app\Request())->withServer(['REQUEST_METHOD'=>'POST'])->withHeader(['content-type'=>'application/json;charset=UTF-8'])->withInput(S::json($body));$request->adminInfo=['tenant_id'=>1,'admin_id'=>1,'root'=>1];$request->tenantId=1;app()->instance('request',$request);try{return (new \app\tenantapi\controller\decorate\AgentController(app()))->$method()->getData();}finally{app()->instance('request',$previous);}};
   extractionCheck($http('quoteDesignAsset',$p)['code']===1,'actual JSON controller preserves strict true generation consent');

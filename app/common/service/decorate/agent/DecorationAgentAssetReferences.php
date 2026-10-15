@@ -11,6 +11,64 @@ final class DecorationAgentAssetReferences
 {
     private const REFS = '_decoration_asset_refs';
 
+    /** Manual source-graphic claims are identifiers, never caller-authored storage authority. */
+    public static function normalizeSourceGraphics(array $page,array $before,int $tenant): array
+    {
+        if($tenant<=0)throw new \InvalidArgumentException('装修素材租户无效');
+        $prefix='content.source_graphics.';$previous=[];$duplicates=[];
+        self::walk($before,function(array &$widget,array $definition)use(&$previous,&$duplicates,$prefix):void{
+            $id=$widget['id']??null;if(($widget['name']??'')!=='app-collection'||!is_string($id)||$id==='')return;
+            // Ambiguous widget identities must not transfer an old field's proof.
+            if(isset($previous[$id])){$duplicates[$id]=true;return;}$previous[$id]=[];
+            foreach((array)($widget['content']['source_graphics']??[]) as $index=>$row){
+                if(!is_int($index)||!is_array($row)||!is_string($row['image']??null))continue;
+                $ref=$widget[self::REFS][$prefix.$index.'.image']??null;
+                if(!is_array($ref)||($ref['expected_value']??null)!==$row['image'])continue;
+                $key=json_encode([$row['app_code']??null,$row['entry_key']??null,$row['image']]);
+                if(array_key_exists($key,$previous[$id])){$previous[$id][$key]=null;continue;}$previous[$id][$key]=$ref;
+            }
+        });
+        foreach($duplicates as $id=>$_)unset($previous[$id]);
+        $blocked=null;$builtins=null;$cache=[];$identities=[];
+        self::walk($page,function(array &$widget,array $definition)use($tenant,$prefix,$previous,&$blocked,&$builtins,&$cache,&$identities):void{
+            if(($widget['name']??'')!=='app-collection'||!array_key_exists('source_graphics',(array)($widget['content']??[])))return;
+            DecorationAgentOperations::validateSourceGraphics($widget);
+            if($blocked===null){
+                $blocked=array_map(fn($uri)=>DecorationAgentDesignService::imagePath((string)$uri),DecorationAgentDesignService::blockedUris($tenant));
+                $builtins=array_column(DecorationAgentMediaService::builtinMaterials(),'url');
+            }
+            $refs=is_array($widget[self::REFS]??null)?$widget[self::REFS]:[];$kept=$refs;
+            foreach($kept as $field=>$_)if(is_string($field)&&str_starts_with($field,$prefix))unset($kept[$field]);
+            foreach($widget['content']['source_graphics'] as $index=>$row){
+                $value=$row['image']??'';
+                if(!is_string($value))throw new \InvalidArgumentException('应用入口图片地址无效');
+                if($value==='')continue;
+                if(in_array(DecorationAgentDesignService::imagePath($value),$blocked,true))throw new \InvalidArgumentException('设计稿和验收截图不能作为应用入口图片');
+                $field=$prefix.$index.'.image';$ref=$refs[$field]??null;
+                if(!is_array($ref)||($ref['expected_value']??null)!==$value){
+                    $key=json_encode([$row['app_code'],$row['entry_key'],$value]);
+                    $ref=$previous[(string)($widget['id']??'')][$key]??null;
+                }
+                if($ref===null&&in_array($value,$builtins,true))continue;
+                $kind=is_array($ref)?($ref['kind']??null):null;$rawId=is_array($ref)?($ref['id']??null):null;
+                $id=(is_int($rawId)||(is_string($rawId)&&preg_match('/^[1-9][0-9]*$/D',$rawId)))?filter_var($rawId,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]):false;
+                if($id===false||!in_array($kind,['file','slot'],true)||($ref['expected_value']??null)!==$value)throw new \InvalidArgumentException('应用入口图片缺少有效素材身份');
+                $key=$kind.':'.$id;if(!array_key_exists($key,$cache))$cache[$key]=$kind==='file'?self::file($id,$tenant):self::slot($id,$tenant);
+                $record=$cache[$key];$match=null;
+                foreach($record?($kind==='file'?[$record]:$record['assets']):[] as $asset)if($asset['stable']===$value){$match=$asset;break;}
+                if(!$match)throw new \InvalidArgumentException('应用入口图片已失效或无权使用');
+                $identity=json_encode([$match['uri'],$match['scope'],$match['engine'],$match['domain']]);
+                if(isset($identities[$value])&&$identities[$value]!==$identity)throw new \InvalidArgumentException('应用入口图片存储身份冲突');
+                $identities[$value]=$identity;
+                // Rebuild the small reserved claim; client domain/engine/URI fields never survive.
+                $kept[$field]=['kind'=>$kind,'id'=>$id,'expected_value'=>$match['stable']];
+                $widget['content']['source_graphics'][$index]['image']=$match['stable'];
+            }
+            if($kept)$widget[self::REFS]=$kept;else unset($widget[self::REFS]);
+        });
+        return $page;
+    }
+
     public static function attachGenerated(array $page,array $slot,array $asset): array
     {
         $tenant=(int)($slot['tenant_id']??0);
@@ -301,10 +359,19 @@ final class DecorationAgentAssetReferences
     private static function walk(array &$page,\Closure $visit): void
     {
         $walk=function(array &$rows,int $depth)use(&$walk,$visit): void {
-            if($depth>4)return;
+            if($depth>5)return;
             foreach($rows as &$widget){
                 if(!is_array($widget))continue;
+                // Manual template saves permit one deeper level than the original
+                // Agent asset walk. Extend only this new list, never legacy assets.
+                if($depth===5&&($widget['name']??'')!=='app-collection')continue;
                 try{$definition=($widget['name']??'')==='page-meta'?DecorationAgentCatalog::pageMeta():DecorationAgentCatalog::definition((string)($widget['name']??''));}catch(\InvalidArgumentException $e){continue;}
+                if($depth===5){
+                    $definition['content_fields']=array_intersect_key($definition['content_fields']??[],['source_graphics'=>true]);
+                    $definition['style_fields']=[];
+                    $definition['lists']=array_intersect_key($definition['lists']??[],['source_graphics'=>true]);
+                    $definition['children']=['supported'=>false];
+                }
                 $visit($widget,$definition);
                 if(!empty($definition['children']['supported'])&&isset($widget['children'])&&is_array($widget['children']))$walk($widget['children'],$depth+1);
             }

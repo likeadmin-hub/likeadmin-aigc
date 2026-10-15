@@ -266,6 +266,7 @@ class DecorationAgentOperations
 
     private function fields(array &$widget, array $definition, array $fields): void
     {
+        $graphicsEdited = false;
         foreach ($fields as $path => $value) {
             $schema = $this->field($definition, $path, $widget);
             if ($path === 'content.font_size_mode') self::fail('Font compatibility mode is set only by an explicit font edit');
@@ -279,7 +280,9 @@ class DecorationAgentOperations
                 if (is_array($old)) $value = ($schema['type'] ?? '') === 'link' ? array_replace(array_diff_key($old, array_flip(['path','url','query','type','name','title'])), $value) : array_replace($old, $value);
             }
             self::set($widget, $path, $value);
+            if ($path === 'content.source_graphics' || str_starts_with($path, 'content.source_graphics.')) $graphicsEdited = true;
         }
+        if ($graphicsEdited) self::validateSourceGraphics($widget);
     }
     private function field(array $definition, string $path, array $widget): array
     {
@@ -406,6 +409,52 @@ class DecorationAgentOperations
         }
         if((count($rows)<$contract['min_items']&&count($rows)<$oldCount)||($contract['max_items']!==null&&count($rows)>$contract['max_items']&&count($rows)>$oldCount))self::fail('List length outside component limits');
         $widget['content'][$field]=$rows;
+        if ($field === 'source_graphics') self::validateSourceGraphics($widget);
+    }
+
+    /** Optional display overrides never create or rename actual source entries. */
+    public static function validateSourceGraphics(array $widget): void
+    {
+        if (($widget['name'] ?? '') !== 'app-collection') self::fail('Source graphics require app-collection');
+        $rows = $widget['content']['source_graphics'] ?? [];
+        if (!is_array($rows) || !array_is_list($rows) || count($rows) > 50) self::fail('Invalid source graphics list');
+        $contract = DecorationAgentCatalog::definition('app-collection')['lists']['source_graphics'] ?? [];
+        $icons = array_column($contract['fields']['icon']['options'] ?? [], 'value');
+        $seen = [];
+        foreach ($rows as $row) {
+            if (!is_array($row) || array_diff(array_keys($row), ['id','app_code','entry_key','mode','icon','image'])) self::fail('Unapproved source graphic field');
+            foreach (['app_code' => 64, 'entry_key' => 128] as $key => $limit) {
+                if (!is_string($row[$key] ?? null) || $row[$key] === '' || trim($row[$key]) !== $row[$key] || mb_strlen($row[$key]) > $limit) self::fail('Source graphic identity is required');
+            }
+            $identity = json_encode([$row['app_code'], $row['entry_key']]);
+            if (isset($seen[$identity])) self::fail('Duplicate source graphic identity');
+            $seen[$identity] = true;
+            $mode = array_key_exists('mode', $row) ? $row['mode'] : 'source';
+            if (!in_array($mode, ['source','icon','image'], true)
+                || (array_key_exists('icon', $row) && !in_array($row['icon'], $icons, true))
+                || (array_key_exists('image', $row) && !is_string($row['image']))
+                || (array_key_exists('id', $row) && (!is_string($row['id']) || $row['id'] === ''))) self::fail('Invalid source graphic mode, icon or image shape');
+        }
+    }
+
+    /** Pure engine: live entries must be supplied by the tenant-scoped service. */
+    public static function sourceGraphicTarget(array $widget, string $field, array $entries): ?array
+    {
+        if (!str_starts_with($field, 'content.source_graphics.')) return null;
+        if (!preg_match('/^content\.source_graphics\.(0|[1-9][0-9]*)\.image$/D', $field, $match)) self::fail('Invalid source graphic image field');
+        self::validateSourceGraphics($widget);
+        $content = $widget['content'];
+        $key = array_key_exists('source_key', $content) ? $content['source_key'] : ($content['source']['key'] ?? 'app_entries');
+        $params = array_key_exists('source_params', $content) ? $content['source_params'] : ($content['source']['params'] ?? []);
+        $mode = $content['data_mode'] ?? 'hybrid';
+        $row = $content['source_graphics'][(int)$match[1]] ?? null;
+        if ($key !== 'app_entries' || !in_array($mode, ['source','hybrid'], true) || !is_array($params) || !is_array($row) || ($row['mode'] ?? '') !== 'image') self::fail('Source graphic is not a rendered image target');
+        $found = false;
+        foreach ($entries as $entry) if (($entry['app_code'] ?? null) === $row['app_code'] && ($entry['entry_key'] ?? null) === $row['entry_key']) $found = true;
+        if (!$found) self::fail('Source graphic application entry is no longer available');
+        ksort($params);
+        return ['app_code'=>$row['app_code'],'entry_key'=>$row['entry_key'],'mode'=>'image','row_id'=>$row['id'] ?? null,
+            'source_binding'=>['key'=>$key,'mode'=>$mode,'params'=>$params]];
     }
     private function bind(array &$widget,array $definition,array $op): void
     {
@@ -425,7 +474,8 @@ class DecorationAgentOperations
         $references=$op['reference_file_ids']??[];if(!is_array($references)||count($references)>10)self::fail('Too many reference files');
         foreach($references as $file)if(!is_int($file)||$file<=0)self::fail('Reference file id invalid');
         $extraction=isset($op['generation_mode'])?DecorationAgentDesignExtraction::operation($op):[];
-        $this->images[]=['widget_id'=>$id,'field'=>$field,'prompt'=>$prompt,'ratio'=>$ratio,'reference_file_ids'=>$references,'old_value'=>self::get($widget,$field),'old_ref'=>$widget['_decoration_asset_refs'][$field]??null]+$extraction;
+        $target=self::sourceGraphicTarget($widget,$field,$this->scope['source_graphic_entries']??[]);
+        $this->images[]=['widget_id'=>$id,'field'=>$field,'prompt'=>$prompt,'ratio'=>$ratio,'reference_file_ids'=>$references,'old_value'=>self::get($widget,$field),'old_ref'=>$widget['_decoration_asset_refs'][$field]??null]+($target===null?[]:['source_graphic_target'=>$target])+$extraction;
     }
     private function configurePage(array &$page,array $op): void
     {
