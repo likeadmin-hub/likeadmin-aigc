@@ -81,6 +81,22 @@ namespace {
     check($replies===['已','已收到','已收到页面']&&$decision['reply']==='已收到页面'&&$decision['operations']===[],'Real decoration reply parser receives only canonical append-only JSON fragments without tool envelope leakage');
     $mixed=wire([created(),textDelta(0,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],complete([message('AB')])],$chunks);
     check($mixed['content']==='AB'&&implode('',$chunks)==='AB','Mixed index stream retains conservative legacy arrival-prefix behavior');
+    $mixedGap=wire([created(),textDelta(0,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],textDelta(0,0,'C'),textDone(0,0,'ABC'),complete([message('ABC')])],$chunks);
+    check($mixedGap['content']==='ABC'&&implode('',$chunks)==='ABC','Unindexed gap must not contaminate or invent an indexed prefix while explicit done remains valid');
+    $legacyDone=wire([created(),['type'=>'response.output_text.delta','delta'=>'A'],textDone(0,0,'AB'),complete([message('AB')])],$chunks);
+    check($legacyDone['content']==='AB'&&implode('',$chunks)==='AB','Legacy-first stream retains a consistent explicitly indexed done snapshot');
+    $mixedProofFailures=[
+        [created(),textDelta(0,0,'A'),textDelta(1,0,'X'),['type'=>'response.output_text.delta','delta'=>'Y'],complete([message('AX'),message('Y')])],
+        [created(),['type'=>'response.output_text.delta','delta'=>'A'],textDone(0,0,'AX'),complete([message('AB')])],
+        [created(),textDelta(0,0,'A'),textDelta(1,0,'X'),['type'=>'response.output_text.delta','delta'=>'Y'],complete([message('AXY')])],
+        [created(),textDelta(0,0,'A'),textDone(0,0,'AX'),['type'=>'response.output_text.delta','delta'=>'B'],complete([message('AB')])],
+        [created(),textDelta(0,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],textDone(0,0,'AX'),complete([message('AB')])],
+        [created(),['type'=>'response.output_item.added','output_index'=>0,'item'=>$reasoning],textDelta(1,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],complete([message(''),message('AB')])],
+    ];
+    foreach($mixedProofFailures as $broken){
+        try{wire($broken);throw new \LogicException('Mixed indices discarded a previously proven part/done/head fact');}
+        catch(MarketTextModelProviderException $e){check($e->partialResult['protocol_diagnostic']['code']==='responses_text_mismatch'&&$e->partialResult['tool_calls']===[]&&!$e->allowsModelFallback,'Mixed stream mismatch remains a non-replayable native failure');}
+    }
     $badParts=message('AX');$badParts['content'][]=['type'=>'output_text','text'=>'BY'];
     $brokenParts=[
         // Arrival AXBY matches final AXBY, but each actual indexed part is wrong.
@@ -170,5 +186,5 @@ namespace {
     (new Agent())->setThreadId('fresh-responses-contract')->setAiProvider($fresh)->chat(new UserMessage('你好'));
     $legacy=invoke('normalizeMessages','test',[],[['role'=>'assistant','content'=>'visible','tool_calls'=>[['id'=>'a']],'_responses_output'=>$items]],false);
     check(!str_contains(json_encode($legacy),'opaque-fixture'),'Native continuation leaked into legacy normalization');
-    echo "Responses protocol passed: actual Neuron loop, parallel calls, native history, encrypted continuation isolation, fragmented SSE, indexed interleaving/head buffering/canonical completion, conflict/done/terminal guards, no snapshot duplicates, incomplete review, images and usage\n";
+    echo "Responses protocol passed: actual Neuron loop, parallel calls, native history, encrypted continuation isolation, fragmented SSE, indexed interleaving/head buffering/canonical completion, mixed prefix/done/head-proof preservation, conflict/done/terminal guards, no snapshot duplicates, incomplete review, images and usage\n";
 }

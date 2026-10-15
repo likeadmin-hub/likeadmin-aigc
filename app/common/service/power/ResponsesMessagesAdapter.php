@@ -141,30 +141,30 @@ final class ResponsesMessagesAdapter
                 }
             }
             $state['responses_output'] = $continuation;
-            if (($state['responses_text_mode'] ?? '') === 'indexed') {
-                // Arrival order is not output order. Each explicitly indexed part must
-                // independently agree with its authoritative completed counterpart.
-                foreach ($state['responses_text'] ?? [] as $key => $text) {
-                    if (!array_key_exists($key, $finalParts) || !str_starts_with($finalParts[$key], $text)) {
-                        self::textMismatch($state);
-                        return;
-                    }
+            // Downgrading to legacy arrival order cannot erase already proven
+            // indexed prefixes, explicitly indexed done snapshots, or head facts.
+            foreach ($state['responses_indexed_prefix'] ?? [] as $key => $text) {
+                if (!array_key_exists($key, $finalParts) || !str_starts_with($finalParts[$key], $text)) {
+                    self::textMismatch($state);
+                    return;
                 }
-                foreach ($state['responses_text_done'] ?? [] as $key => $text) {
-                    if (!array_key_exists($key, $finalParts) || $finalParts[$key] !== $text) {
-                        self::textMismatch($state);
-                        return;
-                    }
+            }
+            foreach ($state['responses_text_done'] ?? [] as $key => $text) {
+                if (!array_key_exists($key, $finalParts) || $finalParts[$key] !== $text) {
+                    self::textMismatch($state);
+                    return;
                 }
-                foreach ($state['responses_head_prefix'] ?? [] as $itemIndex => $type) {
-                    if (($items[$itemIndex]['type'] ?? '') !== $type) {
-                        self::textMismatch($state);
-                        return;
-                    }
+            }
+            foreach ($state['responses_head_prefix'] ?? [] as $itemIndex => $type) {
+                if (($items[$itemIndex]['type'] ?? '') !== $type) {
+                    self::textMismatch($state);
+                    return;
                 }
-            } elseif (!str_starts_with($finalText, (string)($state['responses_arrival_content'] ?? $state['content']))) {
-                // Missing/mixed indices cannot establish per-part identity. Preserve
-                // the old conservative whole-answer arrival-prefix contract.
+            }
+            if (($state['responses_text_mode'] ?? '') !== 'indexed'
+                && !str_starts_with($finalText, (string)($state['responses_arrival_content'] ?? $state['content']))) {
+                // Missing/mixed indices additionally retain the conservative
+                // whole-answer arrival-prefix contract.
                 self::textMismatch($state);
                 return;
             }
@@ -220,8 +220,8 @@ final class ResponsesMessagesAdapter
         $key = $output . ':' . $part;
         $previous = (string)($state['responses_text'][$key] ?? '');
         if ($done) {
-            if ($mode === 'legacy') return;
-            if (!str_starts_with($text, $previous)
+            $known = (string)($state['responses_indexed_prefix'][$key] ?? '');
+            if (!str_starts_with($text, $known)
                 || (isset($state['responses_text_done'][$key]) && $state['responses_text_done'][$key] !== $text)) {
                 self::textMismatch($state);
                 return;
@@ -230,9 +230,14 @@ final class ResponsesMessagesAdapter
             return;
         }
         if ($text === '') return;
-        if (array_key_exists($key, $state['responses_text_done'] ?? [])) {
+        if ($indexed && array_key_exists($key, $state['responses_text_done'] ?? [])) {
             self::textMismatch($state);
             return;
+        }
+        // Once an unindexed gap occurs, later indexed deltas cannot prove a
+        // contiguous prefix from that part's beginning. Freeze earlier facts.
+        if ($indexed && $mode !== 'legacy') {
+            $state['responses_indexed_prefix'][$key] = ($state['responses_indexed_prefix'][$key] ?? '') . $text;
         }
         $state['responses_text'][$key] = $previous . $text;
         $state['responses_arrival_content'] = ($state['responses_arrival_content'] ?? '') . $text;
