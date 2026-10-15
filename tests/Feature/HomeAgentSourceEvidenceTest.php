@@ -50,8 +50,8 @@ namespace {
   $changed='甲项目截止日期2027年8月15日；须另行核对。';
   S::table('artifact')->where('id',$artifact)->update(['data'=>S::encode(['file_id'=>$file,'content'=>$changed])]);
   $new=V::verify($run,['file_id'=>$file,'quote'=>$quote]);check(!$new['matched']&&$new['source']['window_sha256']!==$verified['source']['window_sha256'],'Edited source reused stale match');
-  AigcLlmMessage::where('id',$message)->update(['content'=>'须书面授权。须书面授权。']);
-  $repeated=V::verify($run,['message_id'=>$message,'quote'=>'须书面授权']);check($repeated['occurrences_in_window']===2&&!$repeated['semantic_verified'],'Repeated quote ambiguity missing');
+  AigcLlmMessage::where('id',$message)->update(['content'=>str_repeat('须书面授权。',2000)]);
+  $repeated=V::verify($run,['message_id'=>$message,'quote'=>'须书面授权']);check($repeated['occurrences_in_window']===2&&$repeated['count_is_lower_bound']&&!$repeated['semantic_verified'],'Repeated quote ambiguity missing');
   AigcLlmMessage::where('id',$message)->update(['delete_time'=>$now]);denied(fn()=>V::verify($run,['message_id'=>$message,'quote'=>'须书面授权']));
   OpenStore::owner('file',$t,$u)->where('file_id',$file)->delete();denied(fn()=>V::verify($run,['file_id'=>$file,'quote'=>$quote]));
   check(Fake::$calls===[]&&S::run($t,$u,$run['id'])['preferences']===$run['preferences'],'Verification invoked model or mutated run');

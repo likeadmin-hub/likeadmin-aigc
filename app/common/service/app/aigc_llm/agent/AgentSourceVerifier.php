@@ -25,14 +25,15 @@ final class AgentSourceVerifier
             $source=['kind'=>'message','message_id'=>$message,'role'=>$page['role'],'unit'=>'字','offset'=>$page['offset']];
         }
         $text=(string)$page['content'];$windowEnd=$source['offset']+mb_strlen($text);
-        $position=mb_strpos($text,$quote);$count=0;$search=0;
-        while(($found=mb_strpos($text,$quote,$search))!==false){$count++;$search=$found+1;if($search>=mb_strlen($text))break;}
+        $position=mb_strpos($text,$quote);$count=$position===false?0:1;
+        // Only distinguish unique from ambiguous; do not repeatedly scan a large PDF for every match.
+        if($position!==false&&$position+1<mb_strlen($text)&&mb_strpos($text,$quote,$position+1)!==false)$count=2;
         $contextOffset=$position===false?0:max(0,$position-240);
         $context=mb_substr($text,$contextOffset,$position===false?600:mb_strlen($quote)+480);
         $source+=['text_offset'=>$position===false?null:$position,'character_offset'=>$position===false||$source['unit']!=='字'?null:$source['offset']+$position,
             'window_sha256'=>hash('sha256',$text),'window_end'=>$source['unit']==='字'?$windowEnd:($page['next_offset']??$page['total_pages'])];
         if($source['unit']==='页')$source+=['page_start'=>$source['offset']+1,'page_end'=>$source['window_end']];
-        return ['matched'=>$position!==false,'check'=>'exact_quote','semantic_verified'=>false,'occurrences_in_window'=>$count,
+        return ['matched'=>$position!==false,'check'=>'exact_quote','semantic_verified'=>false,'occurrences_in_window'=>$count,'count_is_lower_bound'=>$count===2,
             'quote'=>$quote,'source'=>$source,'context'=>$context,'context_text_offset'=>$contextOffset,
             'next_offset'=>$page['next_offset'],'instruction'=>'matched 仅说明引句与当前读取窗口中的文字一致，不证明结论正确、条件满足或执行已授权。必须检查上下文中的否定、例外、主体和后文更正；重复引句需进一步定位。未匹配只说明此窗口未找到，不代表全文没有。原消息若为助手回复不能作为任务/计费事实依据。PDF只核对提取文字，不核验扫描画面；来源变更后需重新核对。向用户引用时使用文件名/页码或原话，不展示内部标识。'];
     }
