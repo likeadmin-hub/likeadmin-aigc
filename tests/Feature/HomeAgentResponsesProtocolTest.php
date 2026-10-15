@@ -54,6 +54,56 @@ namespace {
     check($result['_responses_output']===$items&&$result['usage']['total_tokens']===140&&$result['provider_request_id']==='resp_fixture','Continuation/receipt/usage lost');
     $unindexed=wire([created(),['type'=>'response.output_text.delta','delta'=>'共有 5 项。'],['type'=>'response.output_text.done','text'=>'共有 5 项。'],complete([$reasoning,message('共有 5 项。')])],$chunks);
     check($chunks===['共有 5 项。']&&$unindexed['content']==='共有 5 项。','Gateway without output_index repeated its terminal snapshot');
+    // Exercise the real curl SSE decoder with independently indexed, interleaved parts.
+    function textDelta(int $output,int $part,string $text):array{return ['type'=>'response.output_text.delta','output_index'=>$output,'content_index'=>$part,'delta'=>$text];}
+    function textDone(int $output,int $part,string $text):array{return ['type'=>'response.output_text.done','output_index'=>$output,'content_index'=>$part,'text'=>$text];}
+    $twoParts=message('AB');$twoParts['content'][]=['type'=>'output_text','text'=>'XY'];
+    $interleaved=[created(),textDelta(0,0,'A'),textDelta(0,1,'X'),textDelta(0,0,'B'),textDelta(0,1,'Y'),textDone(0,0,'AB'),textDone(0,1,'XY'),complete([$twoParts])];
+    $ordered=wire($interleaved,$chunks);
+    check($ordered['content']==='ABXY'&&implode('',$chunks)==='ABXY'&&$chunks===['A','B','XY']&&$ordered['stream_delta_count']===4,'Indexed content parts must stream only stable head and append canonical final tail');
+    $reverse=wire([created(),textDelta(0,1,'X'),textDelta(0,0,'A'),textDelta(0,1,'Y'),textDelta(0,0,'B'),complete([$twoParts])],$chunks);
+    check($reverse['content']==='ABXY'&&$chunks===['A','B','XY'],'Higher content part arriving first must not pollute visible head');
+    $outputs=wire([created(),textDelta(1,0,'X'),textDelta(0,0,'A'),textDelta(1,0,'Y'),textDelta(0,0,'B'),complete([message('AB'),message('XY')])],$chunks);
+    check($outputs['content']==='ABXY'&&implode('',$chunks)==='ABXY','Output items also follow output_index rather than arrival order');
+    $withReasoning=wire([created(),['type'=>'response.output_item.added','output_index'=>0,'item'=>$reasoning],textDelta(2,0,'X'),textDelta(1,0,'A'),textDelta(2,0,'Y'),textDelta(1,0,'B'),complete([$reasoning,message('AB'),message('XY')])],$chunks);
+    check($withReasoning['content']==='ABXY'&&$chunks===['A','B','XY'],'Known non-text preceding output proves the earliest visible head without leaking reasoning');
+    $unknownHead=wire([created(),textDelta(1,0,'A'),textDelta(1,0,'B'),complete([$reasoning,message('AB')])],$chunks);
+    check($unknownHead['content']==='AB'&&$chunks===['AB']&&$unknownHead['stream_delta_count']===2,'Unknown preceding output delays head until canonical completion but retains received delta evidence');
+    $completedSuffix=wire([created(),textDelta(0,0,'A'),textDelta(0,1,'X'),textDone(0,0,'AB'),textDone(0,1,'XY'),complete([$twoParts])],$chunks);
+    check($completedSuffix['content']==='ABXY'&&implode('',$chunks)==='ABXY','Authoritative final part may supply an unseen suffix, without duplicate done text');
+    $unicodeParts=message('你好');$unicodeParts['content'][]=['type'=>'output_text','text'=>'🙂世界'];
+    $unicode=wire([created(),textDelta(0,1,'🙂'),textDelta(0,0,'你'),textDelta(0,1,'世界'),textDelta(0,0,'好'),complete([$unicodeParts])],$chunks);
+    check($unicode['content']==='你好🙂世界'&&implode('',$chunks)===$unicode['content'],'Fragmented native SSE keeps Unicode part ordering intact');
+    $jsonParts=message('{"reply":"已收到');$jsonParts['content'][]=['type'=>'output_text','text'=>'页面","kind":"final","operations":[]}'];
+    $decoration=wire([created(),textDelta(0,1,'页面","kind":"final","operations":[]}'),textDelta(0,0,'{"reply":"已'),textDelta(0,0,'收到'),complete([$jsonParts])],$chunks);
+    $replyStream=new \app\common\service\decorate\agent\DecorationAgentReplyStream();$replies=[];foreach($chunks as $chunk)$replies[]=$replyStream->append($chunk);
+    $decision=\app\common\service\decorate\agent\DecorationAgentDecision::parse($decoration['content']);
+    check($replies===['已','已收到','已收到页面']&&$decision['reply']==='已收到页面'&&$decision['operations']===[],'Real decoration reply parser receives only canonical append-only JSON fragments without tool envelope leakage');
+    $mixed=wire([created(),textDelta(0,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],complete([message('AB')])],$chunks);
+    check($mixed['content']==='AB'&&implode('',$chunks)==='AB','Mixed index stream retains conservative legacy arrival-prefix behavior');
+    $badParts=message('AX');$badParts['content'][]=['type'=>'output_text','text'=>'BY'];
+    $brokenParts=[
+        // Arrival AXBY matches final AXBY, but each actual indexed part is wrong.
+        [created(),textDelta(0,0,'A'),textDelta(0,1,'X'),textDelta(0,0,'B'),textDelta(0,1,'Y'),complete([$badParts])],
+        [created(),textDelta(0,0,'A'),textDone(0,0,'AX'),complete([message('AB')])],
+        [created(),textDelta(0,0,'A'),textDone(0,0,'AB'),textDone(0,0,'AX'),complete([message('AB')])],
+        [created(),textDelta(0,0,'A'),textDone(0,0,'A'),textDelta(0,0,'B'),complete([message('AB')])],
+        [created(),textDelta(2,0,'AB'),complete([message('AB')])],
+        [created(),textDelta(0,2,'AB'),complete([message('AB')])],
+        [created(),textDelta(-1,0,'AB'),complete([message('AB')])],
+        [created(),array_replace(textDelta(0,0,'AB'),['content_index'=>'0']),complete([message('AB')])],
+        [created(),textDelta(0,0,'A'),textDelta(0,1,'X'),['type'=>'response.output_text.delta','delta'=>'B'],complete([$twoParts])],
+        [created(),['type'=>'response.output_item.added','output_index'=>0,'item'=>$reasoning],textDelta(1,0,'AB'),complete([message('other'),message('AB')])],
+        [created(),textDelta(1,0,'partial buffered')],
+    ];
+    foreach($brokenParts as $broken){
+        try{wire($broken);throw new \LogicException('Unsafe indexed native response accepted');}
+        catch(MarketTextModelProviderException $e){check($e->partialResult!==null&&$e->partialResult['tool_calls']===[]&&!$e->allowsModelFallback,'Broken indexed response must retain review evidence without calls or fallback');}
+    }
+    try{wire([created(),textDelta(0,0,'A'),textDelta(0,1,'X'),textDelta(0,0,'B'),textDelta(0,1,'Y'),complete([$badParts])]);throw new \LogicException('Mismatched parts accepted');}
+    catch(MarketTextModelProviderException $e){$diagnostic=$e->partialResult['protocol_diagnostic'];check($diagnostic['code']==='responses_text_mismatch'&&$diagnostic['response_status']==='completed'&&$diagnostic['output_present']===true&&$diagnostic['output_items']===1&&$diagnostic['delta_count']===4,'Completed mismatch diagnostics must retain actual terminal output and received delta facts');}
+    try{wire([created(),textDelta(1,0,'buffered')]);throw new \LogicException('Missing terminal accepted');}
+    catch(MarketTextModelProviderException $e){check($e->partialResult['content']===''&&$e->partialResult['protocol_diagnostic']['delta_count']===1,'Buffered indexed output still counts as received evidence on missing completion');}
     foreach([
         array_slice($events,0,-1),
         [created(),complete([array_replace($callA,['arguments'=>'{"name":'])])],
@@ -91,6 +141,8 @@ namespace {
     $partialFailure=$failure;$partialFailure['response']['output']=[message($partialReply)];
     try{wire([created(),$partialFailure],$chunks);throw new \LogicException('Partial failed response accepted');}
     catch(MarketTextModelProviderException $e){check($e->partialResult['content']===$partialReply&&$e->partialResult['tool_calls']===[]&&$chunks===[],'Snapshot partial content lost or executed');check($e->partialResult['protocol_diagnostic']['output_items']===1,'Partial snapshot output evidence missing');}
+    try{wire([created(),textDelta(-1,0,'invalid indexed output')]);throw new \LogicException('Invalid index accepted');}
+    catch(MarketTextModelProviderException $e){check($e->partialResult['protocol_diagnostic']['delta_count']===1,'Invalid indexed received text is not mistaken for zero provider output');}
     $mapped=A::input([['role'=>'user','content'=>[['type'=>'text','text'=>'看图'],['type'=>'image_url','image_url'=>['url'=>'data:image/png;base64,YQ==']]]],['role'=>'assistant','content'=>'说明','tool_calls'=>[$result['tool_calls'][0]]],['role'=>'tool','tool_call_id'=>'call_a','content'=>'done']]);
     check($mapped[0]['content'][0]['type']==='input_text'&&$mapped[0]['content'][1]['type']==='input_image'&&$mapped[3]['type']==='function_call_output','Input mapping wrong');
     $params=A::params(['tools'=>[['type'=>'function','function'=>['name'=>'lookup','parameters'=>['type'=>'object']]]],'tool_choice'=>['type'=>'function','function'=>['name'=>'lookup']],'response_format'=>['type'=>'json_schema','json_schema'=>['name'=>'reply','schema'=>['type'=>'object']]],'enable_thinking'=>false,'stream_options'=>['include_usage'=>true]]);
@@ -118,5 +170,5 @@ namespace {
     (new Agent())->setThreadId('fresh-responses-contract')->setAiProvider($fresh)->chat(new UserMessage('你好'));
     $legacy=invoke('normalizeMessages','test',[],[['role'=>'assistant','content'=>'visible','tool_calls'=>[['id'=>'a']],'_responses_output'=>$items]],false);
     check(!str_contains(json_encode($legacy),'opaque-fixture'),'Native continuation leaked into legacy normalization');
-    echo "Responses protocol passed: actual Neuron loop, parallel calls, native history, encrypted continuation isolation, fragmented SSE, no snapshot duplicates, incomplete review, images and usage\n";
+    echo "Responses protocol passed: actual Neuron loop, parallel calls, native history, encrypted continuation isolation, fragmented SSE, indexed interleaving/head buffering/canonical completion, conflict/done/terminal guards, no snapshot duplicates, incomplete review, images and usage\n";
 }
