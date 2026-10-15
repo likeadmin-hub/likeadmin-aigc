@@ -362,7 +362,7 @@ final class AgentExecutionService
                     'requirements'=>AgentContextService::requirements($run,(string)($p['query']??''),(int)($p['before']??0)),
                     'read_message'=>AgentContextService::readMessage($run,(int)($p['message_id']??0),(int)($p['offset']??0)),
                     'find_artifacts'=>AgentContextService::findArtifacts($run,(string)($p['query']??''),(int)($p['before']??0)),
-                    'task_state'=>AgentContextService::taskState($run),
+                    'task_state'=>AgentContextService::taskState($run,true),
                     'reading_notes'=>AgentLongReadService::notes($run,(string)($p['file_id']??''),(int)($p['offset']??0)),
                     'verify_source'=>AgentSourceVerifier::verify($run,$p),
                     default=>throw new \InvalidArgumentException('不支持的上下文操作'),

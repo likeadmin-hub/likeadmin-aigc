@@ -155,7 +155,7 @@ final class AgentContextService
         $files[]= $file;
         self::storeFocus($run,['file_ids'=>array_slice(array_values(array_unique($files)),-8),'source'=>'generated_artifact','goal'=>(string)$run['content']]);
     }
-    public static function taskState(array $run): array
+    public static function taskState(array $run,bool $full=false): array
     {
         self::assertSession($run);
         $rows=self::owned('run',$run)->where('id','<=',$run['id'])->order('id','desc')->limit(4)->select()->toArray();$out=[];$remaining=8;
@@ -165,10 +165,11 @@ final class AgentContextService
             foreach($steps as $step){
                 if($remaining--<=0)break;
                 $prepared=AgentStore::json($step['prepared']);$params=array_intersect_key($prepared['params']??[],array_flip(['prompt','negative_prompt','duration','resolution','ratio','quality','quantity','model_id']));
-                foreach($params as &$value)if(is_string($value))$value=self::excerpt($value,280);unset($value);
-                $items[]=['step_id'=>(int)$step['id'],'title'=>$step['title'],'tool'=>$step['tool_code'],'status'=>$step['status'],'error'=>self::excerpt((string)($step['error']??''),200),'task_id'=>(int)$step['task_id'],'parameters'=>$params,'reference_file_ids'=>$prepared['inputs']['reference_images']??[],'estimated_points'=>$prepared['quote']['user']??null];
+                $truncated=[];
+                if(!$full)foreach($params as $key=>&$value)if(is_string($value)&&mb_strlen($value)>280){$truncated[]=$key;$value=self::excerpt($value,280);}unset($value);
+                $items[]=['step_id'=>(int)$step['id'],'title'=>$step['title'],'tool'=>$step['tool_code'],'status'=>$step['status'],'error'=>self::excerpt((string)($step['error']??''),200),'task_id'=>(int)$step['task_id'],'parameters'=>$params,'parameters_truncated'=>$truncated,'reference_file_ids'=>$prepared['inputs']['reference_images']??[],'estimated_points'=>$prepared['quote']['user']??null];
             }
-            $out[]=['run_id'=>(int)$row['id'],'request'=>self::excerpt((string)$row['content'],220),'status'=>$row['status'],'error'=>self::excerpt((string)($row['error']??''),200),'phase'=>$row['phase'],'cancel_requested'=>(bool)$row['cancel_requested'],'steps'=>$items];
+            $out[]=['run_id'=>(int)$row['id'],'request'=>$full?(string)$row['content']:self::excerpt((string)$row['content'],220),'request_truncated'=>!$full&&mb_strlen((string)$row['content'])>220,'instruction'=>'parameters_truncated 或 request_truncated 非空时只是预览；沿用或修改参数前必须用 task_state 读取完整参数，不能按省略后的提示词重建方案。','status'=>$row['status'],'error'=>self::excerpt((string)($row['error']??''),200),'phase'=>$row['phase'],'cancel_requested'=>(bool)$row['cancel_requested'],'steps'=>$items];
         }
         return $out;
     }

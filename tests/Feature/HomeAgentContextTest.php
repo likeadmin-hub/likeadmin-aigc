@@ -65,6 +65,11 @@ Db::startTrans();try{
  C::focus($next,'','');check(C::build($next)['focus']['file_ids']===[],'Topic switch did not clear focus');
  S::table('step')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'run_id'=>$next['id'],'step_key'=>hash('sha256','context-fixture'),'title'=>'实际视频步骤','tool_code'=>'aigc_video','prepared'=>S::encode(['params'=>['model_id'=>'selected-video','duration'=>5,'resolution'=>'720p'],'inputs'=>['reference_images'=>[$file]],'quote'=>['user'=>350]]),'result'=>'','status'=>'failed','task_id'=>111,'create_time'=>$now,'update_time'=>$now]);
  $fact=C::taskState($next)[0]['steps'][0];check($fact['status']==='failed'&&$fact['parameters']['model_id']==='selected-video'&&$fact['estimated_points']===350,'Real task facts not restored');
+ $prompt=str_repeat('开头背景',100).'关键条件：不得露出商标，蓝色围巾必须保留。'.str_repeat('结尾背景',100);
+ S::table('step')->where('id',$fact['step_id'])->update(['prepared'=>S::encode(['params'=>['prompt'=>$prompt,'negative_prompt'=>$prompt,'duration'=>5],'quote'=>['user'=>350]])]);
+ $preview=C::taskState($next)[0]['steps'][0];$full=C::taskState($next,true)[0]['steps'][0];
+ check($preview['parameters_truncated']===['prompt','negative_prompt']&&$full['parameters_truncated']===[],'Task parameter preview truncation not explicit');
+ check($full['parameters']['prompt']===$prompt&&$full['parameters']['negative_prompt']===$prompt&&$full['estimated_points']===350,'Full task parameters lost middle constraints or billing facts');
  foreach([['tenant_id'=>$tenant+1],['user_id'=>$user+1]] as $different){$bad=array_replace($next,$different);denied(fn()=>C::build($bad));denied(fn()=>C::readAsset($bad,$doc));denied(fn()=>C::searchHistory($bad));}
  $other=AigcLlmSession::create(['tenant_id'=>$tenant,'user_id'=>$user,'title'=>'other','model_code'=>'fixture','status'=>'idle','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
  $otherRun=array_replace($next,['session_id'=>$other['id']]);denied(fn()=>C::readAsset($otherRun,$doc));denied(fn()=>C::readMessage($otherRun,$ids[0]));
