@@ -4,6 +4,7 @@ namespace app\api\controller\app\aigc_canvas;
 
 use app\api\controller\BaseApiController;
 use app\common\service\app\aigc_canvas\AigcCanvasService;
+use app\common\service\app\aigc_canvas\AigcCanvasFrameService;
 use app\common\service\app\aigc_canvas\agent\prompt\PromptSubmissionException;
 use Exception;
 
@@ -19,6 +20,19 @@ class GenerateController extends BaseApiController
             return $this->success('生成成功', $this->formatImageResult($result));
         } catch (PromptSubmissionException $e) {
             return $this->fail($e->getMessage(), $e->diagnostic());
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function captureFrame()
+    {
+        try {
+            return $this->success('截帧成功', AigcCanvasFrameService::capture(
+                (int)$this->request->tenantId,
+                $this->userId,
+                $this->request->post()
+            ));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
