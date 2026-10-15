@@ -1,6 +1,6 @@
 # AI智能装修 Agent 本地实施记录
 
-批准范围：移动页面/选中组件/新页面，6次文本视觉决策、20工具、5张生图；上传asset/layout/style/generation；候选独立、草稿应用与回滚；普通装修和正式发布保持独立。
+批准范围：移动页面/选中组件/新页面，新任务预算及累计模型、工具、生图次数不限，每次决策最多20项操作；上传asset/layout/style/generation；候选独立、草稿应用与回滚；普通装修和正式发布保持独立。
 
 ## 执行记录
 
@@ -39,7 +39,7 @@ API `/tenantapi/decorate.agent/{bootstrap,createSession,sessions,session,quote,s
 
 前后端共享协议类型位于web/packages/decoration-core/agent-types.ts，后端结构化决策、契约和操作校验在app/common/service/decorate/agent/。契约mobile-agent-v1的SHA256由导出脚本生成；浏览器编译值与服务端不一致仅阻止AI，普通编辑仍可用。六张共享表以tenant_id/admin_id隔离，新安装和既有安装升级均包含CREATE IF NOT EXISTS，新租户无需独立建表。
 
-预算为追加调用授权：启动前估算，下次调用前核验累计实际消费与本次预计追加；当前调用实际消费可能高于估价，不能把估价称为硬封顶。成功消费不会因停止/放弃/回滚退款。不支持定价估算的实际用量生图规格阻止自动提交，不改变普通用户消费路径。
+2026-10-15起新任务由服务端冻结execution_policy=unlimited_v1：budget_points保留为兼容字段，累计金额、文本/视觉、工具及图片次数不封顶。报价只展示单次参考估价，不展示最大总价；null表示不限，绝非0额度。未带该策略的历史任务继续按原预算与6/40/5阈值执行，不改写旧输入或重放旧待核记录。成功消费不会因停止/放弃/回滚退款。不支持定价估算的实际用量生图规格阻止自动提交，不改变普通用户消费路径。
 
 ## 真实模型评测状态
 
@@ -64,7 +64,7 @@ API `/tenantapi/decorate.agent/{bootstrap,createSession,sessions,session,quote,s
 
 冲突返回具体组件中文名称及修改类别，并在Agent失败响应data.message保留提示，兼容现有请求封装reject(data)，避免仅在短暂toast中显示失败原因。旧候选遇到后续保存/发布内容变化时应重新生成，不绕过冲突保护。
 
-成功图片的重新生成使用retryImage(regenerate=true)显式新尝试，沿用本轮冻结模型和剩余预算、计入5张尝试上限，捕获当前候选图片值后才允许晚到回填；失败重试和待核实提交仍保持原限制。
+成功图片的重新生成使用retryImage(regenerate=true)显式新尝试，沿用本轮冻结模型和剩余预算、仅历史有限策略计入5张尝试上限，捕获当前候选图片值后才允许晚到回填；失败重试和待核实提交仍保持原限制。
 
 舍弃候选在行锁事务中处理，与应用互斥，并停止尚未提交的后续步骤；已舍弃候选拒绝新生图/重试。模型返回后再次核对停止标识，停止结果不继续执行空操作或创建新候选。
 

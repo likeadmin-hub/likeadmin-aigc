@@ -47,7 +47,7 @@ final class DecorationAgentDesignExtraction
         $result['ratio']=$p['ratio'];$result['prompt']=trim((string)($p['prompt']??''));$selection=$p['image_model_selection']??null;
         if(!is_array($selection)||array_diff(array_keys($selection),['market_product_id','market_sku_id']))throw new \InvalidArgumentException('请选择生图模型和规格');
         $result['image_model_selection']=['market_product_id'=>self::positive($selection['market_product_id']??null,'生图模型'),'market_sku_id'=>self::positive($selection['market_sku_id']??null,'生图规格')];
-        $budget=$p['budget_points']??null;if((!is_int($budget)&&!is_float($budget)&&!is_string($budget))||!is_numeric($budget)||!is_finite((float)$budget)||(float)$budget<=0)throw new \InvalidArgumentException('请确认本次生图预算');
+        $budget=$p['budget_points']??0;if((!is_int($budget)&&!is_float($budget)&&!is_string($budget))||!is_numeric($budget)||!is_finite((float)$budget)||(float)$budget<0)throw new \InvalidArgumentException('生图预算参数无效');
         $result['authorize_generation']=true;$result['budget_points']=(float)$budget;return $result;
     }
 

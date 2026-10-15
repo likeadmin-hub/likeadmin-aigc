@@ -19,9 +19,10 @@ try {
   return (new AgentController(app()))->quote()->getData();
  };
  $result=$quote($payload);transportCheck(($result['code']??0)===1&&$result['data']['max_images']===1,'actual JSON Request and controller preserve design_first boolean true');
- $payload['design_first']=false;$result=$quote($payload);transportCheck(($result['code']??0)===1&&$result['data']['max_images']===5,'actual JSON boolean false remains false');
+ $payload['budget_points']=0;$result=$quote($payload);transportCheck(($result['code']??0)===1&&$result['data']['max_model_calls']===null,'zero budget reaches actual controller with unlimited model policy');
+ $payload['design_first']=false;$result=$quote($payload);transportCheck(($result['code']??0)===1&&$result['data']['max_images']===null,'actual JSON boolean false remains false');
  foreach(['false','true',0,1] as $invalid){$payload['design_first']=$invalid;$result=$quote($payload);transportCheck(($result['code']??1)!==1&&str_contains($result['msg']??'','布尔值'),'explicit nonboolean input remains rejected');}
- unset($payload['design_first']);$result=$quote($payload);transportCheck(($result['code']??0)===1&&$result['data']['max_images']===5,'omitted design_first retains ordinary default false');
+ unset($payload['design_first']);$result=$quote($payload);transportCheck(($result['code']??0)===1&&$result['data']['max_images']===null,'omitted design_first retains ordinary default false');
  $review=static function(array $selection): array {
   $request=(new app\Request())->withServer(['REQUEST_METHOD'=>'POST'])->withHeader(['content-type'=>'application/json;charset=UTF-8'])->withInput(S::json(['idempotency_key'=>'transport-review','model_selection'=>$selection]));
   $request->adminInfo=['tenant_id'=>1,'admin_id'=>1,'root'=>1];$request->tenantId=1;app()->instance('request',$request);
