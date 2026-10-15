@@ -384,11 +384,12 @@ class DecorationAgentOperations
     {
         $field=(string)($op['field']??'');$schema=$this->field($definition,$field,$widget);
         if(($schema['type']??'')!=='image')self::fail('Requested field is not an image slot');
-        $prompt=trim((string)($op['prompt']??''));if($prompt===''||mb_strlen($prompt)>4000)self::fail('Image prompt length invalid');
+        $prompt=trim((string)($op['prompt']??''));if(($prompt===''&&!isset($op['generation_mode']))||mb_strlen($prompt)>4000)self::fail('Image prompt length invalid');
         $ratio=$op['ratio']??'1:1';if(!in_array($ratio,['1:1','2:3','3:2','3:4','4:3','9:16','16:9','21:9'],true))self::fail('Image aspect ratio invalid');
         $references=$op['reference_file_ids']??[];if(!is_array($references)||count($references)>10)self::fail('Too many reference files');
         foreach($references as $file)if(!is_int($file)||$file<=0)self::fail('Reference file id invalid');
-        $this->images[]=['widget_id'=>$id,'field'=>$field,'prompt'=>$prompt,'ratio'=>$ratio,'reference_file_ids'=>$references,'old_value'=>self::get($widget,$field),'old_ref'=>$widget['_decoration_asset_refs'][$field]??null];
+        $extraction=isset($op['generation_mode'])?DecorationAgentDesignExtraction::operation($op):[];
+        $this->images[]=['widget_id'=>$id,'field'=>$field,'prompt'=>$prompt,'ratio'=>$ratio,'reference_file_ids'=>$references,'old_value'=>self::get($widget,$field),'old_ref'=>$widget['_decoration_asset_refs'][$field]??null]+$extraction;
     }
     private function configurePage(array &$page,array $op): void
     {

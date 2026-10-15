@@ -236,6 +236,18 @@ final class DecorationAgentMediaService
         return $quote;
     }
 
+    /** Read-only quote before a slot exists; identity and actual design bytes are server-verified. */
+    public static function quoteDesignExtraction(int $tenant,int $admin,array $selection,array $request,array $approved): array
+    {
+        self::assertTenant($tenant);
+        $fresh=DecorationAgentDesignService::confirmedDesign($tenant,$admin,(int)$approved['run_id'],(string)$approved['hash']);
+        if($fresh!==$approved)throw new \InvalidArgumentException('已确认设计版本已变化');
+        DecorationAgentDesignService::referenceBytes($tenant,$admin,$approved);
+        DecorationAgentDesignExtraction::operation($request);self::assertDesignReferenceModel($tenant,$selection,1);
+        $quote=MarketImageModelRuntimeService::quote($tenant,$selection,1,[],true);
+        $quote['cost_known']=(string)$quote['settlement_mode']!=='actual_usage';return $quote;
+    }
+
     /** Persist this receipt in the slot before calling submit; never hide a second submission. */
     public static function reserve(int $tenantId, int $adminId, int $slotId, array $selection, array $request, int $quantity = 1): array
     {
@@ -304,6 +316,8 @@ final class DecorationAgentMediaService
 
     private static function referenceRequest(int $tenantId, array $request,int $slotId=0): array
     {
+        $extraction=($request['generation_mode']??'')==='design_extract'?$request:null;
+        if($extraction!==null)DecorationAgentDesignExtraction::operation($extraction);
         $designRequest=($request['purpose']??'')==='design';
         $designSlot=(int)($request['reference_design_slot_id']??0);
         $materialReferences=[];
@@ -335,7 +349,9 @@ final class DecorationAgentMediaService
             $approved=DecorationAgentDesignService::approvedForRun($tenantId,(int)$slot['admin_id'],(int)$slot['run_id'],$designSlot);
             $read=DecorationAgentDesignService::referenceBytes($tenantId,(int)$slot['admin_id'],$approved);
             $references[]='data:'.$read['mime_type'].';base64,'.base64_encode($read['bytes']);
+            if($extraction!==null)$request['prompt']=DecorationAgentDesignExtraction::prompt($extraction,$approved);
         }
+        if($extraction!==null&&(!$designSlot||count($references)!==1))throw new Exception('素材提取必须只引用本轮已确认的设计图');
         $request['reference_images'] = array_values(array_unique($designRequest?array_merge($materialReferences,$references):array_merge($references,$materialReferences)));
         unset($request['reference_file_ids']);
         unset($request['callback_url']);

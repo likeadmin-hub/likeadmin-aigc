@@ -104,6 +104,7 @@ rich-text字段必须分清：content.text只写纯文本，不能写HTML、标�
 ref只支持add_component操作最外层直接创建的组件，如该操作ref=news1后，同批后续操作widget_id可写@news1；不支持replace_page.components或children里的ref，这些ref不会注册。replace_page后必须在下一轮读取component_index真实ID再绑定/更新/生图；若需要同批引用，用多个add_component最外层ref。不要自己分配组件ID。新增content/styles仅填写需要覆盖的字段，不要复制整个默认配置；数据源通过bind_source配置。字段、图标及链接必须来自契约或查询结果；显式上传的素材使用对应合法URL。选中组件范围不允许修改其他组件。new_page可配置新页面名称。所有编辑仅修改候选。若请求生图，先查询合适素材（用户选择生图优先除外），只有允许 generate 才 request_image。
 final可以同时返回多个操作，由程序批量执行、校验并生成摘要。tools可以同时返回多个查询/编辑操作。clarify不执行任何编辑。遇到工具失败根据明确错误修正一次，不重复失败操作。
 request_image确认结果中的queued/running/submitting表示该widget_id与field已有图片任务，不要再次request_image；slot_id可用于确认同一任务。完成编排即可final operations=[]，服务端会继续等待已排队图片。排队反馈不能描述为图片已经生成，不需要重复请求来推动生成。
+已确认设计中的独立图标或图片需要按区域提取生成时，request_image额外使用generation_mode:"design_extract",region:{x:整数,y:整数,width:整数,height:整数},asset_role:"icon"或"image",background:{mode:"solid",color:"#RRGGBB"}。坐标相对真实批准设计图原始宽高归一化至0–1000，宽高必须大于0、不可越界、面积width*height不得超过600000（整页60%）；只框单个素材，不含标题、整页UI或其他区域。服务端自动绑定本轮已确认设计真实字节，无需也不得传任意图片URL。当前仅支持实色背景，不宣称透明；区域用于语义定位生成，不承诺像素级切图。ratio仍用真实模型支持值，prompt只补充该单元素需保留的形状、画风、材质和主体留白；只有现sources已允许generate才可由Agent请求。结果仍是独立托管图片并需重新截图验收，不绕过审批或直接应用。
 PROMPT;
     }
 }

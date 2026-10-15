@@ -20,9 +20,11 @@ final class AgentController extends BaseAdminController
     {
         try{
             $p=$this->request->param();
+            if(in_array($method,['extractionOptions','quoteDesignAsset','extractDesignAsset'],true))$p=$this->request->param('',null,null);
             // trim() converts native JSON booleans to strings. Preserve this strict opt-in's wire type.
             if(array_key_exists('design_first',$p))$p['design_first']=$this->request->param('design_first',null,null);
             if($method==='reviewDesign'&&array_key_exists('model_selection',$p))$p['model_selection']=$this->request->param('model_selection',null,null);
+            if(in_array($method,['quoteDesignAsset','extractDesignAsset'],true)&&array_key_exists('authorize_generation',$p))$p['authorize_generation']=$this->request->param('authorize_generation',null,null);
             if($method==='apply'&&!empty($p['candidate_id'])){$candidate=Agent::candidate($this->tenantId,$this->adminId,(int)$p['candidate_id']);if($candidate['new_page']??false)$p['scope']='new_page';}$this->access($write,($p['scope']??'')==='new_page'&&in_array($method,['start','apply'],true));
             if($method==='bootstrap')return $this->success('获取成功',Agent::bootstrap($this->tenantId,$this->adminId,$p));
             if($method==='session')$result=Agent::session($this->tenantId,$this->adminId,(int)($p['session_id']??$p['id']??0));
@@ -32,7 +34,7 @@ final class AgentController extends BaseAdminController
             elseif(in_array($method,['candidate','discard'],true))$result=Agent::$method($this->tenantId,$this->adminId,(int)($p['candidate_id']??0));
             else $result=Agent::$method($this->tenantId,$this->adminId,$p);
             return $this->success('操作成功',$result);
-        }catch(\Throwable $e){return $this->fail($e->getMessage(),['message'=>$e->getMessage()]);}
+        }catch(\Throwable $e){return $this->fail($e->getMessage(),['message'=>$e->getMessage()]+($e instanceof \app\common\service\decorate\agent\DecorationAgentDesignExtractionRejected?['submission_state'=>'not_created']:[]));}
     }
     public function bootstrap(){return $this->call('bootstrap');}
     public function createSession(){return $this->call('createSession',true);}
@@ -72,6 +74,9 @@ final class AgentController extends BaseAdminController
     public function apply(){return $this->call('apply',true);}
     public function rollback(){return $this->call('rollback',true);}
     public function reviewDesign(){return $this->call('reviewDesign',true);}
+    public function extractionOptions(){return $this->call('extractionOptions');}
+    public function quoteDesignAsset(){return $this->call('quoteDesignAsset',true);}
+    public function extractDesignAsset(){return $this->call('extractDesignAsset',true);}
     public function confirmDesign(){return $this->call('confirmDesign',true);}
     public function retryImage(){return $this->call('retryImage',true);}
     public function replaceImage(){return $this->call('replaceImage',true);}
