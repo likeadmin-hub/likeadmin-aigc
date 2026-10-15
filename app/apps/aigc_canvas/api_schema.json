@@ -944,6 +944,14 @@
       "scene": "tenant_admin",
       "need_login": 1,
       "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.generate/captureFrame",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:generate:captureFrame",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
     }
   ]
 }
