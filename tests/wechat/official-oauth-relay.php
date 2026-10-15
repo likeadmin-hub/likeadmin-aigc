@@ -118,4 +118,11 @@ rejects(fn() => $s->complete($state, 'wx-code', $state, 'https://platform.exampl
 rejects(fn() => $s->complete($state, 'wx-code', $state, 'https://platform.example.com'), 'retrying an uncertain provider code');
 check($s->exchanges === 1, 'Do not replay provider calls after failure');
 
+$s = new class extends RelayFixture {
+    protected function remove(string $key): void { throw new RuntimeException('cache unavailable'); }
+};
+[$r, $state] = begin($s);
+rejects(fn() => $s->complete($state, 'wx-code', $state, 'https://platform.example.com'), 'state cannot be consumed');
+check($s->exchanges === 0, 'Do not call the provider when state consumption fails');
+
 echo "Official-account OAuth relay: $checks checks passed\n";
