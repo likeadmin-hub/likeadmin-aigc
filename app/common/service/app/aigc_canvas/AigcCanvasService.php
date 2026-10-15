@@ -2371,6 +2371,10 @@ class AigcCanvasService
                 continue;
             }
             $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
+            // An explicit collection, including an empty one, is authoritative.
+            if (isset($metadata['mediaItems']) && is_array($metadata['mediaItems'])) {
+                continue;
+            }
             if (self::nodeMetadataMediaUrl($type, $metadata) !== '') {
                 continue;
             }
