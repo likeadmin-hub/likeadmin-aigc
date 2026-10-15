@@ -131,5 +131,22 @@
     "server": "b498ad818",
     "web": "9b62efd6d01fa079556e1ad4be306b1af132a1b2"
   },
-  "release_record_and_remote_heads": "Reported separately after publication and remote readback; this document verifies source/build/package only."
+  "release_record_and_remote_heads": "Reported separately after publication and remote readback; this document verifies source/build/package only.",
+  "online": {
+    "passed": true,
+    "record_id": 374,
+    "version": "1.0.400",
+    "status": 1,
+    "beta_enabled": 1,
+    "http_status": 200,
+    "download_host": "platform-xhadmin-cn.oss-cn-beijing.aliyuncs.com",
+    "download_bytes": 112163614,
+    "sha256": "547c4f3042bb4d25285a538563d320937f4cee006214e91115fcc903484ac5ae",
+    "base_version": "1.0.399",
+    "target_version": "1.0.400",
+    "verification_access": "owner signed private OSS read; no customer license bypass or beta switch change",
+    "private_acl_verified": true,
+    "download_seconds": 4.5
+  },
+  "release_visibility": "Published record retained default beta_enabled=1; platform operator opens versions manually."
 }
