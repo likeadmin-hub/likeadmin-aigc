@@ -47,7 +47,7 @@ final class DecorationAgentService
         $design=$context['approved_design']??[];$review=$context['visual_review'];$logicalWidth=375;
         $dimensions=static function(array $values)use($logicalWidth):array {
             $width=max(0,(int)($values['width']??0));$height=max(0,(int)($values['height']??0));
-            return ['width_px'=>$width?:null,'height_px'=>$height?:null,'to_logical_px_scale'=>$width>0?$logicalWidth/$width:null];
+            return ['width_px'=>$width?:null,'height_px'=>$height?:null,'to_logical_px_scale'=>$width>0?$logicalWidth/$width:null]+DecorationAgentReviewImages::dimensions($width,$height);
         };
         return ['priority'=>'最新冻结批准图片优先于旧蓝图/默认值/历史提案；旧蓝图不是视觉批准规范。真实契约、权限及来源限制保持优先。',
             'target'=>array_intersect_key($design,array_flip(['run_id','revision','hash','slot_id'])),
@@ -57,7 +57,7 @@ final class DecorationAgentService
                 'capture_evidence'=>['meaning'=>'capture_attested=false表示客户端预览截图没有服务器DOM来源证明，不表示PNG无效，也不是必须改为true的通过条件。','validated'=>'服务端校验ADMIN文件归属、实际PNG字节/尺寸/hash、区别于设计原图，并在后续重验。','limit'=>'仅支持对所提供两图的模型视觉对照与服务器交互配置检查；不证明真实DOM、真实点击、登录或业务调用。'],
                 'model_scope'=>'按实际两图给六类具体证据，不能以两个不同对象hash不等或缺少DOM attestation自造拒绝条件；可见差异仍须判未通过，写入后仍需新截图，最终版本/费用/应用许可由服务端硬校验决定。',
             ],
-            'image_dimensions'=>['logical_width_px'=>$logicalWidth,'approved_design'=>$dimensions($design['asset']??[]),'actual_capture'=>$dimensions(['width'=>$review['screenshot_width']??0,'height'=>$review['screenshot_height']??0]),'units'=>'尺寸是实际图片像素，乘各自scale后比较逻辑px；375逻辑宽下1rpx=0.5px，px字段不按rpx解释。'],
+            'image_dimensions'=>['logical_width_px'=>$logicalWidth,'approved_design'=>$dimensions($design['asset']??[]),'actual_capture'=>$dimensions(['width'=>$review['screenshot_width']??0,'height'=>$review['screenshot_height']??0]),'units'=>'source及兼容width_px/height_px是原图尺寸；model_input是实际送审的375px等宽完整副本，保持比例且不裁剪补边。直接比较两张model_input的可见几何，不要再对副本乘原图scale。375逻辑宽下1rpx=0.5px，px字段不按rpx解释。可见字形墨迹bbox高度不等于CSS font_size；不得把批准原图像素字形高度与候选CSS字号混比。缩放存在取整及抗锯齿，测量须标估算，不能据此宣称PASS。'],
             'region_checks'=>['按图片辨认页头、主视觉、入口卡、标题及内容区的target/actual几何边界、宽高和间距，估算需明确标注。','区分区块标题、卡标题、正文/标签，比较可见字号、字重、行高、基线与换行。','比较图标可见bbox、内边距、形状及材质，不能仅检查icon_size外壳参数。','比较图片比例、主体位置、构图与裁切及卡片内图文排列；需要独立元素时按批准参考生成。','比较外壳/内卡背景、文字对比度、边框与阴影；只选择当前runtime_notes真正支持的参数。','任一区域有明确差异或关键项无法辨认，不能判通过；修复后需要新截图。'],
             'acceptance_rule'=>'六类具体证据；视觉五类由图对图判断，interaction仅server_contract；任何写入/生图均使本轮验收不通过。'];
     }
@@ -229,7 +229,7 @@ final class DecorationAgentService
         if(!empty($context['approved_design']))$designImage=DecorationAgentDesignService::referenceBytes($tenant,$admin,$context['approved_design']);
         elseif(!empty($context['design']['parent_reference']))$designImage=DecorationAgentDesignService::parentReferenceBytes($tenant,$admin,$id);
         if($designImage)$references[]='data:'.$designImage['mime_type'].';base64,'.base64_encode($designImage['bytes']);
-        return $references;
+        return DecorationAgentReviewImages::references($references,!empty($context['visual_review']));
     }
 
     /** Current manifest rows are authority, never model-provided operation data. */
