@@ -31,7 +31,7 @@ Route::get('wechat/official-oauth/callback', function () {
     try {
         $target = $service->complete((string)request()->get('state', ''), (string)request()->get('code', ''),
             (string)request()->cookie($service::STATE_COOKIE, ''), (string)request()->domain());
-        return response($service::navigationPage($target), 200, [
+        return response($service::navigationPage($target, true), 200, [
             'Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store',
             'Referrer-Policy' => 'no-referrer', 'X-Frame-Options' => 'DENY',
         ])->cookie($service::STATE_COOKIE, '', array_merge($service::cookieOptions(true), ['expire' => -3600]));

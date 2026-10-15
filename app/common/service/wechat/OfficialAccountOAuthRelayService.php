@@ -102,11 +102,46 @@ class OfficialAccountOAuthRelayService
             'secure' => true, 'httponly' => true, 'samesite' => 'lax'];
     }
 
-    public static function navigationPage(string $target): string
+    public static function navigationPage(string $target, bool $returning = false): string
     {
         $json = json_encode($target, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);
         $safe = htmlspecialchars($target, ENT_QUOTES, 'UTF-8');
-        return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>微信登录</title></head><body><p>正在继续微信登录…</p><a href="' . $safe . '">点击继续</a><script>location.replace(' . $json . ');</script></body></html>';
+        $title = $returning ? '即将完成登录' : '正在前往微信';
+        $description = $returning ? '微信授权已完成，正在返回应用' : '请在微信中完成授权后继续';
+        return <<<HTML
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<title>微信登录</title>
+<style>
+:root{color-scheme:light;--primary:#9238e8;--primary-soft:#f3eafa;--ink:#242232;--muted:#706c7d;--surface:#fff;--canvas:#f8f7fb;--line:#ece8f1;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;min-height:100svh;display:grid;place-items:center;padding:32px 24px;padding:max(32px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(32px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));background:var(--canvas);color:var(--ink)}
+.login-card{width:100%;max-width:360px;padding:36px 28px 28px;border:1px solid var(--line);border-radius:24px;background:var(--surface);text-align:center;box-shadow:0 16px 48px rgba(51,30,78,.05)}
+.mark{width:64px;height:64px;margin:0 auto 24px;display:grid;place-items:center;border-radius:20px;background:var(--primary-soft);color:var(--primary)}.mark svg{width:32px;height:32px}h1{font-size:23px;font-weight:600;line-height:1.4;letter-spacing:.02em;margin:0 0 10px}.description{font-size:14px;line-height:1.7;margin:0;color:var(--muted)}
+.progress{display:flex;justify-content:center;gap:6px;height:6px;margin:25px 0 28px}.progress span{width:6px;height:6px;border-radius:50%;background:var(--primary);animation:breathe 1.2s ease-in-out infinite}.progress span:nth-child(2){animation-delay:.16s}.progress span:nth-child(3){animation-delay:.32s}
+.continue{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 18px;border-radius:13px;background:var(--primary);color:#fff;text-decoration:none;font-size:15px;font-weight:500;line-height:1.5}.continue svg{width:17px;height:17px}.continue:focus-visible{outline:3px solid var(--primary);outline-offset:4px}.hint{margin:16px 0 0;font-size:12px;line-height:1.7;color:var(--muted)}.is-stalled .progress span{animation:none;background:var(--line)}noscript p{font-size:13px;line-height:1.6;color:var(--muted)}
+@keyframes breathe{0%,70%,100%{opacity:.25;transform:translateY(0)}35%{opacity:1;transform:translateY(-3px)}}@media(prefers-reduced-motion:reduce){.progress span{animation:none}}
+@media(max-width:340px){body{padding-left:16px;padding-right:16px}.login-card{padding:30px 22px}h1{font-size:21px}}
+</style>
+</head>
+<body>
+<main class="login-card" aria-labelledby="login-title">
+<div class="mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M16 3.5 27 8v8.3c0 6-4.6 10.2-11 12.2C9.6 26.5 5 22.3 5 16.3V8L16 3.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m11 16 3.4 3.5L21 12.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+<div role="status" aria-live="polite"><h1 id="login-title">{$title}</h1><p class="description" id="login-description">{$description}</p></div>
+<div class="progress" aria-hidden="true"><span></span><span></span><span></span></div>
+<a class="continue" href="{$safe}" rel="noreferrer">继续登录<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+<p class="hint">若未自动跳转，请点击继续登录</p>
+<noscript><p>当前浏览器未启用自动跳转，请使用上方按钮继续。</p></noscript>
+</main>
+<script>
+setTimeout(function(){document.body.classList.add('is-stalled');document.getElementById('login-title').textContent='暂未完成跳转';document.getElementById('login-description').textContent='请点击继续登录，或返回原页面重试';},12000);
+location.replace({$json});
+</script>
+</body></html>
+HTML;
     }
 
     private function context(string $state, string $requestOrigin): array
