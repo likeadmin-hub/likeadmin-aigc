@@ -444,9 +444,8 @@ class DecorationAgentOperations
         if (!preg_match('/^content\.source_graphics\.(0|[1-9][0-9]*)\.image$/D', $field, $match)) self::fail('Invalid source graphic image field');
         self::validateSourceGraphics($widget);
         $content = $widget['content'];
-        $key = array_key_exists('source_key', $content) ? $content['source_key'] : ($content['source']['key'] ?? 'app_entries');
-        $params = array_key_exists('source_params', $content) ? $content['source_params'] : ($content['source']['params'] ?? []);
-        $mode = $content['data_mode'] ?? 'hybrid';
+        $binding=DecorationAgentDesignContext::appSourceBinding($widget);
+        $key=$binding['key'];$params=$binding['params'];$mode=$binding['mode'];
         $row = $content['source_graphics'][(int)$match[1]] ?? null;
         if ($key !== 'app_entries' || !in_array($mode, ['source','hybrid'], true) || !is_array($params) || !is_array($row) || ($row['mode'] ?? '') !== 'image') self::fail('Source graphic is not a rendered image target');
         $found = false;

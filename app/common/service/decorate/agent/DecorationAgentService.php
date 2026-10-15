@@ -89,6 +89,7 @@ final class DecorationAgentService
         foreach(['user_profile','membership_summary','account_summary','recent_tasks','user_assets'] as $key)$inventory[$key]=['requires_login'=>true,'warning'=>'按访问页面的登录用户实时读取；后台编辑未登录用户时不补假数据。'];
         $result=[
             'execution_limits'=>DecorationAgentExecutionBudget::context((int)($ctx['tool_calls']??0)),
+            'rendered_app_entries'=>self::applicationEntryContext($tenant,$ctx['candidate']),
             'visual_review_target'=>self::visualReviewContext($ctx),
             'scope'=>$input['scope'],'selected_id'=>$input['selected_id'],'page'=>$ctx['candidate'],'component_index'=>self::componentIndex($ctx['candidate']['data']),
             'component_catalog'=>self::compactCatalog(),'related_contracts'=>DecorationAgentDesignContext::related($ctx['candidate'],$input['scope'],$input['selected_id'],$input['message']),
@@ -234,9 +235,23 @@ final class DecorationAgentService
     /** Current manifest rows are authority, never model-provided operation data. */
     private static function sourceGraphicEntries(int $tenant,array $widget): array
     {
-        $content=$widget['content']??[];
-        $params=array_key_exists('source_params',$content)?$content['source_params']:($content['source']['params']??[]);
-        return DecorateDataSourceService::resolve('app_entries',is_array($params)?$params:[],$tenant,['terminal'=>'uniapp']);
+        $binding=DecorationAgentDesignContext::appSourceBinding($widget);
+        if(($binding['key']??'')!=='app_entries'||!is_array($binding['params']))return [];
+        $entries=DecorateDataSourceService::resolve('app_entries',$binding['params'],$tenant,['terminal'=>'uniapp']);
+        return DecorationAgentDesignContext::visibleAppEntries($widget,$entries);
+    }
+
+    private static function applicationEntryContext(int $tenant,array $page): array
+    {
+        $result=[];
+        foreach(DecorationAgentOperations::index($page['data']??[]) as $id=>$node){
+            $widget=$node['widget'];if(($widget['name']??'')!=='app-collection')continue;
+            $entries=self::sourceGraphicEntries($tenant,$widget);
+            $result[]=['widget_id'=>$id,'visible_count'=>count($entries),'display_limit'=>$widget['content']['limit']??8,
+                'entries'=>array_map(fn($entry)=>array_intersect_key($entry,array_flip(['app_code','entry_key','name','title'])),array_slice($entries,0,50)),
+                'meaning'=>'Current rendered source entries before graphic overrides; not persisted source_graphics rows.'];
+        }
+        return $result;
     }
 
     private static function sourceGraphicScope(array $page,array $operation,array $scope,int $tenant): array

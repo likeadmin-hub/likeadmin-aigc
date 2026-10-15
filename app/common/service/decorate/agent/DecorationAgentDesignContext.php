@@ -28,6 +28,33 @@ final class DecorationAgentDesignContext
         return $state;
     }
 
+    /** Mirror app-collection's source-only filtering and display slice, without copying overrides into source rows. */
+    public static function visibleAppEntries(array $widget,array $entries): array
+    {
+        $content=$widget['content']??[];
+        $binding=self::appSourceBinding($widget);
+        if(($binding['key']??'')!=='app_entries'||!in_array($binding['mode'],['source','hybrid'],true))return [];
+        $value=$content['limit']??8;
+        if(in_array($value,[null,false,'',0,0.0],true))$value=8;
+        if($value===true)$value=1;
+        if(!is_numeric($value)||!is_finite((float)$value))return [];
+        $rows=array_values(array_filter($entries,fn($entry)=>is_array($entry)&&($entry['is_show']??null)!=='0'));
+        return array_slice($rows,0,(int)$value);
+    }
+
+    /** Match both runtime normalizers: canonical presence wins; only a nonempty legacy key is promoted. */
+    public static function appSourceBinding(array $widget): array
+    {
+        if(($widget['name']??'')!=='app-collection')return [];
+        $content=$widget['content']??[];$canonical=array_key_exists('source_key',$content);
+        $promoted=!$canonical&&!empty($content['source']['key']);
+        $params=array_key_exists('source_params',$content)?$content['source_params']:($promoted?($content['source']['params']??[]):[]);
+        if($params===null)$params=[];
+        return ['key'=>$canonical?$content['source_key']:($promoted?$content['source']['key']:'app_entries'),
+            'mode'=>$content['data_mode']??'hybrid',
+            'params'=>$params];
+    }
+
     public static function digest(): array
     {
         $components=self::catalog();$rows=[];$shared=$components[0]['style_keys']??[];
@@ -199,6 +226,7 @@ final class DecorationAgentDesignContext
     public static function guide(): array
     {
         return [
+            'rendered_app_entries'=>'rendered_app_entries按组件实际来源、is_show过滤和content.limit显示限制给出当前入口；全局source_inventory或data_sources目录总数不是该组件显示数量。为当前显示应用配图标时使用该组件的真实元组列表，结合component_index.lists新增或更新独立图形覆盖项；不要仅因目录更多而追问已明确的当前显示入口。显示数量变化后需重新核对真实入口。',
             'editable_lists'=>'component_index.lists记录候选真实保存的列表行数，不是data_sources返回的动态行数。edit_list action=add用item新增（省略index追加），update用index和fields只改已有行，delete/copy/move也要求已有index。列表缺失或persisted_rows=0时先add，不能update index0；行id由服务端生成。app_entries返回多少个来源入口，都不表示source_graphics已有对应行；source_graphics是独立可选覆盖表，逐真实app_code+entry_key新增，已有覆盖项才按它自己的索引更新。',
             'units'=>'移动逻辑宽375px；字段按契约px/rpx写，rpx按750设计宽。样式只用style_keys及shared_style_contract允许的字段。',
             'composition'=>'整页先安排主视觉、文字介绍、核心入口、真实案例/内容、服务。主视觉配真实装饰素材，标题用文字组件，少量大块留白和一致间距，不用大量空卡片填满。',
