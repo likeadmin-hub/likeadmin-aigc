@@ -13,6 +13,11 @@ final class DecorationAgentReviewImages
     private const MAX_PIXELS = 10000000;
     private const MAX_DIMENSION = 10000;
 
+    public static function referenceOrder(): array
+    {
+        return ['图1：已确认设计稿（target）', '图2：实际候选截图（actual）'];
+    }
+
     public static function dimensions(int $width, int $height): array
     {
         return [
@@ -25,7 +30,7 @@ final class DecorationAgentReviewImages
         ];
     }
 
-    /** Call only after the existing ownership and immutable-byte checks. */
+    /** Input remains attachment then design; visual transport is target then actual. */
     public static function references(array $references, bool $visualReview): array
     {
         if (!$visualReview) return $references;
@@ -35,7 +40,7 @@ final class DecorationAgentReviewImages
         }
         $result = [];
         foreach ($references as $reference) $result[] = self::normalize($reference);
-        return $result;
+        return [$result[1], $result[0]];
     }
 
     private static function normalize(string $reference): string
