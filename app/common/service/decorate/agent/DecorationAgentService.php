@@ -354,7 +354,8 @@ final class DecorationAgentService
         foreach($targets as &$target){
             $widget=$index[$target['widget_id']]['widget'];$parts=explode('.',$target['field']);$row=count($parts)===4?($widget['content'][$parts[1]][$parts[2]]??[]):[];
             $title=$row['title']??$row['name']??$widget['content']['title']??'';$position=array_search($target['widget_id'],array_keys($index),true)+1;
-            $target['label']=$widget['name'].' #'.$position.($title!==''?' · '.mb_substr((string)$title,0,60):'').(count($parts)===4?' · 第'.((int)$parts[2]+1).'行':'').' · '.$target['field'];
+            $role=['background'=>'背景图','icon'=>'图标','hero'=>'主图','row_image'=>'图片','qrcode'=>'二维码','cover'=>'封面'][$target['role']??'']??'图片';
+            $target['label']=($widget['title']??DecorationAgentCatalog::definition($widget['name'])['title']).' #'.$position.($title!==''?' · '.mb_substr((string)$title,0,60):'').(count($parts)===4?' · 第'.((int)$parts[2]+1).'行':'').' · '.$role;
             $target['current_value']=DecorationAgentOperations::get($widget,$target['field']);$target['container_background']=null;
             foreach(['image_background','item_background','background_color','bg_color'] as $field){$color=$widget['styles'][$field]??null;if(is_string($color)&&preg_match('/^#[0-9a-f]{6}$/iD',$color)){$target['container_background']=strtoupper($color);break;}}
         }unset($target);
