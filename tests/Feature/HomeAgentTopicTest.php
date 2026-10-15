@@ -36,6 +36,7 @@ Db::startTrans();try{
  check($context['summary']['requests']===[]&&$context['focus_assets']===[]&&$context['artifacts']===[],'Independent topic inherited summary/materials');
  check(count($context['tasks'])===1&&$context['tasks'][0]['steps']===[],'Independent topic inherited music task');
  check(C::searchHistory($new,'钢琴')['items']===[]&&C::findArtifacts($new)['items']===[],'Retrieval escaped topic');denied(fn()=>C::readAsset($new,$file));
+ denied(fn()=>\app\common\service\app\aigc_llm\agent\AgentSourceVerifier::verify($new,['message_id'=>(int)$first['message_id'],'quote'=>'历史助手正文']));
  // Finishing an old background task cannot replace a newer topic's focus.
  C::created($first,$file);check(C::build($new)['focus_assets']===[],'Old completion crossed topic');
  $resume=T::resolve($make('继续刚才的钢琴音乐，加快节奏'),fn()=>['action'=>'continue','topic_id'=>(int)$first['id']]);
@@ -43,6 +44,8 @@ Db::startTrans();try{
  check($context['focus']['file_ids']===[$file]&&count($context['artifacts'])===1,'Continuation lost related material');
  check(!str_contains(S::encode($context),'会议通知')&&str_contains(S::encode($context),'音乐任务'),'Continuation imported unrelated topic or lost task');
  check(C::readAsset($resume,$file)['file_id']===$file,'Related asset inaccessible');
+ $quoteCheck=\app\common\service\app\aigc_llm\agent\AgentSourceVerifier::verify($resume,['message_id'=>(int)$first['message_id'],'quote'=>'历史助手正文']);
+ check($quoteCheck['matched']&&$quoteCheck['source']['role']==='assistant'&&!$quoteCheck['semantic_verified'],'Same-topic quote missing or assistant claim promoted to proof');
  $third=T::resolve($make('把节奏再放慢一点'),fn()=>['action'=>'continue','topic_id'=>(int)$first['id']]);
  check(count(T::runIds($third))===3,'Continuation did not preserve topic chain');
  $queries=0;Db::listen(static function()use(&$queries){$queries++;});
