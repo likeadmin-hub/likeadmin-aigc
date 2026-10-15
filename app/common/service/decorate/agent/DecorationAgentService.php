@@ -72,7 +72,8 @@ final class DecorationAgentService
         $reusable=self::reusableMaterials($tenant,$admin,$session,$input,$ctx,(int)($ctx['run_id']??0));
         $materials=DecorationAgentMediaService::search($tenant,'',$input['sources'],$input['attachments'],12);
         $materialAnchor=$ctx['approved_design']??$ctx['design']['parent_reference']??null;
-        if($materialAnchor){$materials=array_values(array_column(array_merge(DecorationAgentDesignService::approvedMaterials($tenant,$materialAnchor,$input['sources']),$materials),null,'id'));$materials=array_slice($materials,0,12);}
+        $designMaterials=[];
+        if($materialAnchor){$designMaterials=DecorationAgentDesignService::approvedMaterials($tenant,$materialAnchor,$input['sources']);$materials=array_values(array_column(array_merge($designMaterials,$materials),null,'id'));$materials=array_slice($materials,0,12);}
         $ctx['approved_material_urls']=array_values(array_filter($ctx['approved_material_urls']??[],fn($url)=>!DecorationAgentAssetReferences::managedValue($url,$ctx['reusable_material_manifest'])));
         $ctx['trusted_materials']=array_values(array_filter($ctx['trusted_materials']??[],fn($material)=>!DecorationAgentAssetReferences::managedValue((string)($material['url']??''),$ctx['reusable_material_manifest'])));
         $materials=array_merge($reusable,$materials);
@@ -86,7 +87,7 @@ final class DecorationAgentService
         if($inventory['ai_tools']['count']===0)$inventory['ai_tools']['warning']='当前没有推荐工具，推荐配置过滤保持不变；使用真实uniapp app_entries或links，不写虚构入口。';
         $inventory['article']['warning']='这是文章资讯，不是经过确认的AI课程目录；不得把普通文章包装成教程。';
         foreach(['user_profile','membership_summary','account_summary','recent_tasks','user_assets'] as $key)$inventory[$key]=['requires_login'=>true,'warning'=>'按访问页面的登录用户实时读取；后台编辑未登录用户时不补假数据。'];
-        return [
+        $result=[
             'visual_review_target'=>self::visualReviewContext($ctx),
             'scope'=>$input['scope'],'selected_id'=>$input['selected_id'],'page'=>$ctx['candidate'],'component_index'=>self::componentIndex($ctx['candidate']['data']),
             'component_catalog'=>self::compactCatalog(),'related_contracts'=>DecorationAgentDesignContext::related($ctx['candidate'],$input['scope'],$input['selected_id'],$input['message']),
@@ -98,6 +99,10 @@ final class DecorationAgentService
             'design_phase'=>$ctx['phase']??($input['design_first']??false?'design':'normal'),'approved_design'=>$ctx['approved_design']??null,'design_constraints'=>!empty($ctx['approved_design'])||($input['design_first']??false)?'设计图用于视觉对照，严禁作为整页背景或单图组件。按全46真实契约还原布局、参数、图标及素材；需截图图对图复审，未经复审不能声称1:1。':'',
             'attachments'=>$input['attachments'],'facts'=>$ctx['facts']??[],'conversation'=>array_map(fn($message)=>['role'=>$message['role'],'content'=>$message['content']],$recent),'tool_results'=>$ctx['observations']??[],
         ];
+        if(empty($ctx['visual_review']))return $result;
+        $current=DecorationAgentAssetReferences::freezeMaterials(self::reusePage($ctx['candidate'],$input),$tenant,$input['sources'],$input['attachments']);
+        $valid=DecorationAgentAssetReferences::refreshMaterials($current,$tenant,$input['sources'],$input['attachments']);
+        return DecorationAgentReviewContext::project($result,$valid,$designMaterials);
     }
 
     private static function generationContext(int $tenant,array $input,array $ctx): array
@@ -581,7 +586,15 @@ final class DecorationAgentService
         $model=MarketTextModelRuntimeService::resolveModel($tenant,$input['model_selection'],$input['requires_vision']);$spent=self::spent($r);$input['remaining_budget_points']=max(0,$input['budget_points']-$spent);
         $ctx['run_id']=$id;$context=self::modelContext($tenant,$admin,$s,$input,$ctx);
         $content=self::json($context)."\n用户需求：".$input['message'];
-        if($spent+self::textEstimate($model,$content.DecorationAgentDecision::prompt().str_repeat('v',self::visionReferenceCount($input,$ctx) * 6000))>$input['budget_points']){self::finish($id,'budget_exceeded',['error'=>'本轮预算不足以继续，请提高预算后发起新一轮']);return;}
+        $estimateText=$content.DecorationAgentDecision::prompt().str_repeat('v',self::visionReferenceCount($input,$ctx)*6000);
+        $estimated=self::textEstimate($model,$estimateText);
+        if(!empty($ctx['visual_review'])){
+            $ctx['budget_preflight']=['projection'=>'visual_review_v1','model_id'=>(int)$model['id'],'input_sku_id'=>(int)$model['market_sku_id'],
+                'input_tokens'=>MarketTextModelRuntimeService::estimateTokens($estimateText),'output_tokens'=>4096,'vision_reference_count'=>self::visionReferenceCount($input,$ctx),
+                'context_json_bytes'=>strlen(self::json($context)),'estimated_points'=>$estimated,'spent_points'=>$spent,'budget_points'=>$input['budget_points']];
+            self::saveContext($id,$ctx);
+        }
+        if($spent+$estimated>$input['budget_points']){self::finish($id,'budget_exceeded',['error'=>'本轮预算不足以继续，请提高预算后发起新一轮']);return;}
         $references=self::modelReferences($tenant,$admin,$id,$input,$ctx);
         Db::name('decorate_agent_run')->where('id',$id)->update(['status'=>'running','model_calls'=>(int)$r['model_calls']+1,'spent_points'=>$spent]);$ctx['calling']=true;self::saveContext($id,$ctx);self::event($id,'model',['message'=>'理解需求并安排组件','step'=>(int)$r['model_calls']+1]);
         $replyParser=new DecorationAgentReplyStream();$replyStep=(int)$r['model_calls']+1;$replyText='';$replyFlushed='';$replyTime=0.0;

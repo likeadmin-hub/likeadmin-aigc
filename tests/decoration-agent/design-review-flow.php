@@ -106,6 +106,19 @@ try {
  reviewFlowCheck($ctx['candidate']===$payload&&$ctx['base']===$draft&&$ctx['visual_review']['screenshot_file_id']===$fileId,'review freezes candidate, original base and real screenshot tuple');
  $contextMethod=new ReflectionMethod(S::class,'modelContext');$contextMethod->setAccessible(true);$contextCopy=$ctx;$modelContext=$contextMethod->invokeArgs(null,[1,1,$session,$input,&$contextCopy,false]);
  reviewFlowCheck(array_key_first($modelContext)==='visual_review_target'&&$modelContext['visual_review_target']['image_dimensions']['actual_capture']['width_px']===3&&str_contains($input['message'],'批准图片优先'),'real queued review puts image target/dimensions first and does not replay blueprint as visual specification');
+ reviewFlowCheck(\app\common\service\decorate\agent\DecorationAgentReviewContext::expandContracts($modelContext['related_contracts'])===[\app\common\service\decorate\agent\DecorationAgentDesignContext::contract('rich-text')]&&$modelContext['page']===$payload,'actual modelContext uses exact current-tree contract projection and preserves original candidate');
+ reviewFlowCheck($contextCopy['approved_design']===$ctx['approved_design']&&$contextCopy['visual_review']===$ctx['visual_review']&&isset($contextCopy['trusted_materials'],$contextCopy['approved_material_urls']),'projection retains authoritative raw approval/evidence and trusted source context');
+ Db::startTrans();
+ try {
+  $tiny=$input;$tiny['budget_points']=0.001;Db::name('decorate_agent_run')->where('id',$review['id'])->update(['input_json'=>S::json($tiny)]);
+  $step=new ReflectionMethod(S::class,'step');$step->setAccessible(true);$step->invoke(null,$review['id'],'fixture-no-provider');
+  $stopped=Db::name('decorate_agent_run')->where('id',$review['id'])->find();$stoppedCtx=S::decode($stopped['context_json']);$preflight=$stoppedCtx['budget_preflight'];
+  $copy=$stoppedCtx;$tiny['remaining_budget_points']=0.001;$wireContext=$contextMethod->invokeArgs(null,[1,1,$session,$tiny,&$copy,false]);
+  $estimateText=S::json($wireContext)."\n用户需求：".$tiny['message'].\app\common\service\decorate\agent\DecorationAgentDecision::prompt().str_repeat('v',12000);
+  $textEstimate=new ReflectionMethod(S::class,'textEstimate');$textEstimate->setAccessible(true);$resolved=Text::resolveModel(1,$tiny['model_selection'],true);
+  reviewFlowCheck($stopped['status']==='budget_exceeded'&&(int)$stopped['model_calls']===0&&Db::name('ai_app_task')->where(['business_table'=>'decorate_agent_run','business_id'=>$review['id']])->count()===0,'real worker rejects insufficient projected budget before provider/task creation');
+  reviewFlowCheck($preflight['projection']==='visual_review_v1'&&$preflight['input_tokens']===Text::estimateTokens($estimateText)&&$preflight['estimated_points']===$textEstimate->invoke(null,$resolved,$estimateText)&&$preflight['vision_reference_count']===2,'durable preflight uses exact projected content plus unchanged system prompt and two-image worker formula');
+ } finally {Db::rollback();}
 
  reviewFlowCheck(!str_contains($run['context_json'],'data:image/')&&$ctx['approved_design']['hash']===$design['hash'],'only immutable identities persist, not vision bytes');
  $makeTextReceipt=static function(int $runId): int {$task=(int)Db::name('ai_app_task')->insertGetId(['task_no'=>'review-flow-text:'.bin2hex(random_bytes(8)),'idempotency_key'=>'review-flow-text:'.bin2hex(random_bytes(8)),'tenant_id'=>1,'user_id'=>0,'app_code'=>'system_default','business_table'=>'decorate_agent_run','business_id'=>$runId,'status'=>'success']);return (int)Db::name('ai_consumption_log')->insertGetId(['consume_no'=>'review-flow-text:'.bin2hex(random_bytes(8)),'tenant_id'=>1,'user_id'=>0,'app_task_id'=>$task,'app_code'=>'system_default','protocol'=>'openai_responses','run_status'=>'success','billing_status'=>'settled','actual_tenant_cost'=>1]);};
