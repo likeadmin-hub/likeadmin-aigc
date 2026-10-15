@@ -192,7 +192,10 @@ class OfficialAccountOAuthRelayService
     {
         if (!$this->cache()->set($key, $value, $ttl)) throw new \RuntimeException('微信授权状态保存失败，请稍后重试');
     }
-    protected function remove(string $key): void { $this->cache()->delete($key); }
+    protected function remove(string $key): void
+    {
+        if (!$this->cache()->delete($key)) throw new \RuntimeException('微信授权凭证消费失败，请重新发起登录');
+    }
     protected function locked(string $key, callable $action)
     {
         // Bound the number of persistent flock files while retaining atomic
