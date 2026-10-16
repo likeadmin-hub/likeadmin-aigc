@@ -2,7 +2,7 @@
 /** Read-only catalogue -> quote -> wire-payload audit. Never reserves, submits or polls. */
 require dirname(__DIR__, 4) . '/vendor/autoload.php';
 (new think\App())->initialize();
-use app\common\service\power\{MarketTextModelRuntimeService as Text, MarketImageModelRuntimeService as Image, MarketVideoRuntimeService as Video, MarketMusicAppRuntimeService as Music};
+use app\common\service\power\{MarketTextModelRuntimeService as Text, MarketImageModelRuntimeService as Image, MarketVideoRuntimeService as Video, MarketMusicAppRuntimeService as Music, MarketNanoBananaAppRuntimeService as Nano};
 use app\common\service\app\aigc_canvas\agent\model\CanvasModelRouterService as Router;
 use think\facade\Db;
 $db = config('database.connections.mysql');
@@ -36,8 +36,9 @@ try {
                         $protocol=$invoke(Text::class,'protocolForModel',$model);
                         $payload=$invoke(Text::class,'requestPayload',$protocol,$model,[['role'=>'user','content'=>'offline contract fixture']],'',64,[]);
                     } elseif ($type==='image') {
-                        $quote=Image::quote($tenant,$request,1);
-                        $payload=$invoke(Image::class,'payload',$quote['market_snapshot'],$request,'offline-audit',0);
+                        $runtime=Nano::isSelection($request) ? Nano::class : Image::class;
+                        $quote=$runtime::quote($tenant,$request,1);
+                        $payload=$invoke($runtime,'payload',$quote['market_snapshot'],$request,'offline-audit',0);
                     } elseif ($type==='music') {
                         $quote=Music::quote($tenant,$request);
                         $payload=$invoke(Music::class,'payload',$quote['market_snapshot'],$request+['custom'=>true,'instrumental'=>false,'lyrics'=>'offline lyrics','style'=>'piano'],'offline-audit');
