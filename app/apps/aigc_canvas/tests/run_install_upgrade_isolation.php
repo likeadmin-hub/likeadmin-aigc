@@ -48,6 +48,11 @@ try {
         $failures[] = 'local app migrations did not execute';
     }
 
+    // Native project deletion must work even before the optional conversation tables exist.
+    $project=\app\common\service\app\aigc_canvas\AigcCanvasService::createProject(701,801,['name'=>'standalone fixture','nodes'=>[],'edges'=>[],'viewport'=>[]]);
+    \app\common\service\app\aigc_canvas\AigcCanvasService::deleteProject(701,801,(int)$project['id']);
+    if (!(int)Db::name('aigc_canvas_project')->where('id',$project['id'])->value('delete_time')) $failures[]='standalone native project deletion failed';
+
     // The core install owns this durable table. Create its isolated equivalent
     // so the app upgrade scripts can verify their additive columns and indexes.
     Db::execute("CREATE TABLE IF NOT EXISTS `{$prefix}aigc_canvas_agent_tool_call` (
