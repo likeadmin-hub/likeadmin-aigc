@@ -2238,33 +2238,12 @@ class OpenPlatformService
     /** Resolve the tenant's configured host for the package runtime. */
     private static function tenantRuntimeConfig(int $tenantId, bool $requireConfiguredDomain = false): array
     {
-        $domain = '';
-        $credential = WechatCredential::withoutGlobalScope()->where('tenant_id', $tenantId)->findOrEmpty()->toArray();
-        $settings = json_decode((string)($credential['settings_json'] ?? ''), true);
-        $configuredDomain = is_array($settings) ? trim((string)($settings['business_domain'] ?? '')) : '';
-        if ($requireConfiguredDomain && $configuredDomain === '') {
-            throw new \RuntimeException('请先配置租户小程序业务域名后再提交体验版');
-        }
-        if ($configuredDomain !== '') {
-            $domain = preg_match('#^https?://#i', $configuredDomain) ? $configuredDomain : 'https://' . $configuredDomain;
-        }
-        try {
-            if ($domain === '') $domain = (string)request()->domain();
-        } catch (\Throwable $ignored) {
-            $domain = '';
-        }
-        if ($domain === '') {
-            $host = trim((string)($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? ''));
-            if ($host !== '') {
-                $scheme = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') ? 'https' : 'http';
-                $domain = $scheme . '://' . $host;
-            }
-        }
-        // The upload request may reach PHP over HTTP after TLS termination.
-        // Match the HTTPS request domain shown in mini-program settings instead
-        // of embedding that internal transport protocol in a formal package.
-        if ($configuredDomain === '') $domain = preg_replace('#^http://#i', 'https://', $domain);
-        $domain = rtrim($domain, '/') . '/';
+        // settings_json contains a historical display snapshot and may still
+        // name the platform host after the tenant has changed its binding.
+        // Both manual upload and template commit must resolve the live binding.
+        $tenantHost = MiniProgramDomainService::host($tenantId);
+        if ($tenantHost === '') throw new \RuntimeException('当前租户未配置有效的小程序接口域名');
+        $domain = 'https://' . $tenantHost . '/';
         $parts = parse_url($domain);
         $host = strtolower((string)($parts['host'] ?? ''));
         if (!is_array($parts) || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
