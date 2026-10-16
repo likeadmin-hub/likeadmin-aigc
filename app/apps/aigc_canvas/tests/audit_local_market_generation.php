@@ -17,6 +17,11 @@ Db::startTrans();
 try {
     \app\common\service\power\MarketCatalogReadScope::run(static function () use ($tenant, $invoke, &$report) {
     $groups = ['text'=>['options'=>Text::textOptions($tenant)]] + Router::marketOverview($tenant);
+    $canvasText = $invoke(Canvas::class, 'textConfig', $tenant);
+    $textDescriptors = array_column($canvasText['models'], 'canvas_parameters', 'code');
+    foreach ($groups['text']['options'] as $textModel) {
+        if (($textDescriptors[$textModel['id']] ?? null) !== Parameters::definitions($textModel, 'text')) throw new RuntimeException('Canvas text UI lost model parameters');
+    }
     foreach ($groups as $type=>$group) foreach ($group['options'] as $option) {
         $entry=['type'=>$type,'id'=>$option['id'],'name'=>$option['name'] ?? $option['label'],'modes'=>$option['generation_modes'] ?? [],'checks'=>[]];
         $entry['advanced_fields'] = Parameters::definitions($option, $type);
