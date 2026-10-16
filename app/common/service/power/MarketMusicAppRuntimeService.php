@@ -409,7 +409,7 @@ class MarketMusicAppRuntimeService
         $custom = $boolean($request['custom'] ?? false, false);
         $instrumental = $boolean($request['instrumental'] ?? true, true);
         $duration = (int)($locked['duration'] ?? $locked['seconds'] ?? $providerParams['duration'] ?? $request['duration'] ?? 60);
-        foreach (['title', 'prompt', 'lyrics', 'lyric', 'instrumental', 'custom', 'genre', 'mood', 'instruments', 'duration', 'style', 'vocal_gender'] as $key) {
+        foreach (['title', 'prompt', 'lyrics', 'lyric', 'instrumental', 'custom', 'genre', 'mood', 'instruments', 'duration', 'style', 'vocal_gender', 'language'] as $key) {
             unset($params[$key]);
         }
         $payload = array_merge($params, self::marketContext($snapshot), [
@@ -419,6 +419,7 @@ class MarketMusicAppRuntimeService
             'instrumental' => $instrumental, 'custom' => $custom,
             'style' => trim((string)($request['style'] ?? $request['genre'] ?? '')),
             'vocal_gender' => $instrumental ? '' : trim((string)($request['vocal_gender'] ?? '')),
+            'language' => trim((string)($request['language'] ?? '')),
             'genre' => trim((string)($request['genre'] ?? '')), 'mood' => trim((string)($request['mood'] ?? '')),
             'instruments' => trim((string)($request['instruments'] ?? '')), 'duration' => max(5, min(600, $duration)),
             'idempotency_key' => $idempotencyKey,
@@ -426,7 +427,7 @@ class MarketMusicAppRuntimeService
         // New catalogues declare the wire fields. Legacy snapshots keep their
         // former duration/genre behavior, including short-drama BGM defaults.
         if ($fields !== []) {
-            foreach (['duration', 'genre', 'mood', 'instruments', 'style', 'vocal_gender', 'lyric'] as $key) {
+            foreach (['duration', 'genre', 'mood', 'instruments', 'style', 'vocal_gender', 'lyric', 'language'] as $key) {
                 if (!array_key_exists($key, $fields)) unset($payload[$key]);
             }
         }
