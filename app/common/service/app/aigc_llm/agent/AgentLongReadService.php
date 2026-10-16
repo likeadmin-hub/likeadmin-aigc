@@ -115,7 +115,7 @@ final class AgentLongReadService
             MarketNeuronProvider::fitContext([['role'=>'user','content'=>$body]],$instructions,[],$inputBudget);
             $result=MarketTextModelRuntimeService::generate((int)$run['tenant_id'],(int)$run['user_id'],[
                 '_agent_reading_source'=>$source,'content'=>'分段读取资料','messages'=>[['role'=>'user','content'=>$body]],'system_prompt'=>$instructions,
-                'model_selection'=>$p['models']['text'],'app_code'=>'aigc_llm','source_app_code'=>'aigc_llm','business_table'=>'aigc_llm_agent_run','business_id'=>$run['id'],'action_code'=>'agent_chat',
+                'model_selection'=>$p['models']['text'],'app_code'=>AgentWorkspaceScope::app(),'source_app_code'=>AgentWorkspaceScope::app(),'business_table'=>'aigc_llm_agent_run','business_id'=>$run['id'],'action_code'=>'agent_chat',
                 '_agent_tool_history'=>true,'_require_final_content'=>true,'_disable_model_fallback'=>true,'_disable_transient_retry'=>true,'enable_thinking'=>false,'requires_vision'=>count($body)>1,
             ]);
             $result=MarketNeuronProvider::visibleResult($result);

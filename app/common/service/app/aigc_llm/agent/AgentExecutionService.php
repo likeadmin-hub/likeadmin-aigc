@@ -84,6 +84,11 @@ final class AgentExecutionService
         $out['mode']=$preferences['mode']??'ask';
         $out['confirmation_reason']=$run['status']==='awaiting_confirmation'&&$out['mode']==='auto'
             ? (AgentStore::requiresConfirmation($preferences,(float)$out['estimated_points'])?'budget_exceeded':'plan_changed') : '';
+        $workspace=AgentWorkspaceScope::fromRun($run);
+        if(($workspace['app']??'')==='aigc_canvas'){
+            $viewport=\app\common\model\app\aigc_canvas\AigcCanvasProject::where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$workspace['project_id'],'delete_time'=>0])->value('viewport_json');
+            $out['canvas_revision']=(int)(AgentStore::json($viewport)['agentRevision']??0);
+        }
         return $out;
     }
     public static function displayAttachments(int $tenant,int $user,array $assets): array

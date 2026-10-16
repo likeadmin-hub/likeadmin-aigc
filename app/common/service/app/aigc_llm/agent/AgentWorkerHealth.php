@@ -57,7 +57,7 @@ final class AgentWorkerHealth
         $speech=\think\facade\Db::name('ai_consumption_log')->where(['app_code'=>'aigc_llm','action_code'=>'agent_speech','billing_status'=>'reserved','run_status'=>'needs_review']);
         $text=\think\facade\Db::name('ai_consumption_log')->alias('c')
             ->join('ai_app_task t','t.id=c.app_task_id')
-            ->where(['c.app_code'=>'aigc_llm','t.business_table'=>'aigc_llm_agent_run'])
+            ->whereIn('c.app_code',['aigc_llm','aigc_canvas'])->where(['t.business_table'=>'aigc_llm_agent_run'])
             ->whereColumn('c.tenant_id','=','t.tenant_id')->whereColumn('c.user_id','=','t.user_id');
         $textReview=['pending_usage'=>(clone $text)->where(['c.billing_status'=>'pending_usage','c.run_status'=>'success'])->count(),
             'settlement_failed'=>(clone $text)->where('c.billing_status','settlement_failed')->count()];

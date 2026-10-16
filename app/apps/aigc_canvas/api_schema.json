@@ -1152,6 +1152,14 @@
       "scene": "user",
       "need_login": 1,
       "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/start",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:start",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
     }
   ]
 }
