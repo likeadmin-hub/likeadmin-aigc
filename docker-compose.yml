@@ -134,23 +134,6 @@ services:
         condition: service_healthy
     stop_grace_period: 120s
 
-  canvas-worker:
-    build:
-      context: .
-      target: app
-    restart: unless-stopped
-    init: true
-    read_only: true
-    environment: *app-environment
-    command: ["canvas-worker"]
-    volumes: *app-volumes
-    tmpfs:
-      - /tmp
-    depends_on:
-      app:
-        condition: service_healthy
-    stop_grace_period: 210s
-
   scheduler:
     build:
       context: .

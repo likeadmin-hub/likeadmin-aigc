@@ -26,7 +26,7 @@ try {
     // Full installs create these platform-core tables before app-center installation begins.
     foreach ([
         'app', 'app_api', 'app_frontend_entry', 'app_install', 'app_migration', 'app_version',
-        'tenant', 'tenant_app', 'system_menu', 'tenant_system_menu',
+        'tenant', 'tenant_app', 'system_menu', 'tenant_system_menu', 'tenant_system_role_menu',
     ] as $table) {
         Db::execute("CREATE TABLE `{$prefix}{$table}` LIKE `la_{$table}`");
     }

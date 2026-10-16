@@ -74,7 +74,7 @@ test('changed app submitters include their unchanged submit-lock dependency', ()
     } finally {fs.rmSync(f.dir,{recursive:true,force:true})}
 })
 
-const bridgeWorkers=['AiTaskWorker','CanvasSubAgentWorker','ShortDramaEpisodeWorker','ShortDramaPlanningWorker','ShortDramaCanvasAgentWorker','Crontab']
+const bridgeWorkers=['AiTaskWorker','ShortDramaEpisodeWorker','ShortDramaPlanningWorker','ShortDramaCanvasAgentWorker','Crontab']
 test('new app migration ships unchanged runtime deferral dependency with exact owner',()=>{
     const f=fixture(),out=path.join(f.dir,'app-migration-stage')
     try {

@@ -6,11 +6,18 @@ use app\api\controller\BaseApiController;
 use app\common\service\app\aigc_canvas\AigcCanvasService;
 use app\common\service\app\aigc_canvas\CanvasRequestInput;
 use app\common\service\app\aigc_canvas\AigcCanvasFrameService;
-use app\common\service\app\aigc_canvas\agent\prompt\PromptSubmissionException;
+use app\common\service\app\aigc_canvas\prompt\PromptSubmissionException;
 use Exception;
 
 class GenerateController extends BaseApiController
 {
+    public function assetRegister()
+    {
+        try {
+            return $this->success('登记成功', \app\common\service\app\aigc_canvas\CanvasAssetService::registerAsset((int)$this->request->tenantId, $this->userId, CanvasRequestInput::post($this->request)), 1, 1);
+        } catch (Exception $e) { return $this->fail($e->getMessage()); }
+    }
+
     public function image()
     {
         try {
