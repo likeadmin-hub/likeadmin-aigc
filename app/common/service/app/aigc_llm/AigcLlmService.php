@@ -77,7 +77,7 @@ class AigcLlmService
             'tenant_id' => $tenantId,
             'user_id' => $userId,
             'delete_time' => 0,
-        ])->order(['last_message_at' => 'desc', 'id' => 'desc'])->limit(50)->select()->toArray();
+        ])->where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->order(['last_message_at' => 'desc', 'id' => 'desc'])->limit(50)->select()->toArray();
         foreach ($rows as &$row) {
             $row['last_message'] = self::lastMessageSnippet($tenantId, (int)$row['id']);
         }
@@ -853,7 +853,7 @@ class AigcLlmService
             'user_id' => $userId,
             'id' => $sessionId,
             'delete_time' => 0,
-        ]);
+        ])->where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'));
         if ($lock) {
             $query->lock(true);
         }

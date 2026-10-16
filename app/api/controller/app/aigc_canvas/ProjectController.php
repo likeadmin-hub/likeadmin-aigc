@@ -9,6 +9,12 @@ use Exception;
 
 class ProjectController extends BaseApiController
 {
+    public function registerAsset()
+    {
+        try { return $this->success('', \app\common\service\app\aigc_canvas\CanvasAssetService::registerAsset((int)$this->request->tenantId, $this->userId, CanvasRequestInput::post($this->request))); }
+        catch (Exception $e) { return $this->fail($e->getMessage()); }
+    }
+
     public function lists()
     {
         return $this->success('获取成功', AigcCanvasService::projectLists((int)$this->request->tenantId, $this->userId, $this->request->get()));

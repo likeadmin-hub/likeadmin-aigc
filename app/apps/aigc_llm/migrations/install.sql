@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_llm_sensitive_word` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC对话敏感词';
 
 CREATE TABLE IF NOT EXISTS `la_aigc_llm_session` (
+  `workspace_key` varchar(160) NOT NULL DEFAULT 'home',
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `user_id` int unsigned NOT NULL DEFAULT 0,
