@@ -49,6 +49,11 @@ class WebSettingController extends BaseAdminController
     public function setWebsite()
     {
         $operation = $this->request->post('operation/s', '');
+        if ($operation === 'canvas_portal_publish') {
+            try {
+                return $this->success('无限画布首页配置已发布', \app\common\service\CanvasPortalService::save($this->request->post()), 1, 1);
+            } catch (\InvalidArgumentException $e) { return $this->fail($e->getMessage()); }
+        }
         if (in_array($operation, ['shortcuts_draft', 'shortcuts_publish'], true)) {
             try {
                 $data = \app\common\service\PcHomeShortcutsService::save($this->request->post(), $operation === 'shortcuts_publish');
