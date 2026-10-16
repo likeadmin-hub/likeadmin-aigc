@@ -29,6 +29,10 @@ final class MicroVideoTimelineTest extends TestCase
         $prompt="0秒-1.5秒：缓慢推进。\n1.5s~3s: 保持光线继续推进。";
         MicroVideoTimeline::validate($prompt,3);self::assertTrue(true);
     }
+    public function testWindowsLineEndingsAreValid(): void
+    {
+        MicroVideoTimeline::validate("0-3秒：全景。\r\n3-15秒：细节。",15);self::assertTrue(true);
+    }
     /** @dataProvider invalidTimelines */
     public function testInvalidShotClocksAreRejected(string $prompt): void
     {
@@ -38,6 +42,7 @@ final class MicroVideoTimelineTest extends TestCase
     public static function invalidTimelines(): array
     {
         return [
+            'unparsed-extra-shot'=>["0-3秒：全景。\n3-15秒：细节。\n16-20秒 远景收尾。"],
             'one-shot'=>["0-15秒：只有一个镜头。"],
             'gap'=>["0-3秒：全景。\n4-15秒：细节。"],
             'overlap'=>["0-6秒：全景。\n3-15秒：细节。"],

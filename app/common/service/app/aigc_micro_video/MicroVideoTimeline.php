@@ -19,8 +19,11 @@ final class MicroVideoTimeline
     public static function validate(string $prompt, int $duration): void
     {
         // Keep ranges line-based: numbers in scene descriptions are not shot boundaries.
-        preg_match_all('/^\h*(?:[-*#]+\h*)?[\[【]?(?<start>-?\d+(?:\.\d+)?)\h*(?:秒|s)?\h*[-–—~～至]\h*(?<end>-?\d+(?:\.\d+)?)\h*(?:秒|s)[\]】]?\h*[:：]\h*(?<body>[^\r\n]*)$/imu', trim($prompt), $rows, PREG_SET_ORDER);
-        $valid=$duration>0&&count($rows)>=2;$end=0.;
+        $normalized=str_replace(["\r\n","\r"],"\n",trim($prompt));
+        preg_match_all('/^\h*(?:[-*#]+\h*)?[\[【]?(?<start>-?\d+(?:\.\d+)?)\h*(?:秒|s)?\h*[-–—~～至]\h*(?<end>-?\d+(?:\.\d+)?)\h*(?:秒|s)[\]】]?\h*[:：]\h*(?<body>[^\r\n]*)$/imu', $normalized, $rows, PREG_SET_ORDER);
+        // A malformed extra shot must not disappear while the original prompt is sent upstream.
+        preg_match_all('/^\h*(?:[-*#]+\h*)?[\[【]?-?\d+(?:\.\d+)?\h*(?:秒|s)?\h*[-–—~～至]\h*-?\d+(?:\.\d+)?/imu',$normalized,$candidates);
+        $valid=$duration>0&&count($rows)>=2&&count($rows)===count($candidates[0]);$end=0.;
         foreach($rows as $row){
             $start=(float)$row['start'];$next=(float)$row['end'];
             if(abs($start-$end)>0.00001||$next<=$start||$start<0||$next>$duration||trim($row['body'])==='')$valid=false;
