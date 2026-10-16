@@ -25,9 +25,11 @@ final class MicroVideoSubmission
     public static function hold(int $id,string $message): bool
     {
         return Db::transaction(function()use($id,$message){$c=AiConsumptionLog::lock(true)->findOrEmpty($id);if($c->isEmpty()||!self::applies($c->toArray()))return false;
-            $receipt=self::receipt($c->toArray());if(!$receipt&&!self::ambiguous($message))return false;
+            $summary=MicroVideoStore::json($c['response_summary']);
+            $receipt=self::receipt($c->toArray());$accepted=$receipt||(string)$c['upstream_task_id']!==''||!empty($summary['videos']);
+            if(!$accepted&&!self::ambiguous($message))return false;
             if(!in_array($c['billing_status'],['reserved','pending_usage'],true))return true;
-            $c->save(['run_status'=>$receipt?'running':'pending_confirmation','error_code'=>'micro_submission_pending','error_message'=>'模型调用状态待核对，已保留进度','finish_time'=>0,'update_time'=>time()]);
+            $c->save(['run_status'=>$accepted?'running':'pending_confirmation','error_code'=>'micro_submission_pending','error_message'=>'模型调用状态待核对，已保留进度','finish_time'=>0,'update_time'=>time()]);
             AiAppTask::where('id',$c['app_task_id'])->update(['status'=>'running','finish_time'=>0,'update_time'=>time()]);return true;});
     }
     public static function receipt(array $c): ?array

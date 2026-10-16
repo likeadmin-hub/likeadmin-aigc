@@ -85,21 +85,17 @@ final class MicroVideoWorker
             }
             if(!$attempt)throw new RuntimeException('片段执行记录缺失，需核对');
             $frozenRequest=MicroVideoStore::json($attempt['request_json']);$selection=$frozenRequest['selection'];$request=$frozenRequest['request'];$runtime=MicroVideoCatalog::runtime($selection);
-            if((int)$attempt['consumption_id']===0){
-                if($attempt['status']!=='prepared')throw new RuntimeException('片段提交结果待核对，请稍后查看');
-                $expected=MicroVideoStore::json($task['confirmed_quote'])['segments'][(string)$segment['id']]??[];$current=MicroVideoCatalog::quote($tenant,$selection,$p['model_id']);
-                if(MicroVideoPolicy::fingerprint($expected)!==MicroVideoPolicy::fingerprint($current))throw new RuntimeException('模型售价已变化，请重新确认费用');
-                $reservation=$runtime::reserve($tenant,$user,MicroVideoStore::APP,'video_generate','aigc_micro_video_segment','micro:'.$attempt['id'],$selection,$request);
-                $runtime::linkBusinessTask((int)$reservation['app_task_id'],(int)$segment['id']);
-                MicroVideoStore::table('attempt')->where('id',$attempt['id'])->update(['consumption_id'=>(int)$reservation['consumption_id'],'app_task_id'=>(int)$reservation['app_task_id'],'update_time'=>time()]);$attempt['consumption_id']=(int)$reservation['consumption_id'];
-            }
+            if((int)$attempt['consumption_id']===0)$attempt=MicroVideoReservation::reserve($task,$segment,$attempt,$selection,$request);
             $receipt=MicroVideoStore::json($attempt['result_json']);
-            if(!empty($receipt['videos']))$response=$receipt;
+            $billing=Db::name('ai_consumption_log')->where('id',$attempt['consumption_id'])->value('billing_status');
+            if(!empty($receipt['videos'])&&$billing==='settled')$response=$receipt;
             elseif(Db::name('ai_consumption_log')->where('id',$attempt['consumption_id'])->value('run_status')==='reserved'){
                 MicroVideoStore::table('attempt')->where('id',$attempt['id'])->update(['status'=>'submitting','update_time'=>time()]);
                 $response=$runtime::submit((int)$attempt['consumption_id'],$request);
             }else $response=$runtime::refresh((int)$attempt['consumption_id']);
             $consumption=Db::name('ai_consumption_log')->where('id',$attempt['consumption_id'])->find();
+            // A retained provider receipt is not deliverable until settlement commits.
+            if(($consumption['billing_status']??'')!=='settled')$response['videos']=[];
             $status=(string)($response['status']??'running');
             MicroVideoStore::table('attempt')->where('id',$attempt['id'])->update(['status'=>$status==='failed'?'failed':(!empty($response['videos'])?'storing':'running'),'provider_task_id'=>(string)($response['provider_task_id']??''),'result_json'=>MicroVideoStore::encode($response),'billing_status'=>(string)($consumption['billing_status']??''),'user_charge_points'=>(float)($consumption['actual_user_price']??$attempt['user_charge_points']),'update_time'=>time()]);
             if($status==='failed')throw new RuntimeException((string)($response['error']??'片段需要重新生成'));
