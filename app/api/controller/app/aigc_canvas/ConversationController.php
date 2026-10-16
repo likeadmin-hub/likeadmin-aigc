@@ -10,8 +10,8 @@ class ConversationController extends \app\api\controller\app\aigc_llm\AgentContr
     }
     protected function workspaceScope(): array
     {
-        $params=array_merge($this->request->get(),$this->request->post());
+        $params=$this->requestParameters();
         if(empty($params['project_id'])&&in_array(strtolower($this->request->action()),['config','preferences','subjects','upload','start'],true))return ['app'=>'aigc_canvas','project_id'=>0,'page_id'=>'entry'];
-        return AgentWorkspaceScope::canvas((int)$this->request->tenantId,$this->userId,array_merge($this->request->get(),$this->request->post()));
+        return AgentWorkspaceScope::canvas((int)$this->request->tenantId,$this->userId,$this->requestParameters());
     }
 }

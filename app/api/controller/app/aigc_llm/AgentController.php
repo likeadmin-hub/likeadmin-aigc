@@ -7,12 +7,22 @@ use app\common\service\open_platform\{OpenAssets,OpenException};
 class AgentController extends BaseApiController
 {
     protected function workspaceScope(): array { return []; }
+    /** Reject ambiguous scope identifiers before authorization or project reads. */
+    protected function requestParameters(): array
+    {
+        $get=$this->request->get();$post=$this->request->post();
+        foreach(['project_id','page_id','session_id','run_id','step_id','id'] as $key){
+            foreach([$get,$post] as $source)if(array_key_exists($key,$source)&&!is_scalar($source[$key]))throw new \InvalidArgumentException('请求标识无效');
+            if(array_key_exists($key,$get)&&array_key_exists($key,$post)&&(string)$get[$key] !== (string)$post[$key])throw new \InvalidArgumentException('请求标识不一致，请刷新后重试');
+        }
+        return array_merge($get,$post);
+    }
     private function scoped(callable $call)
     {
-        return AgentWorkspaceScope::within($this->workspaceScope(),function()use($call){
+        $params=$this->requestParameters();
+        return AgentWorkspaceScope::within($this->workspaceScope(),function()use($call,$params){
             $t=(int)$this->request->tenantId;$u=$this->userId;
             AgentStore::access($t,$u);
-            $params=array_merge($this->request->get(),$this->request->post());
             if(!empty($params['run_id']))AgentWorkspaceScope::assertRun($t,$u,(int)$params['run_id']);
             if(!empty($params['session_id']))AgentWorkspaceScope::assertSession($t,$u,(int)$params['session_id']);
             if(strtolower($this->request->action())==='favorite'){

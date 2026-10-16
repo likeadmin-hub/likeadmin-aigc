@@ -29,7 +29,10 @@ final class CanvasConversationService
                 $project=AigcCanvasService::createProject($tenant,$user,['name'=>mb_substr(preg_replace('/\s+/u',' ',$content),0,30),'nodes'=>[],'edges'=>[],
                     'viewport'=>['x'=>80,'y'=>80,'zoom'=>1,'currentCanvasId'=>'canvas_1','pages'=>[['id'=>'canvas_1','name'=>'页面 1','nodeIds'=>[],'viewport'=>['x'=>80,'y'=>80,'k'=>1]]]]]);
                 $scope=['app'=>'aigc_canvas','project_id'=>(int)$project['id'],'page_id'=>'canvas_1'];
-                $run=AgentWorkspaceScope::within($scope,fn()=>AgentExecutionService::submit($tenant,$user,$params));
+                $run=AgentWorkspaceScope::within($scope,static function()use($tenant,$user,$params){
+                    AgentStore::preferences($tenant,$user,isset($params['preferences'])?(array)$params['preferences']:null);
+                    return AgentExecutionService::submit($tenant,$user,$params);
+                });
                 $stored=AgentStore::run($tenant,$user,(int)$run['id']);
                 AgentStore::owner('run',$tenant,$user)->where('id',$run['id'])->update(['preferences'=>AgentStore::encode(AgentStore::json($stored['preferences'])+['_canvas_entry'=>true])]);
                 return ['project_id'=>$project['id'],'page_id'=>'canvas_1','session_id'=>$run['session_id'],'run_id'=>$run['id']];
