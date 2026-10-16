@@ -9,7 +9,7 @@ use app\common\service\power\{MarketVideoRuntimeService as Video, MarketImageMod
 $checks = 0;
 $check = static function ($condition, $message) use (&$checks) { $checks++; if (!$condition) throw new RuntimeException($message); };
 $call = static fn($class, $method, ...$args) => (new ReflectionMethod($class, $method))->invoke(null, ...$args);
-$base = ['product_id'=>1, 'sku_id'=>2, 'sku_key'=>'fixture', 'locked_params'=>[], 'default_params'=>[]];
+$base = ['channel_code'=>'fixture', 'product_id'=>1, 'sku_id'=>2, 'sku_key'=>'fixture', 'locked_params'=>[], 'default_params'=>[]];
 $schema = ['seed'=>['type'=>'integer','minimum'=>0], 'audio'=>['type'=>'boolean'], 'is_rec'=>['type'=>'boolean'], 'watermark'=>['type'=>'boolean'], 'wm_position'=>['type'=>'integer','enum'=>[1,2,3,4]]];
 $q4 = array_replace($base, ['model_code'=>'q4-preview-video','params_schema'=>$schema]);
 $request = ['prompt'=>'A dog runs', 'quality'=>'720p', 'duration'=>5, 'reference_images'=>['https://example.test/dog.jpg'],
@@ -65,4 +65,10 @@ $generation = $call(Text::class, 'generationParams', $text, $request['model_conf
 $check($request['max_tokens'] === 256 && $generation['temperature'] === 0.0 && $generation['enable_thinking'] === false, 'Text overrides lost');
 $legacy = ['channel'=>'old','unknown_metadata'=>['preserve'=>true]];
 $check(Parameters::apply($legacy, [], 'image') === $legacy, 'Legacy request changed without advanced parameters');
+$grok = ['resource_type'=>'app_api', 'upstream_app_code'=>'grok_video'];
+$meta = ['generation_modes'=>['text_to_video','image_reference','video_edit','audio_reference'], 'supported_asset_types'=>['image','video','audio']];
+$check(!in_array('video_edit', $call(Video::class, 'generationModes', $grok, $meta), true), 'Grok advertised an unimplemented video input');
+$check($call(Video::class, 'supportedAssetTypes', $grok, $meta) === ['image'], 'Grok accepts a modality not encoded by its adapter');
+try { $call(Video::class, 'appPayload', $base + ['app_code'=>'grok_video'], ['reference_assets'=>[['type'=>'video','url'=>'https://example.test/a.mp4']]], 'offline'); $check(false, 'Grok silently discarded video'); }
+catch (Exception $e) { $check(str_contains($e->getMessage(), '仅支持参考图片'), 'Wrong Grok rejection'); }
 echo "Canvas advanced parameter contract: {$checks} checks passed; no database, writes or provider calls\n";

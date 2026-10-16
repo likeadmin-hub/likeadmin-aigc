@@ -15,6 +15,7 @@ $report=['tenant_id'=>$tenant,'provider_calls'=>0,'writes'=>0,'entries'=>[]];
 Db::execute('SET TRANSACTION READ ONLY');
 Db::startTrans();
 try {
+    \app\common\service\power\MarketCatalogReadScope::run(static function () use ($tenant, $invoke, &$report) {
     $groups = ['text'=>['options'=>Text::textOptions($tenant)]] + Router::marketOverview($tenant);
     foreach ($groups as $type=>$group) foreach ($group['options'] as $option) {
         $entry=['type'=>$type,'id'=>$option['id'],'name'=>$option['name'] ?? $option['label'],'modes'=>$option['generation_modes'] ?? [],'checks'=>[]];
@@ -105,6 +106,7 @@ try {
         $entry['rejected_checks']=count($entry['checks'])-$entry['passed_checks'];
         $report['entries'][]=$entry;
     }
+    });
 } finally { Db::rollback(); }
 $report['checked_entries']=count($report['entries']);
 $report['checked_combinations']=array_sum(array_map(fn($entry)=>count($entry['checks']),$report['entries']));
