@@ -106,6 +106,7 @@ try {
         $entry['rejected_checks']=count($entry['checks'])-$entry['passed_checks'];
         $report['entries'][]=$entry;
     }
+    return [];
     });
 } finally { Db::rollback(); }
 $report['checked_entries']=count($report['entries']);
