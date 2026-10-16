@@ -1,0 +1,52 @@
+<?php
+namespace Tests\Feature;
+use PHPUnit\Framework\TestCase;
+use think\facade\Db;
+use app\common\service\app\aigc_micro_video\MicroVideoService as V;
+use app\common\service\app\aigc_micro_video\MicroVideoStore as S;
+use app\common\service\app\aigc_micro_video\MicroVideoSettings as C;
+
+/** Local transactional admission tests: no provider calls, no balance mutation. */
+final class MicroVideoWorkflowTest extends TestCase
+{
+    private int $id;
+    protected function setUp(): void
+    {
+        (new \think\App(dirname(__DIR__,2).'/'))->initialize();$db=config('database.connections.mysql');
+        if($db['hostname']!=='127.0.0.1'||$db['database']!=='z_cn')self::markTestSkipped('Local transactional acceptance only');
+        $template=S::table('task')->where('tenant_id',1)->where('user_id',1)->order('id')->find();if(!$template)self::markTestSkipped('Owned local acceptance draft required');
+        Db::startTrans();unset($template['id']);$template=array_replace($template,['idempotency_key'=>'test_'.bin2hex(random_bytes(12)),'status'=>'awaiting_confirmation','plan_revision'=>1,'quote_token'=>'','quote_json'=>'{}','confirmed_quote'=>'{}','submit_key'=>'','resume_key'=>'','lease_token'=>'','lease_until'=>0,'delete_time'=>0]);$this->id=S::table('task')->insertGetId($template);
+        foreach([1,2] as $sort)S::table('segment')->insert(['tenant_id'=>1,'user_id'=>1,'task_id'=>$this->id,'sort'=>$sort,'title'=>'测试镜头'.$sort,'duration'=>6,'prompt'=>'同一红色保温瓶，灰色背景与柔和光线。','image_indices'=>'[0]','start_state'=>'商品全景','end_state'=>'商品细节','continuity'=>'保持商品形状颜色与光线','status'=>'pending','create_time'=>time(),'update_time'=>time()]);
+    }
+    protected function tearDown(): void{Db::rollback();}
+    private function rejection(callable $f): void{try{$f();}catch(\InvalidArgumentException $e){self::assertNotSame('',$e->getMessage());return;}self::fail('Operation should reject');}
+    private function quote(): array{return V::estimate(1,1,['id'=>$this->id,'plan_revision'=>1]);}
+    public function testQuoteAndSubmitAreVersionBoundAndIdempotent(): void
+    {
+        $before=Db::name('ai_consumption_log')->count();$q=$this->quote();self::assertSame(60.0,(float)$q['user_charge_points']);
+        $p=['id'=>$this->id,'plan_revision'=>1,'quote_token'=>$q['quote_token'],'idempotency_key'=>'submit_'.bin2hex(random_bytes(10))];
+        $a=V::submit(1,1,$p);$b=V::submit(1,1,$p);self::assertSame('running',$a['status']);self::assertSame($a['id'],$b['id']);self::assertSame([],$a['segments']);self::assertSame($before,Db::name('ai_consumption_log')->count());self::assertCount(2,S::segments($this->id));
+    }
+    public function testOlderQuoteAndCrossUserAccessCannotSubmit(): void
+    {
+        $old=$this->quote();$new=$this->quote();self::assertNotSame($old['quote_token'],$new['quote_token']);
+        $this->rejection(fn()=>V::submit(1,1,['id'=>$this->id,'plan_revision'=>1,'quote_token'=>$old['quote_token'],'idempotency_key'=>'old_quote_test']));
+        try{V::detail(1,2,$this->id);self::fail('Cross-user detail exposed');}catch(\RuntimeException $e){self::assertStringContainsString('无权',$e->getMessage());}
+        $this->rejection(fn()=>V::submit(1,1,['id'=>$this->id,'plan_revision'=>99,'quote_token'=>$new['quote_token'],'idempotency_key'=>'wrong_revision']));
+    }
+    public function testRetryOnlyQueuesFailedSegmentAndKeepsSuccessfulReceipt(): void
+    {
+        $segments=S::segments($this->id);S::table('segment')->where('id',$segments[0]['id'])->update(['status'=>'success','attempt_no'=>1,'attempt_id'=>987,'video_uri'=>'uploads/kept-success.mp4']);S::table('segment')->where('id',$segments[1]['id'])->update(['status'=>'failed','error'=>'fixture unavailable']);S::update($this->id,['status'=>'waiting_continue']);
+        $first=S::segments($this->id)[0];$q=$this->quote();self::assertSame(30.0,(float)$q['user_charge_points']);$p=['id'=>$this->id,'quote_token'=>$q['quote_token'],'idempotency_key'=>'retry_only_failed'];V::retry(1,1,$p);V::retry(1,1,$p);
+        $after=S::segments($this->id);self::assertSame($first,$after[0]);self::assertSame('pending',$after[1]['status']);self::assertSame(0,S::table('attempt')->where('task_id',$this->id)->count());self::assertSame('running',V::detail(1,1,$this->id)['status']);
+    }
+    public function testMergeOnlyRetryCostsZeroAndNeverQueuesSuccessfulSegments(): void
+    {
+        S::table('segment')->where('task_id',$this->id)->update(['status'=>'success','attempt_no'=>1]);S::update($this->id,['status'=>'waiting_continue','merge_status'=>'failed']);$before=S::segments($this->id);$q=$this->quote();self::assertSame(0.0,(float)$q['user_charge_points']);V::retry(1,1,['id'=>$this->id,'quote_token'=>$q['quote_token'],'idempotency_key'=>'merge_only_resume']);self::assertSame($before,S::segments($this->id));
+    }
+    public function testPublicConfigAndGenerationDetailsHideInternalData(): void
+    {
+        $c=C::detail(1);self::assertArrayNotHasKey('config',$c);self::assertArrayNotHasKey('available_models',$c);$json=json_encode($c);foreach(['platform_unit_cost','script_model_id','planning_template'] as $key)self::assertStringNotContainsString($key,$json);
+        S::update($this->id,['status'=>'waiting_continue','error'=>'private-provider-host.internal']);$d=V::detail(1,1,$this->id);self::assertSame([],$d['segments']);self::assertArrayNotHasKey('error',$d);self::assertStringNotContainsString('private-provider-host.internal',json_encode($d));
+    }
+}
