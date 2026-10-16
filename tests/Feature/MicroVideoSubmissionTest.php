@@ -57,4 +57,69 @@ final class MicroVideoSubmissionTest extends TestCase
         self::assertFalse($micro['include_market_context']);self::assertTrue($micro['include_channel']);
         $ordinary=$m->invoke(null,['protocol'=>'openai_responses'],['source_app_code'=>'aigc_llm','_micro_video_native_transport'=>true],false);self::assertTrue($ordinary['include_market_context']);
     }
+    public function testCompletedReceiptSurvivesSettlementFailureWithoutEarlyDelivery(): void
+    {
+        $id=$this->consumption('success');$videos=[['video_uri'=>'uploads/micro-fixture.mp4']];
+        Db::name('ai_consumption_log')->where('id',$id)->update(['response_summary'=>json_encode(['videos'=>$videos]),'reserved_tenant_cost'=>0,'reserved_user_price'=>0,'price_snapshot'=>json_encode(['quantity'=>1,'tenant_price'=>0,'platform_price'=>0])]);
+        self::assertTrue(S::hold($id,'settlement database error'));
+        $method=new \ReflectionMethod(\app\common\service\power\MarketVideoRuntimeService::class,'response');$method->setAccessible(true);
+        $before=$method->invoke(null,Db::name('ai_consumption_log')->where('id',$id)->find());self::assertSame([],$before['videos']);self::assertSame('running',$before['status']);
+        Db::name('ai_consumption_log')->where('id',$id)->update(['user_id'=>987654399,'upstream_task_id'=>'accepted-no-query-needed','price_snapshot'=>json_encode(['quantity'=>1,'tenant_price'=>1,'platform_price'=>0])]);
+        $blocked=\app\common\service\power\MarketVideoRuntimeService::refresh($id);
+        self::assertSame([],$blocked['videos']);self::assertSame('running',$blocked['status']);self::assertSame('reserved',Db::name('ai_consumption_log')->where('id',$id)->value('billing_status'));
+        self::assertSame($videos,json_decode(Db::name('ai_consumption_log')->where('id',$id)->value('response_summary'),true)['videos']);
+        Db::name('ai_consumption_log')->where('id',$id)->update(['price_snapshot'=>json_encode(['quantity'=>1,'tenant_price'=>0,'platform_price'=>0])]);
+        $result=\app\common\service\power\MarketVideoRuntimeService::refresh($id);
+        self::assertSame('settled',Db::name('ai_consumption_log')->where('id',$id)->value('billing_status'));self::assertSame($videos,$result['videos']);self::assertSame('success',$result['status']);
+    }
+    public function testRetainedSynchronousReceiptRecoversWithoutTaskIdOrProviderCall(): void
+    {
+        $id=$this->consumption('submitting');S::capture($id,['video_url'=>'uploads/micro-fixture.mp4'],'','');
+        Db::name('ai_consumption_log')->where('id',$id)->update(['reserved_tenant_cost'=>0,'reserved_user_price'=>0,'price_snapshot'=>json_encode(['quantity'=>1,'tenant_price'=>0,'platform_price'=>0])]);
+        $result=\app\common\service\power\MarketVideoRuntimeService::refresh($id);
+        self::assertSame('settled',Db::name('ai_consumption_log')->where('id',$id)->value('billing_status'));self::assertNotEmpty($result['videos']);
+    }
+    public function testCrashReservationRecoversBeforeLookingUpChangedMarketPrice(): void
+    {
+        $id=$this->consumption();$c=Db::name('ai_consumption_log')->where('id',$id)->find();
+        $attemptId=Db::name('aigc_micro_video_attempt')->insertGetId(['tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id'],'task_id'=>987654001,'segment_id'=>987654002,'kind'=>'video','attempt_no'=>1,'status'=>'prepared','request_json'=>'{}','result_json'=>'{}']);
+        $key=sha1($c['tenant_id'].'|aigc_micro_video|video_generate|aigc_micro_video_segment|micro:'.$attemptId.'|market_video');
+        Db::name('ai_app_task')->where('id',$c['app_task_id'])->update(['idempotency_key'=>$key]);
+        $expected=['tenant_cost_points'=>(float)$c['reserved_tenant_cost'],'user_charge_points'=>(float)$c['reserved_user_price'],'market_sku_id'=>(int)$c['sku_id']];
+        $task=['id'=>987654001,'tenant_id'=>$c['tenant_id'],'user_id'=>$c['user_id'],'confirmed_quote'=>json_encode(['segments'=>['987654002'=>$expected]])];
+        // The deliberately unavailable selection would fail any live quote or fresh reserve.
+        $selection=['resource_type'=>'model','market_product_id'=>0,'market_sku_id'=>0,'model_id'=>'unavailable-after-price-change'];
+        $before=Db::name('ai_consumption_log')->count();$attempt=\app\common\service\app\aigc_micro_video\MicroVideoReservation::reserve($task,['id'=>987654002],['id'=>$attemptId],$selection,[]);
+        self::assertSame($id,(int)$attempt['consumption_id']);self::assertSame($before,Db::name('ai_consumption_log')->count());self::assertSame(987654002,(int)Db::name('ai_app_task')->where('id',$c['app_task_id'])->value('business_id'));
+    }
+
+    public function testChangedFreshAdmissionPriceRollsBackReservationAndLink(): void
+    {
+        $model=null;foreach(MicroVideoCatalog::models(1) as $m)if($m['id']==='market_video_model:157')$model=$m;
+        if(!$model)self::markTestSkipped('Configured local model unavailable');
+        $selection=$model['specs'][0];$quote=MicroVideoCatalog::quote(1,$selection,$model['id']);$selection=$quote['selection'];
+        $quote['user_charge_points']+=1;
+        $attemptId=Db::name('aigc_micro_video_attempt')->insertGetId(['tenant_id'=>1,'user_id'=>1,'task_id'=>987654001,'segment_id'=>987654002,'kind'=>'video','attempt_no'=>1,'status'=>'prepared','request_json'=>'{}','result_json'=>'{}']);
+        $task=['id'=>987654001,'tenant_id'=>1,'user_id'=>1,'confirmed_quote'=>json_encode(['segments'=>['987654002'=>$quote]])];
+        $asset=['type'=>'image','uri'=>'uploads/reservation-test.png','role'=>$selection['generation_method']==='image_to_video'?'first_frame_image':'reference_image'];
+        $request=$selection+['reference_images'=>[$asset['uri']],'reference_assets'=>[$asset],'prompt'=>'transactional reservation fixture'];
+        $before=Db::name('ai_consumption_log')->count();$tasks=Db::name('ai_app_task')->count();
+        try{\app\common\service\app\aigc_micro_video\MicroVideoReservation::reserve($task,['id'=>987654002],['id'=>$attemptId],$selection,$request);self::fail('Changed price accepted');}catch(\RuntimeException $error){self::assertStringContainsString('售价已变化',$error->getMessage());}
+        self::assertSame($before,Db::name('ai_consumption_log')->count());self::assertSame($tasks,Db::name('ai_app_task')->count());self::assertSame(0,(int)Db::name('aigc_micro_video_attempt')->where('id',$attemptId)->value('consumption_id'));
+    }
+
+    public function testWorkerNeverDeliversCachedVideoBeforeSuccessfulSettlement(): void
+    {
+        $id=$this->consumption('success');$c=Db::name('ai_consumption_log')->where('id',$id)->find();$videos=[['video_uri'=>'uploads/never-read-before-settlement.mp4']];
+        Db::name('ai_consumption_log')->where('id',$id)->update(['user_id'=>987654399,'reserved_tenant_cost'=>0,'reserved_user_price'=>0,'response_summary'=>json_encode(['videos'=>$videos]),'price_snapshot'=>json_encode(['quantity'=>1,'tenant_price'=>1,'platform_price'=>0])]);
+        $segment=['tenant_id'=>$c['tenant_id'],'user_id'=>987654399,'task_id'=>987654001,'sort'=>1,'title'=>'恢复','duration'=>4,'prompt'=>'原提示词','image_indices'=>'[0]','start_state'=>'原开始','end_state'=>'原结束','continuity'=>'保持原样','status'=>'running'];
+        $segment['id']=Db::name('aigc_micro_video_segment')->insertGetId($segment);
+        $segment['attempt_id']=Db::name('aigc_micro_video_attempt')->insertGetId(['tenant_id'=>$c['tenant_id'],'user_id'=>987654399,'task_id'=>987654001,'segment_id'=>$segment['id'],'kind'=>'video','attempt_no'=>1,'status'=>'storing','consumption_id'=>$id,'request_json'=>json_encode(['selection'=>['resource_type'=>'model'],'request'=>[]]),'result_json'=>json_encode(['status'=>'success','videos'=>$videos])]);
+        Db::name('aigc_micro_video_segment')->where('id',$segment['id'])->update(['attempt_id'=>$segment['attempt_id']]);
+        $task=['id'=>987654001,'tenant_id'=>$c['tenant_id'],'user_id'=>987654399,'params_json'=>'{}','config_snapshot'=>'{}','model_snapshot'=>'{}'];
+        $method=new \ReflectionMethod(\app\common\service\app\aigc_micro_video\MicroVideoWorker::class,'segment');$method->setAccessible(true);$method->invoke(null,$task,$segment);
+        self::assertSame('running',Db::name('aigc_micro_video_segment')->where('id',$segment['id'])->value('status'));self::assertSame('reserved',Db::name('ai_consumption_log')->where('id',$id)->value('billing_status'));
+        self::assertSame([],json_decode(Db::name('aigc_micro_video_attempt')->where('id',$segment['attempt_id'])->value('result_json'),true)['videos']);
+    }
+
 }
