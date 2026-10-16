@@ -73,7 +73,7 @@ $lock=fopen($dir.'/entry-'.$index.'.lock','c');if(!flock($lock,LOCK_EX|LOCK_NB))
 $key='entry-'.$index;$row=is_file($dir.'/'.$key.'.json')?$read($key):[];$project=$read('project');
 $updateNode=static function($row)use($tenant,$user,$project,$index,$dir){
     $lock=fopen($dir.'/project.lock','c');flock($lock,LOCK_EX);
-    try{$p=Canvas::projectDetail($tenant,$user,(int)$project['id']);foreach($p['nodes'] as &$n)if($n['id']==='acceptance-'.$index){$m=&$n['metadata'];$m['status']=$row['status'];$m['pendingTask']=in_array($row['status'],['submitting','running','pending','processing'],true);$m['taskId']=$row['task_id']??'';$m['errorDetails']=$row['error']??'';$m['generationStartedAt']=$row['started_at']*1000;
+    try{$p=Canvas::projectDetail($tenant,$user,(int)$project['id']);foreach($p['nodes'] as &$n)if($n['id']==='acceptance-'.$index){$m=&$n['metadata'];$m['status']=$row['status'];$m['pending']=in_array($row['status'],['submitting','running','pending','processing'],true);$m['taskId']=$row['task_id']??'';$m['errorDetails']=$row['error']??'';$m['generationStartedAt']=$row['started_at']*1000;
         $r=$row['result']??[];if($row['status']==='success'){
             if($n['type']==='text')$m['content']=$r['content']??$r['text']??'';
             $items=$r['images']??$r['videos']??$r['audios']??$r['tracks']??[];
@@ -86,10 +86,14 @@ $updateNode=static function($row)use($tenant,$user,$project,$index,$dir){
 };
 if($action==='submit'){
     if(!in_array('--allow-paid',$argv,true))throw new RuntimeException('Submission requires explicit --allow-paid authorization');
+    if($row && in_array('--retry-after-fix',$argv,true)){
+        if(!in_array($row['status'],['failed','submit_error','success'],true))throw new RuntimeException('Cannot retry an active or uncertain attempt');
+        $write($key.'-previous-'.time(),$row);$row=[];
+    }
     if($row){$print(['index'=>$index,'status'=>$row['status'],'message'=>'Existing attempt retained; no resubmission']);exit;}
     $row=['index'=>$index,'status'=>'submitting','started_at'=>time(),'task_id'=>0];$write($key,$row);$updateNode($row);
     try{$method='generate'.ucfirst($entry['type']);$r=Canvas::$method($tenant,$user,$entry['request']+['project_id'=>(int)$project['id'],'node_id'=>'acceptance-'.$index]);$row['result']=$r;$row['task_id']=$r['task_id']??$r['consumption_id']??0;$row['status']=$r['status']??($entry['type']==='text'?'success':'running');$row['error']=$r['error']??'';}
-    catch(Throwable $e){$row['status']='submit_error';$row['error']=$e->getMessage();}
+    catch(Throwable $e){$row['status']='failed';$row['submission_error']=true;$row['error']=$e->getMessage();}
 }elseif($action==='poll'){
     if(empty($row['task_id'])||in_array($row['status'],['success','failed','canceled'],true)){$print(['index'=>$index,'status'=>$row['status']??'not_submitted']);exit;}
     try{$method=$entry['type'].'TaskDetail';$r=Canvas::$method($tenant,$user,(int)$row['task_id']);$row['result']=$r;$row['status']=$r['status']??'running';$row['error']=$r['error']??$r['error_message']??'';$row['query_error']='';}
