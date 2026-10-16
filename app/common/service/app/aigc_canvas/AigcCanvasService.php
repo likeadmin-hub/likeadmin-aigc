@@ -248,7 +248,7 @@ class AigcCanvasService
             'name' => mb_substr($name, 0, 120),
             'thumbnail' => self::normalizeThumbnail((string)($params['thumbnail'] ?? ''), $tenantId, $userId),
             'nodes_json' => self::repairLegacyProjectText(self::normalizeList($params['nodes'] ?? [])),
-            'edges_json' => self::repairLegacyProjectText(self::normalizeList($params['edges'] ?? [])),
+            'edges_json' => CanvasProjectCompatibility::normalizeEdges(self::repairLegacyProjectText(self::normalizeList($params['edges'] ?? []))),
             'viewport_json' => self::normalizeViewport($params['viewport'] ?? []),
             'sort' => (int)($params['sort'] ?? 0),
             'status' => 1,
@@ -275,7 +275,7 @@ class AigcCanvasService
         }
         $data = [
             'nodes_json' => self::repairLegacyProjectText(self::normalizeList($params['nodes'] ?? [])),
-            'edges_json' => self::repairLegacyProjectText(self::normalizeList($params['edges'] ?? [])),
+            'edges_json' => CanvasProjectCompatibility::normalizeEdges(self::repairLegacyProjectText(self::normalizeList($params['edges'] ?? []))),
             'viewport_json' => self::normalizeViewport($params['viewport'] ?? []),
             'thumbnail' => self::normalizeThumbnail(
                 (string)($params['thumbnail'] ?? $project['thumbnail'] ?? ''),
