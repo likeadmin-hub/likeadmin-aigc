@@ -727,7 +727,10 @@ class MarketTextModelRuntimeService
             && (($params['action_code']??'')==='decoration_agent_text'||$operatorCapabilityProbe)
             && !empty($params['_decoration_native_responses_transport'])
             && self::protocolForModel($model)==='openai_responses';
-        return ['include_market_context'=>!$decorationResponses,'include_channel'=>true,'require_native_responses'=>$decorationResponses];
+        // Micro-video calls retain local immutable SKU billing snapshots. Native
+        // model endpoints route by model/channel and reject pricing SKU fields.
+        $microNative=($params['source_app_code']??'')==='aigc_micro_video'&&!empty($params['_micro_video_native_transport']);
+        return ['include_market_context'=>!$decorationResponses&&!$microNative,'include_channel'=>true,'require_native_responses'=>$decorationResponses];
     }
 
     /** Routing stays on model/channel; local SKU snapshots never depend on the wire body. */
