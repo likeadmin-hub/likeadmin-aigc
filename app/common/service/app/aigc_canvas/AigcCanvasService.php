@@ -249,7 +249,7 @@ class AigcCanvasService
             'thumbnail' => self::normalizeThumbnail((string)($params['thumbnail'] ?? ''), $tenantId, $userId),
             'nodes_json' => self::repairLegacyProjectText(self::normalizeList($params['nodes'] ?? [])),
             'edges_json' => CanvasProjectCompatibility::normalizeEdges(self::repairLegacyProjectText(self::normalizeList($params['edges'] ?? []))),
-            'viewport_json' => array_replace(self::normalizeViewport($params['viewport'] ?? []), ['saveRevision' => 0]),
+            'viewport_json' => array_replace(self::normalizeViewport($params['viewport'] ?? []), ['saveRevision' => 0, 'saveReceipt' => []]),
             'sort' => (int)($params['sort'] ?? 0),
             'status' => 1,
             'create_time' => time(),
@@ -269,11 +269,22 @@ class AigcCanvasService
         }
         $storedViewport = self::normalizeViewport($project['viewport_json'] ?? []);
         $incomingViewport = self::normalizeViewport($params['viewport'] ?? []);
+        // A retry confirms only the exact last write, never a newer edit by another tab/Agent.
+        $requestId = (string)($params['save_request_id'] ?? '');
+        if ($requestId !== '' && !preg_match('/^[a-zA-Z0-9_-]{16,100}$/D', $requestId)) throw new Exception('保存请求标识无效');
+        $fingerprint = hash('sha256', json_encode(array_intersect_key($params, array_flip(['name','nodes','edges','viewport','thumbnail'])), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $receipt = $storedViewport['saveReceipt'] ?? [];
+        unset($incomingViewport['saveReceipt']);
+        if ($requestId !== '' && ($receipt['id'] ?? '') === $requestId) {
+            if (($receipt['hash'] ?? '') !== $fingerprint) throw new Exception('保存请求内容已变化，请保留草稿后重试');
+            if (($receipt['revision'] ?? -1) === $storedViewport['saveRevision'] && ($receipt['agentRevision'] ?? -1) === $storedViewport['agentRevision']) return self::formatProject($project->toArray(), true);
+        }
         if ((int)($storedViewport['agentRevision']??0)!==(int)($incomingViewport['agentRevision']??0)) throw new Exception('Agent 已更新页面，请刷新后再保存，当前编辑尚未覆盖服务端');
         if ((int)($storedViewport['saveRevision'] ?? 0) !== (int)($incomingViewport['saveRevision'] ?? 0)) {
             throw new Exception('项目已在其他标签页或窗口更新，当前修改保留在本地，请刷新后再编辑');
         }
         $incomingViewport['saveRevision'] = (int)($storedViewport['saveRevision'] ?? 0) + 1;
+        if ($requestId !== '') $incomingViewport['saveReceipt'] = ['id'=>$requestId,'hash'=>$fingerprint,'revision'=>$incomingViewport['saveRevision'],'agentRevision'=>$incomingViewport['agentRevision']];
         if (!empty($storedViewport['pages']) && empty($incomingViewport['pages'])) {
             throw new Exception('此项目包含多个画布，请刷新页面后再保存');
         }
@@ -1534,6 +1545,7 @@ class AigcCanvasService
         ];
         $viewport['agentRevision']=max(0,(int)($value['agentRevision']??0));
         $viewport['saveRevision']=max(0,(int)($value['saveRevision']??0));
+        if (is_array($value['saveReceipt'] ?? null)) $viewport['saveReceipt'] = $value['saveReceipt'];
         if (!empty($value['pages']) && is_array($value['pages'])) {
             $pages = [];
             foreach ($value['pages'] as $page) {
