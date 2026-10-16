@@ -4,6 +4,7 @@ namespace app\api\controller\app\aigc_canvas;
 
 use app\api\controller\BaseApiController;
 use app\common\service\app\aigc_canvas\AigcCanvasService;
+use app\common\service\app\aigc_canvas\CanvasRequestInput;
 use app\common\service\app\aigc_canvas\AigcCanvasFrameService;
 use app\common\service\app\aigc_canvas\agent\prompt\PromptSubmissionException;
 use Exception;
@@ -13,7 +14,7 @@ class GenerateController extends BaseApiController
     public function image()
     {
         try {
-            $result = AigcCanvasService::generateImage((int)$this->request->tenantId, $this->userId, $this->request->post());
+            $result = AigcCanvasService::generateImage((int)$this->request->tenantId, $this->userId, CanvasRequestInput::post($this->request));
             if (($result['status'] ?? '') === 'failed') {
                 throw new Exception((string)($result['error'] ?? '图片生成失败'));
             }
@@ -31,7 +32,7 @@ class GenerateController extends BaseApiController
             return $this->success('截帧成功', AigcCanvasFrameService::capture(
                 (int)$this->request->tenantId,
                 $this->userId,
-                $this->request->post()
+                CanvasRequestInput::post($this->request)
             ));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
@@ -44,7 +45,7 @@ class GenerateController extends BaseApiController
             return $this->success('裁剪成功', AigcCanvasService::cropImage(
                 (int)$this->request->tenantId,
                 $this->userId,
-                $this->request->post()
+                CanvasRequestInput::post($this->request)
             ));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
@@ -57,7 +58,7 @@ class GenerateController extends BaseApiController
             return $this->success('旋转成功', AigcCanvasService::rotateImage(
                 (int)$this->request->tenantId,
                 $this->userId,
-                $this->request->post()
+                CanvasRequestInput::post($this->request)
             ));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
@@ -67,7 +68,7 @@ class GenerateController extends BaseApiController
     public function video()
     {
         try {
-            $result = AigcCanvasService::generateVideo((int)$this->request->tenantId, $this->userId, $this->request->post());
+            $result = AigcCanvasService::generateVideo((int)$this->request->tenantId, $this->userId, CanvasRequestInput::post($this->request));
             if (($result['status'] ?? '') === 'failed') {
                 throw new Exception((string)($result['error'] ?? '视频生成失败'));
             }
@@ -80,7 +81,7 @@ class GenerateController extends BaseApiController
     public function music()
     {
         try {
-            $result = AigcCanvasService::generateMusic((int)$this->request->tenantId, $this->userId, $this->request->post());
+            $result = AigcCanvasService::generateMusic((int)$this->request->tenantId, $this->userId, CanvasRequestInput::post($this->request));
             if (($result['status'] ?? '') === 'failed') {
                 throw new Exception((string)($result['error'] ?? '音乐生成失败'));
             }
@@ -93,7 +94,7 @@ class GenerateController extends BaseApiController
     public function text()
     {
         try {
-            return $this->success('生成成功', $this->formatTextResult(AigcCanvasService::generateText((int)$this->request->tenantId, $this->userId, $this->request->post())));
+            return $this->success('生成成功', $this->formatTextResult(AigcCanvasService::generateText((int)$this->request->tenantId, $this->userId, CanvasRequestInput::post($this->request))));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -125,7 +126,7 @@ class GenerateController extends BaseApiController
         header('X-Accel-Buffering: no');
 
         try {
-            $result = AigcCanvasService::streamText((int)$this->request->tenantId, $this->userId, $this->request->post(), function (string $event, array $data) {
+            $result = AigcCanvasService::streamText((int)$this->request->tenantId, $this->userId, CanvasRequestInput::post($this->request), function (string $event, array $data) {
                 $this->emitStreamEvent($event, $data);
             });
             $this->emitStreamEvent('done', $this->formatTextResult($result));

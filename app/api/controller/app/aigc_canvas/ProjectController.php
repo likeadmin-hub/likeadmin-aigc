@@ -4,6 +4,7 @@ namespace app\api\controller\app\aigc_canvas;
 
 use app\api\controller\BaseApiController;
 use app\common\service\app\aigc_canvas\AigcCanvasService;
+use app\common\service\app\aigc_canvas\CanvasRequestInput;
 use Exception;
 
 class ProjectController extends BaseApiController
@@ -16,7 +17,7 @@ class ProjectController extends BaseApiController
     public function create()
     {
         try {
-            return $this->success('创建成功', AigcCanvasService::createProject((int)$this->request->tenantId, $this->userId, $this->request->post()), 1, 1);
+            return $this->success('创建成功', AigcCanvasService::createProject((int)$this->request->tenantId, $this->userId, CanvasRequestInput::post($this->request)), 1, 1);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -34,7 +35,7 @@ class ProjectController extends BaseApiController
     public function save()
     {
         try {
-            return $this->success('保存成功', AigcCanvasService::saveProject((int)$this->request->tenantId, $this->userId, $this->request->post()));
+            return $this->success('保存成功', AigcCanvasService::saveProject((int)$this->request->tenantId, $this->userId, CanvasRequestInput::post($this->request)));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
