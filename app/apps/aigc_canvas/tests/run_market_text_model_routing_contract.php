@@ -19,7 +19,7 @@ $assert = static function (bool $condition, string $message) use (&$failures): v
 $assert(str_contains($runtime, 'public static function resolveRoutedModel'), 'preflight has no server-owned routing entry point');
 $assert(str_contains($runtime, 'self::routeModel($tenantId, $selection, $requiresVision)'), 'routing entry point does not apply vision compatibility');
 $assert(str_contains($runtime, 'self::fallbackModel(') && str_contains($runtime, 'self::isExplicitModelUnavailable($e->getMessage())'), 'fallback is not restricted to explicit upstream model rejection');
-$assert(str_contains($agent, 'MarketTextModelRuntimeService::resolveRoutedModel($tenant,$selection,$images!==[])'), 'Agent preflight bypasses server-owned model routing');
+$assert(str_contains($agent, 'MarketTextModelRuntimeService::resolveRoutedModel($tenant,$selection,$vision)'), 'Agent preflight bypasses server-owned model routing');
 $assert(!str_contains($agent, 'MarketTextModelRuntimeService::resolveModel($tenant,$selection,$images!==[])'), 'Agent preflight retains a browser-visible hard model gate');
 
 $classifier = new ReflectionMethod(MarketTextModelRuntimeService::class, 'isExplicitModelUnavailable');

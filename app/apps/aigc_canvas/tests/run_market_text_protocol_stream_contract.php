@@ -46,10 +46,10 @@ $claude = $payload->invoke(null, 'anthropic_messages', $model, $messages, 'Be co
     'tools' => [['type' => 'function', 'function' => ['name' => 'lookup', 'description' => 'Lookup data', 'parameters' => ['type' => 'object']]]],
     'tool_choice' => 'auto',
 ]);
-if (($claude['messages'] ?? null) !== $messages || ($claude['system'] ?? '') !== 'Be concise.' || (int)($claude['max_tokens'] ?? 0) !== 1024) {
+if (($claude['messages'] ?? null) !== [['role'=>'user','content'=>[['type'=>'text','text'=>'hello']]]] || ($claude['system'] ?? '') !== 'Be concise.' || (int)($claude['max_tokens'] ?? 0) !== 1024) {
     $failures[] = 'Claude must use Messages fields';
 }
-if (isset($claude['input'], $claude['response_format'], $claude['presence_penalty'], $claude['top_p'])) {
+if (array_intersect(['input', 'response_format', 'presence_penalty', 'top_p'], array_keys($claude)) !== []) {
     $failures[] = 'Claude payload contains incompatible OpenAI fields';
 }
 if (($claude['tools'][0]['input_schema']['type'] ?? '') !== 'object' || ($claude['tool_choice']['type'] ?? '') !== 'auto') {
