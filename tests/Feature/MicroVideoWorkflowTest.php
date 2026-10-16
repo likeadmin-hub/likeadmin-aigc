@@ -73,7 +73,7 @@ final class MicroVideoWorkflowTest extends TestCase
     public function testRejectedCompleteScriptRetainsReceiptAndAllowsExplicitRetry(): void
     {
         $task=S::owned(1,1,$this->id);$result=S::encode(['content'=>'没有镜头时间轴的正文','usage'=>['total_tokens'=>40]]);
-        $id=S::table('attempt')->insertGetId(['tenant_id'=>1,'user_id'=>1,'task_id'=>$this->id,'segment_id'=>0,'kind'=>'script','attempt_no'=>1,'status'=>'success','result_json'=>$result,'create_time'=>time(),'update_time'=>time()]);
+        $id=S::table('attempt')->insertGetId(['tenant_id'=>1,'user_id'=>1,'task_id'=>$this->id,'segment_id'=>0,'kind'=>'script','attempt_no'=>1,'status'=>'success','request_json'=>'{}','result_json'=>$result,'create_time'=>time(),'update_time'=>time()]);
         $count=Db::name('ai_consumption_log')->count();
         try{\app\common\service\app\aigc_micro_video\MicroVideoText::run($task,'script','','','',[],fn($r)=>\app\common\service\app\aigc_micro_video\MicroVideoTimeline::validate($r['content'],15));self::fail('Invalid cached script escaped validation');}catch(\InvalidArgumentException $e){self::assertStringContainsString('镜头时间轴无效',$e->getMessage());}
         $attempt=S::table('attempt')->where('id',$id)->find();self::assertSame('failed',$attempt['status']);self::assertSame($result,$attempt['result_json']);
