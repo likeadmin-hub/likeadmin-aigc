@@ -25,7 +25,7 @@ final class CanvasProjectCompatibility
             if ($changes) {
                 $owner=['tenant_id'=>$original['tenant_id'],'user_id'=>$original['user_id'],'project_id'=>$original['id']];
                 if (!Db::name('aigc_canvas_project_compat_backup')->where($owner)->find()) {
-                    Db::name('aigc_canvas_project_compat_backup')->insert($owner+['snapshot_json'=>json_encode($original,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'create_time'=>time()]);
+                    Db::name('aigc_canvas_project_compat_backup')->insert($owner+['snapshot_json'=>json_encode($row->getData(),JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'create_time'=>time()]);
                 }
                 $viewport = $adapted['viewport_json'];
                 $viewport['agentRevision'] = (int)($viewport['agentRevision'] ?? 0) + 1;
