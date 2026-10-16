@@ -1,0 +1,15 @@
+; Dedicated same-runtime worker. Set PHP/root and executable paths for this installation.
+; Keep runtime/ on the same shared filesystem across these processes for task flock fencing.
+[program:micro-video-worker]
+directory=/www/wwwroot/YOUR_SITE/server
+command=/www/server/php/82/bin/php think micro-video:worker
+process_name=%(program_name)s_%(process_num)02d
+numprocs=1
+autostart=true
+autorestart=true
+stopsignal=TERM
+stopwaitsecs=1200
+user=www
+environment=MICRO_VIDEO_FFMPEG="/usr/bin/ffmpeg",MICRO_VIDEO_FFPROBE="/usr/bin/ffprobe"
+redirect_stderr=true
+stdout_logfile=/www/wwwroot/YOUR_SITE/server/runtime/micro-video-worker.log
