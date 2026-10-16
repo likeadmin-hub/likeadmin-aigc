@@ -1,0 +1,71 @@
+{
+  "code": "aigc_micro_video",
+  "name": "微视频",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "多图理解、智能提示词与创作方向，确认分段后生成并合并完整视频。",
+  "changelog": "1. 新增微视频创作应用。\n2. 支持创作方向、智能提示词和分段确认。\n3. 支持进度恢复和完整视频合成。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "is_builtin": 0,
+  "expire_policy": "allow",
+  "sort": 848,
+  "frontends": [
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_micro_video",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_micro_video_admin",
+      "name": "微视频",
+      "path": "/app/aigc_micro_video",
+      "icon": "el-icon-VideoCamera",
+      "sort": 92,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_micro_video",
+      "name": "微视频",
+      "path": "/ai/tools/aigc_micro_video",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 84,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_micro_video",
+      "name": "微视频",
+      "path": "/apps/aigc_micro_video/pages/creator/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 848,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "创作首页",
+            "path": "/apps/aigc_micro_video/pages/creator/index"
+          },
+          {
+            "name": "分段确认",
+            "path": "/apps/aigc_micro_video/pages/plan/index"
+          },
+          {
+            "name": "我的作品",
+            "path": "/apps/aigc_micro_video/pages/tasks/index"
+          },
+          {
+            "name": "作品详情",
+            "path": "/apps/aigc_micro_video/pages/detail/index"
+          }
+        ]
+      }
+    }
+  ]
+}
