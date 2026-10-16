@@ -79,7 +79,7 @@ class MarketApplicationFoundationContractTest extends TestCase
         $root = dirname(__DIR__, 2);
         $sources = [
             (string)file_get_contents($root . '/app/common/service/app/aigc_image/AigcImageChannelService.php'),
-            (string)file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/model/CanvasModelRouterService.php'),
+            (string)file_get_contents($root . '/app/common/service/app/aigc_canvas/CanvasModelRouterService.php'),
             (string)file_get_contents($root . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php'),
         ];
 

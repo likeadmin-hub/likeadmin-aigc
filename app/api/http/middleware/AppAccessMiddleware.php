@@ -4,11 +4,16 @@ namespace app\api\http\middleware;
 
 use app\common\service\app\AppAccessService;
 use Closure;
+use app\common\service\app\aigc_canvas\CanvasLegacyRoutes;
+use app\common\service\JsonService;
 
 class AppAccessMiddleware
 {
     public function handle($request, Closure $next)
     {
+        if (CanvasLegacyRoutes::isRetired($request->controller(), $request->action())) {
+            return JsonService::fail('旧版画布 Agent 接口已停用，请刷新后使用新版画布');
+        }
         $appCode = $this->resolveAppCode($request->controller());
         if (in_array($appCode, ['ai_tool_download'], true)) {
             return $next($request);
