@@ -9,12 +9,16 @@ final class MicroVideoWorker
 {
     public static function tick(int $id=0): int
     {
-        $token=bin2hex(random_bytes(16));
-        $task=Db::transaction(function()use($id,$token){
-            $q=MicroVideoStore::table('task')->where('delete_time',0)->whereIn('status',['planning','running','merging'])->where('next_run_at','<=',time())->where('lease_until','<',time());if($id)$q->where('id',$id);
-            $row=$q->order(['next_run_at'=>'asc','id'=>'asc'])->lock(true)->find();if(!$row)return null;
-            MicroVideoStore::update((int)$row['id'],['lease_token'=>$token,'lease_until'=>time()+600]);return $row;
-        });
+        $token=bin2hex(random_bytes(16));$task=null;$processLock=null;
+        $q=MicroVideoStore::table('task')->where('delete_time',0)->whereIn('status',['planning','running','merging'])->where('next_run_at','<=',time())->where('lease_until','<',time());if($id)$q->where('id',$id);
+        $candidates=$q->order(['next_run_at'=>'asc','id'=>'asc'])->limit(10)->column('id');
+        foreach($candidates as $candidate){
+            // This worker is a same-runtime supervised service; flock remains held
+            // even during long FFmpeg/HTTP operations and is released on death.
+            $processLock=fopen(runtime_path().'micro_video_task_'.(int)$candidate.'.lock','c');if(!$processLock||!flock($processLock,LOCK_EX|LOCK_NB)){if($processLock)fclose($processLock);$processLock=null;continue;}
+            $task=Db::transaction(function()use($candidate,$token){$row=MicroVideoStore::table('task')->where(['id'=>$candidate,'delete_time'=>0])->whereIn('status',['planning','running','merging'])->where('next_run_at','<=',time())->where('lease_until','<',time())->lock(true)->find();if(!$row)return null;MicroVideoStore::update((int)$row['id'],['lease_token'=>$token,'lease_until'=>time()+600]);return $row;});
+            if($task)break;flock($processLock,LOCK_UN);fclose($processLock);$processLock=null;
+        }
         if(!$task)return 0;
         try{
             if($task['status']==='planning')self::plan($task);else self::video($task);
@@ -23,6 +27,7 @@ final class MicroVideoWorker
             \think\facade\Log::warning('Micro video task '.$task['id'].': '.$e->getMessage());
         }finally{
             MicroVideoStore::table('task')->where(['id'=>$task['id'],'lease_token'=>$token])->update(['lease_token'=>'','lease_until'=>0,'update_time'=>time()]);
+            flock($processLock,LOCK_UN);fclose($processLock);
         }
         return 1;
     }
@@ -90,7 +95,7 @@ final class MicroVideoWorker
             }
             $receipt=MicroVideoStore::json($attempt['result_json']);
             if(!empty($receipt['videos']))$response=$receipt;
-            elseif($attempt['status']==='prepared'){
+            elseif(Db::name('ai_consumption_log')->where('id',$attempt['consumption_id'])->value('run_status')==='reserved'){
                 MicroVideoStore::table('attempt')->where('id',$attempt['id'])->update(['status'=>'submitting','update_time'=>time()]);
                 $response=$runtime::submit((int)$attempt['consumption_id'],$request);
             }else $response=$runtime::refresh((int)$attempt['consumption_id']);

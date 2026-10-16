@@ -142,6 +142,9 @@ class MarketTextModelRuntimeService
 
     private static function preserveUncertainSubmission(bool $tenantAdmin,string $action,array $params,string $message,bool $operatorProbe=false): bool
     {
+        if (($params['source_app_code'] ?? '') === 'aigc_micro_video' && !empty($params['_micro_video_preserve_uncertain'])) {
+            return \app\common\service\app\aigc_micro_video\MicroVideoSubmission::ambiguous($message);
+        }
         return $tenantAdmin&&($action==='decoration_agent_text'||$operatorProbe)
             &&!empty($params['_decoration_preserve_uncertain'])
             &&preg_match('/timeout|timed out|超时|cURL|connection|reset|empty response|无效响应/i',$message)===1;
