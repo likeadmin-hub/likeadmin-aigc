@@ -11,7 +11,7 @@ $check=static function($ok,$why)use(&$checks){$checks++;if(!$ok)throw new Runtim
 try {
     foreach($tables as $table) Db::execute("CREATE TABLE `{$prefix}{$table}` LIKE `{$original}{$table}`");
     $config['connections']['mysql']['prefix']=$prefix;Config::set($config,'database');
-    Db::setConfig($config);Db::connect(null,true);
+    Db::connect(null,true);
     if (Db::connect()->getConfig('prefix')!==$prefix) throw new RuntimeException('Isolated connection not active');
     $project=AigcCanvasProject::create(['tenant_id'=>701,'user_id'=>801,'name'=>'legacy fixture','nodes_json'=>[['id'=>'old','type'=>'script','data'=>['content'=>'保留文本']]],'edges_json'=>[],'viewport_json'=>['x'=>1,'y'=>2,'zoom'=>1],'status'=>1,'create_time'=>100,'update_time'=>100,'delete_time'=>0]);
     $row=Compat::upgrade($project->toArray());$check($row['viewport_json']['pages'][0]['nodeIds']===['old'],'project nodes not indexed');

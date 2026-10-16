@@ -22,7 +22,7 @@ try {
     $connection['prefix'] = $prefix;
     $config['connections']['mysql'] = $connection;
     Config::set($config, 'database');
-    Db::setConfig($config);Db::connect(null,true);
+    Db::connect(null,true);
 
     // Full installs create these platform-core tables before app-center installation begins.
     foreach ([

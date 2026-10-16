@@ -53,7 +53,7 @@ while True:time.sleep(.05)
   assert (site/'runtime/finished').exists(),'active maintenance was killed before completion'
   assert entries()==rows,('shutdown started another iteration', rows,entries())
   until(lambda:(site/'runtime/stopped').exists(),'workers did not stop')
-  assert len((site/'runtime/stopped').read_text().splitlines())==8,'existing shutdown contract changed'
+  assert len((site/'runtime/stopped').read_text().splitlines())==len(expected),'existing shutdown contract changed'
  finally:
   (site/'runtime/finish').touch()
   if p.poll() is None:
