@@ -1,67 +1,79 @@
 # 画布生成链路本地验收（2026-10-16）
 
-分支 `feature/agent-optimization`，本地租户 1、数据库 x_cn。未提交、预占、扣费或执行真实生成。
+任务：补齐节点高级参数与生成模式，核对参数传递、结果回填和异常处理。
+分支：`feature/agent-optimization`。本地租户 1、数据库 x_cn。未提交、预占、扣费或执行真实生成。
 
-## 修复
+## 本轮完成
 
-- 音乐请求保留普通/自定义模式、歌词、人声、风格和纯伴奏，按市场契约使用 lyric；任务快照保存 schema/defaults，未声明 duration 的入口不发送时长。旧任务快照及短剧默认 BGM 行为保留。SKU 锁定操作不允许 provider_params 覆盖。
-- 图片目录补齐已有适配器的 8 个 Nano Banana 应用模型，保留既有 12 个模型 API。
-- 前端音乐时长跟随所选 SKU，不再虚构 30–300 秒列表。重复点击运行拦截；不可用模型保留原结果并提示。
-- 文本断流不盲目重新提交；已取得任务 ID 时查询原任务。仅明确 404/405 的流式端点允许非流式回退。
-- 图片/视频/音频同步及轮询回填全部结果，保留旧素材、存储元数据，重复轮询不重复追加。音频改为提交后通过任务 ID 后台轮询。
+- 四类节点按当前模型 schema 展示高级参数：文本最大输出长度；图片渲染质量、背景、水印和提示词扩展；视频种子、音频、水印等；音乐风格影响、人声风格、歌词提示等。逐入口字段见下表，不虚构未声明能力。
+- 参数按模型隔离保存，支持恢复模型默认、范围/枚举校验和 SKU 锁定。图片渲染质量与计费分辨率分离；锁定规格不能通过高级参数覆盖。
+- 视频模式保留各自语义，视频编辑、音频参考不再合并为全能参考。Grok 应用适配器仅支持 image_urls，因此移除误报的视频/音频参考能力；原 304 个组合中移除 6 个无效组合。
+- 修复截图中 Q4 单图经 reference_assets/reference_images 重复计数的问题；统一引用去重，保留首尾帧角色。参数预检在提示词增强、任务和计费之前执行。
+- 修复图片 schema 的 JSON 字符串枚举导致 quality 被丢弃；修复画布请求默认 trim 使 false 变空字符串、数字变字符串的问题。仅调整画布请求读取，仍裁剪字符串首尾空白。
+- 生成请求统一错误文本并避免重复提示、自动重试；同步失败/取消响应在结果写入前拦截，保留已有结果。回归覆盖多结果追加、排队中状态和失败响应，沿用现有任务轮询合同。
 
-## 验证
+## 仓库和合同边界
 
-- audit_local_market_generation.php 在数据库只读事务内验证 36 个入口、304 组 SKU/模式的报价和请求构造，全部通过，无上游网络调用。
-- 既有图片目录契约验证 20 个入口、561 个规格组合通过，包含参考图/提示词/规格映射。
-- PHPUnit 模型/协议/能力契约 61 项、278 个断言通过。
-- 8 份独立契约通过：图片目录、视频模式、视频应用、Seedance 素材、文本多模态、文本路由、文本流、音乐请求。三份旧断言更新为当前 typed content、Anthropic content blocks 和解析后的 vision 变量；没有改动这些已验证运行协议。
-- 前端 169 项画布回归通过；Nuxt 生产构建通过，已有重复组件名、弃用和 compatibilityDate 提示保留。
-- 没有 API 路径、迁移、权限或任务状态契约变更；Agent 和整图自动执行未开发。PHP 执行限制保持不变。
+- server：画布模型配置、参数校验/映射、请求类型保留、视频素材预检、图片枚举及 Grok 能力修正、契约审计。
+- web：节点高级参数面板、模式选择、生成参数组装、错误提示和结果回填回归。
+- 配置响应新增可选 `canvas_parameters`；生成请求新增可选 `advanced_params`；画布节点 metadata 新增按模型键保存的 `generationParameters`。旧画布缺失这些字段时沿用原默认行为，旧素材、存储元数据和未知 metadata 保留。
+- 无 API 路径、数据库迁移、权限或任务状态枚举变更。Agent、整图自动执行及音乐续写/翻唱等非 generate 操作不在本轮范围。
 
-## 验收边界
+## 本轮验证
 
-未做真实付费生成，不能声称每个上游模型已经实测稳定。示例素材可达性、上游排队、生成质量、长任务恢复、回调、失败退款、成功结算以及限流/超时，需要在明确允许的模型与费用范围内真实验收。音乐当前接入 type=generate；续写/翻唱等 operation 不属于现有画布入口。本轮没有增加市场所有可选高级字段的编辑界面。
+- 只读本地市场审计：36 个入口、298 个有效 SKU/模式组合、587 项高级参数传递检查，0 拒绝；覆盖配置描述、画布归一化、请求编译及引用预检。数据库只读事务回滚，无上游调用。
+- 新增独立契约 24 项通过：实际 Request 输入类型、别名去重/首尾帧、false/0、范围/锁定校验、结构化字段、文本/图片/视频/音乐映射和旧请求兼容。
+- PHPUnit 模型/协议/能力契约 61 项、278 个断言通过；视频模式、Seedance 素材、音乐请求 3 份独立契约通过。
+- 前端 181 项画布回归全部通过，包含实际生成参数组装、多结果回填、排队/失败保护、旧画布保存往返。
+- Nuxt 生产构建通过；既有重复组件名、弃用和 compatibilityDate 提示保留。所有运行/构建/测试均在集成最新 feature 提交后的本地 develop 执行，产物不纳入交付。
+- 浏览器实测四类节点的高级面板、Q4 seed=0/audio=false 保存刷新保持、越界提示、恢复默认、图片质量和分辨率分离。保留原 10 节点及素材；临时参数恢复默认；未点击生成。历史失败节点未通过新生成覆盖。
+- 上轮已验证的图片目录 561 个规格及其余独立协议回归属于历史记录，不计作本轮新增实测。
+
+## 验收边界与剩余事项
+
+未做真实付费生成，不能声称每个上游模型端到端已实测稳定。示例素材可达性、上游排队、生成质量、长任务恢复、回调、失败退款、成功结算以及限流/超时，仍需在明确允许的模型与费用范围内真实验收。本轮参数传递测试不能替代这些验证。
+
+没有声明 schema/容量的模型不添加猜测参数；下表“—”表示未暴露额外高级控件，不表示模型在上游绝对没有高级能力。传输字段、回调、凭据和 SKU 价格字段不开放编辑。市场 schema 缺失的约束仍需提供方合同补全。音乐当前入口仅 type=generate，保留普通/自定义歌词和纯伴奏。PHP exec/proc_open 限制保持不变，真实截帧环境限制未解除。本轮不构成 Imagine 全工作台 1:1 验收声明。
 
 ## 当前目录矩阵
 
-通过数仅表示离线构造通过；同名入口保留各自 SKU/协议。字段来自适配器输出，不包含凭据、提示词或真实素材地址。
+通过数表示本地构造通过；同名入口保留各自 SKU/协议。下表来自本轮只读目录审计；共 38 个高级参数描述，按各模型独立统计。
 
-| 类型 | 入口 | 标识 | 通过组合 | 生成模式 | 请求字段 |
+| 类型 | 入口 | 标识 | 通过组合 | 生成模式 | 新增高级控件字段 |
 | --- | --- | --- | ---: | --- | --- |
-| text | kimi-k3 | 12 | 1 | default | max_tokens, messages, model |
-| text | GPT-5.6 Terra | 11 | 1 | default | input, instructions, max_output_tokens, model |
-| text | DeepSeek-V4-Flash | 4 | 1 | default | max_tokens, messages, model |
-| text | DeepSeek-V4-Pro | 3 | 1 | default | max_tokens, messages, model |
-| image | Nano-Banana 2.1 | market_image_model:234 | 1 | default | aspect_ratio, channel, idempotency_key, image_size, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, sku_id, sku_key |
-| image | GPT Image 2.5 | market_image_model:169 | 3 | default | aspect_ratio, channel, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| image | GPT Image 2.5 Flare | market_image_model:168 | 3 | default | aspect_ratio, channel, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| image | GPT Image 2.5 Sunburst | market_image_model:167 | 3 | default | aspect_ratio, channel, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| image | Nano-Banana 2 | market_image_model:93 | 1 | default | aspect_ratio, channel, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, sku_id, sku_key |
-| image | Nano-Banana Pro | market_image_model:92 | 1 | default | aspect_ratio, channel, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, sku_id, sku_key |
-| image | GPT Image 2 | market_image_model:91 | 3 | default | aspect_ratio, channel, idempotency_key, image_size, market_product_id, market_sku_id, market_sku_key, model, n, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| image | GPT Image 2 | market_image_model:90 | 3 | default | aspect_ratio, channel, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| image | GPT Image 2 Fast | market_image_model:89 | 3 | default | aspect_ratio, channel, idempotency_key, image_size, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, sku_id, sku_key |
-| image | GPT Image 2 Pro | market_image_model:88 | 3 | default | aspect_ratio, channel, idempotency_key, image_size, market_product_id, market_sku_id, market_sku_key, model, n, price_source, pricing_sku_key, prompt, sku_id, sku_key |
-| image | Qwen Image 3.0 Pro | market_image_model:87 | 2 | default | channel, idempotency_key, input, market_product_id, market_sku_id, market_sku_key, model, parameters, price_source, pricing_sku_key, sku_id |
-| image | Qwen Image 3.0 | market_image_model:86 | 2 | default | channel, idempotency_key, input, market_product_id, market_sku_id, market_sku_key, model, parameters, price_source, pricing_sku_key, sku_id |
-| image | Nano Banana | market_nano_banana:110:bmFuby1iYW5hbmE= | 1 | default | action, aspect_ratio, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| image | Nano Banana 2 | market_nano_banana:110:bmFuby1iYW5hbmEtMg== | 1 | default | action, aspect_ratio, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| image | Nano Banana 2 Lite | market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRl | 1 | default | action, aspect_ratio, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| image | Nano Banana 2 Lite Official | market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRlOm9mZmljaWFs | 1 | default | action, aspect_ratio, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| image | Nano Banana 2 Official | market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA== | 3 | default | action, aspect_ratio, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| image | Nano Banana Official | market_nano_banana:110:bmFuby1iYW5hbmE6b2ZmaWNpYWw= | 1 | default | action, aspect_ratio, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| image | Nano Banana Pro | market_nano_banana:110:bmFuby1iYW5hbmEtcHJv | 1 | default | action, aspect_ratio, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| image | Nano Banana Pro Official | market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs | 3 | default | action, aspect_ratio, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| video | Q4 Preview 图生视频 | market_video_model:235 | 5 | image_to_video | audio, channel, duration, idempotency_key, images, is_rec, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, seed, sku_id, sku_key, watermark, wm_position |
-| video | H3 视频生成 | market_video_model:98 | 16 | text_to_video, omni_reference, image_to_video, start_end, image_reference, video_edit, multi_frame, audio_reference | content, duration, model, ratio, resolution |
-| video | Grok Video | market_video_model:97 | 18 | text_to_video, image_to_video, image_reference | aspect_ratio, channel, duration, idempotency_key, image_urls, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, quality, sku_id, sku_key |
-| video | VEO 3.1 Fast | market_video_model:96 | 12 | text_to_video, image_to_video, start_end, image_reference | aspect_ratio, channel, duration, generation_type, idempotency_key, image_urls, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, quality, sku_id, sku_key |
-| video | VEO 3.1 Pro | market_video_model:95 | 12 | text_to_video, image_to_video, start_end, image_reference | aspect_ratio, channel, duration, generation_type, idempotency_key, image_urls, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, quality, sku_id, sku_key |
-| video | Wan 3.0 Video | market_video_model:94 | 24 | text_to_video, omni_reference, image_to_video, start_end, image_reference, video_edit, multi_frame, audio_reference | channel, idempotency_key, input, market_product_id, market_sku_id, market_sku_key, model, parameters, price_source, pricing_sku_key, sku_id, sku_key |
-| video | Seedance 2.0 | market_video_app:seedance:140 | 42 | text_to_video, omni_reference, image_to_video, start_end, image_reference, video_edit, multi_frame | content, duration, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, ratio, resolution, sku_id, sku_key |
-| video | Wan 视频生成 | market_video_app:wan:133 | 42 | text_to_video, omni_reference, image_to_video, start_end, image_reference, video_edit, multi_frame | duration, idempotency_key, image_with_roles, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, size, sku_id, sku_key, video_urls |
-| video | Grok 视频生成 | market_video_app:grok_video:108 | 36 | text_to_video, omni_reference, image_to_video, image_reference, video_edit, multi_frame | aspect_ratio, duration, idempotency_key, image_urls, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, prompt, resolution, sku_id, sku_key |
-| video | Happy Horse | market_video_app:happy_horse:105 | 12 | text_to_video, omni_reference, image_to_video, image_reference, video_edit, multi_frame | duration, idempotency_key, market_product_id, market_sku_id, market_sku_key, media, model, price_source, pricing_sku_key, prompt, ratio, resolution, sku_id, sku_key |
-| video | 全能视频生成 | market_video_app:full_video:103 | 40 | text_to_video, omni_reference, image_to_video, start_end, image_reference, video_edit, multi_frame, audio_reference | content, duration, idempotency_key, market_product_id, market_sku_id, market_sku_key, model, price_source, pricing_sku_key, ratio, resolution, sku_id, sku_key |
-| music | 生成音乐（type=generate） | 167 | 1 | default | custom, idempotency_key, instrumental, lyric, market_product_id, market_sku_id, market_sku_key, price_source, pricing_sku_key, prompt, sku_id, sku_key, style, title, type |
+| text | kimi-k3 | 12 | 1 | default | max_tokens |
+| text | GPT-5.6 Terra | 11 | 1 | default | — |
+| text | DeepSeek-V4-Flash | 4 | 1 | default | — |
+| text | DeepSeek-V4-Pro | 3 | 1 | default | — |
+| image | Nano-Banana 2.1 | market_image_model:234 | 1 | default | — |
+| image | GPT Image 2.5 | market_image_model:169 | 3 | default | quality |
+| image | GPT Image 2.5 Flare | market_image_model:168 | 3 | default | quality, background |
+| image | GPT Image 2.5 Sunburst | market_image_model:167 | 3 | default | quality, background |
+| image | Nano-Banana 2 | market_image_model:93 | 1 | default | — |
+| image | Nano-Banana Pro | market_image_model:92 | 1 | default | — |
+| image | GPT Image 2 | market_image_model:91 | 3 | default | — |
+| image | GPT Image 2 | market_image_model:90 | 3 | default | quality |
+| image | GPT Image 2 Fast | market_image_model:89 | 3 | default | quality |
+| image | GPT Image 2 Pro | market_image_model:88 | 3 | default | — |
+| image | Qwen Image 3.0 Pro | market_image_model:87 | 2 | default | parameters.watermark, parameters.prompt_extend |
+| image | Qwen Image 3.0 | market_image_model:86 | 2 | default | parameters.watermark, parameters.prompt_extend |
+| image | Nano Banana | market_nano_banana:110:bmFuby1iYW5hbmE= | 1 | default | — |
+| image | Nano Banana 2 | market_nano_banana:110:bmFuby1iYW5hbmEtMg== | 1 | default | — |
+| image | Nano Banana 2 Lite | market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRl | 1 | default | — |
+| image | Nano Banana 2 Lite Official | market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRlOm9mZmljaWFs | 1 | default | — |
+| image | Nano Banana 2 Official | market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA== | 3 | default | — |
+| image | Nano Banana Official | market_nano_banana:110:bmFuby1iYW5hbmE6b2ZmaWNpYWw= | 1 | default | — |
+| image | Nano Banana Pro | market_nano_banana:110:bmFuby1iYW5hbmEtcHJv | 1 | default | — |
+| image | Nano Banana Pro Official | market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs | 3 | default | — |
+| video | Q4 Preview 图生视频 | market_video_model:235 | 5 | image_to_video | seed, audio, is_rec, wm_url, watermark, wm_position |
+| video | H3 视频生成 | market_video_model:98 | 16 | text_to_video, omni_reference, image_to_video, start_end, image_reference, video_edit, multi_frame, audio_reference | — |
+| video | Grok Video | market_video_model:97 | 18 | text_to_video, image_to_video, image_reference | — |
+| video | VEO 3.1 Fast | market_video_model:96 | 12 | text_to_video, image_to_video, start_end, image_reference | — |
+| video | VEO 3.1 Pro | market_video_model:95 | 12 | text_to_video, image_to_video, start_end, image_reference | — |
+| video | Wan 3.0 Video | market_video_model:94 | 24 | text_to_video, omni_reference, image_to_video, start_end, image_reference, video_edit, multi_frame, audio_reference | parameters.audio, parameters.watermark |
+| video | Seedance 2.0 | market_video_app:seedance:140 | 42 | text_to_video, omni_reference, image_to_video, start_end, image_reference, video_edit, multi_frame | seed, draft, frames, watermark, camera_fixed, generate_audio |
+| video | Wan 视频生成 | market_video_app:wan:133 | 42 | text_to_video, omni_reference, image_to_video, start_end, image_reference, video_edit, multi_frame | seed, watermark, prompt_extend, negative_prompt |
+| video | Grok 视频生成 | market_video_app:grok_video:108 | 30 | text_to_video, omni_reference, image_to_video, image_reference, multi_frame | — |
+| video | Happy Horse | market_video_app:happy_horse:105 | 12 | text_to_video, omni_reference, image_to_video, image_reference, video_edit, multi_frame | seed, watermark |
+| video | 全能视频生成 | market_video_app:full_video:103 | 40 | text_to_video, omni_reference, image_to_video, start_end, image_reference, video_edit, multi_frame, audio_reference | aigc_watermark |
+| music | 生成音乐（type=generate） | 167 | 1 | default | weirdness, persona_id, lyric_prompt, style_negative, style_influence |
