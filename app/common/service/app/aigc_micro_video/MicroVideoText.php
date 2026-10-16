@@ -11,9 +11,10 @@ final class MicroVideoText
         self::reconcile((int)$task['id']);
         $prior=MicroVideoStore::table('attempt')->where(['task_id'=>$task['id'],'kind'=>$kind,'segment_id'=>0])->order('attempt_no','desc')->find();
         if($prior){
+            if($prior['status']==='validation_failed')throw new \InvalidArgumentException($prior['error']?:'分段结果格式不完整，请重新规划');
             $result=MicroVideoStore::json($prior['result_json']);
             if($result&&$prior['status']!=='failed'&&($prior['status']==='success'||self::settled((int)$prior['consumption_id']))){
-                try{if($validate)$validate($result);}catch(\InvalidArgumentException|\JsonException $e){MicroVideoStore::table('attempt')->where('id',$prior['id'])->update(['status'=>'failed','error'=>mb_substr($e->getMessage(),0,1000),'update_time'=>time()]);throw $e;}
+                try{if($validate)$validate($result);}catch(\InvalidArgumentException|\JsonException $e){MicroVideoStore::table('attempt')->where('id',$prior['id'])->update(['status'=>'validation_failed','error'=>mb_substr($e->getMessage(),0,1000),'update_time'=>time()]);throw $e;}
                 return $result;
             }
             if(!in_array($prior['status'],['failed'],true))throw new RuntimeException('模型调用状态待核对，已保留进度，请稍后查看');
@@ -32,7 +33,7 @@ final class MicroVideoText
         }catch(\Throwable $e){
             // A complete, settled response with unusable script content is a known business
             // failure. Preserve its receipt and actual usage; only an explicit retry calls again.
-            if($received&&($e instanceof \InvalidArgumentException||$e instanceof \JsonException)){MicroVideoStore::table('attempt')->where('id',$attempt)->update(['status'=>'failed','error'=>mb_substr($e->getMessage(),0,1000),'update_time'=>time()]);throw $e;}
+            if($received&&($e instanceof \InvalidArgumentException||$e instanceof \JsonException)){MicroVideoStore::table('attempt')->where('id',$attempt)->update(['status'=>'validation_failed','error'=>mb_substr($e->getMessage(),0,1000),'update_time'=>time()]);throw $e;}
             if($e instanceof \app\common\service\power\TextSettlementPending)MicroVideoStore::table('attempt')->where('id',$attempt)->update(['result_json'=>MicroVideoStore::encode($e->result),'update_time'=>time()]);
             $row=MicroVideoStore::table('attempt')->where('id',$attempt)->find();$c=(int)$row['consumption_id']>0?\think\facade\Db::name('ai_consumption_log')->where('id',$row['consumption_id'])->find():null;
             $known=!$c||in_array($c['run_status']??'',['failed','canceled'],true);
@@ -51,6 +52,6 @@ final class MicroVideoText
     {
         $content=trim($content);$content=preg_replace('/^```(?:json)?\s*|\s*```$/u','',$content);$start=strpos($content,'{');$end=strrpos($content,'}');
         if($start===false||$end===false)throw new \InvalidArgumentException('分段结果格式不完整，请重新规划');
-        $json=json_decode(substr($content,$start,$end-$start+1),true,512,JSON_THROW_ON_ERROR);if(!is_array($json)||!isset($json['segments']))throw new \InvalidArgumentException('分段结果缺少详细镜头信息');return $json;
+        $json=json_decode(substr($content,$start,$end-$start+1),true,512,JSON_THROW_ON_ERROR);if(!is_array($json)||!isset($json['segments'])||!is_array($json['segments']))throw new \InvalidArgumentException('分段结果缺少详细镜头信息');return $json;
     }
 }

@@ -63,4 +63,10 @@ final class MicroVideoTimelineTest extends TestCase
         self::assertFalse(MicroVideoTimeline::required([]));
         self::assertTrue(MicroVideoTimeline::required(['shot_timeline_version'=>1]));
     }
+    public function testCompleteButWrongSegmentSchemaIsAnActionableValidationFailure(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        \app\common\service\app\aigc_micro_video\MicroVideoText::parse('{"segments":"wrong schema","continuity":"same actor"}');
+    }
+
 }

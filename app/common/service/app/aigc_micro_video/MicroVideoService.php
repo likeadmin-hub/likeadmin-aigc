@@ -147,6 +147,7 @@ final class MicroVideoService
             if(!empty($p['merge_only'])&&$ids)throw new InvalidArgumentException('仍有未完成内容，不能仅合并');
             if($ids)MicroVideoStore::table('segment')->whereIn('id',$ids)->update(['status'=>'pending','error'=>'','update_time'=>time()]);
             $unknown=MicroVideoStore::table('attempt')->where('task_id',$id)->whereIn('status',['submitting','unknown'])->count();if(!$segments&&$unknown)throw new InvalidArgumentException('模型调用状态待核对，已保留进度');
+            if(!$segments)MicroVideoStore::table('attempt')->where('task_id',$id)->where('status','validation_failed')->where('kind','<>','video')->update(['status'=>'failed','update_time'=>time()]);
             MicroVideoStore::update($id,['status'=>$segments?'running':'planning','resume_key'=>$key,'confirmed_quote'=>MicroVideoStore::encode($quote),'error'=>'','next_run_at'=>time(),'merge_status'=>'pending']);
         });return self::detail($tenant,$admin?0:$user,$id,$admin);
     }

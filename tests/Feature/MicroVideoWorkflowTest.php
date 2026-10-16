@@ -76,8 +76,12 @@ final class MicroVideoWorkflowTest extends TestCase
         $id=S::table('attempt')->insertGetId(['tenant_id'=>1,'user_id'=>1,'task_id'=>$this->id,'segment_id'=>0,'kind'=>'script','attempt_no'=>1,'status'=>'success','request_json'=>'{}','result_json'=>$result,'create_time'=>time(),'update_time'=>time()]);
         $count=Db::name('ai_consumption_log')->count();
         try{\app\common\service\app\aigc_micro_video\MicroVideoText::run($task,'script','','','',[],fn($r)=>\app\common\service\app\aigc_micro_video\MicroVideoTimeline::validate($r['content'],15));self::fail('Invalid cached script escaped validation');}catch(\InvalidArgumentException $e){self::assertStringContainsString('镜头时间轴无效',$e->getMessage());}
-        $attempt=S::table('attempt')->where('id',$id)->find();self::assertSame('failed',$attempt['status']);self::assertSame($result,$attempt['result_json']);
-        // Empty model stops before I/O; reaching this guard proves the failed receipt does not replay.
+        $attempt=S::table('attempt')->where('id',$id)->find();self::assertSame('validation_failed',$attempt['status']);self::assertSame($result,$attempt['result_json']);
+        try{\app\common\service\app\aigc_micro_video\MicroVideoText::run($task,'script','','','');self::fail('Worker restart must not regenerate rejected content');}catch(\InvalidArgumentException $e){self::assertStringContainsString('镜头时间轴无效',$e->getMessage());}
+        S::table('segment')->where('task_id',$this->id)->delete();S::update($this->id,['status'=>'waiting_continue']);$quote=V::estimate(1,1,['id'=>$this->id]);
+        V::retry(1,1,['id'=>$this->id,'quote_token'=>$quote['quote_token'],'idempotency_key'=>'explicit_validation_retry']);
+        self::assertSame('failed',S::table('attempt')->where('id',$id)->value('status'));
+        // Empty model stops before I/O; only the explicit retry authorizes a fresh call.
         try{\app\common\service\app\aigc_micro_video\MicroVideoText::run($task,'script','','','');self::fail('Invalid receipt replayed');}catch(\InvalidArgumentException $e){self::assertStringContainsString('请先配置',$e->getMessage());}
         self::assertSame($count,Db::name('ai_consumption_log')->count());self::assertSame(1,S::table('attempt')->where('task_id',$this->id)->count());
     }
