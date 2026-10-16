@@ -21,6 +21,13 @@ final class MicroVideoWorkflowTest extends TestCase
     protected function tearDown(): void{Db::rollback();}
     private function rejection(callable $f): void{try{$f();}catch(\InvalidArgumentException $e){self::assertNotSame('',$e->getMessage());return;}self::fail('Operation should reject');}
     private function quote(): array{return V::estimate(1,1,['id'=>$this->id,'plan_revision'=>1]);}
+    public function testUnrestrictedDirectionCanEstimateWithoutSelectingACard(): void
+    {
+        $form=S::json(S::owned(1,1,$this->id)['params_json']);$form['direction_id']=0;
+        $direction=C::direction(1,0);self::assertSame(0,$direction['id']);self::assertSame('free',$direction['code']);
+        $before=Db::name('ai_consumption_log')->count();$quote=V::estimate(1,1,$form);
+        self::assertTrue($quote['approximate']);self::assertGreaterThan(0,$quote['user_charge_points']);self::assertSame($before,Db::name('ai_consumption_log')->count());
+    }
     public function testQuoteAndSubmitAreVersionBoundAndIdempotent(): void
     {
         $before=Db::name('ai_consumption_log')->count();$q=$this->quote();self::assertSame(60.0,(float)$q['user_charge_points']);
