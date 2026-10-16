@@ -52,6 +52,6 @@ final class MicroVideoText
     {
         $content=trim($content);$content=preg_replace('/^```(?:json)?\s*|\s*```$/u','',$content);$start=strpos($content,'{');$end=strrpos($content,'}');
         if($start===false||$end===false)throw new \InvalidArgumentException('分段结果格式不完整，请重新规划');
-        $json=json_decode(substr($content,$start,$end-$start+1),true,512,JSON_THROW_ON_ERROR);if(!is_array($json)||!isset($json['segments'])||!is_array($json['segments']))throw new \InvalidArgumentException('分段结果缺少详细镜头信息');return $json;
+        $json=json_decode(substr($content,$start,$end-$start+1),true,512,JSON_THROW_ON_ERROR);if(!is_array($json)||!isset($json['segments'])||!is_array($json['segments']))throw new \InvalidArgumentException('分段结果缺少详细镜头信息');foreach(['prompt','continuity'] as $field)if(isset($json[$field])&&!is_string($json[$field]))throw new \InvalidArgumentException('分段文本字段格式无效，请重新规划');return $json;
     }
 }

@@ -69,4 +69,11 @@ final class MicroVideoTimelineTest extends TestCase
         \app\common\service\app\aigc_micro_video\MicroVideoText::parse('{"segments":"wrong schema","continuity":"same actor"}');
     }
 
+    public function testNestedShotObjectsCannotTriggerArrayToStringErrors(): void
+    {
+        $segment=$this->segment('temporary');$segment['prompt']=[['start'=>0,'end'=>15]];
+        $this->expectException(\InvalidArgumentException::class);
+        MicroVideoPolicy::segments([$segment],[15],1,1,8,true);
+    }
+
 }

@@ -33,9 +33,9 @@ final class MicroVideoPolicy
         if(!$segments||count($segments)>$max)throw new InvalidArgumentException('分段数量超出配置范围');
         $out=[];
         foreach(array_values($segments) as $index=>$s){
-            if(!is_array($s)||!in_array((int)($s['duration']??0),$durations,true))throw new InvalidArgumentException('分段时长不受当前模型支持');
+            if(!is_array($s)||!(is_int($s['duration']??null)||(is_string($s['duration']??null)&&ctype_digit($s['duration'])))||!in_array((int)$s['duration'],$durations,true))throw new InvalidArgumentException('分段时长不受当前模型支持');
             $row=['sort'=>$index+1,'duration'=>(int)$s['duration']];
-            foreach(['title','prompt','start_state','end_state','continuity'] as $field){$text=trim((string)($s[$field]??''));if($text===''||mb_strlen($text)>($field==='prompt'?12000:($field==='title'?200:2000)))throw new InvalidArgumentException('请完整填写分段提示词和衔接信息，标题限200字');$row[$field]=$text;}
+            foreach(['title','prompt','start_state','end_state','continuity'] as $field){$value=$s[$field]??'';if(!is_string($value))throw new InvalidArgumentException('分段文本字段格式无效，请重新规划');$text=trim($value);if($text===''||mb_strlen($text)>($field==='prompt'?12000:($field==='title'?200:2000)))throw new InvalidArgumentException('请完整填写分段提示词和衔接信息，标题限200字');$row[$field]=$text;}
             if($requireTimeline)MicroVideoTimeline::validate($row['prompt'],$row['duration']);
             $indices=$s['image_indices']??[];
             if(!is_array($indices)||!$indices||count($indices)>$referenceLimit)throw new InvalidArgumentException('分段引用图片数量超出模型限制');
