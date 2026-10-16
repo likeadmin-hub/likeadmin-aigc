@@ -50,4 +50,11 @@ final class MicroVideoSubmissionTest extends TestCase
     {
         foreach(MicroVideoCatalog::models(1) as $m)if($m['id']==='market_video_model:157'){$q=MicroVideoCatalog::quote(1,$m['specs'][0],$m['id']);self::assertGreaterThan(0,$q['user_charge_points']);self::assertArrayNotHasKey('reference_assets',$q['selection']);return;}self::markTestSkipped('Configured local video model unavailable');
     }
+    public function testMicroNativeTransportKeepsBillingMetadataOffProviderWire(): void
+    {
+        $m=new \ReflectionMethod(\app\common\service\power\MarketTextModelRuntimeService::class,'initialTransportOptions');$m->setAccessible(true);
+        $micro=$m->invoke(null,['protocol'=>'openai_responses'],['source_app_code'=>'aigc_micro_video','_micro_video_native_transport'=>true],false);
+        self::assertFalse($micro['include_market_context']);self::assertTrue($micro['include_channel']);
+        $ordinary=$m->invoke(null,['protocol'=>'openai_responses'],['source_app_code'=>'aigc_llm','_micro_video_native_transport'=>true],false);self::assertTrue($ordinary['include_market_context']);
+    }
 }

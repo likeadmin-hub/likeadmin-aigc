@@ -20,12 +20,13 @@ final class MicroVideoText
         try{
             $result=MarketTextModelRuntimeService::generate((int)$task['tenant_id'],(int)$task['user_id'],[
                 'content'=>$content,'system_prompt'=>$system,'model_id'=>$model,'reference_images'=>$images,'requires_vision'=>$images!==[],
-                'source_app_code'=>MicroVideoStore::APP,'business_table'=>'aigc_micro_video_task','business_id'=>(int)$task['id'],'action_code'=>'micro_'.$kind,'_disable_model_fallback'=>true,'_require_final_content'=>true,'request_timeout_seconds'=>180,'_micro_video_preserve_uncertain'=>true,
+                'source_app_code'=>MicroVideoStore::APP,'business_table'=>'aigc_micro_video_task','business_id'=>(int)$task['id'],'action_code'=>'micro_'.$kind,'_disable_model_fallback'=>true,'_require_final_content'=>true,'request_timeout_seconds'=>180,'_micro_video_preserve_uncertain'=>true,'_micro_video_native_transport'=>true,
                 'model_config'=>['max_tokens'=>8000],
                 '_result_validator'=>function(array $r)use($attempt,$validate){if(trim((string)($r['content']??''))==='')throw new RuntimeException('模型未返回完整创作内容');if($validate)$validate($r);MicroVideoStore::table('attempt')->where('id',$attempt)->update(['result_json'=>MicroVideoStore::encode($r),'update_time'=>time()]);}
             ],function($event,$data)use($attempt){if($event==='app_task')MicroVideoStore::table('attempt')->where('id',$attempt)->update(['app_task_id'=>(int)$data['app_task_id'],'consumption_id'=>(int)$data['consumption_id'],'update_time'=>time()]);});
             MicroVideoStore::table('attempt')->where('id',$attempt)->update(['status'=>'success','result_json'=>MicroVideoStore::encode($result),'user_charge_points'=>(float)($result['billing']['user_charge_points']??0),'billing_status'=>(string)($result['billing']['billing_status']??'pending_usage'),'update_time'=>time()]);return $result;
         }catch(\Throwable $e){
+            if($e instanceof \app\common\service\power\TextSettlementPending)MicroVideoStore::table('attempt')->where('id',$attempt)->update(['result_json'=>MicroVideoStore::encode($e->result),'update_time'=>time()]);
             $row=MicroVideoStore::table('attempt')->where('id',$attempt)->find();$c=(int)$row['consumption_id']>0?\think\facade\Db::name('ai_consumption_log')->where('id',$row['consumption_id'])->find():null;
             $known=!$c||in_array($c['run_status']??'',['failed','canceled'],true);
             MicroVideoStore::table('attempt')->where('id',$attempt)->update(['status'=>$known?'failed':'unknown','error'=>mb_substr($e->getMessage(),0,1000),'billing_status'=>$c['billing_status']??'none','update_time'=>time()]);throw $e;
