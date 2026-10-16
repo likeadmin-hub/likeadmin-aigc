@@ -15,6 +15,12 @@ if (!is_dir($dir)) mkdir($dir,0700,true);
 $read=static fn($name)=>json_decode(file_get_contents($dir.'/'.$name.'.json'),true,512,JSON_THROW_ON_ERROR);
 $write=static function($name,$data)use($dir){file_put_contents($dir.'/'.$name.'.tmp',json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT));rename($dir.'/'.$name.'.tmp',$dir.'/'.$name.'.json');};
 $print=static function($data){echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),PHP_EOL;};
+$nodeParameters=static function(array $request): array {
+    $metadata=$request;
+    $metadata['generation_method_source']='manual';
+    $metadata['referenceImages']=array_values(array_map(static fn($asset)=>['url'=>$asset['url'],'role'=>$asset['role']??'reference_image'],array_filter($request['reference_assets']??[],static fn($asset)=>($asset['type']??'')==='image')));
+    return $metadata;
+};
 $invoke=static fn($class,$method,...$args)=>(new ReflectionMethod($class,$method))->invoke(null,...$args);
 if (in_array($action,['plan','revise'],true)) {
     $source=Canvas::projectDetail($tenant,$user,$referenceProject); $image='';
@@ -67,7 +73,7 @@ $plan=$read('plan');
 if($action==='init') {
     if(is_file($dir.'/project.json')){$print($read('project'));exit;}
     $nodes=[];
-    foreach($plan['entries'] as $e){$nodes[]=['id'=>'acceptance-'.$e['index'],'type'=>$e['type']==='music'?'audio':$e['type'],'title'=>$e['name'],'position'=>['x'=>($e['index']%6)*420,'y'=>intdiv($e['index'],6)*500],'width'=>340,'height'=>280,'metadata'=>$e['request']+['status'=>'idle','content'=>'']];}
+    foreach($plan['entries'] as $e){$nodes[]=['id'=>'acceptance-'.$e['index'],'type'=>$e['type']==='music'?'audio':$e['type'],'title'=>$e['name'],'position'=>['x'=>($e['index']%6)*420,'y'=>intdiv($e['index'],6)*500],'width'=>340,'height'=>280,'metadata'=>$nodeParameters($e['request'])+['status'=>'idle','content'=>'']];}
     $p=Canvas::createProject($tenant,$user,['name'=>'上架模型最小规格真实验收','nodes'=>$nodes,'edges'=>[],'viewport'=>['x'=>40,'y'=>40,'zoom'=>0.4]]);
     $write('project',['id'=>$p['id']]);$print(['project_id'=>$p['id'],'nodes'=>count($nodes)]);exit;
 }
@@ -75,9 +81,9 @@ if($action==='report'){foreach($plan['entries'] as $e){$f=$dir.'/entry-'.$e['ind
 $index=(int)($argv[5]??-1);$entry=$plan['entries'][$index]??null;if(!$entry)throw new RuntimeException('Unknown entry index');
 $lock=fopen($dir.'/entry-'.$index.'.lock','c');if(!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('Entry already running');
 $key='entry-'.$index;$row=is_file($dir.'/'.$key.'.json')?$read($key):[];$project=$read('project');
-$updateNode=static function($row)use($tenant,$user,$project,$index,$dir){
+$updateNode=static function($row)use($tenant,$user,$project,$index,$dir,$entry,$nodeParameters){
     $lock=fopen($dir.'/project.lock','c');flock($lock,LOCK_EX);
-    try{$p=Canvas::projectDetail($tenant,$user,(int)$project['id']);foreach($p['nodes'] as &$n)if($n['id']==='acceptance-'.$index){$m=&$n['metadata'];$m['status']=$row['status'];$m['pending']=in_array($row['status'],['submitting','running','pending','processing'],true);$m['taskId']=$row['task_id']??'';$m['errorDetails']=$row['error']??'';$m['generationStartedAt']=$row['started_at']*1000;
+    try{$p=Canvas::projectDetail($tenant,$user,(int)$project['id']);foreach($p['nodes'] as &$n)if($n['id']==='acceptance-'.$index){$m=&$n['metadata'];$m=array_replace($m,$nodeParameters($entry['request']));$m['status']=$row['status'];$m['pending']=in_array($row['status'],['submitting','running','pending','processing'],true);$m['taskId']=$row['task_id']??'';$m['errorDetails']=$row['error']??'';$m['generationStartedAt']=$row['started_at']*1000;
         $r=$row['result']??[];if($row['status']==='success'){
             if($n['type']==='text')$m['content']=$r['content']??$r['text']??'';
             $items=$r['images']??$r['videos']??$r['audios']??$r['tracks']??[];
