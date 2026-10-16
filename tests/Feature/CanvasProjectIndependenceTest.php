@@ -34,7 +34,7 @@ try {
 function check($ok,$message){if(!$ok)throw new RuntimeException($message);}
 function rejected(callable $call){try{$call();}catch(InvalidArgumentException $e){return;}throw new RuntimeException('Expected scope rejection');}
 $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local rollback only');
-Db::startTrans();try{
+try{
  $t=1999999892;$u=$t;
  $project=Canvas::createProject($t,$u,['name'=>'scope fixture','nodes'=>[['id'=>'other','type'=>'text','metadata'=>[]]],'viewport'=>['pages'=>[['id'=>'p1','name'=>'One','nodeIds'=>[]],['id'=>'p2','name'=>'Two','nodeIds'=>['other']]],'currentCanvasId'=>'p2']]);
  $scope=Scope::canvas($t,$u,['project_id'=>$project['id'],'page_id'=>'p1']);
@@ -133,7 +133,7 @@ check(S::owner('preference',$t+10,$u+10)->where('workspace_key','canvas:'.$third
 \app\common\service\app\aigc_llm\agent\AgentWorkspaceData::clear('aigc_canvas',$t+10);
 check(S::owner('preference',$t+10,$u+10)->count()===0,'Canvas cleanup left project preferences');
 echo "PASS all-tenant upgrade, repeated upgrade and scoped cleanup\n";
-}finally{Db::rollback();}
+}finally{/* Isolated tables are dropped below, including migration DDL. */}
 }finally{foreach(array_reverse($tables) as $table)\think\facade\Db::execute("DROP TABLE IF EXISTS `{$audit}{$table}`");}
 
 }
