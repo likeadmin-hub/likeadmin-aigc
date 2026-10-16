@@ -80,7 +80,7 @@ class AccountLogLists extends BaseAdminDataLists implements ListsSearchInterface
      */
     public function lists(): array
     {
-        $field = 'u.nickname,u.account,u.sn,u.avatar,u.mobile,al.action,al.change_amount,al.left_amount,al.change_type,al.source_sn,al.create_time';
+        $field = 'u.nickname,u.account,u.sn,u.avatar,u.mobile,al.sn as log_sn,al.action,al.change_amount,al.left_amount,al.change_type,al.source_sn,al.remark,al.create_time';
         $lists = UserAccountLog::alias('al')
             ->join('user u', 'u.id = al.user_id')
             ->field($field)
