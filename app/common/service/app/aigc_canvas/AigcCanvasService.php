@@ -1819,7 +1819,6 @@ class AigcCanvasService
             'tenant_id' => $tenantId,
             'app_code' => self::APP_CODE,
             'provider' => 'power_market',
-                        'canvas_parameters' => CanvasGenerationParameters::definitions($option, 'text'),
         ]);
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -2025,6 +2024,7 @@ class AigcCanvasService
                         'market_output_sku_key' => (string)($option['market_output_sku_key'] ?? ''),
                         'price_source' => (string)($option['price_source'] ?? 'power_market_text_model'),
                         'supports_vision' => !empty($option['supports_vision']),
+                        'canvas_parameters' => CanvasGenerationParameters::definitions($option, 'text'),
                         'provider' => 'power_market',
                     ];
                 }
