@@ -34,6 +34,12 @@ final class MicroVideoSubmissionTest extends TestCase
         $id=$this->consumption('submitting');self::assertFalse(S::hold($id,'invalid_parameter: unsupported resolution'));
         $id=$this->consumption('reserved','aigc_video');self::assertTrue(S::begin($id));self::assertSame('reserved',Db::name('ai_consumption_log')->where('id',$id)->value('run_status'));self::assertFalse(S::hold($id,'cURL error 28'));
     }
+    public function testUnreadablePostResponsesNeverAuthorizeRegeneration(): void
+    {
+        foreach(['视频 API 响应格式错误','文本模型返回格式异常','文本模型未返回有效内容','transfer closed with outstanding read data remaining'] as $error){
+            $id=$this->consumption('submitting');self::assertTrue(S::ambiguous($error));self::assertTrue(S::hold($id,$error));self::assertSame('pending_confirmation',Db::name('ai_consumption_log')->where('id',$id)->value('run_status'));self::assertFalse(S::begin($id));
+        }
+    }
     public function testStableAssetIdentityAndColumnBounds(): void
     {
         $a=['images'=>[['uri'=>'uploads/a.png','file_id'=>7,'url'=>'https://example.com/a?signature=old']]];$b=$a;$b['images'][0]['url']='https://example.com/a?signature=new';
