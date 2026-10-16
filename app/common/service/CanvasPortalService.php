@@ -22,7 +22,7 @@ final class CanvasPortalService
         foreach ([['创意情绪板','品牌设计'],['电影级镜头','电影'],['草图转效果图','设计'],['虚拟摄影棚','摄影'],['时尚人像','时尚服饰'],['商品场景','电商广告'],['二维转三维','设计'],['角色设计','电影'],['广告创意','电商广告'],['表情变化','摄影'],['场景设计','电影'],['创意海报','品牌设计']] as $i => $item) {
             $cards[] = ['id'=>'template-'.($i+1),'section'=>'template','title'=>$item[0],'category'=>$item[1], 'description'=>'连接素材、提示词与生成节点，探索可复用的创作流程。','enabled'=>1] + self::media();
         }
-        return ['hero'=>self::media(), 'cards'=>$cards];
+        return ['hero'=>self::normalizeHero([]), 'cards'=>$cards];
     }
     private static function media(): array { return ['media_type'=>'image','file_id'=>0,'poster_id'=>0]; }
     private static function text($value, int $limit): string
@@ -34,6 +34,18 @@ final class CanvasPortalService
     {
         if (!in_array($row['media_type'] ?? 'image', ['image','video'], true)) throw new InvalidArgumentException('仅支持图片和视频素材');
         return ['media_type'=>$row['media_type'] ?? 'image', 'file_id'=>max(0,(int)($row['file_id'] ?? 0)), 'poster_id'=>max(0,(int)($row['poster_id'] ?? 0))];
+    }
+    private static function normalizeHero(array $input): array
+    {
+        $legacy = self::normalizeMedia($input);
+        $items = $input['items'] ?? ($legacy['file_id'] ? [$legacy] : []);
+        if (!is_array($items) || count($items) > 20) throw new InvalidArgumentException('背景素材最多20项');
+        $normalized = [];
+        foreach ($items as $row) {
+            if (!is_array($row)) throw new InvalidArgumentException('背景素材格式不正确');
+            $normalized[] = self::normalizeMedia($row);
+        }
+        return ['enabled'=>!array_key_exists('enabled', $input) || !empty($input['enabled']), 'items'=>$normalized] + ($normalized[0] ?? self::media());
     }
     public static function normalize(array $input): array
     {
@@ -49,7 +61,7 @@ final class CanvasPortalService
             if (!$title || !in_array($section, ['template','inspiration'],true)) throw new InvalidArgumentException('请选择栏目并填写卡片标题');
             $cards[] = ['id'=>$id, 'section'=>$section, 'title'=>$title, 'category'=>self::text($row['category'] ?? '', 30), 'description'=>self::text($row['description'] ?? '',500), 'enabled'=>empty($row['enabled'])?0:1] + self::normalizeMedia($row);
         }
-        return ['hero'=>self::normalizeMedia($input['hero']), 'cards'=>$cards];
+        return ['hero'=>self::normalizeHero($input['hero']), 'cards'=>$cards];
     }
     private static function material(int $id, string $type, bool $strict): string
     {
@@ -66,6 +78,9 @@ final class CanvasPortalService
         if ($public) $config['cards'] = array_values(array_filter($config['cards'],fn($row)=>!empty($row['enabled'])));
         foreach ($config['cards'] as &$row) self::resolveMedia($row,$strict);
         unset($row);
+        $config['hero'] = self::normalizeHero($config['hero']);
+        foreach ($config['hero']['items'] as &$item) self::resolveMedia($item, $strict);
+        unset($item);
         self::resolveMedia($config['hero'],$strict);
         return $config;
     }
@@ -82,7 +97,7 @@ final class CanvasPortalService
     }
     public static function public(): array
     {
-        if ((int)request()->tenantId <= 0) return ['hero'=>self::media()+['url'=>'','poster'=>''],'cards'=>[]];
+        if ((int)request()->tenantId <= 0) return ['hero'=>self::normalizeHero([])+['url'=>'','poster'=>''],'cards'=>[]];
         $state = ConfigService::get(self::TYPE,'state',[]);
         return self::resolve($state['config'] ?? self::defaults(),false,true);
     }

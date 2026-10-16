@@ -16,6 +16,7 @@ Db::startTrans();
 try {
     ConfigService::set('pc_canvas_portal','state',[]);
     $config=S::defaults();
+    unset($config['hero']['items']); // Exercise previously saved single-media settings.
     check(count(S::public()['cards'])===12,'unconfigured templates have static copy and no remote media');
     check(S::public()['hero']['url']==='','unconfigured hero has no external asset');
     $config['cards'][0]['enabled']=0;
@@ -60,5 +61,23 @@ try {
     S::saveSection('hero', ['config'=>['hero'=>['media_type'=>'image'], 'cards'=>[]], 'revision'=>$revision+1]);
     check(count(S::public()['cards'])===2, 'website editor cannot overwrite templates');
     check(!isset(S::sectionEditor('hero')['config']['cards']), 'website response excludes template config');
+    $revision = S::editor()['revision'];
+    $image = TenantFile::where(['tenant_id'=>$tenant,'type'=>10])->findOrEmpty();
+    $video = TenantFile::where(['tenant_id'=>$tenant,'type'=>20])->findOrEmpty();
+    $items = [];
+    if (!$image->isEmpty()) $items[] = ['media_type'=>'image','file_id'=>(int)$image['id']];
+    if (!$video->isEmpty()) $items[] = ['media_type'=>'video','file_id'=>(int)$video['id'], 'poster_id'=>$image->isEmpty()?0:(int)$image['id']];
+    S::saveSection('hero', ['config'=>['hero'=>['enabled'=>false,'items'=>$items]], 'revision'=>$revision]);
+    $hero = S::public()['hero'];
+    check($hero['enabled']===false && count($hero['items'])===count($items), 'animation switch preserves ordered mixed media');
+    foreach ($hero['items'] as $item) check($item['url']!=='', 'background media resolves tenant storage');
+    $bad = ['hero'=>['items'=>array_fill(0,21,['media_type'=>'image'])], 'cards'=>[]];
+    rejects(fn()=>S::normalize($bad));
+    rejects(fn()=>S::saveSection('hero', ['config'=>['hero'=>['items'=>[['file_id'=>2147483600]]]], 'revision'=>$revision+1]));
+    S::saveSection('hero', ['config'=>['hero'=>['enabled'=>true,'items'=>[]]], 'revision'=>$revision+1]);
+    check(S::public()['hero']['items']===[] && S::public()['hero']['url']==='', 'clearing media never resurrects legacy background');
+    check(S::public()['hero']['enabled']===true, 'empty media retains dots and sweep animation');
+    ConfigService::set('pc_canvas_portal','state', ['config'=>['hero'=>['media_type'=>'image','file_id'=>$image->isEmpty()?0:(int)$image['id'],'poster_id'=>0],'cards'=>[]]]);
+    check(count(S::public()['hero']['items'])===($image->isEmpty()?0:1), 'legacy single background becomes an ordered material list');
     echo "PASS revision, validation, tenant scope, material kind and deletion checks\n";
 } finally { $request->tenantId=$tenant; Db::rollback(); }
