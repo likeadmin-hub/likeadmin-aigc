@@ -308,7 +308,7 @@ final class MicroVideoMedia
         $configured = getenv('MICRO_VIDEO_' . strtoupper($name));
         $candidates = $configured ? [$configured] : [];
         foreach (explode(PATH_SEPARATOR, (string)getenv('PATH')) as $directory) if ($directory !== '') $candidates[] = rtrim($directory, '/') . '/' . $name;
-        $candidates = array_merge($candidates, ['/opt/homebrew/bin/' . $name, '/usr/bin/' . $name, '/usr/local/bin/' . $name, dirname(__DIR__, 6) . '/runtime/micro-video-acceptance/ffmpeg-7.0.2-arm64-static/' . $name]);
+        $candidates = array_merge($candidates, ['/opt/homebrew/bin/' . $name, '/usr/bin/' . $name, '/usr/local/bin/' . $name]);
         foreach ($candidates as $candidate) if (is_file($candidate) && is_executable($candidate)) return $candidate;
         throw new RuntimeException('未找到视频处理程序：' . $name);
     }
