@@ -1,6 +1,6 @@
 <?php
 namespace app\common\command;
-use app\common\service\app\aigc_canvas\{AigcCanvasService,CanvasProjectCompatibility};
+use app\common\service\app\aigc_canvas\{CanvasHistoryImportService,CanvasProjectCompatibility};
 use app\common\model\app\aigc_canvas\AigcCanvasProject;
 use think\console\{Command,Input,Output};
 use think\console\input\Option;
@@ -29,8 +29,8 @@ final class CanvasAdaptProjects extends Command
                     $adapted=CanvasProjectCompatibility::adapt($row);
                     foreach (['nodes_json','edges_json','viewport_json'] as $key) if ($adapted[$key]!==\app\common\service\app\aigc_llm\agent\AgentStore::json($row[$key])) {$changed++;break;}
                     if ($apply) {
-                        $detail=AigcCanvasService::projectDetail((int)$row['tenant_id'],(int)$row['user_id'],(int)$row['id']);
-                        if (!empty($detail['compatibility_warnings'])) throw new \RuntimeException('History import deferred');
+                        $saved=CanvasProjectCompatibility::upgrade($row);
+                        CanvasHistoryImportService::importProject((int)$row['tenant_id'],(int)$row['user_id'],$saved);
                     }
                 } catch (\Throwable $e) {
                     $failed++;
