@@ -1880,6 +1880,10 @@ class MarketVideoRuntimeService
             && strtolower((string)($locked['model'] ?? '')) === 'grok-imagine-video-1.5' && $requestedDuration > 15) {
             throw new Exception('Grok 标准版仅支持 1–15 秒，请调整时长或选择快速版');
         }
+        if (strtolower((string)($market['product']['upstream_app_code'] ?? '')) === 'wan'
+            && strtolower((string)($locked['model'] ?? '')) === 'wan2.7-videoedit' && $requestedDuration > 10) {
+            throw new Exception('Wan 视频编辑仅支持 2–10 秒，请调整时长');
+        }
         if ($requestedDuration > 0 && $lockedDuration > 0 && $requestedDuration !== $lockedDuration) {
             throw new Exception('所选市场 SKU 不支持当前时长');
         }
@@ -1912,6 +1916,9 @@ class MarketVideoRuntimeService
             : self::skuInputMode($locked);
         if (strtolower((string)($product['upstream_app_code'] ?? '')) === 'grok_video' && strtolower((string)($locked['model'] ?? '')) === 'grok-imagine-video-1.5') {
             $durationOptions = array_values(array_filter($durationOptions ?: range(1, 15), static fn($value): bool => (int)$value >= 1 && (int)$value <= 15));
+        }
+        if (strtolower((string)($product['upstream_app_code'] ?? '')) === 'wan' && strtolower((string)($locked['model'] ?? '')) === 'wan2.7-videoedit') {
+            $durationOptions = array_values(array_filter($durationOptions ?: range(2, 10), static fn($value): bool => (int)$value >= 2 && (int)$value <= 10));
         }
         $modes = self::sellableGenerationModes($product, self::metadata($product), [['input_mode'=>$inputMode,'locked_params'=>$locked]]);
         return ['generation_modes' => $modes, 'market_sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'title' => (string)$sku['title'], 'resolution' => self::resolution($locked), 'duration' => $lockedDuration, 'duration_options' => $durationOptions, 'model' => (string)($locked['model'] ?? $product['upstream_model_code'] ?? ''), 'pricing_variant' => (string)($locked['_pricing_variant'] ?? $locked['pricing_variant'] ?? ''), 'input_mode' => $inputMode, 'locked_params' => $locked, 'selectable_params' => $selectable, 'usage_unit' => self::billingUnit($product, $sku), 'usage_unit_size' => self::billingUnitSize($product, $sku), 'settlement_mode' => self::isTokenSku($sku) ? 'actual_usage' : 'reserved', 'platform_unit_cost' => self::points((float)$sku['sale_points']), 'tenant_unit_price' => self::points((float)$market['tenant_price'])];

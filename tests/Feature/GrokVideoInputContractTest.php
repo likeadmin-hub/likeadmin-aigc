@@ -20,6 +20,10 @@ class GrokVideoInputContractTest extends TestCase
         $this->expectExceptionMessage('1–15');
         $this->invoke('assertSkuMatchesSelection',['product'=>['resource_type'=>'app_api','upstream_app_code'=>'grok_video'],'sku'=>['locked_params'=>['model'=>'grok-imagine-video-1.5']]],['duration'=>16]);
     }
+    public function testWanEditDurationDoesNotInheritTextToVideoMaximum(): void {
+        $this->expectExceptionMessage('2–10');
+        $this->invoke('assertSkuMatchesSelection',['product'=>['resource_type'=>'app_api','upstream_app_code'=>'wan'],'sku'=>['locked_params'=>['model'=>'wan2.7-videoedit']]],['duration'=>11]);
+    }
     public function testFastPayloadStillAllowsTextOnlyAndThirtySeconds(): void {
         $r=$this->invoke('appPayload',['app_code'=>'grok_video','locked_params'=>['model'=>'grok-imagine-video-1.5-fast']],['prompt'=>'fixture','duration'=>30],'fixture');
         self::assertSame(30,$r['duration']);self::assertSame('fixture',$r['prompt']);self::assertArrayNotHasKey('image_urls',$r);
