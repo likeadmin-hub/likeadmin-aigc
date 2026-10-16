@@ -669,6 +669,8 @@ class OpenPlatformService
             $template = WechatTemplate::withoutGlobalScope()->findOrEmpty((int)$row['template_id']);
             if ($template->isEmpty() || (string)$template['upload_status'] !== 'success') throw new \RuntimeException('模板不存在或未上传成功');
             $extJson = self::versionExtJson($row);
+            // Also repair existing experience builds whose domains were never synchronized.
+            self::syncTenantServerDomains($tenantId);
             if ((string)$row['experience_status'] !== 'success') {
                 if (!in_array((string)$row['experience_status'], ['pending', 'failed'], true)) return self::formatVersion($row->toArray());
                 $row->save(['experience_status' => 'running', 'update_time' => time()]);
@@ -1671,6 +1673,20 @@ class OpenPlatformService
         );
     }
 
+    public static function syncTenantServerDomains(int $tenantId): array
+    {
+        // Resolve and validate authorization before changing any platform settings.
+        self::effectiveMiniprogramAuthorizer($tenantId);
+        $runtime = self::tenantRuntimeConfig($tenantId, true);
+        $host = strtolower((string)parse_url($runtime['apiBaseUrl'], PHP_URL_HOST));
+        MiniProgramServerDomainService::ensurePlatform($host, static function (array $payload): array {
+            return self::request('cgi-bin/component/modify_wxa_server_domain', $payload, 'miniprogram.platform.domain.' . $payload['action'], ['access_token' => self::componentAccessToken()]);
+        });
+        return MiniProgramServerDomainService::ensure($runtime['apiBaseUrl'], static function (array $payload) use ($tenantId): array {
+            return self::authorizerRequest($tenantId, 'miniprogram', 'wxa/modify_domain', $payload, 'miniprogram.domain.' . $payload['action']);
+        });
+    }
+
     public static function saveCredentials(int $tenantId, array $data): array
     {
         $allowed = ['authorizer_id', 'app_secret', 'token', 'encoding_aes_key', 'api_key', 'upload_private_key', 'upload_certificate', 'upload_private_pem'];
@@ -1702,6 +1718,10 @@ class OpenPlatformService
                 }
                 $payload[$jsonField] = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             }
+        }
+        if (array_key_exists('settings_json', $data)) {
+            $authorized = WechatAuthorizer::withoutGlobalScope()->where(['tenant_id' => $tenantId, 'authorizer_type' => 'miniprogram', 'authorization_status' => 1])->findOrEmpty();
+            if (!$authorized->isEmpty()) self::syncTenantServerDomains($tenantId);
         }
         if ($row->isEmpty()) { $payload['create_time'] = time(); $row = WechatCredential::create($payload); } else $row->save($payload); return self::credentialView($row->toArray());
     }
