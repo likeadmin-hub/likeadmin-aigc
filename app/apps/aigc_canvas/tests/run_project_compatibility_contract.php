@@ -26,3 +26,9 @@ $pending=History::message(['role'=>'assistant','content'=>'处理中','status'=>
 $check($pending['status']==='stopped' && str_contains($pending['content'],'未自动恢复'),'old task falsely resumed');
 $check(History::message(['role'=>'user','content'=>'{"这是":"用户原文"}'])['content']==='{"这是":"用户原文"}','user content changed');
 echo "Project compatibility: $n checks passed; no database, provider or billing calls\n";
+
+foreach (['zz_20261017_project_compat_backup.sql','zz_20261017_retire_legacy_agent.sql'] as $name) {
+    $plan=\app\common\service\database\RuntimeMigrationPlan::build(file_get_contents(__DIR__.'/../migrations/'.$name));
+    $check($plan['prepare']!=='' || $plan['complete']!=='','runtime updater cannot execute migration '.$name);
+}
+echo "Automatic release migration plans passed\n";
