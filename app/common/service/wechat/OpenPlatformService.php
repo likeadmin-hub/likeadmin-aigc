@@ -2260,10 +2260,20 @@ class OpenPlatformService
                 $domain = $scheme . '://' . $host;
             }
         }
+        // The upload request may reach PHP over HTTP after TLS termination.
+        // Match the HTTPS request domain shown in mini-program settings instead
+        // of embedding that internal transport protocol in a formal package.
+        if ($configuredDomain === '') $domain = preg_replace('#^http://#i', 'https://', $domain);
         $domain = rtrim($domain, '/') . '/';
-        $validDomain = $requireConfiguredDomain ? '#^https://[^/]+/$#i' : '#^https?://[^/]+/$#i';
-        if (!preg_match($validDomain, $domain)) {
-            throw new \RuntimeException('当前租户域名无效，请先完成域名配置');
+        $parts = parse_url($domain);
+        $host = strtolower((string)($parts['host'] ?? ''));
+        if (!is_array($parts) || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+            || !filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME)
+            || !str_contains($host, '.') || str_ends_with($host, '.localhost')
+            || filter_var(trim($host, '[]'), FILTER_VALIDATE_IP)
+            || ($parts['path'] ?? '/') !== '/'
+            || isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
+            throw new \RuntimeException('小程序接口域名无效：请配置可公网访问的 HTTPS 域名，不可使用 HTTP、IP、本地地址或包含路径的地址，并在微信后台配置 request 合法域名');
         }
         $config = [
             'apiBaseUrl' => $domain,
