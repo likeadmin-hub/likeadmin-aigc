@@ -142,9 +142,9 @@ class TenantUrlService
 
     /**
      * Return the platform hosts configured for platform administration.
-     * A tenant alias must not shadow these hosts or their subdomains because
-     * the platform middleware intentionally treats the whole host tree as a
-     * platform entry surface.
+     * Reserve these hosts and their subdomains against tenant alias binding.
+     * This reservation is broader than platform backend access, which only
+     * accepts the exact configured hosts.
      */
     public static function platformHosts(?string $requestHost = null): array
     {

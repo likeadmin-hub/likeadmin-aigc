@@ -93,57 +93,41 @@ class LikeAdminAllowMiddleware
             || preg_match('#^wechat/open-platform/[A-Za-z0-9_-]+/callback$#', $normalizedPath)) {
             return $next($request);
         }
-        // 处理API请求
-        if (str_contains($firstSegment, 'api') || str_contains($firstOriginalSegment, 'api')) {
-            if ($firstSegment !== 'platformapi' && $firstOriginalSegment !== 'platformapi') {
-                return $this->handleTenantAccess($tenantModel, $domain, $request, $next);
-            }else{
-                $this->resolveTenantFromPayload($tenantModel, $request);
-                return $next($request);
+        // Platform pages and APIs share the same exact-host boundary. Tenant
+        // subdomains and aliases must never inherit platform administration.
+        // Forwarded-Host is client-controlled unless a proxy sanitizes it;
+        // platform access uses the Host actually delivered to this vhost.
+        $platformHost = TenantUrlService::normalizeHost((string)$request->server('HTTP_HOST', $request->host()));
+        $isPlatformApi = strtolower($firstSegment) === 'platformapi'
+            || strtolower($firstOriginalSegment) === 'platformapi';
+        $isPlatformPage = strtolower($firstSegment) === 'platform'
+            || strtolower($firstOriginalSegment) === 'platform';
+        if ($isPlatformApi || $isPlatformPage) {
+            if (!$this->isAllowedPlatformHost($platformHost)) {
+                return $isPlatformApi
+                    ? JsonService::fail('当前域名不允许访问平台后台')->code(403)
+                    : view(app()->getRootPath() . 'public/error/platform/404.html', [], 404);
             }
-        } else {
-            // 处理页面请求
-            if ($firstSegment !== 'platform') {
-                return $this->handleTenantAccess($tenantModel, $domain, $request, $next, true);
-            } else {
-                // The platform UI can also be entered through a tenant-bound
-                // domain. On refresh the request comes through this middleware
-                // again, so accept a valid tenant alias before returning the
-                // platform-domain 404 page.
-                $tenantByAlias = TenantDomainAliasService::findTenantByDomain($domain);
-                $isTenantBoundDomain = !$tenantByAlias->isEmpty()
-                    && (int)$tenantByAlias->domain_alias_enable === 0
-                    && TenantContractService::enforceTenantActive($tenantByAlias);
-                if (!$this->isAllowedPlatformHost($domain) && !$isTenantBoundDomain) {
-                    return view(app()->getRootPath() . 'public/error/platform/404.html');
-                }else{
-                    if ($isTenantBoundDomain) {
-                        $request->tenantId = (int)$tenantByAlias->id;
-                        $request->tenantSn = (string)$tenantByAlias->sn;
-                        $request->tenantResolveMode = 'domain_alias';
-                    }
-                    $this->resolveTenantFromPayload($tenantModel, $request);
-                    return $next($request);
-                }
-            }
+            $this->resolveTenantFromPayload($tenantModel, $request);
+            return $next($request);
         }
 
-        return $next($request);
+        // Explicit tenant links on the platform host still open the tenant PC.
+        if ($normalizedPath === '' && in_array(strtoupper($request->method()), ['GET', 'HEAD'], true)
+            && !$this->extractExplicitTenantId($request) && $this->isAllowedPlatformHost($platformHost)) {
+            return redirect('/platform/');
+        }
+
+        $isApi = str_contains($firstSegment, 'api') || str_contains($firstOriginalSegment, 'api');
+        return $this->handleTenantAccess($tenantModel, $domain, $request, $next, !$isApi);
     }
 
     private function isAllowedPlatformHost(string $domain): bool
     {
-        $domain = TenantUrlService::normalizeHost($domain);
-        $allowedHosts = $this->parseConfiguredHosts((string)Config::get('project.http_host'));
-        if (empty($allowedHosts)) {
-            return true;
-        }
-        foreach ($allowedHosts as $allowedHost) {
-            if ($domain === $allowedHost || str_ends_with($domain, '.' . $allowedHost)) {
-                return true;
-            }
-        }
-        return false;
+        // Installation writes project.http_host. An empty configuration must
+        // not turn every tenant domain into a platform entry point.
+        return in_array(TenantUrlService::normalizeHost($domain),
+            $this->parseConfiguredHosts((string)Config::get('project.http_host')), true);
     }
 
     /**
