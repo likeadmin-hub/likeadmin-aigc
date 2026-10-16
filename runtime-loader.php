@@ -4,6 +4,17 @@ declare(strict_types=1);
 
 /** Bridge bootstrap: each process pins one immutable application/runtime generation. */
 $siteRoot = $GLOBALS['AIGC_RUNTIME_SITE_ROOT_OVERRIDE'] ?? __DIR__;
+// Canonical sites and new installations do not create or select snapshots.
+$override=$GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE']??'';
+$canonicalMarker=$siteRoot.'/runtime/direct-deployment.json';
+$canonicalState=is_file($canonicalMarker)?json_decode((string)file_get_contents($canonicalMarker),true):[];
+$canonical=($canonicalState['schema']??null)===1 && ($canonicalState['mode']??'')==='canonical';
+if($override===$siteRoot || ($override==='' && !is_file($siteRoot.'/.composer-runtime/active.json')
+    && ($canonical || !is_file($siteRoot.'/.composer-runtime/current.json')))){
+    if(!class_exists('app\\common\\service\\update\\DirectSiteUpdateService',false))require_once $siteRoot.'/app/common/service/update/DirectSiteUpdateService.php';
+    if($override==='' && empty($GLOBALS['AIGC_DIRECT_RECOVERY_CHILD']))\app\common\service\update\DirectSiteUpdateService::bootstrap($siteRoot);
+    return require $siteRoot.'/direct-runtime-loader.php';
+} else {
 // The selection gate closes the pointer-read vs collector-rename race. Keep
 // generation leases in globals through PHP shutdown, including lazy autoload.
 if (is_file($siteRoot.'/runtime-retention.php')) {
@@ -134,3 +145,5 @@ if (PHP_SAPI !== 'cli' && empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])
     $runtimeManager->scheduleRuntimeCleanup();
 }
 return $runtimeAutoloader;
+
+}

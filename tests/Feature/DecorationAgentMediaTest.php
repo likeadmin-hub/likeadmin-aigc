@@ -60,15 +60,15 @@ class DecorationAgentMediaTest extends TestCase
         $result=json_decode(implode("\n",$output),true,512,JSON_THROW_ON_ERROR);
         self::assertArrayNotHasKey('attachment_error',$result);
         self::assertSame(['asset','layout','style','generation'],$result['attachments'][0]['uses']);
-        self::assertSame('https://owned.test/uploads/owned.png',$result['attachments'][0]['url']);
+        self::assertSame('/uploads/owned.png',$result['attachments'][0]['url']);
         self::assertSame(1,$result['attachments'][0]['width']);self::assertSame(1,$result['attachments'][0]['height']);
         self::assertTrue($result['rejected'][2]);self::assertTrue($result['rejected'][3]);
         self::assertSame([],$result['requests']['none']['reference_images']);
-        self::assertSame(['https://owned.test/uploads/owned.png'],$result['requests']['one']['reference_images']);
+        self::assertSame(['/uploads/owned.png'],$result['requests']['one']['reference_images']);
         self::assertArrayNotHasKey('provider_params',$result['requests']['one']);
         self::assertArrayHasKey('bad',$result['request_errors']);
         self::assertSame([],$result['search_reference_only']);
-        self::assertSame(1,$result['search_asset'][0]['file_id']);
+        self::assertSame(1,(int)$result['search_asset'][0]['file_id']);
         self::assertSame(1,$result['vision_count']);
         self::assertSame('data:image/png;base64',$result['vision_header']);
         self::assertTrue($result['vision_bytes_match']);

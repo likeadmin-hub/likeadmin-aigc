@@ -56,3 +56,14 @@ python3 tests/system-update/composer-packaging.py
 python3 tests/system-update/runtime-bootstrap-packaging.py
 python3 tests/runtime-updater/system-service.legacy.py --archive <official-391.zip> --baseline <genuine-390-server> --app-packages
 ```
+
+
+## 1.0.403 onwards: canonical site updates (supersedes immutable-generation rules above)
+
+The 390→391 bridge remains a historical compatibility contract. Starting at 403, ordinary system and app updates run from the site's canonical app/config/route/extend/vendor directories. No new `.composer-runtime` generations, shared dependency repository or hard links are created. Unchanged vendor is retained; changed dependencies are carried in the existing signed `composer_runtime` schema-1 transport and replace the complete vendor directory offline. Composer is never executed on customer sites.
+
+A site-local reader/writer lease held by HTTP and ordinary CLI readers prevents requests from observing partial replacement. Existing worker impact gates still require relevant long-running tasks to stop before affected code is changed. Only replaced paths have temporary rollback copies under runtime/update_workspace; watched completion side effects are included once and cannot overlap a full-directory replacement. Durable SQL state blocks indeterminate SQL replay; metadata completion and version markers are confirmed in a fresh PHP process before final adoption. Files roll back after rejected metadata, and a lost committed reply is independently confirmed rather than rolled back.
+
+A genuine 402 updater may create its final transitional candidate. The new completion helper materializes that selected effective code/vendor into canonical paths under the same transaction, retaining protected .env, install.lock, uploads and task state. A failed metadata transaction restores canonical files. Legacy parents retain their journals and recovery protocol until confirmed completion. Legacy snapshots are retired only after this site's actual update/selection/generation leases are free; foreign PHP processes never prevent cleanup. Quarantined retired storage removal resumes after interruption. New receipts are small metadata, not code/vendor copies.
+
+Before release run direct-site.php, direct-legacy.php and direct-crash.php; the canonical and genuine402 real database service matrix; actual app install/remove/reinstall after an intervening second app update; metadata rollback/retry with migrations once; and official staging/package verification. Package all new loader, service and cleanup paths via the normal source diff. Exclude runtime journals, locks, temporary backups and `.composer-runtime` from archives. Normal installed version markers remain updater-owned and excluded from files/.

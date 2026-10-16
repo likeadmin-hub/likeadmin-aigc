@@ -114,8 +114,7 @@ class ComposerRuntimeUpdateService
                 }
             }
         }
-        $this->directory($this->store);
-        if (!is_writable($this->root) || !is_writable($this->store)) throw new RuntimeException('Composer 运行时安装目录不可写');
+        if (!is_writable($this->root)) throw new RuntimeException('Composer 运行时安装目录不可写');
         $codeBytes = 0;
         foreach (self::CODE_DIRS as $dir) if (is_dir($this->root . '/' . $dir)) foreach ($this->treeFiles($this->root . '/' . $dir) as $path) $codeBytes += (int)filesize($path);
         $free = disk_free_space($this->root);

@@ -160,9 +160,10 @@ class AppPackageUpdateService
             $manifest = $this->readManifest($extractPath);
             AppRegistryService::assertCoreCompatible($manifest);
             $appCode = (string)$manifest['code'];
-            if(is_file(root_path().'.composer-runtime/current.json'))return $this->applyRuntimePackage($package,$task,$extractPath,$manifest);
-            return $this->installVerifiedApp($package,$task,$extractPath,$manifest,false);
+            if(is_file(root_path().'.composer-runtime/current.json') && !DirectSiteUpdateService::enabled(root_path()))return $this->applyRuntimePackage($package,$task,$extractPath,$manifest);
+            return $this->applyCanonicalPackage($package,$task,$extractPath,$manifest);
         } catch (Throwable $e) {
+            if (DirectSiteUpdateService::hasPendingOperation(root_path(),(int)$package['id'],(int)$task['id'])) throw $e;
             $package->save([
                 'status' => 'apply_failed',
                 'error' => $e->getMessage(),
@@ -217,6 +218,61 @@ class AppPackageUpdateService
         $package->save(['status' => 'applied', 'error' => '', 'update_time' => time()]);
         $this->finishTask($task, 'success', $result);
         return $result;
+    }
+
+    private function applyCanonicalPackage(UpdatePackage $package, UpdateTask $task, string $extractPath, array $manifest): array
+    {
+        if(!hash_equals((string)$package['sha256'],(string)hash_file('sha256',(string)$package['local_path'])))throw new RuntimeException('应用更新包已改变');
+        $extractor=new PackageExtractService();$fresh=$extractor->extract((string)$package['local_path'],(string)$package['format']);
+        if(($fresh['extract_status']??'')!=='success')throw new RuntimeException('应用更新包解压失败');
+        $extractPath=$fresh['path'];$extractor->verifySignatureManifest($extractPath);
+        if($this->readManifest($extractPath)!==$manifest)throw new RuntimeException('应用包预检内容与签名档案不同');
+        $code=(string)$manifest['code'];
+        if(!preg_match('/^[a-z][a-z0-9_]*$/D',$code))throw new RuntimeException('应用编码无效');
+        $stage=runtime_path().'update_workspace/canonical-app-'.bin2hex(random_bytes(8));
+        try {
+            $this->copyDirectory($extractPath,$stage.'/files/app/apps/'.$code);
+            $watch=['public/admin/index.html','public/pc/index.html'];
+            foreach((array)($manifest['public_assets']??[]) as $asset){
+                $source=(string)($asset['source']??'');$target=(string)($asset['target']??'');
+                foreach([$source,$target] as $relative)if($relative===''||str_starts_with($relative,'/')||str_contains($relative,'\\')||str_contains($relative,chr(0))||array_intersect(explode('/',$relative),['.','..','']))throw new RuntimeException('应用资源路径不安全');
+                if(!is_file($extractPath.'/'.$source))throw new RuntimeException('应用资源缺失');
+                $this->copyDirectoryFile($extractPath.'/'.$source,$stage.'/files/'.$target);
+                $watch[]=$target;
+            }
+            $hashes=[];foreach(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($stage,\FilesystemIterator::SKIP_DOTS)) as $file)$hashes[substr($file->getPathname(),strlen($stage)+1)]=hash_file('sha256',$file->getPathname());
+            file_put_contents($stage.'/signature.json',json_encode(['sha256'=>$hashes],JSON_THROW_ON_ERROR));
+            $version=UpdateSourceClient::currentCoreVersion();
+            $next=['version'=>$version,'base_version'=>$version,'package_mode'=>'incremental','full_replace_dirs'=>[],'delete_files'=>[],'sql_order'=>[]];
+            $binding=['kind'=>'app','core_version'=>(string)config('project.version'),'package_id'=>(int)$package['id'],'task_id'=>(int)$task['id'],'archive_sha256'=>(string)$package['sha256'],'deployment_generation'=>rtrim(root_path(),'/'),'context'=>array_intersect_key($_SERVER,array_flip(['HTTP_HOST','SERVER_NAME','SERVER_ADDR','SERVER_PORT','HTTPS']))];
+            $encoded=json_encode($binding,JSON_THROW_ON_ERROR);
+            $direct=new DirectSiteUpdateService(root_path(),PHP_SAPI==='cli'?PHP_BINARY:PHP_BINDIR.'/php');
+            $impact=ProjectUpdateProcessGate::inspectUpdate(root_path(),$stage,$next);
+            $result=$direct->apply($stage,$next,[
+                'binding'=>$binding,'repeatable'=>true,'replace_dirs'=>['app/apps/'.$code],'watch_paths'=>array_values(array_unique($watch)),
+                'before_sql'=>fn()=>ProjectUpdateProcessGate::assertUpdateAllowed(root_path(),$impact),
+                'sql'=>fn(string $site)=>$direct->child(['--app-runtime-prepare',$site,$extractPath,$encoded]),
+                'complete'=>fn(string $site)=>$direct->child(['--app-runtime-complete',$site,$extractPath,$encoded])['completion'],
+                'confirm'=>function(string $site,array $context)use($direct):?array{
+                    $reply=$direct->child(['--direct-confirm',$site,'-',json_encode($context,JSON_THROW_ON_ERROR)]);
+                    return !empty($reply['committed'])?(array)$reply['completion']:null;
+                },
+            ]);
+            return $result['completion'];
+        } finally { $this->removeCanonicalStage($stage); }
+    }
+
+    private function copyDirectoryFile(string $source,string $target):void
+    {
+        if(!is_dir(dirname($target))&&!mkdir(dirname($target),0755,true))throw new RuntimeException('应用暂存目录不可写');
+        if(!copy($source,$target))throw new RuntimeException('应用资源暂存失败');
+    }
+
+    private function removeCanonicalStage(string $path):void
+    {
+        if(is_link($path))throw new RuntimeException('应用暂存路径不能是链接');
+        if(is_dir($path)){foreach(new \FilesystemIterator($path,\FilesystemIterator::SKIP_DOTS) as $file)$this->removeCanonicalStage($file->getPathname());rmdir($path);}
+        elseif(is_file($path))unlink($path);
     }
 
     private function applyRuntimePackage(UpdatePackage $package, UpdateTask $task, string $extractPath, array $manifest): array

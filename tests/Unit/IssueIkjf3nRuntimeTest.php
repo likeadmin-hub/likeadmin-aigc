@@ -31,7 +31,7 @@ final class IssueIkjf3nRuntimeTest extends TestCase
             'config' => 'id INTEGER PRIMARY KEY, type TEXT, name TEXT, value TEXT',
             'tenant_config' => 'id INTEGER PRIMARY KEY, tenant_id INTEGER, type TEXT, name TEXT, value TEXT',
             'tenant' => 'id INTEGER PRIMARY KEY, tactics INTEGER DEFAULT 0, contract_status INTEGER, contract_expire_time INTEGER, disable INTEGER, update_time INTEGER, delete_time INTEGER',
-            'tenant_brand_order' => 'id INTEGER PRIMARY KEY, pay_status INTEGER, reserve_status INTEGER, reserve_expire_time INTEGER, order_sn TEXT, delete_time INTEGER',
+            'tenant_brand_order' => 'id INTEGER PRIMARY KEY, flow_version INTEGER DEFAULT 2, closed_time INTEGER DEFAULT 0, pay_status INTEGER, reserve_status INTEGER, reserve_expire_time INTEGER, order_sn TEXT, delete_time INTEGER',
             'distribution_commission' => 'id INTEGER PRIMARY KEY, status TEXT, settle_time INTEGER',
             'dev_crontab' => 'id INTEGER PRIMARY KEY, status INTEGER, command TEXT, params TEXT, expression TEXT, last_time INTEGER, time NUMERIC, max_time NUMERIC, error TEXT, delete_time INTEGER',
         ] as $name => $columns) {

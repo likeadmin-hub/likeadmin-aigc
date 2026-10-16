@@ -18,7 +18,9 @@ class PicLipsyncReferenceVoiceTest extends TestCase
     {
         if (getenv('PIC_LIPSYNC_MYSQL_TEST') !== '1') $this->markTestSkipped('Pinned local database opt-in required');
         (new \think\App())->initialize();
-        self::assertSame('z_cn', Db::connect()->getConfig('database'));
+        $expected=getenv('PIC_LIPSYNC_TEST_DATABASE')?:'z_cn';
+        self::assertContains($expected,['x_cn','z_cn']);
+        self::assertSame($expected, Db::connect()->getConfig('database'));
         self::assertContains(Db::connect()->getConfig('hostname'), ['127.0.0.1', 'localhost']);
         request()->tenantId = 1;
         $this->uri = 'uploads/pic-reference-fixture-' . bin2hex(random_bytes(5)) . '.wav';

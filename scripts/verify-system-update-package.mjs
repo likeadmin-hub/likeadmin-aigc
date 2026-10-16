@@ -131,6 +131,10 @@ if(updateManifest.runtime_bootstrap && !stat.isDirectory()){
 }
 verifyRuntimeBootstrap(updateManifest,normalized)
 
+const [releaseMajor,releaseMinor,releasePatch]=String(updateManifest.version).split('.').map(Number)
+if(normalized.has('files/runtime-loader.php') && (releaseMajor>1 || (releaseMajor===1 && (releaseMinor>0 || releasePatch>=403)))) {
+    for(const file of ['direct-runtime-loader.php','app/common/service/update/DirectSiteUpdateService.php','app/common/service/update/LegacyRuntimeCleanupService.php','scripts/runtime-cleanup.php'])if(!normalized.has('files/'+file))fail('Canonical deployment companion missing: '+file)
+}
 verifyUpdaterBridge(updateManifest, normalized)
 verifyIncrementalManifest(updateManifest, normalized)
 verifyIncrementalComposerRuntime(updateManifest, normalized)

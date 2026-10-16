@@ -20,15 +20,15 @@ class AppRecommendationContractTest extends TestCase
             $this->invoke('recommendationValue', [['recommend' => 1]])
         );
         self::assertSame(
-            ['is_recommend' => 1],
+            ['is_recommend' => 1, 'skill_preview_images' => [], 'skill_preview_videos' => []],
             $this->invoke('normalizeDisplayExtra', [[], ['extra' => ['is_recommend' => 1]]])
         );
         self::assertSame(
-            ['is_recommend' => 0],
+            ['is_recommend' => 0, 'skill_preview_images' => [], 'skill_preview_videos' => []],
             $this->invoke('normalizeDisplayExtra', [['is_recommend' => 0], ['extra' => ['is_recommend' => 1]]])
         );
         self::assertSame(
-            ['is_recommend' => 1],
+            ['is_recommend' => 1, 'skill_preview_images' => [], 'skill_preview_videos' => []],
             $this->invoke('normalizeDisplayExtra', [['extra' => ['is_recommend' => 1]], ['is_recommend' => 0]])
         );
     }

@@ -48,6 +48,27 @@ try {
         require_once dirname(__DIR__).'/app/common/service/update/SystemRuntimeBootstrapService.php';
         $result=(new \app\common\service\update\SystemRuntimeBootstrapService())->install((int)$argv[2],(int)$argv[3],$context);
         echo json_encode($result,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+    } elseif ($mode==='--direct-confirm') {
+        $GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE']=$siteRoot;
+        $GLOBALS['AIGC_DIRECT_RECOVERY_CHILD']=true;
+        $binding=json_decode($argv[4]??'{}',true,512,JSON_THROW_ON_ERROR);
+        foreach($binding['context']??[] as $name=>$value)$_SERVER[$name]=$value;
+        require $siteRoot.'/runtime-loader.php';
+        $app=new AigcRuntimeApp($siteRoot);$app->initialize();
+        $package=\app\common\model\update\UpdatePackage::find((int)($binding['package_id']??0));
+        $task=\app\common\model\update\UpdateTask::find((int)($binding['task_id']??0));
+        $completion=$task?$task['result_json']:[];
+        $committed=$package&&$task&&(int)$task['package_id']===(int)$package['id']&&$package['status']==='applied'&&$task['status']==='success'
+            &&$task['action']==='apply'&&($completion['composer_runtime']['generation']??'')===($binding['deployment_generation']??$siteRoot);
+        if($committed && !hash_equals((string)$package['sha256'],(string)($binding['archive_sha256']??'')))throw new RuntimeException('正常目录更新恢复绑定不一致');
+        if($committed) {
+            $kind=(string)($binding['kind']??'system');
+            if(!in_array($kind,['system','app'],true)||$package['type']!==$kind||$task['type']!==$kind)throw new RuntimeException('更新恢复任务类型不一致');
+            $expected=$kind==='system'?(string)$package['version']:(string)($binding['core_version']??'');
+            $marker=json_decode((string)file_get_contents($siteRoot.'/upgrade/version.json'),true);
+            if((string)config('project.version')!==$expected||($marker['version']??'')!==$expected)throw new RuntimeException('已提交版本标记不一致，保留现场等待恢复');
+        }
+        echo json_encode(['passed'=>true,'committed'=>(bool)$committed,'completion'=>$completion],JSON_THROW_ON_ERROR);
     } elseif (in_array($mode,['--bootstrap-prepare','--bootstrap-complete','--bootstrap-recover'],true)) {
         $GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE']=$argv[2]??'';
         $binding=json_decode($argv[4]??'{}',true,512,JSON_THROW_ON_ERROR);
@@ -69,6 +90,10 @@ try {
                 $marker=json_decode((string)file_get_contents($siteRoot.'/upgrade/version.json'),true);
                 if (($matched[1]??'')!==(string)$package['version'] || ($marker['version']??'')!==(string)$package['version']) throw new RuntimeException('已提交系统版本标记不一致，禁止自动回滚数据库对应代码');
             }
+            if (is_file($siteRoot.'/runtime/direct-update-active.json')) {
+                if (!\app\common\service\update\DirectSiteUpdateService::hasPendingOperation($siteRoot,(int)$package['id'],(int)$task['id']))throw new RuntimeException('旧版迁移恢复任务绑定不一致');
+                (new \app\common\service\update\DirectSiteUpdateService($siteRoot,PHP_BINARY))->recover(static fn()=>$committed?(array)$completion:null);
+            }
             $result=['passed'=>true,'committed'=>(bool)$committed,'completion'=>$completion];
         }
         echo json_encode($result,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
@@ -85,6 +110,10 @@ try {
             $package=\app\common\model\update\UpdatePackage::find((int)$binding['package_id']);
             $task=\app\common\model\update\UpdateTask::find((int)$binding['task_id']);$completion=$task?$task['result_json']:[];
             $committed=$package && $task && (int)$task['package_id']===(int)$package['id'] && $task['action']==='apply' && $package['status']==='applied' && $task['status']==='success' && ($completion['composer_runtime']['generation']??'')===$GLOBALS['AIGC_RUNTIME_GENERATION'];
+            if (is_file($siteRoot.'/runtime/direct-update-active.json')) {
+                if (!\app\common\service\update\DirectSiteUpdateService::hasPendingOperation($siteRoot,(int)$package['id'],(int)$task['id']))throw new RuntimeException('旧版迁移恢复任务绑定不一致');
+                (new \app\common\service\update\DirectSiteUpdateService($siteRoot,PHP_BINARY))->recover(static fn()=>$committed?(array)$completion:null);
+            }
             $result=['passed'=>true,'committed'=>(bool)$committed,'completion'=>$completion];
         }
         echo json_encode($result,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);

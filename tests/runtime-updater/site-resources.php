@@ -16,7 +16,7 @@ if (!in_array(($argv[1]??''), ['--observe', '--canonical'], true)) {
     $root=dirname(__DIR__,2);$site=sys_get_temp_dir().'/site-resources-'.bin2hex(random_bytes(6));
     try {
         resourceCopy($root.'/vendor',$site.'/vendor');
-        foreach (['runtime-loader.php','app/common/service/update/ComposerRuntimeUpdateService.php','app/common/service/OemBrandService.php','app/common/service/app/aigc_short_drama/AigcShortDramaService.php'] as $path) resourceCopy($root.'/'.$path,$site.'/'.$path);
+        foreach (['runtime-loader.php','direct-runtime-loader.php','app/common/service/update/DirectSiteUpdateService.php','app/common/service/update/ComposerRuntimeUpdateService.php','app/common/service/OemBrandService.php','app/common/service/app/aigc_short_drama/AigcShortDramaService.php'] as $path) resourceCopy($root.'/'.$path,$site.'/'.$path);
         resourceCopy($root.'/config',$site.'/config');file_put_contents($site.'/config/project.php',"<?php return ['version'=>'1.0.391'];");
         mkdir($site.'/oem');file_put_contents($site.'/oem/brand.json',json_encode(['schema_version'=>1,'name'=>'Site owned brand','slug'=>'fixture-brand','logo'=>'oem-assets/v1/logo.png']));
         mkdir($site.'/runtime/bin/ffmpeg/bin',0755,true);

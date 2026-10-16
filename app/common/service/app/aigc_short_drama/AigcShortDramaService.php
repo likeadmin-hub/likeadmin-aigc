@@ -6178,6 +6178,8 @@ class AigcShortDramaService
      */
     private static function assetStorageValue(array $params, string $key, array $storedFile, string $fallback): string
     {
+        // Explicit external library references have no local storage engine.
+        if ($key === 'storage_engine' && array_key_exists($key, $params) && $params[$key] === '' && preg_match('/^https?:\/\//i', (string)($params['uri'] ?? ''))) return '';
         $value = trim((string)($params[$key] ?? ''));
         if ($value !== '') {
             return $value;
