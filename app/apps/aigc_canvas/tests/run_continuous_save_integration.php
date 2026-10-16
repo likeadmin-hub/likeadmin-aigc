@@ -37,8 +37,33 @@ try {
             $check($project['nodes'][1]['metadata']['url']==='/retained.png' && $project['edges'][0]['custom']===['keep'=>true],'Media/storage or connection metadata lost');
             $check(Db::name('aigc_canvas_project_compat_backup')->where('project_id',$project['id'])->value('snapshot_json')===$backup,'Repeated save replaced original backup');
             // Reuse the browser snapshot captured before Agent reads, not a freshly loaded revision.
-            Canvas::saveProject($tenant,$user,$wire);
+            $wire['viewport'] = $saved['viewport'];
+            $project = Canvas::saveProject($tenant,$user,$wire);
+            $check((int)$project['viewport']['saveRevision'] === (int)$saved['viewport']['saveRevision'] + 1, 'Own sequential save did not advance revision');
         }
+        // Two tabs share a snapshot, including inactive pages. Only one may commit it.
+        $project['viewport']['pages']=[['id'=>'canvas_1','name'=>'Original','nodeIds'=>['a']],['id'=>'second','name'=>'Second','nodeIds'=>['b']]];
+        $project=Canvas::saveProject($tenant,$user,$project);
+        $tabA=$project;$tabB=$project;
+        $tabA['nodes'][0]['metadata']['prompt']='tab A saved';
+        $first=Canvas::saveProject($tenant,$user,$tabA);
+        $tabB['nodes'][1]['metadata']['prompt']='tab B stale';
+        $tabB['viewport']['currentCanvasId']='second';
+        $rejected=false;try{Canvas::saveProject($tenant,$user,$tabB);}catch(Exception $e){$rejected=str_contains($e->getMessage(),'其他标签页');}
+        $check($rejected,'Second tab overwrote first tab on another page');
+        $latest=Canvas::projectDetail($tenant,$user,$project['id']);
+        $check($latest['nodes'][0]['metadata']['prompt']==='tab A saved' && ($latest['nodes'][1]['metadata']['prompt']??'')!=='tab B stale','Rejected snapshot changed stored pages');
+        $check($latest['viewport']['saveRevision']===$first['viewport']['saveRevision'],'Read-only detail advanced save revision');
+        $legacyClient=$latest;unset($legacyClient['viewport']['saveRevision']);
+        $rejected=false;try{Canvas::saveProject($tenant,$user,$legacyClient);}catch(Exception $e){$rejected=str_contains($e->getMessage(),'其他标签页');}
+        $check($rejected,'Client without revision overwrote a versioned project');
+        $latest['nodes'][1]['metadata']['prompt']='tab B after refresh';
+        $project=Canvas::saveProject($tenant,$user,$latest);
+        $check($project['nodes'][0]['metadata']['prompt']==='tab A saved' && $project['nodes'][1]['metadata']['prompt']==='tab B after refresh','Reload/save lost another page');
+        Canvas::renameProject($tenant,$user,$project['id'],'renamed elsewhere');
+        $rejected=false;try{Canvas::saveProject($tenant,$user,$project);}catch(Exception $e){$rejected=str_contains($e->getMessage(),'其他标签页');}
+        $check($rejected,'Stale snapshot undid a project-list rename');
+        $wire=Canvas::projectDetail($tenant,$user,$project['id']);
         // Real Agent mutations must still reject stale browser writes.
         Tools::operate($run,['action'=>'update_prompt','node_id'=>'a','content'=>'Agent edit']);
         $rejected=false;try{Canvas::saveProject($tenant,$user,$wire);}catch(Exception $e){$rejected=str_contains($e->getMessage(),'Agent 已更新');}

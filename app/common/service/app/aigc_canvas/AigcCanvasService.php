@@ -249,7 +249,7 @@ class AigcCanvasService
             'thumbnail' => self::normalizeThumbnail((string)($params['thumbnail'] ?? ''), $tenantId, $userId),
             'nodes_json' => self::repairLegacyProjectText(self::normalizeList($params['nodes'] ?? [])),
             'edges_json' => CanvasProjectCompatibility::normalizeEdges(self::repairLegacyProjectText(self::normalizeList($params['edges'] ?? []))),
-            'viewport_json' => self::normalizeViewport($params['viewport'] ?? []),
+            'viewport_json' => array_replace(self::normalizeViewport($params['viewport'] ?? []), ['saveRevision' => 0]),
             'sort' => (int)($params['sort'] ?? 0),
             'status' => 1,
             'create_time' => time(),
@@ -270,13 +270,17 @@ class AigcCanvasService
         $storedViewport = self::normalizeViewport($project['viewport_json'] ?? []);
         $incomingViewport = self::normalizeViewport($params['viewport'] ?? []);
         if ((int)($storedViewport['agentRevision']??0)!==(int)($incomingViewport['agentRevision']??0)) throw new Exception('Agent 已更新页面，请刷新后再保存，当前编辑尚未覆盖服务端');
+        if ((int)($storedViewport['saveRevision'] ?? 0) !== (int)($incomingViewport['saveRevision'] ?? 0)) {
+            throw new Exception('项目已在其他标签页或窗口更新，当前修改保留在本地，请刷新后再编辑');
+        }
+        $incomingViewport['saveRevision'] = (int)($storedViewport['saveRevision'] ?? 0) + 1;
         if (!empty($storedViewport['pages']) && empty($incomingViewport['pages'])) {
             throw new Exception('此项目包含多个画布，请刷新页面后再保存');
         }
         $data = [
             'nodes_json' => self::repairLegacyProjectText(self::normalizeList($params['nodes'] ?? [])),
             'edges_json' => CanvasProjectCompatibility::normalizeEdges(self::repairLegacyProjectText(self::normalizeList($params['edges'] ?? []))),
-            'viewport_json' => self::normalizeViewport($params['viewport'] ?? []),
+            'viewport_json' => $incomingViewport,
             'thumbnail' => self::normalizeThumbnail(
                 (string)($params['thumbnail'] ?? $project['thumbnail'] ?? ''),
                 $tenantId,
@@ -302,15 +306,20 @@ class AigcCanvasService
         if ($name === '') {
             throw new Exception('请输入项目名称');
         }
-        $project = self::projectQuery($tenantId, $userId, $id)->findOrEmpty();
+        return \think\facade\Db::transaction(function()use($tenantId,$userId,$id,$name){
+        $project = self::projectQuery($tenantId, $userId, $id)->lock(true)->findOrEmpty();
         if ($project->isEmpty()) {
             throw new Exception('项目不存在');
         }
+        $viewport = self::normalizeViewport($project['viewport_json'] ?? []);
+        $viewport['saveRevision'] = (int)($viewport['saveRevision'] ?? 0) + 1;
         $project->save([
+            'viewport_json' => $viewport,
             'name' => mb_substr($name, 0, 120),
             'update_time' => time(),
         ]);
         return self::formatProject($project->toArray(), true);
+        });
     }
 
     public static function duplicateProject(int $tenantId, int $userId, int $id): array
@@ -1524,6 +1533,7 @@ class AigcCanvasService
             'zoom' => (float)($value['zoom'] ?? $value['k'] ?? 0.82),
         ];
         $viewport['agentRevision']=max(0,(int)($value['agentRevision']??0));
+        $viewport['saveRevision']=max(0,(int)($value['saveRevision']??0));
         if (!empty($value['pages']) && is_array($value['pages'])) {
             $pages = [];
             foreach ($value['pages'] as $page) {
