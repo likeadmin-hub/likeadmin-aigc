@@ -37,7 +37,7 @@ try {
         }
         $skus = $option['skus'] ?? [$option];
         foreach ($skus as $sku) {
-            $modes = $type === 'video' ? ($option['generation_modes'] ?? ['text_to_video']) : ['default'];
+            $modes = $type === 'video' ? ($sku['generation_modes'] ?? $option['generation_modes'] ?? ['text_to_video']) : ['default'];
             // A SKU can be restricted to one input family; retain rejected combinations
             // in the report rather than treating every product mode as valid for every SKU.
             foreach ($modes as $mode) {

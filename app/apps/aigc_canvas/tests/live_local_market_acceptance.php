@@ -16,7 +16,7 @@ $read=static fn($name)=>json_decode(file_get_contents($dir.'/'.$name.'.json'),tr
 $write=static function($name,$data)use($dir){file_put_contents($dir.'/'.$name.'.tmp',json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT));rename($dir.'/'.$name.'.tmp',$dir.'/'.$name.'.json');};
 $print=static function($data){echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),PHP_EOL;};
 $invoke=static fn($class,$method,...$args)=>(new ReflectionMethod($class,$method))->invoke(null,...$args);
-if ($action==='plan') {
+if (in_array($action,['plan','revise'],true)) {
     $source=Canvas::projectDetail($tenant,$user,$referenceProject); $image='';
     foreach($source['nodes'] as $node) if (($node['type']??'')==='image' && preg_match('~^https://~',$node['metadata']['image']??'')) { $image=$node['metadata']['image']; break; }
     if (!$image) throw new RuntimeException('Reference project needs a durable uploaded image');
@@ -38,7 +38,7 @@ if ($action==='plan') {
                 elseif($type==='image') { $runtime=Nano::isSelection($p)?Nano::class:Image::class; $quote=$runtime::quote($tenant,$p,1); }
                 elseif($type==='music') {$p['prompt']='A peaceful instrumental piano melody, gentle tempo, no vocals.';$p['instrumental']=true;$quote=Music::quote($tenant,$p);}
                 else {
-                    $modes=$o['generation_modes']??['text_to_video'];
+                    $modes=$sku['generation_modes']??$o['generation_modes']??['text_to_video'];
                     $mode=in_array('text_to_video',$modes,true)?'text_to_video':$modes[0];
                     // A reference-video SKU is a different input operation, not a cheaper t2v specification.
                     if(($sku['input_mode']??'')==='video_edit' || ($sku['pricing_variant']??'')==='with_video') continue;
@@ -53,6 +53,10 @@ if ($action==='plan') {
         if(!$candidates)throw new RuntimeException('No valid minimum for '.$o['id'].': '.json_encode($errors));
         usort($candidates,static fn($a,$b)=>(float)$a['quoted_points']<=>(float)$b['quoted_points'] ?: (int)filter_var($a['request']['resolution']??'',FILTER_SANITIZE_NUMBER_INT)<=>(int)filter_var($b['request']['resolution']??'',FILTER_SANITIZE_NUMBER_INT));
         $entries[]=['index'=>count($entries),'type'=>$type,'id'=>$o['id'],'name'=>$o['name']??$o['label']]+$candidates[0];
+    }
+    if ($action==='revise') {
+        $index=(int)($argv[5]??-1);$prior=$read('plan');if(!isset($prior['entries'][$index],$entries[$index]) || $prior['entries'][$index]['id']!==$entries[$index]['id'])throw new RuntimeException('Entry changed; inspect catalogue');
+        $write('plan-previous-'.time(),$prior);$prior['entries'][$index]=$entries[$index];$write('plan',$prior);$print($entries[$index]);exit;
     }
     if (is_file($dir.'/project.json')) throw new RuntimeException('Plan already initialized; use its immutable snapshot');
     $write('plan',['tenant_id'=>$tenant,'user_id'=>$user,'reference_project'=>$referenceProject,'created_at'=>date('c'),'entries'=>$entries]);
@@ -94,6 +98,9 @@ if($action==='submit'){
     $row=['index'=>$index,'status'=>'submitting','started_at'=>time(),'task_id'=>0];$write($key,$row);$updateNode($row);
     try{$method='generate'.ucfirst($entry['type']);$r=Canvas::$method($tenant,$user,$entry['request']+['project_id'=>(int)$project['id'],'node_id'=>'acceptance-'.$index]);$row['result']=$r;$row['task_id']=$r['task_id']??$r['consumption_id']??0;$row['status']=$r['status']??($entry['type']==='text'?'success':'running');$row['error']=$r['error']??'';}
     catch(Throwable $e){$row['status']='failed';$row['submission_error']=true;$row['error']=$e->getMessage();}
+}elseif($action==='sync'){
+    if(!$row)throw new RuntimeException('Entry was not submitted');
+    if($row['status']==='submit_error')$row['status']='failed';
 }elseif($action==='poll'){
     if(empty($row['task_id'])||in_array($row['status'],['success','failed','canceled'],true)){$print(['index'=>$index,'status'=>$row['status']??'not_submitted']);exit;}
     try{$method=$entry['type'].'TaskDetail';$r=Canvas::$method($tenant,$user,(int)$row['task_id']);$row['result']=$r;$row['status']=$r['status']??'running';$row['error']=$r['error']??$r['error_message']??'';$row['query_error']='';}
