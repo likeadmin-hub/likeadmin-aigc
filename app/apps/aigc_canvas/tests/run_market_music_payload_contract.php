@@ -1,0 +1,20 @@
+<?php
+require dirname(__DIR__, 4) . '/vendor/autoload.php';
+use app\common\service\power\MarketMusicAppRuntimeService as Music;
+$method = new ReflectionMethod(Music::class, 'payload');
+$base = ['product_id'=>1, 'sku_id'=>2, 'sku_key'=>'generate', 'locked_params'=>['type'=>'generate']];
+$schema = ['params_schema'=>['type'=>'object','properties'=>array_fill_keys(['prompt','lyric','style','title','custom','instrumental','vocal_gender'], ['type'=>'string'])]];
+$check = static function ($ok, $message) { if (!$ok) throw new RuntimeException($message); };
+$song = $method->invoke(null, $base + $schema, ['custom'=>true,'instrumental'=>false,'lyrics'=>'测试歌词','style'=>'dream pop','vocal_gender'=>'f','title'=>'测试'], 'offline');
+$check($song['custom'] === true && $song['instrumental'] === false && $song['lyric'] === '测试歌词', 'Custom lyrics / vocal intent lost');
+$check($song['style'] === 'dream pop' && $song['vocal_gender'] === 'f', 'Style / voice lost');
+$check(!isset($song['duration']) && !isset($song['lyrics']) && $song['type'] === 'generate', 'Undeclared duration / wrong lyric alias sent');
+$bgm = $method->invoke(null, $base, ['prompt'=>'BGM'], 'offline');
+$check($bgm['instrumental'] === true && $bgm['custom'] === false && $bgm['duration'] === 60, 'Legacy short-drama BGM defaults changed');
+$plain = $method->invoke(null, $base + $schema, ['custom'=>'false','instrumental'=>'false','lyrics'=>'must not send'], 'offline');
+$check($plain['custom'] === false && $plain['instrumental'] === false && !isset($plain['lyric']), 'String false parsed incorrectly');
+$instrumental = $method->invoke(null, $base + $schema, ['custom'=>true,'instrumental'=>true,'lyrics'=>'ignore','vocal_gender'=>'f'], 'offline');
+$check(!isset($instrumental['lyric']) && !isset($instrumental['vocal_gender']), 'Instrumental retained lyrics/voice');
+$locked = $method->invoke(null, $base, ['provider_params'=>['type'=>'extend']], 'offline');
+$check($locked['type'] === 'generate', 'Provider params overrode billed operation');
+echo "Music payload contract passed; no provider calls or writes\n";
