@@ -20,7 +20,7 @@ try {
     foreach([['user','旧请求','success'],['assistant','旧回复','running']] as $item) Db::name('aigc_canvas_agent_message')->insert(['tenant_id'=>701,'user_id'=>801,'project_id'=>$project['id'],'thread_id'=>$thread,'role'=>$item[0],'content'=>$item[1],'content_json'=>'{}','meta_json'=>'{}','status'=>$item[2],'error'=>'','create_time'=>101,'update_time'=>102,'delete_time'=>0]);
     History::importProject(701,801,$row);History::importProject(701,801,$row);
     $check((int)Db::name('aigc_llm_session')->count()===1,'thread imported twice');
-    $session=Db::name('aigc_llm_session')->find();$check($session['workspace_key']==='canvas:'.$project['id'].':canvas_1','scope incorrect');
+    $session=Db::name('aigc_llm_session')->where('tenant_id',701)->find();$check($session['workspace_key']==='canvas:'.$project['id'].':canvas_1','scope incorrect');
     $messages=Db::name('aigc_llm_message')->order('seq')->select()->toArray();
     $check(count($messages)===2 && $messages[1]['status']==='stopped','history status incorrect');
     $check((int)$messages[1]['parent_user_message_id']===(int)$messages[0]['id'],'message parent lost');
