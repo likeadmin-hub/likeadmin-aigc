@@ -32,7 +32,7 @@ class DirectSiteUpdateService
         if (!is_dir($directory) && !mkdir($directory, 0755, true)) throw new RuntimeException('无法创建站点运行目录');
         $file = $directory . '/site-update.lock';
         if (is_link($file)) throw new RuntimeException('站点更新锁不能是链接');
-        $handle = fopen($file, 'c+');
+        $handle = fopen($file, 'c+e');
         if (!$handle || !flock($handle, LOCK_SH | LOCK_NB)) {
             if (is_resource($handle)) fclose($handle);
             throw new RuntimeException('本站正在更新，请稍后重试');
