@@ -20,7 +20,7 @@ Db::startTrans();try{
  $scope=W::canvas(1,1,['project_id'=>$one['project_id'],'page_id'=>$one['page_id']]);
  W::within($scope,function()use($one){check(W::sessions(1,1)->where('id',$one['session_id'])->count()===1,'canvas session missing');});
  try{C::start(1,1,array_replace($params,['content'=>'different']));throw new RuntimeException('mismatched retry accepted');}catch(InvalidArgumentException){}
- try{C::start(1,1,array_replace($params,['request_id'=>'canvas_test_'.bin2hex(random_bytes(12)),'attachments'=>['missing-file']]));throw new RuntimeException('invalid attachment accepted');}catch(InvalidArgumentException){}
+ try{C::start(1,1,array_replace($params,['request_id'=>'canvas_test_'.bin2hex(random_bytes(12)),'attachments'=>['missing-file']]));throw new RuntimeException('invalid attachment accepted');}catch(\app\common\service\open_platform\OpenException){}
  check($count()===$n+1,'failed launch left an empty project');
  check($balances()===$before,'queued entry charged a wallet');
  echo "Canvas launch: atomic project, idempotent retry, scope isolation and rollback passed; no provider called\n";
