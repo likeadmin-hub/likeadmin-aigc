@@ -48,6 +48,27 @@
         "component": "apps/aigc_canvas/skill"
       },
       {
+        "source_menu_key": "aigc_canvas_template",
+        "app_code": "aigc_canvas",
+        "type": "C",
+        "name": "模板管理",
+        "sort": 35,
+        "perms": "app.aigc_canvas.template/detail",
+        "paths": "template",
+        "component": "apps/aigc_canvas/template",
+        "children": [
+          {
+            "source_menu_key": "aigc_canvas_template_publish",
+            "app_code": "aigc_canvas",
+            "type": "A",
+            "name": "发布模板",
+            "sort": 0,
+            "perms": "app.aigc_canvas.template/publish",
+            "is_show": 0
+          }
+        ]
+      },
+      {
         "source_menu_key": "aigc_canvas_governance",
         "type": "C",
         "name": "Agent 治理",
