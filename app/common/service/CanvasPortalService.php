@@ -86,6 +86,28 @@ final class CanvasPortalService
         $state = ConfigService::get(self::TYPE,'state',[]);
         return self::resolve($state['config'] ?? self::defaults(),false,true);
     }
+    public static function sectionEditor(string $section): array
+    {
+        if (!in_array($section, ['hero', 'cards'], true)) throw new InvalidArgumentException('配置栏目不正确');
+        $state = self::editor();
+        return ['config'=>[$section=>$state['config'][$section]], 'revision'=>$state['revision']];
+    }
+    /** Each editor can change only its own section, under the same revision lock. */
+    public static function saveSection(string $section, array $input): array
+    {
+        if (!in_array($section, ['hero', 'cards'], true) || !is_array($input['config'][$section] ?? null)) throw new InvalidArgumentException('配置栏目不正确');
+        return Db::transaction(function () use ($section, $input) {
+            if (Tenant::where('id', self::tenant())->lock(true)->findOrEmpty()->isEmpty()) throw new InvalidArgumentException('租户不存在');
+            $state = ConfigService::get(self::TYPE, 'state', []);
+            if ((int)($input['revision'] ?? -1) !== (int)($state['revision'] ?? 0)) throw new InvalidArgumentException('配置已被其他管理员更新，请刷新后重试');
+            $changed = self::normalize(['hero'=>self::media(), 'cards'=>[], $section=>$input['config'][$section]]);
+            self::resolve($changed, true);
+            $config = $state['config'] ?? self::defaults();
+            $config[$section] = $changed[$section];
+            ConfigService::set(self::TYPE, 'state', ['config'=>$config, 'revision'=>(int)($state['revision'] ?? 0)+1]);
+            return self::sectionEditor($section);
+        });
+    }
     public static function save(array $input): array
     {
         self::tenant();

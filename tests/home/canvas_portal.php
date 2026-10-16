@@ -48,5 +48,17 @@ try {
     $revision=S::editor()['revision'];
     S::save(['config'=>['hero'=>['media_type'=>'image'],'cards'=>[]],'revision'=>$revision]);
     check(S::public()['cards']===[],'explicit empty catalog remains empty');
+    $revision = S::editor()['revision'];
+    $cards = array_slice(S::defaults()['cards'], 0, 2);
+    $cards[0]['title'] = '后台模板配置验收';
+    $beforeHero = S::public()['hero'];
+    S::saveSection('cards', ['config'=>['cards'=>$cards, 'hero'=>['file_id'=>2147483600]], 'revision'=>$revision]);
+    check(S::public()['cards'][0]['title']==='后台模板配置验收', 'template publication reaches public catalog');
+    check(S::public()['hero']===$beforeHero, 'template editor cannot overwrite hero');
+    check(!isset(S::sectionEditor('cards')['config']['hero']), 'template response excludes hero config');
+    rejects(fn()=>S::saveSection('cards', ['config'=>['cards'=>[]], 'revision'=>$revision]));
+    S::saveSection('hero', ['config'=>['hero'=>['media_type'=>'image'], 'cards'=>[]], 'revision'=>$revision+1]);
+    check(count(S::public()['cards'])===2, 'website editor cannot overwrite templates');
+    check(!isset(S::sectionEditor('hero')['config']['cards']), 'website response excludes template config');
     echo "PASS revision, validation, tenant scope, material kind and deletion checks\n";
 } finally { $request->tenantId=$tenant; Db::rollback(); }

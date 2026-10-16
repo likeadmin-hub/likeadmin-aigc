@@ -154,5 +154,17 @@
     "name": "查看 Agent Prompt Trace",
     "api_path": "app.aigc_canvas.admin_trace/promptTrace",
     "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:template:detail",
+    "name": "查看画布模板",
+    "api_path": "app.aigc_canvas.template/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:template:publish",
+    "name": "发布画布模板",
+    "api_path": "app.aigc_canvas.template/publish",
+    "api_method": "POST"
   }
 ]
