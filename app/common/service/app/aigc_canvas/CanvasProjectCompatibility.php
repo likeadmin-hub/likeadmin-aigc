@@ -73,14 +73,7 @@ final class CanvasProjectCompatibility
                 'height'=>(float)($node['height'] ?? $data['height'] ?? ($type==='audio'?170:($type==='config'?146:217))), 'metadata'=>$metadata]);
         }
         unset($node);
-        $edges = self::json($project['edges_json'] ?? []);
-        foreach ($edges as $i => &$edge) {
-            if (!is_array($edge)) throw new \InvalidArgumentException('历史连线数据无效，原数据已保留');
-            $edge['id'] ??= 'legacy_edge_'.$i;
-            $edge['fromNodeId'] ??= $edge['source'] ?? '';
-            $edge['toNodeId'] ??= $edge['target'] ?? '';
-        }
-        unset($edge);
+        $edges = self::normalizeEdges(self::json($project['edges_json'] ?? []));
         $viewport = self::json($project['viewport_json'] ?? []);
         if (empty($viewport['pages'])) {
             $viewport['pages'] = [['id'=>'canvas_1','name'=>'页面 1','nodeIds'=>array_column($nodes,'id'),
@@ -96,6 +89,19 @@ final class CanvasProjectCompatibility
         $orphan=array_values(array_diff(array_column($nodes,'id'),$claimed));
         if ($orphan) $viewport['pages'][$active]['nodeIds']=array_merge((array)($viewport['pages'][$active]['nodeIds'] ?? []),$orphan);
         return array_replace($project,['nodes_json'=>$nodes,'edges_json'=>$edges,'viewport_json'=>$viewport]);
+    }
+
+    /** Shared by old-project adaptation and current API writes: reads must not repair every save. */
+    public static function normalizeEdges(array $edges): array
+    {
+        foreach ($edges as $i => &$edge) {
+            if (!is_array($edge)) throw new \InvalidArgumentException('历史连线数据无效，原数据已保留');
+            $edge['id'] ??= 'legacy_edge_'.$i;
+            $edge['fromNodeId'] ??= $edge['source'] ?? '';
+            $edge['toNodeId'] ??= $edge['target'] ?? '';
+        }
+        unset($edge);
+        return $edges;
     }
 
     private static function json($value): array

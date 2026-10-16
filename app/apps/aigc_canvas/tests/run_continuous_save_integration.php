@@ -1,0 +1,50 @@
+<?php
+// Real persistence and Agent graph boundary, isolated tables, no provider calls.
+require dirname(__DIR__,4).'/vendor/autoload.php';
+(new think\App())->initialize();
+use think\facade\{Config,Db};
+use app\common\service\app\aigc_canvas\{AigcCanvasService as Canvas,CanvasConversationTools as Tools};
+use app\common\service\app\aigc_llm\agent\{AgentWorkspaceScope as Scope,AgentStore};
+$config=Config::get('database');$original=$config['connections']['mysql']['prefix'];$prefix='itcsave_'.getmypid().'_';
+$tables=['aigc_canvas_project','aigc_canvas_run','aigc_canvas_asset','aigc_canvas_project_compat_backup','aigc_llm_agent_event'];
+$checks=0;$check=static function(bool $ok,string $why)use(&$checks){$checks++;if(!$ok)throw new RuntimeException($why);};
+try {
+    foreach($tables as $table)Db::execute("CREATE TABLE `{$prefix}{$table}` LIKE `{$original}{$table}`");
+    $config['connections']['mysql']['prefix']=$prefix;Config::set($config,'database');Db::connect(null,true);
+    $check(Db::connect()->getConfig('prefix')===$prefix,'Isolated connection not active');
+    // Exercise native source/target clients, legacy data and other tenant/user owners.
+    foreach([[701,801,false],[701,802,true],[702,801,true]] as [$tenant,$user,$legacy]){
+        $native=[['id'=>'a','type'=>'text','position'=>['x'=>0,'y'=>0],'metadata'=>['prompt'=>'original','content'=>'original output']],['id'=>'b','type'=>'image','position'=>['x'=>1,'y'=>1],'metadata'=>['url'=>'/retained.png','storage_scope'=>'tenant','storage_engine'=>'local']]];
+        $edges=[['id'=>'edge','source'=>'a','target'=>'b','custom'=>['keep'=>true]]];
+        $project=Canvas::createProject($tenant,$user,['name'=>'save fixture','nodes'=>$native,'edges'=>$edges,'viewport'=>['pages'=>[['id'=>'canvas_1','name'=>'Original','nodeIds'=>['a','b']]],'currentCanvasId'=>'canvas_1']]);
+        if($legacy){
+            Db::name('aigc_canvas_project')->where('id',$project['id'])->update(['nodes_json'=>AgentStore::encode([['id'=>'a','type'=>'script','data'=>['prompt'=>'original','outputContent'=>'original output']],$native[1]]),'edges_json'=>AgentStore::encode($edges),'viewport_json'=>'{}','update_time'=>100]);
+        }
+        $project=Canvas::projectDetail($tenant,$user,$project['id']);
+        $revision=(int)$project['viewport']['agentRevision'];
+        $backup=Db::name('aigc_canvas_project_compat_backup')->where('project_id',$project['id'])->value('snapshot_json');
+        $check($legacy ? $revision===1 && is_string($backup) : $revision===0 && $backup===null,'Native project was migrated or legacy original was not backed up');
+        for($i=1;$i<=3;$i++){
+            $project['nodes'][0]['metadata']['prompt']='save '.$i;
+            $wire=['id'=>$project['id'],'name'=>'save '.$i,'nodes'=>$project['nodes'],'edges'=>$edges,'viewport'=>$project['viewport']];
+            $saved=Canvas::saveProject($tenant,$user,$wire);
+            $scope=Scope::canvas($tenant,$user,['project_id'=>$project['id'],'page_id'=>'canvas_1']);
+            $run=['id'=>9000+$project['id'],'tenant_id'=>$tenant,'user_id'=>$user,'preferences'=>AgentStore::encode(['_workspace'=>$scope])];
+            Tools::operate($run,['action'=>'read_page']);
+            $project=Canvas::projectDetail($tenant,$user,$project['id']);
+            $check((int)$saved['viewport']['agentRevision']===$revision && (int)$project['viewport']['agentRevision']===$revision,'A save/read changed Agent revision');
+            $check($project['nodes'][0]['metadata']['prompt']==='save '.$i && $project['nodes'][0]['metadata']['content']==='original output','Saved prompt or original output lost');
+            $check($project['nodes'][1]['metadata']['url']==='/retained.png' && $project['edges'][0]['custom']===['keep'=>true],'Media/storage or connection metadata lost');
+            $check(Db::name('aigc_canvas_project_compat_backup')->where('project_id',$project['id'])->value('snapshot_json')===$backup,'Repeated save replaced original backup');
+            // Reuse the browser snapshot captured before Agent reads, not a freshly loaded revision.
+            Canvas::saveProject($tenant,$user,$wire);
+        }
+        // Real Agent mutations must still reject stale browser writes.
+        Tools::operate($run,['action'=>'update_prompt','node_id'=>'a','content'=>'Agent edit']);
+        $rejected=false;try{Canvas::saveProject($tenant,$user,$wire);}catch(Exception $e){$rejected=str_contains($e->getMessage(),'Agent 已更新');}
+        $check($rejected,'Stale browser overwrote a real Agent edit');
+        $latest=Canvas::projectDetail($tenant,$user,$project['id']);
+        $check($latest['nodes'][0]['metadata']['prompt']==='Agent edit' && (int)$latest['viewport']['agentRevision']===$revision+1,'Agent edit/revision lost');
+    }
+    echo "Continuous save integration: $checks checks passed; native/legacy projects, tenant/user owners, original backups and real Agent conflict protection; no provider calls\n";
+}finally{foreach(array_reverse($tables) as $table)Db::execute("DROP TABLE IF EXISTS `{$prefix}{$table}`");}
