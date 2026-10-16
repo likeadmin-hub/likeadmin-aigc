@@ -67,7 +67,7 @@ while True:
     neighbour = subprocess.Popen([str(fake), str(other / 'think'), 'decoration:agent-worker'])
     owner = launch()
     try:
-        until(lambda: started() == EXPECTED, 'unified entry did not start all eight queues')
+        until(lambda: started() == EXPECTED, 'unified entry did not start all current queues')
         owner.send_signal(signal.SIGTERM)
         out, err = owner.communicate(timeout=8)
         assert owner.returncode == 143, (owner.returncode, out, err)
@@ -75,7 +75,7 @@ while True:
         assert neighbour.poll() is None, 'shutdown killed another project worker'
         (site / 'runtime/stopped').unlink()
         owner = launch()
-        until(lambda: len(commands('started')) == 16, 'restart failed to relaunch eight queues')
+        until(lambda: len(commands('started')) == len(EXPECTED) * 2, 'restart failed to relaunch current queues')
         (site / 'runtime/fail').touch()
         out, err = owner.communicate(timeout=8)
         assert owner.returncode == 1, (owner.returncode, out, err)
@@ -87,4 +87,4 @@ while True:
             owner.communicate(timeout=8)
         neighbour.terminate()
         neighbour.wait(timeout=8)
-print('PASS: eight-queue startup, stop, restart, child-failure cleanup and other-project isolation')
+print('PASS: current-queue startup, stop, restart, child-failure cleanup and other-project isolation')

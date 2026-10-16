@@ -36,11 +36,11 @@ while True:time.sleep(.05)
  env=dict(os.environ,PHP_BIN=str(fake),PATH=tmp+':'+os.environ['PATH'])
  p=subprocess.Popen(['/bin/dash' if '--dash' in sys.argv else '/bin/sh',str(site/'scripts/start-ai-task-worker.sh')],env=env,start_new_session=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  def entries():return (site/'runtime/started').read_text().splitlines() if (site/'runtime/started').exists() else []
- expected={'ai:task-worker','short-drama:episode-worker','short-drama:planning-worker','short-drama:canvas-agent-worker','canvas:subagent-worker','decoration:agent-worker','brand:worker','home-agent:worker'}
+ expected={'ai:task-worker','short-drama:episode-worker','short-drama:planning-worker','short-drama:canvas-agent-worker','decoration:agent-worker','brand:worker','home-agent:worker'}
  try:
   until(lambda:(site/'runtime/active').exists(),'unified entry did not recover virtual maintenance after a failed iteration')
   rows=entries();ai=[r for r in rows if not r.endswith('virtualpay:maintain')]
-  assert {r.split()[1] for r in ai}==expected and len(ai)==8,'existing workers restarted or omitted'
+  assert {r.split()[1] for r in ai}==expected and len(ai)==len(expected),'existing workers restarted or omitted'
   assert len([r for r in rows if r.endswith('virtualpay:maintain')])==2,'failed iteration did not retry once'
   time.sleep(.25);assert entries()==rows,'maintenance iterations overlapped'
   if '--group' in sys.argv:os.killpg(p.pid,signal.SIGTERM)
