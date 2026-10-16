@@ -13,9 +13,14 @@ try {
     $config['connections']['mysql']['prefix']=$prefix;Config::set($config,'database');
     Db::connect(null,true);
     if (Db::connect()->getConfig('prefix')!==$prefix) throw new RuntimeException('Isolated connection not active');
+    \app\common\service\database\SqlMigrationExecutor::execute(file_get_contents(__DIR__.'/../migrations/zz_20261017_project_compat_backup.sql'),$prefix);
+    $tables[]='aigc_canvas_project_compat_backup';
     $project=AigcCanvasProject::create(['tenant_id'=>701,'user_id'=>801,'name'=>'legacy fixture','nodes_json'=>[['id'=>'old','type'=>'script','data'=>['content'=>'保留文本']]],'edges_json'=>[],'viewport_json'=>['x'=>1,'y'=>2,'zoom'=>1],'status'=>1,'create_time'=>100,'update_time'=>100,'delete_time'=>0]);
     $row=Compat::upgrade($project->toArray());$check($row['viewport_json']['pages'][0]['nodeIds']===['old'],'project nodes not indexed');
     $check(Compat::upgrade($row)['viewport_json']['agentRevision']===$row['viewport_json']['agentRevision'],'repeat upgrade changed revision');
+    $check((int)Db::name('aigc_canvas_project_compat_backup')->count()===1,'original snapshot missing or duplicated');
+    $backup=json_decode(Db::name('aigc_canvas_project_compat_backup')->where('project_id',$project['id'])->value('snapshot_json'),true);
+    $check($backup['nodes_json'][0]['type']==='script','original snapshot was rewritten');
     $thread=Db::name('aigc_canvas_agent_thread')->insertGetId(['tenant_id'=>701,'user_id'=>801,'project_id'=>$project['id'],'title'=>'历史会话','status'=>'active','summary'=>'','meta_json'=>'{}','create_time'=>100,'update_time'=>102,'delete_time'=>0]);
     foreach([['user','旧请求','success'],['assistant','旧回复','running']] as $item) Db::name('aigc_canvas_agent_message')->insert(['tenant_id'=>701,'user_id'=>801,'project_id'=>$project['id'],'thread_id'=>$thread,'role'=>$item[0],'content'=>$item[1],'content_json'=>'{}','meta_json'=>'{}','status'=>$item[2],'error'=>'','create_time'=>101,'update_time'=>102,'delete_time'=>0]);
     History::importProject(701,801,$row);History::importProject(701,801,$row);
