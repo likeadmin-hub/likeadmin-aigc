@@ -150,7 +150,7 @@ class MarketTextModelRuntimeService
         $appCode = self::safeCode((string)($params['source_app_code'] ?? $params['app_code'] ?? 'aigc_short_drama'), 'aigc_short_drama');
         $businessTable = self::safeCode((string)($params['business_table'] ?? ($appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task')), $appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task');
         $businessId = (int)($params['business_id'] ?? 0);
-        $homeAgent = $appCode === 'aigc_llm' && $businessTable === 'aigc_llm_agent_run';
+        $homeAgent = in_array($appCode, ['aigc_llm', 'aigc_canvas'], true) && $businessTable === 'aigc_llm_agent_run';
         if ($homeAgent) {
             // Admission only: keep actual-usage pricing and zero reservation unchanged.
             // A paid payer needs at least the wallet's smallest unit; free sides stay free.

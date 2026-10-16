@@ -168,7 +168,7 @@ class AigcLlmService
 
     public static function adminSessionLists(int $tenantId, array $params = []): array
     {
-        $query = AigcLlmSession::where(['tenant_id' => $tenantId, 'delete_time' => 0])->order(['last_message_at' => 'desc', 'id' => 'desc']);
+        $query = AigcLlmSession::where(['tenant_id' => $tenantId, 'delete_time' => 0])->where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->order(['last_message_at' => 'desc', 'id' => 'desc']);
         if (!empty($params['user_id'])) {
             $query->where('user_id', (int)$params['user_id']);
         }
@@ -189,7 +189,7 @@ class AigcLlmService
             'tenant_id' => $tenantId,
             'id' => $sessionId,
             'delete_time' => 0,
-        ])->findOrEmpty();
+        ])->where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->findOrEmpty();
         if ($session->isEmpty()) {
             throw new Exception('会话不存在');
         }
@@ -234,11 +234,11 @@ class AigcLlmService
     {
         $todayStart = strtotime(date('Y-m-d'));
         return [
-            'session_count' => (int)AigcLlmSession::where(['tenant_id' => $tenantId, 'delete_time' => 0])->count(),
-            'message_count' => (int)AigcLlmMessage::where(['tenant_id' => $tenantId, 'delete_time' => 0])->count(),
-            'user_count' => (int)AigcLlmSession::where(['tenant_id' => $tenantId, 'delete_time' => 0])->distinct(true)->count('user_id'),
-            'today_session_count' => (int)AigcLlmSession::where('tenant_id', $tenantId)->where('delete_time', 0)->where('create_time', '>=', $todayStart)->count(),
-            'today_message_count' => (int)AigcLlmMessage::where('tenant_id', $tenantId)->where('delete_time', 0)->where('create_time', '>=', $todayStart)->count(),
+            'session_count' => (int)AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->where(['tenant_id' => $tenantId, 'delete_time' => 0])->count(),
+            'message_count' => (int)AigcLlmMessage::whereIn('session_id', AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->field('id')->buildSql())->where(['tenant_id' => $tenantId, 'delete_time' => 0])->count(),
+            'user_count' => (int)AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->where(['tenant_id' => $tenantId, 'delete_time' => 0])->distinct(true)->count('user_id'),
+            'today_session_count' => (int)AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->where('tenant_id', $tenantId)->where('delete_time', 0)->where('create_time', '>=', $todayStart)->count(),
+            'today_message_count' => (int)AigcLlmMessage::whereIn('session_id', AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->field('id')->buildSql())->where('tenant_id', $tenantId)->where('delete_time', 0)->where('create_time', '>=', $todayStart)->count(),
             'prompt_tokens' => (int)AigcLlmUsage::where(['tenant_id' => $tenantId, 'billing_status' => 'deducted'])->sum('prompt_tokens'),
             'completion_tokens' => (int)AigcLlmUsage::where(['tenant_id' => $tenantId, 'billing_status' => 'deducted'])->sum('completion_tokens'),
             'total_tokens' => (int)AigcLlmUsage::where(['tenant_id' => $tenantId, 'billing_status' => 'deducted'])->sum('total_tokens'),
@@ -251,12 +251,12 @@ class AigcLlmService
 
     public static function tenantStat(): array
     {
-        $sessionRows = AigcLlmSession::where('delete_time', 0)
+        $sessionRows = AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->where('delete_time', 0)
             ->field('tenant_id,count(*) as session_count,count(distinct user_id) as user_count,max(update_time) as update_time')
             ->group('tenant_id')
             ->select()
             ->toArray();
-        $messageRows = AigcLlmMessage::where('delete_time', 0)
+        $messageRows = AigcLlmMessage::whereIn('session_id', AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->field('id')->buildSql())->where('delete_time', 0)
             ->field('tenant_id,count(*) as message_count')
             ->group('tenant_id')
             ->select()

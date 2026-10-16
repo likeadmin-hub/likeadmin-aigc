@@ -38,9 +38,9 @@ final class AgentTextReceipt
     }
     public static function read(int $tenant,int $user,int $consumption): ?array
     {
-        $log=AiConsumptionLog::where(['id'=>$consumption,'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm'])->find();
+        $log=AiConsumptionLog::where(['id'=>$consumption,'tenant_id'=>$tenant,'user_id'=>$user])->whereIn('app_code',['aigc_llm','aigc_canvas'])->find();
         if(!$log)throw new \InvalidArgumentException('文本消费记录不存在');
-        $task=AiAppTask::where(['id'=>$log['app_task_id'],'tenant_id'=>$tenant,'user_id'=>$user,'business_table'=>'aigc_llm_agent_run'])->find();
+        $task=AiAppTask::where(['id'=>$log['app_task_id'],'tenant_id'=>$tenant,'user_id'=>$user,'business_table'=>'aigc_llm_agent_run','app_code'=>$log['app_code']])->find();
         if(!$task)throw new \InvalidArgumentException('文本任务归属不匹配');
         $path=self::path($log->toArray());if(!is_file($path))return null;
         $value=AgentStore::json(OpenVault::open((string)file_get_contents($path)));
