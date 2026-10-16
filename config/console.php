@@ -5,6 +5,7 @@
 return [
     // 指令定义
     'commands' => [
+        'micro-video:worker' => 'app\\common\\command\\MicroVideoWorkerCommand',
         'home-agent:stt-reconcile' => 'app\\common\\command\\HomeAgentSttReconcile',
         'home-agent:health' => 'app\\common\\command\\HomeAgentHealth',
         'home-agent:worker' => 'app\\common\\command\\HomeAgentWorker',

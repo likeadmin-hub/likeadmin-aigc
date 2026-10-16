@@ -1022,6 +1022,11 @@ class AppRegistryService
             AigcProductMultiAngleTask::where('id', '>', 0)->delete();
             AigcProductMultiAngleResult::where('id', '>', 0)->delete();
         }
+        if ($appCode === 'aigc_micro_video') {
+            foreach (['attempt', 'segment', 'task', 'direction', 'config'] as $suffix) {
+                Db::name('aigc_micro_video_' . $suffix)->where('id', '>', 0)->delete();
+            }
+        }
         if ($appCode === 'aigc_product_promo_video') {
             AigcProductPromoVideoConfig::where('id', '>', 0)->delete();
             AigcProductPromoVideoType::where('id', '>', 0)->delete();
