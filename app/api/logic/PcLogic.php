@@ -188,6 +188,7 @@ class PcLogic extends BaseLogic
             'pc_login_bg_poster' => $pcLoginBgPoster,
             'pc_login_bg_poster_url' => $pcLoginBgPoster ? FileService::getFileUrl($pcLoginBgPoster) : '',
             'pc_home_style' => \app\common\service\InspirationBrandService::style(ConfigService::get('website', 'pc_home_style', 'default')),
+            'pc_canvas_portal' => \app\common\service\CanvasPortalService::public(),
             'pc_home_top_mode' => \app\common\service\PcHomePresentationService::topMode(),
             'pc_home_shortcuts' => \app\common\service\InspirationBrandService::style(ConfigService::get('website', 'pc_home_style', 'default')) === 'inspiration' ? \app\common\service\PcHomeShortcutsService::public() : null,
             'pc_home_bg_type' => ConfigService::get('website', 'pc_home_bg_type', 'none'),
