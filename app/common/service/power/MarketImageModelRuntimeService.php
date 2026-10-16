@@ -1329,7 +1329,8 @@ class MarketImageModelRuntimeService
         }
         $options = $definition['enum'] ?? $definition['options'] ?? [];
         if (is_string($options)) {
-            $options = preg_split('/\s*(?:\/|,|\|)\s*/', $options, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            $decoded = json_decode($options, true);
+            $options = is_array($decoded) ? $decoded : (is_scalar($decoded) ? [$decoded] : (preg_split('/\s*(?:\/|,|\|)\s*/', $options, -1, PREG_SPLIT_NO_EMPTY) ?: []));
         }
         if (!is_array($options) || $options === []) {
             return true;
