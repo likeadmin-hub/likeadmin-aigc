@@ -43,7 +43,7 @@ final class MicroVideoService
         return Db::transaction(function()use($tenant,$user,$prepared,$key,$status){
             $row=MicroVideoStore::table('task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>$key])->find();
             if($row){if(MicroVideoPolicy::fingerprint(MicroVideoPolicy::stableParams(MicroVideoStore::json($row['params_json'])))!==MicroVideoPolicy::fingerprint(MicroVideoPolicy::stableParams($prepared['params'])))throw new InvalidArgumentException('请求已用于其他创作内容，请使用新请求标识');return $row;}
-            $now=time();$p=$prepared['params'];$data=['tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>$key,'title'=>mb_substr($p['theme']?:$p['prompt'],0,80),'status'=>$status,'params_json'=>MicroVideoStore::encode($p),'config_snapshot'=>MicroVideoStore::encode($prepared['config']),'model_snapshot'=>MicroVideoStore::encode($prepared['model']),'direction_snapshot'=>MicroVideoStore::encode($prepared['direction']),'prompt'=>$p['prompt'],'analysis'=>'','continuity'=>'','planning_result'=>'{}','quote_json'=>'{}','confirmed_quote'=>'{}','next_run_at'=>$now,'create_time'=>$now,'update_time'=>$now];
+            $now=time();$p=$prepared['params'];$data=['tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>$key,'title'=>mb_substr($p['theme']?:$p['prompt'],0,80),'status'=>$status,'params_json'=>MicroVideoStore::encode($p),'config_snapshot'=>MicroVideoStore::encode($prepared['config']+['shot_timeline_version'=>1]),'model_snapshot'=>MicroVideoStore::encode($prepared['model']),'direction_snapshot'=>MicroVideoStore::encode($prepared['direction']),'prompt'=>$p['prompt'],'analysis'=>'','continuity'=>'','planning_result'=>'{}','quote_json'=>'{}','confirmed_quote'=>'{}','next_run_at'=>$now,'create_time'=>$now,'update_time'=>$now];
             $id=MicroVideoStore::table('task')->insertGetId($data);return MicroVideoStore::owned($tenant,$user,$id);
         });
     }
@@ -55,7 +55,11 @@ final class MicroVideoService
             $images=MicroVideoMedia::validateImages($tenant,$user,$prepared['params']['images'],$prepared['config']['max_images']);
             if($row['analysis']===''){$analysis=MicroVideoText::run($row,'analysis',$prepared['config']['vision_model_id'],$prepared['config']['analysis_template'],'请按图片顺序分析下列参考图片。',MicroVideoMedia::visionInputs($images));$row['analysis']=(string)$analysis['content'];MicroVideoStore::update($row['id'],['analysis'=>$row['analysis']]);}
             $content=MicroVideoStore::encode(['theme'=>$prepared['params']['theme'],'original_prompt'=>$prepared['params']['prompt'],'mode'=>$prepared['params']['mode'],'analysis'=>$row['analysis'],'direction'=>$prepared['direction']['prompt'],'continuity'=>$prepared['config']['continuity_template'],'target_duration'=>$prepared['params']['target_duration']]);
-            $result=MicroVideoText::run($row,'prompt',$prepared['config']['script_model_id'],$prepared['config']['prompt_template'],$content);
+            $timeline=MicroVideoTimeline::required(MicroVideoStore::json($row['config_snapshot']));
+            $validate=$timeline?function(array $r)use($prepared){MicroVideoTimeline::validate((string)$r['content'],(int)$prepared['params']['target_duration']);}:null;
+            $system=$prepared['config']['prompt_template'].($timeline?"\n".MicroVideoTimeline::instructions(false):'');
+            $result=MicroVideoText::run($row,'prompt',$prepared['config']['script_model_id'],$system,$content,[],$validate);
+            if($validate)$validate($result);
             MicroVideoStore::update($row['id'],['prompt'=>$result['content'],'status'=>'prompt_ready']);
             return ['prompt'=>$result['content'],'analysis'=>$row['analysis'],'draft_id'=>(int)$row['id'],'planning_points'=>self::planningPoints((int)$row['id'])];
         }finally{flock($lock,LOCK_UN);fclose($lock);}
@@ -77,7 +81,7 @@ final class MicroVideoService
             $params=MicroVideoStore::json($row['params_json']);$config=MicroVideoStore::json($row['config_snapshot']);$model=MicroVideoStore::json($row['model_snapshot']);
             MicroVideoMedia::validateImages($tenant,$user,$params['images'],$config['max_images']);
             $allowed=array_column(MicroVideoCatalog::specs($model,$params['quality'],$params['ratio']),'duration');
-            $segments=MicroVideoPolicy::segments((array)($p['segments']??[]),$allowed,count($params['images']),(int)$model['max_reference_images'],(int)$config['max_segments']);
+            $segments=MicroVideoPolicy::segments((array)($p['segments']??[]),$allowed,count($params['images']),(int)$model['max_reference_images'],(int)$config['max_segments'],MicroVideoTimeline::required($config));
             self::replaceSegments($row,$segments);MicroVideoStore::update($id,['plan_revision'=>(int)$row['plan_revision']+1,'quote_token'=>'','quote_json'=>'{}']);
         });return self::detail($tenant,$user,$id);
     }

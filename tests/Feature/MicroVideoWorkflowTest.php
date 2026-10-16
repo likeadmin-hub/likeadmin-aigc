@@ -56,4 +56,18 @@ final class MicroVideoWorkflowTest extends TestCase
         $c=C::detail(1);self::assertArrayNotHasKey('config',$c);self::assertArrayNotHasKey('available_models',$c);$json=json_encode($c);foreach(['platform_unit_cost','script_model_id','planning_template'] as $key)self::assertStringNotContainsString($key,$json);
         S::update($this->id,['status'=>'waiting_continue','error'=>'private-provider-host.internal']);$d=V::detail(1,1,$this->id);self::assertSame([],$d['segments']);self::assertArrayNotHasKey('error',$d);self::assertStringNotContainsString('private-provider-host.internal',json_encode($d));
     }
+    public function testTimedPlanSaveRejectsGapsWithoutReplacingRowsOrCreatingCharges(): void
+    {
+        $row=S::owned(1,1,$this->id);$config=S::json($row['config_snapshot']);$config['shot_timeline_version']=1;S::update($this->id,['config_snapshot'=>S::encode($config)]);
+        $before=S::segments($this->id);$charges=Db::name('ai_consumption_log')->count();$edited=$before;
+        foreach($edited as &$segment){$segment['image_indices']=[0];$segment['prompt']="0-2秒：全景。\n3-6秒：商品细节。";}unset($segment);
+        try{V::savePlan(1,1,['id'=>$this->id,'plan_revision'=>1,'segments'=>$edited]);self::fail('Gap was saved');}catch(\InvalidArgumentException $e){self::assertStringContainsString('镜头时间轴无效',$e->getMessage());}
+        self::assertSame($before,S::segments($this->id));self::assertSame($charges,Db::name('ai_consumption_log')->count());
+        foreach($edited as &$segment)$segment['prompt']="0-3秒：全景缓慢推近。\n3-6秒：承接推进到商品细节。";unset($segment);
+        $saved=V::savePlan(1,1,['id'=>$this->id,'plan_revision'=>1,'segments'=>$edited]);self::assertSame(2,(int)$saved['plan_revision']);
+        $method=new \ReflectionMethod(\app\common\service\app\aigc_micro_video\MicroVideoWorker::class,'segmentPrompt');$method->setAccessible(true);
+        $segments=S::segments($this->id);$prompt=$method->invoke(null,S::owned(1,1,$this->id),$segments[1]);
+        self::assertStringContainsString('总时长6秒',$prompt);self::assertStringContainsString("0-3秒：全景缓慢推近。\n3-6秒：承接推进到商品细节。",$prompt);self::assertStringContainsString('前段结束：',$prompt);self::assertSame($charges,Db::name('ai_consumption_log')->count());
+    }
+
 }

@@ -42,9 +42,11 @@ final class MicroVideoWorker
         }
         $specs=MicroVideoCatalog::specs($model,$p['quality'],$p['ratio']);$supported=array_column($specs,'duration');$durations=MicroVideoPolicy::durations($p['target_duration'],$supported,(int)$c['max_segments']);
         $input=['mode'=>$p['mode'],'theme'=>$p['theme'],'confirmed_prompt'=>$p['prompt'],'image_analysis'=>$task['analysis'],'direction'=>$direction['prompt'],'shared_continuity'=>$c['continuity_template'].' '.$direction['continuity_prompt'],'durations'=>$durations,'image_count'=>count($images),'image_index_base'=>0,'max_reference_images'=>(int)$model['max_reference_images'],'ratio'=>$p['ratio'],'output_schema'=>['prompt'=>'完整整片提示词','continuity'=>'整片主体与风格共同设定','segments'=>[['title'=>'本段标题','duration'=>'必须按durations对应项','prompt'=>'可独立调用的完整视频提示词，包含主体设定和衔接','image_indices'=>[0],'start_state'=>'起始状态','end_state'=>'结束状态','continuity'=>'前后衔接与必须保持项']]],'requirements'=>'严格按durations数量和顺序生成每段，不输出解释。遵循提示词模式保留用户故事与要求，不擅自换题材。每段引用实际图片；角色/商品/场景不得突变。'];
-        $validate=function(array $r)use($supported,$images,$model,$c,$durations){$parsed=MicroVideoText::parse((string)$r['content']);$segments=MicroVideoPolicy::segments($parsed['segments'],$supported,count($images),(int)$model['max_reference_images'],(int)$c['max_segments']);if(array_column($segments,'duration')!==$durations)throw new \InvalidArgumentException('模型分段时长与已规划规格不一致');if(trim((string)($parsed['continuity']??''))==='')throw new \InvalidArgumentException('方案缺少整片一致性设定');};
-        $r=MicroVideoText::run($task,'script',$c['script_model_id'],$c['planning_template'],MicroVideoStore::encode($input),[],$validate);$validate($r);$parsed=MicroVideoText::parse((string)$r['content']);
-        $segments=MicroVideoPolicy::segments($parsed['segments'],$supported,count($images),(int)$model['max_reference_images'],(int)$c['max_segments']);
+        $timeline=MicroVideoTimeline::required($c);
+        if($timeline){$input['output_schema']['segments'][0]['prompt']='共同主体设定与逐行镜头时间轴，每行格式为开始秒-结束秒：具体画面与运镜。每段从0秒开始，连续覆盖该段duration秒，至少两个镜头。';$input['requirements'].=MicroVideoTimeline::instructions();}
+        $validate=function(array $r)use($supported,$images,$model,$c,$durations){$parsed=MicroVideoText::parse((string)$r['content']);$segments=MicroVideoPolicy::segments($parsed['segments'],$supported,count($images),(int)$model['max_reference_images'],(int)$c['max_segments'],MicroVideoTimeline::required($c));if(array_column($segments,'duration')!==$durations)throw new \InvalidArgumentException('模型分段时长与已规划规格不一致');if(trim((string)($parsed['continuity']??''))==='')throw new \InvalidArgumentException('方案缺少整片一致性设定');};
+        $r=MicroVideoText::run($task,'script',$c['script_model_id'],$c['planning_template'].($timeline?"\n".MicroVideoTimeline::instructions():''),MicroVideoStore::encode($input),[],$validate);$validate($r);$parsed=MicroVideoText::parse((string)$r['content']);
+        $segments=MicroVideoPolicy::segments($parsed['segments'],$supported,count($images),(int)$model['max_reference_images'],(int)$c['max_segments'],MicroVideoTimeline::required($c));
         Db::transaction(function()use($task,$parsed,$segments,$p,$c){$fresh=MicroVideoStore::owned((int)$task['tenant_id'],(int)$task['user_id'],(int)$task['id'],true);if($fresh['status']!=='planning')return;MicroVideoService::replaceSegments($fresh,$segments);MicroVideoStore::update((int)$task['id'],['status'=>'awaiting_confirmation','prompt'=>$p['prompt']!==''?$p['prompt']:(string)($parsed['prompt']??$p['theme']),'continuity'=>$c['continuity_template'].' '.(string)$parsed['continuity'],'planning_result'=>MicroVideoStore::encode($parsed),'plan_revision'=>(int)$fresh['plan_revision']+1,'error'=>'']);});
     }
     private static function video(array $task): void
@@ -118,8 +120,10 @@ final class MicroVideoWorker
     }
     private static function segmentPrompt(array $task,array $segment): string
     {
-        $parts=['整片共同设定：'.$task['continuity'],'本段画面：'.$segment['prompt'],'起始状态：'.$segment['start_state'],'结束状态：'.$segment['end_state'],'衔接要求：'.$segment['continuity']];
+        $config=MicroVideoStore::json($task['config_snapshot']);$header='';
+        if(MicroVideoTimeline::required($config)){MicroVideoTimeline::validate((string)$segment['prompt'],(int)$segment['duration']);$header='本次生成片段总时长'.$segment['duration'].'秒。以下镜头时间均从本段0秒开始，按时间轴依次拍摄并自然衔接；不提前结束，不延长时间轴。'."\n";}
+        $parts=[$header.'整片共同设定：'.$task['continuity'],'本段画面：'.$segment['prompt'],'起始状态：'.$segment['start_state'],'结束状态：'.$segment['end_state'],'衔接要求：'.$segment['continuity']];
         $neighbors=MicroVideoStore::segments((int)$task['id']);foreach($neighbors as $n){if((int)$n['sort']===(int)$segment['sort']-1)$parts[]='前段结束：'.$n['end_state'];if((int)$n['sort']===(int)$segment['sort']+1)$parts[]='后段开始：'.$n['start_state'];}
-        $config=MicroVideoStore::json($task['config_snapshot']);if((int)$segment['attempt_no']>0)$parts[]='补生成要求：'.$config['retry_template'];return implode("\n",$parts);
+        if((int)$segment['attempt_no']>0)$parts[]='补生成要求：'.$config['retry_template'];return implode("\n",$parts);
     }
 }

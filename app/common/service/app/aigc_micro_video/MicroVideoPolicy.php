@@ -28,7 +28,7 @@ final class MicroVideoPolicy
         return $paths[$best];
     }
 
-    public static function segments(array $segments,array $durations,int $imageCount,int $referenceLimit,int $max): array
+    public static function segments(array $segments,array $durations,int $imageCount,int $referenceLimit,int $max,bool $requireTimeline=false): array
     {
         if(!$segments||count($segments)>$max)throw new InvalidArgumentException('分段数量超出配置范围');
         $out=[];
@@ -36,6 +36,7 @@ final class MicroVideoPolicy
             if(!is_array($s)||!in_array((int)($s['duration']??0),$durations,true))throw new InvalidArgumentException('分段时长不受当前模型支持');
             $row=['sort'=>$index+1,'duration'=>(int)$s['duration']];
             foreach(['title','prompt','start_state','end_state','continuity'] as $field){$text=trim((string)($s[$field]??''));if($text===''||mb_strlen($text)>($field==='prompt'?12000:($field==='title'?200:2000)))throw new InvalidArgumentException('请完整填写分段提示词和衔接信息，标题限200字');$row[$field]=$text;}
+            if($requireTimeline)MicroVideoTimeline::validate($row['prompt'],$row['duration']);
             $indices=$s['image_indices']??[];
             if(!is_array($indices)||!$indices||count($indices)>$referenceLimit)throw new InvalidArgumentException('分段引用图片数量超出模型限制');
             foreach($indices as $value)if(!is_int($value)&&!(is_string($value)&&ctype_digit($value)))throw new InvalidArgumentException('图片引用无效');
