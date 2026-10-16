@@ -17,6 +17,7 @@ try {
     $tables[]='aigc_canvas_project_compat_backup';
     $project=AigcCanvasProject::create(['tenant_id'=>701,'user_id'=>801,'name'=>'legacy fixture','nodes_json'=>[['id'=>'old','type'=>'script','data'=>['content'=>'保留文本']]],'edges_json'=>[],'viewport_json'=>['x'=>1,'y'=>2,'zoom'=>1],'status'=>1,'create_time'=>100,'update_time'=>100,'delete_time'=>0]);
     $row=Compat::upgrade($project->toArray());$check($row['viewport_json']['pages'][0]['nodeIds']===['old'],'project nodes not indexed');
+    $check((int)$row['update_time']===100,'migration changed project ordering timestamp');
     $check(Compat::upgrade($row)['viewport_json']['agentRevision']===$row['viewport_json']['agentRevision'],'repeat upgrade changed revision');
     $check((int)Db::name('aigc_canvas_project_compat_backup')->count()===1,'original snapshot missing or duplicated');
     $backup=json_decode(Db::name('aigc_canvas_project_compat_backup')->where('project_id',$project['id'])->value('snapshot_json'),true);
