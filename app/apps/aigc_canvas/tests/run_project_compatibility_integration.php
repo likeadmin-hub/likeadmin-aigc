@@ -18,7 +18,7 @@ try {
     $project=AigcCanvasProject::create(['tenant_id'=>701,'user_id'=>801,'name'=>'legacy fixture','nodes_json'=>[['id'=>'old','type'=>'script','data'=>['content'=>'保留文本']]],'edges_json'=>[],'viewport_json'=>['x'=>1,'y'=>2,'zoom'=>1],'status'=>1,'create_time'=>100,'update_time'=>100,'delete_time'=>0]);
     \app\common\service\app\aigc_canvas\AigcCanvasService::projectDetail(701,801,(int)$project['id']);
     $row=Compat::upgrade($project->refresh()->toArray());$check($row['viewport_json']['pages'][0]['nodeIds']===['old'],'project nodes not indexed');
-    $check((int)$row['update_time']===100,'migration changed project ordering timestamp');
+    $check((int)Db::name('aigc_canvas_project')->where('id',$project['id'])->value('update_time')===100,'migration changed project ordering timestamp');
     $check(Compat::upgrade($row)['viewport_json']['agentRevision']===$row['viewport_json']['agentRevision'],'repeat upgrade changed revision');
     $check((int)Db::name('aigc_canvas_project_compat_backup')->count()===1,'original snapshot missing or duplicated');
     $backup=json_decode(Db::name('aigc_canvas_project_compat_backup')->where('project_id',$project['id'])->value('snapshot_json'),true);
@@ -37,6 +37,12 @@ try {
     $check((int)Db::name('aigc_llm_session')->count()===1,'deleted conversation resurrected');
     try {History::importProject(702,801,$row);throw new RuntimeException('cross tenant allowed');}catch(InvalidArgumentException){$checks++;}
     $check((int)Db::name('aigc_canvas_agent_message')->count()===2,'old history removed');
+    $other=AigcCanvasProject::create(['tenant_id'=>702,'user_id'=>802,'name'=>'other tenant fixture','nodes_json'=>[['id'=>'second','type'=>'script','data'=>['content'=>'独立租户内容']]],'edges_json'=>[],'viewport_json'=>[],'status'=>1,'create_time'=>100,'update_time'=>100,'delete_time'=>0]);
+    $otherDetail=\app\common\service\app\aigc_canvas\AigcCanvasService::projectDetail(702,802,(int)$other['id']);
+    $check($otherDetail['nodes'][0]['type']==='text' && $otherDetail['viewport']['pages'][0]['nodeIds']===['second'],'automatic adaptation restricted to first tenant');
+    $denied=false;
+    try {\app\common\service\app\aigc_canvas\AigcCanvasService::projectDetail(702,802,(int)$project['id']);}catch(\Exception){$denied=true;}
+    $check($denied,'project read crossed tenant boundary');
     echo "Project/history integration: $checks checks passed; isolated tables only, no paid calls\n";
 } finally {
     foreach(array_reverse($tables) as $table)Db::execute("DROP TABLE IF EXISTS `{$prefix}{$table}`");
