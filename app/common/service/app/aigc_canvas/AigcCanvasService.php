@@ -1237,6 +1237,7 @@ class AigcCanvasService
 
     public static function generateImage(int $tenantId, int $userId, array $params): array
     {
+        self::assertGenerationProject($tenantId, $userId, $params);
         $params = self::applyAdvancedParameters($tenantId, $params, 'image');
         $params = self::prepareMentionParams($params);
         $modelSelectionExplicit = self::hasExplicitImageModelSelection($params);
@@ -1524,6 +1525,7 @@ class AigcCanvasService
 
     public static function generateVideo(int $tenantId, int $userId, array $params): array
     {
+        self::assertGenerationProject($tenantId, $userId, $params);
         $params = self::applyAdvancedParameters($tenantId, $params, 'video');
         $params = self::prepareMentionParams($params);
         $params['__request_user_id'] = $userId;
@@ -1546,6 +1548,7 @@ class AigcCanvasService
 
     public static function generateMusic(int $tenantId, int $userId, array $params): array
     {
+        self::assertGenerationProject($tenantId, $userId, $params);
         $params = self::applyAdvancedParameters($tenantId, $params, 'music');
         $params = self::prepareMentionParams($params);
         $params = CanvasModelRouterService::applyToToolInput($tenantId, 'generate_music', $params);
@@ -1678,6 +1681,7 @@ class AigcCanvasService
 
     public static function generateText(int $tenantId, int $userId, array $params): array
     {
+        self::assertGenerationProject($tenantId, $userId, $params);
         $params = self::applyAdvancedParameters($tenantId, $params, 'text');
         $params = self::prepareMentionParams($params);
         $started = microtime(true);
@@ -1725,6 +1729,7 @@ class AigcCanvasService
 
     public static function streamText(int $tenantId, int $userId, array $params, ?callable $onEvent = null): array
     {
+        self::assertGenerationProject($tenantId, $userId, $params);
         $params = self::applyAdvancedParameters($tenantId, $params, 'text');
         $params = self::prepareMentionParams($params);
         $started = microtime(true);
@@ -2728,6 +2733,14 @@ class AigcCanvasService
             return '';
         }
         return FileService::getFileUrl($thumbnail);
+    }
+
+    private static function assertGenerationProject(int $tenantId, int $userId, array $params): void
+    {
+        $projectId = (int)($params['project_id'] ?? 0);
+        if ($projectId > 0 && self::projectQuery($tenantId, $userId, $projectId)->findOrEmpty()->isEmpty()) {
+            throw new Exception('画布项目不存在或已删除，请刷新后在新画布中生成');
+        }
     }
 
     private static function createRun(int $tenantId, int $userId, array $params, string $type, string $sourceApp): AigcCanvasRun
