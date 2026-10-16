@@ -74,12 +74,11 @@ class MarketApplicationFoundationContractTest extends TestCase
         self::assertSame(['text', 'image', 'video'], MarketGenerationCatalogService::TYPES);
     }
 
-    public function testImageModelSelectorsOnlyUseBackendModelApis(): void
+    public function testImageModelSelectorsKeepTheirSupportedMarketSources(): void
     {
         $root = dirname(__DIR__, 2);
         $sources = [
             (string)file_get_contents($root . '/app/common/service/app/aigc_image/AigcImageChannelService.php'),
-            (string)file_get_contents($root . '/app/common/service/app/aigc_canvas/CanvasModelRouterService.php'),
             (string)file_get_contents($root . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php'),
         ];
 
@@ -87,6 +86,12 @@ class MarketApplicationFoundationContractTest extends TestCase
             self::assertStringNotContainsString('MarketNanoBananaAppRuntimeService::options', $source);
             self::assertStringContainsString('MarketImageModelRuntimeService::', $source);
         }
+
+        // The native canvas supports both model SKUs and Nano Banana app SKUs.
+        // The retired Agent selector had a different, model-only contract.
+        $canvas = (string)file_get_contents($root . '/app/common/service/app/aigc_canvas/CanvasModelRouterService.php');
+        self::assertStringContainsString('MarketImageModelRuntimeService::options', $canvas);
+        self::assertStringContainsString('MarketNanoBananaAppRuntimeService::options', $canvas);
     }
 
     public function testTextFallbackOnlyAcceptsExplicitUnavailableModelErrors(): void
