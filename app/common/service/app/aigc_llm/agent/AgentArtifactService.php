@@ -16,7 +16,7 @@ final class AgentArtifactService
     public static function lists(int $tenant,int $user,int $session,int $before=0,bool $all=false,string $kind=''): array
     {
         if(!$all && $session<1)return [];
-        $query=AgentStore::owner('artifact',$tenant,$user)->whereIn('session_id',AgentWorkspaceScope::sessions($tenant,$user)->column('id')?:[0]);
+        $query=AgentWorkspaceScope::artifacts(AgentStore::owner('artifact',$tenant,$user),$tenant,$user);
         if(!$all)$query->where('session_id',$session);
         if($before>0)$query->where('id','<',$before);
         if($kind!=='' && $kind!=='all'){

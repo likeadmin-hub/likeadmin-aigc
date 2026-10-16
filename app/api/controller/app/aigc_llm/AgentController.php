@@ -16,8 +16,8 @@ class AgentController extends BaseApiController
             if(!empty($params['run_id']))AgentWorkspaceScope::assertRun($t,$u,(int)$params['run_id']);
             if(!empty($params['session_id']))AgentWorkspaceScope::assertSession($t,$u,(int)$params['session_id']);
             if(strtolower($this->request->action())==='favorite'){
-                $artifact=AgentStore::owner('artifact',$t,$u)->where('id',(int)($params['id']??0))->find();
-                AgentWorkspaceScope::assertSession($t,$u,(int)($artifact['session_id']??0));
+                $artifact=AgentWorkspaceScope::artifacts(AgentStore::owner('artifact',$t,$u),$t,$u)->where('id',(int)($params['id']??0))->find();
+                if(!$artifact)throw new \InvalidArgumentException('作品不属于当前工作区');
             }
             return $call($t,$u);
         });

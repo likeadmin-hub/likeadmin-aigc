@@ -297,6 +297,38 @@
       "scene": "user",
       "need_login": 1,
       "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/sessions",
+      "api_method": "GET",
+      "permission_key": "aigc_llm:agent:sessions:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/messages",
+      "api_method": "GET",
+      "permission_key": "aigc_llm:agent:messages:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/renameSession",
+      "api_method": "POST",
+      "permission_key": "aigc_llm:agent:renameSession:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_llm.agent/deleteSession",
+      "api_method": "POST",
+      "permission_key": "aigc_llm:agent:deleteSession:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
     }
   ]
 }
