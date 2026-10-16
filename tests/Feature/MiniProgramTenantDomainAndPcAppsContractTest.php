@@ -11,7 +11,7 @@ class MiniProgramTenantDomainAndPcAppsContractTest extends TestCase
         $source = file_get_contents(dirname(__DIR__, 2) . '/app/tenantapi/logic/channel/MnpSettingsLogic.php');
 
         self::assertStringContainsString('private function resolveTenantDomain()', $source);
-        self::assertStringContainsString('TenantUrlService::links($tenantData)', $source);
+        self::assertStringContainsString('MiniProgramDomainService::host($tenantId)', $source);
         self::assertStringContainsString("\$_SERVER['HTTP_HOST'] ?? request()->domain()", $source);
         self::assertStringNotContainsString("\$domainName = \$_SERVER['SERVER_NAME'];", $source);
     }
@@ -30,16 +30,16 @@ class MiniProgramTenantDomainAndPcAppsContractTest extends TestCase
 
     public function testMiniProgramBuildHasAWechatLegacySyntaxCompatibilityPass(): void
     {
-        $package = json_decode(file_get_contents(dirname(__DIR__, 3) . '/uniapp/package.json'), true);
+        $package = json_decode(\Tests\Support\CompiledAssets::source('uniapp/package.json'), true);
 
         self::assertIsArray($package);
         self::assertStringContainsString('ensure-mp-weixin-legacy-syntax.mjs', $package['scripts']['build:mp-weixin'] ?? '');
-        self::assertFileExists(dirname(__DIR__, 3) . '/uniapp/scripts/ensure-mp-weixin-legacy-syntax.mjs');
+        self::assertNotEmpty(\Tests\Support\CompiledAssets::source('uniapp/scripts/ensure-mp-weixin-legacy-syntax.mjs'));
     }
 
     public function testPcToolRegistryIncludesTheNewNonCommerceApplications(): void
     {
-        $source = file_get_contents(dirname(__DIR__, 3) . '/pc/composables/use-ai-tools.ts');
+        $source = \Tests\Support\CompiledAssets::source('pc/composables/use-ai-tools.ts');
 
         foreach (['aigc_watermark_removal', 'aigc_music_cover'] as $appCode) {
             self::assertStringContainsString("appCode: '{$appCode}'", $source);

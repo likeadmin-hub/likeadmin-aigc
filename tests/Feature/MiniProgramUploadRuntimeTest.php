@@ -21,6 +21,10 @@ final class MiniProgramUploadRuntimeTest extends TestCase
             'fields_strict' => true, 'fields_cache' => false,
         ]]], 'database');
         Db::execute('CREATE TABLE la_wechat_credentials (id INTEGER PRIMARY KEY, tenant_id INTEGER, settings_json TEXT)');
+        Db::execute('CREATE TABLE la_tenant (id INTEGER PRIMARY KEY, sn TEXT, domain_alias TEXT, domain_alias_enable INTEGER, delete_time INTEGER)');
+        Db::execute('CREATE TABLE la_tenant_domain_alias (id INTEGER PRIMARY KEY, tenant_id INTEGER, domain TEXT, is_primary INTEGER, status INTEGER, delete_time INTEGER)');
+        Config::set(['http_host' => 'platform.example.com'], 'project');
+        Db::name('tenant')->insert(['id' => 7, 'sn' => 'customer', 'domain_alias' => 'tenant.example.com', 'domain_alias_enable' => 0]);
         request()->withServer(['HTTP_HOST' => 'tenant.example.com', 'REQUEST_SCHEME' => 'http', 'SERVER_PORT' => 80]);
     }
 
@@ -33,7 +37,10 @@ final class MiniProgramUploadRuntimeTest extends TestCase
 
     private function domain(string $domain, int $tenantId = 7): void
     {
-        Db::name('wechat_credentials')->insert(['tenant_id' => $tenantId, 'settings_json' => json_encode(['business_domain' => $domain])]);
+        $binding = ['id' => $tenantId, 'sn' => 'customer' . $tenantId, 'domain_alias' => $domain, 'domain_alias_enable' => 0];
+        if (Db::name('tenant')->where('id', $tenantId)->find()) {
+            Db::name('tenant')->where('id', $tenantId)->update($binding);
+        } else Db::name('tenant')->insert($binding);
     }
 
     public function testManualUploadUsesHttpsEvenBehindAnHttpReverseProxy(): void
@@ -44,7 +51,7 @@ final class MiniProgramUploadRuntimeTest extends TestCase
         self::assertSame(7, $runtime['tenant_id']);
     }
 
-    public function testConfiguredDomainIsTenantScopedAndSupportsBothUploadModes(): void
+    public function testBoundDomainIsTenantScopedAndSupportsBothUploadModes(): void
     {
         $this->domain('customer.example.com');
         $this->domain('https://another.example.com/', 8);
@@ -63,30 +70,27 @@ final class MiniProgramUploadRuntimeTest extends TestCase
     public static function invalidDomains(): array
     {
         return array_map(static fn($domain) => [$domain], [
-            'http://tenant.example.com', 'https://127.0.0.1:5173', 'https://localhost',
-            'https://192.168.1.2', 'https://[::1]', 'https://tenant.example.com/api',
-            'https://tenant.example.com?debug=1', 'https://user:pass@tenant.example.com',
+            '127.0.0.1', 'localhost', '192.168.1.2', 'tenant.localhost',
             '__TENANT_API_BASE_URL__',
         ]);
     }
 
-    public function testLoopbackRequestHostCannotBeUploadedAsAFormalPackage(): void
+    public function testUploadNeverFallsBackToTheLoopbackRequestHost(): void
     {
         request()->setHost('127.0.0.1:5173');
-        $this->expectException(\RuntimeException::class);
-        $this->runtime();
+        self::assertSame('https://tenant.example.com/', $this->runtime()['apiBaseUrl']);
     }
 
-    public function testConfiguredHttpsPortIsPreserved(): void
+    public function testObsoleteSettingsCannotOverrideTheBoundDomain(): void
     {
-        $this->domain('https://tenant.example.com:8443');
-        self::assertSame('https://tenant.example.com:8443/', $this->runtime()['apiBaseUrl']);
+        Db::name('wechat_credentials')->insert(['tenant_id' => 7, 'settings_json' => '{"business_domain":"https://platform.example.com:8443"}']);
+        self::assertSame('https://tenant.example.com/', $this->runtime()['apiBaseUrl']);
     }
 
-    public function testTemplateModeStillRequiresAnExplicitDomain(): void
+    public function testTemplateModeRejectsAnUnknownTenantInsteadOfUsingTheRequestHost(): void
     {
         $this->expectException(\RuntimeException::class);
-        $this->runtime(7, true);
+        $this->runtime(999, true);
     }
 
     public function testInjectionChangesOnlyTheTenantCopyAndPreservesSharedPlaceholders(): void

@@ -166,7 +166,7 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString('self::templateExtJson($runtimeConfig, $authorizer)', $service);
         self::assertStringContainsString("'ext_json' => '{}'", $service);
         self::assertStringContainsString("'ext' => ['runtime_config' => \$runtimeConfig]", $service);
-        self::assertStringContainsString('请先配置租户小程序业务域名后再提交体验版', $service);
+        self::assertStringContainsString('MiniProgramDomainService::host($tenantId)', $service);
     }
 
     public function testLegacyMiniProgramManagementEndpointsRemainCompatibleDuringRollingUpgrade(): void
