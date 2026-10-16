@@ -2345,11 +2345,13 @@ class AigcCanvasService
             ->toArray();
 
         $runByNode = [];
+        $seenNodes = [];
         foreach ($runs as $run) {
             $nodeId = trim((string)($run['node_id'] ?? ''));
-            if ($nodeId === '' || isset($runByNode[$nodeId])) {
+            if ($nodeId === '' || isset($seenNodes[$nodeId])) {
                 continue;
             }
+            $seenNodes[$nodeId] = true;
             $formatted = self::formatRun($run, true);
             if ((string)($formatted['status'] ?? '') !== 'success') {
                 continue;
@@ -2382,6 +2384,9 @@ class AigcCanvasService
                 continue;
             }
             $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
+            if (!self::canRestoreProjectRun($metadata, $run)) {
+                continue;
+            }
             // An explicit collection, including an empty one, is authoritative.
             if (isset($metadata['mediaItems']) && is_array($metadata['mediaItems'])) {
                 continue;
@@ -2427,6 +2432,17 @@ class AigcCanvasService
         }
 
         return $nodes;
+    }
+
+    private static function canRestoreProjectRun(array $metadata, array $run): bool
+    {
+        $status = strtolower(trim((string)($metadata['status'] ?? '')));
+        // Live/failed/canceled attempts belong to their own task, not any older success.
+        if (!empty($metadata['pending']) || in_array($status, ['running', 'queued', 'pending', 'submitted', 'loading', 'processing', 'failed', 'error', 'canceled', 'cancelled'], true)) {
+            return false;
+        }
+        $taskId = (string)($metadata['taskId'] ?? $metadata['task_id'] ?? '');
+        return $taskId === '' || $taskId === (string)($run['source_task_id'] ?? '');
     }
 
     private static function runTypeMatchesNodeType(string $runType, string $nodeType): bool
@@ -2756,6 +2772,9 @@ class AigcCanvasService
     private static function normalizeRunStatus(string $status, array $result): string
     {
         $status = strtolower(trim($status));
+        if (in_array($status, ['canceled', 'cancelled', 'cancel'], true)) {
+            return 'canceled';
+        }
         if (in_array($status, ['failed', 'error'], true)) {
             return 'failed';
         }
