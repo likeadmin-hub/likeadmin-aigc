@@ -9,6 +9,10 @@ final class CanvasProjectCompatibility
 {
     public static function upgrade(array $project): array
     {
+        $preview=self::adapt($project);
+        $changed=false;
+        foreach (['nodes_json','edges_json','viewport_json'] as $key) if (self::json($project[$key] ?? [])!==$preview[$key]) {$changed=true;break;}
+        if (!$changed) return $project;
         return Db::transaction(static function () use ($project): array {
             $row = AigcCanvasProject::where(['id'=>$project['id'], 'tenant_id'=>$project['tenant_id'], 'user_id'=>$project['user_id'], 'delete_time'=>0])->lock(true)->findOrEmpty();
             if ($row->isEmpty()) throw new \InvalidArgumentException('项目不存在');
@@ -27,7 +31,7 @@ final class CanvasProjectCompatibility
                 $viewport['agentRevision'] = (int)($viewport['agentRevision'] ?? 0) + 1;
                 $changes['viewport_json'] = $viewport;
                 // Keep project identity, timestamps, storage and original node metadata.
-                $row->save($changes);
+                $row->isAutoWriteTimestamp(false)->save($changes);
                 return $row->toArray();
             }
             return $original;
