@@ -41,6 +41,19 @@ try {
             $project = Canvas::saveProject($tenant,$user,$wire);
             $check((int)$project['viewport']['saveRevision'] === (int)$saved['viewport']['saveRevision'] + 1, 'Own sequential save did not advance revision');
         }
+        // Transport retries must acknowledge one exact write, including historical projects.
+        $retryWire = ['id'=>$project['id'],'name'=>'retry fixture','nodes'=>$project['nodes'],'edges'=>$project['edges'],'viewport'=>$project['viewport'],'save_request_id'=>'retry_test_'.str_repeat((string)$project['id'],16)];
+        $once=Canvas::saveProject($tenant,$user,$retryWire);
+        $twice=Canvas::saveProject($tenant,$user,$retryWire);
+        $check($once['viewport']['saveRevision']===$twice['viewport']['saveRevision'],'Lost-response retry saved twice');
+        $changed=$retryWire;$changed['name']='changed payload';$rejected=false;
+        try{Canvas::saveProject($tenant,$user,$changed);}catch(Exception $e){$rejected=str_contains($e->getMessage(),'内容已变化');}
+        $check($rejected,'Reused request id accepted different content');
+        $other=$once;unset($other['save_request_id']);$other['name']='another editor';
+        $project=Canvas::saveProject($tenant,$user,$other);$rejected=false;
+        try{Canvas::saveProject($tenant,$user,$retryWire);}catch(Exception $e){$rejected=str_contains($e->getMessage(),'其他标签页');}
+        $check($rejected,'Old receipt rebased over another editor');
+        $check(Canvas::projectDetail($tenant,$user,$project['id'])['name']==='another editor','Retry undid another editor');
         // Two tabs share a snapshot, including inactive pages. Only one may commit it.
         $project['viewport']['pages']=[['id'=>'canvas_1','name'=>'Original','nodeIds'=>['a']],['id'=>'second','name'=>'Second','nodeIds'=>['b']]];
         $project=Canvas::saveProject($tenant,$user,$project);
