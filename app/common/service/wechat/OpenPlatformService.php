@@ -1162,7 +1162,43 @@ class OpenPlatformService
         return $authorizer;
     }
 
-    public static function releaseVersion(int $tenantId, int $id): array { $lock = SubmitLockService::acquire('wechat.version.release.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); if ((string)$row['audit_status'] !== 'approved') throw new \RuntimeException('审核尚未通过'); if ((string)$row['release_status'] === 'released') return $row->toArray(); self::request('wxa/release', [], 'release.publish', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['release_status' => 'released', 'update_time' => time()]); return $row->toArray(); } finally { SubmitLockService::release($lock); } }
+    public static function releaseVersion(int $tenantId, int $id): array
+    {
+        [$row, $authorizer] = self::versionForTenant($tenantId, $id);
+        // WeChat releases the account's latest approved audit, not a local row ID.
+        $lock = SubmitLockService::acquire('wechat.version.release.authorizer.' . (int)$authorizer['id'], $tenantId, 0);
+        try {
+            [$row, $authorizer] = self::versionForTenant($tenantId, $id);
+            if ((string)$row['audit_status'] !== 'approved') throw new \RuntimeException('审核尚未通过');
+            if ((string)$row['release_status'] === 'released') return $row->toArray();
+            $latestApprovedId = (int)WechatMnpVersion::withoutGlobalScope()
+                ->where(['tenant_id' => $tenantId, 'authorizer_id' => (int)$authorizer['id'], 'upload_mode' => 'template', 'audit_status' => 'approved'])
+                ->order('id desc')->value('id');
+            if ($latestApprovedId !== $id) throw new \RuntimeException('此记录不是最近一次审核通过的版本，请刷新后发布最新审核版本');
+
+            $token = self::authorizerToken((int)$authorizer['id']);
+            try {
+                self::request('wxa/release', [], 'release.publish', ['access_token' => $token], $tenantId, (int)$authorizer['id']);
+            } catch (\Throwable $e) {
+                if ($e->getCode() !== 85052) throw $e;
+                // A successful remote release may outlive a local save failure,
+                // or may have been performed in the WeChat console. Verify its
+                // identity before recovering this record, including reused versions.
+                $result = self::request('wxa/getversioninfo', [], 'release.version.info', ['access_token' => $token], $tenantId, (int)$authorizer['id']);
+                $online = (array)($result['release_info'] ?? []);
+                if (trim((string)($online['release_version'] ?? '')) === ''
+                    || trim((string)($online['release_version'] ?? '')) !== trim((string)$row['version'])
+                    || !array_key_exists('release_desc', $online)
+                    || (string)$online['release_desc'] !== (string)$row['description']
+                    || (int)($online['release_time'] ?? 0) <= 0
+                    || (int)($online['release_time'] ?? 0) < (int)$row['create_time']) {
+                    throw new \RuntimeException('微信提示已发布，但线上版本与当前记录不一致，未更新本地发布状态；请核对微信线上版本及最新审核记录', 85052, $e);
+                }
+            }
+            $row->save(['release_status' => 'released', 'update_time' => time()]);
+            return $row->toArray();
+        } finally { SubmitLockService::release($lock); }
+    }
     public static function rollbackVersion(int $tenantId, int $id, int $fromId = 0): array { $lock = SubmitLockService::acquire('wechat.version.rollback.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); if ((string)$row['release_status'] !== 'released') throw new \RuntimeException('当前版本未发布'); self::request('wxa/revertcoderelease', [], 'release.rollback', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['release_status' => 'rolled_back', 'rollback_from_id' => $fromId, 'update_time' => time()]); return $row->toArray(); } finally { SubmitLockService::release($lock); } }
 
     private static function request(string $path, array $payload, string $apiName, array $query = [], int $tenantId = 0, int $authorizerId = 0, string $method = 'POST'): array
@@ -1175,7 +1211,7 @@ class OpenPlatformService
             $response = $method === 'GET'
                 ? Requests::get($url, $headers, ['timeout' => 30])
                 : Requests::post($url, $headers, self::encodeWechatRequestBody($payload), ['timeout' => 30]);
-            $body = json_decode((string)$response->body, true); if (!is_array($body)) throw new \RuntimeException('微信接口返回格式错误'); $code = (int)($body['errcode'] ?? 0); self::logApi($requestId, $apiName, $code, $started, $code === 0 ? 'success' : 'failed', $tenantId, $authorizerId); if ($code !== 0) throw new \RuntimeException('微信接口调用失败：' . (string)($body['errmsg'] ?? $code)); return $body;
+            $body = json_decode((string)$response->body, true); if (!is_array($body)) throw new \RuntimeException('微信接口返回格式错误'); $code = (int)($body['errcode'] ?? 0); self::logApi($requestId, $apiName, $code, $started, $code === 0 ? 'success' : 'failed', $tenantId, $authorizerId); if ($code !== 0) throw new \RuntimeException('微信接口调用失败：' . (string)($body['errmsg'] ?? $code), $code); return $body;
         } catch (\Throwable $e) { self::logApi($requestId, $apiName, -1, $started, 'failed', $tenantId, $authorizerId); throw $e; }
     }
 
