@@ -2,8 +2,10 @@
 
 namespace Qiniu\Storage;
 
+use Qiniu\Config;
 use Qiniu\Http\Error;
 use Qiniu\Http\Client;
+use Qiniu\Http\RequestOptions;
 
 final class FormUploader
 {
@@ -14,12 +16,12 @@ final class FormUploader
      * @param string $upToken 上传凭证
      * @param string $key 上传文件名
      * @param string $data 上传二进制流
-     * @param string $config 上传配置
+     * @param Config $config 上传配置
      * @param string $params 自定义变量，规格参考
-     *                    https://developer.qiniu.com/kodo/manual/1235/vars#xvar
+     *                    {@link https://developer.qiniu.com/kodo/manual/1235/vars#xvar}
      * @param string $mime 上传数据的mimeType
-     *
      * @param string $fname
+     * @param RequestOptions $reqOpt
      *
      * @return array    包含已上传文件的信息，类似：
      *                                              [
@@ -34,8 +36,12 @@ final class FormUploader
         $config,
         $params,
         $mime,
-        $fname
+        $fname,
+        $reqOpt = null
     ) {
+        if ($reqOpt == null) {
+            $reqOpt = new RequestOptions();
+        }
         $fields = array('token' => $upToken);
         if ($key === null) {
         } else {
@@ -56,9 +62,22 @@ final class FormUploader
             return array(null, $err);
         }
 
-        $upHost = $config->getUpHost($accessKey, $bucket);
+        list($upHost, $err) = $config->getUpHostV2($accessKey, $bucket, $reqOpt);
+        if ($err != null) {
+            return array(null, $err);
+        }
 
-        $response = Client::multipartPost($upHost, $fields, 'file', $fname, $data, $mime);
+
+        $response = Client::multipartPost(
+            $upHost,
+            $fields,
+            'file',
+            $fname,
+            $data,
+            $mime,
+            array(),
+            $reqOpt
+        );
         if (!$response->ok()) {
             return array(null, new Error($upHost, $response));
         }
@@ -71,7 +90,7 @@ final class FormUploader
      * @param string $upToken 上传凭证
      * @param string $key 上传文件名
      * @param string $filePath 上传文件的路径
-     * @param string $config 上传配置
+     * @param Config $config 上传配置
      * @param string $params 自定义变量，规格参考
      *                    https://developer.qiniu.com/kodo/manual/1235/vars#xvar
      * @param string $mime 上传数据的mimeType
@@ -88,9 +107,12 @@ final class FormUploader
         $filePath,
         $config,
         $params,
-        $mime
+        $mime,
+        $reqOpt = null
     ) {
-
+        if ($reqOpt == null) {
+            $reqOpt = new RequestOptions();
+        }
 
         $fields = array('token' => $upToken, 'file' => self::createFile($filePath, $mime));
         if ($key !== null) {
@@ -112,9 +134,12 @@ final class FormUploader
             return array(null, $err);
         }
 
-        $upHost = $config->getUpHost($accessKey, $bucket);
+        list($upHost, $err) = $config->getUpHostV2($accessKey, $bucket, $reqOpt);
+        if ($err != null) {
+            return array(null, $err);
+        }
 
-        $response = Client::post($upHost, $fields, $headers);
+        $response = Client::post($upHost, $fields, $headers, $reqOpt);
         if (!$response->ok()) {
             return array(null, new Error($upHost, $response));
         }
