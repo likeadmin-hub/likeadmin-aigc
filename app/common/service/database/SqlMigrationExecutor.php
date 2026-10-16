@@ -22,7 +22,13 @@ class SqlMigrationExecutor
             PcWechatMigration::run($prefix, $connection);
             return;
         }
+        if (!class_exists(CanvasConversationSchema::class)) require_once __DIR__.'/CanvasConversationSchema.php';
+        $content = CanvasConversationSchema::expand($content);
         foreach (self::split($content) as $sql) {
+            if (CanvasConversationSchema::isOwnerSql($sql)) {
+                CanvasConversationSchema::ensureOwner($prefix, $connection);
+                continue;
+            }
             if (!class_exists(RuntimeAppSalePriceInheritance::class)) require_once __DIR__.'/RuntimeAppSalePriceInheritance.php';
             $salePriceTable = RuntimeAppSalePriceInheritance::target($sql);
             if ($salePriceTable !== null) {

@@ -8,6 +8,8 @@ final class RuntimeMigrationPlan
 {
     public static function build(string $content): array
     {
+        if (!class_exists(CanvasConversationSchema::class)) require_once __DIR__.'/CanvasConversationSchema.php';
+        $content = CanvasConversationSchema::expand($content);
         $prepare = []; $complete = []; $tables = [];
         if (!class_exists(RuntimeAppSalePriceInheritance::class)) require_once __DIR__.'/RuntimeAppSalePriceInheritance.php';
         foreach (SqlMigrationExecutor::split($content) as $sql) {
@@ -27,6 +29,9 @@ final class RuntimeMigrationPlan
             } elseif (preg_match('/^\s*ALTER\s+TABLE\s+`?la_aigc_video_config`?\s+MODIFY\s+(?:COLUMN\s+)?`?config_json`?\s+MEDIUMTEXT\s*$/iD', $sql)) {
                 // The executor reads the original column/engine and performs only
                 // this reviewed, lossless capacity increase (or a true no-op).
+                $prepare[] = $sql;
+            } elseif (CanvasConversationSchema::isOwnerSql($sql)) {
+                // Only the reviewed owner-index widening is accepted; the executor verifies live metadata.
                 $prepare[] = $sql;
             } elseif (RuntimeAppSalePriceInheritance::target($sql) !== null) {
                 // Exact reviewed nullable-price intent; the executor retains the observed DECIMAL type.
