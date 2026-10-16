@@ -126,6 +126,11 @@ class AigcCanvasService
         $resourceStatus = self::resourceStatus($tenantId);
         $text = self::textConfig($tenantId);
         $marketRouter = CanvasModelRouterService::marketOverview($tenantId);
+        foreach ($marketRouter as $type => &$group) {
+            foreach ($group['options'] as &$option) $option['canvas_parameters'] = CanvasGenerationParameters::definitions($option, $type);
+            unset($option);
+        }
+        unset($group);
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, [
             'app_code' => self::APP_CODE,
             'name' => '无限画布',
@@ -1232,6 +1237,7 @@ class AigcCanvasService
 
     public static function generateImage(int $tenantId, int $userId, array $params): array
     {
+        $params = self::applyAdvancedParameters($tenantId, $params, 'image');
         $params = self::prepareMentionParams($params);
         $modelSelectionExplicit = self::hasExplicitImageModelSelection($params);
         $params['__request_user_id'] = $userId;
@@ -1518,6 +1524,7 @@ class AigcCanvasService
 
     public static function generateVideo(int $tenantId, int $userId, array $params): array
     {
+        $params = self::applyAdvancedParameters($tenantId, $params, 'video');
         $params = self::prepareMentionParams($params);
         $params['__request_user_id'] = $userId;
         $params = \app\common\service\app\aigc_canvas\agent\prompt\VideoPromptSubmissionService::prepareVideoRequest($tenantId, $params);
@@ -1539,6 +1546,7 @@ class AigcCanvasService
 
     public static function generateMusic(int $tenantId, int $userId, array $params): array
     {
+        $params = self::applyAdvancedParameters($tenantId, $params, 'music');
         $params = self::prepareMentionParams($params);
         $params = CanvasModelRouterService::applyToToolInput($tenantId, 'generate_music', $params);
         $started = microtime(true);
@@ -1670,6 +1678,7 @@ class AigcCanvasService
 
     public static function generateText(int $tenantId, int $userId, array $params): array
     {
+        $params = self::applyAdvancedParameters($tenantId, $params, 'text');
         $params = self::prepareMentionParams($params);
         $started = microtime(true);
         $run = self::createRun($tenantId, $userId, $params, 'text', 'power_market_text');
@@ -1688,7 +1697,7 @@ class AigcCanvasService
                 'source_type' => 'canvas_text',
                 'source_id' => (string)($params['node_id'] ?? ''),
             ];
-            foreach (['max_tokens', 'enable_thinking', 'request_timeout_seconds'] as $key) {
+            foreach (['max_tokens', 'enable_thinking', 'request_timeout_seconds', 'model_config'] as $key) {
                 if (array_key_exists($key, $params)) {
                     $llmParams[$key] = $params[$key];
                 }
@@ -1716,6 +1725,7 @@ class AigcCanvasService
 
     public static function streamText(int $tenantId, int $userId, array $params, ?callable $onEvent = null): array
     {
+        $params = self::applyAdvancedParameters($tenantId, $params, 'text');
         $params = self::prepareMentionParams($params);
         $started = microtime(true);
         $run = self::createRun($tenantId, $userId, $params, 'text', 'power_market_text');
@@ -1734,7 +1744,7 @@ class AigcCanvasService
                 'source_type' => (string)($params['source_type'] ?? 'canvas_text'),
                 'source_id' => (string)($params['node_id'] ?? $params['source_id'] ?? ''),
             ];
-            foreach (['max_tokens', 'enable_thinking', 'request_timeout_seconds'] as $key) {
+            foreach (['max_tokens', 'enable_thinking', 'request_timeout_seconds', 'model_config'] as $key) {
                 if (array_key_exists($key, $params)) {
                     $llmParams[$key] = $params[$key];
                 }
@@ -1809,6 +1819,7 @@ class AigcCanvasService
             'tenant_id' => $tenantId,
             'app_code' => self::APP_CODE,
             'provider' => 'power_market',
+                        'canvas_parameters' => CanvasGenerationParameters::definitions($option, 'text'),
         ]);
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -2917,6 +2928,31 @@ class AigcCanvasService
         return $prompt === '' ? $referenceText : $prompt . "\n\n" . $referenceText;
     }
 
+    private static function applyAdvancedParameters(int $tenantId, array $params, string $type): array
+    {
+        if ($type === 'text') unset($params['model_config']);
+        if (empty($params['advanced_params'])) return $params;
+        if ($type === 'text') {
+            $model = MarketTextModelRuntimeService::resolveModel($tenantId, $params['model_code'] ?? $params['model'] ?? '');
+        } else {
+            $options = CanvasModelRouterService::marketOverview($tenantId)[$type]['options'] ?? [];
+            $selection = (string)($params['channel'] ?? $params['model_id'] ?? $params['model'] ?? '');
+            $model = [];
+            foreach ($options as $option) {
+                if (in_array($selection, array_map('strval', [$option['id'] ?? '', $option['value'] ?? '', $option['code'] ?? '']), true)) { $model = $option; break; }
+            }
+            if ($model === []) throw new Exception('所选模型已不可用，请重新选择');
+            $skuId = (int)($params['market_sku_id'] ?? $params['sku_id'] ?? 0);
+            foreach ((array)($model['skus'] ?? []) as $sku) {
+                if ($skuId > 0 && (int)($sku['market_sku_id'] ?? $sku['sku_id'] ?? 0) === $skuId) {
+                    $model['locked_params'] = array_replace_recursive((array)($model['locked_params'] ?? []), (array)($sku['locked_params'] ?? []));
+                    break;
+                }
+            }
+        }
+        return CanvasGenerationParameters::apply($params, $model, $type);
+    }
+
     private static function normalizeImageParams(array $params, int $tenantId, int $userId): array
     {
         return [
@@ -2937,7 +2973,7 @@ class AigcCanvasService
         $referenceAssets = self::normalizeReferenceAssets(array_merge($params, [
             'reference_images' => $referenceImages,
         ]));
-        return [
+        return array_replace(array_intersect_key($params, array_flip(['seed', 'audio', 'watermark', 'aigc_watermark', 'is_rec', 'wm_position', 'wm_url', 'camera_fixed', 'prompt_extend', 'draft', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt'])), [
             'prompt' => trim((string)($params['prompt'] ?? '')),
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
             'reference_images' => $referenceImages,
@@ -2950,13 +2986,11 @@ class AigcCanvasService
             'duration' => (int)($params['duration'] ?? 0),
             'mode' => (string)($params['mode'] ?? $params['videoMode'] ?? ''),
             'generation_method' => (string)($params['generation_method'] ?? $params['generationMethod'] ?? ''),
-            'generate_audio' => array_key_exists('generateAudio', $params)
-                ? (bool)$params['generateAudio']
-                : null,
+            'generate_audio' => $params['generate_audio'] ?? (array_key_exists('generateAudio', $params) ? (bool)$params['generateAudio'] : null),
             'first_frame_image' => (string)($params['first_frame_image'] ?? ''),
             'last_frame_image' => (string)($params['last_frame_image'] ?? ''),
             'quantity' => max(1, (int)($params['quantity'] ?? 1)),
-        ];
+        ]);
     }
 
     private static function normalizeMusicParams(array $params): array

@@ -3,6 +3,7 @@
 namespace app\common\service\app\aigc_canvas\agent\prompt;
 
 use app\common\service\app\aigc_canvas\AigcCanvasService;
+use app\common\service\app\aigc_video\AigcVideoReferenceAssetService;
 use app\common\service\app\aigc_canvas\agent\model\CanvasModelRouterService;
 
 /** Single compiler and preflight gateway for Canvas video requests. */
@@ -110,7 +111,7 @@ final class VideoPromptSubmissionService
             foreach (['image', 'video', 'audio'] as $type) {
                 $limit = max(0, (int)($option['max_reference_' . $type . 's'] ?? 0));
                 if (count($assets[$type]) > $limit) {
-                    throw new PromptSubmissionException('The selected video model does not support this reference asset count', ['provider_error_code' => 'video_reference_limit_exceeded']);
+                    throw new PromptSubmissionException(sprintf('当前模型最多支持 %d 个参考%s，当前为 %d 个', $limit, ['image' => '图片', 'video' => '视频', 'audio' => '音频'][$type], count($assets[$type])), ['provider_error_code' => 'video_reference_limit_exceeded']);
                 }
             }
         }
@@ -120,7 +121,7 @@ final class VideoPromptSubmissionService
     private static function assertOption(string $field, string $value, array $options, array $input): void
     {
         if ($value === '' || $value === '0' || $options === [] || in_array($value, $options, true)) return;
-        throw new PromptSubmissionException('The selected video model does not support the requested ' . $field, ['provider_error_code' => 'video_' . $field . '_not_supported', 'submitted_prompt_hash' => (string)($input['prompt_hash'] ?? '')]);
+        throw new PromptSubmissionException('当前视频模型不支持所选' . ($field === 'ratio' ? '比例' : '时长'), ['provider_error_code' => 'video_' . $field . '_not_supported', 'submitted_prompt_hash' => (string)($input['prompt_hash'] ?? '')]);
     }
 
     private static function option(array $options, array $input): array
@@ -140,9 +141,9 @@ final class VideoPromptSubmissionService
     private static function assets(array $input): array
     {
         $assets = ['image' => [], 'video' => [], 'audio' => []];
-        foreach ((array)($input['reference_assets'] ?? []) as $asset) if (is_array($asset) && isset($assets[(string)($asset['type'] ?? '')])) $assets[(string)$asset['type']][] = $asset;
-        foreach ((array)($input['reference_images'] ?? $input['image_urls'] ?? []) as $url) if ((string)$url !== '') $assets['image'][] = $url;
-        foreach (['video_urls' => 'video', 'audio_urls' => 'audio'] as $key => $type) foreach ((array)($input[$key] ?? []) as $url) if ((string)$url !== '') $assets[$type][] = $url;
+        foreach (AigcVideoReferenceAssetService::normalize($input, PHP_INT_MAX) as $asset) {
+            $assets[$asset['type']][] = $asset;
+        }
         return $assets;
     }
 
