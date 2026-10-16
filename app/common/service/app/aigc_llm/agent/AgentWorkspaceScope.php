@@ -48,6 +48,18 @@ final class AgentWorkspaceScope
     {
         return AigcLlmSession::where(['tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0]+self::filter('aigc_llm_session'));
     }
+    public static function artifacts($query,int $tenant,int $user)
+    {
+        $filter=self::filter('aigc_llm_session');
+        if(!$filter)return $query;
+        // Works survive deletion of their conversation, including legacy orphan rows.
+        $sessions=\think\facade\Db::name('aigc_llm_session')->where(['tenant_id'=>$tenant,'user_id'=>$user]);
+        if(self::key()==='home'){
+            $ids=$sessions->where('workspace_key','<>','home')->column('id');
+            return $ids?$query->whereNotIn('session_id',$ids):$query;
+        }
+        return $query->whereIn('session_id',$sessions->where($filter)->column('id')?:[0]);
+    }
     public static function assertSession(int $tenant,int $user,int $id): void
     {
         if($id<1||!self::sessions($tenant,$user)->where('id',$id)->find())throw new \InvalidArgumentException('会话不属于当前工作区');

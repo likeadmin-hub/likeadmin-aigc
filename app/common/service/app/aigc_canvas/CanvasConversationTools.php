@@ -51,8 +51,8 @@ final class CanvasConversationTools
                 $target=(string)($input['target_id']??'');
                 if($id===$target||!in_array($target,$ids,true)||!isset($index[$target]))throw new \InvalidArgumentException('请选择当前页面不同的两个节点');
                 $edgeId='agent_edge_'.substr(hash('sha256',$id.':'.$target),0,24);
-                foreach($edges as $edge)if(($edge['source']??'')===$id&&($edge['target']??'')===$target)return ['saved'=>true];
-                $edges[]=['id'=>$edgeId,'source'=>$id,'target'=>$target];return ['saved'=>true];
+                foreach($edges as $edge)if(($edge['fromNodeId']??$edge['source']??'')===$id&&($edge['toNodeId']??$edge['target']??'')===$target)return ['saved'=>true];
+                $edges[]=['id'=>$edgeId,'fromNodeId'=>$id,'toNodeId'=>$target];return ['saved'=>true];
             }
             foreach($nodes as &$node)if($node['id']===$id){
                 if($action==='update_prompt')$node['metadata']['prompt']=mb_substr((string)($input['content']??''),0,10000);
@@ -66,11 +66,16 @@ final class CanvasConversationTools
     {
         if(!AgentWorkspaceScope::fromRun($run)||!in_array($kind,['image','video','audio'],true))return;
         $asset=OpenAssets::detail((int)$run['tenant_id'],(int)$run['user_id'],$file);
-        self::withPage($run,function(array &$nodes,array &$edges,array &$page)use($artifactId,$file,$kind,$title,$asset){
+        self::withPage($run,function(array &$nodes,array &$edges,array &$page)use($run,$artifactId,$file,$kind,$title,$asset){
+            $artifact=AgentStore::owner('artifact',(int)$run['tenant_id'],(int)$run['user_id'])->where('id',$artifactId);
+            $data=AgentStore::json((clone $artifact)->value('data'));
+            if(!empty($data['canvas_node_id']))return [];
             $id='agent_artifact_'.$artifactId;
             foreach($nodes as $node)if($node['id']===$id)return [];
-            $nodes[]=self::node($id,$kind,$title,['status'=>'success','agentFileId'=>$file,'agentArtifactId'=>$artifactId,'sourceUrl'=>$asset['url'],'outputUrl'=>$asset['url'],'content'=>$asset['url'],'isUpload'=>true],count($page['nodeIds']));
-            $page['nodeIds'][]=$id;return [];
+            $nodes[]=self::node($id,$kind,$title,['status'=>'success','agentFileId'=>$file,'agentArtifactId'=>$artifactId,'url'=>$asset['url'],'image'=>$kind==='image'?$asset['url']:'','content'=>$asset['url'],'source'=>'agent','generatedAt'=>time()*1000],count($page['nodeIds']));
+            $page['nodeIds'][]=$id;
+            $artifact->update(['data'=>AgentStore::encode($data+['canvas_node_id'=>$id])]);
+            return [];
         });
     }
     private static function node(string $id,string $type,string $title,array $metadata,int $count,array $position=[]): array
