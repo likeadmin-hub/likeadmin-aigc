@@ -22,7 +22,7 @@ class AgentController extends BaseApiController
             return $call($t,$u);
         });
     }
-    private function handle(callable $call)
+    protected function handle(callable $call)
     {
         try{
             return $this->success('', $this->scoped($call));
