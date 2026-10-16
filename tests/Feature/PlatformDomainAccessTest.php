@@ -3,6 +3,7 @@
 namespace tests\Feature;
 
 use app\common\http\middleware\LikeAdminAllowMiddleware;
+use app\common\service\tenant\TenantDomainAliasService;
 use PHPUnit\Framework\TestCase;
 use think\facade\Config;
 use think\facade\Db;
@@ -53,7 +54,7 @@ final class PlatformDomainAccessTest extends TestCase
     }
 
     /** @dataProvider blockedHostsAndPaths */
-    public function testOtherHostsCannotOpenPlatformPagesOrCallPlatformApis(string $host, string $path): void
+    public function testBoundTenantHostsCannotOpenPlatformPagesOrCallPlatformApis(string $host, string $path): void
     {
         $response = $this->visit($host, $path, ['tenant_id' => 42]);
         self::assertSame(str_starts_with(strtolower($path), 'platformapi') ? 403 : 404, $response->getCode());
@@ -63,7 +64,7 @@ final class PlatformDomainAccessTest extends TestCase
     public static function blockedHostsAndPaths(): array
     {
         $cases = [];
-        foreach (['customer.platform.example.test', 'bound.customer.test', 'legacy.customer.test', 'unknown.test', 'platform.example.test.evil.test'] as $host) {
+        foreach (['customer.platform.example.test', 'bound.customer.test', 'legacy.customer.test', 'customer.console.example.test'] as $host) {
             foreach (['platform', 'platform/login', 'platform/system-service/license', 'platform/index.html', 'platformapi/login/account', 'Platformapi/config/getConfig'] as $path) {
                 $cases[] = [$host, $path];
             }
@@ -71,11 +72,60 @@ final class PlatformDomainAccessTest extends TestCase
         return $cases;
     }
 
-    public function testMissingPlatformHostConfigurationDoesNotOpenBackendOnAnyDomain(): void
+    public function testMissingConfigurationStillBlocksTenantBindingsAndAllowsOtherPlatformHosts(): void
     {
         Config::set(['http_host' => ''], 'project');
         self::assertSame(404, $this->visit('bound.customer.test', 'platform')->getCode());
-        self::assertSame(403, $this->visit('unknown.test', 'platformapi/login/account')->getCode());
+        self::assertTrue($this->visit('unknown.test', 'platformapi/login/account')->getData()['passed']);
+        self::assertSame(403, $this->visit('customer.any-root.test', 'platformapi/login/account')->getCode());
+    }
+
+    public function testUnboundHostsWorkWithoutBeingListedInPlatformConfiguration(): void
+    {
+        foreach (['new-console.example.test', 'unknown.test', 'unassigned.platform.example.test', 'platform.example.test.evil.test'] as $host) {
+            self::assertSame('/platform/', $this->visit($host)->getData());
+            foreach (['platform/login', 'platform/index.html', 'platformapi/config/getConfig'] as $path) {
+                self::assertTrue($this->visit($host, $path)->getData()['passed']);
+            }
+            self::assertSame(42, (int)$this->visit($host, '', ['tenant_id' => 42])->getData()['tenant_id']);
+        }
+    }
+
+    public function testTenantBindingTakesPriorityOverConfiguredPlatformHost(): void
+    {
+        Config::set(['http_host' => 'bound.customer.test'], 'project');
+        self::assertSame(404, $this->visit('bound.customer.test', 'platform/login')->getCode());
+        self::assertSame(403, $this->visit('bound.customer.test', 'platformapi/config/getConfig')->getCode());
+        self::assertSame(42, (int)$this->visit('bound.customer.test')->getData()['tenant_id']);
+    }
+
+    public function testDisabledTenantAndDisabledAliasDoNotBecomePlatformHosts(): void
+    {
+        Db::name('tenant')->where('id', 42)->update(['disable' => 1]);
+        Db::name('tenant_domain_alias')->insert(['id' => 2, 'tenant_id' => 42, 'domain' => 'disabled.customer.test', 'status' => 0]);
+        foreach (['bound.customer.test', 'disabled.customer.test', 'legacy.customer.test', 'customer.platform.example.test'] as $host) {
+            self::assertSame(403, $this->visit($host, 'platformapi/config/getConfig')->getCode());
+        }
+    }
+
+    public function testDisabledAliasRemainsUnavailableToTenantsButReservedFromPlatformAccess(): void
+    {
+        Db::name('tenant_domain_alias')->insert(['id' => 2, 'tenant_id' => 42, 'domain' => 'disabled.customer.test', 'status' => 0]);
+        self::assertTrue(TenantDomainAliasService::findTenantByDomain('disabled.customer.test')->isEmpty());
+        self::assertSame(403, $this->visit('disabled.customer.test', 'platformapi/config/getConfig')->getCode());
+    }
+
+    public function testDeletedAliasIsNoLongerATenantBinding(): void
+    {
+        Db::name('tenant_domain_alias')->insert(['id' => 2, 'tenant_id' => 42, 'domain' => 'removed.customer.test', 'status' => 1, 'delete_time' => time()]);
+        self::assertTrue($this->visit('removed.customer.test', 'platformapi/config/getConfig')->getData()['passed']);
+    }
+
+    public function testMultiplePlatformRootsStillResolveRegisteredTenantSubdomains(): void
+    {
+        foreach (['customer.platform.example.test', 'customer.console.example.test:8443'] as $host) {
+            self::assertSame(42, (int)$this->visit($host, 'tenantapi/config/getConfig')->getData()['tenant_id']);
+        }
     }
 
     public function testForwardedHostCannotTurnTenantRequestsIntoPlatformRequests(): void
