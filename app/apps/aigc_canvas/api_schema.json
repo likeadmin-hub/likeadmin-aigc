@@ -464,6 +464,14 @@
       "scene": "user",
       "need_login": 1,
       "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent/assetRegister",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:asset:register",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
     }
   ]
 }
