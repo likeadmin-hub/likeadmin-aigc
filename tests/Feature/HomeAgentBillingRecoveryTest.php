@@ -98,6 +98,13 @@ namespace {
   check(in_array('user_billing_log_not_idempotent',issueCodes($cid),true),'Audit missed the deliberately removed fixture log');
  });
  fixture(function()use($params){
+  $result=R::generate(1,1,array_replace($params,['app_code'=>'aigc_canvas','source_app_code'=>'aigc_canvas']),static function(){});
+  $cid=(int)$result['consumption_id'];
+  check(AiConsumptionLog::where('id',$cid)->value('app_code')==='aigc_canvas','Canvas text billed to home Agent');
+  $receipt=\app\common\service\app\aigc_llm\agent\AgentTextReceipt::read(1,1,$cid);
+  check($receipt['complete']===true&&$receipt['result']['content']===$result['content'],'Canvas text lost durable recovery receipt');
+ });
+ fixture(function()use($params){
   F::$mode='no_usage';$before=balance();$result=R::generate(1,1,$params,static function(){});
   check(\app\common\service\app\aigc_llm\agent\AgentWorkerHealth::report()['text_review']['pending_usage']>0,'Health missed unsettled text');
   check(balance()===$before&&in_array('text_usage_pending',issueCodes($result['consumption_id']),true),'Missing actual usage charged or escaped audit');

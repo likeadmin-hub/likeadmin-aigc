@@ -9,7 +9,7 @@ final class AgentWorkspaceData
     public static function clear(string $app, int $tenant = 0): void
     {
         if(!in_array($app,['aigc_llm','aigc_canvas'],true))throw new \InvalidArgumentException('Unknown conversation workspace');
-        $exists=static fn($name)=>Db::query('SHOW TABLES LIKE ?',[config('database.connections.mysql.prefix').$name]);
+        $exists=static fn($name)=>Db::query('SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',[config('database.connections.mysql.prefix').$name]);
         if(!$exists('aigc_llm_session'))return;
         $scoped=isset(Db::name('aigc_llm_session')->getFields()['workspace_key']);
         if(!$scoped&&$app==='aigc_canvas')return;
