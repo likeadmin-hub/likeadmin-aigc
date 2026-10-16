@@ -3,7 +3,7 @@
 require dirname(__DIR__, 4) . '/vendor/autoload.php';
 
 use app\common\service\app\aigc_canvas\{CanvasGenerationParameters as Parameters, AigcCanvasService as Canvas, CanvasRequestInput};
-use app\common\service\app\aigc_canvas\agent\prompt\VideoPromptSubmissionService as Preflight;
+use app\common\service\app\aigc_canvas\prompt\VideoPromptSubmissionService as Preflight;
 use app\common\service\power\{MarketVideoRuntimeService as Video, MarketImageModelRuntimeService as Image, MarketMusicAppRuntimeService as Music, MarketTextModelRuntimeService as Text, Q4VideoContract};
 
 $checks = 0;

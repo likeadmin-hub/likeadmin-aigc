@@ -1,10 +1,10 @@
 {
   "code": "aigc_canvas",
   "name": "无限画布",
-  "version": "1.6.14",
+  "version": "1.6.15",
   "require_core": ">=1.0.0",
   "description": "在可视化画布中编排创作，支持项目内多页面、Agent 对话和图片视频等内容生成。",
-  "changelog": "1. Agent 创作支持配置需求后自动创建项目，并在画布右侧继续对话。\n2. 支持按项目和页面保存对话，独立管理画布创作历史与偏好。\n3. 对话面板支持收起、调整宽度和深浅模式，生成结果可写入当前页面。",
+  "changelog": "1. 历史项目支持在当前画布中继续编辑，保留页面、节点、连线和素材。\n2. 历史项目对话可在画布侧栏中继续查看和交流。\n3. 统一画布创作入口，简化后台管理与节点提示词设置。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

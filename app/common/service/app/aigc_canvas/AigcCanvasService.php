@@ -13,9 +13,9 @@ use app\common\service\app\AppDisplayConfigService;
 use app\common\service\ai\ReferenceMentionPromptService;
 use app\common\service\FileService;
 
-use app\common\service\app\aigc_canvas\agent\prompt\PromptSubmissionService;
-use app\common\service\app\aigc_canvas\agent\prompt\PromptSubmissionException;
-use app\common\service\app\aigc_canvas\agent\prompt\ProviderSubmissionValidator;
+use app\common\service\app\aigc_canvas\prompt\PromptSubmissionService;
+use app\common\service\app\aigc_canvas\prompt\PromptSubmissionException;
+use app\common\service\app\aigc_canvas\prompt\ProviderSubmissionValidator;
 use app\common\service\power\MarketImageModelRuntimeService;
 use app\common\service\power\MarketMusicAppRuntimeService;
 use app\common\service\power\MarketNanoBananaAppRuntimeService;
@@ -137,9 +137,7 @@ class AigcCanvasService
             'storage' => 'backend',
             'proxy_enabled' => true,
             'text' => $text,
-            'agent' => self::agentConfig($tenantId),
-            'agent_performance' => self::agentTurnMetrics($tenantId),
-            'agent_health' => self::agentLoopHealth($tenantId),
+            'prompt_enrichment' => self::promptEnrichmentConfig($tenantId),
             'resource_status' => $resourceStatus,
             'market_router' => $marketRouter,
         ]);
@@ -148,231 +146,32 @@ class AigcCanvasService
     public static function saveConfig(int $tenantId, array $params): void
     {
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
-        if (isset($params['agent']) && is_array($params['agent'])) {
-            self::saveAgentConfig($tenantId, $params['agent']);
+        if (isset($params['prompt_enrichment']) && is_array($params['prompt_enrichment'])) {
+            self::savePromptEnrichmentConfig($tenantId, $params['prompt_enrichment']);
         }
     }
 
-    public static function agentConfig(int $tenantId): array
+    /** Native image/video prompt enrichment; independent of conversation execution. */
+    public static function promptEnrichmentConfig(int $tenantId): array
     {
         $text = self::textConfig($tenantId);
         $models = array_values((array)($text['models'] ?? []));
-        $defaultModel = (string)($text['defaults']['model'] ?? ($models[0]['code'] ?? ''));
         $saved = self::savedAgentConfig($tenantId);
-        $savedModel = (string)($saved['router_model_code'] ?? '');
-        $modelCodes = array_map(fn($model) => (string)($model['code'] ?? ''), $models);
-        $routerModelCode = $savedModel !== '' && in_array($savedModel, $modelCodes, true)
-            ? $savedModel
-            : $defaultModel;
-        return [
-            'router_enabled' => (bool)($saved['router_enabled'] ?? true),
-            'agent_loop_enabled' => !array_key_exists('agent_loop_enabled', $saved) || !empty($saved['agent_loop_enabled']),
-            'skill_binding_mode_enabled' => !array_key_exists('skill_binding_mode_enabled', $saved) || !empty($saved['skill_binding_mode_enabled']),
-            'agent_intent_router_enabled' => !empty($saved['agent_intent_router_enabled']),
-            'agent_generic_capability_fallback_enabled' => !array_key_exists('agent_generic_capability_fallback_enabled', $saved) || !empty($saved['agent_generic_capability_fallback_enabled']),
-            // This is intentionally tenant-scoped so visual understanding can be
-            // rolled back independently of the Agent loop and generation stack.
-            'visual_enrichment_enabled' => !array_key_exists('visual_enrichment_enabled', $saved) || !empty($saved['visual_enrichment_enabled']),
-            'agent_stream_enabled' => !array_key_exists('agent_stream_enabled', $saved) || !empty($saved['agent_stream_enabled']),
-            'agent_loop_max_iterations' => max(1, min(6, (int)($saved['agent_loop_max_iterations'] ?? 6))),
-            'agent_loop_timeout_seconds' => max(15, min(300, (int)($saved['agent_loop_timeout_seconds'] ?? 180))),
-            'agent_loop_auto_fallback_enabled' => !array_key_exists('agent_loop_auto_fallback_enabled', $saved) || !empty($saved['agent_loop_auto_fallback_enabled']),
-            'agent_loop_fallback_p95_ms' => max(2000, min(60000, (int)($saved['agent_loop_fallback_p95_ms'] ?? 15000))),
-            'agent_loop_fallback_min_samples' => max(10, min(200, (int)($saved['agent_loop_fallback_min_samples'] ?? 20))),
-            'router_model_code' => $routerModelCode,
-            'router_models' => $models,
-            'router_available' => !empty($text['enabled']) && $routerModelCode !== '',
-            'onboarding' => self::normalizeOnboardingConfig($saved['onboarding'] ?? []),
-            'message' => !empty($text['enabled']) ? '可用' : (string)($text['message'] ?? '暂无可用 Agent 模型'),
-        ];
+        $code = (string)($saved['router_model_code'] ?? '');
+        if (!in_array($code, array_column($models, 'code'), true)) $code = (string)($text['defaults']['model'] ?? ($models[0]['code'] ?? ''));
+        return ['router_enabled' => (bool)($saved['router_enabled'] ?? true), 'router_model_code' => $code,
+            'router_models' => $models, 'router_available' => !empty($text['enabled']) && $code !== ''];
     }
 
-    private static function saveAgentConfig(int $tenantId, array $params): void
+    private static function savePromptEnrichmentConfig(int $tenantId, array $params): void
     {
         $current = AppDisplayConfigService::detail($tenantId, self::APP_CODE);
         $extra = is_array($current['extra'] ?? null) ? $current['extra'] : [];
-        $agent = is_array($extra['agent'] ?? null) ? $extra['agent'] : [];
-        $routerModelCode = trim((string)($params['router_model_code'] ?? ''));
-        if ($routerModelCode !== '') {
-            $modelCodes = array_map(
-                static fn(array $model): string => (string)($model['code'] ?? ''),
-                array_values((array)(self::textConfig($tenantId)['models'] ?? []))
-            );
-            if (!in_array($routerModelCode, $modelCodes, true)) {
-                throw new Exception('所选 Agent 文本模型未上架或当前租户不可用');
-            }
-        }
-        $agent['router_enabled'] = (bool)($params['router_enabled'] ?? true);
-        $agent['router_model_code'] = $routerModelCode;
-        $agent['agent_loop_enabled'] = !isset($params['agent_loop_enabled']) || !empty($params['agent_loop_enabled']);
-        $agent['skill_binding_mode_enabled'] = !isset($params['skill_binding_mode_enabled']) || !empty($params['skill_binding_mode_enabled']);
-        $agent['agent_intent_router_enabled'] = !empty($params['agent_intent_router_enabled']);
-        $agent['agent_generic_capability_fallback_enabled'] = !isset($params['agent_generic_capability_fallback_enabled']) || !empty($params['agent_generic_capability_fallback_enabled']);
-        $agent['visual_enrichment_enabled'] = !isset($params['visual_enrichment_enabled']) || !empty($params['visual_enrichment_enabled']);
-        $agent['agent_stream_enabled'] = !isset($params['agent_stream_enabled']) || !empty($params['agent_stream_enabled']);
-        $agent['agent_loop_max_iterations'] = max(1, min(6, (int)($params['agent_loop_max_iterations'] ?? 6)));
-        $agent['agent_loop_timeout_seconds'] = max(15, min(300, (int)($params['agent_loop_timeout_seconds'] ?? 180)));
-        $agent['agent_loop_auto_fallback_enabled'] = !isset($params['agent_loop_auto_fallback_enabled']) || !empty($params['agent_loop_auto_fallback_enabled']);
-        $agent['agent_loop_fallback_p95_ms'] = max(2000, min(60000, (int)($params['agent_loop_fallback_p95_ms'] ?? 15000)));
-        $agent['agent_loop_fallback_min_samples'] = max(10, min(200, (int)($params['agent_loop_fallback_min_samples'] ?? 20)));
-        if (isset($params['onboarding']) && is_array($params['onboarding'])) {
-            $agent['onboarding'] = self::normalizeOnboardingConfig($params['onboarding']);
-        }
-        $extra['agent'] = $agent;
-        AppDisplayConfigService::save($tenantId, self::APP_CODE, array_merge($current, [
-            'extra' => $extra,
-        ]));
-    }
-
-    /**
-     * Rolling operational signals for the Agent Loop rollout. This deliberately
-     * exposes aggregate timings only, never supplier/SKU information.
-     */
-    public static function agentTurnMetrics(int $tenantId, int $days = 7): array
-    {
-        $firstStatusAvailable = true;
-        $queryRows = static function (string $fields) use ($tenantId, $days): array {
-            return Db::name('aigc_canvas_agent_turn')
-                ->where('tenant_id', $tenantId)
-                ->where('delete_time', 0)
-                // Health decisions must be based on the new Agent Loop only.
-                // Legacy compatibility turns are tracked separately and must not
-                // either hide or perpetuate the health of the loop being rolled out.
-                ->whereIn('execution_mode', ['agent_loop', 'agent_loop_probe'])
-                ->where('create_time', '>=', time() - max(1, min(30, $days)) * 86400)
-                ->field($fields)
-                ->limit(5000)
-                ->select()
-                ->toArray();
-        };
-        try {
-            $rows = $queryRows('status,execution_mode,iteration_count,create_time,first_status_at_ms,first_token_at,started_at_ms,first_token_at_ms,completed_at');
-        } catch (\Throwable) {
-            try {
-                // Existing tenants receive the additive timing field through the
-                // app migration. Keep their existing token metrics readable until
-                // that migration has been applied.
-                $rows = $queryRows('status,execution_mode,iteration_count,create_time,first_token_at,started_at_ms,first_token_at_ms,completed_at');
-                $firstStatusAvailable = false;
-            } catch (\Throwable) {
-                return ['available' => false, 'window_days' => $days, 'total' => 0];
-            }
-        }
-        $firstStatus = [];
-        $firstToken = [];
-        $iterations = [];
-        $modeCounts = [];
-        $success = 0;
-        $failed = 0;
-        foreach ($rows as $row) {
-            $status = (string)($row['status'] ?? '');
-            $mode = (string)($row['execution_mode'] ?? 'unknown');
-            $modeCounts[$mode] = ($modeCounts[$mode] ?? 0) + 1;
-            if ($status === 'success') {
-                $success++;
-            } elseif ($status === 'failed') {
-                $failed++;
-            }
-            $created = (int)($row['create_time'] ?? 0);
-            $token = (int)($row['first_token_at'] ?? 0);
-            $startedMs = (int)($row['started_at_ms'] ?? 0);
-            $statusMs = (int)($row['first_status_at_ms'] ?? 0);
-            $tokenMs = (int)($row['first_token_at_ms'] ?? 0);
-            if ($startedMs > 0 && $statusMs >= $startedMs) {
-                $firstStatus[] = max(0, $statusMs - $startedMs);
-            }
-            if ($startedMs > 0 && $tokenMs >= $startedMs) {
-                $firstToken[] = max(0, $tokenMs - $startedMs);
-            } elseif ($created > 0 && $token >= $created) {
-                $firstToken[] = max(0, ($token - $created) * 1000);
-            }
-            $iterations[] = max(0, (int)($row['iteration_count'] ?? 0));
-        }
-        sort($firstStatus, SORT_NUMERIC);
-        sort($firstToken, SORT_NUMERIC);
-        $total = count($rows);
-        $terminalTotal = $success + $failed;
-        $firstStatusCount = count($firstStatus);
-        $firstTokenCount = count($firstToken);
-        $firstStatusP95 = $firstStatusCount > 0 ? $firstStatus[(int)max(0, ceil($firstStatusCount * 0.95) - 1)] : 0;
-        $p95 = $firstTokenCount > 0 ? $firstToken[(int)max(0, ceil($firstTokenCount * 0.95) - 1)] : 0;
-        return [
-            'available' => true,
-            'window_days' => $days,
-            'total' => $total,
-            'terminal_total' => $terminalTotal,
-            'success_total' => $success,
-            'failed_total' => $failed,
-            'success_rate' => $terminalTotal > 0 ? round($success * 100 / $terminalTotal, 2) : 0,
-            'first_status_available' => $firstStatusAvailable,
-            'first_status_sample_count' => $firstStatusCount,
-            'first_status_p95_ms' => $firstStatusP95,
-            'first_status_avg_ms' => $firstStatusCount > 0 ? (int)round(array_sum($firstStatus) / $firstStatusCount) : 0,
-            'first_token_sample_count' => $firstTokenCount,
-            'first_token_p95_ms' => $p95,
-            'first_token_avg_ms' => $firstTokenCount > 0 ? (int)round(array_sum($firstToken) / $firstTokenCount) : 0,
-            'avg_iterations' => $total > 0 ? round(array_sum($iterations) / $total, 2) : 0,
-            'execution_modes' => $modeCounts,
-        ];
-    }
-
-    public static function agentLoopHealth(int $tenantId, ?array $config = null): array
-    {
-        $config = $config ?: self::agentConfig($tenantId);
-        $metrics = self::agentTurnMetrics($tenantId);
-        $minimum = (int)($config['agent_loop_fallback_min_samples'] ?? 20);
-        $limit = (int)($config['agent_loop_fallback_p95_ms'] ?? 15000);
-        $samples = (int)($metrics['first_token_sample_count'] ?? 0);
-        $p95 = (int)($metrics['first_token_p95_ms'] ?? 0);
-        if (empty($metrics['available']) || $samples < $minimum) {
-            return [
-                'status' => 'warming',
-                'fallback' => false,
-                'message' => '样本不足，继续收集新 Agent 回合数据。',
-                'metrics' => $metrics,
-            ];
-        }
-        $slow = $p95 > $limit;
-        $unstable = (int)($metrics['terminal_total'] ?? 0) >= $minimum && (float)($metrics['success_rate'] ?? 100) < 50;
-        if ($slow || $unstable) {
-            return [
-                'status' => 'degraded',
-                // The compatibility router does not make an upstream text model
-                // faster. Falling back because of latency therefore hides the
-                // new Agent and prevents it from collecting recovery samples.
-                // Reserve automatic fallback for proven execution instability.
-                'fallback' => $unstable && !empty($config['agent_loop_auto_fallback_enabled']),
-                'requires_attention' => $slow,
-                'message' => $slow
-                    ? '首响应延迟超过灰度阈值，保持 Agent Loop 并记录诊断数据。'
-                    : '回合成功率低于灰度阈值，已切换到兼容链路。',
-                'metrics' => $metrics,
-            ];
-        }
-        return ['status' => 'healthy', 'fallback' => false, 'message' => '新 Agent Loop 运行正常。', 'metrics' => $metrics];
-    }
-
-    public static function onboardingConfig(int $tenantId): array
-    {
-        $saved = self::savedAgentConfig($tenantId);
-        return self::normalizeOnboardingConfig($saved['onboarding'] ?? []);
-    }
-
-    private static function normalizeOnboardingConfig($config): array
-    {
-        $config = is_array($config) ? $config : [];
-        $agentName = trim((string)($config['agent_name'] ?? ''));
-        $welcomeText = trim((string)($config['welcome_text'] ?? ''));
-        $capabilityKeys = self::normalizeStringList($config['capability_skill_keys'] ?? []);
-        $quickPrompts = self::normalizeStringList($config['quick_prompts'] ?? []);
-        return [
-            'agent_name' => mb_substr($agentName !== '' ? $agentName : 'Canvas Agent', 0, 80, 'UTF-8'),
-            'welcome_text' => mb_substr($welcomeText !== '' ? $welcomeText : '你好，我可以帮你快速生成图片、海报、视频、脚本和画布内容。', 0, 500, 'UTF-8'),
-            'capability_skill_keys' => array_slice(array_values(array_unique($capabilityKeys)), 0, 12),
-            'quick_prompts' => array_slice(array_values(array_unique($quickPrompts)), 0, 12),
-            'show_on_empty_thread' => !isset($config['show_on_empty_thread']) || !empty($config['show_on_empty_thread']),
-            'allow_llm_rewrite' => !empty($config['allow_llm_rewrite']),
-        ];
+        $code = trim((string)($params['router_model_code'] ?? ''));
+        if ($code !== '' && !in_array($code, array_column(self::promptEnrichmentConfig($tenantId)['router_models'], 'code'), true)) throw new Exception('所选文本模型未上架或当前租户不可用');
+        // Preserve historical settings as data; no retired engine consumes them.
+        $extra['agent'] = array_replace((array)($extra['agent'] ?? []), ['router_enabled' => (bool)($params['router_enabled'] ?? true), 'router_model_code' => $code]);
+        AppDisplayConfigService::save($tenantId, self::APP_CODE, array_merge($current, ['extra' => $extra]));
     }
 
     private static function savedAgentConfig(int $tenantId): array
@@ -427,7 +226,14 @@ class AigcCanvasService
         if ($project->isEmpty()) {
             throw new Exception('项目不存在');
         }
-        return self::formatProject($project->toArray(), true);
+        $row = CanvasProjectCompatibility::upgrade($project->toArray());
+        $warnings=[];
+        try { CanvasHistoryImportService::importProject($tenantId, (int)$row['user_id'], $row); }
+        catch (\Throwable $e) {
+            \think\facade\Log::warning('Canvas history import deferred for project '.$id.': '.get_class($e));
+            $warnings[]='历史对话暂未完成适配，项目内容仍可使用，请稍后重试。';
+        }
+        return self::formatProject($row, true) + ['compatibility_warnings'=>$warnings];
     }
 
     public static function createProject(int $tenantId, int $userId, array $params): array
@@ -701,386 +507,6 @@ class AigcCanvasService
             'video_run_total' => $video,
             'music_run_total' => $music,
             'recent_run_time' => $recentRunTime,
-        ] + self::agentOperationStats($tenantId);
-    }
-
-    private static function agentOperationStats(int $tenantId = 0): array
-    {
-        $empty = [
-            'agent_run_total' => 0,
-            'agent_run_success' => 0,
-            'agent_run_failed' => 0,
-            'agent_success_rate' => 0,
-            'agent_clarification_total' => 0,
-            'agent_clarification_rate' => 0,
-            'agent_clarification_completion_rate' => 0,
-            'agent_cancellation_rate' => 0,
-            'agent_skill_switch_rate' => 0,
-            'skill_hit_stats' => [],
-            'agent_step_stats' => [],
-            'agent_tool_stats' => [],
-            'failure_reasons' => [],
-            'recent_failures' => [],
-        ];
-        try {
-            $agentRunQuery = Db::name('aigc_canvas_agent_run')->where('delete_time', 0);
-            $stepQuery = Db::name('aigc_canvas_agent_step');
-            $toolQuery = Db::name('aigc_canvas_agent_tool_call')->where('delete_time', 0);
-            $canvasRunQuery = Db::name('aigc_canvas_run')->where('delete_time', 0);
-            if ($tenantId > 0) {
-                $agentRunQuery->where('tenant_id', $tenantId);
-                $stepQuery->where('tenant_id', $tenantId);
-                $toolQuery->where('tenant_id', $tenantId);
-                $canvasRunQuery->where('tenant_id', $tenantId);
-            }
-
-            $agentRuns = (clone $agentRunQuery)
-                ->field('status,count(*) as total')
-                ->group('status')
-                ->select()
-                ->toArray();
-            $agentTotal = 0;
-            $agentSuccess = 0;
-            $agentFailed = 0;
-            foreach ($agentRuns as $row) {
-                $count = (int)($row['total'] ?? 0);
-                $agentTotal += $count;
-                if ((string)($row['status'] ?? '') === 'success') {
-                    $agentSuccess += $count;
-                }
-                if ((string)($row['status'] ?? '') === 'failed') {
-                    $agentFailed += $count;
-                }
-            }
-            $skillAnalytics = self::agentSkillAnalytics($tenantId);
-
-            $stepStats = (clone $stepQuery)
-                ->field('step_type,status,count(*) as total')
-                ->group('step_type,status')
-                ->order(['step_type' => 'asc'])
-                ->select()
-                ->toArray();
-            $toolStats = (clone $toolQuery)
-                ->field('tool_code,status,count(*) as total')
-                ->fieldRaw('AVG(CASE WHEN finished_at > started_at AND started_at > 0 THEN (finished_at - started_at) ELSE NULL END) AS avg_seconds')
-                ->group('tool_code,status')
-                ->order(['tool_code' => 'asc'])
-                ->select()
-                ->toArray();
-            $failureReasons = (clone $canvasRunQuery)
-                ->where('status', 'failed')
-                ->where('error', '<>', '')
-                ->field('LEFT(error, 120) as reason,count(*) as total')
-                ->group('reason')
-                ->order('total', 'desc')
-                ->limit(10)
-                ->select()
-                ->toArray();
-            $recentFailures = (clone $canvasRunQuery)
-                ->where('status', 'failed')
-                ->field('id,run_type,prompt,error,update_time,source_app_code,source_task_id')
-                ->order('update_time', 'desc')
-                ->limit(8)
-                ->select()
-                ->toArray();
-
-            return [
-                'agent_run_total' => $agentTotal,
-                'agent_run_success' => $agentSuccess,
-                'agent_run_failed' => $agentFailed,
-                'agent_success_rate' => $agentTotal > 0 ? round($agentSuccess / $agentTotal * 100, 2) : 0,
-                'agent_clarification_total' => (int)($skillAnalytics['clarification_total'] ?? 0),
-                'agent_clarification_rate' => (float)($skillAnalytics['clarification_rate'] ?? 0),
-                'agent_clarification_completion_rate' => (float)($skillAnalytics['clarification_completion_rate'] ?? 0),
-                'agent_cancellation_rate' => (float)($skillAnalytics['cancellation_rate'] ?? 0),
-                'agent_skill_switch_rate' => (float)($skillAnalytics['skill_switch_rate'] ?? 0),
-                'skill_hit_stats' => (array)($skillAnalytics['skill_hit_stats'] ?? []),
-                'agent_step_stats' => array_map([self::class, 'formatStatRow'], $stepStats),
-                'agent_tool_stats' => array_map([self::class, 'formatToolStatRow'], $toolStats),
-                'failure_reasons' => array_map([self::class, 'formatStatRow'], $failureReasons),
-                'recent_failures' => array_map([self::class, 'formatRecentFailure'], $recentFailures),
-            ];
-        } catch (\Throwable) {
-            return $empty;
-        }
-    }
-
-    private static function agentSkillAnalytics(int $tenantId = 0): array
-    {
-        $query = Db::name('aigc_canvas_agent_message')
-            ->where('delete_time', 0)
-            ->where('role', 'assistant');
-        if ($tenantId > 0) {
-            $query->where('tenant_id', $tenantId);
-        }
-        $rows = $query
-            ->field('id,thread_id,status,content_json,create_time')
-            ->order('id', 'asc')
-            ->limit(5000)
-            ->select()
-            ->toArray();
-        $stats = [];
-        $total = 0;
-        $clarificationTotal = 0;
-        $clarificationCompleted = 0;
-        $canceledTotal = 0;
-        $skillSwitches = 0;
-        $lastSkillByThread = [];
-        $pendingClarificationByThread = [];
-        foreach ($rows as $row) {
-            $json = self::normalizeRunPayload($row['content_json'] ?? []);
-            $decision = is_array($json['task_decision'] ?? null) ? $json['task_decision'] : [];
-            $skillKey = trim((string)($json['skill_key'] ?? $decision['selected_skill_key'] ?? ''));
-            $skillCode = trim((string)($json['skill_code'] ?? ''));
-            if ($skillKey === '' && $skillCode === '') {
-                continue;
-            }
-            $key = $skillKey !== '' ? $skillKey : $skillCode;
-            if ($key === '' || $key === 'chat') {
-                continue;
-            }
-            if (!isset($stats[$key])) {
-                $stats[$key] = [
-                    'skill_key' => $skillKey,
-                    'skill_code' => $skillCode,
-                    'total' => 0,
-                    'success_total' => 0,
-                    'failed_total' => 0,
-                    'clarification_total' => 0,
-                    'confidence_sum' => 0,
-                    'confidence_count' => 0,
-                    'recent_time' => 0,
-                ];
-            }
-            $stats[$key]['total']++;
-            $total++;
-            $threadId = (int)($row['thread_id'] ?? 0);
-            if ($threadId > 0 && isset($lastSkillByThread[$threadId]) && $lastSkillByThread[$threadId] !== $key) {
-                $skillSwitches++;
-            }
-            if ($threadId > 0) {
-                $lastSkillByThread[$threadId] = $key;
-            }
-            if ((string)($row['status'] ?? '') === 'success') {
-                $stats[$key]['success_total']++;
-            }
-            if ((string)($row['status'] ?? '') === 'failed') {
-                $stats[$key]['failed_total']++;
-            }
-            $needsClarification = (string)($json['next_action'] ?? '') === 'clarify'
-                || trim((string)($json['clarify_question'] ?? '')) !== ''
-                || !empty($json['missing_slots']);
-            if ($needsClarification) {
-                $stats[$key]['clarification_total']++;
-                $clarificationTotal++;
-                if ($threadId > 0) {
-                    $pendingClarificationByThread[$threadId] = true;
-                }
-            } elseif ($threadId > 0 && !empty($pendingClarificationByThread[$threadId]) && (string)($row['status'] ?? '') === 'success') {
-                $clarificationCompleted++;
-                unset($pendingClarificationByThread[$threadId]);
-            }
-            if ((string)($row['status'] ?? '') === 'canceled') {
-                $canceledTotal++;
-            }
-            if (isset($json['confidence']) && is_numeric($json['confidence'])) {
-                $stats[$key]['confidence_sum'] += (float)$json['confidence'];
-                $stats[$key]['confidence_count']++;
-            }
-            $stats[$key]['recent_time'] = max((int)$stats[$key]['recent_time'], (int)($row['create_time'] ?? 0));
-        }
-        $items = array_values(array_map(static function (array $item): array {
-            $total = max(1, (int)$item['total']);
-            return [
-                'skill_key' => (string)($item['skill_key'] ?: $item['skill_code']),
-                'skill_code' => (string)$item['skill_code'],
-                'total' => (int)$item['total'],
-                'success_total' => (int)$item['success_total'],
-                'failed_total' => (int)$item['failed_total'],
-                'clarification_total' => (int)$item['clarification_total'],
-                'success_rate' => round((int)$item['success_total'] / $total * 100, 2),
-                'clarification_rate' => round((int)$item['clarification_total'] / $total * 100, 2),
-                'avg_confidence' => (int)$item['confidence_count'] > 0
-                    ? round((float)$item['confidence_sum'] / (int)$item['confidence_count'], 4)
-                    : 0,
-                'recent_time' => (int)$item['recent_time'],
-            ];
-        }, $stats));
-        usort($items, static fn(array $a, array $b): int => ((int)$b['total'] <=> (int)$a['total']) ?: ((int)$b['recent_time'] <=> (int)$a['recent_time']));
-
-        return [
-            'clarification_total' => $clarificationTotal,
-            'clarification_rate' => $total > 0 ? round($clarificationTotal / $total * 100, 2) : 0,
-            'clarification_completion_rate' => $clarificationTotal > 0 ? round($clarificationCompleted / $clarificationTotal * 100, 2) : 0,
-            'cancellation_rate' => $total > 0 ? round($canceledTotal / $total * 100, 2) : 0,
-            'skill_switch_rate' => $total > 1 ? round($skillSwitches / ($total - 1) * 100, 2) : 0,
-            'skill_hit_stats' => array_slice($items, 0, 20),
-        ];
-    }
-
-    private static function formatAgentTraceRow(array $row, bool $detail = false): array
-    {
-        $data = [
-            'id' => (int)($row['id'] ?? 0),
-            'tenant_id' => (int)($row['tenant_id'] ?? 0),
-            'user_id' => (int)($row['user_id'] ?? 0),
-            'project_id' => (int)($row['project_id'] ?? 0),
-            'thread_id' => (int)($row['thread_id'] ?? 0),
-            'request_id' => (string)($row['request_id'] ?? ''),
-            'agent_code' => (string)($row['agent_code'] ?? ''),
-            'parent_run_id' => (int)($row['parent_run_id'] ?? 0),
-            'sub_agent_code' => (string)($row['sub_agent_code'] ?? ''),
-            'depth' => (int)($row['depth'] ?? 0),
-            'sequence' => (int)($row['sequence'] ?? 0),
-            'status' => (string)($row['status'] ?? ''),
-            'error' => (string)($row['error'] ?? ''),
-            'user_nickname' => (string)($row['user_nickname'] ?? ''),
-            'user_account' => (string)($row['user_account'] ?? ''),
-            'user_mobile' => (string)($row['user_mobile'] ?? ''),
-            'create_time' => (int)($row['create_time'] ?? 0),
-            'update_time' => (int)($row['update_time'] ?? 0),
-            'duration_seconds' => max(0, (int)($row['update_time'] ?? 0) - (int)($row['create_time'] ?? 0)),
-        ];
-        if ($detail) {
-            $data['input_json'] = self::normalizeRunPayload($row['input_json'] ?? []);
-            $data['output_json'] = self::normalizeRunPayload($row['output_json'] ?? []);
-        }
-        return $data;
-    }
-
-    private static function formatAgentStep(array $row): array
-    {
-        return [
-            'id' => (int)($row['id'] ?? 0),
-            'agent_code' => (string)($row['agent_code'] ?? ''),
-            'step_type' => (string)($row['step_type'] ?? ''),
-            'status' => (string)($row['status'] ?? ''),
-            'input_json' => self::normalizeRunPayload($row['input_json'] ?? []),
-            'output_json' => self::normalizeRunPayload($row['output_json'] ?? []),
-            'create_time' => (int)($row['create_time'] ?? 0),
-        ];
-    }
-
-    private static function formatAgentToolCall(array $row): array
-    {
-        return [
-            'id' => (int)($row['id'] ?? 0),
-            'tool_code' => (string)($row['tool_code'] ?? ''),
-            'request_id' => (string)($row['request_id'] ?? ''),
-            'status' => (string)($row['status'] ?? ''),
-            'input_json' => self::normalizeRunPayload($row['input_json'] ?? []),
-            'output_json' => self::normalizeRunPayload($row['output_json'] ?? []),
-            'error' => (string)($row['error'] ?? ''),
-            'error_code' => (string)($row['error_code'] ?? ''),
-            'provider_task_id' => (string)($row['provider_task_id'] ?? ''),
-            'retry_count' => (int)($row['retry_count'] ?? 0),
-            'duration_seconds' => max(0, (int)($row['finished_at'] ?? 0) - (int)($row['started_at'] ?? 0)),
-            'create_time' => (int)($row['create_time'] ?? 0),
-            'update_time' => (int)($row['update_time'] ?? 0),
-        ];
-    }
-
-    private static function formatWorkspaceAction(array $row): array
-    {
-        return [
-            'id' => (int)($row['id'] ?? 0),
-            'action_type' => (string)($row['action_type'] ?? ''),
-            'status' => (string)($row['status'] ?? ''),
-            'payload_json' => self::normalizeRunPayload($row['payload_json'] ?? []),
-            'error' => (string)($row['error'] ?? ''),
-            'create_time' => (int)($row['create_time'] ?? 0),
-            'update_time' => (int)($row['update_time'] ?? 0),
-        ];
-    }
-
-    private static function agentTraceToolCalls(int $tenantId, array $run): array
-    {
-        try {
-            $requestId = trim((string)($run['request_id'] ?? ''));
-            if ($requestId !== '') {
-                try {
-                    $rows = Db::name('aigc_canvas_agent_tool_call')
-                        ->where('tenant_id', $tenantId)
-                        ->where('request_id', $requestId)
-                        ->where('delete_time', 0)
-                        ->order('id', 'asc')
-                        ->limit(100)
-                        ->select()
-                        ->toArray();
-                    if (!empty($rows)) {
-                        return array_map([self::class, 'formatAgentToolCall'], $rows);
-                    }
-                } catch (\Throwable) {
-                }
-            }
-            $query = Db::name('aigc_canvas_agent_tool_call')
-                ->where('tenant_id', $tenantId)
-                ->where('delete_time', 0);
-            if ($requestId !== '') {
-                $query->whereLike('input_json', '%' . $requestId . '%');
-            } else {
-                $query->where([
-                    'user_id' => (int)($run['user_id'] ?? 0),
-                    'project_id' => (int)($run['project_id'] ?? 0),
-                    'thread_id' => (int)($run['thread_id'] ?? 0),
-                ])->whereBetween('create_time', [
-                    max(0, (int)($run['create_time'] ?? 0) - 5),
-                    max((int)($run['update_time'] ?? 0), (int)($run['create_time'] ?? 0)) + 60,
-                ]);
-            }
-            return array_map([self::class, 'formatAgentToolCall'], $query->order('id', 'asc')->limit(100)->select()->toArray());
-        } catch (\Throwable) {
-            return [];
-        }
-    }
-
-    private static function agentTraceWorkspaceActions(int $tenantId, array $run): array
-    {
-        try {
-            return array_map([self::class, 'formatWorkspaceAction'], Db::name('aigc_canvas_agent_workspace_action')
-                ->where([
-                    'tenant_id' => $tenantId,
-                    'user_id' => (int)($run['user_id'] ?? 0),
-                    'project_id' => (int)($run['project_id'] ?? 0),
-                    'thread_id' => (int)($run['thread_id'] ?? 0),
-                    'delete_time' => 0,
-                ])
-                ->whereBetween('create_time', [
-                    max(0, (int)($run['create_time'] ?? 0) - 5),
-                    max((int)($run['update_time'] ?? 0), (int)($run['create_time'] ?? 0)) + 120,
-                ])
-                ->order('id', 'asc')
-                ->limit(100)
-                ->select()
-                ->toArray());
-        } catch (\Throwable) {
-            return [];
-        }
-    }
-
-    private static function formatStatRow(array $row): array
-    {
-        $row['total'] = (int)($row['total'] ?? 0);
-        return $row;
-    }
-
-    private static function formatToolStatRow(array $row): array
-    {
-        $row['total'] = (int)($row['total'] ?? 0);
-        $row['avg_seconds'] = isset($row['avg_seconds']) ? round((float)$row['avg_seconds'], 2) : 0;
-        return $row;
-    }
-
-    private static function formatRecentFailure(array $row): array
-    {
-        return [
-            'id' => (int)($row['id'] ?? 0),
-            'run_type' => (string)($row['run_type'] ?? ''),
-            'prompt' => mb_substr(trim((string)($row['prompt'] ?? '')), 0, 120, 'UTF-8'),
-            'error' => mb_substr(trim((string)($row['error'] ?? '')), 0, 200, 'UTF-8'),
-            'update_time' => (int)($row['update_time'] ?? 0),
-            'source_app_code' => (string)($row['source_app_code'] ?? ''),
-            'source_task_id' => (int)($row['source_task_id'] ?? 0),
         ];
     }
 
@@ -1100,147 +526,6 @@ class AigcCanvasService
             ->limit(100)
             ->select()
             ->toArray();
-    }
-
-    public static function agentTraceLists(int $tenantId, array $params = []): array
-    {
-        try {
-            $query = Db::name('aigc_canvas_agent_run')->alias('r')
-                ->leftJoin('user u', 'u.id = r.user_id AND u.tenant_id = r.tenant_id')
-                ->field('r.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
-                ->where('r.tenant_id', $tenantId)
-                ->where('r.delete_time', 0);
-
-            $status = trim((string)($params['status'] ?? ''));
-            if ($status !== '' && $status !== 'all') {
-                $query->where('r.status', $status);
-            }
-            $requestId = trim((string)($params['request_id'] ?? ''));
-            if ($requestId !== '') {
-                $query->whereLike('r.request_id', '%' . $requestId . '%');
-            }
-            $projectId = (int)($params['project_id'] ?? 0);
-            if ($projectId > 0) {
-                $query->where('r.project_id', $projectId);
-            }
-            $userKeyword = trim((string)($params['user_keyword'] ?? ''));
-            if ($userKeyword !== '') {
-                $query->where(function ($query) use ($userKeyword) {
-                    $query->whereLike('u.nickname', '%' . $userKeyword . '%')
-                        ->whereOr('u.account', 'like', '%' . $userKeyword . '%')
-                        ->whereOr('u.mobile', 'like', '%' . $userKeyword . '%');
-                    if (ctype_digit($userKeyword)) {
-                        $query->whereOr('r.user_id', (int)$userKeyword);
-                    }
-                });
-            }
-
-            $pageNo = max(1, (int)($params['page_no'] ?? 1));
-            $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15)));
-            $count = (int)(clone $query)->count();
-            $rows = $query
-                ->order('r.id', 'desc')
-                ->limit(($pageNo - 1) * $pageSize, $pageSize)
-                ->select()
-                ->toArray();
-
-            return [
-                'lists' => array_map([self::class, 'formatAgentTraceRow'], $rows),
-                'count' => $count,
-                'page_no' => $pageNo,
-                'page_size' => $pageSize,
-            ];
-        } catch (\Throwable) {
-            return ['lists' => [], 'count' => 0, 'page_no' => 1, 'page_size' => 15];
-        }
-    }
-
-    public static function agentTraceDetail(int $tenantId, int $id): array
-    {
-        $row = Db::name('aigc_canvas_agent_run')
-            ->where(['tenant_id' => $tenantId, 'id' => $id, 'delete_time' => 0])
-            ->find();
-        if (empty($row)) {
-            throw new Exception('Agent Trace 不存在');
-        }
-        $detail = self::formatAgentTraceRow($row, true);
-        $detail['steps'] = array_map([self::class, 'formatAgentStep'], Db::name('aigc_canvas_agent_step')
-            ->where(['tenant_id' => $tenantId, 'run_id' => $id])
-            ->order('id', 'asc')
-            ->select()
-            ->toArray());
-        $detail['tool_calls'] = self::agentTraceToolCalls($tenantId, $row);
-        $detail['workspace_actions'] = self::agentTraceWorkspaceActions($tenantId, $row);
-        $detail['turns'] = self::agentTraceTurns($tenantId, $row);
-        $childRuns = Db::name('aigc_canvas_agent_run')
-            ->where(['tenant_id' => $tenantId, 'parent_run_id' => $id, 'delete_time' => 0])
-            ->order('sequence', 'asc')
-            ->order('id', 'asc')
-            ->select()
-            ->toArray();
-        $detail['sub_agents'] = array_map([self::class, 'formatAgentTraceRow'], $childRuns);
-        return $detail;
-    }
-
-    private static function agentTraceTurns(int $tenantId, array $run): array
-    {
-        $requestId = trim((string)($run['request_id'] ?? ''));
-        if ($requestId === '') {
-            return [];
-        }
-        $fields = 'id,status,execution_mode,iteration_count,started_at_ms,first_status_at_ms,first_token_at_ms,completed_at_ms,fallback_reason,error,create_time';
-        try {
-            $rows = Db::name('aigc_canvas_agent_turn')
-                ->where([
-                    'tenant_id' => $tenantId,
-                    'user_id' => (int)($run['user_id'] ?? 0),
-                    'thread_id' => (int)($run['thread_id'] ?? 0),
-                    'request_id' => $requestId,
-                    'delete_time' => 0,
-                ])
-                ->field($fields)
-                ->order('id', 'asc')
-                ->limit(12)
-                ->select()
-                ->toArray();
-        } catch (\Throwable) {
-            try {
-                $rows = Db::name('aigc_canvas_agent_turn')
-                    ->where([
-                        'tenant_id' => $tenantId,
-                        'user_id' => (int)($run['user_id'] ?? 0),
-                        'thread_id' => (int)($run['thread_id'] ?? 0),
-                        'request_id' => $requestId,
-                        'delete_time' => 0,
-                    ])
-                    ->field('id,status,execution_mode,iteration_count,started_at_ms,first_token_at_ms,completed_at_ms,fallback_reason,error,create_time')
-                    ->order('id', 'asc')
-                    ->limit(12)
-                    ->select()
-                    ->toArray();
-            } catch (\Throwable) {
-                return [];
-            }
-        }
-
-        return array_map(static function (array $item): array {
-            $started = (int)($item['started_at_ms'] ?? 0);
-            $firstStatus = (int)($item['first_status_at_ms'] ?? 0);
-            $firstToken = (int)($item['first_token_at_ms'] ?? 0);
-            $completed = (int)($item['completed_at_ms'] ?? 0);
-            return [
-                'id' => (int)($item['id'] ?? 0),
-                'status' => (string)($item['status'] ?? ''),
-                'execution_mode' => (string)($item['execution_mode'] ?? ''),
-                'iteration_count' => (int)($item['iteration_count'] ?? 0),
-                'first_status_ms' => $started > 0 && $firstStatus >= $started ? $firstStatus - $started : null,
-                'first_token_ms' => $started > 0 && $firstToken >= $started ? $firstToken - $started : null,
-                'duration_ms' => $started > 0 && $completed >= $started ? $completed - $started : null,
-                'fallback_reason' => (string)($item['fallback_reason'] ?? ''),
-                'error' => (string)($item['error'] ?? ''),
-                'create_time' => (int)($item['create_time'] ?? 0),
-            ];
-        }, $rows);
     }
 
     public static function generateImage(int $tenantId, int $userId, array $params): array
@@ -1537,7 +822,7 @@ class AigcCanvasService
         $params = self::applyAdvancedParameters($tenantId, $params, 'video');
         $params = self::prepareMentionParams($params);
         $params['__request_user_id'] = $userId;
-        $params = \app\common\service\app\aigc_canvas\agent\prompt\VideoPromptSubmissionService::prepareVideoRequest($tenantId, $params);
+        $params = \app\common\service\app\aigc_canvas\prompt\VideoPromptSubmissionService::prepareVideoRequest($tenantId, $params);
         $params = CanvasModelRouterService::applyToToolInput($tenantId, 'generate_video', $params);
         $started = microtime(true);
         $run = self::createRun($tenantId, $userId, $params, 'video', 'power_market_video');

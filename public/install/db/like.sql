@@ -4990,11 +4990,7 @@ VALUES
 (9155,0,9122,'C','基础配置','',50,'app.aigc_digital_human.config/detail','config','apps/aigc_digital_human/config','','',0,1,0,'aigc_digital_human','app','aigc_digital_human_config',0,1778000000,1778000000),
 (9156,0,9136,'C','基础配置','',30,'app.aigc_canvas.config/detail','config','apps/aigc_canvas/config','','',0,1,0,'aigc_canvas','app','aigc_canvas_config',0,1778000000,1778000000);
 
-INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
-VALUES
-(0,9136,'C','Skills管理','',40,'app.aigc_canvas.skill/lists','skill','apps/aigc_canvas/skill','','',0,1,0,'aigc_canvas','app','aigc_canvas_skill',0,1778000000,1778000000),
-(0,9136,'C','Agent 治理','',50,'app.aigc_canvas.governance/policies','governance','apps/aigc_canvas/governance','','',0,1,0,'aigc_canvas','app','aigc_canvas_governance',0,1778000000,1778000000),
-(0,9136,'C','Agent Trace','',60,'app.aigc_canvas.admin_trace/lists','trace','apps/aigc_canvas/trace','','',0,1,0,'aigc_canvas','app','aigc_canvas_trace',0,1778000000,1778000000);
+
 
 -- Migration snapshot: aigc_video/migrations/zz_20260521_happy_horse_channel.sql
 
@@ -13010,3 +13006,24 @@ FROM `la_tenant_system_menu` parent WHERE parent.app_code='aigc_canvas' AND pare
 AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` existing WHERE existing.tenant_id=parent.tenant_id AND existing.app_code='aigc_canvas' AND existing.source_menu_key='aigc_canvas_template_publish');
 INSERT INTO `la_app_api` (app_code,api_path,api_method,permission_key,scene,need_login,need_role_permission,status,create_time,update_time) SELECT 'aigc_canvas','app.aigc_canvas.template/detail','GET','aigc_canvas:template:detail','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS (SELECT 1 FROM `la_app_api` WHERE app_code='aigc_canvas' AND api_path='app.aigc_canvas.template/detail' AND api_method='GET' AND scene='tenant_admin');
 INSERT INTO `la_app_api` (app_code,api_path,api_method,permission_key,scene,need_login,need_role_permission,status,create_time,update_time) SELECT 'aigc_canvas','app.aigc_canvas.template/publish','POST','aigc_canvas:template:publish','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS (SELECT 1 FROM `la_app_api` WHERE app_code='aigc_canvas' AND api_path='app.aigc_canvas.template/publish' AND api_method='POST' AND scene='tenant_admin');
+
+-- Canvas legacy Agent retirement
+-- Retire old Canvas Agent entry points; preserve all project, asset and history tables.
+INSERT INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`)
+SELECT 'aigc_canvas','app.aigc_canvas.generate/assetRegister',old.`api_method`,'aigc_canvas:asset:register',old.`scene`,old.`need_login`,old.`need_role_permission`,old.`status`,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_app_api` old WHERE old.`app_code`='aigc_canvas' AND old.`api_path`='app.aigc_canvas.agent/assetRegister'
+AND NOT EXISTS (SELECT 1 FROM `la_app_api` current_api WHERE current_api.`app_code`='aigc_canvas' AND current_api.`api_path`='app.aigc_canvas.generate/assetRegister' AND current_api.`scene`=old.`scene` AND current_api.`api_method`=old.`api_method`);
+DELETE role_menu FROM `la_tenant_system_role_menu` role_menu
+JOIN `la_tenant_system_menu` menu ON menu.`id`=role_menu.`menu_id`
+WHERE menu.`app_code`='aigc_canvas' AND menu.`source`='app'
+AND menu.`source_menu_key` IN ('aigc_canvas_skill','aigc_canvas_governance','aigc_canvas_trace');
+DELETE FROM `la_tenant_system_menu` WHERE `app_code`='aigc_canvas' AND `source`='app'
+AND `source_menu_key` IN ('aigc_canvas_skill','aigc_canvas_governance','aigc_canvas_trace');
+DELETE FROM `la_app_api` WHERE `app_code`='aigc_canvas' AND (
+`api_path` LIKE 'app.aigc_canvas.agent/%'
+OR `api_path` LIKE 'app.aigc_canvas.agent_chat/%'
+OR `api_path` LIKE 'app.aigc_canvas.agent_tool/%'
+OR `api_path` LIKE 'app.aigc_canvas.agent_generation/%'
+OR `api_path` LIKE 'app.aigc_canvas.skill/%'
+OR `api_path` LIKE 'app.aigc_canvas.governance/%'
+OR `api_path` LIKE 'app.aigc_canvas.admin_trace/%');

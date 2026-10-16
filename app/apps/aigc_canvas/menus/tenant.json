@@ -39,15 +39,6 @@
         "component": "apps/aigc_canvas/config"
       },
       {
-        "source_menu_key": "aigc_canvas_skill",
-        "type": "C",
-        "name": "Skills管理",
-        "sort": 40,
-        "perms": "app.aigc_canvas.skill/lists",
-        "paths": "skill",
-        "component": "apps/aigc_canvas/skill"
-      },
-      {
         "source_menu_key": "aigc_canvas_template",
         "app_code": "aigc_canvas",
         "type": "C",
@@ -67,24 +58,6 @@
             "is_show": 0
           }
         ]
-      },
-      {
-        "source_menu_key": "aigc_canvas_governance",
-        "type": "C",
-        "name": "Agent 治理",
-        "sort": 50,
-        "perms": "app.aigc_canvas.governance/policies",
-        "paths": "governance",
-        "component": "apps/aigc_canvas/governance"
-      },
-      {
-        "source_menu_key": "aigc_canvas_trace",
-        "type": "C",
-        "name": "Agent Trace",
-        "sort": 60,
-        "perms": "app.aigc_canvas.admin_trace/lists",
-        "paths": "trace",
-        "component": "apps/aigc_canvas/trace"
       }
     ]
   }
