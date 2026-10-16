@@ -8,10 +8,12 @@
 
 namespace Qiniu\Tests;
 
+use PHPUnit\Framework\TestCase;
+
 use Qiniu\Cdn\CdnManager;
 use Qiniu\Http\Client;
 
-class CdnManagerTest extends \PHPUnit_Framework_TestCase
+class CdnManagerTest extends TestCase
 {
     protected $cdnManager;
     protected $encryptKey;
@@ -24,7 +26,10 @@ class CdnManagerTest extends \PHPUnit_Framework_TestCase
     protected $customDomain;
     protected $customDomain2;
 
-    protected function setUp()
+    /**
+     * @before
+     */
+    protected function setUpCdnManager()
     {
         global $testAuth;
         $this->cdnManager = new CdnManager($testAuth);
@@ -56,43 +61,43 @@ class CdnManagerTest extends \PHPUnit_Framework_TestCase
     public function testRefreshUrls()
     {
         list($ret, $err) = $this->cdnManager->refreshUrls(array($this->refreshUrl));
-        $this->assertNotNull($ret);
         $this->assertNull($err);
+        $this->assertNotNull($ret);
     }
 
     public function testRefreshDirs()
     {
         list($ret, $err) = $this->cdnManager->refreshDirs(array($this->refreshDirs));
-        $this->assertNotNull($ret);
         $this->assertNull($err);
+        $this->assertNotNull($ret);
     }
 
     public function testRefreshUrlsAndDirs()
     {
         list($ret, $err) = $this->cdnManager->refreshUrlsAndDirs(array($this->refreshUrl), array($this->refreshDirs));
-        $this->assertNotNull($ret);
         $this->assertNull($err);
+        $this->assertNotNull($ret);
     }
 
     public function testGetCdnRefreshList()
     {
         list($ret, $err) = $this->cdnManager->getCdnRefreshList(null, null, null, 'success');
-        $this->assertNotNull($ret);
         $this->assertNull($err);
+        $this->assertNotNull($ret);
     }
 
     public function testPrefetchUrls()
     {
         list($ret, $err) = $this->cdnManager->prefetchUrls(array($this->refreshUrl));
-        $this->assertNotNull($ret);
         $this->assertNull($err);
+        $this->assertNotNull($ret);
     }
 
     public function testGetCdnPrefetchList()
     {
         list($ret, $err) = $this->cdnManager->getCdnPrefetchList(null, null, 'success');
-        $this->assertNotNull($ret);
         $this->assertNull($err);
+        $this->assertNotNull($ret);
     }
 
     public function testGetBandwidthData()
@@ -103,8 +108,8 @@ class CdnManagerTest extends \PHPUnit_Framework_TestCase
             $this->testEndDate,
             $this->testGranularity
         );
-        $this->assertNotNull($ret);
         $this->assertNull($err);
+        $this->assertNotNull($ret);
     }
 
     public function testGetFluxData()
@@ -115,23 +120,24 @@ class CdnManagerTest extends \PHPUnit_Framework_TestCase
             $this->testEndDate,
             $this->testGranularity
         );
-        $this->assertNotNull($ret);
         $this->assertNull($err);
+        $this->assertNotNull($ret);
     }
 
     public function testGetCdnLogList()
     {
-        list($ret, $err) = $this->cdnManager->getCdnLogList(array('fake.qiniu.com'), $this->testLogDate);
-        $this->assertNull($ret);
-        $this->assertNotNull($err);
+        $domain = getenv('QINIU_TEST_DOMAIN');
+        list($ret, $err) = $this->cdnManager->getCdnLogList(array($domain), $this->testLogDate);
+        $this->assertNull($err);
+        $this->assertNotNull($ret);
     }
 
     public function testCreateTimestampAntiLeechUrl()
     {
         $signUrl = $this->cdnManager->createTimestampAntiLeechUrl($this->refreshUrl, $this->encryptKey, 3600);
         $response = Client::get($signUrl);
-        $this->assertEquals($response->statusCode, 200);
         $this->assertNull($response->error);
+        $this->assertEquals($response->statusCode, 200);
 
         $signUrl = $this->cdnManager->createTimestampAntiLeechUrl(
             $this->refreshUrl . '?qiniu',
@@ -139,7 +145,7 @@ class CdnManagerTest extends \PHPUnit_Framework_TestCase
             3600
         );
         $response = Client::get($signUrl);
-        $this->assertEquals($response->statusCode, 200);
         $this->assertNull($response->error);
+        $this->assertEquals($response->statusCode, 200);
     }
 }

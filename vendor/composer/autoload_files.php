@@ -27,5 +27,6 @@ return array(
     '66453932bc1be9fb2f910a27947d11b6' => $vendorDir . '/alibabacloud/client/src/Functions.php',
     'cd5441689b14144e5573bf989ee47b34' => $vendorDir . '/qcloud/cos-sdk-v5/src/Common.php',
     '841780ea2e1d6545ea3a253239d59c05' => $vendorDir . '/qiniu/php-sdk/src/Qiniu/functions.php',
+    '5dd19d8a547b7318af0c3a93c8bd6565' => $vendorDir . '/qiniu/php-sdk/src/Qiniu/Http/Middleware/Middleware.php',
     '941748b3c8cae4466c827dfb5ca9602a' => $vendorDir . '/rmccue/requests/library/Deprecated.php',
 );

@@ -2512,32 +2512,37 @@
         },
         {
             "name": "qiniu/php-sdk",
-            "version": "v7.4.0",
-            "version_normalized": "7.4.0.0",
+            "version": "v7.14.0",
+            "version_normalized": "7.14.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/qiniu/php-sdk.git",
-                "reference": "1c6bc89166e524a40ee42bf516fb99ffc6401c82"
+                "reference": "ee752ffa7263ce99fca0bd7340cf13c486a3516c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/qiniu/php-sdk/zipball/1c6bc89166e524a40ee42bf516fb99ffc6401c82",
-                "reference": "1c6bc89166e524a40ee42bf516fb99ffc6401c82",
+                "url": "https://api.github.com/repos/qiniu/php-sdk/zipball/ee752ffa7263ce99fca0bd7340cf13c486a3516c",
+                "reference": "ee752ffa7263ce99fca0bd7340cf13c486a3516c",
                 "shasum": ""
             },
             "require": {
+                "ext-curl": "*",
+                "ext-xml": "*",
+                "myclabs/php-enum": "~1.5.2 || ~1.6.6 || ~1.7.7 || ~1.8.4",
                 "php": ">=5.3.3"
             },
             "require-dev": {
-                "phpunit/phpunit": "~4.0",
-                "squizlabs/php_codesniffer": "~3.6"
+                "paragonie/random_compat": ">=2",
+                "phpunit/phpunit": "^4.8 || ^5.0 || ^6.0 || ^7.0 || ^8.0 || ^9.3.4",
+                "squizlabs/php_codesniffer": "^2.3 || ~3.6"
             },
-            "time": "2021-07-19T07:41:36+00:00",
+            "time": "2024-10-25T08:39:01+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
                 "files": [
-                    "src/Qiniu/functions.php"
+                    "src/Qiniu/functions.php",
+                    "src/Qiniu/Http/Middleware/Middleware.php"
                 ],
                 "psr-4": {
                     "Qiniu\\": "src/Qiniu"
@@ -2564,7 +2569,7 @@
             ],
             "support": {
                 "issues": "https://github.com/qiniu/php-sdk/issues",
-                "source": "https://github.com/qiniu/php-sdk/tree/v7.4.0"
+                "source": "https://github.com/qiniu/php-sdk/tree/v7.14.0"
             },
             "install-path": "../qiniu/php-sdk"
         },
