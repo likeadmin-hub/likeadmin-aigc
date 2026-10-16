@@ -12,7 +12,7 @@ use app\common\model\file\TenantFile;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\ai\ReferenceMentionPromptService;
 use app\common\service\FileService;
-use app\common\service\app\aigc_canvas\agent\model\CanvasModelRouterService;
+
 use app\common\service\app\aigc_canvas\agent\prompt\PromptSubmissionService;
 use app\common\service\app\aigc_canvas\agent\prompt\PromptSubmissionException;
 use app\common\service\app\aigc_canvas\agent\prompt\ProviderSubmissionValidator;
@@ -455,13 +455,15 @@ class AigcCanvasService
 
     public static function saveProject(int $tenantId, int $userId, array $params): array
     {
+        return \think\facade\Db::transaction(function()use($tenantId,$userId,$params){
         $id = (int)($params['id'] ?? 0);
-        $project = self::projectQuery($tenantId, $userId, $id)->findOrEmpty();
+        $project = self::projectQuery($tenantId, $userId, $id)->lock(true)->findOrEmpty();
         if ($project->isEmpty()) {
             throw new Exception('项目不存在');
         }
         $storedViewport = self::normalizeViewport($project['viewport_json'] ?? []);
         $incomingViewport = self::normalizeViewport($params['viewport'] ?? []);
+        if ((int)($storedViewport['agentRevision']??0)!==(int)($incomingViewport['agentRevision']??0)) throw new Exception('Agent 已更新页面，请刷新后再保存，当前编辑尚未覆盖服务端');
         if (!empty($storedViewport['pages']) && empty($incomingViewport['pages'])) {
             throw new Exception('此项目包含多个画布，请刷新页面后再保存');
         }
@@ -485,6 +487,7 @@ class AigcCanvasService
         }
         $project->save($data);
         return self::formatProject($project->toArray(), true);
+        });
     }
 
     public static function renameProject(int $tenantId, int $userId, int $id, string $name): array
@@ -2239,6 +2242,7 @@ class AigcCanvasService
             'y' => (float)($value['y'] ?? 50),
             'zoom' => (float)($value['zoom'] ?? $value['k'] ?? 0.82),
         ];
+        $viewport['agentRevision']=max(0,(int)($value['agentRevision']??0));
         if (!empty($value['pages']) && is_array($value['pages'])) {
             $pages = [];
             foreach ($value['pages'] as $page) {
@@ -2745,7 +2749,7 @@ class AigcCanvasService
             ->toArray();
 
         return array_map(
-            static fn(array $row): array => self::repairLegacyProjectText(AigcCanvasAgentService::formatAsset($row)),
+            static fn(array $row): array => self::repairLegacyProjectText(CanvasAssetService::formatAsset($row)),
             $rows
         );
     }

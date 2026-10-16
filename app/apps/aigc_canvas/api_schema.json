@@ -968,6 +968,190 @@
       "scene": "tenant_admin",
       "need_login": 1,
       "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/config",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:conversation:config",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/sessions",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:conversation:sessions",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/messages",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:conversation:messages",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:conversation:detail",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/events",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:conversation:events",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/runs",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:conversation:runs",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/artifacts",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:conversation:artifacts",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/subjects",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:conversation:subjects",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/planEditor",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:conversation:planEditor",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/preferences",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:preferences",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/submit",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:submit",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/stream",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:stream",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/confirm",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:confirm",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/stop",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:stop",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/editPlan",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:editPlan",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/retryStep",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:retryStep",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/checkStep",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:checkStep",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/resumeReading",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:resumeReading",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/favorite",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:favorite",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/upload",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:upload",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/renameSession",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:renameSession",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.conversation/deleteSession",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:conversation:deleteSession",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.project/registerAsset",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:project:registerAsset",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
     }
   ]
 }

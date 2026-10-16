@@ -15,9 +15,9 @@ final class AgentStore
     public static function access(int $tenant,int $user): void
     {
         if($tenant<1||$user<1) throw new \InvalidArgumentException('请先登录');
-        $denied=AppAccessService::assertTenantCanUse($tenant,'aigc_llm',$user,true,false);
+        $denied=AppAccessService::assertTenantCanUse($tenant,AgentWorkspaceScope::app(),$user,true,false);
         if($denied) throw new \InvalidArgumentException('当前账号暂不可使用 Agent');
-        if((int)\app\common\service\app\aigc_llm\AigcLlmService::config($tenant)['status']!==1) throw new \InvalidArgumentException('对话应用已停用');
+        if(AgentWorkspaceScope::app()==='aigc_llm'&&(int)\app\common\service\app\aigc_llm\AigcLlmService::config($tenant)['status']!==1) throw new \InvalidArgumentException('对话应用已停用');
     }
     public static function run(int $tenant,int $user,int $id): array
     {
@@ -47,7 +47,7 @@ final class AgentStore
     }
     public static function preferences(int $tenant,int $user,?array $input=null): array
     {
-        $row=self::owner('preference',$tenant,$user)->find();
+        $row=self::owner('preference',$tenant,$user)->where(AgentWorkspaceScope::filter('aigc_llm_agent_preference'))->find();
         $value=$row?self::json($row['preferences']):['mode'=>'ask','models'=>[]];
         unset($value['budget']); // Retired preference, including reads and favorite-only updates.
         if($input!==null){
@@ -66,8 +66,8 @@ final class AgentStore
             } else $value=self::validatePreferences($input);
             $value['skill_favorites'] = $favorites;
             $values=['preferences'=>self::encode($value),'update_time'=>time()];
-            if($row)self::owner('preference',$tenant,$user)->update($values);
-            else self::table('preference')->insert($values+['tenant_id'=>$tenant,'user_id'=>$user,'create_time'=>time()]);
+            if($row)self::owner('preference',$tenant,$user)->where(AgentWorkspaceScope::filter('aigc_llm_agent_preference'))->update($values);
+            else self::table('preference')->insert($values+['tenant_id'=>$tenant,'user_id'=>$user,'create_time'=>time()]+AgentWorkspaceScope::filter('aigc_llm_agent_preference'));
         }
         return $value;
     }

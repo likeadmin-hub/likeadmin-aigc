@@ -1,0 +1,61 @@
+<?php
+declare(strict_types=1);
+namespace app\common\service\app\aigc_llm\agent;
+
+use app\common\model\app\aigc_llm\AigcLlmSession;
+use app\common\service\app\aigc_canvas\AigcCanvasService;
+
+/** Server-selected scope. Never accept a workspace snapshot from the model/client. */
+final class AgentWorkspaceScope
+{
+    private static array $current = [];
+    public static function filter(string $table): array
+    {
+        // Source may reload before an additive migration reaches this database.
+        // Historical home traffic keeps using its existing schema in that window.
+        $fields=\think\facade\Db::name($table)->getFields();
+        if(!isset($fields['workspace_key'])){
+            if(self::$current)throw new \InvalidArgumentException('画布 Agent 正在升级，请稍后重试');
+            return [];
+        }
+        return ['workspace_key'=>$table==='aigc_llm_session'?self::key():self::app()];
+    }
+    public static function current(): array { return self::$current; }
+    public static function key(?array $scope=null): string
+    {
+        $scope ??= self::$current;
+        return ($scope['app']??'')==='aigc_canvas'
+            ? 'canvas:'.(int)$scope['project_id'].':'.(string)$scope['page_id'] : 'home';
+    }
+    public static function app(): string { return self::$current['app']??'aigc_llm'; }
+    public static function within(array $scope,callable $call)
+    {
+        $previous=self::$current;self::$current=$scope;
+        try { return $call(); } finally { self::$current=$previous; }
+    }
+    public static function fromRun(array $run): array { return AgentStore::json($run['preferences'])['_workspace']??[]; }
+    public static function canvas(int $tenant,int $user,array $params): array
+    {
+        $id=(int)($params['project_id']??0);$page=(string)($params['page_id']??'');
+        if($id<1||!preg_match('/^[a-zA-Z0-9_-]{1,100}$/D',$page))throw new \InvalidArgumentException('请选择项目和页面');
+        try { $project=AigcCanvasService::projectDetail($tenant,$user,$id); }
+        catch(\Exception $e) { throw new \InvalidArgumentException('项目不存在或不可访问'); }
+        $pages=$project['viewport']['pages']??[['id'=>'canvas_1']];
+        if(!in_array($page,array_column($pages,'id'),true))throw new \InvalidArgumentException('页面不存在，请重新选择');
+        return ['app'=>'aigc_canvas','project_id'=>$id,'page_id'=>$page];
+    }
+    public static function sessions(int $tenant,int $user)
+    {
+        return AigcLlmSession::where(['tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0]+self::filter('aigc_llm_session'));
+    }
+    public static function assertSession(int $tenant,int $user,int $id): void
+    {
+        if($id<1||!self::sessions($tenant,$user)->where('id',$id)->find())throw new \InvalidArgumentException('会话不属于当前工作区');
+    }
+    public static function assertRun(int $tenant,int $user,int $id): void
+    {
+        $run=AgentStore::run($tenant,$user,$id);
+        if(self::key(self::fromRun($run))!==self::key())throw new \InvalidArgumentException('任务不属于当前工作区');
+        self::assertSession($tenant,$user,(int)$run['session_id']);
+    }
+}

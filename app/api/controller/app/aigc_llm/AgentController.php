@@ -1,19 +1,42 @@
 <?php
 namespace app\api\controller\app\aigc_llm;
 use app\api\controller\BaseApiController;
-use app\common\service\app\aigc_llm\agent\{AgentStore,AgentExecutionService,AgentCapabilityCatalog,AgentArtifactService};
+use app\common\service\app\aigc_llm\agent\{AgentStore,AgentExecutionService,AgentCapabilityCatalog,AgentArtifactService,AgentWorkspaceScope};
 use app\common\service\open_platform\{OpenAssets,OpenException};
 
 class AgentController extends BaseApiController
 {
+    protected function workspaceScope(): array { return []; }
+    private function scoped(callable $call)
+    {
+        return AgentWorkspaceScope::within($this->workspaceScope(),function()use($call){
+            $t=(int)$this->request->tenantId;$u=$this->userId;
+            AgentStore::access($t,$u);
+            $params=array_merge($this->request->get(),$this->request->post());
+            if(!empty($params['run_id']))AgentWorkspaceScope::assertRun($t,$u,(int)$params['run_id']);
+            if(!empty($params['session_id']))AgentWorkspaceScope::assertSession($t,$u,(int)$params['session_id']);
+            if(strtolower($this->request->action())==='favorite'){
+                $artifact=AgentStore::owner('artifact',$t,$u)->where('id',(int)($params['id']??0))->find();
+                AgentWorkspaceScope::assertSession($t,$u,(int)($artifact['session_id']??0));
+            }
+            return $call($t,$u);
+        });
+    }
     private function handle(callable $call)
     {
         try{
-            AgentStore::access((int)$this->request->tenantId,$this->userId);
-            return $this->success('', $call((int)$this->request->tenantId,$this->userId));
+            return $this->success('', $this->scoped($call));
         }catch(\InvalidArgumentException|OpenException $e){return $this->fail($e->getMessage());}
         catch(\Throwable $e){\think\facade\Log::error('Home Agent API: '.get_class($e));return $this->fail('Agent 暂不可用，请检查服务部署后重试');}
     }
+    public function sessions(){return $this->handle(fn($t,$u)=>\app\common\service\app\aigc_llm\AigcLlmService::sessionLists($t,$u));}
+    public function messages(){return $this->handle(fn($t,$u)=>\app\common\service\app\aigc_llm\AigcLlmService::messageLists($t,$u,(int)$this->request->get('session_id',0)));}
+    public function renameSession(){return $this->handle(function($t,$u){\app\common\service\app\aigc_llm\AigcLlmService::renameSession($t,$u,(int)$this->request->post('session_id',0),(string)$this->request->post('title',''));return [];});}
+    public function deleteSession(){return $this->handle(function($t,$u){
+        $id=(int)$this->request->post('session_id',0);
+        if(AgentStore::owner('run',$t,$u)->where('session_id',$id)->whereIn('status',['queued','running','waiting_tasks'])->count())throw new \InvalidArgumentException('请先停止并等待任务完成');
+        \app\common\service\app\aigc_llm\AigcLlmService::deleteSession($t,$u,$id);return [];
+    });}
     public function config(){return $this->handle(function($t,$u){
         $tools=AgentCapabilityCatalog::all($t,$u);$displays=[];
         foreach(array_unique(array_merge(['aigc_llm'],array_keys($tools))) as $code)$displays[$code]=\app\common\service\app\AppDisplayConfigService::skillPreview($t,$code==='speech_synthesis'?'aigc_llm':$code);
@@ -28,7 +51,7 @@ class AgentController extends BaseApiController
     {
         $tenant=(int)$this->request->tenantId;$user=$this->userId;$id=(int)$this->request->post('run_id',0);
         // Authenticate and verify ownership before starting a long-lived response.
-        try{AgentStore::access($tenant,$user);AgentStore::run($tenant,$user,$id);}
+        try{$this->scoped(fn()=>AgentWorkspaceScope::assertRun($tenant,$user,$id));}
         catch(\InvalidArgumentException|OpenException $e){return $this->fail($e->getMessage());}
         @ini_set('zlib.output_compression','0');
         @ini_set('implicit_flush','1');

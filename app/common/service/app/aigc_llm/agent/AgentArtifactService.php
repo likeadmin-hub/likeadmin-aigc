@@ -16,7 +16,7 @@ final class AgentArtifactService
     public static function lists(int $tenant,int $user,int $session,int $before=0,bool $all=false,string $kind=''): array
     {
         if(!$all && $session<1)return [];
-        $query=AgentStore::owner('artifact',$tenant,$user);
+        $query=AgentStore::owner('artifact',$tenant,$user)->whereIn('session_id',AgentWorkspaceScope::sessions($tenant,$user)->column('id')?:[0]);
         if(!$all)$query->where('session_id',$session);
         if($before>0)$query->where('id','<',$before);
         if($kind!=='' && $kind!=='all'){
@@ -133,11 +133,17 @@ final class AgentArtifactService
     {
         $identity=hash('sha256',$run['session_id'].':'.$file);
         $existing=AgentStore::owner('artifact',(int)$run['tenant_id'],(int)$run['user_id'])->where('identity_hash',$identity)->find();
-        if($existing)return (int)$existing['id'];
+        if($existing){self::writeCanvas($run,(int)$existing['id'],$file,$kind,$title);return (int)$existing['id'];}
         $id=(int)AgentStore::table('artifact')->insertGetId(['tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'session_id'=>$run['session_id'],'run_id'=>$run['id'],'step_id'=>$step,'identity_hash'=>$identity,'title'=>mb_substr($title,0,200),'kind'=>$kind,'data'=>AgentStore::encode(['file_id'=>$file]+$extra),'storage_scope'=>$storage['storage_scope'],'storage_engine'=>$storage['storage_engine'],'storage_domain'=>$storage['storage_domain']??'','favorite'=>0,'create_time'=>time()]);
         AgentStore::event($run,'artifact.created',['file_id'=>$file,'kind'=>$kind]);
         AgentContextService::created($run,$file);
+        self::writeCanvas($run,$id,$file,$kind,$title);
         return $id;
+    }
+    private static function writeCanvas(array $run,int $id,string $file,string $kind,string $title): void
+    {
+        try { \app\common\service\app\aigc_canvas\CanvasConversationTools::artifact($run,$id,$file,$kind,$title); }
+        catch(\InvalidArgumentException $e) { AgentStore::event($run,'canvas.write_skipped',['artifact_id'=>$id,'message'=>$e->getMessage()]); }
     }
     public static function collect(array $run,array $step,array $result): array
     {

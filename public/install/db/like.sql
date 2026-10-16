@@ -4731,6 +4731,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_llm_sensitive_word` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC对话敏感词';
 
 CREATE TABLE IF NOT EXISTS `la_aigc_llm_session` (
+  `workspace_key` varchar(160) NOT NULL DEFAULT 'home',
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `user_id` int unsigned NOT NULL DEFAULT 0,
@@ -12250,13 +12251,14 @@ UPDATE `la_app_plan` SET `status`=0 WHERE `app_code`='aigc_pic_lipsync';
 
 -- Home creation Agent. Additive and safe to repeat.
 CREATE TABLE IF NOT EXISTS `la_aigc_llm_agent_preference` (
+  `workspace_key` varchar(160) NOT NULL DEFAULT 'aigc_llm',
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `tenant_id` int unsigned NOT NULL,
   `user_id` int unsigned NOT NULL,
   `preferences` mediumtext NOT NULL,
   `create_time` int unsigned NOT NULL,
   `update_time` int unsigned NOT NULL,
-  UNIQUE KEY `owner` (`tenant_id`,`user_id`),
+  UNIQUE KEY `owner` (`tenant_id`,`user_id`,`workspace_key`),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
