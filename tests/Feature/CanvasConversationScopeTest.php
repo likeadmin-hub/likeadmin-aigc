@@ -38,5 +38,13 @@ Db::startTrans();try{
  Db::name('aigc_llm_session')->where('id',$sessions[1])->update(['delete_time'=>time()]);
  check(Scope::artifacts(S::owner('artifact',$t,$u),$t,$u)->count()===2,'Home lost legacy works or gained canvas works');
  Scope::within($scope,function()use($t,$u){check(Scope::artifacts(S::owner('artifact',$t,$u),$t,$u)->count()===1,'Deleting a session hid its works');});
+ $admin=\app\common\service\app\aigc_llm\AigcLlmService::adminSessionLists($t);
+ check(array_column($admin,'id')==[$sessions[0]],'Canvas appeared in home admin history');
+ $stats=\app\common\service\app\aigc_llm\AigcLlmService::stat($t);check($stats['session_count']===1,'Canvas polluted home statistics');
+ \app\common\service\app\aigc_llm\agent\AgentWorkspaceData::clear('aigc_llm',$t);
+ check(Db::name('aigc_llm_session')->where('tenant_id',$t)->count()===2,'Home clear deleted canvas history');
+ check(S::owner('artifact',$t,$u)->whereIn('session_id',[$sessions[1],$sessions[2]])->count()===2,'Home clear deleted canvas works');
+ \app\common\service\app\aigc_llm\agent\AgentWorkspaceData::clear('aigc_canvas',$t);
+ check(Db::name('aigc_llm_session')->where('tenant_id',$t)->count()===0,'Canvas clear did not own its history');
  echo "Canvas conversation scope passed: tenant/user/page isolation, scope restoration, idempotent graph edits, stale-save protection and retained works; rolled back\n";
 }finally{Db::rollback();}

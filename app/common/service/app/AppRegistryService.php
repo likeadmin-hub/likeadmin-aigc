@@ -910,15 +910,10 @@ class AppRegistryService
             AigcLlmChannel::where('id', '>', 0)->delete();
             AigcLlmModel::where('id', '>', 0)->delete();
             AigcLlmSensitiveWord::where('id', '>', 0)->delete();
-            AigcLlmSession::where('id', '>', 0)->delete();
-            AigcLlmMessage::where('id', '>', 0)->delete();
-            AigcLlmUsage::where('id', '>', 0)->delete();
-            foreach (['event','artifact','step','run','preference'] as $suffix) {
-                $table=config('database.connections.mysql.prefix').'aigc_llm_agent_'.$suffix;
-                if (Db::query('SHOW TABLES LIKE ?', [$table])) Db::name('aigc_llm_agent_'.$suffix)->where('id','>',0)->delete();
-            }
+            \app\common\service\app\aigc_llm\agent\AgentWorkspaceData::clear($appCode);
         }
         if ($appCode === 'aigc_canvas') {
+            \app\common\service\app\aigc_llm\agent\AgentWorkspaceData::clear($appCode);
             AigcCanvasProject::where('id', '>', 0)->delete();
             AigcCanvasRun::where('id', '>', 0)->delete();
             AppCase::where('app_code', $appCode)->delete();
