@@ -1696,6 +1696,9 @@ class AigcCanvasService
                 'content' => $prompt,
                 'system_prompt' => self::resolveTextSystemPrompt($params),
                 'model_code' => (string)($params['model_code'] ?? $params['model'] ?? ''),
+                // A chosen canvas model must not silently bill a different model.
+                '_disable_model_fallback' => self::textModelSelection($params) !== [],
+                'business_id' => (int)$run['id'],
                 'reference_images' => $referenceImages,
                 'source_app_code' => self::APP_CODE,
                 'source_type' => 'canvas_text',
@@ -1744,6 +1747,9 @@ class AigcCanvasService
                 'content' => $prompt,
                 'system_prompt' => self::resolveTextSystemPrompt($params),
                 'model_code' => (string)($params['model_code'] ?? $params['model'] ?? ''),
+                // A chosen canvas model must not silently bill a different model.
+                '_disable_model_fallback' => self::textModelSelection($params) !== [],
+                'business_id' => (int)$run['id'],
                 'reference_images' => $referenceImages,
                 'source_app_code' => self::APP_CODE,
                 'source_type' => (string)($params['source_type'] ?? 'canvas_text'),
