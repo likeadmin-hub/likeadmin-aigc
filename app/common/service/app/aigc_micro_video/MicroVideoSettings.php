@@ -51,6 +51,8 @@ final class MicroVideoSettings
     }
     public static function direction(int $tenant,int $id): array
     {
+        // No card selection is a supported free-creation choice on both clients.
+        if($id===0)return ['id'=>0,'code'=>'free','name'=>'自由创作','prompt'=>'遵循用户创作意图，不额外加入题材。','continuity_prompt'=>self::defaults()['continuity_template']];
         self::seed($tenant);$row=MicroVideoStore::table('direction')->where(['tenant_id'=>$tenant,'id'=>$id,'status'=>1,'delete_time'=>0])->find();if(!$row)throw new InvalidArgumentException('请选择可用的创作方向');return $row;
     }
     public static function saveDirection(int $tenant,array $p): array
