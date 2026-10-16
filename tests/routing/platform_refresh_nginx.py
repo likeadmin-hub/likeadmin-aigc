@@ -25,7 +25,7 @@ class EntryGateway(http.server.BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
         path = query.get('s', [re.sub(r'^/index\.php', '', urllib.parse.urlsplit(self.path).path)])[0]
         assert path.startswith('/'), f'Lost original route: {self.path}'
-        is_platform = self.headers['Host'] == 'platform.test'
+        is_platform = self.headers['Host'] not in ['customer.platform.test', 'bound.customer.test']
         if path == '/' and is_platform and not query.get('tenant_id'):
             self.send_response(302)
             self.send_header('Location', '/platform/')
@@ -184,7 +184,10 @@ http {{
                 assert actual == expected, f"{path}: expected {expected}, got {actual}"
             opener = urllib.request.build_opener(NoRedirect)
             cases = [('platform.test', '/', 302, '/platform/'),
-                     ('platform.test', '/?tenant_id=42', 200, 'dynamic-entry')]
+                     ('platform.test', '/?tenant_id=42', 200, 'dynamic-entry'),
+                     ('new-platform.test', '/', 302, '/platform/'),
+                     ('new-platform.test', '/platform/login', 200, 'platform-entry'),
+                     ('new-platform.test', '/platformapi/config/getConfig', 200, 'dynamic-entry')]
             for host in ['customer.platform.test', 'bound.customer.test']:
                 cases.extend((host, path, code, body) for path, code, body in [
                     ('/', 200, 'dynamic-entry'),

@@ -22,7 +22,6 @@ use app\common\service\tenant\TenantContractService;
 use app\common\service\tenant\TenantDomainAliasService;
 use app\common\service\tenant\TenantUrlService;
 use Closure;
-use think\facade\Config;
 
 /**
  * 自定义跨域中间件
@@ -93,7 +92,7 @@ class LikeAdminAllowMiddleware
             || preg_match('#^wechat/open-platform/[A-Za-z0-9_-]+/callback$#', $normalizedPath)) {
             return $next($request);
         }
-        // Platform pages and APIs share the same exact-host boundary. Tenant
+        // Platform pages and APIs reject hosts already bound to tenants. Tenant
         // subdomains and aliases must never inherit platform administration.
         // Forwarded-Host is client-controlled unless a proxy sanitizes it;
         // platform access uses the Host actually delivered to this vhost.
@@ -124,25 +123,18 @@ class LikeAdminAllowMiddleware
 
     private function isAllowedPlatformHost(string $domain): bool
     {
-        // Installation writes project.http_host. An empty configuration must
-        // not turn every tenant domain into a platform entry point.
-        return in_array(TenantUrlService::normalizeHost($domain),
-            $this->parseConfiguredHosts((string)Config::get('project.http_host')), true);
-    }
+        $domain = TenantUrlService::normalizeHost($domain);
+        if ($domain === '') return false;
 
-    /**
-     * @return string[]
-     */
-    private function parseConfiguredHosts(string $hosts): array
-    {
-        $result = [];
-        foreach (preg_split('/\s*,\s*/', trim($hosts)) as $host) {
-            $host = TenantUrlService::normalizeHost($host);
-            if ($host !== '') {
-                $result[] = $host;
-            }
-        }
-        return array_values(array_unique($result));
+        // Tenant ownership wins even when HTTP_HOST is missing, stale, or
+        // accidentally contains a tenant alias. Disabled bindings stay isolated.
+        if (!TenantDomainAliasService::findTenantByDomain($domain, true)->isEmpty()) return false;
+        $tenantSn = TenantUrlService::tenantSnFromHost($domain);
+        if ($tenantSn !== '' && !Tenant::where('sn', $tenantSn)->findOrEmpty()->isEmpty()) return false;
+
+        // The vhost already routed this request here. Unbound hosts are platform
+        // entries and still pass through the normal platform login/permission checks.
+        return true;
     }
 
     /**

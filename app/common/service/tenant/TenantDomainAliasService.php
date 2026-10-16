@@ -186,17 +186,18 @@ class TenantDomainAliasService
         }
     }
 
-    public static function findTenantByDomain(string $domain): Tenant
+    public static function findTenantByDomain(string $domain, bool $includeDisabled = false): Tenant
     {
         $domain = TenantUrlService::normalizeHost($domain);
         if ($domain === '') {
             return (new Tenant())->newInstance();
         }
         try {
-            $alias = TenantDomainAlias::withoutGlobalScope()
-                ->where(['domain' => $domain, 'status' => 1])
-                ->whereNull('delete_time')
-                ->findOrEmpty();
+            $aliasQuery = TenantDomainAlias::withoutGlobalScope()
+                ->where('domain', $domain)
+                ->whereNull('delete_time');
+            if (!$includeDisabled) $aliasQuery->where('status', 1);
+            $alias = $aliasQuery->findOrEmpty();
             if (!$alias->isEmpty()) {
                 $tenant = Tenant::where('id', (int)$alias['tenant_id'])->findOrEmpty();
                 if (!$tenant->isEmpty()) {

@@ -116,16 +116,13 @@ class TenantUrlService
             $parts = explode('.', $host);
             return count($parts) >= 3 ? (string)$parts[0] : '';
         }
-        $rootDomain = self::tenantRootDomain($host);
-        if ($host === '' || $rootDomain === '' || $host === $rootDomain) {
-            return '';
+        foreach (self::platformHosts() as $rootDomain) {
+            $suffix = '.' . $rootDomain;
+            if ($host === '' || !str_ends_with($host, $suffix)) continue;
+            $prefix = substr($host, 0, -strlen($suffix));
+            if ($prefix !== '' && !str_contains($prefix, '.')) return $prefix;
         }
-        $suffix = '.' . $rootDomain;
-        if (!str_ends_with($host, $suffix)) {
-            return '';
-        }
-        $prefix = substr($host, 0, -strlen($suffix));
-        return $prefix !== '' && !str_contains($prefix, '.') ? $prefix : '';
+        return '';
     }
 
     public static function normalizeHost(string $url): string
@@ -143,8 +140,8 @@ class TenantUrlService
     /**
      * Return the platform hosts configured for platform administration.
      * Reserve these hosts and their subdomains against tenant alias binding.
-     * This reservation is broader than platform backend access, which only
-     * accepts the exact configured hosts.
+     * Backend access separately checks actual tenant ownership; unbound hosts
+     * may serve the platform even when absent from this configuration.
      */
     public static function platformHosts(?string $requestHost = null): array
     {
