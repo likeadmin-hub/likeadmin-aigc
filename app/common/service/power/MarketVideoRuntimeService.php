@@ -1445,6 +1445,7 @@ class MarketVideoRuntimeService
             return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), self::appRequestOptions($request, ['seed', 'draft', 'frames', 'watermark', 'camera_fixed', 'service_tier', 'tools', 'callback_url']), ['model' => (string)($locked['model'] ?? ($hasVideo ? 'seedance-2-video-2-video' : 'seedance-2-text-2-video')), 'content' => $content, 'ratio' => (string)($request['ratio'] ?? ''), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'generate_audio' => $request['generate_audio'] ?? null, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'grok_video') {
+            if ($assets['video'] !== [] || $assets['audio'] !== []) throw new Exception('当前 Grok 视频接口仅支持参考图片，请移除视频或音频素材');
             $model = trim((string)($locked['model'] ?? $snapshot['model_code'] ?? 'grok-video'));
             return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'aspect_ratio' => (string)($request['aspect_ratio'] ?? $request['ratio'] ?? ''), 'image_urls' => $assets['image'], 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
@@ -1967,6 +1968,8 @@ class MarketVideoRuntimeService
         $overrides=MarketModelCapabilities::overrides($product);
         if(array_key_exists('supported_asset_types',$overrides))return array_values(array_intersect(['image','video','audio'],$overrides['supported_asset_types']));
         $types = self::assetTypes($meta);
+        // The connected Grok app create endpoint only encodes image_urls.
+        if (self::isGrokPerCallProduct($product)) return array_values(array_intersect($types, ['image']));
         // Older H3 market rows may omit both a content schema and
         // supported_asset_types. Its documented nine-image reference contract
         // still makes image input valid; do not turn missing catalogue text
@@ -2331,6 +2334,7 @@ class MarketVideoRuntimeService
     private static function generationModes(array $product, array $meta): array
     {
         $modes=self::declaredGenerationModes($product,$meta);
+        if (self::isGrokPerCallProduct($product)) $modes=array_values(array_diff($modes,['video_edit','audio_reference']));
         $overrides=MarketModelCapabilities::overrides($product);
         if(($overrides['supports_first_last_frame']??null)===false)$modes=array_values(array_diff($modes,['start_end']));
         if(array_key_exists('input_modes',$overrides))$modes=array_values(array_intersect($modes,$overrides['input_modes']));
