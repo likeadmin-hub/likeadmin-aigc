@@ -2,7 +2,7 @@
 /** Deterministic Canvas -> normalizer -> provider payload tests. No database or network. */
 require dirname(__DIR__, 4) . '/vendor/autoload.php';
 
-use app\common\service\app\aigc_canvas\{CanvasGenerationParameters as Parameters, AigcCanvasService as Canvas};
+use app\common\service\app\aigc_canvas\{CanvasGenerationParameters as Parameters, AigcCanvasService as Canvas, CanvasRequestInput};
 use app\common\service\app\aigc_canvas\agent\prompt\VideoPromptSubmissionService as Preflight;
 use app\common\service\power\{MarketVideoRuntimeService as Video, MarketImageModelRuntimeService as Image, MarketMusicAppRuntimeService as Music, MarketTextModelRuntimeService as Text, Q4VideoContract};
 
@@ -15,7 +15,10 @@ $q4 = array_replace($base, ['model_code'=>'q4-preview-video','params_schema'=>$s
 $request = ['prompt'=>'A dog runs', 'quality'=>'720p', 'duration'=>5, 'reference_images'=>['https://example.test/dog.jpg'],
     'reference_assets'=>[['type'=>'image','uri'=>'https://example.test/dog.jpg','role'=>'first_frame_image']], 'first_frame_image'=>'https://example.test/dog.jpg',
     'advanced_params'=>['seed'=>0,'audio'=>false,'is_rec'=>false,'watermark'=>false]];
-$prepared = Parameters::apply($request, $q4, 'video');
+$httpRequest = (new app\Request())->withPost($request);
+$typed = CanvasRequestInput::post($httpRequest);
+$check($typed['advanced_params']['audio'] === false && $typed['advanced_params']['seed'] === 0, 'HTTP input filter coerced JSON false/zero');
+$prepared = Parameters::apply($typed, $q4, 'video');
 $normalized = $call(Canvas::class, 'normalizeVideoParams', $prepared, 0, 0);
 $normalized['provider_params'] = $prepared['provider_params'];
 $payload = $call(Video::class, 'modelPayload', $q4, $normalized, 'offline');
@@ -63,6 +66,9 @@ $text = ['max_output_tokens'=>4096,'params_schema'=>['temperature'=>['type'=>'nu
 $request = Parameters::apply(['advanced_params'=>['max_tokens'=>256,'temperature'=>0,'enable_thinking'=>false]], $text, 'text');
 $generation = $call(Text::class, 'generationParams', $text, $request['model_config']);
 $check($request['max_tokens'] === 256 && $generation['temperature'] === 0.0 && $generation['enable_thinking'] === false, 'Text overrides lost');
+$savedCanvas = CanvasRequestInput::post((new app\Request())->withPost(['nodes'=>[['metadata'=>['generationParameters'=>['q4'=>['audio'=>false,'seed'=>0]], 'unknownBoolean'=>false,'prompt'=>' trim me ']]]]));
+$check($savedCanvas['nodes'][0]['metadata']['generationParameters']['q4'] === ['audio'=>false,'seed'=>0] && $savedCanvas['nodes'][0]['metadata']['unknownBoolean'] === false, 'Saving canvas lost nested JSON types');
+$check($savedCanvas['nodes'][0]['metadata']['prompt'] === 'trim me', 'Canvas string trimming changed');
 $legacy = ['channel'=>'old','unknown_metadata'=>['preserve'=>true]];
 $check(Parameters::apply($legacy, [], 'image') === $legacy, 'Legacy request changed without advanced parameters');
 $grok = ['resource_type'=>'app_api', 'upstream_app_code'=>'grok_video'];
