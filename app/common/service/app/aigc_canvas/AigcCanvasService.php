@@ -331,18 +331,15 @@ class AigcCanvasService
 
     public static function deleteProject(int $tenantId, int $userId, int $id): void
     {
-        $project = self::projectQuery($tenantId, $userId, $id)->findOrEmpty();
-        if ($project->isEmpty()) {
-            throw new Exception('项目不存在');
-        }
-        $project->save([
-            'delete_time' => time(),
-            'update_time' => time(),
-        ]);
-        AigcCanvasRun::where(['tenant_id' => $tenantId, 'project_id' => $id])->update([
-            'delete_time' => time(),
-            'update_time' => time(),
-        ]);
+        $owner = Db::transaction(static function()use($tenantId,$userId,$id): int {
+            $project = self::projectQuery($tenantId, $userId, $id)->lock(true)->findOrEmpty();
+            if ($project->isEmpty()) throw new Exception('项目不存在');
+            $project->save(['delete_time'=>time(),'update_time'=>time()]);
+            AigcCanvasRun::where(['tenant_id'=>$tenantId,'project_id'=>$id])->update(['delete_time'=>time(),'update_time'=>time()]);
+            return (int)$project['user_id'];
+        });
+        // No project lock while canceling runs. Workers also check persisted deletion.
+        \app\common\service\app\aigc_llm\agent\AgentExecutionService::cancelProject($tenantId,$owner,$id);
     }
 
     public static function adminDeleteProject(int $tenantId, int $id): void
@@ -360,8 +357,7 @@ class AigcCanvasService
         if (empty($ids)) {
             return 0;
         }
-        AigcCanvasProject::whereIn('id', $ids)->update(['delete_time' => time(), 'update_time' => time()]);
-        AigcCanvasRun::where('tenant_id', $tenantId)->whereIn('project_id', $ids)->update(['delete_time' => time(), 'update_time' => time()]);
+        foreach($ids as $id)self::deleteProject($tenantId,$userId,(int)$id);
         return count($ids);
     }
 

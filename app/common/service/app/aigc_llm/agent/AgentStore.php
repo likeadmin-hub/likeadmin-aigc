@@ -47,7 +47,10 @@ final class AgentStore
     }
     public static function preferences(int $tenant,int $user,?array $input=null): array
     {
-        $row=self::owner('preference',$tenant,$user)->where(AgentWorkspaceScope::filter('aigc_llm_agent_preference'))->find();
+        $filter=AgentWorkspaceScope::filter('aigc_llm_agent_preference');
+        $project=(int)(AgentWorkspaceScope::current()['project_id']??0);
+        if(AgentWorkspaceScope::app()==='aigc_canvas' && $project>0)self::initializeProjectPreferences($tenant,$user,$project);
+        $row=self::owner('preference',$tenant,$user)->where($filter)->find();
         $value=$row?self::json($row['preferences']):['mode'=>'ask','models'=>[]];
         unset($value['budget']); // Retired preference, including reads and favorite-only updates.
         if($input!==null){
@@ -70,6 +73,18 @@ final class AgentStore
             else self::table('preference')->insert($values+['tenant_id'=>$tenant,'user_id'=>$user,'create_time'=>time()]+AgentWorkspaceScope::filter('aigc_llm_agent_preference'));
         }
         return $value;
+    }
+    /** Snapshot legacy/entry defaults once; never fall back on another project's settings. */
+    public static function initializeProjectPreferences(int $tenant,int $user,int $project): void
+    {
+        $owner=['tenant_id'=>$tenant,'user_id'=>$user,'workspace_key'=>'canvas:'.$project];
+        if(self::table('preference')->where($owner)->find())return;
+        Db::transaction(static function()use($tenant,$user,$project,$owner){
+            if(!Db::name('aigc_canvas_project')->where(['id'=>$project,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find())throw new \InvalidArgumentException('项目不存在');
+            if(self::table('preference')->where($owner)->find())return;
+            $legacy=self::owner('preference',$tenant,$user)->where('workspace_key','aigc_canvas')->value('preferences');
+            self::table('preference')->insert($owner+['preferences'=>$legacy?:self::encode(['mode'=>'ask','models'=>[]]),'create_time'=>time(),'update_time'=>time()]);
+        });
     }
     public static function validatePreferences(array $input): array
     {

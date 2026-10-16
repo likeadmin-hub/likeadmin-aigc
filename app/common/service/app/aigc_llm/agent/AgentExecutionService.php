@@ -45,6 +45,7 @@ final class AgentExecutionService
         // Freeze server-owned audio routing for new runs; never rewrite an existing plan.
         $preferences=AgentCapabilityCatalog::withAudioDefaults($tenant,$preferences);
         try{$id=Db::transaction(function()use($tenant,$user,$sessionId,$content,$assets,$preferences,$requestId,$hash){
+            if(!AgentWorkspaceScope::activeRunWorkspace(['tenant_id'=>$tenant,'user_id'=>$user,'preferences'=>$preferences],true))throw new \InvalidArgumentException('项目或页面已删除');
             if($sessionId){$session=AigcLlmSession::where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$sessionId,'delete_time'=>0])->lock(true)->findOrEmpty();if($session->isEmpty())throw new \InvalidArgumentException('会话不存在');}
             else $session=AigcLlmSession::create(['tenant_id'=>$tenant,'user_id'=>$user,'title'=>mb_substr($content,0,30),'model_code'=>$preferences['models']['text'],'status'=>'idle','last_message_at'=>time(),'message_count'=>0,'create_time'=>time(),'update_time'=>time(),'delete_time'=>0]+AgentWorkspaceScope::filter('aigc_llm_session'));
             if((string)$session['status']==='streaming')throw new \InvalidArgumentException('请等待当前回复完成');
@@ -125,6 +126,7 @@ final class AgentExecutionService
         AgentStore::access($tenant,$user);
         Db::transaction(function()use($tenant,$user,$id,$hash){
             $snapshot=AgentStore::run($tenant,$user,$id);
+            if(!AgentWorkspaceScope::activeRunWorkspace($snapshot,true))throw new \InvalidArgumentException('项目或页面已删除');
             if(!AigcLlmSession::where(['id'=>$snapshot['session_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find())throw new \InvalidArgumentException('会话不存在');
             $run=AgentStore::owner('run',$tenant,$user)->where('id',$id)->lock(true)->find();
             if(!$run||$hash===''||!hash_equals($run['approval_hash'],$hash))throw new \InvalidArgumentException('方案已变更，请查看最新方案');
@@ -137,6 +139,18 @@ final class AgentExecutionService
     }
     public static function stop(int $tenant,int $user,int $id): array
     {
+        self::requestStop($tenant,$user,$id);
+        return self::detail($tenant,$user,$id);
+    }
+    public static function cancelProject(int $tenant,int $user,int $project): void
+    {
+        $sessions=Db::name('aigc_llm_session')->where(['tenant_id'=>$tenant,'user_id'=>$user])->whereLike('workspace_key','canvas:'.$project.':%')->column('id');
+        if(!$sessions)return;
+        $ids=AgentStore::owner('run',$tenant,$user)->whereIn('session_id',$sessions)->whereNotIn('status',AgentStore::TERMINAL)->column('id');
+        foreach($ids as $id)self::requestStop($tenant,$user,(int)$id);
+    }
+    private static function requestStop(int $tenant,int $user,int $id): void
+    {
         Db::transaction(function()use($tenant,$user,$id){
             $run=AgentStore::owner('run',$tenant,$user)->where('id',$id)->lock(true)->find();
             if(!$run)throw new \InvalidArgumentException('执行记录不存在');
@@ -147,7 +161,6 @@ final class AgentExecutionService
             if(in_array($run['status'],['queued','awaiting_confirmation'],true)&&!$submitted)self::finish($run,'canceled');
             elseif($run['status']==='awaiting_confirmation')AgentStore::update($run,['status'=>'waiting_tasks','phase'=>'tools','next_run_time'=>0]);
         });
-        return self::detail($tenant,$user,(int)$id);
     }
     public static function propose(array $run,array $input): array
     {
@@ -192,6 +205,11 @@ final class AgentExecutionService
         $request->withServer($original->server());$request->tenantId=(int)$run['tenant_id'];$request->userId=(int)$run['user_id'];$request->userInfo=['user_id'=>(int)$run['user_id'],'tenant_id'=>(int)$run['tenant_id']];
         app()->instance('request',$request);
         try{
+            if(!AgentWorkspaceScope::activeRunWorkspace($run)){
+                self::requestStop((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
+                $run=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
+                if(in_array($run['status'],AgentStore::TERMINAL,true)||$run['status']==='waiting_tasks')return 1;
+            }
             if($run['status']==='awaiting_confirmation'){self::pollConfirmedSteps($run);return 1;}
             if(in_array($run['phase'],['chat','reading'],true))AgentStore::access((int)$run['tenant_id'],(int)$run['user_id']);
             if((int)$run['cancel_requested']&&in_array($run['phase'],['chat','reading'],true)){self::finish($run,'canceled');return 1;}
@@ -517,6 +535,7 @@ final class AgentExecutionService
     private static function recordStepOutcome(array $run,array $step,?array $result,bool $submission=false): ?string
     {
         return Db::transaction(static function()use($run,$step,$result,$submission){
+            AgentWorkspaceScope::activeRunWorkspace($run,true);
             $tenant=(int)$run['tenant_id'];$user=(int)$run['user_id'];
             $current=AgentStore::owner('run',$tenant,$user)->where('id',$run['id'])->lock(true)->find();
             $saved=AgentStore::owner('step',$tenant,$user)->where(['id'=>$step['id'],'run_id'=>$run['id']])->lock(true)->find();
@@ -572,13 +591,15 @@ final class AgentExecutionService
     {
         return Db::transaction(static function()use($run,$step,$fresh){
             $tenant=(int)$run['tenant_id'];$user=(int)$run['user_id'];
-            // Match submit/confirm/edit lock order; no provider call occurs in this transaction.
+            // Serialize new admission with project deletion, before session/run locks.
+            $workspaceActive=AgentWorkspaceScope::activeRunWorkspace($run,true);
             if(!AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find())throw new \InvalidArgumentException('会话已删除');
             $current=AgentStore::owner('run',$tenant,$user)->where('id',$run['id'])->lock(true)->find();
             if(!$current||empty($run['lease_token'])||$current['lease_token']!==$run['lease_token']||$current['status']!=='running'||$current['phase']!=='tools'||(int)$current['lease_until']<time())return 'stale';
             $saved=AgentStore::owner('step',$tenant,$user)->where(['id'=>$step['id'],'run_id'=>$run['id']])->lock(true)->find();
             if(!$saved||$saved['status']!=='proposed'||(int)$saved['task_id']||AgentPlanService::version($saved)!==AgentPlanService::version($step))return 'stale';
             $query=AgentStore::owner('step',$tenant,$user)->where('id',$step['id']);
+            if(!$workspaceActive){AgentStore::owner('run',$tenant,$user)->where('id',$run['id'])->update(['cancel_requested'=>1,'update_time'=>time()]);$current['cancel_requested']=1;}
             if((int)$current['cancel_requested']){$query->update(['status'=>'canceled','update_time'=>time()]);return 'canceled';}
             if($fresh===null){$query->update(['status'=>'failed','error'=>'当前模型、权限或报价不可用，请调整后重试','update_time'=>time()]);return 'failed';}
             $prepared=AgentStore::json($saved['prepared']);
@@ -598,6 +619,7 @@ final class AgentExecutionService
     }
     private static function checkpoint(array $run): void
     {
+        if(!AgentWorkspaceScope::activeRunWorkspace($run))throw new \InvalidArgumentException('项目或页面已删除，已停止后续执行');
         $current=AgentStore::run((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
         if($current['lease_token']!==$run['lease_token'])throw new \RuntimeException('执行租约失效');
         if(!AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'delete_time'=>0])->find())throw new \InvalidArgumentException('会话已删除');

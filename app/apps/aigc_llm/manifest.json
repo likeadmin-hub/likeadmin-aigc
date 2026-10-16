@@ -1,10 +1,10 @@
 {
   "code": "aigc_llm",
   "name": "AIGC对话",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "require_core": ">=1.0.0",
   "description": "支持自然对话、创作方案、图片视频生成和文档导出的通用创作助手。",
-  "changelog": "1. 支持编辑和移除待确认的生成步骤，保存后重新报价。\n2. 支持核对原任务和安全重试，保留已完成作品与历史尝试。\n3. 支持长资料分段分析、来源笔记、进度恢复和读取完成后继续回答。",
+  "changelog": "1. 加强对话与画布之间的执行记录访问隔离。\n2. 改善项目删除后的任务停止与结果保留。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

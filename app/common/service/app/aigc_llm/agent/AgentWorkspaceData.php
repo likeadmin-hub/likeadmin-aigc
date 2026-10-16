@@ -34,7 +34,9 @@ final class AgentWorkspaceData
             if($exists('aigc_llm_agent_preference')){
                 $prefs=Db::name('aigc_llm_agent_preference');
                 if($tenant>0)$prefs->where('tenant_id',$tenant);
-                if(isset($prefs->getFields()['workspace_key']))$prefs->where('workspace_key',$app)->delete();
+                if(isset($prefs->getFields()['workspace_key'])){
+                    $prefs->where(function($query)use($app){$query->where('workspace_key',$app);if($app==='aigc_canvas')$query->whereOr('workspace_key','like','canvas:%');})->delete();
+                }
                 elseif($app==='aigc_llm')$prefs->where('id','>',0)->delete();
             }
         });

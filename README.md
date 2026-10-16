@@ -627,3 +627,9 @@ kill -TERM "$(cat runtime/ai_task_worker.pid)"
 我们提供部署、二开、AIGC 应用接入、私有化更新源、商业授权与运营陪跑服务。如果你要做的不只是一个工具站，而是一个能够持续生长的 AI 平台，可以直接联系。
 
 联系电话：18786709420
+
+### Canvas project Agent isolation
+
+Canvas conversation sessions remain page-bound; generation preferences use the owned project key `canvas:{project_id}` (shared only by pages in that project). The additive source migration snapshots legacy user-wide defaults once for each existing project. Runtime initialization covers projects created later without rewriting submitted run snapshots.
+
+Conflicting query/body identifiers are rejected before scope selection. Project deletion cancels remaining Agent work; admission and result collection lock the owned project before run records. Already admitted native jobs retain their task identity and continue result polling, while deleted pages reject graph writeback. Removing a node or media reference only changes the canvas graph; deleting an original asset in the user library affects all references and has a separate confirmation.
