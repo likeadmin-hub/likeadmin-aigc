@@ -71,4 +71,8 @@ try {
         $report['entries'][]=$entry;
     }
 } finally { Db::rollback(); }
+$report['checked_entries']=count($report['entries']);
+$report['checked_combinations']=array_sum(array_map(fn($entry)=>count($entry['checks']),$report['entries']));
+$report['rejected_combinations']=array_sum(array_column($report['entries'],'rejected_checks'));
 echo json_encode($report,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT),PHP_EOL;
+exit($report['checked_entries'] > 0 && $report['rejected_combinations'] === 0 ? 0 : 1);
