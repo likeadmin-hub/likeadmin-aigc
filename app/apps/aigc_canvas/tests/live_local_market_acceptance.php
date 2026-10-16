@@ -83,7 +83,7 @@ $lock=fopen($dir.'/entry-'.$index.'.lock','c');if(!flock($lock,LOCK_EX|LOCK_NB))
 $key='entry-'.$index;$row=is_file($dir.'/'.$key.'.json')?$read($key):[];$project=$read('project');
 $updateNode=static function($row)use($tenant,$user,$project,$index,$dir,$entry,$nodeParameters){
     $lock=fopen($dir.'/project.lock','c');flock($lock,LOCK_EX);
-    try{$p=Canvas::projectDetail($tenant,$user,(int)$project['id']);foreach($p['nodes'] as &$n)if($n['id']==='acceptance-'.$index){$m=&$n['metadata'];$m=array_replace($m,$nodeParameters($entry['request']));$m['status']=$row['status'];$m['pending']=in_array($row['status'],['submitting','running','pending','processing'],true);$m['taskId']=$row['task_id']??'';$m['errorDetails']=$row['error']??'';$m['generationStartedAt']=$row['started_at']*1000;
+    try{$p=Canvas::projectDetail($tenant,$user,(int)$project['id']);foreach($p['nodes'] as &$n)if($n['id']==='acceptance-'.$index){$m=&$n['metadata'];$m=array_replace($m,$nodeParameters($entry['request']));$m['updatedAt']=(int)round(microtime(true)*1000);$m['status']=$row['status'];$m['pending']=in_array($row['status'],['submitting','running','pending','processing'],true);$m['taskId']=$row['task_id']??'';$m['errorDetails']=$row['error']??'';$m['generationStartedAt']=$row['started_at']*1000;
         $r=$row['result']??[];if($row['status']==='success'){
             if($n['type']==='text')$m['content']=$r['content']??$r['text']??'';
             $items=$r['images']??$r['videos']??$r['audios']??$r['tracks']??[];
