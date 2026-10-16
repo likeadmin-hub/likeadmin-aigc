@@ -17,7 +17,7 @@ final class MicroVideoService
     }
     public static function available(int $tenant): void
     {
-        if(AppAccessService::assertTenantCanUse($tenant,MicroVideoStore::APP)!==null)throw new InvalidArgumentException('微视频应用未开通或未上架');
+        if(AppAccessService::assertTenantCanUse($tenant,MicroVideoStore::APP,0,false)!==null)throw new InvalidArgumentException('微视频应用未开通或未上架');
         if((int)MicroVideoSettings::get($tenant)['status']!==1)throw new InvalidArgumentException('微视频应用已停用');
     }
     public static function form(int $tenant,int $user,array $p,bool $imagesRequired=true): array
@@ -42,7 +42,7 @@ final class MicroVideoService
     {
         return Db::transaction(function()use($tenant,$user,$prepared,$key,$status){
             $row=MicroVideoStore::table('task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>$key])->find();
-            if($row){if(MicroVideoPolicy::fingerprint(MicroVideoStore::json($row['params_json']))!==MicroVideoPolicy::fingerprint($prepared['params']))throw new InvalidArgumentException('请求已用于其他创作内容，请使用新请求标识');return $row;}
+            if($row){if(MicroVideoPolicy::fingerprint(MicroVideoPolicy::stableParams(MicroVideoStore::json($row['params_json'])))!==MicroVideoPolicy::fingerprint(MicroVideoPolicy::stableParams($prepared['params'])))throw new InvalidArgumentException('请求已用于其他创作内容，请使用新请求标识');return $row;}
             $now=time();$p=$prepared['params'];$data=['tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>$key,'title'=>mb_substr($p['theme']?:$p['prompt'],0,80),'status'=>$status,'params_json'=>MicroVideoStore::encode($p),'config_snapshot'=>MicroVideoStore::encode($prepared['config']),'model_snapshot'=>MicroVideoStore::encode($prepared['model']),'direction_snapshot'=>MicroVideoStore::encode($prepared['direction']),'prompt'=>$p['prompt'],'analysis'=>'','continuity'=>'','planning_result'=>'{}','quote_json'=>'{}','confirmed_quote'=>'{}','next_run_at'=>$now,'create_time'=>$now,'update_time'=>$now];
             $id=MicroVideoStore::table('task')->insertGetId($data);return MicroVideoStore::owned($tenant,$user,$id);
         });
@@ -65,7 +65,7 @@ final class MicroVideoService
         $prepared=self::form($tenant,$user,$p);$row=self::createDraft($tenant,$user,$prepared,'plan:'.self::key($p),'planning');
         if((int)($p['draft_id']??0)>0&&$row['analysis']===''){
             $source=MicroVideoStore::owned($tenant,$user,(int)$p['draft_id']);$old=MicroVideoStore::json($source['params_json']);$new=$prepared['params'];$oldConfig=MicroVideoStore::json($source['config_snapshot']);
-            if(MicroVideoPolicy::fingerprint($old['images']??[])===MicroVideoPolicy::fingerprint($new['images'])&&($oldConfig['vision_model_id']??'')===$prepared['config']['vision_model_id']&&($oldConfig['analysis_template']??'')===$prepared['config']['analysis_template'])MicroVideoStore::update((int)$row['id'],['analysis'=>$source['analysis']]);
+            if(MicroVideoPolicy::fingerprint(MicroVideoPolicy::stableParams(['images'=>$old['images']??[]]))===MicroVideoPolicy::fingerprint(MicroVideoPolicy::stableParams(['images'=>$new['images']]))&&($oldConfig['vision_model_id']??'')===$prepared['config']['vision_model_id']&&($oldConfig['analysis_template']??'')===$prepared['config']['analysis_template'])MicroVideoStore::update((int)$row['id'],['analysis'=>$source['analysis']]);
         }
         return self::detail($tenant,$user,(int)$row['id']);
     }
@@ -113,7 +113,7 @@ final class MicroVideoService
     }
     private static function planHash(array $row,array $rows): string
     {
-        return MicroVideoPolicy::fingerprint(['params'=>MicroVideoStore::json($row['params_json']),'continuity'=>$row['continuity'],'revision'=>(int)$row['plan_revision'],'segments'=>array_map(fn($s)=>MicroVideoStore::segmentData($s),$rows)]);
+        return MicroVideoPolicy::fingerprint(['params'=>MicroVideoPolicy::stableParams(MicroVideoStore::json($row['params_json'])),'continuity'=>$row['continuity'],'revision'=>(int)$row['plan_revision'],'segments'=>array_map(fn($s)=>MicroVideoStore::segmentData($s),$rows)]);
     }
     public static function submit(int $tenant,int $user,array $p): array
     {
@@ -133,7 +133,7 @@ final class MicroVideoService
         self::available($tenant);$id=(int)($p['id']??0);$key=self::key($p);$row=MicroVideoStore::owned($tenant,$admin?0:$user,$id);
         if($row['resume_key']===$key)return self::detail($tenant,$admin?0:$user,$id,$admin);
         if($row['status']!=='waiting_continue')throw new InvalidArgumentException('当前作品无需继续，请刷新查看');
-        $quote=self::quoteTask($row);
+        MicroVideoText::reconcile($id);$quote=self::quoteTask($row);
         if(!$admin)self::validateQuote($row,$p,$quote);
         PointService::assertCanConsumeAmounts($tenant,(int)$row['user_id'],$quote['tenant_cost_points'],$quote['user_charge_points']);
         Db::transaction(function()use($tenant,$user,$id,$p,$admin,$key,$quote){
@@ -150,7 +150,7 @@ final class MicroVideoService
     {
         $row=MicroVideoStore::owned($tenant,$admin?0:$user,$id);$params=MicroVideoStore::json($row['params_json']);
         // Never return internal file identity, supplier errors, pricing costs or system templates.
-        foreach($params['images']??[] as $index=>$image)$params['images'][$index]=array_intersect_key($image,array_flip(['uri','url','name','role']));
+        foreach($params['images']??[] as $index=>$image){try{$image=MicroVideoMedia::validateImages($tenant,(int)$row['user_id'],[$image],1)[0];}catch(\Throwable){$image['url']='';}$params['images'][$index]=array_intersect_key($image,array_flip(['uri','url','name','role']));}
         $state=MicroVideoPolicy::publicState($row['status']);unset($state['can_show_error']);
         $out=$state+['id'=>(int)$row['id'],'title'=>$row['title'],'params'=>$params,'prompt'=>$row['prompt'],'analysis'=>$row['analysis'],'continuity'=>$row['continuity'],'plan_revision'=>(int)$row['plan_revision'],'segments'=>[],'estimate'=>['user_charge_points'=>(float)(MicroVideoStore::json($row['quote_json'])['user_charge_points']??0),'planning_points'=>self::planningPoints($id)],'result_url'=>self::fileUrl($row['result_uri'],$row),'cover_url'=>self::fileUrl($row['cover_uri'],$row),'actual_duration'=>(float)$row['actual_duration'],'create_time'=>(int)$row['create_time'],'update_time'=>(int)$row['update_time']];
         if($row['status']==='awaiting_confirmation'||$admin){

@@ -25,6 +25,8 @@ class AppAccessMiddleware
 
     private function isPublicConfigDetail($request, string $appCode): bool
     {
+        if ($appCode === 'aigc_micro_video' && strtoupper($request->method()) === 'GET'
+            && in_array(strtolower($request->controller()).'/'.strtolower($request->action()), ['app.aigc_micro_video.config/detail', 'app.aigc_micro_video.direction/lists'], true)) return true;
         return in_array($appCode, ['aigc_canvas', 'aigc_image', 'aigc_video'], true)
             && strtolower($request->controller()) === 'app.' . $appCode . '.config'
             && strtolower($request->action()) === 'detail'
