@@ -460,6 +460,11 @@ class AigcCanvasService
         if ($project->isEmpty()) {
             throw new Exception('项目不存在');
         }
+        $storedViewport = self::normalizeViewport($project['viewport_json'] ?? []);
+        $incomingViewport = self::normalizeViewport($params['viewport'] ?? []);
+        if (!empty($storedViewport['pages']) && empty($incomingViewport['pages'])) {
+            throw new Exception('此项目包含多个画布，请刷新页面后再保存');
+        }
         $data = [
             'nodes_json' => self::repairLegacyProjectText(self::normalizeList($params['nodes'] ?? [])),
             'edges_json' => self::repairLegacyProjectText(self::normalizeList($params['edges'] ?? [])),
@@ -2229,12 +2234,40 @@ class AigcCanvasService
         if (!is_array($value)) {
             return ['x' => 100, 'y' => 50, 'zoom' => 0.82];
         }
-        return [
+        $viewport = [
             'x' => (float)($value['x'] ?? 100),
             'y' => (float)($value['y'] ?? 50),
-            // PC canvas uses `k`; accept it so older clients do not silently reset zoom.
             'zoom' => (float)($value['zoom'] ?? $value['k'] ?? 0.82),
         ];
+        if (!empty($value['pages']) && is_array($value['pages'])) {
+            $pages = [];
+            foreach ($value['pages'] as $page) {
+                if (!is_array($page) || empty($page['id'])) {
+                    throw new Exception('画布信息无效');
+                }
+                $id = (string)$page['id'];
+                if (isset($pages[$id])) {
+                    throw new Exception('画布标识重复');
+                }
+                $pageViewport = is_array($page['viewport'] ?? null) ? $page['viewport'] : [];
+                $pages[$id] = [
+                    'id' => $id,
+                    'name' => mb_substr(trim((string)($page['name'] ?? '')) ?: '未命名画布', 0, 120),
+                    'nodeIds' => array_values(array_unique(array_map('strval', is_array($page['nodeIds'] ?? null) ? $page['nodeIds'] : []))),
+                    'viewport' => [
+                        'x' => (float)($pageViewport['x'] ?? 0),
+                        'y' => (float)($pageViewport['y'] ?? 0),
+                        'k' => (float)($pageViewport['k'] ?? $pageViewport['zoom'] ?? 1),
+                    ],
+                    'createdAt' => (int)($page['createdAt'] ?? 0),
+                    'updatedAt' => (int)($page['updatedAt'] ?? 0),
+                ];
+            }
+            $viewport['pages'] = array_values($pages);
+            $active = (string)($value['currentCanvasId'] ?? '');
+            $viewport['currentCanvasId'] = isset($pages[$active]) ? $active : (string)array_key_first($pages);
+        }
+        return $viewport;
     }
 
     private static function formatProject(array $row, bool $full = false): array
