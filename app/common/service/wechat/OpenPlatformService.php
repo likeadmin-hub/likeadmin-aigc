@@ -706,7 +706,6 @@ class OpenPlatformService
         try {
             [$row, $authorizer] = self::versionForTenant($tenantId, $id);
             if ((string)$row['experience_status'] !== 'success') throw new \RuntimeException('请先提交体验版');
-            if ((string)$row['audit_status'] === 'pending') return self::formatVersion($row->toArray());
 
             // A successful WeChat submission can outlive a local persistence
             // failure.  Recover that audit before sending another submission.
@@ -762,6 +761,11 @@ class OpenPlatformService
             throw new \RuntimeException('请先提交审核');
         }
         $auditNo = (string)$review['audit_no'];
+        $detail = json_decode((string)$review['detail'], true);
+        if (is_array($detail) && array_key_exists('user_version', $detail) && !self::auditMatchesVersion($detail, $row)) {
+            self::discardMismatchedAudit($row, $review);
+            throw new \RuntimeException('历史审核不属于当前版本，错误审核状态已校正，请重新提交审核');
+        }
         $result = self::request('wxa/get_auditstatus', ['auditid' => (int)$auditNo], 'release.audit.status', ['access_token' => self::authorizerToken((int)$authorizer['id'])], $tenantId, (int)$authorizer['id']);
         $auditStatus = [0 => 'approved', 1 => 'rejected', 2 => 'pending', 3 => 'rejected'][(int)($result['status'] ?? -1)] ?? 'pending';
         $payload = ['audit_status' => $auditStatus, 'reason' => (string)($result['reason'] ?? ''), 'detail' => json_encode($result, JSON_UNESCAPED_UNICODE), 'response_summary' => json_encode(['auditid' => $auditNo], JSON_UNESCAPED_UNICODE), 'finish_time' => $auditStatus === 'pending' ? 0 : time()];
@@ -782,8 +786,7 @@ class OpenPlatformService
             ->order('id desc')
             ->value('id');
         if ($latestExperienceId !== $id) {
-            if ($required) throw new \RuntimeException('仅可同步最近一次已提交体验版的微信审核结果');
-            return null;
+            throw new \RuntimeException('仅可提交或同步最近一次已提交体验版的微信审核结果');
         }
 
         try {
@@ -798,12 +801,38 @@ class OpenPlatformService
             return null;
         }
 
+        // The account's latest audit may still belong to a previously released
+        // build. A new experience upload does not create a new audit.
+        if (!self::auditMatchesVersion($result, $row)) {
+            $review = WechatMnpReview::withoutGlobalScope()->where(['version_id' => $id, 'audit_no' => $auditNo])->findOrEmpty();
+            if (!$review->isEmpty()) self::discardMismatchedAudit($row, $review);
+            if ($required) throw new \RuntimeException('微信最近一次审核不属于当前版本，错误审核状态已校正，请重新提交审核');
+            return null;
+        }
+
         $auditStatus = [0 => 'approved', 1 => 'rejected', 2 => 'pending', 3 => 'rejected'][(int)($result['status'] ?? -1)] ?? 'pending';
         $review = WechatMnpReview::withoutGlobalScope()->where(['version_id' => $id, 'audit_no' => $auditNo])->findOrEmpty();
         $payload = ['audit_status' => $auditStatus, 'reason' => (string)($result['reason'] ?? ''), 'detail' => json_encode($result, JSON_UNESCAPED_UNICODE), 'response_summary' => json_encode(['auditid' => $auditNo], JSON_UNESCAPED_UNICODE), 'finish_time' => $auditStatus === 'pending' ? 0 : time()];
         self::saveMnpReview($payload + ($review->isEmpty() ? ['version_id' => $id, 'audit_no' => $auditNo, 'submit_time' => time(), 'create_time' => time()] : []), $review);
         $row->save(['audit_status' => $auditStatus, 'update_time' => time()]);
         return self::formatVersion($row->toArray());
+    }
+
+    private static function auditMatchesVersion(array $audit, WechatMnpVersion $row): bool
+    {
+        return trim((string)($audit['user_version'] ?? '')) !== ''
+            && trim((string)($audit['user_version'] ?? '')) === trim((string)$row['version'])
+            && array_key_exists('user_desc', $audit)
+            && (string)$audit['user_desc'] === (string)$row['description']
+            && (int)($audit['submit_audit_time'] ?? 0) > 0
+            && (int)$audit['submit_audit_time'] >= (int)$row['create_time'];
+    }
+
+    private static function discardMismatchedAudit(WechatMnpVersion $row, WechatMnpReview $review): void
+    {
+        // Keep the remote response and audit number as evidence of the old bug.
+        $review->save(['audit_status' => 'none', 'reason' => '历史审核不属于当前版本，已解除错误关联', 'finish_time' => time()]);
+        $row->save(['audit_status' => 'none', 'update_time' => time()]);
     }
 
     private static function isAuditAlreadyPendingError(\Throwable $e): bool
@@ -1175,6 +1204,9 @@ class OpenPlatformService
                 ->where(['tenant_id' => $tenantId, 'authorizer_id' => (int)$authorizer['id'], 'upload_mode' => 'template', 'audit_status' => 'approved'])
                 ->order('id desc')->value('id');
             if ($latestApprovedId !== $id) throw new \RuntimeException('此记录不是最近一次审核通过的版本，请刷新后发布最新审核版本');
+
+            self::syncLatestAudit($tenantId, $id, $row, $authorizer, true);
+            if ((string)$row['audit_status'] !== 'approved') throw new \RuntimeException('审核尚未通过');
 
             $token = self::authorizerToken((int)$authorizer['id']);
             try {
