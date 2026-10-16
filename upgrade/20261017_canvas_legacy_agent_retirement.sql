@@ -1,3 +1,15 @@
+-- Retain the first pre-adaptation snapshot; never overwrite it on retries.
+CREATE TABLE IF NOT EXISTS `la_aigc_canvas_project_compat_backup` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `project_id` int unsigned NOT NULL,
+  `snapshot_json` longtext NOT NULL,
+  `create_time` int unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `project_owner` (`tenant_id`,`user_id`,`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Original canvas project snapshots before compatibility adaptation';
+
 -- Retire old Canvas Agent entry points; preserve all project, asset and history tables.
 INSERT INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`)
 SELECT 'aigc_canvas','app.aigc_canvas.generate/assetRegister',old.`api_method`,'aigc_canvas:asset:register',old.`scene`,old.`need_login`,old.`need_role_permission`,old.`status`,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
