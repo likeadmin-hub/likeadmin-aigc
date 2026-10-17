@@ -16,6 +16,7 @@ namespace app\common\service\storage {
 namespace app\common\service\app\aigc_llm\agent {
  final class AgentComposerSettings {public static function textModel(...$args):string{return 'offline-test';}}
  final class AgentCapabilityCatalog {
+  public const TYPES=[];
   public static function withAudioDefaults($t,$p){return $p;}
   public static function all(...$args):array{return [];}
   public static function models(...$args):array{return [];}
