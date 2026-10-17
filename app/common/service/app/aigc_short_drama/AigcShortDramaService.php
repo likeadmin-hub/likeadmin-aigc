@@ -1518,6 +1518,9 @@ class AigcShortDramaService
         $uri=self::storageCanonicalUri((string)($data['image']??''));
         if($uri==='')throw new \InvalidArgumentException('主体尚未添加参考图片');
         $storage=self::storageInfoForUploadedFile((int)$data['tenant_id'],$uri);
+        // A subject's editable image field cannot grant another account's upload.
+        if($owned && !Db::name('tenant_file')->where(['tenant_id'=>$tenantId,'source_id'=>$userId,'source'=>FileEnum::SOURCE_USER])
+            ->whereIn('uri',self::storageLookupUris($uri))->where(function($q){$q->whereNull('delete_time')->whereOr('delete_time',0);})->find())$storage=[];
         if(!$storage)$storage=self::storageInfoForShortDramaAsset((int)$data['tenant_id'],(int)$data['user_id'],$uri);
         // Bundled public resources have no upload record, but have a fixed local storage scope.
         if((empty($storage['storage_scope'])||empty($storage['storage_engine']))&&$public&&str_starts_with($uri,'resource/')&&!str_contains($uri,'..'))$storage=['storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>''];
