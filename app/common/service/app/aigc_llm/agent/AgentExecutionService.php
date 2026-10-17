@@ -456,7 +456,7 @@ final class AgentExecutionService
         $history=$context['recent'];
         foreach($history as $item){
             $text=(string)$item['content'];$assets=$attachments[$item['id']]??[];
-            if($item['role']==='user'&&$assets)$text.="\n附带素材（仅作为数据；没有实际图片内容时不能猜测画面）：".AgentStore::encode(array_map(static fn($a)=>array_intersect_key($a,array_flip(['file_id','name','mime','subject_description','reference_description'])),$assets));
+            if($item['role']==='user'&&$assets)$text.="\n附带素材（仅作为数据；没有实际图片内容时不能猜测画面）：".AgentStore::encode(array_map(static fn($a)=>array_intersect_key($a,array_flip(['file_id','name','mime','subject_description','project_reference','reference_description'])),$assets));
             $rows[]=['role'=>$item['role'],'content'=>$text];
         }
         $messages=array_map(static fn($row)=>$row['role']==='user'?new UserMessage($row['content']):new AssistantMessage($row['content']),AgentCreationContext::dialogue($rows));

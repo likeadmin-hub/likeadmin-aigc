@@ -40,13 +40,13 @@ try{
  $cfg['connections']['mysql']['prefix']=$audit;\think\facade\Config::set($cfg,'database');Db::connect(null,true);check(Db::connect()->getConfig('prefix')===$audit,'Table isolation failed');
  $t=1999999875;$u=$t;Db::name('tenant')->insert(['id'=>$t,'tactics'=>0,'sn'=>'auditrefs','create_time'=>time()]);request()->tenantId=$t;request()->userId=$u;
  $project=function($tenant,$user,$name,$nodes) {return Db::name('aigc_canvas_project')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'name'=>$name,'nodes_json'=>S::encode($nodes),'edges_json'=>'[]','viewport_json'=>S::encode(['pages'=>[['id'=>'p1','name'=>'Page','nodeIds'=>array_column($nodes,'id')]]]),'create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);};
- $a=$project($t,$u,'A',[['id'=>'text_a','type'=>'text','metadata'=>['title'=>'项目 A 正文','content'=>'只能在 A 中读取的文本']]]);
+ $a=$project($t,$u,'A',[['id'=>'text_a','type'=>'text','metadata'=>['title'=>'项目 A 正文','content'=>'只能在 A 中读取的文本']],['id'=>'empty_video','type'=>'video','metadata'=>['prompt'=>'待编辑的视频节点']]]);
  $b=$project($t,$u,'B',[['id'=>'text_b','type'=>'text','metadata'=>['content'=>'B 内容']]]);
  $foreign=$project($t,$u+1,'foreign',[]);$otherTenant=$project($t+1,$u,'other tenant',[]);
  $scope=['app'=>'aigc_canvas','project_id'=>$a,'page_id'=>'p1'];
  // Avoid a live project compatibility repair: all fixture documents are already native.
  $in=fn($call)=>W::within($scope,$call);
- check($in(fn()=>R::lists($t,$u,[]))['count']===1,'Project nodes not listed');
+ check($in(fn()=>R::lists($t,$u,[]))['count']===2,'Project nodes not listed');
  check($in(fn()=>R::lists($t,$u,['scope'=>'subjects']))['lists']===[],'Default mention leaked subject library');
  rejected(fn()=>W::within(array_replace($scope,['project_id'=>$foreign]),fn()=>R::lists($t,$u,[])));
  rejected(fn()=>W::within(array_replace($scope,['project_id'=>$otherTenant]),fn()=>R::lists($t,$u,[])));
@@ -55,6 +55,7 @@ try{
  $text=$in(fn()=>R::resolve($t,$u,['kind'=>'node','id'=>'text_a']));
  check($text['mime']==='text/plain'&&str_ends_with($text['reference_name'],'.txt'),'Text references need a readable text document');
  $textFile=Db::name('open_platform_file')->where('file_id',$text['file_id'])->find();check(file_get_contents(public_path().$textFile['uri'])==='只能在 A 中读取的文本','Text snapshot bytes missing');
+ $empty=$in(fn()=>R::resolve($t,$u,['kind'=>'node','id'=>'empty_video']));check($empty['mime']==='text/plain'&&str_contains($empty['reference_description'],'empty_video'),'Empty node target context missing');
  echo "PASS current-project nodes, text snapshots and account/tenant/project rejection\n";
  $sourceUri='resource/audit-subject-'.getmypid().'.png';$sourcePath=public_path().$sourceUri;$physical[]=$sourcePath;
  if(!is_dir(dirname($sourcePath)))mkdir(dirname($sourcePath),0755,true);

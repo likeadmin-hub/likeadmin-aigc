@@ -28,7 +28,7 @@ final class CanvasProjectReferenceService
             if(!is_array($node)||empty($node['id']))continue;
             $meta=(array)($node['metadata']??$node['data']??[]);$text=self::text($node);
             $file=self::nodeFile($tenant,$user,$meta);
-            if(!$file&&$text==='')continue;
+            if(!$file&&$text==='')$text=self::nodeContext($node);
             $rows[]=self::item('node',(string)$node['id'],self::nodeName($node),$text,$file);
         }
         if($scope!=='nodes')foreach(self::assets($tenant,$user,(int)$project['id'])->order('id','desc')->select()->toArray() as $asset){
@@ -59,6 +59,16 @@ final class CanvasProjectReferenceService
         $meta=(array)($node['metadata']??$node['data']??[]);
         if(!in_array($node['type']??'',['text','textNode','note','noteNode'],true))return '';
         return mb_substr(trim((string)($meta['content']??$meta['text']??$meta['prompt']??'')),0,10000);
+    }
+    private static function nodeContext(array $node): string
+    {
+        $meta=(array)($node['metadata']??$node['data']??[]);
+        // Empty nodes are useful Agent targets too; never turn an unverified URL
+        // from their editable metadata into an attachment or model-readable link.
+        $context=['node_id'=>(string)$node['id'],'type'=>(string)($node['type']??''),'title'=>self::nodeName($node)];
+        foreach(['prompt','model','modelCode','ratio','aspectRatio','duration','resolution'] as $key)
+            if(is_scalar($meta[$key]??null))$context[$key]=mb_substr((string)$meta[$key],0,2000);
+        return '当前项目节点信息（暂无可引用的输出素材）：'.AgentStore::encode($context);
     }
     private static function nodeName(array $node): string
     {
@@ -121,7 +131,7 @@ final class CanvasProjectReferenceService
         $reference=self::normalize([$reference])[0];$project=self::project($tenant,$user);$text='';$name='';$file=null;
         if($reference['kind']==='node'){
             foreach(AgentStore::json($project['nodes_json']) as $node)if((string)($node['id']??'')===$reference['id']){
-                $name=self::nodeName($node);$text=self::text($node);$file=self::nodeFile($tenant,$user,(array)($node['metadata']??$node['data']??[]));break;
+                $name=self::nodeName($node);$text=self::text($node);$file=self::nodeFile($tenant,$user,(array)($node['metadata']??$node['data']??[]));if(!$file&&$text==='')$text=self::nodeContext($node);break;
             }
         }else{
             $row=self::assets($tenant,$user,(int)$project['id'])->where('id',$reference['id'])->find();
