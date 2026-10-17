@@ -29,6 +29,7 @@ final class MicroVideoService
         $theme=trim((string)($p['theme']??''));$prompt=trim((string)($p['prompt']??''));
         if($imagesRequired&&($mode==='theme'?$theme==='':$prompt===''))throw new InvalidArgumentException($mode==='theme'?'请输入一句话主题':'请输入完整提示词');
         if(mb_strlen($theme)>1000||mb_strlen($prompt)>20000)throw new InvalidArgumentException('主题或提示词超出长度限制');
+        if($imagesRequired)MicroVideoContentPlanning::contract(['mode'=>$mode,'prompt'=>$prompt,'target_duration'=>$target],array_column(MicroVideoCatalog::specs($model,$quality,$ratio),'duration'),(int)$config['max_segments']);
         if($imagesRequired&&empty($p['images']))throw new InvalidArgumentException('请至少上传一张参考图片');
         $images=$imagesRequired?MicroVideoMedia::validateImages($tenant,$user,(array)($p['images']??[]),(int)$config['max_images']):[];
         $direction=MicroVideoSettings::direction($tenant,(int)($p['direction_id']??0));
@@ -43,7 +44,7 @@ final class MicroVideoService
         return Db::transaction(function()use($tenant,$user,$prepared,$key,$status){
             $row=MicroVideoStore::table('task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>$key])->find();
             if($row){if(MicroVideoPolicy::fingerprint(MicroVideoPolicy::stableParams(MicroVideoStore::json($row['params_json'])))!==MicroVideoPolicy::fingerprint(MicroVideoPolicy::stableParams($prepared['params'])))throw new InvalidArgumentException('请求已用于其他创作内容，请使用新请求标识');return $row;}
-            $now=time();$p=$prepared['params'];$data=['tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>$key,'title'=>mb_substr($p['theme']?:$p['prompt'],0,80),'status'=>$status,'params_json'=>MicroVideoStore::encode($p),'config_snapshot'=>MicroVideoStore::encode($prepared['config']+['shot_timeline_version'=>1,'frame_feature_version'=>1]),'model_snapshot'=>MicroVideoStore::encode($prepared['model']),'direction_snapshot'=>MicroVideoStore::encode($prepared['direction']),'prompt'=>$p['prompt'],'analysis'=>'','continuity'=>'','planning_result'=>'{}','quote_json'=>'{}','confirmed_quote'=>'{}','next_run_at'=>$now,'create_time'=>$now,'update_time'=>$now];
+            $now=time();$p=$prepared['params'];$data=['tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>$key,'title'=>mb_substr($p['theme']?:$p['prompt'],0,80),'status'=>$status,'params_json'=>MicroVideoStore::encode($p),'config_snapshot'=>MicroVideoStore::encode($prepared['config']+['shot_timeline_version'=>1,'frame_feature_version'=>1,'content_planning_version'=>1]),'model_snapshot'=>MicroVideoStore::encode($prepared['model']),'direction_snapshot'=>MicroVideoStore::encode($prepared['direction']),'prompt'=>$p['prompt'],'analysis'=>'','continuity'=>'','planning_result'=>'{}','quote_json'=>'{}','confirmed_quote'=>'{}','next_run_at'=>$now,'create_time'=>$now,'update_time'=>$now];
             $id=MicroVideoStore::table('task')->insertGetId($data);return MicroVideoStore::owned($tenant,$user,$id);
         });
     }
@@ -54,10 +55,13 @@ final class MicroVideoService
         try{
             $images=MicroVideoMedia::validateImages($tenant,$user,$prepared['params']['images'],$prepared['config']['max_images']);
             if($row['analysis']===''){$analysis=MicroVideoText::run($row,'analysis',$prepared['config']['vision_model_id'],$prepared['config']['analysis_template'],'请按图片顺序分析下列参考图片。',MicroVideoMedia::visionInputs($images));$row['analysis']=(string)$analysis['content'];MicroVideoStore::update($row['id'],['analysis'=>$row['analysis']]);}
-            $content=MicroVideoStore::encode(['theme'=>$prepared['params']['theme'],'original_prompt'=>$prepared['params']['prompt'],'mode'=>$prepared['params']['mode'],'analysis'=>$row['analysis'],'direction'=>$prepared['direction']['prompt'],'continuity'=>$prepared['config']['continuity_template'],'target_duration'=>$prepared['params']['target_duration']]);
-            $timeline=MicroVideoTimeline::required(MicroVideoStore::json($row['config_snapshot']));
-            $validate=$timeline?function(array $r)use($prepared){MicroVideoTimeline::validate((string)$r['content'],(int)$prepared['params']['target_duration']);}:null;
-            $system=$prepared['config']['prompt_template'].($timeline?"\n".MicroVideoTimeline::instructions(false):'');
+            $snapshot=MicroVideoStore::json($row['config_snapshot']);$adaptive=MicroVideoContentPlanning::required($snapshot);
+            $contract=$adaptive?MicroVideoContentPlanning::contract($prepared['params'],array_column(MicroVideoCatalog::specs($prepared['model'],$prepared['params']['quality'],$prepared['params']['ratio']),'duration'),(int)$prepared['config']['max_segments']):null;
+            $duration=$contract['required_total_duration']??$prepared['params']['target_duration'];
+            $content=MicroVideoStore::encode(['theme'=>$prepared['params']['theme'],'original_prompt'=>$prepared['params']['prompt'],'mode'=>$prepared['params']['mode'],'analysis'=>$row['analysis'],'direction'=>$prepared['direction']['prompt'],'continuity'=>$prepared['config']['continuity_template'],'target_duration'=>$duration]+($adaptive?['source_timeline'=>$contract['source_timeline']]:[]));
+            $timeline=MicroVideoTimeline::required($snapshot);
+            $validate=$timeline?function(array $r)use($adaptive,$contract,$duration){if($adaptive)MicroVideoContentPlanning::validatePrompt((string)$r['content'],$contract);else MicroVideoTimeline::validate((string)$r['content'],$duration);}:null;
+            $system=$prepared['config']['prompt_template'].($timeline?"\n".MicroVideoTimeline::instructions(false):'').($adaptive?"\n用户已明确的整片时长和source_timeline优先于界面目标时长，保留原镜头节奏、内容顺序和对白，不得拉伸动作或用静止、慢动作、重复展示凑时长。":'');
             $result=MicroVideoText::run($row,'prompt',$prepared['config']['script_model_id'],$system,$content,[],$validate);
             if($validate)$validate($result);
             MicroVideoStore::update($row['id'],['prompt'=>$result['content'],'status'=>'prompt_ready']);
@@ -104,7 +108,9 @@ final class MicroVideoService
     {
         self::available($tenant);
         if(empty($p['id'])){
-            $form=self::form($tenant,$user,$p,false);$params=$form['params'];$specs=MicroVideoCatalog::specs($form['model'],$params['quality'],$params['ratio']);$durations=MicroVideoPolicy::durations($params['target_duration'],array_column($specs,'duration'),$form['config']['max_segments']);$sum=0;
+            $form=self::form($tenant,$user,$p,false);$params=$form['params'];$specs=MicroVideoCatalog::specs($form['model'],$params['quality'],$params['ratio']);$contract=MicroVideoContentPlanning::contract($params,array_column($specs,'duration'),$form['config']['max_segments']);
+            // This partition is only a provisional price calculation, never the planning model's input.
+            $durations=MicroVideoPolicy::durations($contract['required_total_duration']??$params['target_duration'],array_column($specs,'duration'),$form['config']['max_segments']);$sum=0;
             foreach($durations as $d){$q=MicroVideoCatalog::quote($tenant,MicroVideoCatalog::spec($form['model'],$params['quality'],$params['ratio'],$d),$params['model_id']);$sum+=$q['user_charge_points'];}
             return ['user_charge_points'=>round($sum,4),'approximate'=>true,'planned_duration'=>array_sum($durations),'planning_points'=>0,'planning_notice'=>'图片理解和提示词规划按模型实际用量单独计费'];
         }

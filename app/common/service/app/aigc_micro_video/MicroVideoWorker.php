@@ -45,13 +45,19 @@ final class MicroVideoWorker
             $r=MicroVideoText::run($task,'analysis',$c['vision_model_id'],$c['analysis_template'],'请按顺序逐张分析参考图片并说明它们之间的关系。',MicroVideoMedia::visionInputs($images));
             MicroVideoStore::update((int)$task['id'],['analysis'=>(string)$r['content'],'next_run_at'=>time()]);return;
         }
-        $specs=MicroVideoCatalog::specs($model,$p['quality'],$p['ratio']);$supported=array_column($specs,'duration');$durations=MicroVideoPolicy::durations($p['target_duration'],$supported,(int)$c['max_segments']);
-        $input=['mode'=>$p['mode'],'theme'=>$p['theme'],'confirmed_prompt'=>$p['prompt'],'image_analysis'=>$task['analysis'],'direction'=>$direction['prompt'],'shared_continuity'=>$c['continuity_template'].' '.$direction['continuity_prompt'],'durations'=>$durations,'image_count'=>count($images),'image_index_base'=>0,'max_reference_images'=>(int)$model['max_reference_images'],'ratio'=>$p['ratio']]+self::planningContract($durations);
+        $specs=MicroVideoCatalog::specs($model,$p['quality'],$p['ratio']);$supported=array_column($specs,'duration');$adaptive=MicroVideoContentPlanning::required($c);
+        if($adaptive)$contract=MicroVideoContentPlanning::contract($p,$supported,(int)$c['max_segments']);
+        else{$durations=MicroVideoPolicy::durations($p['target_duration'],$supported,(int)$c['max_segments']);$contract=['durations'=>$durations]+self::planningContract($durations);}
+        $input=['mode'=>$p['mode'],'theme'=>$p['theme'],'confirmed_prompt'=>$p['prompt'],'image_analysis'=>$task['analysis'],'direction'=>$direction['prompt'],'shared_continuity'=>$c['continuity_template'].' '.$direction['continuity_prompt'],'image_count'=>count($images),'image_index_base'=>0,'max_reference_images'=>(int)$model['max_reference_images'],'ratio'=>$p['ratio']]+$contract;
         $timeline=MicroVideoTimeline::required($c);
         if($timeline){$input['output_schema']['segments'][0]['prompt']='共同主体设定与逐行镜头时间轴，每行格式为开始秒-结束秒：具体画面与运镜。每段从0秒开始，连续覆盖该段duration秒，至少两个镜头。';$input['requirements'].=MicroVideoTimeline::instructions();}
-        $validate=function(array $r)use($supported,$images,$model,$c,$durations){$parsed=MicroVideoText::parse((string)$r['content']);$segments=MicroVideoPolicy::segments($parsed['segments'],$supported,count($images),(int)$model['max_reference_images'],(int)$c['max_segments'],MicroVideoTimeline::required($c));if(array_column($segments,'duration')!==$durations)throw new \InvalidArgumentException('模型分段时长与已规划规格不一致');if(trim((string)($parsed['continuity']??''))==='')throw new \InvalidArgumentException('方案缺少整片一致性设定');};
-        $r=MicroVideoText::run($task,'script',$c['script_model_id'],$c['planning_template'].($timeline?"\n".MicroVideoTimeline::instructions():''),MicroVideoStore::encode($input),[],$validate);$validate($r);$parsed=MicroVideoText::parse((string)$r['content']);
-        $segments=MicroVideoPolicy::segments($parsed['segments'],$supported,count($images),(int)$model['max_reference_images'],(int)$c['max_segments'],MicroVideoTimeline::required($c));
+        $parseSegments=function(array $parsed)use($adaptive,$contract,$supported,$images,$model,$c,$timeline){
+            if($adaptive)return MicroVideoContentPlanning::validate($parsed,$contract,count($images),(int)$model['max_reference_images'],$timeline);
+            $segments=MicroVideoPolicy::segments($parsed['segments'],$supported,count($images),(int)$model['max_reference_images'],(int)$c['max_segments'],$timeline);if(array_column($segments,'duration')!==$contract['durations'])throw new \InvalidArgumentException('模型分段时长与已规划规格不一致');if(trim((string)($parsed['continuity']??''))==='')throw new \InvalidArgumentException('方案缺少整片一致性设定');return $segments;
+        };
+        $validate=function(array $r)use($parseSegments){$parseSegments(MicroVideoText::parse((string)$r['content']));};
+        $system=$c['planning_template'].($timeline?"\n".MicroVideoTimeline::instructions():'').($adaptive?"\n".MicroVideoContentPlanning::instructions():'');
+        $r=MicroVideoText::run($task,'script',$c['script_model_id'],$system,MicroVideoStore::encode($input),[],$validate);$parsed=MicroVideoText::parse((string)$r['content']);$segments=$parseSegments($parsed);
         Db::transaction(function()use($task,$parsed,$segments,$p,$c){$fresh=MicroVideoStore::owned((int)$task['tenant_id'],(int)$task['user_id'],(int)$task['id'],true);if($fresh['status']!=='planning')return;MicroVideoService::replaceSegments($fresh,$segments);MicroVideoStore::update((int)$task['id'],['status'=>'awaiting_confirmation','prompt'=>$p['prompt']!==''?$p['prompt']:(string)($parsed['prompt']??$p['theme']),'continuity'=>$c['continuity_template'].' '.(string)$parsed['continuity'],'planning_result'=>MicroVideoStore::encode($parsed),'plan_revision'=>(int)$fresh['plan_revision']+1,'error'=>'']);});
     }
     private static function video(array $task): void

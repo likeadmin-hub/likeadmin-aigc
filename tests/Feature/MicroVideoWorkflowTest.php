@@ -91,4 +91,27 @@ final class MicroVideoWorkflowTest extends TestCase
         $task=S::owned(1,1,$this->id);$snapshot=S::json($task['config_snapshot']);unset($snapshot['frame_feature_version']);S::update($this->id,['config_snapshot'=>S::encode($snapshot)]);$config=C::get(1);$config['video_model_ids']=[];S::table('config')->where('tenant_id',1)->update(['config_json'=>S::encode($config)]);$q=$this->quote();self::assertSame(60.0,(float)$q['user_charge_points']);
     }
 
+    public function testContentWorkerKeepsAnUnequalFifteenSecondStoryDespiteThirtySecondTarget(): void
+    {
+        $task=S::owned(1,1,$this->id);$p=S::json($task['params_json']);$p['model_id']='market_video_model:182';$p['quality']='768P';$p['ratio']='16:9';$p['mode']='prompt';$p['prompt']='整片15秒剧情带货视频，先发现商品，再拿起展示。';$p['target_duration']=30;
+        $model=\app\common\service\app\aigc_micro_video\MicroVideoCatalog::model(1,$p['model_id']);
+        $snapshot=S::json($task['config_snapshot']);$snapshot['content_planning_version']=1;$snapshot['shot_timeline_version']=1;
+        S::update($this->id,['status'=>'planning','params_json'=>S::encode($p),'model_snapshot'=>S::encode($model),'config_snapshot'=>S::encode($snapshot),'analysis'=>'参考图展示同一商品。','next_run_at'=>0]);
+        $segments=[];foreach([6,9] as $d)$segments[]=['title'=>'自然剧情','duration'=>$d,'prompt'=>"0-2秒：人物走向商品。\n2-{$d}秒：延续动作展示。",'image_indices'=>[0],'start_state'=>'站在商品旁','end_state'=>'持瓶展示','continuity'=>'同一人物与机位，动作自然承接'];
+        S::table('attempt')->insert(['tenant_id'=>1,'user_id'=>1,'task_id'=>$this->id,'segment_id'=>0,'kind'=>'script','attempt_no'=>1,'status'=>'success','request_json'=>'{}','result_json'=>S::encode(['content'=>S::encode(['continuity'=>'保持同一人物与场景','segments'=>$segments])]),'create_time'=>time(),'update_time'=>time()]);
+        $before=Db::name('ai_consumption_log')->count();
+        \app\common\service\app\aigc_micro_video\MicroVideoWorker::tick($this->id);
+        $row=S::owned(1,1,$this->id);self::assertSame('awaiting_confirmation',$row['status'],$row['error']);self::assertSame([6,9],array_column(S::segments($this->id),'duration'));self::assertSame($before,Db::name('ai_consumption_log')->count());
+    }
+
+    public function testSmartPromptAndEstimateBothHonorExplicitFifteenSeconds(): void
+    {
+        $p=S::json(S::owned(1,1,$this->id)['params_json']);$p=array_replace($p,['model_id'=>'market_video_model:182','quality'=>'768P','ratio'=>'16:9','mode'=>'prompt','prompt'=>"整片15秒。\n0-3秒：发现商品。\n3-15秒：拿起展示。",'target_duration'=>30,'idempotency_key'=>'prompt_test_'.bin2hex(random_bytes(8))]);
+        $prepared=V::form(1,1,$p);$create=new \ReflectionMethod(V::class,'createDraft');$create->setAccessible(true);
+        $row=$create->invoke(null,1,1,$prepared,'prompt:'.$p['idempotency_key'],'prompt_draft');S::update((int)$row['id'],['analysis'=>'参考图为同一商品。']);
+        S::table('attempt')->insert(['tenant_id'=>1,'user_id'=>1,'task_id'=>$row['id'],'segment_id'=>0,'kind'=>'prompt','attempt_no'=>1,'status'=>'success','request_json'=>'{}','result_json'=>S::encode(['content'=>$p['prompt']]),'create_time'=>time(),'update_time'=>time()]);
+        $before=Db::name('ai_consumption_log')->count();$r=V::writePrompt(1,1,$p);self::assertSame($p['prompt'],$r['prompt']);
+        $q=V::estimate(1,1,$p);self::assertSame(15,$q['planned_duration']);self::assertTrue($q['approximate']);self::assertSame($before,Db::name('ai_consumption_log')->count());
+    }
+
 }
