@@ -72,6 +72,7 @@ Db::startTrans();try {
     check($fixed['nodes_json'][$last]['position']===$broken[$last]['position']&&$fixed['nodes_json'][$last]['metadata']['url']===$meta['url'],'Audio repair changed media/position');
     check(Compatibility::adapt($fixed)===$fixed,'Audio repair not idempotent');
     $edited=$old;$edited['nodes_json'][$last]['metadata']['prompt']='Edited';check(Compatibility::adapt($edited)['nodes_json']===$edited['nodes_json'],'Audio repair overwrote edits');
+    $edited=$old;$edited['nodes_json'][$last]['metadata']['lyrics']='Edited lyrics';check(Compatibility::adapt($edited)['nodes_json']===$edited['nodes_json'],'Audio repair overwrote song edits');
     Db::name('aigc_music_task')->where('id',$task)->update(['user_id'=>$user+1]);check(Compatibility::adapt($old)['nodes_json']===$broken,'Audio crossed task ownership');
     Db::name('aigc_music_task')->where('id',$task)->update(['user_id'=>$user]);
     S::owner('step',$tenant,$user)->where('id',$step)->update(['tool_code'=>'speech_synthesis']);

@@ -54,6 +54,7 @@ final class CanvasArtifactGeneration
             $prompt = trim((string)($meta['prompt'] ?? ''));
             if ($prompt !== '' && !in_array($prompt, [$meta['url'] ?? '', $meta['image'] ?? '', $meta['content'] ?? ''], true)) continue;
             if (!empty($meta['submittedPrompt']) || !empty($meta['compiledPrompt'])) continue;
+            if (($node['type'] ?? '') === 'audio' && (!empty($meta['lyrics']) || !empty($meta['custom']) || !empty($meta['instrumental']) || !empty($meta['vocal_gender']))) continue;
             $tenant = (int)($project['tenant_id'] ?? 0); $user = (int)($project['user_id'] ?? 0);
             if ($tenant < 1 || $user < 1) continue;
             $artifact = AgentStore::owner('artifact', $tenant, $user)->where('id', (int)$meta['agentArtifactId'])->find();
