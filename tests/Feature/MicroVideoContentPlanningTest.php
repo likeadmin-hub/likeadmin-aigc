@@ -116,7 +116,7 @@ final class MicroVideoContentPlanningTest extends TestCase
     }
     public function testTargetContractLetsContentChooseThePartitionInsideAThirtyToThirtyFiveSecondWork(): void
     {
-        $c=P::contract($this->params('',30),range(4,15),24);
+        $c=P::contract($this->params('',30),range(4,15),24,2);
         self::assertArrayNotHasKey('durations',$c);self::assertSame(30,$c['minimum_total_duration']);self::assertSame(35,$c['max_total_duration']);
         self::assertSame([30,31,32,33,34,35],$c['allowed_total_durations']);self::assertSame(30,$c['preferred_total_duration']);
         self::assertSame([8,10,12],array_column(P::validate($this->parsed([8,10,12]),$c,1,3,true),'duration'));
@@ -124,33 +124,59 @@ final class MicroVideoContentPlanningTest extends TestCase
     }
     public function testShortFifteenSecondStoryCannotPassAThirtySecondTarget(): void
     {
-        $c=P::contract($this->params('整片15秒，女生拿起商品。',30),range(4,15),24);
+        $c=P::contract($this->params('整片15秒，女生拿起商品。',30),range(4,15),24,2);
         self::assertNull($c['required_total_duration']);self::assertSame(15,$c['source_duration']);self::assertFalse($c['preserve_source_clocks']);
         $this->expectException(\InvalidArgumentException::class);$this->expectExceptionMessage('目标时长');
         P::validate($this->parsed([6,4,5]),$c,1,3,true);
     }
     public function testExcessiveOverflowCannotBeSavedAsAValidPlan(): void
     {
-        $c=P::contract($this->params('',30),range(4,15),24);
+        $c=P::contract($this->params('',30),range(4,15),24,2);
         $this->expectException(\InvalidArgumentException::class);P::validate($this->parsed([12,12,12]),$c,1,3,true);
     }
     public function testCapabilitiesSelectTheSmallestReachableTotalAtOrAboveTarget(): void
     {
-        $c=P::contract($this->params('',25),[10],24);self::assertSame([30],$c['allowed_total_durations']);self::assertSame(30,$c['preferred_total_duration']);
+        $c=P::contract($this->params('',25),[10],24,2);self::assertSame([30],$c['allowed_total_durations']);self::assertSame(30,$c['preferred_total_duration']);
         self::assertSame([10,10,10],array_column(P::validate($this->parsed([10,10,10]),$c,1,3,true),'duration'));
-        $this->expectException(\InvalidArgumentException::class);$this->expectExceptionMessage('目标时长');P::contract($this->params('',30),[15],1);
+        $this->expectException(\InvalidArgumentException::class);$this->expectExceptionMessage('目标时长');P::contract($this->params('',30),[15],1,2);
     }
     public function testMismatchedSourceClocksCanBeReplannedToTheSelectedTarget(): void
     {
-        $c=P::contract($this->params("0-3秒：发现。\n3-15秒：展示。",30),range(4,15),24);
+        $c=P::contract($this->params("0-3秒：发现。\n3-15秒：展示。",30),range(4,15),24,2);
         P::validatePrompt("0-5秒：发现商品。\n5-12秒：拿起。\n12-20秒：展示。\n20-30秒：装包离开。",$c);
         self::assertSame([12,8,10],array_column(P::validate($this->parsed([12,8,10]),$c,1,3,true),'duration'));
         $this->expectException(\InvalidArgumentException::class);P::validatePrompt("0-3秒：发现。\n3-15秒：展示。",$c);
     }
     public function testMaximumWholeWorkDurationAndDiscreteSpecsStillApply(): void
     {
-        $c=P::contract($this->params('',600),[15],60);self::assertSame([600],$c['allowed_total_durations']);
-        $this->expectException(\InvalidArgumentException::class);P::contract($this->params('',30),[40],24);
+        $c=P::contract($this->params('',600),[15],60,2);self::assertSame([600],$c['allowed_total_durations']);
+        $this->expectException(\InvalidArgumentException::class);P::contract($this->params('',30),[40],24,2);
+    }
+
+    /** @dataProvider capacityCases */
+    public function testCapacityFirstUsesTheFewestGenerationsAndRoundsOnlyTheTail(int $target,array $supported,array $expected): void
+    {
+        $c=P::contract($this->params('', $target),$supported,60);
+        self::assertSame($expected,$c['segment_durations']);self::assertSame(array_sum($expected),$c['preferred_total_duration']);self::assertSame([array_sum($expected)],$c['allowed_total_durations']);
+        self::assertSame($expected,array_column(P::validate($this->parsed($expected),$c,1,3,true),'duration'));
+    }
+    public static function capacityCases(): array
+    {
+        return [[10,range(4,15),[10]],[25,range(4,15),[15,10]],[30,range(4,15),[15,15]],[31,range(4,15),[15,15,4]],[14,range(4,15),[14]],[3,range(4,15),[4]],[16,[10,15],[15,10]],[17,[5,10],[10,10]]];
+    }
+    public function testSameTotalCannotBeSplitIntoMoreShortGenerations(): void
+    {
+        $c=P::contract($this->params('',30),range(4,15),24);$this->expectException(\InvalidArgumentException::class);$this->expectExceptionMessage('模型');P::validate($this->parsed([6,8,7,9]),$c,1,3,true);
+    }
+    public function testCapacityPlanCannotExceedConfiguredCountOrWholeWorkLimit(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);P::contract($this->params('',31),range(4,15),2);
+    }
+
+    public function testFifteenSecondLabelCannotHideOnlyTenSecondsOfShots(): void
+    {
+        $c=P::contract($this->params('',15),range(4,15),24);$p=$this->parsed([15]);$p['segments'][0]['prompt']="0-3秒：发现商品。\n3-10秒：拿起展示。";
+        $this->expectException(\InvalidArgumentException::class);$this->expectExceptionMessage('时间轴');P::validate($p,$c,1,3,true);
     }
 
 }
