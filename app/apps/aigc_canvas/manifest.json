@@ -1,10 +1,10 @@
 {
   "code": "aigc_canvas",
   "name": "无限画布",
-  "version": "1.6.19",
+  "version": "1.6.20",
   "require_core": ">=1.0.0",
   "description": "在可视化画布中编排创作，支持项目内多页面、Agent 对话和图片视频等内容生成。",
-  "changelog": "1. 预设可保留图片、视频、音频及参考素材，使用后支持替换。\n2. 内置预设随源码更新，租户自建预设继续独立管理。\n3. 租户后台区分系统内置与自建预设。",
+  "changelog": "1. 预设可保留图片、视频、音频及参考素材，使用后支持替换。\n2. 内置预设随源码更新，租户自建预设继续独立管理。\n3. 租户后台可从画布或已发布模板导出内置预设，支持新增和更新。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

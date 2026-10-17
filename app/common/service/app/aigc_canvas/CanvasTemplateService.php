@@ -68,18 +68,25 @@ final class CanvasTemplateService
         $tenant = (int)request()->tenantId;
         foreach ($cards as $card) {
             if (($card['section'] ?? '') !== 'template' || empty($card['refresh_workflow'])) continue;
-            $source = self::source($tenant,(int)($card['source_project_id'] ?? 0));
-            $page = null;
-            foreach ($source['viewport_json']['pages'] as $candidate) if ($candidate['id'] === ($card['source_page_id'] ?? '')) $page = $candidate;
-            if (!$page) throw new InvalidArgumentException('请选择来源画布页面');
-            $ids = array_fill_keys($page['nodeIds'],true);
-            $nodes = array_values(array_filter($source['nodes_json'],fn($n)=>isset($ids[$n['id']])));
-            $edges = array_values(array_filter($source['edges_json'],fn($e)=>isset($ids[$e['fromNodeId']],$ids[$e['toNodeId']])));
-            $storage = new CanvasTemplateMediaStorage($tenant);
-            $graph = self::sanitize($nodes,$edges,fn($type,$metadata)=>CanvasTemplateMedia::capture($type,$metadata,[$storage,'copy']));
+            $graph = self::capturePage($tenant,(int)($card['source_project_id'] ?? 0),(string)($card['source_page_id'] ?? ''));
             $old = self::read($tenant,self::key($card['id']));
-            self::write($tenant,self::key($card['id']),$graph+['media_schema'=>1,'version'=>(int)($old['version'] ?? 0)+1,'source_project_id'=>(int)$source['id'],'source_page_id'=>$page['id']]);
+            self::write($tenant,self::key($card['id']),$graph+['version'=>(int)($old['version'] ?? 0)+1]);
         }
+    }
+    /** One saved canvas page, shared by tenant publication and source-definition export. */
+    public static function capturePage(int $tenant, int $projectId, string $pageId): array
+    {
+        if ($tenant<1 || $tenant!==(int)request()->tenantId) throw new InvalidArgumentException('租户上下文不匹配');
+        $source=self::source($tenant,$projectId);
+        $page=null;
+        foreach ($source['viewport_json']['pages'] as $candidate) if ($candidate['id']===$pageId) $page=$candidate;
+        if (!$page) throw new InvalidArgumentException('请选择来源画布页面');
+        $ids=array_fill_keys($page['nodeIds'],true);
+        $nodes=array_values(array_filter($source['nodes_json'],fn($n)=>isset($ids[$n['id']])));
+        $edges=array_values(array_filter($source['edges_json'],fn($e)=>isset($ids[$e['fromNodeId']],$ids[$e['toNodeId']])));
+        $storage=new CanvasTemplateMediaStorage($tenant);
+        return self::sanitize($nodes,$edges,fn($type,$metadata)=>CanvasTemplateMedia::capture($type,$metadata,[$storage,'copy']))
+            +['media_schema'=>1,'source_project_id'=>$projectId,'source_page_id'=>$pageId];
     }
     public static function sanitize(array $nodes, array $edges, ?callable $captureMedia = null): array
     {
