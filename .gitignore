@@ -12,3 +12,5 @@
 /config/install.lock
 /skill/*
  
+# Generated PC cover copies; source assets belong to the web repository.
+/public/likeadmin-home/
