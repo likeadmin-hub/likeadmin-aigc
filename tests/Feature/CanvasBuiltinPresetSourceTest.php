@@ -6,11 +6,16 @@ use app\common\enum\AdminTerminalEnum;
 use think\facade\Config;
 $n=0;$check=static function($ok,$why)use(&$n){if(!$ok)throw new RuntimeException($why);$n++;};
 $reject=static function($fn)use($check){try{$fn();}catch(InvalidArgumentException $e){$check(true,'rejected');return;}throw new RuntimeException('Expected source-write rejection');};
+if (in_array('--immutable-probe',$argv ?? [],true)) {
+    Config::set(['source_author_tenant_id'=>1],'canvas_presets');request()->tenantId=1;request()->source=AdminTerminalEnum::TENANT;request()->adminInfo=['tenant_id'=>1,'admin_id'=>1,'root'=>1];
+    $check(getenv('LIKEADMIN_IMMUTABLE_ASSETS')==='1' && !Source::capability(1)['enabled'],'Immutable deployment allows source writes');
+    echo "PASS immutable deployment rejects source authoring\n";exit;
+}
 $key=static fn($value)=>hash('sha256',$value);
 $preset=static fn($id,$version,$title='Fixture')=>['filename'=>$id.'.json','media_count'=>0,'preset'=>['schema_version'=>1,'id'=>$id,'version'=>$version,'title'=>$title,'graph'=>['nodes'=>[['id'=>'text','type'=>'text','metadata'=>['content'=>'Portable prompt']]],'edges'=>[]]]];
 $root=sys_get_temp_dir().'/canvas-source-test-'.bin2hex(random_bytes(8));mkdir($root,0770,true);mkdir($root.'/catalog',0770);
 $store=new Store($root.'/catalog',$root.'/journal');$id='builtin-source-fixture';
-$oldConfig=config('canvas_presets');$oldAdmin=request()->adminInfo ?? [];$oldTenant=request()->tenantId ?? 0;$oldSource=request()->source ?? '';$oldImmutable=getenv('LIKEADMIN_IMMUTABLE_ASSETS');
+$oldConfig=config('canvas_presets');$oldAdmin=request()->adminInfo ?? [];$oldTenant=request()->tenantId ?? 0;$oldSource=request()->source ?? '';
 $cleanup=static function($path)use(&$cleanup){if(is_dir($path)&&!is_link($path)){foreach(new FilesystemIterator($path) as $file)$cleanup($file->getPathname());rmdir($path);}else unlink($path);};
 try {
     $new=$store->save($key('new'),$key('payload'),'new','',0,static fn()=>$preset($id,1));
@@ -50,7 +55,7 @@ try {
     $resumed=$store->save($key('pending'),$key('pending-payload'),'new','',0,static fn()=>throw new RuntimeException('Pending receipt rebuilt'));
     $check($resumed['preset']['id']===$pendingId && file_get_contents($root.'/catalog/'.$pendingId.'.json')===$content,'Interrupted write did not recover');
     // The globally shared source directory is never granted to an arbitrary tenant or role.
-    request()->tenantId=1;request()->source=AdminTerminalEnum::TENANT;request()->adminInfo=['tenant_id'=>1,'admin_id'=>1,'root'=>1];putenv('LIKEADMIN_IMMUTABLE_ASSETS=0');
+    request()->tenantId=1;request()->source=AdminTerminalEnum::TENANT;request()->adminInfo=['tenant_id'=>1,'admin_id'=>1,'root'=>1];
     Config::set(['source_author_tenant_id'=>0],'canvas_presets');$check(!Source::capability(1)['enabled'],'Default installation allows source writes');
     $reject(static fn()=>Source::save(1,[]));
     Config::set(['source_author_tenant_id'=>1],'canvas_presets');$check(Source::capability(1)['enabled'],'Designated author is unavailable');
@@ -58,10 +63,8 @@ try {
     request()->tenantId=2;request()->adminInfo=['tenant_id'=>2,'admin_id'=>1,'root'=>1];$check(!Source::capability(2)['enabled'],'Other tenant root can write source');$reject(static fn()=>Source::save(2,[]));
     request()->tenantId=1;request()->adminInfo=['tenant_id'=>2,'admin_id'=>1,'root'=>1];$check(!Source::capability(1)['enabled'],'Admin tenant mismatch accepted');
     request()->adminInfo=['tenant_id'=>1,'admin_id'=>1,'root'=>1];request()->source=AdminTerminalEnum::USER;$check(!Source::capability(1)['enabled'],'User API context can write source');
-    request()->source=AdminTerminalEnum::TENANT;putenv('LIKEADMIN_IMMUTABLE_ASSETS=1');$check(!Source::capability(1)['enabled'],'Immutable deployment allows source writes');
     echo "PASS $n atomic create/replace, retry, version, concurrency, failure recovery, path, permission and tenant-author checks; only temporary fixtures written\n";
 } finally {
     Config::set($oldConfig,'canvas_presets');request()->adminInfo=$oldAdmin;request()->tenantId=$oldTenant;request()->source=$oldSource;
-    putenv($oldImmutable===false?'LIKEADMIN_IMMUTABLE_ASSETS':'LIKEADMIN_IMMUTABLE_ASSETS='.$oldImmutable);
     chmod($root.'/catalog',0770);$cleanup($root);
 }
