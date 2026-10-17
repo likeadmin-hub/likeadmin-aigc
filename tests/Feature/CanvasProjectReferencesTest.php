@@ -72,6 +72,8 @@ try{
  rejected(fn()=>W::within(array_replace($scope,['project_id'=>$b]),fn()=>R::resolve($t,$u,$copy['reference'])));
  // An editable asset row cannot grant a foreign owner's private file.
  $secret='uploads/audit-foreign.png';Db::name('tenant_file')->insert(['tenant_id'=>$t,'source_id'=>$u+1,'source'=>1,'uri'=>$secret,'name'=>'private','type'=>10,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time()]);
+ $forgedSubject=Db::name('aigc_short_drama_subject')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'name'=>'冒用图片的主体','image'=>$secret,'source'=>'user','status'=>1,'delete_time'=>0]);
+ rejected(fn()=>$in(fn()=>R::importSubject($t,$u,['subject_id'=>$forgedSubject,'request_id'=>'forged-source-0123456789'])));
  $fake=Db::name('aigc_canvas_asset')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'project_id'=>$a,'title'=>'伪造引用','uri'=>$secret,'asset_type'=>'subject','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','status'=>'ready','meta_json'=>'{}','delete_time'=>0]);
  rejected(fn()=>$in(fn()=>R::resolve($t,$u,['kind'=>'asset','id'=>(string)$fake])));
  check($in(fn()=>R::lists($t,$u,['scope'=>'subjects']))['count']===1,'Foreign file exposed in mentions');
