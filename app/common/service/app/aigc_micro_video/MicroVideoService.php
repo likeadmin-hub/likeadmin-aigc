@@ -165,7 +165,7 @@ final class MicroVideoService
         $row=MicroVideoStore::owned($tenant,$admin?0:$user,$id);$params=MicroVideoStore::json($row['params_json']);
         // Never return internal file identity, supplier errors, pricing costs or system templates.
         foreach($params['images']??[] as $index=>$image){try{$image=MicroVideoMedia::validateImages($tenant,(int)$row['user_id'],[$image],1)[0];}catch(\Throwable){$image['url']='';}$params['images'][$index]=array_intersect_key($image,array_flip(['uri','url','name','role']));}
-        $state=MicroVideoPolicy::publicState($row['status']);unset($state['can_show_error']);
+        $state=MicroVideoPolicy::publicState($row['status'],(string)($row['frame_status']??'off'));unset($state['can_show_error']);
         $out=$state+['id'=>(int)$row['id'],'title'=>$row['title'],'params'=>$params,'prompt'=>$row['prompt'],'analysis'=>$row['analysis'],'continuity'=>$row['continuity'],'plan_revision'=>(int)$row['plan_revision'],'segments'=>[],'estimate'=>['user_charge_points'=>(float)(MicroVideoStore::json($row['quote_json'])['user_charge_points']??0),'planning_points'=>self::planningPoints($id)],'result_url'=>self::fileUrl($row['result_uri'],$row),'cover_url'=>self::fileUrl($row['cover_uri'],$row),'actual_duration'=>(float)$row['actual_duration'],'create_time'=>(int)$row['create_time'],'update_time'=>(int)$row['update_time']];
         $out+=MicroVideoFrames::dto($row,$admin);
         if($row['status']==='awaiting_confirmation'||$admin){
