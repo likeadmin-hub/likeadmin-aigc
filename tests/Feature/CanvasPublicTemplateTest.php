@@ -19,7 +19,7 @@ try {
     $check(Db::name('system_menu')->where(['app_code'=>'aigc_canvas','source_menu_key'=>'aigc_canvas_platform_template'])->count()===1,'Platform menu missing or duplicated');
     $check(Db::name('app_api')->where(['app_code'=>'aigc_canvas','api_path'=>'app.aigc_canvas.template/publish','scene'=>'platform_admin'])->count()===1,'Platform permission missing or duplicated');
     $tenantA=1999999785; $tenantB=1999999786; $user=1999999785;
-    foreach ([$tenantA,$tenantB] as $t) Tenant::create(['id'=>$t,'sn'=>'canvas-public-fixture-'.$t,'name'=>'Public Template Fixture '.$t,'create_time'=>time(),'delete_time'=>0]);
+    foreach ([$tenantA,$tenantB] as $t) Tenant::create(['id'=>$t,'sn'=>'canvas-public-fixture-'.$t,'name'=>'Public Fixture '.$t,'create_time'=>time(),'delete_time'=>0]);
     $nodes=[['id'=>'text','type'=>'text','title'=>'Template prompt','position'=>['x'=>0,'y'=>0],'metadata'=>['prompt'=>'Shared workflow','taskId'=>37,'url'=>'https://private.invalid/image','api_key'=>'private']],['id'=>'image','type'=>'image','title'=>'Image','position'=>['x'=>400,'y'=>0],'metadata'=>['prompt'=>'Product photograph','image'=>'https://private.invalid/output','channel'=>'shared-test']]];
     $source=Canvas::createProject($tenantA,$user,['name'=>'Public source','nodes'=>$nodes,'edges'=>[['id'=>'edge','fromNodeId'=>'text','toNodeId'=>'image']],'viewport'=>['pages'=>[['id'=>'page','name'=>'Public page','nodeIds'=>['text','image']]],'currentCanvasId'=>'page']]);
     $cover=File::create(['name'=>'public-cover-fixture','uri'=>'uploads/public-cover-fixture.png','type'=>10,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','delete_time'=>0]);
@@ -41,7 +41,7 @@ try {
     $published=PublicTemplates::publish(['revision'=>$state['revision'],'config'=>['cards'=>[$card]]]);
     $check($published['config']['cards'][0]['workflow_ready'] && $published['config']['cards'][0]['source_tenant_id']===$tenantA,'Platform snapshot missing');
     $check(PublicTemplates::sources(['source_tenant_id'=>$tenantA,'source_project_id'=>$source['id']])['pages'][0]['node_count']===2,'Platform source pages unavailable');
-    $tenants=PublicTemplates::sources(['tenants'=>1,'keyword'=>'Public Template Fixture']);
+    $tenants=PublicTemplates::sources(['tenants'=>1,'keyword'=>'Public Fixture']);
     $check($tenants['count']===2,'Platform source tenant search');
     $reject(fn()=>PublicTemplates::publish(['revision'=>$state['revision'],'config'=>['cards'=>[$card]]]));
     request()->source=Terminal::USER; request()->tenantId=$tenantA;
