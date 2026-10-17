@@ -1,7 +1,7 @@
 <?php
 // Disposable physical tables + local files. No provider, queue tick, live tenant writes or billing.
 namespace app\common\service\app {
- final class AppAccessService { public static function assertTenantCanUse(...$args){return null;} }
+ final class AppAccessService { public static bool $denySource=false; public static function assertTenantCanUse(...$args){return self::$denySource&&($args[1]??'')==='aigc_short_drama'?'denied':null;} }
 }
 namespace app\common\service\storage {
  final class StorageConfigService {
@@ -43,6 +43,7 @@ try{
  $a=$project($t,$u,'A',[['id'=>'text_a','type'=>'text','metadata'=>['title'=>'项目 A 正文','content'=>'只能在 A 中读取的文本']],['id'=>'empty_video','type'=>'video','metadata'=>['prompt'=>'待编辑的视频节点']]]);
  $b=$project($t,$u,'B',[['id'=>'text_b','type'=>'text','metadata'=>['content'=>'B 内容']]]);
  $foreign=$project($t,$u+1,'foreign',[]);$otherTenant=$project($t+1,$u,'other tenant',[]);
+ $originalDocument=Db::name('aigc_canvas_project')->where('id',$a)->field('nodes_json,edges_json,viewport_json,update_time')->find();
  $scope=['app'=>'aigc_canvas','project_id'=>$a,'page_id'=>'p1'];
  // Avoid a live project compatibility repair: all fixture documents are already native.
  $in=fn($call)=>W::within($scope,$call);
@@ -67,7 +68,23 @@ try{
  $request=['subject_id'=>$subject,'request_id'=>'snapshot-import-0123456789'];
  $copy=$in(fn()=>R::importSubject($t,$u,$request));$again=$in(fn()=>R::importSubject($t,$u,$request));check($copy['id']===$again['id'],'Import retry duplicated snapshot');
  $id=(int)$copy['reference']['id'];$row=Db::name('aigc_canvas_asset')->where('id',$id)->find();check($row['uri']!==$sourceUri&&file_get_contents(public_path().$row['uri'])===$png,'Image was linked instead of copied');
- Db::name('aigc_short_drama_subject')->where('id',$subject)->update(['name'=>'改名','description'=>'改说明','image'=>'resource/missing.png','delete_time'=>time()]);unlink($sourcePath);
+ // Change the source separately from deletion; only an explicit new import sees the changes.
+ $replacementUri='resource/audit-replacement-'.getmypid().'.png';$physical[]=public_path().$replacementUri;
+ $replacementBytes=$png.'source replacement';file_put_contents(public_path().$replacementUri,$replacementBytes);
+ Db::name('aigc_short_drama_subject')->where('id',$subject)->update(['name'=>'改名','description'=>'改说明','image'=>$replacementUri]);
+ $unchanged=$in(fn()=>R::resolve($t,$u,$copy['reference']));
+ check($unchanged['reference_name']==='@公开测试主体'&&$unchanged['reference_description']==='导入时说明'&&file_get_contents(public_path().$row['uri'])===$png,'Source edit changed an existing snapshot');
+ $replacement=$in(fn()=>R::importSubject($t,$u,['subject_id'=>$subject,'request_id'=>'snapshot-replacement-0123456789']));
+ $replacementRow=Db::name('aigc_canvas_asset')->where('id',$replacement['reference']['id'])->find();
+ check($replacement['id']!==$copy['id']&&$replacement['name']==='改名'&&$replacement['description']==='改说明'&&file_get_contents(public_path().$replacementRow['uri'])===$replacementBytes,'Explicit reimport did not freeze the replacement source');
+ Db::name('aigc_short_drama_subject')->where('id',$subject)->update(['status'=>0,'delete_time'=>time()]);unlink($sourcePath);unlink(public_path().$replacementUri);
+ rejected(fn()=>$in(fn()=>R::importSubject($t,$u,['subject_id'=>$subject,'request_id'=>'deleted-source-0123456789'])));
+ check($in(fn()=>R::resolve($t,$u,$replacement['reference']))['reference_description']==='改说明','Source soft deletion affected the replacement snapshot');
+ Db::name('aigc_short_drama_subject')->where('id',$subject)->delete();
+ \app\common\service\app\AppAccessService::$denySource=true;
+ rejected(fn()=>$in(fn()=>R::sourceSubjects($t,$u,['scope'=>'public'])));
+ check($in(fn()=>R::resolve($t,$u,$copy['reference']))['reference_name']==='@公开测试主体','Source app access revocation invalidated an imported snapshot');
+ \app\common\service\app\AppAccessService::$denySource=false;
  $snapshot=$in(fn()=>R::resolve($t,$u,$copy['reference']));check($snapshot['reference_name']==='@公开测试主体'&&$snapshot['reference_description']==='导入时说明','Source changes altered snapshot');
  check(file_get_contents(public_path().$row['uri'])===$png,'Source deletion deleted snapshot');
  $in(fn()=>R::importSubject($t,$u,$request)); // Retry succeeds even when the source is gone.
@@ -78,12 +95,23 @@ try{
  rejected(fn()=>$in(fn()=>R::importSubject($t,$u,['subject_id'=>$forgedSubject,'request_id'=>'forged-source-0123456789'])));
  $fake=Db::name('aigc_canvas_asset')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'project_id'=>$a,'title'=>'伪造引用','uri'=>$secret,'asset_type'=>'subject','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','status'=>'ready','meta_json'=>'{}','delete_time'=>0]);
  rejected(fn()=>$in(fn()=>R::resolve($t,$u,['kind'=>'asset','id'=>(string)$fake])));
- check($in(fn()=>R::lists($t,$u,['scope'=>'subjects']))['count']===1,'Foreign file exposed in mentions');
+ check($in(fn()=>R::lists($t,$u,['scope'=>'subjects']))['count']===2,'Foreign file exposed in mentions');
  $personalUri='uploads/audit-own-subject-'.getmypid().'.png';$physical[]=public_path().$personalUri;file_put_contents(public_path().$personalUri,$png);
  Db::name('tenant_file')->insert(['tenant_id'=>$t,'source_id'=>$u,'source'=>1,'uri'=>$personalUri,'name'=>'owned.png','type'=>10,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time()]);
  $personal=Db::name('aigc_short_drama_subject')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'name'=>'本人主体','image'=>$personalUri,'description'=>'本人说明','source'=>'user','status'=>1,'delete_time'=>0]);
  $personalCopy=$in(fn()=>R::importSubject($t,$u,['subject_id'=>$personal,'request_id'=>'personal-source-0123456789']));
  check($personalCopy['name']==='本人主体'&&$personalCopy['reference']['kind']==='asset','Authorized personal subject import failed');
+ // Switch into each valid owned project with the same reference ID and request ID.
+ foreach([[$t,$u,$b],[$t,$u+1,$foreign],[$t+1,$u,$otherTenant]] as [$switchTenant,$switchUser,$switchProject]){
+   $binding=['app'=>'aigc_canvas','project_id'=>$switchProject,'page_id'=>'p1'];
+   W::within($binding,function()use($switchTenant,$switchUser,$copy,$subject){
+     check(R::lists($switchTenant,$switchUser,['scope'=>'subjects'])['count']===0,'Snapshot appeared in a different owned workspace');
+     rejected(fn()=>R::resolve($switchTenant,$switchUser,$copy['reference']));
+     rejected(fn()=>R::importSubject($switchTenant,$switchUser,['subject_id'=>$subject,'request_id'=>'snapshot-import-0123456789']));
+   });
+ }
+ check(Db::name('aigc_canvas_project')->where('id',$a)->field('nodes_json,edges_json,viewport_json,update_time')->find()===$originalDocument,'Reference reads/imports changed the saved historical document');
+ echo "PASS source edit, replacement, soft/hard deletion, revoked source access and workspace switches\n";
  echo "PASS explicit import, independent bytes/metadata, idempotency and forged-file rejection\n";
  // Exercise actual submit without ever executing a worker/provider.
  $params=['request_id'=>'reference-submit-0123456789','content'=>'读取当前项目主体，不生成','preferences'=>['mode'=>'ask','models'=>[]],'project_references'=>[$copy['reference']]];
@@ -111,6 +139,21 @@ try{
  CSkills::save($t,['skill_create'=>['app_code'=>'aigc_llm','name'=>'画布专用','prompt'=>'画布专用提示词']]);
  $custom=array_values(array_filter(CSkills::detail($t),fn($s)=>!$s['builtin']));check(count($custom)===1,'Independent skill create failed');
  rejected(fn()=>CSkills::save($t+1,['skill_configs'=>[['id'=>$custom[0]['id'],'enabled'=>0]]]));
+ $catalogA=CSkills::detail($t);CSkills::save($t+1,['skill_configs'=>[['id'=>'document','name'=>'第二租户文档','prompt'=>'第二租户回填']]]);
+ $bindings=[[$t,$u,$a],[$t,$u,$b],[$t,$u+1,$foreign],[$t+1,$u,$otherTenant]];
+ foreach($bindings as $index=>[$switchTenant,$switchUser,$switchProject]){
+   $binding=['app'=>'aigc_canvas','project_id'=>$switchProject,'page_id'=>'p1'];
+   W::within($binding,function()use($switchTenant,$switchUser,$index,$custom,$catalogA){
+     $catalog=Skills::detail($switchTenant);
+     if($switchTenant===1999999875)check($catalog===$catalogA,'Same-tenant canvas catalogue changed with account/project');
+     else check(array_column($catalog,null,'id')['document']['name']==='第二租户文档'&&!in_array($custom[0]['id'],array_column($catalog,'id'),true),'Skills configuration crossed tenants');
+     check(empty(S::preferences($switchTenant,$switchUser)['skill_favorites']),'Favorites leaked into a new workspace');
+     if($index===0)S::preferences($switchTenant,$switchUser,['favorite_skill'=>['id'=>$custom[0]['id'],'favorite'=>1]]);
+     if($switchTenant!==1999999875)rejected(fn()=>S::preferences($switchTenant,$switchUser,['favorite_skill'=>['id'=>$custom[0]['id'],'favorite'=>1]]));
+   });
+ }
+ check($in(fn()=>S::preferences($t,$u))['skill_favorites']===[$custom[0]['id']],'Returning to the original project lost its favorite');
+ echo "PASS shared tenant catalogue, separate tenant settings and per-account/project favorites\n";
  CSkills::save($t,['skill_delete_id'=>$custom[0]['id']]);check(!array_filter(CSkills::detail($t),fn($s)=>!$s['builtin']),'Independent skill deletion failed');
  echo "PASS skill snapshot migration, independent CRUD, tenant boundaries and home compatibility\n";
 }finally{
