@@ -1663,6 +1663,8 @@ class AigcCanvasService
                 $nodes
             );
             $data['edges'] = self::repairLegacyProjectText(self::normalizeList($row['edges_json'] ?? []));
+            foreach ($data['nodes'] as &$node) $node['metadata']=CanvasTemplateMediaStorage::refresh($node['metadata'] ?? [],(int)$row['tenant_id']);
+            unset($node);
             $data['viewport'] = self::normalizeViewport($row['viewport_json'] ?? []);
             $data['registered_assets'] = self::projectRegisteredAssets((int)$row['tenant_id'], (int)$row['user_id'], (int)$row['id']);
         }
