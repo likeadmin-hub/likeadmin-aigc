@@ -38,7 +38,7 @@ $created=[];$physical=[];
 try{
  foreach($tables as $table){Db::execute("CREATE TABLE `{$audit}{$table}` LIKE `{$old}{$table}`");$created[]=$table;}
  $cfg['connections']['mysql']['prefix']=$audit;\think\facade\Config::set($cfg,'database');Db::connect(null,true);check(Db::connect()->getConfig('prefix')===$audit,'Table isolation failed');
- $t=1999999875;$u=$t;Db::name('tenant')->insert(['id'=>$t,'tactics'=>0,'sn'=>'auditrefs']);request()->tenantId=$t;request()->userId=$u;
+ $t=1999999875;$u=$t;Db::name('tenant')->insert(['id'=>$t,'tactics'=>0,'sn'=>'auditrefs','create_time'=>time()]);request()->tenantId=$t;request()->userId=$u;
  $project=function($tenant,$user,$name,$nodes) {return Db::name('aigc_canvas_project')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'name'=>$name,'nodes_json'=>S::encode($nodes),'edges_json'=>'[]','viewport_json'=>S::encode(['pages'=>[['id'=>'p1','name'=>'Page','nodeIds'=>array_column($nodes,'id')]]]),'create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);};
  $a=$project($t,$u,'A',[['id'=>'text_a','type'=>'text','metadata'=>['title'=>'项目 A 正文','content'=>'只能在 A 中读取的文本']]]);
  $b=$project($t,$u,'B',[['id'=>'text_b','type'=>'text','metadata'=>['content'=>'B 内容']]]);
