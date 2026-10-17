@@ -138,6 +138,7 @@ class AigcCanvasService
             'proxy_enabled' => true,
             'text' => $text,
             'prompt_enrichment' => self::promptEnrichmentConfig($tenantId),
+            'skill_configs' => CanvasAgentSkillConfigService::detail($tenantId),
             'resource_status' => $resourceStatus,
             'market_router' => $marketRouter,
         ]);
@@ -146,6 +147,7 @@ class AigcCanvasService
     public static function saveConfig(int $tenantId, array $params): void
     {
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
+        CanvasAgentSkillConfigService::save($tenantId, $params);
         if (isset($params['prompt_enrichment']) && is_array($params['prompt_enrichment'])) {
             self::savePromptEnrichmentConfig($tenantId, $params['prompt_enrichment']);
         }
@@ -2906,10 +2908,17 @@ class AigcCanvasService
         ];
     }
 
-    private static function uploadCanvasLocalFile(string $filePath, int $tenantId, int $userId, int $fileType): array
+    /** Internal server-created reference file; callers must validate ownership and bytes first. */
+    public static function storeProjectReferenceFile(string $filePath, int $tenantId, int $userId, int $projectId, int $fileType): array
+    {
+        self::projectQuery($tenantId, $userId, $projectId)->findOrFail();
+        return self::uploadCanvasLocalFile($filePath, $tenantId, $userId, $fileType, 'uploads/aigc_canvas/references/' . $tenantId . '/' . $userId . '/' . $projectId . '/' . date('Ymd'));
+    }
+
+    private static function uploadCanvasLocalFile(string $filePath, int $tenantId, int $userId, int $fileType, string $referenceDir = ''): array
     {
         $config = StorageConfigService::getEffectiveConfig($tenantId);
-        $saveDir = 'uploads/aigc_canvas/' . date('Ymd');
+        $saveDir = $referenceDir ?: 'uploads/aigc_canvas/' . date('Ymd');
         $driver = new StorageDriver($config);
         $driver->setUploadFileByReal($filePath);
         if (!$driver->upload($saveDir)) {
