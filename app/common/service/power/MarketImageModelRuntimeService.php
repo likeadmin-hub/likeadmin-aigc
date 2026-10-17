@@ -315,7 +315,7 @@ class MarketImageModelRuntimeService
         $upstreamAccepted = false;
         \app\common\service\open_platform\OpenSubmission::start($consumptionId);
         try {
-            $submission = self::submitWithTransientRetry($consumptionId, self::origin() . self::SUBMIT_PATH, $payload, $tenantAdminConsumption||$microSubmission);
+            $submission = self::submitWithTransientRetry($consumptionId, self::origin() . self::SUBMIT_PATH, $payload, $tenantAdminConsumption||$microSubmission,$microSubmission);
             $response = $submission['response'];
             $upstreamAccepted = true;
             $submitAttempts = $submission['attempts'];
@@ -377,13 +377,13 @@ class MarketImageModelRuntimeService
      *
      * @return array{response:array<string,mixed>,attempts:int}
      */
-    private static function submitWithTransientRetry(int $consumptionId, string $url, array $payload, bool $singleAttempt = false): array
+    private static function submitWithTransientRetry(int $consumptionId, string $url, array $payload, bool $singleAttempt = false,bool $microVideo = false): array
     {
         $attempt = 0;
         while ($attempt < self::SUBMIT_MAX_ATTEMPTS) {
             $attempt++;
             try {
-                return ['response' => self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
+                return ['response' => $microVideo?self::request('POST',$url,$payload):self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
             } catch (MarketImageProviderRequestException $e) {
                 if (\app\common\service\open_platform\OpenCallContext::id() !== '') throw $e;
                 if (!self::shouldRetrySubmit($e, $attempt, $singleAttempt)) {
@@ -1390,7 +1390,7 @@ class MarketImageModelRuntimeService
         $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
         // A transport timeout is intentionally not retried here: the supplier
         // may have accepted the request after the connection was interrupted.
-        if ($errno) throw new Exception($error ?: '图片模型网络请求失败'); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('图片模型响应格式错误');
+        if ($errno) throw new Exception('cURL error '.$errno.': '.($error ?: '图片模型网络请求失败')); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('图片模型响应格式错误');
         if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) {
             if ($method === 'POST') \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== '');
             throw new MarketImageProviderRequestException(self::error($data), self::isExplicitTransientProviderResponse($http, $data), $http, self::taskId($data) !== '');

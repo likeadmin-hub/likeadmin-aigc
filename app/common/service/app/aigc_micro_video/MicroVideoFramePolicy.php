@@ -7,6 +7,7 @@ final class MicroVideoFramePolicy
 {
     public static function references(array $indices,int $imageCount,int $limit,bool $anchor): array
     {
+        foreach($indices as $index)if(!is_int($index)&&!(is_string($index)&&ctype_digit($index)))throw new InvalidArgumentException('原始参考图片索引无效');
         $values=array_values(array_unique(array_map('intval',$indices)));sort($values);
         if(!$values||min($values)<0||max($values)>=$imageCount)throw new InvalidArgumentException('请选择有效的原始参考图片');
         if(count($values)+($anchor?1:0)>$limit)throw new InvalidArgumentException('所选参考图片与连续性锚图超过模型限制，请减少本帧引用图片或更换模型');
@@ -37,6 +38,11 @@ final class MicroVideoFramePolicy
     public static function identity(array $task,array $frames): string
     {
         return MicroVideoPolicy::fingerprint(['task'=>(int)$task['id'],'plan_revision'=>(int)$task['plan_revision'],'frames_revision'=>(int)($task['frames_revision']??0),'mode'=>$task['generation_mode']??'reference','model'=>$task['frame_model_id']??'','quality'=>$task['frame_quality']??'','frames'=>array_map(fn($f)=>[(int)$f['id'],(int)$f['version'],(string)($f['image_uri']??''),(string)($f['prompt_fingerprint']??''),(string)($f['dependency_fingerprint']??'')],$frames)]);
+    }
+    public static function assets(string $mode,array $uris,string $referenceMethod='image_reference'): array
+    {
+        if($mode==='start_end'&&count($uris)!==2)throw new InvalidArgumentException('首尾帧视频需要两个权威边界版本');
+        $out=[];foreach(array_values($uris) as $i=>$uri)$out[]=['type'=>'image','uri'=>$uri,'url'=>$uri,'role'=>$mode==='start_end'?($i===0?'first_frame_image':'last_frame_image'):($referenceMethod==='image_to_video'?'first_frame_image':'reference_image')];return $out;
     }
     public static function dependentIndices(int $start,int $last): array{return $start>$last?[]:range($start,$last);}
 }

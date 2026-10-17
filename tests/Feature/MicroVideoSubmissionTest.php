@@ -122,4 +122,18 @@ final class MicroVideoSubmissionTest extends TestCase
         self::assertSame([],json_decode(Db::name('aigc_micro_video_attempt')->where('id',$segment['attempt_id'])->value('result_json'),true)['videos']);
     }
 
+    public function testImageUnknownAdmissionNeverSubmitsOrRefundsAgain(): void
+    {
+        $id=$this->consumption('submitting');self::assertTrue(S::hold($id,'图片模型未返回任务 ID 或结果'));$before=Db::name('ai_consumption_log')->count();
+        $result=\app\common\service\power\MarketImageModelRuntimeService::refresh($id);
+        self::assertSame('running',$result['status']);self::assertSame([],$result['images']);self::assertSame('reserved',Db::name('ai_consumption_log')->where('id',$id)->value('billing_status'));self::assertFalse(S::begin($id));self::assertSame($before,Db::name('ai_consumption_log')->count());
+    }
+    public function testImageRetainedReceiptRecoversSettlementWithoutProviderOrStorageReplay(): void
+    {
+        $id=$this->consumption('running');$images=[['image_uri'=>'uploads/retained-image-fixture.png','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'']];
+        Db::name('ai_consumption_log')->where('id',$id)->update(['user_id'=>987654399,'reserved_tenant_cost'=>0,'reserved_user_price'=>0,'response_summary'=>json_encode(['images'=>$images,'micro_provider_receipt'=>['images'=>[['url'=>'https://never-request.invalid/image.png']]]]),'price_snapshot'=>json_encode(['quantity'=>1,'tenant_price'=>1,'platform_price'=>0])]);
+        $before=Db::name('ai_consumption_log')->count();$blocked=\app\common\service\power\MarketImageModelRuntimeService::refresh($id);self::assertSame([],$blocked['images']);self::assertSame('running',$blocked['status']);self::assertSame('reserved',Db::name('ai_consumption_log')->where('id',$id)->value('billing_status'));self::assertSame($images,json_decode(Db::name('ai_consumption_log')->where('id',$id)->value('response_summary'),true)['images']);
+        Db::name('ai_consumption_log')->where('id',$id)->update(['price_snapshot'=>json_encode(['quantity'=>1,'tenant_price'=>0,'platform_price'=>0])]);$result=\app\common\service\power\MarketImageModelRuntimeService::refresh($id);self::assertSame($images,$result['images']);self::assertSame('success',$result['status']);self::assertSame('settled',Db::name('ai_consumption_log')->where('id',$id)->value('billing_status'));self::assertSame($before,Db::name('ai_consumption_log')->count());self::assertNotNull(S::receipt(Db::name('ai_consumption_log')->where('id',$id)->find()));
+    }
+
 }
