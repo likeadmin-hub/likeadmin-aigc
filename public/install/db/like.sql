@@ -13062,7 +13062,7 @@ COALESCE((SELECT legacy.preferences FROM `la_aigc_llm_agent_preference` legacy W
 UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 FROM `la_aigc_canvas_project` p WHERE p.delete_time=0 AND p.tenant_id>0 AND p.user_id>0;
 
--- Platform template manager; existing tenant template permissions remain separate.
+-- Platform template manager. Existing tenant template permissions remain separate.
 INSERT INTO `la_system_menu` (pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
 SELECT parent.id,'C','公共模板管理','',30,'app.aigc_canvas.template/detail','template','apps/aigc_canvas/template','','',0,1,0,'aigc_canvas','app','aigc_canvas_platform_template',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 FROM `la_system_menu` parent WHERE parent.app_code='aigc_canvas' AND parent.source='app' AND parent.source_menu_key='aigc_canvas_platform'
