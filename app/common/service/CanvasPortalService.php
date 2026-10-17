@@ -100,9 +100,7 @@ final class CanvasPortalService
     {
         if ((int)request()->tenantId <= 0) return ['hero'=>self::normalizeHero([])+['url'=>'','poster'=>''],'cards'=>[]];
         $state = ConfigService::get(self::TYPE,'state',[]);
-        $config = self::resolve($state['config'] ?? self::defaults(),false,true);
-        $config['cards'] = array_merge(\app\common\service\app\aigc_canvas\CanvasPublicTemplateService::publicCards(), $config['cards']);
-        return $config;
+        return self::resolve($state['config'] ?? self::defaults(),false,true);
     }
     public static function sectionEditor(string $section): array
     {

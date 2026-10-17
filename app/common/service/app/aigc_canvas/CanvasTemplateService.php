@@ -3,8 +3,6 @@ namespace app\common\service\app\aigc_canvas;
 
 use app\common\model\app\aigc_canvas\AigcCanvasProject;
 use app\common\model\TenantConfig;
-use app\common\model\Config;
-use app\common\enum\AdminTerminalEnum;
 use app\common\model\tenant\Tenant;
 use app\common\service\CanvasPortalService;
 use InvalidArgumentException;
@@ -14,22 +12,17 @@ use think\facade\Db;
 final class CanvasTemplateService
 {
     private const TYPE = 'aigc_canvas_template';
-    private static function query(int $tenant)
-    {
-        return $tenant === 0 ? Config::where('type',self::TYPE) : TenantConfig::where(['tenant_id'=>$tenant,'type'=>self::TYPE]);
-    }
     private static function read(int $tenant, string $name): array
     {
-        return json_decode((string)self::query($tenant)->where('name',$name)->value('value'), true) ?: [];
+        return json_decode((string)TenantConfig::where(['tenant_id'=>$tenant,'type'=>self::TYPE,'name'=>$name])->value('value'), true) ?: [];
     }
     private static function write(int $tenant, string $name, array $value): void
     {
         $json = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         if (strlen($json) > 60000) throw new InvalidArgumentException('模板内容过大，请减少节点或提示词后重试（最多60KB）');
-        $where = ['type'=>self::TYPE,'name'=>$name];
-        if ($tenant !== 0) $where['tenant_id']=$tenant;
-        $row = self::query($tenant)->where('name',$name)->findOrEmpty();
-        if ($row->isEmpty()) ($tenant === 0 ? new Config() : new TenantConfig())->save($where + ['value'=>$json]);
+        $where = ['tenant_id'=>$tenant,'type'=>self::TYPE,'name'=>$name];
+        $row = TenantConfig::where($where)->findOrEmpty();
+        if ($row->isEmpty()) TenantConfig::create($where + ['value'=>$json]);
         else $row->save(['value'=>$json]);
     }
     private static function key(string $id): string { return 'graph_'.substr(hash('sha256', $id),0,48); }
@@ -47,19 +40,17 @@ final class CanvasTemplateService
         }
         return AigcCanvasService::projectLists($tenant,0,['page_no'=>$params['page_no'] ?? 1,'page_size'=>20,'keyword'=>$params['keyword'] ?? '','summary'=>1]);
     }
-    public static function decorate(array $cards, bool $public, ?int $owner = null): array
+    public static function decorate(array $cards, bool $public): array
     {
-        $tenant = $owner ?? (int)request()->tenantId;
+        $tenant = (int)request()->tenantId;
         $keys=array_map(fn($card)=>self::key($card['id']),$cards);
-        $snapshots=$keys ? self::query($tenant)->whereIn('name',$keys)->column('value','name') : [];
+        $snapshots=$keys ? TenantConfig::where(['tenant_id'=>$tenant,'type'=>self::TYPE])->whereIn('name',$keys)->column('value','name') : [];
         foreach ($cards as &$card) {
             $snapshot = json_decode($snapshots[self::key($card['id'])] ?? '[]',true) ?: [];
-            $card['template_scope'] = $tenant === 0 ? 'platform' : 'tenant';
             $card['workflow_ready'] = $card['section'] === 'template' && !empty($snapshot['nodes']);
             $card['workflow_version'] = (int)($snapshot['version'] ?? 0);
             $card['node_count'] = count($snapshot['nodes'] ?? []);
             if (!$public) {
-                if ($tenant === 0) $card['source_tenant_id']=$snapshot['source_tenant_id'] ?? 0;
                 $card['source_project_id'] = $snapshot['source_project_id'] ?? 0;
                 $card['source_page_id'] = $snapshot['source_page_id'] ?? '';
             }
@@ -67,16 +58,12 @@ final class CanvasTemplateService
         return $cards;
     }
     /** Called inside the portal's tenant lock and revision transaction. */
-    public static function publish(array $cards, bool $platform = false): void
+    public static function publish(array $cards): void
     {
-        if ($platform && !AdminTerminalEnum::isPlatform()) throw new InvalidArgumentException('无权发布公共模板');
-        $tenant = $platform ? 0 : (int)request()->tenantId;
-        if (!$platform && $tenant <= 0) throw new InvalidArgumentException('缺少租户信息');
+        $tenant = (int)request()->tenantId;
         foreach ($cards as $card) {
             if (($card['section'] ?? '') !== 'template' || empty($card['refresh_workflow'])) continue;
-            $sourceTenant = $platform ? (int)($card['source_tenant_id'] ?? 0) : $tenant;
-            if ($sourceTenant <= 0) throw new InvalidArgumentException('请选择来源租户');
-            $source = self::source($sourceTenant,(int)($card['source_project_id'] ?? 0));
+            $source = self::source($tenant,(int)($card['source_project_id'] ?? 0));
             $page = null;
             foreach ($source['viewport_json']['pages'] as $candidate) if ($candidate['id'] === ($card['source_page_id'] ?? '')) $page = $candidate;
             if (!$page) throw new InvalidArgumentException('请选择来源画布页面');
@@ -85,7 +72,7 @@ final class CanvasTemplateService
             $edges = array_values(array_filter($source['edges_json'],fn($e)=>isset($ids[$e['fromNodeId']],$ids[$e['toNodeId']])));
             $graph = self::sanitize($nodes,$edges);
             $old = self::read($tenant,self::key($card['id']));
-            self::write($tenant,self::key($card['id']),$graph+['version'=>(int)($old['version'] ?? 0)+1,'source_tenant_id'=>$sourceTenant,'source_project_id'=>(int)$source['id'],'source_page_id'=>$page['id']]);
+            self::write($tenant,self::key($card['id']),$graph+['version'=>(int)($old['version'] ?? 0)+1,'source_project_id'=>(int)$source['id'],'source_page_id'=>$page['id']]);
         }
     }
     public static function sanitize(array $nodes, array $edges): array
@@ -152,17 +139,14 @@ final class CanvasTemplateService
         if (!in_array($params['mode'] ?? 'create',['create','insert'],true)) throw new InvalidArgumentException('模板使用方式无效');
         if ($tenant<=0 || $user<=0) throw new InvalidArgumentException('请先登录');
         $id=(string)($params['template_id'] ?? '');
-        $scope=(string)($params['template_scope'] ?? 'tenant');
-        if (!in_array($scope,['tenant','platform'],true)) throw new InvalidArgumentException('模板来源无效');
         $request=(string)($params['request_id'] ?? '');
         if (!preg_match('/^[a-zA-Z0-9_-]{16,96}$/D',$request)) throw new InvalidArgumentException('使用请求标识无效');
-        return Db::transaction(function () use ($tenant,$user,$id,$scope,$request,$params) {
+        return Db::transaction(function () use ($tenant,$user,$id,$request,$params) {
             if (Tenant::where('id',$tenant)->lock(true)->findOrEmpty()->isEmpty()) throw new InvalidArgumentException('租户不存在');
-            if ($scope === 'platform') CanvasPublicTemplateService::lockCatalog();
             $card=null;
-            foreach (CanvasPortalService::public()['cards'] as $row) if ($row['id']===$id && ($row['template_scope'] ?? 'tenant')===$scope && $row['section']==='template' && $row['workflow_ready']) $card=$row;
+            foreach (CanvasPortalService::public()['cards'] as $row) if ($row['id']===$id && $row['section']==='template' && $row['workflow_ready']) $card=$row;
             if (!$card) throw new InvalidArgumentException('模板未发布或已停用，请刷新列表');
-            $snapshot=self::read($scope === 'platform' ? 0 : $tenant,self::key($id));
+            $snapshot=self::read($tenant,self::key($id));
             if (($params['mode'] ?? 'create')==='insert') {
                 $target=self::source($tenant,(int)($params['project_id'] ?? 0));
                 if ((int)$target['user_id']!==$user) throw new InvalidArgumentException('无权操作此项目');
@@ -172,12 +156,12 @@ final class CanvasTemplateService
             $receipt='use_'.substr(hash('sha256',$user.':'.$request),0,48);
             $existing=self::read($tenant,$receipt);
             if ($existing) {
-                if ($existing['template_id']!==$id || ($existing['template_scope'] ?? 'tenant')!==$scope) throw new InvalidArgumentException('请求标识已用于其他模板');
+                if ($existing['template_id']!==$id) throw new InvalidArgumentException('请求标识已用于其他模板');
                 return AigcCanvasService::projectDetail($tenant,$user,(int)$existing['project_id']);
             }
             $graph=self::instantiate($snapshot);
             $project=AigcCanvasService::createProject($tenant,$user,$graph+['name'=>$card['title']]);
-            self::write($tenant,$receipt,['template_id'=>$id,'template_scope'=>$scope,'project_id'=>$project['id']]);
+            self::write($tenant,$receipt,['template_id'=>$id,'project_id'=>$project['id']]);
             return $project;
         });
     }
