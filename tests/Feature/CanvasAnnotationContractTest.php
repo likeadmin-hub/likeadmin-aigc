@@ -21,4 +21,12 @@ try{CanvasTemplateService::sanitize($nodes,[['fromNodeId'=>'a0','toNodeId'=>'a1'
 $instance=CanvasTemplateService::instantiate($graph);
 $check($instance['nodes'][0]['id']!==$graph['nodes'][0]['id'],'Preset reuse did not isolate object IDs');
 $check($instance['nodes'][1]['metadata']['annotation']===$graph['nodes'][1]['metadata']['annotation'],'Preset reuse lost editable styles');
+$check(CanvasAnnotation::normalize(['kind'=>'text'])['fontSize']===18.0,'Body font must be 18px');
+$check(CanvasAnnotation::normalize(['kind'=>'shape'])['align']==='center','Shape text defaults to centered');
+$nodes[0]['metadata']['annotation']=['kind'=>'shape','text'=>'Shape label','autoResize'=>true,'bold'=>true,'radius'=>100];
+$nodes[2]['metadata']['annotation']=['kind'=>'text','text'=>'Manual wrap','autoResize'=>false,'fontWeight'=>600,'bold'=>false];
+$roundTrip=CanvasTemplateService::instantiate(CanvasTemplateService::sanitize($nodes,[]));
+$check($roundTrip['nodes'][0]['metadata']['annotation']['autoResize'] && $roundTrip['nodes'][0]['metadata']['annotation']['bold'],'Shape editing state lost in template reuse');
+$check(!$roundTrip['nodes'][2]['metadata']['annotation']['autoResize'] && !$roundTrip['nodes'][2]['metadata']['annotation']['bold'],'Manual text layout lost in template reuse');
+$check(CanvasAnnotation::normalize(['autoResize'=>'false','bold'=>'false'])['autoResize']===false,'String boolean accepted');
 echo "PASS $n annotation persistence, template and styling checks\n";
