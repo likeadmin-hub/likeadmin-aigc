@@ -76,6 +76,7 @@ final class CanvasPortalService
     private static function resolve(array $config, bool $strict = false, bool $public = false): array
     {
         if ($public) $config['cards'] = array_values(array_filter($config['cards'],fn($row)=>!empty($row['enabled'])));
+        $config['cards'] = \app\common\service\app\aigc_canvas\CanvasTemplateService::decorate($config['cards'], $public);
         foreach ($config['cards'] as &$row) self::resolveMedia($row,$strict);
         unset($row);
         $config['hero'] = self::normalizeHero($config['hero']);
@@ -118,6 +119,7 @@ final class CanvasPortalService
             $changed = self::normalize(['hero'=>self::media(), 'cards'=>[], $section=>$input['config'][$section]]);
             self::resolve($changed, true);
             $config = $state['config'] ?? self::defaults();
+            if ($section === 'cards') \app\common\service\app\aigc_canvas\CanvasTemplateService::publish($input['config']['cards']);
             $config[$section] = $changed[$section];
             ConfigService::set(self::TYPE, 'state', ['config'=>$config, 'revision'=>(int)($state['revision'] ?? 0)+1]);
             return self::sectionEditor($section);

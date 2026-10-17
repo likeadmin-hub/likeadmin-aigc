@@ -23,6 +23,7 @@ class ProjectController extends BaseApiController
     public function create()
     {
         try {
+            if ($this->request->post('template_id')) return $this->success('模板已使用', \app\common\service\app\aigc_canvas\CanvasTemplateService::apply((int)$this->request->tenantId, $this->userId, CanvasRequestInput::post($this->request)));
             return $this->success('创建成功', AigcCanvasService::createProject((int)$this->request->tenantId, $this->userId, CanvasRequestInput::post($this->request)), 1, 1);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
