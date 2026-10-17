@@ -6,6 +6,7 @@ use app\common\service\{CanvasPortalService,FileService};
 use app\common\service\storage\{StorageConfigService,Driver};
 use app\common\service\open_platform\OpenSafeHttp;
 use app\common\model\file\TenantFile;
+set_exception_handler(static function(\Throwable $e){fwrite(STDERR,$e->getMessage()."\n");exit(1);});
 $options=getopt('',['tenant:','template:','id:','title:','version:','write']);
 if (PHP_SAPI!=='cli' || empty($options['tenant']) || empty($options['template']) || !preg_match('/^builtin-[a-z0-9_-]{1,56}$/D',$options['id'] ?? '')) {
     fwrite(STDERR,"Usage: php scripts/export-canvas-builtin-preset.php --tenant=1 --template=CARD_ID --id=builtin-slug [--title=TITLE] [--version=1] [--write]\nWithout --write only checks the selected snapshot. Writes source JSON to runtime/canvas-presets/; never modifies tenant catalog or source files.\n");exit(1);
@@ -40,7 +41,8 @@ $walk=static function(array $value)use(&$walk,$copy):array {
     return $value;
 };
 foreach($graph['nodes'] as &$node){$node['metadata']=$walk($node['metadata']);if(!empty($node['metadata']['mediaItems'])){$active=array_search($node['metadata']['activeMediaId']??'',array_column($node['metadata']['mediaItems'],'id'),true);$item=$node['metadata']['mediaItems'][$active===false?0:$active];$node['metadata']['url']=$item['url'];if($node['type']==='image')$node['metadata']['image']=$item['url'];$node['metadata']['poster']=$item['poster']??'';}foreach(['model','channel']as$key)if(isset($node['metadata'][$key])&&ctype_digit((string)$node['metadata'][$key]))unset($node['metadata'][$key]);}unset($node);
-$cover='';if($card['file_id']){$f=TenantFile::where(['tenant_id'=>(int)$options['tenant'],'id'=>$card['file_id']])->findOrEmpty();if(!$f->isEmpty())$cover=$copy($f->toArray());}
+$cover='';$coverId=$card['media_type']==='video'?$card['poster_id']:$card['file_id'];
+if($coverId){$f=TenantFile::where(['tenant_id'=>(int)$options['tenant'],'id'=>$coverId])->findOrEmpty();if(!$f->isEmpty()){$retained=(new CanvasTemplateMediaStorage((int)$options['tenant']))->copy($f['uri'],'image');$cover=$copy($retained['file']);}}
 $entry=CanvasBuiltinPresetService::validate(['schema_version'=>1,'id'=>$options['id'],'version'=>(int)($options['version']??1),'title'=>$options['title']??$card['title'],'category'=>$card['category'],'description'=>$card['description'],'cover'=>$cover,'graph'=>$graph]);
 $directory=root_path().'runtime/canvas-presets';if(!is_dir($directory))mkdir($directory,0770,true);
 $path=$directory.'/'.$entry['id'].'.json';file_put_contents($path,json_encode($entry,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)."\n");
