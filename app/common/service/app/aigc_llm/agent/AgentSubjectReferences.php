@@ -17,10 +17,14 @@ final class AgentSubjectReferences
         $result['lists']=array_map(static fn($row)=>array_intersect_key($row,array_flip(['id','name','image','description','category','scope'])),$result['lists']);
         return $result;
     }
-    public static function resolve(int $tenant,int $user,int $id): array
+    public static function source(int $tenant,int $user,int $id): array
     {
         self::access($tenant,$user);
-        $reference=AigcShortDramaService::agentSubjectReference($tenant,$user,$id);
+        return AigcShortDramaService::agentSubjectReference($tenant,$user,$id);
+    }
+    public static function resolve(int $tenant,int $user,int $id): array
+    {
+        $reference=self::source($tenant,$user,$id);
         $ext=strtolower(pathinfo((string)(parse_url($reference['image_uri'],PHP_URL_PATH)?:$reference['image_uri']),PATHINFO_EXTENSION));
         $mime=match($ext){'jpg','jpeg'=>'image/jpeg','png'=>'image/png','webp'=>'image/webp','gif'=>'image/gif',default=>throw new \InvalidArgumentException('主体图片格式不支持引用')};
         $file=OpenAssets::registerResult($tenant,$user,'aigc_image',$reference+['mime'=>$mime]);
