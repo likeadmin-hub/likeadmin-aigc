@@ -49,7 +49,7 @@ final class AgentArtifactService
     /** Read the submitted native task, never the proposal, artifact title or current preferences. */
     public static function canvasGeneration(array $artifact): ?array
     {
-        if (!in_array($artifact['kind'] ?? '', ['image','video'], true)) return null;
+        if (!in_array($artifact['kind'] ?? '', ['image','video','audio'], true)) return null;
         return self::generationMetadata($artifact, true);
     }
     private static function generationMetadata(array $artifact, bool $canvas = false): ?array
@@ -57,13 +57,15 @@ final class AgentArtifactService
         $tenant=(int)$artifact['tenant_id'];$user=(int)$artifact['user_id'];
         $step=AgentStore::owner('step',$tenant,$user)->where(['id'=>$artifact['step_id'],'run_id'=>$artifact['run_id']])->find();
         if($step&&$step['tool_code']===AgentSpeechTool::CODE){
+            if ($canvas) return null; // Speech must never be replayed as music.
             $task=\app\common\model\ai\AiAppTask::where(['id'=>$step['task_id'],'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>'agent_speech'])->find();
             return $task?array_intersect_key((array)$task['request_summary'],array_flip(['prompt','model_name','characters','format'])):null;
         }
         if(!$step||!in_array($step['tool_code'],['aigc_image','aigc_video','aigc_music','aigc_fitting'],true)||!(int)$step['task_id'])return null;
         $task=Db::name($step['tool_code'].'_task')->where(['id'=>$step['task_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find();
         if(!$task)return null;
-        if ($canvas && !in_array($step['tool_code'], ($artifact['kind'] ?? '') === 'video' ? ['aigc_video'] : ['aigc_image','aigc_fitting'], true)) return null;
+        $canvasTools = ['video'=>['aigc_video'], 'image'=>['aigc_image','aigc_fitting'], 'audio'=>['aigc_music']];
+        if ($canvas && !in_array($step['tool_code'], $canvasTools[$artifact['kind'] ?? ''] ?? [], true)) return null;
         if($step['tool_code']==='aigc_fitting'){
             $reference=self::libraryReference($artifact);
             if(!$reference)return null;
@@ -74,6 +76,14 @@ final class AgentArtifactService
         // Whitelist public creation settings; model snapshots can contain provider credentials.
         $meta=array_intersect_key($task,array_flip(['prompt','negative_prompt','quality','ratio','duration','quantity','style','lyrics','genre','mood','instruments','language']));
         $meta['model_name']=AiTaskRecordService::modelDisplayName($task,$step['tool_code']);
+        if ($canvas && $step['tool_code'] === 'aigc_music') {
+            $submitted = AgentStore::json($task['provider_payload'] ?? [])['generation'] ?? [];
+            $meta += array_intersect_key((array)$submitted, array_flip(['custom','instrumental','vocal_gender','language','style']));
+            $meta['title'] = (string)($task['title'] ?? '');
+            // Old tasks did not persist mode flags. Lyrics still prove custom mode.
+            if (!array_key_exists('custom', $meta) && !empty($task['lyrics'])) $meta['custom'] = true;
+            $meta['style'] ??= (string)($task['genre'] ?? '');
+        }
         $snapshot=AgentStore::json($task['model_json']??[]);
         if ($canvas) {
             $provider = AgentStore::json($task['provider_params_json'] ?? []);

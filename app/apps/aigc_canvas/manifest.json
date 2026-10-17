@@ -1,10 +1,10 @@
 {
   "code": "aigc_canvas",
   "name": "无限画布",
-  "version": "1.6.16",
+  "version": "1.6.17",
   "require_core": ">=1.0.0",
   "description": "在可视化画布中编排创作，支持项目内多页面、Agent 对话和图片视频等内容生成。",
-  "changelog": "1. 不同项目分别保存生成偏好，历史项目自动保留原有设置。\n2. 加强项目对话与执行记录的访问隔离。\n3. 删除项目或页面后停止后续生成，已提交任务继续保留处理结果。",
+  "changelog": "1. 文本添加到资产库后支持重新打开项目恢复，重复添加更新原记录。\n2. 项目列表支持翻页，搜索可查找全部项目。\n3. Agent 音乐作品保留原提示词和歌曲设置，历史作品自动恢复可用信息。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
