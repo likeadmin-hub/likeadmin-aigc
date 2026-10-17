@@ -90,7 +90,7 @@ final class MicroVideoMedia
         usort($segments, static fn(array $a, array $b): int => (int)($a['sort'] ?? 0) <=> (int)($b['sort'] ?? 0));
         $workspace = self::workspace();
         try {
-            $inputs = [];
+            $inputs = []; $sharedBoundaries = [];
             foreach ($segments as $index => $segment) {
                 if (isset($segment['status']) && $segment['status'] !== 'success') throw new RuntimeException('仅成功片段可以合并');
                 if (isset($segment['task_id']) && (int)$segment['task_id'] !== (int)($task['id'] ?? 0)) throw new RuntimeException('视频片段不属于当前任务');
@@ -103,8 +103,12 @@ final class MicroVideoMedia
                 $source = $workspace . '/source-' . $index . '.mp4';
                 self::materialize($storage['storage_engine'] === 'local' ? $uri : self::managedUrl($uri, $storage, $tenant), $source, $tenant, $user);
                 $inputs[] = $source;
+                if ($index > 0 && ($task['generation_mode'] ?? '') === 'start_end') {
+                    $anchor = (int)($segment['first_frame_id'] ?? 0);
+                    $sharedBoundaries[$index] = $anchor > 0 && $anchor === (int)($segments[$index - 1]['last_frame_id'] ?? 0);
+                }
             }
-            $merged = self::concatLocal($inputs, $workspace);
+            $merged = self::concatLocal($inputs, $workspace, $sharedBoundaries);
             $poster = $workspace . '/poster.jpg';
             self::run([self::binary('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-y', '-i', $merged['path'], '-frames:v', '1', '-q:v', '2', $poster], 90);
             if (!is_file($poster) || !@getimagesize($poster)) throw new RuntimeException('视频封面生成失败');
@@ -256,13 +260,15 @@ final class MicroVideoMedia
         return $stored;
     }
 
-    /** No trims, speed filters, visual padding or generated audio over source audio. */
-    private static function concatLocal(array $inputs, string $workspace): array
+    /** Only shared-anchor repeated prefixes may be removed. Never speed up or pad footage. */
+    private static function concatLocal(array $inputs, string $workspace, array $sharedBoundaries = []): array
     {
         if (!$inputs) throw new RuntimeException('没有可合并的视频片段');
-        $ffmpeg = self::binary('ffmpeg'); $normalized = []; $expected = 0.0; $width = 0; $height = 0;
+        $ffmpeg = self::binary('ffmpeg'); $normalized = []; $expected = 0.0; $removed = 0.0; $width = 0; $height = 0;
         foreach ($inputs as $index => $input) {
-            $probe = self::probe($input); $expected += $probe['duration'];
+            $probe = self::probe($input);
+            $trimFrames = $index > 0 && !empty($sharedBoundaries[$index]) ? self::repeatedBoundaryFrames($inputs[$index - 1], $input) : 0;
+            $trimSeconds = $trimFrames / 30; $removed += $trimSeconds; $expected += $probe['duration'] - $trimSeconds;
             if ($index === 0) { $width = max(2, (int)(round($probe['width'] / 2) * 2)); $height = max(2, (int)(round($probe['height'] / 2) * 2)); }
             $path = $workspace . '/normalized-' . $index . '.mp4';
             $command = [$ffmpeg, '-hide_banner', '-loglevel', 'error', '-y', '-i', $input];
@@ -271,8 +277,8 @@ final class MicroVideoMedia
                 $command = array_merge($command, ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo:d=' . sprintf('%.9F', $probe['video_duration'])]);
             }
             $command = array_merge($command, ['-map', '0:v:0', '-map', $probe['has_audio'] ? '0:a:0' : '1:a:0',
-                '-vf', 'scale=' . $width . ':' . $height . ':flags=lanczos,setsar=1,setpts=PTS-STARTPTS',
-                '-af', 'aresample=48000:async=0,asetpts=PTS-STARTPTS', '-r', '30', '-fps_mode', 'cfr',
+                '-vf', 'scale=' . $width . ':' . $height . ':flags=lanczos,setsar=1,fps=30' . ($trimFrames ? ',trim=start_frame=' . $trimFrames : '') . ',setpts=PTS-STARTPTS',
+                '-af', ($trimFrames ? 'atrim=start=' . sprintf('%.9F', $trimSeconds) . ',' : '') . 'aresample=48000:async=0,asetpts=PTS-STARTPTS', '-r', '30', '-fps_mode', 'cfr',
                 '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p', '-video_track_timescale', '90000',
                 '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2', '-movflags', '+faststart', $path]);
             self::run($command, 900);
@@ -287,7 +293,26 @@ final class MicroVideoMedia
         if (!str_contains($final['format'], 'mp4') || abs($final['duration'] - $expected) > max(0.3, count($inputs) * 0.12)) throw new RuntimeException('合并视频时长校验失败');
         $path = $workspace . '/merged.mp4';
         if (!rename($partial, $path)) throw new RuntimeException('合并视频发布失败');
-        return ['path' => $path] + $final;
+        return ['path' => $path, 'deduplicated_duration' => $removed] + $final;
+    }
+
+    private static function repeatedBoundaryFrames(string $previous, string $next): int
+    {
+        // Inspect only 0.25 seconds at the join, never deduplicate the whole movie.
+        $before = self::probe($previous); $after = self::probe($next);
+        if ($before['video_duration'] < 0.5 || $after['video_duration'] < 0.5) return 0;
+        $ffmpeg = self::binary('ffmpeg'); $filter = 'scale=96:54:flags=area,format=gray,fps=30'; $bytes = 96 * 54;
+        $tail = self::run([$ffmpeg, '-v', 'error', '-ss', sprintf('%.9F', max(0, $before['video_duration'] - 0.5)), '-i', $previous, '-an', '-vf', $filter, '-f', 'rawvideo', 'pipe:1'], 60);
+        $head = self::run([$ffmpeg, '-v', 'error', '-i', $next, '-t', '0.25', '-an', '-vf', $filter, '-f', 'rawvideo', 'pipe:1'], 60);
+        if (strlen($tail) < $bytes || strlen($tail) % $bytes !== 0 || strlen($head) % $bytes !== 0) throw new RuntimeException('衔接画面检查失败');
+        $last = substr($tail, -$bytes); $count = 0;
+        for ($frame = 0; $frame < min(7, intdiv(strlen($head), $bytes)); $frame++) {
+            $difference = 0; $changed = 0; $offset = $frame * $bytes;
+            for ($pixel = 0; $pixel < $bytes; $pixel++) { $delta = abs(ord($last[$pixel]) - ord($head[$offset + $pixel])); $difference += $delta; if ($delta > 8) $changed++; }
+            if ($difference / $bytes > 2 || $changed / $bytes > 0.01) break;
+            $count++;
+        }
+        return $count;
     }
 
     private static function probe(string $path): array
