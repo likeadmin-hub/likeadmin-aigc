@@ -95,13 +95,14 @@ final class CanvasTemplateService
         $fields=['prompt','content','model','model_code','channel','model_id','market_model_id','market_sku_id','sku_id','size','ratio','quality','count','quantity','duration','resolution','custom','instrumental','lyrics','style','vocal_gender','mode','videoMode','generation_method','generationMethod','negative_prompt','title','seed','temperature','max_tokens','agentGroupId','canvasGroupTitle','canvasGroupColor'];
         foreach ($nodes as $node) {
             $id=(string)($node['id'] ?? ''); $type=$node['type'] ?? '';
-            if (!$id || isset($ids[$id]) || !in_array($type,['text','image','video','audio','config'],true)) throw new InvalidArgumentException('模板节点格式不正确');
-            $ids[$id]=true; $metadata=['status'=>'idle','pending'=>false];
+            if (!$id || isset($ids[$id]) || !in_array($type,['text','image','video','audio','config','annotation'],true)) throw new InvalidArgumentException('模板节点格式不正确');
+            $ids[$id]=$type; $metadata=['status'=>'idle','pending'=>false];
             foreach ($fields as $field) {
                 $v=$node['metadata'][$field] ?? null;
                 if (is_scalar($v) && ($field!=='content' || $type==='text')) $metadata[$field]=$v;
             }
-            if ($captureMedia) $metadata=array_replace($metadata,$captureMedia($type,$node['metadata'] ?? []));
+            if ($type==='annotation') $metadata['annotation']=CanvasAnnotation::normalize(is_array($node['metadata']['annotation'] ?? null) ? $node['metadata']['annotation'] : []);
+            if ($captureMedia && $type!=='annotation') $metadata=array_replace($metadata,$captureMedia($type,$node['metadata'] ?? []));
             $metadata['mentions']=$metadata['mentions'] ?? [];
             foreach ($node['metadata']['mentions'] ?? [] as $mention) {
                 if (!is_array($mention) || ($mention['source'] ?? '')!=='node' || !isset($allIds[$mention['node_id'] ?? ''])) continue;
@@ -114,12 +115,12 @@ final class CanvasTemplateService
                     if (!preg_match('/url|uri|file|asset|image|video|audio|reference|token|secret|password|api.?key/i',(string)$key) && is_scalar($value)) $metadata['generationParameters'][$model][$key]=$value;
                 }
             }
-            $result[]=['id'=>$id,'type'=>$type,'title'=>mb_substr((string)($node['title'] ?? ''),0,120),'position'=>['x'=>(float)($node['position']['x'] ?? 0),'y'=>(float)($node['position']['y'] ?? 0)],'width'=>max(100,min(2000,(float)($node['width'] ?? 340))),'height'=>max(80,min(2000,(float)($node['height'] ?? 217))),'metadata'=>$metadata];
+            $result[]=['id'=>$id,'type'=>$type,'title'=>mb_substr((string)($node['title'] ?? ''),0,120),'position'=>['x'=>(float)($node['position']['x'] ?? 0),'y'=>(float)($node['position']['y'] ?? 0)],'width'=>max($type==='annotation'?1:100,min($type==='annotation'?10000:2000,(float)($node['width'] ?? 340))),'height'=>max($type==='annotation'?1:80,min($type==='annotation'?10000:2000,(float)($node['height'] ?? 217))),'metadata'=>$metadata];
         }
         $connections=[];
         foreach ($edges as $edge) {
             $from=(string)($edge['fromNodeId'] ?? ''); $to=(string)($edge['toNodeId'] ?? '');
-            if (!isset($ids[$from],$ids[$to]) || $from===$to) throw new InvalidArgumentException('模板包含无效连线');
+            if (!isset($ids[$from],$ids[$to]) || $from===$to || $ids[$from]==='annotation' || $ids[$to]==='annotation') throw new InvalidArgumentException('模板包含无效连线');
             $connections[]=['id'=>(string)($edge['id'] ?? ''),'fromNodeId'=>$from,'toNodeId'=>$to];
         }
         return ['nodes'=>$result,'edges'=>$connections];

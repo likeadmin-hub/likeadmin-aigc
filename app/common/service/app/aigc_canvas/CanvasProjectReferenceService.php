@@ -25,7 +25,7 @@ final class CanvasProjectReferenceService
         $project=self::project($tenant,$user);$rows=[];$scope=(string)($params['scope']??'project');
         if(!in_array($scope,['project','nodes','assets','subjects'],true))throw new \InvalidArgumentException('引用分类无效');
         if(in_array($scope,['project','nodes'],true))foreach(AgentStore::json($project['nodes_json']) as $node){
-            if(!is_array($node)||empty($node['id']))continue;
+            if(!is_array($node)||empty($node['id'])||($node['type']??'')==='annotation')continue;
             $meta=(array)($node['metadata']??$node['data']??[]);$text=self::text($node);
             $file=self::nodeFile($tenant,$user,$meta);
             if(!$file&&$text==='')$text='节点信息 · '.(trim((string)($meta['prompt']??''))?:'暂无可引用的输出素材');
