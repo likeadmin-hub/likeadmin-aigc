@@ -93,7 +93,10 @@ try{
  $skills=array_column(CSkills::detail($t),null,'id');check($skills['document']['name']==='旧文档技能'&&!isset($skills['image']),'Initial skill migration lost settings/deletions');
  $llm=AigcLlmConfig::where('tenant_id',$t)->find();$llm->save(['config_json'=>['agent_skills'=>['document'=>['name'=>'首页改名','prompt'=>'首页回填']]]]);
  check(array_column(CSkills::detail($t),null,'id')['document']['name']==='旧文档技能','Canvas retained live home dependency');
+ $staleDisplay=\app\common\service\app\AppDisplayConfigService::detail($t,'aigc_canvas');
  CSkills::save($t,['skill_configs'=>[['id'=>'document','name'=>'画布文档','prompt'=>'画布回填']]]);
+ \app\common\service\app\AppDisplayConfigService::save($t,'aigc_canvas',$staleDisplay);
+ check(array_column(CSkills::detail($t),null,'id')['document']['name']==='画布文档','Stale display form overwrote independent skills');
  check(array_column(Skills::detail($t),null,'id')['document']['name']==='首页改名','Canvas save changed home skills');
  check(array_column(CSkills::detail($t+1),null,'id')['document']['name']==='文档创作','Skills leaked between tenants');
  CSkills::save($t,['skill_create'=>['app_code'=>'aigc_llm','name'=>'画布专用','prompt'=>'画布专用提示词']]);
