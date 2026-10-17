@@ -1,5 +1,6 @@
 <?php
 require dirname(__DIR__,2).'/vendor/autoload.php'; (new think\App())->initialize();
+set_exception_handler(static function(\Throwable $e){fwrite(STDERR,$e->getMessage()."\n");exit(1);});
 use app\common\service\app\aigc_canvas\{CanvasTemplateMedia as Media,CanvasTemplateMediaStorage as Storage,CanvasTemplateService as Templates,AigcCanvasService as Canvas};
 use app\common\service\CanvasPortalService as Portal;
 use app\common\model\file\TenantFile;

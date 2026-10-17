@@ -20,6 +20,12 @@ final class CanvasTemplateMediaStorage
         $cacheKey=$type.':'.$url;
         if (isset($this->copied[$cacheKey])) return $this->copied[$cacheKey];
         if (count($this->copied)>=100) throw new InvalidArgumentException('预设媒体最多100份');
+        if (isset($input['template_file'])) {
+            $cached=$input['template_file'];$key='media_'.substr((string)($cached['checksum'] ?? ''),0,48);
+            $stored=json_decode((string)TenantConfig::where(['tenant_id'=>$this->tenant,'type'=>'aigc_canvas_template','name'=>$key])->value('value'),true);
+            if (!$stored || ($stored['uri'] ?? null)!==($cached['uri'] ?? null) || !str_starts_with($stored['mime_type'] ?? '',$type.'/')) throw new InvalidArgumentException('预设素材不属于当前租户或媒体类型不匹配');
+            return $this->copied[$cacheKey]=['url'=>self::resolve($stored),'file'=>$stored,'mimeType'=>$stored['mime_type'],'fileSize'=>$stored['file_size']]+array_intersect_key($input,array_flip(['width','height','duration','fileName']));
+        }
         if (preg_match('#^(blob|data|file|javascript):#i',$url) || str_contains($url,"\0") || str_contains(rawurldecode($url),'..')) throw new InvalidArgumentException('请先完成素材上传，再发布预设');
         $path=ltrim((string)parse_url($url,PHP_URL_PATH),'/');
         $file=TenantFile::where(['tenant_id'=>$this->tenant,'uri'=>$path])->findOrEmpty();
@@ -33,7 +39,7 @@ final class CanvasTemplateMediaStorage
                 $local=$candidate;
             } else $url=FileService::getFileUrlByStorage($file['uri'],$file['storage_scope'],$file['storage_engine'],$file['storage_domain']);
         } else {
-            if ($path!=='' && TenantFile::where('uri',$path)->where('tenant_id','<>',$this->tenant)->findOrEmpty()->isEmpty()===false) throw new InvalidArgumentException('预设素材不属于当前租户');
+            if ($path!=='' && !TenantFile::whereIn('uri',[$path,$url])->where('tenant_id','<>',$this->tenant)->findOrEmpty()->isEmpty()) throw new InvalidArgumentException('预设素材不属于当前租户');
             if (!preg_match('#^https?://#i',$url)) throw new InvalidArgumentException('来源素材未保存或不属于当前租户');
             // Never fetch the application/private network to bypass file ownership.
             if (parse_url($url,PHP_URL_HOST)===parse_url(request()->domain(),PHP_URL_HOST)) throw new InvalidArgumentException('来源素材缺少当前租户的文件记录');

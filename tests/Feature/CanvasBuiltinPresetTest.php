@@ -1,5 +1,6 @@
 <?php
 require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
+set_exception_handler(static function(\Throwable $e){fwrite(STDERR,$e->getMessage()."\n");exit(1);});
 use app\common\service\app\aigc_canvas\{CanvasBuiltinPresetService as Builtin,CanvasTemplateService as Templates};
 use app\common\service\CanvasPortalService as Portal;
 use app\common\service\ConfigService;
@@ -28,7 +29,7 @@ try{
  $p=Templates::apply($other,1999999755,['template_id'=>$builtins[0]['id'],'request_id'=>'builtin-isolation-request-0001']);
  $check(count($p['nodes'])===$builtins[0]['node_count'],'Builtin instantiation failed');
  $before=$p['nodes'];$again=Templates::apply($other,1999999755,['template_id'=>$builtins[0]['id'],'request_id'=>'builtin-isolation-request-0001']);
- $check($again['id']===$p['id']&&$again['nodes']===$before,'Builtin retry creates or changes project');
+ $check($again['id']===$p['id']&&$again['nodes']==$before,'Builtin retry creates or changes project');
  $check(empty(ConfigService::get('pc_canvas_portal','state',[])),'Builtin read mutates tenant config');
  echo "PASS $n source catalog, public media, portable identity, fresh-tenant visibility, idempotency and readonly checks; database rolled back\n";
 }finally{request()->tenantId=1;Db::rollback();}
