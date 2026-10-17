@@ -1,10 +1,10 @@
 {
   "code": "aigc_micro_video",
   "name": "微视频",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "require_core": ">=1.0.0",
   "description": "多图理解、智能提示词与创作方向，确认分段后生成并合并完整视频。",
-  "changelog": "1. 新增微视频创作应用。\n2. 支持创作方向、智能提示词和分段确认。\n3. 支持进度恢复和完整视频合成。",
+  "changelog": "1. 新增共享首尾帧创作，支持逐张查看、编辑与确认。\n2. 支持首尾帧独立费用确认与局部重试。\n3. 保留历史参考图作品的生成与恢复体验。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "is_builtin": 0,
