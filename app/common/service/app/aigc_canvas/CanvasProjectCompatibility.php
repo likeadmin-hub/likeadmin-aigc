@@ -51,7 +51,7 @@ final class CanvasProjectCompatibility
         foreach ($nodes as $i => &$node) {
             if (!is_array($node)) throw new \InvalidArgumentException('历史节点数据无效，原数据已保留');
             $data = (array)($node['data'] ?? $node['metadata'] ?? []);
-            $native = isset($node['position'], $node['metadata']) && in_array($node['type'] ?? '', ['text','image','video','audio','config'], true);
+            $native = isset($node['position'], $node['metadata']) && in_array($node['type'] ?? '', ['text','image','video','audio','config','annotation'], true);
             if ($native) {
                 foreach (['url','image','video_url','audio_url','poster'] as $key) if (empty($node['metadata'][$key]) && !empty($node[$key])) $node['metadata'][$key]=$node[$key];
                 continue;
