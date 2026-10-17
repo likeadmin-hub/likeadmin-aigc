@@ -11,6 +11,15 @@ use Exception;
 
 class GenerateController extends BaseApiController
 {
+    public function optimizePrompt()
+    {
+        try {
+            return $this->success('优化完成', \app\common\service\app\aigc_canvas\prompt\CanvasPromptPreviewService::preview(
+                (int)$this->request->tenantId, $this->userId, CanvasRequestInput::post($this->request)
+            ));
+        } catch (Exception $e) { return $this->fail($e->getMessage()); }
+    }
+
     public function assetRegister()
     {
         try {
