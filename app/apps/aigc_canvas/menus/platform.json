@@ -26,6 +26,24 @@
         "perms": "app.aigc_canvas.config/dependencies",
         "paths": "dependencies",
         "component": "apps/aigc_canvas/dependencies"
+      },
+      {
+        "source_menu_key": "aigc_canvas_platform_template",
+        "type": "C",
+        "name": "公共模板管理",
+        "sort": 30,
+        "perms": "app.aigc_canvas.template/detail",
+        "paths": "template",
+        "component": "apps/aigc_canvas/template",
+        "children": [
+          {
+            "source_menu_key": "aigc_canvas_platform_template_publish",
+            "type": "A",
+            "name": "发布公共模板",
+            "perms": "app.aigc_canvas.template/publish",
+            "is_show": 0
+          }
+        ]
       }
     ]
   }

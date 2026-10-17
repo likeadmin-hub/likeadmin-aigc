@@ -1,10 +1,10 @@
 {
   "code": "aigc_canvas",
   "name": "无限画布",
-  "version": "1.6.18",
+  "version": "1.6.19",
   "require_core": ">=1.0.0",
   "description": "在可视化画布中编排创作，支持项目内多页面、Agent 对话和图片视频等内容生成。",
-  "changelog": "1. 门户模板可创建独立工作流，工作台支持插入模板并撤销。\n2. 模板库采用封面网格，支持分类筛选和搜索。\n3. 租户后台支持选择项目画布制作、更新和发布模板。",
+  "changelog": "1. 平台支持制作和发布公共画布模板，供所有租户使用。\n2. 租户模板保持独立，门户与工作台可区分平台公共和租户模板。\n3. 支持公共模板更新与停用，保留用户已经创建的项目。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
