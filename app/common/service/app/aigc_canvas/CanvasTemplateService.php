@@ -43,8 +43,10 @@ final class CanvasTemplateService
     public static function decorate(array $cards, bool $public): array
     {
         $tenant = (int)request()->tenantId;
+        $keys=array_map(fn($card)=>self::key($card['id']),$cards);
+        $snapshots=$keys ? TenantConfig::where(['tenant_id'=>$tenant,'type'=>self::TYPE])->whereIn('name',$keys)->column('value','name') : [];
         foreach ($cards as &$card) {
-            $snapshot = self::read($tenant,self::key($card['id']));
+            $snapshot = json_decode($snapshots[self::key($card['id'])] ?? '[]',true) ?: [];
             $card['workflow_ready'] = $card['section'] === 'template' && !empty($snapshot['nodes']);
             $card['workflow_version'] = (int)($snapshot['version'] ?? 0);
             $card['node_count'] = count($snapshot['nodes'] ?? []);
