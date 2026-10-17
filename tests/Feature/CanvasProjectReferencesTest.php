@@ -77,6 +77,11 @@ try{
  $fake=Db::name('aigc_canvas_asset')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'project_id'=>$a,'title'=>'伪造引用','uri'=>$secret,'asset_type'=>'subject','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','status'=>'ready','meta_json'=>'{}','delete_time'=>0]);
  rejected(fn()=>$in(fn()=>R::resolve($t,$u,['kind'=>'asset','id'=>(string)$fake])));
  check($in(fn()=>R::lists($t,$u,['scope'=>'subjects']))['count']===1,'Foreign file exposed in mentions');
+ $personalUri='uploads/audit-own-subject-'.getmypid().'.png';$physical[]=public_path().$personalUri;file_put_contents(public_path().$personalUri,$png);
+ Db::name('tenant_file')->insert(['tenant_id'=>$t,'source_id'=>$u,'source'=>1,'uri'=>$personalUri,'name'=>'owned.png','type'=>10,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time()]);
+ $personal=Db::name('aigc_short_drama_subject')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'name'=>'本人主体','image'=>$personalUri,'description'=>'本人说明','source'=>'user','status'=>1,'delete_time'=>0]);
+ $personalCopy=$in(fn()=>R::importSubject($t,$u,['subject_id'=>$personal,'request_id'=>'personal-source-0123456789']));
+ check($personalCopy['name']==='本人主体'&&$personalCopy['reference']['kind']==='asset','Authorized personal subject import failed');
  echo "PASS explicit import, independent bytes/metadata, idempotency and forged-file rejection\n";
  // Exercise actual submit without ever executing a worker/provider.
  $params=['request_id'=>'reference-submit-0123456789','content'=>'读取当前项目主体，不生成','preferences'=>['mode'=>'ask','models'=>[]],'project_references'=>[$copy['reference']]];
