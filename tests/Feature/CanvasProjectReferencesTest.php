@@ -85,7 +85,7 @@ try{
  $legacy=['request_id'=>'legacy-source-0123456789','session_id'=>0,'content'=>'历史主体消息','attachments'=>[],'subject_ids'=>[$subject],'preferences'=>['mode'=>'ask','models'=>[]]];
  $hash=hash('sha256',S::encode([0,$legacy['content'],[],$scope,[$subject]]));
  $legacyId=S::table('run')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'session_id'=>$run['session_id'],'message_id'=>0,'request_id'=>$legacy['request_id'],'payload_hash'=>$hash,'content'=>$legacy['content'],'preferences'=>S::encode(['_workspace'=>$scope]),'attachments'=>S::encode([$snapshot]),'status'=>'success','phase'=>'chat','reply'=>'历史回复','create_time'=>time(),'update_time'=>time()]);
- check($in(fn()=>E::submit($t,$u,$legacy))['id']===$legacyId,'Legacy idempotent replay broken');
+ check((int)$in(fn()=>E::submit($t,$u,$legacy))['id']===(int)$legacyId,'Legacy idempotent replay broken');
  check($in(fn()=>E::detail($t,$u,$legacyId))['reply']==='历史回复','Historical dialogue changed');
  echo "PASS actual submit attachment delivery, safe retries, direct-source rejection and legacy dialogue\n";
  // One-time skill compatibility snapshot, then entirely independent CRUD and defaults.
