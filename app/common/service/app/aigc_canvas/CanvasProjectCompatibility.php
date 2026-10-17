@@ -24,8 +24,15 @@ final class CanvasProjectCompatibility
             }
             if ($changes) {
                 $owner=['tenant_id'=>$original['tenant_id'],'user_id'=>$original['user_id'],'project_id'=>$original['id']];
-                if (!Db::name('aigc_canvas_project_compat_backup')->where($owner)->find()) {
+                $backup = Db::name('aigc_canvas_project_compat_backup')->where($owner)->find();
+                if (!$backup) {
                     Db::name('aigc_canvas_project_compat_backup')->insert($owner+['snapshot_json'=>json_encode($row->getData(),JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'create_time'=>time()]);
+                } elseif (self::hasNewAgentGeneration(self::json($original['nodes_json'] ?? []), $adapted['nodes_json'])) {
+                    // Preserve the first legacy backup and also capture the exact
+                    // graph immediately before this later, independent repair.
+                    $snapshot = self::json($backup['snapshot_json']);
+                    $snapshot['agent_generation_repairs'][] = $row->getData();
+                    Db::name('aigc_canvas_project_compat_backup')->where($owner)->update(['snapshot_json'=>json_encode($snapshot,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
                 }
                 $viewport = $adapted['viewport_json'];
                 $viewport['agentRevision'] = (int)($viewport['agentRevision'] ?? 0) + 1;
@@ -90,6 +97,13 @@ final class CanvasProjectCompatibility
         if ($orphan) $viewport['pages'][$active]['nodeIds']=array_merge((array)($viewport['pages'][$active]['nodeIds'] ?? []),$orphan);
         $nodes = CanvasArtifactGeneration::repair($project, $nodes, $viewport['pages']);
         return array_replace($project,['nodes_json'=>$nodes,'edges_json'=>$edges,'viewport_json'=>$viewport]);
+    }
+
+    private static function hasNewAgentGeneration(array $before, array $after): bool
+    {
+        $before = array_column($before, null, 'id');
+        foreach ($after as $node) if (!empty($node['metadata']['agentGeneration']) && empty($before[$node['id']]['metadata']['agentGeneration'])) return true;
+        return false;
     }
 
     /** Shared by old-project adaptation and current API writes: reads must not repair every save. */
