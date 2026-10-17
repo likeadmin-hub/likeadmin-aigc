@@ -64,7 +64,7 @@ final class CanvasPromptPreviewService
         if ($prompt === '' || !mb_check_encoding($prompt, 'UTF-8') || mb_strlen($prompt, 'UTF-8') > 4000) throw new \RuntimeException('模型未返回有效的优化提示词，请重试');
         // Keep real reference tokens intact; never invent a new asset reference.
         $tokens = static function (string $value): array {
-            preg_match_all('/【@[^】]+】|@[\p{L}\p{N}_.:\-]+/u', $value, $matches);
+            preg_match_all('/【@[^】]+】|@(?:图片|视频|音频)\d+|@[\p{L}\p{N}_.:\-]+/u', $value, $matches);
             $counts = array_count_values($matches[0]); ksort($counts); return $counts;
         };
         if ($tokens($original) !== $tokens($prompt)) throw new \RuntimeException('优化结果改变了 @ 引用，请重试；原提示词未修改');
