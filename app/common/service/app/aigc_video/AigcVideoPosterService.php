@@ -55,9 +55,12 @@ class AigcVideoPosterService
             $storageEngine = (string)($sourceConfig['default'] ?? 'local');
             $storageDomain = StorageConfigService::getStorageDomain($sourceConfig);
         }
+        if (!function_exists('proc_open')) {
+            throw new Exception('视频截帧服务未启用进程执行，请配置独立媒体处理进程');
+        }
         $ffmpeg = self::resolveFfmpegBinary();
         if ($ffmpeg === '') {
-            throw new Exception('服务器未配置 FFmpeg，无法生成视频首帧');
+            throw new Exception('视频截帧服务无法启动 FFmpeg，请检查安装路径与执行权限');
         }
 
         $workDir = runtime_path() . 'aigc_video_frame_' . $tenantId . '_' . time() . '_' . random_int(1000, 9999) . DIRECTORY_SEPARATOR;
@@ -172,23 +175,22 @@ class AigcVideoPosterService
 
     private static function extractFrame(string $ffmpeg, string $sourcePath, string $framePath, float $seconds): void
     {
-        $binary = $ffmpeg === 'ffmpeg' ? 'ffmpeg' : escapeshellarg($ffmpeg);
         $seconds = max(0.001, min(28800, $seconds));
         // Keep -ss after the input: this decodes the requested frame rather
         // than selecting a preceding keyframe on long-GOP videos.
-        $input = $binary . ' -y -i ' . escapeshellarg($sourcePath);
+        $input = [$ffmpeg, '-nostdin', '-y', '-i', $sourcePath];
         $commands = [
-            $input . ($seconds <= 0.001 ? '' : ' -ss ' . escapeshellarg(sprintf('%.3F', $seconds)))
-                . ' -frames:v 1 -q:v 2 ' . escapeshellarg($framePath) . ' 2>&1',
+            array_merge($input, $seconds <= 0.001 ? [] : ['-ss', sprintf('%.3F', $seconds)],
+                ['-frames:v', '1', '-q:v', '2', $framePath]),
         ];
         if ($seconds > 0.001) {
             // Container/audio duration can extend past the last video frame.
             // If seeking produced no frame, keep the last decoded image in a
             // bounded window before the requested time, never the first frame.
             $start = max(0, $seconds - 1);
-            $commands[] = $input . ' -ss ' . escapeshellarg(sprintf('%.3F', $start))
-                . ' -t ' . escapeshellarg(sprintf('%.3F', $seconds - $start + 0.001))
-                . ' -an -vsync 0 -update 1 -q:v 2 ' . escapeshellarg($framePath) . ' 2>&1';
+            $commands[] = array_merge($input, ['-ss', sprintf('%.3F', $start),
+                '-t', sprintf('%.3F', $seconds - $start + 0.001),
+                '-an', '-vsync', '0', '-update', '1', '-q:v', '2', $framePath]);
         }
         $lastOutput = [];
         $code = 0;
@@ -212,7 +214,7 @@ class AigcVideoPosterService
         throw new Exception('FFmpeg 视频截帧失败');
     }
 
-    private static function runCommand(string $command, string $logPath): int
+    private static function runCommand(string|array $command, string $logPath, int $timeoutSeconds = 120): int
     {
         $process = @proc_open($command, [
             0 => ['file', '/dev/null', 'r'],
@@ -222,7 +224,7 @@ class AigcVideoPosterService
         if (!is_resource($process)) {
             return 1;
         }
-        $deadline = microtime(true) + 120;
+        $deadline = microtime(true) + $timeoutSeconds;
         do {
             $status = proc_get_status($process);
             if (!$status['running']) {
@@ -269,7 +271,9 @@ class AigcVideoPosterService
 
     private static function resolveFfmpegBinary(): string
     {
-        if (!function_exists('exec')) {
+        // Probe with the same bounded process API used for extraction. Restricted
+        // media workers need proc_open only; exec may intentionally stay disabled.
+        if (!function_exists('proc_open')) {
             return '';
         }
         $candidates = [
@@ -277,13 +281,21 @@ class AigcVideoPosterService
             (string)env('ffmpeg.binary', ''),
             (string)(getenv('FFMPEG_BINARY') ?: ''),
             'ffmpeg',
+            '/usr/bin/ffmpeg',
+            '/usr/local/bin/ffmpeg',
+            '/opt/homebrew/bin/ffmpeg',
         ];
         foreach (array_unique(array_filter(array_map(static fn($item): string => trim(trim((string)$item), "\"'"), $candidates))) as $candidate) {
-            $output = [];
-            $code = 1;
-            @\exec(escapeshellarg($candidate) . ' -hide_banner -version 2>&1', $output, $code);
-            if ($code === 0 && str_contains(strtolower(implode("\n", $output)), 'ffmpeg version')) {
-                return $candidate;
+            $log = tempnam(sys_get_temp_dir(), 'aigc-ffmpeg-probe-');
+            if ($log === false) return '';
+            try {
+                $code = self::runCommand([$candidate, '-hide_banner', '-version'], $log, 5);
+                $output = (string)file_get_contents($log);
+                if ($code === 0 && str_contains(strtolower($output), 'ffmpeg version')) {
+                    return $candidate;
+                }
+            } finally {
+                @unlink($log);
             }
         }
         return '';
