@@ -30,6 +30,8 @@ try {
     $first=Templates::apply(1,1999999774,$params);
     $second=Templates::apply(1,1999999774,$params);
     $check($first['id']===$second['id'],'Retry created duplicate project');
+    $other=Templates::apply(1,1999999775,$params);
+    $check($other['id']!==$first['id'],'Receipt crossed user ownership');
     $detail=Canvas::projectDetail(1,1999999774,$first['id']);
     $graph=$detail['nodes'];
     $check(count($graph)===2 && count($detail['edges'])===1,'Reload lost graph');
@@ -48,6 +50,9 @@ try {
     $reject(fn()=>Templates::apply(2,1999999774,$params));
     Db::name('aigc_canvas_project')->where('id',$sourceId)->update(['delete_time'=>time()]);
     $check(count(Templates::apply(1,1999999774,$insert)['nodes'])===2,'Source deletion invalidated published snapshot');
+    $beforeRevision=Portal::sectionEditor('cards')['revision'];
+    $reject(fn()=>Portal::saveSection('cards',['revision'=>$beforeRevision,'config'=>['cards'=>[$card]]]));
+    $check(Portal::sectionEditor('cards')['revision']===$beforeRevision,'Failed snapshot changed catalog revision');
     $card['refresh_workflow']=false; $card['enabled']=0;
     Portal::saveSection('cards',['revision'=>$published['revision'],'config'=>['cards'=>[$card]]]);
     $reject(fn()=>Templates::apply(1,1999999774,$params));
