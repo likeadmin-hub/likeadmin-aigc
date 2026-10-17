@@ -12,7 +12,7 @@ $check(PHP_SAPI==='cli' && $db['hostname']==='127.0.0.1' && in_array($db['databa
 request()->tenantId=1; request()->source=\app\common\enum\AdminTerminalEnum::TENANT;
 Db::startTrans();
 try {
-    $nodes=[['id'=>'text','type'=>'text','title'=>'产品提示词','position'=>['x'=>0,'y'=>0],'metadata'=>['content'=>'产品摄影','prompt'=>'柔和灯光','agentGroupId'=>'group','taskId'=>100,'api_key'=>'private']],['id'=>'image','type'=>'image','title'=>'商品','position'=>['x'=>400,'y'=>0],'metadata'=>['url'=>'https://private.invalid/secret','image'=>'private','channel'=>'image-test','status'=>'running','agentGroupId'=>'group','generationParameters'=>['m'=>['seed'=>7,'image_url'=>'private','api_key'=>'private']],'mentions'=>[['id'=>'node-text','source'=>'node','node_id'=>'text','name'=>'产品提示词','type'=>'text','url'=>'private']]]]];
+    $nodes=[['id'=>'text','type'=>'text','title'=>'产品提示词','position'=>['x'=>0,'y'=>0],'metadata'=>['content'=>'产品摄影','prompt'=>'柔和灯光','agentGroupId'=>'group','taskId'=>100,'api_key'=>'private']],['id'=>'image','type'=>'image','title'=>'商品','position'=>['x'=>400,'y'=>0],'metadata'=>['channel'=>'image-test','status'=>'running','agentGroupId'=>'group','generationParameters'=>['m'=>['seed'=>7,'image_url'=>'private','api_key'=>'private']],'mentions'=>[['id'=>'node-text','source'=>'node','node_id'=>'text','name'=>'产品提示词','type'=>'text','url'=>'private']]]]];
     $edges=[['id'=>'edge','fromNodeId'=>'text','toNodeId'=>'image']];
     $source=Canvas::createProject(1,1999999773,['name'=>'Template test','nodes'=>$nodes,'edges'=>$edges,'viewport'=>['pages'=>[['id'=>'p1','name'=>'商品展示','nodeIds'=>['text','image']],['id'=>'p2','name'=>'空白','nodeIds'=>[]]],'currentCanvasId'=>'p1']]);
     $sourceId=$source['id'];

@@ -8,7 +8,7 @@ use app\common\service\CanvasPortalService;
 use InvalidArgumentException;
 use think\facade\Db;
 
-/** Published, tenant-owned graph snapshots. Never copies assets or starts generation. */
+/** Published tenant snapshots with independently retained media. Never starts generation. */
 final class CanvasTemplateService
 {
     private const TYPE = 'aigc_canvas_template';
@@ -70,16 +70,17 @@ final class CanvasTemplateService
             $ids = array_fill_keys($page['nodeIds'],true);
             $nodes = array_values(array_filter($source['nodes_json'],fn($n)=>isset($ids[$n['id']])));
             $edges = array_values(array_filter($source['edges_json'],fn($e)=>isset($ids[$e['fromNodeId']],$ids[$e['toNodeId']])));
-            $graph = self::sanitize($nodes,$edges);
+            $storage = new CanvasTemplateMediaStorage($tenant);
+            $graph = self::sanitize($nodes,$edges,fn($type,$metadata)=>CanvasTemplateMedia::capture($type,$metadata,[$storage,'copy']));
             $old = self::read($tenant,self::key($card['id']));
-            self::write($tenant,self::key($card['id']),$graph+['version'=>(int)($old['version'] ?? 0)+1,'source_project_id'=>(int)$source['id'],'source_page_id'=>$page['id']]);
+            self::write($tenant,self::key($card['id']),$graph+['media_schema'=>1,'version'=>(int)($old['version'] ?? 0)+1,'source_project_id'=>(int)$source['id'],'source_page_id'=>$page['id']]);
         }
     }
-    public static function sanitize(array $nodes, array $edges): array
+    public static function sanitize(array $nodes, array $edges, ?callable $captureMedia = null): array
     {
         if (!$nodes || count($nodes)>200 || count($edges)>500) throw new InvalidArgumentException('模板需包含1至200个节点，连线不超过500条');
         $result=[]; $ids=[]; $allIds=array_fill_keys(array_column($nodes,'id'),true);
-        $fields=['prompt','content','model','model_code','channel','model_id','market_model_id','market_sku_id','sku_id','size','ratio','quality','count','quantity','duration','resolution','custom','instrumental','lyrics','style','vocal_gender','mode','videoMode','negative_prompt','title','seed','temperature','max_tokens','agentGroupId','canvasGroupTitle','canvasGroupColor'];
+        $fields=['prompt','content','model','model_code','channel','model_id','market_model_id','market_sku_id','sku_id','size','ratio','quality','count','quantity','duration','resolution','custom','instrumental','lyrics','style','vocal_gender','mode','videoMode','generation_method','generationMethod','negative_prompt','title','seed','temperature','max_tokens','agentGroupId','canvasGroupTitle','canvasGroupColor'];
         foreach ($nodes as $node) {
             $id=(string)($node['id'] ?? ''); $type=$node['type'] ?? '';
             if (!$id || isset($ids[$id]) || !in_array($type,['text','image','video','audio','config'],true)) throw new InvalidArgumentException('模板节点格式不正确');
@@ -88,7 +89,8 @@ final class CanvasTemplateService
                 $v=$node['metadata'][$field] ?? null;
                 if (is_scalar($v) && ($field!=='content' || $type==='text')) $metadata[$field]=$v;
             }
-            $metadata['mentions']=[];
+            if ($captureMedia) $metadata=array_replace($metadata,$captureMedia($type,$node['metadata'] ?? []));
+            $metadata['mentions']=$metadata['mentions'] ?? [];
             foreach ($node['metadata']['mentions'] ?? [] as $mention) {
                 if (!is_array($mention) || ($mention['source'] ?? '')!=='node' || !isset($allIds[$mention['node_id'] ?? ''])) continue;
                 $metadata['mentions'][]=['id'=>'node-'.$mention['node_id'],'node_id'=>$mention['node_id'],'source'=>'node','type'=>(string)($mention['type'] ?? 'text'),'name'=>(string)($mention['name'] ?? '')];
@@ -116,7 +118,14 @@ final class CanvasTemplateService
         foreach ($graph['nodes'] as $node) $ids[$node['id']]='node_'.bin2hex(random_bytes(12));
         foreach ($graph['nodes'] as &$node) {
             $node['id']=$ids[$node['id']];
+            $node['metadata']=CanvasTemplateMedia::hydrate($node['metadata'],[CanvasTemplateMediaStorage::class,'resolve']);
+            foreach ($node['metadata']['mediaItems'] ?? [] as $i=>$item) {
+                $new='media_'.bin2hex(random_bytes(10));
+                if (($node['metadata']['activeMediaId'] ?? '')===$item['id']) $node['metadata']['activeMediaId']=$new;
+                $node['metadata']['mediaItems'][$i]['id']=$new;
+            }
             foreach ($node['metadata']['mentions'] ?? [] as $i=>$mention) {
+                if (($mention['source'] ?? '')!=='node') { $node['metadata']['mentions'][$i]['id']='mention_'.bin2hex(random_bytes(10)); continue; }
                 $node['metadata']['mentions'][$i]['node_id']=$ids[$mention['node_id']];
                 $node['metadata']['mentions'][$i]['id']='node-'.$ids[$mention['node_id']];
             }
