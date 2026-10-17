@@ -2,6 +2,7 @@
 // Local integration fixture. Config and material rows are always rolled back.
 require dirname(__DIR__,2).'/vendor/autoload.php';
 (new \think\App())->initialize();
+set_exception_handler(static function(\Throwable $e){fwrite(STDERR,$e->getMessage()."\n");exit(1);});
 use app\common\service\CanvasPortalService as S;
 use app\common\service\ConfigService;
 use app\common\model\file\TenantFile;
