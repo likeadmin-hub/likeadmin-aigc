@@ -1,5 +1,5 @@
 <?php
-// Disposable physical tables + local files. No provider, queue tick, live tenant writes or billing.
+// Disposable physical tables + local files. Model transport is intercepted; no external provider, queue tick, live tenant writes or billing.
 namespace app\common\service\app {
  final class AppAccessService { public static bool $denySource=false; public static function assertTenantCanUse(...$args){return self::$denySource&&($args[1]??'')==='aigc_short_drama'?'denied':null;} }
 }
@@ -19,6 +19,14 @@ namespace app\common\service\app\aigc_llm\agent {
   public static function withAudioDefaults($t,$p){return $p;}
   public static function all(...$args):array{return [];}
   public static function models(...$args):array{return [];}
+ }
+}
+namespace app\common\service\power {
+ // Capture the actual multimodal request at the final model transport boundary.
+ final class MarketTextModelRuntimeService {
+  public static array $requests=[];
+  public static function resolveAgentModel(...$args):array{return ['context_window'=>128000];}
+  public static function generate(int $tenant,int $user,array $params,?callable $onEvent=null):array{self::$requests[]=$params;return ['content'=>'已收到本轮引用素材。'];}
  }
 }
 namespace {
@@ -125,6 +133,24 @@ try{
  check((int)$in(fn()=>E::submit($t,$u,$legacy))['id']===(int)$legacyId,'Legacy idempotent replay broken');
  check($in(fn()=>E::detail($t,$u,$legacyId))['reply']==='历史回复','Historical dialogue changed');
  echo "PASS actual submit attachment delivery, safe retries, direct-source rejection and legacy dialogue\n";
+ // A saved uploaded image node must deliver bytes/URL, not only its title or node ID.
+ $imageProject=$project($t,$u,'image reference submit',[['id'=>'uploaded_image','type'=>'image','title'=>'uploaded.png','metadata'=>['mediaSource'=>'upload','image'=>$personalUri]]]);
+ $imageScope=['app'=>'aigc_canvas','project_id'=>$imageProject,'page_id'=>'p1'];
+ W::within($imageScope,function()use($t,$u,$personalUri){
+   $submitted=E::submit($t,$u,['request_id'=>'node-image-submit-0123456789','content'=>'分析引用图片','preferences'=>['mode'=>'ask','models'=>[]],'project_references'=>[['kind'=>'node','id'=>'uploaded_image']]]);
+   check(count($submitted['attachments'])===1&&$submitted['attachments'][0]['mime']==='image/png','Image node was not submitted as image');
+   $id=(int)$submitted['id'];S::table('run')->where('id',$id)->update(['status'=>'running','lease_token'=>'offline-reference','lease_until'=>time()+1500]);
+   $run=S::run($t,$u,$id);$context=\app\common\service\app\aigc_llm\agent\AgentContextService::build($run);
+   check(count($context['focus_assets'])===1&&$context['focus_assets'][0]['file_id']===$submitted['attachments'][0]['file_id'],'Submitted image missing from Agent context');
+   $chat=new \ReflectionMethod(E::class,'chat');$chat->invoke(null,$run);
+   $requests=\app\common\service\power\MarketTextModelRuntimeService::$requests;
+   check(count($requests)===1,'Unexpected model requests in isolated reference fixture');
+   $images=[];foreach($requests[0]['messages'] as $message)foreach(is_array($message['content'])?$message['content']:[] as $block)if(($block['type']??'')==='image_url')$images[]=$block['image_url']['url'];
+   check($images===[$submitted['attachments'][0]['url']]&&!empty($requests[0]['requires_vision']),'Actual model request did not receive referenced image');
+   check(S::run($t,$u,$id)['status']==='success','Reference chat did not finish');
+ });
+ echo "PASS saved image node -> submit attachment -> Agent context -> actual image_url model payload (transport intercepted)\n";
+
  // One-time skill compatibility snapshot, then entirely independent CRUD and defaults.
  AigcLlmConfig::create(['tenant_id'=>$t,'config_json'=>['agent_skills'=>['document'=>['name'=>'旧文档技能','prompt'=>'旧回填'],'image'=>['deleted'=>true]]]]);
  $skills=array_column(CSkills::detail($t),null,'id');check($skills['document']['name']==='旧文档技能'&&!isset($skills['image']),'Initial skill migration lost settings/deletions');
