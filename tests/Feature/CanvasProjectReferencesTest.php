@@ -21,6 +21,9 @@ namespace app\common\service\app\aigc_llm\agent {
   public static function models(...$args):array{return [];}
  }
 }
+namespace app\common\service\app\aigc_llm {
+ final class AigcLlmChannelService {public static function userConfig(...$args):array{return ['status'=>1,'option_config'=>[]];}}
+}
 namespace app\common\service\power {
  // Capture the actual multimodal request at the final model transport boundary.
  final class MarketTextModelRuntimeService {
