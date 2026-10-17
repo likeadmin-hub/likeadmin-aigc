@@ -13,6 +13,8 @@ $metadata=Media::capture('image',$raw,$copy);
 $check(count($metadata['mediaItems'])===2 && str_ends_with($metadata['image'],'b.png'),'Collection active item lost');
 $check(count($metadata['referenceVideos'])===1 && count($metadata['referenceAudios'])===1 && count($metadata['mentions'])===1,'External references lost');
 $check(!isset($metadata['taskId'],$metadata['mentions'][0]['asset_id'],$metadata['referenceVideos'][0]['asset_id']),'Source ownership leaked');
+$generated=Media::capture('image',['mediaSource'=>'generated','prompt'=>'Editable prompt','image'=>'https://source.test/output.png'],$copy);
+$check($generated['mediaSource']==='generated' && $generated['mediaItems'][0]['mediaSource']==='generated','Generation node became an upload-only node');
 $check(Media::capture('image',['mediaItems'=>[],'url'=>'https://old.test/a.png'],$copy)['mediaItems']===[],'Explicit empty collection resurrected');
 $hydrated=Media::hydrate($metadata,static fn($f)=>'https://fresh.test/'.$f['uri']);
 $check(str_starts_with($hydrated['image'],'https://fresh.test/'),'Signed URLs not refreshed');
