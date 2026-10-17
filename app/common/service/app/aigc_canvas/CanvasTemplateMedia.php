@@ -20,7 +20,7 @@ final class CanvasTemplateMedia
                 $file = $copy($url, $type, $item);
                 $entry = ['id'=>(string)($item['id'] ?? 'media-'.$i), 'type'=>$type, 'url'=>$file['url'], 'template_file'=>$file['file'], 'mediaSource'=>'upload'];
                 foreach (['width','height','duration','fileSize','mimeType','fileName'] as $key) if (isset($file[$key])) $entry[$key]=$file[$key];
-                $poster = self::first($item, ['poster','poster_url','cover_url','cover','thumbnail']);
+                $poster = self::first($item, $type==='video'?['poster','poster_url','cover_url','cover','thumbnail','image']:['poster','poster_url','cover_url','cover','thumbnail']);
                 if ($poster!=='' && $type!=='image') { $p=$copy($poster,'image',[]); $entry['poster']=$p['url']; $entry['template_poster']=$p['file']; }
                 $media[]=$entry;
             }
@@ -46,7 +46,7 @@ final class CanvasTemplateMedia
         foreach ($input['mentions'] ?? [] as $mention) {
             if (!is_array($mention) || ($mention['source'] ?? '')==='node') continue;
             $kind=(string)($mention['type'] ?? '');
-            if ($kind==='asset') $kind=str_starts_with($mention['mime_type'] ?? '', 'video/')?'video':(str_starts_with($mention['mime_type'] ?? '', 'audio/')?'audio':'image');
+            if ($kind==='asset') { $hint=strtolower(($mention['mime_type'] ?? '').' '.($mention['asset_type'] ?? ''));$kind=str_contains($hint,'video')?'video':(str_contains($hint,'audio')?'audio':'image'); }
             if (!in_array($kind,['image','video','audio'],true) || self::url($mention,$kind)==='') continue;
             $file=$copy(self::url($mention,$kind),$kind,$mention);
             $result['mentions'][]=['id'=>'template-'.count($result['mentions'] ?? []),'source'=>'upload','type'=>$kind,'name'=>mb_substr((string)($mention['name'] ?? ''),0,120),'url'=>$file['url'],'template_file'=>$file['file']];

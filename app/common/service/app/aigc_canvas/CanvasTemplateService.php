@@ -26,6 +26,11 @@ final class CanvasTemplateService
         else $row->save(['value'=>$json]);
     }
     private static function key(string $id): string { return 'graph_'.substr(hash('sha256', $id),0,48); }
+    public static function publishedSnapshot(int $tenant,string $id): array
+    {
+        if ($tenant!==(int)request()->tenantId || $tenant<1) throw new InvalidArgumentException('租户上下文不匹配');
+        return self::read($tenant,self::key($id));
+    }
     public static function source(int $tenant, int $id): array
     {
         $row = AigcCanvasProject::where(['tenant_id'=>$tenant,'id'=>$id,'delete_time'=>0])->findOrEmpty();
@@ -155,7 +160,7 @@ final class CanvasTemplateService
             $card=null;
             foreach (CanvasPortalService::public()['cards'] as $row) if ($row['id']===$id && $row['section']==='template' && $row['workflow_ready']) $card=$row;
             if (!$card) throw new InvalidArgumentException('模板未发布或已停用，请刷新列表');
-            $snapshot=self::read($tenant,self::key($id));
+            $snapshot=($card['source'] ?? '')==='builtin'?CanvasBuiltinPresetService::graph($id):self::read($tenant,self::key($id));
             if (($params['mode'] ?? 'create')==='insert') {
                 $target=self::source($tenant,(int)($params['project_id'] ?? 0));
                 if ((int)$target['user_id']!==$user) throw new InvalidArgumentException('无权操作此项目');
