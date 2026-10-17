@@ -19,7 +19,7 @@ try {
     $state=Portal::sectionEditor('cards');
     $card=['id'=>'test-template-workflow','section'=>'template','title'=>'测试模板','category'=>'电商','description'=>'','enabled'=>1,'refresh_workflow'=>true,'source_project_id'=>$sourceId,'source_page_id'=>'p1'];
     $published=Portal::saveSection('cards',['revision'=>$state['revision'],'config'=>['cards'=>[$card]]]);
-    $public=Portal::public()['cards'][0];
+    $public=array_values(array_filter(Portal::public()['cards'],fn($row)=>$row['id']===$card['id']))[0];
     $check($public['workflow_ready'] && $public['node_count']===2,'Published graph unavailable');
     $check(!isset($public['source_project_id'],$public['nodes']),'Private graph/source leaked to public config');
     $check(Templates::sources(1,['source_project_id'=>$sourceId])['pages'][0]['node_count']===2,'Source page picker');

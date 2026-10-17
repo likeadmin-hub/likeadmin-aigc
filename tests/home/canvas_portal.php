@@ -8,6 +8,7 @@ use app\common\model\file\TenantFile;
 use app\common\model\tenant\Tenant;
 use think\facade\Db;
 function check($condition,$message) { if (!$condition) throw new RuntimeException($message); echo "PASS $message\n"; }
+function tenantCards() { return array_values(array_filter(S::public()['cards'], fn($row)=>($row['source'] ?? '')!=='builtin')); }
 function rejects($fn) { try { $fn(); } catch (InvalidArgumentException $e) { return; } throw new RuntimeException('Invalid input accepted'); }
 $request=request();$request->source=\app\common\enum\AdminTerminalEnum::TENANT;
 $tenant=(int)Tenant::order('id')->value('id');if(!$tenant)throw new RuntimeException('No local tenant');
@@ -17,14 +18,14 @@ try {
     ConfigService::set('pc_canvas_portal','state',[]);
     $config=S::defaults();
     unset($config['hero']['items']); // Exercise previously saved single-media settings.
-    check(count(S::public()['cards'])===12,'unconfigured templates have static copy and no remote media');
+    check(count(tenantCards())===12,'unconfigured templates have static copy and no remote media');
     check(S::public()['hero']['url']==='','unconfigured hero has no external asset');
     $config['cards'][0]['enabled']=0;
     $config['cards'][1]['section']='inspiration';
     $config['hero']['url']='https://untrusted.invalid/image.png';
     S::save(['config'=>$config,'revision'=>0]);
-    check(count(S::public()['cards'])===11,'disabled cards excluded from public config');
-    check(S::public()['cards'][0]['section']==='inspiration','section and order preserved');
+    check(count(tenantCards())===11,'disabled cards excluded from public config');
+    check(tenantCards()[0]['section']==='inspiration','section and order preserved');
     check(!isset(ConfigService::get('pc_canvas_portal','state')['config']['hero']['url']),'client supplied URLs never persisted');
     rejects(fn()=>S::save(['config'=>$config,'revision'=>0]));
     $bad=$config;$bad['cards'][1]['id']=$bad['cards'][0]['id'];rejects(fn()=>S::normalize($bad));
@@ -48,18 +49,18 @@ try {
     }
     $revision=S::editor()['revision'];
     S::save(['config'=>['hero'=>['media_type'=>'image'],'cards'=>[]],'revision'=>$revision]);
-    check(S::public()['cards']===[],'explicit empty catalog remains empty');
+    check(tenantCards()===[],'explicit empty catalog remains empty');
     $revision = S::editor()['revision'];
     $cards = array_slice(S::defaults()['cards'], 0, 2);
     $cards[0]['title'] = '后台模板配置验收';
     $beforeHero = S::public()['hero'];
     S::saveSection('cards', ['config'=>['cards'=>$cards, 'hero'=>['file_id'=>2147483600]], 'revision'=>$revision]);
-    check(S::public()['cards'][0]['title']==='后台模板配置验收', 'template publication reaches public catalog');
+    check(tenantCards()[0]['title']==='后台模板配置验收', 'template publication reaches public catalog');
     check(S::public()['hero']===$beforeHero, 'template editor cannot overwrite hero');
     check(!isset(S::sectionEditor('cards')['config']['hero']), 'template response excludes hero config');
     rejects(fn()=>S::saveSection('cards', ['config'=>['cards'=>[]], 'revision'=>$revision]));
     S::saveSection('hero', ['config'=>['hero'=>['media_type'=>'image'], 'cards'=>[]], 'revision'=>$revision+1]);
-    check(count(S::public()['cards'])===2, 'website editor cannot overwrite templates');
+    check(count(tenantCards())===2, 'website editor cannot overwrite templates');
     check(!isset(S::sectionEditor('hero')['config']['cards']), 'website response excludes template config');
     $revision = S::editor()['revision'];
     $image = TenantFile::where(['tenant_id'=>$tenant,'type'=>10])->findOrEmpty();

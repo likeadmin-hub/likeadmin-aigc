@@ -54,6 +54,7 @@ final class CanvasPortalService
         foreach ($input['cards'] as $row) {
             if (!is_array($row)) throw new InvalidArgumentException('卡片格式不正确');
             $id = (string)($row['id'] ?? '');
+            if (str_starts_with($id,'builtin-')) throw new InvalidArgumentException('内置预设为只读内容，请在本租户中另建预设');
             if (!preg_match('/^[a-zA-Z0-9_-]{1,64}$/D', $id) || isset($ids[$id])) throw new InvalidArgumentException('卡片标识不正确或重复');
             $ids[$id] = true;
             $title = self::text($row['title'] ?? '', 80);
@@ -100,13 +101,15 @@ final class CanvasPortalService
     {
         if ((int)request()->tenantId <= 0) return ['hero'=>self::normalizeHero([])+['url'=>'','poster'=>''],'cards'=>[]];
         $state = ConfigService::get(self::TYPE,'state',[]);
-        return self::resolve($state['config'] ?? self::defaults(),false,true);
+        $config=self::resolve($state['config'] ?? self::defaults(),false,true);
+        $config['cards']=array_merge(\app\common\service\app\aigc_canvas\CanvasBuiltinPresetService::cards(),$config['cards']);
+        return $config;
     }
     public static function sectionEditor(string $section): array
     {
         if (!in_array($section, ['hero', 'cards'], true)) throw new InvalidArgumentException('配置栏目不正确');
         $state = self::editor();
-        return ['config'=>[$section=>$state['config'][$section]], 'revision'=>$state['revision']];
+        return ['config'=>[$section=>$state['config'][$section]], 'revision'=>$state['revision']] + ($section==='cards'?['builtin_cards'=>\app\common\service\app\aigc_canvas\CanvasBuiltinPresetService::cards()]:[]);
     }
     /** Each editor can change only its own section, under the same revision lock. */
     public static function saveSection(string $section, array $input): array
