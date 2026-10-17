@@ -1,0 +1,45 @@
+<?php
+require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
+set_exception_handler(static function(\Throwable $e){fwrite(STDERR,$e->getMessage()."\n");exit(1);});
+use app\common\service\app\aigc_canvas\{CanvasPresetPreviewMedia as Preview,CanvasBuiltinPresetExporter as Exporter,AigcCanvasService as Canvas};
+use app\common\model\file\TenantFile;
+use app\common\service\open_platform\OpenSafeHttp;
+use think\facade\Db;
+$n=0;$check=static function($ok,$why)use(&$n){if(!$ok)throw new RuntimeException($why);$n++;};
+$reject=static function($fn)use($check){try{$fn();}catch(InvalidArgumentException $e){$check(true,'rejected');return;}throw new RuntimeException('Expected preview rejection');};
+$gif=base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+$check(Preview::normalize($gif,'image/gif','image')===[$gif,'image/gif'],'Animated formats were flattened or rewritten');
+$svg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" onload="alert(1)"><script>alert(1)</script><rect width="16" height="16" fill="red"/></svg>';
+[$clean,$mime]=Preview::normalize($svg,'image/svg+xml','image');
+$check($mime==='image/svg+xml' && !preg_match('/script|onload|alert/',$clean) && str_contains($clean,'rect'),'SVG not safely sanitized');
+$check(Preview::normalize('icon-bytes','image/vnd.microsoft.icon','image')===['icon-bytes','image/x-icon'],'ICO MIME not normalized');
+$reject(static fn()=>Preview::normalize('not-video','text/plain','video'));
+$db=config('database.connections.mysql');$check(PHP_SAPI==='cli' && $db['hostname']==='127.0.0.1' && in_array($db['database'],['x_cn','z_cn'],true),'Local rollback only');
+$videoPath=(string)($argv[1] ?? '');$legacyPath=(string)($argv[2] ?? '');
+$check(is_file($videoPath) && is_file($legacyPath),'Supply generated MP4 and AVI fixture paths');
+$video=file_get_contents($videoPath);$legacy=file_get_contents($legacyPath);
+$check(Preview::normalize($video,'video/mp4','video')===[$video,'video/mp4'],'Native video changed');
+[$converted,$convertedMime]=Preview::normalize($legacy,(new finfo(FILEINFO_MIME_TYPE))->buffer($legacy),'video');
+$check($convertedMime==='video/mp4' && (new finfo(FILEINFO_MIME_TYPE))->buffer($converted)==='video/mp4','Legacy video was not converted to playable MP4');
+request()->tenantId=1;request()->source=app\common\enum\AdminTerminalEnum::TENANT;
+$prefix='uploads/canvas-preview-test-'.bin2hex(random_bytes(5));$paths=[];
+Db::startTrans();
+try {
+    $create=static function($suffix,$bytes,$type)use($prefix,&$paths){$uri=$prefix.$suffix;file_put_contents(public_path().$uri,$bytes);$paths[]=public_path().$uri;return TenantFile::create(['tenant_id'=>1,'cid'=>0,'type'=>$type,'name'=>'Preview format fixture','uri'=>$uri,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','source'=>1,'source_id'=>1999999731,'create_time'=>time()]);};
+    $gifFile=$create('.gif',$gif,10);$svgFile=$create('.svg',$svg,10);$videoFile=$create('.mp4',$video,20);$legacyFile=$create('.avi',$legacy,20);
+    $source=Canvas::createProject(1,1999999731,['name'=>'Preview fixture','nodes'=>[['id'=>'text','type'=>'text','metadata'=>['content'=>'Workflow remains independent']]],'edges'=>[]]);
+    $input=['source'=>'canvas','source_project_id'=>$source['id'],'source_page_id'=>'canvas_1','title'=>'Video preview','confirm_public_media'=>true,'preview_media_type'=>'video','preview_file_id'=>$videoFile['id'],'preview_poster_id'=>$gifFile['id']];
+    $exported=Exporter::export(1,$input);$preset=$exported['preset'];
+    $check($preset['media_type']==='video' && str_ends_with($preset['preview'],'.mp4') && str_ends_with($preset['cover'],'.gif'),'Video preview or animated poster dropped by export');
+    $check(OpenSafeHttp::get($preset['preview'],104857600,15)['body']===$video && OpenSafeHttp::get($preset['cover'],20971520,15)['body']===$gif,'Preview/poster bytes changed');
+    $check(count($preset['graph']['nodes'])===1 && $preset['graph']['nodes'][0]['type']==='text','Preview was inserted as a graph node');
+    $svgPreset=Exporter::export(1,array_replace($input,['preview_media_type'=>'image','preview_file_id'=>$svgFile['id'],'preview_poster_id'=>0]))['preset'];
+    $wire=OpenSafeHttp::get($svgPreset['cover'],20971520,15)['body'];
+    $check(str_ends_with($svgPreset['cover'],'.svg') && !preg_match('/script|onload|alert/',$wire),'Stored SVG preview contains executable content');
+    $legacyPreset=Exporter::export(1,array_replace($input,['preview_file_id'=>$legacyFile['id']]))['preset'];
+    $check(str_ends_with($legacyPreset['preview'],'.mp4'),'Export lost converted video URL');
+    $reject(static fn()=>Exporter::export(1,array_replace($input,['preview_file_id'=>$gifFile['id']])));
+    $reject(static fn()=>Exporter::export(1,array_replace($input,['preview_media_type'=>'image','preview_file_id'=>$videoFile['id']])));
+    request()->tenantId=2;$reject(static fn()=>Exporter::export(2,$input));
+    echo "PASS $n legacy cover, animated image, sanitized SVG, video/poster export, conversion, original graph and tenant isolation checks; database rolled back\n";
+} finally {request()->tenantId=1;Db::rollback();foreach($paths as $path)if(is_file($path))unlink($path);}

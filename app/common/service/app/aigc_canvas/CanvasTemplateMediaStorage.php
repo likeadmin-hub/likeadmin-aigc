@@ -13,7 +13,7 @@ final class CanvasTemplateMediaStorage
 {
     private int $bytes=0;
     private array $copied=[];
-    public function __construct(private int $tenant) {}
+    public function __construct(private int $tenant,private bool $previewFormats=false) {}
 
     public function copy(string $url,string $type,array $input=[]): array
     {
@@ -53,7 +53,9 @@ final class CanvasTemplateMediaStorage
             $this->bytes+=strlen($bytes);
             if ($this->bytes>268435456) throw new InvalidArgumentException('单个预设媒体总量不能超过256MB');
             $mime=(new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
+            if ($this->previewFormats) [$bytes,$mime]=CanvasPresetPreviewMedia::normalize($bytes,$mime,$type);
             $types=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif','image/avif'=>'avif','video/mp4'=>'mp4','video/webm'=>'webm','video/quicktime'=>'mov','audio/mpeg'=>'mp3','audio/mp3'=>'mp3','audio/wav'=>'wav','audio/x-wav'=>'wav','audio/ogg'=>'ogg','audio/flac'=>'flac','audio/x-flac'=>'flac','audio/mp4'=>'m4a'];
+            if ($this->previewFormats) $types+=['image/svg+xml'=>'svg','image/x-icon'=>'ico'];
             if (!isset($types[$mime]) || !str_starts_with($mime,$type.'/')) throw new InvalidArgumentException('预设素材内容与媒体类型不匹配');
             $checksum=hash('sha256',$bytes); $key='media_'.substr($checksum,0,48);
             $existing=TenantConfig::where(['tenant_id'=>$this->tenant,'type'=>'aigc_canvas_template','name'=>$key])->value('value');

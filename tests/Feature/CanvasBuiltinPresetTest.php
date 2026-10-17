@@ -9,6 +9,11 @@ $n=0;$check=static function($ok,$why)use(&$n){if(!$ok)throw new RuntimeException
 $reject=static function($fn)use($check){try{$fn();}catch(InvalidArgumentException $e){$check(true,'rejected');return;}throw new RuntimeException('Invalid builtin accepted');};
 $fixture=['schema_version'=>1,'id'=>'builtin-fixture','version'=>1,'title'=>'Fixture','cover'=>'https://cdn.example.com/a.png','graph'=>['nodes'=>[['id'=>'n','type'=>'image','position'=>['x'=>0,'y'=>0],'metadata'=>['model_id'=>987,'taskId'=>'private','image'=>'https://cdn.example.com/a.png','prompt'=>'test']]],'edges'=>[]]];
 $entry=Builtin::validate($fixture);
+$check($entry['media_type']==='image' && $entry['preview']==='','Legacy image cover compatibility lost');
+$video=Builtin::validate($fixture+['media_type'=>'video','preview'=>'https://cdn.example.com/preview.mp4']);
+$check($video['media_type']==='video' && str_ends_with($video['preview'],'.mp4') && $video['cover']===$fixture['cover'],'Video preview/poster lost');
+$reject(static fn()=>Builtin::validate($fixture+['media_type'=>'video']));
+$reject(static fn()=>Builtin::validate($fixture+['media_type'=>'audio']));
 $check(isset($entry['graph']['nodes'][0]['metadata']['mediaItems'][0]['url']),'Builtin media missing');
 $check(!isset($entry['graph']['nodes'][0]['metadata']['model_id'],$entry['graph']['nodes'][0]['metadata']['taskId'],$entry['graph']['nodes'][0]['metadata']['mediaItems'][0]['template_file']),'Runtime ownership or model IDs shipped');
 foreach(['http://s.cn/a.png','https://localhost/a.png','https://cdn.example.com/a.png?token=secret','https://127.0.0.1/a.png','https://user:password@cdn.example.com/a.png']as$url)$reject(static fn()=>Builtin::publicUrl($url));

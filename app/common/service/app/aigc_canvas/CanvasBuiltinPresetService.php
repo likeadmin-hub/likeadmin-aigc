@@ -21,7 +21,7 @@ final class CanvasBuiltinPresetService
     {
         return array_values(array_map(static fn($entry)=>[
             'id'=>$entry['id'],'section'=>'template','title'=>$entry['title'],'category'=>$entry['category'],'description'=>$entry['description'],
-            'enabled'=>1,'media_type'=>'image','file_id'=>0,'poster_id'=>0,'url'=>$entry['cover'],'poster'=>'',
+            'enabled'=>1,'media_type'=>$entry['media_type'],'file_id'=>0,'poster_id'=>0,'url'=>$entry['media_type']==='video'?$entry['preview']:$entry['cover'],'poster'=>$entry['media_type']==='video'?$entry['cover']:'',
             'source'=>'builtin','readonly'=>true,'workflow_ready'=>true,'workflow_version'=>$entry['version'],'node_count'=>count($entry['graph']['nodes'])
         ],self::all()));
     }
@@ -39,6 +39,8 @@ final class CanvasBuiltinPresetService
     public static function validate(array $entry): array
     {
         if (($entry['schema_version'] ?? 0)!==1 || !preg_match('/^builtin-[a-z0-9_-]{1,56}$/D',(string)($entry['id'] ?? '')) || (int)($entry['version'] ?? 0)<1 || empty($entry['title']) || !is_array($entry['graph'] ?? null)) throw new InvalidArgumentException('内置预设定义无效');
+        $mediaType=$entry['media_type'] ?? 'image';
+        if (!in_array($mediaType,['image','video'],true) || ($mediaType==='video' && empty($entry['preview']))) throw new InvalidArgumentException('请选择图片或视频展示素材，视频预览不能为空');
         $graph=CanvasTemplateService::sanitize($entry['graph']['nodes'] ?? [],$entry['graph']['edges'] ?? [],static fn($type,$meta)=>CanvasTemplateMedia::capture($type,$meta,static fn($url,$kind,$row)=>['url'=>self::publicUrl($url),'file'=>[]]+array_intersect_key($row,array_flip(['width','height','duration','fileSize','mimeType','fileName']))));
         $clean=static function($value) use (&$clean) {
             if (!is_array($value)) return $value;
@@ -46,6 +48,6 @@ final class CanvasBuiltinPresetService
             foreach ($value as $key=>$item) $value[$key]=$clean($item);
             return $value;
         };
-        return ['schema_version'=>1,'id'=>$entry['id'],'version'=>(int)$entry['version'],'title'=>mb_substr(trim($entry['title']),0,80),'category'=>mb_substr((string)($entry['category'] ?? ''),0,30),'description'=>mb_substr((string)($entry['description'] ?? ''),0,500),'cover'=>empty($entry['cover'])?'':self::publicUrl($entry['cover']),'graph'=>$clean($graph)];
+        return ['schema_version'=>1,'id'=>$entry['id'],'version'=>(int)$entry['version'],'title'=>mb_substr(trim($entry['title']),0,80),'category'=>mb_substr((string)($entry['category'] ?? ''),0,30),'description'=>mb_substr((string)($entry['description'] ?? ''),0,500),'media_type'=>$mediaType,'preview'=>$mediaType==='video'?self::publicUrl($entry['preview']):'','cover'=>empty($entry['cover'])?'':self::publicUrl($entry['cover']),'graph'=>$clean($graph)];
     }
 }
