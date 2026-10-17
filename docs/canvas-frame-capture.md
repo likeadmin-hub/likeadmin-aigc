@@ -53,3 +53,13 @@ OSS need not allow browser CORS: the existing fallback reads only the server-aut
 The local `s.cn` PHP 8.2 configuration disables `exec` and `proc_open`. FFmpeg is installed, but that website runtime cannot invoke it. The user explicitly chose to preserve this configuration and accept source delivery with this limitation. No PHP, storage CORS, or site security configuration was changed.
 
 The ownership/contract suite passed all 7 groups and PHP syntax checks passed. The existing real-media FFmpeg suite passed 8 checks in an isolated CLI invocation with `-d disable_functions=`; this command affected only that process and does not establish website runtime availability. Browser testing confirmed the fallback fails while preserving the source video. End-to-end successful extraction through the website remains unverified in this environment. No paid generation was invoked.
+
+## Local acceptance (2026-10-17)
+
+The new request to resolve capture was validated with an isolated FPM master for the local site's capture endpoint. The ordinary PHP process retains its disabled `proc_open` and `exec`; the dedicated master retains disabled `exec` and grants only the necessary `proc_open`. FFmpeg was already installed, so no binary or package installation was needed. OSS still returns no browser CORS allowance, and its configuration was not changed.
+
+On localhost project 58, the existing stored 640×480, 5.802667-second video produced three durable 640×480 images: opening frame, tail frame, and the paused current frame at 2.87115 seconds. The results were named, moved apart and reloaded successfully. The original source remained present; historical failed captures were retained rather than rewritten. No generation endpoint was invoked and the displayed points stayed unchanged.
+
+The seven authorization/ownership contract groups passed, including cross-tenant/user rejection and legacy node aliases. Ten real-media/process checks passed with `exec` disabled, including distinct first/current/tail outputs, audio extending beyond video, exact opening/last frame comparison, out-of-range rejection and process timeout. The dedicated HTTP entry rejects non-POST/other-action requests, unauthenticated calls still require a token, and a forged `s` query cannot select a different action. Frontend regression tests also cover save failure, pending drafts, and project switches before frame submission.
+
+The dedicated FPM and Nginx/Supervisor settings are local operator configuration and are intentionally not delivered as machine-specific repository files. Deployments with PHP process execution disabled need the isolated media runtime described above; pulling source alone does not change their PHP restrictions. This acceptance does not authorize a release.
