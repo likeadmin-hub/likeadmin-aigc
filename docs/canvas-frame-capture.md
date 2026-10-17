@@ -23,7 +23,7 @@ The contract test uses in-memory stubs with no database, storage, FFmpeg, or pai
 
 FFmpeg detection and extraction use `proc_open` with a bounded deadline, without requiring `exec`, `shell_exec`, or `system`. A missing process capability now reports a media-process configuration error separately from an unavailable FFmpeg binary. Extraction invokes FFmpeg directly as an argument array, so timeout terminates the decoder rather than only a shell wrapper.
 
-If the website disables process execution, preserve its restrictions and run a **separate FPM master** for the authenticated capture endpoint. Do not relax the global website PHP configuration or route the entire site to that master. `scripts/canvas-frame-fpm.sh` removes only `proc_open` from the CLI restriction list, leaving all other disabled functions in place. The dedicated FPM configuration must contain only its own bounded pool, Unix socket, pid/log paths, and the existing unprivileged site user. Example pool (replace paths/user for the deployment):
+If the website disables process execution, preserve its restrictions and run a **separate FPM master** for the authenticated capture endpoint. Do not relax the global website PHP configuration or route the entire site to that master. `scripts/canvas-frame-fpm.sh` combines the FPM and CLI restriction lists and removes only `proc_open`, leaving all other disabled functions in place. It fails closed if the FPM restrictions cannot be read. The dedicated FPM configuration must contain only its own bounded pool, Unix socket, pid/log paths, and the existing unprivileged site user. Example pool (replace paths/user for the deployment):
 
 ```ini
 [global]
