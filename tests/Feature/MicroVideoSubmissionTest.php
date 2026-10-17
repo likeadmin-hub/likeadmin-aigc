@@ -48,7 +48,7 @@ final class MicroVideoSubmissionTest extends TestCase
     }
     public function testReadOnlyImageModelQuoteHasNoExecutablePlaceholder(): void
     {
-        foreach(MicroVideoCatalog::models(1) as $m)if($m['id']==='market_video_model:157'){$q=MicroVideoCatalog::quote(1,$m['specs'][0],$m['id']);self::assertGreaterThan(0,$q['user_charge_points']);self::assertArrayNotHasKey('reference_assets',$q['selection']);return;}self::markTestSkipped('Configured local video model unavailable');
+        foreach(MicroVideoCatalog::models(1,true) as $m)if($m['id']==='market_video_model:157'){$q=MicroVideoCatalog::quote(1,$m['specs'][0],$m['id']);self::assertGreaterThan(0,$q['user_charge_points']);self::assertArrayNotHasKey('reference_assets',$q['selection']);return;}self::markTestSkipped('Configured local video model unavailable');
     }
     public function testMicroNativeTransportKeepsBillingMetadataOffProviderWire(): void
     {
@@ -95,7 +95,7 @@ final class MicroVideoSubmissionTest extends TestCase
 
     public function testChangedFreshAdmissionPriceRollsBackReservationAndLink(): void
     {
-        $model=null;foreach(MicroVideoCatalog::models(1) as $m)if($m['id']==='market_video_model:157')$model=$m;
+        $model=null;foreach(MicroVideoCatalog::models(1,true) as $m)if($m['id']==='market_video_model:157')$model=$m;
         if(!$model)self::markTestSkipped('Configured local model unavailable');
         $selection=$model['specs'][0];$quote=MicroVideoCatalog::quote(1,$selection,$model['id']);$selection=$quote['selection'];
         $quote['user_charge_points']+=1;
@@ -134,6 +134,13 @@ final class MicroVideoSubmissionTest extends TestCase
         Db::name('ai_consumption_log')->where('id',$id)->update(['user_id'=>987654399,'reserved_tenant_cost'=>0,'reserved_user_price'=>0,'response_summary'=>json_encode(['images'=>$images,'micro_provider_receipt'=>['images'=>[['url'=>'https://never-request.invalid/image.png']]]]),'price_snapshot'=>json_encode(['quantity'=>1,'tenant_price'=>1,'platform_price'=>0])]);
         $before=Db::name('ai_consumption_log')->count();$blocked=\app\common\service\power\MarketImageModelRuntimeService::refresh($id);self::assertSame([],$blocked['images']);self::assertSame('running',$blocked['status']);self::assertSame('reserved',Db::name('ai_consumption_log')->where('id',$id)->value('billing_status'));self::assertSame($images,json_decode(Db::name('ai_consumption_log')->where('id',$id)->value('response_summary'),true)['images']);
         Db::name('ai_consumption_log')->where('id',$id)->update(['price_snapshot'=>json_encode(['quantity'=>1,'tenant_price'=>0,'platform_price'=>0])]);$result=\app\common\service\power\MarketImageModelRuntimeService::refresh($id);self::assertSame($images,$result['images']);self::assertSame('success',$result['status']);self::assertSame('settled',Db::name('ai_consumption_log')->where('id',$id)->value('billing_status'));self::assertSame($before,Db::name('ai_consumption_log')->count());self::assertNotNull(S::receipt(Db::name('ai_consumption_log')->where('id',$id)->find()));
+    }
+
+    public function testAcceptedImageErrorEnvelopeRetainsTaskReceiptWithoutRefundOrResubmit(): void
+    {
+        $id=$this->consumption('submitting');$receipt=['error'=>['message'=>'temporarycapacity'],'task_id'=>'accepted-image-fixture','request_id'=>'accepted-request'];$error=new \app\common\service\power\MarketImageProviderRequestException('temporarycapacity',true,500,true,$receipt);
+        $method=new \ReflectionMethod(\app\common\service\power\MarketImageModelRuntimeService::class,'holdMicroSubmissionError');$method->setAccessible(true);self::assertTrue($method->invoke(null,$id,$error));$c=Db::name('ai_consumption_log')->where('id',$id)->find();self::assertSame('reserved',$c['billing_status']);self::assertSame('running',$c['run_status']);self::assertSame('accepted-image-fixture',$c['upstream_task_id']);self::assertSame($receipt,S::receipt($c));self::assertFalse(S::begin($id));
+        $retry=new \ReflectionMethod(\app\common\service\power\MarketImageModelRuntimeService::class,'shouldRetrySubmit');$retry->setAccessible(true);self::assertFalse($retry->invoke(null,$error,1,false));
     }
 
 }

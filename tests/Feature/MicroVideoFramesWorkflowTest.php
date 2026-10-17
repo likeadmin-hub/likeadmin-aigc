@@ -47,4 +47,18 @@ final class MicroVideoFramesWorkflowTest extends TestCase
     {
         $task=S::owned(1,1,$this->id);$c=S::json($task['config_snapshot']);unset($c['frame_feature_version']);S::update($this->id,['config_snapshot'=>S::encode($c)]);$this->reject(fn()=>$this->configured());self::assertSame('reference',S::owned(1,1,$this->id)['generation_mode']);
     }
+    public function testReferenceModePlanEditsCannotReuseConfirmedOldAnchors(): void
+    {
+        $d=$this->configured();S::table('frame')->where('task_id',$this->id)->update(['status'=>'success','confirmed'=>1,'image_uri'=>'uploads/previous-frame.png']);$before=F::rows($this->id);F::configure(1,1,['id'=>$this->id,'plan_revision'=>1,'generation_mode'=>'reference']);$segments=array_map(fn($s)=>S::segmentData($s),S::segments($this->id));$segments[1]['end_state']='蓝瓶靠近镜头';V::savePlan(1,1,['id'=>$this->id,'plan_revision'=>1,'segments'=>$segments]);$again=F::configure(1,1,['id'=>$this->id,'plan_revision'=>2,'generation_mode'=>'start_end']);self::assertSame($before[0]['id'],$again['frames'][0]['id']);self::assertNotSame($before[1]['id'],$again['frames'][1]['id']);self::assertSame('stale',$again['frames'][1]['status']);self::assertFalse($again['frames'][0]['confirmed']);$this->reject(fn()=>F::confirm(1,1,['id'=>$this->id,'plan_revision'=>2,'frames_revision'=>$again['frames_revision']]));
+    }
+    public function testRemovedThenRestoredBoundaryUsesNextArchivedVersion(): void
+    {
+        $d=$this->configured();$segments=array_map(fn($s)=>S::segmentData($s),S::segments($this->id));V::savePlan(1,1,['id'=>$this->id,'plan_revision'=>1,'segments'=>[$segments[0]]]);$restored=V::savePlan(1,1,['id'=>$this->id,'plan_revision'=>2,'segments'=>$segments]);self::assertCount(3,$restored['frames']);self::assertGreaterThan(1,$restored['frames'][2]['version']);self::assertNotSame($d['frames'][2]['id'],$restored['frames'][2]['id']);
+    }
+
+    public function testPreProviderFailureRetriesOnlySelectedImageAndRetainsIndependentSuccess(): void
+    {
+        $d=$this->configured();$frames=F::rows($this->id);S::table('frame')->where('id',$frames[0]['id'])->update(['status'=>'success','image_uri'=>'uploads/retained-fixture.png','confirmed'=>1]);S::table('frame')->where('id',$frames[1]['id'])->update(['status'=>'failed','error'=>'Injected before provider call']);$kept=F::rows($this->id)[0];$before=Db::name('ai_consumption_log')->count();$q=F::estimate(1,1,['id'=>$this->id,'plan_revision'=>1,'frame_ids'=>[$frames[1]['id']]]);self::assertSame(1,$q['frame_count']);F::generate(1,1,['id'=>$this->id,'plan_revision'=>1,'frames_revision'=>$d['frames_revision'],'frame_ids'=>[$frames[1]['id']],'quote_token'=>$q['quote_token'],'idempotency_key'=>'retry_pre_provider_image']);$after=F::rows($this->id);self::assertSame($kept,$after[0]);self::assertSame('pending',$after[1]['status']);self::assertSame('stale',$after[2]['status']);self::assertSame($before,Db::name('ai_consumption_log')->count());self::assertSame([$after[1]['id']],S::json(S::table('frame_batch')->where('task_id',$this->id)->value('frame_ids')));
+    }
+
 }

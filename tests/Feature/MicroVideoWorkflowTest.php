@@ -23,7 +23,7 @@ final class MicroVideoWorkflowTest extends TestCase
     private function quote(): array{return V::estimate(1,1,['id'=>$this->id,'plan_revision'=>1]);}
     public function testUnrestrictedDirectionCanEstimateWithoutSelectingACard(): void
     {
-        $form=S::json(S::owned(1,1,$this->id)['params_json']);$form['direction_id']=0;
+        $form=S::json(S::owned(1,1,$this->id)['params_json']);$form['direction_id']=0;$models=\app\common\service\app\aigc_micro_video\MicroVideoCatalog::models(1);if(!$models)self::markTestSkipped('Callable v2 video model required');$form['model_id']=$models[0]['id'];$form['quality']=$models[0]['specs'][0]['quality'];$form['ratio']=$models[0]['specs'][0]['ratio'];$config=C::get(1);$config['video_model_ids'][]=$form['model_id'];S::table('config')->where('tenant_id',1)->update(['config_json'=>S::encode($config)]);
         $direction=C::direction(1,0);self::assertSame(0,$direction['id']);self::assertSame('free',$direction['code']);
         $before=Db::name('ai_consumption_log')->count();$quote=V::estimate(1,1,$form);
         self::assertTrue($quote['approximate']);self::assertGreaterThan(0,$quote['user_charge_points']);self::assertSame($before,Db::name('ai_consumption_log')->count());
@@ -84,6 +84,11 @@ final class MicroVideoWorkflowTest extends TestCase
         // Empty model stops before I/O; only the explicit retry authorizes a fresh call.
         try{\app\common\service\app\aigc_micro_video\MicroVideoText::run($task,'script','','','');self::fail('Invalid receipt replayed');}catch(\InvalidArgumentException $e){self::assertStringContainsString('请先配置',$e->getMessage());}
         self::assertSame($count,Db::name('ai_consumption_log')->count());self::assertSame(1,S::table('attempt')->where('task_id',$this->id)->count());
+    }
+
+    public function testLegacyFrozenQuoteSurvivesRemovalFromNewTaskWhitelist(): void
+    {
+        $task=S::owned(1,1,$this->id);$snapshot=S::json($task['config_snapshot']);unset($snapshot['frame_feature_version']);S::update($this->id,['config_snapshot'=>S::encode($snapshot)]);$config=C::get(1);$config['video_model_ids']=[];S::table('config')->where('tenant_id',1)->update(['config_json'=>S::encode($config)]);$q=$this->quote();self::assertSame(60.0,(float)$q['user_charge_points']);
     }
 
 }
