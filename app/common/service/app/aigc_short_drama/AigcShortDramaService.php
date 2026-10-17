@@ -572,12 +572,12 @@ class AigcShortDramaService
         if (isset($params['ratios']) && is_array($params['ratios'])) {
             $config['ratios'] = self::normalizeRatioConfig($params['ratios'], (array)($current['ratios'] ?? []));
         }
-        $params = \app\common\service\InspirationBrandService::configuration($params);
+        $params = \app\common\service\LikeAdminBrandService::configuration($params);
         if (array_key_exists('home_style', $params)) {
-            $config['home_style'] = in_array($params['home_style'], ['default', 'inspiration'], true) ? $params['home_style'] : 'inspiration';
+            $config['home_style'] = in_array($params['home_style'], ['default', 'likeadmin'], true) ? $params['home_style'] : 'likeadmin';
         }
-        if (isset($params['inspiration_background']) && is_array($params['inspiration_background'])) {
-            $config['inspiration_background'] = self::normalizeInspirationBackground($params['inspiration_background']);
+        if (isset($params['likeadmin_background']) && is_array($params['likeadmin_background'])) {
+            $config['likeadmin_background'] = self::normalizeInspirationBackground($params['likeadmin_background']);
         }
         if (array_key_exists('prompt_max_length', $params)) {
             $config['prompt_max_length'] = max(0, min(200000, (int)$params['prompt_max_length']));
@@ -2138,9 +2138,9 @@ class AigcShortDramaService
                 'enabled' => (int)($config['status'] ?? 1) === 1,
                 'message' => '',
             ],
-            'home_style' => ($config['home_style'] ?? 'inspiration') === 'default' ? 'default' : 'inspiration',
+            'home_style' => ($config['home_style'] ?? 'likeadmin') === 'default' ? 'default' : 'likeadmin',
             'background' => $config['background'],
-            'inspiration_background' => $config['inspiration_background'],
+            'likeadmin_background' => $config['likeadmin_background'],
             'ratios' => $config['ratios'],
             'prompt_max_length' => (int)($config['prompt_max_length'] ?? 20000),
             'models' => (array)($userModelGroups[0]['options'] ?? []),
@@ -16006,8 +16006,8 @@ class AigcShortDramaService
                 ['label' => '21:9', 'width' => 21, 'height' => 9],
                 ['label' => '1:1', 'width' => 1, 'height' => 1],
             ],
-            'home_style' => 'inspiration',
-            'inspiration_background' => self::normalizeInspirationBackground([]),
+            'home_style' => 'likeadmin',
+            'likeadmin_background' => self::normalizeInspirationBackground([]),
             'prompt_max_length' => 20000,
             'script_system_prompt' => self::scriptPlanSystemPrompt(),
             'script_prompt_template' => self::defaultScriptPromptTemplate(),
@@ -16051,9 +16051,9 @@ class AigcShortDramaService
             $default['vision_model_selection'] = [];
             return $default;
         }
-        $json = \app\common\service\InspirationBrandService::configuration(self::jsonDecode((string)$row['config_json']));
+        $json = \app\common\service\LikeAdminBrandService::configuration(self::jsonDecode((string)$row['config_json']));
         $config = array_merge($default, $json);
-        $config['inspiration_background'] = self::normalizeInspirationBackground((array)($config['inspiration_background'] ?? []), true);
+        $config['likeadmin_background'] = self::normalizeInspirationBackground((array)($config['likeadmin_background'] ?? []), true);
         unset($config['script_plan_points']);
         $config['status'] = (int)$row['status'];
         $config['background'] = self::formatBackgroundConfig((array)($config['background'] ?? $default['background']));

@@ -12,11 +12,11 @@ final class ShortDramaTemplateService
 {
     /** Existing homepage covers are bundled with the PC application, not tenant uploads. */
     private const BUNDLED_COVER_URLS = [
-        '/inspiration-home/character.jpeg',
-        '/inspiration-home/fashion.jpeg',
-        '/inspiration-home/snooker.jpeg',
-        '/inspiration-home/sunglasses.jpeg',
-        '/inspiration-home/social.jpeg',
+        '/likeadmin-home/character.jpeg',
+        '/likeadmin-home/fashion.jpeg',
+        '/likeadmin-home/snooker.jpeg',
+        '/likeadmin-home/sunglasses.jpeg',
+        '/likeadmin-home/social.jpeg',
     ];
 
     public static function adminLists(int $tenantId, array $params = []): array
@@ -84,7 +84,7 @@ final class ShortDramaTemplateService
         $coverUrl = mb_substr(trim((string)($params['cover_url'] ?? '')), 0, 500, 'UTF-8');
         $coverAssetId = max(0, (int)($params['cover_asset_id'] ?? 0));
         if ($coverUrl === '' && $coverAssetId <= 0) throw new Exception('请选择模板封面');
-        $bundledCoverUrl = \app\common\service\InspirationBrandService::assetPath($coverUrl);
+        $bundledCoverUrl = \app\common\service\LikeAdminBrandService::assetPath($coverUrl);
         if (in_array($bundledCoverUrl, self::BUNDLED_COVER_URLS, true)) {
             $coverUrl = $bundledCoverUrl;
             // These five legacy homepage covers are a controlled, read-only

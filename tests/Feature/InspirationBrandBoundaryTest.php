@@ -7,18 +7,18 @@ namespace app\common\model\file {
 }
 namespace {
 require dirname(__DIR__, 2).'/vendor/autoload.php';
-use app\common\service\InspirationBrandService as Brand;
+use app\common\service\LikeAdminBrandService as Brand;
 use app\common\service\app\aigc_short_drama\ShortDramaTemplateService;
 use app\common\service\home\LatestNewsService;
 function verify($ok, $message) { if (!$ok) throw new \RuntimeException($message); }
 
-$stored = ['home_style'=>'inspiration','inspiration_background'=>['enabled'=>false,'items'=>[['type'=>'video','url'=>'/uploads/original.mp4','poster_url'=>'/uploads/original.jpg']]],'models'=>['grok-imagine-video-1.5'],'status'=>1];
+$stored = ['home_style'=>'likeadmin','likeadmin_background'=>['enabled'=>false,'items'=>[['type'=>'video','url'=>'/uploads/original.mp4','poster_url'=>'/uploads/original.jpg']]],'models'=>['grok-imagine-video-1.5'],'status'=>1];
 $old = Brand::publicPresentation($stored, false);
 // Simulate an unchanged save by a cached form that only knows the old keys.
 $saved = Brand::configuration(['home_style'=>$old['home_style'],'imagine_background'=>$old['imagine_background'],'models'=>$old['models'],'status'=>$old['status']]);
 verify($saved == $stored, 'Cached admin save must preserve the full background and model settings');
-verify(Brand::publicPresentation($stored,true) === $stored, 'Modern admin must receive canonical data unchanged');
-$website = ['pc_home_style'=>'inspiration','pc_home_top_mode'=>'shortcuts','pc_home_shortcuts_editor'=>['draft'=>['cards'=>[1,2,3]]]];
+verify(Brand::publicPresentation($stored,3) === $stored, 'Modern admin must receive canonical data unchanged');
+$website = ['pc_home_style'=>'likeadmin','pc_home_top_mode'=>'shortcuts','pc_home_shortcuts_editor'=>['draft'=>['cards'=>[1,2,3]]]];
 $oldWebsite = Brand::publicPresentation($website,false);
 verify($oldWebsite['pc_home_style']==='imagine', 'Cached website editor must select its original style');
 verify(Brand::configuration($oldWebsite)===$website, 'Website editor round trip must retain layout and shortcuts');
@@ -30,6 +30,7 @@ foreach (['character','fashion','snooker','sunglasses','social'] as $name) {
     $base=['title'=>'原模板','cover_asset_id'=>0,'status'=>1,'workflow_nodes'=>[],'workflow_edges'=>[],'input_slots'=>[]];
     $legacy=$payload->invoke(null,7,$base+['cover_url'=>'/imagine-home/'.$name.'.jpeg']);
     $modern=$payload->invoke(null,7,$base+['cover_url'=>'/inspiration-home/'.$name.'.jpeg']);
+    verify($modern === $payload->invoke(null,7,$base+['cover_url'=>'/likeadmin-home/'.$name.'.jpeg']), 'Canonical cover must retain the same ownership boundary');
     verify($legacy===$modern, 'Old bundled cover must remain editable: '.$name);
 }
 foreach (['/imagine-home/custom.jpeg','/inspiration-home/custom.jpeg','https://example.com/inspiration-home/social.jpeg'] as $uri) {
