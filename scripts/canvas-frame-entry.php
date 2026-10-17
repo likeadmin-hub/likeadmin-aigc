@@ -11,4 +11,5 @@ $_GET['s'] = $path;
 $_SERVER['PATH_INFO'] = $path;
 $_SERVER['SCRIPT_NAME'] = '/index.php';
 $_SERVER['PHP_SELF'] = '/index.php';
+$_SERVER['SCRIPT_FILENAME'] = dirname(__DIR__) . '/public/index.php';
 require dirname(__DIR__) . '/public/index.php';
