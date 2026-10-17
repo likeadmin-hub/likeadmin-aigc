@@ -33,12 +33,12 @@ function check($ok,$message){if(!$ok)throw new \RuntimeException($message);}
 function rejected($call){try{$call();}catch(\InvalidArgumentException|\app\common\service\open_platform\OpenException $e){return;}throw new \RuntimeException('Expected isolation rejection');}
 $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local isolated tables only');
 $cfg=\think\facade\Config::get('database');$old=$cfg['connections']['mysql']['prefix'];$audit='auditrefs_'.getmypid().'_';
-$tables=['app','tenant_app_config','aigc_llm_config','aigc_canvas_project','aigc_canvas_asset','aigc_canvas_project_compat_backup','aigc_short_drama_subject','aigc_short_drama_asset','tenant_file','file','open_platform_file','user_asset_state','aigc_image_result','aigc_video_result','aigc_music_result','aigc_llm_sensitive_word','aigc_llm_session','aigc_llm_message','aigc_llm_agent_run','aigc_llm_agent_step','aigc_llm_agent_event','aigc_llm_agent_artifact','aigc_llm_agent_preference','aigc_llm_agent_context'];
+$tables=['tenant','app','tenant_app_config','aigc_llm_config','aigc_canvas_project','aigc_canvas_asset','aigc_canvas_project_compat_backup','aigc_short_drama_subject','aigc_short_drama_asset','tenant_file','file','open_platform_file','user_asset_state','aigc_image_result','aigc_video_result','aigc_music_result','aigc_llm_sensitive_word','aigc_llm_session','aigc_llm_message','aigc_llm_agent_run','aigc_llm_agent_step','aigc_llm_agent_event','aigc_llm_agent_artifact','aigc_llm_agent_preference','aigc_llm_agent_context'];
 $created=[];$physical=[];
 try{
  foreach($tables as $table){Db::execute("CREATE TABLE `{$audit}{$table}` LIKE `{$old}{$table}`");$created[]=$table;}
  $cfg['connections']['mysql']['prefix']=$audit;\think\facade\Config::set($cfg,'database');Db::connect(null,true);check(Db::connect()->getConfig('prefix')===$audit,'Table isolation failed');
- $t=1999999875;$u=$t;request()->tenantId=$t;request()->userId=$u;
+ $t=1999999875;$u=$t;Db::name('tenant')->insert(['id'=>$t,'tactics'=>0,'sn'=>'auditrefs']);request()->tenantId=$t;request()->userId=$u;
  $project=function($tenant,$user,$name,$nodes) {return Db::name('aigc_canvas_project')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'name'=>$name,'nodes_json'=>S::encode($nodes),'edges_json'=>'[]','viewport_json'=>S::encode(['pages'=>[['id'=>'p1','name'=>'Page','nodeIds'=>array_column($nodes,'id')]]]),'create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);};
  $a=$project($t,$u,'A',[['id'=>'text_a','type'=>'text','metadata'=>['title'=>'项目 A 正文','content'=>'只能在 A 中读取的文本']]]);
  $b=$project($t,$u,'B',[['id'=>'text_b','type'=>'text','metadata'=>['content'=>'B 内容']]]);
@@ -103,6 +103,7 @@ try{
  echo "PASS skill snapshot migration, independent CRUD, tenant boundaries and home compatibility\n";
 }finally{
  foreach(Db::name('tenant_file')->where(['tenant_id'=>1999999875,'source_id'=>1999999875])->column('uri') as $uri)if(str_starts_with($uri,'uploads/aigc_canvas/references/1999999875/'))$physical[]=public_path().$uri;
+ foreach(glob(public_path().'uploads/aigc_canvas/references/1999999875/1999999875/*/*/*')?:[] as $path)if(is_file($path))$physical[]=$path;
  foreach($physical as $path)if(is_file($path))unlink($path);
  foreach(array_reverse($created) as $table)Db::execute("DROP TABLE `{$audit}{$table}`");
  $cfg['connections']['mysql']['prefix']=$old;\think\facade\Config::set($cfg,'database');Db::connect(null,true);
