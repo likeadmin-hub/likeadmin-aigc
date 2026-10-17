@@ -68,11 +68,15 @@ final class CanvasConversationTools
         $asset=OpenAssets::detail((int)$run['tenant_id'],(int)$run['user_id'],$file);
         self::withPage($run,function(array &$nodes,array &$edges,array &$page)use($run,$artifactId,$file,$kind,$title,$asset){
             $artifact=AgentStore::owner('artifact',(int)$run['tenant_id'],(int)$run['user_id'])->where('id',$artifactId);
-            $data=AgentStore::json((clone $artifact)->value('data'));
+            $artifactRow = (clone $artifact)->where(['run_id'=>$run['id'],'session_id'=>$run['session_id']])->find();
+            if (!$artifactRow || $artifactRow['kind'] !== $kind) throw new \InvalidArgumentException('作品不属于当前任务');
+            $data=AgentStore::json($artifactRow['data']);
+            if (($data['file_id'] ?? '') !== $file) throw new \InvalidArgumentException('作品素材不匹配');
             if(!empty($data['canvas_node_id']))return [];
             $id='agent_artifact_'.$artifactId;
             foreach($nodes as $node)if($node['id']===$id)return [];
-            $nodes[]=self::node($id,$kind,$title,['status'=>'success','agentFileId'=>$file,'agentArtifactId'=>$artifactId,'url'=>$asset['url'],'image'=>$kind==='image'?$asset['url']:'','content'=>$asset['url'],'source'=>'agent','generatedAt'=>time()*1000],count($page['nodeIds']));
+            $generation = CanvasArtifactGeneration::metadata($artifactRow) ?? [];
+            $nodes[]=self::node($id,$kind,$title,$generation + ['status'=>'success','agentFileId'=>$file,'agentArtifactId'=>$artifactId,'url'=>$asset['url'],'image'=>$kind==='image'?$asset['url']:'','content'=>$asset['url'],'source'=>'agent','generatedAt'=>time()*1000],count($page['nodeIds']));
             $page['nodeIds'][]=$id;
             $artifact->update(['data'=>AgentStore::encode($data+['canvas_node_id'=>$id])]);
             return [];

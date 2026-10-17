@@ -47,7 +47,12 @@ final class AgentArtifactService
         return $output;
     }
     /** Read the submitted native task, never the proposal, artifact title or current preferences. */
-    private static function generationMetadata(array $artifact): ?array
+    public static function canvasGeneration(array $artifact): ?array
+    {
+        if (!in_array($artifact['kind'] ?? '', ['image','video'], true)) return null;
+        return self::generationMetadata($artifact, true);
+    }
+    private static function generationMetadata(array $artifact, bool $canvas = false): ?array
     {
         $tenant=(int)$artifact['tenant_id'];$user=(int)$artifact['user_id'];
         $step=AgentStore::owner('step',$tenant,$user)->where(['id'=>$artifact['step_id'],'run_id'=>$artifact['run_id']])->find();
@@ -58,6 +63,7 @@ final class AgentArtifactService
         if(!$step||!in_array($step['tool_code'],['aigc_image','aigc_video','aigc_music','aigc_fitting'],true)||!(int)$step['task_id'])return null;
         $task=Db::name($step['tool_code'].'_task')->where(['id'=>$step['task_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find();
         if(!$task)return null;
+        if ($canvas && !in_array($step['tool_code'], ($artifact['kind'] ?? '') === 'video' ? ['aigc_video'] : ['aigc_image','aigc_fitting'], true)) return null;
         if($step['tool_code']==='aigc_fitting'){
             $reference=self::libraryReference($artifact);
             if(!$reference)return null;
@@ -69,11 +75,32 @@ final class AgentArtifactService
         $meta=array_intersect_key($task,array_flip(['prompt','negative_prompt','quality','ratio','duration','quantity','style','lyrics','genre','mood','instruments','language']));
         $meta['model_name']=AiTaskRecordService::modelDisplayName($task,$step['tool_code']);
         $snapshot=AgentStore::json($task['model_json']??[]);
+        if ($canvas) {
+            $provider = AgentStore::json($task['provider_params_json'] ?? []);
+            $meta += array_intersect_key($task, array_flip(['channel','model','market_product_id','market_sku_id']));
+            $meta['task_id'] = (int)$task['id'];
+            $meta['tool_code'] = $step['tool_code'] === 'aigc_fitting' ? 'aigc_image' : $step['tool_code'];
+            $meta['model_id'] = (string)($task['channel'] ?? $snapshot['model_id'] ?? '');
+            $meta['market_product_id'] = (int)($task['market_product_id'] ?? $snapshot['market_product_id'] ?? 0);
+            $meta['market_sku_id'] = (int)($task['market_sku_id'] ?? $snapshot['market_sku_id'] ?? $provider['market_sku_id'] ?? 0);
+            if ((!$meta['market_product_id'] || !$meta['market_sku_id']) && !empty($task['app_task_id'])) {
+                $consumption = Db::name('ai_consumption_log')->where(['tenant_id'=>$tenant,'user_id'=>$user,'app_task_id'=>$task['app_task_id']])->order('id','asc')->find();
+                if ($consumption) {
+                    $price = AgentStore::json($consumption['price_snapshot'] ?? []);
+                    $meta['market_product_id'] = $meta['market_product_id'] ?: (int)($consumption['product_id'] ?? 0);
+                    $meta['market_sku_id'] = $meta['market_sku_id'] ?: (int)($price['sku_id'] ?? 0);
+                }
+            }
+            if (!$meta['market_product_id'] && preg_match('/^market_(?:image_model|video_model|video_app|nano_banana):(\d+)(?::|$)/', $meta['model_id'], $match)) $meta['market_product_id'] = (int)$match[1];
+            $meta['generation_method'] = (string)($snapshot['generation_method'] ?? $task['generation_method'] ?? '');
+            $meta['mode'] = (string)($snapshot['mode'] ?? '');
+        }
         $meta['effect_name']=(string)($snapshot['effect_snapshot']['name']??'');
         $meta['options']=array_intersect_key((array)($snapshot['q4_options']??[]),array_flip(['audio','is_rec','watermark','seed']));
+        if ($canvas) $meta['options'] = array_intersect_key(array_merge($provider, (array)($snapshot['q4_options'] ?? [])), array_flip(['audio','generate_audio','is_rec','watermark','seed','wm_position','camera_fixed','prompt_extend','negative_prompt']));
         $meta['references']=[];
         $references=AgentStore::json($task['reference_assets']??[]);
-        foreach(AgentStore::json($task['reference_images']??[]) as $url)if(is_string($url))$references[]=['url'=>$url,'type'=>'image'];
+        foreach(AgentStore::json($task['reference_images']??[]) as $url)if(is_string($url) && !array_filter($references, static fn($item) => is_array($item) && ($item['type'] ?? 'image') === 'image' && in_array($url, [$item['url'] ?? '', $item['uri'] ?? ''], true)))$references[]=['url'=>$url,'type'=>'image'];
         foreach($references as $reference){
             if(!is_array($reference))continue;
             $url=trim((string)($reference['url']??$reference['uri']??''));
@@ -82,9 +109,15 @@ final class AgentArtifactService
                 if(preg_match('~^[a-z][a-z0-9+.-]*:~i',$url))continue;
                 $url=FileService::getFileUrl($url);
             }
-            if(in_array($url,array_column($meta['references'],'url'),true))continue;
             $type=$reference['type']??'image';
-            if(in_array($type,['image','video','audio'],true))$meta['references'][]=['url'=>$url,'type'=>$type];
+            $role = $canvas ? (string)($reference['role'] ?? '') : '';
+            // A URL may intentionally occupy both first/last frame slots.
+            if (array_filter($meta['references'], static fn($item) => $item['url'] === $url && ($item['role'] ?? '') === $role)) continue;
+            if (in_array($type,['image','video','audio'],true)) {
+                $item=['url'=>$url,'type'=>$type];
+                if ($canvas) $item += array_intersect_key($reference, array_flip(['name','role','generation_method','duration','start','end']));
+                $meta['references'][]=$item;
+            }
         }
         return $meta;
     }

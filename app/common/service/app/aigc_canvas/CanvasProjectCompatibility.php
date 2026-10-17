@@ -88,6 +88,7 @@ final class CanvasProjectCompatibility
         foreach ($viewport['pages'] as $page) $claimed=array_merge($claimed,(array)($page['nodeIds'] ?? []));
         $orphan=array_values(array_diff(array_column($nodes,'id'),$claimed));
         if ($orphan) $viewport['pages'][$active]['nodeIds']=array_merge((array)($viewport['pages'][$active]['nodeIds'] ?? []),$orphan);
+        $nodes = CanvasArtifactGeneration::repair($project, $nodes, $viewport['pages']);
         return array_replace($project,['nodes_json'=>$nodes,'edges_json'=>$edges,'viewport_json'=>$viewport]);
     }
 
