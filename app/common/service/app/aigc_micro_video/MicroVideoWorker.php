@@ -10,20 +10,20 @@ final class MicroVideoWorker
     public static function tick(int $id=0): int
     {
         $token=bin2hex(random_bytes(16));$task=null;$processLock=null;
-        $q=MicroVideoStore::table('task')->where('delete_time',0)->whereIn('status',['planning','running','merging'])->where('next_run_at','<=',time())->where('lease_until','<',time());if($id)$q->where('id',$id);
+        $q=MicroVideoStore::table('task')->where('delete_time',0)->where(function($q){$q->whereIn('status',['planning','running','merging'])->whereOr(function($f){$f->where('status','awaiting_confirmation')->where('frame_status','generating');});})->where('next_run_at','<=',time())->where('lease_until','<',time());if($id)$q->where('id',$id);
         $candidates=$q->order(['next_run_at'=>'asc','id'=>'asc'])->limit(10)->column('id');
         foreach($candidates as $candidate){
             // This worker is a same-runtime supervised service; flock remains held
             // even during long FFmpeg/HTTP operations and is released on death.
             $processLock=fopen(runtime_path().'micro_video_task_'.(int)$candidate.'.lock','c');if(!$processLock||!flock($processLock,LOCK_EX|LOCK_NB)){if($processLock)fclose($processLock);$processLock=null;continue;}
-            $task=Db::transaction(function()use($candidate,$token){$row=MicroVideoStore::table('task')->where(['id'=>$candidate,'delete_time'=>0])->whereIn('status',['planning','running','merging'])->where('next_run_at','<=',time())->where('lease_until','<',time())->lock(true)->find();if(!$row)return null;MicroVideoStore::update((int)$row['id'],['lease_token'=>$token,'lease_until'=>time()+600]);return $row;});
+            $task=Db::transaction(function()use($candidate,$token){$row=MicroVideoStore::table('task')->where(['id'=>$candidate,'delete_time'=>0])->where(function($q){$q->whereIn('status',['planning','running','merging'])->whereOr(function($f){$f->where('status','awaiting_confirmation')->where('frame_status','generating');});})->where('next_run_at','<=',time())->where('lease_until','<',time())->lock(true)->find();if(!$row)return null;MicroVideoStore::update((int)$row['id'],['lease_token'=>$token,'lease_until'=>time()+600]);return $row;});
             if($task)break;flock($processLock,LOCK_UN);fclose($processLock);$processLock=null;
         }
         if(!$task)return 0;
         try{
-            if($task['status']==='planning')self::plan($task);else self::video($task);
+            if($task['status']==='awaiting_confirmation')MicroVideoFrameWorker::run($task);elseif($task['status']==='planning')self::plan($task);else self::video($task);
         }catch(\Throwable $e){
-            MicroVideoStore::update((int)$task['id'],['status'=>'waiting_continue','error'=>mb_substr($e->getMessage(),0,1000),'next_run_at'=>time()+10]);
+            MicroVideoStore::update((int)$task['id'],($task['status']==='awaiting_confirmation'?['frame_status'=>'waiting_continue']:['status'=>'waiting_continue'])+['error'=>mb_substr($e->getMessage(),0,1000),'next_run_at'=>time()+10]);
             \think\facade\Log::warning('Micro video task '.$task['id'].': '.$e->getMessage());
         }finally{
             MicroVideoStore::table('task')->where(['id'=>$task['id'],'lease_token'=>$token])->update(['lease_token'=>'','lease_until'=>0,'update_time'=>time()]);
@@ -73,11 +73,12 @@ final class MicroVideoWorker
             if($segment['status']==='pending'){
                 MicroVideoService::available($tenant);
                 $images=MicroVideoMedia::validateImages($tenant,$user,$p['images'],(int)$config['max_images']);$indices=MicroVideoStore::json($segment['image_indices']);$selected=array_map(fn($index)=>$images[$index],$indices);
-                $spec=MicroVideoCatalog::spec($model,$p['quality'],$p['ratio'],(int)$segment['duration']);
+                $mode=$task['generation_mode']??'reference';$spec=MicroVideoCatalog::spec($model,$p['quality'],$p['ratio'],(int)$segment['duration'],$mode);
                 $frozen=MicroVideoStore::json($task['confirmed_quote'])['segments'][(string)$segment['id']]??null;if(!$frozen)throw new RuntimeException('当前片段缺少已确认报价，请重新确认费用');
+                if($mode==='start_end'){$selected=[];foreach(['first_frame_id','last_frame_id'] as $key){$f=MicroVideoStore::table('frame')->where(['id'=>(int)$segment[$key],'task_id'=>$task['id'],'tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','confirmed'=>1])->find();if(!$f)throw new RuntimeException('已确认首尾帧不存在');$selected[]=MicroVideoMedia::validateImages($tenant,$user,[['uri'=>$f['image_uri']]],1)[0];}}
                 // Capture references as actual bytes/public storage URLs, not browser localhost URLs.
-                $uris=MicroVideoMedia::visionInputs($selected);$assets=[];foreach($uris as $i=>$uri)$assets[]=['type'=>'image','uri'=>$uri,'url'=>$uri,'role'=>$spec['generation_method']==='image_to_video'?'first_frame_image':'reference_image','name'=>$selected[$i]['name']??''];
-                $request=$spec+['model_id'=>$p['model_id'],'channel'=>$p['model_id'],'resolution'=>$p['quality'],'quantity'=>1,'prompt'=>self::segmentPrompt($task,$segment),'reference_images'=>$uris,'reference_assets'=>$assets];
+                $uris=MicroVideoMedia::visionInputs($selected);$assets=[];foreach($uris as $i=>$uri)$assets[]=['type'=>'image','uri'=>$uri,'url'=>$uri,'role'=>$mode==='start_end'?($i===0?'first_frame_image':'last_frame_image'):($spec['generation_method']==='image_to_video'?'first_frame_image':'reference_image'),'name'=>$selected[$i]['name']??''];
+                $request=$frozen['selection']+['model_id'=>$p['model_id'],'channel'=>$p['model_id'],'resolution'=>$p['quality'],'quantity'=>1,'prompt'=>self::segmentPrompt($task,$segment),'reference_images'=>$uris,'reference_assets'=>$assets];
                 $attempt=Db::transaction(function()use($task,$segment,$request,$tenant,$user,$frozen){
                     $current=MicroVideoStore::table('segment')->where(['id'=>$segment['id'],'task_id'=>$task['id']])->lock(true)->find();if($current['status']!=='pending')return null;
                     $no=(int)$current['attempt_no']+1;$id=MicroVideoStore::table('attempt')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$task['id'],'segment_id'=>$segment['id'],'kind'=>'video','attempt_no'=>$no,'status'=>'prepared','request_json'=>MicroVideoStore::encode(['selection'=>$frozen['selection'],'request'=>$request]),'result_json'=>'{}','user_charge_points'=>$frozen['user_charge_points'],'create_time'=>time(),'update_time'=>time()]);
@@ -124,6 +125,7 @@ final class MicroVideoWorker
         if(MicroVideoTimeline::required($config)){MicroVideoTimeline::validate((string)$segment['prompt'],(int)$segment['duration']);$header='本次生成片段总时长'.$segment['duration'].'秒。以下镜头时间均从本段0秒开始，按时间轴依次拍摄并自然衔接；不提前结束，不延长时间轴。'."\n";}
         $parts=[$header.'整片共同设定：'.$task['continuity'],'本段画面：'.$segment['prompt'],'起始状态：'.$segment['start_state'],'结束状态：'.$segment['end_state'],'衔接要求：'.$segment['continuity']];
         $neighbors=MicroVideoStore::segments((int)$task['id']);foreach($neighbors as $n){if((int)$n['sort']===(int)$segment['sort']-1)$parts[]='前段结束：'.$n['end_state'];if((int)$n['sort']===(int)$segment['sort']+1)$parts[]='后段开始：'.$n['start_state'];}
+        if(($task['generation_mode']??'reference')==='start_end'){foreach(['first_frame_id'=>'首帧静态画面','last_frame_id'=>'尾帧静态画面'] as $key=>$label){$f=MicroVideoStore::table('frame')->where(['id'=>$segment[$key],'task_id'=>$task['id']])->find();if($f)$parts[]=$label.'：'.$f['prompt'];}$parts[]='从首帧图的确切静态状态开始，严格到达尾帧图状态；服装、人物、商品、空间、光线、构图与比例以图为准，段内按时间轴完成动作。';}
         if((int)$segment['attempt_no']>0)$parts[]='补生成要求：'.$config['retry_template'];return implode("\n",$parts);
     }
 }

@@ -18,6 +18,6 @@ final class MicroVideoStore
     public static function segments(int $id): array{return self::table('segment')->where('task_id',$id)->order('sort')->select()->toArray();}
     public static function segmentData(array $row): array
     {
-        return ['id'=>(int)$row['id'],'sort'=>(int)$row['sort'],'title'=>$row['title'],'duration'=>(int)$row['duration'],'prompt'=>$row['prompt'],'image_indices'=>self::json($row['image_indices']),'start_state'=>$row['start_state'],'end_state'=>$row['end_state'],'continuity'=>$row['continuity']];
+        return ['first_frame_id'=>(int)($row['first_frame_id']??0),'last_frame_id'=>(int)($row['last_frame_id']??0),'id'=>(int)$row['id'],'sort'=>(int)$row['sort'],'title'=>$row['title'],'duration'=>(int)$row['duration'],'prompt'=>$row['prompt'],'image_indices'=>self::json($row['image_indices']),'start_state'=>$row['start_state'],'end_state'=>$row['end_state'],'continuity'=>$row['continuity']];
     }
 }
