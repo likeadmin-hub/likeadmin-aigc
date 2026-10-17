@@ -11,6 +11,12 @@ if (in_array('--immutable-probe',$argv ?? [],true)) {
     $check(getenv('LIKEADMIN_IMMUTABLE_ASSETS')==='1' && !Source::capability(1)['enabled'],'Immutable deployment allows source writes');
     echo "PASS immutable deployment rejects source authoring\n";exit;
 }
+if (($argv[1] ?? '')==='--symlink-probe') {
+    $root=(string)($argv[2] ?? '');$check(str_starts_with($root,'/tmp/canvas-source-link-') && is_link($root.'/catalog/builtin-link.json'),'Symlink fixture missing');
+    $before=file_get_contents($root.'/target.json');$store=new Store($root.'/catalog',$root.'/journal');
+    $reject(static fn()=>$store->save(hash('sha256','link'),hash('sha256','link'),'update','builtin-link',1,static fn()=>throw new RuntimeException('Symlink reached builder')));
+    $check(file_get_contents($root.'/target.json')===$before,'Symlink changed an outside file');echo "PASS symlink target is rejected before source write\n";exit;
+}
 $key=static fn($value)=>hash('sha256',$value);
 $preset=static fn($id,$version,$title='Fixture')=>['filename'=>$id.'.json','media_count'=>0,'preset'=>['schema_version'=>1,'id'=>$id,'version'=>$version,'title'=>$title,'graph'=>['nodes'=>[['id'=>'text','type'=>'text','metadata'=>['content'=>'Portable prompt']]],'edges'=>[]]]];
 $root=sys_get_temp_dir().'/canvas-source-test-'.bin2hex(random_bytes(8));mkdir($root,0770,true);mkdir($root.'/catalog',0770);
@@ -41,8 +47,10 @@ try {
         return $preset('builtin-serialized',1);
     });
     $check(!is_file($root.'/catalog/builtin-parallel.json'),'Concurrent save bypassed catalog lock');
-    symlink($file,$root.'/catalog/builtin-link.json');
-    $reject(static fn()=>$store->save($key('link'),$key('link'),'update','builtin-link',2,static fn()=>$preset('builtin-link',3)));
+    if (function_exists('symlink')) {
+        symlink($file,$root.'/catalog/builtin-link.json');
+        $reject(static fn()=>$store->save($key('link'),$key('link'),'update','builtin-link',2,static fn()=>$preset('builtin-link',3)));
+    }
     chmod($file,0444);clearstatcache();
     $reject(static fn()=>$store->save($key('readonly'),$key('readonly'),'update',$id,2,static fn()=>$preset($id,3)));
     chmod($file,0644);chmod($root.'/catalog',0555);clearstatcache();$reject(static fn()=>$store->assertWritable());chmod($root.'/catalog',0770);clearstatcache();
