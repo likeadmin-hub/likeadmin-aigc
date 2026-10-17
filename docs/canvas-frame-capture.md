@@ -19,7 +19,36 @@ php -l app/api/controller/app/aigc_canvas/GenerateController.php
 
 The contract test uses in-memory stubs with no database, storage, FFmpeg, or paid-generation calls. The existing media test needs FFmpeg and uses temporary generated video files, without database or storage writes.
 
-## Local acceptance limitation (2026-10-16)
+## Restricted PHP runtimes
+
+FFmpeg detection and extraction use `proc_open` with a bounded deadline, without requiring `exec`, `shell_exec`, or `system`. A missing process capability now reports a media-process configuration error separately from an unavailable FFmpeg binary. Extraction invokes FFmpeg directly as an argument array, so timeout terminates the decoder rather than only a shell wrapper.
+
+If the website disables process execution, preserve its restrictions and run a **separate FPM master** for the authenticated capture endpoint. Do not relax the global website PHP configuration or route the entire site to that master. `scripts/canvas-frame-fpm.sh` removes only `proc_open` from the CLI restriction list, leaving all other disabled functions in place. The dedicated FPM configuration must contain only its own bounded pool, Unix socket, pid/log paths, and the existing unprivileged site user. Example pool (replace paths/user for the deployment):
+
+```ini
+[global]
+pid = /run/canvas-frame-fpm.pid
+error_log = /var/log/canvas-frame-fpm.log
+[canvas-frame]
+user = www
+group = www
+listen = /run/canvas-frame.sock
+listen.owner = www
+listen.group = www
+listen.mode = 0600
+pm = ondemand
+pm.max_children = 2
+pm.process_idle_timeout = 10s
+pm.max_requests = 100
+request_terminate_timeout = 360s
+security.limit_extensions = .php
+```
+
+Start it through the existing process supervisor with `CANVAS_PHP_BIN`, `CANVAS_FPM_BIN`, and `CANVAS_FPM_CONFIG` pointing to the intended PHP version and dedicated configuration. In the intended site's Nginx configuration, route **only** the exact `/api/app.aigc_canvas.generate/captureFrame` location to this socket. Set `SCRIPT_FILENAME` to that site's existing `public/index.php`, retain standard FastCGI request parameters, and allow a 360-second read timeout. All other locations keep their original PHP socket. Tenant-aware `/t/{id}` rewrites must still normalize to the same authenticated application route. Check configuration and unauthenticated rejection before browser acceptance. These are operator-local settings, not automatic app migrations.
+
+OSS need not allow browser CORS: the existing fallback reads only the server-authorized file and saves a new image with the caller's storage and ownership metadata. Never add a wildcard CORS rule or change another tenant's bucket to make extraction work. The frontend waits for the source snapshot to save and refuses extraction after a failed save or project switch. Its request timeout accommodates the bounded download and decode operations, with automatic retries disabled.
+
+## Previous local acceptance limitation (2026-10-16)
 
 The local `s.cn` PHP 8.2 configuration disables `exec` and `proc_open`. FFmpeg is installed, but that website runtime cannot invoke it. The user explicitly chose to preserve this configuration and accept source delivery with this limitation. No PHP, storage CORS, or site security configuration was changed.
 
