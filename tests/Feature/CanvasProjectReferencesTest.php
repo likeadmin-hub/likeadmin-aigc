@@ -47,6 +47,7 @@ try{
  // Avoid a live project compatibility repair: all fixture documents are already native.
  $in=fn($call)=>W::within($scope,$call);
  check($in(fn()=>R::lists($t,$u,[]))['count']===2,'Project nodes not listed');
+ check(!str_contains($in(fn()=>R::lists($t,$u,['scope'=>'nodes']))['lists'][1]['description'],'node_id'),'Internal node descriptor exposed in picker');
  check($in(fn()=>R::lists($t,$u,['scope'=>'subjects']))['lists']===[],'Default mention leaked subject library');
  rejected(fn()=>W::within(array_replace($scope,['project_id'=>$foreign]),fn()=>R::lists($t,$u,[])));
  rejected(fn()=>W::within(array_replace($scope,['project_id'=>$otherTenant]),fn()=>R::lists($t,$u,[])));

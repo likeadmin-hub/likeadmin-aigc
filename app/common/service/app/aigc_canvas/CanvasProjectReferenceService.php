@@ -28,7 +28,7 @@ final class CanvasProjectReferenceService
             if(!is_array($node)||empty($node['id']))continue;
             $meta=(array)($node['metadata']??$node['data']??[]);$text=self::text($node);
             $file=self::nodeFile($tenant,$user,$meta);
-            if(!$file&&$text==='')$text=self::nodeContext($node);
+            if(!$file&&$text==='')$text='节点信息 · '.(trim((string)($meta['prompt']??''))?:'暂无可引用的输出素材');
             $rows[]=self::item('node',(string)$node['id'],self::nodeName($node),$text,$file);
         }
         if($scope!=='nodes')foreach(self::assets($tenant,$user,(int)$project['id'])->order('id','desc')->select()->toArray() as $asset){
