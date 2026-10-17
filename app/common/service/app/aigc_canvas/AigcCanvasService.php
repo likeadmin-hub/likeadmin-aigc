@@ -199,7 +199,11 @@ class AigcCanvasService
         if ($keyword !== '') {
             $query->whereLike('name', '%' . $keyword . '%');
         }
-        $limit = max(1, min(100, (int)($params['limit'] ?? 60)));
+        $paged = isset($params['page_no']) || isset($params['page_size']);
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $pageSize = max(1, min(100, (int)($params['page_size'] ?? 24)));
+        $count = $paged ? (int)(clone $query)->count() : 0;
+        $limit = $paged ? $pageSize : max(1, min(100, (int)($params['limit'] ?? 60)));
         $rows = $query
             ->field([
                 'id',
@@ -216,10 +220,11 @@ class AigcCanvasService
             ->fieldRaw("IF(JSON_VALID(COALESCE(nodes_json, '[]')), JSON_LENGTH(COALESCE(nodes_json, '[]')), 0) AS node_count")
             ->fieldRaw("IF(JSON_VALID(COALESCE(edges_json, '[]')), JSON_LENGTH(COALESCE(edges_json, '[]')), 0) AS edge_count")
             ->order(['sort' => 'desc', 'update_time' => 'desc', 'id' => 'desc'])
-            ->limit($limit)
+            ->limit($paged ? ($pageNo - 1) * $pageSize : 0, $limit)
             ->select()
             ->toArray();
-        return array_map([self::class, 'formatProject'], $rows);
+        $lists = array_map([self::class, 'formatProject'], $rows);
+        return $paged ? ['lists'=>$lists, 'count'=>$count, 'page_no'=>$pageNo, 'page_size'=>$pageSize] : $lists;
     }
 
     public static function projectDetail(int $tenantId, int $userId, int $id): array

@@ -17,6 +17,7 @@ final class CanvasArtifactGeneration
     public static function fromGeneration(string $kind, array $generation): array
     {
         $settings = array_intersect_key($generation, array_flip(['channel','model_id','quality','ratio','duration','quantity','market_product_id','market_sku_id','mode','negative_prompt','style']));
+        if ($kind === 'audio') $settings += array_intersect_key($generation, array_flip(['title','lyrics','genre','custom','instrumental','vocal_gender','language']));
         $settings['submittedModelLabel'] = (string)($generation['model_name'] ?? '');
         foreach (['market_product_id','market_sku_id'] as $key) if (empty($settings[$key])) unset($settings[$key]);
         if (isset($settings['market_sku_id'])) $settings['sku_id'] = (int)$settings['market_sku_id'];
@@ -49,7 +50,7 @@ final class CanvasArtifactGeneration
     {
         foreach ($nodes as &$node) {
             $meta = $node['metadata'] ?? [];
-            if (!in_array($node['type'] ?? '', ['image','video'], true) || ($meta['source'] ?? '') !== 'agent' || empty($meta['agentArtifactId']) || !empty($meta['agentGeneration'])) continue;
+            if (!in_array($node['type'] ?? '', ['image','video','audio'], true) || ($meta['source'] ?? '') !== 'agent' || empty($meta['agentArtifactId']) || !empty($meta['agentGeneration'])) continue;
             $prompt = trim((string)($meta['prompt'] ?? ''));
             if ($prompt !== '' && !in_array($prompt, [$meta['url'] ?? '', $meta['image'] ?? '', $meta['content'] ?? ''], true)) continue;
             if (!empty($meta['submittedPrompt']) || !empty($meta['compiledPrompt'])) continue;

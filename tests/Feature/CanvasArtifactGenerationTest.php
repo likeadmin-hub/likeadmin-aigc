@@ -57,6 +57,26 @@ Db::startTrans();try {
         check(Compatibility::adapt($old)['nodes_json']===$broken,'Foreign task leaked submitted prompt');
         Db::name('aigc_'.$kind.'_task')->where('id',$task)->update(['user_id'=>$user]);
     }
-    $final=Canvas::projectDetail($tenant,$user,$p['id']);check(count($final['nodes'])===2,'Duplicate result nodes');check($final['viewport']['pages'][1]['nodeIds']===[]&&$final['viewport']['currentCanvasId']==='p2','Another page changed');
+    $task=Db::name('aigc_music_task')->insertGetId($owner+['title'=>'Submitted song','prompt'=>'Actual music prompt','lyrics'=>'Verse one\nChorus','genre'=>'Jazz','channel'=>'original-music-channel','quality'=>'standard','duration'=>120,'quantity'=>1,'provider_payload'=>S::encode(['generation'=>['custom'=>true,'instrumental'=>false,'vocal_gender'=>'f','language'=>'en','style'=>'Jazz'],'api_key'=>'NEVER_COPY']),'status'=>'success','create_time'=>time(),'delete_time'=>0]);
+    $step=S::table('step')->insertGetId($owner+['run_id'=>$runId,'step_key'=>hash('sha256','music'),'title'=>'Wrong proposal','tool_code'=>'aigc_music','task_id'=>$task,'status'=>'success','prepared'=>S::encode(['params'=>['prompt'=>'Wrong proposal']]),'result'=>'{}','create_time'=>time(),'update_time'=>time()]);
+    $file='of_'.bin2hex(random_bytes(16));OpenStore::table('file')->insert($owner+$storage+['file_id'=>$file,'uri'=>'uploads/music-fixture.mp3','name'=>'fixture','mime'=>'audio/mpeg','size'=>0]+OpenStore::timestamp());
+    $artifact=S::table('artifact')->insertGetId($owner+$storage+['session_id'=>$tenant,'run_id'=>$runId,'step_id'=>$step,'identity_hash'=>hash('sha256',$file),'title'=>'Fixture','kind'=>'audio','data'=>S::encode(['file_id'=>$file]),'create_time'=>time()]);
+    Tools::artifact($run,$artifact,$file,'audio','Song');Tools::artifact($run,$artifact,$file,'audio','Song');
+    $row=Db::name('aigc_canvas_project')->where('id',$p['id'])->find();$audio=S::json($row['nodes_json']);$meta=end($audio)['metadata'];
+    check($meta['prompt']==='Actual music prompt'&&$meta['channel']==='original-music-channel','Audio lost original prompt/channel');
+    check($meta['lyrics']==='Verse one\nChorus'&&$meta['custom']===true&&$meta['instrumental']===false&&$meta['language']==='en','Audio lost submitted song settings');
+    check(!str_contains(S::encode($meta),'NEVER_COPY'),'Music exposed provider data');
+    $broken=$audio;$last=array_key_last($broken);$broken[$last]['metadata']=['source'=>'agent','agentArtifactId'=>$artifact,'agentFileId'=>$file,'url'=>$meta['url'],'content'=>$meta['url'],'prompt'=>''];
+    $old=array_replace($row,['nodes_json'=>$broken]);$fixed=Compatibility::adapt($old);
+    check($fixed['nodes_json'][$last]['metadata']['prompt']==='Actual music prompt','Historical audio not repaired');
+    check($fixed['nodes_json'][$last]['position']===$broken[$last]['position']&&$fixed['nodes_json'][$last]['metadata']['url']===$meta['url'],'Audio repair changed media/position');
+    check(Compatibility::adapt($fixed)===$fixed,'Audio repair not idempotent');
+    $edited=$old;$edited['nodes_json'][$last]['metadata']['prompt']='Edited';check(Compatibility::adapt($edited)['nodes_json']===$edited['nodes_json'],'Audio repair overwrote edits');
+    Db::name('aigc_music_task')->where('id',$task)->update(['user_id'=>$user+1]);check(Compatibility::adapt($old)['nodes_json']===$broken,'Audio crossed task ownership');
+    Db::name('aigc_music_task')->where('id',$task)->update(['user_id'=>$user]);
+    S::owner('step',$tenant,$user)->where('id',$step)->update(['tool_code'=>'speech_synthesis']);
+    check(Artifacts::canvasGeneration(S::owner('artifact',$tenant,$user)->where('id',$artifact)->find())===null,'Speech treated as music');
+    S::owner('step',$tenant,$user)->where('id',$step)->update(['tool_code'=>'aigc_music']);
+    $final=Canvas::projectDetail($tenant,$user,$p['id']);check(count($final['nodes'])===3,'Duplicate result nodes');check($final['viewport']['pages'][1]['nodeIds']===[]&&$final['viewport']['currentCanvasId']==='p2','Another page changed');
     echo "Canvas artifact generation: $checks checks passed; all fixtures rolled back, no model or media generation\n";
 } finally { Db::rollback(); }

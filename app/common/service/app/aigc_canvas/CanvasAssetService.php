@@ -8,6 +8,9 @@ final class CanvasAssetService
 {
     public static function registerAsset(int $tenantId, int $userId, array $params): array
     {
+        if (($params['asset_type'] ?? $params['type'] ?? '') === 'text') {
+            return self::registerText($tenantId, $userId, $params);
+        }
         $params = self::withCanvasSource($params, 'canvas_asset_register');
         $projectId = (int)($params['project_id'] ?? $params['canvas_project_id'] ?? 0);
         if ($projectId > 0) {
@@ -69,6 +72,35 @@ final class CanvasAssetService
         ]);
 
         return self::formatAsset($asset->toArray());
+    }
+
+    /** Text is an owned database snapshot, not an external file URL. */
+    private static function registerText(int $tenantId, int $userId, array $params): array
+    {
+        $content = $params['content'] ?? '';
+        $nodeId = $params['node_id'] ?? '';
+        if (!is_string($content) || trim($content) === '' || mb_strlen($content) > 200000) throw new Exception('请输入非空且20万字以内的文本');
+        if (!is_string($nodeId) || $nodeId === '' || mb_strlen($nodeId) > 200) throw new Exception('文本节点标识无效');
+        $projectId = (int)($params['project_id'] ?? 0);
+        return \think\facade\Db::transaction(static function () use ($tenantId, $userId, $projectId, $nodeId, $content, $params) {
+            // Serialize re-adds/retries for this project without a schema change.
+            $project = AigcCanvasProject::where(['tenant_id'=>$tenantId, 'user_id'=>$userId, 'id'=>$projectId, 'delete_time'=>0])->lock(true)->findOrEmpty();
+            if ($projectId <= 0 || $project->isEmpty()) throw new Exception('项目不存在');
+            $asset = AigcCanvasAsset::where(['tenant_id'=>$tenantId, 'user_id'=>$userId, 'project_id'=>$projectId, 'asset_type'=>'text', 'delete_time'=>0])
+                ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(meta_json, '$.canvas_node_id')) = ?", [$nodeId])->findOrEmpty();
+            $now = time();
+            $data = [
+                'title'=>mb_substr(trim((string)($params['title'] ?? '')), 0, 120),
+                'asset_type'=>'text', 'uri'=>'', 'cover_uri'=>'',
+                'storage_scope'=>'tenant', 'storage_engine'=>'', 'storage_domain'=>'',
+                'mime_type'=>'text/plain', 'file_size'=>strlen($content), 'checksum'=>hash('sha256', $content),
+                'meta_json'=>json_encode(['source'=>'aigc_canvas', 'source_app_code'=>'aigc_canvas', 'source_type'=>'canvas_text_register', 'canvas_project_id'=>(string)$projectId, 'canvas_node_id'=>$nodeId, 'node_id'=>$nodeId, 'node_type'=>'text', 'content'=>$content], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'status'=>'ready', 'update_time'=>$now,
+            ];
+            if ($asset->isEmpty()) $asset = AigcCanvasAsset::create($data + ['tenant_id'=>$tenantId, 'user_id'=>$userId, 'project_id'=>$projectId, 'task_id'=>'', 'shot_id'=>'', 'create_time'=>$now, 'delete_time'=>0]);
+            else $asset->save($data);
+            return self::formatAsset($asset->toArray());
+        });
     }
 
     private static function withCanvasSource(array $params, string $source): array
