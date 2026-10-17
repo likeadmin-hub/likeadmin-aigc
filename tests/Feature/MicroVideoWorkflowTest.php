@@ -104,14 +104,35 @@ final class MicroVideoWorkflowTest extends TestCase
         $row=S::owned(1,1,$this->id);self::assertSame('awaiting_confirmation',$row['status'],$row['error']);self::assertSame([6,9],array_column(S::segments($this->id),'duration'));self::assertSame($before,Db::name('ai_consumption_log')->count());
     }
 
-    public function testSmartPromptAndEstimateBothHonorExplicitFifteenSeconds(): void
+    public function testSmartPromptAndEstimateBothHonorSelectedThirtySeconds(): void
     {
         $p=S::json(S::owned(1,1,$this->id)['params_json']);$p=array_replace($p,['model_id'=>'market_video_model:182','quality'=>'768P','ratio'=>'16:9','mode'=>'prompt','prompt'=>"整片15秒。\n0-3秒：发现商品。\n3-15秒：拿起展示。",'target_duration'=>30,'idempotency_key'=>'prompt_test_'.bin2hex(random_bytes(8))]);
         $prepared=V::form(1,1,$p);$create=new \ReflectionMethod(V::class,'createDraft');$create->setAccessible(true);
         $row=$create->invoke(null,1,1,$prepared,'prompt:'.$p['idempotency_key'],'prompt_draft');S::update((int)$row['id'],['analysis'=>'参考图为同一商品。']);
-        S::table('attempt')->insert(['tenant_id'=>1,'user_id'=>1,'task_id'=>$row['id'],'segment_id'=>0,'kind'=>'prompt','attempt_no'=>1,'status'=>'success','request_json'=>'{}','result_json'=>S::encode(['content'=>$p['prompt']]),'create_time'=>time(),'update_time'=>time()]);
-        $before=Db::name('ai_consumption_log')->count();$r=V::writePrompt(1,1,$p);self::assertSame($p['prompt'],$r['prompt']);
-        $q=V::estimate(1,1,$p);self::assertSame(15,$q['planned_duration']);self::assertTrue($q['approximate']);self::assertSame($before,Db::name('ai_consumption_log')->count());
+        S::table('attempt')->insert(['tenant_id'=>1,'user_id'=>1,'task_id'=>$row['id'],'segment_id'=>0,'kind'=>'prompt','attempt_no'=>1,'status'=>'success','request_json'=>'{}','result_json'=>S::encode(['content'=>"0-5秒：发现商品。\n5-12秒：拿起商品。\n12-20秒：展示细节。\n20-30秒：装包离开。"]),'create_time'=>time(),'update_time'=>time()]);
+        $before=Db::name('ai_consumption_log')->count();$r=V::writePrompt(1,1,$p);self::assertStringContainsString('20-30秒',$r['prompt']);
+        $q=V::estimate(1,1,$p);self::assertSame(30,$q['planned_duration']);self::assertTrue($q['approximate']);self::assertSame($before,Db::name('ai_consumption_log')->count());
+    }
+
+    /** @dataProvider targetDurations */
+    public function testTargetWorkerCannotAcceptAStoryShorterThanTheSelectedDuration(array $durations,string $expected): void
+    {
+        $task=S::owned(1,1,$this->id);$p=S::json($task['params_json']);$p=array_replace($p,['model_id'=>'market_video_model:182','quality'=>'768P','ratio'=>'16:9','mode'=>'prompt','prompt'=>'原有15秒短故事，女生拿起商品。','target_duration'=>30]);
+        $model=\app\common\service\app\aigc_micro_video\MicroVideoCatalog::model(1,$p['model_id']);$snapshot=S::json($task['config_snapshot']);$snapshot['content_planning_version']=2;$snapshot['shot_timeline_version']=1;
+        S::update($this->id,['status'=>'planning','params_json'=>S::encode($p),'model_snapshot'=>S::encode($model),'config_snapshot'=>S::encode($snapshot),'analysis'=>'参考图展示同一人物和商品。','next_run_at'=>0]);
+        $segments=[];foreach($durations as $d)$segments[]=['title'=>'连续剧情','duration'=>$d,'prompt'=>"0-2秒：人物走向商品。\n2-{$d}秒：延续动作展示。",'image_indices'=>[0],'start_state'=>'人物站在商品旁','end_state'=>'持瓶展示','continuity'=>'同一机位，动作自然承接'];
+        S::table('attempt')->insert(['tenant_id'=>1,'user_id'=>1,'task_id'=>$this->id,'segment_id'=>0,'kind'=>'script','attempt_no'=>1,'status'=>'success','request_json'=>'{}','result_json'=>S::encode(['content'=>S::encode(['continuity'=>'同一人物场景','segments'=>$segments])]),'create_time'=>time(),'update_time'=>time()]);
+        $before=Db::name('ai_consumption_log')->count();\app\common\service\app\aigc_micro_video\MicroVideoWorker::tick($this->id);$row=S::owned(1,1,$this->id);self::assertSame($expected,$row['status'],$row['error']);
+        if($expected==='awaiting_confirmation'){
+            self::assertSame($durations,array_column(S::segments($this->id),'duration'));
+            $saved=S::segments($this->id);$short=$saved;array_pop($short);foreach($short as &$segment)$segment['image_indices']=[0];unset($segment);
+            $this->rejection(fn()=>V::savePlan(1,1,['id'=>$this->id,'plan_revision'=>$row['plan_revision'],'segments'=>$short]));self::assertSame($saved,S::segments($this->id));
+        }else self::assertStringContainsString('目标时长',$row['error']);
+        self::assertSame($before,Db::name('ai_consumption_log')->count());
+    }
+    public static function targetDurations(): array
+    {
+        return [[[8,10,12],'awaiting_confirmation'],[[10,11,12],'awaiting_confirmation'],[[6,4,5],'waiting_continue']];
     }
 
 }
