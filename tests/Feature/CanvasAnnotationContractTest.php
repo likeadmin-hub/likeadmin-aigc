@@ -18,4 +18,7 @@ $check($adapted['nodes_json'][1]['metadata']['annotation']===$nodes[1]['metadata
 $a=CanvasAnnotation::normalize(['fill'=>'url(private)','fontFamily'=>'evil','fontSize'=>999,'strokeWidth'=>-5]);
 $check($a['fill']==='#c7c7c7' && $a['fontFamily']==='Inter' && $a['fontSize']===224.0 && $a['strokeWidth']===0.0,'Unsafe styling accepted');
 try{CanvasTemplateService::sanitize($nodes,[['fromNodeId'=>'a0','toNodeId'=>'a1']]);throw new RuntimeException('Annotation generation edge accepted');}catch(InvalidArgumentException $e){$n++;}
+$instance=CanvasTemplateService::instantiate($graph);
+$check($instance['nodes'][0]['id']!==$graph['nodes'][0]['id'],'Preset reuse did not isolate object IDs');
+$check($instance['nodes'][1]['metadata']['annotation']===$graph['nodes'][1]['metadata']['annotation'],'Preset reuse lost editable styles');
 echo "PASS $n annotation persistence, template and styling checks\n";
