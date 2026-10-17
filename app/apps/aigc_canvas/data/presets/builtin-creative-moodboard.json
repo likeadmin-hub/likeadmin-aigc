@@ -82,7 +82,7 @@
               "id": "result-image-1mqgjmb",
               "type": "image",
               "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
-              "mediaSource": "upload",
+              "mediaSource": "generated",
               "width": 2752,
               "height": 1536,
               "fileSize": 1365934,
@@ -92,8 +92,8 @@
           ],
           "activeMediaId": "result-image-1mqgjmb",
           "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
-          "mediaSource": "upload",
-          "source": "upload",
+          "mediaSource": "generated",
+          "source": "generated",
           "image": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
           "mentions": []
         }
@@ -130,7 +130,7 @@
               "id": "result-video-yry7p6",
               "type": "video",
               "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/1f2e88199304518180a6a60ef6e42238e1a1ac2ad47d951b399390ec12e58366.mp4",
-              "mediaSource": "upload",
+              "mediaSource": "generated",
               "width": 1280,
               "height": 720,
               "fileSize": 9717797,
@@ -140,8 +140,8 @@
           ],
           "activeMediaId": "result-video-yry7p6",
           "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/1f2e88199304518180a6a60ef6e42238e1a1ac2ad47d951b399390ec12e58366.mp4",
-          "mediaSource": "upload",
-          "source": "upload",
+          "mediaSource": "generated",
+          "source": "generated",
           "referenceImages": [
             {
               "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
