@@ -52,6 +52,7 @@ Db::startTrans();try {
         check((S::json($upgraded['viewport_json'])['agentRevision']??0)===$prior+1,'Old tab revision not fenced');
         check(Db::name('aigc_canvas_project_compat_backup')->where($owner+['project_id'=>$p['id']])->count()===1,'Missing backup before repair');
         check($upgraded['update_time']===$old['update_time'],'Repair rewrote user timestamp');
+        if ($kind==='image') { $backup=S::json(Db::name('aigc_canvas_project_compat_backup')->where($owner+['project_id'=>$p['id']])->value('snapshot_json'));check(count($backup['agent_generation_repairs']??[])===1,'Later repair did not preserve the current graph alongside the original backup'); }
         Db::name('aigc_'.$kind.'_task')->where('id',$task)->update(['user_id'=>$user+1]);
         check(Compatibility::adapt($old)['nodes_json']===$broken,'Foreign task leaked submitted prompt');
         Db::name('aigc_'.$kind.'_task')->where('id',$task)->update(['user_id'=>$user]);
