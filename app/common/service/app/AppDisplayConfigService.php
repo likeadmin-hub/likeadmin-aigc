@@ -306,6 +306,17 @@ class AppDisplayConfigService
 
     public static function save(int $tenantId, string $appCode, array $params): array
     {
+        if (self::normalizeAppCode($appCode) === 'aigc_canvas') {
+            return \think\facade\Db::transaction(function () use ($tenantId, $appCode, $params) {
+                TenantAppConfig::where(['tenant_id'=>$tenantId,'app_code'=>'aigc_canvas'])->lock(true)->find();
+                return self::saveDisplay($tenantId, $appCode, $params);
+            });
+        }
+        return self::saveDisplay($tenantId, $appCode, $params);
+    }
+
+    private static function saveDisplay(int $tenantId, string $appCode, array $params): array
+    {
         $appCode = self::normalizeAppCode($appCode);
         $current = self::detail($tenantId, $appCode);
         $cover = FileService::setFileUrl((string)($params['cover_uri'] ?? $params['cover_url'] ?? $params['cover'] ?? $current['cover_uri'] ?? ''));
@@ -388,6 +399,14 @@ class AppDisplayConfigService
         $extra = is_array($params['extra'] ?? null)
             ? $params['extra']
             : (array)($current['extra'] ?? []);
+        // Display forms may stay open while the separate skills editor saves.
+        // Only the dedicated canvas skill service can write this private configuration.
+        if (($current['app_code'] ?? '') === 'aigc_canvas') {
+            foreach (['agent_skills','agent_skills_version'] as $key) {
+                if (array_key_exists($key, (array)($current['extra'] ?? []))) $extra[$key] = $current['extra'][$key];
+                else unset($extra[$key]);
+            }
+        }
         $currentRecommendation = self::recommendationValue(
             $current,
             self::recommendationValue((array)($current['extra'] ?? []))
