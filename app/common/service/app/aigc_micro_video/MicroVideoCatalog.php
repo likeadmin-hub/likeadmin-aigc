@@ -29,7 +29,7 @@ final class MicroVideoCatalog
                         $unit=$s['usage_unit']??'';$quantity=in_array($unit,['input_second','output_second','second'],true)?$duration:1;
                         $entry=['quality'=>(string)$s['quality'],'ratio'=>$ratio,'duration'=>$duration,'generation_method'=>$method,'market_product_id'=>(int)$model['market_product_id'],'market_sku_id'=>(int)$s['market_sku_id'],'resource_type'=>$model['resource_type'],'user_charge_points'=>round((float)$s['tenant_unit_price']*$quantity/max(1,(float)($s['usage_unit_size']??1)),4)];
                         $input=(string)($s['input_mode']??'');
-                        if($input===''||in_array($input,[$method,'image_reference','omni_reference','image_to_video'],true))$specs[]=$entry;
+                        if($legacy||$input===''||in_array($input,[$method,'image_reference','omni_reference','image_to_video'],true))$specs[]=$entry;
                         if($hasFrames&&($input===''||in_array($input,['start_end','image_reference'],true)))$frameSpecs[]=array_replace($entry,['generation_method'=>'start_end']);
                     }
                 }

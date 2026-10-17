@@ -29,11 +29,13 @@ final class MarketImageProviderRequestException extends Exception
 {
     private $retryable;
     private $accepted;
+    private array $providerReceipt;
 
-    public function __construct(string $message, bool $retryable = false, int $code = 0, bool $accepted = false)
+    public function __construct(string $message, bool $retryable = false, int $code = 0, bool $accepted = false,array $providerReceipt = [])
     {
         $this->retryable = $retryable;
         $this->accepted = $accepted;
+        $this->providerReceipt=$providerReceipt;
         parent::__construct($message, $code);
     }
 
@@ -43,6 +45,7 @@ final class MarketImageProviderRequestException extends Exception
     }
 
     public function wasAccepted(): bool { return $this->accepted; }
+    public function receipt(): array { return $this->providerReceipt; }
 }
 
 /**
@@ -349,7 +352,7 @@ class MarketImageModelRuntimeService
             return ['status' => $images === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => $images];
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
-            if($microSubmission&&MicroVideoSubmission::hold($consumptionId,$e->getMessage()))return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+            if($microSubmission&&self::holdMicroSubmissionError($consumptionId,$e))return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             if ($upstreamAccepted) {
                 self::recordAcceptedSubmissionFailure($consumptionId, $taskId, $requestId, $e);
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => []];
@@ -397,6 +400,15 @@ class MarketImageModelRuntimeService
         throw new Exception('图片模型提交失败');
     }
 
+    private static function holdMicroSubmissionError(int $id,\Throwable $error): bool
+    {
+        if($error instanceof MarketImageProviderRequestException&&$error->wasAccepted()){
+            $receipt=$error->receipt();$nested=is_array($receipt['data']??null)?$receipt['data']:[];$receipt=$nested+$receipt;
+            MicroVideoSubmission::capture($id,$receipt?:['accepted'=>true],self::taskId($receipt),self::requestId($receipt));
+        }
+        return MicroVideoSubmission::hold($id,$error->getMessage());
+    }
+
     private static function submitRetryDelayMs(int $attempt): int
     {
         return (int)(self::SUBMIT_RETRY_DELAYS_MS[max(0, min(count(self::SUBMIT_RETRY_DELAYS_MS) - 1, $attempt - 1))] ?? 1800);
@@ -404,7 +416,7 @@ class MarketImageModelRuntimeService
 
     private static function shouldRetrySubmit(MarketImageProviderRequestException $error, int $attempt, bool $singleAttempt): bool
     {
-        return !$singleAttempt && $error->isRetryable() && $attempt < self::SUBMIT_MAX_ATTEMPTS;
+        return !$singleAttempt && !$error->wasAccepted() && $error->isRetryable() && $attempt < self::SUBMIT_MAX_ATTEMPTS;
     }
 
     private static function recordSubmitRetry(int $consumptionId, int $attempt, int $delayMs, \Throwable $e): void
@@ -1393,7 +1405,7 @@ class MarketImageModelRuntimeService
         if ($errno) throw new Exception('cURL error '.$errno.': '.($error ?: '图片模型网络请求失败')); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('图片模型响应格式错误');
         if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) {
             if ($method === 'POST') \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== '');
-            throw new MarketImageProviderRequestException(self::error($data), self::isExplicitTransientProviderResponse($http, $data), $http, self::taskId($data) !== '');
+            throw new MarketImageProviderRequestException(self::error($data), self::isExplicitTransientProviderResponse($http, $data), $http, self::taskId($data) !== ''||self::taskId((array)($data['data']??[]))!=='', $data);
         }
         return is_array($data['data'] ?? null) ? $data['data'] : $data;
     }

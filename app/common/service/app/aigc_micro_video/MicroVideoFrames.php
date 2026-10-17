@@ -29,11 +29,13 @@ final class MicroVideoFrames
         }
         Db::transaction(function()use($tenant,$user,$id,$p,$values,$definitions){$task=MicroVideoStore::owned($tenant,$user,$id,true);self::editable($task,$p);$rows=self::rows($id);$changed=$task['generation_mode']!==$values['generation_mode']||($values['generation_mode']==='start_end'&&($task['frame_model_id']!==$values['frame_model_id']||$task['frame_quality']!==$values['frame_quality']));if(!$changed&&$rows)return;
             if($values['generation_mode']==='start_end'){if(!$rows)foreach($definitions as $d)self::insert($task,$d,1);elseif($task['frame_model_id']!==$values['frame_model_id']||$task['frame_quality']!==$values['frame_quality'])self::invalidate($task,0,$definitions);self::bind($id);}
+            if($changed)MicroVideoStore::table('frame')->where(['task_id'=>$id,'is_latest'=>1])->update(['confirmed'=>0,'update_time'=>time()]);
             self::bump($task,$values);
         });return MicroVideoService::detail($tenant,$user,$id);
     }
     private static function insert(array $task,array $definition,int $version,string $status='pending'): int
     {
+        $version=max($version,1+(int)MicroVideoStore::table('frame')->where(['task_id'=>$task['id'],'boundary_index'=>$definition['boundary_index']])->max('version'));
         $refs=is_array($definition['reference_indices'])?$definition['reference_indices']:MicroVideoStore::json($definition['reference_indices']);$prompt=(string)$definition['prompt'];
         return MicroVideoStore::table('frame')->insertGetId(['tenant_id'=>$task['tenant_id'],'user_id'=>$task['user_id'],'task_id'=>$task['id'],'boundary_index'=>$definition['boundary_index'],'version'=>$version,'is_latest'=>1,'prompt'=>$prompt,'reference_indices'=>MicroVideoStore::encode($refs),'prompt_fingerprint'=>MicroVideoPolicy::fingerprint([$prompt,$refs]),'source_fingerprint'=>MicroVideoPolicy::fingerprint(MicroVideoPolicy::stableParams(MicroVideoStore::json($task['params_json']))),'status'=>$status,'create_time'=>time(),'update_time'=>time()]);
     }
@@ -84,7 +86,7 @@ final class MicroVideoFrames
             $frames=self::rows($id);$selected=self::selected($frames,$q['ids']);$first=min(array_column($selected,'boundary_index'));
             // A new anchor changes only itself and later dependent boundary versions.
             foreach($frames as $f){if((int)$f['boundary_index']<(int)$first)continue;$isSelected=in_array((int)$f['id'],$q['ids'],true);if($f['status']==='success'||(int)$f['attempt_id']>0||(!$isSelected&&$f['status']!=='stale')){MicroVideoStore::table('frame')->where('id',$f['id'])->update(['is_latest'=>null,'update_time'=>time()]);self::insert($task,$f,(int)$f['version']+1,$isSelected?'pending':'stale');}}
-            $current=self::rows($id);$indices=array_map('intval',array_column($selected,'boundary_index'));$admitted=array_values(array_filter($current,fn($f)=>in_array((int)$f['boundary_index'],$indices,true)));$admittedIds=array_map('intval',array_column($admitted,'id'));$frozen=$q;$frozen['frames_revision']=(int)$task['frames_revision']+1;
+            $current=self::rows($id);$indices=array_map('intval',array_column($selected,'boundary_index'));$admitted=array_values(array_filter($current,fn($f)=>in_array((int)$f['boundary_index'],$indices,true)));$admittedIds=array_map('intval',array_column($admitted,'id'));MicroVideoStore::table('frame')->whereIn('id',$admittedIds)->update(['status'=>'pending','confirmed'=>0,'error'=>'','update_time'=>time()]);$frozen=$q;$frozen['frames_revision']=(int)$task['frames_revision']+1;
             $batchId=MicroVideoStore::table('frame_batch')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$id,'idempotency_key'=>$key,'request_hash'=>$hash,'quote_json'=>MicroVideoStore::encode($frozen),'frame_ids'=>MicroVideoStore::encode($admittedIds),'status'=>'pending','create_time'=>time(),'update_time'=>time()]);
             self::bind($id);self::bump($task,['frame_status'=>'generating','frame_batch_id'=>$batchId,'next_run_at'=>time()]);
         });return MicroVideoService::detail($tenant,$user,$id);

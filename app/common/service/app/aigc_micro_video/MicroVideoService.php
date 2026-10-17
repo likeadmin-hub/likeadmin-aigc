@@ -95,8 +95,8 @@ final class MicroVideoService
             else{$dirty=$dirty??$i;$kept[]=MicroVideoStore::table('segment')->insertGetId($encoded+['task_id'=>$task['id'],'tenant_id'=>$task['tenant_id'],'user_id'=>$task['user_id'],'status'=>'pending','create_time'=>time(),'update_time'=>time()]);}
         }
         foreach($old as $i=>$previous)if(!in_array((int)$previous['id'],$kept,true)){$dirty=$dirty??max(0,$i-1);MicroVideoStore::table('segment')->where('id',$previous['id'])->delete();}
-        if($dirty!==null&&($task['generation_mode']??'reference')==='start_end'){
-            $m=MicroVideoFrameCatalog::model((int)$task['tenant_id'],$task['frame_model_id']);$defs=MicroVideoFramePolicy::definitions($task,MicroVideoStore::segments((int)$task['id']),(int)$m['max_reference_images']);MicroVideoFrames::invalidate($task,$dirty,$defs);MicroVideoFrames::bump($task,['frame_status'=>'review']);
+        if($dirty!==null&&MicroVideoFrames::rows((int)$task['id'])){
+            $mode=$task['generation_mode']??'reference';$params=MicroVideoStore::json($task['params_json']);$limit=count($params['images'])+1;if($mode==='start_end')$limit=(int)MicroVideoFrameCatalog::model((int)$task['tenant_id'],$task['frame_model_id'])['max_reference_images'];$defs=MicroVideoFramePolicy::definitions($task,MicroVideoStore::segments((int)$task['id']),$limit);MicroVideoFrames::invalidate($task,$dirty,$defs);MicroVideoFrames::bump($task,['frame_status'=>$mode==='start_end'?'review':'off']);
         }
 
     }
@@ -116,7 +116,7 @@ final class MicroVideoService
     }
     public static function quoteTask(array $row): array
     {
-        $params=MicroVideoStore::json($row['params_json']);$config=MicroVideoSettings::get((int)$row['tenant_id']);MicroVideoPolicy::allowedModel($params['model_id'],$config['video_model_ids']);$legacy=empty(MicroVideoStore::json($row['config_snapshot'])['frame_feature_version']);$model=MicroVideoCatalog::model((int)$row['tenant_id'],$params['model_id'],$legacy);$model=$legacy?MicroVideoStore::json($row['model_snapshot']):$model;$mode=$row['generation_mode']??'reference';$frames=$mode==='start_end'?MicroVideoFrames::ready($row):[];
+        $params=MicroVideoStore::json($row['params_json']);$config=MicroVideoSettings::get((int)$row['tenant_id']);$legacy=empty(MicroVideoStore::json($row['config_snapshot'])['frame_feature_version']);if(!$legacy)MicroVideoPolicy::allowedModel($params['model_id'],$config['video_model_ids']);$model=MicroVideoCatalog::model((int)$row['tenant_id'],$params['model_id'],$legacy);$model=$legacy?MicroVideoStore::json($row['model_snapshot']):$model;$mode=$row['generation_mode']??'reference';$frames=$mode==='start_end'?MicroVideoFrames::ready($row):[];
         $rows=MicroVideoStore::segments((int)$row['id']);$quotes=[];$user=0.;$tenant=0.;
         foreach($rows as $segment){
             if(!in_array($segment['status'],['pending','failed'],true))continue;
