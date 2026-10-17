@@ -38,7 +38,7 @@ try {
     $reject(static fn()=>Exporter::export(1,array_replace($input,['target'=>'update','builtin_id'=>'builtin-missing'])));
     $reject(static fn()=>Exporter::export(1,array_replace($input,['source_page_id'=>'p2'])));
     $reject(static fn()=>Exporter::export(1,array_replace($input,['source'=>'template','template_id'=>'other-tenant-card'])));
-    $output=Exporter::export(1,$input+['id'=>'builtin-injected','version'=>999]);
+    $output=Exporter::export(1,array_replace($input,['confirm_public_media'=>'1','id'=>'builtin-injected','version'=>999]));
     $preset=$output['preset'];
     $check($preset['id']!=='builtin-injected' && $preset['version']===1 && $output['filename']===$preset['id'].'.json','Client identity override accepted');
     $check($output['media_count']===1 && count($preset['graph']['nodes'])===1 && $preset['cover']!==$relative,'Direct canvas export failed');
@@ -53,7 +53,7 @@ try {
     $card=['id'=>'export-published-fixture','section'=>'template','title'=>'Published export','enabled'=>1,'refresh_workflow'=>true,'source_project_id'=>$source['id'],'source_page_id'=>'p1'];
     Portal::saveSection('cards',['revision'=>$catalog['revision'],'config'=>['cards'=>[$card]]]);
     $published=Exporter::exportPublished(1,$card['id'],'builtin-cli-test',null,3);
-    $normalize=static fn($g)=>preg_replace('#/builtin/builtin-[^/]+/#','/builtin/PRESET/',json_encode($g));
+    $normalize=static fn($g)=>preg_replace('#/builtin/builtin-[^/]+/#','/builtin/PRESET/',json_encode($g,JSON_UNESCAPED_SLASHES));
     $check($published['preset']['version']===3 && $normalize($published['preset']['graph'])===$normalize($preset['graph']),'CLI and HTTP exported different graph contracts');
     $state=Portal::sectionEditor('cards');
     $fromTemplate=Exporter::export(1,['source'=>'template','template_id'=>$card['id'],'title'=>'Published','confirm_public_media'=>true]);

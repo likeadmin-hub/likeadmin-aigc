@@ -39,7 +39,8 @@ final class CanvasBuiltinPresetExporter
     public static function export(int $tenant,array $input): array
     {
         self::tenant($tenant);
-        if (($input['confirm_public_media'] ?? false)!==true) throw new InvalidArgumentException('请确认所选媒体可作为公开示例后再导出');
+        // The application Request's trim filter turns a JSON boolean true into "1".
+        if (!in_array($input['confirm_public_media'] ?? false,[true,1,'1'],true)) throw new InvalidArgumentException('请确认所选媒体可作为公开示例后再导出');
         $title=trim((string)($input['title'] ?? ''));
         if ($title==='' || mb_strlen($title)>80) throw new InvalidArgumentException('请填写80字以内的预设名称');
         $mode=$input['target'] ?? 'new';
