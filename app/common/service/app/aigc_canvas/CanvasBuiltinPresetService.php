@@ -6,10 +6,11 @@ use InvalidArgumentException;
 /** Source-delivered presets. Contains no tenant database rows or platform editing UI. */
 final class CanvasBuiltinPresetService
 {
+    public static function directory(): string { return dirname(__DIR__,4).'/apps/aigc_canvas/data/presets'; }
     public static function all(): array
     {
         $result=[];
-        foreach (glob(dirname(__DIR__,4).'/apps/aigc_canvas/data/presets/*.json') ?: [] as $path) {
+        foreach (glob(self::directory().'/*.json') ?: [] as $path) {
             $entry=self::validate(json_decode(file_get_contents($path),true,512,JSON_THROW_ON_ERROR));
             if (isset($result[$entry['id']])) throw new InvalidArgumentException('内置预设标识重复');
             $result[$entry['id']]=$entry;
