@@ -25,6 +25,8 @@ namespace app\common\service\power {
  // Capture the actual multimodal request at the final model transport boundary.
  final class MarketTextModelRuntimeService {
   public static array $requests=[];
+  public static function modelGroups(...$args):array{return [];}
+  public static function resolveModel(...$args):array{throw new \InvalidArgumentException('No external enhancement model in offline fixture');}
   public static function resolveAgentModel(...$args):array{return ['context_window'=>128000];}
   public static function generate(int $tenant,int $user,array $params,?callable $onEvent=null):array{self::$requests[]=$params;return ['content'=>'已收到本轮引用素材。'];}
  }
