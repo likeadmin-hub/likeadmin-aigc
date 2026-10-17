@@ -280,11 +280,6 @@ class AigcCanvasService
             if (($receipt['revision'] ?? -1) === $storedViewport['saveRevision'] && ($receipt['agentRevision'] ?? -1) === $storedViewport['agentRevision']) return self::formatProject($project->toArray(), true);
         }
         if ((int)($storedViewport['agentRevision']??0)!==(int)($incomingViewport['agentRevision']??0)) throw new Exception('Agent 已更新页面，请刷新后再保存，当前编辑尚未覆盖服务端');
-        if ((int)($storedViewport['saveRevision'] ?? 0) !== (int)($incomingViewport['saveRevision'] ?? 0)) {
-            throw new Exception('项目已在其他标签页或窗口更新，当前修改保留在本地，请刷新后再编辑');
-        }
-        $incomingViewport['saveRevision'] = (int)($storedViewport['saveRevision'] ?? 0) + 1;
-        if ($requestId !== '') $incomingViewport['saveReceipt'] = ['id'=>$requestId,'hash'=>$fingerprint,'revision'=>$incomingViewport['saveRevision'],'agentRevision'=>$incomingViewport['agentRevision']];
         if (!empty($storedViewport['pages']) && empty($incomingViewport['pages'])) {
             throw new Exception('此项目包含多个画布，请刷新页面后再保存');
         }
@@ -306,9 +301,48 @@ class AigcCanvasService
                 $data['name'] = mb_substr($name, 0, 120);
             }
         }
+        // Two tabs can submit the same normalization or retry after a lost receipt.
+        // Acknowledge only a complete content match under the same row lock; never
+        // rebase a stale edit or write its old viewport over a newer project.
+        if (self::sameProjectSaveContent($project->toArray(), $data)) {
+            return self::formatProject($project->toArray(), true);
+        }
+        if ((int)($storedViewport['saveRevision'] ?? 0) !== (int)($incomingViewport['saveRevision'] ?? 0)) {
+            throw new Exception('项目已在其他标签页或窗口更新，当前修改保留在本地，请刷新后再编辑');
+        }
+        $incomingViewport['saveRevision'] = (int)($storedViewport['saveRevision'] ?? 0) + 1;
+        if ($requestId !== '') $incomingViewport['saveReceipt'] = ['id'=>$requestId,'hash'=>$fingerprint,'revision'=>$incomingViewport['saveRevision'],'agentRevision'=>$incomingViewport['agentRevision']];
+        $data['viewport_json'] = $incomingViewport;
         $project->save($data);
         return self::formatProject($project->toArray(), true);
         });
+    }
+
+    private static function sameProjectSaveContent(array $stored, array $incoming): bool
+    {
+        $content = static function(array $row)use($stored): array {
+            $viewport = self::normalizeViewport($row['viewport_json'] ?? []);
+            unset($viewport['saveRevision'], $viewport['saveReceipt']);
+            // snapshotProjectCanvas stamps this on every save, even without edits.
+            foreach ($viewport['pages'] ?? [] as $index => $page) unset($viewport['pages'][$index]['updatedAt']);
+            return [
+                'name' => (string)($row['name'] ?? $stored['name']),
+                'thumbnail' => (string)($row['thumbnail'] ?? ''),
+                'nodes' => self::repairLegacyProjectText(self::normalizeList($row['nodes_json'] ?? [])),
+                'edges' => CanvasProjectCompatibility::normalizeEdges(self::repairLegacyProjectText(self::normalizeList($row['edges_json'] ?? []))),
+                'viewport' => $viewport,
+            ];
+        };
+        // JSON object key order is immaterial; list order and scalar types are not.
+        $canonical = static function($value)use(&$canonical) {
+            if (is_array($value)) {
+                if (!array_is_list($value)) ksort($value);
+                foreach ($value as $key => $child) $value[$key] = $canonical($child);
+            }
+            return $value;
+        };
+        return json_encode($canonical($content($stored)), JSON_THROW_ON_ERROR)
+            === json_encode($canonical($content($incoming)), JSON_THROW_ON_ERROR);
     }
 
     public static function renameProject(int $tenantId, int $userId, int $id, string $name): array
