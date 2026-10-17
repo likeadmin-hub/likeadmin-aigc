@@ -16,4 +16,13 @@ final class MicroVideoFramePolicyTest extends TestCase
         $reference=P::assets('reference',['original/a.png','original/b.png']);self::assertSame(['reference_image','reference_image'],array_column($reference,'role'));$single=P::assets('reference',['original/a.png'],'image_to_video');self::assertSame('first_frame_image',$single[0]['role']);$this->expectException(\InvalidArgumentException::class);P::assets('start_end',['managed/incomplete.png']);
     }
 
+    public function testCurrentStaticEndpointOverridesFuturePickupNarrativeInDefinitionsAndSubmission(): void
+    {
+        $current='女生双手自然放在身前，蓝瓶在右侧白桌上正面直立。';$future='第2段随后由女生右手拿起蓝瓶展示。';$segments=$this->segments();$segments[0]['start_state']='蓝瓶在右侧桌上。';$segments[0]['end_state']=$current;$segments[1]['start_state']=$current;$segments[1]['end_state']='女生右手在胸前持有蓝瓶展示。';$task=['continuity'=>'同一人物、白桌、左侧日光。'.$future];
+        $definitions=P::definitions($task,$segments,3);$boundary=$definitions[1];$state='前段结束状态：'.$current.'；后段开始状态：'.$current;
+        self::assertStringEndsWith($state,$boundary['prompt']);
+        $sent=P::generationPrompt(['boundary_index'=>1,'prompt'=>'旧提示词仍包含：'.$future],$segments,'保持全片连贯');self::assertStringEndsWith($state,$sent);self::assertGreaterThan(strpos($sent,$future),strrpos($sent,$current));self::assertStringContainsString('不得提前执行其他时间点的动作',$sent);self::assertStringContainsString('仅用于人物与商品外观、空间、光线和镜头几何',$sent);
+        $final=P::generationPrompt(['boundary_index'=>2,'prompt'=>'本帧持瓶。'],$segments,'保持全片连贯');self::assertStringEndsWith('前段结束状态：'.$segments[1]['end_state'],$final);
+    }
+
 }
