@@ -63,7 +63,10 @@ final class CanvasBuiltinPresetExporter
             if (mb_strlen($value)>$max) throw new InvalidArgumentException('分类或介绍超出长度限制');
             $card[$key]=$value;
         }
-        if (array_key_exists('cover_file_id',$input)) { $card['media_type']='image';$card['file_id']=max(0,(int)$input['cover_file_id']); }
+        if (array_key_exists('preview_media_type',$input)) {
+            if (!in_array($input['preview_media_type'],['image','video'],true)) throw new InvalidArgumentException('展示素材仅支持图片、动图或视频');
+            $card['media_type']=$input['preview_media_type'];$card['file_id']=max(0,(int)($input['preview_file_id'] ?? 0));$card['poster_id']=max(0,(int)($input['preview_poster_id'] ?? 0));
+        } elseif (array_key_exists('cover_file_id',$input)) { $card['media_type']='image';$card['file_id']=max(0,(int)$input['cover_file_id']); }
         return self::build($tenant,$card,$graph,$id,$version,$config);
     }
 
@@ -92,7 +95,7 @@ final class CanvasBuiltinPresetExporter
             if ($total>268435456) throw new InvalidArgumentException('内置预设媒体总量超过256MB');
             if (!hash_equals($checksum,hash('sha256',$bytes))) throw new InvalidArgumentException('预设素材内容已改变，请从画布重新制作后导出');
             $ext=strtolower(pathinfo($file['uri'],PATHINFO_EXTENSION));
-            if (!preg_match('/^(png|jpg|jpeg|webp|gif|avif|mp4|webm|mov|mp3|wav|ogg|flac|m4a)$/D',$ext)) throw new InvalidArgumentException('示例媒体类型不受支持');
+            if (!preg_match('/^(png|jpg|jpeg|webp|gif|avif|svg|ico|mp4|webm|mov|mp3|wav|ogg|flac|m4a)$/D',$ext)) throw new InvalidArgumentException('示例媒体类型不受支持');
             $dir='uploads/aigc_canvas/builtin/'.$id;$name=$checksum.'.'.$ext;
             $url=CanvasBuiltinPresetService::publicUrl(rtrim(StorageConfigService::getStorageDomain($config),'/').'/'.$dir.'/'.$name);
             $temp=tempnam(sys_get_temp_dir(),'canvas_builtin_');
@@ -109,11 +112,17 @@ final class CanvasBuiltinPresetExporter
             return $copies[$checksum]=$url;
         };
         try {
+            $previewStorage=new CanvasTemplateMediaStorage($tenant,true);
+            if ($card['media_type']==='video') {
+                $video=TenantFile::where(['tenant_id'=>$tenant,'id'=>(int)($card['file_id'] ?? 0),'type'=>20])->findOrEmpty();
+                if ($video->isEmpty()) throw new InvalidArgumentException('请选择当前租户的视频展示素材');
+                $retained=$previewStorage->copy($video['uri'],'video');$card['preview']=$copy($retained['file']);
+            }
             $coverId=(int)($card['media_type']==='video'?($card['poster_id'] ?? 0):($card['file_id'] ?? 0));
             if ($coverId) {
                 $file=TenantFile::where(['tenant_id'=>$tenant,'id'=>$coverId,'type'=>10])->findOrEmpty();
                 if ($file->isEmpty()) throw new InvalidArgumentException('封面不存在或不属于当前租户');
-                $retained=(new CanvasTemplateMediaStorage($tenant))->copy($file['uri'],'image');
+                $retained=$previewStorage->copy($file['uri'],'image');
                 $card['cover']=$copy($retained['file']);
             }
             $preset=self::definition($card,$graph,$id,$version,$copy);
@@ -143,6 +152,6 @@ final class CanvasBuiltinPresetExporter
             if ($node['type']==='image' && !empty($node['metadata']['url'])) { $cover=$node['metadata']['url'];break; }
             if ($node['type']==='video' && !empty($node['metadata']['poster'])) $cover=$node['metadata']['poster'];
         }
-        return CanvasBuiltinPresetService::validate(['schema_version'=>1,'id'=>$id,'version'=>$version,'title'=>$card['title'],'category'=>$card['category'] ?? '','description'=>$card['description'] ?? '','cover'=>$cover,'graph'=>$graph]);
+        return CanvasBuiltinPresetService::validate(['schema_version'=>1,'id'=>$id,'version'=>$version,'title'=>$card['title'],'category'=>$card['category'] ?? '','description'=>$card['description'] ?? '','media_type'=>$card['media_type'] ?? 'image','preview'=>$card['preview'] ?? '','cover'=>$cover,'graph'=>$graph]);
     }
 }

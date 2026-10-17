@@ -27,8 +27,8 @@ final class CanvasBuiltinPresetSourceService
         $requestId=(string)($input['request_id'] ?? '');
         if (!preg_match('/^[a-zA-Z0-9_-]{16,96}$/D',$requestId)) throw new InvalidArgumentException('保存请求标识无效，请重新打开制作窗口');
         $normalized=[];
-        foreach (['source','template_id','source_project_id','source_page_id','target','builtin_id','title','category','description','cover_file_id','expected_version','confirm_public_media'] as $key) $normalized[$key]=$input[$key] ?? '';
-        foreach (['source_project_id','cover_file_id','expected_version'] as $key) $normalized[$key]=(int)$normalized[$key];
+        foreach (['source','template_id','source_project_id','source_page_id','target','builtin_id','title','category','description','cover_file_id','preview_media_type','preview_file_id','preview_poster_id','expected_version','confirm_public_media'] as $key) $normalized[$key]=$input[$key] ?? '';
+        foreach (['source_project_id','cover_file_id','preview_file_id','preview_poster_id','expected_version'] as $key) $normalized[$key]=(int)$normalized[$key];
         $normalized['confirm_public_media']=in_array($normalized['confirm_public_media'],[true,1,'1'],true);
         $admin=(int)request()->adminInfo['admin_id'];
         $key=hash('sha256',$tenant.':'.$admin.':'.$requestId);
