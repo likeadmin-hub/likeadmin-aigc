@@ -52,9 +52,10 @@ final class MicroVideoPolicy
         return array_values(array_map(fn($r)=>(int)$r['id'],array_filter($rows,fn($r)=>($r['status']??'')==='failed')));
     }
 
-    public static function publicState(string $status): array
+    public static function publicState(string $status,string $frameStatus='off'): array
     {
         $labels=['planning'=>'正在构思','awaiting_confirmation'=>'待确认分段','running'=>'正在生成视频','waiting_continue'=>'待继续','merging'=>'正在整理成片','success'=>'已完成','failed'=>'需要调整创作信息','canceled'=>'已取消'];
+        if($status==='awaiting_confirmation'){$frames=['idle'=>'待准备首尾帧','generating'=>'正在准备首尾帧','review'=>'待确认首尾帧','ready'=>'待确认生成','waiting_continue'=>'首尾帧待继续'];$labels[$status]=$frames[$frameStatus]??$labels[$status];}
         return ['status'=>$status,'status_text'=>$labels[$status]??'待继续','can_continue'=>$status==='waiting_continue','can_show_error'=>false];
     }
 
