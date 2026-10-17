@@ -17,7 +17,12 @@ class TemplateController extends BaseAdminController
     public function publish()
     {
         try {
-            return $this->success('模板已发布', CanvasPortalService::saveSection('cards', $this->request->post()), 1, 1);
+            $input=$this->request->post();
+            if (($input['action'] ?? '')==='export_builtin') {
+                return $this->success('导出成功', \app\common\service\app\aigc_canvas\CanvasBuiltinPresetExporter::export((int)$this->request->tenantId,$input));
+            }
+            if (!empty($input['action'])) throw new InvalidArgumentException('模板操作无效');
+            return $this->success('模板已发布', CanvasPortalService::saveSection('cards', $input), 1, 1);
         } catch (InvalidArgumentException $e) {
             return $this->fail($e->getMessage());
         }
