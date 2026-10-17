@@ -18,7 +18,9 @@ final class CanvasTemplateMedia
                 $url = self::url($item, $type);
                 if ($url==='') continue;
                 $file = $copy($url, $type, $item);
-                $entry = ['id'=>(string)($item['id'] ?? 'media-'.$i), 'type'=>$type, 'url'=>$file['url'], 'template_file'=>$file['file'], 'mediaSource'=>'upload'];
+                $source=$item['mediaSource'] ?? $input['mediaSource'] ?? $input['source'] ?? '';
+                $generated=in_array($source,['generated','agent'],true) || ($source==='' && (!empty($input['taskId']) || (!empty($input['prompt']) && (!empty($input['channel']) || !empty($input['model'])))));
+                $entry = ['id'=>(string)($item['id'] ?? 'media-'.$i), 'type'=>$type, 'url'=>$file['url'], 'template_file'=>$file['file'], 'mediaSource'=>$generated?'generated':'upload'];
                 foreach (['width','height','duration','fileSize','mimeType','fileName'] as $key) if (isset($file[$key])) $entry[$key]=$file[$key];
                 $poster = self::first($item, $type==='video'?['poster','poster_url','cover_url','cover','thumbnail','image']:['poster','poster_url','cover_url','cover','thumbnail']);
                 if ($poster!=='' && $type!=='image') { $p=$copy($poster,'image',[]); $entry['poster']=$p['url']; $entry['template_poster']=$p['file']; }
@@ -27,7 +29,7 @@ final class CanvasTemplateMedia
             if ($media) {
                 $active = array_search($input['activeMediaId'] ?? '',array_column($media,'id'),true);
                 $selected = $media[$active===false?0:$active];
-                $result = ['mediaItems'=>$media,'activeMediaId'=>$selected['id'],'url'=>$selected['url'],'mediaSource'=>'upload','source'=>'upload','status'=>'success'];
+                $result = ['mediaItems'=>$media,'activeMediaId'=>$selected['id'],'url'=>$selected['url'],'mediaSource'=>$selected['mediaSource'],'source'=>$selected['mediaSource'],'status'=>'success'];
                 if ($type==='image') $result['image']=$selected['url'];
                 if (isset($selected['poster'])) $result['poster']=$selected['poster'];
             } elseif (array_key_exists('mediaItems',$input)) $result['mediaItems']=[];
