@@ -52,6 +52,7 @@ try {
     Runtime::$config['router_available']=true;
     Runtime::$fail=true;try{Preview::preview(11,22,$params);throw new \RuntimeException('Expected provider error');}catch(\RuntimeException $e){verify(!str_contains($e->getMessage(),'private')&&str_contains($e->getMessage(),'未完成'),'Raw error leaked');}
     verify(Preview::normalize('```json'."\n".'{"prompt":"保留 @图片1 和 【@角色】 的构图"}'."\n".'```','@图片1 【@角色】')==='保留 @图片1 和 【@角色】 的构图','Mentions not preserved');
+    verify(Preview::normalize('{"prompt":"@图片1缓慢转身，保持人物一致"}','让@图片1动起来')==='@图片1缓慢转身，保持人物一致','Inline model reference mistaken for following Chinese text');
     foreach(['{}','not-json','{"prompt":"删除引用"}','{"prompt":"@图片1 @新主体"}'] as $content){try{Preview::normalize($content,'@图片1');throw new \LogicException('Accepted invalid preview');}catch(\RuntimeException){$checks++;}}
     verify($before===Db::name('aigc_canvas_project')->order('id')->select()->toArray(),'Preview changed a historical project');
     $schema=json_decode(file_get_contents(dirname(__DIR__,2).'/app/apps/aigc_canvas/api_schema.json'),true);
