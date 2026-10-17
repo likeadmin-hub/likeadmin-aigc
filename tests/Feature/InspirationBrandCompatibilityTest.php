@@ -33,7 +33,7 @@ foreach (['imagine', 'inspiration', 'likeadmin'] as $prefix) {
     foreach ([0=>'imagine', 1=>'imagine', 2=>'inspiration', 3=>'likeadmin'] as $schema=>$wire) {
         $out = Brand::publicPresentation($normalized, $schema);
         check($out['home_style'] === $wire && $out[$wire.'_background'] === $old['imagine_background'], 'Wire schema must match the client');
-        check(Brand::configuration($out) === $normalized, 'Old client saves must round-trip exactly');
+        check(Brand::configuration($out) == $normalized, 'Old client saves must round-trip with identical fields regardless of JSON object order');
     }
 }
 check(Brand::configuration($old + ['inspiration_background'=>['enabled'=>false], 'likeadmin_background'=>[]])['likeadmin_background'] === [], 'Own brand explicit empty values must outrank both aliases');
