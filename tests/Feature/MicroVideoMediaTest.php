@@ -131,6 +131,34 @@ final class MicroVideoMediaTest extends TestCase
         }
     }
 
+    public function testSharedBoundaryDropsOnlyRepeatedPrefixAndKeepsAudioAligned(): void
+    {
+        $ffmpeg = $this->invoke('binary', ['ffmpeg']);
+        $first = $this->directory . '/before.mp4'; $second = $this->directory . '/after.mp4';
+        $this->invoke('run', [[$ffmpeg, '-v', 'error', '-y', '-f', 'lavfi', '-i', 'smptebars=s=320x180:r=30:d=1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', $first], 60]);
+        $this->invoke('run', [[$ffmpeg, '-v', 'error', '-y', '-f', 'lavfi', '-i', 'smptebars=s=320x180:r=30:d=0.2', '-f', 'lavfi', '-i', 'color=c=blue:s=320x180:r=30:d=0.8', '-f', 'lavfi', '-i', 'sine=frequency=880:sample_rate=48000:duration=1', '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0[v]', '-map', '[v]', '-map', '2:a', '-c:v', 'libx264', '-c:a', 'aac', '-pix_fmt', 'yuv420p', $second], 60]);
+        $result = $this->invoke('concatLocal', [[$first, $second], $this->directory, [1 => true]]);
+        self::assertEqualsWithDelta(1.8, $result['duration'], 0.07, 'Keep the boundary once; remove only the six repeated opening frames');
+        self::assertEqualsWithDelta(0.2, $result['deduplicated_duration'], 0.001);
+        $info = json_decode($this->invoke('run', [[$this->invoke('binary', ['ffprobe']), '-v', 'error', '-show_streams', '-of', 'json', $result['path']], 60]), true);
+        $durations = array_column($info['streams'], 'duration');
+        self::assertLessThan(0.07, abs((float)$durations[0] - (float)$durations[1]), 'Audio and picture must lose the same prefix');
+        $original = $this->invoke('concatLocal', [[$first, $second], $this->directory]);
+        self::assertEqualsWithDelta(2, $original['duration'], 0.07, 'Unrelated clips must retain their full duration');
+    }
+
+    public function testSharedAnchorWithDifferentActualPicturesIsNotBlindlyTrimmed(): void
+    {
+        $ffmpeg = $this->invoke('binary', ['ffmpeg']); $inputs = [];
+        foreach (['smptebars', 'testsrc2'] as $index => $source) {
+            $path = $this->directory . '/different-' . $index . '.mp4';
+            $this->invoke('run', [[$ffmpeg, '-v', 'error', '-y', '-f', 'lavfi', '-i', $source . '=s=320x180:r=30:d=1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', $path], 60]);$inputs[] = $path;
+        }
+        $result = $this->invoke('concatLocal', [$inputs, $this->directory, [1 => true]]);
+        self::assertSame(0.0, $result['deduplicated_duration']);
+        self::assertEqualsWithDelta(2, $result['duration'], 0.07);
+    }
+
     public function testInvalidMediaNeverReachesPublication(): void
     {
         file_put_contents($this->directory . '/invalid.mp4', 'not an MP4');
