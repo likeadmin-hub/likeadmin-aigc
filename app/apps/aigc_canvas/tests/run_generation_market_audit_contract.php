@@ -35,8 +35,8 @@ foreach($fixtures as $model){
  }
 }
 $wan=['model_code'=>'wan3.0-video','channel_code'=>'fixture','params_schema'=>['input'=>['type'=>'object'],'parameters'=>['type'=>'object','example'=>['audio'=>'1']]],'locked_params'=>[]];
-foreach([[],['generate_audio'=>null],['generateAudio'=>null]] as $absent){$normal=$call(C::class,'normalizeVideoParams',$absent+['prompt'=>'fixture'],0,0);$wire=$call(V::class,'modelPayload',$wan,$normal,'offline');$check(!array_key_exists('audio',$wire['parameters']),'Absent audio was changed to mute');}
+foreach([[],['generate_audio'=>null],['generateAudio'=>null]] as $absent){$normal=$call(C::class,'normalizeVideoParams',$absent+['prompt'=>'fixture'],0,0);$wire=$call(V::class,'modelPayload',$wan,$normal,'offline');$check(!array_key_exists('audio',$wire['parameters']??[]),'Absent audio was changed to mute');}
 foreach([false,true,'false','true',0,1] as $audio){$normal=$call(C::class,'normalizeVideoParams',['generateAudio'=>$audio,'prompt'=>'fixture'],0,0);$wire=$call(V::class,'modelPayload',$wan,$normal,'offline');$check($wire['parameters']['audio']===filter_var($audio,FILTER_VALIDATE_BOOLEAN),'Audio boolean alias not preserved');}
-$wire=$call(V::class,'modelPayload',$wan,['prompt'=>'fixture','generate_audio'=>null],'offline');$check(!array_key_exists('audio',$wire['parameters']),'Legacy null still muted at shared boundary');
+$wire=$call(V::class,'modelPayload',$wan,['prompt'=>'fixture','generate_audio'=>null],'offline');$check(!array_key_exists('audio',$wire['parameters']??[]),'Legacy null still muted at shared boundary');
 foreach(['invalid',[]] as $audio){try{$call(C::class,'normalizeVideoParams',['generateAudio'=>$audio],0,0);$check(false,'Invalid audio accepted');}catch(Exception $e){$check(true,'Rejected');}}
 echo 'PASS '.$checks.' catalogue field and wire-value checks across '.count($fixtures)." contracts; no provider calls\n";
