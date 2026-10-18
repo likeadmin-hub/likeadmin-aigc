@@ -87,6 +87,9 @@ final class MicroVideoWorkbenchWorker
     {
         if(str_ends_with($row['action'],'_image')){$images=[];foreach((array)($receipt['images']??[]) as $img)$images[]=['uri'=>(string)($img['image_uri']??$img['uri']??'')];if(!$images)throw new InvalidArgumentException('图片结果尚未入库');return ['images'=>MicroVideoMedia::validateImages((int)$row['tenant_id'],(int)$row['user_id'],$images,1)];}
         $text=trim((string)($receipt['content']??''));$text=preg_replace('/^```(?:json)?\s*|\s*```$/u','',$text);$result=json_decode($text,true,512,JSON_THROW_ON_ERROR);if(!is_array($result))throw new InvalidArgumentException('模型结果不是有效结构');
+        $request=MicroVideoStore::json($row['request_json']);
+        MicroVideoWorkbenchRecords::assertNoPrivateEcho($result,$request);
+        $result=MicroVideoWorkbenchRecords::publicBody($result);
         if($row['action']==='rewrite')return ['script'=>self::parseScript($row,$result)];
         $field=$row['action']==='analyze_roles'?'roles':'scenes';if(!isset($result[$field])||!is_array($result[$field]))throw new InvalidArgumentException('分析结果缺少角色或分镜');
         foreach($result[$field] as &$item){if(!is_array($item))throw new InvalidArgumentException('分析结果项目格式无效');$item['images']=[];if($field==='scenes')$item['confirmed']=false;}unset($item);

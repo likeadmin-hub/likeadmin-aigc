@@ -29,6 +29,7 @@ final class MicroVideoWorkbenchTemplates
             }
             // Preserve every additional existing operating direction as a usable linked template.
             foreach($directions as $d){if(isset($stories[$d['code']]))continue;$key='direction_'.$d['id'];$exists=MicroVideoWorkbenchRecords::table()->where(['tenant_id'=>$tenant,'user_id'=>0,'kind'=>'template'])->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(body_json, '$.seed_key')) = ?",[$key])->find();if($exists)continue;MicroVideoWorkbenchRecords::save($tenant,0,['kind'=>'template','title'=>$d['name'],'visibility'=>'tenant','status'=>$d['status'],'body'=>['seed_key'=>$key,'direction_id'=>(int)$d['id'],'category'=>'story','workflow_type'=>'story','description'=>$d['description'],'script'=>$d['prompt'],'beats'=>[],'roles'=>[],'variables'=>[],'reference_rules'=>$d['continuity_prompt'],'direction_rules'=>$d['prompt'],'images'=>[]]],true);}
+            MicroVideoCommerceTemplates::seed($tenant,$directions);
         }finally{flock($lock,LOCK_UN);fclose($lock);}
     }
 }
