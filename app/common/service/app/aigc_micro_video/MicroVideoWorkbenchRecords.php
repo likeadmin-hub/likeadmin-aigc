@@ -23,7 +23,9 @@ final class MicroVideoWorkbenchRecords
     public static function publicAsset(array $image): array
     {return array_intersect_key($image,array_flip(['id','uri','url','name','role','storage_scope','storage_engine','storage_domain']));}
     public static function publicBody(array $body): array
-    {foreach($body as $key=>$value){if($key==='images'&&is_array($value))$body[$key]=array_map([self::class,'publicAsset'],$value);elseif(is_array($value))$body[$key]=self::publicBody($value);}return $body;}
+    {return self::redactBody(MicroVideoWorkbenchPolicy::normalizeValues($body));}
+    private static function redactBody(array $body): array
+    {foreach($body as $key=>$value){if($key==='images'&&is_array($value))$body[$key]=array_map([self::class,'publicAsset'],$value);elseif(is_array($value))$body[$key]=self::redactBody($value);}return $body;}
     public static function lists(int $tenant,int $user,array $p,bool $admin=false): array
     {
         $kind=MicroVideoWorkbenchPolicy::kind((string)($p['kind']??'project'));$q=self::query($tenant,$user,$kind,$admin);
@@ -39,6 +41,7 @@ final class MicroVideoWorkbenchRecords
     /** Historical snapshots enter only from an owned immutable version, never from public request data. */
     private static function saveRecord(int $tenant,int $user,array $p,bool $admin=false,?array $restoreBody=null): array
     {
+        if($restoreBody!==null)$restoreBody=MicroVideoWorkbenchPolicy::normalizeValues($restoreBody);
         $kind=MicroVideoWorkbenchPolicy::kind((string)($p['kind']??'project'));$id=(int)($p['id']??0);$title=trim((string)($p['title']??''));if($title===''||mb_strlen($title)>120)throw new InvalidArgumentException('请填写120字以内的名称');
         if(!is_array($p['body']??null))throw new InvalidArgumentException('创作资料格式无效');
         $initial=$id?self::owned($tenant,$user,$kind,$id,$admin,true):null;$owner=$initial?(int)$initial['user_id']:$user;if($initial)MicroVideoWorkbenchPolicy::revision($initial,(int)($p['revision']??0));
@@ -67,8 +70,8 @@ final class MicroVideoWorkbenchRecords
         if($kind==='project'){unset($body['template_snapshot'],$body['product_snapshot']);if(!empty($body['scenes']))unset($body['scene_reset']);}
         $body=MicroVideoWorkbenchPolicy::body($kind,$body);$body=self::images($tenant,$owner,$body);
         foreach(['cover_image','example_video'] as $field)if(isset($body[$field]))$body[$field]=MicroVideoWorkbenchAssets::decorative($tenant,$owner,(string)$body[$field],$field==='example_video');
-        if($kind==='project')foreach(['template','product'] as $ref){if(empty($body[$ref]['id']))continue;$prior=$restoreBody??($initial?MicroVideoStore::json($initial['body_json']):[]);if(isset($prior[$ref.'_snapshot'])&&MicroVideoWorkbenchPolicy::hash($body[$ref])===MicroVideoWorkbenchPolicy::hash($prior[$ref]??[])){$body[$ref.'_snapshot']=self::images($tenant,$owner,$prior[$ref.'_snapshot']);continue;}$selected=self::owned($tenant,$owner,$ref,(int)$body[$ref]['id']);$revision=(int)($body[$ref]['revision']??$selected['revision']);$v=self::versionRow($selected,$revision);$snap=MicroVideoStore::json($v['body_json']);if((int)$selected['user_id']!==$owner)$snap=MicroVideoWorkbenchAssets::cloneBody($tenant,$owner,(int)$selected['id'],$snap,(int)$selected['user_id']);$body[$ref]=['id'=>(int)$selected['id'],'revision'=>$revision];$body[$ref.'_snapshot']=['title'=>$v['title'],'body'=>$snap];}
-        return $body;
+        if($kind==='project')foreach(['template','product'] as $ref){if(empty($body[$ref]['id']))continue;$prior=MicroVideoWorkbenchPolicy::normalizeValues($restoreBody??($initial?MicroVideoStore::json($initial['body_json']):[]));if(isset($prior[$ref.'_snapshot'])&&MicroVideoWorkbenchPolicy::hash($body[$ref])===MicroVideoWorkbenchPolicy::hash($prior[$ref]??[])){$body[$ref.'_snapshot']=self::images($tenant,$owner,$prior[$ref.'_snapshot']);continue;}$selected=self::owned($tenant,$owner,$ref,(int)$body[$ref]['id']);$revision=(int)($body[$ref]['revision']??$selected['revision']);$v=self::versionRow($selected,$revision);$snap=MicroVideoStore::json($v['body_json']);if((int)$selected['user_id']!==$owner)$snap=MicroVideoWorkbenchAssets::cloneBody($tenant,$owner,(int)$selected['id'],$snap,(int)$selected['user_id']);$body[$ref]=['id'=>(int)$selected['id'],'revision'=>$revision];$body[$ref.'_snapshot']=['title'=>$v['title'],'body'=>$snap];}
+        return MicroVideoWorkbenchPolicy::normalizeValues($body);
     }
     /** Recursively validate any images field, including nested scenes and roles. Browser metadata never grants access. */
     public static function images(int $tenant,int $user,array $body): array

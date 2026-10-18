@@ -19,9 +19,58 @@ final class MicroVideoWorkbenchPolicy
     {return hash('sha256',MicroVideoStore::encode(self::canonical($value)));}
     private static function canonical(mixed $v): mixed
     {if(!is_array($v))return $v;if(!array_is_list($v))ksort($v);foreach($v as &$x)$x=self::canonical($x);return $v;}
+    /** Canonicalize only declared workbench semantics; arbitrary facts and prose remain byte-for-byte values. */
+    public static function normalizeValues(array $value,string $context='body'): array
+    {
+        $integerFields=match($context){
+            'segment'=>['sort','duration'], 'scene'=>['sort'], 'brief'=>['target_duration'],
+            'reference'=>['id','revision'], 'scene_reset'=>['previous_revision','previous_scene_count'],
+            'beat'=>['sort'], 'body'=>['target_duration','task_id','direction_id','cover_index'], default=>[]
+        };
+        $booleanFields=match($context){
+            'body'=>['script_stale','fixed_identity'], 'role'=>['fixed_identity'],
+            'scene'=>['confirmed','product_visible'], 'segment'=>['product_visible'],
+            'scene_reset'=>['requires_reassignment'], default=>[]
+        };
+        foreach($integerFields as $field)if(array_key_exists($field,$value))$value[$field]=self::integerValue($value[$field]);
+        foreach($booleanFields as $field)if(array_key_exists($field,$value))$value[$field]=self::booleanValue($value[$field]);
+        if($context==='beat')foreach(['start','end'] as $field)if(array_key_exists($field,$value))$value[$field]=self::numberValue($value[$field]);
+        if($context==='body'){
+            foreach(['roles'=>'role','scenes'=>'scene','beats'=>'beat'] as $field=>$itemContext)if(isset($value[$field])&&is_array($value[$field]))foreach($value[$field] as $index=>$item)if(is_array($item))$value[$field][$index]=self::normalizeValues($item,$itemContext);
+            foreach(['script'=>'script','brief'=>'brief','template'=>'reference','product'=>'reference','variant_source'=>'reference','duplicate_source'=>'reference','scene_reset'=>'scene_reset'] as $field=>$itemContext)if(isset($value[$field])&&is_array($value[$field]))$value[$field]=self::normalizeValues($value[$field],$itemContext);
+            if(isset($value['durations'])&&is_array($value['durations']))$value['durations']=array_map([self::class,'integerValue'],$value['durations']);
+            foreach(['template_snapshot','product_snapshot'] as $field)if(isset($value[$field])&&is_array($value[$field])){
+                foreach(['id','revision'] as $number)if(array_key_exists($number,$value[$field]))$value[$field][$number]=self::integerValue($value[$field][$number]);
+                if(isset($value[$field]['body'])&&is_array($value[$field]['body']))$value[$field]['body']=self::normalizeValues($value[$field]['body']);
+            }
+        }
+        if($context==='script'&&isset($value['segments'])&&is_array($value['segments']))foreach($value['segments'] as $index=>$segment)if(is_array($segment))$value['segments'][$index]=self::normalizeValues($segment,'segment');
+        if($context==='segment'&&isset($value['image_indices'])&&is_array($value['image_indices']))$value['image_indices']=array_map([self::class,'integerValue'],$value['image_indices']);
+        return $value;
+    }
+    private static function booleanValue(mixed $value): bool
+    {
+        if(is_bool($value))return $value;
+        if($value===1||$value===1.0)return true;if($value===0||$value===0.0)return false;
+        if(is_string($value)){return match(strtolower(trim($value))){'1','true'=>true,'','0','false'=>false,default=>throw new InvalidArgumentException('创作资料布尔字段格式无效，请使用true/false或0/1')};}
+        throw new InvalidArgumentException('创作资料布尔字段格式无效，请使用true/false或0/1');
+    }
+    private static function integerValue(mixed $value): int
+    {
+        if(is_int($value))return $value;if($value==='')return 0;
+        if(is_float($value)&&is_finite($value)&&floor($value)===$value&&$value<=PHP_INT_MAX&&$value>=PHP_INT_MIN)return (int)$value;
+        if(is_string($value)&&preg_match('/^-?\d+$/D',trim($value))){$parsed=filter_var(trim($value),FILTER_VALIDATE_INT);if($parsed!==false)return $parsed;}
+        throw new InvalidArgumentException('创作资料数字字段必须是有效整数');
+    }
+    private static function numberValue(mixed $value): int|float
+    {
+        if($value==='')return 0;if(!is_int($value)&&!is_float($value)&&!is_string($value))throw new InvalidArgumentException('叙事节拍时间必须是有效数字');
+        if(!is_numeric($value)||!is_finite((float)$value))throw new InvalidArgumentException('叙事节拍时间必须是有效数字');$number=(float)$value;
+        return floor($number)===$number&&$number<=PHP_INT_MAX&&$number>=PHP_INT_MIN?(int)$number:$number;
+    }
     public static function body(string $kind,array $body): array
     {
-        self::kind($kind);if(strlen(MicroVideoStore::encode($body))>262144)throw new InvalidArgumentException('创作资料过长，请减少内容');
+        self::kind($kind);$body=self::normalizeValues($body);if(strlen(MicroVideoStore::encode($body))>262144)throw new InvalidArgumentException('创作资料过长，请减少内容');
         if($kind==='project'){
             $stage=(string)($body['stage']??'draft');if(!in_array($stage,['draft','script_ready','assets_ready','ready'],true))throw new InvalidArgumentException('项目阶段无效');$body['stage']=$stage;
             $ids=[];foreach((array)($body['roles']??[]) as $role){$id=(string)($role['role_id']??'');if(!preg_match('/^[a-zA-Z0-9_-]{1,80}$/D',$id)||isset($ids[$id]))throw new InvalidArgumentException('角色标识缺失或重复');$ids[$id]=true;}
@@ -42,6 +91,7 @@ final class MicroVideoWorkbenchPolicy
     {unset($scene['confirmed'],$scene['status'],$scene['dependency_hash']);return self::dependencyShape($scene);}
     public static function dependencies(array $body,array $old): array
     {
+        $body=self::normalizeValues($body);$old=self::normalizeValues($old);
         $script=self::hash($body['script']??[])!==self::hash($old['script']??[]);
         $product=self::hash(self::dependencyShape($body['product_snapshot']??[]))!==self::hash(self::dependencyShape($old['product_snapshot']??[]));
         $template=self::hash(self::dependencyShape($body['template_snapshot']??[]))!==self::hash(self::dependencyShape($old['template_snapshot']??[]));

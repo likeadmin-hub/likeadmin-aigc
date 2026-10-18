@@ -28,7 +28,7 @@ final class MicroVideoWorkbenchJobs
     public static function input(int $tenant,int $user,array $p): array
     {
         $project=MicroVideoWorkbenchRecords::owned($tenant,$user,'project',(int)($p['project_id']??0),false,true);MicroVideoWorkbenchPolicy::revision($project,(int)($p['project_revision']??0));
-        $body=MicroVideoStore::json($project['body_json']);$action=MicroVideoWorkbenchPolicy::action((string)($p['action']??''));$selection=(array)($p['selection']??[]);$target=(string)($p['target_id']??'');$instructions=trim((string)($p['instructions']??''));if(mb_strlen($instructions)>5000)throw new InvalidArgumentException('补充要求过长');
+        $body=MicroVideoWorkbenchPolicy::normalizeValues(MicroVideoStore::json($project['body_json']));$action=MicroVideoWorkbenchPolicy::action((string)($p['action']??''));$selection=(array)($p['selection']??[]);$target=(string)($p['target_id']??'');$instructions=trim((string)($p['instructions']??''));if(mb_strlen($instructions)>5000)throw new InvalidArgumentException('补充要求过长');
         $request=['project_id'=>(int)$project['id'],'project_revision'=>(int)$project['revision'],'action'=>$action,'target_id'=>$target,'instructions'=>$instructions];
         if(str_ends_with($action,'_image')){
             $items=(array)($body[$action==='role_image'?'roles':'scenes']??[]);$key=$action==='role_image'?'role_id':'scene_id';$item=null;foreach($items as $v)if(($v[$key]??'')===$target)$item=$v;if(!$item)throw new InvalidArgumentException('请选择当前项目中的角色或分镜');
@@ -96,7 +96,7 @@ final class MicroVideoWorkbenchJobs
     {
         $r=self::owned($tenant,$user,(int)($p['job_id']??0));$project=MicroVideoWorkbenchRecords::owned($tenant,$user,'project',(int)($p['project_id']??0),false,true);MicroVideoWorkbenchPolicy::revision($project,(int)($p['project_revision']??0));
         if((int)$r['project_id']!==(int)$project['id']||$r['status']!=='success')throw new InvalidArgumentException('只能采纳本项目已成功的准备结果');
-        $body=MicroVideoStore::json($project['body_json']);$result=MicroVideoStore::json($r['result_json']);
+        $body=MicroVideoWorkbenchPolicy::normalizeValues(MicroVideoStore::json($project['body_json']));$result=MicroVideoStore::json($r['result_json']);
         if($r['action']==='rewrite'){
             // No stable segment identity connects a whole AI rewrite to earlier scene assignments.
             $previousCount=count((array)($body['scenes']??[]));
