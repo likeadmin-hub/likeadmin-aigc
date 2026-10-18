@@ -923,6 +923,7 @@ class MarketImageModelRuntimeService
 
     private static function providerParamsForFlatPayload(array $params, array $schema): array
     {
+        $schema = self::arrayValue($schema['properties'] ?? $schema);
         foreach (['omit_resolution', 'task_query'] as $key) {
             unset($params[$key]);
         }
@@ -940,7 +941,7 @@ class MarketImageModelRuntimeService
     {
         $metadata = self::metadata($snapshot);
         $schema = self::arrayValue($metadata['params_schema'] ?? []);
-        if (array_key_exists('input', $schema) && array_key_exists('parameters', $schema)) {
+        if (array_key_exists('input', $schema['properties'] ?? $schema) && array_key_exists('parameters', $schema['properties'] ?? $schema)) {
             return true;
         }
         $doc = strtolower((string)($metadata['developer_doc_content'] ?? $metadata['api_doc'] ?? ''));

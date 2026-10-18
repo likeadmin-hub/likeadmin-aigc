@@ -1111,10 +1111,12 @@ class MarketVideoRuntimeService
                 $parameters[$key] = $request[$key];
             }
         }
-        if (!array_key_exists('audio', $request) && array_key_exists('generate_audio', $request)
+        if (!isset($request['audio']) && isset($request['generate_audio']) && $request['generate_audio'] !== ''
             && (strtolower((string)($snapshot['model_code'] ?? '')) === 'wan3.0-video'
                 || self::schemaDeclaresParameter(self::arrayValue($snapshot['params_schema'] ?? []), 'audio'))) {
-            $parameters['audio'] = filter_var($request['generate_audio'], FILTER_VALIDATE_BOOLEAN);
+            $audio = filter_var($request['generate_audio'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($audio === null || !is_scalar($request['generate_audio'])) throw new Exception('生成音频参数格式不正确');
+            $parameters['audio'] = $audio;
         }
 
         $payload = array_merge(self::marketContext($snapshot, 'power_market_video'), [
@@ -1437,6 +1439,7 @@ class MarketVideoRuntimeService
             return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), self::appRequestOptions($request, ['seed', 'watermark', 'audio_setting', 'callback_url']), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => in_array($model, ['happyhorse-1.1-i2v', 'happyhorse-1.0-video-edit'], true) ? null : (string)($request['ratio'] ?? ''), 'media' => $media, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'seedance') {
+            if (!empty($request['tools']) && array_filter($assets)) throw new Exception('联网搜索仅支持文生视频');
             $content = self::seedanceContent($request);
             $hasVideo = in_array('video_url', array_column($content, 'type'), true);
             foreach (['image_urls', 'video_urls', 'audio_urls', 'content'] as $key) {
@@ -1603,6 +1606,7 @@ class MarketVideoRuntimeService
     private static function assertAssets(array $market, array $request): void
     {
         $product = $market['product']; $metadata = self::metadata($product); $assets = self::assets($request);
+        if (!empty($request['tools']) && array_filter($assets)) throw new Exception('联网搜索仅支持文生视频，请移除参考素材或关闭联网搜索');
         $referenceAssets = AigcVideoReferenceAssetService::normalize($request);
         if (Q4VideoContract::matches($product)) Q4VideoContract::validate($request, $assets);
         $generationMethod = self::canonicalGenerationMethod(

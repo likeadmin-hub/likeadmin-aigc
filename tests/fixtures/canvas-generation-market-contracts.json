@@ -1,0 +1,1645 @@
+{
+  "source": "https://api.likeadmin.cn/api/v1/models?detail=1 and /api/v1/apps",
+  "retrieved_at": "2026-10-18",
+  "contracts": [
+    {
+      "type": "image",
+      "resource_type": "model",
+      "model_code": "nano-banana-2.1",
+      "channel_code": "Google",
+      "params_schema": {
+        "urls": {
+          "type": "array",
+          "example": [
+            "https://example.com/reference.jpg"
+          ],
+          "children": {
+            "item": {
+              "type": "string",
+              "example": "https://example.com/reference.jpg",
+              "description": "一张参考图片的 HTTP(S) URL，任务处理期间须可读取。"
+            }
+          },
+          "description": "参考图片 URL 字符串数组，用于参考图编辑。每项须为可访问的 HTTP(S) 图片地址，与 prompt 配合描述编辑目标，不影响默认按次价格。"
+        },
+        "prompt": {
+          "type": "string",
+          "example": "窗边的橘猫，清晨阳光，写实摄影",
+          "description": "图片内容、风格或编辑目标的文本描述。文生图时应填写具体内容，参考图编辑时与 urls 配合使用，不影响默认按次价格。"
+        },
+        "image_size": {
+          "type": "string",
+          "default": "1K",
+          "example": "1K",
+          "options": "1K / 2K / 4K",
+          "description": "分辨率规格。1K 适合预览，2K 提升清晰度，4K 适合高清素材。与 aspect_ratio 配合使用，三档默认同为 6 点/次。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "default": "auto",
+          "example": "1:1",
+          "options": "auto / 1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3 / 5:4 / 4:5 / 21:9",
+          "description": "输出画幅比例，与 image_size 共同决定尺寸。默认 auto，横图和竖图按用途选择，实际尺寸以结果为准，不影响默认按次价格。"
+        }
+      },
+      "default_params": {
+        "image_size": "1K",
+        "aspect_ratio": "auto"
+      }
+    },
+    {
+      "type": "image",
+      "resource_type": "model",
+      "model_code": "gpt-image-2.5-sunburst",
+      "channel_code": "OpenAIYI",
+      "params_schema": {
+        "prompt": {
+          "type": "string",
+          "example": "一只可爱的猫咪在草地上玩耍",
+          "required": "1",
+          "description": "图像内容的文字描述，建议写得具体清晰。"
+        },
+        "quality": {
+          "enum": "[\"low\", \"medium\", \"high\", \"xhigh\", \"max\"]",
+          "type": "string",
+          "options": "\"low\", \"medium\", \"high\", \"xhigh\", \"max\"",
+          "description": "输出质量档，请从当前模型支持范围中选择。"
+        },
+        "background": {
+          "enum": [
+            "transparent"
+          ],
+          "type": "string",
+          "options": "transparent",
+          "description": "背景模式；传 transparent 生成透明背景。"
+        },
+        "image_urls": {
+          "type": "array",
+          "example": [
+            "https://example.com/reference.jpg"
+          ],
+          "description": "参考图数组；传入后为图生图。每项为公网可访问的图片 URL。与 aspect_ratio 同传时按该画幅出图；未传 aspect_ratio 时输出可随参考图。"
+        },
+        "resolution": {
+          "type": "string",
+          "default": "1k",
+          "options": "1k / 2k / 4k",
+          "description": "输出档位：1k、2k 或 4k，参与计费。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "default": "1:1",
+          "options": "auto / 1:1 / 3:2 / 2:3 / 4:3 / 3:4 / 5:4 / 4:5 / 16:9 / 9:16 / 2:1 / 1:2 / 3:1 / 1:3 / 21:9 / 9:21",
+          "description": "画幅比例；可传 auto、比例值或像素尺寸。"
+        }
+      },
+      "default_params": {
+        "task_query": {
+          "expose_upstream_error": "1",
+          "image_results_top_level": "1"
+        },
+        "aspect_ratio": "1:1"
+      }
+    },
+    {
+      "type": "image",
+      "resource_type": "model",
+      "model_code": "gpt-image-2.5-flare",
+      "channel_code": "OpenAIYI",
+      "params_schema": {
+        "prompt": {
+          "type": "string",
+          "example": "一只可爱的猫咪在草地上玩耍",
+          "required": "1",
+          "description": "图像内容的文字描述，建议写得具体清晰。"
+        },
+        "quality": {
+          "enum": "[\"low\", \"medium\", \"high\"]",
+          "type": "string",
+          "options": "\"low\", \"medium\", \"high\"",
+          "description": "输出质量档，请从当前模型支持范围中选择。"
+        },
+        "background": {
+          "enum": [
+            "transparent"
+          ],
+          "type": "string",
+          "options": "transparent",
+          "description": "背景模式；传 transparent 生成透明背景。"
+        },
+        "image_urls": {
+          "type": "array",
+          "example": [
+            "https://example.com/reference.jpg"
+          ],
+          "description": "参考图数组；传入后为图生图。每项为公网可访问的图片 URL。与 aspect_ratio 同传时按该画幅出图；未传 aspect_ratio 时输出可随参考图。"
+        },
+        "resolution": {
+          "type": "string",
+          "default": "1k",
+          "options": "1k / 2k / 4k",
+          "description": "输出档位：1k、2k 或 4k，参与计费。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "default": "1:1",
+          "options": "auto / 1:1 / 3:2 / 2:3 / 4:3 / 3:4 / 5:4 / 4:5 / 16:9 / 9:16 / 2:1 / 1:2 / 3:1 / 1:3 / 21:9 / 9:21",
+          "description": "画幅比例；可传 auto、比例值或像素尺寸。"
+        }
+      },
+      "default_params": {
+        "task_query": {
+          "expose_upstream_error": "1",
+          "image_results_top_level": "1"
+        },
+        "aspect_ratio": "1:1"
+      }
+    },
+    {
+      "type": "image",
+      "resource_type": "model",
+      "model_code": "gpt-image-2.5",
+      "channel_code": "OpenAIYI",
+      "params_schema": {
+        "prompt": {
+          "type": "string",
+          "example": "一只可爱的猫咪在草地上玩耍",
+          "required": "1",
+          "description": "图像内容的文字描述，建议写得具体清晰。"
+        },
+        "quality": {
+          "enum": "[\"auto\"]",
+          "type": "string",
+          "options": "\"auto\"",
+          "description": "输出质量档，请从当前模型支持范围中选择。"
+        },
+        "image_urls": {
+          "type": "array",
+          "example": [
+            "https://example.com/reference.jpg"
+          ],
+          "description": "参考图数组；传入后为图生图。每项为公网可访问的图片 URL。与 aspect_ratio 同传时按该画幅出图；未传 aspect_ratio 时输出可随参考图。"
+        },
+        "resolution": {
+          "type": "string",
+          "default": "1k",
+          "options": "1k / 2k / 4k",
+          "description": "输出档位：1k、2k 或 4k，参与计费。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "default": "auto",
+          "options": "auto / 1:1 / 3:2 / 2:3 / 4:3 / 3:4 / 5:4 / 4:5 / 16:9 / 9:16 / 2:1 / 1:2 / 3:1 / 1:3 / 21:9 / 9:21",
+          "description": "输出宽高比，可传 auto 由系统自动选择，也可传 1:1、16:9 等比例写法。"
+        }
+      },
+      "default_params": {
+        "task_query": {
+          "expose_upstream_error": "1",
+          "image_results_top_level": "1"
+        }
+      }
+    },
+    {
+      "type": "image",
+      "resource_type": "model",
+      "model_code": "gpt-image-2-vip",
+      "channel_code": "OpenAIYI",
+      "params_schema": {
+        "prompt": {
+          "type": "string",
+          "example": "一只可爱的猫咪在草地上玩耍",
+          "required": "1",
+          "description": "图像内容的文字描述，建议写得具体清晰。"
+        },
+        "quality": {
+          "enum": "[\"medium\"]",
+          "type": "string",
+          "options": "\"medium\"",
+          "description": "输出质量档，请从当前模型支持范围中选择。"
+        },
+        "background": {
+          "enum": [
+            "transparent"
+          ],
+          "type": "string",
+          "options": "transparent",
+          "description": "背景模式；传 transparent 生成透明背景。"
+        },
+        "image_urls": {
+          "type": "array",
+          "example": [
+            "https://example.com/reference.jpg"
+          ],
+          "description": "参考图数组；传入后为图生图。每项为公网可访问的图片 URL。与 aspect_ratio 同传时按该画幅出图；未传 aspect_ratio 时输出可随参考图。"
+        },
+        "resolution": {
+          "type": "string",
+          "default": "1k",
+          "options": "1k / 2k / 4k",
+          "description": "输出档位：1k、2k 或 4k，参与计费。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "default": "1:1",
+          "options": "auto / 1:1 / 3:2 / 2:3 / 4:3 / 3:4 / 5:4 / 4:5 / 16:9 / 9:16 / 2:1 / 1:2 / 3:1 / 1:3 / 21:9 / 9:21",
+          "description": "画幅比例；可传 auto、比例值或像素尺寸。"
+        }
+      },
+      "default_params": {
+        "task_query": {
+          "expose_upstream_error": "1",
+          "image_results_top_level": "1"
+        },
+        "aspect_ratio": "1:1"
+      }
+    },
+    {
+      "type": "image",
+      "resource_type": "model",
+      "model_code": "qwen-image-3.0",
+      "channel_code": "dashscope_compatible",
+      "params_schema": {
+        "input": {
+          "type": "object",
+          "example": {
+            "messages": [
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "text": "窗边的橘猫，清晨阳光，写实摄影"
+                  }
+                ]
+              }
+            ]
+          },
+          "required": "1",
+          "description": "图片生成输入对象。"
+        },
+        "parameters": {
+          "type": "object",
+          "example": {
+            "n": "1",
+            "size": "1024*1024",
+            "watermark": "",
+            "prompt_extend": "1"
+          },
+          "required": "1",
+          "description": "图片生成参数对象。"
+        }
+      },
+      "default_params": []
+    },
+    {
+      "type": "image",
+      "resource_type": "model",
+      "model_code": "qwen-image-3.0-pro",
+      "channel_code": "dashscope_compatible",
+      "params_schema": {
+        "input": {
+          "type": "object",
+          "example": {
+            "messages": [
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "text": "窗边的橘猫，清晨阳光，写实摄影"
+                  }
+                ]
+              }
+            ]
+          },
+          "required": "1",
+          "description": "图片生成输入对象。"
+        },
+        "parameters": {
+          "type": "object",
+          "example": {
+            "n": "1",
+            "size": "1024*1024",
+            "watermark": "",
+            "prompt_extend": "1"
+          },
+          "required": "1",
+          "description": "图片生成参数对象。"
+        }
+      },
+      "default_params": []
+    },
+    {
+      "type": "image",
+      "resource_type": "model",
+      "model_code": "gpt-image-2-pro",
+      "channel_code": "OpenaiM",
+      "params_schema": {
+        "n": {
+          "type": "integer",
+          "default": "1",
+          "description": "出图张数。当前接口仅支持 1，请勿传其他值。"
+        },
+        "prompt": {
+          "type": "string",
+          "example": "窗边的橘猫，夕阳，水彩风格",
+          "required": "1",
+          "description": "画面描述，可中英文，建议写清主体、风格、光线等。"
+        },
+        "mask_url": {
+          "type": "string",
+          "example": "https://example.com/mask.png",
+          "description": "局部重绘遮罩图 URL。"
+        },
+        "image_size": {
+          "type": "string",
+          "default": "1k",
+          "options": "1k / 2k / 4k",
+          "description": "输出分辨率规格，影响计费。"
+        },
+        "image_urls": {
+          "type": "array",
+          "example": [
+            "https://example.com/reference.jpg"
+          ],
+          "description": "参考图数组；传入后为图生图。最多 16 项。每项为公网可访问的图片 URL，或 data:image/...;base64,... 形式的 data URI。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "default": "auto",
+          "options": "auto / 1:1 / 3:2 / 2:3 / 4:3 / 3:4 / 5:4 / 4:5 / 16:9 / 9:16 / 2:1 / 1:2 / 3:1 / 1:3 / 21:9 / 9:21",
+          "description": "画幅比例，可传 auto 或 1:1、16:9 等比例写法。"
+        }
+      },
+      "default_params": {
+        "image_size": "1k",
+        "task_query": {
+          "expose_upstream_error": "1",
+          "image_results_top_level": "1"
+        },
+        "aspect_ratio": "1:1"
+      }
+    },
+    {
+      "type": "image",
+      "resource_type": "model",
+      "model_code": "gpt-image-2-fast",
+      "channel_code": "openaiD",
+      "params_schema": {
+        "prompt": {
+          "type": "string",
+          "example": "海边小岛、灯塔、月光、飞鸟与远处船只，电影感光影",
+          "required": "1",
+          "description": "图像内容的文字描述，最多 5000 个字符。"
+        },
+        "quality": {
+          "type": "string",
+          "example": "medium",
+          "options": "low / medium / high",
+          "description": "生成质量，可选 low、medium、high。"
+        },
+        "image_size": {
+          "type": "string",
+          "default": "1k",
+          "options": "1k / 2k / 4k",
+          "description": "分辨率规格，用于计费和尺寸换算。"
+        },
+        "image_urls": {
+          "type": "array|string",
+          "example": [
+            "https://example.com/reference.jpg"
+          ],
+          "description": "参考图。单张可传字符串，多张可传数组。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "default": "auto",
+          "example": "16:9",
+          "options": "auto / 1:1 / 3:2 / 2:3 / 4:3 / 3:4 / 5:4 / 4:5 / 16:9 / 9:16 / 2:1 / 1:2 / 3:1 / 1:3 / 21:9 / 9:21",
+          "description": "输出画幅比例。传 1:1、3:2、2:3、4:3、3:4、5:4、4:5、16:9、9:16、2:1、1:2、3:1、1:3、21:9、9:21 等比例即可；系统会结合 image_size 自动换算为实际像素尺寸。"
+        }
+      },
+      "default_params": {
+        "image_size": "1k",
+        "task_query": {
+          "expose_upstream_error": "1",
+          "image_results_top_level": "1"
+        },
+        "aspect_ratio": "auto"
+      }
+    },
+    {
+      "type": "image",
+      "resource_type": "model",
+      "model_code": "gpt-image-2",
+      "channel_code": "OpenAIYI",
+      "params_schema": {
+        "prompt": {
+          "type": "string",
+          "example": "一只可爱的猫咪在草地上玩耍",
+          "required": "1",
+          "description": "图像内容的文字描述，建议写得具体清晰。"
+        },
+        "quality": {
+          "enum": "[\"auto\"]",
+          "type": "string",
+          "options": "\"auto\"",
+          "description": "输出质量档，请从当前模型支持范围中选择。"
+        },
+        "image_urls": {
+          "type": "array",
+          "example": [
+            "https://example.com/reference.jpg"
+          ],
+          "description": "参考图数组；传入后为图生图。每项为公网可访问的图片 URL。与 aspect_ratio 同传时按该画幅出图；未传 aspect_ratio 时输出可随参考图。"
+        },
+        "resolution": {
+          "type": "string",
+          "default": "1k",
+          "options": "1k / 2k / 4k",
+          "description": "输出档位：1k、2k 或 4k，参与计费。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "default": "auto",
+          "options": "auto / 1:1 / 3:2 / 2:3 / 4:3 / 3:4 / 5:4 / 4:5 / 16:9 / 9:16 / 2:1 / 1:2 / 3:1 / 1:3 / 21:9 / 9:21",
+          "description": "输出宽高比，可传 auto 由系统自动选择，也可传 1:1、16:9 等比例写法。"
+        }
+      },
+      "default_params": {
+        "task_query": {
+          "expose_upstream_error": "1",
+          "image_results_top_level": "1"
+        }
+      }
+    },
+    {
+      "type": "image",
+      "resource_type": "model",
+      "model_code": "gpt-image-2",
+      "channel_code": "OpenaiM",
+      "params_schema": {
+        "n": {
+          "type": "integer",
+          "default": "1",
+          "description": "出图张数。当前接口仅支持 1，请勿传其他值。"
+        },
+        "prompt": {
+          "type": "string",
+          "example": "窗边的橘猫，夕阳，水彩风格",
+          "required": "1",
+          "description": "画面描述，可中英文，建议写清主体、风格、光线等。"
+        },
+        "image_size": {
+          "type": "string",
+          "description": "图片尺寸说明（与业务展示相关；接口侧以比例与 resolution 为准）。"
+        },
+        "image_urls": {
+          "type": "array",
+          "example": [
+            "https://example.com/reference.jpg"
+          ],
+          "description": "参考图数组；传图生图。最多 16 项。每项为公网可访问的 URL 或 data:image/...;base64,... 的 data URI，可混用。与 aspect_ratio 同传时按画幅出图；未传 aspect_ratio 时输出可随参考图。"
+        },
+        "resolution": {
+          "type": "string",
+          "default": "1k",
+          "options": "1k / 2k / 4k",
+          "description": "输出档位：1k、2k 或 4k，参与计费。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "default": "auto",
+          "options": "auto / 1:1 / 3:2 / 2:3 / 4:3 / 3:4 / 5:4 / 4:5 / 16:9 / 9:16 / 2:1 / 1:2 / 3:1 / 1:3 / 21:9 / 9:21",
+          "description": "输出宽高比，可传 auto 由系统自动选择，也可传 1:1、16:9 等比例写法。"
+        }
+      },
+      "default_params": {
+        "task_query": {
+          "expose_upstream_error": "1",
+          "image_results_top_level": "1"
+        }
+      }
+    },
+    {
+      "type": "image",
+      "resource_type": "model",
+      "model_code": "nano-banana-pro",
+      "channel_code": "Google",
+      "params_schema": {
+        "urls": {
+          "type": "array",
+          "description": "参考图片地址列表（图生图时使用）。每项为图片 URL 字符串。"
+        },
+        "prompt": {
+          "type": "string",
+          "description": "图片描述文本，建议使用详细、具体的描述以获得更好的生成效果。"
+        },
+        "image_size": {
+          "type": "string",
+          "options": "1K / 2K / 4K",
+          "description": "图片分辨率。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "options": "auto / 1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3 / 5:4 / 4:5 / 21:9",
+          "description": "图片宽高比。"
+        }
+      },
+      "default_params": []
+    },
+    {
+      "type": "image",
+      "resource_type": "model",
+      "model_code": "nano-banana-2",
+      "channel_code": "Google",
+      "params_schema": {
+        "urls": {
+          "type": "array",
+          "description": "参考图片地址列表（图生图时使用）。每项为图片 URL 字符串。"
+        },
+        "prompt": {
+          "type": "string",
+          "description": "图片描述文本，建议使用详细、具体的描述以获得更好的生成效果。"
+        },
+        "image_size": {
+          "type": "string",
+          "options": "1K / 2K / 4K",
+          "description": "图片分辨率。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "options": "auto / 1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3 / 5:4 / 4:5 / 21:9",
+          "description": "图片宽高比。"
+        }
+      },
+      "default_params": []
+    },
+    {
+      "type": "video",
+      "resource_type": "model",
+      "model_code": "wan3.0-video",
+      "channel_code": "dashscope_compatible",
+      "params_schema": {
+        "input": {
+          "type": "object",
+          "example": {
+            "prompt": "一艘木船驶过晨雾湖面，镜头缓慢推进。"
+          },
+          "required": "1",
+          "description": "视频生成输入对象。"
+        },
+        "parameters": {
+          "type": "object",
+          "example": {
+            "audio": "1",
+            "ratio": "16:9",
+            "duration": "5",
+            "watermark": "",
+            "resolution": "720P"
+          },
+          "required": "1",
+          "description": "视频生成参数对象。"
+        }
+      },
+      "default_params": []
+    },
+    {
+      "type": "video",
+      "resource_type": "model",
+      "model_code": "veo3.1-pro",
+      "channel_code": "xAIQ",
+      "params_schema": {
+        "prompt": {
+          "type": "string",
+          "example": "The car moves forward at a high speed",
+          "required": "1",
+          "description": "视频描述文本。"
+        },
+        "quality": {
+          "type": "string",
+          "default": "720p",
+          "example": "720p",
+          "options": "720p / 1080p / 4k",
+          "required": "1",
+          "description": "输出清晰度，不同清晰度价格不同。"
+        },
+        "duration": {
+          "type": "integer",
+          "default": "8",
+          "options": "8",
+          "description": "视频时长（秒），固定 8 秒。"
+        },
+        "image_urls": {
+          "type": "array",
+          "example": [
+            "https://example.com/ref.jpg"
+          ],
+          "description": "参考图片地址列表，最多 3 张。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "default": "16:9",
+          "options": "16:9 / 9:16",
+          "description": "视频宽高比。"
+        },
+        "generation_type": {
+          "type": "string",
+          "default": "TEXT",
+          "options": "TEXT / FIRST&LAST / REFERENCE",
+          "description": "视频生成模式。TEXT=文本生视频；FIRST&LAST=首尾帧生视频（可传 1~2 张图）；REFERENCE=参考图生视频（最多 3 张图，仅支持 16:9）。"
+        }
+      },
+      "default_params": []
+    },
+    {
+      "type": "video",
+      "resource_type": "model",
+      "model_code": "veo3.1-fast",
+      "channel_code": "xAIQ",
+      "params_schema": {
+        "prompt": {
+          "type": "string",
+          "example": "The car moves forward at a high speed",
+          "required": "1",
+          "description": "视频描述文本。"
+        },
+        "quality": {
+          "type": "string",
+          "default": "720p",
+          "example": "720p",
+          "options": "720p / 1080p / 4k",
+          "required": "1",
+          "description": "输出清晰度，不同清晰度价格不同。"
+        },
+        "duration": {
+          "type": "integer",
+          "default": "8",
+          "options": "8",
+          "description": "视频时长（秒），固定 8 秒。"
+        },
+        "image_urls": {
+          "type": "array",
+          "example": [
+            "https://example.com/ref.jpg"
+          ],
+          "description": "参考图片地址列表，最多 3 张。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "default": "16:9",
+          "options": "16:9 / 9:16",
+          "description": "视频宽高比。"
+        },
+        "generation_type": {
+          "type": "string",
+          "default": "TEXT",
+          "options": "TEXT / FIRST&LAST / REFERENCE",
+          "description": "视频生成模式。TEXT=文本生视频；FIRST&LAST=首尾帧生视频（可传 1~2 张图）；REFERENCE=参考图生视频（最多 3 张图，仅支持 16:9）。"
+        }
+      },
+      "default_params": []
+    },
+    {
+      "type": "video",
+      "resource_type": "model",
+      "model_code": "grok-video",
+      "channel_code": "xAIQ",
+      "params_schema": {
+        "prompt": {
+          "type": "string",
+          "required": "1",
+          "description": "视频描述文本。"
+        },
+        "quality": {
+          "type": "string",
+          "options": "720p",
+          "description": "输出清晰度。"
+        },
+        "duration": {
+          "type": "integer",
+          "default": "6",
+          "options": "6 / 10 / 15 / 20 / 25 / 30",
+          "required": "1",
+          "description": "视频时长（秒）。"
+        },
+        "image_urls": {
+          "type": "array",
+          "description": "参考图片地址列表，最多 7 张。"
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "options": "2:3 / 3:2 / 1:1 / 9:16 / 16:9",
+          "description": "视频宽高比。建议与参考图比例一致。"
+        }
+      },
+      "default_params": []
+    },
+    {
+      "type": "video",
+      "resource_type": "model",
+      "model_code": "q4-preview-video",
+      "channel_code": "q4_video",
+      "params_schema": {
+        "seed": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "description": "非负随机种子；不传或为 0 时随机生成。"
+        },
+        "audio": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否生成有声视频，false 为静音。"
+        },
+        "model": {
+          "enum": [
+            "q4-preview-video"
+          ],
+          "type": "string",
+          "example": "q4-preview-video",
+          "required": true,
+          "description": "平台模型编码。"
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "x-ui": "file",
+            "accept": ".png,.jpg,.jpeg,.webp",
+            "file_kind": "image"
+          },
+          "example": [
+            "https://example.com/first-frame.png"
+          ],
+          "maxItems": 1,
+          "minItems": 1,
+          "required": true,
+          "description": "仅一张首帧图片，支持 PNG、JPEG、JPG、WEBP，原始图片不超过 50 MB；完整 JSON 请求体小于 20 MB。支持 HTTP/HTTPS URL 或含 MIME 前缀的图片 Base64。"
+        },
+        "is_rec": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否启用 AI 提示词优化，建议显式指定。"
+        },
+        "prompt": {
+          "type": "string",
+          "example": "宇航员向镜头挥手，镜头缓缓上移。",
+          "maxLength": 20000,
+          "description": "视频内容描述，最多 20000 个字符。"
+        },
+        "wm_url": {
+          "type": "string",
+          "format": "uri",
+          "example": "https://example.com/watermark.png",
+          "description": "自定义水印图片的 HTTP/HTTPS URL。"
+        },
+        "payload": {
+          "type": "string",
+          "example": "order-001",
+          "maxLength": 1048576,
+          "description": "自定义业务关联数据，最多 1048576 个字符。"
+        },
+        "duration": {
+          "enum": [
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "type": "integer",
+          "default": 5,
+          "example": 5,
+          "description": "视频时长及计费秒数，取值 3 至 16 秒。"
+        },
+        "meta_data": {
+          "type": "string",
+          "example": "{\"Label\":\"1\",\"ContentProducer\":\"creator\",\"ProduceID\":\"video-001\"}",
+          "description": "自定义元数据标识，必须为有效 JSON 字符串。"
+        },
+        "watermark": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否添加画面水印；无水印请显式传 false。"
+        },
+        "resolution": {
+          "enum": [
+            "540p",
+            "720p",
+            "1080p",
+            "2K",
+            "4K"
+          ],
+          "type": "string",
+          "default": "720p",
+          "example": "720p",
+          "description": "输出分辨率；各档分别按秒计费。"
+        },
+        "wm_position": {
+          "enum": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "type": "integer",
+          "default": 3,
+          "description": "水印位置：1 左上，2 右上，3 右下，4 左下。"
+        },
+        "callback_url": {
+          "type": "string",
+          "format": "uri",
+          "example": "https://example.com/hooks/video",
+          "description": "接收平台任务完成或失败通知的 POST 地址。"
+        }
+      },
+      "default_params": {
+        "seed": 0,
+        "audio": true,
+        "is_rec": true,
+        "duration": 5,
+        "watermark": true,
+        "resolution": "720p",
+        "wm_position": 3
+      }
+    },
+    {
+      "type": "video",
+      "resource_type": "model",
+      "model_code": "h3-video",
+      "channel_code": "minimax",
+      "params_schema": {
+        "model": {
+          "enum": [
+            "h3-video"
+          ],
+          "type": "string",
+          "example": "h3-video",
+          "required": "1",
+          "description": "平台模型编码。"
+        },
+        "ratio": {
+          "enum": [
+            "adaptive",
+            "21:9",
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16"
+          ],
+          "type": "string",
+          "default": "16:9",
+          "example": "16:9",
+          "required": "1",
+          "description": "输出画幅。"
+        },
+        "content": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "default": {
+              "text": "",
+              "type": "text"
+            },
+            "properties": {
+              "role": {
+                "enum": [
+                  "first_frame",
+                  "last_frame",
+                  "reference_image",
+                  "reference_video",
+                  "reference_audio"
+                ],
+                "type": "string",
+                "description": "图片可用 first_frame、last_frame、reference_image；视频可用 reference_video；音频可用 reference_audio。"
+              },
+              "text": {
+                "type": "string",
+                "description": "文本描述，仅 type=text 时填写。"
+              },
+              "type": {
+                "enum": [
+                  "text",
+                  "image_url",
+                  "video_url",
+                  "audio_url"
+                ],
+                "type": "string",
+                "required": "1",
+                "description": "内容类型。"
+              },
+              "audio_url": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "x-ui": "file",
+                    "accept": ".wav,.mp3",
+                    "format": "uri",
+                    "file_kind": "audio"
+                  }
+                }
+              },
+              "image_url": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "x-ui": "file",
+                    "accept": ".jpg,.jpeg,.png,.webp,.heic,.heif",
+                    "format": "uri",
+                    "file_kind": "image"
+                  }
+                }
+              },
+              "video_url": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "x-ui": "file",
+                    "accept": ".mp4,.mov",
+                    "format": "uri",
+                    "file_kind": "video"
+                  }
+                }
+              }
+            }
+          },
+          "default": [
+            {
+              "text": "一只纸船在雨后街道缓慢漂流，电影感镜头。",
+              "type": "text"
+            }
+          ],
+          "example": [
+            {
+              "text": "一只纸船在雨后街道缓慢漂流，电影感镜头。",
+              "type": "text"
+            }
+          ],
+          "required": "1",
+          "description": "多模态内容数组，必须含一个非空文本项。"
+        },
+        "duration": {
+          "enum": [
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "10",
+            "11",
+            "12",
+            "13",
+            "14",
+            "15"
+          ],
+          "type": "integer",
+          "default": "4",
+          "example": "5",
+          "required": "1",
+          "description": "输出视频时长，单位秒。"
+        },
+        "resolution": {
+          "enum": [
+            "768P",
+            "2K"
+          ],
+          "type": "string",
+          "default": "2K",
+          "example": "768P",
+          "required": "1",
+          "description": "输出分辨率。"
+        },
+        "callback_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "可选 HTTPS 回调地址。"
+        }
+      },
+      "default_params": []
+    },
+    {
+      "type": "image",
+      "resource_type": "app_api",
+      "app_code": "nano_banana",
+      "model_code": "nano-banana",
+      "params_schema": {
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "default": "nano-banana",
+            "example": "nano-banana",
+            "options": "nano-banana / nano-banana-2 / nano-banana-2-lite / nano-banana-pro / nano-banana:official / nano-banana-2-lite:official / nano-banana-2:official / nano-banana-pro:official",
+            "description": "模型规格。普通模型适合常规生成，官方模型适合更高一致性和高清档位。"
+          },
+          "action": {
+            "type": "string",
+            "default": "generate",
+            "example": "generate",
+            "options": "generate / edit",
+            "description": "任务类型。generate 为文生图，edit 为基于参考图编辑。"
+          },
+          "prompt": {
+            "type": "string",
+            "example": "A clean product photo of a yellow banana-shaped speaker on a white table.",
+            "description": "图片内容、风格、主体和细节描述。"
+          },
+          "image_urls": {
+            "type": "array",
+            "example": [
+              "https://example.com/reference.png"
+            ],
+            "description": "参考图片 URL 列表。action=edit 时必填。"
+          },
+          "resolution": {
+            "type": "string",
+            "default": "1K",
+            "example": "1K",
+            "options": "1K / 2K / 4K",
+            "description": "输出分辨率。官方高清模型按 1K、2K、4K 分档计费。"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "example": "1:1",
+            "options": "auto / 1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3 / 5:4 / 4:5 / 21:9",
+            "description": "图片宽高比。"
+          },
+          "callback_url": {
+            "type": "string",
+            "example": "https://example.com/api/ai/callback",
+            "description": "任务完成或失败时由平台主动通知的 HTTPS 地址。"
+          }
+        }
+      },
+      "default_params": {
+        "model": "nano-banana",
+        "action": "generate",
+        "resolution": "1K"
+      }
+    },
+    {
+      "type": "video",
+      "resource_type": "app_api",
+      "app_code": "seedance",
+      "model_code": "",
+      "params_schema": {
+        "type": "object",
+        "required": [
+          "model",
+          "content"
+        ],
+        "properties": {
+          "seed": {
+            "type": "integer",
+            "description": "随机种子，可复现结果（若上游支持）"
+          },
+          "draft": {
+            "type": "boolean",
+            "description": "是否草稿模式（若上游支持）"
+          },
+          "model": {
+            "type": "string",
+            "example": "seedance-2-text-2-video",
+            "options": "seedance-2-text-2-video / seedance-2-video-2-video / seedance-2-fast-text-2-video / seedance-2-fast-video-2-video",
+            "description": "公开模型名称。请从模型名称与使用场景表中选择一个名称。"
+          },
+          "ratio": {
+            "type": "string",
+            "default": "adaptive",
+            "example": "16:9",
+            "options": "16:9 / 4:3 / 1:1 / 3:4 / 9:16 / 21:9 / adaptive",
+            "description": "画面宽高比。adaptive 表示由模型根据输入自动选择"
+          },
+          "tools": {
+            "type": "array",
+            "example": [
+              {
+                "type": "web_search"
+              }
+            ],
+            "description": "可选工具（仅文生视频支持 web_search 联网搜索）"
+          },
+          "frames": {
+            "type": "integer",
+            "description": "帧数相关参数（若上游支持）"
+          },
+          "content": {
+            "type": "array",
+            "example": [
+              {
+                "text": "一只金毛犬在海边奔跑，夕阳西下",
+                "type": "text"
+              }
+            ],
+            "children": {
+              "role": {
+                "type": "string",
+                "description": "条件必填。图片首尾帧：first_frame / last_frame；参考图：reference_image；参考视频：reference_video；参考音频：reference_audio"
+              },
+              "text": {
+                "type": "string",
+                "description": "文本提示词（type=text 时必填）"
+              },
+              "type": {
+                "type": "string",
+                "options": "text / image_url / video_url / audio_url",
+                "required": "1",
+                "description": "内容类型"
+              },
+              "audio_url": {
+                "type": "object",
+                "description": "音频对象，格式 {\"url\": \"音频地址\"}"
+              },
+              "image_url": {
+                "type": "object",
+                "description": "图片对象，格式 {\"url\": \"图片地址\"}"
+              },
+              "video_url": {
+                "type": "object",
+                "description": "视频对象，格式 {\"url\": \"视频地址\"}"
+              }
+            },
+            "examples": {
+              "文生视频": [
+                {
+                  "text": "一只金毛犬在海边奔跑",
+                  "type": "text"
+                }
+              ],
+              "图生视频-首帧": [
+                {
+                  "role": "first_frame",
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "https://example.com/pic1.jpg"
+                  }
+                },
+                {
+                  "text": "让画面动起来",
+                  "type": "text"
+                }
+              ],
+              "图生视频-首尾帧": [
+                {
+                  "role": "first_frame",
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "首帧图片地址"
+                  }
+                },
+                {
+                  "role": "last_frame",
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "尾帧图片地址"
+                  }
+                },
+                {
+                  "text": "平滑过渡",
+                  "type": "text"
+                }
+              ],
+              "多模态参考生视频": [
+                {
+                  "role": "reference_image",
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "参考图1"
+                  }
+                },
+                {
+                  "role": "reference_video",
+                  "type": "video_url",
+                  "video_url": {
+                    "url": "参考视频1"
+                  }
+                },
+                {
+                  "role": "reference_audio",
+                  "type": "audio_url",
+                  "audio_url": {
+                    "url": "参考音频1"
+                  }
+                },
+                {
+                  "text": "场景描述",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "多模态输入列表：支持 文本 + 图片 + 视频 + 音频 的任意组合。图片最多 9 张、视频最多 3 个、音频最多 3 段，且不可单独传音频。含 video_url 时按「含视频输入」档位计费。"
+          },
+          "duration": {
+            "type": "integer",
+            "default": "5",
+            "example": "5",
+            "description": "生成视频时长（秒）。取值 4~15，或 -1 由模型自动决定"
+          },
+          "watermark": {
+            "type": "boolean",
+            "default": "",
+            "example": "",
+            "description": "是否在视频右下角添加水印"
+          },
+          "resolution": {
+            "type": "string",
+            "default": "720p",
+            "example": "720p",
+            "options": "480p / 720p / 1080p",
+            "description": "输出分辨率"
+          },
+          "callback_url": {
+            "type": "string",
+            "example": "https://your-domain.com/webhook/seedance",
+            "description": "异步任务完成/失败时的回调地址"
+          },
+          "camera_fixed": {
+            "type": "boolean",
+            "description": "是否固定机位（若上游支持）"
+          },
+          "service_tier": {
+            "type": "string",
+            "description": "服务档位（若上游支持）"
+          },
+          "generate_audio": {
+            "type": "boolean",
+            "default": "1",
+            "example": "1",
+            "description": "是否生成与画面同步的音频"
+          }
+        }
+      },
+      "default_params": {
+        "ratio": "adaptive",
+        "duration": "5",
+        "watermark": "",
+        "resolution": "720p",
+        "generate_audio": "1"
+      }
+    },
+    {
+      "type": "video",
+      "resource_type": "app_api",
+      "app_code": "wan",
+      "model_code": "",
+      "params_schema": {
+        "type": "object",
+        "required": [
+          "model",
+          "prompt"
+        ],
+        "properties": {
+          "seed": {
+            "type": "integer",
+            "options": "0-2147483647",
+            "description": "随机种子，用于结果复现。范围：0-2147483647。"
+          },
+          "size": {
+            "type": "string",
+            "example": "16:9",
+            "options": "16:9 / 9:16 / 1:1 / 4:3 / 3:4",
+            "description": "视频画幅比例。"
+          },
+          "model": {
+            "type": "string",
+            "example": "wan2.7",
+            "options": "wan2.7 / wan2.7-r2v / wan2.7-videoedit",
+            "description": "Wan 模型版本。不同版本支持的素材输入略有差异。"
+          },
+          "prompt": {
+            "type": "string",
+            "example": "一辆复古跑车沿着海岸公路行驶，电影感光影",
+            "description": "视频画面与运动描述。"
+          },
+          "duration": {
+            "type": "integer",
+            "default": "5",
+            "example": "5",
+            "options": "wan2.7 / wan2.7-r2v: 2-15；wan2.7-videoedit: 2-10",
+            "description": "生成视频时长，单位秒。wan2.7、wan2.7-r2v 支持 2-15；wan2.7-videoedit 支持 2-10。"
+          },
+          "metadata": {
+            "type": "object",
+            "example": {
+              "biz_id": "order_1001",
+              "audio_setting": "auto"
+            },
+            "children": {
+              "biz_id": {
+                "type": "string",
+                "description": "业务侧自定义 ID"
+              },
+              "audio_setting": {
+                "type": "string",
+                "options": "auto / origin",
+                "description": "音频处理方式，主要用于视频编辑场景。"
+              }
+            },
+            "description": "附加业务信息。wan2.7-videoedit 可在 metadata.audio_setting 中选择音频处理方式。"
+          },
+          "audio_url": {
+            "type": "string",
+            "example": "https://example.com/audio.mp3",
+            "description": "参考音频 URL。需要音频驱动生成时传入。"
+          },
+          "watermark": {
+            "type": "boolean",
+            "example": "",
+            "options": "true / false",
+            "description": "是否添加水印。"
+          },
+          "image_urls": {
+            "type": "array",
+            "example": [
+              "https://example.com/reference.png"
+            ],
+            "description": "参考图片 URL 列表。wan2.7 最多 2 张；wan2.7-videoedit 最多 4 张。"
+          },
+          "resolution": {
+            "type": "string",
+            "default": "720p",
+            "example": "720p",
+            "options": "720p / 1080p",
+            "description": "输出分辨率。"
+          },
+          "video_urls": {
+            "type": "array",
+            "example": [
+              "https://example.com/input.mp4"
+            ],
+            "description": "视频素材地址列表，最多 1 段。wan2.7-videoedit 必填，并按含视频输入档计费。"
+          },
+          "callback_url": {
+            "type": "string",
+            "example": "https://your-domain.com/webhook/wan",
+            "description": "任务完成或失败时由平台主动通知的 HTTPS 地址。"
+          },
+          "prompt_extend": {
+            "type": "boolean",
+            "example": "",
+            "options": "true / false",
+            "description": "是否启用提示词扩展。"
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "不希望出现在画面中的内容。"
+          },
+          "image_with_roles": {
+            "type": "array",
+            "example": [
+              {
+                "url": "https://example.com/role.png",
+                "role": "reference_image"
+              }
+            ],
+            "children": {
+              "url": {
+                "type": "string",
+                "required": "1",
+                "description": "图片地址，支持 http/https"
+              },
+              "role": {
+                "type": "string",
+                "options": "reference_image / first_frame / last_frame",
+                "description": "图片角色。wan2.7-r2v 可用 reference_image / first_frame；首尾帧场景可用 first_frame / last_frame。"
+              }
+            },
+            "description": "角色或参考图列表。wan2.7-r2v 必填，最多 2 张。"
+          }
+        }
+      },
+      "default_params": {
+        "model": "wan2.7",
+        "duration": "5",
+        "resolution": "720p"
+      }
+    },
+    {
+      "type": "video",
+      "resource_type": "app_api",
+      "app_code": "grok_video",
+      "model_code": "",
+      "params_schema": {
+        "type": "object",
+        "required": [
+          "model"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "default": "grok-imagine-video-1.5-fast",
+            "options": "grok-imagine-video-1.5-fast / grok-imagine-video-1.5",
+            "description": "视频模型规格。"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "视频内容描述。快速生成在未提供 image_urls 时必填。"
+          },
+          "duration": {
+            "type": "integer",
+            "default": "8",
+            "options": "1-30",
+            "description": "视频时长（秒）。快速生成支持 1-30，标准生成支持 1-15。"
+          },
+          "image_urls": {
+            "type": "array",
+            "example": [
+              "https://example.com/main.jpg",
+              "https://example.com/style.jpg"
+            ],
+            "description": "输入图片地址列表。第一张作为主图，其余图片作为参考图；标准生成模型至少需要一张。"
+          },
+          "resolution": {
+            "type": "string",
+            "default": "480p",
+            "options": "480p / 720p / 1080p",
+            "description": "输出分辨率，影响价格。"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "options": "1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3",
+            "description": "视频宽高比。"
+          },
+          "callback_url": {
+            "type": "string",
+            "description": "任务完成或失败时由平台主动通知的 HTTPS 地址。"
+          }
+        }
+      },
+      "default_params": {
+        "model": "grok-imagine-video-1.5-fast",
+        "duration": "8",
+        "resolution": "480p"
+      }
+    },
+    {
+      "type": "video",
+      "resource_type": "app_api",
+      "app_code": "happy_horse",
+      "model_code": "",
+      "params_schema": {
+        "seed": {
+          "type": "number",
+          "example": 42,
+          "options": "0～2147483647 的整数",
+          "required": false,
+          "description": "随机种子，用于尽量复现生成效果；不传则随机"
+        },
+        "media": {
+          "type": "array",
+          "example": [
+            {
+              "url": "https://example.com/input.mp4",
+              "type": "video"
+            },
+            {
+              "url": "https://example.com/ref1.jpg",
+              "type": "image"
+            }
+          ],
+          "children": {
+            "url": {
+              "type": "string",
+              "required": true,
+              "description": "素材 URL，需为公网可访问地址"
+            },
+            "type": {
+              "type": "string",
+              "options": "image / video",
+              "required": false,
+              "description": "素材类型；可省略自动推断"
+            }
+          },
+          "required": false,
+          "description": "统一参考素材数组。文生不传；单图首帧传 1 张 image；多参考传 1～9 张 image（建议至少 2 张）；视频编辑传 1 个 video，可附 0～5 张 image"
+        },
+        "model": {
+          "type": "string",
+          "example": "happyhorse-1.1-t2v",
+          "options": "happyhorse-1.1-t2v / happyhorse-1.1-i2v / happyhorse-1.1-r2v / happyhorse-1.0-video-edit",
+          "required": true,
+          "description": "生成能力代号，决定 media 的使用规则"
+        },
+        "ratio": {
+          "type": "string",
+          "example": "16:9",
+          "options": "16:9 / 9:16 / 1:1 / 4:3 / 3:4",
+          "required": false,
+          "description": "画幅比例；文生和多参考可传，单图首帧不需要传"
+        },
+        "prompt": {
+          "type": "string",
+          "example": "一只猫在草地上奔跑",
+          "required": true,
+          "description": "画面、镜头、风格与对白等描述；最多 2500 字，不能为空"
+        },
+        "duration": {
+          "type": "number",
+          "example": 5,
+          "options": "3～15 的整数",
+          "required": true,
+          "description": "目标视频时长(秒)，整数；文生、图生、多参考支持 3～15 秒。本平台按该值计费"
+        },
+        "watermark": {
+          "type": "boolean",
+          "example": true,
+          "options": "true / false",
+          "required": false,
+          "description": "是否添加水印；不传默认 true"
+        },
+        "resolution": {
+          "type": "string",
+          "example": "720P",
+          "options": "720P / 1080P",
+          "required": true,
+          "description": "目标分辨率；支持 720P、1080P（也接受小写，平台会归一）"
+        }
+      },
+      "default_params": {
+        "duration": 5,
+        "resolution": "720P"
+      }
+    },
+    {
+      "type": "video",
+      "resource_type": "app_api",
+      "app_code": "full_video",
+      "model_code": "",
+      "params_schema": {
+        "model": {
+          "type": "string",
+          "default": "full-video",
+          "example": "full-video",
+          "required": false,
+          "description": "视频生成模型标识，固定为 full-video。"
+        },
+        "ratio": {
+          "type": "string",
+          "default": "16:9",
+          "example": "16:9",
+          "required": false,
+          "description": "视频画幅比例；图生视频可使用 adaptive。"
+        },
+        "content": {
+          "type": "array",
+          "required": true,
+          "description": "内容列表，须包含文本项；可按模式传入首帧、尾帧或参考媒体。"
+        },
+        "duration": {
+          "type": "integer",
+          "default": 4,
+          "example": 4,
+          "maximum": 15,
+          "minimum": 4,
+          "required": false,
+          "description": "生成时长，单位秒，范围 4 到 15。"
+        },
+        "resolution": {
+          "enum": [
+            "480P",
+            "768P",
+            "1080P",
+            "2K",
+            "4K"
+          ],
+          "type": "string",
+          "default": "480P",
+          "example": "480P",
+          "required": false,
+          "description": "输出分辨率；不同分辨率对应独立的按秒 SKU，具体售价以当前租户价格配置为准。"
+        },
+        "aigc_watermark": {
+          "type": "boolean",
+          "default": false,
+          "example": false,
+          "required": false,
+          "description": "是否添加生成标识。"
+        }
+      },
+      "default_params": {
+        "model": "full-video",
+        "ratio": "16:9",
+        "duration": 4,
+        "resolution": "480P",
+        "aigc_watermark": false
+      }
+    }
+  ]
+}
