@@ -1,10 +1,10 @@
 {
   "code": "aigc_image",
   "name": "AIGC生图",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "require_core": ">=1.0.0",
   "description": "AIGC image generation sample application for the LikeAdmin AIGC SaaS aggregation platform.",
-  "changelog": "1. 新增统一应用任务和消耗日志关联。\n2. 生图任务支持预占、结算和失败退回。\n3. 管理端可追溯生图调用与结算明细。",
+  "changelog": "1. 新增统一应用任务和消耗日志关联。\n2. 生图任务支持预占、结算和失败退回。\n3. 管理端可追溯生图调用与结算明细。\n4. 图片创作支持模型专属高级参数与输入校验。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

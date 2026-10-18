@@ -71,6 +71,11 @@ class MarketGenerationCatalogService
             }
         }
 
+        if (in_array($generationType, ['image', 'video'], true)) {
+            $models = array_map(static fn(array $model): array => MarketCreationParameters::describe($model, $generationType), $models);
+            $applications = array_map(static fn(array $model): array => MarketCreationParameters::describe($model, $generationType), $applications);
+        }
+
         return [
             'generation_type' => $generationType,
             'models' => $models,
