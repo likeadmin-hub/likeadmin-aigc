@@ -5,6 +5,7 @@ Preserve existing settings, wallets, tasks and tenant-owned menus.
 """
 import importlib.util
 import json
+import re
 from pathlib import Path
 import sys
 
@@ -32,6 +33,16 @@ def main():
         updated = original[:start] + seed.rstrip('\n') + original[finish:]
     else:
         updated = original.rstrip() + '\n\n' + seed
+    # Fresh installs must use the complete current schema, not an older five-table snapshot.
+    schema = (APP / 'migrations/install.sql').read_text()
+    pattern = r'CREATE TABLE IF NOT EXISTS `(la_aigc_micro_video_[a-z_]+)` \(.*?;'
+    for match in re.finditer(pattern, schema, re.S):
+        table, ddl = match.group(1), match.group(0)
+        target = r'CREATE TABLE IF NOT EXISTS `' + re.escape(table) + r'` \(.*?;'
+        if re.search(target, updated, re.S):
+            updated = re.sub(target, lambda _: ddl, updated, count=1, flags=re.S)
+        else:
+            updated = updated.rstrip() + '\n\n' + ddl + '\n'
     files = {install: updated, ROOT / 'upgrade' / UPGRADE: seed, ROOT / 'public/upgrade' / UPGRADE: seed}
     if '--check' in sys.argv:
         mismatches = [str(path.relative_to(ROOT)) for path, content in files.items()
