@@ -1,7 +1,0 @@
-{
-  "navigationBarTitleText": "我的算力",
-  "usingComponents": {
-    "mp-privacy-popup": "../../../components/mp-privacy-popup/mp-privacy-popup",
-    "page-content": "./user_wallet-content"
-  }
-}

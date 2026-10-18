@@ -1,8 +1,0 @@
-{
-  "navigationStyle": "custom",
-  "navigationBarTitleText": "微视频工作台",
-  "usingComponents": {
-    "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
-    "page-content": "./index-content"
-  }
-}

@@ -1,8 +1,0 @@
-{
-  "navigationStyle": "custom",
-  "navigationBarTitleText": "",
-  "usingComponents": {
-    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup",
-    "page-content": "./user-content"
-  }
-}

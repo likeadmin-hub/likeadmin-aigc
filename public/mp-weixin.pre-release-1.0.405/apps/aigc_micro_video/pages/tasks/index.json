@@ -1,9 +1,0 @@
-{
-  "navigationStyle": "custom",
-  "navigationBarTitleText": "微视频作品",
-  "enablePullDownRefresh": true,
-  "usingComponents": {
-    "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
-    "page-content": "./index-content"
-  }
-}

@@ -1,7 +1,0 @@
-{
-  "component": true,
-  "usingComponents": {
-    "micro-page": "../../components/MicroPage",
-    "micro-frame-panel": "../../components/MicroFramePanel"
-  }
-}

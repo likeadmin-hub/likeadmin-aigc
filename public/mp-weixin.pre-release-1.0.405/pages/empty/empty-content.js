@@ -1,1 +1,0 @@
-"use strict";const e=require("../../common/vendor.js"),t=require("../../utils/page-content-lifecycle.js"),n=e.defineComponent({__name:"empty-content",props:{decorationTabSlot:{type:Number,default:void 0}},setup:e=>(t.inheritPageContentContext(),(e,t)=>({}))});wx.createComponent(n);

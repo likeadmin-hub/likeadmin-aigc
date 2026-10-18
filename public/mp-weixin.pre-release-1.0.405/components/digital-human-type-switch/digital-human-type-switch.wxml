@@ -1,1 +1,0 @@
-<view class="creator-types data-v-7b248e5a"><button wx:for="{{a}}" wx:for-item="item" wx:key="b" class="{{['creator-type','data-v-7b248e5a',item.c&&'is-active']}}" aria-pressed="{{item.d}}" bindtap="{{item.e}}"><text class="creator-type-title data-v-7b248e5a">{{item.a}}</text></button></view>

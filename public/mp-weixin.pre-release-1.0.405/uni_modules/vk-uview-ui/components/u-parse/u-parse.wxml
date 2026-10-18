@@ -1,1 +1,0 @@
-<view><slot wx:if="{{a}}"/><view id="_top" style="{{c}}"><trees wx:if="{{b}}" u-i="6cd37c28-0" bind:__l="__l" u-p="{{b}}"/></view></view>
