@@ -25,11 +25,13 @@ final class CanvasMediaPreviewService
                 if (!self::sameMedia($url,(string)($input['url'] ?? ''))) continue;
                 return self::forMedia($tenant,$user,(int)$project['id'],$node['id'],$node['type'],$url,$item + array_intersect_key($metadata,array_flip(['agentArtifactId'])));
             }
+            // A just-completed run can precede the next autosave of its output URL.
+            return self::forMedia($tenant,$user,(int)$project['id'],$node['id'],$node['type'],(string)($input['url'] ?? ''),[],false);
         }
         return [];
     }
 
-    public static function forMedia(int $tenant,int $user,int $project,string $node,string $type,string $url,array $item=[]): array
+    public static function forMedia(int $tenant,int $user,int $project,string $node,string $type,string $url,array $item=[],bool $includeCatalog=true): array
     {
         // An item-level snapshot survives collection selection, node edits and template remapping.
         $embedded=self::sanitize((array)($item['generation'] ?? []));
@@ -65,6 +67,7 @@ final class CanvasMediaPreviewService
                 }
             }
         }
+        if (!$includeCatalog) return [];
         // Old instantiated presets have new node IDs, but their catalog output is public and immutable.
         foreach (CanvasBuiltinPresetService::all() as $preset) foreach ($preset['graph']['nodes'] as $source) {
             if ($source['type']!==$type) continue;
@@ -102,7 +105,7 @@ final class CanvasMediaPreviewService
             $references[]=['url'=>is_array($ref)?($ref['url'] ?? $ref['uri'] ?? ''):$ref,'type'=>$kind];
         }
         return self::sanitize(['version'=>1,'kind'=>$type,'prompt'=>$params['compiled_prompt'] ?? $params['prompt'] ?? $run['prompt'] ?? '',
-            'created'=>(string)($run['create_time'] ?? ''),'parameters'=>$parameters,'references'=>$references]);
+            'created'=>is_numeric($run['create_time'] ?? '')?date('Y-m-d H:i:s',(int)$run['create_time']):(string)($run['create_time'] ?? ''),'parameters'=>$parameters,'references'=>$references]);
     }
 
     /** Never serialize a task ID, tenant/user identity, provider payload, secret or pricing snapshot. */
