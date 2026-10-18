@@ -46,4 +46,38 @@ final class VideoEffectMediaTest extends TestCase
         $saved[0]['poster'] = 'https://tenant.example/previews/demo.webp';
         self::assertSame($saved, Media::resolve($saved, $defaults, $registry, static fn()=>'/unexpected'));
     }
+
+    public function testLegacyDefaultUrlsBecomeManagedPreviewsWithoutARegistry(): void
+    {
+        $defaults = array_slice(Effects::defaults(), 0, 1);
+        $saved = $defaults;
+        $saved[0]['poster'] = 'https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/push_in.webp';
+        $saved[0]['video'] = 'https://imagine.animagic.art/remote-config/assets/video_effects/sd/push_in.mp4';
+        $saved[0]['name'] = '租户自己的名称';
+        $saved[0]['enabled'] = false;
+        $expected = $saved;
+        $expected[0]['poster'] = $defaults[0]['poster'];
+        $expected[0]['video'] = $defaults[0]['video'];
+        self::assertSame($expected, Media::resolve($saved, $defaults, [], static fn()=>'/unused'));
+        self::assertSame($expected, Media::resolve($expected, $defaults, [], static fn()=>'/unused'));
+
+        $saved[0]['poster'] .= '?tenant-edit=1';
+        $saved[0]['video'] = '';
+        self::assertSame($saved, Media::resolve($saved, $defaults, [], static fn()=>'/unused'));
+        $custom = $saved;
+        $custom[0]['id'] = 'tenant_custom';
+        self::assertSame($custom, Media::resolve($custom, $defaults, [], static fn()=>'/unused'));
+    }
+
+    public function testCurrentStorageOverridesShippedAndLegacyDefaultPreviews(): void
+    {
+        $defaults = array_slice(Effects::defaults(), 0, 1);
+        $saved = $defaults;
+        $saved[0]['poster'] = 'https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/push_in.webp';
+        $file = ['uri'=>'platform/poster.webp','storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>''];
+        $registry = [$saved[0]['id']=>['poster'=>$file]];
+        $result = Media::resolve($saved, $defaults, $registry, static fn($file)=>'/'.$file['uri']);
+        self::assertSame('/platform/poster.webp', $result[0]['poster']);
+        self::assertSame($defaults[0]['video'], $result[0]['video']);
+    }
 }

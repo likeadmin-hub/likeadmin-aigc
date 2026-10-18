@@ -32,27 +32,13 @@ final class VideoEffectMediaService
 
     public static function apply(array $rows, array $defaults): array
     {
-        $rows = self::resolve($rows, $defaults, self::registry(), static function(array $file): string {
+        return self::resolve($rows, $defaults, self::registry(), static function(array $file): string {
             return FileService::getFileUrlByStorage($file['uri'], 'platform', $file['storage_engine'], $file['storage_domain']);
         });
-        // Source-delivered fallback for installations without a local media registry.
-        // Match the original URL exactly so tenant edits and blank previews survive.
-        $managed = self::managedPreviews(dirname(__DIR__, 4).'/apps/aigc_video/data/video_effect_media.json');
-        $sources = array_column($defaults, null, 'id');
-        foreach ($rows as &$row) {
-            foreach (['poster', 'video'] as $field) {
-                if (isset($managed[$row['id']][$field], $sources[$row['id']][$field])
-                    && ($row[$field] ?? '') === $sources[$row['id']][$field]) {
-                    $row[$field] = $managed[$row['id']][$field];
-                }
-            }
-        }
-        unset($row);
-        return $rows;
     }
 
-    /** Optional display data must not prevent config reads or generation. */
-    private static function managedPreviews(string $path): array
+    /** Read-only fingerprints identify old defaults without shipping obsolete URLs. */
+    private static function legacyHashes(string $path): array
     {
         if (!is_file($path) || !is_readable($path)) return [];
         try {
@@ -66,7 +52,7 @@ final class VideoEffectMediaService
         foreach ($decoded as $id => $files) {
             if (!is_array($files)) continue;
             foreach (['poster', 'video'] as $field) {
-                if (isset($files[$field]) && is_string($files[$field]) && $files[$field] !== '') {
+                if (isset($files[$field]) && is_string($files[$field]) && preg_match('/^[a-f0-9]{64}$/D', $files[$field])) {
                     $result[$id][$field] = $files[$field];
                 }
             }
@@ -74,21 +60,35 @@ final class VideoEffectMediaService
         return $result;
     }
 
+    public static function isDefaultPreview(array $default, string $field, string $url): bool
+    {
+        if ($url === '' || !in_array($field, ['poster', 'video'], true) || empty($default['id']) || empty($default[$field])) return false;
+        if ($url === ($default[$field] ?? null)) return true;
+        static $legacy;
+        $legacy ??= self::legacyHashes(dirname(__DIR__, 4).'/apps/aigc_video/data/video_effect_legacy_media.json');
+        $hash = $legacy[$default['id']][$field] ?? '';
+        return $hash !== '' && hash_equals($hash, hash('sha256', $url));
+    }
+
     public static function resolve(array $rows, array $defaults, array $registry, callable $url): array
     {
         $sources = array_column($defaults, null, 'id');
         foreach ($rows as &$row) {
             foreach (['poster','video'] as $field) {
+                $default = $sources[$row['id']] ?? [];
+                $current = (string)($row[$field] ?? '');
+                // Convert only exact historical defaults; keep every custom URL and explicit blank.
+                $isDefault = self::isDefaultPreview($default, $field, $current);
+                if ($isDefault) $row[$field] = $default[$field];
                 $file = $registry[$row['id']][$field] ?? null;
                 // Preserve blank previews and every tenant custom URL or template reference.
                 if (!$file || empty($file['uri']) || ($file['storage_scope'] ?? '') !== 'platform') continue;
-                $current = (string)($row[$field] ?? '');
                 $path = ltrim((string)parse_url($current, PHP_URL_PATH), '/');
                 $sameManagedFile = $path === ltrim($file['uri'], '/') && (
                     $file['storage_engine'] === 'local'
                     || parse_url($current, PHP_URL_HOST) === parse_url($file['storage_domain'], PHP_URL_HOST)
                 );
-                if ($current !== ($sources[$row['id']][$field] ?? null) && !$sameManagedFile) continue;
+                if (!$isDefault && !$sameManagedFile) continue;
                 $row[$field] = $url($file);
             }
         }
