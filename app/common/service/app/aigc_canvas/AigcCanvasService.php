@@ -2394,7 +2394,7 @@ class AigcCanvasService
         $referenceAssets = self::normalizeReferenceAssets(array_merge($params, [
             'reference_images' => $referenceImages,
         ]));
-        return array_replace(array_intersect_key($params, array_flip(['seed', 'audio', 'watermark', 'aigc_watermark', 'is_rec', 'wm_position', 'wm_url', 'camera_fixed', 'prompt_extend', 'draft', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt'])), [
+        return array_replace(array_intersect_key($params, array_flip(['seed', 'audio', 'watermark', 'aigc_watermark', 'is_rec', 'wm_position', 'wm_url', 'camera_fixed', 'prompt_extend', 'draft', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt', 'service_tier', 'tools', 'metadata', 'payload', 'meta_data'])), [
             'prompt' => trim((string)($params['prompt'] ?? '')),
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
             'reference_images' => $referenceImages,
@@ -2407,11 +2407,22 @@ class AigcCanvasService
             'duration' => (int)($params['duration'] ?? 0),
             'mode' => (string)($params['mode'] ?? $params['videoMode'] ?? ''),
             'generation_method' => (string)($params['generation_method'] ?? $params['generationMethod'] ?? ''),
-            'generate_audio' => $params['generate_audio'] ?? (array_key_exists('generateAudio', $params) ? (bool)$params['generateAudio'] : null),
+            ...self::videoAudioParameter($params),
             'first_frame_image' => (string)($params['first_frame_image'] ?? ''),
             'last_frame_image' => (string)($params['last_frame_image'] ?? ''),
             'quantity' => max(1, (int)($params['quantity'] ?? 1)),
         ]);
+    }
+
+    /** Absence means provider default, never an implicit mute request. */
+    private static function videoAudioParameter(array $params): array
+    {
+        $raw = $params['generate_audio'] ?? $params['generateAudio'] ?? null;
+        if ($raw === null || $raw === '') return [];
+        if (!is_scalar($raw)) throw new Exception('生成音频参数格式不正确');
+        $value = filter_var($raw, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($value === null) throw new Exception('生成音频参数格式不正确');
+        return ['generate_audio' => $value];
     }
 
     private static function normalizeMusicParams(array $params): array
