@@ -22,10 +22,48 @@ final class MicroVideoWorkbenchRecords
     /** Public images preserve usable storage references but never expose private receipt/owner identities. */
     public static function publicAsset(array $image): array
     {return array_intersect_key($image,array_flip(['id','uri','url','name','role','storage_scope','storage_engine','storage_domain']));}
-    public static function publicBody(array $body): array
-    {return self::redactBody(MicroVideoWorkbenchPolicy::normalizeValues($body));}
-    private static function redactBody(array $body): array
-    {foreach($body as $key=>$value){if($key==='images'&&is_array($value))$body[$key]=array_map([self::class,'publicAsset'],$value);elseif(is_array($value))$body[$key]=self::redactBody($value);}return $body;}
+    public static function publicBody(array $body,array $privateContext=[]): array
+    {return self::redactBody(MicroVideoWorkbenchPolicy::normalizeValues($body),self::privatePrompts([$body,$privateContext]));}
+    private static function redactBody(array $body,array $secrets): array
+    {
+        unset($body['internal_prompt']);
+        foreach($body as $key=>$value){
+            if($key==='images'&&is_array($value))$body[$key]=self::redactBody(array_map([self::class,'publicAsset'],$value),$secrets);
+            elseif(is_array($value))$body[$key]=self::redactBody($value,$secrets);
+            elseif(is_string($value)&&$secrets)$body[$key]=str_replace($secrets,'[内部创作规则]',$value);
+        }return $body;
+    }
+    /** Exact private paragraphs and meaningful sentences, excluding text already public in this template. */
+    private static function privatePrompts(array $body): array
+    {
+        $prompts=[];$source=$body['internal_prompt']??null;
+        if(is_string($source)&&trim($source)!==''){
+            $prompts[]=$source;
+            $public=array_intersect_key($body,array_flip(['title','description','script','segments','reference_rules','direction_rules','beats','roles','variables','style']));$publicStrings=[];
+            array_walk_recursive($public,static function($value)use(&$publicStrings){if(is_string($value))$publicStrings[]=$value;});$publicText=implode("\n",$publicStrings);
+            foreach(preg_split('/\R/u',$source,-1,PREG_SPLIT_NO_EMPTY) as $line){
+                // Headings are private metadata; also match a copied paragraph without its heading.
+                $plain=preg_replace('/^\h*(?:模板创作指导|镜头指导|负面约束|叙事时间骨架)\h*[：:]\h*/u','',trim($line));
+                $parts=array_merge([$line,$plain],preg_split('/[。！？!?；;]+/u',$plain,-1,PREG_SPLIT_NO_EMPTY));
+                foreach($parts as $part){$part=trim($part);if(mb_strlen($part)>=12&&!str_contains($publicText,$part))$prompts[]=$part;}
+            }
+        }
+        foreach($body as $key=>$value)if($key!=='internal_prompt'&&is_array($value))$prompts=array_merge($prompts,self::privatePrompts($value));
+        $prompts=array_values(array_unique($prompts));usort($prompts,static fn($a,$b)=>strlen($b)<=>strlen($a));return $prompts;
+    }
+    /** Treat reserved fields as server data even when an administrator echoes a public DTO. */
+    private static function withoutInternalFields(array $body): array
+    {
+        unset($body['internal_prompt'],$body['protected_prompt']);
+        foreach($body as $key=>$value)if(is_array($value))$body[$key]=self::withoutInternalFields($value);
+        return $body;
+    }
+    /** A provider may use hidden rules, but must never publish private source paragraphs or sentences. */
+    public static function assertNoPrivateEcho(array $result,array $context): void
+    {
+        $secrets=self::privatePrompts($context);
+        array_walk_recursive($result,static function($value)use($secrets){if(is_string($value))foreach($secrets as $prompt)if(str_contains($value,$prompt))throw new InvalidArgumentException('模型结果包含内部创作规则，请核对保留结果');});
+    }
     public static function lists(int $tenant,int $user,array $p,bool $admin=false): array
     {
         $kind=MicroVideoWorkbenchPolicy::kind((string)($p['kind']??'project'));$q=self::query($tenant,$user,$kind,$admin);
@@ -38,6 +76,13 @@ final class MicroVideoWorkbenchRecords
     }
     public static function save(int $tenant,int $user,array $p,bool $admin=false): array
     {return self::saveRecord($tenant,$user,$p,$admin);}
+    /** Server catalog loader only. No controller accepts the trusted body or this entry point. */
+    public static function saveTrustedTemplate(int $tenant,array $p): array
+    {
+        $body=$p['body']??null;
+        if(($p['kind']??'template')!=='template'||!is_array($body)||!is_string($body['internal_prompt']??null)||trim($body['internal_prompt'])===''||($body['protected_prompt']??null)!==true)throw new InvalidArgumentException('内置模板规则格式无效');
+        $p['kind']='template';return self::saveRecord($tenant,0,$p,true,$body);
+    }
     /** Historical snapshots enter only from an owned immutable version, never from public request data. */
     private static function saveRecord(int $tenant,int $user,array $p,bool $admin=false,?array $restoreBody=null): array
     {
@@ -66,6 +111,12 @@ final class MicroVideoWorkbenchRecords
     }
     private static function prepareBody(int $tenant,int $owner,string $kind,array $body,?array $initial=null,?array $restoreBody=null): array
     {
+        // Public callers can edit prose, never introduce private instructions or trust markers.
+        $body=self::withoutInternalFields($body);
+        if($kind==='template'){
+            $trusted=$restoreBody??($initial?MicroVideoStore::json($initial['body_json']):[]);
+            if(($trusted['protected_prompt']??false)===true&&is_string($trusted['internal_prompt']??null)&&trim($trusted['internal_prompt'])!==''){$body['internal_prompt']=$trusted['internal_prompt'];$body['protected_prompt']=true;}
+        }
         // Snapshots are authoritative. Strip stale or malicious client copies before image validation.
         if($kind==='project'){unset($body['template_snapshot'],$body['product_snapshot']);if(!empty($body['scenes']))unset($body['scene_reset']);}
         $body=MicroVideoWorkbenchPolicy::body($kind,$body);$body=self::images($tenant,$owner,$body);
@@ -84,11 +135,11 @@ final class MicroVideoWorkbenchRecords
     public static function versions(int $tenant,int $user,array $p,bool $admin=false): array
     {$r=self::owned($tenant,$user,(string)$p['kind'],(int)$p['id'],$admin);$rows=self::table('version')->where(['record_id'=>$r['id'],'tenant_id'=>$tenant])->order('revision','desc')->select()->toArray();return ['lists'=>array_map(fn($v)=>['revision'=>(int)$v['revision'],'title'=>$v['title'],'body'=>self::publicBody(MicroVideoStore::json($v['body_json'])),'create_time'=>(int)$v['create_time']],$rows)];}
     public static function restore(int $tenant,int $user,array $p,bool $admin=false): array
-    {$r=self::owned($tenant,$user,(string)$p['kind'],(int)$p['id'],$admin,true);$v=self::versionRow($r,(int)$p['version']);$historical=MicroVideoStore::json($v['body_json']);return self::saveRecord($tenant,$user,['kind'=>$r['kind'],'id'=>$r['id'],'revision'=>(int)$p['revision'],'title'=>$v['title'],'body'=>$historical,'visibility'=>$r['visibility'],'status'=>$r['status']],$admin,$r['kind']==='project'?$historical:null);}
+    {$r=self::owned($tenant,$user,(string)$p['kind'],(int)$p['id'],$admin,true);$v=self::versionRow($r,(int)$p['version']);$historical=MicroVideoStore::json($v['body_json']);return self::saveRecord($tenant,$user,['kind'=>$r['kind'],'id'=>$r['id'],'revision'=>(int)$p['revision'],'title'=>$v['title'],'body'=>$historical,'visibility'=>$r['visibility'],'status'=>$r['status']],$admin,$historical);}
     public static function copy(int $tenant,int $user,array $p,bool $admin=false): array
-    {$r=self::owned($tenant,$user,(string)$p['kind'],(int)$p['id'],$admin);$body=MicroVideoStore::json($r['body_json']);if(!$admin&&(int)$r['user_id']!==$user)$body=MicroVideoWorkbenchAssets::cloneBody($tenant,$user,(int)$r['id'],$body,(int)$r['user_id']);unset($body['task_id']);return self::saveRecord($tenant,$user,['kind'=>$r['kind'],'title'=>mb_substr((string)($p['title']??$r['title'].' 副本'),0,120),'body'=>$body,'visibility'=>$admin?'tenant':'private'],$admin,$r['kind']==='project'?$body:null);}
+    {$r=self::owned($tenant,$user,(string)$p['kind'],(int)$p['id'],$admin);$body=MicroVideoStore::json($r['body_json']);if(!$admin&&(int)$r['user_id']!==$user)$body=MicroVideoWorkbenchAssets::cloneBody($tenant,$user,(int)$r['id'],$body,(int)$r['user_id']);unset($body['task_id']);return self::saveRecord($tenant,$user,['kind'=>$r['kind'],'title'=>mb_substr((string)($p['title']??$r['title'].' 副本'),0,120),'body'=>$body,'visibility'=>$admin?'tenant':'private'],$admin,$body);}
     public static function delete(int $tenant,int $user,array $p,bool $admin=false): array
     {return Db::transaction(function()use($tenant,$user,$p,$admin){$r=self::owned($tenant,$user,(string)$p['kind'],(int)$p['id'],$admin,true,true);MicroVideoWorkbenchPolicy::revision($r,(int)($p['revision']??0));self::table()->where('id',$r['id'])->update(['delete_time'=>time(),'update_time'=>time()]);return ['id'=>(int)$r['id'],'deleted'=>true];});}
     public static function categories(): array
-    {return ['lists'=>array_map(fn($p)=>['code'=>$p[0],'name'=>$p[1]],[['story','自由故事'],['campus','校园'],['office','职场'],['palace','宫廷'],['kungfu','功夫'],['twist','反转'],['commerce','商品展示'],['property','房产']])];}
+    {return ['lists'=>array_merge(array_map(fn($p)=>['code'=>$p[0],'name'=>$p[1]],[['story','自由故事'],['campus','校园'],['office','职场'],['palace','宫廷'],['kungfu','功夫'],['twist','反转'],['commerce','商品展示'],['property','房产']]),MicroVideoCommerceTemplates::catalog()['categories'])];}
 }

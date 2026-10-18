@@ -20,11 +20,12 @@ final class MicroVideoService
         if(AppAccessService::assertTenantCanUse($tenant,MicroVideoStore::APP,0,false)!==null)throw new InvalidArgumentException('微视频应用未开通或未上架');
         if((int)MicroVideoSettings::get($tenant)['status']!==1)throw new InvalidArgumentException('微视频应用已停用');
     }
-    public static function form(int $tenant,int $user,array $p,bool $imagesRequired=true): array
+    /** Extra target durations are server arguments only, never accepted from request parameters. */
+    public static function form(int $tenant,int $user,array $p,bool $imagesRequired=true,array $allowedTargetDurations=[]): array
     {
         self::available($tenant);$config=MicroVideoSettings::get($tenant);$id=(string)($p['model_id']??$config['default_model_id']);MicroVideoPolicy::allowedModel($id,$config['video_model_ids']);$model=MicroVideoCatalog::model($tenant,$id,false,'reference');
         $quality=(string)($p['quality']??$config['default_quality']);$ratio=(string)($p['ratio']??$config['default_ratio']);MicroVideoCatalog::specs($model,$quality,$ratio);
-        $target=(int)($p['target_duration']??30);if(!in_array($target,$config['target_duration_options'],true))throw new InvalidArgumentException('请选择开放的目标时长');
+        $target=(int)($p['target_duration']??30);if(!in_array($target,$config['target_duration_options'],true)&&!in_array($target,$allowedTargetDurations,true))throw new InvalidArgumentException('请选择开放的目标时长');
         $mode=(string)($p['mode']??'theme');if(!in_array($mode,['theme','prompt'],true))throw new InvalidArgumentException('创作模式无效');
         $theme=trim((string)($p['theme']??''));$prompt=trim((string)($p['prompt']??''));
         if($imagesRequired&&($mode==='theme'?$theme==='':$prompt===''))throw new InvalidArgumentException($mode==='theme'?'请输入一句话主题':'请输入完整提示词');
@@ -78,10 +79,16 @@ final class MicroVideoService
         }
         return self::detail($tenant,$user,(int)$row['id']);
     }
+    /** Called with an owned server snapshot; public DTOs cannot carry this private trust marker. */
+    public static function workbenchTargetDurations(array $body): array
+    {
+        $template=$body['template_snapshot']['body']??[];
+        return ($template['protected_prompt']??false)===true&&is_string($template['internal_prompt']??null)&&trim($template['internal_prompt'])!==''&&($template['workflow_type']??null)==='commerce'&&($template['default_duration']??null)===10&&is_string($template['seed_key']??null)&&str_starts_with($template['seed_key'],'commerce_v1_')?[10]:[];
+    }
     /** Import a paid/prepared workbench plan without another planning call or worker admission. */
     public static function importWorkbenchPlan(int $tenant,int $user,array $p,array $segments,array $snapshot): array
     {
-        $prepared=self::form($tenant,$user,$p);$config=$prepared['config'];$model=$prepared['model'];$params=$prepared['params'];
+        $prepared=self::form($tenant,$user,$p,true,self::workbenchTargetDurations((array)($snapshot['body']??[])));$config=$prepared['config'];$model=$prepared['model'];$params=$prepared['params'];
         $allowed=array_column(MicroVideoCatalog::specs($model,$params['quality'],$params['ratio']),'duration');
         $contract=MicroVideoContentPlanning::contract($params,$allowed,(int)$config['max_segments'],3);
         $normalized=MicroVideoContentPlanning::validate(['segments'=>$segments,'continuity'=>(string)($p['continuity']??'')],$contract,count($params['images']),(int)$model['max_reference_images'],true);

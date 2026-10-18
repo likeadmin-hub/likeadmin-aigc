@@ -25,7 +25,7 @@ final class MicroVideoWorkbenchPolicy
         $integerFields=match($context){
             'segment'=>['sort','duration'], 'scene'=>['sort'], 'brief'=>['target_duration'],
             'reference'=>['id','revision'], 'scene_reset'=>['previous_revision','previous_scene_count'],
-            'beat'=>['sort'], 'body'=>['target_duration','task_id','direction_id','cover_index'], default=>[]
+            'beat'=>['sort'], 'body'=>['target_duration','default_duration','task_id','direction_id','cover_index'], default=>[]
         };
         $booleanFields=match($context){
             'body'=>['script_stale','fixed_identity'], 'role'=>['fixed_identity'],
@@ -36,7 +36,7 @@ final class MicroVideoWorkbenchPolicy
         foreach($booleanFields as $field)if(array_key_exists($field,$value))$value[$field]=self::booleanValue($value[$field]);
         if($context==='beat')foreach(['start','end'] as $field)if(array_key_exists($field,$value))$value[$field]=self::numberValue($value[$field]);
         if($context==='body'){
-            foreach(['roles'=>'role','scenes'=>'scene','beats'=>'beat'] as $field=>$itemContext)if(isset($value[$field])&&is_array($value[$field]))foreach($value[$field] as $index=>$item)if(is_array($item))$value[$field][$index]=self::normalizeValues($item,$itemContext);
+            foreach(['roles'=>'role','scenes'=>'scene','beats'=>'beat','segments'=>'segment'] as $field=>$itemContext)if(isset($value[$field])&&is_array($value[$field]))foreach($value[$field] as $index=>$item)if(is_array($item))$value[$field][$index]=self::normalizeValues($item,$itemContext);
             foreach(['script'=>'script','brief'=>'brief','template'=>'reference','product'=>'reference','variant_source'=>'reference','duplicate_source'=>'reference','scene_reset'=>'scene_reset'] as $field=>$itemContext)if(isset($value[$field])&&is_array($value[$field]))$value[$field]=self::normalizeValues($value[$field],$itemContext);
             if(isset($value['durations'])&&is_array($value['durations']))$value['durations']=array_map([self::class,'integerValue'],$value['durations']);
             foreach(['template_snapshot','product_snapshot'] as $field)if(isset($value[$field])&&is_array($value[$field])){
