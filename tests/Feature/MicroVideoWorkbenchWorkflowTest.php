@@ -15,8 +15,9 @@ final class MicroVideoWorkbenchWorkflowTest extends TestCase
     protected function tearDown(): void{if(Db::getConfig())Db::rollback();}
     private function create(string $kind='project',array $body=[],int $tenant=1,int $user=1): array
     {return R::save($tenant,$user,['kind'=>$kind,'title'=>'Workbench test '.bin2hex(random_bytes(3)),'body'=>$body]);}
+    /** Both workbench validation and unchanged media ownership refusal are valid application rejections. */
     private function rejects(callable $f): void
-    {try{$f();self::fail('Expected scope/revision rejection');}catch(\InvalidArgumentException $e){self::assertNotSame('',$e->getMessage());}}
+    {try{$f();self::fail('Expected scope/revision rejection');}catch(\InvalidArgumentException|\RuntimeException $e){self::assertNotSame('',$e->getMessage());}}
     public function testCloudDraftIsScopedAndOptimisticVersionsAreImmutable(): void
     {$before=Db::name('ai_consumption_log')->count();$a=$this->create('project',['brief'=>['goal'=>'original']]);$this->rejects(fn()=>R::owned(2,1,'project',$a['id']));$this->rejects(fn()=>R::owned(1,2,'project',$a['id']));$b=R::save(1,1,['kind'=>'project','id'=>$a['id'],'revision'=>1,'title'=>'new','body'=>['brief'=>['goal'=>'new']]]);self::assertSame(2,$b['revision']);$this->rejects(fn()=>R::save(1,1,['kind'=>'project','id'=>$a['id'],'revision'=>1,'title'=>'stale','body'=>[]]));$v=R::versions(1,1,['kind'=>'project','id'=>$a['id']]);self::assertSame('original',$v['lists'][1]['body']['brief']['goal']);$restored=R::restore(1,1,['kind'=>'project','id'=>$a['id'],'revision'=>2,'version'=>1]);self::assertSame(3,$restored['revision']);self::assertSame('original',$restored['body']['brief']['goal']);self::assertSame($before,Db::name('ai_consumption_log')->count());}
     public function testPrivateTemplateNeverLeaksIntoLegacyDirectionOrOtherUserCatalog(): void
@@ -52,6 +53,44 @@ final class MicroVideoWorkbenchWorkflowTest extends TestCase
             $project=$this->create('project',['product'=>['id'=>$source['id'],'revision'=>2]],1,$destination);self::assertSame($dir.'/destination.png',$project['body']['product_snapshot']['body']['images'][0]['uri']);
             // A wrong declared source owner still cannot validate or clone the source file.
             try{\app\common\service\app\aigc_micro_video\MicroVideoWorkbenchAssets::cloneBody(1,$destination,$source['id'],['images'=>[['uri'=>$dir.'/source.png']]],$destination);self::fail('Foreign upload accepted');}catch(\RuntimeException $e){self::assertNotSame('',$e->getMessage());}
+        }finally{foreach(glob($root.$dir.'/*')?:[] as $path)unlink($path);rmdir($root.$dir);$parent=dirname($root.$dir);if(is_dir($parent)&&count(scandir($parent))===2)rmdir($parent);}
+    }
+    public function testSelectedLiveSkuRewriteContractCanParseAStoredReceiptWithoutASecondCharge(): void
+    {
+        $config=\app\common\service\app\aigc_micro_video\MicroVideoSettings::detail(1);$models=$config['models']??[];$textModels=\app\common\service\power\MarketTextModelRuntimeService::textOptions(1);if(!$models||!$textModels)self::markTestSkipped('Read-only selected model acceptance requires callable local catalogs');
+        $model=$models[0];$spec=$model['specs'][0];$project=$this->create('project',['brief'=>['goal'=>'真实商品展示','target_duration'=>30],'model_id'=>$model['id'],'quality'=>$spec['quality'],'ratio'=>$spec['ratio'],'target_duration'=>30,'script'=>['text'=>'人物拿起真实商品，配角接过后自然回应。','segments'=>[]]]);
+        $before=Db::name('ai_consumption_log')->count();$input=J::input(1,1,['project_id'=>$project['id'],'project_revision'=>1,'action'=>'rewrite','selection'=>['model_id'=>$textModels[0]['id']]]);self::assertNotEmpty($input['request']['planning_contract']['segment_durations']);self::assertNotEmpty($input['request']['continuity']);
+        $segments=[];foreach($input['request']['planning_contract']['segment_durations'] as $n=>$d){$cut=min(3,$d/2);$segments[]=['sort'=>$n+1,'title'=>'连续商品展示','duration'=>$d,'prompt'=>'0-'.$cut.'秒：人物在同一桌边拿起商品。'."\n".$cut.'-'.$d.'秒：配角接过商品后回应，保持连贯动作。','image_indices'=>[0],'start_state'=>'商品在桌上','end_state'=>'配角拿稳商品','continuity'=>'保持商品结构与人物服饰'];}
+        $receipt=['content'=>json_encode(['script'=>['text'=>'完整商品展示剧本。','segments'=>$segments]])];$row=['action'=>'rewrite','request_json'=>json_encode($input['request'])];$a=Worker::parse($row,$receipt);$b=Worker::parse($row,$receipt);self::assertSame($a,$b);self::assertSame($input['request']['continuity'],$a['script']['continuity']);self::assertSame($input['request']['planning_contract']['segment_durations'],array_column($a['script']['segments'],'duration'));self::assertSame($before,Db::name('ai_consumption_log')->count());
+    }
+    /** @dataProvider sharedDecorationOwners */
+    public function testSharedManagedCoverAndExampleVideoBecomeOwnedOnPrivateCopy(int $sourceOwner): void
+    {
+        $tenant=987654321;$destination=987654323;$dir='uploads/micro-workbench-decoration-tests/'.bin2hex(random_bytes(6));$root=dirname(__DIR__,2).'/public/';$fixture=dirname(__DIR__,3).'/runtime/micro-video-acceptance/media-qa/clip-1.mp4';if(!is_file($fixture))self::markTestSkipped('Existing local synthetic media fixture required; never generates video');mkdir($root.$dir,0700,true);$published=[];$existingDestination=Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$destination])->column('uri');
+        try{
+            file_put_contents($root.$dir.'/cover.png',base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a9sAAAAASUVORK5CYII='));copy($fixture,$root.$dir.'/example.mp4');
+            foreach(['cover.png'=>10,'example.mp4'=>20] as $name=>$type)Db::name('tenant_file')->insert(['tenant_id'=>$tenant,'source_id'=>$sourceOwner,'source'=>$sourceOwner>0?1:0,'type'=>$type,'cid'=>0,'uri'=>$dir.'/'.$name,'name'=>$name,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'delete_time'=>0]);
+            $body=['cover_image'=>'/'.$dir.'/cover.png','example_video'=>'/'.$dir.'/example.mp4','images'=>[],'script'=>'完整模板'];
+            $shared=R::save($tenant,$sourceOwner,['kind'=>'template','title'=>'Managed decoration','visibility'=>$sourceOwner>0?'private':'tenant','body'=>$body],$sourceOwner===0);
+            if($sourceOwner>0)$shared=R::save($tenant,0,['kind'=>'template','id'=>$shared['id'],'revision'=>1,'title'=>'Managed decoration','visibility'=>'tenant','body'=>$shared['body']],true);
+            $private=R::copy($tenant,$destination,['kind'=>'template','id'=>$shared['id']]);
+            foreach(['cover_image'=>10,'example_video'=>20] as $field=>$type){$uri=ltrim((string)parse_url($private['body'][$field],PHP_URL_PATH),'/');$published[]=$uri;self::assertNotSame($dir.'/'.($type===10?'cover.png':'example.mp4'),$uri);self::assertFileExists($root.$uri);self::assertSame(1,Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$destination,'type'=>$type,'uri'=>$uri])->count());}
+            self::assertSame(hash_file('sha256',$fixture),hash_file('sha256',$root.$published[1]));
+            $before=Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source_id'=>$destination])->count();$again=R::copy($tenant,$destination,['kind'=>'template','id'=>$shared['id']]);self::assertSame($private['body']['cover_image'],$again['body']['cover_image']);self::assertSame($before,Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source_id'=>$destination])->count());
+        }finally{$createdDestination=array_diff(Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$destination])->column('uri'),$existingDestination);$published=array_unique(array_merge($published,$createdDestination));foreach($published as $uri)if(is_file($root.$uri))unlink($root.$uri);foreach(glob($root.$dir.'/*')?:[] as $path)unlink($path);rmdir($root.$dir);$parent=dirname($root.$dir);if(is_dir($parent)&&count(scandir($parent))===2)rmdir($parent);}
+    }
+    public static function sharedDecorationOwners(): array{return [[0],[987654322]];}
+    public function testPersistedSceneCanBeExplicitlyReviewedAfterRoleBindingChange(): void
+    {
+        $tenant=987654321;$user=987654322;$dir='uploads/micro-workbench-scene-tests/'.bin2hex(random_bytes(6));$root=dirname(__DIR__,2).'/public/';mkdir($root.$dir,0700,true);$png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a9sAAAAASUVORK5CYII=');
+        try{
+            foreach(['a.png','b.png'] as $name){file_put_contents($root.$dir.'/'.$name,$png);Db::name('tenant_file')->insert(['tenant_id'=>$tenant,'source_id'=>$user,'source'=>1,'type'=>10,'cid'=>0,'uri'=>$dir.'/'.$name,'name'=>$name,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'delete_time'=>0]);}
+            $before=Db::name('ai_consumption_log')->count();$project=$this->create('project',['script'=>['text'=>'用户确认的剧本','segments'=>[['duration'=>15]]],'roles'=>[['role_id'=>'lead','fixed_identity'=>true,'images'=>[['uri'=>$dir.'/a.png']]]],'scenes'=>[['scene_id'=>'s1','sort'=>1,'role_ids'=>['lead'],'mode'=>'reference','images'=>[],'confirmed'=>false]]],$tenant,$user);
+            $save=static fn($r,$body)=>R::save($tenant,$user,['kind'=>'project','id'=>$r['id'],'revision'=>$r['revision'],'title'=>$r['title'],'body'=>$body]);
+            $body=$project['body'];$body['scenes'][0]['confirmed']=true;$ready=$save($project,$body);self::assertSame('ready',$ready['body']['scenes'][0]['status']);
+            $body=$ready['body'];$body['roles'][0]['images']=[['uri'=>$dir.'/b.png']];$stale=$save($ready,$body);self::assertFalse($stale['body']['scenes'][0]['confirmed']);self::assertSame('stale',$stale['body']['scenes'][0]['status']);
+            $body=$stale['body'];$body['scenes'][0]['confirmed']=true;$reviewed=$save($stale,$body);self::assertSame('ready',$reviewed['body']['scenes'][0]['status']);self::assertNotEmpty($reviewed['body']['scenes'][0]['dependency_hash']);[$segments,$images]=W::executionReferences($reviewed['body']);self::assertSame($dir.'/b.png',$images[0]['uri']);
+            $body=$reviewed['body'];$body['scenes'][0]['description']='修改后的画面';$body['scenes'][0]['confirmed']=true;$changed=$save($reviewed,$body);self::assertFalse($changed['body']['scenes'][0]['confirmed']);self::assertSame('stale',$changed['body']['scenes'][0]['status']);self::assertSame($before,Db::name('ai_consumption_log')->count());
         }finally{foreach(glob($root.$dir.'/*')?:[] as $path)unlink($path);rmdir($root.$dir);$parent=dirname($root.$dir);if(is_dir($parent)&&count(scandir($parent))===2)rmdir($parent);}
     }
 }
