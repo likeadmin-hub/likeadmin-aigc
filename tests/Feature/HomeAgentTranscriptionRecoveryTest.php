@@ -39,6 +39,12 @@ Db::startTrans();try{
   return $r+['step_id'=>$sid,'prepared'=>$p,'log'=>$log];
  };
  $r=$create();$cid=$r['consumption_id'];
+ $configStatus=Db::name('aigc_llm_config')->where('tenant_id',1)->value('status');$logCount=Db::name('ai_consumption_log')->count();
+ Db::name('aigc_llm_config')->where('tenant_id',1)->update(['status'=>0]);
+ rejects($create);check(Db::name('ai_consumption_log')->count()===$logCount,'Revoked STT access created a reservation');
+ $existing=$reserve->invoke(null,1,1,$r['prepared']);check(!$existing['fresh']&&$existing['task_id']===$r['task_id'],'Revocation blocked existing STT identity');
+ Db::name('aigc_llm_config')->where('tenant_id',1)->update(['status'=>$configStatus]);
+
  Db::name('ai_consumption_log')->where('id',$cid)->update(['create_time'=>time()]);
  check(!R::reconcile($cid,1)['resolved']&&Db::name('ai_consumption_log')->where('id',$cid)->value('run_status')==='running','In-flight call changed to review');
  Db::name('ai_consumption_log')->where('id',$cid)->update(['create_time'=>$now]);

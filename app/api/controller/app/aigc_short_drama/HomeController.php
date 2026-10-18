@@ -13,7 +13,9 @@ class HomeController extends BaseApiController
     public function index()
     {
         try {
-            return $this->success('获取成功', AigcShortDramaService::home((int)$this->request->tenantId, $this->userId));
+            $data = AigcShortDramaService::home((int)$this->request->tenantId, $this->userId);
+            $data = \app\common\service\LikeAdminBrandService::publicPresentation($data, (int)$this->request->get('presentation_schema', 0));
+            return $this->success('获取成功', $data);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }

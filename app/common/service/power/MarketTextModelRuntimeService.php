@@ -207,6 +207,13 @@ class MarketTextModelRuntimeService
         $appCode = self::safeCode((string)($params['source_app_code'] ?? $params['app_code'] ?? 'aigc_short_drama'), 'aigc_short_drama');
         $businessTable = self::safeCode((string)($params['business_table'] ?? ($appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task')), $appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task');
         $businessId = (int)($params['business_id'] ?? 0);
+        $homeAgent = in_array($appCode, ['aigc_llm', 'aigc_canvas'], true) && $businessTable === 'aigc_llm_agent_run';
+        if ($homeAgent) {
+            // Admission only: keep actual-usage pricing and zero reservation unchanged.
+            // A paid payer needs at least the wallet's smallest unit; free sides stay free.
+            self::assertAgentBalance($tenantId, $userId, $model);
+            \app\common\service\app\aigc_llm\agent\AgentTextReceipt::prepare();
+        }
         $requestSummary = [
             'content_length' => array_sum(array_map(static fn(array $message): int => self::messageContentLength($message['content'] ?? ''), $messages)),
             'message_count' => count($messages),
@@ -215,6 +222,9 @@ class MarketTextModelRuntimeService
             'model_code' => $model['model_code'],
             'generation_params' => $generationParams + ['max_tokens' => $maxTokens],
         ];
+        if ($homeAgent && is_array($params['_agent_reading_source'] ?? null)) {
+            $requestSummary['agent_reading_source'] = array_intersect_key($params['_agent_reading_source'], array_flip(['file_id','offset','end','unit','text_offset']));
+        }
         // Token SKU amounts must come from the upstream usage record. Showing a
         // locally guessed total or reserving max_tokens makes the price wrong.
         $reserve = self::quote($model, 0, 0);
@@ -238,6 +248,16 @@ class MarketTextModelRuntimeService
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
+                    if ($homeAgent) {
+                        try { \app\common\service\app\aigc_llm\agent\AgentTextReceipt::record($context['consumption']->toArray(), $context['appTask']->toArray(), $result, true); }
+                        catch (\Throwable $receiptError) {
+                            // A response already exists. Never reinterpret persistence failure as provider rejection.
+                            $usage = self::normalizeUsage((array)($result['usage'] ?? []));
+                            try { self::deferSettlement($context, $result, $usage, $receiptError); }
+                            catch (\Throwable $persistError) { Log::error('Agent receipt review write failed: '.get_class($persistError)); }
+                            throw new TextSettlementPending((int)$context['consumption']['id'], $result, $usage, $receiptError);
+                        }
+                    }
                     if (empty($params['_agent_tool_history'])) unset($result['_responses_output']);
                     if ($openTextCall) {
                         $usage = self::normalizeUsage((array)($result['usage'] ?? []));
@@ -249,6 +269,7 @@ class MarketTextModelRuntimeService
                     if ($resultValidator!==null) $resultValidator($result);
                     break;
                 } catch (\Throwable $initialError) {
+                    if ($initialError instanceof TextSettlementPending) throw $initialError;
                     if ($initialError instanceof MarketTextModelProviderException && $initialError->partialResult !== null) throw $initialError;
                     if ($openTextCall || !empty($params['_agent_tool_history']) || !empty($params['_disable_compatibility_retry'])) throw $initialError;
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
@@ -283,10 +304,11 @@ class MarketTextModelRuntimeService
                 }
             }
             $usage = self::normalizeUsage((array)($result['usage'] ?? []));
-            if (self::canSettleUsage($model, $usage) && (int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0) {
+            $canSettle = self::canSettleUsage($model, $usage);
+            if ($canSettle && (int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0) {
                 $usage['prompt_tokens'] = (int)$usage['total_tokens'];
             }
-            $actual = self::quote($model, (int)$usage['prompt_tokens'], (int)$usage['completion_tokens']);
+            $actual = self::quote($model, $canSettle ? (int)$usage['prompt_tokens'] : 0, $canSettle ? (int)$usage['completion_tokens'] : 0);
             try {
                 self::settle($context, $actual, $usage, $result, (int)round((microtime(true) - $started) * 1000));
             } catch (\Throwable $settlementError) {
@@ -313,6 +335,10 @@ class MarketTextModelRuntimeService
             if($e instanceof TextSettlementPending)throw $e;
             if ($e instanceof MarketTextModelProviderException && $e->partialResult !== null) {
                 $result = $e->partialResult;
+                if ($homeAgent) {
+                    try { \app\common\service\app\aigc_llm\agent\AgentTextReceipt::record($context['consumption']->toArray(), $context['appTask']->toArray(), $result, false); }
+                    catch (\Throwable $receiptError) { Log::error('Agent partial text receipt failed for consumption '.$context['consumption']['id'].': '.get_class($receiptError)); }
+                }
                 $usage = self::normalizeUsage((array)$result['usage']) + ['usage_complete' => false];
                 if ($openTextCall) {
                     \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
@@ -320,6 +346,12 @@ class MarketTextModelRuntimeService
                 }
                 self::deferSettlement($context, $result, $usage, $e, true);
                 throw new TextSettlementPending((int)$context['consumption']['id'], $result, $usage, $e, '模型回复未完整结束，已保留收到的内容；费用待核对，未执行本轮工具，请勿重复提交');
+            }
+            if ($homeAgent && $result !== null) {
+                $usage = self::normalizeUsage((array)($result['usage'] ?? []));
+                try { self::deferSettlement($context, $result, $usage, $e); }
+                catch (\Throwable $persistError) { Log::error('Agent result review write failed: '.get_class($persistError)); }
+                throw new TextSettlementPending((int)$context['consumption']['id'], $result, $usage, $e);
             }
             if ($openTextCall && !\app\common\service\open_platform\OpenTextLifecycle::rejectionConfirmed()) {
                 \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
@@ -520,20 +552,27 @@ class MarketTextModelRuntimeService
     /** @return array<int, array<string, mixed>> */
     private static function options(int $tenantId, bool $vision): array
     {
+        return MarketCatalogReadScope::remember('text:' . $tenantId . ':' . (int)$vision, static fn(): array => self::buildOptions($tenantId, $vision));
+    }
+
+    private static function buildOptions(int $tenantId, bool $vision): array
+    {
         $products = PowerMarketProduct::where(['resource_type' => PowerMarketService::TYPE_MODEL, 'model_type' => 'text', 'status' => 1])
             ->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
         TenantPowerMarketService::applyProductDisplays($tenantId, $products);
+        $catalogueSkus = MarketCatalogSkuReader::forProducts($tenantId, array_column($products, 'id'));
         $options = [];
         foreach ($products as $product) {
             $snapshot = self::arrayValue($product['source_payload'] ?? []);
             if ($vision && !self::supportsVision($snapshot, $product)) {
                 continue;
             }
-            $prices = self::marketPrices($tenantId, (int)$product['id']);
+            $prices = self::formatMarketPrices($catalogueSkus[(int)$product['id']]['available'] ?? []);
             if ($prices === []) {
                 continue;
             }
             $meta = MarketModelCapabilities::applyMetadata($product, (array)($snapshot['market_metadata'] ?? []));
+            $capacity = TextModelCapacity::metadata(array_replace($meta, ['model_code' => (string)$product['upstream_model_code']]));
             $protocols = self::protocolList($meta['protocols'] ?? []);
             $options[] = [
                 'id' => (string)$product['id'],
@@ -551,9 +590,9 @@ class MarketTextModelRuntimeService
                 'protocol' => self::protocol((string)($meta['protocol'] ?? ''), $protocols, (string)$product['upstream_model_code']),
                 'protocols' => $protocols,
                 'max_tokens' => max(0, (int)($meta['max_tokens'] ?? 0)),
-                'max_output_tokens' => TextModelCapacity::metadata($meta)['max_output_tokens'],
-                'context_window' => TextModelCapacity::metadata($meta)['context_window'],
-                'max_input_tokens' => TextModelCapacity::metadata($meta)['max_input_tokens'],
+                'max_output_tokens' => $capacity['max_output_tokens'],
+                'context_window' => $capacity['context_window'],
+                'max_input_tokens' => $capacity['max_input_tokens'],
                 'default_params' => self::arrayValue($meta['default_params'] ?? []),
                 'params_schema' => self::arrayValue($meta['params_schema'] ?? []),
                 'capabilities' => array_replace(self::arrayValue($meta['capabilities'] ?? []), PowerMarketService::capability($product)),
@@ -591,19 +630,15 @@ class MarketTextModelRuntimeService
     }
 
     /** @return array<string, array<string, mixed>> */
-    private static function marketPrices(int $tenantId, int $productId): array
+    private static function formatMarketPrices(array $markets): array
     {
-        $rows = PowerMarketSku::where(['product_id' => $productId, 'status' => 1, 'sale_status' => 1])->select()->toArray();
         $valid = [];
-        foreach ($rows as $sku) {
-            $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
-            if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) {
-                continue;
-            }
+        foreach ($markets as $market) {
+            $sku = $market['sku'];
             $valid[] = [
                 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku),
                 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'],
-                'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points'],
+                'tenant_price' => $market['tenant_price'],
             ];
         }
         if ($valid === []) return [];
@@ -620,6 +655,18 @@ class MarketTextModelRuntimeService
     {
         $product['source_payload'] = $snapshot;
         return !empty(PowerMarketService::capability($product)['supports_vision']);
+    }
+
+    private static function assertAgentBalance(int $tenantId,int $userId,array $model): void
+    {
+        try {
+            PointService::assertCanConsumeAmounts($tenantId,$userId,
+                max((float)$model['input']['platform_price'],(float)$model['output']['platform_price'])>0?0.01:0,
+                max((float)$model['input']['tenant_price'],(float)$model['output']['tenant_price'])>0?0.01:0);
+        } catch (\RuntimeException $e) {
+            // The worker exposes admission errors; do not turn a shortage into an opaque retry message.
+            throw new TextAdmissionRejected($e->getMessage(),0,$e);
+        }
     }
 
     private static function quote(array $model, int $inputTokens, int $outputTokens): array
@@ -1174,6 +1221,10 @@ class MarketTextModelRuntimeService
             'max_tokens', 'callback_url', 'callback', 'idempotency_key',
             'market_product_id', 'market_sku_id', 'sku_id'
         ], true);
+        if (strtolower(trim((string)($model['model_code'] ?? ''))) === 'kimi-k3') {
+            // K3 output aliases are resolved by TextModelCapacity, not free-form options.
+            $excluded['max_completion_tokens'] = $excluded['max_output_tokens'] = true;
+        }
         $keys = [];
         foreach (array_keys($defaults) as $key) {
             $key = (string)$key;
@@ -1794,7 +1845,14 @@ class MarketTextModelRuntimeService
     private static function normalizeUsage(array $usage): array
     {
         $prompt = (int)($usage['prompt_tokens'] ?? $usage['input_tokens'] ?? 0); $completion = (int)($usage['completion_tokens'] ?? $usage['output_tokens'] ?? 0);
-        return ['prompt_tokens' => max(0, $prompt), 'completion_tokens' => max(0, $completion), 'total_tokens' => max(0, (int)($usage['total_tokens'] ?? $usage['totalTokens'] ?? ($prompt + $completion))), 'provider_reported' => $usage !== []];
+        $fields=['input'=>isset($usage['prompt_tokens'])||isset($usage['input_tokens']),
+            'output'=>isset($usage['completion_tokens'])||isset($usage['output_tokens']),
+            'total'=>isset($usage['total_tokens'])||isset($usage['totalTokens']),'valid'=>true];
+        foreach(['prompt_tokens','input_tokens','completion_tokens','output_tokens','total_tokens','totalTokens'] as $key){
+            if(isset($usage[$key])&&(!is_numeric($usage[$key])||!is_finite((float)$usage[$key])||(float)$usage[$key]<0||(float)$usage[$key]!==floor((float)$usage[$key])))$fields['valid']=false;
+        }
+        return ['prompt_tokens' => max(0, $prompt), 'completion_tokens' => max(0, $completion), 'total_tokens' => max(0, (int)($usage['total_tokens'] ?? $usage['totalTokens'] ?? ($prompt + $completion))), 'provider_reported' => $usage['provider_reported'] ?? $usage !== [],
+            'token_fields'=>$usage['token_fields']??$fields];
     }
 
     private static function canSettleUsage(array $model, array $usage): bool
@@ -1809,17 +1867,21 @@ class MarketTextModelRuntimeService
     {
         $prompt = (int)($usage['prompt_tokens'] ?? 0);
         $completion = (int)($usage['completion_tokens'] ?? 0);
-        if ($prompt > 0 || $completion > 0) {
-            return true;
-        }
         $total = (int)($usage['total_tokens'] ?? 0);
+        $fields=$usage['token_fields']??['input'=>isset($usage['prompt_tokens']),'output'=>isset($usage['completion_tokens']),'total'=>isset($usage['total_tokens']),'valid'=>true];
+        if(empty($fields['valid'])||$prompt<0||$completion<0||$total<0)return false;
+        if(!empty($fields['input'])||!empty($fields['output'])){
+            // Missing is not zero. Inconsistent totals are not a basis for a charge.
+            return !empty($fields['input'])&&!empty($fields['output'])&&($prompt+$completion)>0
+                &&(empty($fields['total'])||$total===$prompt+$completion);
+        }
         if ($total <= 0) {
             return false;
         }
         $input = (array)($snapshot['input'] ?? []);
         $output = (array)($snapshot['output'] ?? []);
-        return (float)($input['platform_price'] ?? 0) === (float)($output['platform_price'] ?? 0)
-            && (float)($input['tenant_price'] ?? 0) === (float)($output['tenant_price'] ?? 0);
+        return (float)($input['platform_price'] ?? 0) / MarketUsageSettlementService::unitSize($input) === (float)($output['platform_price'] ?? 0) / MarketUsageSettlementService::unitSize($output)
+            && (float)($input['tenant_price'] ?? 0) / MarketUsageSettlementService::unitSize($input) === (float)($output['tenant_price'] ?? 0) / MarketUsageSettlementService::unitSize($output);
     }
 
     private static function protocol(string $default, array $protocols, string $modelCode = ''): string

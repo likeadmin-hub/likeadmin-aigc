@@ -16,7 +16,7 @@ final class AgentArtifactService
     public static function lists(int $tenant,int $user,int $session,int $before=0,bool $all=false,string $kind=''): array
     {
         if(!$all && $session<1)return [];
-        $query=AgentStore::owner('artifact',$tenant,$user);
+        $query=AgentWorkspaceScope::artifacts(AgentStore::owner('artifact',$tenant,$user),$tenant,$user);
         if(!$all)$query->where('session_id',$session);
         if($before>0)$query->where('id','<',$before);
         if($kind!=='' && $kind!=='all'){
@@ -47,17 +47,25 @@ final class AgentArtifactService
         return $output;
     }
     /** Read the submitted native task, never the proposal, artifact title or current preferences. */
-    private static function generationMetadata(array $artifact): ?array
+    public static function canvasGeneration(array $artifact): ?array
+    {
+        if (!in_array($artifact['kind'] ?? '', ['image','video','audio'], true)) return null;
+        return self::generationMetadata($artifact, true);
+    }
+    private static function generationMetadata(array $artifact, bool $canvas = false): ?array
     {
         $tenant=(int)$artifact['tenant_id'];$user=(int)$artifact['user_id'];
         $step=AgentStore::owner('step',$tenant,$user)->where(['id'=>$artifact['step_id'],'run_id'=>$artifact['run_id']])->find();
         if($step&&$step['tool_code']===AgentSpeechTool::CODE){
+            if ($canvas) return null; // Speech must never be replayed as music.
             $task=\app\common\model\ai\AiAppTask::where(['id'=>$step['task_id'],'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>'agent_speech'])->find();
             return $task?array_intersect_key((array)$task['request_summary'],array_flip(['prompt','model_name','characters','format'])):null;
         }
         if(!$step||!in_array($step['tool_code'],['aigc_image','aigc_video','aigc_music','aigc_fitting'],true)||!(int)$step['task_id'])return null;
         $task=Db::name($step['tool_code'].'_task')->where(['id'=>$step['task_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find();
         if(!$task)return null;
+        $canvasTools = ['video'=>['aigc_video'], 'image'=>['aigc_image','aigc_fitting'], 'audio'=>['aigc_music']];
+        if ($canvas && !in_array($step['tool_code'], $canvasTools[$artifact['kind'] ?? ''] ?? [], true)) return null;
         if($step['tool_code']==='aigc_fitting'){
             $reference=self::libraryReference($artifact);
             if(!$reference)return null;
@@ -68,12 +76,41 @@ final class AgentArtifactService
         // Whitelist public creation settings; model snapshots can contain provider credentials.
         $meta=array_intersect_key($task,array_flip(['prompt','negative_prompt','quality','ratio','duration','quantity','style','lyrics','genre','mood','instruments','language']));
         $meta['model_name']=AiTaskRecordService::modelDisplayName($task,$step['tool_code']);
+        if ($canvas && $step['tool_code'] === 'aigc_music') {
+            $submitted = AgentStore::json($task['provider_payload'] ?? [])['generation'] ?? [];
+            $meta += array_intersect_key((array)$submitted, array_flip(['custom','instrumental','vocal_gender','language','style']));
+            $meta['title'] = (string)($task['title'] ?? '');
+            // Old tasks did not persist mode flags. Lyrics still prove custom mode.
+            if (!array_key_exists('custom', $meta) && !empty($task['lyrics'])) $meta['custom'] = true;
+            $meta['style'] ??= (string)($task['genre'] ?? '');
+        }
         $snapshot=AgentStore::json($task['model_json']??[]);
+        if ($canvas) {
+            $provider = AgentStore::json($task['provider_params_json'] ?? []);
+            $meta += array_intersect_key($task, array_flip(['channel','model','market_product_id','market_sku_id']));
+            $meta['task_id'] = (int)$task['id'];
+            $meta['tool_code'] = $step['tool_code'] === 'aigc_fitting' ? 'aigc_image' : $step['tool_code'];
+            $meta['model_id'] = (string)($task['channel'] ?? $snapshot['model_id'] ?? '');
+            $meta['market_product_id'] = (int)($task['market_product_id'] ?? $snapshot['market_product_id'] ?? 0);
+            $meta['market_sku_id'] = (int)($task['market_sku_id'] ?? $snapshot['market_sku_id'] ?? $provider['market_sku_id'] ?? 0);
+            if ((!$meta['market_product_id'] || !$meta['market_sku_id']) && !empty($task['app_task_id'])) {
+                $consumption = Db::name('ai_consumption_log')->where(['tenant_id'=>$tenant,'user_id'=>$user,'app_task_id'=>$task['app_task_id']])->order('id','asc')->find();
+                if ($consumption) {
+                    $price = AgentStore::json($consumption['price_snapshot'] ?? []);
+                    $meta['market_product_id'] = $meta['market_product_id'] ?: (int)($consumption['product_id'] ?? 0);
+                    $meta['market_sku_id'] = $meta['market_sku_id'] ?: (int)($price['sku_id'] ?? 0);
+                }
+            }
+            if (!$meta['market_product_id'] && preg_match('/^market_(?:image_model|video_model|video_app|nano_banana):(\d+)(?::|$)/', $meta['model_id'], $match)) $meta['market_product_id'] = (int)$match[1];
+            $meta['generation_method'] = (string)($snapshot['generation_method'] ?? $task['generation_method'] ?? '');
+            $meta['mode'] = (string)($snapshot['mode'] ?? '');
+        }
         $meta['effect_name']=(string)($snapshot['effect_snapshot']['name']??'');
         $meta['options']=array_intersect_key((array)($snapshot['q4_options']??[]),array_flip(['audio','is_rec','watermark','seed']));
+        if ($canvas) $meta['options'] = array_intersect_key(array_merge($provider, (array)($snapshot['q4_options'] ?? [])), array_flip(['audio','generate_audio','is_rec','watermark','seed','wm_position','camera_fixed','prompt_extend','negative_prompt']));
         $meta['references']=[];
         $references=AgentStore::json($task['reference_assets']??[]);
-        foreach(AgentStore::json($task['reference_images']??[]) as $url)if(is_string($url))$references[]=['url'=>$url,'type'=>'image'];
+        foreach(AgentStore::json($task['reference_images']??[]) as $url)if(is_string($url) && !array_filter($references, static fn($item) => is_array($item) && ($item['type'] ?? 'image') === 'image' && in_array($url, [$item['url'] ?? '', $item['uri'] ?? ''], true)))$references[]=['url'=>$url,'type'=>'image'];
         foreach($references as $reference){
             if(!is_array($reference))continue;
             $url=trim((string)($reference['url']??$reference['uri']??''));
@@ -82,9 +119,15 @@ final class AgentArtifactService
                 if(preg_match('~^[a-z][a-z0-9+.-]*:~i',$url))continue;
                 $url=FileService::getFileUrl($url);
             }
-            if(in_array($url,array_column($meta['references'],'url'),true))continue;
             $type=$reference['type']??'image';
-            if(in_array($type,['image','video','audio'],true))$meta['references'][]=['url'=>$url,'type'=>$type];
+            $role = $canvas ? (string)($reference['role'] ?? '') : '';
+            // A URL may intentionally occupy both first/last frame slots.
+            if (array_filter($meta['references'], static fn($item) => $item['url'] === $url && ($item['role'] ?? '') === $role)) continue;
+            if (in_array($type,['image','video','audio'],true)) {
+                $item=['url'=>$url,'type'=>$type];
+                if ($canvas) $item += array_intersect_key($reference, array_flip(['name','role','generation_method','duration','start','end']));
+                $meta['references'][]=$item;
+            }
         }
         return $meta;
     }
@@ -129,23 +172,47 @@ final class AgentArtifactService
         }else $id=Db::name($step['tool_code'].'_result')->where($scope)->value('id');
         return $id ? $source.':result:'.$id : null;
     }
-    private static function save(array $run,int $step,string $title,string $kind,string $file,array $storage,array $extra=[]): void
+    private static function save(array $run,int $step,string $title,string $kind,string $file,array $storage,array $extra=[]): int
     {
         $identity=hash('sha256',$run['session_id'].':'.$file);
-        if(AgentStore::owner('artifact',(int)$run['tenant_id'],(int)$run['user_id'])->where('identity_hash',$identity)->find())return;
-        AgentStore::table('artifact')->insert(['tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'session_id'=>$run['session_id'],'run_id'=>$run['id'],'step_id'=>$step,'identity_hash'=>$identity,'title'=>mb_substr($title,0,200),'kind'=>$kind,'data'=>AgentStore::encode(['file_id'=>$file]+$extra),'storage_scope'=>$storage['storage_scope'],'storage_engine'=>$storage['storage_engine'],'storage_domain'=>$storage['storage_domain']??'','favorite'=>0,'create_time'=>time()]);
+        $existing=AgentStore::owner('artifact',(int)$run['tenant_id'],(int)$run['user_id'])->where('identity_hash',$identity)->find();
+        if($existing){self::writeCanvas($run,(int)$existing['id'],$file,$kind,$title);return (int)$existing['id'];}
+        $id=(int)AgentStore::table('artifact')->insertGetId(['tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'session_id'=>$run['session_id'],'run_id'=>$run['id'],'step_id'=>$step,'identity_hash'=>$identity,'title'=>mb_substr($title,0,200),'kind'=>$kind,'data'=>AgentStore::encode(['file_id'=>$file]+$extra),'storage_scope'=>$storage['storage_scope'],'storage_engine'=>$storage['storage_engine'],'storage_domain'=>$storage['storage_domain']??'','favorite'=>0,'create_time'=>time()]);
         AgentStore::event($run,'artifact.created',['file_id'=>$file,'kind'=>$kind]);
         AgentContextService::created($run,$file);
+        self::writeCanvas($run,$id,$file,$kind,$title);
+        return $id;
     }
-    public static function collect(array $run,array $step,array $result): void
+    private static function writeCanvas(array $run,int $id,string $file,string $kind,string $title): void
     {
+        try { \app\common\service\app\aigc_canvas\CanvasConversationTools::artifact($run,$id,$file,$kind,$title); }
+        catch(\InvalidArgumentException $e) { AgentStore::event($run,'canvas.write_skipped',['artifact_id'=>$id,'message'=>$e->getMessage()]); }
+    }
+    public static function collect(array $run,array $step,array $result): array
+    {
+        $ids=[];
         foreach((array)($result['results']??[]) as $row){
             if(!is_array($row))continue;
             $file=OpenAssets::registerResult((int)$run['tenant_id'],(int)$run['user_id'],$step['tool_code']===AgentSpeechTool::CODE?'aigc_llm':$step['tool_code'],$row);
             if(!$file)continue;
             $kind=!empty($row['video_uri'])?'video':(!empty($row['audio_uri'])?'audio':(!empty($row['image_uri'])?'image':'document'));
-            self::save($run,(int)$step['id'],$step['title'],$kind,$file,$row);
+            $ids[]=self::save($run,(int)$step['id'],$step['title'],$kind,$file,$row);
         }
+        return array_values(array_unique($ids));
+    }
+    /** Step-to-output links are separate from the session gallery's file deduplication. */
+    public static function forSteps(array $run,array $steps): array
+    {
+        $ids=[];foreach($steps as $step)foreach(AgentStore::json($step['result'])['_agent_artifact_ids']??[] as $id)$ids[]=(int)$id;
+        $query=AgentStore::owner('artifact',(int)$run['tenant_id'],(int)$run['user_id'])->where('session_id',$run['session_id']);
+        $rows=$query->where(function($q)use($ids,$run){$q->where('run_id',$run['id']);if($ids)$q->whereOr('id','in',$ids);})->select()->toArray();
+        $out=[];
+        foreach($steps as $step){
+            $refs=array_map('intval',AgentStore::json($step['result'])['_agent_artifact_ids']??[]);
+            foreach($rows as $row)if(in_array((int)$row['id'],$refs,true)||((int)$row['run_id']===(int)$run['id']&&(int)$row['step_id']===(int)$step['id']))
+                $out[]=array_replace($row,['step_id'=>(int)$step['id']]);
+        }
+        return $out;
     }
     /** Minimal OOXML, with escaped plain paragraphs and no executable or external content. */
     public static function writeDocx(string $path,string $title,string $content): void

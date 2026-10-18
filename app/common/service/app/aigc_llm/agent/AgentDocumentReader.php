@@ -25,11 +25,28 @@ final class AgentDocumentReader
         if (!self::supports((string)$row['name'])) throw new \InvalidArgumentException('当前可读取 TXT、Markdown、CSV 和 DOCX 正文，请转换格式后上传');
         if ((int)$row['size'] > self::MAX_BYTES) throw new \InvalidArgumentException('文档不能超过10MB，请拆分后上传');
         if ((string)$row['storage_engine'] === 'local') {
+            clearstatcache();
             $root = realpath(public_path().'uploads');
             $path = realpath(public_path().ltrim((string)$row['uri'], '/'));
             if (!$root || !$path || !str_starts_with($path, $root.DIRECTORY_SEPARATOR) || !is_file($path)) throw new \InvalidArgumentException('文档文件不可用，请重新上传');
-            return self::extract($path, (string)$row['name']);
+            clearstatcache(true,$path);
+            if(filesize($path)>self::MAX_BYTES)throw new \InvalidArgumentException('文档不能超过10MB，请拆分后上传');
+            $digest=hash_file('sha256',$path);
+            if($digest===false)throw new \InvalidArgumentException('文档暂时无法读取');
+            $key='document:'.hash('sha256',serialize([$tenant,$user,$row,$digest]));
+            return AgentReadCache::remember($key,static function()use($path,$row,$digest){
+                $text=self::extract($path,(string)$row['name']);
+                if(hash_file('sha256',$path)!==$digest)throw new \InvalidArgumentException('资料在读取期间发生更改，请重新读取');
+                return $text;
+            });
         }
+        // A remote object can be replaced without changing its database metadata.
+        // No immutable version/ETag contract is available here: read the current object.
+        return self::download($row);
+    }
+
+    private static function download(array $row): string
+    {
         $temp = tempnam(sys_get_temp_dir(), 'agent-doc-');
         if ($temp === false) throw new \InvalidArgumentException('文档暂时无法读取，请稍后重试');
         try {

@@ -22,11 +22,12 @@ try {
     $connection['prefix'] = $prefix;
     $config['connections']['mysql'] = $connection;
     Config::set($config, 'database');
+    Db::connect(null,true);
 
     // Full installs create these platform-core tables before app-center installation begins.
     foreach ([
         'app', 'app_api', 'app_frontend_entry', 'app_install', 'app_migration', 'app_version',
-        'tenant', 'tenant_app', 'system_menu', 'tenant_system_menu',
+        'tenant', 'tenant_app', 'system_menu', 'tenant_system_menu', 'tenant_system_role_menu',
     ] as $table) {
         Db::execute("CREATE TABLE `{$prefix}{$table}` LIKE `la_{$table}`");
     }
@@ -46,6 +47,11 @@ try {
     if (count((array)($install['migrations'] ?? [])) === 0) {
         $failures[] = 'local app migrations did not execute';
     }
+
+    // Native project deletion must work even before the optional conversation tables exist.
+    $project=\app\common\service\app\aigc_canvas\AigcCanvasService::createProject(701,801,['name'=>'standalone fixture','nodes'=>[],'edges'=>[],'viewport'=>[]]);
+    \app\common\service\app\aigc_canvas\AigcCanvasService::deleteProject(701,801,(int)$project['id']);
+    if (!(int)Db::name('aigc_canvas_project')->where('id',$project['id'])->value('delete_time')) $failures[]='standalone native project deletion failed';
 
     // The core install owns this durable table. Create its isolated equivalent
     // so the app upgrade scripts can verify their additive columns and indexes.

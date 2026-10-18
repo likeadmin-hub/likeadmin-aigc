@@ -52,8 +52,12 @@ final class AgentCapabilityCatalog
     }
     public static function models(int $tenant): array
     {
-        $text=AigcLlmService::config($tenant)['option_config']??[];
-        $text['models']=array_values(array_filter($text['models']??[],static function($model)use($tenant){try{\app\common\service\power\MarketTextModelRuntimeService::resolveAgentModel($tenant,(string)$model['code']);return true;}catch(\Exception){return false;}}));
+        return \app\common\service\power\MarketCatalogReadScope::run(static fn(): array => self::buildModels($tenant));
+    }
+
+    private static function buildModels(int $tenant): array
+    {
+        $text=AgentComposerSettings::textOptions($tenant);
         return ['text'=>$text,'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>self::creationConfig($tenant,'aigc_video')['option_config']??[],'music'=>self::SERVICES['aigc_music']::config($tenant)['option_config']??[],'voice'=>AgentSpeechTool::models($tenant)];
     }
     public static function withAudioDefaults(int $tenant,array $preferences): array
@@ -76,9 +80,9 @@ final class AgentCapabilityCatalog
         self::authorize((int)$run['tenant_id'],(int)$run['user_id'],$code);
         $type=self::TYPES[$code];
         $selection=self::selection($run,$type);
-        return ['code'=>$code,'schema'=>self::schema($code),'constraints'=>AgentExtendedTools::constraints($code),'selected_model'=>AgentCreationContext::selectedModel(
+        return ['code'=>$code,'schema'=>self::schema($code),'constraints'=>AgentExtendedTools::constraints($code),'generation_preferences'=>AgentComposerSettings::parameters(AgentStore::json($run['preferences']),$code),'selected_model'=>AgentCreationContext::selectedModel(
             self::creationConfig((int)$run['tenant_id'],$code)['option_config']??[],$selection),
-            'instruction'=>'只能使用 selected_model；不自行替换。费用只能引用 plan_creation 成功返回的估价。素材字段仅传用户 file_id；试衣分别传 garment_images 服装图、model_images 模特图，不能猜测角色。音乐只支持歌曲或纯音乐，不支持配音/TTS；必须向用户说明 constraints 中的能力限制，不能承诺精确时长，也不能把计费规格说成输出时长保证。参数不兼容时解释具体原因，不能声称方案已经保存。'];
+            'instruction'=>'generation_preferences 是用户指定的参数，必须遵守；未指定的参数按需求与模型能力规划。只能使用 selected_model；不自行替换。费用只能引用 plan_creation 成功返回的估价。素材字段仅传用户 file_id；试衣分别传 garment_images 服装图、model_images 模特图，不能猜测角色。音乐只支持歌曲或纯音乐，不支持配音/TTS；必须向用户说明 constraints 中的能力限制，不能承诺精确时长，也不能把计费规格说成输出时长保证。参数不兼容时解释具体原因，不能声称方案已经保存。'];
     }
     public static function prepare(array $run,string $code,array $params): array
     {
@@ -87,6 +91,7 @@ final class AgentCapabilityCatalog
         $tenant=(int)$run['tenant_id'];$user=(int)$run['user_id'];self::authorize($tenant,$user,$code);
         // Only fields declared by this native adapter are accepted from the model.
         unset($params['model_id'],$params['channel']);
+        $params=array_replace($params,AgentComposerSettings::parameters(AgentStore::json($run['preferences']),$code));
         OpenSchema::validateRequest($params,self::schema($code),true);
         OpenPolicy::validateInput($params);$inputs=$params;
         $params=OpenMaterials::resolve($tenant,$user,$params);OpenSafeHttp::checkInputs($params);
@@ -103,7 +108,10 @@ final class AgentCapabilityCatalog
         }
         elseif($code==='aigc_image')$quote=OpenImagePricing::applicationBudget($tenant,$user,$params);
         else{
-            $capture=AigcVideoService::openPlatformAdmission($tenant,$params);$quote=OpenToolAdapter::estimateBudget($capture['quote']);
+            $capture=AigcVideoService::openPlatformAdmission($tenant,$params);
+            $fixed=AgentComposerSettings::parameters(AgentStore::json($run['preferences']),$code);
+            if(isset($fixed['duration'])&&(int)$capture['params']['duration']!==(int)$fixed['duration'])throw new \InvalidArgumentException('所选视频模型不支持指定时长，请调整生成偏好');
+            $quote=OpenToolAdapter::estimateBudget($capture['quote']);
             if(!$quote)throw new \InvalidArgumentException('当前视频模型无法提供可靠估价');
             $quote['snapshot']['native_video_blob']=OpenVault::seal(OpenStore::encode(['tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>$code]+$capture));
         }

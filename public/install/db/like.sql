@@ -4731,6 +4731,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_llm_sensitive_word` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC对话敏感词';
 
 CREATE TABLE IF NOT EXISTS `la_aigc_llm_session` (
+  `workspace_key` varchar(160) NOT NULL DEFAULT 'home',
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `user_id` int unsigned NOT NULL DEFAULT 0,
@@ -4989,11 +4990,7 @@ VALUES
 (9155,0,9122,'C','基础配置','',50,'app.aigc_digital_human.config/detail','config','apps/aigc_digital_human/config','','',0,1,0,'aigc_digital_human','app','aigc_digital_human_config',0,1778000000,1778000000),
 (9156,0,9136,'C','基础配置','',30,'app.aigc_canvas.config/detail','config','apps/aigc_canvas/config','','',0,1,0,'aigc_canvas','app','aigc_canvas_config',0,1778000000,1778000000);
 
-INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
-VALUES
-(0,9136,'C','Skills管理','',40,'app.aigc_canvas.skill/lists','skill','apps/aigc_canvas/skill','','',0,1,0,'aigc_canvas','app','aigc_canvas_skill',0,1778000000,1778000000),
-(0,9136,'C','Agent 治理','',50,'app.aigc_canvas.governance/policies','governance','apps/aigc_canvas/governance','','',0,1,0,'aigc_canvas','app','aigc_canvas_governance',0,1778000000,1778000000),
-(0,9136,'C','Agent Trace','',60,'app.aigc_canvas.admin_trace/lists','trace','apps/aigc_canvas/trace','','',0,1,0,'aigc_canvas','app','aigc_canvas_trace',0,1778000000,1778000000);
+
 
 -- Migration snapshot: aigc_video/migrations/zz_20260521_happy_horse_channel.sql
 
@@ -12250,13 +12247,14 @@ UPDATE `la_app_plan` SET `status`=0 WHERE `app_code`='aigc_pic_lipsync';
 
 -- Home creation Agent. Additive and safe to repeat.
 CREATE TABLE IF NOT EXISTS `la_aigc_llm_agent_preference` (
+  `workspace_key` varchar(160) NOT NULL DEFAULT 'aigc_llm',
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `tenant_id` int unsigned NOT NULL,
   `user_id` int unsigned NOT NULL,
   `preferences` mediumtext NOT NULL,
   `create_time` int unsigned NOT NULL,
   `update_time` int unsigned NOT NULL,
-  UNIQUE KEY `owner` (`tenant_id`,`user_id`),
+  UNIQUE KEY `owner` (`tenant_id`,`user_id`,`workspace_key`),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -13110,3 +13108,69 @@ CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_attempt` (
   `create_time` int unsigned NOT NULL DEFAULT 0,
   `update_time` int unsigned NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `uk_execution` (`task_id`,`segment_id`,`kind`,`attempt_no`), KEY `idx_consumption` (`consumption_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微视频attempt';
+-- Canvas template catalog: directly after Skills (descending menu sort).
+INSERT INTO `la_tenant_system_menu` (tenant_id,pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
+SELECT parent.tenant_id,parent.id,'C','模板管理','',35,'app.aigc_canvas.template/detail','template','apps/aigc_canvas/template','','',0,1,0,'aigc_canvas','app','aigc_canvas_template',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_tenant_system_menu` parent WHERE parent.app_code='aigc_canvas' AND parent.source='app' AND parent.source_menu_key='aigc_canvas'
+AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` existing WHERE existing.tenant_id=parent.tenant_id AND existing.app_code='aigc_canvas' AND existing.source_menu_key='aigc_canvas_template');
+INSERT INTO `la_tenant_system_menu` (tenant_id,pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
+SELECT parent.tenant_id,parent.id,'A','发布模板','',0,'app.aigc_canvas.template/publish','','','','',0,0,0,'aigc_canvas','app','aigc_canvas_template_publish',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_tenant_system_menu` parent WHERE parent.app_code='aigc_canvas' AND parent.source='app' AND parent.source_menu_key='aigc_canvas_template'
+AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` existing WHERE existing.tenant_id=parent.tenant_id AND existing.app_code='aigc_canvas' AND existing.source_menu_key='aigc_canvas_template_publish');
+INSERT INTO `la_app_api` (app_code,api_path,api_method,permission_key,scene,need_login,need_role_permission,status,create_time,update_time) SELECT 'aigc_canvas','app.aigc_canvas.template/detail','GET','aigc_canvas:template:detail','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS (SELECT 1 FROM `la_app_api` WHERE app_code='aigc_canvas' AND api_path='app.aigc_canvas.template/detail' AND api_method='GET' AND scene='tenant_admin');
+INSERT INTO `la_app_api` (app_code,api_path,api_method,permission_key,scene,need_login,need_role_permission,status,create_time,update_time) SELECT 'aigc_canvas','app.aigc_canvas.template/publish','POST','aigc_canvas:template:publish','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() WHERE NOT EXISTS (SELECT 1 FROM `la_app_api` WHERE app_code='aigc_canvas' AND api_path='app.aigc_canvas.template/publish' AND api_method='POST' AND scene='tenant_admin');
+
+-- Canvas legacy Agent retirement
+-- Retain the first pre-adaptation snapshot; never overwrite it on retries.
+CREATE TABLE IF NOT EXISTS `la_aigc_canvas_project_compat_backup` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `project_id` int unsigned NOT NULL,
+  `snapshot_json` longtext NOT NULL,
+  `create_time` int unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `project_owner` (`tenant_id`,`user_id`,`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Original canvas project snapshots before compatibility adaptation';
+
+-- Retire old Canvas Agent entry points; preserve all project, asset and history tables.
+INSERT INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`)
+SELECT 'aigc_canvas','app.aigc_canvas.generate/assetRegister','POST','aigc_canvas:asset:register','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_app_api` WHERE `app_code`='aigc_canvas' AND `api_path`='app.aigc_canvas.generate/assetRegister' AND `scene`='user' AND `api_method`='POST');
+INSERT INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`)
+SELECT 'aigc_canvas','app.aigc_canvas.agent/assetRegister','POST','aigc_canvas:asset:register','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_app_api` WHERE `app_code`='aigc_canvas' AND `api_path`='app.aigc_canvas.agent/assetRegister' AND `scene`='user' AND `api_method`='POST');
+DELETE FROM `la_tenant_system_role_menu` WHERE `menu_id` IN (
+SELECT `id` FROM `la_tenant_system_menu` WHERE `app_code`='aigc_canvas' AND `source`='app'
+AND `source_menu_key` IN ('aigc_canvas_skill','aigc_canvas_governance','aigc_canvas_trace'));
+DELETE FROM `la_tenant_system_menu` WHERE `app_code`='aigc_canvas' AND `source`='app'
+AND `source_menu_key` IN ('aigc_canvas_skill','aigc_canvas_governance','aigc_canvas_trace');
+DELETE FROM `la_app_api` WHERE `app_code`='aigc_canvas' AND (
+(`api_path` LIKE 'app.aigc_canvas.agent/%' AND `api_path` <> 'app.aigc_canvas.agent/assetRegister')
+OR `api_path` LIKE 'app.aigc_canvas.agent_chat/%'
+OR `api_path` LIKE 'app.aigc_canvas.agent_tool/%'
+OR `api_path` LIKE 'app.aigc_canvas.agent_generation/%'
+OR `api_path` LIKE 'app.aigc_canvas.skill/%'
+OR `api_path` LIKE 'app.aigc_canvas.governance/%'
+OR `api_path` LIKE 'app.aigc_canvas.admin_trace/%');
+
+-- Canvas can be installed before the conversation application. Keep its shared preference schema identical.
+CREATE TABLE IF NOT EXISTS `la_aigc_llm_agent_preference` (
+  `workspace_key` varchar(160) NOT NULL DEFAULT 'aigc_llm',
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `preferences` mediumtext NOT NULL,
+  `create_time` int unsigned NOT NULL,
+  `update_time` int unsigned NOT NULL,
+  UNIQUE KEY `owner` (`tenant_id`,`user_id`,`workspace_key`),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Freeze the former user-wide canvas preferences separately for each existing project.
+-- The unique owner key makes app/system upgrades and retries idempotent.
+INSERT IGNORE INTO `la_aigc_llm_agent_preference` (`tenant_id`,`user_id`,`workspace_key`,`preferences`,`create_time`,`update_time`)
+SELECT p.tenant_id,p.user_id,CONCAT('canvas:',p.id),
+COALESCE((SELECT legacy.preferences FROM `la_aigc_llm_agent_preference` legacy WHERE legacy.tenant_id=p.tenant_id AND legacy.user_id=p.user_id AND legacy.workspace_key='aigc_canvas' LIMIT 1),'{"mode":"ask","models":{}}'),
+UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_aigc_canvas_project` p WHERE p.delete_time=0 AND p.tenant_id>0 AND p.user_id>0;

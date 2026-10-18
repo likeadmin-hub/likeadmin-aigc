@@ -142,7 +142,8 @@ class AigcMusicService
             'provider' => $selection['channel']['provider'],
             'model' => $selection['channel']['model'],
             'idempotency_key' => self::idempotencyKey($payload),
-            'provider_payload' => $agent ? ['home_agent_step_id'=>\app\common\service\app\aigc_llm\agent\AgentToolContext::musicStepId()] : [],
+            'provider_payload' => ['generation'=>array_intersect_key($payload, array_flip(['custom','instrumental','vocal_gender','language','style']))]
+                + ($agent ? ['home_agent_step_id'=>\app\common\service\app\aigc_llm\agent\AgentToolContext::musicStepId()] : []),
             'billing_status' => 'prechecked',
             'safety_status' => 'passed',
             'status' => 'running',

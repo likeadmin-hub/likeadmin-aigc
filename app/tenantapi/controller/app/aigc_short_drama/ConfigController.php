@@ -10,7 +10,9 @@ class ConfigController extends BaseAdminController
 {
     public function detail()
     {
-        return $this->success('获取成功', AigcShortDramaService::config($this->tenantId));
+        $data = AigcShortDramaService::config($this->tenantId);
+        $data = \app\common\service\LikeAdminBrandService::publicPresentation($data, (int)$this->request->get('presentation_schema', 0));
+        return $this->success('获取成功', $data);
     }
 
     public function setup()

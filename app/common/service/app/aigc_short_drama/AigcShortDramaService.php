@@ -572,11 +572,12 @@ class AigcShortDramaService
         if (isset($params['ratios']) && is_array($params['ratios'])) {
             $config['ratios'] = self::normalizeRatioConfig($params['ratios'], (array)($current['ratios'] ?? []));
         }
+        $params = \app\common\service\LikeAdminBrandService::configuration($params);
         if (array_key_exists('home_style', $params)) {
-            $config['home_style'] = in_array($params['home_style'], ['default', 'imagine'], true) ? $params['home_style'] : 'imagine';
+            $config['home_style'] = in_array($params['home_style'], ['default', 'likeadmin'], true) ? $params['home_style'] : 'likeadmin';
         }
-        if (isset($params['imagine_background']) && is_array($params['imagine_background'])) {
-            $config['imagine_background'] = self::normalizeImagineBackground($params['imagine_background']);
+        if (isset($params['likeadmin_background']) && is_array($params['likeadmin_background'])) {
+            $config['likeadmin_background'] = self::normalizeInspirationBackground($params['likeadmin_background']);
         }
         if (array_key_exists('prompt_max_length', $params)) {
             $config['prompt_max_length'] = max(0, min(200000, (int)$params['prompt_max_length']));
@@ -1456,7 +1457,7 @@ class AigcShortDramaService
         ]);
     }
 
-    public static function subjectLibraryLists(int $tenantId, int $userId, array $params = []): array
+    public static function subjectLibraryLists(int $tenantId, int $userId, array $params = [], bool $includeThreeViews = true): array
     {
         $scope = (string)($params['scope'] ?? $params['source'] ?? 'public');
         $scope = $scope === 'user' ? 'user' : 'public';
@@ -1492,6 +1493,7 @@ class AigcShortDramaService
         $count = (int)(clone $query)->count();
         $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
         $subjectIds = array_map(static fn($row) => (int)($row['id'] ?? 0), $rows);
+        if(!$includeThreeViews)return ['lists'=>array_map(static fn($row)=>['id'=>(int)$row['id'],'name'=>(string)$row['name'],'image'=>self::subjectStoredFileUrl($row,'image'),'description'=>(string)$row['description'],'category'=>(string)$row['category'],'scope'=>$scope],$rows),'count'=>$count,'page_no'=>$pageNo,'page_size'=>$pageSize];
         $threeViewMap = self::latestSubjectLibraryAssets($tenantId, $userId, $subjectIds, 'three_view');
 
         return self::sanitizeUtf8Payload([
@@ -1502,6 +1504,28 @@ class AigcShortDramaService
             'page_no' => $pageNo,
             'page_size' => $pageSize,
         ]);
+    }
+
+    /** Authorized subject projection for Agent references; never accept client URLs. */
+    public static function agentSubjectReference(int $tenantId, int $userId, int $id): array
+    {
+        $row=AigcShortDramaSubject::where(['id'=>$id,'status'=>1,'delete_time'=>0])->findOrEmpty();
+        if($row->isEmpty())throw new \InvalidArgumentException('主体不存在或已停用');
+        $data=$row->getData();
+        $owned=$data['source']==='user'&&(int)$data['tenant_id']===$tenantId&&(int)$data['user_id']===$userId;
+        $public=$data['source']==='public'&&(int)$data['user_id']===0&&in_array((int)$data['tenant_id'],[0,$tenantId],true)&&!in_array($data['name'],self::LEGACY_PUBLIC_SUBJECT_NAMES,true);
+        if(!$owned&&!$public)throw new \InvalidArgumentException('主体不存在或无权引用');
+        $uri=self::storageCanonicalUri((string)($data['image']??''));
+        if($uri==='')throw new \InvalidArgumentException('主体尚未添加参考图片');
+        $storage=self::storageInfoForUploadedFile((int)$data['tenant_id'],$uri);
+        // A subject's editable image field cannot grant another account's upload.
+        if($owned && !Db::name('tenant_file')->where(['tenant_id'=>$tenantId,'source_id'=>$userId,'source'=>FileEnum::SOURCE_USER])
+            ->whereIn('uri',self::storageLookupUris($uri))->where(function($q){$q->whereNull('delete_time')->whereOr('delete_time',0);})->find())$storage=[];
+        if(!$storage)$storage=self::storageInfoForShortDramaAsset((int)$data['tenant_id'],(int)$data['user_id'],$uri);
+        // Bundled public resources have no upload record, but have a fixed local storage scope.
+        if((empty($storage['storage_scope'])||empty($storage['storage_engine']))&&$public&&str_starts_with($uri,'resource/')&&!str_contains($uri,'..'))$storage=['storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>''];
+        if(empty($storage['storage_scope'])||empty($storage['storage_engine']))throw new \InvalidArgumentException('主体图片缺少存储信息，请在主体库重新上传');
+        return ['image_uri'=>$uri,'name'=>(string)$data['name'],'description'=>(string)($data['description']??'')]+$storage;
     }
 
     public static function saveSubjectLibrary(int $tenantId, int $userId, array $params): array
@@ -2098,6 +2122,11 @@ class AigcShortDramaService
 
     public static function home(int $tenantId, int $userId): array
     {
+        return \app\common\service\power\MarketCatalogReadScope::run(static fn(): array => self::buildHome($tenantId, $userId));
+    }
+
+    private static function buildHome(int $tenantId, int $userId): array
+    {
         $config = self::publicConfig($tenantId);
         $userModelGroups = array_merge(
             self::userScriptModelGroups((array)($config['model_groups'] ?? []), (array)($config['models'] ?? [])),
@@ -2112,9 +2141,9 @@ class AigcShortDramaService
                 'enabled' => (int)($config['status'] ?? 1) === 1,
                 'message' => '',
             ],
-            'home_style' => ($config['home_style'] ?? 'imagine') === 'default' ? 'default' : 'imagine',
+            'home_style' => ($config['home_style'] ?? 'likeadmin') === 'default' ? 'default' : 'likeadmin',
             'background' => $config['background'],
-            'imagine_background' => $config['imagine_background'],
+            'likeadmin_background' => $config['likeadmin_background'],
             'ratios' => $config['ratios'],
             'prompt_max_length' => (int)($config['prompt_max_length'] ?? 20000),
             'models' => (array)($userModelGroups[0]['options'] ?? []),
@@ -15982,8 +16011,8 @@ class AigcShortDramaService
                 ['label' => '21:9', 'width' => 21, 'height' => 9],
                 ['label' => '1:1', 'width' => 1, 'height' => 1],
             ],
-            'home_style' => 'imagine',
-            'imagine_background' => self::normalizeImagineBackground([]),
+            'home_style' => 'likeadmin',
+            'likeadmin_background' => self::normalizeInspirationBackground([]),
             'prompt_max_length' => 20000,
             'script_system_prompt' => self::scriptPlanSystemPrompt(),
             'script_prompt_template' => self::defaultScriptPromptTemplate(),
@@ -16027,9 +16056,9 @@ class AigcShortDramaService
             $default['vision_model_selection'] = [];
             return $default;
         }
-        $json = self::jsonDecode((string)$row['config_json']);
+        $json = \app\common\service\LikeAdminBrandService::configuration(self::jsonDecode((string)$row['config_json']));
         $config = array_merge($default, $json);
-        $config['imagine_background'] = self::normalizeImagineBackground((array)($config['imagine_background'] ?? []), true);
+        $config['likeadmin_background'] = self::normalizeInspirationBackground((array)($config['likeadmin_background'] ?? []), true);
         unset($config['script_plan_points']);
         $config['status'] = (int)$row['status'];
         $config['background'] = self::formatBackgroundConfig((array)($config['background'] ?? $default['background']));
@@ -25364,7 +25393,7 @@ class AigcShortDramaService
         ];
     }
 
-    private static function normalizeImagineBackground(array $payload, bool $format = false): array
+    private static function normalizeInspirationBackground(array $payload, bool $format = false): array
     {
         $result = ['enabled' => filter_var($payload['enabled'] ?? true, FILTER_VALIDATE_BOOLEAN), 'items' => []];
         foreach ((array)($payload['items'] ?? []) as $item) {

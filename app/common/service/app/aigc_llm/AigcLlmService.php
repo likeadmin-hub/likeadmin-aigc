@@ -42,14 +42,19 @@ class AigcLlmService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
-        $skills = \app\common\service\app\aigc_llm\agent\AgentSkillConfigService::apply($tenantId, $params);
-        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::config($tenantId);
         $configJson = array_merge((array)($current['config_json'] ?? []), self::normalizeJson($params['config_json'] ?? []));
+        $agentModel=trim((string)($configJson['agent_text_model']??''));
+        if($agentModel!=='' && $agentModel!==(string)($current['config_json']['agent_text_model']??'')){
+            try{MarketTextModelRuntimeService::resolveAgentModel($tenantId,$agentModel);}catch(\Exception $e){throw new \InvalidArgumentException('请选择可用的 Agent 文本模型：'.$e->getMessage());}
+        }
+        $skills = \app\common\service\app\aigc_llm\agent\AgentSkillConfigService::apply($tenantId, $params);
+        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $data = [
             'tenant_id' => $tenantId,
             'status' => (int)($params['status'] ?? $current['status'] ?? 1),
             'config_json' => [
+                'agent_text_model' => $agentModel,
                 'agent_skills' => $skills ?? (array)($current['config_json']['agent_skills'] ?? []),
                 'system_prompt' => trim((string)($configJson['system_prompt'] ?? '')),
                 'max_context_messages' => max(2, (int)($configJson['max_context_messages'] ?? 12)),
@@ -72,7 +77,7 @@ class AigcLlmService
             'tenant_id' => $tenantId,
             'user_id' => $userId,
             'delete_time' => 0,
-        ])->order(['last_message_at' => 'desc', 'id' => 'desc'])->limit(50)->select()->toArray();
+        ])->where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->order(['last_message_at' => 'desc', 'id' => 'desc'])->limit(50)->select()->toArray();
         foreach ($rows as &$row) {
             $row['last_message'] = self::lastMessageSnippet($tenantId, (int)$row['id']);
         }
@@ -163,7 +168,7 @@ class AigcLlmService
 
     public static function adminSessionLists(int $tenantId, array $params = []): array
     {
-        $query = AigcLlmSession::where(['tenant_id' => $tenantId, 'delete_time' => 0])->order(['last_message_at' => 'desc', 'id' => 'desc']);
+        $query = AigcLlmSession::where(['tenant_id' => $tenantId, 'delete_time' => 0])->where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->order(['last_message_at' => 'desc', 'id' => 'desc']);
         if (!empty($params['user_id'])) {
             $query->where('user_id', (int)$params['user_id']);
         }
@@ -184,7 +189,7 @@ class AigcLlmService
             'tenant_id' => $tenantId,
             'id' => $sessionId,
             'delete_time' => 0,
-        ])->findOrEmpty();
+        ])->where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->findOrEmpty();
         if ($session->isEmpty()) {
             throw new Exception('会话不存在');
         }
@@ -229,11 +234,11 @@ class AigcLlmService
     {
         $todayStart = strtotime(date('Y-m-d'));
         return [
-            'session_count' => (int)AigcLlmSession::where(['tenant_id' => $tenantId, 'delete_time' => 0])->count(),
-            'message_count' => (int)AigcLlmMessage::where(['tenant_id' => $tenantId, 'delete_time' => 0])->count(),
-            'user_count' => (int)AigcLlmSession::where(['tenant_id' => $tenantId, 'delete_time' => 0])->distinct(true)->count('user_id'),
-            'today_session_count' => (int)AigcLlmSession::where('tenant_id', $tenantId)->where('delete_time', 0)->where('create_time', '>=', $todayStart)->count(),
-            'today_message_count' => (int)AigcLlmMessage::where('tenant_id', $tenantId)->where('delete_time', 0)->where('create_time', '>=', $todayStart)->count(),
+            'session_count' => (int)AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->where(['tenant_id' => $tenantId, 'delete_time' => 0])->count(),
+            'message_count' => (int)AigcLlmMessage::whereIn('session_id', AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->field('id')->buildSql())->where(['tenant_id' => $tenantId, 'delete_time' => 0])->count(),
+            'user_count' => (int)AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->where(['tenant_id' => $tenantId, 'delete_time' => 0])->distinct(true)->count('user_id'),
+            'today_session_count' => (int)AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->where('tenant_id', $tenantId)->where('delete_time', 0)->where('create_time', '>=', $todayStart)->count(),
+            'today_message_count' => (int)AigcLlmMessage::whereIn('session_id', AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->field('id')->buildSql())->where('tenant_id', $tenantId)->where('delete_time', 0)->where('create_time', '>=', $todayStart)->count(),
             'prompt_tokens' => (int)AigcLlmUsage::where(['tenant_id' => $tenantId, 'billing_status' => 'deducted'])->sum('prompt_tokens'),
             'completion_tokens' => (int)AigcLlmUsage::where(['tenant_id' => $tenantId, 'billing_status' => 'deducted'])->sum('completion_tokens'),
             'total_tokens' => (int)AigcLlmUsage::where(['tenant_id' => $tenantId, 'billing_status' => 'deducted'])->sum('total_tokens'),
@@ -246,12 +251,12 @@ class AigcLlmService
 
     public static function tenantStat(): array
     {
-        $sessionRows = AigcLlmSession::where('delete_time', 0)
+        $sessionRows = AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->where('delete_time', 0)
             ->field('tenant_id,count(*) as session_count,count(distinct user_id) as user_count,max(update_time) as update_time')
             ->group('tenant_id')
             ->select()
             ->toArray();
-        $messageRows = AigcLlmMessage::where('delete_time', 0)
+        $messageRows = AigcLlmMessage::whereIn('session_id', AigcLlmSession::where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'))->field('id')->buildSql())->where('delete_time', 0)
             ->field('tenant_id,count(*) as message_count')
             ->group('tenant_id')
             ->select()
@@ -631,6 +636,7 @@ class AigcLlmService
         return [
             'status' => 1,
             'config_json' => [
+                'agent_text_model' => '',
                 'system_prompt' => '',
                 'max_context_messages' => 12,
                 'auto_title_chars' => 18,
@@ -847,7 +853,7 @@ class AigcLlmService
             'user_id' => $userId,
             'id' => $sessionId,
             'delete_time' => 0,
-        ]);
+        ])->where(\app\common\service\app\aigc_llm\agent\AgentWorkspaceScope::filter('aigc_llm_session'));
         if ($lock) {
             $query->lock(true);
         }

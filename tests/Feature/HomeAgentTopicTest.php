@@ -9,6 +9,8 @@ use app\common\service\open_platform\OpenStore;
 function check($ok,$message){if(!$ok)throw new RuntimeException($message);}
 function denied(callable $f){try{$f();}catch(InvalidArgumentException){return;}throw new RuntimeException('Expected topic rejection');}
 $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local rollback test only');
+// Enable counting only in this CLI process, before opening the rollback transaction.
+$config=Db::getConfig();$config['connections']['mysql']['trigger_sql']=true;\think\facade\Config::set($config,'database');Db::connect('mysql',true);
 Db::startTrans();try{
  $tenant=1999999903;$user=1999999903;$now=time();
  $session=AigcLlmSession::create(['tenant_id'=>$tenant,'user_id'=>$user,'title'=>'topics','model_code'=>'fixture','status'=>'idle','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
@@ -34,6 +36,7 @@ Db::startTrans();try{
  check($context['summary']['requests']===[]&&$context['focus_assets']===[]&&$context['artifacts']===[],'Independent topic inherited summary/materials');
  check(count($context['tasks'])===1&&$context['tasks'][0]['steps']===[],'Independent topic inherited music task');
  check(C::searchHistory($new,'钢琴')['items']===[]&&C::findArtifacts($new)['items']===[],'Retrieval escaped topic');denied(fn()=>C::readAsset($new,$file));
+ denied(fn()=>\app\common\service\app\aigc_llm\agent\AgentSourceVerifier::verify($new,['message_id'=>(int)$first['message_id'],'quote'=>'历史助手正文']));
  // Finishing an old background task cannot replace a newer topic's focus.
  C::created($first,$file);check(C::build($new)['focus_assets']===[],'Old completion crossed topic');
  $resume=T::resolve($make('继续刚才的钢琴音乐，加快节奏'),fn()=>['action'=>'continue','topic_id'=>(int)$first['id']]);
@@ -41,8 +44,18 @@ Db::startTrans();try{
  check($context['focus']['file_ids']===[$file]&&count($context['artifacts'])===1,'Continuation lost related material');
  check(!str_contains(S::encode($context),'会议通知')&&str_contains(S::encode($context),'音乐任务'),'Continuation imported unrelated topic or lost task');
  check(C::readAsset($resume,$file)['file_id']===$file,'Related asset inaccessible');
+ $quoteCheck=\app\common\service\app\aigc_llm\agent\AgentSourceVerifier::verify($resume,['message_id'=>(int)$first['message_id'],'quote'=>'历史助手正文']);
+ check($quoteCheck['matched']&&$quoteCheck['source']['role']==='assistant'&&!$quoteCheck['semantic_verified'],'Same-topic quote missing or assistant claim promoted to proof');
  $third=T::resolve($make('把节奏再放慢一点'),fn()=>['action'=>'continue','topic_id'=>(int)$first['id']]);
  check(count(T::runIds($third))===3,'Continuation did not preserve topic chain');
+ $queries=0;Db::listen(static function()use(&$queries){$queries++;});
+ $before=$queries;for($i=0;$i<10;$i++)$uncached=T::runIds($third);$uncachedQueries=$queries-$before;
+ $before=$queries;\app\common\service\app\aigc_llm\agent\AgentReadCache::scope(function()use($third,$uncached){
+  for($i=0;$i<10;$i++)check(T::runIds($third)===$uncached,'Cached topic membership changed');
+  foreach([['tenant_id'=>$third['tenant_id']+1],['user_id'=>$third['user_id']+1],['session_id'=>$third['session_id']+9999]] as $foreign)denied(fn()=>T::runIds(array_replace($third,$foreign)));
+ });$cachedQueries=$queries-$before;
+ check($cachedQueries<$uncachedQueries,'Repeated topic queries not reduced');
+ echo "Topic membership SQL: $uncachedQueries uncached -> $cachedQueries scoped (including 3 rejected owner checks)\n";
  $reset=T::resolve($make('重新开始，写一首诗'),static function(){throw new RuntimeException('Explicit reset invoked routing');});
  check(T::state($reset)['decision']==='new'&&count(C::build($reset)['recent'])===1&&C::build($reset)['focus_assets']===[],'Reset inherited old topic');
  $unclear=T::resolve($make('帮我改一下'),fn()=>['action'=>'clarify']);denied(fn()=>T::assertResolved($unclear));check(count(C::build($unclear)['recent'])===1,'Ambiguous reference loaded a guessed topic');
@@ -71,10 +84,16 @@ Db::startTrans();try{
  $context=C::build($style);$body=S::encode($context);
  check(count(T::runIds($style))===4&&str_contains($body,'15s')&&$context['focus']['file_ids']===[$file],'Implicit continuation lost original goal/reference');
  check(!str_contains($body,'会议通知')&&!str_contains($body,'音乐任务'),'Continuation imported another topic');
- S::update($style,['reply'=>str_repeat('长',1800).'请确认镜头和时长']);
+ S::update($style,['reply'=>str_repeat('长',900).'中间关键追问：是否保留蓝围巾？'.str_repeat('长',900).'请确认镜头和时长']);
  T::resolve($make('另做一张小猫海报'),function($topics){
-  check(mb_strlen($topics[0]['last_reply'])<=1203&&str_ends_with($topics[0]['last_reply'],'请确认镜头和时长'),'Reply cue is not bounded or lost final question');
+  check(str_contains($topics[0]['last_reply'],'中间关键追问：是否保留蓝围巾？')&&str_ends_with($topics[0]['last_reply'],'请确认镜头和时长'),'Router lost middle condition or final question');
   return ['action'=>'new'];
+ });
+ $longRequest=str_repeat('参考背景。',200).'实际目标为乙项目，不要沿用甲项目素材。';
+ $long=T::resolve($make('重新开始，'.$longRequest),fn()=>['action'=>'new']);
+ T::resolve($make('接着处理乙项目'),function($topics)use($long,$longRequest){
+  check($topics[0]['requests'][0]==='重新开始，'.$longRequest&&$topics[0]['initial_request']==='重新开始，'.$longRequest,'Routing dropped the target after character 500');
+  return ['action'=>'continue','topic_id'=>(int)$long['id']];
  });
  echo "Home Agent topics passed: new, resume, chains, reset, ambiguity, scoped retrieval, late completion, explicit references and idempotent routing; rolled back\n";
 }finally{Db::rollback();}

@@ -15,9 +15,9 @@ final class AgentStore
     public static function access(int $tenant,int $user): void
     {
         if($tenant<1||$user<1) throw new \InvalidArgumentException('请先登录');
-        $denied=AppAccessService::assertTenantCanUse($tenant,'aigc_llm',$user,true,false);
+        $denied=AppAccessService::assertTenantCanUse($tenant,AgentWorkspaceScope::app(),$user,true,false);
         if($denied) throw new \InvalidArgumentException('当前账号暂不可使用 Agent');
-        if((int)\app\common\service\app\aigc_llm\AigcLlmService::config($tenant)['status']!==1) throw new \InvalidArgumentException('对话应用已停用');
+        if(AgentWorkspaceScope::app()==='aigc_llm'&&(int)\app\common\service\app\aigc_llm\AigcLlmService::config($tenant)['status']!==1) throw new \InvalidArgumentException('对话应用已停用');
     }
     public static function run(int $tenant,int $user,int $id): array
     {
@@ -47,7 +47,10 @@ final class AgentStore
     }
     public static function preferences(int $tenant,int $user,?array $input=null): array
     {
-        $row=self::owner('preference',$tenant,$user)->find();
+        $filter=AgentWorkspaceScope::filter('aigc_llm_agent_preference');
+        $project=(int)(AgentWorkspaceScope::current()['project_id']??0);
+        if(AgentWorkspaceScope::app()==='aigc_canvas' && $project>0)self::initializeProjectPreferences($tenant,$user,$project);
+        $row=self::owner('preference',$tenant,$user)->where($filter)->find();
         $value=$row?self::json($row['preferences']):['mode'=>'ask','models'=>[]];
         unset($value['budget']); // Retired preference, including reads and favorite-only updates.
         if($input!==null){
@@ -66,10 +69,22 @@ final class AgentStore
             } else $value=self::validatePreferences($input);
             $value['skill_favorites'] = $favorites;
             $values=['preferences'=>self::encode($value),'update_time'=>time()];
-            if($row)self::owner('preference',$tenant,$user)->update($values);
-            else self::table('preference')->insert($values+['tenant_id'=>$tenant,'user_id'=>$user,'create_time'=>time()]);
+            if($row)self::owner('preference',$tenant,$user)->where(AgentWorkspaceScope::filter('aigc_llm_agent_preference'))->update($values);
+            else self::table('preference')->insert($values+['tenant_id'=>$tenant,'user_id'=>$user,'create_time'=>time()]+AgentWorkspaceScope::filter('aigc_llm_agent_preference'));
         }
         return $value;
+    }
+    /** Snapshot legacy/entry defaults once; never fall back on another project's settings. */
+    public static function initializeProjectPreferences(int $tenant,int $user,int $project): void
+    {
+        $owner=['tenant_id'=>$tenant,'user_id'=>$user,'workspace_key'=>'canvas:'.$project];
+        if(self::table('preference')->where($owner)->find())return;
+        Db::transaction(static function()use($tenant,$user,$project,$owner){
+            if(!Db::name('aigc_canvas_project')->where(['id'=>$project,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find())throw new \InvalidArgumentException('项目不存在');
+            if(self::table('preference')->where($owner)->find())return;
+            $legacy=self::owner('preference',$tenant,$user)->where('workspace_key','aigc_canvas')->value('preferences');
+            self::table('preference')->insert($owner+['preferences'=>$legacy?:self::encode(['mode'=>'ask','models'=>[]]),'create_time'=>time(),'update_time'=>time()]);
+        });
     }
     public static function validatePreferences(array $input): array
     {
@@ -77,6 +92,8 @@ final class AgentStore
         if(!in_array($mode,['ask','auto'],true))throw new \InvalidArgumentException('运行模式无效');
         $models=[];
         foreach(['text','image','video','voice','music'] as $type){$model=$input['models'][$type]??'';if(!is_scalar($model)||strlen((string)$model)>120)throw new \InvalidArgumentException('模型偏好无效');$models[$type]=trim((string)$model);}
-        return ['mode'=>$mode,'models'=>$models];
+        $result=['mode'=>$mode,'models'=>$models];
+        if(array_key_exists('generation',$input))$result['generation']=AgentComposerSettings::generation($input['generation']);
+        return $result;
     }
 }

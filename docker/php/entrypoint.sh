@@ -36,10 +36,6 @@ case "${1:-fpm}" in
         shift
         exec php think ai:task-worker --worker=result --sleep=1 --lease=90 --batch=20 "$@"
         ;;
-    canvas-worker)
-        shift
-        exec php think canvas:subagent-worker --worker=subagent --sleep=1 --lease=180 "$@"
-        ;;
     scheduler)
         exec /usr/local/bin/likeadmin-scheduler
         ;;

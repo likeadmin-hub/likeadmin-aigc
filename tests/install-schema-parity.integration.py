@@ -46,7 +46,7 @@ def php_args(database, prefix):
 
 def smoke_workers(database, prefix):
     print(run('docker', 'run', '--rm', *php_args(database, prefix), php_image,
-              'php', 'think', 'canvas:subagent-worker', '--once'))
+              'php', 'think', '--once'))
     worker = name + '-' + database
     workers.append(worker)
     run('docker', 'run', '-d', '--name', worker, *php_args(database, prefix), php_image,

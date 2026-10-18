@@ -69,7 +69,7 @@ namespace {
         try{T::query(1,999999,$first['task_id']);throw new \LogicException('Other user got task');}catch(\InvalidArgumentException){}
         try{T::reconcile($cid,999999);throw new \LogicException('Other tenant got receipt');}catch(\InvalidArgumentException){}
     });
-    fixture(function()use($prefs){[$run,$p]=prepared($prefs);$before=balance();F::$mode='reject';$r=T::submit($p);check($r['status']==='failed'&&balance()===$before,'Explicit rejection was not refunded');T::submit($p);check(F::$calls===1&&balance()===$before,'Rejected task was resubmitted');});
+    fixture(function()use($prefs){[$run,$p]=prepared($prefs);$before=balance();F::$mode='reject';$r=T::submit($p);check($r['status']==='failed'&&balance()===$before,'Explicit rejection was not refunded');check(T::query(1,1,$r['task_id'])['billing_status']==='refunded','Speech retry cannot verify refund');T::submit($p);check(F::$calls===1&&balance()===$before,'Rejected task was resubmitted');});
     fixture(function()use($prefs){[$run,$p]=prepared($prefs);$before=balance();F::$mode='timeout';$r=T::submit($p);$cid=(int)AiConsumptionLog::where('app_task_id',$r['task_id'])->value('id');T::reconcile($cid,1);check($r['status']==='needs_review'&&F::$calls===1&&abs($before-balance()-$p['quote']['user'])<0.0001,'Unknown receipt refunded or resubmitted');});
     fixture(function()use($prefs){[$run,$p]=prepared($prefs);F::$storageFail=true;$r=T::submit($p);check($r['status']==='needs_review','Storage failure presented as complete');$cid=(int)AiConsumptionLog::where('app_task_id',$r['task_id'])->value('id');F::$storageFail=false;T::reconcile($cid,1);check(T::query(1,1,$r['task_id'])['status']==='success'&&F::$calls===1,'Storage recovery regenerated speech');
         S::table('step')->where('id',$p['step_id'])->update(['status'=>'needs_review']);S::table('run')->where('id',$run['id'])->update(['status'=>'needs_review','lease_token'=>'','lease_until'=>0]);T::scan();check(S::run(1,1,$run['id'])['status']==='waiting_tasks','Settled task failed to wake original run');
@@ -80,6 +80,18 @@ namespace {
         Db::name($side)->where('id',1)->update([$field=>0]);$before=AiConsumptionLog::count();
         try{T::submit($p);throw new \LogicException('Insufficient balance accepted');}catch(\RuntimeException $e){check(str_contains($e->getMessage(),'不足'),'Unexpected shortage error');}
         check(F::$calls===0&&AiConsumptionLog::count()===$before,'Shortage submitted or created a reservation');
+    });
+    fixture(function()use($prefs){
+        [$run,$p]=prepared($prefs);$before=AiConsumptionLog::count();
+        Db::name('aigc_llm_config')->where('tenant_id',1)->update(['status'=>0]);
+        try{T::submit($p);throw new \LogicException('Revoked Agent permission accepted');}catch(\InvalidArgumentException){}
+        check(F::$calls===0&&AiConsumptionLog::count()===$before,'Revocation submitted or reserved');
+    });
+    fixture(function()use($prefs){
+        [$run,$p]=prepared($prefs);$first=T::submit($p);$paid=balance();
+        Db::name('aigc_llm_config')->where('tenant_id',1)->update(['status'=>0]);
+        $again=T::query(1,1,(int)$first['task_id']);
+        check($again['task_id']===$first['task_id']&&F::$calls===1&&balance()===$paid,'Revocation blocked safe existing-task recovery or resubmitted');
     });
     $async=array_values(array_filter($models['models'],fn($m)=>$m['execution_mode']==='async'));
     check(count($async)>0,'An enabled asynchronous speech SKU is required');$asyncPrefs=$prefs;$asyncPrefs['models']['voice']=$async[0]['code'];

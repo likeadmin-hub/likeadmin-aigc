@@ -55,12 +55,15 @@ final class AgentSequenceService
     public static function outputs(array $run): array
     {
         $rows=AgentStore::owner('artifact',(int)$run['tenant_id'],(int)$run['user_id'])->where('run_id',$run['id'])->order('id','desc')->limit(16)->select()->toArray();$out=[];
+        $steps=AgentStore::owner('step',(int)$run['tenant_id'],(int)$run['user_id'])->where('run_id',$run['id'])->where('status','success')->order('id','desc')->select()->toArray();
+        $rows=array_merge(AgentArtifactService::forSteps($run,$steps),$rows);$seen=[];
         foreach($rows as $row){
+            if(isset($seen[$row['id']]))continue;$seen[$row['id']]=true;
             try{$asset=OpenAssets::detail((int)$run['tenant_id'],(int)$run['user_id'],(string)(AgentStore::json($row['data'])['file_id']??''));}
             catch(\app\common\service\open_platform\OpenException){continue;}
             $out[]=['artifact_id'=>(int)$row['id'],'step_id'=>(int)$row['step_id'],'title'=>$row['title'],'kind'=>$row['kind']]+array_intersect_key($asset,array_flip(['file_id','mime','url']));
         }
-        return $out;
+        return array_slice($out,0,16);
     }
     /** Called only after this stage's jobs have finished. Atomic with phase/lease advancement. */
     public static function advance(array $run): bool
@@ -69,11 +72,12 @@ final class AgentSequenceService
             $current=self::lock($run);$preferences=AgentStore::json($current['preferences']);$state=self::state($current);
             if(!$state)return false;
             $steps=AgentStore::owner('step',(int)$run['tenant_id'],(int)$run['user_id'])->where('run_id',$run['id'])->where('id','>',(int)$state['step_floor'])->select()->toArray();
+            $steps=array_values(array_filter($steps,static fn($step)=>empty(AgentStore::json($step['prepared'])['_superseded_by'])&&empty(AgentStore::json($step['prepared'])['_removed'])));
             foreach($steps as $step)if($step['status']!=='success'||(AgentStore::json($step['result'])['status']??'')==='partial_success')return false;
             $artifacts=AgentStore::owner('artifact',(int)$run['tenant_id'],(int)$run['user_id'])->where('run_id',$run['id'])->where('id','>',(int)$state['artifact_floor'])->select()->toArray();
             // A clarification, a fictional plan or a completed job without output cannot trigger another charge.
             $document=($state['active']['tool_code']??'')==='document';
-            $usable=$document?array_filter($artifacts,static fn($a)=>$a['kind']==='document'):array_filter($artifacts,static fn($a)=>in_array((int)$a['step_id'],array_map('intval',array_column($steps,'id')),true));
+            $usable=$document?array_filter($artifacts,static fn($a)=>$a['kind']==='document'):AgentArtifactService::forSteps($current,$steps);
             if(!$usable||(!$document&&!$steps)){
                 $state['state']='needs_input';$preferences['_sequence']=$state;
                 AgentStore::update($run,['preferences'=>AgentStore::encode($preferences)]);return false;

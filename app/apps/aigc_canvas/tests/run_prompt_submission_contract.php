@@ -5,9 +5,8 @@ declare(strict_types=1);
 $root = dirname(__DIR__, 4);
 require $root . '/vendor/autoload.php';
 
-use app\common\service\app\aigc_canvas\agent\prompt\PromptSpecCompiler;
-use app\common\service\app\aigc_canvas\agent\prompt\PromptEnrichmentService;
-use app\common\service\app\aigc_canvas\agent\enrichment\VisualPromptCompiler;
+use app\common\service\app\aigc_canvas\prompt\PromptSpecCompiler;
+use app\common\service\app\aigc_canvas\prompt\PromptEnrichmentService;
 use app\common\service\power\CanvasImagePromptSubmissionGuard;
 
 $failures = [];
@@ -80,11 +79,6 @@ if (str_contains($plannedPrompt, 'clean_composition')) {
 }
 if ((string)($planned['creative_spec_json']['unverified_parameters'][0]['text'] ?? '') !== '续航时长') {
     $failures[] = 'unverified claim is not retained for review outside the prompt';
-}
-
-$visualDirection = VisualPromptCompiler::compile([], '生成商品主图');
-if (isset($visualDirection['prompt']) || isset($visualDirection['negative_prompt']) || empty($visualDirection['visual_system'])) {
-    $failures[] = 'visual understanding output is still shaped as a provider prompt';
 }
 
 $guarded = [

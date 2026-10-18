@@ -30,6 +30,9 @@ namespace {
   E::tick();$view=E::detail(1,1,(int)$run['id']);check($view['status']==='waiting_tasks'&&Fake::$submits===1,'Music submission failed');
   check(str_contains($view['steps'][0]['constraints']['duration_note'],'无法保证精确秒数'),'Plan UI API missing duration limitation');
   $task=(int)$view['steps'][0]['task_id'];check($task>0,'No native task mapping');
+  $payload=S::json(Db::name('aigc_music_task')->where('id',$task)->value('provider_payload'));
+  check($payload['generation']['instrumental']===true&&$payload['generation']['custom']===false,'Submitted music flags were not durably recorded');
+  check(!empty($payload['home_agent_step_id']),'Music snapshot lost its durable Agent binding');
   S::table('run')->where('id',$run['id'])->update(['next_run_time'=>0]);E::tick();
   check(E::detail(1,1,(int)$run['id'])['status']==='waiting_tasks'&&Fake::$submits===1&&$balance()===$before,'Transient query failed the run or charged user');
   Fake::$queryUnavailable=false;S::table('run')->where('id',$run['id'])->update(['next_run_time'=>0]);E::tick();

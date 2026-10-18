@@ -18,7 +18,7 @@ if (!str_contains($source, "'asset_group', 'failed'")) {
     fwrite(STDERR, "Seedance asset-group diagnostics are missing\n");
     exit(1);
 }
-if (!str_contains($source, 'private static function seedanceAssetReferences')) {
+if (!str_contains($source, 'private static function seedanceContent')) {
     fwrite(STDERR, "Seedance asset-ID request mapping is missing\n");
     exit(1);
 }
@@ -54,17 +54,16 @@ $payload = $payloadMethod->invoke(null, [
     'resolution' => '720p',
     'duration' => 4,
     'ratio' => '9:16',
-    'reference_images' => ['https://example.com/raw-image.png'],
-    'seedance_asset_references' => [
-        'image' => ['asset://image_1'],
-        'video' => ['asset://video_1'],
-        'audio' => ['asset://audio_1'],
+    'reference_assets' => [
+        ['type'=>'image','url'=>'asset://image_1','role'=>'reference_image'],
+        ['type'=>'video','url'=>'asset://video_1','role'=>'reference_video'],
+        ['type'=>'audio','url'=>'asset://audio_1','role'=>'reference_audio'],
     ],
 ], 'test-key');
 
-if (($payload['image_urls'] ?? []) !== ['asset://image_1']
-    || ($payload['video_urls'] ?? []) !== ['asset://video_1']
-    || ($payload['audio_urls'] ?? []) !== ['asset://audio_1']) {
+if (($payload['content'][1]['image_url']['url'] ?? '') !== 'asset://image_1'
+    || ($payload['content'][2]['video_url']['url'] ?? '') !== 'asset://video_1'
+    || ($payload['content'][3]['audio_url']['url'] ?? '') !== 'asset://audio_1') {
     fwrite(STDERR, "Seedance create payload does not use locked asset IDs\n");
     exit(1);
 }

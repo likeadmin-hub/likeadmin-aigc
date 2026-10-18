@@ -20,12 +20,19 @@ final class AgentTopicService
     {
         $topic=self::state($run);
         if(!$topic)return null; // Legacy records remain readable without rewriting them.
-        $root=(int)$topic['root_run_id'];$ids=[];
-        foreach(self::rows($run) as $row){
-            $state=self::state($row);
-            if((int)($state['root_run_id']??$row['id'])===$root)$ids[]=(int)$row['id'];
-        }
-        return array_values(array_unique(array_merge($ids,[(int)$run['id']])));
+        // Membership up to this run is frozen; authorization must still be live.
+        if(!AigcLlmSession::where(['id'=>$run['session_id'],'tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'delete_time'=>0])->find())throw new \InvalidArgumentException('会话不存在');
+        $root=(int)$topic['root_run_id'];
+        $key='topic:'.implode(':',[$run['tenant_id'],$run['user_id'],$run['session_id'],$run['id'],$root]);
+        return AgentReadCache::remember($key,static function()use($run,$root){
+            $ids=[];
+            $rows=AgentStore::owner('run',(int)$run['tenant_id'],(int)$run['user_id'])->where('session_id',$run['session_id'])->where('id','<=',$run['id'])->field('id,preferences')->order('id','desc')->select()->toArray();
+            foreach($rows as $row){
+                $state=self::state($row);
+                if((int)($state['root_run_id']??$row['id'])===$root)$ids[]=(int)$row['id'];
+            }
+            return array_values(array_unique(array_merge($ids,[(int)$run['id']])));
+        });
     }
     public static function resolve(array $run,callable $classify): array
     {
@@ -41,9 +48,9 @@ final class AgentTopicService
             $candidates[$root]??=['topic_id'=>$root,'requests'=>[],
                 'is_latest'=>!$candidates,
                 'last_reply'=>self::replyCue($row)];
-            $candidates[$root]['requests'][]=mb_substr((string)$row['content'],0,500);
+            $candidates[$root]['requests'][]=(string)$row['content'];
         }
-        foreach($history as $row)if(isset($candidates[(int)$row['id']]))$candidates[(int)$row['id']]['initial_request']=mb_substr((string)$row['content'],0,500);
+        foreach($history as $row)if(isset($candidates[(int)$row['id']]))$candidates[(int)$row['id']]['initial_request']=(string)$row['content'];
         $decision=['action'=>'new','topic_id'=>0];
         // An explicit reset is authoritative, including when followed by a new request.
         $reset=(bool)preg_match('/^(?:请)?(?:重新开始|换个话题|换一个话题|新话题|从头开始|start over|new topic)(?:[，,。.!！:：\s]|$)/iu',trim($run['content']));
@@ -73,9 +80,7 @@ final class AgentTopicService
     {
         // Only completed public prose; a partial response is not a reliable cue.
         if(($run['phase']??'')==='chat'&&in_array($run['status']??'', ['queued','running'],true))return '';
-        $text=trim((string)($run['reply']??''));
-        if(mb_strlen($text)<=1200)return $text;
-        return mb_substr($text,0,600)."\n…\n".mb_substr($text,-600);
+        return trim((string)($run['reply']??''));
     }
     public static function instructions(): string
     {

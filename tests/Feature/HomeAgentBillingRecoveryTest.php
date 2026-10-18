@@ -44,14 +44,19 @@ namespace app\common\service\power {
    return true;
   }
   $chunks=[['id'=>'fixture-request','choices'=>[['delta'=>['content'=>'可信正文，已保留。']]]]];
-  if(BillingTransportFixture::$mode!=='no_usage')$chunks[]=['choices'=>[],'usage'=>['prompt_tokens'=>10000,'completion_tokens'=>10000,'total_tokens'=>20000]];
+  if(!in_array(BillingTransportFixture::$mode,['no_usage','partial_usage'],true))$chunks[]=['choices'=>[],'usage'=>['prompt_tokens'=>10000,'completion_tokens'=>10000,'total_tokens'=>20000]];
   foreach($chunks as $chunk)$write($handle,'data: '.json_encode($chunk,JSON_UNESCAPED_UNICODE)."\n\n");
+  if(BillingTransportFixture::$mode==='partial_usage')$write($handle,'data: '.json_encode(['choices'=>[],'usage'=>['prompt_tokens'=>10000,'total_tokens'=>20000]])."\n\n");
   $write($handle,"data: [DONE]\n\n");return true;
  }
  function curl_errno($handle){return in_array(BillingTransportFixture::$mode,['timeout','native_timeout'],true)?28:0;}
  function curl_error($handle){return in_array(BillingTransportFixture::$mode,['timeout','native_timeout'],true)?'Operation timed out':'';}
  function curl_getinfo($handle,$option){return BillingTransportFixture::$mode==='reject'?400:200;}
  function curl_close($handle){}
+}
+namespace app\common\service\app\aigc_llm\agent {
+ final class TextReceiptFault {public static bool $failWrite=false;}
+ function fopen($path,$mode){if(TextReceiptFault::$failWrite&&str_contains($path,'home-agent-text-receipts/'))return false;return \fopen($path,$mode);}
 }
 namespace {
  require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
@@ -67,7 +72,7 @@ namespace {
  function invoke(string $method,...$args){return (new \ReflectionMethod(R::class,$method))->invoke(null,...$args);}
  function balance(){return (float)Db::name('user')->where('id',1)->value('user_money');}
  function issueCodes(int $id){return array_column((new \ReflectionMethod(Audit::class,'issues'))->invoke(null,AiConsumptionLog::findOrEmpty($id)->toArray()),'code');}
- function fixture(callable $test){$before=balance();Db::startTrans();try{F::$calls=0;F::$mode='success';F::$beforeResponse=null;$test();}finally{Db::rollback();F::$beforeResponse=null;}check(balance()===$before,'Fixture changed real balance');}
+ function fixture(callable $test){$files=glob(runtime_path().'home-agent-text-receipts/*')?:[];$before=balance();Db::startTrans();try{F::$calls=0;F::$mode='success';F::$beforeResponse=null;$test();}finally{Db::rollback();F::$beforeResponse=null;\app\common\service\app\aigc_llm\agent\TextReceiptFault::$failWrite=false;foreach(array_diff(glob(runtime_path().'home-agent-text-receipts/*')?:[],$files) as $file)unlink($file);}check(balance()===$before,'Fixture changed real balance');}
  $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local rollback test only');
  check(S::table('run')->whereIn('status',['queued','running','waiting_tasks'])->count()===0,'Do not run alongside active Agent jobs');
  $request=request();$request->tenantId=1;$request->userId=1;$request->userInfo=['tenant_id'=>1,'user_id'=>1];
@@ -79,6 +84,11 @@ namespace {
   $before=balance();$result=R::generate(1,1,$params,static function(){});$cid=(int)$result['consumption_id'];
   check($result['usage']['prompt_tokens']===10000&&$result['usage']['completion_tokens']===10000,'Caller did not receive normalized token usage');
   check(abs($before-balance()-$expected['user_charge_points'])<0.001,'Actual token settlement changed');
+  $receipt=\app\common\service\app\aigc_llm\agent\AgentTextReceipt::read(1,1,$cid);
+  check($receipt['complete']===true&&$receipt['result']['content']===$result['content'],'Complete private receipt lost');
+  $disk=runtime_path().'home-agent-text-receipts/'.AiConsumptionLog::where('id',$cid)->value('consume_no').'.json';
+  check((fileperms($disk)&0777)===0600&&!str_contains(file_get_contents($disk),$result['content']),'Private receipt exposed');
+  foreach([[2,1],[1,2]] as [$tenant,$user]){try{\app\common\service\app\aigc_llm\agent\AgentTextReceipt::read($tenant,$user,$cid);throw new \LogicException('Foreign receipt read');}catch(\InvalidArgumentException){}}
   check(issueCodes($cid)===[],'Settled text call missing a payer log');$settled=balance();
   $c=AiConsumptionLog::findOrEmpty($cid);$ctx=['consumption'=>$c];
   check(($c['response_summary']['protocol_evidence']??null)===$result['protocol_evidence'],'Future parser protocol observations were not persisted with the successful receipt');
@@ -89,7 +99,15 @@ namespace {
   check(in_array('user_billing_log_not_idempotent',issueCodes($cid),true),'Audit missed the deliberately removed fixture log');
  });
  fixture(function()use($params){
+  $result=R::generate(1,1,array_replace($params,['app_code'=>'aigc_canvas','source_app_code'=>'aigc_canvas']),static function(){});
+  $cid=(int)$result['consumption_id'];
+  check(AiConsumptionLog::where('id',$cid)->value('app_code')==='aigc_canvas','Canvas text billed to home Agent');
+  $receipt=\app\common\service\app\aigc_llm\agent\AgentTextReceipt::read(1,1,$cid);
+  check($receipt['complete']===true&&$receipt['result']['content']===$result['content'],'Canvas text lost durable recovery receipt');
+ });
+ fixture(function()use($params){
   F::$mode='no_usage';$before=balance();$result=R::generate(1,1,$params,static function(){});
+  check(\app\common\service\app\aigc_llm\agent\AgentWorkerHealth::report()['text_review']['pending_usage']>0,'Health missed unsettled text');
   check(balance()===$before&&in_array('text_usage_pending',issueCodes($result['consumption_id']),true),'Missing actual usage charged or escaped audit');
   check($result['protocol_evidence']['usage_event_count']===0&&$result['protocol_evidence']['usage_sources']===[],'Missing usage evidence was replaced by an estimated provider usage source');
   $report=Audit::audit(1,'aigc_llm',500,'aigc_llm_agent_run',999999);check($report['checked']===0,'Audit crossed user filter');
@@ -106,6 +124,7 @@ namespace {
    $reserved=$c->toArray();$reserved['reserved_user_price']=1;
    check(in_array('reservation_not_released',array_column((new ReflectionMethod(Audit::class,'issues'))->invoke(null,$reserved),'code'),true),'Real reservation stopped being audited');
    check($c['upstream_request_id']===($nativeMode==='responses_incomplete'?'fixture-responses-receipt':'fixture-native-receipt')&&$c['usage_snapshot']['prompt_tokens']===19&&$c['usage_snapshot']['usage_complete']===false,'Partial receipt evidence lost');
+   check(\app\common\service\app\aigc_llm\agent\AgentTextReceipt::read(1,1,$e->consumptionId)['complete']===false,'Partial receipt falsely marked complete');
    check($e->result['content']==='已收到的正文'&&$e->result['tool_calls']===[],'Partial calls escaped into Neuron');
    invoke('fail',['consumption'=>$c],'late error','fixture');
    check(balance()===$before&&F::$calls===1&&AiConsumptionLog::where('id',$c['id'])->value('billing_status')==='settlement_failed','Unknown result charged, refunded or resubmitted');
@@ -139,6 +158,65 @@ namespace {
   check(str_contains($view['error'],'费用结算待核对'),'Agent review reason missing');
   check(E::tick()===0&&F::$calls===1,'Worker replayed pending billing');
  });
+ foreach(['tenant','user'] as $side)fixture(function()use($params,$side){
+  Db::name($side)->where('id',1)->update([$side==='tenant'?'point_balance':'user_money'=>0]);$before=AiConsumptionLog::count();
+  try{R::generate(1,1,$params);throw new \LogicException('Zero balance admitted');}catch(\app\common\service\power\TextAdmissionRejected $e){check(str_contains($e->getMessage(),'不足'),'Wrong shortage error');}
+  check(F::$calls===0&&AiConsumptionLog::count()===$before,'Shortage reached provider or created billing');
+ });
+ fixture(function()use($params){
+  $before=balance();$params['_result_validator']=static function(){throw new \RuntimeException('parse/storage failed after response');};
+  try{R::generate(1,1,$params);throw new \LogicException('Expected post-response failure');}catch(TextSettlementPending $e){
+   $receipt=\app\common\service\app\aigc_llm\agent\AgentTextReceipt::read(1,1,$e->consumptionId);
+   check($receipt['complete']&&$receipt['result']['content']==='可信正文，已保留。','Paid reply lost after parser failure');
+   check(balance()===$before&&F::$calls===1&&AiConsumptionLog::where('id',$e->consumptionId)->value('billing_status')==='settlement_failed','Post-response failure refunded, charged or retried');
+  }
+ });
+ fixture(function()use($selection){
+  $dir=public_path().'uploads/receipt-test-'.bin2hex(random_bytes(8));mkdir($dir,0700,true);$path=$dir.'/source.txt';file_put_contents($path,'receipt source document');
+  try{
+   $file='of_'.bin2hex(random_bytes(16));
+   \app\common\service\open_platform\OpenStore::table('file')->insert(['tenant_id'=>1,'user_id'=>1,'file_id'=>$file,'uri'=>substr($path,strlen(public_path())),'name'=>'source.txt','mime'=>'text/plain','size'=>filesize($path),'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']+\app\common\service\open_platform\OpenStore::timestamp());
+   $view=E::submit(1,1,['request_id'=>'receipt-read-'.bin2hex(random_bytes(10)),'content'=>'阅读资料']);$id=(int)$view['id'];
+   S::table('run')->where('id',$id)->update(['preferences'=>S::encode(['mode'=>'ask','models'=>['text'=>$selection]]),'attachments'=>S::encode([['file_id'=>$file]]),'status'=>'running','lease_token'=>'fixture']);
+   $run=S::run(1,1,$id);\app\common\service\app\aigc_llm\agent\AgentLongReadService::begin($run,$file);
+   S::table('run')->where('id',$id)->update(['phase'=>'reading']);$run=S::run(1,1,$id);
+   $wallet=balance();$billCount=AiConsumptionLog::count();Db::name('user')->where('id',1)->update(['user_money'=>0]);
+   \app\common\service\app\aigc_llm\agent\AgentLongReadService::work($run);
+   check(S::run(1,1,$id)['status']==='failed'&&F::$calls===0&&AiConsumptionLog::count()===$billCount,'Unpaid reading admission became review-only or billed');
+   Db::name('user')->where('id',1)->update(['user_money'=>$wallet]);
+   \app\common\service\app\aigc_llm\agent\AgentLongReadService::resume(1,1,$id);
+   S::table('run')->where('id',$id)->update(['status'=>'running','lease_token'=>'fixture']);$run=S::run(1,1,$id);
+   \app\common\service\app\aigc_llm\agent\AgentLongReadService::work($run);
+   $c=AiConsumptionLog::order('id','desc')->find();$receipt=\app\common\service\app\aigc_llm\agent\AgentTextReceipt::read(1,1,(int)$c['id']);
+   check($c['billing_status']==='settled'&&$receipt['reading_source']['file_id']===$file&&$receipt['reading_source']['offset']===0,'Reading receipt cannot identify paid source segment');
+   check(S::run(1,1,$id)['status']==='needs_review'&&E::tick()===0&&F::$calls===1,'Invalid summary automatically repeated paid reading');
+   \app\common\service\open_platform\OpenStore::table('file')->where('file_id',$file)->delete();
+   try{\app\common\service\app\aigc_llm\agent\AgentTextReceipt::read(1,1,(int)$c['id']);throw new \LogicException('Deleted material readable through receipt');}catch(\InvalidArgumentException|\app\common\service\open_platform\OpenException){}
+  }finally{unlink($path);rmdir($dir);}
+ });
+ fixture(function()use($params){
+  F::$beforeResponse=static fn()=>\app\common\service\app\aigc_llm\agent\TextReceiptFault::$failWrite=true;
+  $before=balance();try{R::generate(1,1,$params);throw new \LogicException('Expected receipt persistence failure');}catch(TextSettlementPending $e){
+   check(F::$calls===1&&balance()===$before&&AiConsumptionLog::where('id',$e->consumptionId)->value('billing_status')==='settlement_failed','Receipt failure charged, refunded or replayed');
+   check($e->result['content']==='可信正文，已保留。','Failed journal discarded in-memory reply');
+  }
+ });
+ fixture(function()use($model){
+  foreach(['user'=>'tenant_price','tenant'=>'platform_price'] as $side=>$price){
+   $free=$model;$free['input'][$price]=0;$free['output'][$price]=0;
+   $field=$side==='user'?'user_money':'point_balance';$before=Db::name($side)->where('id',1)->value($field);Db::name($side)->where('id',1)->update([$field=>0]);
+   invoke('assertAgentBalance',1,1,$free);
+   Db::name($side)->where('id',1)->update([$field=>$before]);
+  }
+  check(F::$calls===0,'Free-side admission called provider');
+ });
+ fixture(function()use($params){
+  // Other consumers keep the shared runtime's established contract.
+  $params['source_app_code']='aigc_short_drama';$params['business_table']='aigc_short_drama_script_task';
+  F::$mode='no_usage';Db::name('user')->where('id',1)->update(['user_money'=>0]);
+  $files=glob(runtime_path().'home-agent-text-receipts/*')?:[];$result=R::generate(1,1,$params);
+  check(F::$calls===1&&$result['billing']['billing_status']==='pending_usage'&&(glob(runtime_path().'home-agent-text-receipts/*')?:[])===$files,'Agent-only guard changed a shared consumer');
+ });
  // Legacy reservations still release exactly once using the shared wallet services.
  fixture(function()use($model){
   $ctx=invoke('createConsumption',1,1,$model,'fixture',[],['tenant_cost_points'=>1,'user_charge_points'=>2],0,'aigc_llm','aigc_llm_agent_run',0);
@@ -151,6 +229,12 @@ namespace {
   check(issueCodes((int)$c['id'])===[],'Valid refund failed audit');
   Db::name('user_account_log')->where(['user_id'=>1,'source_sn'=>$sn.'-release'])->delete();
   check(in_array('user_refund_log_not_idempotent',issueCodes((int)$c['id']),true),'Audit missed the deliberately removed fixture refund');
+ });
+ foreach(['aigc_llm','aigc_short_drama'] as $app)fixture(function()use($params,$app){
+  F::$mode='partial_usage';$before=balance();$p=$params;$p['source_app_code']=$app;$p['business_table']=$app==='aigc_llm'?'aigc_llm_agent_run':'aigc_short_drama_script_task';
+  $r=R::generate(1,1,$p,static function(){});$c=AiConsumptionLog::findOrEmpty($r['consumption_id']);
+  check($c['billing_status']==='pending_usage'&&balance()===$before&&$r['billing']['user_charge_points']==0&&F::$calls===1,'Incomplete usage charged or replayed');
+  check($r['content']!==''&&$c['usage_snapshot']['token_fields']['output']===false,'Missing usage or response evidence lost');
  });
  echo "Home Agent billing recovery passed: trusted usage, missing usage audit, exact-once payment/refund, reject/timeout, wallet failure, late events and worker review; all fixtures rolled back\n";
 }

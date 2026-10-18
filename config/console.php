@@ -6,6 +6,7 @@ return [
     // 指令定义
     'commands' => [
         'micro-video:worker' => 'app\\common\\command\\MicroVideoWorkerCommand',
+        'canvas:adapt-projects' => 'app\\common\\command\\CanvasAdaptProjects',
         'home-agent:stt-reconcile' => 'app\\common\\command\\HomeAgentSttReconcile',
         'home-agent:health' => 'app\\common\\command\\HomeAgentHealth',
         'home-agent:worker' => 'app\\common\\command\\HomeAgentWorker',
@@ -32,7 +33,6 @@ return [
         // AIGC 异步结果 Worker（宝塔守护进程）
         'ai:task-worker' => 'app\common\command\AiTaskWorker',
         'ai:market-audit' => 'app\common\command\MarketTaskAudit',
-        'canvas:subagent-worker' => 'app\common\command\CanvasSubAgentWorker',
         // AIGC 关联业务结果修复
         'ai:repair-linked-results' => 'app\common\command\AiRepairLinkedResults',
         // 仅恢复因错误本地超时被退款的上游任务

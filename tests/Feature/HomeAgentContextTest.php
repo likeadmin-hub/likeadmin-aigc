@@ -34,7 +34,8 @@ Db::startTrans();try{
  foreach([$file,$foreignFile] as $f)OpenStore::table('file')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'file_id'=>$f,'uri'=>'uploads/context-fixture.png','name'=>'fixture.png','mime'=>'image/png','size'=>1,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']+OpenStore::timestamp());
  $run=$makeRun('把这张图用于发布会',['0'=>['file_id'=>$file,'name'=>$foreignFile]]);
  $context=C::build($run);
- check(count($context['recent'])<=20&&end($context['recent'])['content']===$run['content'],'Latest request missing or recent history unbounded');
+ check(count($context['recent'])<=21&&$context['recent'][0]['role']==='user'&&end($context['recent'])['content']===$run['content'],'Latest request missing or recent exchange split');
+ check($context['summary']['history_partial']&&$context['summary']['next_before']===$context['recent'][0]['id'],'Partial history lacks retrieval boundary');
  check($context['summary']['requests'][0]['message_id']===$ids[0],'Original requirement forgotten');
  check(str_contains(S::encode($context['summary']),'十点'),'Early correction omitted');
  check(!str_contains(S::encode($context['summary']),'虚构数字'),'Assistant claims promoted to memory');
@@ -56,10 +57,19 @@ Db::startTrans();try{
  $next=$makeRun('把刚才的流程表加上负责人');$nextContext=C::build($next);
  check($nextContext['focus']['file_ids']===[$doc],'Generated document focus lost across turns');
  C::focus($next,$file,'调整人物动作');check(C::build($next)['focus']['file_ids']===[$file],'Explicit focus not persisted');
+ $goal=str_repeat('背景信息。',200).'仅限内部评审，不得海外投放；书面授权后例外。';
+ check(C::focus($next,$file,$goal)['goal']===$goal&&C::build($next)['focus']['goal']===$goal,'Long focus lost late condition');
+ denied(fn()=>C::focus($next,$file,str_repeat('长',30000)));
+ check(C::build($next)['focus']['goal']===$goal,'Rejected focus replaced original');
  C::created($run,$doc);check(C::build($next)['focus']['file_ids']===[$file],'Old completion overwrote newer focus');
  C::focus($next,'','');check(C::build($next)['focus']['file_ids']===[],'Topic switch did not clear focus');
  S::table('step')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'run_id'=>$next['id'],'step_key'=>hash('sha256','context-fixture'),'title'=>'实际视频步骤','tool_code'=>'aigc_video','prepared'=>S::encode(['params'=>['model_id'=>'selected-video','duration'=>5,'resolution'=>'720p'],'inputs'=>['reference_images'=>[$file]],'quote'=>['user'=>350]]),'result'=>'','status'=>'failed','task_id'=>111,'create_time'=>$now,'update_time'=>$now]);
  $fact=C::taskState($next)[0]['steps'][0];check($fact['status']==='failed'&&$fact['parameters']['model_id']==='selected-video'&&$fact['estimated_points']===350,'Real task facts not restored');
+ $prompt=str_repeat('开头背景',100).'关键条件：不得露出商标，蓝色围巾必须保留。'.str_repeat('结尾背景',100);
+ S::table('step')->where('id',$fact['step_id'])->update(['prepared'=>S::encode(['params'=>['prompt'=>$prompt,'negative_prompt'=>$prompt,'duration'=>5],'quote'=>['user'=>350]])]);
+ $preview=C::taskState($next)[0]['steps'][0];$full=C::taskState($next,true)[0]['steps'][0];
+ check($preview['parameters_truncated']===['prompt','negative_prompt']&&$full['parameters_truncated']===[],'Task parameter preview truncation not explicit');
+ check($full['parameters']['prompt']===$prompt&&$full['parameters']['negative_prompt']===$prompt&&$full['estimated_points']===350,'Full task parameters lost middle constraints or billing facts');
  foreach([['tenant_id'=>$tenant+1],['user_id'=>$user+1]] as $different){$bad=array_replace($next,$different);denied(fn()=>C::build($bad));denied(fn()=>C::readAsset($bad,$doc));denied(fn()=>C::searchHistory($bad));}
  $other=AigcLlmSession::create(['tenant_id'=>$tenant,'user_id'=>$user,'title'=>'other','model_code'=>'fixture','status'=>'idle','create_time'=>$now,'update_time'=>$now,'delete_time'=>0]);
  $otherRun=array_replace($next,['session_id'=>$other['id']]);denied(fn()=>C::readAsset($otherRun,$doc));denied(fn()=>C::readMessage($otherRun,$ids[0]));
@@ -81,9 +91,10 @@ Db::startTrans();try{
  C::focus($next,$file);OpenStore::table('file')->where('file_id',$file)->delete();
  check(C::build($next)['focus']['file_ids']===[],'Deleted material survives focus');
  AigcLlmSession::where('id',$session['id'])->update(['delete_time'=>$now]);denied(fn()=>C::readAsset($next,$doc));denied(fn()=>C::build($next));
- // Budget trimming cannot orphan a tool result or remove the active request.
+ // Overflow must fail explicitly, never silently drop an older requirement.
  $messages=[['role'=>'user','content'=>str_repeat('old ',500)],['role'=>'assistant','content'=>'old answer'],['role'=>'user','content'=>'current'],['role'=>'assistant','content'=>'','tool_calls'=>[['id'=>'call']]],['role'=>'tool','tool_call_id'=>'call','content'=>'result']];
- $fit=P::fitContext($messages,'rules',[],100);check(count($fit)===3&&$fit[0]['content']==='current'&&end($fit)['role']==='tool','Budget broke active tool chain');
+ denied(fn()=>P::fitContext($messages,'rules',[],100));
+ check(P::fitContext($messages,'rules',[],10000)===$messages,'Capacity check changed evidence/tool chain');
  denied(fn()=>P::fitContext([['role'=>'user','content'=>str_repeat('长',200)]],'rules',[],100));
  echo "Home Agent context passed: long memory, source retrieval, document pages, focus, task facts, ownership, deletion and token budget; rolled back\n";
 }finally{Db::rollback();}

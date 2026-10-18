@@ -1,0 +1,212 @@
+{
+    "schema_version": 1,
+    "id": "builtin-creative-moodboard",
+    "version": 2,
+    "title": "产品宣传",
+    "category": "电商广告",
+    "description": "使用示例产品图、宣传视频和背景音乐制作产品宣传内容，支持替换为自己的素材。",
+    "media_type": "video",
+    "preview": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/1f2e88199304518180a6a60ef6e42238e1a1ac2ad47d951b399390ec12e58366.mp4",
+    "cover": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
+    "graph": {
+        "nodes": [
+            {
+                "id": "image_1792261829600_bbwxmjl9",
+                "type": "image",
+                "title": "产品名称",
+                "position": {
+                    "x": 918.888916015625,
+                    "y": 521.7991006858506
+                },
+                "width": 569,
+                "height": 380,
+                "metadata": {
+                    "status": "success",
+                    "pending": false,
+                    "prompt": "",
+                    "channel": "market_image_model:234",
+                    "ratio": "auto",
+                    "quality": "1k",
+                    "count": 1,
+                    "quantity": 1,
+                    "resolution": "1k",
+                    "style": "general",
+                    "negative_prompt": "",
+                    "agentGroupId": "canvas_group_1792262631606",
+                    "canvasGroupColor": "#ff7aed",
+                    "mediaItems": [
+                        {
+                            "id": "media-image_1792261829600_bbwxmjl9",
+                            "type": "image",
+                            "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
+                            "mediaSource": "upload",
+                            "width": 3840,
+                            "height": 2160,
+                            "fileSize": 549613,
+                            "mimeType": "image/jpeg",
+                            "fileName": "_launchinabox_b27fe4ec-0f45-4882-8054-0903d55085c4.jpg"
+                        }
+                    ],
+                    "activeMediaId": "media-image_1792261829600_bbwxmjl9",
+                    "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
+                    "mediaSource": "upload",
+                    "source": "upload",
+                    "image": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
+                    "mentions": []
+                }
+            },
+            {
+                "id": "image_1792261898483_w9ad16l7",
+                "type": "image",
+                "title": "图片",
+                "position": {
+                    "x": 1654.6908965008806,
+                    "y": 521.7991006858506
+                },
+                "width": 569,
+                "height": 478,
+                "metadata": {
+                    "status": "success",
+                    "pending": false,
+                    "prompt": "Cinematic studio hero shot of the product from the reference image, floating dead-center against a deep graded backdrop, one hard key light raking the full silhouette so every edge and curve catches and glows, glass and polished surfaces refracting the light for real optical depth, reflected in a glossy dark surface below, thin volumetric haze holding the beam, rich controlled shadow falloff, real commercial product photography — photographed, not rendered, no plastic AI sheen. Keep the product exactly as in the reference. Generous clean negative space above for a headline.",
+                    "channel": "market_image_model:234",
+                    "ratio": "16:9",
+                    "quality": "2k",
+                    "count": 1,
+                    "quantity": 1,
+                    "resolution": "2k",
+                    "style": "general",
+                    "negative_prompt": "",
+                    "agentGroupId": "canvas_group_1792262631606",
+                    "canvasGroupColor": "#ff7aed",
+                    "mediaItems": [
+                        {
+                            "id": "result-image-1mqgjmb",
+                            "type": "image",
+                            "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
+                            "mediaSource": "generated",
+                            "width": 2752,
+                            "height": 1536,
+                            "fileSize": 1365934,
+                            "mimeType": "image/png",
+                            "fileName": "2026101802340555a0a1704.png"
+                        }
+                    ],
+                    "activeMediaId": "result-image-1mqgjmb",
+                    "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
+                    "mediaSource": "generated",
+                    "source": "generated",
+                    "image": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
+                    "mentions": []
+                }
+            },
+            {
+                "id": "video_1792262069974_02fpbqr2",
+                "type": "video",
+                "title": "视频",
+                "position": {
+                    "x": 2375.974166639545,
+                    "y": 521.7991006858506
+                },
+                "width": 569,
+                "height": 478,
+                "metadata": {
+                    "status": "success",
+                    "pending": false,
+                    "prompt": "Overall: premium 10-second product launch film, product hero, clean cinematic grade, real motion throughout (never static).Shot 1 (0-2.5s): fast dolly push-in from wide to medium, a bright light-streak sweeps left-to-right across the surface, faint motion blur on entry, shallow depth of field.Shot 2 (2.5-5.5s): smooth 20-degree orbit around the product, floating dust motes drifting through the light, subtle handheld float, rack focus pulling from foreground bokeh onto the logo area.Shot 3 (5.5-8s): SIGNATURE — a quick digital zoom 'pump' (punch-in then settle) timed to a soft light-bloom flash sweeping past; the product snaps perfectly centered, reflection glints.Shot 4 (8-10s): slow pull-back and gentle upward tilt into negative space, motion eases to a calm hold, aspirational.Energy: Act1 punchy → Act2 controlled → Act3 resolved. Product stays razor-crisp. No text, no watermark.",
+                    "channel": "market_video_model:94",
+                    "ratio": "16:9",
+                    "quality": "720P",
+                    "count": 1,
+                    "quantity": 1,
+                    "duration": 10,
+                    "resolution": "720P",
+                    "mode": "pro",
+                    "videoMode": "Pro",
+                    "generation_method": "omni_reference",
+                    "negative_prompt": "",
+                    "agentGroupId": "canvas_group_1792262631606",
+                    "canvasGroupColor": "#ff7aed",
+                    "mediaItems": [
+                        {
+                            "id": "result-video-yry7p6",
+                            "type": "video",
+                            "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/1f2e88199304518180a6a60ef6e42238e1a1ac2ad47d951b399390ec12e58366.mp4",
+                            "mediaSource": "generated",
+                            "width": 1280,
+                            "height": 720,
+                            "fileSize": 9717797,
+                            "mimeType": "video/mp4",
+                            "fileName": "2026101802415177c6b5471.mp4"
+                        }
+                    ],
+                    "activeMediaId": "result-video-yry7p6",
+                    "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/1f2e88199304518180a6a60ef6e42238e1a1ac2ad47d951b399390ec12e58366.mp4",
+                    "mediaSource": "generated",
+                    "source": "generated",
+                    "referenceImages": [
+                        {
+                            "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
+                            "name": "图片",
+                            "role": "first_frame_image"
+                        }
+                    ],
+                    "mentions": []
+                }
+            },
+            {
+                "id": "audio_1792262270282_122a4hlg",
+                "type": "audio",
+                "title": "_Music_4_2187f420-5440-48a7-9b0f-be18d12d3ab3_019f368e-80c3-70a3-8c29-6b333ece6229.mp3",
+                "position": {
+                    "x": 2375.817271169939,
+                    "y": 1103.7584514241892
+                },
+                "width": 320,
+                "height": 380,
+                "metadata": {
+                    "status": "success",
+                    "pending": false,
+                    "prompt": "",
+                    "quality": "",
+                    "duration": 120,
+                    "custom": false,
+                    "instrumental": false,
+                    "lyrics": "",
+                    "style": "",
+                    "vocal_gender": "",
+                    "agentGroupId": "canvas_group_1792262631606",
+                    "canvasGroupColor": "#ff7aed",
+                    "mediaItems": [
+                        {
+                            "id": "media-audio_1792262270282_122a4hlg",
+                            "type": "audio",
+                            "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/20d983e96f842a50f0c1ae93c34fcaf15662aee21eb8ec4941b7a1cf2cdc9b5d.mp3",
+                            "mediaSource": "upload",
+                            "fileSize": 160959,
+                            "mimeType": "audio/mpeg",
+                            "fileName": "_Music_4_2187f420-5440-48a7-9b0f-be18d12d3ab3_019f368e-80c3-70a3-8c29-6b333ece6229.mp3"
+                        }
+                    ],
+                    "activeMediaId": "media-audio_1792262270282_122a4hlg",
+                    "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/20d983e96f842a50f0c1ae93c34fcaf15662aee21eb8ec4941b7a1cf2cdc9b5d.mp3",
+                    "mediaSource": "upload",
+                    "source": "upload",
+                    "mentions": []
+                }
+            }
+        ],
+        "edges": [
+            {
+                "id": "conn_1792261898487_8crrnwfu",
+                "fromNodeId": "image_1792261829600_bbwxmjl9",
+                "toNodeId": "image_1792261898483_w9ad16l7"
+            },
+            {
+                "id": "conn_1792262069975_jcbis59b",
+                "fromNodeId": "image_1792261898483_w9ad16l7",
+                "toNodeId": "video_1792262069974_02fpbqr2"
+            }
+        ]
+    }
+}

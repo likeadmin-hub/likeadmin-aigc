@@ -24,6 +24,7 @@ final class AgentSkillConfigService
 
     private static function stored(int $tenant): array
     {
+        if (AgentWorkspaceScope::app() === 'aigc_canvas') return \app\common\service\app\aigc_canvas\CanvasAgentSkillConfigService::stored($tenant);
         $config = AigcLlmConfig::where('tenant_id', $tenant)->findOrEmpty();
         return $config->isEmpty() ? [] : (array)($config->config_json['agent_skills'] ?? []);
     }
@@ -44,7 +45,9 @@ final class AgentSkillConfigService
             $value = $saved[$id] ?? [];
             if (!empty($value['deleted'])) continue;
             $app = ($default['tool'] ?? '') === 'speech_synthesis' ? 'aigc_llm' : ($default['tool'] ?? 'aigc_llm');
-            $display = $displays[$app] ??= Display::detail($tenant, $app);
+            $display = $displays[$app] ??= AgentWorkspaceScope::app() === 'aigc_canvas'
+                ? ['title'=>'','description'=>'','cover_url'=>'','cover_uri'=>'','skill_preview_images'=>[],'skill_preview_videos'=>[]]
+                : Display::detail($tenant, $app);
             $item = ['id'=>$id,'app_code'=>$app,'builtin'=>isset(self::DEFAULTS[$id]),'enabled'=>1,'sort'=>0] + $default;
             if (isset(self::DEFAULTS[$id]['tool']) && $app !== 'aigc_llm') {
                 $item['name'] = $display['title'] ?: $default['name'];
@@ -57,7 +60,7 @@ final class AgentSkillConfigService
             $item['videos'] = $value['videos'] ?? (isset(self::DEFAULTS[$id]) ? $display['skill_preview_videos'] : []);
             $item['image_urls'] = array_map(static fn($uri)=>FileService::getFileUrl($uri), $item['images']);
             $item['video_urls'] = array_map(static fn($uri)=>FileService::getFileUrl($uri), $item['videos']);
-            $item['cover_url'] = $display['cover_url'];
+            $item['cover_url'] = AgentWorkspaceScope::app() === 'aigc_canvas' ? ($item['image_urls'][0] ?? '') : $display['cover_url'];
             $item['preview_type'] = $value['preview_type'] ?? ($item['videos'] ? 'video' : 'image');
             $item['video_poster'] = $value['video_poster'] ?? ($item['images'][0] ?? $display['cover_uri'] ?? '');
             $item['video_poster_url'] = $item['video_poster'] ? FileService::getFileUrl($item['video_poster']) : $display['cover_url'];

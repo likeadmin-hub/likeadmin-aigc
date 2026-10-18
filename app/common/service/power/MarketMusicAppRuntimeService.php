@@ -402,19 +402,35 @@ class MarketMusicAppRuntimeService
     {
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
         $providerParams = self::arrayValue($request['provider_params'] ?? []);
-        $params = array_merge($locked, $providerParams);
+        $params = array_merge(self::arrayValue($snapshot['default_params'] ?? []), $providerParams, $locked);
+        $schema = self::arrayValue($snapshot['params_schema'] ?? []);
+        $fields = self::arrayValue($schema['properties'] ?? $schema);
+        $boolean = static fn($value, bool $default): bool => filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default;
+        $custom = $boolean($request['custom'] ?? false, false);
+        $instrumental = $boolean($request['instrumental'] ?? true, true);
         $duration = (int)($locked['duration'] ?? $locked['seconds'] ?? $providerParams['duration'] ?? $request['duration'] ?? 60);
-        foreach (['title', 'prompt', 'lyrics', 'instrumental', 'custom', 'genre', 'mood', 'instruments', 'duration'] as $key) {
+        foreach (['title', 'prompt', 'lyrics', 'lyric', 'instrumental', 'custom', 'genre', 'mood', 'instruments', 'duration', 'style', 'vocal_gender', 'language'] as $key) {
             unset($params[$key]);
         }
         $payload = array_merge($params, self::marketContext($snapshot), [
             'title' => trim((string)($request['title'] ?? '短剧背景音乐')),
             'prompt' => trim((string)($request['prompt'] ?? '')),
-            'lyrics' => '', 'instrumental' => true, 'custom' => false,
+            'lyric' => $custom && !$instrumental ? trim((string)($request['lyrics'] ?? $request['lyric'] ?? '')) : '',
+            'instrumental' => $instrumental, 'custom' => $custom,
+            'style' => trim((string)($request['style'] ?? $request['genre'] ?? '')),
+            'vocal_gender' => $instrumental ? '' : trim((string)($request['vocal_gender'] ?? '')),
+            'language' => trim((string)($request['language'] ?? '')),
             'genre' => trim((string)($request['genre'] ?? '')), 'mood' => trim((string)($request['mood'] ?? '')),
             'instruments' => trim((string)($request['instruments'] ?? '')), 'duration' => max(5, min(600, $duration)),
             'idempotency_key' => $idempotencyKey,
         ]);
+        // New catalogues declare the wire fields. Legacy snapshots keep their
+        // former duration/genre behavior, including short-drama BGM defaults.
+        if ($fields !== []) {
+            foreach (['duration', 'genre', 'mood', 'instruments', 'style', 'vocal_gender', 'lyric', 'language'] as $key) {
+                if (!array_key_exists($key, $fields)) unset($payload[$key]);
+            }
+        }
         return array_filter($payload, static fn($value) => $value !== '' && $value !== null && $value !== []);
     }
 
@@ -451,9 +467,9 @@ class MarketMusicAppRuntimeService
     private static function endpoint(string $appCode, string $apiCode): string { return self::origin() . '/api/v1/apps/' . rawurlencode($appCode ?: self::UPSTREAM_APP_CODE) . '/' . rawurlencode($apiCode); }
     private static function origin(): string { $source = UpdateSourceClient::getSource(); $parts = parse_url(trim((string)($source['active_base_url'] ?? $source['base_url'] ?? ''))); $host = (string)($parts['host'] ?? ''); if ($host === '') throw new Exception('音乐生成应用 API 暂不可用'); return (string)($parts['scheme'] ?? 'https') . '://' . $host . (isset($parts['port']) ? ':' . (int)$parts['port'] : ''); }
     private static function request(string $method, string $url, array $payload = []): array { $source = UpdateSourceClient::getSource(); $key = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '')); if ($key === '') throw new Exception('音乐生成应用 API 暂不可用'); $ch = curl_init(); curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $key, 'Accept: application/json', 'Content-Type: application/json'], CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source), CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0]); if ($method === 'POST') { curl_setopt($ch, CURLOPT_POST, true); curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); } $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch); if ($errno) throw new Exception($error ?: '音乐生成应用网络请求失败'); $data = json_decode((string)$body, true); if ($method === 'POST' && is_array($data)) \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== ''); if (!is_array($data)) throw new Exception('音乐生成应用响应格式错误'); if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) throw new Exception(self::error($data)); return $data; }
-    private static function snapshot(array $market): array { $product = $market['product']; $sku = $market['sku']; return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price']]; }
+    private static function snapshot(array $market): array { $product = $market['product']; $sku = $market['sku']; return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'params_schema' => self::arrayValue(self::metadata($product)['params_schema'] ?? []), 'default_params' => self::arrayValue(self::metadata($product)['default_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price']]; }
     private static function marketContext(array $snapshot): array { $skuKey = trim((string)($snapshot['sku_key'] ?? '')); $skuId = (int)($snapshot['sku_id'] ?? 0); return ['market_product_id' => (int)($snapshot['product_id'] ?? 0), 'market_sku_id' => $skuId, 'sku_id' => $skuId, 'market_sku_key' => $skuKey, 'sku_key' => $skuKey, 'pricing_sku_key' => $skuKey, 'price_source' => 'power_market_app_api']; }
-    private static function requestSummary(array $request): array { return ['prompt_length' => mb_strlen((string)($request['prompt'] ?? '')), 'duration' => (int)($request['duration'] ?? 0), 'instrumental' => true]; }
+    private static function requestSummary(array $request): array { return ['prompt_length' => mb_strlen((string)($request['prompt'] ?? '')), 'duration' => (int)($request['duration'] ?? 0), 'instrumental' => filter_var($request['instrumental'] ?? true, FILTER_VALIDATE_BOOLEAN), 'custom' => filter_var($request['custom'] ?? false, FILTER_VALIDATE_BOOLEAN)]; }
     private static function taskId(array $data): string { $root = self::arrayValue($data['data'] ?? $data); foreach ([$data['task_id'] ?? null, $data['id'] ?? null, $root['task_id'] ?? null, $root['id'] ?? null, $root['result']['task_id'] ?? null] as $value) if (is_scalar($value) && (string)$value !== '') return (string)$value; return ''; }
     private static function requestId(array $data): string { $root = self::arrayValue($data['data'] ?? $data); return (string)($data['request_id'] ?? $root['request_id'] ?? ''); }
     private static function status(array $data): string { $root = self::arrayValue($data['data'] ?? $data); return strtolower((string)($data['status'] ?? $root['status'] ?? $root['state'] ?? $root['result']['status'] ?? '')); }

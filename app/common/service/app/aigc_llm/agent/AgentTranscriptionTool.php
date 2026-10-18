@@ -71,6 +71,7 @@ final class AgentTranscriptionTool
             if(!$step||$step['status']!=='submitting')throw new \RuntimeException('转写步骤状态已变化');
             if((int)$step['task_id'])return ['fresh'=>false,'task_id'=>(int)$step['task_id']];
             $quote=$prepared['quote'];$now=time();$no='CSTT'.bin2hex(random_bytes(12));$taskNo='ASTT'.bin2hex(random_bytes(12));
+            AgentStore::access($tenant,$user); // Fresh submission only; existing task queries remain available.
             PointService::assertCanConsumeAmounts($tenant,$user,$quote['tenant'],$quote['user']);
             $task=AiAppTask::create(['task_no'=>$taskNo,'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>'agent_transcribe','business_table'=>'aigc_llm_agent_step','business_id'=>$step['id'],'status'=>'running','progress'=>10,'request_summary'=>$prepared['inputs'],'result_summary'=>[],'estimated_tenant_cost'=>$quote['tenant'],'estimated_user_price'=>$quote['user'],'idempotency_key'=>sha1('agent-stt|'.$tenant.'|'.$step['id']),'create_time'=>$now,'update_time'=>$now]);
             $log=AiConsumptionLog::create(['consume_no'=>$no,'app_task_id'=>$task['id'],'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>'agent_transcribe','resource_type'=>'app_api','product_id'=>$quote['snapshot']['product_id'],'sku_id'=>$quote['snapshot']['sku_id'],'api_code'=>'stt','protocol'=>'application_api','provider'=>'power_market','quantity'=>1,'usage_unit'=>'per_call','price_snapshot'=>$quote,'request_summary'=>$prepared['inputs'],'response_summary'=>[],'usage_snapshot'=>['calls'=>1],'run_status'=>'running','billing_status'=>'reserved','reserved_tenant_cost'=>$quote['tenant'],'reserved_user_price'=>$quote['user'],'tenant_point_sn'=>$no.'-reserve','user_point_sn'=>$no.'-reserve','create_time'=>$now,'update_time'=>$now]);
@@ -113,7 +114,8 @@ final class AgentTranscriptionTool
     {
         $row=AiAppTask::where(['id'=>$task,'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>'agent_transcribe'])->find();
         if(!$row)throw new \InvalidArgumentException('转写任务不存在');
-        return ['task_id'=>$task,'status'=>$row['status'],'transcription'=>(array)$row['result_summary']];
+        $billing=array_values(array_unique(AiConsumptionLog::where(['app_task_id'=>$task,'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_llm','action_code'=>'agent_transcribe'])->column('billing_status')));
+        return ['task_id'=>$task,'status'=>$row['status'],'billing_status'=>count($billing)===1?$billing[0]:'unknown','transcription'=>(array)$row['result_summary']];
     }
     /** Replays only durable evidence; never sends the paid request again. */
     public static function reconcileReceipt(int $id): bool

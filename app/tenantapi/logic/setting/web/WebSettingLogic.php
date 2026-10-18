@@ -74,8 +74,9 @@ class WebSettingLogic extends BaseLogic
             'pc_login_bg_url' => $pcLoginBg ? FileService::getFileUrl($pcLoginBg) : '',
             'pc_login_bg_poster' => $pcLoginBgPoster ? FileService::getFileUrl($pcLoginBgPoster) : '',
             'pc_login_bg_poster_url' => $pcLoginBgPoster ? FileService::getFileUrl($pcLoginBgPoster) : '',
-            'pc_home_style' => ConfigService::get('website', 'pc_home_style', 'default'),
+            'pc_home_style' => \app\common\service\LikeAdminBrandService::style(ConfigService::get('website', 'pc_home_style', 'default')),
             'pc_home_top_mode' => \app\common\service\PcHomePresentationService::topMode(),
+            'pc_canvas_portal_editor' => \app\common\service\CanvasPortalService::sectionEditor('hero'),
             'pc_home_shortcuts_editor' => \app\common\service\PcHomeShortcutsService::editor(),
             'pc_home_bg_type' => ConfigService::get('website', 'pc_home_bg_type', 'none'),
             'pc_home_bg' => $pcHomeBgList,
@@ -111,8 +112,8 @@ class WebSettingLogic extends BaseLogic
         }
         $pcLoginBg = $pcLoginBgType === 'none' ? '' : FileService::setFileUrl($params['pc_login_bg'] ?? '');
         $pcLoginBgPoster = FileService::setFileUrl($params['pc_login_bg_poster'] ?? '');
-        $pcHomeStyle = $params['pc_home_style'] ?? 'default';
-        if (!in_array($pcHomeStyle, ['default', 'immersive', 'coral', 'imagine'], true)) {
+        $pcHomeStyle = \app\common\service\LikeAdminBrandService::style($params['pc_home_style'] ?? 'default');
+        if (!in_array($pcHomeStyle, ['default', 'immersive', 'coral', 'likeadmin'], true)) {
             $pcHomeStyle = 'default';
         }
         $pcHomeBgType = $params['pc_home_bg_type'] ?? 'none';

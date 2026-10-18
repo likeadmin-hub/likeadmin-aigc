@@ -6,9 +6,9 @@ use NeuronAI\Tools\{Tool,ToolProperty,PropertyType,ToolOutput};
 
 final class AgentFunctionTool extends Tool
 {
-    public function __construct(string $name,string $description,private array $schema,private \Closure $handler)
+    public function __construct(string $name,string $description,private array $schema,private \Closure $handler,int $maxRuns=4)
     {
-        $this->name=$name;$this->description=$description;$this->maxRuns=4;
+        $this->name=$name;$this->description=$description;$this->maxRuns=max(1,$maxRuns);
     }
     protected function properties(): array {return [new ToolProperty('payload',PropertyType::OBJECT,'工具参数',true)];}
     public function getInputSchema(): array

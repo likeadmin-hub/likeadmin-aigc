@@ -55,10 +55,16 @@ final class AgentWorkerHealth
         $oldestLease=(int)(clone $expired)->min('lease_until');
         $review=\think\facade\Db::name('ai_consumption_log')->where(['app_code'=>'aigc_llm','action_code'=>'agent_transcribe','billing_status'=>'reserved','run_status'=>'needs_review']);
         $speech=\think\facade\Db::name('ai_consumption_log')->where(['app_code'=>'aigc_llm','action_code'=>'agent_speech','billing_status'=>'reserved','run_status'=>'needs_review']);
+        $text=\think\facade\Db::name('ai_consumption_log')->alias('c')
+            ->join('ai_app_task t','t.id=c.app_task_id')
+            ->whereIn('c.app_code',['aigc_llm','aigc_canvas'])->where(['t.business_table'=>'aigc_llm_agent_run'])
+            ->whereColumn('c.tenant_id','=','t.tenant_id')->whereColumn('c.user_id','=','t.user_id');
+        $textReview=['pending_usage'=>(clone $text)->where(['c.billing_status'=>'pending_usage','c.run_status'=>'success'])->count(),
+            'settlement_failed'=>(clone $text)->where('c.billing_status','settlement_failed')->count()];
         $media=['proc_open'=>function_exists('proc_open')];
         foreach(['pdfinfo','pdftotext','pdftoppm','ffmpeg','ffprobe'] as $bin)$media[$bin]=is_executable('/usr/bin/'.$bin);
         $storage=[];
-        foreach(['stt','speech'] as $kind){
+        foreach(['stt','speech','text'] as $kind){
             $journal=runtime_path().'home-agent-'.$kind.'-receipts';
             $storage[$kind]=file_exists($journal)?is_dir($journal)&&is_writable($journal):is_writable(runtime_path());
         }
@@ -71,6 +77,7 @@ final class AgentWorkerHealth
                 'oldest_expired_lease_age_seconds'=>$expiredCount?$now-$oldestLease:0,
                 'oldest_ready_age_seconds'=>$oldest?$now-$oldest:0,
                 'review_runs'=>(clone $runs)->where('status','needs_review')->count()],
+            'text_review'=>$textReview,
             'stt_review'=>['count'=>(clone $review)->count(),'reserved_points'=>(float)(clone $review)->sum('reserved_user_price')],
             'speech_review'=>['count'=>(clone $speech)->count(),'reserved_points'=>(float)(clone $speech)->sum('reserved_user_price')]]);
     }
@@ -86,6 +93,7 @@ final class AgentWorkerHealth
         // Allow the worker one recovery cycle before alerting on a just-expired lease.
         if($report['queue']['expired_leases']>0&&$report['queue']['oldest_expired_lease_age_seconds']>=60)$add('lease_recovery_stalled','critical');
         if($report['queue']['review_runs']>0||$report['stt_review']['count']>0||$report['speech_review']['count']>0)$add('manual_review_required','warning');
+        if(array_sum($report['text_review']??[])>0)$add('text_billing_review_required','warning');
         $report['healthy']=!count(array_filter($issues,static fn($issue)=>$issue['severity']==='critical'));
         $report['attention_required']=(bool)$issues;
         $report['issues']=$issues;

@@ -868,13 +868,9 @@ INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`n
 VALUES
 (9121,{tenantId},0,'M','无限画布','el-icon-Share',96,'','aigc-canvas','','','',0,1,0,'aigc_canvas','app','aigc_canvas',0,1778000000,1778000000),
 (9122,{tenantId},9121,'C','用量统计','',10,'app.aigc_canvas.admin/stat','stat','apps/aigc_canvas/stat','','',0,1,0,'aigc_canvas','app','aigc_canvas_stat',0,1778000000,1778000000),
-(9124,{tenantId},9121,'C','创作任务','',20,'app.aigc_canvas.admin_run/lists','run','apps/aigc_canvas/run','','',0,1,0,'aigc_canvas','app','aigc_canvas_run',0,1778000000,1778000000),
-(9125,{tenantId},9121,'C','Agent Trace','',60,'app.aigc_canvas.admin_trace/lists','trace','apps/aigc_canvas/trace','','',0,1,0,'aigc_canvas','app','aigc_canvas_trace',0,1778000000,1778000000);
+(9124,{tenantId},9121,'C','创作任务','',20,'app.aigc_canvas.admin_run/lists','run','apps/aigc_canvas/run','','',0,1,0,'aigc_canvas','app','aigc_canvas_run',0,1778000000,1778000000);
 
-INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
-VALUES
-({tenantId},9121,'C','Skills管理','',40,'app.aigc_canvas.skill/lists','skill','apps/aigc_canvas/skill','','',0,1,0,'aigc_canvas','app','aigc_canvas_skill',0,1778000000,1778000000),
-({tenantId},9121,'C','Agent 治理','',50,'app.aigc_canvas.governance/policies','governance','apps/aigc_canvas/governance','','',0,1,0,'aigc_canvas','app','aigc_canvas_governance',0,1778000000,1778000000);
+
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
@@ -1231,3 +1227,13 @@ INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`perms`,`is_show`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT {tenantId},p.id,'A','发起退款','finance.virtual_pay/refund',0,'core','core_tenant_virtual_pay_refund',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu_{tenantSn}` p WHERE p.tenant_id={tenantId} AND p.perms='finance.virtual_pay/detail' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` e WHERE e.tenant_id={tenantId} AND e.perms='finance.virtual_pay/refund');
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`perms`,`is_show`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT {tenantId},p.id,'A','异常处理','finance.virtual_pay/resolve',0,'core','core_tenant_virtual_pay_resolve',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu_{tenantSn}` p WHERE p.tenant_id={tenantId} AND p.perms='finance.virtual_pay/detail' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` e WHERE e.tenant_id={tenantId} AND e.perms='finance.virtual_pay/resolve');
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`perms`,`is_show`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT {tenantId},p.id,'A','优惠详情','finance.promotion/detail',0,'core','core_tenant_promotion_detail',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu_{tenantSn}` p WHERE p.tenant_id={tenantId} AND p.paths='package' AND p.type='M' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` e WHERE e.tenant_id={tenantId} AND e.perms='finance.promotion/detail');
+
+-- Canvas template catalog: directly after Skills (descending menu sort).
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (tenant_id,pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
+SELECT parent.tenant_id,parent.id,'C','模板管理','',35,'app.aigc_canvas.template/detail','template','apps/aigc_canvas/template','','',0,1,0,'aigc_canvas','app','aigc_canvas_template',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_tenant_system_menu_{tenantSn}` parent WHERE parent.app_code='aigc_canvas' AND parent.source='app' AND parent.source_menu_key='aigc_canvas'
+AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` existing WHERE existing.tenant_id=parent.tenant_id AND existing.app_code='aigc_canvas' AND existing.source_menu_key='aigc_canvas_template');
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (tenant_id,pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
+SELECT parent.tenant_id,parent.id,'A','发布模板','',0,'app.aigc_canvas.template/publish','','','','',0,0,0,'aigc_canvas','app','aigc_canvas_template_publish',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_tenant_system_menu_{tenantSn}` parent WHERE parent.app_code='aigc_canvas' AND parent.source='app' AND parent.source_menu_key='aigc_canvas_template'
+AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` existing WHERE existing.tenant_id=parent.tenant_id AND existing.app_code='aigc_canvas' AND existing.source_menu_key='aigc_canvas_template_publish');

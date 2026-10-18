@@ -85,22 +85,24 @@ class MarketImageModelRuntimeService
     /** @return array<int, array<string, mixed>> */
     public static function options(int $tenantId): array
     {
+        return MarketCatalogReadScope::remember('image:' . $tenantId, static fn(): array => self::buildOptions($tenantId));
+    }
+
+    private static function buildOptions(int $tenantId): array
+    {
         $products = PowerMarketProduct::where([
             'resource_type' => PowerMarketService::TYPE_MODEL,
             'model_type' => 'image',
             'status' => 1,
         ])->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
         TenantPowerMarketService::applyProductDisplays($tenantId, $products);
+        $catalogueSkus = MarketCatalogSkuReader::forProducts($tenantId, array_column($products, 'id'));
         $options = [];
         foreach ($products as $product) {
             $meta = self::metadata($product);
-            $platformSkuCount = PowerMarketSku::where([
-                'product_id' => (int)$product['id'],
-                'status' => 1,
-                'sale_status' => 1,
-            ])->count();
+            $platformSkuCount = $catalogueSkus[(int)$product['id']]['platform_count'] ?? 0;
             $skus = [];
-            foreach (self::availableSkus($tenantId, (int)$product['id']) as $market) {
+            foreach ($catalogueSkus[(int)$product['id']]['available'] ?? [] as $market) {
                 $sku = $market['sku'];
                 $locked = self::arrayValue($sku['locked_params'] ?? []);
                 $quality = self::skuQuality($sku, $locked);
@@ -948,6 +950,7 @@ class MarketImageModelRuntimeService
 
     private static function providerParamsForFlatPayload(array $params, array $schema): array
     {
+        $schema = self::arrayValue($schema['properties'] ?? $schema);
         foreach (['omit_resolution', 'task_query'] as $key) {
             unset($params[$key]);
         }
@@ -965,7 +968,7 @@ class MarketImageModelRuntimeService
     {
         $metadata = self::metadata($snapshot);
         $schema = self::arrayValue($metadata['params_schema'] ?? []);
-        if (array_key_exists('input', $schema) && array_key_exists('parameters', $schema)) {
+        if (array_key_exists('input', $schema['properties'] ?? $schema) && array_key_exists('parameters', $schema['properties'] ?? $schema)) {
             return true;
         }
         $doc = strtolower((string)($metadata['developer_doc_content'] ?? $metadata['api_doc'] ?? ''));
@@ -1354,7 +1357,8 @@ class MarketImageModelRuntimeService
         }
         $options = $definition['enum'] ?? $definition['options'] ?? [];
         if (is_string($options)) {
-            $options = preg_split('/\s*(?:\/|,|\|)\s*/', $options, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            $decoded = json_decode($options, true);
+            $options = is_array($decoded) ? $decoded : (is_scalar($decoded) ? [$decoded] : (preg_split('/\s*(?:\/|,|\|)\s*/', $options, -1, PREG_SPLIT_NO_EMPTY) ?: []));
         }
         if (!is_array($options) || $options === []) {
             return true;
