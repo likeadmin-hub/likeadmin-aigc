@@ -37,6 +37,15 @@
         "perms": "app.aigc_micro_video.task/lists",
         "paths": "task",
         "component": "apps/aigc_micro_video/task"
+      },
+      {
+        "source_menu_key": "aigc_micro_video_workbench",
+        "type": "C",
+        "name": "创作工作台",
+        "sort": 35,
+        "perms": "app.aigc_micro_video.workbench/lists",
+        "paths": "workbench",
+        "component": "apps/aigc_micro_video/workbench"
       }
     ]
   }

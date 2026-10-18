@@ -1,10 +1,10 @@
 {
   "code": "aigc_micro_video",
   "name": "微视频",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "require_core": ">=1.0.0",
   "description": "多图理解、智能提示词与创作方向，确认分段后生成并合并完整视频。",
-  "changelog": "1. 微视频随系统默认启用，无需单独安装。\n2. 支持创作方向、智能分段、首尾帧生成与连续视频合成。\n3. 支持单图和单段重试，并优化视频衔接与创作记录预览。",
+  "changelog": "1. 新增云端创作项目、模板与商品档案，支持版本保存与草稿变体。\n2. 支持剧本改写、角色分析、分镜参考与逐项费用确认。\n3. 扩展移动端创作流程与租户工作台管理。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "is_builtin": 1,
@@ -63,6 +63,11 @@
           {
             "name": "作品详情",
             "path": "/apps/aigc_micro_video/pages/detail/index"
+          },
+          {
+            "name": "微视频工作台",
+            "path": "/apps/aigc_micro_video/pages/workbench/index",
+            "auth": true
           }
         ]
       }

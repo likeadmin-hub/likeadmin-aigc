@@ -9,17 +9,17 @@ use think\facade\Cache;
 final class MicroVideoCatalog
 {
     private static array $cache=[];
-    public static function models(int $tenant,bool $legacy=false): array
+    public static function models(int $tenant,bool $legacy=false,string $mode='both'): array
     {
-        $cacheKey=$tenant.':'.(int)$legacy;if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
-        $sharedKey='micro_video_callable_models_v2:'.$tenant;if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
+        $cacheKey=$tenant.':'.(int)$legacy.':'.$mode;if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
+        $sharedKey='micro_video_callable_models_v3:'.$tenant.':'.$mode;if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
         $result=[];$options=AigcVideoService::marketOptions($tenant);
         foreach($options['channels']??[] as $model){
             if((int)($model['status']??1)!==1||(int)($model['max_reference_images']??0)<1)continue;
             $modes=(array)($model['generation_modes']??$model['input_modes']??[]);$method='';
             foreach(['image_reference','omni_reference','image_to_video'] as $m)if(in_array($m,$modes,true)){$method=$m;break;}
             if($method===''){if($legacy)$method='image_reference';else continue;}
-            $hasFrames=!empty($model['supports_first_last_frame'])&&in_array('start_end',$modes,true);if(!$legacy&&!$hasFrames)continue;
+            $hasFrames=!empty($model['supports_first_last_frame'])&&in_array('start_end',$modes,true);if(!$legacy&&$mode!=='reference'&&!$hasFrames)continue;
             $specs=[];$frameSpecs=[];$validatedPairs=[];
             foreach($model['specs']??[] as $s){
                 if(($s['settlement_mode']??'reserved')!=='reserved'||in_array($s['input_mode']??'', ['video_edit','audio_reference'],true))continue;
@@ -38,7 +38,9 @@ final class MicroVideoCatalog
                         // mode/spec pair, including ratio and duration constraints.
                         $pairKey=implode('|',[$s['market_sku_id'],$entry['quality'],$ratio]);
                         if(!array_key_exists($pairKey,$validatedPairs)){
-                            try{$validatedPairs[$pairKey]=['duration'=>$duration,'reference'=>self::quote($tenant,$entry,(string)$model['id']),'frames'=>self::quote($tenant,array_replace($entry,['generation_method'=>'start_end']),(string)$model['id'])];}catch(\Throwable){$validatedPairs[$pairKey]=false;}
+                            try{$referenceQuote=self::quote($tenant,$entry,(string)$model['id']);}catch(\Throwable){$validatedPairs[$pairKey]=false;continue;}
+                            $frameQuote=null;if($hasFrames){try{$frameQuote=self::quote($tenant,array_replace($entry,['generation_method'=>'start_end']),(string)$model['id']);}catch(\Throwable){}}
+                            $validatedPairs[$pairKey]=($mode!=='reference'&&!$frameQuote)?false:['duration'=>$duration,'reference'=>$referenceQuote,'frames'=>$frameQuote];
                         }
                         $pair=$validatedPairs[$pairKey];if($pair===false)continue;$reference=$pair['reference'];$frames=$pair['frames'];
                         // Durations are the shared runtime's advertised options for
@@ -46,15 +48,15 @@ final class MicroVideoCatalog
                         // reserved second-based prices; exact admissions quote again.
                         $scale=in_array($unit,['input_second','output_second','second'],true)?$duration/$pair['duration']:1;
                         $refEntry=array_replace($entry,['market_sku_id'=>$reference['market_sku_id'],'user_charge_points'=>round($reference['user_charge_points']*$scale,4)]);
-                        $frameEntry=array_replace($entry,['generation_method'=>'start_end','market_sku_id'=>$frames['market_sku_id'],'user_charge_points'=>round($frames['user_charge_points']*$scale,4)]);
+                        $frameEntry=$frames?array_replace($entry,['generation_method'=>'start_end','market_sku_id'=>$frames['market_sku_id'],'user_charge_points'=>round($frames['user_charge_points']*$scale,4)]):null;
                         // App adapters can normalize text-priced aliases to the same
                         // reference SKU. Display and freeze that authoritative SKU.
-                        $key=implode('|',[$entry['quality'],$ratio,$duration,$reference['market_sku_id'],$frames['market_sku_id']]);$specs[$key]=$refEntry;$frameSpecs[$key]=$frameEntry;
+                        $key=implode('|',[$entry['quality'],$ratio,$duration,$reference['market_sku_id'],($frames['market_sku_id']??0)]);$specs[$key]=$refEntry;if($frameEntry)$frameSpecs[$key]=$frameEntry;
                     }
                 }
             }
             if(!$legacy){$specs=array_values($specs);$frameSpecs=array_values($frameSpecs);}
-            if(!$specs||(!$legacy&&!$frameSpecs))continue;
+            if(!$specs||(!$legacy&&$mode!=='reference'&&!$frameSpecs))continue;
             $result[]=['id'=>(string)$model['id'],'label'=>(string)$model['name'],'description'=>(string)($model['description']??''),'display_icon'=>(string)($model['display_icon']??''),'max_reference_images'=>$method==='image_to_video'?1:min(15,(int)$model['max_reference_images']),'specs'=>$specs,'start_end_specs'=>$frameSpecs,'generation_modes'=>$hasFrames&&$frameSpecs?['reference','start_end']:['reference'],'supports_first_last_frame'=>(bool)($hasFrames&&$frameSpecs)];
         }
         // Catalog discovery is advisory; exact quote/reserve always validates live.
@@ -63,9 +65,9 @@ final class MicroVideoCatalog
         if(!$legacy)try{Cache::set($sharedKey,$result,15);}catch(\Throwable){}
         return self::$cache[$cacheKey]=$result;
     }
-    public static function model(int $tenant,string $id,bool $legacy=false): array
+    public static function model(int $tenant,string $id,bool $legacy=false,string $mode='both'): array
     {
-        foreach(self::models($tenant,$legacy) as $m)if($m['id']===$id)return $m;throw new InvalidArgumentException('视频模型暂不可用，请重新选择');
+        foreach(self::models($tenant,$legacy,$mode) as $m)if($m['id']===$id)return $m;throw new InvalidArgumentException('视频模型暂不可用，请重新选择');
     }
     public static function specs(array $model,string $quality,string $ratio): array
     {

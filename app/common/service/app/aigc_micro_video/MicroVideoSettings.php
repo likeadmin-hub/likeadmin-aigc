@@ -24,7 +24,7 @@ final class MicroVideoSettings
     public static function save(int $tenant,array $params): void
     {
         $params=is_array($params['config']??null)?$params['config']:$params;$config=array_replace(self::get($tenant),array_intersect_key($params,self::defaults()));
-        $ids=array_values(array_unique(array_map('strval',(array)$config['video_model_ids'])));$available=array_column(MicroVideoCatalog::models($tenant),'id');
+        $ids=array_values(array_unique(array_map('strval',(array)$config['video_model_ids'])));$available=array_column(MicroVideoCatalog::models($tenant,false,'reference'),'id');
         if(array_diff($ids,$available))throw new InvalidArgumentException('勾选的模型暂不可用');
         if($ids)MicroVideoPolicy::allowedModel((string)$config['default_model_id'],$ids);elseif($config['default_model_id']!=='')throw new InvalidArgumentException('默认模型必须属于支持模型');
         foreach(['vision_model_id','script_model_id'] as $key)if($config[$key]!=='')MarketTextModelRuntimeService::resolveModel($tenant,(string)$config[$key],$key==='vision_model_id');
@@ -39,7 +39,7 @@ final class MicroVideoSettings
     }
     public static function detail(int $tenant,bool $admin=false): array
     {
-        $config=self::get($tenant);$all=MicroVideoCatalog::models($tenant);$models=array_values(array_filter($all,fn($m)=>in_array($m['id'],$config['video_model_ids'],true)));
+        $config=self::get($tenant);$all=MicroVideoCatalog::models($tenant,false,'reference');$models=array_values(array_filter($all,fn($m)=>in_array($m['id'],$config['video_model_ids'],true)));
         $out=array_intersect_key($config,array_flip(['status','default_model_id','default_quality','default_ratio','target_duration_options','max_images','max_segments']));
         $frameModels=MicroVideoFrameCatalog::models($tenant);$out+=['frames_enabled'=>(int)$config['frames_enabled'],'frame_models'=>array_values(array_filter($frameModels,fn($m)=>in_array($m['id'],$config['frame_model_ids'],true))),'default_frame_model_id'=>$config['default_frame_model_id'],'default_frame_quality'=>$config['default_frame_quality']];
         $out+=['models'=>$models,'directions'=>self::directions($tenant,false),'duration_notice'=>self::NOTICE];
