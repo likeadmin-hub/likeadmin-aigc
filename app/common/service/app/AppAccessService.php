@@ -14,6 +14,7 @@ class AppAccessService
     public const DEFAULT_AIGC_APP_CODES = [
         'aigc_image',
         'aigc_video',
+        'aigc_micro_video',
         'aigc_digital_human',
         'aigc_pic_lipsync',
         'aigc_canvas',
@@ -27,6 +28,7 @@ class AppAccessService
         'open_platform',
         'aigc_image',
         'aigc_video',
+        'aigc_micro_video',
         'aigc_digital_human',
         'aigc_pic_lipsync',
         'aigc_canvas',

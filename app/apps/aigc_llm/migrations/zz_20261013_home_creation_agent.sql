@@ -1,13 +1,12 @@
 -- Home creation Agent. Additive and safe to repeat.
 CREATE TABLE IF NOT EXISTS `la_aigc_llm_agent_preference` (
-  `workspace_key` varchar(160) NOT NULL DEFAULT 'aigc_llm',
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `tenant_id` int unsigned NOT NULL,
   `user_id` int unsigned NOT NULL,
   `preferences` mediumtext NOT NULL,
   `create_time` int unsigned NOT NULL,
   `update_time` int unsigned NOT NULL,
-  UNIQUE KEY `owner` (`tenant_id`,`user_id`,`workspace_key`),
+  UNIQUE KEY `owner` (`tenant_id`,`user_id`),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

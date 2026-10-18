@@ -6,6 +6,7 @@ block and both idempotent upgrade copies. Never seed callable API settings.
 """
 import json
 import pathlib
+from pathlib import Path
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -32,10 +33,12 @@ def insert(table, values):
     return f'INSERT IGNORE INTO `la_{table}` ({columns}) VALUES ({items});'
 
 
-def generate():
-    manifest = json.loads((APP / 'manifest.json').read_text())
+def generate(app_path=None, begin=None, end=None):
+    app_path = Path(app_path) if app_path else APP
+    begin, end = begin or BEGIN, end or END
+    manifest = json.loads((app_path / 'manifest.json').read_text())
     code = manifest['code']
-    lines = [BEGIN, '-- Missing records only; preserve tenant-owned menus and API authorization/settings.']
+    lines = [begin, '-- Missing records only; preserve tenant-owned menus and API authorization/settings.']
     lines.append(insert('app', {
         'code': code, 'name': manifest['name'], 'icon': manifest.get('icon', ''),
         'description': manifest['description'], 'category': manifest['category'],
@@ -56,7 +59,7 @@ def generate():
             'status': entry.get('status', 1), 'meta': encoded(entry.get('meta', [])),
             'create_time': 0, 'update_time': 0,
         }))
-    for api in json.loads((APP / 'api_schema.json').read_text())['apis']:
+    for api in json.loads((app_path / 'api_schema.json').read_text())['apis']:
         lines.append(insert('app_api', {
             'app_code': code, 'api_path': api['api_path'], 'api_method': api.get('api_method', 'GET').upper(),
             'permission_key': api.get('permission_key', ''), 'scene': api.get('scene', 'tenant_admin'),
@@ -100,8 +103,10 @@ def generate():
                 lines.append(f'WHERE NOT EXISTS (SELECT 1 FROM `la_{table}` m WHERE {condition})'
                              + (f' AND {parent_id} IS NOT NULL' if parent else '') + ';')
                 menu_rows(menu.get('children', []), key)
-        menu_rows(json.loads((APP / 'menus' / (terminal + '.json')).read_text()))
-    lines.append(END)
+        menu_path = app_path / 'menus' / (terminal + '.json')
+        if menu_path.exists():
+            menu_rows(json.loads(menu_path.read_text()))
+    lines.append(end)
     return '\n'.join(lines) + '\n'
 
 

@@ -24,7 +24,13 @@ class SqlMigrationExecutor
         }
         if (!class_exists(CanvasConversationSchema::class)) require_once __DIR__.'/CanvasConversationSchema.php';
         $content = CanvasConversationSchema::expand($content);
+        if (!class_exists(MicroVideoFrameSchema::class)) require_once __DIR__.'/MicroVideoFrameSchema.php';
+        $content = MicroVideoFrameSchema::expand($content);
         foreach (self::split($content) as $sql) {
+            if (MicroVideoFrameSchema::isOwnerSql($sql)) {
+                MicroVideoFrameSchema::ensureOwner($prefix, $connection);
+                continue;
+            }
             if (CanvasConversationSchema::isOwnerSql($sql)) {
                 CanvasConversationSchema::ensureOwner($prefix, $connection);
                 continue;
