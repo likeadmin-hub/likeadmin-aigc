@@ -22,7 +22,7 @@ final class MicroVideoService
     }
     public static function form(int $tenant,int $user,array $p,bool $imagesRequired=true): array
     {
-        self::available($tenant);$config=MicroVideoSettings::get($tenant);$id=(string)($p['model_id']??$config['default_model_id']);MicroVideoPolicy::allowedModel($id,$config['video_model_ids']);$model=MicroVideoCatalog::model($tenant,$id);
+        self::available($tenant);$config=MicroVideoSettings::get($tenant);$id=(string)($p['model_id']??$config['default_model_id']);MicroVideoPolicy::allowedModel($id,$config['video_model_ids']);$model=MicroVideoCatalog::model($tenant,$id,false,'reference');
         $quality=(string)($p['quality']??$config['default_quality']);$ratio=(string)($p['ratio']??$config['default_ratio']);MicroVideoCatalog::specs($model,$quality,$ratio);
         $target=(int)($p['target_duration']??30);if(!in_array($target,$config['target_duration_options'],true))throw new InvalidArgumentException('请选择开放的目标时长');
         $mode=(string)($p['mode']??'theme');if(!in_array($mode,['theme','prompt'],true))throw new InvalidArgumentException('创作模式无效');
@@ -78,6 +78,23 @@ final class MicroVideoService
         }
         return self::detail($tenant,$user,(int)$row['id']);
     }
+    /** Import a paid/prepared workbench plan without another planning call or worker admission. */
+    public static function importWorkbenchPlan(int $tenant,int $user,array $p,array $segments,array $snapshot): array
+    {
+        $prepared=self::form($tenant,$user,$p);$config=$prepared['config'];$model=$prepared['model'];$params=$prepared['params'];
+        $allowed=array_column(MicroVideoCatalog::specs($model,$params['quality'],$params['ratio']),'duration');
+        $contract=MicroVideoContentPlanning::contract($params,$allowed,(int)$config['max_segments'],3);
+        $normalized=MicroVideoContentPlanning::validate(['segments'=>$segments,'continuity'=>(string)($p['continuity']??'')],$contract,count($params['images']),(int)$model['max_reference_images'],true);
+        return Db::transaction(function()use($tenant,$user,$p,$prepared,$normalized,$snapshot){
+            $row=self::createDraft($tenant,$user,$prepared,'workbench:'.self::key($p),'awaiting_confirmation');
+            $existing=MicroVideoStore::json($row['config_snapshot']);
+            if(isset($existing['workbench_snapshot'])){if(MicroVideoWorkbenchPolicy::hash($existing['workbench_snapshot'])!==MicroVideoWorkbenchPolicy::hash($snapshot))throw new InvalidArgumentException('请求标识已用于其他项目版本');return self::detail($tenant,$user,(int)$row['id']);}
+            if(MicroVideoStore::segments((int)$row['id']))throw new InvalidArgumentException('执行草稿已存在，请刷新');
+            self::replaceSegments($row,$normalized);$existing['workbench_snapshot']=$snapshot;$existing['workflow_version']=1;
+            MicroVideoStore::update((int)$row['id'],['config_snapshot'=>MicroVideoStore::encode($existing),'status'=>'awaiting_confirmation','continuity'=>(string)($p['continuity']??''),'plan_revision'=>1]);
+            return self::detail($tenant,$user,(int)$row['id']);
+        });
+    }
     public static function savePlan(int $tenant,int $user,array $p): array
     {
         self::available($tenant);$id=(int)($p['id']??0);
@@ -124,7 +141,7 @@ final class MicroVideoService
     }
     public static function quoteTask(array $row): array
     {
-        $params=MicroVideoStore::json($row['params_json']);$config=MicroVideoSettings::get((int)$row['tenant_id']);$legacy=empty(MicroVideoStore::json($row['config_snapshot'])['frame_feature_version']);if(!$legacy)MicroVideoPolicy::allowedModel($params['model_id'],$config['video_model_ids']);$model=MicroVideoCatalog::model((int)$row['tenant_id'],$params['model_id'],$legacy);$model=$legacy?MicroVideoStore::json($row['model_snapshot']):$model;$mode=$row['generation_mode']??'reference';$frames=$mode==='start_end'?MicroVideoFrames::ready($row):[];
+        $params=MicroVideoStore::json($row['params_json']);$config=MicroVideoSettings::get((int)$row['tenant_id']);$legacy=empty(MicroVideoStore::json($row['config_snapshot'])['frame_feature_version']);if(!$legacy)MicroVideoPolicy::allowedModel($params['model_id'],$config['video_model_ids']);$model=MicroVideoCatalog::model((int)$row['tenant_id'],$params['model_id'],$legacy,'reference');$model=$legacy?MicroVideoStore::json($row['model_snapshot']):$model;$mode=$row['generation_mode']??'reference';$frames=$mode==='start_end'?MicroVideoFrames::ready($row):[];
         $rows=MicroVideoStore::segments((int)$row['id']);$quotes=[];$user=0.;$tenant=0.;
         foreach($rows as $segment){
             if(!in_array($segment['status'],['pending','failed'],true))continue;
