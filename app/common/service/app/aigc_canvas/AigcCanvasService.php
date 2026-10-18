@@ -2136,6 +2136,9 @@ class AigcCanvasService
     {
         self::ensureRunSchema();
         $params = self::repairLegacyProjectText($params);
+        if (in_array($type, ['image', 'video'], true)) {
+            $params['submitted_model_label'] = (string)\app\common\model\power\PowerMarketProduct::where('id', (int)($params['market_product_id'] ?? 0))->value('name');
+        }
         return AigcCanvasRun::create([
             'tenant_id' => $tenantId,
             'user_id' => $userId,

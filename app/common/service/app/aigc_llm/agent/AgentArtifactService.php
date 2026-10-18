@@ -74,7 +74,7 @@ final class AgentArtifactService
             if(!$task)return null;
         }
         // Whitelist public creation settings; model snapshots can contain provider credentials.
-        $meta=array_intersect_key($task,array_flip(['prompt','negative_prompt','quality','ratio','duration','quantity','style','lyrics','genre','mood','instruments','language']));
+        $meta=array_intersect_key($task,array_flip(['prompt','negative_prompt','quality','ratio','duration','quantity','style','lyrics','genre','mood','instruments','language','create_time']));
         $meta['model_name']=AiTaskRecordService::modelDisplayName($task,$step['tool_code']);
         if ($canvas && $step['tool_code'] === 'aigc_music') {
             $submitted = AgentStore::json($task['provider_payload'] ?? [])['generation'] ?? [];
