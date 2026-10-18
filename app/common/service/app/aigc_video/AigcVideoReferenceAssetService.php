@@ -68,7 +68,7 @@ class AigcVideoReferenceAssetService
 
     public static function publicUrl(array $asset): string
     {
-        $url = trim((string)($asset['url'] ?? $asset['uri'] ?? ''));
+        $url = self::durableSource((string)($asset['url'] ?? ''), (string)($asset['uri'] ?? ''));
         if ($url === '') {
             return '';
         }
@@ -207,6 +207,21 @@ class AigcVideoReferenceAssetService
         return $assets;
     }
 
+    // Browser object URLs are previews, never provider-accessible media addresses.
+    private static function durableSource(string $preferred, string $fallback): string
+    {
+        foreach ([$preferred, $fallback] as $value) {
+            $value = trim($value);
+            if ($value !== '' && !str_starts_with(strtolower($value), 'blob:')) {
+                return $value;
+            }
+        }
+        if (trim($preferred . $fallback) !== '') {
+            throw new Exception('参考素材尚未上传完成，请重新上传后重试');
+        }
+        return '';
+    }
+
     private static function normalizeItem(array $asset): array
     {
         $type = strtolower(trim((string)($asset['type'] ?? $asset['media_type'] ?? 'image')));
@@ -224,6 +239,8 @@ class AigcVideoReferenceAssetService
         if ($uri === '' && $url === '') {
             return [];
         }
+        $uri = self::durableSource($uri, $url);
+        $url = self::durableSource($url, $uri);
         $name = trim((string)($asset['name'] ?? ''));
         if ($name === '') {
             $meta = (array)($asset['meta'] ?? []);
