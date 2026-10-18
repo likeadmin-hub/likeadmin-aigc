@@ -17,8 +17,9 @@ function fixture(){
  const write=(p,v)=>{const full=path.join(dir,p);fs.mkdirSync(path.dirname(full),{recursive:true});fs.writeFileSync(full,v)}
  const git=(...args)=>execFileSync('git',['-c','user.name=Fixture','-c','user.email=fixture@example.invalid',...args],{cwd:dir,encoding:'utf8'})
  git('init','-q');write('config/project.php',"<?php return ['version'=>'1.0.391'];\n")
+ const updater='app/common/service/update/SystemPackageUpdateService.php';write(updater,fs.readFileSync(path.join(source,updater)))
  const historical='app/apps/aigc_video/migrations/install.sql';write(historical,'CREATE TABLE IF NOT EXISTS la_aigc_video_config (config_json TEXT);\n')
- git('add','config/project.php',historical);git('commit','-qm','Fixture391');const base=git('rev-parse','HEAD').trim()
+ git('add','config/project.php',historical,updater);git('commit','-qm','Fixture391');const base=git('rev-parse','HEAD').trim()
  for(const name of names){
   let input='upgrade/'+name
   if(name.includes('open_platform'))input='app/apps/open_platform/migrations/'+name
