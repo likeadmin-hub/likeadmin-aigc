@@ -118,7 +118,7 @@ final class CanvasMediaPreviewService
         foreach (array_slice((array)($value['parameters'] ?? []),0,20) as $p) {
             if (!is_array($p) || !in_array($p['label'] ?? '',$labels,true) || isset($seen[$p['label']])) continue;
             $v=$text($p['value'] ?? '',200);if ($v==='') continue;
-            $seen[$p['label']]=true;$result['parameters'][]=['label'=>$p['label'],'value'=>$v];
+            $seen[$p['label']]=true;$result['parameters'][]=['label'=>$p['label'],'value'=>$p['label']==='分辨率'?strtoupper($v):$v];
         }
         $seen=[];
         foreach (array_slice((array)($value['references'] ?? []),0,64) as $ref) {
