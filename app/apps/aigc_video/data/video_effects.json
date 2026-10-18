@@ -16,8 +16,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/push_in.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/push_in.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/images/20261012/20261012042036ec46d2128.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video/20261012/202610120427580b77d6632.mp4"
   },
   {
     "id": "pull_out",
@@ -36,8 +36,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/pull_out.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/pull_out.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/images/20261012/2026101204203643b841941.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video/20261012/20261012042758d5c6b8356.mp4"
   },
   {
     "id": "truck_right",
@@ -56,8 +56,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/truck_right.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/truck_right.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/images/20261012/20261012042036b5be70749.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video/20261012/2026101204275854ed08054.mp4"
   },
   {
     "id": "pan_right",
@@ -76,8 +76,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/pan_right.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/pan_right.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205162967cbf2934.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051629d3cd28968.mp4"
   },
   {
     "id": "truck_left",
@@ -96,8 +96,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/truck_left.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/truck_left.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051630f62038220.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051630463158245.mp4"
   },
   {
     "id": "aerial_drone_shot",
@@ -116,8 +116,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/Aerial_drone_shot.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/aerial_drone_shot.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051630babe50036.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516316abd30264.mp4"
   },
   {
     "id": "ground_level_tracking_shot",
@@ -136,8 +136,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/ground_level_tracking_shot.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/ground_level_tracking_shot.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205163165cfe7733.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516312aca21175.mp4"
   },
   {
     "id": "dolly_zoom_out",
@@ -156,8 +156,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/dolly_zoom_out.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/dolly_zoom_out.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516329d0b51396.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051632ad39c5612.mp4"
   },
   {
     "id": "fix_and_pose",
@@ -174,8 +174,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/fix_and_pose.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/fix_and_pose.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051633476394851.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516334d62c8764.mp4"
   },
   {
     "id": "treking",
@@ -192,8 +192,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/treking.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/treking.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051634e8eb61311.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051634d98679031.mp4"
   },
   {
     "id": "fizzy_drink_ad",
@@ -210,8 +210,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/fizzy_drink_ad.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/fizzy_drink_ad.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051634ccdf13669.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051635a88b84831.mp4"
   },
   {
     "id": "arc_left1",
@@ -230,8 +230,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/arc_left1.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/arc_left1.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051635cf7aa8755.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051636228f24736.mp4"
   },
   {
     "id": "dutch_angle",
@@ -250,8 +250,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/dutch_angle.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/dutch_angle.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051636f5c512617.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051636e48c01828.mp4"
   },
   {
     "id": "werewolf",
@@ -268,8 +268,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/werewolf.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/werewolf.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051637363d04124.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051637df2ca8915.mp4"
   },
   {
     "id": "atomic_blast1",
@@ -286,8 +286,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/atomic_blast1.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/atomic_blast1.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205163708c135240.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205163882bb72243.mp4"
   },
   {
     "id": "caught_in_action",
@@ -304,8 +304,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/caught_in_action.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/caught_in_action.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051638631b17731.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205163891a062402.mp4"
   },
   {
     "id": "exploded",
@@ -322,8 +322,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/exploded.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/exploded.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205163906c711040.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051639a6d909595.mp4"
   },
   {
     "id": "handheld_run",
@@ -340,8 +340,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/handheld_run.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/handheld_run.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051639f08e21169.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516397b6909435.mp4"
   },
   {
     "id": "outfit_check",
@@ -358,8 +358,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/outfit_check.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/outfit_check.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205164006c818111.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205164097d239673.mp4"
   },
   {
     "id": "timelapse",
@@ -378,8 +378,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/timelapse.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/timelapse.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051641e2ffc9810.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051641f80ae8751.mp4"
   },
   {
     "id": "flame_on",
@@ -396,8 +396,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/flame_on.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/flame_on.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205164109f971133.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205164136d475085.mp4"
   },
   {
     "id": "pan_left",
@@ -416,8 +416,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/pan_left.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/pan_left.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051642913605489.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051642d6df31738.mp4"
   },
   {
     "id": "zoom_out",
@@ -436,8 +436,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/zoom_out.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/zoom_out.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051642270d07148.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051643cde3d7882.mp4"
   },
   {
     "id": "padestal_up",
@@ -456,8 +456,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/padestal_up.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/padestal_up.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516430681e0588.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516444c8bb9198.mp4"
   },
   {
     "id": "pov",
@@ -476,8 +476,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/POV.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/POV.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051644b2f092373.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516456915f1676.mp4"
   },
   {
     "id": "orbit_right",
@@ -496,8 +496,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/orbit_right.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/orbit_right.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516457f2402676.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051645cd3cd0782.mp4"
   },
   {
     "id": "dolly_zoom_in",
@@ -516,8 +516,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/dolly_zoom_in.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/dolly_zoom_in.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516468c5701013.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051646374242735.mp4"
   },
   {
     "id": "northern_lightning",
@@ -534,8 +534,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/northern_lightning.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/northern_lightning.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205164757ac32335.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051647055d37006.mp4"
   },
   {
     "id": "levitation",
@@ -552,8 +552,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/levitation.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/levitation.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051647452b85173.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516486f8188542.mp4"
   },
   {
     "id": "product_splash",
@@ -570,8 +570,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/product_splash.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/product_splash.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516482ca8a5167.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051648f5b2a8178.mp4"
   },
   {
     "id": "crane_up1",
@@ -590,8 +590,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/crane_up1.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/crane_up1.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516491fc140692.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516498e0ff7907.mp4"
   },
   {
     "id": "through_object_out",
@@ -610,8 +610,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/through_object_out.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/through_object_out.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051649aa5373546.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165012e0f6340.mp4"
   },
   {
     "id": "column_wipe",
@@ -627,8 +627,8 @@
       "start_end"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/column_wipe.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/column_wipe.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051650608039898.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165027d331506.mp4"
   },
   {
     "id": "boiling_point",
@@ -645,8 +645,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/boiling_point.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/boiling_point.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051651b5ee67412.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051651007e84710.mp4"
   },
   {
     "id": "cloth_rain",
@@ -663,8 +663,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/cloth_rain.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/cloth_rain.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516519ba466126.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051651d1ae88736.mp4"
   },
   {
     "id": "explosion",
@@ -681,8 +681,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/explosion.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/explosion.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165286f1e9634.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516527da634149.mp4"
   },
   {
     "id": "happy_mode",
@@ -699,8 +699,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/happy_mode.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/happy_mode.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165231d0d7528.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516538d9155511.mp4"
   },
   {
     "id": "rapid_zoom_in1",
@@ -719,8 +719,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/rapid_zoom_in1.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/rapid_zoom_in1.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051653876d91457.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516531501c4647.mp4"
   },
   {
     "id": "trainrush",
@@ -737,8 +737,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/trainrush.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/trainrush.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516544d3907676.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165477d9d8652.mp4"
   },
   {
     "id": "tilt_up",
@@ -757,8 +757,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/tilt_up.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/tilt_up.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516542fb6e3314.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165487b130315.mp4"
   },
   {
     "id": "zoom_in",
@@ -777,8 +777,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/zoom_in.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/zoom_in.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051655781bf0784.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051655afb528707.mp4"
   },
   {
     "id": "padestal_down",
@@ -797,8 +797,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/padestal_down.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/padestal_down.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051655dd17e6108.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051656ecae74645.mp4"
   },
   {
     "id": "fpv_drone_shot",
@@ -817,8 +817,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/FPV_drone_shot.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/FPV_drone_shot.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205165695c9c5656.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051657d74201455.mp4"
   },
   {
     "id": "bullet_time",
@@ -837,8 +837,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/bullet_time.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/bullet_time.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051657d82671683.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051657dec7f9071.mp4"
   },
   {
     "id": "tilted_reality",
@@ -857,8 +857,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/tilted_reality.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/tilted_reality.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051658c21823801.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516585fc949171.mp4"
   },
   {
     "id": "police_escape",
@@ -875,8 +875,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/police_escape.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/police_escape.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516588601c3640.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120516591f13a8773.mp4"
   },
   {
     "id": "alien_invasion",
@@ -893,8 +893,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/alien_invasion.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/alien_invasion.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051659d4bee6065.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051659821901951.mp4"
   },
   {
     "id": "red_carpet",
@@ -911,8 +911,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/red-carpet.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/red-carpet.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051700f96242928.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051700b92503738.mp4"
   },
   {
     "id": "crane_down1",
@@ -931,8 +931,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/crane_down1.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/crane_down1.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051701d20dc6060.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051701e20d48736.mp4"
   },
   {
     "id": "magic_johnson",
@@ -948,8 +948,8 @@
       "start_end"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/magic_johnson.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/magic_johnson.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517017fb479582.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205170244b8c8472.mp4"
   },
   {
     "id": "smog_transition",
@@ -965,8 +965,8 @@
       "start_end"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/smog_transition.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/smog_transition.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205170230b635481.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051702018932828.mp4"
   },
   {
     "id": "bts",
@@ -983,8 +983,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/bts.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/bts.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051703357e55003.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517033063f6083.mp4"
   },
   {
     "id": "crying",
@@ -1001,8 +1001,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/crying.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/crying.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051703df77a4470.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517034099c5204.mp4"
   },
   {
     "id": "flip",
@@ -1019,8 +1019,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/flip.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/flip.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051704d2e860184.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517045d7638504.mp4"
   },
   {
     "id": "jib_down",
@@ -1039,8 +1039,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/jib_down.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/jib_down.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517049f57c3067.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051705f6fac5283.mp4"
   },
   {
     "id": "rapid_zoom_out1",
@@ -1059,8 +1059,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/rapid_zoom_out1.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/rapid_zoom_out1.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051705476b72350.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051705f67034280.mp4"
   },
   {
     "id": "wireframe",
@@ -1077,8 +1077,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/wireframe.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/wireframe.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517061ee968009.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517065f1e93060.mp4"
   },
   {
     "id": "tilt_down",
@@ -1097,8 +1097,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/tilt_down.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/tilt_down.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517066877c9911.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517070b4083570.mp4"
   },
   {
     "id": "elevator_door",
@@ -1115,8 +1115,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/elevator_door.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/elevator_door.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051707485403813.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051707c39d82094.mp4"
   },
   {
     "id": "orbit_left",
@@ -1135,8 +1135,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/orbit_left.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/orbit_left.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051708fcd378949.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051708c024b8654.mp4"
   },
   {
     "id": "micro_zoom_in",
@@ -1153,8 +1153,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/Micro_Zoom_in.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/Micro_Zoom_in.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205170871dfd5004.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051709ab0470952.mp4"
   },
   {
     "id": "roll_right",
@@ -1173,8 +1173,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/roll_right.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/roll_right.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517091604a1069.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051709f1b3e5677.mp4"
   },
   {
     "id": "whip_pan",
@@ -1193,8 +1193,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/whip_pan.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/whip_pan.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051710250696124.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051710a70555723.mp4"
   },
   {
     "id": "motorcycle_ride",
@@ -1211,8 +1211,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/motorcycle-ride.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/motorcycle-ride.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051710b2edc8579.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051711222488081.mp4"
   },
   {
     "id": "escape_run",
@@ -1229,8 +1229,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/escape_run.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/escape_run.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051711600c36960.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051711ab6a72527.mp4"
   },
   {
     "id": "focus_shift",
@@ -1249,8 +1249,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/focus_shift.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/focus_shift.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051712120f42248.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205171205d3b6260.mp4"
   },
   {
     "id": "fire_transition",
@@ -1266,8 +1266,8 @@
       "start_end"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/fire_transition.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/fire_transition.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051712ced7f2942.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051713ca9f86820.mp4"
   },
   {
     "id": "logo_transition",
@@ -1283,8 +1283,8 @@
       "start_end"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/logo_transition.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/logo_transition.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051713631b50577.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517136efa92004.mp4"
   },
   {
     "id": "car_mount",
@@ -1301,8 +1301,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/car_mount.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/car_mount.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517147b8674133.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051714bf7da2447.mp4"
   },
   {
     "id": "double_exposure",
@@ -1319,8 +1319,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/double_exposure.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/double_exposure.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051714b315e5856.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051714149307597.mp4"
   },
   {
     "id": "glitch",
@@ -1337,8 +1337,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/glitch.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/glitch.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051715a86182675.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051715ef4cb2053.mp4"
   },
   {
     "id": "jib_up",
@@ -1357,8 +1357,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/jib_up.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/jib_up.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051715f401f0724.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517161f3b20414.mp4"
   },
   {
     "id": "selfie_pose",
@@ -1375,8 +1375,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/selfie_posepng.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/selfie_pose.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517167dada4499.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051716586754330.mp4"
   },
   {
     "id": "skeleton",
@@ -1393,8 +1393,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/skeleton.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/skeleton.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051716859917746.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051717c29c66953.mp4"
   },
   {
     "id": "low_angle",
@@ -1413,8 +1413,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/low_angle.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/low_angle.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051717e025e3483.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051717def592408.mp4"
   },
   {
     "id": "high_angle",
@@ -1433,8 +1433,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/High_head_angle.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/high_angle.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517185b4f73256.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051718be1991010.mp4"
   },
   {
     "id": "over_the_shoulder",
@@ -1453,8 +1453,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/over_the_shoulder.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/over_the_shoulder.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517183496b0040.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517191cd5d8945.mp4"
   },
   {
     "id": "action_run",
@@ -1471,8 +1471,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/action_run.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/action_run.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205171901fa80058.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051719db3f24341.mp4"
   },
   {
     "id": "outfit_switch",
@@ -1489,8 +1489,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/outfit_switch.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/outfit_switch.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205172088be29854.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051720cdfae4123.mp4"
   },
   {
     "id": "day_to_night_timelapse",
@@ -1509,8 +1509,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/day_to_night_timelapse.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/day_to_night_timelapse.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051720be59b2433.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205172156aa18089.mp4"
   },
   {
     "id": "arc_right1",
@@ -1529,8 +1529,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/arc_right1.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/arc_right1.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517211568c2310.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051721297874754.mp4"
   },
   {
     "id": "360",
@@ -1549,8 +1549,8 @@
       "start_end"
     ],
     "require_image": false,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/360.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/360.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517229a5843662.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051722cb3428998.mp4"
   },
   {
     "id": "raven_transition",
@@ -1566,8 +1566,8 @@
       "start_end"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/raven_transition.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/raven_transition.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205172240d7b3999.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051723a04366211.mp4"
   },
   {
     "id": "angry_mode",
@@ -1584,8 +1584,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/angry_mode.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/angry_mode.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051723554266532.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051723110d52879.mp4"
   },
   {
     "id": "car_rush",
@@ -1602,8 +1602,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/car_rush.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/car_rush.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051724c41268605.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051724951534230.mp4"
   },
   {
     "id": "drunk_master",
@@ -1620,8 +1620,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/drunk_master.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/drunk_master.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205172413f573781.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517246be884562.mp4"
   },
   {
     "id": "group_photo",
@@ -1638,8 +1638,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/group_photo.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/group_photo.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051725b0e235354.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051725749f66505.mp4"
   },
   {
     "id": "money_rain",
@@ -1656,8 +1656,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/money_rain.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/money_rain.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517255e5414198.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205172674c5a9461.mp4"
   },
   {
     "id": "shadow",
@@ -1674,8 +1674,8 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/shadow.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/shadow.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/20261012051726f92288489.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517265d71d7328.mp4"
   },
   {
     "id": "timelapse_glam",
@@ -1692,7 +1692,7 @@
       "image_reference"
     ],
     "require_image": true,
-    "poster": "https://imagine.animagic.art/remote-config/assets/video_effects/thumbnail/timelapse_glam.webp",
-    "video": "https://imagine.animagic.art/remote-config/assets/video_effects/sd/timelapse_glam.mp4"
+    "poster": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/202610120517265cc151968.webp",
+    "video": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video-effects/1/2026101205172777e9c5694.mp4"
   }
 ]

@@ -9,7 +9,7 @@ use app\common\service\FileService;
 use Exception;
 use think\facade\Db;
 
-/** Tenant-operated Flova-style Skill catalogue for the short-drama workflow. */
+/** Tenant-operated Skill catalogue for the short-drama workflow. */
 final class ShortDramaSkillService
 {
     public const DRAFT = 'draft';
