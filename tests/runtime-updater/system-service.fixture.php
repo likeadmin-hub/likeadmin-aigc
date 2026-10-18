@@ -218,7 +218,8 @@ if (in_array($case,['success','commit-reply-failure','confirm-failure'],true)) {
                 $opened=Db::name('tenant_app')->where(['tenant_id'=>$tenantId,'app_code'=>'aigc_micro_video'])->find();
                 verify($opened && $opened['buy_status']==='paid' && $opened['shelf_status']==='on' && $opened['enable_status']==='enabled','Official update did not automatically enable micro video');
                 $expectedMenus=[];
-                array_walk_recursive(json_decode(file_get_contents($site.'/app/apps/aigc_micro_video/menus/tenant.json'),true),static function($value,$key)use(&$expectedMenus){if($key==='source_menu_key')$expectedMenus[]=$value;});
+                $declaredMenus=json_decode(file_get_contents($site.'/app/apps/aigc_micro_video/menus/tenant.json'),true);
+                array_walk_recursive($declaredMenus,static function($value,$key)use(&$expectedMenus){if($key==='source_menu_key')$expectedMenus[]=$value;});
                 $actualMenus=Db::name('tenant_system_menu')->where(['tenant_id'=>$tenantId,'app_code'=>'aigc_micro_video','source'=>'app'])->column('source_menu_key');
                 verify(array_diff($expectedMenus,$actualMenus)===[],'Official update omitted declared micro-video admin menus');
             }
