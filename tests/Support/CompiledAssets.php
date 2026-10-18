@@ -116,6 +116,30 @@ final class CompiledAssets
 
     public static function pcPage(string $page, string $extension = 'js'): string
     {
+        // Local integration builds must not overwrite the site's packaged assets merely to run a test.
+        $manifest=getenv('TEST_PC_MANIFEST');$public=getenv('TEST_PC_PUBLIC_DIR');
+        if($manifest!==false||$public!==false){
+            Assert::assertNotEmpty($manifest,'Provide TEST_PC_MANIFEST together with TEST_PC_PUBLIC_DIR');
+            Assert::assertNotEmpty($public,'Provide TEST_PC_PUBLIC_DIR together with TEST_PC_MANIFEST');
+            Assert::assertFileExists($manifest);
+            $entries=json_decode((string)file_get_contents($manifest),true,512,JSON_THROW_ON_ERROR);
+            $key='pages/'.$page.($extension==='js'?'.vue':'.css');
+            Assert::assertArrayHasKey($key,$entries);
+            $queue=[];foreach($entries as $entry)if(!empty($entry['isEntry']))$queue[]=$entry['file'];
+            $seen=[];
+            // Nuxt's manifest omits some router dynamicImports; inspect the emitted entry graph.
+            while($queue){
+                $file=array_pop($queue);if(isset($seen[$file]))continue;$seen[$file]=true;
+                $built=rtrim($public,'/').'/_nuxt/'.$file;Assert::assertFileExists($built);
+                $source=(string)file_get_contents($built);
+                preg_match_all('~["\'](?:\./)?([^"\'/]+\.(?:js|css))["\']~',$source,$imports);
+                foreach($imports[1] as $dependency)if(is_file(rtrim($public,'/').'/_nuxt/'.$dependency))$queue[]=$dependency;
+            }
+            Assert::assertArrayHasKey($entries[$key]['file'],$seen,'Isolated route must be reachable from its emitted entry');
+            $path=rtrim($public,'/').'/_nuxt/'.$entries[$key]['file'];
+            Assert::assertFileExists($path);
+            return (string)file_get_contents($path);
+        }
         foreach ([dirname(self::root()) . '/web/pc', '/pc'] as $base) {
             $manifest = $base . '/.nuxt/prerender/chunks/build/client.manifest.mjs';
             if (!is_file($manifest)) continue;
