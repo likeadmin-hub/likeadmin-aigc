@@ -217,7 +217,10 @@ if (in_array($case,['success','commit-reply-failure','confirm-failure'],true)) {
             foreach([0,901] as $tenantId){
                 $opened=Db::name('tenant_app')->where(['tenant_id'=>$tenantId,'app_code'=>'aigc_micro_video'])->find();
                 verify($opened && $opened['buy_status']==='paid' && $opened['shelf_status']==='on' && $opened['enable_status']==='enabled','Official update did not automatically enable micro video');
-                verify(Db::name('tenant_system_menu')->where(['tenant_id'=>$tenantId,'app_code'=>'aigc_micro_video','source'=>'app'])->count()===4,'Official update omitted micro-video admin menus');
+                $expectedMenus=[];
+                array_walk_recursive(json_decode(file_get_contents($site.'/app/apps/aigc_micro_video/menus/tenant.json'),true),static function($value,$key)use(&$expectedMenus){if($key==='source_menu_key')$expectedMenus[]=$value;});
+                $actualMenus=Db::name('tenant_system_menu')->where(['tenant_id'=>$tenantId,'app_code'=>'aigc_micro_video','source'=>'app'])->column('source_menu_key');
+                verify(array_diff($expectedMenus,$actualMenus)===[],'Official update omitted declared micro-video admin menus');
             }
             verify(Db::name('app_frontend_entry')->where('app_code','aigc_micro_video')->count()===3,'Official update omitted PC/mobile/admin entries');
             $index=Db::query("SELECT COLUMN_NAME AS column_name FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='la_aigc_micro_video_attempt' AND INDEX_NAME='uk_execution' ORDER BY SEQ_IN_INDEX");
