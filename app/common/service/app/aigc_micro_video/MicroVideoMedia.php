@@ -252,10 +252,7 @@ final class MicroVideoMedia
     private static function persistVideo(string $path, int $tenant, int $user): array
     {
         if (filesize($path) > self::MAX_VIDEO_BYTES) throw new RuntimeException('视频文件超过存储限制');
-        $bytes = file_get_contents($path);
-        if ($bytes === false) throw new RuntimeException('视频文件读取失败');
-        // The existing service treats local URIs as already stored, so supply validated bytes.
-        $stored = AigcVideoAssetService::persistGeneratedVideo('data:video/mp4;base64,' . base64_encode($bytes), $tenant, $user);
+        $stored = AigcVideoAssetService::persistGeneratedVideoFile($path, $tenant, $user);
         if (empty($stored['stored']) || empty($stored['uri'])) throw new RuntimeException('视频持久化失败');
         return $stored;
     }
