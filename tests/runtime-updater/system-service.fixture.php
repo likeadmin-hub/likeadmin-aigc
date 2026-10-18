@@ -191,6 +191,10 @@ $original = []; foreach (['app/FixtureVersion.php','app/common/service/app/AppRe
 $service = new SystemPackageUpdateService(); $preflight = $service->preflight($id);
 if ($case === 'dependency-failure') verify(!$preflight['passed'], 'Broken dependency was accepted');
 else verify($preflight['passed'], 'Real package preflight failed: ' . implode(';',$preflight['errors']));
+if ($case === 'finalize-failure' && getenv('FIXTURE_OFFICIAL_ARCHIVE')) {
+    // An official ZIP supersedes synthetic package files; inject at the real database completion boundary.
+    Db::execute("CREATE TRIGGER fixture_builtin_failure BEFORE INSERT ON la_app FOR EACH ROW BEGIN IF NEW.code='aigc_micro_video' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture candidate application sync failed'; END IF; END");
+}
 if ($case === 'metadata-failure') {
     // Actual MySQL trigger rejects the last task-success write after files/pointer/marker publication.
     Db::execute("CREATE TRIGGER fixture_metadata_failure BEFORE UPDATE ON la_update_task FOR EACH ROW BEGIN IF NEW.action='apply' AND NEW.status='success' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture final metadata failure'; END IF; END");
@@ -205,6 +209,22 @@ if (in_array($case,['success','commit-reply-failure','confirm-failure'],true)) {
     if($canonical||$migration){if($canonical)verify(!file_exists($site.'/.composer-runtime'),'Canonical update created snapshots');if(!getenv('FIXTURE_OFFICIAL_ARCHIVE'))verify(str_contains(file_get_contents($site.'/app/FixtureVersion.php'),'new'),'Canonical code not updated');}
     else {verify(file_get_contents($site . '/.composer-runtime/current.json') !== $pointer, 'Success pointer did not switch');verify(file_get_contents($site.'/app/FixtureVersion.php')===$original['app/FixtureVersion.php'],'Immutable apply changed canonical baseline code');}
     freshFixtureGeneration($site,$canonical||$migration);
+    if (getenv('FIXTURE_OFFICIAL_ARCHIVE') && is_file($site.'/app/apps/aigc_micro_video/manifest.json')) {
+        $micro=json_decode(file_get_contents($site.'/app/apps/aigc_micro_video/manifest.json'),true);
+        if (!empty($micro['is_builtin'])) {
+            $appRow=Db::name('app')->where('code','aigc_micro_video')->find();
+            verify($appRow && (int)$appRow['is_builtin']===1 && $appRow['status']==='installed' && $appRow['current_version']===$micro['version'],'Official update did not install built-in micro video');
+            foreach([0,901] as $tenantId){
+                $opened=Db::name('tenant_app')->where(['tenant_id'=>$tenantId,'app_code'=>'aigc_micro_video'])->find();
+                verify($opened && $opened['buy_status']==='paid' && $opened['shelf_status']==='on' && $opened['enable_status']==='enabled','Official update did not automatically enable micro video');
+                verify(Db::name('tenant_system_menu')->where(['tenant_id'=>$tenantId,'app_code'=>'aigc_micro_video','source'=>'app'])->count()===4,'Official update omitted micro-video admin menus');
+            }
+            verify(Db::name('app_frontend_entry')->where('app_code','aigc_micro_video')->count()===3,'Official update omitted PC/mobile/admin entries');
+            $index=Db::query("SELECT COLUMN_NAME AS column_name FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='la_aigc_micro_video_attempt' AND INDEX_NAME='uk_execution' ORDER BY SEQ_IN_INDEX");
+            verify(array_column($index,'column_name')===['task_id','segment_id','frame_id','kind','attempt_no'],'Official update omitted shared-frame schema');
+            echo "PASS official update automatically provisions micro-video registry, tenants, menus, entries and shared-frame schema\n";
+        }
+    }
     verify(str_contains(file_get_contents($site . '/config/project.php'),$to), 'Success config version not installed');
     verify(json_decode(file_get_contents($site . '/upgrade/version.json'),true)['version']===$to, 'Success version marker not installed');
 } else {
@@ -224,6 +244,10 @@ foreach (['.env','public/uploads/business.bin','runtime/task-lease.json'] as $pa
 foreach ($business as $table=>$rows) verify(Db::name($table)->order('id')->select()->toArray() === $rows, 'Business records changed: ' . $table);
 $sqlCount = Db::name('config')->where(['type'=>'system_fixture','name'=>'sql_once'])->count();
 verify($sqlCount === ($case === 'dependency-failure' || getenv('FIXTURE_OFFICIAL_ARCHIVE') ? 0 : 1), 'Migration execution count incorrect');
+if ($case === 'finalize-failure' && getenv('FIXTURE_OFFICIAL_ARCHIVE')) {
+    // An official ZIP supersedes synthetic package files; inject at the real database completion boundary.
+    Db::execute("CREATE TRIGGER fixture_builtin_failure BEFORE INSERT ON la_app FOR EACH ROW BEGIN IF NEW.code='aigc_micro_video' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture candidate application sync failed'; END IF; END");
+}
 if ($case === 'metadata-failure') {
     Db::execute('DROP TRIGGER fixture_metadata_failure');
     $service->apply($id);
