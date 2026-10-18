@@ -23,7 +23,7 @@ final class WorkspaceCanvasAssetService
             if ($kind === 'task') array_push($items, ...self::outputs($row));
             else {
                 $raw = CanvasAssetService::formatAsset($row);
-                $raw['meta'] = array_intersect_key($raw['meta'], array_flip(['title','message','visible_prompt','model','ratio','source','source_app_code','media_source','node_type']));
+                $raw['meta'] = array_intersect_key($raw['meta'], array_flip(['title','message','visible_prompt','model','ratio','source','source_app_code','media_source','node_type','source_subject_id']));
                 $items[] = ['source'=>'canvas', 'ref'=>'canvas:result:'.$row['id'], 'raw'=>$raw];
             }
         }
