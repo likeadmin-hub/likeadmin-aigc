@@ -43,7 +43,7 @@ def main():
             updated = re.sub(target, lambda _: ddl, updated, count=1, flags=re.S)
         else:
             updated = updated.rstrip() + '\n\n' + ddl + '\n'
-    files = {install: updated, ROOT / 'upgrade' / UPGRADE: seed, ROOT / 'public/upgrade' / UPGRADE: seed}
+    files = {install: updated, ROOT / 'upgrade' / UPGRADE: seed, ROOT / 'public/upgrade' / UPGRADE: seed, APP / 'migrations' / UPGRADE: seed}
     if '--check' in sys.argv:
         mismatches = [str(path.relative_to(ROOT)) for path, content in files.items()
                       if not path.exists() or path.read_text() != content]
