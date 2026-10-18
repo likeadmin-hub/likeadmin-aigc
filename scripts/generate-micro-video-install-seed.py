@@ -16,7 +16,8 @@ spec.loader.exec_module(helper)
 APP = ROOT / 'app/apps/aigc_micro_video'
 BEGIN = '-- BEGIN micro video builtin bootstrap (generated from app manifest)'
 END = '-- END micro video builtin bootstrap'
-UPGRADE = '20261018_micro_video_builtin.sql'
+# Published migration bytes are immutable; new metadata belongs in a new step.
+UPGRADE = '20261019_micro_video_workbench_registry.sql'
 
 
 def generate():
@@ -34,7 +35,7 @@ def main():
     else:
         updated = original.rstrip() + '\n\n' + seed
     # Fresh installs must use the complete current schema, not an older five-table snapshot.
-    schema = (APP / 'migrations/install.sql').read_text()
+    schema = '\n'.join(path.read_text() for path in sorted((APP / 'migrations').glob('*.sql')))
     pattern = r'CREATE TABLE IF NOT EXISTS `(la_aigc_micro_video_[a-z_]+)` \(.*?;'
     for match in re.finditer(pattern, schema, re.S):
         table, ddl = match.group(1), match.group(0)

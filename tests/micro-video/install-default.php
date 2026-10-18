@@ -60,7 +60,7 @@ try{
  $rejected=false;try{app\common\service\database\RuntimeMigrationPlan::build(str_replace('SET @micro_sql','SET @untrusted_sql',$shared));}catch(RuntimeException $e){$rejected=true;}check($rejected,'Adapter accepted altered dynamic SQL');
  Db::name('app')->where('code',$code)->delete();Db::name('tenant_app')->where('app_code',$code)->delete();Db::name('app_frontend_entry')->where('app_code',$code)->delete();
  Db::name('tenant_system_menu')->where(['app_code'=>$code,'source'=>'app'])->delete();$pdo->exec("DELETE FROM `".$splitTable."` WHERE app_code='aigc_micro_video' AND source='app'");
- $repair=file_get_contents($root.'/upgrade/20261018_micro_video_builtin.sql');check($repair===file_get_contents($root.'/public/upgrade/20261018_micro_video_builtin.sql'),'Upgrade mirror differs');
+ $repair=file_get_contents($root.'/upgrade/20261019_micro_video_workbench_registry.sql');check($repair===file_get_contents($root.'/public/upgrade/20261019_micro_video_workbench_registry.sql'),'Upgrade mirror differs');
  $dml=app\common\service\database\RuntimeMigrationPlan::build($repair);check($dml['prepare']==='','Registration must be transactional DML');
  for($i=0;$i<2;$i++)app\common\service\database\SqlMigrationExecutor::execute($repair,$prefix);
  DefaultAppService::syncAllTenants($code);$assertTenant(123456,$prefix.'tenant_system_menu');$assertTenant(123457,$splitTable);
