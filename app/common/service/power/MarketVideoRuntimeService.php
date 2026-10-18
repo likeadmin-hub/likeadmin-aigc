@@ -121,7 +121,7 @@ class MarketVideoRuntimeService
                 return [
                     'value' => $resolution,
                     'label' => strtoupper($resolution),
-                    'resolution' => $resolution,
+                    'resolution' => strtoupper($resolution),
                     'duration' => '',
                     'ratios' => array_map(static fn(string $ratio): array => [
                         'value' => $ratio,
@@ -153,6 +153,7 @@ class MarketVideoRuntimeService
                 'resolutions' => array_map(static fn(string $value): array => ['value' => $value, 'label' => strtoupper($value)], $resolutions),
                 'resolution_options' => array_map(static fn(string $value): array => ['value' => $value, 'label' => strtoupper($value)], $resolutions),
                 'qualities' => $qualities,
+                'mode_options' => self::generationModeOptions($product, $validSkus),
                 'ratio_options' => $ratios,
                 'specs' => array_map(static fn(array $row): array => ['generation_modes' => (array)($row['generation_modes'] ?? []), 'market_sku_id' => (int)$row['market_sku_id'], 'resolution' => (string)$row['resolution'], 'quality' => (string)$row['resolution'], 'duration' => (int)$row['duration'], 'duration_options' => (array)($row['duration_options'] ?? []), 'ratio' => self::skuRatio((array)$row['locked_params']), 'ratio_options' => self::skuRatios($row), 'model' => (string)($row['model'] ?? ''), 'pricing_variant' => (string)($row['pricing_variant'] ?? ''), 'tenant_unit_price' => (float)$row['tenant_unit_price'], 'platform_unit_cost' => (float)$row['platform_unit_cost'], 'usage_unit' => (string)$row['usage_unit'], 'usage_unit_size' => (float)($row['usage_unit_size'] ?? 1), 'settlement_mode' => (string)($row['settlement_mode'] ?? 'reserved'), 'input_mode' => (string)($row['input_mode'] ?? 'text_to_video'), 'provider_params_json' => $row['locked_params']], $validSkus),
                 'durations' => $durations,
@@ -188,6 +189,18 @@ class MarketVideoRuntimeService
             ];
         }
         return $options;
+    }
+
+    /** Expose only sellable generation variants to every catalogue consumer. */
+    private static function generationModeOptions(array $product, array $skus): array
+    {
+        if (($product['upstream_app_code'] ?? '') !== 'grok_video') return [];
+        $models = array_column($skus, 'model');
+        $modes = [];
+        foreach (['fast' => 'grok-imagine-video-1.5-fast', 'standard' => 'grok-imagine-video-1.5'] as $mode => $model) {
+            if (in_array($model, $models, true)) $modes[] = $mode;
+        }
+        return $modes;
     }
 
     public static function quote(int $tenantId, array $selection): array

@@ -19,3 +19,16 @@ foreach($catalog['channels'] as $option){
  $checked[]=$id;
 }
 echo 'PASS '.count($checked)." creation channels resolve and quote the selected product/SKU; paid_requests=0\n";
+
+$videos=\app\common\service\power\MarketVideoRuntimeService::options($tenant,'model');
+$videos=array_merge($videos,\app\common\service\power\MarketVideoRuntimeService::options($tenant,'app_api'));
+foreach($videos as $video){
+ foreach($video['qualities']??[] as $quality){if($quality['resolution']!==strtoupper($quality['resolution']))throw new RuntimeException('Noncanonical display resolution');}
+ if(($video['app_code']??'')==='grok_video'){
+  $models=array_column($video['skus'],'model');
+  foreach(['fast'=>'grok-imagine-video-1.5-fast','standard'=>'grok-imagine-video-1.5'] as $mode=>$model){
+   if(in_array($model,$models,true)!==in_array($mode,$video['mode_options'],true))throw new RuntimeException('Unsellable generation mode');
+  }
+ }
+}
+echo 'PASS '.count($videos)." shared video catalogues expose canonical resolutions and sellable variants\n";
