@@ -23,6 +23,8 @@ Db::startTrans();try {
     check($v['prompt']==='old submitted video','Editable prompt replaced the submitted snapshot');
     check(array_column($v['parameters'],'value','label')['时长']==='7秒','Old output displayed latest duration');
     check(count($v['references'])===1,'Duplicate reference displayed');
+    $immediate=Preview::detail($tenant,$user,['project_id'=>$p['id'],'node_id'=>'video','url'=>'https://cdn.example.com/new.mp4']);
+    check($immediate['prompt']==='new submitted video','Preview before output autosave lost its matched generation');
     foreach (['old','new'] as $age) {
         $d=Preview::detail($tenant,$user,['project_id'=>$p['id'],'node_id'=>'image','url'=>'https://cdn.example.com/'.$age.'.png']);
         check($d['prompt']===$age.' submitted image','Collection results shared the latest snapshot');

@@ -1,7 +1,7 @@
 {
     "schema_version": 1,
     "id": "builtin-creative-moodboard",
-    "version": 2,
+    "version": 3,
     "title": "产品宣传",
     "category": "电商广告",
     "description": "使用示例产品图、宣传视频和背景音乐制作产品宣传内容，支持替换为自己的素材。",
@@ -89,7 +89,38 @@
                             "height": 1536,
                             "fileSize": 1365934,
                             "mimeType": "image/png",
-                            "fileName": "2026101802340555a0a1704.png"
+                            "fileName": "2026101802340555a0a1704.png",
+                            "generation": {
+                                "version": 1,
+                                "kind": "image",
+                                "prompt": "Cinematic studio hero shot of the product from the reference image, floating dead-center against a deep graded backdrop, one hard key light raking the full silhouette so every edge and curve catches and glows, glass and polished surfaces refracting the light for real optical depth, reflected in a glossy dark surface below, thin volumetric haze holding the beam, rich controlled shadow falloff, real commercial product photography — photographed, not rendered, no plastic AI sheen. Keep the product exactly as in the reference. Generous clean negative space above for a headline.，比例 16:9。",
+                                "created": "2026-10-18 02:33:16",
+                                "parameters": [
+                                    {
+                                        "label": "模型",
+                                        "value": "Nano-Banana 2.1"
+                                    },
+                                    {
+                                        "label": "长宽比",
+                                        "value": "16:9"
+                                    },
+                                    {
+                                        "label": "分辨率",
+                                        "value": "2k"
+                                    },
+                                    {
+                                        "label": "数量",
+                                        "value": "1张"
+                                    }
+                                ],
+                                "references": [
+                                    {
+                                        "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
+                                        "type": "image",
+                                        "title": ""
+                                    }
+                                ]
+                            }
                         }
                     ],
                     "activeMediaId": "result-image-1mqgjmb",
@@ -137,7 +168,42 @@
                             "height": 720,
                             "fileSize": 9717797,
                             "mimeType": "video/mp4",
-                            "fileName": "2026101802415177c6b5471.mp4"
+                            "fileName": "2026101802415177c6b5471.mp4",
+                            "generation": {
+                                "version": 1,
+                                "kind": "video",
+                                "prompt": "Overall: premium 10-second product launch film, product hero, clean cinematic grade, real motion throughout (never static).Shot 1 (0-2.5s): fast dolly push-in from wide to medium, a bright light-streak sweeps left-to-right across the surface, faint motion blur on entry, shallow depth of field.Shot 2 (2.5-5.5s): smooth 20-degree orbit around the product, floating dust motes drifting through the light, subtle handheld float, rack focus pulling from foreground bokeh onto the logo area.Shot 3 (5.5-8s): SIGNATURE — a quick digital zoom 'pump' (punch-in then settle) timed to a soft light-bloom flash sweeping past; the product snaps perfectly centered, reflection glints.Shot 4 (8-10s): slow pull-back and gentle upward tilt into negative space, motion eases to a calm hold, aspirational.Energy: Act1 punchy → Act2 controlled → Act3 resolved. Product stays razor-crisp. No text, no watermark.，画面比例 16:9，时长约 10 秒。",
+                                "created": "2026-10-18 02:38:38",
+                                "parameters": [
+                                    {
+                                        "label": "生成方式",
+                                        "value": "全能参考"
+                                    },
+                                    {
+                                        "label": "模型",
+                                        "value": "Wan 3.0 Video"
+                                    },
+                                    {
+                                        "label": "长宽比",
+                                        "value": "16:9"
+                                    },
+                                    {
+                                        "label": "分辨率",
+                                        "value": "720P"
+                                    },
+                                    {
+                                        "label": "时长",
+                                        "value": "10秒"
+                                    }
+                                ],
+                                "references": [
+                                    {
+                                        "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
+                                        "type": "image",
+                                        "title": "图片"
+                                    }
+                                ]
+                            }
                         }
                     ],
                     "activeMediaId": "result-video-yry7p6",
