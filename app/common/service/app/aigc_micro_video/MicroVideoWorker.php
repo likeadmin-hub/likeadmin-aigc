@@ -16,7 +16,7 @@ final class MicroVideoWorker
             // This worker is a same-runtime supervised service; flock remains held
             // even during long FFmpeg/HTTP operations and is released on death.
             $processLock=fopen(runtime_path().'micro_video_task_'.(int)$candidate.'.lock','c');if(!$processLock||!flock($processLock,LOCK_EX|LOCK_NB)){if($processLock)fclose($processLock);$processLock=null;continue;}
-            $task=Db::transaction(function()use($candidate,$token){$row=MicroVideoStore::table('task')->where(['id'=>$candidate,'delete_time'=>0])->where(function($q){$q->whereIn('status',['planning','running','merging'])->whereOr(function($f){$f->where('status','awaiting_confirmation')->where('frame_status','generating');});})->where('next_run_at','<=',time())->where('lease_until','<',time())->lock(true)->find();if(!$row)return null;MicroVideoStore::update((int)$row['id'],['lease_token'=>$token,'lease_until'=>time()+600]);return $row;});
+            $task=Db::transaction(function()use($candidate,$token){$row=MicroVideoStore::table('task')->where(['id'=>$candidate,'delete_time'=>0])->where(function($q){$q->whereIn('status',['planning','running','merging'])->whereOr(function($f){$f->where('status','awaiting_confirmation')->where('frame_status','generating');});})->where('next_run_at','<=',time())->where('lease_until','<',time())->lock(true)->find();if(!$row)return null;$lease=['lease_token'=>$token,'lease_until'=>time()+600];MicroVideoStore::update((int)$row['id'],$lease);return array_replace($row,$lease);});
             if($task)break;flock($processLock,LOCK_UN);fclose($processLock);$processLock=null;
         }
         if(!$task)return 0;
@@ -63,12 +63,24 @@ final class MicroVideoWorker
     private static function video(array $task): void
     {
         $segments=MicroVideoStore::segments((int)$task['id']);if(!$segments)throw new RuntimeException('作品缺少已确认方案');
-        foreach($segments as $segment){
-            if($segment['status']==='success'||$segment['status']==='failed')continue;
-            self::segment($task,$segment);
+        // Submit the entire confirmed plan before polling older accepted requests.
+        // Each segment keeps its own immutable attempt, reservation and provider task.
+        $pending=array_filter($segments,fn($s)=>$s['status']==='pending');
+        $accepted=array_filter($segments,fn($s)=>!in_array($s['status'],['pending','success','failed'],true));
+        foreach(array_merge($pending,$accepted) as $segment){
+            // The process flock stays held; renew this owner's durable lease between I/O calls.
+            MicroVideoStore::table('task')->where(['id'=>$task['id'],'lease_token'=>$task['lease_token']])->update(['lease_until'=>time()+600]);
+            try{self::segment($task,$segment);}catch(\Throwable $e){
+                // A rejected/unstorable segment must not strand other paid requests.
+                \think\facade\Log::warning('Micro video segment '.$segment['id'].': '.get_class($e));
+            }
+        }
+        $segments=MicroVideoStore::segments((int)$task['id']);
+        if(array_filter($segments,fn($s)=>!in_array($s['status'],['success','failed','storing'],true))){
             MicroVideoStore::update((int)$task['id'],['next_run_at'=>time()+5]);return;
         }
-        if(array_filter($segments,fn($s)=>$s['status']==='failed')){MicroVideoStore::update((int)$task['id'],['status'=>'waiting_continue']);return;}
+        $blocked=array_values(array_filter($segments,fn($s)=>$s['status']!=='success'));
+        if($blocked){MicroVideoStore::update((int)$task['id'],['status'=>'waiting_continue','error'=>$blocked[0]['error']?:'部分片段未完成，请核对后继续']);return;}
         MicroVideoStore::update((int)$task['id'],['status'=>'merging','merge_status'=>'running']);
         try{
             $result=MicroVideoMedia::merge($task,$segments);
