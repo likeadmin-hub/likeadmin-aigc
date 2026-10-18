@@ -14,7 +14,7 @@ final class WorkspaceAssetService
         'image' => 'aigc_image', 'video' => 'aigc_video',
         'digital_human' => 'aigc_digital_human', 'image_human' => 'image_human',
         'action_transfer' => 'aigc_action_transfer', 'person_replacement' => 'aigc_person_replacement',
-        'short_drama' => 'aigc_short_drama',
+        'short_drama' => 'aigc_short_drama', 'canvas' => 'aigc_canvas',
         'pic_lipsync' => 'aigc_pic_lipsync', 'smart_clip' => 'smart_clip',
         'music' => 'aigc_music', 'music_cover' => 'aigc_music_cover',
         'product_image' => 'aigc_product_image', 'product_suite' => 'aigc_product_suite',
@@ -34,9 +34,10 @@ final class WorkspaceAssetService
         $refs = $params['refs'] ?? [];
         if (!is_array($refs) || !$refs || count($refs) > 100) throw new InvalidArgumentException('每次请选择1至100项资产');
         foreach ($refs as $ref) {
-            if (!is_string($ref) || !preg_match('/^[a-z_]+:(result|task):[1-9][0-9]{0,10}$/D', $ref)) throw new InvalidArgumentException('资产标识无效');
+            if (!is_string($ref) || !preg_match('/^(?:[a-z_]+:(result|task):[1-9][0-9]{0,10}|canvas:task:[1-9][0-9]{0,10}:[1-9][0-9]{0,4})$/D', $ref)) throw new InvalidArgumentException('资产标识无效');
             [$source, $kind] = explode(':', $ref);
             if ($source !== 'upload' && !isset(self::SOURCES[$source])) throw new InvalidArgumentException('资产标识无效');
+            if ($source === 'canvas' && $kind === 'task' && count(explode(':', $ref)) !== 4) throw new InvalidArgumentException('资产标识无效');
             if ($source === 'fitting' && $kind !== 'task') throw new InvalidArgumentException('资产标识无效');
             if (in_array($source, ['short_drama', 'upload'], true) && $kind !== 'result') throw new InvalidArgumentException('资产标识无效');
         }
@@ -162,6 +163,7 @@ final class WorkspaceAssetService
     {
         if (!$stamp) return;
         [$source, $kind, $id] = explode(':', $ref);
+        if ($source === 'canvas' && $kind === 'task') return;
         $owner = ['tenant_id'=>$tenant,'user_id'=>$user];
         if ($source === 'upload') {
             $file = Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source_id'=>$user,'id'=>(int)$id,'source'=>FileEnum::SOURCE_USER,'upload_origin'=>'local']);
@@ -171,14 +173,14 @@ final class WorkspaceAssetService
             return;
         }
         $prefix = self::SOURCES[$source];
-        $table = $source === 'short_drama' ? $prefix.'_asset' : $prefix.'_'.$kind;
+        $table = in_array($source, ['short_drama', 'canvas'], true) ? $prefix.'_asset' : $prefix.'_'.$kind;
         $record = Db::name($table)->where($owner)->where('id',(int)$id)->lock(true)->find();
         if (!$record) return;
         $taskId = $kind === 'task' ? (int)$id : (int)($record['task_id'] ?? 0);
-        $task = $source !== 'short_drama' && $taskId ? Db::name($prefix.'_task')->where($owner)->where('id',$taskId)->lock(true)->find() : null;
+        $task = !in_array($source, ['short_drama', 'canvas'], true) && $taskId ? Db::name($prefix.'_task')->where($owner)->where('id',$taskId)->lock(true)->find() : null;
         if ($kind === 'task' && !$restore && in_array($task['status'] ?? '', ['pending','running','queued','waiting_tasks'], true)) throw new InvalidArgumentException('任务仍在执行，请完成后再删除作品');
         Db::name($table)->where($owner)->where('id',(int)$id)->where('delete_time',$restore ? $stamp : 0)->update(['delete_time'=>$restore ? 0 : $stamp]);
-        if (!$task || $source === 'short_drama') return;
+        if (!$task || in_array($source, ['short_drama', 'canvas'], true)) return;
         if ($kind === 'task' && $source === 'fitting') {
             $ids = $task['image_task_ids'] ?? [];
             if (is_string($ids)) $ids = json_decode($ids,true) ?: [];
@@ -211,6 +213,7 @@ final class WorkspaceAssetService
     private static function owned(int $tenant, int $user, string $ref, bool $includeDeleted = false): ?array
     {
         [$source, $kind, $id] = explode(':', $ref);
+        if ($source === 'canvas' && $kind === 'task') return WorkspaceCanvasAssetService::owned($tenant, $user, $ref);
         if ($source === 'upload') {
             $file = ($includeDeleted ? TenantFile::withTrashed() : TenantFile::where([]))->where(['id' => (int)$id, 'tenant_id' => $tenant, 'source' => FileEnum::SOURCE_USER, 'source_id' => $user, 'upload_origin' => 'local'])
                 ->whereRaw('(type IN (10, 20) OR (type = 30 AND LOWER(uri) LIKE ?))', ['%.webm'])->find();
@@ -218,18 +221,18 @@ final class WorkspaceAssetService
         }
         $prefix = self::SOURCES[$source] ?? null;
         if (!$prefix) return null;
-        $table = $source === 'short_drama' ? $prefix . '_asset' : $prefix . '_' . $kind;
+        $table = in_array($source, ['short_drama', 'canvas'], true) ? $prefix . '_asset' : $prefix . '_' . $kind;
         $scope = ['tenant_id' => $tenant, 'user_id' => $user];
         if (!$includeDeleted) $scope['delete_time'] = 0;
         $record = Db::name($table)->where($scope)->where('id', (int)$id)->find();
         if (!$record) return null;
         $task = [];
-        if ($kind === 'result' && $source !== 'short_drama') {
+        if ($kind === 'result' && !in_array($source, ['short_drama', 'canvas'], true)) {
             $task = Db::name($prefix . '_task')->where($scope)->where('id', (int)$record['task_id'])->find();
             if (!$task) return null;
         }
         // Only presentation fields may leave this service, never provider payloads or credentials.
-        $fields = ['id','task_id','title','prompt','script_text','status','create_time','width','height','duration','ratio','aspect_ratio','resolution','quality','model_name','model_id','channel_name','channel','style','asset_type'];
+        $fields = ['id','task_id','title','prompt','script_text','status','create_time','width','height','duration','ratio','aspect_ratio','resolution','quality','model_name','model_id','channel_name','channel','style','asset_type','mime_type','project_id'];
         $raw = array_intersect_key(array_replace($task ?: [], $record), array_flip($fields));
         $metadata = array_replace($task ?: [], $record);
         $displayFields = array_flip(['ratio','aspect_ratio','resolution','quality','model_name','model_label','model_id','image_model_id','channel_name','channel_code','model','width','height']);
@@ -243,10 +246,10 @@ final class WorkspaceAssetService
         foreach (['image', 'video', 'audio', 'cover'] as $type) {
             $raw[$type . '_url'] = self::url($record, $type . '_uri');
         }
-        if ($source === 'short_drama') {
+        if (in_array($source, ['short_drama', 'canvas'], true)) {
             $raw['url'] = self::url($record, 'uri');
             $meta = json_decode($record['meta_json'] ?? '{}', true) ?: [];
-            $raw['meta'] = array_intersect_key($meta, array_flip(['title','message','visible_prompt','model','ratio']));
+            $raw['meta'] = array_intersect_key($meta, array_flip(['title','message','visible_prompt','model','ratio','source','source_app_code','media_source','node_type']));
         }
         return ['source' => $source, 'ref' => $ref, 'raw' => $raw];
     }

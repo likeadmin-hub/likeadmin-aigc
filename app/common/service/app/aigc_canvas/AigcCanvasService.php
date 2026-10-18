@@ -2000,7 +2000,7 @@ class AigcCanvasService
         return [];
     }
 
-    private static function runResultItems(string $runType, array $payload): array
+    public static function runResultItems(string $runType, array $payload): array
     {
         $keys = $runType === 'image'
             ? ['image_url', 'image_uri', 'image', 'url', 'result_url']
