@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "usingComponents": {
+    "micro-page": "../../components/MicroPage",
+    "image-library": "../../components/ImageLibrary"
+  }
+}
