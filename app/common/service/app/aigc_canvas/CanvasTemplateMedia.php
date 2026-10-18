@@ -22,6 +22,15 @@ final class CanvasTemplateMedia
                 $generated=in_array($source,['generated','agent'],true) || ($source==='' && (!empty($input['taskId']) || (!empty($input['prompt']) && (!empty($input['channel']) || !empty($input['model'])))));
                 $entry = ['id'=>(string)($item['id'] ?? 'media-'.$i), 'type'=>$type, 'url'=>$file['url'], 'template_file'=>$file['file'], 'mediaSource'=>$generated?'generated':'upload'];
                 foreach (['width','height','duration','fileSize','mimeType','fileName'] as $key) if (isset($file[$key])) $entry[$key]=$file[$key];
+                $generation=CanvasMediaPreviewService::sanitize((array)($item['generation'] ?? []));
+                if ($generation) {
+                    foreach ($generation['references'] as &$ref) {
+                        $r=$copy($ref['url'],$ref['type'],$ref);
+                        $ref['url']=$r['url'];$ref['template_file']=$r['file'];
+                    }
+                    unset($ref);
+                    $entry['generation']=$generation;
+                }
                 $poster = self::first($item, $type==='video'?['poster','poster_url','cover_url','cover','thumbnail','image']:['poster','poster_url','cover_url','cover','thumbnail']);
                 if ($poster!=='' && $type!=='image') { $p=$copy($poster,'image',[]); $entry['poster']=$p['url']; $entry['template_poster']=$p['file']; }
                 $media[]=$entry;
@@ -73,6 +82,9 @@ final class CanvasTemplateMedia
             foreach ($metadata[$field] ?? [] as $i=>$item) {
                 if (isset($item['template_file'])) $metadata[$field][$i]['url']=$resolve($item['template_file']);
                 if (isset($item['template_poster'])) $metadata[$field][$i]['poster']=$resolve($item['template_poster']);
+                foreach ($item['generation']['references'] ?? [] as $j=>$ref) {
+                    if (isset($ref['template_file'])) $metadata[$field][$i]['generation']['references'][$j]['url']=$resolve($ref['template_file']);
+                }
             }
         }
         if (!empty($metadata['mediaItems'])) {
