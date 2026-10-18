@@ -17,7 +17,7 @@ try {
         $field = array_values(array_intersect(['video_uri','image_uri','audio_uri'], $columns))[0] ?? '';
         if (!$field) throw new RuntimeException('Unmapped output column: '.$source);
         $url = 'https://fixtures.invalid/'.$source.'.'.($field === 'image_uri' ? 'png' : ($field === 'video_uri' ? 'mp4' : 'mp3'));
-        $result = Db::name($app.'_result')->insertGetId($owner+['task_id'=>$task,$field=>$url,'create_time'=>time(),'delete_time'=>0]);
+        $result = Db::name($app.'_result')->insertGetId($owner+['task_id'=>$task,'storage_engine'=>'',$field=>$url,'create_time'=>time(),'delete_time'=>0]);
         $ref = $source.':result:'.$result;
         W::update($owner['tenant_id'],$owner['user_id'],['refs'=>[$ref],'favorite'=>1]);
         $items = array_values(array_filter(W::read($owner['tenant_id'],$owner['user_id'])['supplemental'],fn($item)=>$item['ref']===$ref));
