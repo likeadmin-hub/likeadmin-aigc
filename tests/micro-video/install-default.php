@@ -67,7 +67,7 @@ try{
  for($i=0;$i<2;$i++)Registry::installFromLocal($code,'1.0.404');
  check(Db::name('aigc_micro_video_config')->select()->toArray()===$before,'Update/retry altered tenant configuration');check(Db::name('tenant_system_menu')->where('id',$customId)->value('name')==='Owned custom menu','Tenant-owned menu was overwritten');
  $assertTenant(123456,$prefix.'tenant_system_menu');$assertTenant(123457,$splitTable);
- foreach([fn()=>Registry::uninstall($code),fn()=>Registry::setStatus($code,'disabled')] as $operation){$rejected=false;try{$operation();}catch(Throwable $e){$rejected=str_contains($e->getMessage(),'内置')||str_contains($e->getMessage(),'默认');}check($rejected,'Default app lifecycle operation not rejected');}
+ foreach([fn()=>Registry::uninstall($code),fn()=>Registry::setStatus($code,'disabled')] as $operation){$rejected=false;try{$operation();}catch(Throwable $e){$rejected=$e->getMessage()==='系统应用不允许禁用或卸载';}check($rejected,'Default app lifecycle operation not rejected');}
  echo json_encode(['fresh_install'=>'passed','existing_upgrade'=>'passed','new_shared_and_split_tenants'=>'passed','repeat_sync'=>'passed','protected_settings_and_menu'=>'passed','frame_schema_and_unknown_sql_guard'=>'passed'],JSON_UNESCAPED_UNICODE),PHP_EOL;
 }finally{
  think\facade\Config::set($original,'database');Db::connect(null,true);
