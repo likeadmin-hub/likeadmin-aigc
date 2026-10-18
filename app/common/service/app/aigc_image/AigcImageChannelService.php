@@ -36,7 +36,9 @@ class AigcImageChannelService
 
     public static function normalizeRuntimeChannelCode(string $code): string
     {
-        $code = preg_replace('/[^a-zA-Z0-9_:\-]/', '', trim($code)) ?: '';
+        $code = trim($code);
+        if (preg_match('~^market_nano_banana:[0-9]+:[A-Za-z0-9+/]+={0,2}$~', $code)) return $code;
+        $code = preg_replace('/[^a-zA-Z0-9_:\-]/', '', $code) ?: '';
         if (preg_match('/^market_image_model(\d+)$/', $code, $matches) === 1) {
             return 'market_image_model:' . $matches[1];
         }
@@ -562,7 +564,7 @@ class AigcImageChannelService
     private static function marketRuntimeChannels(int $tenantId): array
     {
         $channels = [];
-        foreach (MarketImageModelRuntimeService::options($tenantId) as $model) {
+        foreach (array_merge(MarketImageModelRuntimeService::options($tenantId), \app\common\service\power\MarketNanoBananaAppRuntimeService::options($tenantId)) as $model) {
             if (!self::isMarketRuntimeOptionVisible($model)) {
                 continue;
             }
@@ -580,14 +582,14 @@ class AigcImageChannelService
                 'label' => (string)($model['name'] ?? $modelCode),
                 'description' => (string)($model['description'] ?? ''),
                 'display_icon' => (string)($model['display_icon'] ?? ''),
-                'resource_type' => 'model',
+                'resource_type' => (string)($model['resource_type'] ?? 'model'),
                 'model_type' => 'image',
                 'category_code' => 'image',
                 'category_name' => '图片生成',
                 'market_product_id' => (int)($model['market_product_id'] ?? 0),
-                'app_code' => '',
-                'api_code' => '',
-                'provider' => 'power_market_model',
+                'app_code' => (string)($model['app_code'] ?? ''),
+                'api_code' => (string)($model['api_code'] ?? ''),
+                'provider' => ($model['resource_type'] ?? 'model') === 'app_api' ? 'power_market_app_api' : 'power_market_model',
                 'model' => $modelCode,
                 'model_code' => $modelCode,
                 'max_reference_images' => (int)($model['max_reference_images'] ?? 0),
@@ -600,7 +602,7 @@ class AigcImageChannelService
                 'sort' => (int)($model['sort'] ?? 0),
                 'config_json' => [
                     'model' => $modelCode,
-                    'resource_type' => 'model',
+                    'resource_type' => (string)($model['resource_type'] ?? 'model'),
                     'model_type' => 'image',
                     'market_product_id' => (int)($model['market_product_id'] ?? 0),
                     'market_sku_id' => (int)($model['market_sku_id'] ?? 0),
@@ -657,7 +659,7 @@ class AigcImageChannelService
                         'quality' => $quality,
                         'value' => $ratio,
                         'label' => $ratio,
-                        'quality_label' => (string)($sku['title'] ?? strtoupper($quality)),
+                        'quality_label' => strtoupper($quality),
                         'ratio' => $ratio,
                         'width' => 0,
                         'height' => 0,
