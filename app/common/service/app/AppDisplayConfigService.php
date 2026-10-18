@@ -38,6 +38,7 @@ class AppDisplayConfigService
     public const DEFAULT_APP_CODES = [
         'aigc_image',
         'aigc_video',
+        'aigc_micro_video',
         'aigc_digital_human',
         'aigc_canvas',
         'aigc_llm',
@@ -76,6 +77,11 @@ class AppDisplayConfigService
             'title' => '视频生成',
             'description' => '一键生成动态镜头与叙事短片。',
             'sort' => 95,
+        ],
+        'aigc_micro_video' => [
+            'title' => '微视频',
+            'description' => '结合图片与主题规划镜头，生成连贯的完整视频。',
+            'sort' => 94,
         ],
         'aigc_digital_human' => [
             'title' => '数字人视频',
