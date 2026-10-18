@@ -43,5 +43,16 @@ Db::startTrans();try {
     $h=Media::hydrate($m,static fn($file)=>'https://fresh.example.com/'.$file['uri']);
     check($h['mediaItems'][0]['generation']['references'][0]['url']==='https://fresh.example.com/retained/ref.png','Snapshot reference was not independently retained/hydrated');
     check(!Preview::sameMedia('https://a.example.com/a.mp4','https://b.example.com/a.mp4'),'Different hosts matched');
+    $g=Preview::fromRun(['run_type'=>'image','params_json'=>['resolution'=>'2k','prompt'=>'Actual prompt'],'create_time'=>1792299010]);
+    check(array_column($g['parameters'],'value','label')['分辨率']==='2K','Resolution units differ from creation-page display');
+    $presets=\app\common\service\app\aigc_canvas\CanvasBuiltinPresetService::all();
+    foreach ($presets as $preset) foreach ($preset['graph']['nodes'] as $node) foreach ($node['metadata']['mediaItems'] ?? [] as $media) {
+        if (empty($media['generation'])) continue;
+        $instantiated=\app\common\service\app\aigc_canvas\CanvasTemplateService::instantiate($preset['graph']);
+        check(count(array_filter($instantiated['nodes'],static fn($n)=>!empty($n['metadata']['mediaItems'][0]['generation'])))>0,'Builtin use stripped public generation details');
+        $owned=Canvas::createProject($tenant,$user,['name'=>'old preset preview fixture','nodes'=>[['id'=>'remapped','type'=>$node['type'],'metadata'=>['url'=>$media['url']]]],'edges'=>[]]);
+        $info=Preview::detail($tenant,$user,['project_id'=>$owned['id'],'node_id'=>'remapped','url'=>$media['url']]);
+        check($info['prompt']===$media['generation']['prompt'],'Old remapped template cannot recover its catalog snapshot');
+    }
     echo "PASS $n output binding, historical settings, collection selection, template retention and owner isolation checks; database rolled back\n";
 } finally { Db::rollback(); }
