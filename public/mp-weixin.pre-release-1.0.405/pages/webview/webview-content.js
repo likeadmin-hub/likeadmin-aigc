@@ -1,0 +1,1 @@
+"use strict";const e=require("../../common/vendor.js"),t=require("../../utils/page-content-lifecycle.js"),n=e.defineComponent({__name:"webview-content",props:{decorationTabSlot:{type:Number,default:void 0}},setup(n){t.inheritPageContentContext();const o=e.ref("");return t.onLoad(e=>{o.value=decodeURIComponent(e.url)}),(e,t)=>({a:o.value})}});wx.createComponent(n);

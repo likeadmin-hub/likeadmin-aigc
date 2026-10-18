@@ -2,6 +2,7 @@
   "component": true,
   "usingComponents": {
     "u-icon": "../../../uni_modules/vk-uview-ui/components/u-icon/u-icon",
-    "digital-human-page": "../../../components/digital-human-page/digital-human-page"
+    "digital-human-page": "../../../components/digital-human-page/digital-human-page",
+    "micro-workbench-transfer": "../../mobile_tools/components/MicroWorkbenchTransfer"
   }
 }

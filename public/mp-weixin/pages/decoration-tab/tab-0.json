@@ -82,6 +82,7 @@
     "tab-content-98": "../../apps/aigc_micro_video/pages/plan/index-content",
     "tab-content-99": "../../apps/aigc_micro_video/pages/tasks/index-content",
     "tab-content-100": "../../apps/aigc_micro_video/pages/detail/index-content",
+    "tab-content-101": "../../apps/aigc_micro_video/pages/workbench/index-content",
     "u-navbar": "../../uni_modules/vk-uview-ui/components/u-navbar/u-navbar",
     "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup",
     "diy-page-loading": "../../components/diy/diy-page-loading",
@@ -186,6 +187,7 @@
     "tab-content-97": "tab-loading",
     "tab-content-98": "tab-loading",
     "tab-content-99": "tab-loading",
-    "tab-content-100": "tab-loading"
+    "tab-content-100": "tab-loading",
+    "tab-content-101": "tab-loading"
   }
 }
