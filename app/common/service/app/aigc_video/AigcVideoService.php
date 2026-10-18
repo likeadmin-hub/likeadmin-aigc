@@ -62,6 +62,7 @@ class AigcVideoService
 
     public static function estimate(int $tenantId, array $params): array
     {
+        $params = \app\common\service\power\MarketCreationParameters::apply($tenantId, $params, 'video');
         $quote = self::marketQuote($tenantId, $params);
         VideoEffectService::resolve(VideoEffectService::catalog($tenantId), $params, (int)$quote['market_product_id']);
         return $quote;
@@ -70,6 +71,7 @@ class AigcVideoService
     /** Prepare precisely the same video input before gateway admission. */
     public static function openPlatformAdmission(int $tenantId,array $params): array
     {
+        $params = \app\common\service\power\MarketCreationParameters::apply($tenantId, $params, 'video');
         unset($params['effect_snapshot']);
         if(is_array($params['params']??null))unset($params['params']['effect_snapshot']);
         $originalPrompt=trim((string)($params['prompt']??''));
@@ -163,6 +165,7 @@ class AigcVideoService
             $prompt=trim((string)($selection['effect_snapshot']['user_prompt']??$params['prompt']));
             $runtime=self::marketRuntime($selection);$quote=$frozen['quote'];
         }else{
+            $params = \app\common\service\power\MarketCreationParameters::apply($tenantId, $params, 'video');
             unset($params['effect_snapshot']);
             if (is_array($params['params'] ?? null)) unset($params['params']['effect_snapshot']);
             $originalPrompt = trim((string)($params['prompt'] ?? ''));
