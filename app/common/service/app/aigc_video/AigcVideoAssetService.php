@@ -10,6 +10,32 @@ use Exception;
 
 class AigcVideoAssetService
 {
+    /** Publish an internal generated file through the existing storage driver without base64 copies. */
+    public static function persistGeneratedVideoFile(string $path, int $tenantId, int $userId = 0, ?array $storageConfig = null): array
+    {
+        if ($tenantId <= 0 || $userId < 0 || preg_match('#^[a-z][a-z0-9+.-]*://#i', $path)
+            || !is_file($path) || !is_readable($path) || is_link($path)) {
+            throw new Exception('生成视频本地文件无效');
+        }
+        $size = filesize($path);
+        if ($size === false || $size <= 0 || $size > 268435456) {
+            throw new Exception('生成视频文件为空或超过存储限制');
+        }
+        $prefix = file_get_contents($path, false, null, 0, 64);
+        if ($prefix === false || self::detectVideoExtension($prefix) === ''
+            || !in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['mp4', 'webm', 'mov', 'm4v'], true)) {
+            throw new Exception('生成视频文件损坏或格式不支持');
+        }
+        $config = $storageConfig ?: StorageConfigService::getEffectiveConfig($tenantId);
+        $uri = self::uploadLocalFile($path, $tenantId, $userId, $config);
+        return [
+            'uri' => $uri, 'width' => 0, 'height' => 0, 'stored' => true,
+            'storage_scope' => (string)($config['scope'] ?? 'tenant'),
+            'storage_engine' => (string)($config['default'] ?? 'local'),
+            'storage_domain' => StorageConfigService::getStorageDomain($config),
+        ];
+    }
+
     public static function persistGeneratedVideo(string $url, int $tenantId, int $userId = 0, ?array $storageConfig = null): array
     {
         if (str_starts_with($url, 'data:video/')) {
