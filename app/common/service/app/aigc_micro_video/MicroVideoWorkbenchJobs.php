@@ -97,7 +97,12 @@ final class MicroVideoWorkbenchJobs
         $r=self::owned($tenant,$user,(int)($p['job_id']??0));$project=MicroVideoWorkbenchRecords::owned($tenant,$user,'project',(int)($p['project_id']??0),false,true);MicroVideoWorkbenchPolicy::revision($project,(int)($p['project_revision']??0));
         if((int)$r['project_id']!==(int)$project['id']||$r['status']!=='success')throw new InvalidArgumentException('只能采纳本项目已成功的准备结果');
         $body=MicroVideoStore::json($project['body_json']);$result=MicroVideoStore::json($r['result_json']);
-        if($r['action']==='rewrite'){$body['script']=$result['script'];$body['stage']='script_ready';}
+        if($r['action']==='rewrite'){
+            // No stable segment identity connects a whole AI rewrite to earlier scene assignments.
+            $previousCount=count((array)($body['scenes']??[]));
+            if($previousCount>0)$body['scene_reset']=['reason'=>'script_replaced','previous_revision'=>(int)$project['revision'],'previous_scene_count'=>$previousCount,'requires_reassignment'=>true];
+            $body['script']=$result['script'];$body['scenes']=[];$body['stage']='script_ready';
+        }
         elseif($r['action']==='analyze_roles')$body['roles']=$result['roles'];elseif($r['action']==='analyze_scenes')$body['scenes']=$result['scenes'];
         else{$input=MicroVideoStore::json($r['request_json']);$type=$r['action']==='role_image'?'roles':'scenes';$key=$type==='roles'?'role_id':'scene_id';$found=false;foreach($body[$type]??[] as $n=>$item)if($item[$key]===$input['target_id']){$body[$type][$n]['images']=$result['images'];$body[$type][$n]['confirmed']=false;$found=true;}if(!$found)throw new InvalidArgumentException('原角色或分镜已移除，结果保留在素材中');}
         return MicroVideoWorkbenchRecords::save($tenant,$user,['kind'=>'project','id'=>$project['id'],'revision'=>$p['project_revision'],'title'=>$project['title'],'body'=>$body]);
