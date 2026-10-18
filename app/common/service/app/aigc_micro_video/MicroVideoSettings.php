@@ -39,7 +39,7 @@ final class MicroVideoSettings
     }
     public static function detail(int $tenant,bool $admin=false): array
     {
-        $config=self::get($tenant);$all=MicroVideoCatalog::models($tenant,false,'reference');$models=array_values(array_filter($all,fn($m)=>in_array($m['id'],$config['video_model_ids'],true)));
+        $config=self::get($tenant);$all=MicroVideoCatalog::models($tenant,false,'reference',$admin?null:(array)$config['video_model_ids']);$models=array_values(array_filter($all,fn($m)=>in_array($m['id'],$config['video_model_ids'],true)));
         $out=array_intersect_key($config,array_flip(['status','default_model_id','default_quality','default_ratio','target_duration_options','max_images','max_segments']));
         $frameModels=MicroVideoFrameCatalog::models($tenant);$out+=['frames_enabled'=>(int)$config['frames_enabled'],'frame_models'=>array_values(array_filter($frameModels,fn($m)=>in_array($m['id'],$config['frame_model_ids'],true))),'default_frame_model_id'=>$config['default_frame_model_id'],'default_frame_quality'=>$config['default_frame_quality']];
         $out+=['models'=>$models,'directions'=>self::directions($tenant,false),'duration_notice'=>self::NOTICE];
