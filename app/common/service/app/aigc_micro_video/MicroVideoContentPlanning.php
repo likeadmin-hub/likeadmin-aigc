@@ -67,9 +67,9 @@ final class MicroVideoContentPlanning
             .($version>=3?'其他模板若要求自行决定段数或均分时长，以本次segment_durations和紧凑镜头规则为准。':'若其他模板仍要求固定段数、均分或按预设durations填内容，以本次内容驱动规则为准。');
     }
 
-    public static function validate(array $parsed,array $contract,int $imageCount,int $referenceLimit,bool $timeline): array
+    public static function validate(array $parsed,array $contract,int $imageCount,int $referenceLimit,bool $timeline,bool $allowUnboundReferences=false): array
     {
-        $segments=MicroVideoPolicy::segments((array)($parsed['segments']??[]),$contract['allowed_durations'],$imageCount,$referenceLimit,$contract['max_segments'],$timeline);
+        $segments=MicroVideoPolicy::segments((array)($parsed['segments']??[]),$contract['allowed_durations'],$imageCount,$referenceLimit,$contract['max_segments'],$timeline,$allowUnboundReferences);
         $total=array_sum(array_column($segments,'duration'));
         if($total>$contract['max_total_duration'])throw new InvalidArgumentException('内容方案超过允许的整片时长，请精简内容后重新规划');
         if(isset($contract['minimum_total_duration'])&&($total<$contract['minimum_total_duration']||!in_array($total,$contract['allowed_total_durations'],true)))throw new InvalidArgumentException('内容方案未达到目标时长，请按目标时长重新规划完整剧情');
