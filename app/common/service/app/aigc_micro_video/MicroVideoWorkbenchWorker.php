@@ -96,7 +96,7 @@ final class MicroVideoWorkbenchWorker
             foreach($result['roles'] as &$role){$prior=$byId[$role['role_id']??'']??$byName[trim((string)($role['name']??''))]??null;if($prior){$role=array_replace($prior,$role,['role_id'=>$prior['role_id'],'images'=>$prior['images']??[]]);if(isset($prior['voice_ref']))$role['voice_ref']=$prior['voice_ref'];}$used[$role['role_id']??'']=true;}unset($role);
             foreach($old as $role)if(!isset($used[$role['role_id']]))$result['roles'][]=$role;
         }
-        $body[$field]=$result[$field];MicroVideoWorkbenchPolicy::body('project',$body);return [$field=>$result[$field]];
+        $body[$field]=$result[$field];$body=MicroVideoWorkbenchPolicy::body('project',$body);return [$field=>$body[$field]];
     }
     /** Reprocess the durable receipt locally; never call or charge a model while validating content. */
     private static function parseScript(array $row,array $result): array
