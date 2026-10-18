@@ -21,6 +21,7 @@ const bridgePaths=new Set(['runtime-loader.php','think','public/index.php','scri
 // Unsupported or ambiguous base contexts fail before any staging is written.
 const bridgeWorkerPatches=new Map([
     ['AiTaskWorker', [['            while ($running) {\n',16], ['                // Do not starve lightweight canvas previews while a tenant has\n',16,'before']]],
+    ['CanvasSubAgentWorker', [['        while ($running && (!$once || $processed < $limit)) {\n',12]]],
     ['ShortDramaEpisodeWorker', [['        do {\n',12]]],
     ['ShortDramaPlanningWorker', [['        do {\n',12]]],
     ['ShortDramaCanvasAgentWorker', [['        do {\n',12]]],

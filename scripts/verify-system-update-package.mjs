@@ -270,7 +270,7 @@ function verifyUpdaterBridge(manifest, entries) {
     for (const field of ['sql_order','delete_files','full_replace_dirs']) if (!Array.isArray(manifest[field]) || manifest[field].length) reject(field + ' must be empty')
     if (!Array.isArray(manifest.included_versions) || [...new Set(manifest.included_versions)].sort().join(',') !== '1.0.390,1.0.391') reject('included_versions must contain only supported endpoints')
     const allowed = new Set(['runtime-loader.php','think','public/index.php','scripts/composer-runtime-runner.php','scripts/verify-composer-runtime.php','app/common/service/update/ComposerRuntimeUpdateService.php','app/common/service/update/SystemPackageUpdateService.php','config/project.php',
-        ...['AiTaskWorker','ShortDramaEpisodeWorker','ShortDramaPlanningWorker','ShortDramaCanvasAgentWorker','Crontab'].map(name => 'app/common/command/' + name + '.php')])
+        ...['AiTaskWorker','CanvasSubAgentWorker','ShortDramaEpisodeWorker','ShortDramaPlanningWorker','ShortDramaCanvasAgentWorker','Crontab'].map(name => 'app/common/command/' + name + '.php')])
     const actual = [...entries].filter(entry => entry.startsWith('files/') && !entry.endsWith('/')).map(entry => entry.slice(6))
     if ([...entries].some(entry => /\.sql$/i.test(entry))) reject('no SQL may be delivered')
     if (actual.length !== allowed.size || actual.some(entry => !allowed.has(entry))) reject('runtime files must match updater/worker allowlist exactly')

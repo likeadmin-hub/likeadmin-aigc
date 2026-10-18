@@ -50,7 +50,7 @@ class UpdaterBridgePackagingTest(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=pathlib.Path(self.tmp.name);self.repo=self.root/'repo';self.stage=self.root/'stage'
         self.manifest={'version':'1.0.391','package_mode':'incremental','base_version':'1.0.390','target_version':'1.0.391','updater_bridge':True,'full_replace_dirs':[],'delete_files':[],'sql_order':[]}
-        self.allowed=['runtime-loader.php','think','public/index.php','scripts/composer-runtime-runner.php','scripts/verify-composer-runtime.php','app/common/service/update/ComposerRuntimeUpdateService.php','app/common/service/update/SystemPackageUpdateService.php','config/project.php']+['app/common/command/'+name+'.php' for name in ['AiTaskWorker','ShortDramaEpisodeWorker','ShortDramaPlanningWorker','ShortDramaCanvasAgentWorker','Crontab']]
+        self.allowed=['runtime-loader.php','think','public/index.php','scripts/composer-runtime-runner.php','scripts/verify-composer-runtime.php','app/common/service/update/ComposerRuntimeUpdateService.php','app/common/service/update/SystemPackageUpdateService.php','config/project.php']+['app/common/command/'+name+'.php' for name in ['AiTaskWorker','CanvasSubAgentWorker','ShortDramaEpisodeWorker','ShortDramaPlanningWorker','ShortDramaCanvasAgentWorker','Crontab']]
         for rel in self.allowed:self.write(self.stage/'files'/rel,'<?php // fixture')
         for directory in ['sql/data','sql/structure','menus','rollback']:(self.stage/directory).mkdir(parents=True)
         for code in module.SYSTEM_BRIDGE_APP_CODES:
