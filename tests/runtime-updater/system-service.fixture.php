@@ -244,15 +244,12 @@ foreach (['.env','public/uploads/business.bin','runtime/task-lease.json'] as $pa
 foreach ($business as $table=>$rows) verify(Db::name($table)->order('id')->select()->toArray() === $rows, 'Business records changed: ' . $table);
 $sqlCount = Db::name('config')->where(['type'=>'system_fixture','name'=>'sql_once'])->count();
 verify($sqlCount === ($case === 'dependency-failure' || getenv('FIXTURE_OFFICIAL_ARCHIVE') ? 0 : 1), 'Migration execution count incorrect');
-if ($case === 'finalize-failure' && getenv('FIXTURE_OFFICIAL_ARCHIVE')) {
-    // An official ZIP supersedes synthetic package files; inject at the real database completion boundary.
-    Db::execute("CREATE TRIGGER fixture_builtin_failure BEFORE INSERT ON la_app FOR EACH ROW BEGIN IF NEW.code='aigc_micro_video' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture candidate application sync failed'; END IF; END");
-}
+if ($case === 'finalize-failure' && getenv('FIXTURE_OFFICIAL_ARCHIVE')) Db::execute('DROP TRIGGER fixture_builtin_failure');
 if ($case === 'metadata-failure') {
     Db::execute('DROP TRIGGER fixture_metadata_failure');
     $service->apply($id);
     verify(Db::name('update_package')->where('id',$id)->value('status') === 'applied', 'Retry did not complete');
-    verify(Db::name('config')->where(['type'=>'system_fixture','name'=>'sql_once'])->count() === 1, 'Retry replayed completed SQL');
+    verify(Db::name('config')->where(['type'=>'system_fixture','name'=>'sql_once'])->count() === (getenv('FIXTURE_OFFICIAL_ARCHIVE') ? 0 : 1), 'Retry replayed completed SQL');
     freshFixtureGeneration($site,$canonical||$migration);
     foreach ($business as $table=>$rows) verify(Db::name($table)->order('id')->select()->toArray() === $rows, 'Retry changed business records: ' . $table);
     echo "PASS final metadata failure retry: actual service apply completed without replaying SQL or altering business records\n";
