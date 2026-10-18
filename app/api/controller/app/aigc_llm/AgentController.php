@@ -47,11 +47,7 @@ class AgentController extends BaseApiController
         if(AgentStore::owner('run',$t,$u)->where('session_id',$id)->whereIn('status',['queued','running','waiting_tasks'])->count())throw new \InvalidArgumentException('请先停止并等待任务完成');
         \app\common\service\app\aigc_llm\AigcLlmService::deleteSession($t,$u,$id);return [];
     });}
-    public function config(){return $this->handle(function($t,$u){
-        $tools=AgentCapabilityCatalog::all($t,$u);$displays=[];
-        if(AgentWorkspaceScope::app()!=='aigc_canvas')foreach(array_unique(array_merge(['aigc_llm'],array_keys($tools))) as $code)$displays[$code]=\app\common\service\app\AppDisplayConfigService::skillPreview($t,$code==='speech_synthesis'?'aigc_llm':$code);
-        return ['preferences'=>AgentStore::preferences($t,$u),'models'=>AgentCapabilityCatalog::models($t),'tools'=>array_values($tools),'skill_displays'=>$displays,'skill_configs'=>\app\common\service\app\aigc_llm\agent\AgentSkillConfigService::forTools($t,array_keys($tools))];
-    });}
+    public function config(){return $this->handle(fn($t,$u)=>AgentCapabilityCatalog::configuration($t,$u));}
     public function subjects(){return $this->handle(fn($t,$u)=>\app\common\service\app\aigc_llm\agent\AgentSubjectReferences::lists($t,$u,$this->request->get()));}
     public function preferences(){return $this->handle(fn($t,$u)=>AgentStore::preferences($t,$u,$this->request->post()));}
     public function submit(){return $this->handle(fn($t,$u)=>AgentExecutionService::submit($t,$u,$this->request->post()));}

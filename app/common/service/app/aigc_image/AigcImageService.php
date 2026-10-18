@@ -54,6 +54,7 @@ class AigcImageService
 
     public static function estimate(int $tenantId, array $params): array
     {
+        $params = \app\common\service\power\MarketCreationParameters::apply($tenantId, $params, 'image');
         $estimate = AigcImageChannelService::estimate($tenantId, $params);
         $selection = AigcImageChannelService::resolveSelection($tenantId, $params);
         $spec = (array)$selection['spec'];
@@ -206,6 +207,7 @@ class AigcImageService
 
     private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = [], ?callable $onTaskCreated = null): array
     {
+        $params = \app\common\service\power\MarketCreationParameters::apply($tenantId, $params, 'image');
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
         if ($prompt === '') {

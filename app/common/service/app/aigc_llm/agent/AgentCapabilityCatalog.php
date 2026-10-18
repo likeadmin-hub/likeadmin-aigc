@@ -15,7 +15,21 @@ final class AgentCapabilityCatalog
     private const NAMES=['aigc_image'=>'图片创作','aigc_video'=>'视频创作','aigc_music'=>'音乐创作','aigc_fitting'=>'AI试衣'];
     private static function creationConfig(int $tenant,string $code): array
     {
-        return $code==='aigc_video' ? AigcVideoService::creationConfig($tenant) : self::SERVICES[$code]::config($tenant);
+        return \app\common\service\power\MarketCatalogReadScope::remember('agent-config:'.$tenant.':'.$code,
+            static fn(): array => $code==='aigc_video' ? AigcVideoService::creationConfig($tenant) : self::SERVICES[$code]::config($tenant));
+    }
+    private static function speechModels(int $tenant): array
+    {
+        return \app\common\service\power\MarketCatalogReadScope::remember('agent-speech:'.$tenant,static fn(): array => AgentSpeechTool::models($tenant));
+    }
+    /** Read once while assembling this response; never cache authorization or admission across requests. */
+    public static function configuration(int $tenant,int $user): array
+    {
+        return \app\common\service\power\MarketCatalogReadScope::run(static function()use($tenant,$user): array {
+            $tools=self::all($tenant,$user);$displays=[];
+            if(AgentWorkspaceScope::app()!=='aigc_canvas')foreach(array_unique(array_merge(['aigc_llm'],array_keys($tools))) as $code)$displays[$code]=\app\common\service\app\AppDisplayConfigService::skillPreview($tenant,$code==='speech_synthesis'?'aigc_llm':$code);
+            return ['preferences'=>AgentStore::preferences($tenant,$user),'models'=>self::models($tenant),'tools'=>array_values($tools),'skill_displays'=>$displays,'skill_configs'=>AgentSkillConfigService::forTools($tenant,array_keys($tools))];
+        });
     }
     public static function schema(string $code): array
     {
@@ -47,7 +61,7 @@ final class AgentCapabilityCatalog
             $out[$code]=['code'=>$code,'name'=>self::NAMES[$code],'description'=>match($code){'aigc_image'=>'文字或参考图生成图片','aigc_video'=>'文字或参考图生成视频','aigc_music'=>'生成歌曲或纯音乐，不是朗读配音 TTS','aigc_fitting'=>'用户上传服装图和模特图生成试衣图片'},'schema'=>self::schema($code),'version'=>'home-1','model_options'=>self::creationConfig($tenant,$code)['option_config']??[]];
         }
         try{AgentTranscriptionTool::quote($tenant);$out[AgentTranscriptionTool::CODE]=['code'=>AgentTranscriptionTool::CODE,'name'=>'语音转文字','description'=>'识别音频或视频音轨中的语音，转写完成后继续总结或回答；按次收费，需要先保存方案','schema'=>AgentTranscriptionTool::schema(),'version'=>'home-stt-1'];}catch(\InvalidArgumentException){}
-        if(AgentSpeechTool::models($tenant)['models'])$out[AgentSpeechTool::CODE]=['code'=>AgentSpeechTool::CODE,'name'=>'文字配音','description'=>'把正文朗读为MP3，最多10000字符；系统按正文长度选择可用服务。使用默认音色，不是音乐或音色克隆','schema'=>AgentSpeechTool::schema(),'version'=>'home-speech-2'];
+        if(self::speechModels($tenant)['models'])$out[AgentSpeechTool::CODE]=['code'=>AgentSpeechTool::CODE,'name'=>'文字配音','description'=>'把正文朗读为MP3，最多10000字符；系统按正文长度选择可用服务。使用默认音色，不是音乐或音色克隆','schema'=>AgentSpeechTool::schema(),'version'=>'home-speech-2'];
         return $out;
     }
     public static function models(int $tenant): array
@@ -58,7 +72,7 @@ final class AgentCapabilityCatalog
     private static function buildModels(int $tenant): array
     {
         $text=AgentComposerSettings::textOptions($tenant);
-        return ['text'=>$text,'image'=>AigcImageService::config($tenant)['option_config']??[],'video'=>self::creationConfig($tenant,'aigc_video')['option_config']??[],'music'=>self::SERVICES['aigc_music']::config($tenant)['option_config']??[],'voice'=>AgentSpeechTool::models($tenant)];
+        return ['text'=>$text,'image'=>self::creationConfig($tenant,'aigc_image')['option_config']??[],'video'=>self::creationConfig($tenant,'aigc_video')['option_config']??[],'music'=>self::creationConfig($tenant,'aigc_music')['option_config']??[],'voice'=>self::speechModels($tenant)];
     }
     public static function withAudioDefaults(int $tenant,array $preferences): array
     {

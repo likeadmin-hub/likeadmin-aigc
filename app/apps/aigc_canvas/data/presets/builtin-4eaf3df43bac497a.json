@@ -1,0 +1,252 @@
+{
+    "schema_version": 1,
+    "id": "builtin-4eaf3df43bac497a",
+    "version": 2,
+    "title": "开箱视频",
+    "category": "电商广告",
+    "description": "将产品和包装画面制作成电影级开箱视频，保留开箱提示词、输入说明和示例素材，可替换产品后继续创作。",
+    "media_type": "video",
+    "preview": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-4eaf3df43bac497a/04f00ddc4dd483095ed24a1d0694a5480be49f889a3c41bbfcbf11475164c7d6.mp4",
+    "cover": "",
+    "graph": {
+        "nodes": [
+            {
+                "id": "video_1792298887970_pu43gk9c",
+                "type": "video",
+                "title": "视频",
+                "position": {
+                    "x": 624.0000260965323,
+                    "y": 256.7734359105428
+                },
+                "width": 320,
+                "height": 722,
+                "metadata": {
+                    "status": "success",
+                    "pending": false,
+                    "prompt": "Generate cinematic unboxing videos. Two phases: POV unboxing, then showcase in product's real-world location. Product is sole subject.\nInput: Product (required), Avatar/dialogue/language (optional). Output: 3 blocks — packaging+location / shots / sound.\nPackaging: Mirrors product colors (matte black → black box, white logo / cream → cream board, gold foil). Format by size: small→lift-off lid, medium→magnetic box, apparel→mailer, large→wrapping reveal, food→kraft+wax stamp.\nLocation: Extracted from product (football→grass pitch, sneakers→concrete, skincare→marble vanity, tech→matte desk, food→kitchen). Never generic.\nAvatar default: hands only. Dialogue default: none. ASMR rule: active only during physical contact, paused during speech. Never overlap.\n12 shots: S1 Arrival (overhead POV) → S2 Packaging Study → S3 Logo Macro → S4 Opening Action (most prominent sound, specific to packaging type) → S5 Interior Reveal → S6 First Touch (extreme macro, single side light) → S7 The Lift (180° rotation). Phase 2: S8 Product in its world → S9 Placement → S10–11 Two cinematic angles differing by 45°+distance → S12 Final frame (2.5s hold, fade).\nLighting: Named source per product colors (3200K warm / 5500K daylight / dark lamp). Phase 2 location light overrides.\nVerify 12-point quality check. No preamble.",
+                    "channel": "market_video_model:98",
+                    "ratio": "9:16",
+                    "quality": "768P",
+                    "count": 1,
+                    "quantity": 1,
+                    "duration": 7,
+                    "resolution": "768P",
+                    "mode": "pro",
+                    "videoMode": "Pro",
+                    "generation_method": "omni_reference",
+                    "negative_prompt": "",
+                    "agentGroupId": "canvas_group_1792299237427",
+                    "canvasGroupTitle": "开箱视频",
+                    "canvasGroupColor": "#94cc7a",
+                    "mediaItems": [
+                        {
+                            "id": "result-video-u2p24y",
+                            "type": "video",
+                            "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-4eaf3df43bac497a/04f00ddc4dd483095ed24a1d0694a5480be49f889a3c41bbfcbf11475164c7d6.mp4",
+                            "mediaSource": "generated",
+                            "width": 768,
+                            "height": 1344,
+                            "fileSize": 1644157,
+                            "mimeType": "video/mp4",
+                            "fileName": "202610181254562947e3879.mp4",
+                            "generation": {
+                                "version": 1,
+                                "kind": "video",
+                                "prompt": "Generate cinematic unboxing videos. Two phases: POV unboxing, then showcase in product's real-world location. Product is sole subject.\nInput: Product (required), Avatar/dialogue/language (optional). Output: 3 blocks — packaging+location / shots / sound.\nPackaging: Mirrors product colors (matte black → black box, white logo / cream → cream board, gold foil). Format by size: small→lift-off lid, medium→magnetic box, apparel→mailer, large→wrapping reveal, food→kraft+wax stamp.\nLocation: Extracted from product (football→grass pitch, sneakers→concrete, skincare→marble vanity, tech→matte desk, food→kitchen). Never generic.\nAvatar default: hands only. Dialogue default: none. ASMR rule: active only during physical contact, paused during speech. Never overlap.\n12 shots: S1 Arrival (overhead POV) → S2 Packaging Study → S3 Logo Macro → S4 Opening Action (most prominent sound, specific to packaging type) → S5 Interior Reveal → S6 First Touch (extreme macro, single side light) → S7 The Lift (180° rotation). Phase 2: S8 Product in its world → S9 Placement → S10–11 Two cinematic angles differing by 45°+distance → S12 Final frame (2.5s hold, fade).\nLighting: Named source per product colors (3200K warm / 5500K daylight / dark lamp). Phase 2 location light overrides.\nVerify 12-point quality check. No preamble.，画面比例 9:16，时长约 7 秒。",
+                                "created": "2026-10-18 12:50:10",
+                                "parameters": [
+                                    {
+                                        "label": "生成方式",
+                                        "value": "全能参考"
+                                    },
+                                    {
+                                        "label": "模型",
+                                        "value": "H3 视频生成"
+                                    },
+                                    {
+                                        "label": "长宽比",
+                                        "value": "9:16"
+                                    },
+                                    {
+                                        "label": "分辨率",
+                                        "value": "768P"
+                                    },
+                                    {
+                                        "label": "时长",
+                                        "value": "7秒"
+                                    }
+                                ],
+                                "references": [
+                                    {
+                                        "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-4eaf3df43bac497a/7ad1633070c7f81cc59543fc3ab786e23daad7089c28eedae736d4164f44d1de.jpg",
+                                        "type": "image",
+                                        "title": "_87cb83a7-a757-4c72-a2fc-bcd92ebfa4f1_03d676b1-5e44-4c55-a7ea-1680ddcca747.jpg"
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "activeMediaId": "result-video-u2p24y",
+                    "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-4eaf3df43bac497a/04f00ddc4dd483095ed24a1d0694a5480be49f889a3c41bbfcbf11475164c7d6.mp4",
+                    "mediaSource": "generated",
+                    "source": "generated",
+                    "referenceImages": [
+                        {
+                            "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-4eaf3df43bac497a/7ad1633070c7f81cc59543fc3ab786e23daad7089c28eedae736d4164f44d1de.jpg",
+                            "name": "_87cb83a7-a757-4c72-a2fc-bcd92ebfa4f1_03d676b1-5e44-4c55-a7ea-1680ddcca747.jpg",
+                            "role": "first_frame_image"
+                        }
+                    ],
+                    "mentions": []
+                }
+            },
+            {
+                "id": "image_1792298920059_khfav9xu",
+                "type": "image",
+                "title": "_87cb83a7-a757-4c72-a2fc-bcd92ebfa4f1_03d676b1-5e44-4c55-a7ea-1680ddcca747.jpg",
+                "position": {
+                    "x": 77.44790704161983,
+                    "y": 276.1892206580551
+                },
+                "width": 320,
+                "height": 633,
+                "metadata": {
+                    "status": "success",
+                    "pending": false,
+                    "prompt": "",
+                    "channel": "market_image_model:234",
+                    "ratio": "auto",
+                    "quality": "1k",
+                    "count": 1,
+                    "quantity": 1,
+                    "resolution": "1k",
+                    "style": "general",
+                    "negative_prompt": "",
+                    "agentGroupId": "canvas_group_1792299237427",
+                    "canvasGroupTitle": "开箱视频",
+                    "canvasGroupColor": "#94cc7a",
+                    "mediaItems": [
+                        {
+                            "id": "media-image_1792298920059_khfav9xu",
+                            "type": "image",
+                            "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-4eaf3df43bac497a/7ad1633070c7f81cc59543fc3ab786e23daad7089c28eedae736d4164f44d1de.jpg",
+                            "mediaSource": "upload",
+                            "width": 1536,
+                            "height": 2752,
+                            "fileSize": 904734,
+                            "mimeType": "image/jpeg",
+                            "fileName": "_87cb83a7-a757-4c72-a2fc-bcd92ebfa4f1_03d676b1-5e44-4c55-a7ea-1680ddcca747.jpg"
+                        }
+                    ],
+                    "activeMediaId": "media-image_1792298920059_khfav9xu",
+                    "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-4eaf3df43bac497a/7ad1633070c7f81cc59543fc3ab786e23daad7089c28eedae736d4164f44d1de.jpg",
+                    "mediaSource": "upload",
+                    "source": "upload",
+                    "image": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-4eaf3df43bac497a/7ad1633070c7f81cc59543fc3ab786e23daad7089c28eedae736d4164f44d1de.jpg",
+                    "mentions": []
+                }
+            },
+            {
+                "id": "annotation_1792299038414_0ttt890s",
+                "type": "annotation",
+                "title": "文本",
+                "position": {
+                    "x": -278.7935531047093,
+                    "y": 112.37335079697161
+                },
+                "width": 1340,
+                "height": 48,
+                "metadata": {
+                    "status": "idle",
+                    "pending": false,
+                    "channel": "market_video_model:235",
+                    "ratio": "",
+                    "quality": "540p",
+                    "quantity": 0,
+                    "duration": 5,
+                    "mode": "",
+                    "negative_prompt": "",
+                    "agentGroupId": "canvas_group_1792299237427",
+                    "canvasGroupTitle": "开箱视频",
+                    "canvasGroupColor": "#94cc7a",
+                    "annotation": {
+                        "kind": "text",
+                        "textPreset": "subheading",
+                        "shape": "square",
+                        "fill": "#c7c7c7",
+                        "stroke": "#e0e0e0",
+                        "strokeStyle": "none",
+                        "strokeWidth": 2,
+                        "radius": 0,
+                        "text": "将产品和包装的静态画面转化为一段12-15秒的触感十足的电影级开箱视频，并搭配音乐背景——这种格式在Reels、TikTok和PDP平台上广受欢迎。",
+                        "color": "#ffffff",
+                        "fontFamily": "Inter",
+                        "fontSize": 20,
+                        "fontWeight": 500,
+                        "autoResize": true,
+                        "bold": false,
+                        "italic": false,
+                        "align": "left",
+                        "flipX": false,
+                        "flipY": false
+                    },
+                    "mentions": []
+                }
+            },
+            {
+                "id": "annotation_1792299052279_2wdaki5z",
+                "type": "annotation",
+                "title": "标签纸",
+                "position": {
+                    "x": -278.7935531047093,
+                    "y": 275.7314905787908
+                },
+                "width": 286.65937319053654,
+                "height": 242.90431613386062,
+                "metadata": {
+                    "status": "idle",
+                    "pending": false,
+                    "channel": "market_video_model:235",
+                    "ratio": "",
+                    "quality": "540p",
+                    "quantity": 0,
+                    "duration": 5,
+                    "mode": "",
+                    "negative_prompt": "",
+                    "agentGroupId": "canvas_group_1792299237427",
+                    "canvasGroupTitle": "开箱视频",
+                    "canvasGroupColor": "#94cc7a",
+                    "annotation": {
+                        "kind": "sticky",
+                        "textPreset": "body",
+                        "shape": "square",
+                        "fill": "#fcb84a",
+                        "stroke": "#e0e0e0",
+                        "strokeStyle": "none",
+                        "strokeWidth": 2,
+                        "radius": 0,
+                        "text": "(1) 输入\n\n封闭框（顶部）：开口处仍为未拆箱动画的起点。\n\n产品：一个干净的参考，以确保露出的物品保持真实。\n\n整体外观 + 负面引导整个片段。镜头在视频节点的“镜头”列表中进行编辑。（生成一个框式镜头。）",
+                        "color": "#000000",
+                        "fontFamily": "Inter",
+                        "fontSize": 16,
+                        "fontWeight": 400,
+                        "autoResize": false,
+                        "bold": false,
+                        "italic": false,
+                        "align": "left",
+                        "flipX": false,
+                        "flipY": false
+                    },
+                    "mentions": []
+                }
+            }
+        ],
+        "edges": [
+            {
+                "id": "conn_1792298923984_aqt0qjg6",
+                "fromNodeId": "image_1792298920059_khfav9xu",
+                "toNodeId": "video_1792298887970_pu43gk9c"
+            }
+        ]
+    }
+}

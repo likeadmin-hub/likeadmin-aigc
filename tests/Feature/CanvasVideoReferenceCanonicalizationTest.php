@@ -12,6 +12,27 @@ class CanvasVideoReferenceCanonicalizationTest extends TestCase
 {
     private const IMAGE_URL = 'https://fixtures.invalid/canvas-image.png';
 
+    public function testBrowserPreviewUsesUploadedSource(): void
+    {
+        $assets = AigcVideoReferenceAssetService::normalize(['reference_assets' => [[
+            'type' => 'image', 'uri' => self::IMAGE_URL, 'url' => 'blob:http://localhost/preview',
+            'role' => 'first_frame_image',
+        ]]]);
+        self::assertSame(self::IMAGE_URL, $assets[0]['url']);
+        self::assertSame('first_frame_image', $assets[0]['role']);
+        self::assertSame(self::IMAGE_URL, AigcVideoReferenceAssetService::publicUrl([
+            'uri' => self::IMAGE_URL, 'url' => 'blob:http://localhost/preview',
+        ]));
+    }
+
+    public function testUnuploadedPreviewCannotBecomeAStoragePath(): void
+    {
+        $this->expectExceptionMessage('参考素材尚未上传完成');
+        AigcVideoReferenceAssetService::normalize(['reference_assets' => [[
+            'type' => 'video', 'url' => 'blob:http://localhost/preview',
+        ]]]);
+    }
+
     public function testConnectedImageAndComposerCopyBecomeOneOwnedFirstFrame(): void
     {
         $references = $this->invoke(ShortDramaCanvasService::class, 'canonicalVideoReferenceAssets', [

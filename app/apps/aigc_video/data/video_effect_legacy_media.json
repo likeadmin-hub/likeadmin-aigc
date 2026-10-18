@@ -1,0 +1,362 @@
+{
+  "push_in": {
+    "poster": "3f626f410c8ae06b82ee95a31bca231e7aad51d9910ee87773c52a25ec393096",
+    "video": "436286c4986079cc616a1b0fe591406e13d3e77a5985d3aa2015899c3c0e7511"
+  },
+  "pull_out": {
+    "poster": "16c140127fdefdc05c8619c8842e162a143ecaa22f2fe15bfd603cf0a7334034",
+    "video": "7d6a0bf1ad9b00ba9cdece183c53c12f7bf7ce4becc325cc188d5553e6773d82"
+  },
+  "truck_right": {
+    "poster": "263e67d69e42be8702c90553b14deeb1b594209087f3b335e4444892b4c8108c",
+    "video": "ca2b6eae0339bc5354fb4d53828d9a514e5cf1ad4c77234ce117d490838c90fd"
+  },
+  "pan_right": {
+    "poster": "8729a8d940d6d3762f15f5efc2dc733c97652de60df88e2ec62bec4647b73fd2",
+    "video": "00d99cfc112a329a945af0489a422a3017c0e131f5ceb4ea4d72d547786d1e96"
+  },
+  "truck_left": {
+    "poster": "0b162100816559867610f501109de66e5df12277a17be50ccdbec6051bf14951",
+    "video": "0fefc0fdfa1dda7f8b1e8c40d26317c33eaeb0492c360b86fba6629760700b10"
+  },
+  "aerial_drone_shot": {
+    "poster": "e5bbc6039b4ebd130c4bc46748755de580a9395141557b00fa7f5523b9ee0027",
+    "video": "4b76689e9781602da8e576d5a3f31e174edfd717f8db3eded56065878ce5bbff"
+  },
+  "ground_level_tracking_shot": {
+    "poster": "4964642bff938acc349782584d7f28e91679e659296ebdf8431309beb23cc24d",
+    "video": "497c7bf9d90f74d120c1c783efb6b61c453971927db0979e47b820f6423187d9"
+  },
+  "dolly_zoom_out": {
+    "poster": "b0bfe91669a499daea6728f605b5f91b9da9ac18c07aa2ccfc5079ef817df8c9",
+    "video": "f968a6c8215a544eea198d36621fe0ab2fdaf8662ca50437f90d3c0377e89cc6"
+  },
+  "fix_and_pose": {
+    "poster": "d842f45ef11031c9312a7a5c09dc6a7bbbc34e186d565279f645f84dd860c594",
+    "video": "64eb331291a833f2f0118ed9fa55af771f0870331512dc0001c7139d6dccedaa"
+  },
+  "treking": {
+    "poster": "3cd430baad58c6cef222a2a0b90347f4b3427760e78f6d4794e3c47ab970754d",
+    "video": "837dafc3171344ce52f3e14ddffb29a10fd56e080b8bb115195d9daf15838438"
+  },
+  "fizzy_drink_ad": {
+    "poster": "f9fb76d5d22285b9edfe5b02586a6b650477c5313600505dc3fbf484dadab733",
+    "video": "c77643c65f95d6f097884afbdedf01d43361e36dcf28e9dffb540a5786abf817"
+  },
+  "arc_left1": {
+    "poster": "7d35834f2dfe62caaec5878f187e639cdcd9f9562df8da98400509a770a464ca",
+    "video": "1f9edd1fe36f13028f8bd4e69260eedc23ea4273c16f7a20c740997e85e95a01"
+  },
+  "dutch_angle": {
+    "poster": "316c74251b5287861792a1c9a1341411d40b4b616121da0c2afa08d49ad9925a",
+    "video": "650b3a4af48ecc2e9c71dadefb24ac36b8ca1351281f9ae4c80d9609ad35f4ef"
+  },
+  "werewolf": {
+    "poster": "ec51eeb08b75bf3e8f1e20e72cf59fbe4a61fe887c8a32c23a3a8a05b231ed7b",
+    "video": "894ab792894dea72047eeea5176b1a727075f44546ad73b3a7c2a4eb747627be"
+  },
+  "atomic_blast1": {
+    "poster": "ce892ce4a3720edf29e82dede777fa3d099334305a51a6d38bae265329d67df7",
+    "video": "8ed29bd53407cb970d2ee10b299d70a10714b3b0efdef4982de3996911a9c13f"
+  },
+  "caught_in_action": {
+    "poster": "39c0711fb8586bbec33f1de05002eedd8fe6d2316970c8d4d9fb06c99459c247",
+    "video": "d757bf8cd0ef4e718164efc2a5d8c907d5889a81f3f2550d7da0526005d3686b"
+  },
+  "exploded": {
+    "poster": "d2bf9efaf5688e3d44230185f2b2e28f23a7690df2466ad1f04bf9fc76595add",
+    "video": "c729e96edc9b44b932a244798cffa523c755982cbf80eb55613458deadba9daa"
+  },
+  "handheld_run": {
+    "poster": "451d644a4fc4bf11c9fb8096485ac9458ee5ccc4747f74a9ebe6a45e522c0a4c",
+    "video": "a652254706e57d38e2ab4ce04f3245cb724349d6a2676320630b24ff0f8a7b66"
+  },
+  "outfit_check": {
+    "poster": "0697f759af7c5fbab99f99f549ab48bd14d0cc82169480622b6ae4ceedb4827a",
+    "video": "ebc03829f0d2b1a84c0f9680300762dcdf19d2f2d7e00340fe1e18097583c82f"
+  },
+  "timelapse": {
+    "poster": "313e0176b6e4a5f78a64d4c71c6cf68afff98e237bedd5f36d2bc5f259899cb3",
+    "video": "97acd47552b868671f6eef74efe7d4a4838c79229aa18b03cf9cb6c2f70609b0"
+  },
+  "flame_on": {
+    "poster": "aaa4d55ccfc8782886b3e256f93d9f533005b03a55eb7c3b7c53539fc4770fdc",
+    "video": "5b68df2e0e43c418c1381e1d676216583d9edd2e8afa61916778b6361cbe3ec3"
+  },
+  "pan_left": {
+    "poster": "0edd0d8ac9d03ac570a70dd1ce710e3acb9845660157f99230eee8025aa43f7a",
+    "video": "068d3ce7bd510abd7d5e7bf0f03ab1a85ab06f3a2fe0a6b1901b7ce006ce2125"
+  },
+  "zoom_out": {
+    "poster": "8c7dea1cbf13dbf3793076d142ff93f3a3e28a177a352167c607617bba8bbda2",
+    "video": "bc0a700238e29dacb40aeab27f0bf9637fc33159637450ce32c97f658515cefd"
+  },
+  "padestal_up": {
+    "poster": "16de74cf6b668fddb6276ef2e6771241a5b7308a8bf66a9c01e44d4b46843b4e",
+    "video": "e693049019cde37c6de42ad27bc7d5294894c102e00e8f061767db9dcea2ebe9"
+  },
+  "pov": {
+    "poster": "eea1790e26df6a60ec08177b8663f5753ff993870f30f98079ebacd956a2d0a0",
+    "video": "912ff01066f28c9d2378f27bfcff79d89b991b0c2597b48c22ef0dee6b02a8e4"
+  },
+  "orbit_right": {
+    "poster": "33d64a6511a37ae8198ce258153b06107ef8306809d61979a05a7da50fd15f49",
+    "video": "38790639ead75428308ad1a0b972f48808100aed4db7b00eb0e20b9141af33df"
+  },
+  "dolly_zoom_in": {
+    "poster": "8c0575666aba6ae2da03a686c5d680cdfd994aac2d885d92c530898ac6b61b05",
+    "video": "2d122ed369f9ddf3929b191123e2eee64785e881c9ddb64f601f68c63a3b85e4"
+  },
+  "northern_lightning": {
+    "poster": "b6041cbb1361e58f7f3da02b9c98cc02693abfb40dc3b925a256cb7a3de4a082",
+    "video": "d53a1695483be06de10bb2bf13f9e34f2bc83fd91ab5fc534ebdb3a9ab40a2a2"
+  },
+  "levitation": {
+    "poster": "19838190a3ab748e62d2c3b49c360e4b7312f498d130b55e0479a63d6b002a3f",
+    "video": "c8959c976afd332900a2672f556301d6e0f30cf144fb4736ade3b0227b32ae4d"
+  },
+  "product_splash": {
+    "poster": "f680cf3f0340bbc2887ddf2f0b27e01da28ab7b715e32fa3643280f07769cbda",
+    "video": "99a39176fac9ef5b391ad371f61b25d7cce3a9c1c29358992a7d0fead7d56150"
+  },
+  "crane_up1": {
+    "poster": "141b93a58c8a25415b71ed50c392ea100e6bf54f2cae76e9c29deb499a57f7e4",
+    "video": "4ab9df1e8f1047fe22d655fb659d9538b8e888a1f0776faf326fdfbd50037303"
+  },
+  "through_object_out": {
+    "poster": "ba43a1ec6aa317725bb5ab9f4773a850a248799f19f2a90de4bfb4777135acc2",
+    "video": "d336814e264ede67e210b0392789b520f564f8e8b3aa5d6b798745dd7631b3ed"
+  },
+  "column_wipe": {
+    "poster": "dc4a806ecd7a22fb7139a81f9e89581e833fabe8859c30b3403f4a6d34e03a57",
+    "video": "99707f02cb52efdc0a3d021b24d86070ac0ac2f0ad8057c6dbc058c0ae75d48e"
+  },
+  "boiling_point": {
+    "poster": "90596cb155893a3136e43b7c2ab713c4367716b5ba1fad9be96b9fc827e39ee9",
+    "video": "fe32d55feb8b7ca5d0e2a17f519369353b2c5f738407deb099e784037daafa53"
+  },
+  "cloth_rain": {
+    "poster": "5786d8146b3188dcbcb4663ac00a9b2280def54613594f7995ebaef8ccbc370a",
+    "video": "a8e9c201f00a382df9af6ddbb8b3736c5d45cbbc7afbc279336b49e4fb737cf8"
+  },
+  "explosion": {
+    "poster": "c285d2bc27d4c18622973e124b4d631ffbd67e5cb86c53c8ebc9de407dc3c02c",
+    "video": "0a476f65bfeec5cd3e8498f7956071563739a72d6e7f1b4f3a6da67e922781f4"
+  },
+  "happy_mode": {
+    "poster": "efd9d8499a3ceddd25ba384b469ee3f1af98d4ef377b6e32fa9bf80883ac13e4",
+    "video": "30e7c2b7fb756a9c231feac699724b7af5130cc37c449ac7082d409073d7fd12"
+  },
+  "rapid_zoom_in1": {
+    "poster": "eb95f5eb8d49ec9919e693557115a985b2d05f161f411e4b5e54e6bbd9db5a9b",
+    "video": "9659cbac25dd66abb387866013855de6bebeff022802687d41a1479ae59348e2"
+  },
+  "trainrush": {
+    "poster": "161799432c8ef1a1cdecbc2aa84419b68e95cdc0f8b5320fcbf3728e653f06d9",
+    "video": "3a416935d897e98d3d2468622a2d5fb71ed0b4c525cd241821e32bb8911bf1a1"
+  },
+  "tilt_up": {
+    "poster": "6755b7cf6f5a8895f8cefebc092b397fd38db7e1127c071bf86f240473791f33",
+    "video": "f0c97965d520525541dcca24fc637154daeb323278b8d06fef92f5b60b6d21de"
+  },
+  "zoom_in": {
+    "poster": "9f946e2a22b0f3e6f5ab87b896640c812c253a22b62f5fea0d06b56e1c26c13f",
+    "video": "a0d7d478671c225a47410c052d4a93433fe858b77abc40ea8b5572513d85e94f"
+  },
+  "padestal_down": {
+    "poster": "e0da9dcbc391f5e8d1bd26ccf5db20aebbf50150c01ffc6ba976f3d170fd1cdc",
+    "video": "5f5b8d629e76551f4a465ee51d1eb648dbc839438ad531a961382cdde3078468"
+  },
+  "fpv_drone_shot": {
+    "poster": "fc7f30f90de9beb85c24cbf90869816f39d6969baa7e4a2be66939fdacf56854",
+    "video": "4152e00ee344768b1b9bf31c39dc9606f35bab32f332f8266f3b9f4fe05484d2"
+  },
+  "bullet_time": {
+    "poster": "84519bb54948fd3902de0f5fb22eeac4730cca86f0cbd1a99152f1beb0c2802d",
+    "video": "98c33302c56283e9e67fd1c4a2aba701d56d8569978af8adbdbd288c18043770"
+  },
+  "tilted_reality": {
+    "poster": "39e190b6cf77d85335df65390f85643ddeb023d41ff801d8b6f589329475c602",
+    "video": "be3b7989d6dd105e550f448bcc4862220c2432ef28ab3a21a74a36ce6e9ca3e4"
+  },
+  "police_escape": {
+    "poster": "62195faae24a75bb8a94dab52df64e7e9585e5a539d95e511a256b1db1d9ca53",
+    "video": "4133061f1a9f495391d5f91cb2f89276ac8b75f2335b64707da3b5b5dc338c7a"
+  },
+  "alien_invasion": {
+    "poster": "80f4c857dd2f00bd6fac87c5d79e91e3283cdc27a4cb36dd6db72e710eb5ff39",
+    "video": "96060d041f43da6c245073102b58d71cdb6bf835030bef08886afe859fb230be"
+  },
+  "red_carpet": {
+    "poster": "96aa059606547868608081b30c0fb4831f93e495940e32d0f29f11e151a43914",
+    "video": "79eea4162d63695a93e87891fef5faf56dd4e23fc56291742e37cab0f3941423"
+  },
+  "crane_down1": {
+    "poster": "e2b54907ad23a6be0b4557dc0a9dc914e0e98bd0ac6927880b2952f1fbf860c9",
+    "video": "003a9179cf2d1cbe77f2ed299df7b881fa32558aa3a01cbdee63c357fca86694"
+  },
+  "magic_johnson": {
+    "poster": "c0132327eeb2cc5587befe34b18fc3b030245d9e7d3c2e2a70cf4ed9f0135e0c",
+    "video": "2c48275c35367665c89c4b30cf29d84edf8eda73415fa4e30b6048d51e3133e4"
+  },
+  "smog_transition": {
+    "poster": "382a5716f3a7bb063b7d406750409979d5dd11ce8e1eca2a7e068011dfde53d2",
+    "video": "6c9e3ff53e1e91e3d15e9e1f47009654d3e62d0064be33a9c62fc75e18a345ee"
+  },
+  "bts": {
+    "poster": "fdd1966b11f89e5f74d8b5314f126fe467e65aaaaf2dbcc78a819a8e967b007b",
+    "video": "3fdaf47ef8d0a5c3e837eaaadc54964b4ace4ff1749914d7908b674921036490"
+  },
+  "crying": {
+    "poster": "2b92c7ca3a25a4fb22e6ffeb8f34480b0a16c52267bd2feafef69de05eebe7d3",
+    "video": "3b18fb78d90de0ba2e8561a8bc96c74e73ad1116257dc2d90584a932c380d02a"
+  },
+  "flip": {
+    "poster": "78017651a8f6f99e88e4d6e507f1e3711e5b0ac4967f2d56751b5d9076dcc3cf",
+    "video": "10f9bf3b6dc125633b94d6001214bd8d06545bbdc04e802bc87621935b41b512"
+  },
+  "jib_down": {
+    "poster": "73b673af25b895e45366cf8fd416e99372d610fb24c04e77c85b89ae9971a82b",
+    "video": "a2bbe3cf9c3acbaf75f64aa34424e533adfd54041c63c7f04891f3d3fa0f129f"
+  },
+  "rapid_zoom_out1": {
+    "poster": "6122be780e22abd61a89ef0f3a7230f0c61be08d7ba712755d45a64fea12e2f8",
+    "video": "f31537bb5bc748dfce170f163a902c034e83ba5763fc74fd1dbfe8983a7c841e"
+  },
+  "wireframe": {
+    "poster": "3521bff5c1803ecd6088190d10908f06089d173f6af1cd03c518004c2090f169",
+    "video": "16c14e0d197e54fd5c338e69fa310fb3271efed5f61535ba1931a70d8ea405e7"
+  },
+  "tilt_down": {
+    "poster": "d300b4a30706d7513bed277330ebe22cf898fdb47e5db5495b3555451dde85e2",
+    "video": "b9ad37a165e5e1790ab5085dde92bb84aae9b1a62ec1e15ab4ec6b68417bb5b7"
+  },
+  "elevator_door": {
+    "poster": "0222c50a2f25d5c4e0ca3750b7b1e7ff60d2eb9a9874ecf1495b45c26f062ec4",
+    "video": "00ca7e17f9461c91db06767fd3843f21d248d9ba6856e93f1f2b275145c143b6"
+  },
+  "orbit_left": {
+    "poster": "a0735870845834001a93557ee9c48a0fd84f77c08f26fd3ed30b24b9ed33da1f",
+    "video": "99ef1114bbb07aeddbf173d0e5bc0cf3b02f71895ca991e88fe046907a963adc"
+  },
+  "micro_zoom_in": {
+    "poster": "39b26f4801756cb3ddcd1d6bbbb0fda209f9c56b4c7723acbd769bbf9a85f6ed",
+    "video": "37902e5079b902def5cc22d5911063cdda030b83db731b3d7baf4bcd83aea7de"
+  },
+  "roll_right": {
+    "poster": "3d0a16787d94fdc9f561413ec638cc1b04354d9a5c7aaa479d6296597c6568bf",
+    "video": "b63dec402c5949379e992182bb238571c136d1493207afa51a49e73b08180241"
+  },
+  "whip_pan": {
+    "poster": "d1ab487291e8182fbb56fd38584787ab2ac61b256fffc04e86b4765101d5dd9b",
+    "video": "924cfd6514fb538d03b1d3b68ad5e20df85e19fcd484202d6a2e853e76c3b713"
+  },
+  "motorcycle_ride": {
+    "poster": "34c7eee28704ec3acce66a6a16f3184490e4178a749980b141e4b7509aceffce",
+    "video": "cfbb28657fdfbed75f755d0b9ea199b33ebde84522606b5156d34f2d10f76d71"
+  },
+  "escape_run": {
+    "poster": "fe9edfb828c7caab35e6f41bbfbd4ab7d3a75fd5175cfd95a78620b7c7b2d395",
+    "video": "65dd319e1bad8bcaa48c3904816c8c4365e86151e29cd07f36be453f00bf6c8e"
+  },
+  "focus_shift": {
+    "poster": "019f5d83a7bae1a351efc43eae70ee69fbd61e89fc5a2305204afec8236b2022",
+    "video": "0fe88804aaf8422cd931e85b2a097bf0684051df035bbf6586d3d197eb6be457"
+  },
+  "fire_transition": {
+    "poster": "2a8c1c23752ffee5ef12dd4d30b95a962122044db1c5f7f6aacb0a98b9317144",
+    "video": "b63a74e320e8bfa068bb47076182fc871891bcbd04214df78b56aa5a4222a82c"
+  },
+  "logo_transition": {
+    "poster": "86189701284d08997ab00903f5471467296d0f7245ee69ba8f1bf3d077974544",
+    "video": "ce831b70afe55168d621e55f622bfb9fa778dc71267b020ce42e4438b354f2ec"
+  },
+  "car_mount": {
+    "poster": "38d74d353bad010935f0a10471720f078588482e568aedb49ac76e1516dcc215",
+    "video": "9f2238a36eb85dcd5da12d1727b0fa74ae2ebfdb3706b580f757f7f299bb621b"
+  },
+  "double_exposure": {
+    "poster": "fae128de19215b95e2153ca1d767ec2d0f76d8c0c09831c767de5f6729e83e8d",
+    "video": "08788e0f90c0791e8854563e469c7cffce02dbcc64917d9206076ad0042c8fa3"
+  },
+  "glitch": {
+    "poster": "61624601fded8eb49514338a149d0fbbe40d7ca388e902d5b63c231b9a053835",
+    "video": "ecdcfeab7499ca955b1525ba1586436c1a0609e293f6afb5b9540cb0b16ba82c"
+  },
+  "jib_up": {
+    "poster": "4732ee6183215b284e5067375d745ab890bc6e195a89262986674128df7d2b4f",
+    "video": "526a7459e6c85cc0cac568813431e36d868684eb81d8d375fef0c08de9154fce"
+  },
+  "selfie_pose": {
+    "poster": "7e7e846f2897b053133d11ac3f62e4ba87b334a9aff1806144130e94a16cc0f6",
+    "video": "766248b07949e4465d36a909c9e238e09e833c7d26afedd51bcd2f525c827737"
+  },
+  "skeleton": {
+    "poster": "dd314d465fe403849e3992776bb9717d1e72556c944b07b72dfaeb916d661658",
+    "video": "272cc956e459e5c3b6caa1256471ea4ed754d21ed821149b2c71a70ed38852e4"
+  },
+  "low_angle": {
+    "poster": "81b7ea8b74584f98446e70b94f72ae084c3c9c6c08cf6f09146222240a99836c",
+    "video": "95bbce1ffa76481d36cb8bd179b837f1361473e733e502bee9cca6089e311b3f"
+  },
+  "high_angle": {
+    "poster": "10aea83e977c2922f55b2930dcfb3743a31467736f413d3bfc36907b944874e6",
+    "video": "845866be770df4fd4296b3aa4be06f71f506301343e396b9a52c2183a8e09fb8"
+  },
+  "over_the_shoulder": {
+    "poster": "c20899bb3cf00472457884d8f5d0c5a0c60813b5e81da7d535c649a73a874123",
+    "video": "661a713dc936997ce8c89bb4b7796aa06e6f9e80bf16f462ce6467fa546adcfa"
+  },
+  "action_run": {
+    "poster": "e885579354175b41b2fcc31c2deb0d7a786ebcd389fea82ef4185f407e1ff170",
+    "video": "31b02c614b998ed7c95d06fb2bb39d88baf877cb3c2fe887ef972bf671adedf6"
+  },
+  "outfit_switch": {
+    "poster": "be236269a6f7c0679cdde66df43dfc6c7d5d101e024408f31a7075976bd9f69b",
+    "video": "16d450a43771845000f064022a7986622120ae490949a917eb2579c10965272f"
+  },
+  "day_to_night_timelapse": {
+    "poster": "7793187cf4cd2aa2fe5fc913e2ffe3e8c86d6d6ffe704c8f28609e888c0566bb",
+    "video": "40210363b80b2d8b3b1d8c63fd6b9f7545ee8a507ff9e2429b2428ffab589e11"
+  },
+  "arc_right1": {
+    "poster": "bcf73378e51760e2e5a3b2870a2b0b6932e7b076eac61d4ab4d079a870b72ba3",
+    "video": "13603ef5d227223aec62af2a1db7d6252d65cd12ef23c7c7dd596af3484e6f0a"
+  },
+  "360": {
+    "poster": "64c5fdce9bbdc487c8cbede436445f4fbdd20df74331bba5c396fb4d8bd15771",
+    "video": "46f3c4f78618a1c7ae44dd07ae09fdc1aed6fd086995364281aeeb667b3b981a"
+  },
+  "raven_transition": {
+    "poster": "ad789b08755e0341ae6775002bbe33d946bcb4b1bb2299b098a9a521710a7791",
+    "video": "efff82beebd1dc767dae84db9b21ca88a2029d03e8e490a118701ecf1ca7a263"
+  },
+  "angry_mode": {
+    "poster": "e54f97bbacb8f8f410bf7c1e189d3d2947bee4eabc2406dabd1d6afca66a800c",
+    "video": "8c4e206a20ab4a67838b224067df135e3f05a5427797f356cbe537d7a4bc0097"
+  },
+  "car_rush": {
+    "poster": "689d8176d290d334b84a9c45fc7cf095dd77a59dc09a3476343603f85db5d760",
+    "video": "c39b7f8dc02cc996ec2729fa3fd2ec7267a553bfa67d98b4c6794df2ccd58750"
+  },
+  "drunk_master": {
+    "poster": "87e9b68e089eb0c63485b460b7e50eb984442fa12798058550e41e0ab1d2803e",
+    "video": "058e824072dd37cd4895e4c300f7a73f520230a26af24c1b42d086b4aca3d029"
+  },
+  "group_photo": {
+    "poster": "a4fd2fc31df1cdfe011bbf04d91b0f25afe5f8f97c1d6fa0be7883de29881726",
+    "video": "caa8f49403a380f48642d459e2ac4f815b56e8bf9cf4fc8d44b35b717684e1cb"
+  },
+  "money_rain": {
+    "poster": "32d77d134e05ee91b7daa2c8567720c77cd4ab67076dfc1f5368e3dd0ca5af0b",
+    "video": "cbfc2d1b6a6f4cdb0937755f681e7ba9a60a54fade51a2e16cd1942a3a81b1ab"
+  },
+  "shadow": {
+    "poster": "3c68c1ffe4e2b6e86f25509574eccbcb9fe3396233c345d6e09743de087a2ef2",
+    "video": "4b66fccc0892664fd2804deeb920e12dad463c4fbbc24fae67a9a0dadbe215b5"
+  },
+  "timelapse_glam": {
+    "poster": "9b6f6f3a6903298cd29c9f4d3fc897016a9d1abeac18a1a90fdc239d42ea7fbe",
+    "video": "8f4fbded487a424aa2afef73d470a45252aeab3fdead1c66111eb81741837f34"
+  }
+}

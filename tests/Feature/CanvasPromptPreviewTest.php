@@ -44,7 +44,9 @@ try {
     verify($call[2]['_disable_model_fallback']&&is_callable($call[2]['_result_validator']),'Configured model or validation before settlement missing');
     $params['node_id']='v';Preview::preview(11,22,$params);
     $input=json_decode(Runtime::$calls[1][2]['content'],true);verify($input['type']==='video'&&$input['duration']===5&&$input['ratio']==='16:9','Legacy video settings not read');
-    foreach([[12,22,2,'i'],[11,23,2,'i'],[11,22,3,'i'],[11,22,2,'other-project-node'],[11,22,2,'t']] as [$t,$u,$p,$n])refuses(fn()=>Preview::preview($t,$u,['project_id'=>$p,'node_id'=>$n,'prompt'=>'测试']),$n==='t'||$n==='other-project-node'?'只能优化':'无权访问');
+    $textResult=Preview::preview(11,22,[...$params,'node_id'=>'t']);
+    verify($textResult['type']==='text' && $textResult['prompt']!=='', 'Text prompt enhancement unavailable');
+    foreach([[12,22,2,'i'],[11,23,2,'i'],[11,22,3,'i'],[11,22,2,'other-project-node']] as [$t,$u,$p,$n])refuses(fn()=>Preview::preview($t,$u,['project_id'=>$p,'node_id'=>$n,'prompt'=>'测试']),$n==='t'||$n==='other-project-node'?'只能优化':'无权访问');
     refuses(fn()=>Preview::preview(0,22,$params),'登录');
     refuses(fn()=>Preview::preview(11,22,['project_id'=>2,'node_id'=>'i','prompt'=>str_repeat('字',4001)]),'4000');
     Runtime::$config['router_enabled']=false;refuses(fn()=>Preview::preview(11,22,$params),'尚未启用');

@@ -1,7 +1,7 @@
 <?php
 /** Platform default preview migration. No tenant edits, generation, or release publishing.
  * php scripts/migrate-default-video-effect-media.php --media-dir=/path/to/media --apply
- * Or --download --apply to fetch the reviewed catalog sources with bounded downloads.
+ * Or --download --apply to fetch the managed catalog previews with bounded downloads.
  * Omitting --apply validates local files only. Resume with the same command after failure.
  */
 require dirname(__DIR__).'/vendor/autoload.php';
@@ -27,14 +27,15 @@ $domain = $storage['default'] === 'local' ? '' : StorageConfigService::getEffect
 if (($storage['scope'] ?? '') !== 'platform') throw new RuntimeException('Platform storage required');
 $registry = VideoEffectMediaService::registry();
 $prepared = [];
-// Validate all source files before beginning uploads. Source URLs come only from the reviewed catalog.
+// Validate all source files before beginning uploads. Source URLs come only from the shipped managed catalog.
 foreach ($rows as $row) {
     foreach (['poster'=>'webp', 'video'=>'mp4'] as $field=>$ext) {
         $path = rtrim($dir, '/').'/'.$row['id'].'.'.$ext;
         $limit = ($field === 'poster' ? 10 : 40) * 1024 * 1024;
         if (!is_file($path) && $download) {
             $source = $row[$field];
-            if (!str_starts_with($source, 'https://imagine.animagic.art/remote-config/assets/video_effects/')) throw new RuntimeException('Unapproved source URL');
+            if (!filter_var($source, FILTER_VALIDATE_URL) || parse_url($source, PHP_URL_SCHEME) !== 'https'
+                || parse_url($source, PHP_URL_USER) !== null || parse_url($source, PHP_URL_PASS) !== null) throw new RuntimeException('Invalid managed source URL');
             $temp = $path.'.part';
             $handle = fopen($temp, 'wb');
             $bytes = 0;

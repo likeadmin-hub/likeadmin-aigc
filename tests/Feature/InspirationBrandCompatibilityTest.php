@@ -24,7 +24,10 @@ check(!Brand::isReferenceUrl('https://imagine.art.example.com/a'), 'Unrelated ho
 check(Brand::hasBrandName('Imagine Apps') && Brand::hasBrandName('IMAGINEAPPS'), 'Brand title detection');
 $catalog = json_decode(file_get_contents(dirname(__DIR__,2).'/app/apps/aigc_video/data/video_effects.json'),true);
 check(count($catalog) === 90, 'All original effect presets remain available');
-foreach ($catalog as $effect) check(!empty($effect['poster']) && !empty($effect['video']), 'Original previews remain available');
+foreach ($catalog as $effect) foreach (['poster','video'] as $field) {
+    check(!empty($effect[$field]), 'Original previews remain available');
+    check(!Brand::isReferenceUrl($effect[$field]), 'Shipped defaults must not link to reference-site media');
+}
 check(Brand::style('inspiration') === 'likeadmin', 'Intermediate style must remain readable');
 foreach (['imagine', 'inspiration', 'likeadmin'] as $prefix) {
     $row = ['home_style'=>$prefix, $prefix.'_background'=>$old['imagine_background'], 'models'=>$old['models']];

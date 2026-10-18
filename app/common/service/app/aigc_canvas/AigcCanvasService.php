@@ -2000,7 +2000,7 @@ class AigcCanvasService
         return [];
     }
 
-    private static function runResultItems(string $runType, array $payload): array
+    public static function runResultItems(string $runType, array $payload): array
     {
         $keys = $runType === 'image'
             ? ['image_url', 'image_uri', 'image', 'url', 'result_url']
@@ -2136,6 +2136,9 @@ class AigcCanvasService
     {
         self::ensureRunSchema();
         $params = self::repairLegacyProjectText($params);
+        if (in_array($type, ['image', 'video'], true)) {
+            $params['submitted_model_label'] = (string)\app\common\model\power\PowerMarketProduct::where('id', (int)($params['market_product_id'] ?? 0))->value('name');
+        }
         return AigcCanvasRun::create([
             'tenant_id' => $tenantId,
             'user_id' => $userId,

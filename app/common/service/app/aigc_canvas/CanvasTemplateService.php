@@ -84,6 +84,18 @@ final class CanvasTemplateService
         $ids=array_fill_keys($page['nodeIds'],true);
         $nodes=array_values(array_filter($source['nodes_json'],fn($n)=>isset($ids[$n['id']])));
         $edges=array_values(array_filter($source['edges_json'],fn($e)=>isset($ids[$e['fromNodeId']],$ids[$e['toNodeId']])));
+        foreach ($nodes as &$node) {
+            if (!in_array($node['type'], ['image','video'], true)) continue;
+            $meta=$node['metadata'];
+            $items=array_key_exists('mediaItems',$meta)?$meta['mediaItems']:[array_merge($meta,['id'=>'media-legacy'])];
+            foreach ($items as &$item) {
+                $url=CanvasTemplateMedia::url($item,$node['type']);
+                if ($url!=='') $item['generation']=CanvasMediaPreviewService::forMedia($tenant,(int)$source['user_id'],$projectId,$node['id'],$node['type'],$url,$item + array_intersect_key($meta,array_flip(['agentArtifactId'])));
+            }
+            unset($item);
+            $node['metadata']['mediaItems']=$items;
+        }
+        unset($node);
         $storage=new CanvasTemplateMediaStorage($tenant);
         return self::sanitize($nodes,$edges,fn($type,$metadata)=>CanvasTemplateMedia::capture($type,$metadata,[$storage,'copy']))
             +['media_schema'=>1,'source_project_id'=>$projectId,'source_page_id'=>$pageId];

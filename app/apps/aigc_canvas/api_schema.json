@@ -2,6 +2,14 @@
   "app_code": "aigc_canvas",
   "apis": [
     {
+      "api_path": "app.aigc_canvas.run/mediaDetail",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:run:lists",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.aigc_canvas.generate/optimizePrompt",
       "api_method": "POST",
       "permission_key": "aigc_canvas:prompt:optimize",

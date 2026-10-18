@@ -26,8 +26,8 @@ final class CanvasPromptPreviewService
         foreach (is_array($nodes) ? $nodes : [] as $row) {
             if (is_array($row) && (string)($row['id'] ?? '') === $nodeId) { $node = $row; break; }
         }
-        $type = ['image' => 'image', 'imageNode' => 'image', 'video' => 'video', 'videoNode' => 'video'][$node['type'] ?? ''] ?? '';
-        if ($type === '') throw new \InvalidArgumentException('只能优化当前项目的图片或视频节点提示词');
+        $type = ['image' => 'image', 'imageNode' => 'image', 'video' => 'video', 'videoNode' => 'video', 'text' => 'text', 'textNode' => 'text'][$node['type'] ?? ''] ?? '';
+        if ($type === '') throw new \InvalidArgumentException('只能优化当前项目的文本、图片或视频节点提示词');
         $config = AigcCanvasService::promptEnrichmentConfig($tenantId);
         if (empty($config['router_enabled'])) throw new \InvalidArgumentException('当前租户尚未启用节点提示词优化');
         if (empty($config['router_available']) || empty($config['router_model_code'])) throw new \InvalidArgumentException('当前租户暂无可用的提示词优化文本模型');
