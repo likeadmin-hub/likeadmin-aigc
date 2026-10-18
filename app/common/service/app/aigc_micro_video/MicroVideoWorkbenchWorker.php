@@ -86,7 +86,7 @@ final class MicroVideoWorkbenchWorker
     public static function parse(array $row,array $receipt): array
     {
         if(str_ends_with($row['action'],'_image')){$images=[];foreach((array)($receipt['images']??[]) as $img)$images[]=['uri'=>(string)($img['image_uri']??$img['uri']??'')];if(!$images)throw new InvalidArgumentException('图片结果尚未入库');return ['images'=>MicroVideoMedia::validateImages((int)$row['tenant_id'],(int)$row['user_id'],$images,1)];}
-        $text=trim((string)($receipt['content']??''));$text=preg_replace('/^```(?:json)?\s*|\s*```$/u','',$text);$result=json_decode($text,true,512,JSON_THROW_ON_ERROR);if(!is_array($result))throw new InvalidArgumentException('模型结果不是有效结构');
+        $text=trim((string)($receipt['content']??''));$text=preg_replace('/^```(?:json)?\s*|\s*```$/u','',$text);$result=self::decodeContent($text);if(!is_array($result))throw new InvalidArgumentException('模型结果不是有效结构');
         $request=MicroVideoStore::json($row['request_json']);
         MicroVideoWorkbenchRecords::assertNoPrivateEcho($result,$request);
         $result=MicroVideoWorkbenchRecords::publicBody($result);
@@ -101,6 +101,36 @@ final class MicroVideoWorkbenchWorker
         }
         $body[$field]=$result[$field];$body=MicroVideoWorkbenchPolicy::body('project',$body);return [$field=>$body[$field]];
     }
+    /** Recover exactly one unmatched closing delimiter; never change string values or invent content. */
+    private static function decodeContent(string $text)
+    {
+        try { return json_decode($text, true, 512, JSON_THROW_ON_ERROR); }
+        catch (\JsonException $original) {
+            $stack = [];
+            $quoted = false;
+            $escaped = false;
+            for ($i = 0, $length = strlen($text); $i < $length; $i++) {
+                $char = $text[$i];
+                if ($quoted) {
+                    if ($escaped) $escaped = false;
+                    elseif ($char === '\\') $escaped = true;
+                    elseif ($char === '"') $quoted = false;
+                    continue;
+                }
+                if ($char === '"') { $quoted = true; continue; }
+                if ($char === '{' || $char === '[') { $stack[] = $char; continue; }
+                if ($char !== '}' && $char !== ']') continue;
+                $expected = $char === '}' ? '{' : '[';
+                if ($stack && end($stack) === $expected) { array_pop($stack); continue; }
+                // Only this first mismatched closer can be removed. Strict decoding of the
+                // complete candidate rejects truncation, extra prose and any second defect.
+                $candidate = substr($text, 0, $i).substr($text, $i + 1);
+                try { return json_decode($candidate, true, 512, JSON_THROW_ON_ERROR); }
+                catch (\JsonException $unrecoverable) { throw $original; }
+            }
+            throw $original;
+        }
+    }
     /** Reprocess the durable receipt locally; never call or charge a model while validating content. */
     private static function parseScript(array $row,array $result): array
     {
@@ -110,12 +140,13 @@ final class MicroVideoWorkbenchWorker
         $continuity='';
         foreach([$script['continuity']??'', $result['continuity']??'', $input['continuity']??'', $snapshot['script']['continuity']??'', $snapshot['template_snapshot']['body']['reference_rules']??'', MicroVideoSettings::defaults()['continuity_template']] as $candidate){if(is_string($candidate)&&trim($candidate)!==''){$continuity=trim($candidate);break;}}
         if(mb_strlen($continuity)>10000)throw new InvalidArgumentException('整片一致性设定过长');$script['continuity']=$continuity;
+        // This is authoring only: an empty binding is valid until executionReferences resolves owned scene assets.
         $sum=0;foreach($script['segments'] as $segment){$duration=(int)($segment['duration']??0);if($duration<1||$duration>120)throw new InvalidArgumentException('分镜时长无效');MicroVideoTimeline::validate((string)($segment['prompt']??''),$duration);$sum+=$duration;}
         if(!empty($input['planning_contract'])){
             // The real SKU contract owns rounding/minimum-duration bounds; a fixed +15s rule can reject a valid 30s-only SKU.
-            $script['segments']=MicroVideoContentPlanning::validate(['segments'=>$script['segments'],'continuity'=>$continuity],$input['planning_contract'],15,(int)$input['video_reference_limit'],true);
+            $script['segments']=MicroVideoContentPlanning::validate(['segments'=>$script['segments'],'continuity'=>$continuity],$input['planning_contract'],15,(int)$input['video_reference_limit'],true,true);
         }else{
-            $script['segments']=MicroVideoPolicy::segments($script['segments'],array_values(array_unique(array_column($script['segments'],'duration'))),15,15,60,true);
+            $script['segments']=MicroVideoPolicy::segments($script['segments'],array_values(array_unique(array_column($script['segments'],'duration'))),15,15,60,true,true);
             $target=(int)($snapshot['target_duration']??$snapshot['brief']['target_duration']??30);
             if($sum<$target||$sum>$target+15)throw new InvalidArgumentException('改写剧本未覆盖目标时长，请查看保留的结果后重新规划');
         }
