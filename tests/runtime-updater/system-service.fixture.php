@@ -2,6 +2,14 @@
 declare(strict_types=1);
 $fixtureCase=($argv[1]??'')==='--run'?($argv[3]??''):($argv[1]??'');
 $migration=str_starts_with($fixtureCase,'legacy402-');$from=$migration?'1.0.402':'1.0.391';$to=$migration?'1.0.403':'1.0.392';
+// Official archives define the exact tested release chain; synthetic cases retain legacy defaults.
+if (getenv('FIXTURE_OFFICIAL_ARCHIVE')) {
+    $official = new ZipArchive();
+    if ($official->open(getenv('FIXTURE_OFFICIAL_ARCHIVE')) !== true) throw new RuntimeException('Official archive missing');
+    $release = json_decode($official->getFromName('update.json'), true, 512, JSON_THROW_ON_ERROR);$official->close();
+    $from = $release['base_version'];$to = $release['target_version'];
+    if (!preg_match('/^\\d+\\.\\d+\\.\\d+$/D', $from) || !preg_match('/^\\d+\\.\\d+\\.\\d+$/D', $to)) throw new RuntimeException('Invalid official release versions');
+}
 $GLOBALS['fixture_target_version']=$to;
 /** Real signed package + real service + real MySQL, entirely inside a disposable container. */
 function verify(bool $condition, string $message): void { if (!$condition) throw new RuntimeException($message); }
@@ -39,7 +47,7 @@ if (($argv[1] ?? '') !== '--run') {
     $plainCase=preg_replace('/^(?:canonical|legacy402)-/','',$case);
     verify(in_array($plainCase, ['success','dependency-failure','finalize-failure','metadata-failure','commit-reply-failure','precommit-exit','confirm-failure'], true), 'Unknown fixture case');
     $site = sys_get_temp_dir() . '/system-service-' . bin2hex(random_bytes(6));
-    $baseline=$migration?'/baseline':'/repo';
+    $baseline=($migration || (str_starts_with($case,'canonical-') && is_file('/baseline/config/project.php')))?'/baseline':'/repo';
     foreach (['app','config','extend','route','scripts'] as $dir) copyFixture($baseline.'/' . $dir, $site . '/' . $dir);
     foreach (['composer.json','composer.lock','vendor'] as $path) copyFixture('/production/' . $path, $site . '/' . $path);
     copyFixture($baseline.'/runtime-loader.php', $site . '/runtime-loader.php');

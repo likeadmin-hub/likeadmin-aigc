@@ -95,7 +95,8 @@ try:
         time.sleep(1)
     else:
         raise RuntimeError('Disposable MySQL startup timed out')
-    install = (root / 'public/install/db/like.sql').read_text()
+    install_root = args.baseline.resolve() if args.updater and args.baseline else root
+    install = (install_root / 'public/install/db/like.sql').read_text()
     cases = ['business'] if args.business or args.full_suite else []
     if args.standalone: cases += ['standalone']
     if args.updater:
