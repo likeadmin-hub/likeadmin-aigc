@@ -14,7 +14,7 @@ final class MicroVideoWorkbench
     {
         self::seed($tenant);$config=MicroVideoSettings::detail($tenant);$text=array_map(fn($m)=>['id'=>(string)$m['id'],'name'=>(string)$m['name']],MarketTextModelRuntimeService::textOptions($tenant));$cross=[];
         foreach(['aigc_short_drama'=>'短剧创作','image_human'=>'数字人','aigc_image'=>'商品图片','aigc_product_image'=>'AI商品图','aigc_fitting'=>'AI服饰'] as $code=>$label)$cross[]=['app_code'=>$code,'label'=>$label,'available'=>AppAccessService::tenantCanUse($tenant,$code,false)];
-        return ['config'=>$config,'text_models'=>$text,'image_models'=>array_values(array_filter(MicroVideoFrameCatalog::models($tenant),fn($m)=>in_array($m['id'],(array)MicroVideoSettings::get($tenant)['frame_model_ids'],true))),'cross_apps'=>$cross];
+        return ['config'=>$config,'text_models'=>$text,'image_models'=>$config['frame_models'],'cross_apps'=>$cross];
     }
     /** First-use catalog DML only; dedicated tenant file lock prevents duplicates even without config. */
     public static function seed(int $tenant): void

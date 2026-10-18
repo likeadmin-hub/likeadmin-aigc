@@ -9,12 +9,14 @@ use think\facade\Cache;
 final class MicroVideoCatalog
 {
     private static array $cache=[];
-    public static function models(int $tenant,bool $legacy=false,string $mode='both'): array
+    public static function models(int $tenant,bool $legacy=false,string $mode='both',?array $allowedIds=null): array
     {
-        $cacheKey=$tenant.':'.(int)$legacy.':'.$mode;if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
-        $sharedKey='micro_video_callable_models_v3:'.$tenant.':'.$mode;if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
+        $subset='';if($allowedIds!==null){$allowedIds=array_values(array_unique(array_map('strval',$allowedIds)));if(!$allowedIds)return [];sort($allowedIds);$subset=':'.hash('sha256',MicroVideoStore::encode($allowedIds));}
+        $cacheKey=$tenant.':'.(int)$legacy.':'.$mode.$subset;if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
+        $sharedKey='micro_video_callable_models_v3:'.$tenant.':'.$mode.$subset;if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
         $result=[];$options=AigcVideoService::marketOptions($tenant);
         foreach($options['channels']??[] as $model){
+            if($allowedIds!==null&&!in_array((string)$model['id'],$allowedIds,true))continue;
             if((int)($model['status']??1)!==1||(int)($model['max_reference_images']??0)<1)continue;
             $modes=(array)($model['generation_modes']??$model['input_modes']??[]);$method='';
             foreach(['image_reference','omni_reference','image_to_video'] as $m)if(in_array($m,$modes,true)){$method=$m;break;}
