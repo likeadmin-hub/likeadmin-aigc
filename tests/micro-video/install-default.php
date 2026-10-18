@@ -49,7 +49,7 @@ try{
  };
  $assertTenant(123456,$prefix.'tenant_system_menu');$assertTenant(123457,$splitTable);
  // Simulate an upgraded customer with an old micro-video schema and no app installation.
- foreach(['frame_batch','frame','attempt','segment','task','direction','config'] as $suffix){check(count(Db::query('SHOW TABLES LIKE ?',[$prefix.'aigc_micro_video_'.$suffix]))===1,'Fresh schema missing '.$suffix);$pdo->exec('DROP TABLE `'.$prefix.'aigc_micro_video_'.$suffix.'`');}
+ foreach(['frame_batch','frame','attempt','segment','task','direction','config'] as $suffix){check(count(Db::query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',[$prefix.'aigc_micro_video_'.$suffix]))===1,'Fresh schema missing '.$suffix);$pdo->exec('DROP TABLE `'.$prefix.'aigc_micro_video_'.$suffix.'`');}
  app\common\service\database\SqlMigrationExecutor::execute(file_get_contents($root.'/upgrade/20261016_micro_video.sql'),$prefix);
  Db::name('aigc_micro_video_config')->insert(['tenant_id'=>123456,'config_json'=>'{"owned_model":"keep"}','create_time'=>1,'update_time'=>2]);
  $before=Db::name('aigc_micro_video_config')->select()->toArray();
