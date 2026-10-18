@@ -11,7 +11,7 @@ final class MicroVideoWorkbenchPolicyTest extends TestCase
     public function testScriptEditInvalidatesSceneConfirmations(): void
     { $b=P::dependencies(['script'=>['text'=>'new'],'scenes'=>[['scene_id'=>'s','confirmed'=>true,'images'=>[['uri'=>'x']]]]],['script'=>['text'=>'old']]);self::assertFalse($b['scenes'][0]['confirmed']);self::assertSame('stale',$b['scenes'][0]['status']); }
     public function testRoleEditInvalidatesOnlyItsScenes(): void
-    { $old=['script'=>[], 'roles'=>[['role_id'=>'a','images'=>[['uri'=>'old']]],['role_id'=>'b','images'=>[]]]];$b=$old;$b['roles'][0]['images']=[['uri'=>'new']];$b['scenes']=[['scene_id'=>'1','role_ids'=>['a'],'confirmed'=>true],['scene_id'=>'2','role_ids'=>['b'],'confirmed'=>true]];$b=P::dependencies($b,$old);self::assertFalse($b['scenes'][0]['confirmed']);self::assertTrue($b['scenes'][1]['confirmed']); }
+    { $old=['script'=>[], 'roles'=>[['role_id'=>'a','images'=>[['uri'=>'old']]],['role_id'=>'b','images'=>[]]]];$b=$old;$b['roles'][0]['images']=[['uri'=>'new']];$b['scenes']=[['scene_id'=>'1','role_ids'=>['a'],'confirmed'=>true],['scene_id'=>'2','role_ids'=>['b'],'confirmed'=>true]];$old['scenes']=$b['scenes'];$b=P::dependencies($b,$old);self::assertFalse($b['scenes'][0]['confirmed']);self::assertTrue($b['scenes'][1]['confirmed']); }
     public function testCanonicalFingerprintIgnoresObjectKeyOrderingButRetainsArrayOrder(): void
     {self::assertSame(P::hash(['x'=>1,'y'=>2]),P::hash(['y'=>2,'x'=>1]));self::assertNotSame(P::hash(['x'=>[1,2]]),P::hash(['x'=>[2,1]]));}
     public function testPureBriefParsingDoesNotInventProductFacts(): void
@@ -28,4 +28,15 @@ final class MicroVideoWorkbenchPolicyTest extends TestCase
     {$this->expectException(\InvalidArgumentException::class);P::body('project',['script'=>['segments'=>[['duration'=>15]]],'roles'=>[],'scenes'=>[['scene_id'=>'outside','sort'=>2]]]);}
     public function testPublicRecordImagesNeverExposeSourceOwnerOrFileIdentity(): void
     {$dto=\app\common\service\app\aigc_micro_video\MicroVideoWorkbenchRecords::dto(['id'=>1,'kind'=>'role','title'=>'role','user_id'=>1,'revision'=>1,'status'=>1,'visibility'=>'private','create_time'=>1,'update_time'=>1,'body_json'=>json_encode(['images'=>[['uri'=>'uploads/a.png','url'=>'/uploads/a.png','tenant_id'=>77,'user_id'=>88,'file_id'=>99,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'']]])]);$image=$dto['body']['images'][0];self::assertArrayNotHasKey('tenant_id',$image);self::assertArrayNotHasKey('user_id',$image);self::assertArrayNotHasKey('file_id',$image);self::assertSame('tenant',$image['storage_scope']);}
+    public function testExplicitCurrentSceneReviewClearsStaleButAnotherEditInvalidatesAgain(): void
+    {
+        $old=['script'=>['text'=>'current','segments'=>[['duration'=>15]]],'roles'=>[['role_id'=>'lead','images'=>[['uri'=>'image1']]]],'scenes'=>[['scene_id'=>'s1','sort'=>1,'role_ids'=>['lead'],'mode'=>'reference','images'=>[],'confirmed'=>true]]];
+        $edited=$old;$edited['roles'][0]['images']=[['uri'=>'image2']];$stale=P::dependencies($edited,$old);self::assertSame('stale',$stale['scenes'][0]['status']);self::assertFalse($stale['scenes'][0]['confirmed']);
+        $reviewed=$stale;$reviewed['scenes'][0]['confirmed']=true;$ready=P::dependencies($reviewed,$stale);self::assertSame('ready',$ready['scenes'][0]['status']);self::assertNotEmpty($ready['scenes'][0]['dependency_hash']);[$segments,$images]=\app\common\service\app\aigc_micro_video\MicroVideoWorkbench::executionReferences($ready);self::assertSame('image2',$images[0]['uri']);
+        $editedAgain=$ready;$editedAgain['roles'][0]['images']=[['uri'=>'image3']];$again=P::dependencies($editedAgain,$ready);self::assertFalse($again['scenes'][0]['confirmed']);self::assertSame('stale',$again['scenes'][0]['status']);
+    }
+    public function testEditingSceneAndConfirmingInSameSaveStillRequiresAReview(): void
+    {$old=['script'=>['text'=>'current'],'roles'=>[],'scenes'=>[['scene_id'=>'s','sort'=>1,'role_ids'=>[],'description'=>'old','confirmed'=>false,'status'=>'stale']]];$new=$old;$new['scenes'][0]['description']='new';$new['scenes'][0]['confirmed']=true;$r=P::dependencies($new,$old);self::assertFalse($r['scenes'][0]['confirmed']);self::assertSame('stale',$r['scenes'][0]['status']);}
+    public function testRefreshingASignedPreviewUrlDoesNotInvalidateTheSameOwnedImage(): void
+    {$old=['script'=>['text'=>'same'],'roles'=>[['role_id'=>'a','images'=>[['uri'=>'uploads/a.png','url'=>'https://store.invalid/a?old','storage_scope'=>'tenant','storage_engine'=>'qcloud','storage_domain'=>'https://store.invalid']]]],'scenes'=>[['scene_id'=>'s','sort'=>1,'role_ids'=>['a'],'images'=>[],'confirmed'=>true]]];$new=$old;$new['roles'][0]['images'][0]['url']='https://store.invalid/a?fresh';$r=P::dependencies($new,$old);self::assertTrue($r['scenes'][0]['confirmed']);self::assertSame('ready',$r['scenes'][0]['status']);}
 }

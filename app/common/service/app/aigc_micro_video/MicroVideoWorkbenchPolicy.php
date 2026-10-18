@@ -30,15 +30,34 @@ final class MicroVideoWorkbenchPolicy
         }
         return $body;
     }
+    private static function dependencyShape(array $value): array
+    {
+        foreach($value as $key=>$item){
+            if($key==='images'&&is_array($item))$value[$key]=array_map(static fn($image)=>array_intersect_key((array)$image,array_flip(['uri','storage_scope','storage_engine','storage_domain','role'])),$item);
+            elseif(is_array($item))$value[$key]=self::dependencyShape($item);
+        }
+        return $value;
+    }
+    private static function sceneContent(array $scene): array
+    {unset($scene['confirmed'],$scene['status'],$scene['dependency_hash']);return self::dependencyShape($scene);}
     public static function dependencies(array $body,array $old): array
     {
         $script=self::hash($body['script']??[])!==self::hash($old['script']??[]);
-        $product=self::hash($body['product_snapshot']??[])!==self::hash($old['product_snapshot']??[]);
-        $template=self::hash($body['template_snapshot']??[])!==self::hash($old['template_snapshot']??[]);
-        $prior=array_column((array)($old['roles']??[]),null,'role_id');$changed=[];
-        foreach((array)($body['roles']??[]) as $r)if(self::hash($r)!==self::hash($prior[$r['role_id']]??[]))$changed[]=$r['role_id'];
-        $chain=false;foreach($body['scenes']??[] as $i=>$s){$dirty=$script||$template||($product&&!empty($s['product_visible']))||array_intersect($changed,(array)($s['role_ids']??[]));if(($s['mode']??'')==='start_end')$chain=$chain||(bool)$dirty;else $chain=false;
-            if($dirty||$chain){$body['scenes'][$i]['confirmed']=false;$body['scenes'][$i]['status']='stale';}}
+        $product=self::hash(self::dependencyShape($body['product_snapshot']??[]))!==self::hash(self::dependencyShape($old['product_snapshot']??[]));
+        $template=self::hash(self::dependencyShape($body['template_snapshot']??[]))!==self::hash(self::dependencyShape($old['template_snapshot']??[]));
+        $prior=array_column((array)($old['roles']??[]),null,'role_id');$current=array_column((array)($body['roles']??[]),null,'role_id');$changed=[];
+        foreach($current as $id=>$role)if(self::hash(self::dependencyShape($role))!==self::hash(self::dependencyShape($prior[$id]??[])))$changed[]=$id;
+        $oldScenes=array_column((array)($old['scenes']??[]),null,'scene_id');$chain=false;
+        foreach($body['scenes']??[] as $i=>$scene){
+            $oldScene=$oldScenes[$scene['scene_id']]??[];$sceneChanged=self::hash(self::sceneContent($scene))!==self::hash(self::sceneContent($oldScene));
+            $dirty=$script||$template||($product&&!empty($scene['product_visible']))||$sceneChanged||array_intersect($changed,(array)($scene['role_ids']??[]));
+            if(($scene['mode']??'')==='start_end')$chain=$chain||(bool)$dirty;else $chain=false;
+            $roles=[];foreach((array)($scene['role_ids']??[]) as $id)$roles[$id]=$current[$id]??[];
+            $body['scenes'][$i]['dependency_hash']=self::hash(self::dependencyShape(['script'=>$body['script']??[],'template'=>$body['template_snapshot']??[],'product'=>!empty($scene['product_visible'])?($body['product_snapshot']??[]):[],'roles'=>$roles,'scene'=>self::sceneContent($scene)]));
+            if($dirty||$chain){$body['scenes'][$i]['confirmed']=false;$body['scenes'][$i]['status']='stale';}
+            elseif(!empty($scene['confirmed']))$body['scenes'][$i]['status']='ready';
+            elseif(($oldScene['status']??'')!=='stale')$body['scenes'][$i]['status']='pending_review';
+        }
         if($product||$template){$body['stage']='draft';$body['script_stale']=true;}elseif($script){$body['stage']=trim((string)($body['script']['text']??''))!==''?'script_ready':'draft';$body['script_stale']=false;}elseif($changed)$body['stage']=trim((string)($body['script']['text']??''))!==''?'script_ready':'draft';return $body;
     }
     public static function retryable(array $job): void
