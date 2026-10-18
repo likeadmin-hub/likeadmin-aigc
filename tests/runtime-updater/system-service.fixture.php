@@ -237,7 +237,15 @@ if (in_array($case,['success','commit-reply-failure','confirm-failure'],true)) {
     foreach (['app/FixtureVersion.php','app/common/service/app/AppRegistryService.php','config/project.php','upgrade/version.json'] as $path)
         verify(file_get_contents($site . '/' . $path) === $original[$path], 'Failure did not restore ' . $path);
     verify(!is_file($site.'/runtime/direct-update-active.json'),'Rejected legacy completion left canonical recovery journal');
-    if($case==='metadata-failure')verify(fixtureMetadata()===$metadata,'Final metadata failure did not roll back all application/tenant/menu/plan metadata');
+    if($case==='metadata-failure') {
+        $observed=fixtureMetadata();$differences=[];
+        foreach($metadata as $table=>$rows)if($rows!==$observed[$table]){
+            $rowDiff=[];
+            foreach($rows as $i=>$row)if(($observed[$table][$i]??null)!==$row){$rowDiff[]=['row'=>$i,'before_id'=>$row['id']??null,'after_id'=>$observed[$table][$i]['id']??null,'columns'=>array_keys(array_filter($row,static fn($value,$key)=>($observed[$table][$i][$key]??null)!==$value,ARRAY_FILTER_USE_BOTH))];if(count($rowDiff)>=3)break;}
+            $differences[$table]=['before_count'=>count($rows),'after_count'=>count($observed[$table]),'changed_rows'=>$rowDiff];
+        }
+        verify(!$differences,'Final metadata rollback differences: '.json_encode($differences));
+    }
 }
 foreach (['.env','public/uploads/business.bin','runtime/task-lease.json'] as $path)
     verify(file_get_contents($site . '/' . $path) === $original[$path], 'Protected state changed: ' . $path);
