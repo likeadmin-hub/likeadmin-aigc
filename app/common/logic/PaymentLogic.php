@@ -94,7 +94,7 @@ class PaymentLogic extends BaseLogic
             if (in_array($params['from'], ['recharge','membership'], true) && $terminal === UserTerminalEnum::WECHAT_MMP && (float)$order['order_amount'] > 0) {
                 $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$params['from'],(int)$order['id']);
                 $virtual=(int)$order['pay_way']===PayEnum::VIRTUAL_PAY;
-                if (!$virtual && $snapshot) {
+                if (!$virtual && $snapshot && (int)$snapshot['package_id'] > 0) {
                     try { $config=\app\common\service\virtualpay\VirtualPayConfigService::detail((int)$order['tenant_id'],0);$virtual=\app\common\service\virtualpay\VirtualPayConfigService::enabledFor($config,(string)($params['platform']??'')); } catch (\Exception $e) { $virtual=false; }
                 }
                 if ($virtual) return ['package_snapshot'=>(bool)$snapshot,'locked_channel'=>$virtual && trim((string)$order['pay_sn'])!==''?PayEnum::VIRTUAL_PAY:0,'lists'=>[['id'=>0,'name'=>'微信虚拟支付','pay_way'=>PayEnum::VIRTUAL_PAY,'is_default'=>1,'icon'=>'','extra'=>'微信小程序虚拟商品支付']], 'order_amount'=>$order['order_amount'],'expires_at'=>(int)($snapshot['expires_at']??0)];
@@ -484,7 +484,7 @@ class PaymentLogic extends BaseLogic
             $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$from,(int)$order['id']);
             if ($snapshot && ($snapshot['status']!=='pending'||(int)$snapshot['expires_at']<=time())) { self::setError('订单已过期或关闭，请先核对支付结果');return false; }
             if ((int)$order['pay_way']===PayEnum::VIRTUAL_PAY) { self::setError('该订单已发起虚拟支付，请核对原交易后操作');return false; }
-            if ($terminal===UserTerminalEnum::WECHAT_MMP && $snapshot && (float)$order['order_amount']>0) {
+            if ($terminal===UserTerminalEnum::WECHAT_MMP && $snapshot && (int)$snapshot['package_id']>0 && (float)$order['order_amount']>0) {
                 try { $config=\app\common\service\virtualpay\VirtualPayConfigService::detail((int)$order['tenant_id'],0); }
                 catch (\Exception $e) { $config=['enabled'=>0]; }
                 if (\app\common\service\virtualpay\VirtualPayConfigService::enabledFor($config,$platform)) { self::setError('请使用微信小程序虚拟支付');return false; }
@@ -563,6 +563,7 @@ class PaymentLogic extends BaseLogic
      */
     public static function formatOrderSn($orderSn, $terminal)
     {
+        if (preg_match('/^[RMTQB][a-f0-9]{30}$/D', (string)$orderSn)) return $orderSn;
         $suffix = mb_substr(time(), -4);
         return $orderSn . $terminal . $suffix;
     }

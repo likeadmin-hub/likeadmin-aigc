@@ -172,7 +172,7 @@ class TenantPowerMallService
         if ($package->isEmpty()) {
             throw new RuntimeException('算力套餐不存在或已下架');
         }
-        $orderSn = generate_sn(TenantPowerOrder::class, 'order_sn');
+        $orderSn = \app\common\service\pay\CashCheckoutService::number('tenant_power');
         $expireTime = self::calcExpireTime((string)$package['type'], (int)$package['duration_months']);
         $order = TenantPowerOrder::create([
             'tenant_id' => $tenantId,

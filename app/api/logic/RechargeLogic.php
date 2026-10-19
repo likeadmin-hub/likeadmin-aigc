@@ -49,7 +49,7 @@ class RechargeLogic extends BaseLogic
             if (!empty($params['package_id'])) {
                 return \app\common\service\promotion\PackagePricingService::create(
                     (int)$params['tenant_id'], (int)$params['user_id'], (int)$params['terminal'],
-                    'recharge', (int)$params['package_id'], 'package', (string)($params['quote_hash'] ?? '')
+                    'recharge', (int)$params['package_id'], 'package', (string)($params['quote_hash'] ?? ''), (string)($params['request_id'] ?? '')
                 );
             }
             if ($money <= 0 && empty($package)) {
@@ -60,8 +60,9 @@ class RechargeLogic extends BaseLogic
             $money = $quote['amount'];
             $points = $quote['points'];
 
+            return \app\common\service\pay\CashCheckoutService::create((int)$params['tenant_id'], (int)$params['user_id'], 'recharge', (string)($params['request_id'] ?? ''), [(int)$params['terminal'], $params['money']], function(string $sn) use ($params, $money, $points, $package) {
             $data = [
-                'sn' => generate_sn(RechargeOrder::class, 'sn'),
+                'sn' => $sn,
                 'order_terminal' => $params['terminal'],
                 'user_id' => $params['user_id'],
                 'tenant_id' => $params['tenant_id'],
@@ -72,11 +73,20 @@ class RechargeLogic extends BaseLogic
                 'package_name' => (string)($package['name'] ?? ''),
             ];
             $order = RechargeOrder::create($data);
+            \think\facade\Db::name('tenant_package_price_snapshot')->insert([
+                'tenant_id'=>$params['tenant_id'],'user_id'=>$params['user_id'],'biz_type'=>'recharge',
+                'order_id'=>(int)$order['id'],'order_sn'=>$sn,'package_id'=>0,'cycle'=>'custom',
+                'regular_cents'=>\app\common\service\promotion\PackagePromotionPolicy::cents($money),
+                'payable_cents'=>\app\common\service\promotion\PackagePromotionPolicy::cents($money),
+                'rights'=>json_encode(['recharge_points'=>RechargePackageService::formatAmount($points)],JSON_THROW_ON_ERROR),
+                'expires_at'=>time()+1800,'created_at'=>time(),
+            ]);
 
             return [
                 'order_id' => (int)$order['id'],
                 'from' => 'recharge'
             ];
+            });
         } catch (\Exception $e) {
             self::setError(\app\common\service\virtualpay\VirtualPayPolicy::error($e));
             return false;

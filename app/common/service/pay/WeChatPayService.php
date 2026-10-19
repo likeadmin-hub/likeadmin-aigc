@@ -433,7 +433,15 @@ class WeChatPayService extends BasePayService
                 if (in_array($message['attach'], ['recharge','membership'], true) && (new \app\common\service\promotion\PackagePaymentService())->callback(2,(string)$message['out_trade_no'])) return true;
                 $extra['transaction_id'] = $message['transaction_id'];
                 $attach = $message['attach'];
-                $message['out_trade_no'] = mb_substr($message['out_trade_no'], 0, 18);
+                $model = match ($attach) {
+                    'recharge'=>RechargeOrder::class, 'membership'=>MembershipOrder::class,
+                    'tenant_power'=>TenantPowerOrder::class, 'tenant_brand_quota'=>TenantBrandQuotaOrder::class,
+                    'tenant_brand_order'=>TenantBrandOrder::class, default=>null,
+                };
+                $matched = $model ? $model::where('pay_sn', (string)$message['out_trade_no'])->findOrEmpty() : null;
+                $message['out_trade_no'] = $matched && !$matched->isEmpty()
+                    ? (string)($matched['sn'] ?? $matched['order_sn'])
+                    : mb_substr($message['out_trade_no'], 0, 18);
                 switch ($attach) {
                     case 'recharge':
                         $order = RechargeOrder::where(['sn' => $message['out_trade_no']])->findOrEmpty();
