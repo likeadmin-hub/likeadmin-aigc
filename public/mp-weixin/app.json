@@ -1,5 +1,6 @@
 {
   "pages": [
+    "pages/point_alert/index",
     "pages/decoration-tab/tab-0",
     "pages/decoration-tab/tab-1",
     "pages/decoration-tab/tab-2",
