@@ -244,7 +244,19 @@ if (in_array($case,['success','commit-reply-failure','confirm-failure'],true)) {
     verify(!is_file($site.'/runtime/direct-update-active.json'),'Rejected legacy completion left canonical recovery journal');
     if($case==='metadata-failure') {
         $observed=fixtureMetadata();$differences=[];
-        foreach($metadata as $table=>$rows)if($rows!==$observed[$table]){
+        $expectedMetadata=$metadata;
+        // Completed release SQL intentionally survives a later metadata failure.
+        // This release's approved data repair changes only the built-in route;
+        // all other columns, tenant-owned rows and finalization writes must roll back.
+        if (getenv('FIXTURE_OFFICIAL_ARCHIVE') && in_array('sql/structure/20261019_tutorial_route.sql', $manifest['sql_order'] ?? [], true)) {
+            foreach ($expectedMetadata['tenant_system_menu'] as &$menu) {
+                if (($menu['source_menu_key'] ?? '') === 'core_tenant_tutorial' && ($menu['source'] ?? null) !== null && $menu['source'] !== 'tenant') {
+                    $menu['component'] = 'setting/website/tutorial';
+                }
+            }
+            unset($menu);
+        }
+        foreach($expectedMetadata as $table=>$rows)if($rows!==$observed[$table]){
             $rowDiff=[];
             foreach($rows as $i=>$row)if(($observed[$table][$i]??null)!==$row){$rowDiff[]=['row'=>$i,'before_id'=>$row['id']??null,'after_id'=>$observed[$table][$i]['id']??null,'columns'=>array_keys(array_filter($row,static fn($value,$key)=>($observed[$table][$i][$key]??null)!==$value,ARRAY_FILTER_USE_BOTH))];if(count($rowDiff)>=3)break;}
             $differences[$table]=['before_count'=>count($rows),'after_count'=>count($observed[$table]),'changed_rows'=>$rowDiff];
