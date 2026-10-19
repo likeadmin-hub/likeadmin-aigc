@@ -26,6 +26,7 @@ use app\common\model\refund\RefundRecord;
 use app\common\model\user\User;
 use app\common\service\ConfigService;
 use app\common\service\PointUnitService;
+use app\common\service\recharge\CustomRechargeService;
 use think\facade\Db;
 
 
@@ -49,6 +50,7 @@ class RechargeLogic extends BaseLogic
             'status' => ConfigService::get('recharge', 'status', 0),
             'min_amount' => ConfigService::get('recharge', 'min_amount', 0),
             'point_unit' => PointUnitService::unit(),
+            'recharge_ratio' => CustomRechargeService::ratio(),
         ];
 
         return $config;
@@ -65,6 +67,7 @@ class RechargeLogic extends BaseLogic
     public static function setConfig($params)
     {
         try {
+            $ratio = isset($params['recharge_ratio']) ? CustomRechargeService::normalizeRatio($params['recharge_ratio']) : null;
             if (isset($params['status'])) {
                 ConfigService::set('recharge', 'status', $params['status']);
             }
@@ -74,6 +77,7 @@ class RechargeLogic extends BaseLogic
             if (isset($params['point_unit'])) {
                 ConfigService::set('recharge', 'point_unit', PointUnitService::normalize($params['point_unit']));
             }
+            if ($ratio !== null) ConfigService::set('recharge', 'recharge_ratio', $ratio);
             return true;
         } catch (\Exception $e) {
             self::setError($e->getMessage());

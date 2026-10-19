@@ -100,11 +100,61 @@ class MarketTextModelRuntimeService
         return self::routeModel($tenantId, $selection, $requiresVision);
     }
 
+    /** Operator-only evidence collection, without changing advertised capabilities. */
+    public static function probeImageCapability(int $tenantId, array $selection, string $content, array $images, ?callable $onEvent = null): array
+    {
+        $params=self::visionProbeParams($tenantId,$selection,$content,$images);
+        return self::generate($tenantId,0,$params,$onEvent,true,$selection);
+    }
+
+    private static function visionProbeParams(int $tenantId,array $selection,string $content,array $images): array
+    {
+        if($tenantId<=0||empty($selection['id'])||trim($content)===''||mb_strlen($content)>1000||count($images)<1||count($images)>2)
+            throw new \InvalidArgumentException('视觉能力探测参数无效');
+        foreach($images as $image){
+            if(!is_string($image)||!preg_match('#^data:image/(png|jpeg|webp);base64,(.+)$#s',$image,$match))throw new \InvalidArgumentException('视觉探测仅接受实际本地图片数据');
+            $bytes=base64_decode($match[2],true);$info=$bytes===false?false:@getimagesizefromstring($bytes);
+            if($bytes===false||strlen($bytes)>10485760||!$info||!in_array($info['mime']??'', ['image/png','image/jpeg','image/webp'],true))throw new \InvalidArgumentException('视觉能力探测图片无效');
+        }
+        return ['content'=>trim($content),'reference_images'=>array_values($images),'model_selection'=>$selection,
+            'system_prompt'=>'这是管理员的真实图片能力探测，只根据实际收到的图片作答。','max_tokens'=>512,'request_timeout_seconds'=>180,
+            'action_code'=>'decoration_capability_probe','source_app_code'=>'system_default','business_table'=>'decoration_vision_probe','business_id'=>1,
+            '_disable_model_fallback'=>true,'_disable_transient_retry'=>true,'_disable_compatibility_retry'=>true,'_decoration_preserve_uncertain'=>true,
+            '_require_final_content'=>true,'_decoration_native_responses_transport'=>true];
+    }
+
+    private static function assertVisionProbeScope(int $tenantId,int $userId,array $params,bool $tenantAdmin): void
+    {
+        if($tenantId<=0||$userId!==0||!$tenantAdmin||($params['action_code']??'')!=='decoration_capability_probe'
+            ||($params['business_table']??'')!=='decoration_vision_probe'||empty($params['reference_images'])
+            ||empty($params['_disable_model_fallback'])||empty($params['_disable_transient_retry'])||empty($params['_disable_compatibility_retry'])
+            ||\app\common\service\open_platform\OpenCallContext::active())throw new \InvalidArgumentException('视觉能力探测身份或调用范围无效');
+        self::visionProbeParams($tenantId,(array)($params['model_selection']??[]),(string)($params['content']??''),(array)$params['reference_images']);
+    }
+
+    private static function assertVisionProbeModel(array $selection,array $model): void
+    {
+        if((string)($selection['id']??'')!==(string)$model['id'])throw new \InvalidArgumentException('视觉探测模型身份不一致');
+        if(isset($selection['product_id'])&&(int)$selection['product_id']!==(int)$model['id'])throw new \InvalidArgumentException('视觉探测产品身份不一致');
+        $skus=array_filter(array_map('intval',[$model['market_sku_id']??0,$model['market_input_sku_id']??0,$model['market_output_sku_id']??0]));
+        foreach(['market_sku_id','sku_id','market_input_sku_id'] as $key)if(array_key_exists($key,$selection)&&(!is_scalar($selection[$key])||!preg_match('/^[1-9][0-9]*$/D',(string)$selection[$key])||!in_array((int)$selection[$key],$skus,true)))throw new \InvalidArgumentException('视觉探测规格已变化或不可用');
+    }
+
+    private static function preserveUncertainSubmission(bool $tenantAdmin,string $action,array $params,string $message,bool $operatorProbe=false): bool
+    {
+        if (($params['source_app_code'] ?? '') === 'aigc_micro_video' && !empty($params['_micro_video_preserve_uncertain'])) {
+            return \app\common\service\app\aigc_micro_video\MicroVideoSubmission::ambiguous($message);
+        }
+        return $tenantAdmin&&($action==='decoration_agent_text'||$operatorProbe)
+            &&!empty($params['_decoration_preserve_uncertain'])
+            &&preg_match('/timeout|timed out|超时|cURL|connection|reset|empty response|无效响应/i',$message)===1;
+    }
+
     /**
      * @param array<string, mixed> $params content, system_prompt, model_selection, action_code
      * @return array<string, mixed>
      */
-    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $tenantAdminConsumption = false): array
+    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $tenantAdminConsumption = false, ?array $operatorCapabilityProbe = null): array
     {
         // Server-only argument for tenant-admin authoring tools; never read from params.
         if ($tenantAdminConsumption && ($tenantId <= 0 || $userId !== 0)) throw new Exception('租户后台调用身份无效');
@@ -117,9 +167,16 @@ class MarketTextModelRuntimeService
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
         $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? [], !empty($params['_agent_tool_history']));
         $requiresVision = $referenceImages !== [] || !empty($params['requires_vision']);
-        $model = \app\common\service\open_platform\OpenCallContext::textModel() ?? (!empty($params['_disable_model_fallback'])
+        if ($operatorCapabilityProbe !== null) {
+            self::assertVisionProbeScope($tenantId,$userId,$params,$tenantAdminConsumption);
+            if(($params['model_selection']??null)!==$operatorCapabilityProbe)throw new \InvalidArgumentException('视觉探测模型身份不一致');
+        }
+        // Only the separate server-side operator method supplies this sixth argument.
+        // Client request fields cannot opt out of ordinary capability resolution.
+        $model = $operatorCapabilityProbe !== null ? self::resolveModel($tenantId,$operatorCapabilityProbe,false) : (\app\common\service\open_platform\OpenCallContext::textModel() ?? (!empty($params['_disable_model_fallback'])
             ? self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)
-            : self::resolveRoutedModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision));
+            : self::resolveRoutedModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)));
+        if($operatorCapabilityProbe!==null)self::assertVisionProbeModel($operatorCapabilityProbe,$model);
         if ($tenantAdminConsumption) {
             // Persist zero retail price so delayed usage settlement has the same payer.
             $model['input']['tenant_price'] = 0;
@@ -187,7 +244,7 @@ class MarketTextModelRuntimeService
         try {
             self::event((int)$context['consumption']['id'], 'submit', 'running', ['model_code' => $model['model_code']]);
             $compatibilityAttempts = 0;
-            $transportOptions = ['include_market_context' => true, 'include_channel' => true];
+            $transportOptions = self::initialTransportOptions($model,$params,$tenantAdminConsumption,$operatorCapabilityProbe!==null);
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
@@ -300,7 +357,7 @@ class MarketTextModelRuntimeService
                 \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
                 throw $e;
             }
-            if ($tenantAdminConsumption && $action === 'decoration_agent_text' && !empty($params['_decoration_preserve_uncertain']) && preg_match('/timeout|timed out|超时|cURL|connection|reset|empty response|无效响应/i', $e->getMessage())) {
+            if (self::preserveUncertainSubmission($tenantAdminConsumption,$action,$params,$e->getMessage(),$operatorCapabilityProbe!==null)) {
                 AiConsumptionLog::where('id', (int)$context['consumption']['id'])->update(['run_status'=>'pending_confirmation','error_code'=>'submission_uncertain','error_message'=>$e->getMessage(),'update_time'=>time()]);
                 throw $e;
             }
@@ -664,7 +721,7 @@ class MarketTextModelRuntimeService
                 PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points']);
                 PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points'], (string)$c['consume_no'], self::billingRemark((string)$c['app_code'], 'settled'), self::extra($task, $c, 'settled'));
             }
-            $c->save(['upstream_request_id' => (string)($result['provider_request_id'] ?? ''), 'run_status' => 'success', 'billing_status' => $hasActualUsage ? 'settled' : 'pending_usage', 'usage_snapshot' => $usage + ['settlement_basis' => $hasActualUsage ? 'actual_usage' : 'awaiting_actual_usage'], 'response_summary' => ['output_length' => mb_strlen((string)($result['content'] ?? ''), 'UTF-8')], 'actual_tenant_cost' => $hasActualUsage ? $actual['tenant_cost_points'] : 0, 'actual_user_price' => $hasActualUsage ? $actual['user_charge_points'] : 0, 'tenant_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'user_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'finish_time' => $now, 'update_time' => $now]);
+            $c->save(['upstream_request_id' => (string)($result['provider_request_id'] ?? ''), 'run_status' => 'success', 'billing_status' => $hasActualUsage ? 'settled' : 'pending_usage', 'usage_snapshot' => $usage + ['settlement_basis' => $hasActualUsage ? 'actual_usage' : 'awaiting_actual_usage'], 'response_summary' => ['output_length' => mb_strlen((string)($result['content'] ?? ''), 'UTF-8')] + (isset($result['protocol_evidence']) ? ['protocol_evidence'=>$result['protocol_evidence']] : []), 'actual_tenant_cost' => $hasActualUsage ? $actual['tenant_cost_points'] : 0, 'actual_user_price' => $hasActualUsage ? $actual['user_charge_points'] : 0, 'tenant_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'user_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => (float)$task['actual_tenant_cost'] + ($hasActualUsage ? (float)$actual['tenant_cost_points'] : 0), 'actual_user_price' => (float)$task['actual_user_price'] + ($hasActualUsage ? (float)$actual['user_charge_points'] : 0), 'finish_time' => $now, 'update_time' => $now]);
             self::event((int)$c['id'], $hasActualUsage ? 'settle' : 'await_usage', $hasActualUsage ? 'success' : 'pending', $usage, $elapsed);
         });
@@ -679,7 +736,7 @@ class MarketTextModelRuntimeService
             $now=time();
             $c->save(['run_status'=>$incomplete?'failed':'success','billing_status'=>'settlement_failed','usage_snapshot'=>$usage+['settlement_basis'=>$incomplete?'awaiting_provider_receipt':'awaiting_settlement'],
                 'upstream_request_id'=>(string)($result['provider_request_id']??$c['upstream_request_id']),
-                'response_summary'=>['output_length'=>mb_strlen((string)($result['content']??''),'UTF-8')],
+                'response_summary'=>['output_length'=>mb_strlen((string)($result['content']??''),'UTF-8')] + (isset($result['protocol_evidence']) ? ['protocol_evidence'=>$result['protocol_evidence']] : []),
                 'error_code'=>$incomplete?'provider_stream_incomplete':'settlement_failed','error_message'=>$incomplete?'回复未完整结束，费用待核对':'结果已确认，费用结算待核对','finish_time'=>$now,'update_time'=>$now]);
             AiAppTask::where('id',$c['app_task_id'])->update(['status'=>$incomplete?'failed':'success','progress'=>100,'finish_time'=>$now,'update_time'=>$now]);
             self::event((int)$c['id'],'settlement_deferred','failed',['reason'=>$incomplete?'provider_stream_incomplete':'wallet_settlement_failed','error_type'=>get_class($error),'protocol_diagnostic'=>(array)($result['protocol_diagnostic']??[])]);
@@ -707,6 +764,25 @@ class MarketTextModelRuntimeService
         if ($messages === []) {
             throw new Exception('请输入文本内容');
         }
+        $payload=self::transportPayload($protocol,$model,$messages,$system,$maxTokens,$generationParams,$transportOptions);
+        return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout, $protocol === 'openai_responses' && !empty($transportOptions['require_native_responses']));
+    }
+
+    private static function initialTransportOptions(array $model,array $params,bool $tenantAdminConsumption,bool $operatorCapabilityProbe=false): array
+    {
+        $decorationResponses=$tenantAdminConsumption
+            && (($params['action_code']??'')==='decoration_agent_text'||$operatorCapabilityProbe)
+            && !empty($params['_decoration_native_responses_transport'])
+            && self::protocolForModel($model)==='openai_responses';
+        // Micro-video calls retain local immutable SKU billing snapshots. Native
+        // model endpoints route by model/channel and reject pricing SKU fields.
+        $microNative=($params['source_app_code']??'')==='aigc_micro_video'&&!empty($params['_micro_video_native_transport']);
+        return ['include_market_context'=>!$decorationResponses&&!$microNative,'include_channel'=>true,'require_native_responses'=>$decorationResponses];
+    }
+
+    /** Routing stays on model/channel; local SKU snapshots never depend on the wire body. */
+    private static function transportPayload(string $protocol,array $model,array $messages,string $system,int $maxTokens,array $generationParams,array $transportOptions): array
+    {
         $payload = self::requestPayload($protocol, $model, $messages, $system, $maxTokens, $generationParams);
         if (($transportOptions['include_market_context'] ?? true) === true) {
             $payload = array_merge(self::marketContext($model), $payload);
@@ -718,7 +794,7 @@ class MarketTextModelRuntimeService
         // Do this last so neither a model default nor an application override
         // can disable SSE for a market text request.
         $payload['stream'] = true;
-        return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout);
+        return $payload;
     }
 
     /** Build the provider-specific request body without leaking protocol details to business apps. */
@@ -1188,7 +1264,7 @@ class MarketTextModelRuntimeService
         return true;
     }
 
-    private static function curl(string $url, string $key, array $payload, ?callable $onEvent, bool $sslVerify, int $requestTimeout): array
+    private static function curl(string $url, string $key, array $payload, ?callable $onEvent, bool $sslVerify, int $requestTimeout, bool $requireNativeResponses = false): array
     {
         // Upstream text generation is always SSE. Callers without a UI stream
         // still consume SSE here and receive the assembled result afterwards.
@@ -1200,7 +1276,7 @@ class MarketTextModelRuntimeService
             'Accept: text/event-stream',
         ];
 
-        $state = ['content' => '', 'reasoning' => '', 'usage' => [], 'request_id' => '', 'emitted_request_id' => '', 'error' => '', 'tool_calls' => [], 'delta_count' => 0];
+        $state = ['content' => '', 'reasoning' => '', 'usage' => [], 'request_id' => '', 'emitted_request_id' => '', 'error' => '', 'tool_calls' => [], 'delta_count' => 0, 'responses_expected' => $requireNativeResponses];
         $buffer = '';
         $body = '';
         $receivedEvent = false;
@@ -1226,7 +1302,7 @@ class MarketTextModelRuntimeService
                 }
                 return 0;
             },
-            CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk) use (&$buffer, &$body, &$receivedEvent, &$receivedSseEvent, &$state, $onEvent): int {
+            CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk) use (&$buffer, &$body, &$receivedEvent, &$receivedSseEvent, &$state, $onEvent, $key): int {
                 $body .= $chunk;
                 $buffer .= str_replace("\r\n", "\n", $chunk);
                 while (($pos = strpos($buffer, "\n\n")) !== false) {
@@ -1236,7 +1312,7 @@ class MarketTextModelRuntimeService
                     if ($event !== null) {
                         $receivedEvent = true;
                         $receivedSseEvent = true;
-                        self::applyStreamEvent($event, $state, $onEvent);
+                        self::applyStreamEvent($event, $state, $onEvent, $key);
                     }
                 }
                 return strlen($chunk);
@@ -1249,7 +1325,7 @@ class MarketTextModelRuntimeService
             if ($event !== null) {
                 $receivedEvent = true;
                 $receivedSseEvent = true;
-                self::applyStreamEvent($event, $state, $onEvent);
+                self::applyStreamEvent($event, $state, $onEvent, $key);
             }
         }
         if (!$receivedEvent) {
@@ -1257,7 +1333,7 @@ class MarketTextModelRuntimeService
             // A successful buffered JSON response violates the streaming
             // contract. Only decode it to retain a provider error message.
             if (($event['type'] ?? '') === 'error') {
-                self::applyStreamEvent($event, $state, $onEvent);
+                self::applyStreamEvent($event, $state, $onEvent, $key);
             }
         }
 
@@ -1283,6 +1359,10 @@ class MarketTextModelRuntimeService
             \app\common\service\open_platform\OpenCallContext::providerFailure($status,$body,!empty($state['content'])||!empty($state['reasoning'])||!empty($state['tool_calls']));
             throw self::providerException($state['error'], !empty($state['model_fallback_allowed']), $state);
         }
+        if ($requireNativeResponses && (empty($state['responses']) || !empty($state['legacy_output_event_count']))) {
+            $state['native_error_code'] = 'responses_protocol_mismatch';
+            throw self::providerException('模型未返回要求的原生Responses完整回复，未执行本轮工具；费用待核对', false, $state);
+        }
         try {
             AnthropicMessagesAdapter::assertComplete($state);
             ResponsesMessagesAdapter::assertComplete($state);
@@ -1296,7 +1376,7 @@ class MarketTextModelRuntimeService
         // of treating a completed provider request as an empty result.
         $contentSource = 'content';
         if (trim((string)$state['content']) === '' && trim((string)$state['reasoning']) !== '') {
-            $contentSource = 'reasoning';
+            $contentSource = 'reasoning';$state['content_source']='reasoning';
             $state['content'] = $state['reasoning'];
         }
         if (!$receivedEvent || (trim((string)$state['content']) === '' && empty($state['tool_calls']))) {
@@ -1311,6 +1391,7 @@ class MarketTextModelRuntimeService
             'tool_calls' => $state['tool_calls'],
             'stream_mode' => $receivedSseEvent ? 'sse' : 'buffered_response',
             'stream_delta_count' => (int)$state['delta_count'],
+            'protocol_evidence' => self::protocolEvidence($state),
             'finish_reason' => (string)($state['finish_reason'] ?? ''),
             '_responses_output' => (array)($state['responses_output'] ?? []),
         ];
@@ -1407,12 +1488,24 @@ class MarketTextModelRuntimeService
     }
 
     /** @param array<string, mixed> $state */
-    private static function applyStreamEvent(array $event, array &$state, callable $onEvent): void
+    private static function applyStreamEvent(array $event, array &$state, callable $onEvent, string $requestKey = ''): void
     {
         if (($event['type'] ?? '') === 'responses_event') {
-            ResponsesMessagesAdapter::apply($event['payload'], $state, $onEvent);
+            $state['responses_event_count'] = (int)($state['responses_event_count'] ?? 0) + 1;
+            if (in_array($event['payload']['type'] ?? '', ['response.completed', 'response.failed', 'response.incomplete'], true)) $state['responses_terminal_seen'] = true;
+            if (!empty($event['payload']['response']['usage']) && is_array($event['payload']['response']['usage'])) {
+                $state['usage_event_count'] = (int)($state['usage_event_count'] ?? 0) + 1;
+                $state['usage_sources']['responses_native'] = true;
+            }
+            ResponsesMessagesAdapter::apply($event['payload'], $state, $onEvent, $requestKey);
             return;
         }
+        // Only actual non-native output signals a protocol downgrade. Auxiliary
+        // usage/heartbeat/[DONE] events cannot satisfy or invalidate native closure.
+        if ((($event['type'] ?? '') === 'delta' && (string)($event['content'] ?? '') !== '') || !empty($event['tool_calls'])) {
+            $state['legacy_output_event_count'] = (int)($state['legacy_output_event_count'] ?? 0) + 1;
+        }
+        if (($event['type'] ?? '') === 'done' || !empty($event['finish_reason'])) $state['legacy_terminal_seen'] = true;
         if (!empty($event['anthropic'])) $state['anthropic'] = true;
         if (!empty($event['anthropic_complete'])) $state['anthropic_complete'] = true;
         if (isset($event['tool_block_stop'])) {
@@ -1438,6 +1531,8 @@ class MarketTextModelRuntimeService
             return;
         }
         if (!empty($event['usage']) && is_array($event['usage'])) {
+            $state['usage_event_count'] = (int)($state['usage_event_count'] ?? 0) + 1;
+            $state['usage_sources'][!empty($event['anthropic']) ? 'anthropic_messages' : 'compatible_sse'] = true;
             $state['usage'] = array_replace_recursive((array)($state['usage'] ?? []), $event['usage']);
         }
         if (!empty($event['tool_calls']) && is_array($event['tool_calls'])) {
@@ -1655,17 +1750,44 @@ class MarketTextModelRuntimeService
         return implode('', $parts);
     }
 
+    /** Safe parser observations only: never wire bodies, credentials, URLs or image data. */
+    private static function protocolEvidence(array $state): array
+    {
+        $responses = (int)($state['responses_event_count'] ?? 0);
+        $legacy = (int)($state['legacy_output_event_count'] ?? 0);
+        $nativeStatus = (string)($state['native_response_status'] ?? '');
+        $status = $responses > 0 ? $nativeStatus : (string)($state['finish_reason'] ?? '');
+        if (!in_array($status, ['', 'completed', 'failed', 'incomplete', 'in_progress', 'stop', 'length', 'tool_calls', 'end_turn', 'max_tokens', 'stop_sequence'], true)) $status = 'other';
+        return [
+            'expected_native_responses' => !empty($state['responses_expected']),
+            'branch' => $responses > 0 ? ($legacy > 0 ? 'mixed' : 'native_responses') : (!empty($state['anthropic']) ? 'anthropic_messages' : ($legacy > 0 ? 'legacy_sse' : 'unclassified_sse')),
+            'native_event_count' => $responses, 'legacy_output_event_count' => $legacy,
+            'terminal_seen' => $responses > 0 ? !empty($state['responses_terminal_seen']) : (!empty($state['anthropic']) ? !empty($state['anthropic_complete']) : !empty($state['legacy_terminal_seen'])),
+            'terminal_status' => $status,
+            'output_present' => $responses > 0 && array_key_exists('native_output_present', $state) ? (bool)$state['native_output_present'] : null,
+            'usage_event_count' => (int)($state['usage_event_count'] ?? 0),
+            'usage_sources' => array_values(array_intersect(['responses_native', 'anthropic_messages', 'compatible_sse'], array_keys($state['usage_sources'] ?? []))),
+        ];
+    }
+
     private static function providerException(string $message, bool $fallbackAllowed, array $state = []): Exception
     {
         $hasOutput = !empty($state['content']) || !empty($state['reasoning']) || !empty($state['tool_calls'])
             || (int)($state['delta_count'] ?? 0) > 0;
-        $partial = (!empty($state['anthropic']) || !empty($state['responses'])) && !empty($state['request_id']) ? [
+        $hasNativePartial = (!empty($state['anthropic']) || !empty($state['responses'])) && !empty($state['request_id']);
+        $hasExpectedPartial = !empty($state['responses_expected']) && ($hasOutput || !empty($state['usage']));
+        $partial = $hasNativePartial || $hasExpectedPartial ? [
             'content' => (string)($state['content'] ?? ''),
+            'content_source' => (string)($state['content_source']??'content'),
+            'protocol_evidence' => self::protocolEvidence($state),
             'provider_request_id' => (string)$state['request_id'],
             'usage' => (array)($state['usage'] ?? []),
             // Never hand partial calls to Neuron or a delayed continuation.
             'tool_calls' => [],
-            'protocol_diagnostic' => ['code' => (string)($state['native_error_code'] ?? 'native_stream_error'), 'last_event' => substr((string)($state['native_event_type'] ?? ''), 0, 80), 'provider_code' => (string)($state['native_provider_code'] ?? '')],
+            'protocol_diagnostic' => ['code' => (string)($state['native_error_code'] ?? 'native_stream_error'), 'last_event' => substr((string)($state['native_event_type'] ?? ''), 0, 80), 'provider_code' => (string)($state['native_provider_code'] ?? ''),
+                'provider_type'=>(string)($state['native_provider_type']??''),'provider_message'=>(string)($state['native_provider_message']??''),'response_status'=>(string)($state['native_response_status']??''),
+                'output_present'=>(bool)($state['native_output_present']??false),'output_items'=>(int)($state['native_output_item_count']??0),'visible_chars'=>mb_strlen((string)($state['content']??'')),'reasoning_chars'=>mb_strlen((string)($state['reasoning']??'')),
+                'delta_count'=>(int)($state['delta_count']??0),'reasoning_delta_count'=>(int)($state['native_reasoning_delta_count']??0),'function_delta_count'=>(int)($state['native_function_delta_count']??0)],
         ] : null;
         return new MarketTextModelProviderException($message, $fallbackAllowed && !$hasOutput && $partial === null, $partial);
     }

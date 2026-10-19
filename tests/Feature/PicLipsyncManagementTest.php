@@ -18,7 +18,9 @@ class PicLipsyncManagementTest extends TestCase
     {
         if (getenv('PIC_LIPSYNC_MYSQL_TEST') !== '1') $this->markTestSkipped('Pinned local database opt-in required');
         (new \think\App())->initialize();
-        self::assertSame('z_cn', Db::connect()->getConfig('database'));
+        $expected=getenv('PIC_LIPSYNC_TEST_DATABASE')?:'z_cn';
+        self::assertContains($expected,['x_cn','z_cn']);
+        self::assertSame($expected, Db::connect()->getConfig('database'));
         self::assertContains(Db::connect()->getConfig('hostname'), ['127.0.0.1', 'localhost']);
         Db::startTrans(); $this->transaction = true;
     }
@@ -59,16 +61,15 @@ class PicLipsyncManagementTest extends TestCase
         $config=Db::name('aigc_pic_lipsync_config')->where('tenant_id',987001)->find();
         self::assertSame(0,(int)$config['status']);self::assertSame(['fixture'=>'keep'],json_decode($config['config_json'],true));
     }
-    public function testDisableAndUnshelfBlockUseButPreserveManagement(): void
+    public function testBuiltinAccessDoesNotDependOnPaidShelfState(): void
     {
-        Db::name('app')->where('code',Service::APP_CODE)->update(['status'=>'installed','expire_policy'=>'block']);
+        Db::name('app')->where('code',Service::APP_CODE)->update(['status'=>'installed']);
         Db::name('tenant_app')->where(['tenant_id'=>987001,'app_code'=>Service::APP_CODE])->delete();
-        Db::name('tenant_app')->insert(['tenant_id'=>987001,'app_code'=>Service::APP_CODE,'buy_status'=>'paid','enable_status'=>'enabled','shelf_status'=>'on','expire_time'=>time()+3600]);
+        Db::name('tenant_app')->insert(['tenant_id'=>987001,'app_code'=>Service::APP_CODE,'buy_status'=>'paid','enable_status'=>'enabled','shelf_status'=>'off','expire_time'=>time()+3600]);
         self::assertTrue(Access::tenantCanUse(987001,Service::APP_CODE));
-        Db::name('tenant_app')->where(['tenant_id'=>987001,'app_code'=>Service::APP_CODE])->update(['shelf_status'=>'off']);
-        self::assertFalse(Access::tenantCanUse(987001,Service::APP_CODE));self::assertTrue(Access::tenantCanManage(987001,Service::APP_CODE));
-        Registry::setStatus(Service::APP_CODE,'disabled');self::assertFalse(Access::tenantCanManage(987001,Service::APP_CODE));
-        Registry::setStatus(Service::APP_CODE,'installed');self::assertTrue(Access::tenantCanManage(987001,Service::APP_CODE));
+        self::assertTrue(Access::tenantCanManage(987001,Service::APP_CODE));
+        $this->expectExceptionMessage('系统应用不允许禁用或卸载');
+        Registry::setStatus(Service::APP_CODE,'disabled');
     }
     public function testPublicReferenceSamplesSaveAndPublishWithoutCloneWork(): void
     {
@@ -88,23 +89,21 @@ class PicLipsyncManagementTest extends TestCase
         $this->expectExceptionMessage('公共音色不存在');
         Admin::savePublicVoice(987002,['id'=>$voice['id'],'audio_uri'=>'uploads/reference-fixture.wav']);
     }
-    public function testPlanCanOpenRenewAndKeepUnshelvedState(): void
+    public function testBuiltinApplicationRejectsPaidPlans(): void
     {
-        $plan=\app\common\service\app\AppPlanService::savePlan(['app_code'=>Service::APP_CODE,'name'=>'management fixture plan','duration_months'=>1,'open_points'=>0,'renew_points'=>0,'status'=>1]);
-        $opened=\app\common\service\app\AppPlanService::openOrRenew(987003,0,Service::APP_CODE,(int)$plan['id']);
-        self::assertSame('open',$opened['order_type']);self::assertTrue(Access::tenantCanUse(987003,Service::APP_CODE));
-        Db::name('tenant_app')->where(['tenant_id'=>987003,'app_code'=>Service::APP_CODE])->update(['shelf_status'=>'off']);
-        $renewed=\app\common\service\app\AppPlanService::openOrRenew(987003,0,Service::APP_CODE,(int)$plan['id']);
-        self::assertSame('renew',$renewed['order_type']);self::assertGreaterThan($opened['after_expire_time'],$renewed['after_expire_time']);
-        self::assertFalse(Access::tenantCanUse(987003,Service::APP_CODE));self::assertTrue(Access::tenantCanManage(987003,Service::APP_CODE));
+        $this->expectExceptionMessage('内置应用不支持套餐设置');
+        \app\common\service\app\AppPlanService::savePlan(['app_code'=>Service::APP_CODE,'name'=>'management fixture plan','duration_months'=>1,'open_points'=>0,'renew_points'=>0,'status'=>1]);
     }
-    public function testSoftUninstallRetainsTasksAndClearLeavesSharedLibraries(): void
+    public function testBuiltinUninstallIsRejectedAndRetainsTasksAndSharedLibraries(): void
     {
         $id=$this->task(987001);
         $avatar=ImageHumanAvatar::create(['tenant_id'=>987001,'source'=>'mine','user_id'=>77001,'name'=>'shared fixture','image_uri'=>'uploads/fixture.jpg','delete_time'=>0]);
-        Registry::uninstall(Service::APP_CODE,false);
-        self::assertNotNull(AigcPicLipsyncTask::find($id));self::assertFalse(Registry::isInstalled(Service::APP_CODE));
-        Registry::uninstall(Service::APP_CODE,true);
-        self::assertNull(AigcPicLipsyncTask::find($id));self::assertNotNull(ImageHumanAvatar::find((int)$avatar['id']));
+        foreach([false,true] as $clear) {
+            try {Registry::uninstall(Service::APP_CODE,$clear);self::fail('Builtin uninstall was accepted');}
+            catch(\RuntimeException $error){self::assertSame('系统应用不允许禁用或卸载',$error->getMessage());}
+            self::assertNotNull(AigcPicLipsyncTask::find($id));
+            self::assertTrue(Registry::isInstalled(Service::APP_CODE));
+            self::assertNotNull(ImageHumanAvatar::find((int)$avatar['id']));
+        }
     }
 }

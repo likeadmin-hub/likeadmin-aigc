@@ -13,6 +13,7 @@ use app\common\service\open_platform\OpenSafeHttp;
 use app\common\service\power\MarketImageModelRuntimeService;
 use app\common\service\storage\StorageSignedUrlService;
 use Exception;
+use think\facade\Db;
 
 /** Tenant-admin authoring adapter. No request field can opt ordinary users into this payer. */
 final class DecorationAgentMediaService
@@ -26,6 +27,8 @@ final class DecorationAgentMediaService
     {
         self::assertTenant($tenantId);
         if (count($attachments) > self::MAX_ATTACHMENTS) throw new Exception('最多上传5张参考图片');
+        if($attachments===[])return [];
+        $evidence=self::evidenceFileIds($tenantId);
         $result = [];
         foreach ($attachments as $attachment) {
             if (!is_array($attachment) || (int)($attachment['file_id'] ?? 0) <= 0) throw new Exception('附件必须提供文件ID');
@@ -35,11 +38,13 @@ final class DecorationAgentMediaService
             $row = $file->isEmpty() ? [] : $file->toArray();
             self::assertAttachmentRow($tenantId, $row);
             $url = self::fileUrl($row);
-            [$width, $height] = self::inspectImage(self::readImage($row, $url));
+            $bytes=self::readImage($row,$url);
+            [$width, $height] = self::inspectImage($bytes);
             $uses = $attachment['uses'] ?? ['asset'];
             if (is_string($uses)) $uses = [$uses];
             if (!is_array($uses) || count(array_filter($uses, 'is_string')) !== count($uses) || array_diff($uses, ['asset', 'layout', 'style', 'generation']) !== []) throw new Exception('附件用途无效');
-            $result[$id] = ['file_id' => $id, 'url' => $url, 'uses' => array_values(array_unique($uses)), 'width' => $width, 'height' => $height];
+            if(in_array($id,$evidence,true)&&array_intersect($uses,['asset','generation']))throw new Exception('整页验收截图只能作为对照证据，不能作为素材');
+            $result[$id] = ['file_id' => $id, 'url' => $url, 'uses' => array_values(array_unique($uses)), 'width' => $width, 'height' => $height,'sha256'=>hash('sha256',$bytes)];
         }
         return array_values($result);
     }
@@ -69,6 +74,22 @@ final class DecorationAgentMediaService
         return MarketImageModelRuntimeService::options($tenantId);
     }
 
+    /** Reviewed first-party decoration images; never label these as user/customer cases. */
+    public static function builtinMaterials(): array
+    {
+        $result=[];
+        foreach([
+            ['banner001','玻璃城市主视觉',['玻璃','城市','建筑','创意','工作室','主视觉','灰色']],
+            ['banner002','彩色玻璃立方',['玻璃','立方','彩色','创意','工作室','主视觉','抽象']],
+            ['banner003','浅蓝数据概念',['数据','科技','浅蓝','概念','背景','主视觉']],
+        ] as [$file,$title,$tags]){
+            $uri='resource/image/tenantapi/default/'.$file.'.png';$info=@getimagesize(public_path().$uri);
+            if(!$info)continue;
+            $result[]=['id'=>'builtin:'.$file,'file_id'=>0,'uri'=>$uri,'url'=>'/'.$uri,'source'=>'content','source_key'=>'builtin_decoration','title'=>$title,'type'=>'image','role'=>'decorative','tags'=>$tags,'width'=>$info[0],'height'=>$info[1],'dimensions_known'=>true,'suggested_uses'=>['banner','背景主视觉'],'provenance'=>'随系统提供的装饰图片，不是用户生成作品或客户案例'];
+        }
+        return $result;
+    }
+
     /** Search tenant media plus existing published decoration sources, respecting enabled source flags. */
     public static function search(int $tenantId, string $query, array $allowedSources, array $attachments, int $limit = 12): array
     {
@@ -76,18 +97,22 @@ final class DecorationAgentMediaService
         $limit = max(1, min(50, $limit));
         $needle = mb_strtolower(trim($query));
         $candidates = [];
+        $evidence=self::evidenceFileIds($tenantId);
+        if(in_array('content',$allowedSources,true))foreach(self::builtinMaterials() as $material)if($needle===''||self::matches($material['title'],$material['tags'],$needle))$candidates[]=$material;
         if (in_array('upload', $allowedSources, true)) {
             foreach (self::validateAttachments($tenantId, $attachments) as $attachment) {
                 if (!in_array('asset', $attachment['uses'], true)) continue;
-                $candidates[] = $attachment + ['id' => 'file:' . $attachment['file_id'], 'source' => 'upload', 'title' => '上传参考图'];
+                $candidates[] = $attachment + ['id' => 'file:' . $attachment['file_id'], 'source' => 'upload', 'title' => '上传参考图','type'=>'image','role'=>'uploaded_asset','tags'=>[],'dimensions_known'=>true];
             }
         }
         if (in_array('tenant', $allowedSources, true)) {
+            foreach (self::generatedMaterials($tenantId, $needle) as $material) $candidates[] = $material;
             $files = TenantFile::where(['tenant_id' => $tenantId, 'source' => FileEnum::SOURCE_ADMIN, 'type' => FileEnum::IMAGE_TYPE]);
-            if ($needle !== '') $files->whereLike('name', '%' . $query . '%');
-            foreach ($files->order('id', 'desc')->limit($limit)->select()->toArray() as $file) {
-                if (!self::imageExtension((string)$file['uri'])) continue;
-                $candidates[] = ['id' => 'file:' . $file['id'], 'file_id' => (int)$file['id'], 'url' => self::fileUrl($file), 'source' => 'tenant', 'title' => (string)$file['name'], 'width' => 0, 'height' => 0];
+            if($evidence)$files->whereNotIn('id',$evidence);
+            // Bounded filename discovery supports synonyms without pretending to inspect pixels.
+            foreach ($files->order('id', 'desc')->limit(50)->select()->toArray() as $file) {
+                if (!self::imageExtension((string)$file['uri'])||($needle!==''&&!self::matches((string)$file['name'],[],$needle))) continue;
+                $candidates[] = ['id' => 'file:' . $file['id'], 'file_id' => (int)$file['id'], 'url' => self::fileUrl($file), 'source' => 'tenant', 'title' => (string)$file['name'], 'width' => 0, 'height' => 0,'uri'=>(string)$file['uri'],'type'=>'image','role'=>'tenant_asset','tags'=>[],'dimensions_known'=>false,'match_basis'=>'filename_only','semantic_confidence'=>'unknown'];
             }
         }
         $refs = [];
@@ -101,37 +126,126 @@ final class DecorationAgentMediaService
         foreach ($refs as $key => $ref) {
             $params = (array)($ref['params'] ?? []);
             $params['limit'] = 50;
-            $rows = DecorateDataSourceService::resolve($key, $params, $tenantId, ['tenant_id' => $tenantId, 'terminal' => 'mobile']);
+            if($key==='app_entries')$params['terminal']='uniapp';
+            $rows = DecorateDataSourceService::resolve($key, $params, $tenantId, ['tenant_id' => $tenantId, 'terminal' => 'uniapp']);
             $rows = isset($rows['lists']) ? $rows['lists'] : $rows;
             foreach ($rows as $row) {
                 if (!is_array($row)) continue;
                 $title = (string)($row['title'] ?? $row['name'] ?? '');
-                if ($needle !== '' && !str_contains(mb_strtolower($title . ' ' . (string)($row['description'] ?? $row['desc'] ?? '')), $needle)) continue;
+                if ($needle !== '' && !self::matches($title.' '.(string)($row['description']??$row['desc']??''),[$key,(string)($row['app_code']??'')],$needle)) continue;
                 foreach (['image', 'cover_url', 'cover', 'image_url', 'icon'] as $field) {
                     $uri = trim((string)($row[$field] ?? ''));
                     if ($uri === '' || !self::imageExtension($uri)) continue;
-                    $candidates[] = ['id' => $key . ':' . (string)($row['id'] ?? $row['app_code'] ?? '') . ':' . $field, 'file_id' => 0, 'url' => FileService::getFileUrl($uri), 'source' => 'content', 'source_key' => $key, 'source_id' => $row['id'] ?? $row['app_code'] ?? '', 'title' => $title, 'width' => 0, 'height' => 0];
+                    $candidates[] = ['id' => $key . ':' . (string)($row['id'] ?? $row['app_code'] ?? '') . ':' . $field, 'file_id' => 0, 'url' => self::contentImageUrl($uri), 'source' => 'content', 'source_key' => $key, 'source_id' => $row['id'] ?? $row['app_code'] ?? '', 'title' => $title, 'width' => 0, 'height' => 0,'uri'=>$uri,'type'=>'image','role'=>match($key){'image_cases'=>'user_case','app_entries'=>'app_icon','ai_tools'=>'app_cover',default=>'article_cover'},'tags'=>[$key],'dimensions_known'=>false];
                     break;
                 }
             }
         }
+        // Select across allowed sources rather than letting newest uploads consume the entire limit.
+        $priority=['uploaded_asset'=>100,'decorative'=>90,'generated_decorative'=>85,'user_case'=>80,'app_icon'=>70,'app_cover'=>60,'tenant_asset'=>50,'article_cover'=>30];
+        usort($candidates,fn($a,$b)=>($priority[$b['role']??'']??0)<=>($priority[$a['role']??'']??0));
         $seen = []; $result = [];
         foreach ($candidates as $candidate) {
             if (isset($seen[$candidate['url']])) continue;
+            $uri=(string)($candidate['uri']??'');
+            if($uri!==''&&!preg_match('#^https?://#i',$uri)){
+                $root=realpath(public_path());$path=realpath(public_path().ltrim($uri,'/'));
+                if($root&&$path&&str_starts_with($path,$root.DIRECTORY_SEPARATOR)&&is_file($path)&&filesize($path)<=self::MAX_BYTES){$info=@getimagesize($path);if($info){$candidate['width']=$info[0];$candidate['height']=$info[1];$candidate['dimensions_known']=true;}}
+            }
             $seen[$candidate['url']] = true; $result[] = $candidate;
             if (count($result) >= $limit) break;
         }
         return $result;
     }
 
-    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $request = []): array
+    /** Evidence is excluded tenant-wide, including later sessions, without changing file ownership. */
+    public static function evidenceFileIds(int $tenant): array
+    {
+        $runs=Db::name('decorate_agent_run')->where('tenant_id',$tenant)
+            ->where(function($query){$query->whereLike('context_json','%"screenshot_file_id"%')->whereOr('input_json','like','%"screenshot_file_id"%');})
+            ->field('context_json,input_json')->select()->toArray();
+        $ids=[];foreach($runs as $run)foreach(['context_json','input_json'] as $key){$id=(int)(DecorationAgentService::decode($run[$key])['visual_review']['screenshot_file_id']??0);if($id>0)$ids[$id]=$id;}
+        return array_values($ids);
+    }
+
+    /** Reuse only settled system authoring assets, never ordinary users' private images. */
+    private static function generatedMaterials(int $tenantId, string $query): array
+    {
+        $result = [];
+        $slots = Db::name('decorate_agent_image_slot')->where('tenant_id', $tenantId)
+            ->whereIn('status', ['success', 'regenerated'])->order('id', 'desc')->limit(50)->select()->toArray();
+        foreach ($slots as $slot) {
+            $request = DecorationAgentService::decode($slot['request_json']);
+            if(($request['purpose']??'')==='design')continue;
+            $prompt = (string)($request['prompt'] ?? '');
+            if ($query !== '' && !self::matches($prompt, [], $query)) continue;
+            $stored = DecorationAgentService::decode($slot['result_json']);
+            foreach ((array)($stored['images'] ?? []) as $asset) {
+                if (!is_array($asset) || empty($asset['image_uri'])) continue;
+                $stable = '/' . ltrim((string)$asset['image_uri'], '/');
+                // The shared resolver verifies receipt, task, ownership and immutable storage identity.
+                $widget = DecorationAgentCatalog::create('banner', 'material:' . $slot['id']);
+                $delivery = (string)($asset['url'] ?? $stable);
+                $widget['content']['data'] = [['image' => $delivery]];
+                $proof = DecorationAgentAssetReferences::attachMaterials(['data' => [$widget], 'meta' => []],
+                    [array_replace($asset, ['slot_id' => (int)$slot['id'], 'file_id' => 0, 'url' => $delivery])], $tenantId);
+                if (($proof['data'][0]['_decoration_asset_refs']['content.data.0.image']['id'] ?? 0) !== (int)$slot['id']) continue;
+                $urls = DecorationAgentAssetReferences::resolveUrls($proof, $tenantId);
+                if (!isset($urls[$stable])) continue;
+                $width = max(0, (int)($asset['width'] ?? 0));
+                $height = max(0, (int)($asset['height'] ?? 0));
+                $result[] = array_replace($asset, [
+                    'id' => 'slot:' . $slot['id'] . ':' . hash('sha256', $stable),
+                    'slot_id' => (int)$slot['id'], 'file_id' => 0, 'uri' => (string)$asset['image_uri'],
+                    'source' => 'tenant', 'source_key' => 'decoration_generated', 'title' => $prompt,
+                    'type' => 'image', 'role' => 'generated_decorative', 'tags' => ['装修生成', $prompt],
+                    'dimensions_known' => $width > 0 && $height > 0,
+                    'match_basis' => 'generation_prompt', 'provenance' => '租户后台装修生成的装饰素材，不是用户作品或客户案例',
+                ]);
+                $result[array_key_last($result)]['url'] = $urls[$stable];
+            }
+        }
+        return $result;
+    }
+
+    /** Design-derived generation must retain its visual anchor, never silently drop references. */
+    public static function assertDesignReferenceModel(int $tenant,array $selection,int $referenceCount=1): void
+    {
+        $product=(int)($selection['market_product_id']??$selection['id']??$selection['product_id']??$selection['model_id']??0);
+        foreach(self::options($tenant) as $option)if((int)($option['market_product_id']??$option['id']??0)===$product){
+            if(($option['available']??true)!==true||empty($option['supports_reference_images']))throw new Exception('设计稿优先和按图生成素材需要支持参考图的生图模型，当前选择不满足参考能力要求');
+            $maximum=(int)($option['max_reference_images']??0);
+            if($maximum>0&&$referenceCount>$maximum)throw new Exception('设计图及素材参考数量超过当前生图模型上限');
+            return;
+        }
+        throw new Exception('设计参考所选生图模型当前不可用');
+    }
+
+    private static function assertDesignRequestReferences(int $tenant,array $selection,array $request,array $resolved): void
+    {
+        if(($request['purpose']??'')==='design'||!empty($request['reference_design_slot_id']))self::assertDesignReferenceModel($tenant,$selection,count($resolved['reference_images']??[]));
+    }
+
+    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $request = [],int $slotId=0): array
     {
         self::assertTenant($tenantId);
-        self::referenceRequest($tenantId, $request);
+        $resolved=self::referenceRequest($tenantId, $request,$slotId);self::assertDesignRequestReferences($tenantId,$selection,$request,$resolved);
         $quote = MarketImageModelRuntimeService::quote($tenantId, $selection, $quantity, [], true);
         $quote['actual_tenant_cost_points'] = (float)$quote['tenant_cost_points'];
         $quote['cost_known'] = (string)$quote['settlement_mode'] !== 'actual_usage';
         return $quote;
+    }
+
+    /** Read-only quote before a slot exists; identity and actual design bytes are server-verified. */
+    public static function quoteDesignExtraction(int $tenant,int $admin,array $selection,array $request,array $approved): array
+    {
+        self::assertTenant($tenant);
+        $fresh=DecorationAgentDesignService::confirmedDesign($tenant,$admin,(int)$approved['run_id'],(string)$approved['hash']);
+        if($fresh!==$approved)throw new \InvalidArgumentException('已确认设计版本已变化');
+        DecorationAgentDesignService::referenceBytes($tenant,$admin,$approved);
+        DecorationAgentDesignExtraction::operation($request);self::assertDesignReferenceModel($tenant,$selection,1);
+        $quote=MarketImageModelRuntimeService::quote($tenant,$selection,1,[],true);
+        $quote['cost_known']=(string)$quote['settlement_mode']!=='actual_usage';return $quote;
     }
 
     /** Persist this receipt in the slot before calling submit; never hide a second submission. */
@@ -139,7 +253,7 @@ final class DecorationAgentMediaService
     {
         self::assertTenant($tenantId);
         if ($adminId <= 0 || $slotId <= 0) throw new Exception('装修图片任务身份无效');
-        $request = self::referenceRequest($tenantId, $request);
+        $original=$request;$request = self::referenceRequest($tenantId, $request,$slotId);self::assertDesignRequestReferences($tenantId,$selection,$original,$request);
         $receipt = MarketImageModelRuntimeService::reserve($tenantId, 0, 'decoration_agent_image', (string)$slotId, $selection, $request, $quantity, 'system_default', self::BUSINESS_TABLE, [], true);
         $receipt['spent_points'] = (float)self::consumption($tenantId, (int)$receipt['consumption_id'])['reserved_tenant_cost'];
         return $receipt;
@@ -148,7 +262,9 @@ final class DecorationAgentMediaService
     public static function submit(int $consumptionId, array $request): array
     {
         $consumption = self::consumption(0, $consumptionId);
-        $request = self::referenceRequest((int)$consumption['tenant_id'], $request);
+        $slotId=(int)AiAppTask::where('id',(int)$consumption['app_task_id'])->value('business_id');
+        $original=$request;$request = self::referenceRequest((int)$consumption['tenant_id'], $request,$slotId);
+        self::assertDesignRequestReferences((int)$consumption['tenant_id'],['market_product_id'=>(int)$consumption['product_id'],'market_sku_id'=>(int)$consumption['sku_id']],$original,$request);
         $snapshot = (array)$consumption['price_snapshot'];
         $request['quantity'] = max(1, (int)($snapshot['_tenant_admin_image_quantity'] ?? 1));
         MarketImageModelRuntimeService::submit($consumptionId, $request, true);
@@ -158,26 +274,35 @@ final class DecorationAgentMediaService
     public static function poll(int $tenantId, int $consumptionId, bool $refresh = true): array
     {
         self::assertTenant($tenantId);
-        $consumption = self::consumption($tenantId, $consumptionId);
-        if ($refresh && in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage'], true)) {
-            MarketImageModelRuntimeService::refresh($consumptionId);
+        $request = request();
+        $previousTenant = $request->tenantId ?? null;
+        $request->tenantId = $tenantId;
+        try {
             $consumption = self::consumption($tenantId, $consumptionId);
-        }
-        $summary = (array)$consumption['response_summary'];
-        $images = [];
-        if ((string)$consumption['run_status'] === 'success' && (string)$consumption['billing_status'] === 'settled') {
-            AiTaskResultAssetService::recordConsumptionAssets($consumptionId, true);
-            foreach ((array)($summary['images'] ?? []) as $image) {
-                if (!is_array($image) || empty($image['image_uri']) || empty($image['storage_scope']) || empty($image['storage_engine'])) continue;
-                $images[] = $image + ['url' => FileService::getFileUrlByStorage((string)$image['image_uri'], (string)$image['storage_scope'], (string)$image['storage_engine'], (string)($image['storage_domain'] ?? ''))];
+            if ($refresh && in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage'], true)) {
+                MarketImageModelRuntimeService::refresh($consumptionId);
+                $consumption = self::consumption($tenantId, $consumptionId);
             }
+            $summary = (array)$consumption['response_summary'];
+            $images = [];
+            if ((string)$consumption['run_status'] === 'success' && (string)$consumption['billing_status'] === 'settled') {
+                AiTaskResultAssetService::recordConsumptionAssets($consumptionId, true);
+                foreach ((array)($summary['images'] ?? []) as $image) {
+                    if (!is_array($image) || empty($image['image_uri']) || empty($image['storage_scope']) || empty($image['storage_engine'])) continue;
+                    $url = (string)$image['storage_engine'] === 'local' ? '/' . ltrim((string)$image['image_uri'], '/')
+                        : FileService::getFileUrlByStorage((string)$image['image_uri'], (string)$image['storage_scope'], (string)$image['storage_engine'], (string)($image['storage_domain'] ?? ''));
+                    $images[] = array_replace($image, ['url' => $url]);
+                }
+            }
+            $status = (string)$consumption['run_status'];
+            if ($status === 'success' && (string)$consumption['billing_status'] !== 'settled') $status = 'running';
+            if ($status === 'success' && $images === []) $status = 'needs_review';
+            if (in_array($status, ['submitting', 'pending_confirmation'], true) || ($status === 'running' && (string)$consumption['upstream_task_id'] === '')) $status = 'needs_review';
+            $spent = (string)$consumption['billing_status'] === 'settled' ? (float)$consumption['actual_tenant_cost'] : ((string)$consumption['billing_status'] === 'refunded' ? 0.0 : (float)$consumption['reserved_tenant_cost']);
+            return ['consumption_id' => $consumptionId, 'app_task_id' => (int)$consumption['app_task_id'], 'status' => $status, 'images' => $images, 'error' => (string)$consumption['error_message'], 'billing_status' => (string)$consumption['billing_status'], 'spent_points' => $spent, 'actual_spent_points' => (float)$consumption['actual_tenant_cost']];
+        } finally {
+            $request->tenantId = $previousTenant;
         }
-        $status = (string)$consumption['run_status'];
-        if ($status === 'success' && (string)$consumption['billing_status'] !== 'settled') $status = 'running';
-        if ($status === 'success' && $images === []) $status = 'needs_review';
-        if (in_array($status, ['submitting', 'pending_confirmation'], true) || ($status === 'running' && (string)$consumption['upstream_task_id'] === '')) $status = 'needs_review';
-        $spent = (string)$consumption['billing_status'] === 'settled' ? (float)$consumption['actual_tenant_cost'] : ((string)$consumption['billing_status'] === 'refunded' ? 0.0 : (float)$consumption['reserved_tenant_cost']);
-        return ['consumption_id' => $consumptionId, 'app_task_id' => (int)$consumption['app_task_id'], 'status' => $status, 'images' => $images, 'error' => (string)$consumption['error_message'], 'billing_status' => (string)$consumption['billing_status'], 'spent_points' => $spent, 'actual_spent_points' => (float)$consumption['actual_tenant_cost']];
     }
 
     private static function consumption(int $tenantId, int $id): AiConsumptionLog
@@ -189,8 +314,18 @@ final class DecorationAgentMediaService
         return $consumption;
     }
 
-    private static function referenceRequest(int $tenantId, array $request): array
+    private static function referenceRequest(int $tenantId, array $request,int $slotId=0): array
     {
+        $extraction=($request['generation_mode']??'')==='design_extract'?$request:null;
+        if($extraction!==null)DecorationAgentDesignExtraction::operation($extraction);
+        $designRequest=($request['purpose']??'')==='design';
+        $designSlot=(int)($request['reference_design_slot_id']??0);
+        $materialReferences=[];
+        if(!empty($request['design_materials'])||!empty($request['design_parent'])){
+            $slot=Db::name('decorate_agent_image_slot')->where(['id'=>$slotId,'tenant_id'=>$tenantId])->find();
+            if(!$slot)throw new Exception('设计素材参考图片位置无效');
+            $materialReferences=DecorationAgentDesignService::materialReferences($tenantId,$slot);
+        }
         $request = array_intersect_key($request, array_flip(['prompt', 'negative_prompt', 'ratio', 'aspect_ratio', 'quality', 'size', 'image_size', 'resolution', 'quantity', 'attachments', 'reference_images', 'reference_file_ids']));
         $attachments = self::validateAttachments($tenantId, (array)($request['attachments'] ?? []));
         $trusted = array_column($attachments, 'url');
@@ -208,10 +343,29 @@ final class DecorationAgentMediaService
         } else {
             $references = array_column(array_filter($attachments, static fn(array $attachment): bool => in_array('generation', $attachment['uses'], true)), 'url');
         }
-        $request['reference_images'] = array_values(array_unique($references));
+        if($designSlot){
+            $slot=Db::name('decorate_agent_image_slot')->where(['id'=>$slotId,'tenant_id'=>$tenantId])->find();
+            if(!$slot||(int)(DecorationAgentService::decode($slot['request_json'])['reference_design_slot_id']??0)!==$designSlot)throw new Exception('设计参考图必须来自已授权的本轮图片位置');
+            $approved=DecorationAgentDesignService::approvedForRun($tenantId,(int)$slot['admin_id'],(int)$slot['run_id'],$designSlot);
+            $read=DecorationAgentDesignService::referenceBytes($tenantId,(int)$slot['admin_id'],$approved);
+            $references[]='data:'.$read['mime_type'].';base64,'.base64_encode($read['bytes']);
+            if($extraction!==null)$request['prompt']=DecorationAgentDesignExtraction::prompt($extraction,$approved);
+        }
+        if($extraction!==null&&(!$designSlot||count($references)!==1))throw new Exception('素材提取必须只引用本轮已确认的设计图');
+        $request['reference_images'] = array_values(array_unique($designRequest?array_merge($materialReferences,$references):array_merge($references,$materialReferences)));
         unset($request['reference_file_ids']);
         unset($request['callback_url']);
         return $request;
+    }
+
+    /** Callers supply identities verified by the design/asset authority, never browser URLs. */
+    public static function readStoredImage(int $tenant,array $asset): array
+    {
+        $uri=(string)($asset['image_uri']??'');
+        if(!preg_match('#^/?uploads/[a-zA-Z0-9_./-]+\.(?:png|jpe?g|webp)$#iD',$uri)||preg_match('#(?:^|/)\.\.?(/|$)#',$uri))throw new Exception('存储参考图片身份无效');
+        $url=DecorationAgentDesignService::assetUrl($tenant,$asset);
+        $bytes=self::readImage(['uri'=>$uri]+$asset,$url);[$width,$height]=self::inspectImage($bytes);$info=getimagesizefromstring($bytes);
+        return ['bytes'=>$bytes,'mime_type'=>$info['mime'],'width'=>$width,'height'=>$height,'sha256'=>hash('sha256',$bytes),'url'=>$url];
     }
 
     private static function assertAttachmentRow(int $tenantId, array $row): void
@@ -244,13 +398,45 @@ final class DecorationAgentMediaService
         return [(int)$info[0], (int)$info[1]];
     }
 
+    private static function matches(string $title,array $tags,string $query): bool
+    {
+        if($query==='')return true;
+        $text=mb_strtolower($title.' '.implode(' ',$tags));
+        if(str_contains($text,$query))return true;
+        foreach($tags as $tag)if(mb_strlen($tag)>1&&str_contains($query,mb_strtolower($tag)))return true;
+        $terms=preg_split('/[\s,，、|]+/u',$query)?:[];
+        foreach(['图片|绘图|图像|生图'=>'图片 绘图 图像 生图 image photo img','视频|短片'=>'视频 短片 video','文字|写作|文案'=>'文字 写作 文案 llm','玻璃|立方'=>'玻璃 立方','科技|数据'=>'科技 数据'] as $pattern=>$synonyms)if(preg_match('/'.$pattern.'/u',$query))$terms=array_merge($terms,explode(' ',$synonyms));
+        foreach($terms as $term)if($term!==''&&str_contains($text,$term))return true;
+        return false;
+    }
+
+    private static function contentImageUrl(string $uri): string
+    {
+        // First-party public icons must also work in a CLI worker with no request host.
+        $local=preg_replace('#^https?://resource/#i','resource/',$uri);
+        if(str_starts_with(ltrim((string)$local,'/'),'resource/')){
+            $root=realpath(public_path());$path=realpath(public_path().ltrim((string)$local,'/'));
+            if($root&&$path&&str_starts_with($path,$root.DIRECTORY_SEPARATOR)&&is_file($path))return '/'.ltrim((string)$local,'/');
+        }
+        return FileService::getFileUrl($uri);
+    }
+
     private static function imageExtension(string $uri): bool
     { return preg_match('/\.(?:jpe?g|png|webp)(?:[?#]|$)/i', $uri) === 1; }
 
     private static function fileUrl(array $file): string
     {
         $signed = StorageSignedUrlService::resolve((string)$file['uri'], (string)($file['storage_scope'] ?? ''), (string)($file['storage_engine'] ?? ''), (string)($file['storage_domain'] ?? ''), (int)($file['tenant_id'] ?? 0));
-        return $signed ?? FileService::getFileUrlByStorage((string)$file['uri'], (string)($file['storage_scope'] ?? ''), (string)($file['storage_engine'] ?? ''), (string)($file['storage_domain'] ?? ''));
+        if ($signed !== null) return $signed;
+        $request = request();
+        $previousTenant = $request->tenantId ?? null;
+        $request->tenantId = (int)($file['tenant_id'] ?? 0);
+        try {
+            return (string)($file['storage_engine'] ?? '') === 'local' ? '/' . ltrim((string)$file['uri'], '/')
+                : FileService::getFileUrlByStorage((string)$file['uri'], (string)($file['storage_scope'] ?? ''), (string)($file['storage_engine'] ?? ''), (string)($file['storage_domain'] ?? ''));
+        } finally {
+            $request->tenantId = $previousTenant;
+        }
     }
 
     private static function assertTenant(int $tenantId): void

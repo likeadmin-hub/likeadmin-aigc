@@ -1,5 +1,6 @@
 <?php
 // Isolated adapter exercise: no framework/database/network/provider is initialized.
+namespace think\facade { final class Db {public static function name($table):object{return new class {public function __call($method,$args){return $method==='toArray'?[]:$this;}};}} }
 namespace app\common\enum { final class FileEnum {const SOURCE_ADMIN=0;const IMAGE_TYPE=10;} }
 namespace app\common\model\file {
     final class TenantFile {
@@ -15,6 +16,7 @@ namespace app\common\service { final class FileService {public static function g
 namespace app\common\service\storage { final class StorageSignedUrlService {public static function resolve(...$args):?string{return null;}} }
 namespace {
     $root=sys_get_temp_dir().'/decoration-media-shim-'.bin2hex(random_bytes(5));mkdir($root);mkdir($root.'/uploads');
+    function request():object {static $request;return $request??=new \stdClass();}
     function public_path():string{return $GLOBALS['root'].'/';}
     require dirname(__DIR__,2).'/app/common/service/decorate/agent/DecorationAgentMediaService.php';
     $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a9sAAAAASUVORK5CYII=');file_put_contents($root.'/uploads/owned.png',$png);

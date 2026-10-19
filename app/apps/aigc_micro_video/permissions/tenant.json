@@ -1,0 +1,140 @@
+[
+  {
+    "name": "app.aigc_micro_video.config/detail",
+    "api_path": "app.aigc_micro_video.config/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_micro_video:config:detail"
+  },
+  {
+    "name": "app.aigc_micro_video.config/setup",
+    "api_path": "app.aigc_micro_video.config/setup",
+    "api_method": "POST",
+    "permission_key": "aigc_micro_video:config:setup"
+  },
+  {
+    "name": "app.aigc_micro_video.direction/lists",
+    "api_path": "app.aigc_micro_video.direction/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_micro_video:direction:lists"
+  },
+  {
+    "name": "app.aigc_micro_video.direction/save",
+    "api_path": "app.aigc_micro_video.direction/save",
+    "api_method": "POST",
+    "permission_key": "aigc_micro_video:direction:save"
+  },
+  {
+    "name": "app.aigc_micro_video.direction/status",
+    "api_path": "app.aigc_micro_video.direction/status",
+    "api_method": "POST",
+    "permission_key": "aigc_micro_video:direction:status"
+  },
+  {
+    "name": "app.aigc_micro_video.direction/delete",
+    "api_path": "app.aigc_micro_video.direction/delete",
+    "api_method": "POST",
+    "permission_key": "aigc_micro_video:direction:delete"
+  },
+  {
+    "name": "app.aigc_micro_video.task/lists",
+    "api_path": "app.aigc_micro_video.task/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_micro_video:task:lists"
+  },
+  {
+    "name": "app.aigc_micro_video.task/detail",
+    "api_path": "app.aigc_micro_video.task/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_micro_video:task:detail"
+  },
+  {
+    "name": "app.aigc_micro_video.task/retry",
+    "api_path": "app.aigc_micro_video.task/retry",
+    "api_method": "POST",
+    "permission_key": "aigc_micro_video:task:retry"
+  },
+  {
+    "name": "app.aigc_micro_video.task/delete",
+    "api_path": "app.aigc_micro_video.task/delete",
+    "api_method": "POST",
+    "permission_key": "aigc_micro_video:task:delete"
+  },
+  {
+    "name": "app.aigc_micro_video.workbench/lists",
+    "api_path": "app.aigc_micro_video.workbench/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_micro_video:workbench:lists"
+  },
+  {
+    "name": "app.aigc_micro_video.workbench/detail",
+    "api_path": "app.aigc_micro_video.workbench/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_micro_video:workbench:detail"
+  },
+  {
+    "name": "app.aigc_micro_video.workbench/save",
+    "api_path": "app.aigc_micro_video.workbench/save",
+    "api_method": "POST",
+    "permission_key": "aigc_micro_video:workbench:save"
+  },
+  {
+    "name": "app.aigc_micro_video.workbench/delete",
+    "api_path": "app.aigc_micro_video.workbench/delete",
+    "api_method": "POST",
+    "permission_key": "aigc_micro_video:workbench:delete"
+  },
+  {
+    "name": "app.aigc_micro_video.workbench/copy",
+    "api_path": "app.aigc_micro_video.workbench/copy",
+    "api_method": "POST",
+    "permission_key": "aigc_micro_video:workbench:copy"
+  },
+  {
+    "name": "app.aigc_micro_video.workbench/versions",
+    "api_path": "app.aigc_micro_video.workbench/versions",
+    "api_method": "GET",
+    "permission_key": "aigc_micro_video:workbench:versions"
+  },
+  {
+    "name": "app.aigc_micro_video.workbench/restore",
+    "api_path": "app.aigc_micro_video.workbench/restore",
+    "api_method": "POST",
+    "permission_key": "aigc_micro_video:workbench:restore"
+  },
+  {
+    "name": "app.aigc_micro_video.workbench/categories",
+    "api_path": "app.aigc_micro_video.workbench/categories",
+    "api_method": "GET",
+    "permission_key": "aigc_micro_video:workbench:categories"
+  },
+  {
+    "name": "app.aigc_micro_video.workbench/capabilities",
+    "api_path": "app.aigc_micro_video.workbench/capabilities",
+    "api_method": "GET",
+    "permission_key": "aigc_micro_video:workbench:capabilities"
+  },
+  {
+    "name": "app.aigc_micro_video.workbench/jobs",
+    "api_path": "app.aigc_micro_video.workbench/jobs",
+    "api_method": "GET",
+    "permission_key": "aigc_micro_video:workbench:jobs"
+  },
+  {
+    "name": "app.aigc_micro_video.workbench/jobDetail",
+    "api_path": "app.aigc_micro_video.workbench/jobDetail",
+    "api_method": "GET",
+    "permission_key": "aigc_micro_video:workbench:jobDetail"
+  },
+  {
+    "name": "app.aigc_micro_video.workbench/reconcile",
+    "api_path": "app.aigc_micro_video.workbench/reconcile",
+    "api_method": "POST",
+    "permission_key": "aigc_micro_video:workbench:reconcile"
+  },
+  {
+    "name": "app.aigc_micro_video.workbench/usage",
+    "api_path": "app.aigc_micro_video.workbench/usage",
+    "api_method": "GET",
+    "permission_key": "aigc_micro_video:workbench:usage"
+  }
+]

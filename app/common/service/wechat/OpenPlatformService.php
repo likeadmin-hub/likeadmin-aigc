@@ -436,21 +436,32 @@ class OpenPlatformService
 
     public static function authorizedOfficialCodeUrl(int $tenantId, string $redirectUrl): string
     {
+        $result = (new OfficialAccountOAuthRelayService())->start($tenantId, $redirectUrl, (string)request()->domain());
+        \think\facade\Cookie::set(OfficialAccountOAuthRelayService::BROWSER_COOKIE, $result['browser_nonce'], OfficialAccountOAuthRelayService::cookieOptions());
+        return $result['url'];
+    }
+
+    public static function authorizedOfficialOAuthIdentity(int $tenantId): array
+    {
         $authorizer = self::officialAuthorizer($tenantId);
         $config = self::rawConfig();
-        self::requireConfig($config, ['app_id']);
-        $query = http_build_query([
-            'appid' => (string)$authorizer['authorizer_appid'],
-            'redirect_uri' => $redirectUrl,
-            'response_type' => 'code',
-            'scope' => 'snsapi_userinfo',
-            'state' => bin2hex(random_bytes(12)),
+        self::requireConfig($config, ['app_id', 'callback_url']);
+        return [
+            'authorizer_appid' => (string)$authorizer['authorizer_appid'],
             'component_appid' => (string)$config['app_id'],
-        ]);
-        return 'https://open.weixin.qq.com/connect/oauth2/authorize?' . $query . '#wechat_redirect';
+            'platform_origin' => self::originFromUrl(self::callbackUrls($config)['authorization']),
+        ];
     }
 
     public static function authorizedOfficialUserByCode(int $tenantId, string $code): array
+    {
+        $user = (new OfficialAccountOAuthRelayService())->consume($tenantId, $code, (string)request()->cookie(OfficialAccountOAuthRelayService::BROWSER_COOKIE, ''));
+        \think\facade\Cookie::delete(OfficialAccountOAuthRelayService::BROWSER_COOKIE, OfficialAccountOAuthRelayService::cookieOptions());
+        return $user;
+    }
+
+    /** Only the validated platform callback exchanges a provider code. */
+    public static function exchangeAuthorizedOfficialUserByCode(int $tenantId, string $code): array
     {
         $authorizer = self::officialAuthorizer($tenantId);
         $config = self::rawConfig();
@@ -658,6 +669,8 @@ class OpenPlatformService
             $template = WechatTemplate::withoutGlobalScope()->findOrEmpty((int)$row['template_id']);
             if ($template->isEmpty() || (string)$template['upload_status'] !== 'success') throw new \RuntimeException('模板不存在或未上传成功');
             $extJson = self::versionExtJson($row);
+            // Also repair existing experience builds whose domains were never synchronized.
+            self::syncTenantServerDomains($tenantId);
             if ((string)$row['experience_status'] !== 'success') {
                 if (!in_array((string)$row['experience_status'], ['pending', 'failed'], true)) return self::formatVersion($row->toArray());
                 $row->save(['experience_status' => 'running', 'update_time' => time()]);
@@ -693,7 +706,6 @@ class OpenPlatformService
         try {
             [$row, $authorizer] = self::versionForTenant($tenantId, $id);
             if ((string)$row['experience_status'] !== 'success') throw new \RuntimeException('请先提交体验版');
-            if ((string)$row['audit_status'] === 'pending') return self::formatVersion($row->toArray());
 
             // A successful WeChat submission can outlive a local persistence
             // failure.  Recover that audit before sending another submission.
@@ -749,6 +761,11 @@ class OpenPlatformService
             throw new \RuntimeException('请先提交审核');
         }
         $auditNo = (string)$review['audit_no'];
+        $detail = json_decode((string)$review['detail'], true);
+        if (is_array($detail) && array_key_exists('user_version', $detail) && !self::auditMatchesVersion($detail, $row)) {
+            self::discardMismatchedAudit($row, $review);
+            throw new \RuntimeException('历史审核不属于当前版本，错误审核状态已校正，请重新提交审核');
+        }
         $result = self::request('wxa/get_auditstatus', ['auditid' => (int)$auditNo], 'release.audit.status', ['access_token' => self::authorizerToken((int)$authorizer['id'])], $tenantId, (int)$authorizer['id']);
         $auditStatus = [0 => 'approved', 1 => 'rejected', 2 => 'pending', 3 => 'rejected'][(int)($result['status'] ?? -1)] ?? 'pending';
         $payload = ['audit_status' => $auditStatus, 'reason' => (string)($result['reason'] ?? ''), 'detail' => json_encode($result, JSON_UNESCAPED_UNICODE), 'response_summary' => json_encode(['auditid' => $auditNo], JSON_UNESCAPED_UNICODE), 'finish_time' => $auditStatus === 'pending' ? 0 : time()];
@@ -769,8 +786,7 @@ class OpenPlatformService
             ->order('id desc')
             ->value('id');
         if ($latestExperienceId !== $id) {
-            if ($required) throw new \RuntimeException('仅可同步最近一次已提交体验版的微信审核结果');
-            return null;
+            throw new \RuntimeException('仅可提交或同步最近一次已提交体验版的微信审核结果');
         }
 
         try {
@@ -785,12 +801,38 @@ class OpenPlatformService
             return null;
         }
 
+        // The account's latest audit may still belong to a previously released
+        // build. A new experience upload does not create a new audit.
+        if (!self::auditMatchesVersion($result, $row)) {
+            $review = WechatMnpReview::withoutGlobalScope()->where(['version_id' => $id, 'audit_no' => $auditNo])->findOrEmpty();
+            if (!$review->isEmpty()) self::discardMismatchedAudit($row, $review);
+            if ($required) throw new \RuntimeException('微信最近一次审核不属于当前版本，错误审核状态已校正，请重新提交审核');
+            return null;
+        }
+
         $auditStatus = [0 => 'approved', 1 => 'rejected', 2 => 'pending', 3 => 'rejected'][(int)($result['status'] ?? -1)] ?? 'pending';
         $review = WechatMnpReview::withoutGlobalScope()->where(['version_id' => $id, 'audit_no' => $auditNo])->findOrEmpty();
         $payload = ['audit_status' => $auditStatus, 'reason' => (string)($result['reason'] ?? ''), 'detail' => json_encode($result, JSON_UNESCAPED_UNICODE), 'response_summary' => json_encode(['auditid' => $auditNo], JSON_UNESCAPED_UNICODE), 'finish_time' => $auditStatus === 'pending' ? 0 : time()];
         self::saveMnpReview($payload + ($review->isEmpty() ? ['version_id' => $id, 'audit_no' => $auditNo, 'submit_time' => time(), 'create_time' => time()] : []), $review);
         $row->save(['audit_status' => $auditStatus, 'update_time' => time()]);
         return self::formatVersion($row->toArray());
+    }
+
+    private static function auditMatchesVersion(array $audit, WechatMnpVersion $row): bool
+    {
+        return trim((string)($audit['user_version'] ?? '')) !== ''
+            && trim((string)($audit['user_version'] ?? '')) === trim((string)$row['version'])
+            && array_key_exists('user_desc', $audit)
+            && (string)$audit['user_desc'] === (string)$row['description']
+            && (int)($audit['submit_audit_time'] ?? 0) > 0
+            && (int)$audit['submit_audit_time'] >= (int)$row['create_time'];
+    }
+
+    private static function discardMismatchedAudit(WechatMnpVersion $row, WechatMnpReview $review): void
+    {
+        // Keep the remote response and audit number as evidence of the old bug.
+        $review->save(['audit_status' => 'none', 'reason' => '历史审核不属于当前版本，已解除错误关联', 'finish_time' => time()]);
+        $row->save(['audit_status' => 'none', 'update_time' => time()]);
     }
 
     private static function isAuditAlreadyPendingError(\Throwable $e): bool
@@ -1149,7 +1191,46 @@ class OpenPlatformService
         return $authorizer;
     }
 
-    public static function releaseVersion(int $tenantId, int $id): array { $lock = SubmitLockService::acquire('wechat.version.release.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); if ((string)$row['audit_status'] !== 'approved') throw new \RuntimeException('审核尚未通过'); if ((string)$row['release_status'] === 'released') return $row->toArray(); self::request('wxa/release', [], 'release.publish', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['release_status' => 'released', 'update_time' => time()]); return $row->toArray(); } finally { SubmitLockService::release($lock); } }
+    public static function releaseVersion(int $tenantId, int $id): array
+    {
+        [$row, $authorizer] = self::versionForTenant($tenantId, $id);
+        // WeChat releases the account's latest approved audit, not a local row ID.
+        $lock = SubmitLockService::acquire('wechat.version.release.authorizer.' . (int)$authorizer['id'], $tenantId, 0);
+        try {
+            [$row, $authorizer] = self::versionForTenant($tenantId, $id);
+            if ((string)$row['audit_status'] !== 'approved') throw new \RuntimeException('审核尚未通过');
+            if ((string)$row['release_status'] === 'released') return $row->toArray();
+            $latestApprovedId = (int)WechatMnpVersion::withoutGlobalScope()
+                ->where(['tenant_id' => $tenantId, 'authorizer_id' => (int)$authorizer['id'], 'upload_mode' => 'template', 'audit_status' => 'approved'])
+                ->order('id desc')->value('id');
+            if ($latestApprovedId !== $id) throw new \RuntimeException('此记录不是最近一次审核通过的版本，请刷新后发布最新审核版本');
+
+            self::syncLatestAudit($tenantId, $id, $row, $authorizer, true);
+            if ((string)$row['audit_status'] !== 'approved') throw new \RuntimeException('审核尚未通过');
+
+            $token = self::authorizerToken((int)$authorizer['id']);
+            try {
+                self::request('wxa/release', [], 'release.publish', ['access_token' => $token], $tenantId, (int)$authorizer['id']);
+            } catch (\Throwable $e) {
+                if ($e->getCode() !== 85052) throw $e;
+                // A successful remote release may outlive a local save failure,
+                // or may have been performed in the WeChat console. Verify its
+                // identity before recovering this record, including reused versions.
+                $result = self::request('wxa/getversioninfo', [], 'release.version.info', ['access_token' => $token], $tenantId, (int)$authorizer['id']);
+                $online = (array)($result['release_info'] ?? []);
+                if (trim((string)($online['release_version'] ?? '')) === ''
+                    || trim((string)($online['release_version'] ?? '')) !== trim((string)$row['version'])
+                    || !array_key_exists('release_desc', $online)
+                    || (string)$online['release_desc'] !== (string)$row['description']
+                    || (int)($online['release_time'] ?? 0) <= 0
+                    || (int)($online['release_time'] ?? 0) < (int)$row['create_time']) {
+                    throw new \RuntimeException('微信提示已发布，但线上版本与当前记录不一致，未更新本地发布状态；请核对微信线上版本及最新审核记录', 85052, $e);
+                }
+            }
+            $row->save(['release_status' => 'released', 'update_time' => time()]);
+            return $row->toArray();
+        } finally { SubmitLockService::release($lock); }
+    }
     public static function rollbackVersion(int $tenantId, int $id, int $fromId = 0): array { $lock = SubmitLockService::acquire('wechat.version.rollback.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); if ((string)$row['release_status'] !== 'released') throw new \RuntimeException('当前版本未发布'); self::request('wxa/revertcoderelease', [], 'release.rollback', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['release_status' => 'rolled_back', 'rollback_from_id' => $fromId, 'update_time' => time()]); return $row->toArray(); } finally { SubmitLockService::release($lock); } }
 
     private static function request(string $path, array $payload, string $apiName, array $query = [], int $tenantId = 0, int $authorizerId = 0, string $method = 'POST'): array
@@ -1162,7 +1243,7 @@ class OpenPlatformService
             $response = $method === 'GET'
                 ? Requests::get($url, $headers, ['timeout' => 30])
                 : Requests::post($url, $headers, self::encodeWechatRequestBody($payload), ['timeout' => 30]);
-            $body = json_decode((string)$response->body, true); if (!is_array($body)) throw new \RuntimeException('微信接口返回格式错误'); $code = (int)($body['errcode'] ?? 0); self::logApi($requestId, $apiName, $code, $started, $code === 0 ? 'success' : 'failed', $tenantId, $authorizerId); if ($code !== 0) throw new \RuntimeException('微信接口调用失败：' . (string)($body['errmsg'] ?? $code)); return $body;
+            $body = json_decode((string)$response->body, true); if (!is_array($body)) throw new \RuntimeException('微信接口返回格式错误'); $code = (int)($body['errcode'] ?? 0); self::logApi($requestId, $apiName, $code, $started, $code === 0 ? 'success' : 'failed', $tenantId, $authorizerId); if ($code !== 0) throw new \RuntimeException('微信接口调用失败：' . (string)($body['errmsg'] ?? $code), $code); return $body;
         } catch (\Throwable $e) { self::logApi($requestId, $apiName, -1, $started, 'failed', $tenantId, $authorizerId); throw $e; }
     }
 
@@ -1660,6 +1741,20 @@ class OpenPlatformService
         );
     }
 
+    public static function syncTenantServerDomains(int $tenantId): array
+    {
+        // Resolve and validate authorization before changing any platform settings.
+        self::effectiveMiniprogramAuthorizer($tenantId);
+        $runtime = self::tenantRuntimeConfig($tenantId, true);
+        $host = strtolower((string)parse_url($runtime['apiBaseUrl'], PHP_URL_HOST));
+        MiniProgramServerDomainService::ensurePlatform($host, static function (array $payload): array {
+            return self::request('cgi-bin/component/modify_wxa_server_domain', $payload, 'miniprogram.platform.domain.' . $payload['action'], ['access_token' => self::componentAccessToken()]);
+        });
+        return MiniProgramServerDomainService::ensure($runtime['apiBaseUrl'], static function (array $payload) use ($tenantId): array {
+            return self::authorizerRequest($tenantId, 'miniprogram', 'wxa/modify_domain', $payload, 'miniprogram.domain.' . $payload['action']);
+        });
+    }
+
     public static function saveCredentials(int $tenantId, array $data): array
     {
         $allowed = ['authorizer_id', 'app_secret', 'token', 'encoding_aes_key', 'api_key', 'upload_private_key', 'upload_certificate', 'upload_private_pem'];
@@ -1691,6 +1786,10 @@ class OpenPlatformService
                 }
                 $payload[$jsonField] = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             }
+        }
+        if (array_key_exists('settings_json', $data)) {
+            $authorized = WechatAuthorizer::withoutGlobalScope()->where(['tenant_id' => $tenantId, 'authorizer_type' => 'miniprogram', 'authorization_status' => 1])->findOrEmpty();
+            if (!$authorized->isEmpty()) self::syncTenantServerDomains($tenantId);
         }
         if ($row->isEmpty()) { $payload['create_time'] = time(); $row = WechatCredential::create($payload); } else $row->save($payload); return self::credentialView($row->toArray());
     }
@@ -2227,32 +2326,21 @@ class OpenPlatformService
     /** Resolve the tenant's configured host for the package runtime. */
     private static function tenantRuntimeConfig(int $tenantId, bool $requireConfiguredDomain = false): array
     {
-        $domain = '';
-        $credential = WechatCredential::withoutGlobalScope()->where('tenant_id', $tenantId)->findOrEmpty()->toArray();
-        $settings = json_decode((string)($credential['settings_json'] ?? ''), true);
-        $configuredDomain = is_array($settings) ? trim((string)($settings['business_domain'] ?? '')) : '';
-        if ($requireConfiguredDomain && $configuredDomain === '') {
-            throw new \RuntimeException('请先配置租户小程序业务域名后再提交体验版');
-        }
-        if ($configuredDomain !== '') {
-            $domain = preg_match('#^https?://#i', $configuredDomain) ? $configuredDomain : 'https://' . $configuredDomain;
-        }
-        try {
-            if ($domain === '') $domain = (string)request()->domain();
-        } catch (\Throwable $ignored) {
-            $domain = '';
-        }
-        if ($domain === '') {
-            $host = trim((string)($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? ''));
-            if ($host !== '') {
-                $scheme = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') ? 'https' : 'http';
-                $domain = $scheme . '://' . $host;
-            }
-        }
-        $domain = rtrim($domain, '/') . '/';
-        $validDomain = $requireConfiguredDomain ? '#^https://[^/]+/$#i' : '#^https?://[^/]+/$#i';
-        if (!preg_match($validDomain, $domain)) {
-            throw new \RuntimeException('当前租户域名无效，请先完成域名配置');
+        // settings_json contains a historical display snapshot and may still
+        // name the platform host after the tenant has changed its binding.
+        // Both manual upload and template commit must resolve the live binding.
+        $tenantHost = MiniProgramDomainService::host($tenantId);
+        if ($tenantHost === '') throw new \RuntimeException('当前租户未配置有效的小程序接口域名');
+        $domain = 'https://' . $tenantHost . '/';
+        $parts = parse_url($domain);
+        $host = strtolower((string)($parts['host'] ?? ''));
+        if (!is_array($parts) || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+            || !filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME)
+            || !str_contains($host, '.') || str_ends_with($host, '.localhost')
+            || filter_var(trim($host, '[]'), FILTER_VALIDATE_IP)
+            || ($parts['path'] ?? '/') !== '/'
+            || isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
+            throw new \RuntimeException('小程序接口域名无效：请配置可公网访问的 HTTPS 域名，不可使用 HTTP、IP、本地地址或包含路径的地址，并在微信后台配置 request 合法域名');
         }
         $config = [
             'apiBaseUrl' => $domain,

@@ -1,0 +1,501 @@
+{
+  "app_code": "aigc_micro_video",
+  "apis": [
+    {
+      "api_path": "app.aigc_micro_video.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:config:detail:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.direction/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:direction:lists:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.prompt/write",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:prompt:write:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.plan/create",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:plan:create:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.plan/save",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:plan:save:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.generate/estimate",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:generate:estimate:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.generate/index",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:generate:index:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.task/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:task:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:task:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.task/retry",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:task:retry:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.task/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:task:delete:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:config:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:config:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.direction/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:direction:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.direction/save",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:direction:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.direction/status",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:direction:status",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.direction/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:direction:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.task/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:task:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:task:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.task/retry",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:task:retry",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.task/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:task:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.frame/configure",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:frame:configure:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.frame/save",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:frame:save:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.frame/estimate",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:frame:estimate:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.frame/generate",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:frame:generate:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.frame/confirm",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:frame:confirm:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/save",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:save:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:delete:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/copy",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:copy:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/versions",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:versions:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/restore",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:restore:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/categories",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:categories:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/capabilities",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:capabilities:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/jobs",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:jobs:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/jobDetail",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:jobDetail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/reconcile",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:reconcile:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/estimate",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:estimate:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/job",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:job:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/retry",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:retry:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/adopt",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:adopt:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/execution",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:execution:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/assets",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:assets:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/brief",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:brief:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/variants",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:variants:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:lists",
+      "scene": "tenant",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:detail",
+      "scene": "tenant",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/save",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:save",
+      "scene": "tenant",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:delete",
+      "scene": "tenant",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/copy",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:copy",
+      "scene": "tenant",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/versions",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:versions",
+      "scene": "tenant",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/restore",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:restore",
+      "scene": "tenant",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/categories",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:categories",
+      "scene": "tenant",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/capabilities",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:capabilities",
+      "scene": "tenant",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/jobs",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:jobs",
+      "scene": "tenant",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/jobDetail",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:jobDetail",
+      "scene": "tenant",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/reconcile",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:reconcile",
+      "scene": "tenant",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/usage",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:usage",
+      "scene": "tenant",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/subjects",
+      "api_method": "GET",
+      "permission_key": "aigc_micro_video:workbench:subjects:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/importSubject",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:importSubject:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/importAsset",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:importAsset:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    }
+  ]
+}

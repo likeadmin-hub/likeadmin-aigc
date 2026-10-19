@@ -1,0 +1,231 @@
+{
+  "version": "1.0.401",
+  "base_version": "1.0.400",
+  "builds": {
+    "pc": "passed",
+    "tenant": "passed",
+    "platform": "passed",
+    "h5": "passed",
+    "mp-weixin": "passed"
+  },
+  "backend_tests": {
+    "domain": {
+      "tests": 35,
+      "assertions": 95
+    },
+    "mini-runtime": {
+      "tests": 15,
+      "assertions": 21
+    },
+    "qiniu": {
+      "tests": 6,
+      "assertions": 31
+    },
+    "oem-authorization": {
+      "tests": 3,
+      "assertions": 14
+    },
+    "oem-repair": {
+      "tests": 1,
+      "assertions": 10
+    },
+    "point-log": {
+      "tests": 2,
+      "assertions": 15
+    },
+    "callback-route": {
+      "tests": 9,
+      "assertions": 114
+    }
+  },
+  "frontend_tests": {
+    "uniapp": 194,
+    "tenant": 168,
+    "platform": 5
+  },
+  "source_coverage": {
+    "passed": true,
+    "source_coverage": 2660,
+    "source_only_or_protected": 14,
+    "signature_files": 8311,
+    "bad_hashes": [],
+    "forbidden_paths": [],
+    "tar_zip_byte_parity": true,
+    "base_version": "1.0.400",
+    "version": "1.0.401",
+    "sql_order": [
+      "sql/structure/20261016_oem_schema_repair.sql"
+    ],
+    "composer_runtime": {
+      "schema": 1,
+      "min_updater_version": "1.0.391",
+      "min_php": "8.2.0",
+      "payload_dir": "composer-runtime",
+      "required_extensions": [
+        "ctype",
+        "curl",
+        "dom",
+        "fileinfo",
+        "filter",
+        "json",
+        "mbstring",
+        "openssl",
+        "pdo",
+        "pdo_mysql",
+        "tokenizer",
+        "xml",
+        "zip"
+      ],
+      "probe_classes": [
+        "think\\App",
+        "NeuronAI\\Agent\\Agent"
+      ]
+    },
+    "qiniu_version": "v7.14.0",
+    "mini_program_files": 1208,
+    "zip_sha256": "9a2342977cccf7f7a36003f6c7708d805609efb49d9329c9fd0a89d94831e0e7",
+    "zip_size": 123884340,
+    "tar_sha256": "f80d7a08e5316028767fdf453b4be716a02e0540eb2f8dc097e5f56ca2c8f1cb",
+    "full_replace_dirs": [
+      "public/_nuxt",
+      "public/admin",
+      "public/media",
+      "public/mobile",
+      "public/mp-weixin",
+      "public/pc",
+      "public/platform"
+    ]
+  },
+  "customer_chain": {
+    "passed": true,
+    "customer_contract": "AigcOpenApiService::systemPackage",
+    "chain": [
+      "1.0.400",
+      "1.0.401"
+    ],
+    "signed_download_preparation": true,
+    "wrong_predecessor_rejected": true,
+    "package_sha256": "9a2342977cccf7f7a36003f6c7708d805609efb49d9329c9fd0a89d94831e0e7",
+    "transaction_rolled_back": true,
+    "scope": "local contract; not customer installation"
+  },
+  "local_http": [
+    {
+      "host": "z.cn",
+      "path": "/",
+      "status": 302,
+      "bytes": 0,
+      "location": "/platform/"
+    },
+    {
+      "host": "z.cn",
+      "path": "/platform/",
+      "status": 200,
+      "bytes": 6238,
+      "location": null
+    },
+    {
+      "host": "z.cn",
+      "path": "/admin/",
+      "status": 200,
+      "bytes": 6227,
+      "location": null
+    },
+    {
+      "host": "z.cn",
+      "path": "/mobile/",
+      "status": 200,
+      "bytes": 859,
+      "location": null
+    },
+    {
+      "host": "z.cn",
+      "path": "/?tenant_id=1",
+      "status": 200,
+      "bytes": 7174,
+      "location": null
+    },
+    {
+      "host": "z.cn",
+      "path": "/api/pc/config?tenant_id=1",
+      "status": 200,
+      "bytes": 64165,
+      "location": null
+    },
+    {
+      "host": "7whwsate.z.cn",
+      "path": "/platform/",
+      "status": 404,
+      "bytes": 150,
+      "location": null
+    },
+    {
+      "host": "7whwsate.z.cn",
+      "path": "/platform/index.html",
+      "status": 404,
+      "bytes": 150,
+      "location": null
+    },
+    {
+      "host": "7whwsate.z.cn",
+      "path": "/platformapi/config/getConfig",
+      "status": 403,
+      "bytes": 77,
+      "location": null
+    }
+  ],
+  "limitations": [
+    "Full platform vue-tsc is blocked by existing removed TypeScript options; production build and changed-page compile passed.",
+    "Existing BaoTa vhosts must apply the shipped Nginx template rules.",
+    "Mini-program compilation and artifact promotion do not submit WeChat audit or release.",
+    "PC WeChat scope error still requires website application credentials and permission verification; this release does not establish that account-side issue as resolved.",
+    "Publication is enabled for the existing beta audience; no beta permission changes or customer installations were performed."
+  ],
+  "backend_tests_total": {
+    "tests": 71,
+    "assertions": 300
+  },
+  "frontend_tests_total": 367,
+  "additional_checks": {
+    "stager_tests": 10,
+    "composer_packaging_tests": 11,
+    "nginx_template_checks": 99,
+    "changed_php_lint_files": 14,
+    "composer_autoload": "passed",
+    "packaged_qiniu_php82_strict_probe": "passed",
+    "packaged_pc_version": "1.0.401",
+    "oem_migration_replay": "passed; existing business rows preserved"
+  },
+  "online_release": {
+    "id": 375,
+    "version": "1.0.401",
+    "status": 1,
+    "beta_enabled": 1,
+    "sha256": "9a2342977cccf7f7a36003f6c7708d805609efb49d9329c9fd0a89d94831e0e7",
+    "package_size": 123884340,
+    "update_time": "2026-10-16 13:25:40",
+    "base_version": "1.0.400",
+    "target_version": "1.0.401",
+    "record_readback": true
+  },
+  "online_download": {
+    "passed": true,
+    "record_id": 375,
+    "version": "1.0.401",
+    "status": 1,
+    "beta_enabled": 1,
+    "http_status": 200,
+    "download_host": "platform-xhadmin-cn.oss-cn-beijing.aliyuncs.com",
+    "download_bytes": 123884340,
+    "sha256": "9a2342977cccf7f7a36003f6c7708d805609efb49d9329c9fd0a89d94831e0e7",
+    "base_version": "1.0.400",
+    "target_version": "1.0.401",
+    "verification_access": "owner signed private OSS read; no customer license bypass or beta switch change",
+    "private_acl_verified": true,
+    "download_seconds": 2.12
+  },
+  "source_commits": {
+    "server_runtime": "6ccccce924c4445c84e3742a506581951935a4b3",
+    "frontend": "04e57720105c69581022d6849c48d5f69f70bb0d"
+  }
+}

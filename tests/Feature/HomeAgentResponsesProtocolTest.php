@@ -1,12 +1,20 @@
 <?php
 // Native wire fixtures through the actual curl SSE decoder and Neuron loop; no paid calls.
+namespace app\common\service\update {
+    final class UpdateSourceClient {
+        public static function getSource(): array { return ['base_url'=>'https://fixture.invalid','api_key'=>'fixture-only']; }
+        public static function sslVerify(array $source): bool { return true; }
+    }
+}
 namespace app\common\service\power {
-    final class ResponsesWireFixture { public static array $events = []; }
+    final class ResponsesWireFixture { public static array $events = []; public static array $payload = []; public static string $rawBody = ''; }
     function curl_init() { return new \stdClass(); }
     function curl_setopt_array($handle, array $options) { $handle->options = $options; return true; }
     function curl_exec($handle) {
+        ResponsesWireFixture::$payload=json_decode($handle->options[CURLOPT_POSTFIELDS],true);
         $wire = '';
-        foreach (ResponsesWireFixture::$events as $event) $wire .= 'data: '.json_encode($event, JSON_UNESCAPED_UNICODE)."\n\n";
+        foreach (ResponsesWireFixture::$events as $event) $wire .= 'data: '.(is_string($event) ? $event : json_encode($event, JSON_UNESCAPED_UNICODE))."\n\n";
+        if (ResponsesWireFixture::$rawBody !== '') $wire = ResponsesWireFixture::$rawBody;
         foreach (str_split($wire, 7) as $chunk) ($handle->options[CURLOPT_WRITEFUNCTION])($handle, $chunk);
         return true;
     }
@@ -24,9 +32,9 @@ namespace {
     use NeuronAI\Tools\{Tool, ToolProperty, PropertyType};
     function check($ok, string $message): void { if (!$ok) throw new \RuntimeException($message); }
     function invoke(string $name, ...$args) { return (new \ReflectionMethod(R::class,$name))->invoke(null,...$args); }
-    function wire(array $events, ?array &$visible = null): array {
+    function wire(array $events, ?array &$visible = null, bool $requireNativeResponses = false): array {
         F::$events=$events; $visible=[];
-        return invoke('curl','https://fixture.invalid','fixture-only',[],static function($type,$data) use (&$visible) { if($type==='delta')$visible[]=$data['delta']; },true,10);
+        return invoke('curl','https://fixture.invalid','fixture-only',[],static function($type,$data) use (&$visible) { if($type==='delta')$visible[]=$data['delta']; },true,10,$requireNativeResponses);
     }
     function created(): array { return ['type'=>'response.created','response'=>['id'=>'resp_fixture','status'=>'in_progress']]; }
     function complete(array $items): array { return ['type'=>'response.completed','response'=>['id'=>'resp_fixture','status'=>'completed','output'=>$items,'usage'=>['input_tokens'=>123,'output_tokens'=>17,'total_tokens'=>140]]]; }
@@ -53,6 +61,83 @@ namespace {
     check($result['_responses_output']===$items&&$result['usage']['total_tokens']===140&&$result['provider_request_id']==='resp_fixture','Continuation/receipt/usage lost');
     $unindexed=wire([created(),['type'=>'response.output_text.delta','delta'=>'共有 5 项。'],['type'=>'response.output_text.done','text'=>'共有 5 项。'],complete([$reasoning,message('共有 5 项。')])],$chunks);
     check($chunks===['共有 5 项。']&&$unindexed['content']==='共有 5 项。','Gateway without output_index repeated its terminal snapshot');
+    // Exercise the real curl SSE decoder with independently indexed, interleaved parts.
+    function textDelta(int $output,int $part,string $text):array{return ['type'=>'response.output_text.delta','output_index'=>$output,'content_index'=>$part,'delta'=>$text];}
+    function textDone(int $output,int $part,string $text):array{return ['type'=>'response.output_text.done','output_index'=>$output,'content_index'=>$part,'text'=>$text];}
+    $twoParts=message('AB');$twoParts['content'][]=['type'=>'output_text','text'=>'XY'];
+    $interleaved=[created(),textDelta(0,0,'A'),textDelta(0,1,'X'),textDelta(0,0,'B'),textDelta(0,1,'Y'),textDone(0,0,'AB'),textDone(0,1,'XY'),complete([$twoParts])];
+    $ordered=wire($interleaved,$chunks);
+    check($ordered['content']==='ABXY'&&implode('',$chunks)==='ABXY'&&$chunks===['A','B','XY']&&$ordered['stream_delta_count']===4,'Indexed content parts must stream only stable head and append canonical final tail');
+    $emptyTail=wire([created(),textDelta(0,0,'A'),textDelta(0,1,'X'),textDelta(0,0,'B'),textDelta(0,1,'Y'),['type'=>'response.output_text.delta','delta'=>''],complete([$twoParts])],$chunks);
+    check($emptyTail['content']==='ABXY'&&$chunks===['A','B','XY']&&$emptyTail['stream_delta_count']===4,'Empty unindexed delta creates neither mixed-part ambiguity nor received-text evidence');
+    $reverse=wire([created(),textDelta(0,1,'X'),textDelta(0,0,'A'),textDelta(0,1,'Y'),textDelta(0,0,'B'),complete([$twoParts])],$chunks);
+    check($reverse['content']==='ABXY'&&$chunks===['A','B','XY'],'Higher content part arriving first must not pollute visible head');
+    $outputs=wire([created(),textDelta(1,0,'X'),textDelta(0,0,'A'),textDelta(1,0,'Y'),textDelta(0,0,'B'),complete([message('AB'),message('XY')])],$chunks);
+    check($outputs['content']==='ABXY'&&implode('',$chunks)==='ABXY','Output items also follow output_index rather than arrival order');
+    $withReasoning=wire([created(),['type'=>'response.output_item.added','output_index'=>0,'item'=>$reasoning],textDelta(2,0,'X'),textDelta(1,0,'A'),textDelta(2,0,'Y'),textDelta(1,0,'B'),complete([$reasoning,message('AB'),message('XY')])],$chunks);
+    check($withReasoning['content']==='ABXY'&&$chunks===['A','B','XY'],'Known non-text preceding output proves the earliest visible head without leaking reasoning');
+    $unknownHead=wire([created(),textDelta(1,0,'A'),textDelta(1,0,'B'),complete([$reasoning,message('AB')])],$chunks);
+    check($unknownHead['content']==='AB'&&$chunks===['AB']&&$unknownHead['stream_delta_count']===2,'Unknown preceding output delays head until canonical completion but retains received delta evidence');
+    $completedSuffix=wire([created(),textDelta(0,0,'A'),textDelta(0,1,'X'),textDone(0,0,'AB'),textDone(0,1,'XY'),complete([$twoParts])],$chunks);
+    check($completedSuffix['content']==='ABXY'&&implode('',$chunks)==='ABXY','Authoritative final part may supply an unseen suffix, without duplicate done text');
+    $unicodeParts=message('你好');$unicodeParts['content'][]=['type'=>'output_text','text'=>'🙂世界'];
+    $unicode=wire([created(),textDelta(0,1,'🙂'),textDelta(0,0,'你'),textDelta(0,1,'世界'),textDelta(0,0,'好'),complete([$unicodeParts])],$chunks);
+    check($unicode['content']==='你好🙂世界'&&implode('',$chunks)===$unicode['content'],'Fragmented native SSE keeps Unicode part ordering intact');
+    $jsonParts=message('{"reply":"已收到');$jsonParts['content'][]=['type'=>'output_text','text'=>'页面","kind":"final","operations":[]}'];
+    $decoration=wire([created(),textDelta(0,1,'页面","kind":"final","operations":[]}'),textDelta(0,0,'{"reply":"已'),textDelta(0,0,'收到'),complete([$jsonParts])],$chunks);
+    $replyStream=new \app\common\service\decorate\agent\DecorationAgentReplyStream();$replies=[];foreach($chunks as $chunk)$replies[]=$replyStream->append($chunk);
+    $decision=\app\common\service\decorate\agent\DecorationAgentDecision::parse($decoration['content']);
+    check($replies===['已','已收到','已收到页面']&&$decision['reply']==='已收到页面'&&$decision['operations']===[],'Real decoration reply parser receives only canonical append-only JSON fragments without tool envelope leakage');
+    $mixed=wire([created(),textDelta(0,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],complete([message('AB')])],$chunks);
+    check($mixed['content']==='AB'&&implode('',$chunks)==='AB','Mixed index stream retains conservative legacy arrival-prefix behavior');
+    $mixedGap=wire([created(),textDelta(0,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],textDelta(0,0,'C'),textDone(0,0,'ABC'),complete([message('ABC')])],$chunks);
+    check($mixedGap['content']==='ABC'&&implode('',$chunks)==='ABC','Unindexed gap must not contaminate or invent an indexed prefix while explicit done remains valid');
+    $legacyDone=wire([created(),['type'=>'response.output_text.delta','delta'=>'A'],textDone(0,0,'AB'),complete([message('AB')])],$chunks);
+    check($legacyDone['content']==='AB'&&implode('',$chunks)==='AB','Legacy-first stream retains a consistent explicitly indexed done snapshot');
+    $legacyParts=wire([created(),['type'=>'response.output_text.delta','delta'=>'A'],['type'=>'response.output_text.delta','delta'=>'B'],complete([message('A'),message('B')])],$chunks);
+    check($legacyParts['content']==='AB'&&implode('',$chunks)==='AB','Fully unindexed multi-part response preserves original whole-answer compatibility');
+    $mixedNonText=wire([created(),['type'=>'response.output_item.added','output_index'=>0,'item'=>$reasoning],textDelta(1,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],complete([$reasoning,message('AB'),$callA])],$chunks);
+    check($mixedNonText['content']==='AB'&&count($mixedNonText['tool_calls'])===1,'Mixed single-visible-part proof excludes reasoning and function items from visible-part count');
+    $mixedProofFailures=[
+        [created(),['type'=>'response.output_text.delta','delta'=>'A'],textDelta(1,0,'X'),complete([message('AX'),message('Y')])],
+        [created(),textDelta(0,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],textDelta(1,0,'X'),complete([message('ABX'),message('Y')])],
+        [created(),['type'=>'response.output_text.delta','delta'=>'A'],textDelta(1,0,'B'),complete([message('AB')])],
+        [created(),textDelta(0,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],complete([message('A'),message('B')])],
+        [created(),textDelta(0,0,'A'),textDelta(1,0,'X'),['type'=>'response.output_text.delta','delta'=>'Y'],complete([message('AX'),message('Y')])],
+        [created(),['type'=>'response.output_text.delta','delta'=>'A'],textDone(0,0,'AX'),complete([message('AB')])],
+        [created(),textDelta(0,0,'A'),textDelta(1,0,'X'),['type'=>'response.output_text.delta','delta'=>'Y'],complete([message('AXY')])],
+        [created(),textDelta(0,0,'A'),textDone(0,0,'AX'),['type'=>'response.output_text.delta','delta'=>'B'],complete([message('AB')])],
+        [created(),textDelta(0,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],textDone(0,0,'AX'),complete([message('AB')])],
+        [created(),['type'=>'response.output_item.added','output_index'=>0,'item'=>$reasoning],textDelta(1,0,'A'),['type'=>'response.output_text.delta','delta'=>'B'],complete([message(''),message('AB')])],
+    ];
+    foreach($mixedProofFailures as $broken){
+        try{wire($broken);throw new \LogicException('Mixed indices discarded a previously proven part/done/head fact');}
+        catch(MarketTextModelProviderException $e){check($e->partialResult['protocol_diagnostic']['code']==='responses_text_mismatch'&&$e->partialResult['tool_calls']===[]&&!$e->allowsModelFallback,'Mixed stream mismatch remains a non-replayable native failure');}
+    }
+    $badParts=message('AX');$badParts['content'][]=['type'=>'output_text','text'=>'BY'];
+    $brokenParts=[
+        // Arrival AXBY matches final AXBY, but each actual indexed part is wrong.
+        [created(),textDelta(0,0,'A'),textDelta(0,1,'X'),textDelta(0,0,'B'),textDelta(0,1,'Y'),complete([$badParts])],
+        [created(),textDelta(0,0,'A'),textDone(0,0,'AX'),complete([message('AB')])],
+        [created(),textDelta(0,0,'A'),textDone(0,0,'AB'),textDone(0,0,'AX'),complete([message('AB')])],
+        [created(),textDelta(0,0,'A'),textDone(0,0,'A'),textDelta(0,0,'B'),complete([message('AB')])],
+        [created(),textDelta(2,0,'AB'),complete([message('AB')])],
+        [created(),textDelta(0,2,'AB'),complete([message('AB')])],
+        [created(),textDelta(-1,0,'AB'),complete([message('AB')])],
+        [created(),textDelta(-1,0,''),complete([message('AB')])],
+        [created(),array_replace(textDelta(0,0,'AB'),['content_index'=>'0']),complete([message('AB')])],
+        [created(),textDelta(0,0,'A'),textDelta(0,1,'X'),['type'=>'response.output_text.delta','delta'=>'B'],complete([$twoParts])],
+        [created(),['type'=>'response.output_item.added','output_index'=>0,'item'=>$reasoning],textDelta(1,0,'AB'),complete([message('other'),message('AB')])],
+        [created(),textDelta(1,0,'partial buffered')],
+    ];
+    foreach($brokenParts as $broken){
+        try{wire($broken);throw new \LogicException('Unsafe indexed native response accepted');}
+        catch(MarketTextModelProviderException $e){check($e->partialResult!==null&&$e->partialResult['tool_calls']===[]&&!$e->allowsModelFallback,'Broken indexed response must retain review evidence without calls or fallback');}
+    }
+    try{wire([created(),textDelta(0,0,'A'),textDelta(0,1,'X'),textDelta(0,0,'B'),textDelta(0,1,'Y'),complete([$badParts])]);throw new \LogicException('Mismatched parts accepted');}
+    catch(MarketTextModelProviderException $e){$diagnostic=$e->partialResult['protocol_diagnostic'];check($diagnostic['code']==='responses_text_mismatch'&&$diagnostic['response_status']==='completed'&&$diagnostic['output_present']===true&&$diagnostic['output_items']===1&&$diagnostic['delta_count']===4,'Completed mismatch diagnostics must retain actual terminal output and received delta facts');}
+    try{wire([created(),textDelta(1,0,'buffered')]);throw new \LogicException('Missing terminal accepted');}
+    catch(MarketTextModelProviderException $e){check($e->partialResult['content']===''&&$e->partialResult['protocol_diagnostic']['delta_count']===1,'Buffered indexed output still counts as received evidence on missing completion');}
     foreach([
         array_slice($events,0,-1),
         [created(),complete([array_replace($callA,['arguments'=>'{"name":'])])],
@@ -64,6 +149,67 @@ namespace {
         try { wire($broken); throw new \LogicException('Unsafe tool response accepted'); }
         catch(MarketTextModelProviderException $e) { check($e->partialResult!==null&&$e->partialResult['tool_calls']===[]&&!$e->allowsModelFallback,'Incomplete native response lost review evidence'); }
     }
+    $legacyEvents=[['id'=>'resp_legacy_fixture','choices'=>[['delta'=>['content'=>'{"reply":"truncated'],'finish_reason'=>null]]],['id'=>'resp_legacy_fixture','choices'=>[['delta'=>[],'finish_reason'=>'stop']]]];
+    try{wire($legacyEvents,$chunks,true);throw new \LogicException('Explicit native Responses request accepted legacy SSE without native terminal');}
+    catch(MarketTextModelProviderException $e){check($e->partialResult!==null&&$e->partialResult['tool_calls']===[]&&!$e->allowsModelFallback,'Native protocol downgrade preserves uncertain partial evidence without fallback/calls');}
+    $legacy=wire($legacyEvents,$chunks);
+    check($legacy['content']==='{"reply":"truncated'&&$legacy['finish_reason']==='stop','Ordinary legacy compatibility is unchanged by opt-in native enforcement');
+    $strict=wire([created(),textDelta(0,0,'native complete'),complete([message('native complete')])],$chunks,true);$proof=$strict['protocol_evidence'];
+    check($proof['expected_native_responses']&&$proof['branch']==='native_responses'&&$proof['terminal_seen']&&$proof['terminal_status']==='completed'&&$proof['output_present']===true&&$proof['native_event_count']===3&&$proof['legacy_output_event_count']===0&&$proof['usage_event_count']===1&&$proof['usage_sources']===['responses_native'],'Strict native success exposes actual bounded protocol/terminal/usage evidence');
+    check(!array_diff(array_keys($proof),['expected_native_responses','branch','native_event_count','legacy_output_event_count','terminal_seen','terminal_status','output_present','usage_event_count','usage_sources'])&&!preg_match('~fixture.invalid|base64|api_key|fixture-only|reference~',json_encode($proof)),'Protocol evidence contains no body/credential/URL/reference values');
+    $noUsageEnd=complete([message('complete without reported usage')]);unset($noUsageEnd['response']['usage']);
+    $noUsage=wire([created(),textDelta(0,0,'complete without reported usage'),$noUsageEnd],$chunks,true);
+    check($noUsage['usage']===[]&&$noUsage['protocol_evidence']['usage_event_count']===0&&$noUsage['protocol_evidence']['usage_sources']===[],'Missing native usage remains explicitly unknown instead of synthesized');
+    $auxiliary=wire([created(),['type'=>'heartbeat'],['usage'=>['prompt_tokens'=>3,'completion_tokens'=>2]],textDelta(0,0,'native with auxiliary events'),complete([message('native with auxiliary events')]),'[DONE]'],$chunks,true);
+    check($auxiliary['protocol_evidence']['branch']==='native_responses'&&$auxiliary['protocol_evidence']['legacy_output_event_count']===0&&$auxiliary['protocol_evidence']['usage_event_count']===2&&$auxiliary['protocol_evidence']['usage_sources']===['responses_native','compatible_sse'],'Usage-only/heartbeat/DONE auxiliaries neither downgrade nor substitute native terminal');
+    foreach([
+        [created(),textDelta(0,0,'missing native terminal'),'[DONE]'],
+        [created(),['id'=>'resp_fixture','choices'=>[['delta'=>['content'=>'mixed body']]]],complete([message('mixed body')])],
+        ['[DONE]'],
+    ] as $broken){
+        try{wire($broken,$chunks,true);throw new \LogicException('Strict native request accepted missing/mixed terminal');}
+        catch(MarketTextModelProviderException $e){check(!$e->allowsModelFallback&&($e->partialResult===null||$e->partialResult['tool_calls']===[]),'Strict terminal failure cannot invoke tools or switch provider');if($e->partialResult!==null)check($e->partialResult['protocol_evidence']['expected_native_responses']===true,'Strict partial preserves the expected protocol boundary');}
+    }
+    try{wire([['choices'=>[['delta'=>['content'=>'body without request ID'],'finish_reason'=>'stop']]]],$chunks,true);throw new \LogicException('No-ID downgrade accepted');}
+    catch(MarketTextModelProviderException $e){check($e->partialResult['content']==='body without request ID'&&!$e->allowsModelFallback,'Received output without a request ID still preserves uncertain strict partial evidence');}
+    try{wire([['error'=>['message'=>'fixture explicit zero-output rejection']]],$chunks,true);throw new \LogicException('Explicit rejection accepted');}
+    catch(MarketTextModelProviderException $e){check($e->partialResult===null,'Zero-output explicit rejection retains its existing classification path');}
+    F::$rawBody=json_encode(complete([message('buffered JSON is not native SSE')]));
+    try{wire([],$chunks,true);throw new \LogicException('Buffered JSON bypassed SSE terminal contract');}
+    catch(MarketTextModelProviderException $e){check(!$e->allowsModelFallback,'Successful buffered JSON cannot replace required native SSE');}finally{F::$rawBody='';}
+    $selectedModel=['model_code'=>'gpt-fixture','protocols'=>'openai_responses','channel_code'=>'fixture-channel','product_id'=>41,'input'=>['sku_id'=>42,'sku_key'=>'fixture-input','platform_price'=>3,'tenant_price'=>4],'output'=>['sku_id'=>43,'sku_key'=>'fixture-output','platform_price'=>5,'tenant_price'=>6]];
+    check(invoke('canSettleUsage',$selectedModel,invoke('normalizeUsage',$noUsage['usage']))===false,'Unknown native usage cannot enter actual-usage settlement');
+    $beforeModel=$selectedModel;$decorationParams=['action_code'=>'decoration_agent_text','_decoration_native_responses_transport'=>true];
+    $options=invoke('initialTransportOptions',$selectedModel,$decorationParams,true);
+    $payload=invoke('transportPayload','openai_responses',$selectedModel,[['role'=>'user','content'=>'页面生成']],'装修',4096,[],$options);
+    F::$events=$legacyEvents;
+    try{invoke('request',$selectedModel,[['role'=>'user','content'=>'fixture']], 'fixture',4096,[],static function(){},10,$options);throw new \LogicException('Request dropped strict native transport requirement');}
+    catch(MarketTextModelProviderException $e){check($e->partialResult['protocol_evidence']['expected_native_responses']===true,'Actual request path must carry the server-native requirement into curl');}
+    F::$events=[created(),complete([message('完成')])];$throughRequest=invoke('request',$selectedModel,[['role'=>'user','content'=>'fixture']], 'fixture',4096,[],static function(){},10,$options);
+    check($throughRequest['protocol_evidence']['expected_native_responses']===true&&$throughRequest['protocol_evidence']['terminal_seen']===true,'Real native request path accepts a validated terminal');
+    $actual=F::$payload;check($options['require_native_responses']===true&&!isset($actual['require_native_responses']),'Native requirement remains server-side, never a provider parameter');check($actual['model']==='gpt-fixture'&&$actual['channel']==='fixture-channel'&&$actual['stream']===true,'Decoration lost gateway model/channel routing or SSE');
+    check(!array_intersect_key($actual,invoke('marketContext',$selectedModel)),'Decoration native wire leaked internal SKU selectors');
+    check($selectedModel===$beforeModel&&invoke('quote',$selectedModel,1000000,1000000)['tenant_cost_points']===8.0,'Transport changed resolved SKU context or local price selection');
+    foreach([[false,$decorationParams,$selectedModel],[true,['action_code'=>'another_app','_decoration_native_responses_transport'=>true],$selectedModel],[true,['action_code'=>'decoration_agent_text'],$selectedModel],[true,$decorationParams,array_replace($selectedModel,['protocols'=>'openai_chat'])]] as [$adminPayer,$params,$model])check(invoke('initialTransportOptions',$model,$params,$adminPayer)['include_market_context']===true&&invoke('initialTransportOptions',$model,$params,$adminPayer)['require_native_responses']===false,'Unrelated AI request transport changed');
+    $failure=['type'=>'response.failed','response'=>['id'=>'resp_fixture','status'=>'failed','output'=>[],'error'=>['code'=>'invalid_request_error','type'=>'invalid_request_error','message'=>'Unsupported parameter: max_output_tokens. <b>See</b> https://provider.invalid/help token sk-fixturePrivateSecret']]];
+    try {wire([created(),$failure]);throw new \LogicException('Native failure accepted');}
+    catch(MarketTextModelProviderException $e){$d=$e->partialResult['protocol_diagnostic'];check($d['provider_type']==='invalid_request_error'&&$d['response_status']==='failed'&&str_contains($d['provider_message'],'Unsupported parameter: max_output_tokens'),'Native error detail lost');check(!str_contains($d['provider_message'],'provider.invalid')&&!str_contains($d['provider_message'],'sk-fixturePrivateSecret')&&!str_contains($d['provider_message'],'<b>'),'Native diagnostics leaked URL/credential/markup');check($e->partialResult['protocol_evidence']['terminal_seen']===true&&$e->partialResult['protocol_evidence']['terminal_status']==='failed','Observed failed native terminal is diagnostic evidence, not successful completion');check($e->partialResult['content_source']==='content'&&$d['visible_chars']===0&&$d['delta_count']===0&&$d['output_items']===0,'Zero output proof missing');}
+    foreach([
+        'api_key=fixture-secret', 'x-api-key: fixture-secret', 'Authorization: Basic Zml4dHVyZTpwYXNzd29yZA==',
+        '"access_token": "fixture-secret"', "client_secret='fixture-secret'", 'token=fixture-secret',
+        'Bearer fixture-secret', 'token eyJhbGciOiJub25lIn0.eyJzdWIiOiJmaXh0dXJlIn0.c2lnbmF0dXJl',
+        'Echoed credential fixture-only without a label'
+    ] as $secretText){
+        $secretFailure=$failure;$secretFailure['response']['error']['message']='Unsupported parameter: max_output_tokens. '.$secretText;
+        try{wire([created(),$secretFailure]);throw new \LogicException('Secret-bearing failure accepted');}
+        catch(MarketTextModelProviderException $e){$diagnostic=$e->partialResult['protocol_diagnostic']['provider_message'];check(str_contains($diagnostic,'Unsupported parameter: max_output_tokens')&&!str_contains($diagnostic,'fixture-secret')&&!str_contains($diagnostic,'fixture-only')&&!str_contains($diagnostic,'Zml4dHVyZTpwYXNzd29yZA')&&!str_contains($diagnostic,'eyJhbGciOiJub25lIn0'),'Native diagnostics leaked known credential pattern or request key');}
+    }
+    $partialReply='{"reply":"已收到页面要求，准备调整标题。","kind":"final","operations":[{"type":"configure_page","fields":{"content.title":"待审核"}}';
+    $partialFailure=$failure;$partialFailure['response']['output']=[message($partialReply)];
+    try{wire([created(),$partialFailure],$chunks);throw new \LogicException('Partial failed response accepted');}
+    catch(MarketTextModelProviderException $e){check($e->partialResult['content']===$partialReply&&$e->partialResult['tool_calls']===[]&&$chunks===[],'Snapshot partial content lost or executed');check($e->partialResult['protocol_diagnostic']['output_items']===1,'Partial snapshot output evidence missing');}
+    try{wire([created(),textDelta(-1,0,'invalid indexed output')]);throw new \LogicException('Invalid index accepted');}
+    catch(MarketTextModelProviderException $e){check($e->partialResult['protocol_diagnostic']['delta_count']===1,'Invalid indexed received text is not mistaken for zero provider output');}
     $mapped=A::input([['role'=>'user','content'=>[['type'=>'text','text'=>'看图'],['type'=>'image_url','image_url'=>['url'=>'data:image/png;base64,YQ==']]]],['role'=>'assistant','content'=>'说明','tool_calls'=>[$result['tool_calls'][0]]],['role'=>'tool','tool_call_id'=>'call_a','content'=>'done']]);
     check($mapped[0]['content'][0]['type']==='input_text'&&$mapped[0]['content'][1]['type']==='input_image'&&$mapped[3]['type']==='function_call_output','Input mapping wrong');
     $params=A::params(['tools'=>[['type'=>'function','function'=>['name'=>'lookup','parameters'=>['type'=>'object']]]],'tool_choice'=>['type'=>'function','function'=>['name'=>'lookup']],'response_format'=>['type'=>'json_schema','json_schema'=>['name'=>'reply','schema'=>['type'=>'object']]],'enable_thinking'=>false,'stream_options'=>['include_usage'=>true]]);
@@ -91,5 +237,5 @@ namespace {
     (new Agent())->setThreadId('fresh-responses-contract')->setAiProvider($fresh)->chat(new UserMessage('你好'));
     $legacy=invoke('normalizeMessages','test',[],[['role'=>'assistant','content'=>'visible','tool_calls'=>[['id'=>'a']],'_responses_output'=>$items]],false);
     check(!str_contains(json_encode($legacy),'opaque-fixture'),'Native continuation leaked into legacy normalization');
-    echo "Responses protocol passed: actual Neuron loop, parallel calls, native history, encrypted continuation isolation, fragmented SSE, no snapshot duplicates, incomplete review, images and usage\n";
+    echo "Responses protocol passed: actual Neuron loop, parallel calls, native history, encrypted continuation isolation, fragmented SSE, indexed interleaving/head buffering/canonical completion, mixed single-visible-part and prefix/done/head-proof preservation, conflict/done/terminal guards, no snapshot duplicates, incomplete review, images and usage\n";
 }

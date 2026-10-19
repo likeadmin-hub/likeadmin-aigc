@@ -24,7 +24,7 @@ final class AigcRuntimeGenerationLease
         foreach ([$store,$store.'/retention.lock',$store.'/leases'] as $path) {
             if (is_link($path)) return null;
         }
-        $handle = @fopen($store.'/retention.lock','r');
+        $handle = @fopen($store.'/retention.lock','re');
         if (!$handle || !@flock($handle,LOCK_SH)) { if (is_resource($handle)) fclose($handle); return null; }
         return new self($store,$handle);
     }
@@ -35,7 +35,7 @@ final class AigcRuntimeGenerationLease
         if (!preg_match('/^(?:baseline|release)-[a-f0-9]{24,64}$/D',$id)) { $this->failed=true; return; }
         $path = $this->store.'/leases/'.$id.'.lock';
         if (is_link($path)) { $this->failed=true; return; }
-        $handle = @fopen($path,'r');
+        $handle = @fopen($path,'re');
         if (!$handle || !@flock($handle,LOCK_SH)) { if (is_resource($handle)) fclose($handle); $this->failed=true; return; }
         $this->leases[$id] = $handle;
         $this->pinned = true;

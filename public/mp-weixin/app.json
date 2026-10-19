@@ -244,6 +244,16 @@
         "pages/creator/index",
         "pages/tasks/index"
       ]
+    },
+    {
+      "root": "apps/aigc_micro_video",
+      "pages": [
+        "pages/workbench/index",
+        "pages/creator/index",
+        "pages/plan/index",
+        "pages/tasks/index",
+        "pages/detail/index"
+      ]
     }
   ],
   "window": {

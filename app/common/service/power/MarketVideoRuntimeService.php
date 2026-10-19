@@ -477,6 +477,8 @@ class MarketVideoRuntimeService
         $context = self::context($consumptionId, false);
         if ($context === null) throw new Exception('市场视频消耗记录不存在');
         if ((string)$context['consumption']['run_status'] !== 'reserved') return self::response($context['consumption']->toArray());
+        $microSubmission = \app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($context['consumption']->toArray());
+        if ($microSubmission && !\app\common\service\app\aigc_micro_video\MicroVideoSubmission::begin($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
         $snapshot = self::arrayValue($context['consumption']['price_snapshot'] ?? []);
         $reservedRequest = self::arrayValue($context['app_task']['request_summary'] ?? []);
         if ((int)($reservedRequest['duration'] ?? 0) > 0) {
@@ -489,6 +491,7 @@ class MarketVideoRuntimeService
             $response = self::submitRequest($snapshot, $request, (string)$context['consumption']['consume_no'], $consumptionId);
             $taskId = self::taskId($response);
             \app\common\service\open_platform\OpenSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
+            if ($microSubmission) \app\common\service\app\aigc_micro_video\MicroVideoSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
             $videos = self::videos(
                 $response,
                 (int)$context['consumption']['tenant_id'],
@@ -502,7 +505,9 @@ class MarketVideoRuntimeService
             Db::transaction(function () use ($consumptionId, $taskId, $videos, $requestId) {
                 $ctx = self::context($consumptionId, true); if ($ctx === null) return;
                 $c = $ctx['consumption']; if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return;
-                $c->save(['run_status' => $videos === [] ? 'running' : 'success', 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'response_summary' => ['video_count' => count($videos), 'videos' => $videos], 'update_time' => time()]);
+                $summary=['video_count' => count($videos), 'videos' => $videos];
+                if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray())) $summary += array_intersect_key(self::arrayValue($c['response_summary']), ['micro_provider_receipt'=>true]);
+                $c->save(['run_status' => $videos === [] ? 'running' : 'success', 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'response_summary' => $summary, 'update_time' => time()]);
                 self::event((int)$c['id'], 'submit', 'success', ['upstream_task_id' => $taskId, 'video_count' => count($videos)]);
             });
             if ($videos !== []) {
@@ -510,8 +515,10 @@ class MarketVideoRuntimeService
                 AiTaskJobService::enqueueProcessResult($consumptionId);
             }
             else AiTaskJobService::enqueueQueryResult($consumptionId);
+            if ($microSubmission) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             return ['status' => $videos === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'videos' => $videos];
         } catch (\Throwable $e) {
+            if ($microSubmission && \app\common\service\app\aigc_micro_video\MicroVideoSubmission::hold($consumptionId,$e->getMessage())) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('视频任务提交失败');
@@ -523,13 +530,29 @@ class MarketVideoRuntimeService
         $context = self::context($consumptionId, false);
         if ($context === null) throw new Exception('市场视频消耗记录不存在');
         $c = $context['consumption'];
+        if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::pending($c->toArray())) return self::response($c->toArray());
         if (\app\common\service\open_platform\OpenSubmission::pending($c->toArray())) return self::response($c->toArray());
         if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) {
             self::clearTerminalRefreshDiagnostics((int)$c['id']);
             return self::response($c->toArray());
         }
         $taskId = trim((string)$c['upstream_task_id']);
-        if ($taskId === '' && ($receipt=\app\common\service\open_platform\OpenSubmission::receipt($c->toArray()))!==null) {
+        if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray())) {
+            $summary=self::arrayValue($c['response_summary']);
+            $receipt=\app\common\service\app\aigc_micro_video\MicroVideoSubmission::receipt($c->toArray());
+            try {
+                $completed=(array)($summary['videos']??[]);
+                if ($completed===[]&&$receipt!==null) $completed=self::videos($receipt,(int)$c['tenant_id'],(int)$c['user_id'],self::requiresDurableResultStorage((string)$context['app_task']['app_code']));
+                if ($completed!==[]) {
+                    self::settle($consumptionId,$completed,(string)$c['upstream_request_id'],$taskId,$receipt??$summary);
+                    return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+                }
+            } catch (\Throwable $e) {
+                self::recordRefreshError($consumptionId,$taskId,$e);
+                return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+            }
+        }
+        if ($taskId === '' && ($receipt=(\app\common\service\app\aigc_micro_video\MicroVideoSubmission::receipt($c->toArray()) ?? \app\common\service\open_platform\OpenSubmission::receipt($c->toArray())))!==null) {
             try{
                 $videos=self::videos($receipt,(int)$c['tenant_id'],(int)$c['user_id'],self::requiresDurableResultStorage((string)$context['app_task']['app_code']));
                 if($videos!==[]){self::settle($consumptionId,$videos,self::requestId($receipt),'',$receipt);return ['status'=>'success','provider_task_id'=>'','videos'=>$videos];}
@@ -542,6 +565,7 @@ class MarketVideoRuntimeService
         try {
             $snapshot = self::arrayValue($c['price_snapshot'] ?? []);
             $response = self::queryRequest($snapshot, $taskId);
+            if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray()) && empty($response['error']) && (!isset($response['code']) || !is_numeric($response['code']) || (int)$response['code']===1)) \app\common\service\app\aigc_micro_video\MicroVideoSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
             $videos = self::videos(
                 $response,
                 (int)$c['tenant_id'],
@@ -558,6 +582,7 @@ class MarketVideoRuntimeService
             }
             if ($videos !== []) {
                 self::settle($consumptionId, $videos, self::requestId($response), $taskId, $response);
+                if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray())) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
                 return ['status' => 'success', 'provider_task_id' => $taskId, 'videos' => $videos];
             }
             if ((string)$c['billing_status'] === 'pending_usage' && self::isTokenSnapshot($snapshot)) {
@@ -3592,6 +3617,10 @@ class MarketVideoRuntimeService
             'provider_request_id' => (string)$c['upstream_request_id'],
             'videos' => (array)($summary['videos'] ?? []),
         ];
+        if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c) && ($c['billing_status']??'')!=='settled') {
+            $response['videos']=[];
+            if (!in_array($response['status'],['failed','canceled','pending_confirmation','submitting'],true)) $response['status']='running';
+        }
         $message = trim((string)($c['error_message'] ?? ''));
         return $message !== '' ? array_merge($response, self::failureFields($message)) : $response;
     }

@@ -9,7 +9,7 @@ return [
     'listen'    => [
         'AppInit'  => [],
         'HttpRun'  => [],
-        'HttpEnd'  => [],
+        'HttpEnd'  => [\app\common\listener\WechatAvatarSync::class],
         'LogLevel' => [],
         'LogWrite' => [],
 

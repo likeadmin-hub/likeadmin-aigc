@@ -36,29 +36,30 @@ final class PackagePricingService
         return ['package_id'=>$package,'from'=>$from,'cycle'=>$base['cycle'],'regular_price'=>PackagePromotionPolicy::amount($state['regular_cents']),'payable_price'=>PackagePromotionPolicy::amount($state['payable_cents']),'discount_amount'=>PackagePromotionPolicy::amount($state['discount_cents']),
             'is_discount'=>$state['is_discount'],'matched_rules'=>$state['matched_rules'],'eligible_end_at'=>$state['eligible_end_at'],'server_time'=>$now,'reason'=>$user<=0?'login_required':$state['reason'],'promotion_version'=>$version,'quote_hash'=>$hash,'pending_order_id'=>(int)(($claim['status']??'')==='reserved'?($claim['order_id']??0):0)];
     }
-    public static function create(int $tenant,int $user,int $terminal,string $from,int $package,string $cycle='',string $quoteHash=''): array
+    public static function create(int $tenant,int $user,int $terminal,string $from,int $package,string $cycle='',string $quoteHash='',string $requestId=''): array
     {
         if ($user <= 0) throw new \RuntimeException('请先登录后购买套餐');
-        return Db::transaction(function()use($tenant,$user,$terminal,$from,$package,$cycle,$quoteHash){
+        return \app\common\service\pay\CashCheckoutService::create($tenant,$user,$from,$requestId,[$terminal,$package,$cycle,$quoteHash],function(string $sn)use($tenant,$user,$terminal,$from,$package,$cycle,$quoteHash){
+        return Db::transaction(function()use($tenant,$user,$terminal,$from,$package,$cycle,$quoteHash,$sn){
             $identity=User::where(['tenant_id'=>$tenant,'id'=>$user])->lock(true)->findOrEmpty();if($identity->isEmpty()||!empty($identity['is_disable']))throw new \RuntimeException('用户身份已变化，请重新登录');
             $base=self::catalog($tenant,$from,$package,$cycle?:'package',true,true);$p=PackagePromotionService::get($tenant,$from,$package);$scope=self::scope($tenant,$user,$from,$package);$claim=[];
             if(!empty($p['enabled'])){
                 Db::name('tenant_package_discount_claim')->extra('IGNORE')->insert($scope+['status'=>'available','create_time'=>time()]);
                 $claim=Db::name('tenant_package_discount_claim')->where($scope)->lock(true)->find();
-                if($claim['status']==='reserved')throw new \RuntimeException('您已有该套餐的优惠待付款订单，请先处理原订单');
             }
             $quote=self::quote($tenant,$user,$from,$package,$base['cycle'],$base);
             if($quoteHash!==''&&!hash_equals($quote['quote_hash'],$quoteHash))throw new \RuntimeException('套餐价格或优惠资格已变化，请刷新并确认当前价格');
             $amount=$quote['payable_price'];$rights=$base['rights'];$now=time();
             if($from==='recharge'){
-                $sn=generate_sn(RechargeOrder::class,'sn');$order=RechargeOrder::create(['tenant_id'=>$tenant,'user_id'=>$user,'order_terminal'=>$terminal,'sn'=>$sn,'order_amount'=>$amount,'recharge_points'=>$rights['recharge_points'],'package_id'=>$package,'package_name'=>$base['name'],'pay_way'=>0,'pay_status'=>0]);
+                $order=RechargeOrder::create(['tenant_id'=>$tenant,'user_id'=>$user,'order_terminal'=>$terminal,'sn'=>$sn,'order_amount'=>$amount,'recharge_points'=>$rights['recharge_points'],'package_id'=>$package,'package_name'=>$base['name'],'pay_way'=>0,'pay_status'=>0]);
             }else{
-                $sn=generate_sn(MembershipOrder::class,'order_sn');$order=MembershipOrder::create(['tenant_id'=>$tenant,'user_id'=>$user,'order_terminal'=>$terminal,'order_sn'=>$sn,'order_amount'=>$amount,'plan_id'=>$package,'plan_name'=>$base['name'],'cycle'=>$base['cycle'],'duration_months'=>$rights['duration_months'],'bonus_points'=>$rights['bonus_points'],'before_expire_time'=>0,'after_expire_time'=>0,'pay_way'=>0,'pay_status'=>0,'create_time'=>$now,'update_time'=>$now]);
+                $order=MembershipOrder::create(['tenant_id'=>$tenant,'user_id'=>$user,'order_terminal'=>$terminal,'order_sn'=>$sn,'order_amount'=>$amount,'plan_id'=>$package,'plan_name'=>$base['name'],'cycle'=>$base['cycle'],'duration_months'=>$rights['duration_months'],'bonus_points'=>$rights['bonus_points'],'before_expire_time'=>0,'after_expire_time'=>0,'pay_way'=>0,'pay_status'=>0,'create_time'=>$now,'update_time'=>$now]);
             }
             $id=(int)$order->id;
             Db::name('tenant_package_price_snapshot')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'biz_type'=>$from,'order_id'=>$id,'order_sn'=>$sn,'package_id'=>$package,'cycle'=>$base['cycle'],'regular_cents'=>$base['regular_cents'],'payable_cents'=>PackagePromotionPolicy::cents($amount),'is_discount'=>$quote['is_discount']?1:0,'promotion_version'=>$quote['promotion_version'],'matched_rules'=>implode(',',$quote['matched_rules']),'eligible_end_at'=>$quote['eligible_end_at'],'expires_at'=>$now+1800,'rights'=>json_encode($rights,JSON_THROW_ON_ERROR),'created_at'=>$now]);
             if($quote['is_discount'])Db::name('tenant_package_discount_claim')->where('id',$claim['id'])->update(['status'=>'reserved','order_id'=>$id,'reserved_until'=>$now+1800,'update_time'=>$now]);
             return ['order_id'=>$id,'order_sn'=>$sn,'from'=>$from,'order_amount'=>$amount,'expires_at'=>$now+1800,'price_info'=>$quote];
+        });
         });
     }
     public static function snapshot(int $tenant,string $from,int $id): ?array

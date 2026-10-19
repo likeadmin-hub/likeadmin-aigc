@@ -1,44 +1,50 @@
-# 平台端所有页面刷新 404：部署与验证
+# 平台域名入口、后台访问限制与刷新路由
 
-## 原因与修复范围
+## 当前访问规则
 
-平台前端使用 history 路由，浏览器刷新或直接打开任意 `/platform/...` 页面时，必须返回 `public/platform/index.html`。站内跳转成功不能证明服务端回退规则正确。
+- 先按实际请求 Host 查找租户绑定：当前域名别名、旧版租户独立域名，以及已存在租户的子域名。租户域名命中优先于平台域名配置。
+- 命中租户域名时，不允许打开 `/platform`、`/platform/...` 或 `/platform/index.html`，页面返回 HTTP 404；平台 API 返回 HTTP 403。停用租户和停用但未删除的域名绑定仍不能作为平台入口。
+- 未命中租户绑定的域名，作为平台入口处理。直接打开 `/` 返回 HTTP 302 跳转到 `/platform/`；平台页面和 `/platformapi/` 继续执行原有登录及权限校验。
+- `.env` 中 `[PROJECT] HTTP_HOST` 用于租户子域名根域和链接生成，不再作为平台后台域名白名单。配置遗漏、域名变更或多域名部署不会仅因不在名单内返回 403；逗号分隔多个根域时，也会识别各根域下已经存在的租户子域名。
+- 租户首页、租户后台、`/t/{tenant_id}`、`tenant_id` 参数/请求头访问方式继续保留。非租户域名携带明确租户标识时仍可打开对应租户前台。
+- 微信授权中转、消息与支付回调继续走原处理流程。平台管理员选择租户的 API 参数继续可用，仍需通过原登录和权限校验。
 
-本次修复为整个 `/platform/` 命名空间设置优先静态回退，覆盖所有菜单和多级页面，不按具体菜单逐个添加规则。现有平台静态资源仍按原路径读取；其他请求继续使用 ThinkPHP 伪静态。
+PHP 平台入口判断使用实际 `Host`，不信任客户端传入的 `X-Forwarded-Host`。反向代理应保留原始 Host。租户别名保存时的平台根域树保留规则继续生效；该规则与访问时的实际租户归属判断分别处理。
 
-2026-10-08 线上检查中，`/platform/`、`/platform/login` 返回平台入口；`/platform/system-service/license` 和 `/platform/foo/LICENSE` 返回 HTTP 404 的租户错误页面，尾斜杠版本与 `/index.php?s=/platform/system-service/license` 正常，`README.md` 结尾也受影响。这说明至少存在服务端文件名匹配/错误页处理干扰。未读取线上完整 Nginx 配置，因此不能把这些探测当作所有平台页面故障的完整原因。统一平台回退同时避免这类正则 location 抢占页面请求。
+## Nginx / 宝塔部署
 
-## 已有宝塔 / OpenResty 站点
+`public/nginx.htaccess` 是 **server 级**完整伪静态模板，不能放进 `location / {}`。网站根目录应为本项目 `server/public`。
 
-更新源码不会自动改写宝塔已经保存的站点配置。`public/nginx.htaccess` 现在是 **server 级**完整伪静态模板，不应再放在 `location / {}` 内。
+已有的 `/platform/` 直接静态回退会绕过 PHP 域名检查，必须与 PHP 修复一并替换：
 
-在站点 `server {}` 中加入或更新以下规则；已有 `/platform/` 规则时修改原规则，不要重复添加：
+1. 备份站点原伪静态配置；更新本项目的 `public/nginx.htaccess` 对应规则，保留站点的 SSL、PHP、PC 自定义规则和其他业务配置。
+2. `/`、`/platform` 和 `/platform/` 下的页面都进入 ThinkPHP；包括已存在的 `platform/index.html`，不能通过 `try_files $uri` 直接返回。
+3. `/platform/assets/` 和图片、字体、JS/CSS 等资源继续直接读取。不存在的资源返回真实 404，不能返回 HTML；隐藏文件和 PHP 源码不可静态读取。
+4. 只保留一份 `/` 和 `/platform/` location。移除旧的 server 级 `if (!-e ...)` 通配 rewrite，使用模板中的 location 级规则，防止抢先改写。
+5. 执行实际 Nginx/OpenResty 的 `nginx -t`，通过后重载，再检查访问结果。
 
-```nginx
-location = /platform {
-    try_files /platform/index.html =404;
-}
+Docker 部署使用同样策略，模板为 `docker/nginx/default.conf`。修改代码或模板不会自动更新客户宝塔中已保存的站点配置；仅更新 PHP 无法阻止静态平台入口绕过。
 
-location ^~ /platform/ {
-    try_files $uri $uri/ /platform/index.html;
-}
-```
-
-网站根目录必须为项目 `server/public`，且已部署 `public/platform/index.html`。如果使用整份新模板，替换旧伪静态规则，保留站点原有 API、PHP、SSL 等配置并确保仅有一个 `location /`。旧的 server 级 `if (!-e ...)` / 通配 rewrite 会先于 location 执行，需将它移入 `location /`，模板已完成此调整。Docker 自带的 `docker/nginx/default.conf` 已有 `/platform/` 优先回退。
-
-使用该站点实际运行的 Nginx/OpenResty 执行 `nginx -t`，通过后重载，再进行线上验收。配置加载和线上刷新验收均完成后，才算线上生效。
+原先为修复 history 路由刷新而直接回退到静态 `platform/index.html` 的方案，已由经过 PHP 域名校验的页面回退替代。页面名称如 `system-service/license`、`foo/LICENSE`、`foo/README.md` 仍可正常刷新，不受全局文件名正则 location 抢占。
 
 ## 验证
 
-独立真实 Nginx 回归（临时端口、临时目录，不改已有站点、不重载服务）：
+PHP 行为回归：
+
+```sh
+php runtime/verification/phpunit-9.phar -c phpunit.xml.dist tests/Feature/PlatformDomainAccessTest.php
+```
+
+隔离真实 Nginx 回归使用临时目录、临时端口和模拟动态入口，不改已有站点、不连接业务数据库：
 
 ```sh
 python3 tests/routing/platform_refresh_nginx.py --nginx /path/to/nginx
+python3 tests/routing/platform_refresh_nginx.py --nginx /path/to/nginx --template docker/nginx/default.conf
 ```
 
-测试覆盖平台根入口、登录页、多级菜单页、授权页、带查询参数的页面、易被文件名规则拦截的页面、平台 JS 资源，并检查平台 API、租户 API、租户后台和 PC 请求继续使用原动态入口。
+实际站点验收应同时覆盖已配置平台域名、未配置但已指向本站的非租户域名和租户域名：非租户域名 `/` 跳转，后台多级菜单直接打开与刷新，租户访问平台页面 404、平台 API 403，租户自身首页与 API 正常。额外检查 `/platform/index.html`、旧的 `index.php?s=/platform/...` 入口和带 `X-Forwarded-Host` 的请求。已有平台登录态、SSO 及微信授权流程保持可用。
 
-线上验收时使用已有平台登录会话，分别在不同模块点击页面后刷新，并将当前地址复制到新标签直接打开。页面应保留当前菜单和参数，不显示租户错误页；未登录时应进入平台登录页。同时确认 `/platformapi/config/getConfig` 和已存在的平台 JS/CSS 资源正常。
+代码回归、本地配置重载与客户线上部署是不同验证阶段，应分别记录。
 
 ## 同批交付：PC 启动配置接口 500
 

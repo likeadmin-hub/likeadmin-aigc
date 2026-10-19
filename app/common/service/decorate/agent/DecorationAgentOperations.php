@@ -39,6 +39,46 @@ class DecorationAgentOperations
         return ['candidate' => $candidate, 'changes' => $engine->changes, 'image_requests' => $engine->images];
     }
 
+    /** Reject two declarations that would bind the same newly created reference differently. */
+    public static function validateCreationBindings(array $operations): void
+    {
+        $engine=new self();$created=[];
+        foreach($operations as $op){
+            if(($op['type']??$op['op']??'')==='add_component'){
+                // Validate every add before any preceding operations can mutate a candidate.
+                $fields=$engine->creationFields($op);$explicit=[];
+                foreach(['source_key'=>'source_key','source_params'=>'params','data_mode'=>'mode'] as $field=>$key)if(array_key_exists('content.'.$field,$fields))$explicit[$key]=$fields['content.'.$field];
+                $definition=DecorationAgentCatalog::definition((string)($op['name']??''));
+                $widget=DecorationAgentCatalog::create($definition['name'],self::newId());
+                $binding=$engine->creationBinding($fields,$widget);
+                if($binding!==null){
+                    $engine->bind($widget,$definition,$binding);
+                    if(!empty($op['ref']))$created[(string)$op['ref']]=['widget'=>$widget,'definition'=>$definition,'explicit'=>$explicit];
+                }
+            }elseif(($op['type']??$op['op']??'')==='bind_source'&&str_starts_with((string)($op['widget_id']??''),'@')){
+                $ref=substr($op['widget_id'],1);
+                if(!isset($created[$ref]))continue;
+                $next=$created[$ref]['widget'];$explicit=$created[$ref]['explicit'];
+                $engine->bind($next,$created[$ref]['definition'],$op);
+                foreach(['source_key','mode'] as $key)if(array_key_exists($key,$explicit)&&array_key_exists($key,$op)&&$explicit[$key]!==$op[$key])self::fail('Conflicting creation and bind_source declarations');
+                foreach($explicit['params']??[] as $key=>$value)if(array_key_exists($key,$op['params']??[])&&$value!==$op['params'][$key])self::fail('Conflicting creation and bind_source declarations');
+                // Valid new parameters enrich the inline declaration; they are a real bind.
+                $created[$ref]['widget']=$next;
+            }
+        }
+    }
+
+    /** A duplicate bind is free only after source and selected-scope validation. */
+    public static function isUnchangedBinding(array $candidate,array $op,array $scope): bool
+    {
+        if(!in_array($scope['scope']??'', ['page','selected','new_page'],true))self::fail('Invalid edit scope');
+        $engine=new self();$engine->scope=$scope;$map=self::index($candidate['data']??[]);$id=(string)($op['widget_id']??'');
+        if(!isset($map[$id]))self::fail('Target component is missing: '.$id);
+        $engine->assertScope($id,$map);$widget=$map[$id]['widget'];$before=$widget;
+        $engine->bind($widget,DecorationAgentCatalog::definition($widget['name']),$op);
+        return $widget===$before;
+    }
+
     /** Materialize IDs only inside a candidate receiving explicit structural edits. */
     private static function stabilizeLegacyIds(array &$data,array $parentPath,array $prefix): void
     {
@@ -145,31 +185,88 @@ class DecorationAgentOperations
                 $this->insert($page['data'], $copy, $op);
             } elseif ($type === 'edit_list') $this->editList($widget, $definition, $op);
             elseif ($type === 'bind_source') $this->bind($widget, $definition, $op);
+            elseif ($type === 'set_visibility') $this->visibility($widget, $op);
             elseif ($type === 'request_image') $this->image($widget, $definition, $id, $op);
             else self::fail('Unsupported decoration operation: ' . $type);
         }
         $this->changes[] = ['type' => $type, 'widget_id' => $id, 'fields' => array_keys($op['fields'] ?? [])];
     }
+
+    /** Only simple login audiences are editable; preserve all other policies. */
+    private function visibility(array &$widget, array $op): void
+    {
+        if (array_diff(array_keys($op), ['type', 'op', 'widget_id', 'audience'])
+            || !is_string($op['widget_id'] ?? null) || $op['widget_id'] === ''
+            || !in_array($op['audience'] ?? null, ['all', 'guest', 'logged_in'], true)) {
+            self::fail('Invalid login visibility operation');
+        }
+        // Public runtime gives a non-null root policy priority over the legacy
+        // content policy. Never shadow a still-effective legacy restriction.
+        $existing = $widget['visibility'] ?? $widget['content']['visibility'] ?? [];
+        if (!is_array($existing) || array_diff(array_keys($existing), ['mode', 'rules'])
+            || !in_array($existing['mode'] ?? 'all', ['all', 'any'], true)) {
+            self::fail('Existing visibility policy cannot be replaced');
+        }
+        $rules = $existing['rules'] ?? [];
+        if (!is_array($rules) || !array_is_list($rules) || count($rules) > 1) {
+            self::fail('Existing visibility policy cannot be replaced');
+        }
+        foreach ($rules as $rule) {
+            // Historical PC editors wrote op:eq. Runtime defaults that shape
+            // to equality; only that known equivalent is safe to canonicalize.
+            if (!is_array($rule) || array_diff(array_keys($rule), ['field', 'operator', 'op', 'value'])
+                || ($rule['field'] ?? '') !== 'login_status'
+                || ($rule['operator'] ?? 'eq') !== 'eq' || ($rule['op'] ?? 'eq') !== 'eq'
+                || !in_array($rule['value'] ?? null, ['guest', 'logged_in'], true)) {
+                self::fail('Existing visibility policy cannot be replaced');
+            }
+        }
+        $widget['visibility'] = ['mode' => 'all', 'rules' => $op['audience'] === 'all' ? [] : [
+            ['field' => 'login_status', 'operator' => 'eq', 'value' => $op['audience']],
+        ]];
+    }
+
     private function build(array $spec): array
     {
         $widget = DecorationAgentCatalog::create((string)($spec['name'] ?? ''), self::newId());
         $definition = DecorationAgentCatalog::definition($widget['name']);
-        $fields = [];
-        foreach (['content','styles'] as $section) {
-            if (isset($spec[$section]) && !is_array($spec[$section])) self::fail('Component '.$section.' must be an object');
-            foreach ($spec[$section] ?? [] as $key=>$value) $fields[$section.'.'.$key] = $value;
-        }
-        if (isset($spec['fields']) && !is_array($spec['fields'])) self::fail('Component fields must be an object');
-        $fields = array_replace($fields,$spec['fields'] ?? []);
-        $this->fields($widget, $definition, $fields);
+        $fields=$this->creationFields($spec);
+        $binding=$this->creationBinding($fields,$widget);
+        // An empty copied default mapping is inert; custom mappings stay forbidden.
+        if(($fields['content.field_map']??null)===[])unset($fields['content.field_map']);
+        $this->fields($widget,$definition,$fields);
+        if($binding!==null)$this->bind($widget,$definition,$binding);
         if (!empty($spec['children'])) {
             if (!$definition['children']['supported']) self::fail('Component does not support children');
             $widget['children'] = array_map(fn($child) => $this->build($child), $spec['children']);
         }
         return $widget;
     }
+    private function creationFields(array $spec): array
+    {
+        $fields=[];
+        foreach(['content','styles'] as $section){
+            if(isset($spec[$section])&&!is_array($spec[$section]))self::fail('Component '.$section.' must be an object');
+            foreach($spec[$section]??[] as $key=>$value)$fields[$section.'.'.$key]=$value;
+        }
+        if(isset($spec['fields'])&&!is_array($spec['fields']))self::fail('Component fields must be an object');
+        foreach(['source_key','source_params','data_mode'] as $key){$path='content.'.$key;if(array_key_exists($path,$fields)&&array_key_exists($path,$spec['fields']??[])&&$fields[$path]!==$spec['fields'][$path])self::fail('Conflicting source declarations');}
+        return array_replace($fields,$spec['fields']??[]);
+    }
+
+    private function creationBinding(array &$fields,array $widget): ?array
+    {
+        $source=[];
+        foreach(['source_key','source_params','data_mode'] as $key){$path='content.'.$key;if(array_key_exists($path,$fields)){$source[$key]=$fields[$path];unset($fields[$path]);}}
+        if(!$source)return null;
+        $key=$source['source_key']??($widget['content']['source_key']??'');
+        $mode=$source['data_mode']??(array_key_exists('source_key',$source)?($key===''?'manual':'source'):($widget['content']['data_mode']??'manual'));
+        return ['source_key'=>$key,'mode'=>$mode,'params'=>$source['source_params']??[]];
+    }
+
     private function fields(array &$widget, array $definition, array $fields): void
     {
+        $graphicsEdited = false;
         foreach ($fields as $path => $value) {
             $schema = $this->field($definition, $path, $widget);
             if ($path === 'content.font_size_mode') self::fail('Font compatibility mode is set only by an explicit font edit');
@@ -183,7 +280,9 @@ class DecorationAgentOperations
                 if (is_array($old)) $value = ($schema['type'] ?? '') === 'link' ? array_replace(array_diff_key($old, array_flip(['path','url','query','type','name','title'])), $value) : array_replace($old, $value);
             }
             self::set($widget, $path, $value);
+            if ($path === 'content.source_graphics' || str_starts_with($path, 'content.source_graphics.')) $graphicsEdited = true;
         }
+        if ($graphicsEdited) self::validateSourceGraphics($widget);
     }
     private function field(array $definition, string $path, array $widget): array
     {
@@ -220,11 +319,23 @@ class DecorationAgentOperations
         foreach ($parts as $part) { if (!isset($node[$part])) $node[$part]=[]; if (!is_array($node[$part])) self::fail('Field parent is not an object'); $node =& $node[$part]; }
         $node[$leaf] = $value;
     }
+    private static function validMediaImageBackground($value): bool
+    {
+        if(!is_string($value))return false;$color=trim($value);
+        if($color===''||strtolower($color)==='transparent'||preg_match('/^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/iD',$color))return true;
+        if(!preg_match('/^(rgb|rgba)\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*(0(?:\.\d+)?|1(?:\.0+)?|\.\d+))?\s*\)$/iD',$color,$parts))return false;
+        foreach(array_slice($parts,2,3) as $channel)if((int)$channel>255)return false;
+        $alpha=isset($parts[5])&&$parts[5]!=='';
+        return (strtolower($parts[1])==='rgba')===$alpha;
+    }
+
     private function validate($value, array $schema): void
     {
         $type = $schema['value_type'] ?? 'string';
         $valid = $type === 'number' ? (is_int($value)||is_float($value)) : ($type === 'string' ? is_string($value) : ($type === 'boolean' ? is_bool($value) : ($type === 'null' ? $value===null : is_array($value))));
         if (!$valid) self::fail('Wrong field value type: expected ' . $type);
+        // This new optional field matches its real renderer; legacy colors keep their existing policy.
+        if(($schema['key']??'')==='image_background'&&($schema['type']??'')==='color'&&!self::validMediaImageBackground($value))self::fail('Unsupported media image background color');
         if(is_string($value)&&(($schema['style']??false)||($schema['type']??'')==='color')&&preg_match('/url\s*\(|expression\s*\(|javascript:|@import|[;\x00-\x1f]/i',$value))self::fail('Unsafe style value');
         if ($type === 'array' && array_values($value)!==$value) self::fail('Expected a list');
         if ($type === 'number' && (!is_finite((float)$value) || (isset($schema['min']) && $value < $schema['min']) || (isset($schema['max']) && $value > $schema['max']))) self::fail('Field is outside allowed numeric range');
@@ -289,7 +400,7 @@ class DecorationAgentOperations
         $rows=$widget['content'][$field]??[];$oldCount=count($rows);$action=$op['action']??'';$i=$op['index']??null;
         if ($action==='add') { $row=$op['row']??$op['item']??[];$this->validateList([$row],array_replace($contract,['min_items'=>0]));$row['id']=self::newId();$i=$i??count($rows);if(!is_int($i)||$i<0||$i>count($rows))self::fail('List insertion index invalid');array_splice($rows,$i,0,[$row]); }
         else {
-            if (!is_int($i)||!isset($rows[$i])) self::fail('List row index invalid');
+            if (!is_int($i)||!isset($rows[$i])) self::fail('List row index invalid for content.'.$field.': '.count($rows).' persisted rows. update/delete/copy/move require an existing index; use action=add with item to insert a row (omit index to append). Dynamic source results are not saved list rows.');
             if ($action==='update') foreach ($op['fields']??[] as $key=>$value) {if($key==='id'||!isset($contract['fields'][$key]))self::fail('Unapproved list row field');$this->validate($value,$contract['fields'][$key]);$rows[$i][$key]=$value;}
             elseif($action==='delete')array_splice($rows,$i,1);
             elseif($action==='copy'){ $row=$rows[$i];$row['id']=self::newId();array_splice($rows,$i+1,0,[$row]); }
@@ -298,6 +409,51 @@ class DecorationAgentOperations
         }
         if((count($rows)<$contract['min_items']&&count($rows)<$oldCount)||($contract['max_items']!==null&&count($rows)>$contract['max_items']&&count($rows)>$oldCount))self::fail('List length outside component limits');
         $widget['content'][$field]=$rows;
+        if ($field === 'source_graphics') self::validateSourceGraphics($widget);
+    }
+
+    /** Optional display overrides never create or rename actual source entries. */
+    public static function validateSourceGraphics(array $widget): void
+    {
+        if (($widget['name'] ?? '') !== 'app-collection') self::fail('Source graphics require app-collection');
+        $rows = $widget['content']['source_graphics'] ?? [];
+        if (!is_array($rows) || !array_is_list($rows) || count($rows) > 50) self::fail('Invalid source graphics list');
+        $contract = DecorationAgentCatalog::definition('app-collection')['lists']['source_graphics'] ?? [];
+        $icons = array_column($contract['fields']['icon']['options'] ?? [], 'value');
+        $seen = [];
+        foreach ($rows as $row) {
+            if (!is_array($row) || array_diff(array_keys($row), ['id','app_code','entry_key','mode','icon','image'])) self::fail('Unapproved source graphic field');
+            foreach (['app_code' => 64, 'entry_key' => 128] as $key => $limit) {
+                if (!is_string($row[$key] ?? null) || $row[$key] === '' || trim($row[$key]) !== $row[$key] || mb_strlen($row[$key]) > $limit) self::fail('Source graphic identity is required');
+            }
+            $identity = json_encode([$row['app_code'], $row['entry_key']]);
+            if (isset($seen[$identity])) self::fail('Duplicate source graphic identity');
+            $seen[$identity] = true;
+            $mode = array_key_exists('mode', $row) ? $row['mode'] : 'source';
+            if (!in_array($mode, ['source','icon','image'], true)
+                || (array_key_exists('icon', $row) && !in_array($row['icon'], $icons, true))
+                || (array_key_exists('image', $row) && !is_string($row['image']))
+                || (array_key_exists('id', $row) && (!is_string($row['id']) || $row['id'] === ''))) self::fail('Invalid source graphic mode, icon or image shape');
+        }
+    }
+
+    /** Pure engine: live entries must be supplied by the tenant-scoped service. */
+    public static function sourceGraphicTarget(array $widget, string $field, array $entries): ?array
+    {
+        if (!str_starts_with($field, 'content.source_graphics.')) return null;
+        if (!preg_match('/^content\.source_graphics\.(0|[1-9][0-9]*)\.image$/D', $field, $match)) self::fail('Invalid source graphic image field');
+        self::validateSourceGraphics($widget);
+        $content = $widget['content'];
+        $binding=DecorationAgentDesignContext::appSourceBinding($widget);
+        $key=$binding['key'];$params=$binding['params'];$mode=$binding['mode'];
+        $row = $content['source_graphics'][(int)$match[1]] ?? null;
+        if ($key !== 'app_entries' || !in_array($mode, ['source','hybrid'], true) || !is_array($params) || !is_array($row) || ($row['mode'] ?? '') !== 'image') self::fail('Source graphic is not a rendered image target');
+        $found = false;
+        foreach ($entries as $entry) if (($entry['app_code'] ?? null) === $row['app_code'] && ($entry['entry_key'] ?? null) === $row['entry_key']) $found = true;
+        if (!$found) self::fail('Source graphic application entry is no longer available');
+        ksort($params);
+        return ['app_code'=>$row['app_code'],'entry_key'=>$row['entry_key'],'mode'=>'image','row_id'=>$row['id'] ?? null,
+            'source_binding'=>['key'=>$key,'mode'=>$mode,'params'=>$params]];
     }
     private function bind(array &$widget,array $definition,array $op): void
     {
@@ -312,11 +468,13 @@ class DecorationAgentOperations
     {
         $field=(string)($op['field']??'');$schema=$this->field($definition,$field,$widget);
         if(($schema['type']??'')!=='image')self::fail('Requested field is not an image slot');
-        $prompt=trim((string)($op['prompt']??''));if($prompt===''||mb_strlen($prompt)>4000)self::fail('Image prompt length invalid');
+        $prompt=trim((string)($op['prompt']??''));if(($prompt===''&&!isset($op['generation_mode']))||mb_strlen($prompt)>4000)self::fail('Image prompt length invalid');
         $ratio=$op['ratio']??'1:1';if(!in_array($ratio,['1:1','2:3','3:2','3:4','4:3','9:16','16:9','21:9'],true))self::fail('Image aspect ratio invalid');
         $references=$op['reference_file_ids']??[];if(!is_array($references)||count($references)>10)self::fail('Too many reference files');
         foreach($references as $file)if(!is_int($file)||$file<=0)self::fail('Reference file id invalid');
-        $this->images[]=['widget_id'=>$id,'field'=>$field,'prompt'=>$prompt,'ratio'=>$ratio,'reference_file_ids'=>$references,'old_value'=>self::get($widget,$field)];
+        $extraction=isset($op['generation_mode'])?DecorationAgentDesignExtraction::operation($op):[];
+        $target=self::sourceGraphicTarget($widget,$field,$this->scope['source_graphic_entries']??[]);
+        $this->images[]=['widget_id'=>$id,'field'=>$field,'prompt'=>$prompt,'ratio'=>$ratio,'reference_file_ids'=>$references,'old_value'=>self::get($widget,$field),'old_ref'=>$widget['_decoration_asset_refs'][$field]??null]+($target===null?[]:['source_graphic_target'=>$target])+$extraction;
     }
     private function configurePage(array &$page,array $op): void
     {

@@ -88,7 +88,7 @@ class LoginController extends BaseApiController
     {
         $url = $this->request->get('url');
         $result = ['url' => LoginLogic::codeUrl($url)];
-        return $this->success('获取成功', $result);
+        return $this->success('获取成功', $result)->header(['Cache-Control' => 'no-store']);
     }
 
 

@@ -2127,7 +2127,7 @@ VALUES
 
 INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
-(9410,0,28,'C','新手教程','el-icon-Guide',95,'setting.web.web_setting/getTutorial','tutorial','setting/website/information','','',0,1,0,'','core','core_tenant_tutorial',1,1779000000,1779000000),
+(9410,0,28,'C','新手教程','el-icon-Guide',95,'setting.web.web_setting/getTutorial','tutorial','setting/website/tutorial','','',0,1,0,'','core','core_tenant_tutorial',1,1779000000,1779000000),
 (9411,0,9410,'A','保存','',0,'setting.web.web_setting/setTutorial','','','','',0,0,0,'','core','core_tenant_tutorial_save',1,1779000000,1779000000);
 
 INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) VALUES
@@ -12995,6 +12995,134 @@ INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_
 INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_llm','app.aigc_llm.agent/upload','POST','aigc_llm:agent:upload:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
 -- END home Agent registry bootstrap
 
+-- Micro video app schema; configuration is tenant-scoped and initialized on app use.
+CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_config` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `config_json` longtext NOT NULL,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `uk_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微视频config';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_direction` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `code` varchar(80) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `description` varchar(500) NOT NULL DEFAULT '',
+  `prompt` text NOT NULL,
+  `continuity_prompt` text NOT NULL,
+  `cover_image` varchar(1000) NOT NULL DEFAULT '',
+  `example_video` varchar(1000) NOT NULL DEFAULT '',
+  `is_builtin` tinyint NOT NULL DEFAULT 0,
+  `status` tinyint NOT NULL DEFAULT 1,
+  `sort` int NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `uk_tenant_code` (`tenant_id`,`code`,`delete_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微视频direction';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_task` (
+  `generation_mode` varchar(20) NOT NULL DEFAULT 'reference',
+  `frame_status` varchar(30) NOT NULL DEFAULT 'off',
+  `frame_model_id` varchar(100) NOT NULL DEFAULT '',
+  `frame_quality` varchar(40) NOT NULL DEFAULT '',
+  `frames_revision` int unsigned NOT NULL DEFAULT 0,
+  `frame_quote_json` longtext NULL,
+  `frame_quote_token` varchar(64) NOT NULL DEFAULT '',
+  `frame_quote_expires` int unsigned NOT NULL DEFAULT 0,
+  `frame_batch_id` int unsigned NOT NULL DEFAULT 0,
+
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `idempotency_key` varchar(100) NOT NULL,
+  `title` varchar(200) NOT NULL DEFAULT '',
+  `status` varchar(40) NOT NULL DEFAULT 'planning',
+  `params_json` longtext NOT NULL,
+  `config_snapshot` longtext NOT NULL,
+  `model_snapshot` longtext NOT NULL,
+  `direction_snapshot` longtext NOT NULL,
+  `prompt` longtext NOT NULL,
+  `analysis` longtext NOT NULL,
+  `continuity` longtext NOT NULL,
+  `planning_result` longtext NOT NULL,
+  `plan_revision` int unsigned NOT NULL DEFAULT 0,
+  `quote_json` longtext NOT NULL,
+  `quote_token` varchar(64) NOT NULL DEFAULT '',
+  `quote_expires` int unsigned NOT NULL DEFAULT 0,
+  `confirmed_quote` longtext NOT NULL,
+  `submit_key` varchar(100) NOT NULL DEFAULT '',
+  `resume_key` varchar(100) NOT NULL DEFAULT '',
+  `merge_status` varchar(30) NOT NULL DEFAULT 'pending',
+  `result_uri` varchar(1000) NOT NULL DEFAULT '',
+  `cover_uri` varchar(1000) NOT NULL DEFAULT '',
+  `storage_scope` varchar(20) NOT NULL DEFAULT '',
+  `storage_engine` varchar(30) NOT NULL DEFAULT '',
+  `storage_domain` varchar(255) NOT NULL DEFAULT '',
+  `actual_duration` decimal(12,3) NOT NULL DEFAULT 0,
+  `error` varchar(1000) NOT NULL DEFAULT '',
+  `lease_token` varchar(64) NOT NULL DEFAULT '',
+  `lease_until` int unsigned NOT NULL DEFAULT 0,
+  `next_run_at` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `uk_tenant_user_key` (`tenant_id`,`user_id`,`idempotency_key`), KEY `idx_due` (`status`,`next_run_at`,`lease_until`), KEY `idx_owner` (`tenant_id`,`user_id`,`delete_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微视频task';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_segment` (
+  `first_frame_id` int unsigned NOT NULL DEFAULT 0,
+  `last_frame_id` int unsigned NOT NULL DEFAULT 0,
+
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `task_id` int unsigned NOT NULL,
+  `sort` int unsigned NOT NULL,
+  `title` varchar(200) NOT NULL,
+  `duration` int unsigned NOT NULL,
+  `prompt` longtext NOT NULL,
+  `image_indices` text NOT NULL,
+  `start_state` text NOT NULL,
+  `end_state` text NOT NULL,
+  `continuity` text NOT NULL,
+  `status` varchar(30) NOT NULL DEFAULT 'pending',
+  `attempt_no` int unsigned NOT NULL DEFAULT 0,
+  `attempt_id` int unsigned NOT NULL DEFAULT 0,
+  `video_uri` varchar(1000) NOT NULL DEFAULT '',
+  `actual_duration` decimal(12,3) NOT NULL DEFAULT 0,
+  `storage_scope` varchar(20) NOT NULL DEFAULT '',
+  `storage_engine` varchar(30) NOT NULL DEFAULT '',
+  `storage_domain` varchar(255) NOT NULL DEFAULT '',
+  `width` int unsigned NOT NULL DEFAULT 0,
+  `height` int unsigned NOT NULL DEFAULT 0,
+  `error` varchar(1000) NOT NULL DEFAULT '',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `uk_task_sort` (`task_id`,`sort`), KEY `idx_owner` (`tenant_id`,`user_id`,`task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微视频segment';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_attempt` (
+  `frame_id` int unsigned NOT NULL DEFAULT 0,
+
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `task_id` int unsigned NOT NULL,
+  `segment_id` int unsigned NOT NULL DEFAULT 0,
+  `kind` varchar(20) NOT NULL,
+  `attempt_no` int unsigned NOT NULL,
+  `status` varchar(30) NOT NULL,
+  `app_task_id` int unsigned NOT NULL DEFAULT 0,
+  `consumption_id` int unsigned NOT NULL DEFAULT 0,
+  `provider_task_id` varchar(200) NOT NULL DEFAULT '',
+  `request_json` longtext NOT NULL,
+  `result_json` longtext NOT NULL,
+  `error` varchar(1000) NOT NULL DEFAULT '',
+  `user_charge_points` decimal(16,4) NOT NULL DEFAULT 0,
+  `billing_status` varchar(30) NOT NULL DEFAULT 'none',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `uk_execution` (`task_id`,`segment_id`,`frame_id`,`kind`,`attempt_no`), KEY `idx_consumption` (`consumption_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微视频attempt';
 -- Canvas template catalog: directly after Skills (descending menu sort).
 INSERT INTO `la_tenant_system_menu` (tenant_id,pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
 SELECT parent.tenant_id,parent.id,'C','模板管理','',35,'app.aigc_canvas.template/detail','template','apps/aigc_canvas/template','','',0,1,0,'aigc_canvas','app','aigc_canvas_template',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
@@ -13061,3 +13189,210 @@ SELECT p.tenant_id,p.user_id,CONCAT('canvas:',p.id),
 COALESCE((SELECT legacy.preferences FROM `la_aigc_llm_agent_preference` legacy WHERE legacy.tenant_id=p.tenant_id AND legacy.user_id=p.user_id AND legacy.workspace_key='aigc_canvas' LIMIT 1),'{"mode":"ask","models":{}}'),
 UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 FROM `la_aigc_canvas_project` p WHERE p.delete_time=0 AND p.tenant_id>0 AND p.user_id>0;
+
+-- BEGIN micro video builtin bootstrap (generated from app manifest)
+-- Missing records only; preserve tenant-owned menus and API authorization/settings.
+INSERT IGNORE INTO `la_app` (`code`,`name`,`icon`,`description`,`category`,`cover`,`client_tags`,`is_builtin`,`sort`,`current_version`,`status`,`expire_policy`,`install_time`,`update_time`) VALUES ('aigc_micro_video','微视频','resource/image/common/menu_generator.png','多图理解、智能提示词与创作方向，确认分段后生成并合并完整视频。','aigc','','tenant,pc,uniapp',1,848,'1.2.0','installed','allow',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_version` (`app_code`,`version`,`require_core`,`package_path`,`manifest_json`,`changelog`,`status`,`create_time`) VALUES ('aigc_micro_video','1.2.0','>=1.0.0','local','{"code":"aigc_micro_video","name":"微视频","version":"1.2.0","require_core":">=1.0.0","description":"多图理解、智能提示词与创作方向，确认分段后生成并合并完整视频。","changelog":"1. 新增云端创作项目、模板与商品档案，支持版本保存与草稿变体。\\n2. 支持剧本改写、角色分析、分镜参考与逐项费用确认。\\n3. 扩展移动端创作流程与租户工作台管理。","icon":"resource/image/common/menu_generator.png","category":"aigc","is_builtin":1,"expire_policy":"allow","sort":848,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_micro_video","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_micro_video_admin","name":"微视频","path":"/app/aigc_micro_video","icon":"el-icon-VideoCamera","sort":92,"status":1},{"terminal":"pc","entry_key":"aigc_micro_video","name":"微视频","path":"/ai/tools/aigc_micro_video","icon":"resource/image/common/menu_generator.png","sort":84,"status":1},{"terminal":"uniapp","entry_key":"aigc_micro_video","name":"微视频","path":"/apps/aigc_micro_video/pages/creator/index","icon":"resource/image/common/menu_generator.png","sort":848,"status":1,"meta":{"pages":[{"name":"创作首页","path":"/apps/aigc_micro_video/pages/creator/index"},{"name":"分段确认","path":"/apps/aigc_micro_video/pages/plan/index"},{"name":"我的作品","path":"/apps/aigc_micro_video/pages/tasks/index"},{"name":"作品详情","path":"/apps/aigc_micro_video/pages/detail/index"},{"name":"微视频工作台","path":"/apps/aigc_micro_video/pages/workbench/index","auth":true}]}}]}','1. 新增云端创作项目、模板与商品档案，支持版本保存与草稿变体。
+2. 支持剧本改写、角色分析、分镜参考与逐项费用确认。
+3. 扩展移动端创作流程与租户工作台管理。',1,UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_frontend_entry` (`app_code`,`terminal`,`entry_key`,`name`,`path`,`icon`,`sort`,`status`,`meta`,`create_time`,`update_time`) VALUES ('aigc_micro_video','tenant','aigc_micro_video_admin','微视频','/app/aigc_micro_video','el-icon-VideoCamera',92,1,'[]',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_frontend_entry` (`app_code`,`terminal`,`entry_key`,`name`,`path`,`icon`,`sort`,`status`,`meta`,`create_time`,`update_time`) VALUES ('aigc_micro_video','pc','aigc_micro_video','微视频','/ai/tools/aigc_micro_video','resource/image/common/menu_generator.png',84,1,'[]',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_frontend_entry` (`app_code`,`terminal`,`entry_key`,`name`,`path`,`icon`,`sort`,`status`,`meta`,`create_time`,`update_time`) VALUES ('aigc_micro_video','uniapp','aigc_micro_video','微视频','/apps/aigc_micro_video/pages/creator/index','resource/image/common/menu_generator.png',848,1,'{"pages":[{"name":"创作首页","path":"/apps/aigc_micro_video/pages/creator/index"},{"name":"分段确认","path":"/apps/aigc_micro_video/pages/plan/index"},{"name":"我的作品","path":"/apps/aigc_micro_video/pages/tasks/index"},{"name":"作品详情","path":"/apps/aigc_micro_video/pages/detail/index"},{"name":"微视频工作台","path":"/apps/aigc_micro_video/pages/workbench/index","auth":true}]}',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.config/detail','GET','aigc_micro_video:config:detail:user','user',0,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.direction/lists','GET','aigc_micro_video:direction:lists:user','user',0,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.prompt/write','POST','aigc_micro_video:prompt:write:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.plan/create','POST','aigc_micro_video:plan:create:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.plan/save','POST','aigc_micro_video:plan:save:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.generate/estimate','POST','aigc_micro_video:generate:estimate:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.generate/index','POST','aigc_micro_video:generate:index:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.task/lists','GET','aigc_micro_video:task:lists:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.task/detail','GET','aigc_micro_video:task:detail:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.task/retry','POST','aigc_micro_video:task:retry:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.task/delete','POST','aigc_micro_video:task:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.config/detail','GET','aigc_micro_video:config:detail','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.config/setup','POST','aigc_micro_video:config:setup','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.direction/lists','GET','aigc_micro_video:direction:lists','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.direction/save','POST','aigc_micro_video:direction:save','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.direction/status','POST','aigc_micro_video:direction:status','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.direction/delete','POST','aigc_micro_video:direction:delete','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.task/lists','GET','aigc_micro_video:task:lists','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.task/detail','GET','aigc_micro_video:task:detail','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.task/retry','POST','aigc_micro_video:task:retry','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.task/delete','POST','aigc_micro_video:task:delete','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.frame/configure','POST','aigc_micro_video:frame:configure:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.frame/save','POST','aigc_micro_video:frame:save:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.frame/estimate','POST','aigc_micro_video:frame:estimate:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.frame/generate','POST','aigc_micro_video:frame:generate:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.frame/confirm','POST','aigc_micro_video:frame:confirm:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/lists','GET','aigc_micro_video:workbench:lists:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/detail','GET','aigc_micro_video:workbench:detail:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/save','POST','aigc_micro_video:workbench:save:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/delete','POST','aigc_micro_video:workbench:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/copy','POST','aigc_micro_video:workbench:copy:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/versions','GET','aigc_micro_video:workbench:versions:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/restore','POST','aigc_micro_video:workbench:restore:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/categories','GET','aigc_micro_video:workbench:categories:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/capabilities','GET','aigc_micro_video:workbench:capabilities:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/jobs','GET','aigc_micro_video:workbench:jobs:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/jobDetail','GET','aigc_micro_video:workbench:jobDetail:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/reconcile','POST','aigc_micro_video:workbench:reconcile:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/estimate','POST','aigc_micro_video:workbench:estimate:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/job','POST','aigc_micro_video:workbench:job:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/retry','POST','aigc_micro_video:workbench:retry:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/adopt','POST','aigc_micro_video:workbench:adopt:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/execution','POST','aigc_micro_video:workbench:execution:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/assets','GET','aigc_micro_video:workbench:assets:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/brief','POST','aigc_micro_video:workbench:brief:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/variants','POST','aigc_micro_video:workbench:variants:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/lists','GET','aigc_micro_video:workbench:lists','tenant',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/detail','GET','aigc_micro_video:workbench:detail','tenant',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/save','POST','aigc_micro_video:workbench:save','tenant',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/delete','POST','aigc_micro_video:workbench:delete','tenant',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/copy','POST','aigc_micro_video:workbench:copy','tenant',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/versions','GET','aigc_micro_video:workbench:versions','tenant',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/restore','POST','aigc_micro_video:workbench:restore','tenant',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/categories','GET','aigc_micro_video:workbench:categories','tenant',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/capabilities','GET','aigc_micro_video:workbench:capabilities','tenant',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/jobs','GET','aigc_micro_video:workbench:jobs','tenant',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/jobDetail','GET','aigc_micro_video:workbench:jobDetail','tenant',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/reconcile','POST','aigc_micro_video:workbench:reconcile','tenant',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/usage','GET','aigc_micro_video:workbench:usage','tenant',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/subjects','GET','aigc_micro_video:workbench:subjects:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/importSubject','POST','aigc_micro_video:workbench:importSubject:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_micro_video','app.aigc_micro_video.workbench/importAsset','POST','aigc_micro_video:workbench:importAsset:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
+SELECT t.tenant_id,'aigc_micro_video','1.2.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant`) t;
+-- Shared tenant menus are seeded here; split tables are synced by DefaultAppService on creation/update.
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,0,'M','微视频','el-icon-VideoCamera',84,'','aigc-micro-video','','','',0,1,0,'aigc_micro_video','app','aigc_micro_video',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='aigc_micro_video' AND m.source_menu_key='aigc_micro_video' AND m.tenant_id=t.tenant_id);
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='aigc_micro_video' AND p.source_menu_key='aigc_micro_video' AND p.tenant_id=t.tenant_id LIMIT 1),'C','应用配置','',40,'app.aigc_micro_video.config/detail','config','apps/aigc_micro_video/config','','',0,1,0,'aigc_micro_video','app','aigc_micro_video_config',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='aigc_micro_video' AND m.source_menu_key='aigc_micro_video_config' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='aigc_micro_video' AND p.source_menu_key='aigc_micro_video' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='aigc_micro_video' AND p.source_menu_key='aigc_micro_video' AND p.tenant_id=t.tenant_id LIMIT 1),'C','创作方向','',30,'app.aigc_micro_video.direction/lists','direction','apps/aigc_micro_video/direction','','',0,1,0,'aigc_micro_video','app','aigc_micro_video_direction',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='aigc_micro_video' AND m.source_menu_key='aigc_micro_video_direction' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='aigc_micro_video' AND p.source_menu_key='aigc_micro_video' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='aigc_micro_video' AND p.source_menu_key='aigc_micro_video' AND p.tenant_id=t.tenant_id LIMIT 1),'C','创作任务','',20,'app.aigc_micro_video.task/lists','task','apps/aigc_micro_video/task','','',0,1,0,'aigc_micro_video','app','aigc_micro_video_task',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='aigc_micro_video' AND m.source_menu_key='aigc_micro_video_task' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='aigc_micro_video' AND p.source_menu_key='aigc_micro_video' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT t.tenant_id,(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='aigc_micro_video' AND p.source_menu_key='aigc_micro_video' AND p.tenant_id=t.tenant_id LIMIT 1),'C','创作工作台','',35,'app.aigc_micro_video.workbench/lists','workbench','apps/aigc_micro_video/workbench','','',0,1,0,'aigc_micro_video','app','aigc_micro_video_workbench',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code='aigc_micro_video' AND m.source_menu_key='aigc_micro_video_workbench' AND m.tenant_id=t.tenant_id) AND (SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code='aigc_micro_video' AND p.source_menu_key='aigc_micro_video' AND p.tenant_id=t.tenant_id LIMIT 1) IS NOT NULL;
+-- END micro video builtin bootstrap
+
+CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_frame` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT,
+ `tenant_id` int unsigned NOT NULL,
+ `user_id` int unsigned NOT NULL,
+ `task_id` int unsigned NOT NULL,
+ `boundary_index` int unsigned NOT NULL,
+ `version` int unsigned NOT NULL,
+ `is_latest` tinyint unsigned NULL DEFAULT 1,
+ `prompt` longtext NOT NULL,
+ `reference_indices` text NOT NULL,
+ `prompt_fingerprint` varchar(64) NOT NULL DEFAULT '',
+ `dependency_fingerprint` varchar(64) NOT NULL DEFAULT '',
+ `source_fingerprint` varchar(64) NOT NULL DEFAULT '',
+ `status` varchar(30) NOT NULL DEFAULT 'pending',
+ `confirmed` tinyint NOT NULL DEFAULT 0,
+ `image_uri` varchar(1000) NOT NULL DEFAULT '',
+ `storage_scope` varchar(20) NOT NULL DEFAULT '',
+ `storage_engine` varchar(30) NOT NULL DEFAULT '',
+ `storage_domain` varchar(255) NOT NULL DEFAULT '',
+ `attempt_id` int unsigned NOT NULL DEFAULT 0,
+ `user_charge_points` decimal(16,4) NOT NULL DEFAULT 0,
+ `error` varchar(1000) NOT NULL DEFAULT '',
+ `create_time` int unsigned NOT NULL DEFAULT 0,
+ `update_time` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_boundary_version` (`task_id`,`boundary_index`,`version`),
+ UNIQUE KEY `uk_current_boundary` (`task_id`,`boundary_index`,`is_latest`), KEY `idx_owner` (`tenant_id`,`user_id`,`task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微视频共享边界版本';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_frame_batch` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT,
+ `tenant_id` int unsigned NOT NULL,
+ `user_id` int unsigned NOT NULL,
+ `task_id` int unsigned NOT NULL,
+ `idempotency_key` varchar(100) NOT NULL,
+ `request_hash` varchar(64) NOT NULL,
+ `quote_json` longtext NOT NULL,
+ `frame_ids` text NOT NULL,
+ `status` varchar(30) NOT NULL DEFAULT 'pending',
+ `create_time` int unsigned NOT NULL DEFAULT 0,
+ `update_time` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_admission` (`tenant_id`,`user_id`,`task_id`,`idempotency_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微视频帧图幂等受理';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_workbench_record` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `user_id` int unsigned NOT NULL DEFAULT 0,
+ `kind` varchar(20) NOT NULL, `title` varchar(120) NOT NULL, `visibility` varchar(20) NOT NULL DEFAULT 'private',
+ `status` tinyint unsigned NOT NULL DEFAULT 1, `revision` int unsigned NOT NULL DEFAULT 1, `body_json` longtext NOT NULL,
+ `create_time` int unsigned NOT NULL DEFAULT 0, `update_time` int unsigned NOT NULL DEFAULT 0, `delete_time` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), KEY `idx_owner` (`tenant_id`,`user_id`,`kind`,`delete_time`), KEY `idx_shared` (`tenant_id`,`kind`,`visibility`,`status`,`delete_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_workbench_version` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `user_id` int unsigned NOT NULL,
+ `record_id` int unsigned NOT NULL, `revision` int unsigned NOT NULL, `title` varchar(120) NOT NULL, `body_json` longtext NOT NULL, `create_time` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_version` (`record_id`,`revision`), KEY `idx_owner` (`tenant_id`,`user_id`,`record_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_workbench_quote` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `user_id` int unsigned NOT NULL,
+ `project_id` int unsigned NOT NULL, `project_revision` int unsigned NOT NULL, `token` varchar(64) NOT NULL,
+ `action` varchar(30) NOT NULL, `input_hash` char(64) NOT NULL, `quote_json` longtext NOT NULL, `request_json` longtext NOT NULL,
+ `expires_at` int unsigned NOT NULL, `create_time` int unsigned NOT NULL,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_token` (`token`), KEY `idx_owner` (`tenant_id`,`user_id`,`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_workbench_job` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `user_id` int unsigned NOT NULL,
+ `project_id` int unsigned NOT NULL, `project_revision` int unsigned NOT NULL, `action` varchar(30) NOT NULL,
+ `idempotency_key` varchar(90) NOT NULL, `input_hash` char(64) NOT NULL, `status` varchar(20) NOT NULL DEFAULT 'queued',
+ `request_json` longtext NOT NULL, `receipt_json` longtext NOT NULL, `result_json` longtext NOT NULL,
+ `consumption_id` int unsigned NOT NULL DEFAULT 0, `app_task_id` int unsigned NOT NULL DEFAULT 0, `user_charge_points` decimal(18,8) NOT NULL DEFAULT 0,
+ `error` varchar(1000) NOT NULL DEFAULT '', `lease_token` varchar(64) NOT NULL DEFAULT '', `lease_until` int unsigned NOT NULL DEFAULT 0,
+ `next_run_at` int unsigned NOT NULL DEFAULT 0, `create_time` int unsigned NOT NULL, `update_time` int unsigned NOT NULL,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_request` (`tenant_id`,`user_id`,`idempotency_key`), KEY `idx_runnable` (`status`,`next_run_at`,`lease_until`), KEY `idx_project` (`tenant_id`,`user_id`,`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_workbench_execution` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `user_id` int unsigned NOT NULL,
+ `project_id` int unsigned NOT NULL, `project_revision` int unsigned NOT NULL, `idempotency_key` varchar(90) NOT NULL,
+ `task_id` int unsigned NOT NULL, `snapshot_json` longtext NOT NULL, `create_time` int unsigned NOT NULL,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_request` (`tenant_id`,`user_id`,`idempotency_key`), KEY `idx_project` (`tenant_id`,`user_id`,`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_micro_video_workbench_asset` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `user_id` int unsigned NOT NULL,
+ `source_kind` varchar(20) NOT NULL, `source_id` int unsigned NOT NULL, `source_hash` char(64) NOT NULL, `image_json` longtext NOT NULL,
+ `create_time` int unsigned NOT NULL, `update_time` int unsigned NOT NULL,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_source` (`tenant_id`,`user_id`,`source_kind`,`source_id`,`source_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Cash purchase identity and settlement deduplication (shared across tenant rows).
+CREATE TABLE IF NOT EXISTS `la_cash_checkout` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `biz_type` varchar(32) NOT NULL,
+  `order_id` int unsigned NOT NULL DEFAULT 0,
+  `order_sn` varchar(64) NOT NULL,
+  `request_key` varchar(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `request_hash` char(64) NOT NULL DEFAULT '',
+  `result_json` mediumtext,
+  `channel` tinyint unsigned NOT NULL DEFAULT 0,
+  `transaction_id` varchar(128) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_order_sn` (`order_sn`),
+  UNIQUE KEY `uk_purchase_request` (`tenant_id`,`user_id`,`biz_type`,`request_key`),
+  UNIQUE KEY `uk_payment_receipt` (`channel`,`transaction_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='现金购买请求与到账去重';

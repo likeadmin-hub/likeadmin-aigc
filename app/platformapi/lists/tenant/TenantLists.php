@@ -54,7 +54,7 @@ class TenantLists extends BaseAdminDataLists implements ListsExcelInterface
      */
     public function lists(): array
     {
-        $field = "id,sn,name,avatar,disable,create_time,domain_alias,domain_alias_enable,access_mode,notes,tel,point_balance,contract_package_id,contract_package_name,contract_start_time,contract_expire_time,contract_renew_time,contract_status,parent_tenant_id,source_tenant_id";
+        $field = "id,sn,name,avatar,disable,create_time,domain_alias,domain_alias_enable,access_mode,notes,tel,point_balance,contract_package_id,contract_package_name,contract_start_time,contract_expire_time,contract_renew_time,contract_status,parent_tenant_id,source_tenant_id,oem_sales_enabled,oem_flow_enabled";
 
         $lists = Tenant::withCount(['users'])
             ->withSearch($this->setSearch(), $this->params)

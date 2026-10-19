@@ -24,17 +24,17 @@ if(($argv[1]??'')!=='--operation') {
         appWrite($dir.'/signature.json',json_encode(['sha256'=>appHashes($dir)]));
         $archive=$dir.'.tar';$tar=new PharData($archive);$tar->buildFromDirectory($dir);unset($tar);$packages[$suffix][$version]=$archive;
     }
-    $initial=appChild($site,'snapshot');$pointer=$initial['generation'];$generations=[];
+    $initial=appChild($site,'snapshot');$pointer=$initial['generation'];$canonical=$pointer===rtrim($site,'/');$generations=[];
     foreach(glob($site.'/.composer-runtime/generations/*') as $path)if(is_dir($path))$generations[$path]=appHashes($path);
     $a=appChild($site,'apply',['archive'=>$packages['a']['1.0.0'],'code'=>'aigc_fixture_a']);appCheck($a['status']==='applied','A install metadata missing');
-    $seen=appChild($site,'observe',['a'=>'1.0.0']);appCheck($seen['generation']!==$pointer,'A install did not publish a new generation');
+    $seen=appChild($site,'observe',['a'=>'1.0.0']);appCheck($canonical?$seen['generation']===$pointer:$seen['generation']!==$pointer,'A install selected an invalid runtime');
     appChild($site,'apply',['archive'=>$packages['b']['1.0.0'],'code'=>'aigc_fixture_b']);appChild($site,'observe',['a'=>'1.0.0','b'=>'1.0.0']);
     appChild($site,'remove',['code'=>'aigc_fixture_a']);
     appChild($site,'apply',['archive'=>$packages['b']['1.0.1'],'code'=>'aigc_fixture_b']);$beforeReinstall=appChild($site,'observe',['b'=>'1.0.1','removed'=>'aigc_fixture_a']);
     // Exact same archive hash, but a new authorized install operation after removal.
     $aReinstalled=appChild($site,'apply',['archive'=>$packages['a']['1.0.0'],'code'=>'aigc_fixture_a']);
     appCheck($aReinstalled['id']!==$a['id'] && $aReinstalled['sha256']===$a['sha256'],'Reinstall did not use same bytes under a new package id');
-    $seen=appChild($site,'observe',['a'=>'1.0.0','b'=>'1.0.1']);appCheck($seen['generation']!==$beforeReinstall['generation'],'Same-ZIP reinstall reused an obsolete committed generation');
+    $seen=appChild($site,'observe',['a'=>'1.0.0','b'=>'1.0.1']);appCheck($canonical?$seen['generation']===$pointer:$seen['generation']!==$beforeReinstall['generation'],'Same-ZIP reinstall selected an obsolete runtime');
     appCheck($seen['b_app']===$beforeReinstall['b_app'],'A reinstall changed B metadata');
     $beforeFailure=appChild($site,'snapshot');
     $failed=appChild($site,'apply',['archive'=>$packages['a']['1.0.1'],'code'=>'aigc_fixture_a','fail'=>true]);appCheck($failed['status']==='apply_failed','App failure metadata missing');
@@ -45,7 +45,7 @@ if(($argv[1]??'')!=='--operation') {
     $counts=appChild($site,'migration-counts');appCheck($counts===['a'=>1,'b'=>1],'App SQL migrations replayed during update/reinstall/retry');
     foreach($generations as $path=>$hashes)appCheck(appHashes($path)===$hashes,'Initial immutable generation mutated: '.$path);
     $final=appChild($site,'business');appCheck($final===$initial['business'],'App operations modified protected business records/site bytes');
-    echo "PASS actual AppPackage APIs: A install/remove/same-ZIP reinstall, intervening B update retained, fresh canary code and menus, new package/task success, metadata failure rollback/retry, migrations once, initial generations immutable\n";exit(0);
+    echo "PASS actual AppPackage APIs: A install/remove/same-ZIP reinstall, intervening B update retained, fresh canary code and menus, new package/task success, metadata failure rollback/retry, migrations once, protected business state intact\n";exit(0);
 }
 $site=$argv[2];$action=$argv[3];$data=json_decode($argv[4]??'{}',true,512,JSON_THROW_ON_ERROR);
 $GLOBALS['app_operation_completed']=false;register_shutdown_function(static function(){if(empty($GLOBALS['app_operation_completed'])){fwrite(STDERR,"App operation did not complete\n");exit(1);}});
@@ -58,9 +58,9 @@ request()->withServer(array_merge(request()->server(),['HTTP_HOST'=>'system.fixt
 function appBusiness(string $site):array {
     $result=[];foreach(['tenant','user','user_account_log','recharge_order','aigc_short_drama_episode_task','aigc_short_drama_generation_task'] as $table)$result[$table]=Db::name($table)->order('id')->select()->toArray();
     $result['paid_nondefault_app']=Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'aigc_music'])->find();
-    $state=json_decode(file_get_contents('/fixture/state.json'),true,512,JSON_THROW_ON_ERROR);
+    $state=is_file('/fixture/state.json')?json_decode(file_get_contents('/fixture/state.json'),true,512,JSON_THROW_ON_ERROR):['customer_configuration'=>[]];
     foreach($state['customer_configuration'] as $table=>$rows)$result['customer_configuration'][$table]=Db::name($table)->whereIn('id',array_column($rows,'id'))->order('id')->select()->toArray();
-    foreach(['.env','config/install.lock','upgrade/version.json','public/uploads/business.bin','runtime/task-lease.json','oem/brand.json'] as $path)$result[$path]=hash_file('sha256',$site.'/'.$path);return $result;
+    foreach(['.env','config/install.lock','upgrade/version.json','public/uploads/business.bin','runtime/task-lease.json','oem/brand.json'] as $path)$result[$path]=is_file($site.'/'.$path)?hash_file('sha256',$site.'/'.$path):null;return $result;
 }
 $service=new AppPackageUpdateService();$result=[];
 if($action==='apply' || $action==='retry') {

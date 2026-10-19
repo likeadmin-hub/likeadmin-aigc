@@ -1,6 +1,8 @@
 {
   "component": true,
   "usingComponents": {
-    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page"
+    "u-icon": "../../../../uni_modules/vk-uview-ui/components/u-icon/u-icon",
+    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
+    "digital-human-page": "../../../../components/digital-human-page/digital-human-page"
   }
 }

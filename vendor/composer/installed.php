@@ -380,9 +380,9 @@
             'dev_requirement' => false,
         ),
         'qiniu/php-sdk' => array(
-            'pretty_version' => 'v7.4.0',
-            'version' => '7.4.0.0',
-            'reference' => '1c6bc89166e524a40ee42bf516fb99ffc6401c82',
+            'pretty_version' => 'v7.14.0',
+            'version' => '7.14.0.0',
+            'reference' => 'ee752ffa7263ce99fca0bd7340cf13c486a3516c',
             'type' => 'library',
             'install_path' => __DIR__ . '/../qiniu/php-sdk',
             'aliases' => array(),

@@ -64,6 +64,8 @@ class DecorateDataSourceService
 
         $page['data'] = self::encodeJson($filtered);
         $page['resolved_sources'] = self::resolveRefs((int)($context['tenant_id'] ?? 0), array_values($refs), $context);
+        $urls=\app\common\service\decorate\agent\DecorationAgentAssetReferences::resolveUrls(['data'=>$filtered,'meta'=>$meta],(int)($context['tenant_id']??0));
+        if($urls){$page['resolved_asset_urls']=$urls;$page['resolved_sources']['__decoration_asset_urls']=$urls;}
         if (($page['page_code'] ?? '') === 'user' && ($page['terminal'] ?? '') === 'mobile') {
             $page['resolved_sources']['__features'] = [
                 'distribution_enabled' => DistributionService::isEnabled((int)($context['tenant_id'] ?? 0)) ? 1 : 0,
@@ -130,13 +132,13 @@ class DecorateDataSourceService
     {
         $content = (array)($widget['content'] ?? []);
         $source = (array)($content['source'] ?? []);
-        $key = (string)($content['source_key'] ?? $source['key'] ?? '');
+        $key = (string)(array_key_exists('source_key', $content) ? $content['source_key'] : ($source['key'] ?? ''));
         if ($key === '') {
             return [];
         }
         return [
             'key' => $key,
-            'params' => (array)($content['source_params'] ?? $source['params'] ?? []),
+            'params' => (array)(array_key_exists('source_params', $content) ? $content['source_params'] : (array_key_exists('source_key', $content) ? [] : ($source['params'] ?? []))),
         ];
     }
 
@@ -201,7 +203,15 @@ class DecorateDataSourceService
             'account-quota' => 'account_summary',
             'asset-entries' => 'user_assets',
         ];
-        if (($content['source_key'] ?? '') === '' && isset($sourceDefaults[$name])) {
+        // Promote a saved legacy binding before applying defaults. A canonical
+        // empty key is an explicit clear and must not fetch a stale/default source.
+        if (!array_key_exists('source_key', $content) && !empty($content['source']['key'])) {
+            $content['source_key'] = (string)$content['source']['key'];
+            if (!array_key_exists('source_params', $content)) {
+                $content['source_params'] = (array)($content['source']['params'] ?? []);
+            }
+        }
+        if (!array_key_exists('source_key', $content) && isset($sourceDefaults[$name])) {
             $content['source_key'] = $sourceDefaults[$name];
             if (!array_key_exists('data_mode', $content)) {
                 $content['data_mode'] = 'hybrid';

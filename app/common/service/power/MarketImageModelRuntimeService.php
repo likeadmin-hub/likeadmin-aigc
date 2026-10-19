@@ -13,6 +13,7 @@ use app\common\service\ai\AiTaskJobService;
 use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\point\PointService;
+use app\common\service\app\aigc_micro_video\MicroVideoSubmission;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
 use think\facade\Cache;
@@ -28,11 +29,13 @@ final class MarketImageProviderRequestException extends Exception
 {
     private $retryable;
     private $accepted;
+    private array $providerReceipt;
 
-    public function __construct(string $message, bool $retryable = false, int $code = 0, bool $accepted = false)
+    public function __construct(string $message, bool $retryable = false, int $code = 0, bool $accepted = false,array $providerReceipt = [])
     {
         $this->retryable = $retryable;
         $this->accepted = $accepted;
+        $this->providerReceipt=$providerReceipt;
         parent::__construct($message, $code);
     }
 
@@ -42,6 +45,7 @@ final class MarketImageProviderRequestException extends Exception
     }
 
     public function wasAccepted(): bool { return $this->accepted; }
+    public function receipt(): array { return $this->providerReceipt; }
 }
 
 /**
@@ -300,6 +304,7 @@ class MarketImageModelRuntimeService
         if ((string)$consumption['run_status'] !== 'reserved') {
             return self::responseFromConsumption($consumption->toArray());
         }
+        $microSubmission=MicroVideoSubmission::applies($consumption->toArray());
         $price = (array)$consumption['price_snapshot'];
         $payload = self::payload($price, $request, (string)$consumption['consume_no'], (int)$consumption['tenant_id']);
         if ($tenantAdminConsumption) {
@@ -307,6 +312,7 @@ class MarketImageModelRuntimeService
             $claimed = AiConsumptionLog::where('id', $consumptionId)->where('run_status', 'reserved')->update(['run_status' => 'submitting', 'update_time' => time()]);
             if (!$claimed) return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
         }
+        if($microSubmission&&!MicroVideoSubmission::begin($consumptionId))return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
         $started = microtime(true);
         $taskId = '';
         $requestId = '';
@@ -314,11 +320,12 @@ class MarketImageModelRuntimeService
         $upstreamAccepted = false;
         \app\common\service\open_platform\OpenSubmission::start($consumptionId);
         try {
-            $submission = self::submitWithTransientRetry($consumptionId, self::origin() . self::SUBMIT_PATH, $payload, $tenantAdminConsumption);
+            $submission = self::submitWithTransientRetry($consumptionId, self::origin() . self::SUBMIT_PATH, $payload, $tenantAdminConsumption||$microSubmission,$microSubmission);
             $response = $submission['response'];
             $upstreamAccepted = true;
             $submitAttempts = $submission['attempts'];
             $taskId = self::taskId($response);
+            if($microSubmission)MicroVideoSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
             if ($tenantAdminConsumption) {
                 $requestId = self::requestId($response);
                 AiConsumptionLog::where('id', $consumptionId)->update(['run_status' => 'running', 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'update_time' => time()]);
@@ -335,7 +342,7 @@ class MarketImageModelRuntimeService
                 $c = $ctx['consumption'];
                 if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return;
                 $status = $images === [] ? 'running' : 'success';
-                $c->save(['run_status' => $status, 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'response_summary' => ['image_count' => count($images), 'submit_attempts' => $submitAttempts], 'update_time' => time()]);
+                $c->save(['run_status' => $status, 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'response_summary' => array_replace((array)$c['response_summary'], ['image_count' => count($images), 'submit_attempts' => $submitAttempts, 'images'=>$images]), 'update_time' => time()]);
                 self::event((int)$c['id'], 'submit', 'success', ['upstream_task_id' => $taskId, 'image_count' => count($images), 'submit_attempts' => $submitAttempts], (int)round((microtime(true) - $started) * 1000));
             });
             if ($images !== []) {
@@ -347,6 +354,7 @@ class MarketImageModelRuntimeService
             return ['status' => $images === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => $images];
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
+            if($microSubmission&&self::holdMicroSubmissionError($consumptionId,$e))return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             if ($upstreamAccepted) {
                 self::recordAcceptedSubmissionFailure($consumptionId, $taskId, $requestId, $e);
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => []];
@@ -374,13 +382,13 @@ class MarketImageModelRuntimeService
      *
      * @return array{response:array<string,mixed>,attempts:int}
      */
-    private static function submitWithTransientRetry(int $consumptionId, string $url, array $payload, bool $singleAttempt = false): array
+    private static function submitWithTransientRetry(int $consumptionId, string $url, array $payload, bool $singleAttempt = false,bool $microVideo = false): array
     {
         $attempt = 0;
         while ($attempt < self::SUBMIT_MAX_ATTEMPTS) {
             $attempt++;
             try {
-                return ['response' => self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
+                return ['response' => $microVideo?self::request('POST',$url,$payload):self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
             } catch (MarketImageProviderRequestException $e) {
                 if (\app\common\service\open_platform\OpenCallContext::id() !== '') throw $e;
                 if (!self::shouldRetrySubmit($e, $attempt, $singleAttempt)) {
@@ -394,6 +402,15 @@ class MarketImageModelRuntimeService
         throw new Exception('图片模型提交失败');
     }
 
+    private static function holdMicroSubmissionError(int $id,\Throwable $error): bool
+    {
+        if($error instanceof MarketImageProviderRequestException&&$error->wasAccepted()){
+            $receipt=$error->receipt();$nested=is_array($receipt['data']??null)?$receipt['data']:[];$receipt=$nested+$receipt;
+            MicroVideoSubmission::capture($id,$receipt?:['accepted'=>true],self::taskId($receipt),self::requestId($receipt));
+        }
+        return MicroVideoSubmission::hold($id,$error->getMessage());
+    }
+
     private static function submitRetryDelayMs(int $attempt): int
     {
         return (int)(self::SUBMIT_RETRY_DELAYS_MS[max(0, min(count(self::SUBMIT_RETRY_DELAYS_MS) - 1, $attempt - 1))] ?? 1800);
@@ -401,7 +418,7 @@ class MarketImageModelRuntimeService
 
     private static function shouldRetrySubmit(MarketImageProviderRequestException $error, int $attempt, bool $singleAttempt): bool
     {
-        return !$singleAttempt && $error->isRetryable() && $attempt < self::SUBMIT_MAX_ATTEMPTS;
+        return !$singleAttempt && !$error->wasAccepted() && $error->isRetryable() && $attempt < self::SUBMIT_MAX_ATTEMPTS;
     }
 
     private static function recordSubmitRetry(int $consumptionId, int $attempt, int $delayMs, \Throwable $e): void
@@ -560,14 +577,24 @@ class MarketImageModelRuntimeService
         if ($context === null) throw new Exception('市场图片消耗记录不存在');
         $c = $context['consumption'];
         if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return self::responseFromConsumption($c->toArray());
+        if(MicroVideoSubmission::pending($c->toArray()))return self::responseFromConsumption($c->toArray());
+        if(MicroVideoSubmission::applies($c->toArray())){
+            $summary=(array)$c['response_summary'];$receipt=MicroVideoSubmission::receipt($c->toArray());
+            try{
+                $images=(array)($summary['images']??[]);
+                if(!$images&&$receipt)$images=self::images($receipt,(int)$c['tenant_id'],(int)$c['user_id']);
+                if($images){self::retainMicroImages($consumptionId,$images);self::settle($consumptionId,$images,(string)$c['upstream_request_id'],(string)$c['upstream_task_id'],$receipt??[]);return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());}
+            }catch(\Throwable $e){self::recordRefreshError($consumptionId,(string)$c['upstream_task_id'],$e);return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());}
+        }
         $taskId = trim((string)$c['upstream_task_id']);
         if ($taskId === '') {
             return self::responseFromConsumption($c->toArray());
         }
         try {
             $response = self::request('GET', self::origin() . str_replace('{task_id}', rawurlencode($taskId), self::TASK_PATH));
-            $status = self::status($response); $images = self::images($response, (int)$c['tenant_id'], (int)$c['user_id']);
-            if ($images !== []) { self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); return ['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
+            $status = self::status($response); if(MicroVideoSubmission::applies($c->toArray())&&!in_array($status,['failed','error','canceled','cancelled'],true))MicroVideoSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
+            $images = self::images($response, (int)$c['tenant_id'], (int)$c['user_id']);
+            if ($images !== []) { self::retainMicroImages($consumptionId,$images);self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); return ['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
             if (in_array($status, ['failed', 'error', 'canceled', 'cancelled'], true)) {
                 $message = self::error($response);
                 self::fail($consumptionId, $message, 'upstream_failed');
@@ -699,7 +726,7 @@ class MarketImageModelRuntimeService
             $actualUsage = MarketUsageSettlementService::tokenUsage($response);
             if ($deferredUsage && $actualUsage <= 0) {
                 $now = time();
-                $c->save(['run_status' => 'success', 'billing_status' => 'pending_usage', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'], 'usage_snapshot' => ['settlement_basis' => 'awaiting_actual_usage'], 'response_summary' => ['image_count' => $quantity, 'images' => $images], 'finish_time' => $now, 'update_time' => $now]);
+                $c->save(['run_status' => 'success', 'billing_status' => 'pending_usage', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'], 'usage_snapshot' => ['settlement_basis' => 'awaiting_actual_usage'], 'response_summary' => array_replace((array)$c['response_summary'], ['image_count' => $quantity, 'images' => $images]), 'finish_time' => $now, 'update_time' => $now]);
                 $task->save(['status' => 'success', 'progress' => 100, 'finish_time' => $now, 'update_time' => $now]);
                 self::event((int)$c['id'], 'await_usage', 'pending', ['image_count' => $quantity]);
                 return;
@@ -707,7 +734,7 @@ class MarketImageModelRuntimeService
             $billedQuantity = $deferredUsage ? $actualUsage : $quantity;
             [$tenant, $user] = self::settlementAmounts($snapshot, $quantity, $billedQuantity, $deferredUsage);
             if ($deferredUsage) { PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user); PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user, (string)$c['consume_no'], self::taskLabel((string)$task['app_code']) . '实际用量结算', self::extra($task, $c, 'settled')); } else PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], $tenant, $user, (string)$c['consume_no'], self::taskLabel((string)$task['app_code']) . '结算', self::extra($task, $c, 'settled'));
-            $now = time(); $c->save(['run_status' => 'success', 'billing_status' => 'settled', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'], 'quantity' => $billedQuantity, 'usage_snapshot' => ['image_count' => $quantity, 'actual_token_usage' => $deferredUsage ? $actualUsage : 0], 'response_summary' => ['image_count' => $quantity, 'images' => $images], 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'tenant_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['consume_no'] . '-reserve', 'user_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['consume_no'] . '-reserve', 'error_code' => '', 'error_message' => '', 'refresh_requested_at' => 0, 'finish_time' => $now, 'update_time' => $now]);
+            $now = time(); $c->save(['run_status' => 'success', 'billing_status' => 'settled', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'], 'quantity' => $billedQuantity, 'usage_snapshot' => ['image_count' => $quantity, 'actual_token_usage' => $deferredUsage ? $actualUsage : 0], 'response_summary' => array_replace((array)$c['response_summary'], ['image_count' => $quantity, 'images' => $images]), 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'tenant_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['consume_no'] . '-reserve', 'user_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['consume_no'] . '-reserve', 'error_code' => '', 'error_message' => '', 'refresh_requested_at' => 0, 'finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'finish_time' => $now, 'update_time' => $now]);
             self::event((int)$c['id'], 'settle', 'success', ['image_count' => $quantity]);
         });
@@ -1379,10 +1406,10 @@ class MarketImageModelRuntimeService
         $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
         // A transport timeout is intentionally not retried here: the supplier
         // may have accepted the request after the connection was interrupted.
-        if ($errno) throw new Exception($error ?: '图片模型网络请求失败'); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('图片模型响应格式错误');
+        if ($errno) throw new Exception('cURL error '.$errno.': '.($error ?: '图片模型网络请求失败')); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('图片模型响应格式错误');
         if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) {
             if ($method === 'POST') \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== '');
-            throw new MarketImageProviderRequestException(self::error($data), self::isExplicitTransientProviderResponse($http, $data), $http, self::taskId($data) !== '');
+            throw new MarketImageProviderRequestException(self::error($data), self::isExplicitTransientProviderResponse($http, $data), $http, self::taskId($data) !== ''||self::taskId((array)($data['data']??[]))!=='', $data);
         }
         return is_array($data['data'] ?? null) ? $data['data'] : $data;
     }
@@ -1648,14 +1675,19 @@ class MarketImageModelRuntimeService
     private static function responseFromConsumption(array $c): array
     {
         $summary = self::arrayValue($c['response_summary'] ?? []);
+        if(MicroVideoSubmission::applies($c)&&($c['billing_status']??'')!=='settled')$summary['images']=[];
         $response = [
-            'status' => (string)$c['run_status'],
+            'status' => MicroVideoSubmission::applies($c)&&!in_array($c['run_status'],['failed','canceled'],true)&&($c['billing_status']??'')!=='settled'?'running':(string)$c['run_status'],
             'provider_task_id' => (string)$c['upstream_task_id'],
             'provider_request_id' => (string)$c['upstream_request_id'],
             'images' => (array)($summary['images'] ?? []),
         ];
         $message = trim((string)($c['error_message'] ?? ''));
         return $message !== '' ? array_merge($response, self::failureFields($message)) : $response;
+    }
+    private static function retainMicroImages(int $id,array $images): void
+    {
+        Db::transaction(function()use($id,$images){$c=AiConsumptionLog::lock(true)->findOrEmpty($id);if($c->isEmpty()||!MicroVideoSubmission::applies($c->toArray()))return;$summary=(array)$c['response_summary'];$summary['images']=$images;$c->save(['response_summary'=>$summary,'update_time'=>time()]);});
     }
     private static function failureResponse(string $taskId, string $message): array { return array_merge(['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []], self::failureFields($message)); }
     private static function failureFields(string $message): array { return ['error' => $message, 'error_msg' => $message, 'errorDetails' => $message]; }
@@ -1667,6 +1699,7 @@ class MarketImageModelRuntimeService
      */
     private static function enqueueResultJob(int $consumptionId, bool $processResult = false): void
     {
+        $micro=AiConsumptionLog::findOrEmpty($consumptionId);if(!$micro->isEmpty()&&MicroVideoSubmission::applies($micro->toArray()))return;
         try {
             if ($processResult) {
                 AiTaskJobService::enqueueProcessResult($consumptionId);

@@ -21,6 +21,7 @@ const bridgePaths=new Set(['runtime-loader.php','think','public/index.php','scri
 // Unsupported or ambiguous base contexts fail before any staging is written.
 const bridgeWorkerPatches=new Map([
     ['AiTaskWorker', [['            while ($running) {\n',16], ['                // Do not starve lightweight canvas previews while a tenant has\n',16,'before']]],
+    ['CanvasSubAgentWorker', [['        while ($running && (!$once || $processed < $limit)) {\n',12]]],
     ['ShortDramaEpisodeWorker', [['        do {\n',12]]],
     ['ShortDramaPlanningWorker', [['        do {\n',12]]],
     ['ShortDramaCanvasAgentWorker', [['        do {\n',12]]],
@@ -168,6 +169,7 @@ try {
     }
     else for(const dir of fullDirs){if(fs.existsSync(path.join(repo,dir))){copy(dir,'files/'+dir);replaced.push(dir)}}
     if(delegated)for(const relative of ['runtime-loader.php','think','public/index.php','scripts/composer-runtime-runner.php','scripts/verify-composer-runtime.php','app/common/service/update/ComposerRuntimeUpdateService.php','app/common/service/update/SystemRuntimeBootstrapService.php','app/common/service/update/UpdateCustomerMessage.php','app/common/service/update/ProjectUpdateProcessGate.php','app/common/service/update/SystemPackageUpdateService.php','app/common/service/update/AppPackageUpdateService.php','app/common/service/database/PcWechatMigration.php','app/common/service/app/AppRegistryService.php','app/common/service/app/AppMenuService.php','app/common/service/app/DefaultAppService.php','app/common/service/billing/PackageProvisionService.php','app/common/service/database/RuntimeMigrationPlan.php','app/common/service/database/RuntimeMetadataTransactionGate.php']){copy(relative,'files/'+relative);if(!coverage.some(entry=>entry.path===relative))coverage.push({path:relative,delivery:'bootstrap-required-runtime-file'})}
+    if(delegated && fs.existsSync(path.join(repo,'direct-runtime-loader.php')))for(const relative of ['direct-runtime-loader.php','app/common/service/update/DirectSiteUpdateService.php','app/common/service/update/LegacyRuntimeCleanupService.php']){copy(relative,'files/'+relative);if(!coverage.some(entry=>entry.path===relative))coverage.push({path:relative,delivery:'bootstrap-required-runtime-file'})}
     // Retention is optional for historical bootstrap sources, but a source that
     // has the protocol must deliver its reader, collector and retry hook together.
     if(delegated && fs.existsSync(path.join(repo,'runtime-retention.php')))for(const relative of ['runtime-retention.php','scripts/runtime-cleanup.php','app/common/service/update/RuntimeRetentionService.php','app/common/command/Crontab.php']){copy(relative,'files/'+relative);if(!coverage.some(entry=>entry.path===relative))coverage.push({path:relative,delivery:'bootstrap-required-runtime-file'})}

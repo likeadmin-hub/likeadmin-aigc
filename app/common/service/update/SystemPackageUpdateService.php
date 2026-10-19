@@ -449,7 +449,9 @@ class SystemPackageUpdateService
             throw new RuntimeException('已有系统更新任务正在执行，请稍后再试');
         }
         try {
-            (new ComposerRuntimeUpdateService(UpgradeLogic::getProjectPath()))->recover();
+            if (!DirectSiteUpdateService::enabled(UpgradeLogic::getProjectPath()) && is_file(UpgradeLogic::getProjectPath().'/.composer-runtime/current.json')) {
+                (new ComposerRuntimeUpdateService(UpgradeLogic::getProjectPath()))->recover();
+            }
             // Re-extract from the signed archive so a modified previous preflight directory
             // or an expired/rebound grant cannot bypass the final installation gate.
             $this->preflight($packageId);
@@ -468,6 +470,27 @@ class SystemPackageUpdateService
             // UI-only updates must not opportunistically repair unrelated schema.
             $binding['runtime_metadata_unchanged']=!$processImpact['requires_stop'];
             $encoded=json_encode($binding,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+            if (DirectSiteUpdateService::enabled(UpgradeLogic::getProjectPath()) || !is_file(rtrim(UpgradeLogic::getProjectPath(),'/').'/.composer-runtime/current.json')) {
+                $direct=new DirectSiteUpdateService(UpgradeLogic::getProjectPath(),PHP_SAPI==='cli'?PHP_BINARY:PHP_BINDIR.'/php');
+                $binding['deployment_generation']=rtrim(UpgradeLogic::getProjectPath(),'/');
+                $encoded=json_encode($binding,JSON_THROW_ON_ERROR);
+                $watch=['public/admin/index.html','public/pc/index.html'];
+                foreach(glob($extractPath.'/files/app/apps/*/manifest.json')?:[] as $appFile){
+                    $appManifest=json_decode((string)file_get_contents($appFile),true);
+                    foreach((array)($appManifest['public_assets']??[]) as $asset)if(!empty($asset['target']))$watch[]=(string)$asset['target'];
+                }
+                $result=$direct->apply($extractPath,$manifest,[
+                    'binding'=>$binding,'watch_paths'=>array_values(array_unique($watch)),
+                    'before_sql'=>fn()=>ProjectUpdateProcessGate::assertUpdateAllowed(UpgradeLogic::getProjectPath(),$processImpact),
+                    'sql'=>fn(string $site)=>$direct->child(['--bootstrap-prepare',$site,$extractPath,$encoded]),
+                    'complete'=>fn(string $site)=>$direct->child(['--bootstrap-complete',$site,$extractPath,$encoded])['completion'],
+                    'confirm'=>function(string $site,array $context)use($direct):?array{
+                        $reply=$direct->child(['--direct-confirm',$site,'-',json_encode($context,JSON_THROW_ON_ERROR)]);
+                        return !empty($reply['committed'])?(array)$reply['completion']:null;
+                    },
+                ]);
+                return $result['completion'];
+            }
             $installation = $runtimeInstaller->apply($extractPath, $manifest, [
                 'immutable_code'=>true,'bootstrap_context'=>$binding,
                 'before_sql'=>fn()=>ProjectUpdateProcessGate::assertUpdateAllowed(UpgradeLogic::getProjectPath(),$processImpact),
@@ -481,6 +504,7 @@ class SystemPackageUpdateService
             return $result;
         } catch (Throwable $e) {
             if ($transactionStarted) Db::rollback();
+            if (DirectSiteUpdateService::hasPendingOperation(UpgradeLogic::getProjectPath(),(int)$package['id'],(int)$task['id'])) throw $e;
             $package->save(['status' => 'apply_failed', 'error' => $e->getMessage(), 'update_time' => time()]);
             $this->finishTask($task, 'failed', [], $e->getMessage());
             throw $e;
@@ -536,6 +560,12 @@ class SystemPackageUpdateService
         $task=UpdateTask::where(['id'=>(int)$binding['task_id'],'package_id'=>(int)$package['id'],'status'=>'running'])->findOrEmpty();
         if($task->isEmpty())throw new RuntimeException('自举完成任务绑定无效');
         \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
+        $canonicalMigration=null;
+        $site=rtrim(root_path(),'/');
+        if (($GLOBALS['AIGC_RUNTIME_GENERATION']??$site)!==$site && version_compare((string)$package['version'],'1.0.403','>=')) {
+            $canonicalMigration=new DirectSiteUpdateService($site,PHP_BINARY);
+            $canonicalMigration->beginLegacyMigration($GLOBALS['AIGC_RUNTIME_GENERATION'],(string)$package['version'],$binding);
+        }
         Db::startTrans();
         try {
             $apps=($binding['runtime_metadata_unchanged']??false)===true?$this->syncRuntimePublicAssets($extractPath):$this->finalizeRuntimeApps($extractPath,(string)$package['version']);
@@ -544,8 +574,15 @@ class SystemPackageUpdateService
             $this->finishTask($task,'success',$result);
             if(!Db::connect()->getPdo()->inTransaction())throw new RuntimeException('自举元数据事务被隐式提交，禁止成功标记');
             $this->writeLocalVersion((string)$package['version']);
-            Db::commit();return $result;
-        } catch (Throwable $e) { Db::rollback(); throw $e; }
+            Db::commit();
+        } catch (Throwable $e) {
+            // COMMIT may have succeeded even if its reply was lost. The parent
+            // must confirm independently before restoring canonical files.
+            try { Db::rollback(); } catch (Throwable $rollbackError) {}
+            throw $e;
+        }
+        $canonicalMigration?->finishLegacyMigration($result);
+        return $result;
     }
 
     public function prepareRuntimeApps(string $extractPath, string $version): array

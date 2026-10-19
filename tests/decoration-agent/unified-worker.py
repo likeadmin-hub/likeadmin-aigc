@@ -10,7 +10,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 EXPECTED = {'ai:task-worker', 'short-drama:episode-worker', 'short-drama:planning-worker',
-            'short-drama:canvas-agent-worker', 'decoration:agent-worker', 'brand:worker', 'home-agent:worker'}
+            'short-drama:canvas-agent-worker', 'decoration:agent-worker', 'brand:worker', 'home-agent:worker', 'micro-video:worker'}
 
 def until(check, label):
     deadline = time.monotonic() + 8

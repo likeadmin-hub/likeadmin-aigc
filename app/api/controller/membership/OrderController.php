@@ -20,7 +20,8 @@ class OrderController extends BaseApiController
                 $this->getUserTerminal(),
                 $planId,
                 $cycle,
-                (string)$this->request->post('quote_hash', '')
+                (string)$this->request->post('quote_hash', ''),
+                (string)$this->request->post('request_id', '')
             );
             return $this->success('创建成功', $result, 1, 1);
         } catch (Exception $e) {

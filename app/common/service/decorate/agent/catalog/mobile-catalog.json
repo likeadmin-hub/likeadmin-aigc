@@ -255,6 +255,71 @@
           "type": "color",
           "value_type": "string",
           "default": "#999999"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {},
@@ -286,6 +351,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: show_hotword/show_button; preview is a visual placeholder."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -627,6 +695,71 @@
           "type": "color",
           "value_type": "string",
           "default": "#999999"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -815,6 +948,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: fixed_position/show_button; same normal-flow search renderer.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -957,6 +1094,27 @@
           "type": "array",
           "value_type": "array",
           "default": []
+        },
+        "show_caption": {
+          "key": "show_caption",
+          "label": "图像文案",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "min": 0,
+          "max": 1,
+          "options": [
+            {
+              "label": "隐藏",
+              "value": 0
+            },
+            {
+              "label": "显示",
+              "value": 1
+            }
+          ],
+          "help": "仅有图轮播：0隐藏，1显示；未设置保留旧端行为（共享有文案/公开无文案）。文字主视觉标题与说明不受影响。"
         }
       },
       "style_fields": {
@@ -1131,6 +1289,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -1326,6 +1549,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: style/bg_style. Public mixed images/text keeps image swiper; text-only uses first visible row. show_caption=0 hides image captions, 1 enables both clients; absent retains shared caption/public no-caption legacy. Text-only copy is unaffected."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -1652,6 +1878,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -1840,6 +2131,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: show_search is visual copy, not interactive search; public indicator is fixed.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -2143,6 +2438,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -2331,6 +2691,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: public style paging/link supported; shared preview style paging/link not simulated. Row descriptions/tags are not rendered."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -2662,6 +3025,71 @@
           "type": "color",
           "value_type": "string",
           "default": "#333333"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -2878,6 +3306,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: show_click/styles.title_color/styles.text_color. Non-article sources require explicit links; never infer article IDs."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -3140,6 +3571,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -3328,6 +3824,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: public swiper/links versus shared first-image preview."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -3420,6 +3919,62 @@
           "type": "link",
           "value_type": "object",
           "default": {}
+        },
+        "font_size": {
+          "key": "font_size",
+          "label": "主标题字号",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 17,
+          "unit": "px",
+          "min": 10,
+          "max": 48,
+          "help": "主标题的逻辑px字号，不使用HTML标题标签推断大小。"
+        },
+        "sub_font_size": {
+          "key": "sub_font_size",
+          "label": "副标题字号",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 12,
+          "unit": "px",
+          "min": 10,
+          "max": 24
+        },
+        "font_weight": {
+          "key": "font_weight",
+          "label": "主标题字重",
+          "type": "select",
+          "value_type": "number",
+          "default": 0,
+          "unit": "",
+          "options": [
+            {
+              "label": "沿用旧端默认",
+              "value": 0
+            },
+            {
+              "label": "常规",
+              "value": 400
+            },
+            {
+              "label": "中等",
+              "value": 500
+            },
+            {
+              "label": "半粗",
+              "value": 600
+            },
+            {
+              "label": "粗体",
+              "value": 700
+            },
+            {
+              "label": "特粗",
+              "value": 800
+            }
+          ],
+          "help": "0保留共享预览700/公开端600；明确设置后两端一致。"
         }
       },
       "style_fields": {
@@ -3594,6 +4149,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {},
@@ -3625,6 +4245,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: content.link."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -3939,6 +4562,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {},
@@ -3970,6 +4658,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: icon/icon_mode/data_source. partial: public font_weight; configured font_size requires font_size_mode=configured."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -4221,6 +4912,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -4338,6 +5094,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: public row.desc/link; shared preview omits descriptions/link interaction."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -4647,6 +5406,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -4748,6 +5572,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: mode/fit; main image remains cover, areas use percentage coordinates."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -5100,6 +5927,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -5288,6 +6180,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: shared image ratio 4:3 versus public fixed 210rpx height. image_fit is not a writable field for this component.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -5567,6 +6463,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {},
@@ -5598,6 +6559,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: content.height; public line styles.color versus shared theme border."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -5829,6 +6793,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {},
@@ -5860,6 +6889,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: shared static account preview; public real user/login and its dedicated configured text colors. No user data mutation."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -6145,6 +7177,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -6333,6 +7430,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: shared visual rows versus public navigation; description/tag not rendered."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -6594,6 +7694,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -6782,6 +7947,9 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: shared first image/name preview versus public image-only swiper."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -7097,6 +8265,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -7285,6 +8518,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "partial: shared title-only preview; public qrcode/mobile/time/remark/actions.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -7589,6 +8826,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -7777,6 +9079,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "source rows do not populate html/text; public rich-text capabilities differ from browser HTML.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -8067,6 +9373,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -8255,6 +9626,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "source rows/data do not populate height.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -8578,6 +9953,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -8766,6 +10206,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: cover. partial: public autoplay is disabled, shared native autoplay is supported.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -9228,6 +10672,71 @@
           "unit": "%",
           "min": 0,
           "max": 100
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -9439,6 +10948,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "icon means legacy literal symbol, not the entry system-glyph enum. page uses horizontal CSS scrolling.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -9802,6 +11315,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -9990,6 +11568,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "active is initial style; clicks navigate rather than change the current page content.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -10356,6 +11938,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -10544,6 +12191,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: title/aspect_ratio. Source rows do not populate video_url/cover.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -10894,6 +12545,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -11139,6 +12855,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Uses separate auto/type symbols or icon_image, not entry system-glyph names. Customer service depends on terminal capabilities.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -11505,6 +13225,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -11693,6 +13478,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "unsupported: trigger/delay/closeable; currently an inline promo card, not a modal lifecycle.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -11994,6 +13783,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -12182,6 +14036,10 @@
         "supported": true,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Source rows/data do not create children.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -12497,6 +14355,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -12685,6 +14608,10 @@
         "supported": true,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Explicit gap0 is consumed as zero; absent/null/invalid gap keeps legacy8rpx. Children are a 1–12 integer column grid. Each direct child styles.grid_column is integer0–12: Explicit0 spans the full parent row; absent preserves read-only legacy layout/grid/content aliases, or spans the full row if none exist. Positive spans are clamped to the nearest parent columns. Canonical presence wins over aliases. Nested grids do not override their own outer span; no arbitrary layout objects.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -12992,6 +14919,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -13180,6 +15172,10 @@
         "supported": true,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Children require valid percentage placement. Source rows/data do not create children.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -13296,6 +15292,38 @@
           "unit": "rpx",
           "min": 0,
           "max": 48
+        },
+        "bleed_end": {
+          "key": "bleed_end",
+          "label": "末端延伸",
+          "type": "switch",
+          "value_type": "number",
+          "default": 0,
+          "unit": "",
+          "min": 0,
+          "max": 1,
+          "options": [
+            {
+              "label": "关闭",
+              "value": 0
+            },
+            {
+              "label": "开启",
+              "value": 1
+            }
+          ],
+          "help": "仅本横滑容器：开启后可见轨道向右延伸自身实际水平padding，止于自身border内边界，不越过margin。内部布局仍用原内容宽，保持左起点、78%旧卡宽或显式item_width与gap；0/缺省保留原样。"
+        },
+        "item_width": {
+          "key": "item_width",
+          "label": "子项宽度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 1500,
+          "help": "仅该横滑容器的直接子组件；0或未填写保留原78%宽度，正值使用rpx，不修改嵌套后代或子组件内部图片宽度。"
         }
       },
       "style_fields": {
@@ -13478,6 +15506,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -13666,6 +15759,10 @@
         "supported": true,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Optional bleed_end enum0/1: 1 extends only this viewport by its own horizontal padding to the shell inner border edge; internal row retains original content width, left start, legacy78%/explicit item widths and gap. 0/absent retains old DOM/CSS. Explicit gap0 is zero; absent/null/invalid keeps legacy8rpx fallback, existing factory gap10 is unchanged. Single-row children container; source rows do not create children. Optional item_width is 0–1500rpx: 0/absent retains legacy78%; positive width affects only direct children, never nested descendants or row image widths.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -13973,6 +16070,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -14161,6 +16323,10 @@
         "supported": true,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "2–4 column children container, not case-feed row columns.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -14457,6 +16623,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -14645,6 +16876,10 @@
         "supported": true,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Source rows/data do not create children.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -14976,6 +17211,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -15164,6 +17464,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Row description is not a subtitle fallback; no writable named-glyph slot. Images are square/aspectFill.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -15487,6 +17791,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -15683,6 +18052,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Row image_fit is implemented. Undeclared icon is not a system-glyph slot; do not recommend icon names.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -16009,6 +18382,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -16197,6 +18635,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Row description is not a subtitle fallback. Shared/public image proportions differ.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -16500,6 +18942,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -16699,6 +19206,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Fixed two columns; no writable columns. Empty content.title adds no default block heading. Row descriptions/tags are not shown.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -16815,6 +19326,79 @@
           "type": "text",
           "value_type": "string",
           "default": "AI 应用"
+        },
+        "columns": {
+          "key": "columns",
+          "label": "每行数量",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 4,
+          "unit": "",
+          "min": 1,
+          "max": 5
+        },
+        "font_size": {
+          "key": "font_size",
+          "label": "入口字号",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 13,
+          "unit": "px",
+          "min": 10,
+          "max": 24
+        },
+        "icon_size": {
+          "key": "icon_size",
+          "label": "图标尺寸",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 84,
+          "unit": "rpx",
+          "min": 32,
+          "max": 160
+        },
+        "show_title": {
+          "key": "show_title",
+          "label": "显示入口标题",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "Controls each row title, not the block heading."
+        },
+        "show_sub_title": {
+          "key": "show_sub_title",
+          "label": "显示入口说明",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "Controls each row description."
+        },
+        "image_fit": {
+          "key": "image_fit",
+          "label": "图片适配",
+          "type": "select",
+          "value_type": "string",
+          "default": "cover",
+          "options": [
+            {
+              "label": "裁剪填满",
+              "value": "cover"
+            },
+            {
+              "label": "完整显示",
+              "value": "contain"
+            }
+          ]
+        },
+        "source_graphics": {
+          "key": "source_graphics",
+          "label": "应用来源图形",
+          "type": "list",
+          "value_type": "array",
+          "default": [],
+          "help": "可选显示覆盖，最多50项。仅app_entries实际源行按app_code与entry_key精确匹配；不修改源行、名称、链接、权限或状态，不创建入口。重复绑定以首项为准，不要重复添加；无配置保持原图形。"
         }
       },
       "style_fields": {
@@ -16990,6 +19574,20 @@
           "min": 0,
           "max": 100
         },
+        "item_background": {
+          "key": "item_background",
+          "label": "入口卡片底色",
+          "type": "color",
+          "value_type": "string",
+          "default": ""
+        },
+        "description_color": {
+          "key": "description_color",
+          "label": "入口说明颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": ""
+        },
         "padding": {
           "key": "padding",
           "label": "旧版内边距",
@@ -16997,6 +19595,112 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
+        },
+        "item_padding": {
+          "key": "item_padding",
+          "label": "入口卡片内边距",
+          "type": "stepper",
+          "value_type": "number",
+          "default": null,
+          "unit": "rpx",
+          "min": 0,
+          "max": 120,
+          "help": "每张入口内卡的内边距；未设置保留旧端默认，0表示无内边距。"
+        },
+        "item_radius": {
+          "key": "item_radius",
+          "label": "入口卡片圆角",
+          "type": "stepper",
+          "value_type": "number",
+          "default": null,
+          "unit": "rpx",
+          "min": 0,
+          "max": 120,
+          "help": "每张入口内卡的圆角；未设置保留旧端默认，0表示直角。"
+        },
+        "item_min_height": {
+          "key": "item_min_height",
+          "label": "入口卡片最小高度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 800,
+          "help": "每张入口内卡的最小高度；0按内容自然撑开，不是固定高度。"
+        },
+        "icon_color": {
+          "key": "icon_color",
+          "label": "系统图标颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": "",
+          "help": "仅系统named glyph，十六进制或rgb/rgba；空继承文字颜色，不影响图片、emoji或入口文字。"
         }
       },
       "lists": {
@@ -17075,6 +19779,150 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "help": "Public glyph name; existing emoji/image addresses remain readable. Image takes priority."
             }
           }
         },
@@ -17153,6 +20001,358 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "help": "Public glyph name; existing emoji/image addresses remain readable. Image takes priority."
+            }
+          }
+        },
+        "source_graphics": {
+          "min_items": 0,
+          "max_items": 50,
+          "limit_scope": "save",
+          "initial_items": 0,
+          "fields": {
+            "app_code": {
+              "key": "app_code",
+              "label": "真实应用代码",
+              "type": "text",
+              "value_type": "string",
+              "default": "",
+              "max_length": 64,
+              "help": "从data_sources app_entries返回的实际app_code选择，不使用列表位置或自造代码。"
+            },
+            "entry_key": {
+              "key": "entry_key",
+              "label": "真实入口标识",
+              "type": "text",
+              "value_type": "string",
+              "default": "",
+              "max_length": 128,
+              "help": "与app_code一起匹配真实entry_key；卸载或不存在的入口忽略，不创建行。"
+            },
+            "mode": {
+              "key": "mode",
+              "label": "图形来源",
+              "type": "select",
+              "value_type": "string",
+              "default": "source",
+              "options": [
+                {
+                  "label": "沿用应用图形",
+                  "value": "source"
+                },
+                {
+                  "label": "系统语义图标",
+                  "value": "icon"
+                },
+                {
+                  "label": "授权图片素材",
+                  "value": "image"
+                }
+              ],
+              "help": "source恢复原图形；icon明确优先于源行所有图片；image只显示本项授权image。只改变图形，不改变真实入口信息。"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "系统图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "show_if": {
+                "key": "mode",
+                "equals": "icon"
+              },
+              "help": "仅已有14类真实glyph，不接受URL或任意图标名；未知/空值保留源图形。"
+            },
+            "image": {
+              "key": "image",
+              "label": "授权图片",
+              "type": "image",
+              "value_type": "string",
+              "default": "",
+              "show_if": {
+                "key": "mode",
+                "equals": "image"
+              },
+              "help": "仅mode=image且匹配当前真实源行时渲染；复用授权素材或request_image到此精确leaf，仍需来源授权、托管refs和验收。"
             }
           }
         }
@@ -17193,6 +20393,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Optional source_graphics list max50 matches live app_entries by app_code+entry_key. First matching record wins; absent/source/invalid retains original. Explicit finite icon overrides source image priority; authorized image is a declared managed image leaf. Never override names/routes/permissions/status or create missing entries. Manual/fallback rows and other widgets ignore this list. Without a valid explicit override, images/app brand assets keep their original precedence over finite system glyphs. show_title/show_sub_title control row copy, not block heading.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -17309,6 +20513,71 @@
           "type": "text",
           "value_type": "string",
           "default": "开始创作"
+        },
+        "columns": {
+          "key": "columns",
+          "label": "每行数量",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 4,
+          "unit": "",
+          "min": 1,
+          "max": 5
+        },
+        "font_size": {
+          "key": "font_size",
+          "label": "入口字号",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 13,
+          "unit": "px",
+          "min": 10,
+          "max": 24
+        },
+        "icon_size": {
+          "key": "icon_size",
+          "label": "图标尺寸",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 84,
+          "unit": "rpx",
+          "min": 32,
+          "max": 160
+        },
+        "show_title": {
+          "key": "show_title",
+          "label": "显示入口标题",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "Controls each row title, not the block heading."
+        },
+        "show_sub_title": {
+          "key": "show_sub_title",
+          "label": "显示入口说明",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "Controls each row description."
+        },
+        "image_fit": {
+          "key": "image_fit",
+          "label": "图片适配",
+          "type": "select",
+          "value_type": "string",
+          "default": "cover",
+          "options": [
+            {
+              "label": "裁剪填满",
+              "value": "cover"
+            },
+            {
+              "label": "完整显示",
+              "value": "contain"
+            }
+          ]
         }
       },
       "style_fields": {
@@ -17484,6 +20753,20 @@
           "min": 0,
           "max": 100
         },
+        "item_background": {
+          "key": "item_background",
+          "label": "入口卡片底色",
+          "type": "color",
+          "value_type": "string",
+          "default": ""
+        },
+        "description_color": {
+          "key": "description_color",
+          "label": "入口说明颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": ""
+        },
         "padding": {
           "key": "padding",
           "label": "旧版内边距",
@@ -17491,6 +20774,112 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
+        },
+        "item_padding": {
+          "key": "item_padding",
+          "label": "入口卡片内边距",
+          "type": "stepper",
+          "value_type": "number",
+          "default": null,
+          "unit": "rpx",
+          "min": 0,
+          "max": 120,
+          "help": "每张入口内卡的内边距；未设置保留旧端默认，0表示无内边距。"
+        },
+        "item_radius": {
+          "key": "item_radius",
+          "label": "入口卡片圆角",
+          "type": "stepper",
+          "value_type": "number",
+          "default": null,
+          "unit": "rpx",
+          "min": 0,
+          "max": 120,
+          "help": "每张入口内卡的圆角；未设置保留旧端默认，0表示直角。"
+        },
+        "item_min_height": {
+          "key": "item_min_height",
+          "label": "入口卡片最小高度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 800,
+          "help": "每张入口内卡的最小高度；0按内容自然撑开，不是固定高度。"
+        },
+        "icon_color": {
+          "key": "icon_color",
+          "label": "系统图标颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": "",
+          "help": "仅系统named glyph，十六进制或rgb/rgba；空继承文字颜色，不影响图片、emoji或入口文字。"
         }
       },
       "lists": {
@@ -17569,6 +20958,150 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "help": "Public glyph name; existing emoji/image addresses remain readable. Image takes priority."
             }
           }
         },
@@ -17647,6 +21180,150 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "help": "Public glyph name; existing emoji/image addresses remain readable. Image takes priority."
             }
           }
         }
@@ -17690,6 +21367,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "show_title/show_sub_title control row copy, not block heading. Finite system glyph or actual image; unknown names are not URLs.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -17988,6 +21669,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -18187,6 +21933,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Generic compact rows, not task progress/cost controls.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -18325,6 +22075,10 @@
             {
               "label": "宫格",
               "value": "grid"
+            },
+            {
+              "label": "图左文右列表",
+              "value": "list"
             }
           ]
         },
@@ -18353,6 +22107,347 @@
           "value_type": "number",
           "default": 1,
           "unit": ""
+        },
+        "text_align": {
+          "key": "text_align",
+          "label": "卡内文字对齐",
+          "type": "select",
+          "value_type": "string",
+          "default": "",
+          "options": [
+            {
+              "label": "沿用旧设置",
+              "value": ""
+            },
+            {
+              "label": "左对齐",
+              "value": "left"
+            },
+            {
+              "label": "居中",
+              "value": "center"
+            },
+            {
+              "label": "右对齐",
+              "value": "right"
+            }
+          ],
+          "help": "仅媒体卡片内部每条标题与说明；不改变外层标题、来源、链接或整张卡点击。空值保留旧CSS。"
+        },
+        "font_size": {
+          "key": "font_size",
+          "label": "媒体标题字号",
+          "type": "select",
+          "value_type": "number",
+          "default": 0,
+          "unit": "px",
+          "min": 0,
+          "max": 32,
+          "options": [
+            {
+              "label": "沿用旧默认",
+              "value": 0
+            },
+            {
+              "label": "10px",
+              "value": 10
+            },
+            {
+              "label": "11px",
+              "value": 11
+            },
+            {
+              "label": "12px",
+              "value": 12
+            },
+            {
+              "label": "13px",
+              "value": 13
+            },
+            {
+              "label": "14px",
+              "value": 14
+            },
+            {
+              "label": "15px",
+              "value": 15
+            },
+            {
+              "label": "16px",
+              "value": 16
+            },
+            {
+              "label": "17px",
+              "value": 17
+            },
+            {
+              "label": "18px",
+              "value": 18
+            },
+            {
+              "label": "19px",
+              "value": 19
+            },
+            {
+              "label": "20px",
+              "value": 20
+            },
+            {
+              "label": "21px",
+              "value": 21
+            },
+            {
+              "label": "22px",
+              "value": 22
+            },
+            {
+              "label": "23px",
+              "value": 23
+            },
+            {
+              "label": "24px",
+              "value": 24
+            },
+            {
+              "label": "25px",
+              "value": 25
+            },
+            {
+              "label": "26px",
+              "value": 26
+            },
+            {
+              "label": "27px",
+              "value": 27
+            },
+            {
+              "label": "28px",
+              "value": 28
+            },
+            {
+              "label": "29px",
+              "value": 29
+            },
+            {
+              "label": "30px",
+              "value": 30
+            },
+            {
+              "label": "31px",
+              "value": 31
+            },
+            {
+              "label": "32px",
+              "value": 32
+            }
+          ],
+          "help": "每行媒体标题，0保留共享13px/公开26rpx；正值只能选10–32逻辑px，两端一致。不是区块标题。"
+        },
+        "sub_font_size": {
+          "key": "sub_font_size",
+          "label": "媒体说明字号",
+          "type": "select",
+          "value_type": "number",
+          "default": 0,
+          "unit": "px",
+          "min": 0,
+          "max": 24,
+          "options": [
+            {
+              "label": "沿用旧默认",
+              "value": 0
+            },
+            {
+              "label": "10px",
+              "value": 10
+            },
+            {
+              "label": "11px",
+              "value": 11
+            },
+            {
+              "label": "12px",
+              "value": 12
+            },
+            {
+              "label": "13px",
+              "value": 13
+            },
+            {
+              "label": "14px",
+              "value": 14
+            },
+            {
+              "label": "15px",
+              "value": 15
+            },
+            {
+              "label": "16px",
+              "value": 16
+            },
+            {
+              "label": "17px",
+              "value": 17
+            },
+            {
+              "label": "18px",
+              "value": 18
+            },
+            {
+              "label": "19px",
+              "value": 19
+            },
+            {
+              "label": "20px",
+              "value": 20
+            },
+            {
+              "label": "21px",
+              "value": 21
+            },
+            {
+              "label": "22px",
+              "value": 22
+            },
+            {
+              "label": "23px",
+              "value": 23
+            },
+            {
+              "label": "24px",
+              "value": 24
+            }
+          ],
+          "help": "每行媒体说明，0保留共享11px/公开22rpx；正值只能选10–24逻辑px。"
+        },
+        "font_weight": {
+          "key": "font_weight",
+          "label": "媒体标题字重",
+          "type": "select",
+          "value_type": "number",
+          "default": 0,
+          "unit": "",
+          "options": [
+            {
+              "label": "沿用旧默认",
+              "value": 0
+            },
+            {
+              "label": "常规",
+              "value": 400
+            },
+            {
+              "label": "中等",
+              "value": 500
+            },
+            {
+              "label": "半粗",
+              "value": 600
+            },
+            {
+              "label": "粗体",
+              "value": 700
+            },
+            {
+              "label": "特粗",
+              "value": 800
+            }
+          ],
+          "help": "仅每行媒体标题；0保留共享原CSS级联（不新增字重覆盖）/公开继承原字重，显式400–800两端一致。"
+        },
+        "image_fit": {
+          "key": "image_fit",
+          "label": "图片缩放",
+          "type": "select",
+          "value_type": "string",
+          "default": "cover",
+          "options": [
+            {
+              "label": "裁剪填满",
+              "value": "cover"
+            },
+            {
+              "label": "完整显示",
+              "value": "contain"
+            }
+          ]
+        },
+        "image_height": {
+          "key": "image_height",
+          "label": "媒体图片高度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 1200,
+          "help": "明确正值时两端同一图片高度；0/未配置保留共享4:3与公开端210rpx旧默认。仅控制图片，不拉伸文字。"
+        },
+        "image_max_width": {
+          "key": "image_max_width",
+          "label": "图片最大宽度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 1500,
+          "help": "仅非list媒体图片槽；正值不超过父卡宽并居中，0/未填写保留原100%宽。list忽略并继续使用image_width；不改变整卡宽度或其它图片组件。"
+        },
+        "image_text_gap": {
+          "key": "image_text_gap",
+          "label": "列表图文间距",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 240,
+          "help": "仅media-card list内部图片与文字之间；正值为rpx，0/缺省沿用共享12px、公开24rpx。不是整卡间距；不改变styles.item_gap、来源或整卡点击。",
+          "show_if": {
+            "key": "layout",
+            "equals": "list"
+          }
+        },
+        "image_width": {
+          "key": "image_width",
+          "label": "列表图片宽度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 600,
+          "help": "仅图左文右列表的内部图片宽度，0使用160rpx，图片不超过卡宽45%；不控制外部卡宽，其它布局忽略。建议同时明确image_height以使两端一致。",
+          "show_if": {
+            "key": "layout",
+            "equals": "list"
+          }
+        },
+        "list_scroll": {
+          "key": "list_scroll",
+          "label": "列表横向滑动",
+          "type": "switch",
+          "value_type": "number",
+          "default": 0,
+          "unit": "",
+          "min": 0,
+          "max": 1,
+          "options": [
+            {
+              "label": "纵排",
+              "value": 0
+            },
+            {
+              "label": "横滑",
+              "value": 1
+            }
+          ],
+          "help": "仅list：0外层纵向列表；1外层横滑露出下一卡，卡内仍左图右文；每张卡宽为容器72%。",
+          "show_if": {
+            "key": "layout",
+            "equals": "list"
+          }
         }
       },
       "style_fields": {
@@ -18543,6 +22638,79 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
+        },
+        "image_background": {
+          "key": "image_background",
+          "label": "图片槽底色",
+          "type": "color",
+          "value_type": "string",
+          "default": "",
+          "help": "仅媒体图片槽：transparent、3/4/6/8位十六进制或rgb/rgba纯色（通道整数0–255，alpha0–1，可写.5）；不支持named色或hsl；空/缺省保留旧softsurface，不改外层组件背景，不接受URL、渐变或CSS变量。"
         }
       },
       "lists": {
@@ -18731,6 +22899,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Optional image_text_gap is 0–240rpx and only list consumes it between image and copy; positive values use rpx, 0/absent keeps shared12px/public24rpx. It never changes styles.item_gap, source rows or whole-card links. Optional image_max_width is 0–1500rpx: positive non-list slot width is capped by the parent and centered; 0/absent retains 100%, list ignores it and uses image_width. styles.image_background supports transparent/hex/rgb/rgba pure color only on this image slot; empty retains the old softsurface and preserves image URL. text_align enum empty/left/center/right controls only row title/description copy, never outer heading/source/link/click; empty retains CSS. single/grid/double/scroll and cover/contain are consumed. list is inner left-image/right-copy; list_scroll=1 enables outer horizontal 72%-width cards without changing inner layout. image_width is rpx, only list consumes it; 0 uses160rpx; actual image width is capped at45% of the card width. Row typography: font_size enum0 or10–32px, sub_font_size enum0 or10–24px, font_weight enum0/400/500/600/700/800. Positive sizes are logicalpx; 0 retains shared13/11px/public26/22rpx and each old title weight: shared zero/absent adds no font-weight override; public inherits the old weight. Explicit positive image_height (rpx) matches both clients; 0/absent retains shared4:3/public210rpx legacy defaults.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -19035,6 +23207,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -19223,6 +23460,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Generic source rows, not an automatic profile hero; source must provide standard title/image/description.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -19527,6 +23768,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -19715,6 +24021,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Source-backed entitlement facts; display/navigation only, no membership mutation.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -20034,6 +24344,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -20238,6 +24613,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "icon means literal legacy symbol, not entry system-glyph enum; image uses aspectFit.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -20546,6 +24925,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -20734,6 +25178,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Fixed four-column standard rows; arbitrary user_profile properties are not automatically mapped.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -21028,6 +25476,71 @@
           "value_type": "number",
           "default": 16,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -21216,6 +25729,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Compact standard rows; arbitrary account_summary properties are not automatically mapped.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -21503,6 +26020,71 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
         }
       },
       "lists": {
@@ -21702,6 +26284,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "Fixed four-column source rows with full-row empty state; no writable columns/font settings.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -21813,6 +26399,71 @@
           "type": "array",
           "value_type": "array",
           "default": []
+        },
+        "columns": {
+          "key": "columns",
+          "label": "每行数量",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 4,
+          "unit": "",
+          "min": 1,
+          "max": 5
+        },
+        "font_size": {
+          "key": "font_size",
+          "label": "入口字号",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 13,
+          "unit": "px",
+          "min": 10,
+          "max": 24
+        },
+        "icon_size": {
+          "key": "icon_size",
+          "label": "图标尺寸",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 84,
+          "unit": "rpx",
+          "min": 32,
+          "max": 160
+        },
+        "show_title": {
+          "key": "show_title",
+          "label": "显示入口标题",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "Controls each row title, not the block heading."
+        },
+        "show_sub_title": {
+          "key": "show_sub_title",
+          "label": "显示入口说明",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "Controls each row description."
+        },
+        "image_fit": {
+          "key": "image_fit",
+          "label": "图片适配",
+          "type": "select",
+          "value_type": "string",
+          "default": "cover",
+          "options": [
+            {
+              "label": "裁剪填满",
+              "value": "cover"
+            },
+            {
+              "label": "完整显示",
+              "value": "contain"
+            }
+          ]
         }
       },
       "style_fields": {
@@ -21988,6 +26639,20 @@
           "min": 0,
           "max": 100
         },
+        "item_background": {
+          "key": "item_background",
+          "label": "入口卡片底色",
+          "type": "color",
+          "value_type": "string",
+          "default": ""
+        },
+        "description_color": {
+          "key": "description_color",
+          "label": "入口说明颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": ""
+        },
         "padding": {
           "key": "padding",
           "label": "旧版内边距",
@@ -21995,6 +26660,112 @@
           "value_type": "number",
           "default": 24,
           "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
+        },
+        "item_padding": {
+          "key": "item_padding",
+          "label": "入口卡片内边距",
+          "type": "stepper",
+          "value_type": "number",
+          "default": null,
+          "unit": "rpx",
+          "min": 0,
+          "max": 120,
+          "help": "每张入口内卡的内边距；未设置保留旧端默认，0表示无内边距。"
+        },
+        "item_radius": {
+          "key": "item_radius",
+          "label": "入口卡片圆角",
+          "type": "stepper",
+          "value_type": "number",
+          "default": null,
+          "unit": "rpx",
+          "min": 0,
+          "max": 120,
+          "help": "每张入口内卡的圆角；未设置保留旧端默认，0表示直角。"
+        },
+        "item_min_height": {
+          "key": "item_min_height",
+          "label": "入口卡片最小高度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 800,
+          "help": "每张入口内卡的最小高度；0按内容自然撑开，不是固定高度。"
+        },
+        "icon_color": {
+          "key": "icon_color",
+          "label": "系统图标颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": "",
+          "help": "仅系统named glyph，十六进制或rgb/rgba；空继承文字颜色，不影响图片、emoji或入口文字。"
         }
       },
       "lists": {
@@ -22073,6 +26844,150 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "help": "Public glyph name; existing emoji/image addresses remain readable. Image takes priority."
             }
           }
         },
@@ -22151,6 +27066,150 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "icon": {
+              "key": "icon",
+              "label": "图标",
+              "type": "select",
+              "value_type": "string",
+              "default": "",
+              "options": [
+                {
+                  "label": "无图标",
+                  "value": "",
+                  "tags": []
+                },
+                {
+                  "label": "文字创作",
+                  "value": "edit-pen",
+                  "tags": [
+                    "写作",
+                    "编辑",
+                    "文字",
+                    "文案"
+                  ]
+                },
+                {
+                  "label": "图片",
+                  "value": "photo",
+                  "tags": [
+                    "图片",
+                    "绘图",
+                    "照片",
+                    "图像"
+                  ]
+                },
+                {
+                  "label": "视频",
+                  "value": "play-circle",
+                  "tags": [
+                    "视频",
+                    "播放",
+                    "短片"
+                  ]
+                },
+                {
+                  "label": "应用",
+                  "value": "grid",
+                  "tags": [
+                    "应用",
+                    "工具",
+                    "宫格"
+                  ]
+                },
+                {
+                  "label": "账户",
+                  "value": "account",
+                  "tags": [
+                    "账户",
+                    "用户",
+                    "个人"
+                  ]
+                },
+                {
+                  "label": "客服",
+                  "value": "kefu-ermai",
+                  "tags": [
+                    "客服",
+                    "帮助",
+                    "联系"
+                  ]
+                },
+                {
+                  "label": "音频",
+                  "value": "volume-up",
+                  "tags": [
+                    "音频",
+                    "音乐",
+                    "声音",
+                    "朗读"
+                  ]
+                },
+                {
+                  "label": "搜索",
+                  "value": "search",
+                  "tags": [
+                    "搜索",
+                    "查找"
+                  ]
+                },
+                {
+                  "label": "钱包",
+                  "value": "rmb-circle",
+                  "tags": [
+                    "钱包",
+                    "积分",
+                    "余额",
+                    "充值"
+                  ]
+                },
+                {
+                  "label": "设置",
+                  "value": "setting",
+                  "tags": [
+                    "设置",
+                    "配置"
+                  ]
+                },
+                {
+                  "label": "收藏",
+                  "value": "star",
+                  "tags": [
+                    "收藏",
+                    "喜欢",
+                    "灵感"
+                  ]
+                },
+                {
+                  "label": "文件",
+                  "value": "file-text",
+                  "tags": [
+                    "文件",
+                    "文档",
+                    "作品"
+                  ]
+                },
+                {
+                  "label": "时间",
+                  "value": "clock",
+                  "tags": [
+                    "时间",
+                    "历史",
+                    "最近",
+                    "任务"
+                  ]
+                },
+                {
+                  "label": "日历",
+                  "value": "calendar",
+                  "tags": [
+                    "日历",
+                    "计划",
+                    "日期"
+                  ]
+                }
+              ],
+              "help": "Public glyph name; existing emoji/image addresses remain readable. Image takes priority."
             }
           }
         }
@@ -22183,6 +27242,10 @@
         "supported": false,
         "max_depth": 4
       },
+      "runtime_notes": [
+        "show_title/show_sub_title control row copy. Public historical default block heading remains.",
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
       "compatibility": {
         "unknown_fields": "preserve",
         "persisted_shape": "name/content/styles/children",
@@ -22536,5 +27599,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "dfc5151f37376df8f81589f31f5060ef15721e641b9998b0d2113c83a82b7d77"
+  "hash": "7f982a80e7c53ea4df889835250b8f33e6a91d5cd5112bc7d939c2845f88b4bc"
 }

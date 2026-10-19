@@ -80,14 +80,15 @@ class OrderController extends BaseAdminController
             $tenantId=(int)$this->request->post('tenant_id',0);
             $enabled=(int)$this->request->post('enabled',0)===1;
             $entry=(int)$this->request->post('entry_enabled',0)===1;
-            Db::transaction(function()use($tenantId,$enabled,$entry) {
+            $authorization = Db::transaction(function()use($tenantId,$enabled,$entry) {
                 $tenant=Db::name('tenant')->where('id',$tenantId)->whereNull('delete_time')->lock(true)->find();
                 if (!$tenant) throw new \app\common\service\brand\BrandUserException('租户不存在');
                 $flow=$entry?1:((int)$tenant['oem_flow_enabled']>0?2:0);
                 Db::name('tenant')->where('id',$tenantId)->update(['oem_sales_enabled'=>$enabled?1:0,'oem_flow_enabled'=>$flow,'update_time'=>time()]);
+                return ['tenant_id'=>$tenantId,'oem_sales_enabled'=>$enabled?1:0,'oem_flow_enabled'=>$flow];
             });
             Log::info('OEM seller qualification changed: platform_admin='.$this->adminId.' tenant='.$tenantId.' sales='.(int)$enabled.' entry='.(int)$entry);
-            return $this->success('销售资格已保存，现有付款订单继续处理',[],1,1);
+            return $this->success('销售资格已保存，现有付款订单继续处理',$authorization,1,1);
         } catch (\Throwable $e) { Log::error('OEM qualification: '.$e->getMessage()); return $this->fail(BrandOrderPolicy::error($e)); }
     }
     /** Platform-only operational recovery for an already paid order. */

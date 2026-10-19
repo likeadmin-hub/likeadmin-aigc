@@ -21,6 +21,7 @@ use app\common\service\user\RegisterBonusService;
 use app\common\service\membership\MembershipService;
 use app\common\service\distribution\DistributionService;
 use app\common\service\storage\Driver as StorageDriver;
+use app\common\service\storage\StorageConfigService;
 use think\db\exception\DataNotFoundException;
 use think\db\exception\DbException;
 use think\db\exception\ModelNotFoundException;
@@ -142,15 +143,10 @@ class WechatUserService
      */
     private function createUser(): void
     {
-        //设置头像
-        if (empty($this->headimgurl)) {
-            // 默认头像
-            $defaultAvatar = config('project.default_image.user_avatar');
-            $avatar = \app\common\service\ConfigService::get('default_image', 'user_avatar', $defaultAvatar);
-        } else {
-            // 微信获取到的头像信息
-            $avatar = $this->getAvatarByWechat();
-        }
+        // Profile media is optional; authentication must not wait for remote
+        // download/storage. HttpEnd synchronizes it after the response is sent.
+        $defaultAvatar = config('project.default_image.user_avatar');
+        $avatar = \app\common\service\ConfigService::get('default_image', 'user_avatar', $defaultAvatar);
 
         $userSn = User::createUserSn();
         $this->user->sn = $userSn;
@@ -191,13 +187,6 @@ class WechatUserService
      */
     private function updateUser(): void
     {
-        // 无头像需要更新头像
-        if (empty($this->user->avatar) && !empty($this->headimgurl)) {
-            $this->user->avatar = $this->getAvatarByWechat();
-            User::where(['id' => $this->user->id, 'tenant_id' => $this->user->tenant_id])
-                ->update(['avatar' => $this->user->getData('avatar')]);
-        }
-
         $userAuth = UserAuth::where(['user_id' => $this->user->id, 'openid' => $this->openid, 'terminal' => $this->terminal])
             ->findOrEmpty();
 
@@ -244,10 +233,20 @@ class WechatUserService
      */
     public function authUserLogin(): self
     {
+        $needsAvatar = $this->user->isEmpty() || empty($this->user->getData('avatar'));
         if ($this->user->isEmpty()) {
             $this->createUser();
         } else {
             $this->updateUser();
+        }
+        if ($needsAvatar && !empty($this->headimgurl)) {
+            request()->wechatAvatarSync = [
+                'tenant_id' => (int)$this->user->tenant_id,
+                'user_id' => (int)$this->user->id,
+                'expected_avatar' => (string)$this->user->getData('avatar'),
+                'profile' => ['openid'=>$this->openid, 'headimgurl'=>$this->headimgurl],
+                'terminal' => $this->terminal,
+            ];
         }
         return $this;
     }
@@ -263,10 +262,7 @@ class WechatUserService
     public function getAvatarByWechat(): string
     {
         // 存储引擎
-        $config = [
-            'default' => \app\common\service\ConfigService::get('storage', 'default', 'local'),
-            'engine' => \app\common\service\ConfigService::get('storage')
-        ];
+        $config = StorageConfigService::getEffectiveConfig((int)request()->tenantId);
 
         $fileName = md5($this->openid . time()) . '.jpeg';
 

@@ -107,7 +107,7 @@ class MarketApplicationFoundationContractTest extends TestCase
         $source = (string)file_get_contents(dirname(__DIR__, 2) . '/app/common/service/power/MarketTextModelRuntimeService.php');
         self::assertStringContainsString("empty(\$params['_disable_model_fallback'])", $source);
         self::assertStringContainsString('self::isExplicitModelUnavailable($e->getMessage())', $source);
-        self::assertLessThan(strpos($source, 'return self::generate($tenantId'), strpos($source, "self::fail(\$context, \$e->getMessage(), 'provider_error')"));
+        self::assertLessThan(strpos($source, 'return self::generate($tenantId', strpos($source, "self::fail(\$context, \$e->getMessage(), 'provider_error')")), strpos($source, "self::fail(\$context, \$e->getMessage(), 'provider_error')"));
     }
 
     public function testBlankChannelFactoryModelUsesCompleteCataloguePricing(): void

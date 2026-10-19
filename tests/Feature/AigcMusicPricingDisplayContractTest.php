@@ -25,7 +25,7 @@ class AigcMusicPricingDisplayContractTest extends TestCase
         $api = \Tests\Support\CompiledAssets::source('pc/apps/aigc_music/api.ts');
         self::assertStringContainsString('return $request.get({ url: \'/app.aigc_music.config/detail\' })', $api);
         self::assertStringNotContainsString("getCachedAppData('app:aigc_music:config'", $api);
-        self::assertStringContainsString('/app.aigc_music.config/detail', \Tests\Support\CompiledAssets::read('pc', 'asset-gallery-modal'));
+        self::assertStringContainsString('/app.aigc_music.config/detail', \Tests\Support\CompiledAssets::containing('pc', '/app.aigc_music.config/detail'));
         self::assertNotEmpty(\Tests\Support\CompiledAssets::pcPage('ai/tools/[id]'));
     }
 

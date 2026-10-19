@@ -120,7 +120,7 @@ class ShortDramaMentionAssetTest extends TestCase
             self::assertSame(['subject_image', 'three_view'], $referenceTypes);
 
             $videoReferences = $this->call(
-                'shortDramaVideoThreeViewAssets',
+                'shortDramaVideoSubjectReferenceAssets',
                 $tenant,
                 $user,
                 $project,

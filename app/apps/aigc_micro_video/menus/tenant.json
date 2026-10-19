@@ -1,0 +1,52 @@
+[
+  {
+    "source_menu_key": "aigc_micro_video",
+    "app_code": "aigc_micro_video",
+    "source": "app",
+    "type": "M",
+    "name": "微视频",
+    "icon": "el-icon-VideoCamera",
+    "sort": 84,
+    "perms": "",
+    "paths": "aigc-micro-video",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_micro_video_config",
+        "type": "C",
+        "name": "应用配置",
+        "sort": 40,
+        "perms": "app.aigc_micro_video.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_micro_video/config"
+      },
+      {
+        "source_menu_key": "aigc_micro_video_direction",
+        "type": "C",
+        "name": "创作方向",
+        "sort": 30,
+        "perms": "app.aigc_micro_video.direction/lists",
+        "paths": "direction",
+        "component": "apps/aigc_micro_video/direction"
+      },
+      {
+        "source_menu_key": "aigc_micro_video_task",
+        "type": "C",
+        "name": "创作任务",
+        "sort": 20,
+        "perms": "app.aigc_micro_video.task/lists",
+        "paths": "task",
+        "component": "apps/aigc_micro_video/task"
+      },
+      {
+        "source_menu_key": "aigc_micro_video_workbench",
+        "type": "C",
+        "name": "创作工作台",
+        "sort": 35,
+        "perms": "app.aigc_micro_video.workbench/lists",
+        "paths": "workbench",
+        "component": "apps/aigc_micro_video/workbench"
+      }
+    ]
+  }
+]

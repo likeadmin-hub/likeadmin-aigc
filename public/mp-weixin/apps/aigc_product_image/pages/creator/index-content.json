@@ -2,6 +2,7 @@
   "component": true,
   "usingComponents": {
     "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
+    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader",
+    "micro-workbench-transfer": "../../../mobile_tools/components/MicroWorkbenchTransfer"
   }
 }
