@@ -8,4 +8,5 @@ $sql=str_replace('`la_','`'.$prefix,file_get_contents(dirname(__DIR__).'/upgrade
 echo 'Local target: '.$config['hostname'].'/'.$config['database'].PHP_EOL;
 if(!in_array('--apply',$argv,true)){echo $sql;exit;}
 foreach(explode(';',$sql) as $statement)if(trim($statement))$db->execute($statement);
+\app\common\service\point_alert\AlertMenus::all();
 echo "Point alert schema ready\n";
