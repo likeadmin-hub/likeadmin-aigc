@@ -44,7 +44,7 @@ Interfaces: rules/save/records/detail/preview/check; tenant receiving/contact AP
 - [x] Build affected frontends and run tests; commit.
 
 ### Task 4: Integration and final review
-- [ ] Merge scoped checkpoints into local develop for verification; run local migration and worker with delivery fake transport only.
+- [x] Merge scoped checkpoints into local develop for verification; run local migration and worker with delivery fake transport only.
 - [x] Exercise browser UI where auth permits, capture actionable screens, preserve existing settings.
 - [x] Request one independent whole-change review; resolve important findings with regression tests.
 - [x] Report exact tested coverage and remaining operational configuration. No remote publication.
@@ -61,3 +61,14 @@ Interfaces: rules/save/records/detail/preview/check; tenant receiving/contact AP
 - Nine frontend regressions pass. Platform, tenant, PC and H5 builds passed before the final review fixes; final local-develop builds and migration are the integration gate below.
 - Browser component fixture verified editable caps/interval, dirty-state checking guard, successful save, explicit preview confirmation and per-channel record details. This is a labeled simulated-account harness, not proof of authenticated deployed UI.
 - Existing tenant vue-tsc invocation is blocked by TypeScript configuration TS5102 (removed importsNotUsedAsValues/preserveValueImports); do not claim a passing repository typecheck.
+
+## Final integration evidence
+
+- Code checkpoints: server `47c2c1b70`, web `5a571ae4`, both merged to local develop. No remote push, release package or production deployment.
+- Local migration applied idempotently against 127.0.0.1/z_cn after merge. Verified one platform page, two shared-tenant pages, one active point-alert cron entry, zero saved rule rows and zero remaining fixture accounts. New and existing settings therefore remain disabled.
+- All 21 changed runtime source/schema files matched host/container SHA256 after refreshing Docker bind-mount stale/truncated files. Direct `php think point-alert:maintain` then returned `{"checked":0,"delivered":0}`; no enabled rules or outbound sends.
+- Final local-develop builds: platform Vite 22.28s, tenant Vite 25.43s, PC Nuxt/Nitro and H5 Uni build all exited 0. Build outputs stayed outside deploy directories except ignored PC .output.
+- Final regressions: policy + transactional database isolation/recovery + eight-process admission/delivery/caps passed. Frontend 9/9 and existing PC theme contracts 11/11 passed. Added bilingual catalog messages and private-screen text coverage passed.
+- Existing global checks remain limited: tenant vue-tsc TS5102 from removed tsconfig options; global PC i18n audit reports 554 pre-existing missing-message issues. No successful global typecheck/i18n claim.
+- Browser fixture screenshot: workspace `runtime/point-alert-ui/rules-verified.png`. This proves the shared component interactions with simulated accounts; authenticated deployed pages, real provider acceptance and unattended online scheduler execution are not certified by this local test.
+- Operational setup: enable and save rules separately at platform/tenant; SMS requires each sender's existing SMS configuration, alert template/variables, tenant receiving contacts or user bound mobile. Email remains disabled phase two. Counts are per admitted round, shared across channels, with no automatic replay of uncertain provider results.
