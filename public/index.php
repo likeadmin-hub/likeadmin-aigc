@@ -12,6 +12,23 @@
 // [ 应用入口文件 ]
 namespace think;
 
+// A fresh checkout must reach the environment checker before loading dependencies.
+$url = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$whe = !str_starts_with($url, '/platformapi/config/getConfig') && !str_starts_with($url, '/tenantapi/config/getConfig') && !str_starts_with($url, '/api/pc/config') && !str_starts_with($url, '/api/index/config');
+$siteRoot = dirname(__DIR__);
+$pendingRuntime = is_file($siteRoot . '/runtime/direct-update-active.json')
+    || is_file($siteRoot . '/.composer-runtime/active.json')
+    || is_file($siteRoot . '/.composer-runtime/current.json');
+if ($whe && !is_file($siteRoot . '/config/install.lock') && !$pendingRuntime) {
+    header('Location: /install/install.php');
+    exit;
+}
+if (PHP_VERSION_ID < 80200) {
+    http_response_code(503);
+    header('Content-Type: text/plain; charset=UTF-8');
+    exit('当前网站 PHP 版本为 ' . PHP_VERSION . '，系统要求 PHP 8.2 或更高版本。请在网站设置中切换 PHP 版本后重试。');
+}
+
 try {
     require __DIR__ . '/../runtime-loader.php';
 } catch (\Throwable $e) {
@@ -22,9 +39,6 @@ try {
 }
 
 $app = new \AigcRuntimeApp(dirname(__DIR__));
-$url = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-
-$whe = !str_starts_with($url, '/platformapi/config/getConfig') && !str_starts_with($url, '/tenantapi/config/getConfig') && !str_starts_with($url, '/api/pc/config') && !str_starts_with($url, '/api/index/config');
 if ($whe && !file_exists(__DIR__ . '/../config/install.lock')) {
     header("location:/install/install.php");
     exit;
