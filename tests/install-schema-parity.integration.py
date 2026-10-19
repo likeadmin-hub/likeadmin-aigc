@@ -2,6 +2,8 @@
 """Validate fresh/legacy/custom-prefix installs in disposable containers.
 
 SQL checks: python3 tests/install-schema-parity.integration.py
+Fresh/custom install and real installer checks: add --fresh-only --workers.
+The default legacy fixture checks only its explicitly listed historical repairs.
 Real installer/workers: set INSTALL_PARITY_PHP_IMAGE to a PHP 8.2 image with
 PDO MySQL and pcntl, then add --workers. --full-suite also runs PHPUnit.
 """
@@ -143,7 +145,10 @@ try:
     sources = list((root / 'public/upgrade').glob('*.sql')) + list((root / 'app/apps').glob('*/migrations/*.sql'))
     for path in sources:
         expected.update(re.findall(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`(la_\w+)`', path.read_text(), re.I))
-    for database, prefix in [('parity_fresh', 'la_'), ('parity_custom', 'qa_'), ('parity_legacy', 'la_')]:
+    schema_cases = [('parity_fresh', 'la_'), ('parity_custom', 'qa_'), ('parity_legacy', 'la_')]
+    if '--fresh-only' in sys.argv:
+        schema_cases = [item for item in schema_cases if item[0] != 'parity_legacy']
+    for database, prefix in schema_cases:
         tables = set(sql(database, 'SHOW TABLES;').split())
         missing = {table.replace('la_', prefix, 1) for table in expected} - tables
         assert not missing, (database, sorted(missing))
