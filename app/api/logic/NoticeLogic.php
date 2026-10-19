@@ -101,6 +101,11 @@ class NoticeLogic extends BaseLogic
             ->whereRaw('(r.id IS NULL OR r.read_time = 0)')
             ->count() : 0;
 
+        try {
+            $unread += \app\common\service\point_alert\AlertStore::table('round')->alias('r')
+                ->where(['r.tenant_id'=>$tenantId,'r.user_id'=>$userId,'r.read_time'=>0])
+                ->whereExists(function($q){$q->table((string)config('database.connections.mysql.prefix').'point_alert_delivery')->whereRaw('round_id = r.id')->where(['channel'=>'in_app','status'=>'success']);})->count();
+        } catch (\Throwable $e) { /* Existing announcements remain available before migration. */ }
         return [
             'unread' => (int)$unread,
             'has_unread' => $unread > 0,

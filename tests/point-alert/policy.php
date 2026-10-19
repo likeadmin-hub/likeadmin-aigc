@@ -24,4 +24,8 @@ $d=P::decide($r,$d['state'],120000,$now+8601);ok($d['state']['cycle_count']===0&
 $r['repeat_enabled']=true;$r['repeat_hours']=24;$s=P::decide($r,[],12000,$now)['state'];
 ok(P::decide($r,$s,12000,$now+86401)['send'],'configured repeat');
 $r['enabled']=false;ok(!P::decide($r,[],0,$now)['send'],'disabled');
+$r=P::normalize(['enabled'=>true,'thresholds'=>['1000','200','50'],'min_interval_minutes'=>60]);
+$s=P::decide($r,[],12000,$now)['state'];
+$s=P::decide($r,$s,120000,$now+1)['state'];$s=P::decide($r,$s,120000,$now+602)['state'];
+ok(!P::decide($r,$s,12000,$now+603)['send'],'recovery cannot bypass minimum interval');
 echo "PASS point-alert policy\n";

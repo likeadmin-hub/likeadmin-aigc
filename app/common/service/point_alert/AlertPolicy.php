@@ -55,7 +55,7 @@ final class AlertPolicy
         $highest=self::cents($r['thresholds'][0]);
         if($balance>$highest+max(1,(int)ceil($highest*.05))){
             if(!$s['recovery_at'])$s['recovery_at']=$now;
-            if($s['cycle_count'] && $now-$s['recovery_at']>=600){$s['cycle_no']++;$s['cycle_count']=0;$s['last_threshold']=null;$s['last_at']=0;}
+            if($s['cycle_count'] && $now-$s['recovery_at']>=600){$s['cycle_no']++;$s['cycle_count']=0;$s['last_threshold']=null;}
         } else $s['recovery_at']=0;
         $reason='ready';
         if(!$r['enabled'])$reason='disabled';
