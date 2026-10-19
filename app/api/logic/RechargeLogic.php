@@ -22,6 +22,7 @@ use app\common\model\user\User;
 use app\common\service\ConfigService;
 use app\common\service\PointUnitService;
 use app\common\service\recharge\RechargePackageService;
+use app\common\service\recharge\CustomRechargeService;
 
 
 /**
@@ -54,6 +55,10 @@ class RechargeLogic extends BaseLogic
             if ($money <= 0 && empty($package)) {
                 throw new \Exception('请选择充值套餐或填写充值' . PointUnitService::unit());
             }
+
+            $quote = CustomRechargeService::quote((string)($params['money'] ?? ''), CustomRechargeService::ratio());
+            $money = $quote['amount'];
+            $points = $quote['points'];
 
             $data = [
                 'sn' => generate_sn(RechargeOrder::class, 'sn'),
@@ -99,6 +104,7 @@ class RechargeLogic extends BaseLogic
             'user_money' => $userMoney,
             'packages' => $packages,
             'point_unit' => PointUnitService::unit(),
+            'recharge_ratio' => CustomRechargeService::ratio(),
         ];
     }
 

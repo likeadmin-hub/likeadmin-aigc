@@ -363,7 +363,8 @@ class AigcStyleTransferService
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
-        if (!empty($params['sync_running'])) {
+        // Mobile lists are the polling endpoint; reconcile before success-only works filtering.
+        if (!array_key_exists('sync_running', $params) || !empty($params['sync_running'])) {
             self::refreshMappedTasks($tenantId, $userId);
         }
         $query = AigcStyleTransferTask::alias('t')

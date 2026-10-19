@@ -107,6 +107,16 @@ $tenantFrontendRedirect = function (string $frontend, string $childPath = '') {
     return redirect($path . '?' . http_build_query($query));
 };
 
+// The website OAuth callback is a PC page, even though the other /wechat/*
+// endpoints are backend handlers. Keep this exact path out of the broad SPA
+// namespaces so component/official-account/payment callbacks keep their routes.
+Route::get('wechat/callback', function () {
+    return view(app()->getRootPath() . 'public/pc/index.html');
+})->completeMatch();
+Route::get('t/:tenant_id/wechat/callback', function () use ($tenantFrontendRedirect) {
+    return $tenantFrontendRedirect('', 'wechat/callback');
+})->pattern(['tenant_id' => '\d+'])->completeMatch();
+
 // Shared root and tenant-prefix PC routes; API/admin/callback routes stay separate.
 $pcFrontendPath = '(ai|app|account|user|page|policy|products|scenes|cases|pricing|official|join-opc|docs)(/.*)?';
 

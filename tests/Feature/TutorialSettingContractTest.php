@@ -7,6 +7,52 @@ use PHPUnit\Framework\TestCase;
 
 class TutorialSettingContractTest extends TestCase
 {
+    public function testTutorialMenuTargetsItsDedicatedPageAcrossEveryBootstrapSurface(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $logic = (string)file_get_contents($root . '/app/tenantapi/logic/auth/MenuLogic.php');
+        $method = new \ReflectionMethod(\app\tenantapi\logic\auth\MenuLogic::class, 'ensureTutorialMenu');
+        $methodSource = implode('', array_slice(file($method->getFileName()), $method->getStartLine() - 1, $method->getEndLine() - $method->getStartLine() + 1));
+        self::assertStringContainsString("'component' => 'setting/website/tutorial'", $methodSource);
+        self::assertStringNotContainsString("'component' => 'setting/website/information'", $methodSource);
+        foreach (['public/install/db/like.sql', 'app/platformapi/db/tenantData.sql', 'upgrade/20260815_platform_tutorial.sql', 'public/upgrade/20260815_platform_tutorial.sql'] as $file) {
+            $sql = (string)file_get_contents($root . '/' . $file);
+            self::assertMatchesRegularExpression("~getTutorial','tutorial','setting/website/tutorial'~", $sql, $file);
+            self::assertDoesNotMatchRegularExpression("~getTutorial','tutorial','setting/website/information'~", $sql, $file);
+            if (str_contains($file, 'upgrade/')) {
+                self::assertStringContainsString("tutorial.`component`='setting/website/tutorial'", $sql, $file);
+            }
+        }
+        // Menu refresh invokes repair for existing tenants as well as new installs.
+        self::assertStringContainsString('self::ensureTutorialMenu($tenantId);', $logic);
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function testTutorialRuntimeRepairPreservesTenantOwnedMenus(): void
+    {
+        (new \think\App())->initialize();
+        \think\facade\Config::set(['default' => 'tutorial_test', 'connections' => ['tutorial_test' => [
+            'type' => 'sqlite', 'database' => ':memory:', 'prefix' => 'la_', 'fields_strict' => true, 'fields_cache' => false,
+        ]]], 'database');
+        $db = \think\facade\Db::class;
+        $db::execute('CREATE TABLE la_tutorial_menu_test (id INTEGER PRIMARY KEY, tenant_id INTEGER, pid INTEGER, type TEXT, name TEXT, icon TEXT, sort INTEGER, perms TEXT, paths TEXT, component TEXT, selected TEXT, params TEXT, is_cache INTEGER, is_show INTEGER, is_disable INTEGER, app_code TEXT, source TEXT, source_menu_key TEXT, is_core INTEGER, create_time INTEGER, update_time INTEGER)');
+        $db::name('tutorial_menu_test')->insertAll([
+            ['id' => 9410, 'tenant_id' => 8, 'name' => '租户自定义教程', 'component' => 'custom/tutorial', 'source' => 'tenant', 'source_menu_key' => 'core_tenant_tutorial'],
+            ['id' => 9500, 'tenant_id' => 8, 'name' => '新手教程', 'component' => 'setting/website/information', 'source' => 'core', 'source_menu_key' => 'core_tenant_tutorial'],
+        ]);
+        $before = $db::name('tutorial_menu_test')->where('id', 9410)->find();
+        $method = new \ReflectionMethod(\app\tenantapi\logic\auth\MenuLogic::class, 'upsertSystemMenu');
+        $method->setAccessible(true);
+        $id = $method->invoke(null, 'tutorial_menu_test', 8, [
+            'pid' => 28, 'name' => '新手教程', 'paths' => 'tutorial', 'component' => 'setting/website/tutorial',
+            'perms' => 'setting.web.web_setting/getTutorial', 'source_menu_key' => 'core_tenant_tutorial',
+        ], 9410);
+        self::assertSame(9500, $id);
+        self::assertSame('setting/website/tutorial', $db::name('tutorial_menu_test')->where('id', 9500)->value('component'));
+        self::assertSame($before, $db::name('tutorial_menu_test')->where('id', 9410)->find());
+        self::assertSame(2, $db::name('tutorial_menu_test')->count());
+    }
+
     public function testTutorialUrlValidationOnlyAllowsHttpSchemes(): void
     {
         $validator = new WebSettingValidate();

@@ -2127,7 +2127,7 @@ VALUES
 
 INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
-(9410,0,28,'C','新手教程','el-icon-Guide',95,'setting.web.web_setting/getTutorial','tutorial','setting/website/information','','',0,1,0,'','core','core_tenant_tutorial',1,1779000000,1779000000),
+(9410,0,28,'C','新手教程','el-icon-Guide',95,'setting.web.web_setting/getTutorial','tutorial','setting/website/tutorial','','',0,1,0,'','core','core_tenant_tutorial',1,1779000000,1779000000),
 (9411,0,9410,'A','保存','',0,'setting.web.web_setting/setTutorial','','','','',0,0,0,'','core','core_tenant_tutorial_save',1,1779000000,1779000000);
 
 INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) VALUES

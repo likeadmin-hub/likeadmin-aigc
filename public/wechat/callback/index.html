@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>正在返回微信登录</title>
+</head>
+<body>
+    <p>正在返回微信登录，请稍候。</p>
+    <p><a id="continue" href="/pc/wechat/callback/">未自动跳转？点击继续</a></p>
+    <noscript>请启用 JavaScript 后重新发起微信登录。</noscript>
+    <script>
+        // Fixed same-origin destination: query values must never control navigation.
+        // The generated PC page is a directory index and needs no PHP rewrite.
+        var target = '/pc/wechat/callback/' + window.location.search + window.location.hash;
+        document.getElementById('continue').href = target;
+        window.location.replace(target);
+    </script>
+</body>
+</html>

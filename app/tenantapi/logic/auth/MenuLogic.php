@@ -419,7 +419,7 @@ class MenuLogic extends BaseLogic
                 'sort' => 95,
                 'perms' => 'setting.web.web_setting/getTutorial',
                 'paths' => 'tutorial',
-                'component' => 'setting/website/information',
+                'component' => 'setting/website/tutorial',
                 'app_code' => '',
                 'source_menu_key' => 'core_tenant_tutorial',
             ], 9410);
