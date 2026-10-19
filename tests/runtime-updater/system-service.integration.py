@@ -112,7 +112,11 @@ try:
         'tests/runtime-updater/release-392-migrations.integration.php']
     if args.companions:
         cases += ['companion_' + str(index) for index in range(args.companion_start, len(companions))]
-    if args.cases:cases=[case for case in cases if re.sub(r'^(canonical|legacy402)-','',case) in args.cases]
+    if args.cases:
+        selected = {re.sub(r'^(canonical|legacy402)-', '', case) for case in args.cases}
+        cases = [case for case in cases if re.sub(r'^(canonical|legacy402)-', '', case) in selected]
+        if not cases:
+            raise RuntimeError('No requested system-service cases matched; refusing an empty test run')
     for case in cases:
         database = 'x_cn' if case=='standalone' or (case=='business' and args.db_tests) else 'fixture_' + case.replace('-', '_')
         sql('mysql', 'CREATE DATABASE ' + database + ';')
