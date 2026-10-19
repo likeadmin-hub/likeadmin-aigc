@@ -15,16 +15,53 @@ class TutorialSettingContractTest extends TestCase
         $methodSource = implode('', array_slice(file($method->getFileName()), $method->getStartLine() - 1, $method->getEndLine() - $method->getStartLine() + 1));
         self::assertStringContainsString("'component' => 'setting/website/tutorial'", $methodSource);
         self::assertStringNotContainsString("'component' => 'setting/website/information'", $methodSource);
-        foreach (['public/install/db/like.sql', 'app/platformapi/db/tenantData.sql', 'upgrade/20260815_platform_tutorial.sql', 'public/upgrade/20260815_platform_tutorial.sql'] as $file) {
+        foreach (['public/install/db/like.sql', 'app/platformapi/db/tenantData.sql'] as $file) {
             $sql = (string)file_get_contents($root . '/' . $file);
             self::assertMatchesRegularExpression("~getTutorial','tutorial','setting/website/tutorial'~", $sql, $file);
             self::assertDoesNotMatchRegularExpression("~getTutorial','tutorial','setting/website/information'~", $sql, $file);
-            if (str_contains($file, 'upgrade/')) {
-                self::assertStringContainsString("tutorial.`component`='setting/website/tutorial'", $sql, $file);
-            }
         }
+        self::assertFileExists($root . '/upgrade/20261019_tutorial_route.sql');
+        $migration = (string)file_get_contents($root . '/upgrade/20261019_tutorial_route.sql');
+        self::assertSame($migration, file_get_contents($root . '/public/upgrade/20261019_tutorial_route.sql'));
+        self::assertStringContainsString("`component` = 'setting/website/tutorial'", $migration);
         // Menu refresh invokes repair for existing tenants as well as new installs.
         self::assertStringContainsString('self::ensureTutorialMenu($tenantId);', $logic);
+    }
+
+    public function testPublishedTutorialMigrationRemainsImmutable(): void
+    {
+        // Published migration bytes are part of the update execution history.
+        // Route repair must use a new migration rather than rerunning old setup.
+        $root = dirname(__DIR__, 2);
+        foreach (['upgrade/20260815_platform_tutorial.sql', 'public/upgrade/20260815_platform_tutorial.sql'] as $file) {
+            self::assertSame('0c62ac7ef9c60af9e1585bbf66d177fd94c3625a34b86015aa128d36c96850de', hash_file('sha256', $root . '/' . $file), $file);
+        }
+    }
+
+    public function testTutorialRouteMigrationCanRunTwiceAndPreservesTenantOwnedMenus(): void
+    {
+        $db = new \PDO('sqlite::memory:');
+        $db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        $db->exec('CREATE TABLE la_tenant_system_menu (id INTEGER PRIMARY KEY, tenant_id INTEGER, component TEXT, source TEXT, source_menu_key TEXT, name TEXT, update_time INTEGER)');
+        $insert = $db->prepare('INSERT INTO la_tenant_system_menu VALUES (?, ?, ?, ?, ?, ?, ?)');
+        foreach ([
+            [1, 8, 'setting/website/information', 'core', 'core_tenant_tutorial', '新手教程', 100],
+            [2, 8, 'custom/tutorial', 'tenant', 'core_tenant_tutorial', '租户自定义教程', 200],
+            [3, 8, 'setting/website/information', 'core', 'core_tenant_website', '网站设置', 300],
+            [4, 8, 'setting/website/tutorial', 'core', 'core_tenant_tutorial', '已修复教程', 400],
+            [5, 9, 'setting/website/information', 'core', 'core_tenant_tutorial', '另一租户教程', 500],
+        ] as $row) $insert->execute($row);
+        $before = $db->query('SELECT * FROM la_tenant_system_menu ORDER BY id')->fetchAll(\PDO::FETCH_ASSOC);
+        $migrationPath = dirname(__DIR__, 2) . '/upgrade/20261019_tutorial_route.sql';
+        self::assertFileExists($migrationPath);
+        $sql = (string)file_get_contents($migrationPath);
+        self::assertSame(2, $db->exec($sql));
+        $after = $db->query('SELECT * FROM la_tenant_system_menu ORDER BY id')->fetchAll(\PDO::FETCH_ASSOC);
+        $expected = $before;
+        $expected[0]['component'] = $expected[4]['component'] = 'setting/website/tutorial';
+        self::assertSame($expected, $after);
+        self::assertSame(0, $db->exec($sql));
+        self::assertSame($after, $db->query('SELECT * FROM la_tenant_system_menu ORDER BY id')->fetchAll(\PDO::FETCH_ASSOC));
     }
 
     /** @runInSeparateProcess @preserveGlobalState disabled */
