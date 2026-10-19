@@ -73,12 +73,22 @@ class AiTaskBusinessResultService
             'aigc_canvas_run' => null,
             // The decoration worker owns slot hydration after managed assets settle.
             'decorate_agent_image_slot' => null,
-            'aigc_music_task' => \app\common\service\power\MarketMusicOperationRuntimeService::syncNative($consumption, $businessId),
+            'aigc_music_task' => self::syncMusicTask($consumption, $businessId),
             'aigc_pic_lipsync_task' => AigcPicLipsyncService::syncConsumption($businessId, (int)$consumption['user_id']),
             'aigc_digital_human_task' => AigcDigitalHumanService::syncMarketConsumption($consumptionId, $businessId),
             'aigc_watermark_removal_task' => AigcWatermarkRemovalService::syncConsumption($businessId, (int)$consumption['user_id']),
             default => self::assertOptionalBusinessAdapter($consumption, $businessTable),
         };
+    }
+
+    private static function syncMusicTask(array $consumption, int $businessId): void
+    {
+        $provider = Db::name('aigc_music_task')->where(['id' => $businessId, 'consumption_id' => $consumption['id'], 'tenant_id' => $consumption['tenant_id'], 'user_id' => $consumption['user_id']])->value('provider');
+        if ($provider === \app\common\service\app\aigc_music\AigcMusicMarketService::PROVIDER) {
+            \app\common\service\app\aigc_music\AigcMusicMarketService::syncConsumption((int)$consumption['id'], $businessId);
+            return;
+        }
+        \app\common\service\power\MarketMusicOperationRuntimeService::syncNative($consumption, $businessId);
     }
 
     public static function requiresForcedTransfer(int $consumptionId): bool

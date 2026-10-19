@@ -1,6 +1,6 @@
 <?php
 namespace app\common\service\open_platform;
-use app\common\service\app\aigc_music\AigcMusicChannelService;
+use app\common\service\app\aigc_music\AigcMusicMarketService;
 /** Server-owned pricing selections; no client field can override a snapshot. */
 final class OpenToolPricing
 {
@@ -14,10 +14,9 @@ final class OpenToolPricing
         $request=(object)['tenantId'=>$tenant,'userId'=>$user];
         $denied=\app\common\service\app\AppAccessService::assertTenantCanUse($tenant,'aigc_music',$user,true,false);
         if($denied)throw new OpenException('permission_denied','音乐工具不可用',403);
-        $selection=AigcMusicChannelService::resolveSelection((int)$request->tenantId,$params);
+        $selection=AigcMusicMarketService::selection((int)$request->tenantId,$params);
         $selection['resource_bindings']=\app\common\service\app\aigc_music\AigcMusicService::referenceBindings((int)$request->tenantId,(int)$request->userId,$params);
-        if(!in_array(strtolower(trim($selection['channel']['provider'])),['xhadmin','xhadmin_aigc_music','music_generation'],true))throw new OpenException('capability_unavailable','当前音乐通道尚未接入真实生成能力',503);
-        $quote=AigcMusicChannelService::estimateSelection($selection,$params);
+        $quote=AigcMusicMarketService::estimate($tenant,$params);
         $budget=OpenToolAdapter::estimateBudget($quote);
         if($budget===null)throw new OpenException('pricing_unavailable','音乐生成未提供可靠的计费额度边界',503);
         $budget['snapshot']['native_selection_blob']=OpenVault::seal(OpenStore::encode(['app_code'=>'aigc_music','tenant_id'=>(int)$request->tenantId,'user_id'=>(int)$request->userId,'selection'=>$selection]));
