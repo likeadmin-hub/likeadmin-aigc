@@ -2,8 +2,8 @@
   "component": true,
   "usingComponents": {
     "u-empty": "../../uni_modules/vk-uview-ui/components/u-empty/u-empty",
-    "price": "../price/price",
     "u-icon": "../../uni_modules/vk-uview-ui/components/u-icon/u-icon",
+    "price": "../price/price",
     "u-radio": "../../uni_modules/vk-uview-ui/components/u-radio/u-radio",
     "u-radio-group": "../../uni_modules/vk-uview-ui/components/u-radio-group/u-radio-group",
     "u-button": "../../uni_modules/vk-uview-ui/components/u-button/u-button",

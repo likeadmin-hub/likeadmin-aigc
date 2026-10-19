@@ -1,1 +1,1 @@
-.payway-lists .payway-item{border-bottom:1px solid;border-color:var(--color-bg, #f6f6f6)}
+.payment-help-toggle{position:absolute;right:90rpx;top:24rpx;padding:10rpx}.payway-lists .payway-item{border-bottom:1px solid;border-color:var(--color-bg, #f6f6f6)}
