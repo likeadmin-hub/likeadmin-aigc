@@ -7,7 +7,7 @@ DELETE FROM `la_system_menu`
 WHERE `source_menu_key` IN ('core_platform_tutorial','core_platform_tutorial_save');
 
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
-SELECT setting.`tenant_id`,setting.`id`,'C','新手教程','el-icon-Guide',95,'setting.web.web_setting/getTutorial','tutorial','setting/website/information','','',0,1,0,'','core','core_tenant_tutorial',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+SELECT setting.`tenant_id`,setting.`id`,'C','新手教程','el-icon-Guide',95,'setting.web.web_setting/getTutorial','tutorial','setting/website/tutorial','','',0,1,0,'','core','core_tenant_tutorial',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 FROM `la_tenant_system_menu` setting
 WHERE setting.`type`='M'
   AND setting.`pid`=0
@@ -40,7 +40,7 @@ SET tutorial.`pid`=setting.`id`,
     tutorial.`sort`=95,
     tutorial.`perms`='setting.web.web_setting/getTutorial',
     tutorial.`paths`='tutorial',
-    tutorial.`component`='setting/website/information',
+    tutorial.`component`='setting/website/tutorial',
     tutorial.`app_code`='',
     tutorial.`source`='core',
     tutorial.`is_core`=1,

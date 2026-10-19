@@ -490,7 +490,7 @@ class AigcDigitalHumanService
 
     public static function previewVoice(int $tenantId, int $userId, array $params): array
     {
-        $voice = self::findUserVoice($tenantId, $userId, (int)($params['voice_id'] ?? 0));
+        $voice = self::findUserVoice($tenantId, $userId, (int)($params['voice_id'] ?? $params['id'] ?? 0));
         if (!self::isVoiceReady($voice)) {
             throw new Exception('当前音色未完成克隆，无法试听');
         }

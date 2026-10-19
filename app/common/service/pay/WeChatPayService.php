@@ -80,7 +80,19 @@ class WeChatPayService extends BasePayService
         $this->config = $usePlatformPay ? $this->getPlatformPayConfigByTerminal($terminal) : WeChatConfigService::getPayConfigByTerminal($terminal);
         $this->app = new Application($this->config);
         if ($userId !== null) {
-            $this->auth = UserAuth::where(['user_id' => $userId, 'terminal' => $terminal])->findOrEmpty();
+            $query = ['user_id' => $userId, 'terminal' => $terminal];
+            if (in_array((int)$terminal, [UserTerminalEnum::WECHAT_MMP, UserTerminalEnum::WECHAT_OA], true)) {
+                $channel = (int)$terminal === UserTerminalEnum::WECHAT_MMP
+                    ? WeChatConfigService::getMnpConfig() : WeChatConfigService::getOaConfig();
+                $appId = $this->getPaymentAppId($channel);
+                $this->auth = UserAuth::where($query)->where('appid', $appId)->findOrEmpty();
+                // Existing OA/Mini Program bindings predate the appid column.
+                if ($this->auth->isEmpty()) {
+                    $this->auth = UserAuth::where($query)->where('appid', '')->order('id desc')->findOrEmpty();
+                }
+            } else {
+                $this->auth = UserAuth::where($query)->findOrEmpty();
+            }
         }
     }
 
@@ -146,6 +158,9 @@ class WeChatPayService extends BasePayService
      */
     public function jsapiPay($from, $order, $appId)
     {
+        if (trim((string)($this->auth['openid'] ?? '')) === '') {
+            throw new \RuntimeException('当前微信支付身份已失效，请在当前小程序或公众号中重新授权登录');
+        }
         $response = $this->app->getClient()->postJson("v3/pay/transactions/jsapi", [
             "appid" => $appId,
             "mchid" => $this->config['mch_id'],
@@ -538,7 +553,7 @@ class WeChatPayService extends BasePayService
             : ($channelConfig['app_id'] ?? '');
         $appId = trim((string)$appId);
         if ($appId === '') {
-            throw new \Exception($this->usePlatformPay
+            throw new \RuntimeException($this->usePlatformPay
                 ? '平台算力商城微信支付未配置微信公众号 AppID'
                 : '微信支付未配置 AppID');
         }

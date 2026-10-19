@@ -73,10 +73,14 @@ class RechargeValidate extends BaseValidate
             return '请填写大于0的充值' . PointUnitService::unit();
         }
 
+        if (!is_scalar($money) || !preg_match('/^\d{1,8}(?:\.\d{1,2})?$/D', (string)$money)) {
+            return '请输入有效的充值数量，最多保留两位小数';
+        }
+
         $minAmount = ConfigService::get('recharge', 'min_amount', 0);
 
         if ($money < $minAmount) {
-            return '最低充值' . PointUnitService::unit() . $minAmount . "元";
+            return '最低充值' . $minAmount . PointUnitService::unit();
         }
 
         return true;

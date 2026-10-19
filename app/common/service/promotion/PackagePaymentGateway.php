@@ -14,7 +14,7 @@ final class PackagePaymentGateway
         if($this->transport)return ($this->transport)($action,$channel,$terminal,$user,$args);
         $key=implode(':',[(int)request()->tenantId,$channel,$terminal,$user]);$sdk=$this->clients[$key]??=($channel===2?new WeChatPayService($terminal,$user):new AliPayService($terminal));
         if($action==='context')return $sdk->packageContext();
-        if($action==='prepay'){$result=$sdk->pay($args['from'],$args['order']);if($result===false)throw new \RuntimeException('支付申请暂未完成，请稍后重试或联系管理员核对');return $result;}
+        if($action==='prepay'){$result=$sdk->pay($args['from'],$args['order']);if($result===false)throw new \RuntimeException(PackagePaymentError::message((string)$sdk->getError(), $channel));return $result;}
         if($action==='close'){$sdk->closePay($args['pay_sn']);return [];}
         if($action!=='query')throw new \InvalidArgumentException('支付核对操作不正确');
         $r=$sdk->checkPay($args['pay_sn']);$context=$sdk->packageContext();
