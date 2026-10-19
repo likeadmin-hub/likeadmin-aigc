@@ -192,8 +192,9 @@ $service = new SystemPackageUpdateService(); $preflight = $service->preflight($i
 if ($case === 'dependency-failure') verify(!$preflight['passed'], 'Broken dependency was accepted');
 else verify($preflight['passed'], 'Real package preflight failed: ' . implode(';',$preflight['errors']));
 if ($case === 'finalize-failure' && getenv('FIXTURE_OFFICIAL_ARCHIVE')) {
-    // An official ZIP supersedes synthetic package files; inject at the real database completion boundary.
-    Db::execute("CREATE TRIGGER fixture_builtin_failure BEFORE INSERT ON la_app FOR EACH ROW BEGIN IF NEW.code='aigc_micro_video' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture candidate application sync failed'; END IF; END");
+    // Every official release completes its package row. App inserts are absent
+    // when the predecessor already has the built-in apps or only assets changed.
+    Db::execute("CREATE TRIGGER fixture_builtin_failure BEFORE UPDATE ON la_update_package FOR EACH ROW BEGIN IF NEW.status='applied' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture candidate application sync failed'; END IF; END");
 }
 if ($case === 'metadata-failure') {
     // Actual MySQL trigger rejects the last task-success write after files/pointer/marker publication.
